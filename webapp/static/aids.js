@@ -146,6 +146,14 @@
           if (hover) hover(link, `${one.url}?size=full`);
           return link;
         })));
+    /* The fuller maneuver reference under the cards: the hexagon the
+       bot's reference command posts, at the tier the model named
+       (both, named, in the Reading Room). */
+    const hexagons = (aids.maneuvers || []).map((one) =>
+      h("figure", { class: "ref-hexagon" },
+        h("a", { href: one.url, target: "_blank", rel: "noopener", title: one.name },
+          h("img", { src: one.url, alt: one.name, loading: "lazy" })),
+        (aids.maneuvers.length > 1) ? h("figcaption", {}, one.name) : null));
     const roles = h("table", { class: "ref-table" },
       h("tr", {}, h("th", {}), h("th", {}, "Role"), h("th", {}, "OFF"), h("th", {}, "DEF"), h("th", {}, "Ability")),
       (aids.role_rows || []).map((one) =>
@@ -169,6 +177,8 @@
     return [
       h("div", { class: "panel-label" }, "The cards"),
       ...rows,
+      hexagons.length ? h("div", { class: "panel-label" }, "Maneuver reference") : null,
+      ...hexagons,
       h("div", { class: "panel-label" }, "Roles"),
       roles,
       species ? h("div", { class: "panel-label" }, "Species") : null,

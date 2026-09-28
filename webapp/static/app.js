@@ -1806,14 +1806,20 @@ function situationSide(side) {
   );
 }
 
-/* The maneuver pick's link to the hexagon, at the tier the server
-   named (`maneuver_reference_tier`): never a picture inline, since the
-   situation above the question box already carries the challenge. */
+/* The words under the maneuver pick's hand: the cards' shared back at
+   the game's tier (the server's `reference`), as the hover card, while
+   the pointer is on them or after a press and hold (the author,
+   2026-09-27). The back is one picture a game, so the hover card is
+   put on once; the hexagon is the Rules tab's References. */
+let referenceHover = false;
 function drawReference(prompt) {
-  const link = el("reference-link");
   el("reference").hidden = !prompt.reference;
-  if (prompt.reference) link.href = prompt.reference;
-  else link.removeAttribute("href");
+  if (!prompt.reference || referenceHover) return;
+  const words = el("reference-words");
+  hoverCard(words, prompt.reference);
+  words.addEventListener("focus", () => showPeek(prompt.reference, words));
+  words.addEventListener("blur", () => hidePeekSoon());
+  referenceHover = true;
 }
 
 /* The objects the question box draws, rather than the board: the die

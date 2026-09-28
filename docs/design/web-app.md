@@ -1836,10 +1836,16 @@ with the cards; the References draw the role and species *tables*
 from the data those cards are drawn from, as the canvas has it, and
 the role card and the two `species_cards.REFERENCE_FACES` stay served
 at their routes for a link.
-The maneuver pick carries `reference`, a **link** to the hexagon at the
-game's tier, as the Discord prompt's reference button posts it --
-never a picture inline, since the question box already carries the
-challenge over the hand (step 8).
+The maneuver pick carries `reference`, the cards' shared back at the
+game's tier (`GET /api/game/{id}/maneuver-back.png`), which carries the
+defeat cycle: the page writes "Maneuver rank reference" under the hand
+and shows the back as the hover card while the pointer is on the words,
+or after a press and hold -- never a picture inline, since the question
+box already carries the challenge over the hand (step 8). **The fuller
+reference, the hexagon, is the References'** (the author, 2026-09-27),
+under the cards: `aids.maneuvers`, the one at the game's tier in a room
+and both, named, in the Reading Room. The pick used to link to the
+hexagon; that link is gone.
 
 **Why the two choices moved below the cog.** Which hexagon a game gets
 was `D12Ball.reference_tier`, and which two species faces a screen

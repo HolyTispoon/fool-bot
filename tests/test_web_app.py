@@ -2599,7 +2599,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertNotIn(theirs, sides)
                     # Nothing of the prompt's options is sent as it
                     # stands: only this viewer's controls are, and
-                    # the hexagon's link, which is the game's tier.
+                    # the rank reference, which is the game's back.
                     self.assertEqual(
                         set(state["prompt"]),
                         {

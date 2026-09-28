@@ -445,13 +445,15 @@ class RoomAidsTests(Harness):
                 response = await self.get(url, WATCHER)
                 self.assertEqual(response.status, 200)
 
-    async def test_the_maneuver_pick_links_to_the_hexagon(self) -> None:
+    async def test_the_maneuver_pick_shows_the_cards_back(self) -> None:
         game = self.file(case("maneuver picks"))
         prompt = (await self.state(game, game.player_1_id))["prompt"]
         self.assertEqual(
             prompt["reference"],
-            f"/aids/maneuvers/{ENGINE.maneuver_reference_tier(game)}.png",
+            f"/api/game/{game.game_id}/maneuver-back.png?size=full",
         )
+        response = await self.get(prompt["reference"], game.player_1_id)
+        self.assertEqual(response.status, 200)
         other = self.file(case("smooth"))
         prompt = (await self.state(other, other.player_1_id))["prompt"]
         self.assertIsNone(prompt["reference"])

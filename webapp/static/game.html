@@ -107,12 +107,13 @@
             <!-- A phone held upright: every thing lit on the field
                  again, large enough to tap, with its name and chip. -->
             <div id="lit-repeat" class="lit-repeat" hidden></div>
-            <!-- The maneuver pick's hexagon, at the game's tier: a link,
-                 as the Discord prompt's reference button is. -->
-            <p id="reference" class="note-line" hidden>
-              <a id="reference-link" class="linkish" target="_blank" rel="noopener">The maneuver hexagon</a>
-            </p>
             <div id="controls" class="controls"></div>
+            <!-- Under the maneuver pick's hand: the cards' shared back,
+                 which carries the defeat cycle, while the pointer is on
+                 the words. The hexagon is in the Rules tab. -->
+            <p id="reference" class="note-line" hidden>
+              <span id="reference-words" class="rank-reference" tabindex="0">Maneuver rank reference</span>
+            </p>
             <!-- The same controls for the keyboard: a number presses
                  that one. Out of sight until it has the focus. -->
             <ol id="keys" class="keys" aria-label="Answers, by number"></ol>
