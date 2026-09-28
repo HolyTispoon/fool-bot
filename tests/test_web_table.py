@@ -426,8 +426,10 @@ class FrontDoorTests(TableHarness):
             set(one),
             {"id", "number", "name", "status", "abandoned", "seats",
              "observers", "tutorial", "mode", "board_size", "clock",
-             "your_move", "may_close", "close_asks", "may_abandon", "url"},
+             "your_move", "may_close", "close_asks", "may_abandon",
+             "may_leave", "url"},
         )
+        self.assertEqual(listed["full"], [])
         self.assertEqual(one["seats"][1]["free"], True)
         # Somebody else's room is never this reader's move.
         self.assertFalse(one["your_move"])

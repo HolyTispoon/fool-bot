@@ -758,6 +758,32 @@ class D12BallGame:
             self.player_2_name = None
         self.ai_seats = sorted(ai)
 
+    def take_over_seat(
+        self, seat: int, user_id: int, user_name: Optional[str],
+    ) -> None:
+        """
+        Hand `seat` to `user_id` in one move: whoever holds it -- a
+        person or the AI -- out, and them in, as a kick and a take
+        would, but judged whole, so a takeover the record refuses
+        leaves the seat as it was rather than empty. A seat nobody
+        holds is simply taken. Refused when `user_id` already holds a
+        seat, for a one-player game's second seat, and wherever the
+        kick itself would be (`vacate_seat`, `unseat_ai`) -- every
+        refusal before anything moves.
+        """
+        if seat not in (1, 2):
+            raise ValueError(f"not a seat: {seat!r}")
+        if user_id in (self.player_1_id, self.player_2_id):
+            raise RuleRefusal("You already hold a seat in this game.")
+        if seat == 2 and self._one_player():
+            self._refuse_taken(seat)
+        held = self._seat_id(seat)
+        if held is not None:
+            self.vacate_seat(held)
+        elif seat in self._ai_seat_set():
+            self.unseat_ai(seat)
+        self.take_seat(user_id, user_name, seat)
+
     def seat_ai(self, seat: int) -> None:
         """
         Put the AI (Dinky, unless another was picked) in an empty
