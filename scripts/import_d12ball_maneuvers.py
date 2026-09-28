@@ -4,10 +4,19 @@ import csv
 import io
 import json
 import re
+import sys
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# The key is the model's to derive -- a renamed card may keep its old
+# one (`PINNED_MANEUVER_KEYS`) -- so the importer asks it rather than
+# slugging a second way.
+from d12ball.components import maneuver_key  # noqa: E402
 
 
 DEFAULT_SOURCE = (
@@ -15,7 +24,6 @@ DEFAULT_SOURCE = (
     "1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/"
     "export?format=csv&gid=1487033386"
 )
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "d12ball" / "data" / "maneuvers.json"
 
 EXPECTED_TYPES = {"offense", "defense"}
@@ -32,20 +40,16 @@ REQUIRED_COLUMNS = {
     "Time",
 }
 
-# The sheet renames a row without rewriting the references to it. The
-# author renamed the basic D2 card from "Steal Intercept" to "Steal" on
-# 2026-08-18 (the advanced D2 card is "Intercept" now), and four other
-# rows still name it the old way in their `Defeats`/`Defeated by`
-# columns. Same shape as `LEGACY_RENAMED_NAMES` in
+# The sheet renames a row without rewriting the references to it: the
+# author renamed "Steal Intercept" to "Steal" on 2026-08-18 and four
+# other rows went on naming it the old way in their `Defeats` columns
+# for a while. Same shape as `LEGACY_RENAMED_NAMES` in
 # `gamesaves/d12ball/storage.py`: a rename is the one thing that cannot
 # be derived, so it is written down. Add an entry whenever a maneuver
-# is renamed upstream, and drop one once the sheet's own references
-# have caught up.
-LEGACY_MANEUVER_NAMES = {
-    "steal intercept": "Steal",
-    # The advanced O1 card became "Skilled Pass" on 2026-08-26.
-    "precise pass": "Skilled Pass",
-}
+# is renamed upstream and the sheet still names it the old way, and
+# drop one once the sheet's own references have caught up -- all of
+# them had by the 2026-09-28 renames, which is why it is empty.
+LEGACY_MANEUVER_NAMES: dict[str, str] = {}
 
 
 def read_source(source: str) -> str:
@@ -54,11 +58,6 @@ def read_source(source: str) -> str:
             return response.read().decode("utf-8-sig")
 
     return Path(source).read_text(encoding="utf-8-sig")
-
-
-def maneuver_key(name: str) -> str:
-    """The same slug `d12ball.components.maneuver_key` builds."""
-    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
 
 
 def canonical_name(name: str) -> str:
@@ -102,7 +101,14 @@ def import_maneuvers(rows: Iterable[dict[str, str]]) -> dict:
         tier = (row.get("Mode") or "").strip().lower()
         maneuver_type = (row.get("Type") or "").strip().lower()
         rank_raw = (row.get("Rank") or "").strip()
-        defeats = canonical_name(row.get("Defeats") or "")
+        # A basic row names the one card it beats; an advanced row names
+        # both cards on the rank it beats -- `Pressure, Double Team` --
+        # since 2026-09-28. Either way it is one rank, checked below.
+        defeats = [
+            canonical_name(part)
+            for part in (row.get("Defeats") or "").split(",")
+            if part.strip()
+        ]
         effect = (row.get("Effect") or "").strip()
         time = (row.get("Time") or "").strip()
 
@@ -188,15 +194,21 @@ def import_maneuvers(rows: Iterable[dict[str, str]]) -> dict:
     for maneuver_type, maneuvers in maneuvers_by_type.items():
         opposite_type = "defense" if maneuver_type == "offense" else "offense"
         for maneuver in maneuvers:
-            defeated_rank = rank_by_name.get(
-                (opposite_type, maneuver["defeats"])
-            )
-            if defeated_rank is None:
+            defeated_ranks = set()
+            for defeated in maneuver["defeats"]:
+                defeated_rank = rank_by_name.get((opposite_type, defeated))
+                if defeated_rank is None:
+                    raise ValueError(
+                        f"{maneuver['name']}: Defeats {defeated!r} is "
+                        f"not a known {opposite_type} maneuver."
+                    )
+                defeated_ranks.add(defeated_rank)
+            if len(defeated_ranks) != 1:
                 raise ValueError(
-                    f"{maneuver['name']}: Defeats {maneuver['defeats']!r} is "
-                    f"not a known {opposite_type} maneuver."
+                    f"{maneuver['name']}: Defeats names cards on more than "
+                    f"one rank ({sorted(defeated_ranks)})."
                 )
-            maneuver["defeats_rank"] = defeated_rank
+            maneuver["defeats_rank"] = defeated_ranks.pop()
             del maneuver["defeats"]
 
     # Both cards on a rank have to beat the same rank, or "rank alone
