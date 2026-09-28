@@ -1619,6 +1619,10 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   nothing could fail and "13+" where only a modifier drawn at the roll
   (an ignite) could save it. An own-goal roll with nobody on the ball,
   a position no game reaches, has none.
+- **It is sized by its own width**, a container query on `#situation`,
+  not the screen's: it is the play column's full width on a desktop,
+  the tablet's right-hand column (about 375px) and the phone's sheet,
+  and compacts wherever it is under 620px.
 - **A portrait is the painting the PNG draws**
   (`render.load_player_portrait`), served at
   `GET /api/game/{id}/portrait/{card_id}.png` fitted into 240px with

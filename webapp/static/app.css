@@ -379,6 +379,7 @@ img { display: block; }
    (`present.situation`). Each side in its team's colour. */
 
 .situation {
+  container-type: inline-size;
   flex-shrink: 0;
   border-radius: 14px;
   padding: 12px 18px 16px;
@@ -465,6 +466,22 @@ img { display: block; }
 .situation-vs.arrow { font-family: "Board", serif; font-size: 34px; text-transform: none; }
 .situation-rule { font-family: "Board", serif; font-size: 15px; font-weight: 700; color: var(--strong); max-width: 34ch; }
 .situation-otherwise { margin-top: 2px; font-size: 14px; color: var(--muted); max-width: 34ch; }
+/* Narrow wherever the window is narrow -- a phone, or the tablet's
+   right-hand column -- so it is sized by its own width, not the
+   screen's. */
+@container (max-width: 620px) {
+  .situation-portrait { width: 72px; height: 72px; }
+  .situation-title { font-size: 18px; }
+  .situation-vs { font-size: 18px; }
+  .situation-side { padding: 8px 8px 10px; }
+  .situation-name { font-size: 14px; }
+  .situation-skill { font-size: 15px; }
+  .situation-ability { font-size: 13px; }
+  .situation-dice .die { width: 52px; height: 52px; }
+  .situation-rule { font-size: 13px; }
+  .situation-otherwise { font-size: 12px; }
+  .situation-row { gap: 6px; }
+}
 .situation-empty { margin: 18px 0; font-size: 15px; color: var(--muted); }
 
 .state-tag {
@@ -574,15 +591,6 @@ img { display: block; }
 
 @media (max-width: 960px) {
   .qbox { flex-direction: column; }
-  .situation-portrait { width: 72px; height: 72px; }
-  .situation-title { font-size: 18px; }
-  .situation-vs { font-size: 18px; }
-  .situation-side { padding: 8px 8px 10px; }
-  .situation-ability { font-size: 13px; }
-  .situation-dice .die { width: 56px; height: 56px; }
-  .situation-rule { font-size: 13px; }
-  .situation-otherwise { font-size: 12px; }
-  .situation-row { gap: 6px; }
   .outcome { flex-wrap: wrap; gap: 14px; }
   .outcome-headline { font-size: 34px; }
 }
