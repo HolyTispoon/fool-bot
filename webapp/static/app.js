@@ -1865,7 +1865,7 @@ function drawPicture(prompt) {
    the game's tier (the server's `reference`), as the hover card, while
    the pointer is on them or after a press and hold (the author,
    2026-09-27). The back is one picture a game, so the hover card is
-   put on once; the hexagon is the Rules tab's References. */
+   put on once. */
 let referenceHover = false;
 function drawReference(prompt) {
   el("reference").hidden = !prompt.reference;
@@ -3554,10 +3554,8 @@ function rosterRow(row) {
 // -- The Rules tab -------------------------------------------------------------
 
 /* The Charter, the Learn to Play and the References
-   (webapp/static/aids.js), with the room's hover card for a card. */
-const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
-  hover: (node, url) => hoverCard(node, url),
-});
+   (webapp/static/aids.js). */
+const rulesTab = window.D12Rules.mountTab(el("rules-tab"));
 
 /* A refusal's Law, opened where the reader is: the Rules tab. */
 function openRule(slug) {

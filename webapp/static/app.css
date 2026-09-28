@@ -2365,14 +2365,8 @@ body.front .front-door.stats-door {
 .learn-contents { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .learn { font-size: 14px; }
 
-/* The References: the cards, the roles and the species. */
+/* The References: the maneuvers, the roles and the species. */
 .references { display: flex; flex-direction: column; gap: 8px; }
-.ref-cards { display: flex; flex-wrap: wrap; gap: 6px; }
-.ref-card img { width: 74px; height: auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
-.ref-card:hover img, .ref-card:focus-visible img { outline: 2px solid var(--gold); }
-.ref-hexagon { margin: 0; display: flex; flex-direction: column; gap: 4px; }
-.ref-hexagon img { display: block; width: 100%; height: auto; border-radius: 10px; }
-.ref-hexagon figcaption { font-size: 12px; color: var(--muted); }
 .ref-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .ref-table th { color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; padding: 2px 4px; }
 .ref-table td { padding: 3px 4px; vertical-align: middle; }
@@ -2383,6 +2377,10 @@ body.front .front-door.stats-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
+.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.maneuver-table .beats { color: var(--text); font-size: 11px; }
+.maneuver-table + .maneuver-table { margin-top: 6px; }
 
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */

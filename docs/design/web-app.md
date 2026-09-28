@@ -1821,10 +1821,17 @@ the tab and the Reading Room are handed.
   has none of its own: it is the book's markdown in the page's type,
   with the book's figures, and the printed layout stays
   `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
-- **The References are the model's own data.** The cards are the
-  printed faces the hand shows (`pictures.maneuver_card_png`, served at
-  `/aids/cards/{key}.png`): the six basic ones always, and the six
-  gambits under them where the game's hexagon is the gambit one -- an
+- **The References are the model's own data.** The maneuvers are a
+  table, two of them -- the offense's and the defense's -- set like the
+  roles table, in place of the printed card faces they used to be (the
+  author, 2026-09-28). Each row is the card's own data from
+  `maneuvers.json`: its name, its time, its effect in the sheet's
+  words, and the opposing cards its rank beats, read off
+  `defeats_rank` -- both of that rank's cards where both tiers are
+  shown, because rank alone decides. It has no die range: a maneuver
+  has none (the author, 2026-09-28), whatever the import still writes
+  into `die_values`. The six basic ones always, and the six gambits
+  among them where the game's hexagon is the gambit one -- an
   advanced game that plays them (the author, 2026-09-27), which is
   `maneuver_reference_tier`'s answer, never `game.mode` read here. The
   roles table is `role_profiles` -- the role card's own numbers, its
@@ -1846,7 +1853,7 @@ the tab and the Reading Room are handed.
   maps no sentence to a Law.**
 
 **Which aids a room gets is the model's.** The room's state carries
-`aids`: the cards at the game's tier and the hexagon at
+`aids`: the maneuvers table and the hexagon at
 `RulesEngine.maneuver_reference_tier(game)`, the species table and card
 only where `species_abilities_apply(game)`, the team cards in the face
 `personal_abilities_apply(game)` says the game holds, and the three
@@ -1855,25 +1862,27 @@ answers themselves, so `app.js` decides none of them and never reads
 observer's seat 1's); a room no longer draws them as a gallery, since
 the Teams tab is the rosters and a row's hover card is the card in the
 face the game plays. In the Reading Room, with no game to ask, `GET
-/api/aids` offers all of it: all twelve cards, both hexagons named by
+/api/aids` offers all of it: all twelve maneuvers, both hexagons named by
 tier, the species table, every team with both faces (the ROSTERS
 chip). Every picture is the one the reference command posts, drawn by
 the same function (`render_maneuver_reference_image`,
 `render_role_reference`, `player_cards`), in a worker thread and kept
-with the cards; the References draw the role and species *tables*
-from the data those cards are drawn from, as the canvas has it, and
-the role card and the two `species_cards.REFERENCE_FACES` stay served
-at their routes for a link.
+with the cards; the References draw the maneuver, role and species
+*tables* from the data those cards are drawn from, as the canvas has it, and
+the hexagon, the role card and the two `species_cards.REFERENCE_FACES`
+stay served at their routes for a link.
 The maneuver pick carries `reference`, the cards' shared back at the
 game's tier (`GET /api/game/{id}/maneuver-back.png`), which carries the
 defeat cycle: the page writes "Maneuver rank reference" under the hand
 and shows the back as the hover card while the pointer is on the words,
 or after a press and hold -- never a picture inline, since the question
-box already carries the challenge over the hand (step 8). **The fuller
-reference, the hexagon, is the References'** (the author, 2026-09-27),
-under the cards: `aids.maneuvers`, the one at the game's tier in a room
-and both, named, in the Reading Room. The pick used to link to the
-hexagon; that link is gone.
+box already carries the challenge over the hand (step 8). The pick
+used to link to the hexagon; that link is gone. The hexagon was then
+drawn in the Rules tab's References, under the cards (the author,
+2026-09-27), and taken out again once the maneuvers became a table
+(the author, 2026-09-28): the page draws it nowhere now, and
+`aids.maneuvers` -- the one at the game's tier in a room, both, named,
+in the Reading Room -- names it only for its route.
 
 **Why the two choices moved below the cog.** Which hexagon a game gets
 was `D12Ball.reference_tier`, and which two species faces a screen
