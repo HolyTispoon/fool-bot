@@ -2112,7 +2112,7 @@ function handRows(controls) {
     const withheld = gambits.find((one) => one.card.withheld);
     rows.append(
       h("div", { class: "hand-label" },
-        "Gambits",
+        "Advanced",
         withheld ? h("span", { class: "quiet" }, ` · ${withheld.note.replace(/\.$/, "").toLowerCase()}`) : null),
       h("div", { class: "hand" }, gambits.map(handCard)),
     );

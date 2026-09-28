@@ -907,26 +907,27 @@ DRIBBLE_BURST_MAX_DISTANCE = 4
 BALL_SPEED_MAX = 12
 
 MANEUVER_TIER_BASIC = "basic"
-# **The constant is the noun and the value is the tier, and both are
-# the rules'.** A second maneuver on every rank is a **gambit** as of
-# 2026-09-20, and a gambit *is* the advanced version of the basic
-# maneuver on its rank (the author, the same day) -- so "advanced" is
-# what the tier still is, and the `maneuvers` tab's `Mode` column
-# saying so is right rather than stale. This is **not** a
-# `legacy_maneuver_key` case: nothing here is waiting on a sheet edit,
-# and a rename of the value would put the code out of step with both
-# the data and the rules. What a person reads is `MANEUVER_TIER_WORDS`
-# below.
+# **The value is the tier, and it is the rules' word.** A second
+# maneuver on every rank is an **advanced maneuver** -- the advanced
+# version of the basic maneuver on its rank -- and playing one is
+# **making a gambit** (the author, 2026-09-27; from 2026-09-20 until
+# then the card itself was called a gambit, which is where the
+# constant's name comes from). The name is an identifier and stays:
+# `is_gambit`, `may_play_gambits` and the rest read as "is this the
+# card a gambit is made with". The value is the `maneuvers` tab's
+# `Mode` column, and is **not** a `legacy_maneuver_key` case. What a
+# person reads is `MANEUVER_TIER_WORDS` below.
 MANEUVER_TIER_GAMBIT = "advanced"
 MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
 # What a tier is called where a person reads it -- a card's corner
 # label, an attachment's name. One table rather than `tier.upper()` at
-# each site, because a coach reads the noun ("GAMBIT MANEUVER") where
-# the tier is the adjective: the card is the advanced version, and
-# "gambit" is what it is called.
+# each site. Since 2026-09-27 the word and the sheet's value agree
+# again: the card is an **advanced maneuver**, and a *gambit* is
+# playing one (the author) -- see "Advanced maneuvers and gambits" in
+# docs/living-rules.md.
 MANEUVER_TIER_WORDS = {
     MANEUVER_TIER_BASIC: "basic",
-    MANEUVER_TIER_GAMBIT: "gambit",
+    MANEUVER_TIER_GAMBIT: "advanced",
 }
 
 

@@ -1344,10 +1344,21 @@ def deflection_step(
     makes all three of its endings loose-ball-shaped rather than
     turnover-shaped: nobody gained possession, so nothing runs back and
     there is no speed reset to skip. What differs between them is only
-    where the ball is lying when the question is asked.
+    where the ball is lying when the question is asked
+    (`deflection_lands`).
     """
+    # **A failed Setup Pass gambit**: the card that beat it moves the
+    # ball once, as far as the coach who played it chooses (Law
+    # 19.7.7, the author, 2026-09-27) -- so the ball is not moved
+    # here, and the choice is asked first. Until then it was knocked
+    # back by the card's own distance and pushed a further 1, 2 or 3
+    # after it. `setup_pass_push_back_step` is where it moves.
+    if engine.gambit_cost(match, key) == "setup_pass":
+        return StepResult(
+            next=FollowOn(FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK),
+        )
+
     offense_side = match.ball.possession
-    defense_side = match.defending_side()
     defender = engine.get_player_definition(match.challenger_id)
     name = engine.maneuver_name(key)
 
@@ -1366,6 +1377,23 @@ def deflection_step(
         f"{space_word} back{ability_note}. Ball speed is now "
         f"{match.ball.speed}."
     )
+    return deflection_lands(engine, match, content, overshot)
+
+
+def deflection_lands(
+    engine: RulesEngine,
+    match: MatchState,
+    content: str,
+    overshot: bool,
+) -> StepResult:
+    """
+    Where a deflection's ball comes to rest decides what happens next:
+    the challenger's shot off an overshoot, or a loose ball settled by
+    who is standing there. Shared by a deflection at the card's own
+    distance and by one at the distance a failed Setup Pass gambit let
+    its coach choose (`setup_pass_push_back_step`), which land alike.
+    """
+    defense_side = match.defending_side()
 
     # **The board moved on every branch below**, so `board_changed` is
     # True throughout -- the ball was driven back and the speed came
@@ -1419,21 +1447,6 @@ def deflection_step(
             ),
         )
 
-    # **Setup Pass's cost**: beaten by a deflection, the defending
-    # coach drives the ball back a further 1, 2 or 3 spaces and it is
-    # loose where it stops. It is asked here rather than as a step
-    # after the maneuver because a deflection already ends in a loose
-    # ball -- the cost only decides where it lies. Not asked when the
-    # deflection overshot into a shot above: the ball is already as far
-    # back as the field goes and the shot is the bigger thing
-    # happening.
-    if engine.gambit_cost(match, key) == "setup_pass":
-        return StepResult(
-            narration=[content],
-            board_changed=True,
-            next=FollowOn(FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK),
-        )
-
     # A deflection knocks the ball out of anybody's possession, so it
     # does not go through finish_maneuver_resolution's ordinary
     # loose-ball check: that check asks whether the possessing team has
@@ -1450,7 +1463,7 @@ def deflection_step(
     # A deflection's time cost is a fixed 1 space minute per the rules
     # table, not "distance traveled" like Low/High Pass, so this
     # doesn't shrink if the move was clamped at the edge (or grow with
-    # the Fullback's extra distance, or Clear's).
+    # the Fullback's extra distance, or Clear's, or a chosen one).
     return StepResult(
         narration=[content],
         board_changed=True,
@@ -2251,25 +2264,29 @@ def setup_pass_push_back_step(
     distance: int,
 ) -> StepResult:
     """
-    **Setup Pass's cost**, spent: the coach who beat it drives the ball
-    a further 1, 2 or 3 spaces back, and it is loose where it stops.
-
-    The line is the loose ball's `lead_in` rather than a message of its
-    own, which is why it rides out as narration the next step folds in
-    -- the ball's new space and who may go after it are one event.
+    **A failed Setup Pass gambit**, spent: the Deflect or Clear that
+    beat it moves the ball back the distance its coach chose, once
+    (Law 19.7.7, the author, 2026-09-27), and it lands as any
+    deflection does (`deflection_lands`) -- a shot where it ran out of
+    field onto the challenger, a loose ball settled by who is standing
+    there otherwise. The speed drop is the card's own
+    (`deflection_numbers`), whatever distance was chosen.
     """
-    offense_side = match.ball.possession
-    actual_distance = match.move_ball_relative(offense_side, -distance)
-    space_word = "space" if actual_distance == 1 else "spaces"
-    return StepResult(
-        narration=[
-            "**Setup Pass** was beaten: the ball is driven a "
-            f"further {actual_distance} {space_word} back.",
-        ],
-        next=FollowOn(
-            FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
-        ),
+    key = engine.resolving_maneuver(
+        match, engine.settled_maneuver_winner(match, game),
     )
+    defender = engine.get_player_definition(match.challenger_id)
+    _, speed_drop, _ = deflection_numbers(defender, key)
+    overshot, actual_distance = knock_ball_back(
+        match, match.ball.possession, distance, speed_drop,
+    )
+    space_word = "space" if actual_distance == 1 else "spaces"
+    content = (
+        f"**{engine.maneuver_name(key)}** beat the **Setup Pass**: the "
+        f"ball moves {actual_distance} {space_word} back. Ball speed is "
+        f"now {match.ball.speed}."
+    )
+    return deflection_lands(engine, match, content, overshot)
 
 
 # -- Offering an effect's choice --------------------------------------
@@ -2526,29 +2543,23 @@ def offer_setup_pass_push_back(
     lead_in: str = "",
 ) -> StepResult:
     """
-    Setup Pass's cost: the coach who beat it chooses 1, 2 or 3 further
-    spaces to drive the ball back, where it is a loose ball.
+    **A failed Setup Pass gambit**: the coach whose Deflect or Clear
+    beat it chooses how far back the ball goes -- 1, 2 or 3 for a
+    Deflect, 2, 3 or 4 for a Clear, one more each for a Fullback
+    (`RulesEngine.setup_pass_push_back_distances`).
 
-    If none of the three fits, the ball is already at the end and the
-    cost is spent -- the loose ball happens where the deflection left
-    it.
-
-    The deflection's own line is the narration the prompt opens with;
-    a frontend puts it in the prompt's own message (`render_prompt`
-    joins the two as paragraphs), which is how the question always
-    read, and the service posts it on its own where the AI answers.
+    Where the field leaves only one distance -- the ball already so
+    near the end that even the shortest runs out of it -- there is
+    nothing to choose, and it is played without asking.
     """
-    distances = engine.setup_pass_push_back_distances(match)
+    distances = engine.setup_pass_push_back_distances(game, match)
 
-    if not distances:
-        # Named rather than called, so the loop sees the loose ball
-        # begin: it is a step the frontend stops on to draw the board
-        # under its announcement.
-        return StepResult(
-            narration=[lead_in] if lead_in else [],
-            next=FollowOn(
-                FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+    if len(distances) == 1:
+        return _with_lead_in(
+            setup_pass_push_back_step(
+                engine, game, match, distance=distances[0],
             ),
+            lead_in,
         )
 
     mention = format_player_with_team(
@@ -2556,12 +2567,15 @@ def offer_setup_pass_push_back(
         engine.defending_player_number(game, match),
         mention=True,
     )
+    name = engine.maneuver_name(engine.resolving_maneuver(
+        match, engine.settled_maneuver_winner(match, game),
+    ))
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=PendingPrompt(
             PromptKind.SETUP_PASS_PUSH_BACK,
-            f"{mention}, **Setup Pass** was beaten -- how far "
-            "back does the ball go? It will be loose where it stops.",
+            f"{mention}, your **{name}** beat the **Setup Pass** -- how "
+            "far back does the ball go?",
         ),
     )
 
@@ -2746,8 +2760,8 @@ def continue_effect(
         return offer_setup_pass_distance(engine, game, match, lead_in=lead_in)
 
     match.pending_effect_continuation = None
-    # Named rather than called, for `offer_setup_pass_push_back`'s
-    # reason: the tail of a maneuver is a step the frontend stops on.
+    # Named rather than called: the tail of a maneuver is a step the
+    # frontend stops on.
     return StepResult(
         narration=[lead_in] if lead_in else [],
         next=FollowOn(

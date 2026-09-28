@@ -180,7 +180,7 @@ Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 20: ManeuverActionPromptView -> 'Clear'
 --- message
 You chose **Clear**.
@@ -220,7 +220,7 @@ Noxar has moved 1 space.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 24: ManeuverActionPromptView -> 'Double Team'
 --- message
 You chose **Double Team**.
@@ -299,7 +299,7 @@ Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 31: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -333,7 +333,7 @@ Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 34: ManeuverActionPromptView -> 'Intercept'
 --- message
 You chose **Intercept**.
@@ -396,7 +396,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 40: ManeuverActionPromptView -> 'Dribble Burst'
 --- message
 You chose **Dribble Burst**.
@@ -436,7 +436,7 @@ Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 43: ManeuverActionPromptView -> 'Deflect'
 --- message
 You chose **Deflect**.
@@ -490,7 +490,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 48: ManeuverActionPromptView -> 'Setup Pass'
 --- message
 You chose **Setup Pass**.
@@ -502,7 +502,7 @@ You chose **Setup Pass**.
 
 ## **Deflect** wins!
 --- message
-**Deflect:** the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
+**Deflect** beat the **Setup Pass**: the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
 --- message
 🔥 Brightburn [SK] takes the shot off the set-up.
 --- message
@@ -540,7 +540,7 @@ Out of shooting range, and no time out available. Maneuver:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 52: ManeuverActionPromptView -> 'Dribble Burst'
 --- message
 You chose **Dribble Burst**.
@@ -611,7 +611,7 @@ No substitutions, and no change of shape.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 57: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
@@ -675,7 +675,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 64: ManeuverActionPromptView -> 'Dribble Burst'
 --- message
 You chose **Dribble Burst**.
@@ -713,7 +713,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 68: ManeuverActionPromptView -> 'Skilled Pass'
 --- message
 You chose **Skilled Pass**.
@@ -808,7 +808,7 @@ Out of shooting range. Maneuver, or take a time out:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 78: ManeuverActionPromptView -> 'Setup Pass'
 --- message
 You chose **Setup Pass**.
@@ -886,7 +886,7 @@ Choose an action:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 86: ManeuverActionPromptView -> 'Skilled Pass'
 --- message
 You chose **Skilled Pass**.
@@ -932,7 +932,7 @@ Choose an action:
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 may play a gambit this maneuver.
+🔮 Player 1 may make a gambit this maneuver.
 === press 90: ManeuverActionPromptView -> 'Setup Pass'
 --- message
 You chose **Setup Pass**.
