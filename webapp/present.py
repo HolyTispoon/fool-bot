@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import stats, tokens
@@ -84,6 +84,7 @@ from d12ball.game import (
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
 from d12ball.dice_brief import maneuver_challenge_brief, score_attempt_brief
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+from d12ball.personal_abilities import PersonalAbility
 from d12ball.player_cards import species_ability
 from d12ball.render import (
     CHALLENGE_BAND_FULL,
@@ -2172,13 +2173,29 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
 # a coach and an observer.
 
 
+@dataclass(frozen=True)
+class Bearing:
+    """
+    What bears on one part of a roll -- the player rolling a skill test's
+    attack, a shot's wall, the one rolling an injury check: the species
+    whose ability reaches it, the personal abilities that act on it, and
+    the skill it adds, if any. **Which reminder goes with which roll,
+    never whether an ability fires**: whether a player holds one is
+    `has_species_ability` / `has_personal_ability`, asked below.
+    """
+
+    species: tuple[str, ...] = ()
+    personal: frozenset = frozenset()
+    skill: Optional[str] = None
+
+
 def _situation_player(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
     player_id: str,
     side: Optional[ChallengeSide],
-    species: Sequence[str] = (),
+    bearing: Bearing = Bearing(),
 ) -> dict:
     """One portrait in the situation: who, what they add, whether it is
     half of their skill (a shot's defender off the ball) -- the last
@@ -2198,25 +2215,85 @@ def _situation_player(
         "value": None if side is None else side.value,
         "skill": None if side is None else side.skill,
         "halved": False if side is None else side.halved,
-        "abilities": _abilities(engine, game, player_id, species),
+        "abilities": _abilities(engine, game, player_id, bearing),
     }
 
 
-#: The species abilities that bear on each roll the situation is asked
-#: over, for whoever rolls it. **Which reminder goes with which roll,
-#: never whether the ability fires** -- that is `has_species_ability`'s,
-#: asked for every player below: Volatile reaches a skill test and the
-#: shooter's die and never an injury check or an own-goal roll (Law
-#: 20.2.3), Overdrive any d12 a Cyborg rolls (Law 20.3.5). Merge is not
-#: here: it is a number another player adds, so it is the model's own
-#: line in the side's modifiers (`RulesEngine.merge_bonus`). A Mind Pull
-#: is the Telekinetics' ability already, and the window says it.
-ROLL_SPECIES: Mapping[str, tuple[str, ...]] = {
-    "skill_test": (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
-    "shot": (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
-    "injury": (SPECIES_CYBORG,),
-    "own_goal": (SPECIES_CYBORG,),
-    "mind_pull": (),
+#: The personal abilities any roll a Cyborg makes can carry: Voltus's
+#: cheap Overdrive and Gearclaw's Boost, spent on the die (Law 21).
+_ON_THE_DIE = frozenset({
+    PersonalAbility.CHEAP_OVERDRIVE, PersonalAbility.BOOST,
+})
+#: The ignites a Fire Demon's own die can carry in a skill test and on
+#: a shot -- Blazebulk's, Sizzifizik's, Brightburn's burn (Law 21).
+_IGNITES = frozenset({
+    PersonalAbility.ALWAYS_BLAZES, PersonalAbility.WIDE_IGNITION,
+    PersonalAbility.BRIGHT_BURN,
+})
+
+#: What bears on each part of each roll the situation is asked over
+#: (the author, 2026-09-28: only what applies to the roll). Volatile
+#: reaches a skill test and the shooter's die, never an injury check or
+#: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls (Law
+#: 20.3.5). A personal ability is here where it changes the roll's
+#: number, whether it is rolled, or what winning it means -- not where
+#: it changes what a maneuver does once it has won (Emberdash's
+#: dribble, Quantor's run on, Vorix's set-up, Acidel's pressure). Zorch
+#: adds the speed modifier to every roll but the shot, which adds it
+#: already (`speed_roll_bonus`). Merge is not here: it is a number
+#: another player adds, the model's own line in the side's modifiers
+#: (`merge_bonus`); and a Mind Pull is the Telekinetics' ability
+#: already, which the window says.
+BEARINGS: Mapping[str, Bearing] = {
+    "skill_test_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.OVERDRIVE_UPGRADE,
+            PersonalAbility.OFFENSIVE_GAMBITS,
+            PersonalAbility.FORCES_THE_TEST,
+            PersonalAbility.DEFENSIVE_THROW,
+            PersonalAbility.SPEED_ROLLS,
+        },
+        "offense",
+    ),
+    "skill_test_defence": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {
+            PersonalAbility.OVERDRIVE_UPGRADE,
+            PersonalAbility.DEFENSIVE_GAMBITS,
+            PersonalAbility.FORCES_THE_TEST,
+            PersonalAbility.SPEED_ROLLS,
+        },
+        "defense",
+    ),
+    "shot_attack": Bearing(
+        (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
+        _ON_THE_DIE | _IGNITES | {PersonalAbility.CLEAR_SHOT},
+        "offense",
+    ),
+    "shot_defence": Bearing(
+        (), frozenset({PersonalAbility.FULL_BLOCK}), "defense",
+    ),
+    "injury": Bearing(
+        (SPECIES_CYBORG,),
+        _ON_THE_DIE | {
+            PersonalAbility.INJURY_IGNITION, PersonalAbility.SPEED_ROLLS,
+        },
+    ),
+    "own_goal": Bearing(
+        (SPECIES_CYBORG,),
+        _ON_THE_DIE | {
+            PersonalAbility.DEFENSIVE_THROW, PersonalAbility.SPEED_ROLLS,
+        },
+        "offense",
+    ),
+    "mind_pull": Bearing(
+        (),
+        frozenset({
+            PersonalAbility.STRONG_PULL, PersonalAbility.FREE_PULL,
+            PersonalAbility.ADJACENT_PULL,
+        }),
+    ),
 }
 
 
@@ -2224,18 +2301,18 @@ def _abilities(
     engine: RulesEngine,
     game: D12BallGame,
     player_id: str,
-    species: Sequence[str],
+    bearing: Bearing,
 ) -> list[dict]:
     """
     What a player brings to this roll beyond their skill (the author,
-    2026-09-28): their species' ability where it bears on the roll and
-    the game plays it (`has_species_ability`), in the sheet's own short
-    words (`species.json`, never shortened here), and in an advanced
-    game their personal ability, as the advanced face of their card
-    prints it (`personal_ability_text`).
+    2026-09-28): their species' ability where it reaches the roll and
+    the game plays it, in the sheet's own short words (`species.json`,
+    never shortened here), and in an advanced game their personal
+    ability where it applies to the roll (`_personal_bears`), as the
+    advanced face of their card prints it (`personal_ability_text`).
     """
     notes = []
-    for kind in species:
+    for kind in bearing.species:
         if not engine.has_species_ability(game, player_id, kind):
             continue
         entry = species_ability(kind)
@@ -2247,9 +2324,32 @@ def _abilities(
                 "text": entry["ability_short"],
             })
     personal = engine.personal_ability_text(game, player_id)
-    if personal:
+    if personal and _personal_bears(engine, game, player_id, bearing):
         notes.append({"kind": "personal", "name": "Personal", "text": personal})
     return notes
+
+
+def _personal_bears(
+    engine: RulesEngine,
+    game: D12BallGame,
+    player_id: str,
+    bearing: Bearing,
+) -> bool:
+    """Whether a player's personal line applies to this roll: an ability
+    the bearing names, or -- for the players whose line is an advanced
+    skill score ("High defensive skill.") -- a raised score in the skill
+    this roll adds, read as the game plays it against the role's."""
+    if any(
+        engine.has_personal_ability(game, player_id, ability)
+        for ability in bearing.personal
+    ):
+        return True
+    if bearing.skill is None:
+        return False
+    return (
+        engine.skills(game, player_id).of(bearing.skill)
+        != engine.skills(None, player_id).of(bearing.skill)
+    )
 
 
 def _merged(
@@ -2276,7 +2376,7 @@ def _situation_side(
     players: Sequence[tuple[str, ChallengeSide]],
     with_ability: bool,
     empty: str = "",
-    species: Sequence[str] = (),
+    bearing: Bearing = Bearing(),
 ) -> dict:
     """
     One side of the matchup, worded as the PNG words it
@@ -2302,7 +2402,7 @@ def _situation_side(
         "team": team_display_name(team),
         "colour": TEAM_COLORS[team],
         "players": [
-            _situation_player(engine, game, match, player_id, side, species)
+            _situation_player(engine, game, match, player_id, side, bearing)
             for player_id, side in players
         ],
         "skill": skill,
@@ -2347,7 +2447,7 @@ def _roller(
     player_id: str,
     line: str,
     modifiers: Sequence[str] = (),
-    species: Sequence[str] = (),
+    bearing: Bearing = Bearing(),
 ) -> dict:
     """
     The one side of a roll nobody rolls against -- an injury check, an
@@ -2361,7 +2461,7 @@ def _roller(
         "colour": TEAM_COLORS[team],
         "players": [
             _situation_player(
-                engine, game, match, player_id, None, species,
+                engine, game, match, player_id, None, bearing,
             ),
         ],
         "skill": line,
@@ -2435,7 +2535,7 @@ def _injury_situation(
             _roller(
                 engine, game, match, player_id,
                 f"Carries {carried} {token_noun} {tokens_word}",
-                modifiers, ROLL_SPECIES["injury"],
+                modifiers, BEARINGS["injury"],
             ),
         ],
         "roll": _roll(
@@ -2476,7 +2576,10 @@ def _own_goal_situation(
             _roller(
                 engine, game, match, player_id,
                 f"{skill_name} skill {skill:+d}", modifiers,
-                ROLL_SPECIES["own_goal"],
+                # Umbrik adds his defensive skill here (Law 21).
+                replace(BEARINGS["own_goal"], skill=(
+                    "defense" if skill_name == "Defensive" else "offense"
+                )),
             ),
         ],
         "roll": _roll(
@@ -2517,6 +2620,7 @@ def _mind_pull_situation(
                     f"{'token' if cost == 1 else 'tokens'}, pull or miss"
                     if cost else "Costs no token"
                 ),
+                bearing=BEARINGS["mind_pull"],
             ),
         ],
         "roll": _roll(
@@ -2556,7 +2660,7 @@ def _challenge_situation(
                 _situation_side(
                     engine, game, match, match.team_for_player(attacker),
                     [(attacker, offense)], with_ability=True,
-                    species=ROLL_SPECIES["skill_test"],
+                    bearing=BEARINGS["skill_test_attack"],
                 ),
                 match.ball.possession, rolling, "offense",
             ),
@@ -2565,7 +2669,7 @@ def _challenge_situation(
                 _situation_side(
                     engine, game, match, match.team_for_player(challenger),
                     [(challenger, defense)], with_ability=True,
-                    species=ROLL_SPECIES["skill_test"],
+                    bearing=BEARINGS["skill_test_defence"],
                 ),
                 match.defending_side(), rolling, "defense",
             ),
@@ -2601,7 +2705,7 @@ def _shot_situation(
                     engine, game, match,
                     match.team_for_player(match.active_player_id),
                     [(match.active_player_id, shooter)], with_ability=False,
-                    species=ROLL_SPECIES["shot"],
+                    bearing=BEARINGS["shot_attack"],
                 ),
                 match.ball.possession, (match.active_player_id,), "offense",
             ),
@@ -2610,6 +2714,7 @@ def _shot_situation(
                 Team(match.setup_for_side(match.defending_side()).team),
                 list(zip(defender_ids, defenders)), with_ability=False,
                 empty=SCORE_ATTEMPT_UNDEFENDED,
+                bearing=BEARINGS["shot_defence"],
             ),
         ],
         "roll": None,

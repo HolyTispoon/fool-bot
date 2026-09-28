@@ -1488,24 +1488,68 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(lines)
             self.assertEqual(side["modifiers"][-len(lines):], lines)
 
-    def test_personal_abilities_are_named_in_an_advanced_game_only(
-        self,
-    ) -> None:
-        for mode in (GameMode.STANDARD, GameMode.ADVANCED):
-            with self.subTest(mode):
-                fixture, got = self.situation_in("score attempt", mode)
-                for side in got["sides"]:
-                    for player in side["players"]:
-                        personal = [
-                            note["text"] for note in player["abilities"]
-                            if note["kind"] == "personal"
-                        ]
-                        text = ENGINE.personal_ability_text(
-                            fixture.game, player["id"],
-                        )
-                        self.assertEqual(personal, [text] if text else [])
-                        if mode is GameMode.STANDARD:
-                            self.assertEqual(personal, [])
+    def test_a_personal_ability_is_named_only_where_it_bears(self) -> None:
+        # In an advanced game only, and only the abilities that apply to
+        # the roll (the author, 2026-09-28): a shooter's clear shot is,
+        # a dribble is not. Granted by the ability, never named by the
+        # player; the line itself is the card's.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        def shooter_holding(ability):
+            fixture = case("score attempt")
+            shooter = fixture.match.active_player_id
+            return shooter, mock.patch.dict(
+                PERSONAL_ABILITIES,
+                {catalog_player_id(shooter): (ability, "test")},
+            )
+
+        for mode, ability, shown in (
+            (GameMode.ADVANCED, PersonalAbility.CLEAR_SHOT, True),
+            (GameMode.ADVANCED, PersonalAbility.FREE_BURST, False),
+            (GameMode.STANDARD, PersonalAbility.CLEAR_SHOT, False),
+        ):
+            with self.subTest(mode=mode, ability=ability):
+                shooter, holding = shooter_holding(ability)
+                with holding:
+                    fixture, got = self.situation_in("score attempt", mode)
+                (player,) = got["sides"][0]["players"]
+                personal = [
+                    note for note in player["abilities"]
+                    if note["kind"] == "personal"
+                ]
+                self.assertEqual(bool(personal), shown)
+
+    def test_an_advanced_score_is_named_where_the_roll_adds_it(self) -> None:
+        # The wall adds defensive skill, so a defender whose card line is
+        # a raised defensive score has it named, and one whose line is
+        # about something else does not.
+        from d12ball.personal_abilities import PersonalAbility
+
+        fixture, got = self.situation_in("score attempt", GameMode.ADVANCED)
+        game = fixture.game
+        wall = got["sides"][1]["players"]
+        for player in wall:
+            raised = (
+                ENGINE.skills(game, player["id"]).defense
+                != ENGINE.skills(None, player["id"]).defense
+            )
+            blocks = ENGINE.has_personal_ability(
+                game, player["id"], PersonalAbility.FULL_BLOCK,
+            )
+            named = any(
+                note["kind"] == "personal" for note in player["abilities"]
+            )
+            self.assertEqual(named, raised or blocks, player["short"])
+        self.assertTrue(any(
+            note["kind"] == "personal"
+            for player in wall for note in player["abilities"]
+        ))
 
     async def test_a_mind_pull_needs_its_minimum_and_costs_its_token(
         self,

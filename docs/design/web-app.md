@@ -1654,18 +1654,31 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     check or an own-goal roll), Lithium Powered on any roll a Cyborg
     makes (Law 20.3.5). Whether the player has it is
     `has_species_ability`, so a training game shows none;
-    `present.ROLL_SPECIES` says only which reminder goes with which
-    roll. Mind Pull is not repeated on its own window, and Slimey is
+    `present.BEARINGS` says only which reminder goes with which part of
+    which roll. Mind Pull is not repeated on its own window, and Slimey is
     not shown on an Ooze who is rolling, since Merge is what the
     *other* Oozes on the ball add;
   - **Merge as the number it adds**: `merge_bonus`'s own lines ("+6
     Acidel (Merge)") in the side's modifiers, attack and defence in a
     skill test and the attack alone in a shot (Law 20.5), so the
     window's numbers are the dice's;
-  - **in an advanced game, every player's personal ability** --
-    the rollers', the wall's, the Telekinetic's -- as the advanced face
-    of their card prints it (`personal_ability_text`), prefixed with
-    who it belongs to in a wall.
+  - **in an advanced game, a personal ability where it applies to the
+    roll** (the author, 2026-09-28: "only show personal abilities that
+    apply to the roll"), as the advanced face of the card prints it
+    (`personal_ability_text`), prefixed with whose it is in a wall.
+    Applies means it changes the roll's number, whether it is rolled,
+    or what winning it means: the ignites, Voltus's Overdrive and
+    Gearclaw's Boost, Zorch's speed (not on a shot, which adds it
+    already), Umbrik's throw, the three pulls, Kindlefinger's check,
+    Goopkeeper's block and Flickerwing's clear shot, Dravox's and
+    Hexis's gambits and Synapse's upgrade on a skill test, Scorchit's
+    forced test. What a maneuver does once it has won is not the roll's
+    -- Emberdash's dribble, Quantor's run on, Vorix's set-up, Acidel's
+    pressure. The five players whose line is an advanced skill score
+    ("High defensive skill.") have it named where the roll adds that
+    skill, read as `skills` under the game against the role's. Which
+    ability goes with which part of which roll is `BEARINGS`; whether
+    the player holds it is `has_personal_ability`.
 - **It is a strip, not a panel** (the author, 2026-09-28: "takes too
   much space ... no need for the black background"). Nothing sits
   behind it: the title and the space on one line, then each side as a
