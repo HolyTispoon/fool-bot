@@ -154,6 +154,19 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (wording) -- author, Law 21's abilities are "special abilities"
+
+The author, in a Claude Code session, on the print-and-play kit's README: *"it's not a
+'personal' ability but a special ability"*, and then: *"change the charter"*. Law 21 is now
+*Special abilities*, and every use of "personal ability" in the Charter says "special
+ability": the contents (Law 21's link), the Part II introduction, 18.1 c, the module column of
+the 18.3.1 table, 21.1.1-21.1.3 and the glossary row. The Learn to Play's two uses follow.
+This is the author's own word from when the abilities were first specified (2026-09-25:
+*"individual special abilities that are on the spreadsheet"*), and the web app's player notes
+have called them that since earlier today. **No change to play**, and no number moved; the
+anchor `#21-personal-abilities` is now `#21-special-abilities`, and nothing outside the
+Charter linked to it.
+
 ### 2026-09-28 (goal zones) -- author, the goal zones are part of the field; spaces are numbered
 
 The author, in a Claude Code session: *"in defining zones, include the goal zones as part of the

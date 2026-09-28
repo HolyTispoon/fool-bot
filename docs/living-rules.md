@@ -27,7 +27,7 @@ This document is the final authority on the rules of D12 Ball. It states each ru
   - [Law 18. The three modes](#18-the-three-modes)
   - [Law 19. Advanced maneuvers and gambits](#19-advanced-maneuvers-and-gambits)
   - [Law 20. Species abilities](#20-species-abilities)
-  - [Law 21. Personal abilities](#21-personal-abilities)
+  - [Law 21. Special abilities](#21-special-abilities)
 - [Appendix A. Quick reference](#appendix-a-quick-reference)
 - [Appendix B. Glossary](#appendix-b-glossary)
 - [Appendix C. The boards](#appendix-c-the-boards)
@@ -39,7 +39,7 @@ The Charter is divided into **Laws**, each Law into **sections**, and each secti
 
 **Precedence.** Where the Charter and any other statement of the rules disagree, the Charter is right: it wins over the Learn to Play, over the text printed on a card or a board, and over the bot. Where the Learn to Play simplifies, it says so and names the Law it simplifies.
 
-**Training, standard and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-advanced-maneuvers-and-gambits) is the advanced maneuvers and the gambits made with them, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-personal-abilities) the personal abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
+**Training, standard and advanced mode.** Laws 1 to 17 are the whole of the game in training mode. Part II is what the other two modes add and change: [Law 18](#18-the-three-modes) says which mode plays what, [Law 19](#19-advanced-maneuvers-and-gambits) is the advanced maneuvers and the gambits made with them, [Law 20](#20-species-abilities) the species abilities and [Law 21](#21-special-abilities) the special abilities. A rule in Part II wins over a rule in Part I for a game playing the module it belongs to, and applies nowhere else.
 
 **Defined terms** are in bold where they are defined, and every one is listed in [Appendix B](#appendix-b-glossary) with the paragraph that defines it.
 
@@ -914,7 +914,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 - **a.** **Training mode** is Part I and nothing else. Species is only a name on the card, and every player follows the standard rules. The tutorial is a training game.
 - **b.** **Standard mode** adds the [species abilities](#20-species-abilities) (20).
-- **c.** **Advanced mode** adds the [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) and the [personal abilities](#21-personal-abilities) (21) to standard mode.
+- **c.** **Advanced mode** adds the [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) and the [special abilities](#21-special-abilities) (21) to standard mode.
 
 ### 18.2 Part II wins in its own mode
 
@@ -932,7 +932,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
 | A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Cross, 1, 2 or 3 spaces, the deflecting coach's choice ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
-| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Personal |
+| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | Nothing else costs tokens ([Law 15](#151-gaining-tokens) (15.1)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#204-mind-pull-telekinetic) (20.4), [Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -1181,15 +1181,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.5.4** The one place it reaches further is a stack: an Ooze sharing a space with a teammate assigned to the same zone is never made to break that stack up to cover another space in the zone, and neither is the teammate.
 
-## 21. Personal abilities
+## 21. Special abilities
 
 ### 21.1 Whose they are
 
-**21.1.1** **Some players carry an ability of their own, and five carry an advanced skill.** Both are played in [advanced mode](#181-what-each-mode-plays) (18.1) and in no other. A personal ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
+**21.1.1** **Some players carry an ability of their own, and five carry an advanced skill.** Both are played in [advanced mode](#181-what-each-mode-plays) (18.1) and in no other. A special ability belongs to the player rather than their role or their species, so a player fielded on both sides of one game carries it on both cards.
 
-**21.1.2** A personal ability is played **beside the player's role ability, never instead of it**: a player keeps their role's ability in advanced mode. The advanced side of a card prints the personal ability in the role's place, and the role's is on the other side.
+**21.1.2** A special ability is played **beside the player's role ability, never instead of it**: a player keeps their role's ability in advanced mode. The advanced side of a card prints the special ability in the role's place, and the role's is on the other side.
 
-**21.1.3** Most personal abilities change the player's own [species ability](#20-species-abilities) (20). Where the two say different things, the personal ability wins for that player, and everything it does not mention works as the species ability says.
+**21.1.3** Most special abilities change the player's own [species ability](#20-species-abilities) (20). Where the two say different things, the special ability wins for that player, and everything it does not mention works as the species ability says.
 
 ### 21.2 Advanced skills
 
@@ -1325,7 +1325,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | New play, steal | [Turnovers](#12-turnovers) (12) |
 | Offensive skill, defensive skill | [Players and roles](#26-players-and-roles) (2.6) |
 | Outer zone, Home Zone, Visitors Zone, Home Third, Visitors Third | [The field](#21-the-field) (2.1) |
-| Personal ability | [Whose they are](#211-whose-they-are) (21.1) |
+| Special ability | [Whose they are](#211-whose-they-are) (21.1) |
 | Sending a player | [Sending a player](#9-sending-a-player) (9) |
 | Set-up, scoring opportunity | [Scoring opportunities](#8-scoring-opportunities) (8) |
 | Shooting range | [Shooting range](#23-shooting-range) (2.3) |
