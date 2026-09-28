@@ -27,13 +27,18 @@ is the routes and what the page is told --
 
 from __future__ import annotations
 
+import html
 import unittest
 from unittest import mock
 
 from aiohttp.test_utils import TestClient, TestServer
 
 from d12ball import rulebooks
-from d12ball.components import MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT
+from d12ball.components import (
+    MANEUVER_TIER_BASIC,
+    MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIERS,
+)
 from d12ball.game import GameMode
 from d12ball.rules_doc import load_rules_document
 from gamelocks import GameLocks
@@ -253,11 +258,10 @@ class CharterTests(Harness):
         for law in found["laws"]:
             self.assertIn(f'id="{law["slug"]}"', page)
             self.assertIn(f'data-rule="{law["slug"]}"', page)
-        # The References column: the six basic cards and the roles.
-        for card in aids.maneuver_cards(
-            ENGINE.maneuver_catalog, (MANEUVER_TIER_BASIC,),
-        )[0]["cards"]:
-            self.assertIn(card["url"], page)
+        # The References column: every maneuver's effect and the roles.
+        for table in aids.maneuver_rows(ENGINE.maneuver_catalog, MANEUVER_TIERS):
+            for row in table["rows"]:
+                self.assertIn(html.escape(row["effect"]), page)
         for row in aids.roles(ENGINE.player_catalog):
             self.assertIn(row["ability"].replace("'", "&#x27;"), page)
 
@@ -326,21 +330,44 @@ class CitationTests(Harness):
 
 
 class ReferenceTests(Harness):
-    async def test_every_card_the_references_offer_answers(self) -> None:
+    async def test_the_maneuvers_table_is_every_card(self) -> None:
         offered = await (await self.get("/api/aids")).json()
-        rows = offered["maneuver_cards"]
+        tables = offered["maneuver_rows"]
         self.assertEqual(
-            [row["tier"] for row in rows],
-            [MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT],
+            [table["side"] for table in tables], ["offense", "defense"],
         )
-        self.assertEqual(len(rows[0]["cards"]), 6)
-        for row in rows:
-            for card in row["cards"]:
-                with self.subTest(card["key"]):
-                    response = await self.get(card["url"])
-                    self.assertEqual(response.status, 200)
-                    self.assertEqual(response.content_type, "image/png")
-        self.assertEqual((await self.get("/aids/cards/nonsense.png")).status, 404)
+        catalog = ENGINE.maneuver_catalog
+        for table in tables:
+            with self.subTest(table["side"]):
+                self.assertEqual(
+                    [row["key"] for row in table["rows"]],
+                    [one.key for one in catalog.side(table["side"])],
+                )
+
+    def test_the_maneuvers_table_is_the_cards_own_data(self) -> None:
+        catalog = ENGINE.maneuver_catalog
+        tables = aids.maneuver_rows(catalog, (MANEUVER_TIER_BASIC,))
+        for table in tables:
+            opposing = "defense" if table["side"] == "offense" else "offense"
+            self.assertEqual(len(table["rows"]), 3)
+            for row in table["rows"]:
+                with self.subTest(row["key"]):
+                    card = catalog.definition(row["key"])
+                    self.assertEqual(card.tier, MANEUVER_TIER_BASIC)
+                    self.assertFalse(row["gambit"])
+                    self.assertEqual(row["effect"], card.effect)
+                    self.assertEqual(row["time"], card.time)
+                    # Only the tiers shown, and the rank the card beats.
+                    beaten = [
+                        one for one in catalog.for_tier(opposing, MANEUVER_TIER_BASIC)
+                        if one.rank == card.defeats_rank
+                    ]
+                    self.assertEqual(row["beats"], beaten[0].name)
+        both = aids.maneuver_rows(catalog, MANEUVER_TIERS)
+        low_pass = next(
+            row for row in both[0]["rows"] if row["key"] == "low_pass"
+        )
+        self.assertEqual(len(low_pass["beats"].split(" / ")), 2)
 
     def test_the_tables_are_the_cards_own_data(self) -> None:
         roles = aids.roles(ENGINE.player_catalog)
@@ -393,9 +420,13 @@ class RoomAidsTests(Harness):
                 self.assertEqual(bool(room["species"]), species)
                 self.assertEqual(bool(room["species_rows"]), species)
                 self.assertEqual(
-                    [row["tier"] for row in room["maneuver_cards"]],
+                    sorted({
+                        row["tier"]
+                        for table in room["maneuver_rows"]
+                        for row in table["rows"]
+                    }),
                     [MANEUVER_TIER_BASIC] if tier == MANEUVER_TIER_BASIC
-                    else [MANEUVER_TIER_BASIC, tier],
+                    else sorted([MANEUVER_TIER_BASIC, tier]),
                 )
                 face = aids.FACE_ADVANCED if advanced else aids.FACE_FRONT
                 for team in room["teams"]:

@@ -568,41 +568,38 @@ def _species() -> list[dict]:
     ]
 
 
-def maneuver_cards(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
+def maneuver_rows(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
     """
-    The maneuver cards themselves, as the References show them: the
-    printed face `pictures.maneuver_card_png` draws for the hand, in
-    the catalog's order -- the offense's by rank, then the defense's --
-    a row per tier asked for. The six basic cards everywhere; the six
-    gambits under them where the game's hexagon is the gambit one.
+    The maneuvers as two tables, the offense's and then the defense's,
+    from the data the cards are printed from: each card's name, the
+    opposing cards its rank beats, its time and its effect in the
+    sheet's own words (never cut down here). The rows are in the
+    catalog's order -- by rank, a rank's gambit under its basic card --
+    and hold only the tiers asked for; `beats` names the opposing cards
+    of those tiers too, because rank alone decides who wins.
     """
-    return [
-        {
-            "tier": tier,
-            "cards": [
-                {
-                    "key": maneuver.key,
-                    "name": maneuver.name,
-                    "side": side,
-                    "url": f"/aids/cards/{maneuver.key}.png",
-                }
-                for side in ("offense", "defense")
-                for maneuver in catalog.side(side)
-                if maneuver.tier == tier
-            ],
-        }
-        for tier in tiers
-    ]
-
-
-def valid_card(catalog: ManeuverCatalog, key: str) -> Optional[bool]:
-    """Whether `key` is an offense card (True), a defense card (False),
-    or not a card at all (None)."""
-    if any(one.key == key for one in catalog.offense):
-        return True
-    if any(one.key == key for one in catalog.defense):
-        return False
-    return None
+    tables = []
+    for side in ("offense", "defense"):
+        opposing = "defense" if side == "offense" else "offense"
+        rows = [
+            {
+                "key": maneuver.key,
+                "name": maneuver.name,
+                "tier": maneuver.tier,
+                "gambit": maneuver.is_gambit,
+                "beats": " / ".join(
+                    one.name
+                    for one in catalog.side(opposing)
+                    if one.rank == maneuver.defeats_rank and one.tier in tiers
+                ),
+                "time": maneuver.time,
+                "effect": maneuver.effect,
+            }
+            for maneuver in catalog.side(side)
+            if maneuver.tier in tiers
+        ]
+        tables.append({"side": side, "name": side.title(), "rows": rows})
+    return tables
 
 
 def roles(catalog: PlayerCatalog) -> list[dict]:
@@ -685,13 +682,13 @@ def _team(catalog: PlayerCatalog, team: Team, faces: Sequence[str]) -> dict:
 def everything(engine: RulesEngine) -> dict:
     """
     The Reading Room's aids, with no game to ask: both hexagons named
-    by tier, all twelve cards, the role table and card, the species
+    by tier, all twelve maneuvers, the role table and card, the species
     table and card, every team with both faces offered, and the rules.
     """
     catalog = engine.player_catalog
     return {
         "rules": "/rules",
-        "maneuver_cards": maneuver_cards(engine.maneuver_catalog, MANEUVER_TIERS),
+        "maneuver_rows": maneuver_rows(engine.maneuver_catalog, MANEUVER_TIERS),
         "role_rows": roles(catalog),
         "species_rows": species_rows(),
         "maneuvers": [_maneuver(tier) for tier in MANEUVER_TIERS],
@@ -740,10 +737,10 @@ def for_game(
         "species_abilities": species,
         "advanced_cards": advanced,
         "rules": "/rules",
-        # The References in the Rules tab: the cards at the game's
+        # The References in the Rules tab: the maneuvers at the game's
         # tier, the six basic ones always, the role table, and the
         # species table only where the game plays them.
-        "maneuver_cards": maneuver_cards(
+        "maneuver_rows": maneuver_rows(
             engine.maneuver_catalog,
             (MANEUVER_TIER_BASIC,) if tier == MANEUVER_TIER_BASIC
             else (MANEUVER_TIER_BASIC, tier),
@@ -813,20 +810,23 @@ def _contents_html(found: dict) -> str:
 
 def references_html(offered: dict) -> str:
     """
-    The References column: the maneuver cards as the model draws them,
-    the roles table and the species table -- the Rules tab draws the
-    same three from the same dict (`webapp/static/aids.js`).
+    The References column: the maneuvers table, the roles table and
+    the species table -- the Rules tab draws the same three from the
+    same dict (`webapp/static/aids.js`).
     """
-    cards = "".join(
-        '<div class="ref-cards">'
+    maneuvers = "".join(
+        '<table class="ref-table maneuver-table">'
+        f'<tr><th>{html.escape(table["name"])}</th><th>Beats</th><th>Effect</th></tr>'
         + "".join(
-            f'<a class="ref-card" href="{one["url"]}?size=full" target="_blank" rel="noopener" '
-            f'title="{html.escape(one["name"])}"><img src="{one["url"]}" '
-            f'alt="{html.escape(one["name"])}" loading="lazy"></a>'
-            for one in row["cards"]
+            f'<tr><td><span class="ability-name">{html.escape(one["name"])}</span>'
+            + ('<span class="tier-tag">Gambit</span>' if one["gambit"] else "")
+            + f'<span class="maneuver-time">{html.escape(one["time"])}</span></td>'
+            f'<td class="beats">{html.escape(one["beats"])}</td>'
+            f'<td class="ability">{html.escape(one["effect"])}</td></tr>'
+            for one in table["rows"]
         )
-        + "</div>"
-        for row in offered["maneuver_cards"]
+        + "</table>"
+        for table in offered["maneuver_rows"]
     )
     roles = "".join(
         f'<tr><td><img class="emoji" src="{one["badge"]}" alt="{html.escape(one["letters"])}"></td>'
@@ -844,8 +844,8 @@ def references_html(offered: dict) -> str:
         for one in offered["species_rows"]
     )
     return (
-        '<div class="panel-label">The cards</div>'
-        f"{cards}"
+        '<div class="panel-label">Maneuvers</div>'
+        f"{maneuvers}"
         '<div class="panel-label">Roles</div>'
         '<table class="ref-table"><tr><th></th><th>Role</th><th>OFF</th><th>DEF</th><th>Ability</th></tr>'
         f"{roles}</table>"
