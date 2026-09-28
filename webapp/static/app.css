@@ -510,6 +510,14 @@ img { display: block; }
   margin: 4px 0 0;
 }
 .note-line { font-size: 13px; color: var(--muted); margin: 0; }
+/* The maneuver pick's rank reference: words that show the cards' back. */
+.rank-reference {
+  cursor: help;
+  color: var(--text);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.rank-reference:hover, .rank-reference:focus-visible { color: var(--gold); outline: none; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .prompt.busy .controls { opacity: 0.6; pointer-events: none; }
 
@@ -2311,6 +2319,9 @@ body.front .front-door.stats-door {
 .ref-cards { display: flex; flex-wrap: wrap; gap: 6px; }
 .ref-card img { width: 74px; height: auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
 .ref-card:hover img, .ref-card:focus-visible img { outline: 2px solid var(--gold); }
+.ref-hexagon { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.ref-hexagon img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.ref-hexagon figcaption { font-size: 12px; color: var(--muted); }
 .ref-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .ref-table th { color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; padding: 2px 4px; }
 .ref-table td { padding: 3px 4px; vertical-align: middle; }
