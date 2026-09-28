@@ -12,8 +12,8 @@ version of the game, as print sheets only**: each card set is one
 sheet (two for a team: its cards' standard sides and their advanced
 sides, printed duplex), never a PNG per card, and the player cards are
 all four colour teams' -- the print game has no cards for the species
-teams; a colour team's card carries its species on its advanced side
-(the author, 2026-09-27). The species and role reference cards share
+teams; a colour team's card carries its player's special ability on
+its advanced side (the author, 2026-09-27). The species and role reference cards share
 one sheet, and the condition tokens have two sheets of their own, printed duplex. **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_player_cards.py`, `render_reference_cards.py`,
@@ -82,8 +82,11 @@ printer, {sheet_columns} cards to a row.
   basic, six gambits) and their shared back.
 - **player-cards/** -- all {team_count} colour teams ({team_names}),
   {players_per_team} players a team, two print sheets a team. Every player
-  card is double-sided: one side is the **standard** card and the
-  other the **advanced** one, with the player's species on it.
+  card is double-sided, and both sides carry the player's role, skills
+  and species ability. The **standard** side prints the role's ability;
+  the **advanced** side, marked ADVANCED under the name, prints the
+  player's special ability in its place, and for a few players higher
+  skills.
   `<team>-sheet.png` is the standard sides and
   `<team>-advanced-sheet.png` the advanced sides. Print a team's two
   sheets duplex (flip on the long edge) and every card comes out with
