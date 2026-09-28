@@ -232,11 +232,11 @@ OPEN_ROOM_IDLE = 24 * 60 * 60
 #: open.
 ABANDON_IDLE = 14 * 24 * 60 * 60
 
-#: The same for a room nothing was ever played in -- no match dealt,
-#: the lobby or the rest of setup: a day (the author, 2026-09-27).
-#: Abandoned too, not deleted; the record's `abandon` takes a game
-#: still in setup.
-LOBBY_ABANDON_IDLE = 24 * 60 * 60
+#: How long a room nothing was ever played in -- no match dealt, the
+#: lobby or the rest of setup -- may go with nothing happening before
+#: it is deleted, as its own Close deletes it: a day (the author,
+#: 2026-09-27). It is not abandoned: nothing in it is worth keeping.
+UNPLAYED_ROOM_IDLE = 24 * 60 * 60
 
 #: How often the idle sweep runs while the app is up, in seconds.
 SWEEP_EVERY = 60 * 60
@@ -447,18 +447,25 @@ class WebApp:
         which is what keeps its game off the idle sweep."""
         self.rooms.touch(game_id, self.clock())
 
-    async def sweep_idle(self) -> list[str]:
+    async def sweep_idle(self) -> dict[str, list[str]]:
         """
-        Abandon every game nothing has happened in for `ABANDON_IDLE`,
-        or `LOBBY_ABANDON_IDLE` where nothing was ever played
-        (`abandon_after`; the author, 2026-09-27) -- `GameService.abandon`, the same door
-        the room's Abandon is, each under its game's lock -- which puts
-        it in the archive and its coaches' finished games. Nothing is
-        deleted. A room with no recorded activity (one from before it
-        was kept) is stamped now instead, so it has the whole fourteen
-        days from here. The ids abandoned.
+        The rooms nothing has happened in, cleared (the author,
+        2026-09-27), each under its game's lock:
+
+        - **nothing ever played** (no match dealt) and quiet for
+          `UNPLAYED_ROOM_IDLE`: deleted -- `GameService.discard_game`,
+          the door the room's own Close is, with its journal, chat and
+          room state;
+        - **a game under way** and quiet for `ABANDON_IDLE`: abandoned
+          -- `GameService.abandon`, the room's own Abandon -- which puts
+          it in the archive and its coaches' finished games.
+
+        A finished game is never touched. A room with no recorded
+        activity (one from before it was kept) is stamped now instead,
+        so it has its whole window from here. The ids, by what was
+        done to them.
         """
-        abandoned = []
+        done: dict[str, list[str]] = {"deleted": [], "abandoned": []}
         for game in list(self.service.games.values()):
             if game.is_finished:
                 continue
@@ -466,22 +473,38 @@ class WebApp:
             if room.active_at is None:
                 self._active(game.game_id)
                 continue
-            if self.clock() - room.active_at <= abandon_after(game):
+            unplayed = game.match_state is None
+            quiet = self.clock() - room.active_at
+            if quiet <= (UNPLAYED_ROOM_IDLE if unplayed else ABANDON_IDLE):
                 continue
             async with self.locks.hold(game.game_id):
                 if game.game_id not in self.service.games or game.is_finished:
                     continue
                 try:
-                    self.service.abandon(game.game_id)
-                except RuleRefusal:
+                    if unplayed:
+                        self.service.discard_game(game.game_id)
+                        self._forget_room(game.game_id)
+                    else:
+                        self.service.abandon(game.game_id)
+                except (RuleRefusal, ValueError):
                     continue
             LOGGER.info(
-                "Abandoned web game %s (#pbw%s): nothing has happened in "
-                "it for %d day(s).",
-                game.game_id, game.game_number, abandon_after(game) // 86400,
+                "%s web game %s (#pbw%s): nothing has happened in it for "
+                "%d day(s).",
+                "Deleted" if unplayed else "Abandoned",
+                game.game_id, game.game_number, int(quiet // 86400),
             )
-            abandoned.append(game.game_id)
-        return abandoned
+            done["deleted" if unplayed else "abandoned"].append(game.game_id)
+        return done
+
+    def _forget_room(self, game_id: str) -> None:
+        """What the web app keeps about a room, gone with its game --
+        its journal, its chat and its room state."""
+        self.journals.forget(game_id)
+        self.chats.forget(game_id)
+        self.rooms.forget(game_id)
+        self._answering.pop(game_id, None)
+        self._looked_at.pop(game_id, None)
 
     async def _sweep_forever(self) -> None:
         """The idle sweep, at start and every `SWEEP_EVERY` after."""
@@ -672,10 +695,7 @@ class WebApp:
                 if game.game_id not in self.service.games:
                     continue
                 self.service.delete_game(game.game_id)
-                self.journals.forget(game.game_id)
-                self.chats.forget(game.game_id)
-                self.rooms.forget(game.game_id)
-                self._answering.pop(game.game_id, None)
+                self._forget_room(game.game_id)
                 deleted += 1
         renamed = Coach(coach.id, self.names.claim_guest(coach.id))
         response = web.json_response(
@@ -879,9 +899,7 @@ class WebApp:
                 self.service.discard_game(game.game_id)
             except ValueError as refusal:
                 raise web.HTTPConflict(text=str(refusal))
-            self.journals.forget(game.game_id)
-            self.chats.forget(game.game_id)
-            self.rooms.forget(game.game_id)
+            self._forget_room(game.game_id)
         return web.json_response({"url": "/"})
 
     async def table(self, request: web.Request) -> web.Response:
@@ -2579,13 +2597,6 @@ class WebApp:
             "colour": None if team is None else TEAM_COLORS[team],
             "side": side,
         }
-
-
-def abandon_after(game: D12BallGame) -> int:
-    """How long `game` may go with nothing happening before the idle
-    sweep abandons it: a day where no match was ever dealt, fourteen
-    days once one has been."""
-    return LOBBY_ABANDON_IDLE if game.match_state is None else ABANDON_IDLE
 
 
 def others_seated(game: D12BallGame, coach: Optional[Coach]) -> bool:

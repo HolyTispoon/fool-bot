@@ -418,30 +418,37 @@ its coaches still see it in their own list, where its card closes it.
 which puts off hiding a room and never hides one early -- and nothing
 about it is written to any file.
 
-**A game nothing happens in for fourteen days is abandoned**
-(`ABANDON_IDLE`; the author, 2026-09-27) -- through
-`GameService.abandon`, the room's own Abandon, under the game's lock
--- which puts it in the archive and in its coaches' finished games.
-**A room nothing was ever played in -- no match dealt, the lobby or
-the rest of setup -- goes after a day** (`LOBBY_ABANDON_IDLE`, the
-author, the same day): abandoned the same way, not deleted, since the
-record's `abandon` takes a game still in setup (`abandon_after` is the
-one reading of which limit a game has). "Happens" is not "is looked at": a page left open in
-a tab is not a game being played, so the clock is `active_at` in the
-rooms file (`webapp/rooms.py`), set by a move on the game (the
-service's listener), a table or seat move, a room opened or rematched,
-and a line of chat -- never a poll. It is a file and not memory, unlike
-`_looked_at`, because fourteen days outlives any process; it is the
-rooms file's and not the record's because no rule reads it. It is
-written at most once a minute (`ACTIVE_GRAIN`). A room with no
-`active_at` -- one from before it was kept -- is stamped by the sweep
-rather than abandoned, so it gets its fourteen days from then. The
-sweep runs at start and every `SWEEP_EVERY` (an hour) while the app is
-up (`WebApp.sweep_idle`).
+**A quiet room is cleared** (the author, 2026-09-27), by the idle
+sweep (`WebApp.sweep_idle`, at start and every `SWEEP_EVERY`, an
+hour), each under its game's lock:
+
+- **A room nothing was ever played in** -- no match dealt: the lobby
+  or the rest of setup -- **is deleted after a day** with nothing
+  happening in it (`UNPLAYED_ROOM_IDLE`): `GameService.discard_game`,
+  the door its own Close is, with its journal, chat and room state
+  (`_forget_room`). Not abandoned: there is nothing in it worth
+  keeping, and it would only crowd its creator's finished games.
+- **A game that has started is abandoned after fourteen days** with
+  nothing happening in it (`ABANDON_IDLE`) -- a kickoff and not one
+  move since counts the same as a game left mid-half:
+  `GameService.abandon`, the room's own Abandon, which puts it in the
+  archive and in its coaches' finished games. Never deleted.
+
+A finished game is never touched, including one abandoned before
+kickoff by hand. "Happening" is not "being looked at": a page left
+open in a tab is not a game being played, so the clock is `active_at`
+in the rooms file (`webapp/rooms.py`), set by a move on the game (the
+service's listener), a table or seat move, a room opened or
+rematched, and a line of chat -- never a poll. It is a file and not
+memory, unlike `_looked_at`, because fourteen days outlives any
+process; it is the rooms file's and not the record's because no rule
+reads it. It is written at most once a minute (`ACTIVE_GRAIN`). A room
+with no `active_at` -- one from before it was kept -- is stamped by
+the sweep rather than cleared, so it gets its whole window from then.
 
 **The archive** (`/archive`, `GET /api/archive`) is every game that is
 over -- played to the end, abandoned by a coach, abandoned by the
-sweep -- newest first, as the Master Lobby's cards (`webapp/static/
+sweep (an unplayed room the sweep deletes never reaches it) -- newest first, as the Master Lobby's cards (`webapp/static/
 rooms.js`, which both pages draw from), filtered in the page by what
 the listing says: played to the end, abandoned, yours. Open to anybody,
 as each room's page is, and linked from the Reading Room card and from
