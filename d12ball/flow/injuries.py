@@ -180,7 +180,18 @@ def dispatch_injury_resume(
     something. A game in that state needs `/d12ball resume`, and the
     step has nothing true to say about a position it cannot find.
     """
+    from d12ball.flow.arrivals import check_for_smooth_after_contest
     from d12ball.flow.periods import continue_shootout
+    from d12ball.flow.rolls import SMOOTH_OWED
+
+    # A contest's winner may be taken over from before the contest
+    # hands on (Law 20.4.11). The flag is spent here, so a Smooth
+    # declined goes on to the same resume without being asked twice.
+    if resume and resume.get(SMOOTH_OWED):
+        resume = {k: v for k, v in resume.items() if k != SMOOTH_OWED}
+        taken = check_for_smooth_after_contest(engine, game, match, resume)
+        if taken is not None:
+            return taken
 
     kind = (resume or {}).get("kind")
     if kind == "shootout_test":

@@ -459,6 +459,9 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
                 "kind": "run_back",
                 "distance_moved": 3,
                 "turnover_occurred": False,
+                # The winner's teammates are owed a Smooth once the
+                # checks are rolled (Law 20.4.11).
+                "smooth_owed": True,
             },
         )
 

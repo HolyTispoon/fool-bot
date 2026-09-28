@@ -107,6 +107,7 @@ from d12ball.flow.arrivals import (
     check_for_ball_arrival,
     check_for_mind_pull,
     check_for_smooth,
+    decline_smooth_step,
 )
 
 from flow_stubs import (
@@ -1952,6 +1953,136 @@ class SmoothCandidateTests(unittest.TestCase):
         )
         self.assertEqual(restored.pending_smooth, [])
         self.assertIsNone(restored.pending_smooth_resume)
+
+
+class SmoothAfterContestTests(unittest.TestCase):
+    """
+    **A Smooth may not skip a contest, but it may take the ball off the
+    teammate who wins one** (Law 20.4.11; the author, 2026-09-28). The
+    contest is rolled through the real step, and the offer is what it
+    hands on to once its own injury tests are done.
+    """
+
+    def setUp(self) -> None:
+        from d12ball.flow.rolls import loose_ball_test_step
+
+        self.loose_ball_test_step = loose_ball_test_step
+        self.engine = build_engine()
+        self.game = build_game(
+            player_1_team=Team.ORANGE, player_2_team=Team.PURPLE,
+        )
+        self.match = build_match(self.engine, self.game)
+        offense = self.match.ball.possession
+        self.taker = fielded_of_species(
+            self.match, SPECIES_TELEKINETIC, offense,
+        )
+        # The strongest attacker against the weakest defender, so a
+        # 12 against a 1 settles it whichever way the dice are handed.
+        self.contestant = max(
+            (
+                player_id
+                for player_id in field_players(self.match, offense)
+                if self.engine.species_of(player_id) != SPECIES_TELEKINETIC
+            ),
+            key=lambda player_id: self.engine.skills(
+                self.game, player_id,
+            ).offense,
+        )
+        self.defender = min(
+            field_players(self.match, self.match.defending_side()),
+            key=lambda player_id: self.engine.skills(
+                self.game, player_id,
+            ).defense,
+        )
+
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        self.space = self.match.board.position_at_flat_index(origin + 1)
+        for player_id in (self.taker, self.contestant, self.defender):
+            self.match.board.place_meeple(player_id, *self.space)
+        self.match.set_ball_space(*self.space)
+        self.match.begin_loose_ball(1)
+        self.match.clear_ball_carrier()
+        self.match.loose_ball_offense_player = self.contestant
+        self.match.loose_ball_defense_player = self.defender
+
+    def roll(self, offense_die: int, defense_die: int):
+        with mock.patch(
+            "random.Random.randint",
+            side_effect=[offense_die, defense_die],
+        ):
+            _, result = self.loose_ball_test_step(
+                self.engine, self.game, self.match,
+            )
+        return result
+
+    def test_a_teammate_beside_the_winner_is_offered_the_smooth(self):
+        result = self.roll(12, 1)
+        self.assertEqual(self.match.ball_carrier_id, self.contestant)
+        self.assertEqual(result.next.kind, PromptKind.SMOOTH)
+        self.assertEqual(result.next.player_id, self.taker)
+        # The flag is spent on the way in, so declining goes on to the
+        # contest's own run back without being asked again.
+        self.assertEqual(
+            self.match.pending_smooth_resume,
+            {"kind": "run_back", "distance_moved": 1,
+             "turnover_occurred": False},
+        )
+
+    def test_declining_it_goes_on_to_the_run_back(self):
+        from d12ball.flow.result import FollowOnStep
+
+        self.roll(12, 1)
+        result = decline_smooth_step(
+            self.engine, self.game, self.match, player_id=self.taker,
+        )
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
+        self.assertEqual(self.match.ball_carrier_id, self.contestant)
+
+    def test_taking_it_makes_them_the_carrier(self):
+        from d12ball.flow.effects import take_smooth_step
+
+        self.roll(12, 1)
+        take_smooth_step(
+            self.engine, self.game, self.match, player_id=self.taker,
+        )
+        self.assertEqual(self.match.ball_carrier_id, self.taker)
+
+    def test_nobody_is_offered_when_the_other_side_wins_it(self):
+        result = self.roll(1, 12)
+        self.assertEqual(self.match.ball_carrier_id, self.defender)
+        self.assertNotEqual(
+            getattr(result.next, "kind", None), PromptKind.SMOOTH,
+        )
+        self.assertEqual(self.match.pending_smooth, [])
+
+    def test_a_ball_one_side_simply_picked_up_offers_nothing(self):
+        # Their coach chose who took it, so a Smooth after would change
+        # nothing -- the complaint that started this (2026-09-28).
+        from d12ball.flow.arrivals import resolve_unopposed_loose_ball
+
+        self.match.board.place_meeple(
+            self.defender, *self.match.board.position_at_flat_index(0),
+        )
+        result = resolve_unopposed_loose_ball(
+            self.engine, self.game, self.match, self.contestant,
+            turnover=False, distance_moved=1,
+        )
+        self.assertNotEqual(
+            getattr(result.next, "kind", None), PromptKind.SMOOTH,
+        )
+        self.assertEqual(self.match.pending_smooth, [])
+
+    def test_the_winner_is_not_offered_their_own_ball(self):
+        self.match.set_ball_carrier(self.contestant)
+        self.match.injured.add(self.taker)
+        self.assertEqual(
+            self.engine.smooth_candidates_after_contest(
+                self.game, self.match,
+            ),
+            [self.taker],
+        )
 
 
 class SmoothKeeperTests(unittest.TestCase):

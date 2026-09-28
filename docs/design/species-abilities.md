@@ -1211,6 +1211,27 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
     (`finish_maneuver`), where an unheld ball on the possessing side's space
     goes to the turn prompt's handler pick rather than to `begin_loose_ball`,
     and a Smooth there is just as redundant.
+  - **A contest won is a ball held**, and the author's next sentence
+    (2026-09-28): a Smooth *"cannot avoid a contest but if a teammate wins a
+    contest, the player with smooth can take over"*. The contest moves the
+    ball nowhere and the path was spent before it began, so the arrival gate
+    cannot see it. Instead `rolls.after_the_contest` puts `smooth_owed` on the
+    resume it hands the injury queue, and `injuries.dispatch_injury_resume`
+    spends it by asking `arrivals.check_for_smooth_after_contest`, which reads
+    `RulesEngine.smooth_candidates_after_contest`: the winner's side's
+    Telekinetics on the ball's own space, the winner excluded. The offer goes
+    on `pending_smooth` like any other, so taking it, declining it, a restart
+    and the AI need nothing new; declining hands on to the resume the flag was
+    taken off. **A key on a dict the match already saves, not a field**: a
+    game saved mid-injury-test before this simply offers none.
+    - **Only a contest owes it.** `resolve_unopposed_loose_ball` passes
+      `contested=False`, because a ball one side simply picked up went to
+      whichever player their coach chose -- the Smooth after it would be the
+      very offer that started this. Slitheron's contest, won without a roll,
+      is still a contest and owes it.
+    - **It comes after the contest's injury checks**, because it is asked
+      where the queue hands on; the checks belong to the roll, which has
+      already happened whoever ends up holding the ball.
   - **A fixture that moves the ball onto a Telekinetic now owes it a
     receiver** (`hand_to_a_teammate` in
     `tests/test_d12ball_species_abilities.py`), or it is testing an unheld

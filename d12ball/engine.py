@@ -1076,37 +1076,78 @@ class RulesEngine:
         which clears the path rather than recording one -- offers
         nobody a Smooth either.
         """
+        if not match.last_ball_path:
+            return []
+        zone_value, space_index = match.last_ball_path[-1]
+        return self._smooth_takers(
+            game, match, Zone(zone_value), space_index,
+            set(match.last_ball_movers),
+        )
+
+    def smooth_candidates_after_contest(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[str]:
+        """
+        **Smooth off a contest's winner** (Law 20.4.11): the
+        Telekinetics of the winning side sharing the ball's space with
+        the teammate who has just won it, who may take it over from
+        them.
+
+        A Smooth may not skip a contest -- the ball is nobody's until
+        it is won, and `smooth_candidates` offers nothing on an unheld
+        ball -- but once a teammate has won it they are holding it,
+        which is the case the ability is for (the author, 2026-09-28).
+        The contest moved the ball nowhere, so this reads the ball's
+        own space rather than a path, and nobody on it was carried
+        there by the ball. Asked once, as the contest hands on (see
+        `d12ball.flow.arrivals.check_for_smooth_after_contest`).
+        """
+        return self._smooth_takers(
+            game, match, match.ball.zone, match.ball.space_index, set(),
+        )
+
+    def _smooth_takers(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        zone: Zone,
+        space_index: int,
+        moved: set[str],
+    ) -> list[str]:
+        """
+        The side in possession's Telekinetics (and Shpritz) on one
+        space who may take the ball off its carrier: everything the two
+        Smooth readings share. Nobody when nobody is carrying it -- see
+        "No carrier, no Smooth" in `smooth_candidates`.
+        """
         if not self.species_abilities_apply(game):
+            return []
+        carrier_id = match.ball_carrier_id
+        if carrier_id is None:
             return []
 
         ours = set(
             match.setup_for_side(match.ball.possession).field_players
         )
-        carrier_id = match.ball_carrier_id
-        if carrier_id is None:
-            return []
-        moved = set(match.last_ball_movers)
-
         candidates: list[str] = []
-        for zone_value, space_index in match.last_ball_path[-1:]:
-            for player_id in match.board.spaces[Zone(zone_value)][space_index]:
-                if player_id not in ours or player_id in candidates:
-                    continue
-                if player_id in moved or player_id == carrier_id:
-                    continue
-                # Shpritz has the Telekinetics' Smooth (Law 21); the
-                # early return above already covers them, since every
-                # mode playing special abilities plays species ones.
-                if not (
-                    self.has_species_ability(
-                        game, player_id, SPECIES_TELEKINETIC,
-                    )
-                    or self.has_special_ability(
-                        game, player_id, SpecialAbility.SMOOTH,
-                    )
-                ):
-                    continue
-                candidates.append(player_id)
+        for player_id in match.board.spaces[zone][space_index]:
+            if player_id not in ours or player_id in candidates:
+                continue
+            if player_id in moved or player_id == carrier_id:
+                continue
+            # Shpritz has the Telekinetics' Smooth (Law 21); the early
+            # return above already covers them, since every mode
+            # playing special abilities plays species ones.
+            if not (
+                self.has_species_ability(
+                    game, player_id, SPECIES_TELEKINETIC,
+                )
+                or self.has_special_ability(
+                    game, player_id, SpecialAbility.SMOOTH,
+                )
+            ):
+                continue
+            candidates.append(player_id)
         return candidates
 
     def smooth_keeper(self, match: MatchState) -> Optional[str]:

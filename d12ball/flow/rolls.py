@@ -938,6 +938,7 @@ def after_the_contest(
     was_high_pass: bool,
     turnover_occurred: bool,
     distance_moved: int,
+    contested: bool = True,
 ) -> dict:
     """
     Where a contest for the ball goes once it is settled, as the
@@ -946,7 +947,15 @@ def after_the_contest(
     nobody contesting it and the ball is in range (Law 21: "Contest
     comes first and shooting is possible only if Zytheris wins it").
     Asked by every way a contest ends, so none of them words it alone.
+
+    **`contested` owes the winner's teammates a Smooth** (Law
+    20.4.11), as `SMOOTH_OWED` on the resume, asked once the
+    contest's own injury tests are rolled. Only where both sides had
+    a contestant: a ball one side simply picked up was their coach's
+    to hand to whichever of them they liked, so a Smooth after it
+    would change nothing (the author, 2026-09-28).
     """
+    owed = {SMOOTH_OWED: True} if contested else {}
     if (
         was_high_pass
         and not turnover_occurred
@@ -959,12 +968,20 @@ def after_the_contest(
             "kind": "scoring_attempt",
             "shooter_id": winner_id,
             "distance_moved": distance_moved,
+            **owed,
         }
     return {
         "kind": "run_back",
         "distance_moved": distance_moved,
         "turnover_occurred": turnover_occurred,
+        **owed,
     }
+
+
+#: The key on a contest's resume saying its winner's teammates are
+#: still owed a Smooth. A key on a dict the match already saves, not a
+#: field: a game saved before it simply offers none.
+SMOOTH_OWED = "smooth_owed"
 
 
 def loose_ball_test_step(
