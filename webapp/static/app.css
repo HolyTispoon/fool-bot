@@ -2417,6 +2417,14 @@ body.front .front-door.stats-door {
   gap: 12px;
   padding: 12px 14px;
 }
+/* The archive (archive.html): one column of the Master Lobby's cards. */
+body.front .front-door.archive-door {
+  width: min(760px, calc(100% - 32px));
+  margin: 24px auto 40px;
+  flex-direction: column;
+  gap: 14px;
+}
+.status-chip.abandoned { background: var(--faint); }
 .stats-door select { font: inherit; background: var(--field); color: var(--text); border: 0; border-radius: 4px; padding: 6px; }
 
 /* -- The rules (webapp/static/aids.js) -----------------------------------------

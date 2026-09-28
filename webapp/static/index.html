@@ -73,6 +73,7 @@
           <div class="field-label">THE READING ROOM</div>
           <a class="linkish" href="/rules">The rules, the Learn to Play and the player aids</a>
           <a href="/stats" class="linkish">The web games' numbers</a>
+          <a href="/archive" class="linkish">The archive: finished and abandoned games</a>
         </section>
       </div>
 
@@ -102,11 +103,22 @@
           <div id="full-list" class="room-list"></div>
         </section>
 
+        <!-- The reader's finished and abandoned games: theirs until
+             "Delete all my games", whatever the archive keeps. -->
+        <section id="finished" hidden>
+          <div class="list-head">
+            <span class="field-label">YOUR FINISHED GAMES</span>
+            <a class="linkish quiet" href="/archive">every finished game: the archive &rsaquo;</a>
+          </div>
+          <div id="finished-list" class="room-list"></div>
+        </section>
+
         <p id="no-rooms" class="quiet" hidden>
           No rooms yet. Open one on the left and send its link.
         </p>
       </div>
     </main>
+    <script src="/static/rooms.js"></script>
     <script src="/static/index.js"></script>
   </body>
 </html>
