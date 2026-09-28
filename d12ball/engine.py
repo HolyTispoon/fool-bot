@@ -1213,6 +1213,16 @@ class RulesEngine:
                 candidates.append(player_id)
         return candidates
 
+    def injury_test_target(self, match: MatchState, player_id: str) -> int:
+        """
+        The lowest total an injury check is safe on (Law 15.3): a roll
+        **higher** than the tokens the player carries now, so one more
+        than them. Read at the roll, after anything the roll itself
+        moved (Kindlefinger's token), and ahead of it by a frontend
+        saying what the check needs.
+        """
+        return match.exhaustion.get(player_id, 0) + 1
+
     def mind_pull_cost(self, game: D12BallGame, player_id: str) -> int:
         """The tokens a Mind Pull costs: 1, or Quillon's none (Law 21)."""
         if self.has_personal_ability(

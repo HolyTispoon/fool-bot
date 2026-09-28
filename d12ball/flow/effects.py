@@ -1134,6 +1134,11 @@ class OwnGoalRoll:
 #: The two headings an own-goal roll is announced under, in its line
 #: and its `Headline` alike.
 OWN_GOAL_AVOIDED = "Own goal avoided!"
+
+#: The lowest total that avoids an own goal (Law 11.2): the higher of
+#: two d12 plus the handler's offensive skill. Named so the roll and a
+#: frontend saying what it needs read the one number.
+OWN_GOAL_SAFE_TOTAL = 7
 OWN_GOAL = "Own goal!"
 
 
@@ -1184,7 +1189,9 @@ def own_goal_roll_step(
     speed, speed_line = engine.speed_roll_bonus(
         game, match, offense_player.player_id,
     )
-    safe = max(rolls) + offense_skill + overdrive + speed >= 7
+    safe = (
+        max(rolls) + offense_skill + overdrive + speed >= OWN_GOAL_SAFE_TOTAL
+    )
 
     # Logged ahead of `apply_own_goal_outcome`, which is what concedes
     # the goal, so the risk sits above the goal it sometimes produced.
@@ -1228,8 +1235,9 @@ def own_goal_roll_step(
         working=(
             f"{arithmetic}. "
             + (
-                f"**{total}** is 7 or more: safe."
-                if safe else f"**{total}** is under 7: an own goal."
+                f"**{total}** is {OWN_GOAL_SAFE_TOTAL} or more: safe."
+                if safe
+                else f"**{total}** is under {OWN_GOAL_SAFE_TOTAL}: an own goal."
             )
         ),
     )

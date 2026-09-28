@@ -327,7 +327,7 @@ def injury_test_step(
     # check behind it.
     ignite_tokens = engine.settle_injury_ignite(game, match, player_id, ignite)
     current_tokens = match.exhaustion.get(player_id, 0)
-    safe = check > current_tokens
+    safe = check >= engine.injury_test_target(match, player_id)
     # The die image draws the natural face, so a modifier has to be
     # said in words or the number a coach reads and the verdict they
     # are given would not add up.
