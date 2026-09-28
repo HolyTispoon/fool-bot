@@ -57,6 +57,7 @@ Dinky's playmaker is standing on the ball, so they are the one challenging you.
 {team:purple} Dinky AI chose **Deflect**.
 
 ## **Dribble Advance** wins!
+Time has advanced 1, now at 01.
 --- prompt DRIBBLE_ADVANCE_CHOICE
 {team:orange} {coach:1}, choose your Dribble Advance distance (Playmaker ability):
 === action 6: DRIBBLE_ADVANCE_CHOICE '' {"distance": 2}
@@ -73,7 +74,7 @@ You get a choice here too: the ball's own speed, up to your player's skill. It c
 --- answer
 Ball speed is now **3**.
 --- prompt TUTORIAL_CONTINUE
-Ball is now in space 6, Orange (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 6, Orange (Home) has possession.
 
 ## 2. Every role has an ability
 Dribble Advance beat Deflect outright -- no dice, because the cycle had already settled it -- and your playmaker carried the ball **two** spaces, from space 4 to **space 6**.
@@ -123,6 +124,7 @@ Either player can roll:
 === action 13: SKILL_TEST 'roll' {}
 --- answer
 ## **Deflect** wins the skill test!
+Time has advanced 1, now at 02.
 --- narration
 **Deflect:** the ball moves 1 space back. Ball speed is now 2.
 
@@ -141,7 +143,7 @@ Space 4 (2 away) or space 5 (1 away).
 {team:orange} Sizzifizik {role:playmaker:orange} runs back to space 4.
 {team:orange} Sizzifizik {role:playmaker:orange} exhausts 2 {condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt TUTORIAL_CONTINUE
-Ball is now in space 5, Purple (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now in space 5, Purple (Visiting) has possession.
 
 ## 3. Your turn to defend
 Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and exhausted 1 per space to do it.
@@ -182,9 +184,10 @@ Defending, your hand is the other half of the cycle:
 {team:purple} Dinky AI chose **Dribble Advance**.
 {team:orange} Player 1 chose **Pressure**.
 
-## **Pressure** wins! **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
+## **Pressure** wins!
+Time has advanced 1, now at 03. **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
 
-Ball is now in space 6, Purple (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 6, Purple (Visiting) has possession.
 
 ## 4. Winning the ball back
 Pressure drove them backwards: their handler and the ball went back a space to **space 6**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
@@ -217,7 +220,8 @@ Then you get to set the **ball's speed**, up to your stealer's defensive skill. 
 {team:purple} Dinky AI chose **Low Pass**.
 {team:orange} Player 1 chose **Steal**.
 
-## **Steal** wins! **Steal:**
+## **Steal** wins!
+Time has advanced 1, now at 04. **Steal:**
 # Turnover!
 {team:orange} Sizzifizik {role:playmaker:orange} steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
@@ -233,7 +237,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- answer
 Ball speed is now **4**.
 --- prompt TUTORIAL_CONTINUE
-Ball is now in space 5, Orange (Home) has possession. Time has advanced 1, now at 04.
+Ball is now in space 5, Orange (Home) has possession.
 
 ## 5. A shot at goal
 The ball is yours again, on **space 5**, and moving fast. This is the last lesson, and it is worth a goal.
@@ -280,6 +284,7 @@ Their fullback is standing on space 7, so you get their whole defensive skill of
 {team:purple} Dinky AI chose **Steal**.
 
 ## **High Pass** wins!
+Time has advanced 2, now at 06.
 --- prompt HIGH_PASS_CHOICE
 {team:orange} {coach:1}, choose your High Pass distance:
 === action 28: HIGH_PASS_CHOICE '' {"distance": 2}
@@ -297,10 +302,12 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === action 30: SCORE_ATTEMPT 'roll' {}
 --- answer
 # GOAL!
-{team:orange} Acidel {role:striker:orange} scores for Orange (Home) on **04**!
+{team:orange} Acidel {role:striker:orange} scores for Orange (Home) on **06**!
 Orange 1:0 Purple
 
 {team:orange} Acidel {role:striker:orange} exhausts 1 {condition:exhaust} (now 1 total).
+
+Time has advanced 1, now at 07.
 --- group BEGIN_RUN_BACK drawn new-play
 # New play
 Both teams reset to the positions their coaches last set:
@@ -313,7 +320,7 @@ Both teams reset to the positions their coaches last set:
 --- prompt TUTORIAL_CONTINUE
 The ball speed goes down to **1**.
 
-Ball is now in space 4, Purple (Visiting) has possession. Time has advanced 3, now at 07.
+Ball is now in space 4, Purple (Visiting) has possession.
 
 # That's the tutorial
 The rails are off -- every button is live from here, and Dinky is playing for real.

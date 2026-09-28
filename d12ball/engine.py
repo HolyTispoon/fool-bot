@@ -49,6 +49,9 @@ from d12ball.ai import AIStrategy
 from d12ball.components import (
     BALL_SPEED_MAX,
     DRIBBLE_BURST_MAX_DISTANCE,
+    HIGH_PASS_CLOCK_COST,
+    MANEUVER_CLOCK_COST,
+    SETUP_PASS_CLOCK_COST,
     SETUP_PASS_DISTANCES,
     SETUP_PASS_FULLBACK_DISTANCE,
     SKILLED_PASS_REACH,
@@ -1816,6 +1819,25 @@ class RulesEngine:
         ):
             return winner_key
         return self.maneuver_catalog.counterpart(maneuver).key
+
+    def maneuver_clock_cost(self, match: MatchState, winner_key: str) -> int:
+        """
+        What the clock is charged when `winner_key` wins (Law 16.2):
+        2 for a High Pass or a Setup Pass, 1 for every other maneuver.
+
+        **It is the card that resolves**, `resolving_maneuver`'s answer,
+        and never the loser's (Law 16.2.3): a High Pass beaten by a
+        Deflect costs the Deflect's 1. A High Pass and a Setup Pass are
+        the one rank, so a tier raised or lowered on the dice never
+        changes the answer -- asking the resolving card is only the
+        honest question.
+        """
+        resolving = self.resolving_maneuver(match, winner_key)
+        if resolving == "setup_pass":
+            return SETUP_PASS_CLOCK_COST
+        if resolving == "high_pass":
+            return HIGH_PASS_CLOCK_COST
+        return MANEUVER_CLOCK_COST
 
     def gambit_cost(
         self, match: MatchState, winner_key: str,

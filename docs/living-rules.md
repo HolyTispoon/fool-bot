@@ -206,10 +206,10 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 - **a.** Choose [which of their players on the ball's space handles it](#42-choosing-the-handler) (4.2).
 - **b.** Choose the action: a [score attempt](#5-score-attempt) (5) if the ball is in that team's shooting range, and otherwise a [maneuver](#6-maneuvers) (6) or a [time out](#13-time-out) (13).
-- **c.** Resolve the action, and anything it leads to.
+- **c.** Resolve the action, and anything it leads to. **The clock advances by what the action cost as soon as its outcome is decided** ([Space minutes](#162-space-minutes) (16.2)), not once everything it leads to is done.
 - **d.** If the action left nobody holding the ball, settle it [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1).
 - **e.** If the ball changed hands, resolve the [turnover](#12-turnovers) (12).
-- **f.** Advance the clock by what the action cost.
+- **f.** If [last possession](#163-last-possession) (16.3) was declared, it goes to the team that takes the next turn.
 
 **4.1.2** Whichever team has the ball at the end of all that takes the next turn.
 
@@ -245,9 +245,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.4.2** Then the turnover, if the ball changed hands. A [steal](#124-running-back-after-a-steal) (12.4) runs players back and play carries straight on; a [new play](#125-resetting-after-a-new-play) (12.5) resets both sides and offers a Coaching Choice.
 
-**4.4.3** Then the clock, by the action's own cost -- which is charged whether or not the action turned the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
+**4.4.3** The clock has already advanced by then: the action's own cost is charged [the moment its outcome is decided](#162-space-minutes) (16.2), whether or not the action goes on to turn the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
 
-**4.4.4** If the clock has reached the period's last minute, [last possession](#163-last-possession) (16.3) is in force.
+**4.4.4** If the clock reached the period's last minute during the action, [last possession](#163-last-possession) (16.3) was declared the moment it did, and it goes to the team that takes the next turn.
 
 ## 5. Score attempt
 
@@ -277,7 +277,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.4.1** An ordinary shot costs its shooter nothing. A shooter taking a shot off a set-up exhausts 1 after the roll, whether it went in or not.
 
-**5.4.2** A score attempt costs 1 space minute, and a set-up's shot costs that on top of the maneuver that created it.
+**5.4.2** A score attempt costs 1 space minute, charged as soon as the shot has resolved, goal or miss, and before play restarts. A set-up's shot costs that on top of the maneuver that created it, which was charged when that maneuver's winner was decided.
 
 ### 5.5 After the shot
 
@@ -297,7 +297,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.1.3** Otherwise the defending coach may [send a player](#9-sending-a-player) (9) to the ball's space, who exhausts 1 per space, **or send nobody** rather than pay for the challenge.
 
-**6.1.4** With no challenger, the maneuver the offense chooses succeeds outright: there is nothing to reveal against, no ranking to read and no test to roll. Nobody moves and nobody pays.
+**6.1.4** With no challenger, the maneuver the offense chooses succeeds outright: there is nothing to reveal against, no ranking to read and no test to roll. Nobody moves and nobody pays. The clock still advances by the maneuver's cost, as it succeeds ([Space minutes](#162-space-minutes) (16.2)).
 
 ### 6.2 Choosing and revealing
 
@@ -467,7 +467,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 8.5 The cost in time
 
-**8.5.1** Taking the shot costs its own space minute on top of the maneuver that set it up.
+**8.5.1** Taking the shot costs its own space minute on top of the maneuver that set it up. The maneuver's cost is already on the clock by the time the shot is offered; the shot's minute is added once it has resolved.
 
 ## 9. Sending a player
 
@@ -651,7 +651,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 13.4 What a time out costs
 
-**13.4.1** A time out costs **1 space minute** and no exhaustion. A [pickup](#106-picking-the-ball-up) (10.6) it leaves owed is charged like any other.
+**13.4.1** A time out costs **1 space minute** and no exhaustion, charged the moment it is called, before either Coaching Choice. A [pickup](#106-picking-the-ball-up) (10.6) it leaves owed is charged like any other.
 
 ### 13.5 The two Coaching Choices
 
@@ -828,15 +828,25 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **16.2.2** A maneuver's cost is flat. It does not depend on how far the ball or a player actually moved, or on whether the move was cut short by the end of the field.
 
+**16.2.3** **The maneuver charged is the one that resolves.** A beaten card costs nothing of its own: a High Pass beaten by a Deflect costs the Deflect's 1, not the High Pass's 2.
+
+**16.2.4** **The clock advances the moment the action's outcome is decided**, not once everything it leads to has been resolved:
+
+- **a.** a maneuver, as soon as its winner is known -- on the cards, when a skill test is won (before any [injury check](#153-the-injury-check) (15.3) it owes), or, with no challenger, as soon as the offense's maneuver succeeds;
+- **b.** a score attempt, as soon as the shot has resolved, goal or miss, and before play restarts;
+- **c.** a time out, as soon as it is called, before either Coaching Choice.
+
+**16.2.5** Everything the action leads to -- its movement, a loose ball, a contest, a run back, a pickup, an own-goal roll -- happens on the clock as it already stands. A set-up shot therefore advances it twice: by the maneuver's cost when the maneuver's winner is decided, and by the shot's 1 once the shot has resolved. A goal is recorded at the minute the ball crosses the line, before the shot's own minute is added.
+
 ### 16.3 Last possession
 
-**16.3.1** When the clock reaches the period's last minute -- 15 in the first half, 30 in the second -- the action being resolved is finished in full, even if it turns the ball over.
+**16.3.1** When the clock reaches the period's last minute -- 15 in the first half, 30 in the second -- **last possession is declared at once**, in the middle of the action if that is where the clock reaches it. The action being resolved is still finished in full, even if it turns the ball over.
 
-**16.3.2** Whichever team holds the ball once it has resolved has **last possession**: the side that kept it, or the side a turnover has just handed it to.
+**16.3.2** **Last possession** goes to the team offered the next turn: whichever team holds the ball once the action has resolved -- the side that kept it, or the side a turnover has just handed it to. It is theirs from the moment that turn is offered.
 
 **16.3.3** Their next turnover ends the period immediately. No run back, no reset, no Coaching Choice, and nothing else that turnover would have led to.
 
-**16.3.4** The clock keeps running through all of it, and every turn of a last possession is charged as usual. A period therefore ends on the minute its last turnover falls on, rather than on its last minute -- a first half can genuinely end at 19.
+**16.3.4** The clock keeps running through all of it, and every turn of a last possession is charged as usual -- the one that ends the period included, since its cost was on the clock the moment its outcome was decided, before the turnover. A period therefore ends on the minute its last turnover falls on, rather than on its last minute -- a first half can genuinely end at 19.
 
 ### 16.4 Halftime
 
@@ -1256,7 +1266,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
 
-**A turn:** choose the player, choose the action, resolve it, settle the ball, turnover, clock, last-possession check.
+**A turn:** choose the player, choose the action, resolve it -- the clock advances as soon as the outcome is decided -- settle the ball, turnover. A last possession declared on the way goes to whoever takes the next turn.
 
 **A turnover:** reset speed to 1, then -- a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice. **A time out** is not a turnover: the ball stays put and both coaches get one.
 

@@ -490,7 +490,10 @@ Both are now places a turn can **stop**, and that is the whole cost of it:
 
 - **What the roll was going to do next has to outlive the wait.** An own goal
   carries `pending_own_goal_distance`, the clock cost of the maneuver that
-  risked it, which the roll spends whichever way it goes. Injury tests carry
+  risked it -- which since 2026-09-28 was already charged when the Pressure
+  won, so the roll spends it only for a game saved under the old rule
+  ([clock-and-records.md](clock-and-records.md), "When the clock
+  advances"). Injury tests carry
   `pending_injury_resume`, which is the contest's continuation -- a maneuver's
   skill test resumes into its winner's effect, a loose ball (or the long High
   Pass borrowing its machinery) into its run back, with the two arguments that

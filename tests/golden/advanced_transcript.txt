@@ -30,6 +30,7 @@ Either player can roll:
 === press 3: SkillTestView -> 'Roll the skill test'
 --- message
 ## **Dribble Advance** wins the skill test!
+Time has advanced 1, now at 01.
 --- message
 🔮 <@111>, choose your Dribble Advance distance (Playmaker ability):
 === press 4: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
@@ -48,7 +49,7 @@ Ball speed is now **5**.
 --- message
 🔮 Noxar [SK] lets it run.
 --- message
-Ball is now in space 6, Telekinetics (Home) has possession. Time has advanced 1, now at 01.
+Ball is now in space 6, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -70,6 +71,7 @@ You chose **Dribble Advance**.
 🔥 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
+Time has advanced 1, now at 02.
 --- message
 <@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
 === press 9: MindPullView -> 'Mind Pull'
@@ -96,7 +98,7 @@ The ball slips past them.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 5, Fire Demons (Visiting) has possession. Time has advanced 1, now at 02.
+Ball is now in space 5, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -111,6 +113,7 @@ You chose **Pressure**.
 🔮 Player 1 chose **Pressure**.
 
 ## **Pressure** wins!
+Time has advanced 1, now at 03.
 --- message
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 13: MindPullView -> 'Mind Pull'
@@ -121,7 +124,7 @@ The ball slips past them.
 --- message
 **Pressure:** 🔥 Blazebulk [DD] and the ball go back 1 space. 🔮 Quillon [PM] moves forward.
 
-Ball is now in space 6, Fire Demons (Visiting) has possession. Time has advanced 1, now at 03.
+Ball is now in space 6, Fire Demons (Visiting) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for Fire Demons.
 
@@ -153,6 +156,7 @@ Either player can roll:
 === press 16: SkillTestView -> 'Roll the skill test'
 --- message
 ## **High Pass** wins the skill test!
+Time has advanced 2, now at 05.
 --- message
 <@111>, 🔮 Noxar [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
 === press 17: InjuryTestView -> 'Roll the injury test'
@@ -174,7 +178,7 @@ The ball slips past them.
 --- message
 **High Pass:** the ball moves 2 spaces forward.
 
-Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 05.
+Ball is now in space 4, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -191,6 +195,7 @@ You chose **Clear**.
 🔮 Player 1 chose **Clear**.
 
 ## **Clear** wins!
+Time has advanced 1, now at 06.
 --- message
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 21: MindPullView -> 'Mind Pull'
@@ -206,7 +211,7 @@ The ball slips past them.
 --- message
 🔥 Hellguard [FB] picks up the ball.
 --- message
-Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 06.
+Ball is now in space 7, Fire Demons (Visiting) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -231,6 +236,7 @@ You chose **Double Team**.
 🔮 Player 1 chose **Double Team**.
 
 ## **Double Team** wins!
+Time has advanced 1, now at 07.
 --- message
 **Double Team:** 🔥 Hellguard [FB] and the ball go back 0 spaces. 🔮 Noxar [SK] moves forward. 🔮 Quillon [PM] joins them -- and **both** will challenge on the next maneuver, each adding their defensive skill.
 
@@ -250,7 +256,7 @@ That overshoots toward their own goal!
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 1, now at 07.
+Ball is now in space 7, Fire Demons (Visiting) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -262,6 +268,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 🔥 Dinky AI chose **High Pass**, unchallenged.
 
 ## **High Pass** succeeds!
+Time has advanced 2, now at 09.
 --- message
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 27: MindPullView -> 'Mind Pull'
@@ -293,7 +300,7 @@ Either player can roll:
 --- message
 🔥 Sizzifizik [PM] keeps possession after the high pass! 🔥 Dinky AI has possession.
 --- message
-Ball is now in space 4, Fire Demons (Visiting) has possession. Time has advanced 2, now at 09.
+Ball is now in space 4, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -310,6 +317,7 @@ You chose **Deflect**.
 🔮 Player 1 chose **Deflect**.
 
 ## **Dribble Advance** wins!
+Time has advanced 1, now at 10.
 --- message
 **Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
 --- message
@@ -327,7 +335,7 @@ Ball speed is now **5**.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 The ball slips past them.
 --- message
-Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 10.
+Ball is now in space 2, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -356,6 +364,7 @@ Either player can roll:
 --- message
 ## **Intercept** wins the skill test!
 The win on the dice plays it as **Intercept** (personal ability).
+Time has advanced 1, now at 11.
 --- message
 <@111> 🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who can take the ball to become the ball handler.
 === press 36: SmoothView -> 'Dravox [DD] keeps the ball'
@@ -383,7 +392,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now in space 3, Telekinetics (Home) has possession. Time has advanced 1, now at 11.
+Ball is now in space 3, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -407,6 +416,7 @@ You chose **Dribble Burst**.
 🔥 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
+Time has advanced 1, now at 12.
 --- message
 <@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
 === press 41: MindPullView -> 'Mind Pull'
@@ -430,7 +440,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- message
 Ball speed is now **5**.
 --- message
-Ball is now in space 2, Fire Demons (Visiting) has possession. Time has advanced 1, now at 12.
+Ball is now in space 2, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -447,6 +457,7 @@ You chose **Deflect**.
 🔮 Player 1 chose **Deflect**.
 
 ## **Dribble Advance** wins!
+Time has advanced 1, now at 13.
 --- message
 **Dribble Advance:** 🔥 Sizzifizik [PM] and the ball move forward 1 space (Playmaker ability).
 --- message
@@ -457,7 +468,7 @@ Ball speed is now **9**.
 --- message
 🔮 Umbrik [FB] lets the ball go past.
 --- message
-Ball is now in space 1, Fire Demons (Visiting) has possession. Time has advanced 1, now at 13.
+Ball is now in space 1, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has chosen to shoot to score with 🔥 Sizzifizik [PM].
 --- message
@@ -466,6 +477,8 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 --- message
 # Missed attempt!
 Telekinetics (Home) manages to avoid a goal! (phew)
+
+Time has advanced 1, now at 14.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -477,7 +490,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 1, Telekinetics (Home) has possession. Time has advanced 1, now at 14.
+Ball is now in space 1, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -501,6 +514,7 @@ You chose **Setup Pass**.
 🔥 Dinky AI chose **Deflect**.
 
 ## **Deflect** wins!
+Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
 **Deflect:** the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
 --- message
@@ -510,10 +524,12 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 49: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **14**!
+🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **15 (FH)**!
 Telekinetics 0:1 Fire Demons
 
 🔥 Brightburn [SK] exhausts 1 😮‍💨 (now 1 total).
+
+Time has advanced 1, now at 16.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -525,9 +541,9 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-The clock reaches 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Telekinetics (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
+Ball is now in space 4, Telekinetics (Home) has possession.
 --- message
-Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 2, now at 16.
+Telekinetics (Home) has **last possession**: their next turnover ends the period.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -563,6 +579,7 @@ Either player can roll:
 === press 53: SkillTestView -> 'Roll the skill test'
 --- message
 ## **Steal** wins the skill test!
+Time has advanced 1, now at 17.
 --- message
 Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
 === press 54: InjuryTestView -> 'Roll the injury test'
@@ -573,7 +590,7 @@ Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that 
 # Turnover!
 🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
-**End of the first half!** The ball turns over at 16 under last possession -- the period ends. The second half starts at 15.
+**End of the first half!** The ball turns over at 17 under last possession -- the period ends. The second half starts at 15.
 --- message
 # Halftime
 Every fielded player clears 1 exhaustion:
@@ -622,6 +639,7 @@ You chose **Steal**.
 🔮 Player 1 chose **Steal**.
 
 ## **High Pass** wins!
+Time has advanced 2, now at 17.
 --- message
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 58: MindPullView -> 'Pass'
@@ -662,7 +680,7 @@ Either player can roll:
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 1, Telekinetics (Home) has possession. Time has advanced 2, now at 17.
+Ball is now in space 1, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -686,6 +704,7 @@ You chose **Dribble Burst**.
 🔥 Dinky AI chose **Deflect**.
 
 ## **Dribble Burst** wins!
+Time has advanced 1, now at 18.
 --- message
 🔮 <@111>, choose your Dribble Burst distance (exhaust 1 a space):
 === press 65: DribbleBurstChoiceView -> '1 space (space 2, 1 exhaustion)'
@@ -700,7 +719,7 @@ Chose **1 space**.
 **Dribble Burst:** 🔮 Umbrik [FB] bursts 1 space forward, past everyone in the way.
 🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total). Ball speed is now **12**.
 
-Ball is now in space 2, Telekinetics (Home) has possession. Time has advanced 1, now at 18.
+Ball is now in space 2, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -724,6 +743,7 @@ You chose **Skilled Pass**.
 🔥 Dinky AI chose **Steal**.
 
 ## **Steal** wins!
+Time has advanced 1, now at 19.
 --- message
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 69: MindPullView -> 'Mind Pull'
@@ -780,10 +800,12 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 75: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **18**!
+🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **19**!
 Telekinetics 0:2 Fire Demons
 
 🔥 Brightburn [SK] exhausts 1 😮‍💨 (now 1 total).
+
+Time has advanced 1, now at 20.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
@@ -795,7 +817,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Telekinetics (Home) has possession. Time has advanced 1, now at 19.
+Ball is now in space 4, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -819,6 +841,7 @@ You chose **Setup Pass**.
 🔥 Dinky AI chose **Steal**.
 
 ## **Setup Pass** wins!
+Time has advanced 2, now at 22.
 --- message
 **Setup Pass:** 🔮 Quillon [PM] sets the ball's speed before picking out the pass.
 
@@ -844,7 +867,7 @@ Ball speed is now **4**.
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- message
-Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced 2, now at 21.
+Ball is now in space 7, Fire Demons (Visiting) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -856,6 +879,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 🔥 Dinky AI chose **Low Pass**, unchallenged.
 
 ## **Low Pass** succeeds!
+Time has advanced 1, now at 23.
 --- message
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 83: MindPullView -> 'Mind Pull'
@@ -873,7 +897,7 @@ Ball is now in space 7, Fire Demons (Visiting) has possession. Time has advanced
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 6, Telekinetics (Home) has possession. Time has advanced 1, now at 22.
+Ball is now in space 6, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -897,6 +921,7 @@ You chose **Skilled Pass**.
 🔥 Dinky AI chose **Steal**.
 
 ## **Steal** wins!
+Time has advanced 1, now at 24.
 --- message
 <@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 87: MindPullView -> 'Mind Pull'
@@ -919,7 +944,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 🔥 Hellguard [FB] runs back to space 6.
 🔥 Hellguard [FB] exhausts 1 😮‍💨 (now 1 total).
 --- message
-Ball is now in space 6, Telekinetics (Home) has possession. Time has advanced 1, now at 23.
+Ball is now in space 6, Telekinetics (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 

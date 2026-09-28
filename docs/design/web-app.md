@@ -984,7 +984,8 @@ the coach is looking at it.
   read by `board.jumbotron`**: possession is `ball.possession`, a tile's
   held or spent is `may_take_time_out` (the half's own count, which
   halftime clears), the track's length and its halftime mark are the
-  clock's constants, last possession the scoreboard's flag;
+  clock's constants, last possession `last_possession_called` -- lit from
+  the moment it is declared, before it is anybody's (2026-09-28);
   `JumbotronTests` hold each against the match. The coach's name is the
   game's coaches, as it always was.
 - **The time out is a tile, not a button.** The tile is outlined in the

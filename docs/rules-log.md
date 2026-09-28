@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-27.
+**As of:** 2026-09-28.
 
 ## Where the rules come from
 
@@ -153,6 +153,59 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-28 -- author, the clock advances when an action's outcome is decided
+
+The author, in a Claude Code session: *"When a maneuver resolution decides which side wins - either
+outright by rank or after a successful skill test - the time has to tick forward 1 or 2 rather
+than wait until the very end of the resolution. In case there is a scoring attempt, the time
+would tick again after the scoring attempt has either succeeded or resolved. Review all possible
+time passing rules so we can create consistency."*
+
+Until now every action's cost was charged at the very end of the turn, after the ball was
+settled, any turnover run and any Coaching Choice taken (Law 4.1.1 f, 4.4.3). **The cost is now
+charged the moment the action's outcome is decided** (Law 16.2.4), and everything the action
+leads to happens on the clock as it then stands (16.2.5). The costs themselves do not change.
+
+- **A maneuver** is charged when its winner is known: on the cards, when a skill test is won
+  (before the injury checks it owes), or, with no challenger, as the offense's maneuver
+  succeeds (6.1.4).
+- **A score attempt** is charged once the shot has resolved, goal or miss, before the restart
+  (5.4.2). A set-up shot therefore charges twice: the maneuver's cost when its winner is
+  decided, the shot's 1 once the shot resolves (8.5.1). Declining still adds nothing.
+- **A time out** is charged the moment it is called, before either Coaching Choice (13.4.1).
+  This one was not in the request; it was proposed on the same principle, since calling a time
+  out is its outcome, and the author confirmed it on PR #385.
+- **Last possession is declared when the clock reaches the last minute, and it belongs to
+  whoever is offered the next turn** (4.1.1 f, 4.4.4, 16.3.1-16.3.2). The author, on PR #385:
+  *"last possession should be declared when the time advances but whoever has the ball at the
+  end of maneuver resolution gets to have last possession. Basically when last possession is
+  announced it should turn on a flag. The next time an offensive choice is offered that flag is
+  cleared and whoever had that offensive choice now has last possession."* So the clock can
+  read 15 or 30 in the middle of the action that reached it, and last possession is announced
+  there; that action is finished in full as before, and its own turnover does not end the
+  period, because last possession is nobody's until the next turn is offered. Until now it was
+  both declared and in force at the end of the action, in one step.
+
+The review this asked for turned up three things, all confirmed by the author on PR #385:
+
+- **The turnover that ends a period was never charged.** Law 16.3.4 says every turn of a last
+  possession is charged, but a turnover under last possession ended the period before the
+  clock was reached, so the period's final maneuver or shot cost nothing and the whistle
+  announced the minute before it. Charging at the decision puts it on the clock before the
+  turnover, so the whistle's minute now includes it. The 2026-08-16 entry had patched the same
+  hole for ceding alone.
+- **Which card is charged was only in this log**, in the 2026-09-27 Setup Pass entry: the card
+  that resolves, so a beaten High Pass costs the Deflect's 1. It is now Law 16.2.3.
+- **A goal's minute.** A goal is stamped as the ball crosses the line, before the shot's own
+  minute (16.2.5). A goal off a set-up now already carries the maneuver's cost, since that was
+  charged first; an own goal already carries its Pressure's minute. Both were stamped a minute
+  or two earlier before.
+
+Already consistent, and unchanged: the free Low Pass after a beaten Skilled Pass costs no clock
+(19.5.5), a Mind Pull that lands leaves the maneuver's minute charged (20.4.8), a Setup Pass
+thrown out of play still costs its 2 (6.7.6), and running back, resets, contests, rolls,
+pickups and Coaching Choices cost nothing (4.4.3). The shootout has no clock.
 
 ### 2026-09-27 (last) -- author, Setup Pass costs a High Pass's 2 in the clock table too
 
