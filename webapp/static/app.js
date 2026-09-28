@@ -3445,10 +3445,8 @@ function rosterRow(row) {
 // -- The Rules tab -------------------------------------------------------------
 
 /* The Charter, the Learn to Play and the References
-   (webapp/static/aids.js), with the room's hover card for a card. */
-const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
-  hover: (node, url) => hoverCard(node, url),
-});
+   (webapp/static/aids.js). */
+const rulesTab = window.D12Rules.mountTab(el("rules-tab"));
 
 /* A refusal's Law, opened where the reader is: the Rules tab. */
 function openRule(slug) {

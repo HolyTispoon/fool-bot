@@ -129,23 +129,22 @@
 
   // -- The References ----------------------------------------------------
 
-  /* The cards as the model draws them, the roles table and the species
-     table -- the same three the Reading Room's right column sets. */
-  function references(aids, { hover } = {}) {
+  /* The maneuvers table, the roles table and the species table -- the
+     same three the Reading Room's right column sets. */
+  function references(aids) {
     if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
-    const rows = (aids.maneuver_cards || []).map((row) =>
-      h("div", { class: "ref-cards" },
-        row.cards.map((one) => {
-          const link = h("a", {
-            class: "ref-card",
-            href: `${one.url}?size=full`,
-            target: "_blank",
-            rel: "noopener",
-            title: one.name,
-          }, h("img", { src: one.url, alt: one.name, loading: "lazy" }));
-          if (hover) hover(link, `${one.url}?size=full`);
-          return link;
-        })));
+    const maneuvers = (aids.maneuver_rows || []).map((table) =>
+      h("table", { class: "ref-table maneuver-table" },
+        h("tr", {}, h("th", {}, "Die"), h("th", {}, table.name), h("th", {}, "Beats"), h("th", {}, "Effect")),
+        table.rows.map((one) =>
+          h("tr", {},
+            h("td", { class: "num die" }, one.dice),
+            h("td", {},
+              h("span", { class: "ability-name" }, one.name),
+              one.gambit ? h("span", { class: "tier-tag" }, "Gambit") : null,
+              h("span", { class: "maneuver-time" }, one.time)),
+            h("td", { class: "beats" }, one.beats),
+            h("td", { class: "ability" }, one.effect)))));
     const roles = h("table", { class: "ref-table" },
       h("tr", {}, h("th", {}), h("th", {}, "Role"), h("th", {}, "OFF"), h("th", {}, "DEF"), h("th", {}, "Ability")),
       (aids.role_rows || []).map((one) =>
@@ -167,8 +166,8 @@
             h("td", { class: "ability" }, one.ability))))
       : null;
     return [
-      h("div", { class: "panel-label" }, "The cards"),
-      ...rows,
+      h("div", { class: "panel-label" }, "Maneuvers"),
+      ...maneuvers,
       h("div", { class: "panel-label" }, "Roles"),
       roles,
       species ? h("div", { class: "panel-label" }, "Species") : null,
@@ -204,8 +203,8 @@
 
   /* The tab: a search box, three chips, and under them the Laws by
      their headings -- one opened to its text -- the Learn to Play, or
-     the References. `hover` is the room's hover card, for a card. */
-  function mountTab(root, { hover } = {}) {
+     the References. */
+  function mountTab(root) {
     let view = "charter";
     let charter = null;
     let aids = null;
@@ -298,7 +297,7 @@
     async function draw() {
       drawChips();
       if (view === "references") {
-        body.replaceChildren(h("div", { class: "references" }, references(aids, { hover })));
+        body.replaceChildren(h("div", { class: "references" }, references(aids)));
         return;
       }
       if (view === "learn") {
