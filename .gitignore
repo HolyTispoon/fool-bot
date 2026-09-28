@@ -7,8 +7,9 @@ __pycache__/
 board.png
 # Everything printed, one subfolder per script (docs/design/cards.md,
 # "Where printed output goes")
-print/
+d12ball/print/
 # ...and where it used to go, so an old checkout's copies stay untracked
+/print/
 cards/
 print-and-play/
 box/

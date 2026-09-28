@@ -5,7 +5,7 @@ Three double-sided cards, print-ready at 2.5 x 3.5 inches (poker size),
 each face carrying two of the four species abilities so that every
 species pairing appears on some face:
 
-    python3 scripts/render_species_cards.py --out print/species-cards
+    python3 scripts/render_species_cards.py --out d12ball/print/species-cards
     python3 scripts/render_species_cards.py --sheet --bleed
 
 The layout lives in `d12ball/species_cards.py` and the text comes from
@@ -34,7 +34,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "species-cards",
+        default=PROJECT_ROOT / "d12ball" / "print" / "species-cards",
         help="Directory to write the PNGs into (default: ./cards/species)",
     )
     parser.add_argument(

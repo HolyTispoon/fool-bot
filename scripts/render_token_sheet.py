@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the condition tokens as a print-and-play pair of sheets.
 
-    python3 scripts/render_token_sheet.py --out print/tokens
+    python3 scripts/render_token_sheet.py --out d12ball/print/tokens
 
 Two letter sheets, `front-sheet.png` and `back-sheet.png`, printed on
 the two sides of one piece of paper (duplex, flipped on the long edge):
@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "tokens",
+        default=PROJECT_ROOT / "d12ball" / "print" / "tokens",
         help="Directory to write the two sheets into (default: ./cards/tokens)",
     )
     args = parser.parse_args()

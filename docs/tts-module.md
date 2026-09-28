@@ -223,7 +223,7 @@ Why a second repository and not the kit's gitignored folder:
   (`raw.githubusercontent.com/<owner>/<repo>/<tag>/<file>`) is exactly
   that, and a branch URL is exactly not; the builder takes the tag and
   bakes it into every URL in the save.
-- **Generated output never enters `fool-bot`'s history.** `print/`,
+- **Generated output never enters `fool-bot`'s history.** `d12ball/print/`,
   where the cards, the boards and the kit are written, is gitignored
   today for that reason, and a hundred-odd PNGs plus a mesh re-rendered on every art fix would bury
   the code's history under binaries. The asset repository is *only*

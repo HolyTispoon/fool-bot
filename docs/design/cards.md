@@ -19,7 +19,7 @@ table and a coach playing by Discord should be reading the same card, so neither
 gets a design of its own.
 
 ```bash
-python3 scripts/render_maneuver_cards.py --sheet  # print/maneuver-cards/print-sheet.png
+python3 scripts/render_maneuver_cards.py --sheet  # d12ball/print/maneuver-cards/print-sheet.png
 python3 scripts/render_maneuver_cards.py --bleed   # 1/8in for a print shop
 python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot sends
 ```
@@ -405,7 +405,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   2026-09-28). A basic card's search counts its ability rows in; a gambit's
   three boxes set at about 23 to 32.
   The header band went from 152 to 136 for the same room.
-- The cards are generated output, written under `print/` and gitignored
+- The cards are generated output, written under `d12ball/print/` and gitignored
   ("Where printed output goes", below).
 
 ## The player cards
@@ -418,7 +418,7 @@ to one is checked by rendering the cards and looking. The bot posts the same
 images; see "The cards on Discord" below.
 
 ```bash
-python3 scripts/render_player_cards.py --sheet  # into print/player-cards/
+python3 scripts/render_player_cards.py --sheet  # into d12ball/print/player-cards/
 python3 scripts/render_player_cards.py --team orange --bleed
 python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 ```
@@ -611,7 +611,7 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
 
 ```bash
 python3 scripts/import_d12ball_species.py                     # -> d12ball/data/species.json
-python3 scripts/render_species_cards.py --sheet  # into print/species-cards/
+python3 scripts/render_species_cards.py --sheet  # into d12ball/print/species-cards/
 ```
 
 - **One card per *pairing*, not per player.** Every player of a species
@@ -667,7 +667,7 @@ reference set**, poker size, out of the same `Pen`, palette and
 `print_sheet` as the maneuver, player and species cards.
 
 ```bash
-python3 scripts/render_role_cards.py --sheet  # into print/role-cards/
+python3 scripts/render_role_cards.py --sheet  # into d12ball/print/role-cards/
 ```
 
 - **One card, not three -- because there is no pairing to solve.** The
@@ -985,34 +985,36 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   its own and gets every card. The kit came to 128 MB before this and
   35 MB after, which d12ball.com carries in three zips
   ([landing-pages.md](landing-pages.md), "The downloads").
-- **`print/print-and-play/` is generated output and is gitignored**, like
-  everything under `print/` -- run the script again rather than trusting
+- **`d12ball/print/print-and-play/` is generated output and is gitignored**, like
+  everything under `d12ball/print/` -- run the script again rather than trusting
   an old copy after the rules move.
 
 ## Where printed output goes
 
-**Everything printed is written under one folder, `print/`, gitignored**,
+**Everything printed is written under one folder, `d12ball/print/`, gitignored**,
 one subfolder per script, named as the kit names its own folders:
 
 | Folder | Written by |
 | --- | --- |
-| `print/maneuver-cards/` | `render_maneuver_cards.py` |
-| `print/player-cards/` | `render_player_cards.py` |
-| `print/species-cards/` | `render_species_cards.py` |
-| `print/role-cards/` | `render_role_cards.py` |
-| `print/reference-cards/` | `render_reference_cards.py` |
-| `print/tokens/` | `render_token_sheet.py` (paper) |
-| `print/tokens-3d/` | `render_token_models.py` (3MF and STL) |
-| `print/boards/` | `render_boards.py` |
-| `print/rulebooks/` | `build_rulebooks.py` |
-| `print/box/` | `render_box_art.py` |
-| `print/print-and-play/` | `generate_print_and_play_kit.py` (and its `.zip` beside it) |
+| `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
+| `d12ball/print/player-cards/` | `render_player_cards.py` |
+| `d12ball/print/species-cards/` | `render_species_cards.py` |
+| `d12ball/print/role-cards/` | `render_role_cards.py` |
+| `d12ball/print/reference-cards/` | `render_reference_cards.py` |
+| `d12ball/print/tokens/` | `render_token_sheet.py` (paper) |
+| `d12ball/print/tokens-3d/` | `render_token_models.py` (3MF and STL) |
+| `d12ball/print/boards/` | `render_boards.py` |
+| `d12ball/print/rulebooks/` | `build_rulebooks.py` |
+| `d12ball/print/box/` | `render_box_art.py` |
+| `d12ball/print/print-and-play/` | `generate_print_and_play_kit.py` (and its `.zip` beside it) |
 
 Each is only the script's default `--out`; the kit passes its own. They
 were `cards/`, `print/`, `box/` and `print-and-play/` at the root, and
 the 3D tokens had no default at all, until the author asked for one place
-(2026-09-27). The old names stay in `.gitignore` so a checkout that still
-has them does not see them as untracked; delete them by hand.
+(2026-09-27); that place was `print/` at the root until the author moved
+it inside `d12ball/`, beside the game it prints (2026-09-28). The old
+names stay in `.gitignore` so a checkout that still has them does not see
+them as untracked; delete them by hand.
 
 `board.png` at the root is not print output: it is `render_sample.py`'s
 look at a live board, and stays where it is.

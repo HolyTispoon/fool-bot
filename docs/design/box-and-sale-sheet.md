@@ -7,7 +7,7 @@ are [living-rules.md](../living-rules.md).
 rather than in it, and `scripts/render_box_art.py` is its CLI:
 
 ```bash
-python3 scripts/render_box_art.py                 # into print/box/
+python3 scripts/render_box_art.py                 # into d12ball/print/box/
 python3 scripts/render_box_art.py --bleed --pdf
 python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 ```
@@ -31,8 +31,8 @@ Every piece that comes in two grounds follows one spelling: `<name>.png` is
 the page one and `<name>-night.png` the screen one -- the cover, the wide
 banner and the Screentop banner all come in both.
 
-`print/box/` is generated output and is gitignored, like everything under
-`print/` ([cards.md](cards.md), "Where printed output goes"). Run it again
+`d12ball/print/box/` is generated output and is gitignored, like everything under
+`d12ball/print/` ([cards.md](cards.md), "Where printed output goes"). Run it again
 when the game under it changes; don't keep a stale copy.
 
 ## Everything is printed on white, and nothing is printed dark

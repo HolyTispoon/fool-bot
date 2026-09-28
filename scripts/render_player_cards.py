@@ -4,7 +4,7 @@
 One card a player, print-ready at 2.5 x 3.5 inches (poker size), with
 the player's ability printed under the portrait:
 
-    python3 scripts/render_player_cards.py --out print/player-cards
+    python3 scripts/render_player_cards.py --out d12ball/print/player-cards
     python3 scripts/render_player_cards.py --sheet --bleed
     python3 scripts/render_player_cards.py --team orange
 
@@ -47,8 +47,8 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "player-cards",
-        help="Directory to write the PNGs into (default: ./cards/players)",
+        default=PROJECT_ROOT / "d12ball" / "print" / "player-cards",
+        help="Directory to write the PNGs into (default: ./d12ball/print/player-cards)",
     )
     parser.add_argument(
         "--team",

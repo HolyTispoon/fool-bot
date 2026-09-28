@@ -6,7 +6,7 @@ role-ability card, every face, each card's front beside its back so a
 pair is cut out together and glued back to back -- eight faces, which
 is two full rows of the sheet:
 
-    python3 scripts/render_reference_cards.py --out print/reference-cards
+    python3 scripts/render_reference_cards.py --out d12ball/print/reference-cards
     python3 scripts/render_reference_cards.py --bleed
 
 This is what the print-and-play kit prints (the author, 2026-09-27: the
@@ -38,7 +38,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "reference-cards",
+        default=PROJECT_ROOT / "d12ball" / "print" / "reference-cards",
         help="Directory to write print-sheet.png into (default: ./cards/reference)",
     )
     parser.add_argument(
