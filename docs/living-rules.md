@@ -119,10 +119,10 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Role | Offense | Defense | Ability |
 | --- | ---: | ---: | --- |
-| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Setup Pass that may also reach 4. |
+| Fullback | 1 | 6 | **+1 space** on a pass or a deflection: a High Pass up to 4, a Deflect of 2, a Clear of 4, a Cross that may also reach 4. |
 | Defender | 2 | 5 | A won Pressure also steals the ball. |
 | Midfielder | 3 | 4 | Adds 3 to a skill test for a Low Pass or a Steal. |
-| Playmaker | 4 | 3 | May advance an additional space when resolving a Dribble maneuver: 2 spaces with a Dribble Advance, or 5 with a Dribble Burst. |
+| Playmaker | 4 | 3 | May advance an additional space when resolving a Dribble or a Burst: 2 spaces with a Dribble, or 5 with a Burst. |
 | Winger | 5 | 2 | A completed Low Pass may set up a scoring opportunity. |
 | Striker | 6 | 1 | Adds 3 to a score attempt taken off a set-up. |
 
@@ -219,7 +219,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.2.2** These leave the ball with a particular player:
 
-- **a.** a Dribble Advance, with the player who dribbled it;
+- **a.** a Dribble, with the player who dribbled it;
 - **b.** a completed Low Pass and a received 2-space High Pass, with the receiver;
 - **c.** a Steal, with the interceptor;
 - **d.** a ball won where it came to rest, or a won High Pass contest, with the winner;
@@ -303,7 +303,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.2.1** Both coaches secretly choose one of their maneuvers and reveal together.
 
-**6.2.2** The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who may make a gambit chooses from six -- see [Law 19](#19-advanced-maneuvers-and-gambits).
+**6.2.2** The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who may make a gambit chooses from six -- see [Law 19](#19-advanced-maneuvers-and-gambits).
 
 ### 6.3 Who wins
 
@@ -312,7 +312,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | Offense | Deflect (D1) | Steal (D2) | Pressure (D3) |
 | --- | --- | --- | --- |
 | Low Pass (O1) | Tie | Steal wins | Low Pass wins |
-| Dribble Advance (O2) | Dribble Advance wins | Tie | Pressure wins |
+| Dribble (O2) | Dribble wins | Tie | Pressure wins |
 | High Pass (O3) | Deflect wins | High Pass wins | Tie |
 
 **6.3.2** An [injured](#154-playing-injured) (15.4) participant changes this in both directions: a maneuver they would have won outright goes to a skill test they have to win, and a tie against one healthy opponent is their automatic loss with nothing rolled.
@@ -346,7 +346,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.5.6** *Winger:* a completed Low Pass may offer its receiver a [scoring opportunity](#8-scoring-opportunities) (8), at any of the three distances, if the ball is in shooting range.
 
-### 6.6 Dribble Advance
+### 6.6 Dribble
 
 **6.6.1** **Rank O2. Costs 1 space minute. Beats Deflect, loses to Pressure.**
 
@@ -378,7 +378,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.8 Deflect
 
-**6.8.1** **Rank D1. Costs 1 space minute. Beats High Pass, loses to Dribble Advance.**
+**6.8.1** **Rank D1. Costs 1 space minute. Beats High Pass, loses to Dribble.**
 
 **6.8.2** The ball moves 1 space back -- toward the goal the offense is defending. Ball speed drops by 1, never below 1. Neither player moves.
 
@@ -400,7 +400,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.10 Pressure
 
-**6.10.1** **Rank D3. Costs 1 space minute. Beats Dribble Advance, loses to Low Pass.**
+**6.10.1** **Rank D3. Costs 1 space minute. Beats Dribble, loses to Low Pass.**
 
 **6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
@@ -420,7 +420,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.2 What changes it
 
-**7.2.1** Only maneuvers change it. In standard mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble Advance and Steal let the player change it by up to their own skill.
+**7.2.1** Only maneuvers change it. In standard mode there are four: Low Pass adds 1, Deflect takes 1 off, and Dribble and Steal let the player change it by up to their own skill.
 
 ### 7.3 Turnovers reset it
 
@@ -505,7 +505,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 10.1 Where the ball comes to rest
 
-**10.1.1** Some actions leave the ball on a space with nobody named as holding it -- a pass that reaches nobody, a [Deflect](#68-deflect) (6.8), and in advanced mode a [Clear](#198-clear) (19.8) or a beaten [Setup Pass](#197-setup-pass) (19.7). **What is standing on that space decides what happens, and there are three answers.**
+**10.1.1** Some actions leave the ball on a space with nobody named as holding it -- a pass that reaches nobody, a [Deflect](#68-deflect) (6.8), and in advanced mode a [Clear](#198-clear) (19.8) or a beaten [Cross](#197-cross) (19.7). **What is standing on that space decides what happens, and there are three answers.**
 
 | On the space the ball lands on | What happens |
 | --- | --- |
@@ -595,8 +595,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Cause | Kind | What follows |
 | --- | --- | --- |
-| Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Dribble Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
-| A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Setup Pass that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
+| Steal, a Defender's won Pressure, a lost High Pass contest, a loose ball the other side wins -- and in advanced mode Intercept and a beaten Burst | Steal | Players run back. No pause and no Coaching Choice: the ball is still live. |
+| A goal, a missed shot, an own goal conceded or avoided, a ball out of bounds -- and in advanced mode a Cross that found nobody | New play | Both sides reset, and the side with the ball may call a Coaching Choice. |
 
 **12.2** A [time out](#13-time-out) (13) is a new play too, though not a turnover: possession does not change, but both sides reset and the ball goes back to speed 1.
 
@@ -819,8 +819,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 | Action | Cost |
 | --- | ---: |
-| Any maneuver except a High Pass or a Setup Pass | 1 |
-| A High Pass, or a [Setup Pass](#197-setup-pass) (19.7) -- the advanced High Pass | 2 |
+| Any maneuver except a High Pass or a Cross | 1 |
+| A High Pass, or a [Cross](#197-cross) (19.7) -- the advanced High Pass | 2 |
 | A score attempt | 1 |
 | A scoring opportunity taken off a set-up | 1, on top of the maneuver's |
 | A time out | 1 |
@@ -922,11 +922,11 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Part I says | Part II says instead | Module |
 | --- | --- | --- |
-| Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Dribble Burst hands the ball over at the speed the burst put into it ([Dribble Burst](#196-dribble-burst) (19.6)) | Advanced maneuvers |
+| Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Burst hands the ball over at the speed the burst put into it ([Burst](#196-burst) (19.6)) | Advanced maneuvers |
 | A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
-| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Skilled Pass or Intercept too ([Skilled Pass](#195-skilled-pass) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
+| A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
-| A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Setup Pass, 1, 2 or 3 spaces, the deflecting coach's choice ([Setup Pass](#197-setup-pass) (19.7)) | Advanced maneuvers |
+| A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Cross, 1, 2 or 3 spaces, the deflecting coach's choice ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
 | A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Personal |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -946,9 +946,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Advanced maneuver | Rank | Advanced version of |
 | --- | --- | --- |
-| Skilled Pass | O1 | Low Pass |
-| Dribble Burst | O2 | Dribble Advance |
-| Setup Pass | O3 | High Pass |
+| Pinpoint | O1 | Low Pass |
+| Burst | O2 | Dribble |
+| Cross | O3 | High Pass |
 | Clear | D1 | Deflect |
 | Intercept | D2 | Steal |
 | Double Team | D3 | Pressure |
@@ -990,7 +990,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 *Note.* Twenty-four of the thirty-six pairings are decisive; twelve are ties and make no gambit succeed or fail.
 
-### 19.5 Skilled Pass
+### 19.5 Pinpoint
 
 **19.5.1** **Rank O1. Costs 1 space minute. Beats Pressure and Double Team, loses to Steal and Intercept.**
 
@@ -998,11 +998,11 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.5.3** Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: the pass has to reach a different player, a pass across a shared space also sends the passer 1 space forward, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8).
 
-**19.5.4** *Midfielder:* adds 3 to the skill test for their own Skilled Pass, as for a Low Pass.
+**19.5.4** *Midfielder:* adds 3 to the skill test for their own Pinpoint, as for a Low Pass.
 
 **19.5.5** *Failed gambit:* the defender who took the ball plays an unopposed Low Pass with it, once everyone has run back and the ball's speed is set. It costs the defense no clock -- the steal has already been charged.
 
-### 19.6 Dribble Burst
+### 19.6 Burst
 
 **19.6.1** **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
@@ -1010,13 +1010,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
-**19.6.3** *Playmaker:* may run up to 5 spaces instead of 4 -- an additional space, same as the Playmaker's Dribble Advance ability -- at the same token a space as everyone else.
+**19.6.3** *Playmaker:* may run up to 5 spaces instead of 4 -- an additional space, same as the Playmaker's Dribble ability -- at the same token a space as everyone else.
 
 **19.6.4** The ball is left with the handler **at speed 12** -- not a choice, and not bounded by anybody's skill.
 
 **19.6.5** *Failed gambit:* possession is lost, and the ball **keeps the speed the burst put into it** rather than resetting to 1 -- the one exception to [every turnover resetting it](#73-turnovers-reset-it) (7.3). The defense then changes that speed by up to the challenger's defensive skill, as a steal's would.
 
-### 19.7 Setup Pass
+### 19.7 Cross
 
 **19.7.1** **Rank O3. Costs 2 space minutes. Beats Steal and Intercept, loses to Deflect and Clear.**
 
@@ -1028,7 +1028,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.7.5** **A pass that lands on nobody is still a pass.** With no teammate where it lands there is no set-up, but the ball has been thrown all the same and it settles where it stops, exactly as a [Deflect](#68-deflect) (6.8)'s does: [loose](#101-where-the-ball-comes-to-rest) (10.1) if the space is empty, and the other side's outright and uncontested if they are standing there. A space both sides are standing on is a teammate standing on it, so it is the set-up above rather than a contest.
 
-**19.7.6** **A Setup Pass cannot overshoot**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the very last space of the field, where even 1 space runs off the end, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
+**19.7.6** **A Cross cannot overshoot**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the very last space of the field, where even 1 space runs off the end, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
 **19.7.7** *Failed gambit:* **the ball goes back once, and the coach who beat the pass chooses how far.** The card that beat it resolves at a chosen distance instead of its own:
 
@@ -1040,7 +1040,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.8 Clear
 
-**19.8.1** **Rank D1. Costs 1 space minute. Beats High Pass and Setup Pass, loses to Dribble Advance and Dribble Burst.**
+**19.8.1** **Rank D1. Costs 1 space minute. Beats High Pass and Cross, loses to Dribble and Burst.**
 
 **19.8.2** A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves.
 
@@ -1048,13 +1048,13 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.8.4** *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
-**19.8.5** **Against a Setup Pass the distance is a choice.** A Clear that beats a Setup Pass goes back 2, 3 or 4 spaces -- 3, 4 or 5 for a Fullback -- the clearing coach's choice, and nothing further: that choice is the Setup Pass's [failed gambit](#197-setup-pass) (19.7). The speed drop, the landing and the scoring opportunity are as above.
+**19.8.5** **Against a Cross the distance is a choice.** A Clear that beats a Cross goes back 2, 3 or 4 spaces -- 3, 4 or 5 for a Fullback -- the clearing coach's choice, and nothing further: that choice is the Cross's [failed gambit](#197-cross) (19.7). The speed drop, the landing and the scoring opportunity are as above.
 
 **19.8.6** *Failed gambit:* the defender who played it **exhausts 2**.
 
 ### 19.9 Intercept
 
-**19.9.1** **Rank D2. Costs 1 space minute. Beats Low Pass and Skilled Pass, loses to High Pass and Setup Pass.**
+**19.9.1** **Rank D2. Costs 1 space minute. Beats Low Pass and Pinpoint, loses to High Pass and Cross.**
 
 **19.9.2** A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** -- toward the goal the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
 
@@ -1070,7 +1070,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.10 Double Team
 
-**19.10.1** **Rank D3. Costs 1 space minute. Beats Dribble Advance and Dribble Burst, loses to Low Pass and Skilled Pass.**
+**19.10.1** **Rank D3. Costs 1 space minute. Beats Dribble and Burst, loses to Low Pass and Pinpoint.**
 
 **19.10.2** A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space -- free of exhaustion, however far they came.
 
@@ -1143,7 +1143,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.3** The ball's own starting space does not count as "moved to" -- only a ball changing spaces can be pulled, and only the opposing team's ball.
 
-**20.4.4** **Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#610-pressure) (6.10) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#1910-double-team) (19.10)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#66-dribble-advance) (6.6) who moves with the ball by definition. A player shoved nowhere -- already against their own goal, with the push clamped to nothing -- has not been carried, and is offered whatever they would have been offered standing still.
+**20.4.4** **Whoever the movement itself moved is not offered a pull, or a Smooth.** The ball has to move to or through a space the player was *already standing on* and stayed on: a player the maneuver carried never had it move to them, because they and it arrived together. So the challenger a [Pressure](#610-pressure) (6.10) brings forward onto the ball is owed nothing for it, nor is a [Double Team](#1910-double-team) (19.10)'s partner, nor the handler either card shoves back, nor the handler of a [dribble](#66-dribble) (6.6) who moves with the ball by definition. A player shoved nowhere -- already against their own goal, with the push clamped to nothing -- has not been carried, and is offered whatever they would have been offered standing still.
 
 **20.4.5** **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
@@ -1157,7 +1157,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.10** **Smooth is offered only where the ball arrives, never on a space it passes through** -- the one place it parts from a pull. A Telekinetic the ball merely crosses on its way somewhere else is offered nothing. The rest of the path reading holds as it does for a pull: the ball's own starting space does not count as moved to, a ball that goes nowhere arrives nowhere, and a ball being brought back into play after it has gone dead reaches nobody. Where several of a side's Telekinetics stand on the space the ball arrives at, each is asked in turn and the first to take it holds it.
 
-**20.4.11** **Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Low Pass](#65-low-pass) (6.5) aimed at a Telekinetic, a Telekinetic who catches a [High Pass](#67-high-pass) (6.7) or a [Setup Pass](#197-setup-pass) (19.7), a Telekinetic who has just taken the ball by [Steal](#69-steal) (6.9) or [Intercept](#199-intercept) (19.9) -- each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead.
+**20.4.11** **Taking it over means taking it off somebody, so the player the movement is delivering it to is not offered a Smooth.** A [Low Pass](#65-low-pass) (6.5) aimed at a Telekinetic, a Telekinetic who catches a [High Pass](#67-high-pass) (6.7) or a [Cross](#197-cross) (19.7), a Telekinetic who has just taken the ball by [Steal](#69-steal) (6.9) or [Intercept](#199-intercept) (19.9) -- each of them ends the movement holding the ball anyway, and there is nothing left for the ability to change. A teammate standing on the same space as the intended receiver *is* offered one, and taking it is what makes them the carrier instead.
 
 *Note.* It is the same sentence as the one above about whoever the movement moved, read at the other end: a Smooth is for a ball that was going somewhere else.
 
@@ -1207,7 +1207,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.3** **Brightburn's burn upgrades nothing.** A burn that loses a maneuver skill test does not resolve the opponent's maneuver as its advanced version. Every burn, in any roll, clears 1 token from Brightburn.
 
-**21.3.4** **Emberdash runs further.** Emberdash's [Dribble Advance](#66-dribble-advance) (6.6) may go up to 3 spaces, and their [Dribble Burst](#196-dribble-burst) (19.6) costs no exhaustion.
+**21.3.4** **Emberdash runs further.** Emberdash's [Dribble](#66-dribble) (6.6) may go up to 3 spaces, and their [Burst](#196-burst) (19.6) costs no exhaustion.
 
 **21.3.5** **Flickerwing shoots past the wall.** In every [score attempt](#5-score-attempt) (5) Flickerwing makes -- off a [set-up](#8-scoring-opportunities) (8) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing.
 
@@ -1227,7 +1227,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.4.4** **Strider runs on less.** When Strider [charges up](#203-lithium-powered-cyborg) (20.3), they clear 2 drain rather than 1. A [run back](#124-running-back-after-a-steal) (12.4) drains Strider 1 at most, however far they run.
 
-**21.4.5** **Quantor runs onto the pass.** When a teammate's won [High Pass](#67-high-pass) (6.7) or [Setup Pass](#197-setup-pass) (19.7) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Setup Pass set up Quantor's [scoring opportunity](#8-scoring-opportunities) (8), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
+**21.4.5** **Quantor runs onto the pass.** When a teammate's won [High Pass](#67-high-pass) (6.7) or [Cross](#197-cross) (19.7) is about to resolve, Quantor may **drain 3** to move to the space the pass is aimed at and receive it there, without a contest. The pass then resolves with Quantor as its receiver: a High Pass of 2 in range and a Cross set up Quantor's [scoring opportunity](#8-scoring-opportunities) (8), and a longer High Pass is simply received. It is declared with the pass's distance, only for a distance whose space is on the field, and never on Quantor's own pass.
 
 **21.4.6** **Pulsar charges up on the ball.** Whenever Pulsar receives the ball, as Inferno does, they clear 1 drain, never below zero.
 
@@ -1249,7 +1249,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, exhausting 1 for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
 
-**21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Skilled Pass](#195-skilled-pass) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
+**21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Pinpoint](#195-pinpoint) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
 ### 21.6 Oozes
 
