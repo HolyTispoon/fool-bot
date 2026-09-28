@@ -606,6 +606,23 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     back's row. Until 2026-09-28 it reversed the short row as it stood, which
     put those backs behind the wrong cells -- a team's nine never had a short
     row, so it first mattered for the four reference cards.
+- **The six-card sheets are Avery Presta 95328 pages, not `print_sheet`
+  grids** (the author, 2026-09-28): the two maneuver pairs and the
+  reference pair, which are exactly six cards a side, print onto that
+  stock's pre-cut rounded-corner cards, so nobody cuts them.
+  `avery_95328_sheet` places each card where Avery's own template puts
+  it -- a letter page held landscape, three across and two down, the
+  numbers read off the template's PDF in points and written at 300dpi
+  as `AVERY_95328_*` -- rather than on the even grid a splitter
+  divides. The page is symmetric about both its centre lines, so
+  `duplex_order`'s reversed rows still land each back behind its front;
+  the printer flips it on the **short** edge, the landscape page's
+  equivalent of the portrait sheets' long-edge flip. A card with a
+  bleed is centred on its die cut, so the bleed runs into the gap. The
+  die cut's corner is a 0.375in radius where the card draws its own
+  outline at `CORNER`, a tighter one, so the cut takes a sliver off
+  each drawn corner. The player cards, nine a team, stay on
+  `print_sheet`.
 
 ## The species cards
 
@@ -975,7 +992,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   author, 2026-09-27), never a PNG per card, **and every card is printed
   double-sided** (2026-09-28): each set is a front sheet and a back sheet,
   three across (`DUPLEX_COLUMNS`), the back in `duplex_order`, printed
-  duplex. A team's pair is its cards' standard sides and their advanced
+  duplex -- the six-card ones on Avery Presta 95328 pages
+  (`avery_95328_sheet`, above). A team's pair is its cards' standard sides and their advanced
   sides, so each printed card is standard on one face and advanced on
   the other, and the player cards are all four colour teams'. The
   printed game has no species-team cards; a colour team's card carries

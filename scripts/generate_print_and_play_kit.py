@@ -86,6 +86,12 @@ each set is a front sheet and a back sheet. Print the pair duplex
 it -- a back sheet's rows are laid out reversed so they land back to
 back.
 
+The maneuver and reference sheets, six cards each, are laid out for
+**Avery Presta 95328** (rounded-corner, pre-cut, 2.5 x 3.5in, six to a
+letter page): load that stock, print each pair duplex at actual size
+(100%, no fit-to-page) with the page landscape, and **flip on the
+short edge**. The cards need no cutting.
+
 - **maneuver-cards/** -- the twelve maneuver cards, as two pairs of
   sheets, six cards a sheet. `basic-front-sheet.png` is the six basic
   maneuvers and `basic-back-sheet.png` the standard back, with one

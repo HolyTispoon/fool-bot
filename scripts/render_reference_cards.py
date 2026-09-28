@@ -4,9 +4,10 @@
 The three double-sided species-ability cards, a fourth that is the
 first turned over (Mind Pull and Slimey on its front, Volatile and
 Lithium powered on its back), and two copies of the double-sided
-role-ability card -- six cards, two full rows: `front-sheet.png` is
-every card's front and `back-sheet.png` every card's back, three
-across, the backs in duplex order so each lands behind its own front:
+role-ability card -- six cards, one Avery Presta 95328 page:
+`front-sheet.png` is every card's front and `back-sheet.png` every
+card's back, on a letter page held landscape, the backs in duplex order
+so each lands behind its own front (flip on the short edge):
 
     python3 scripts/render_reference_cards.py --out d12ball/print/reference-cards
     python3 scripts/render_reference_cards.py --bleed
@@ -28,7 +29,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from d12ball.cards import DUPLEX_COLUMNS, duplex_order, print_sheet  # noqa: E402
+from d12ball.cards import (  # noqa: E402
+    DUPLEX_COLUMNS,
+    avery_95328_sheet,
+    duplex_order,
+)
 from d12ball.components import load_player_catalog  # noqa: E402
 from d12ball.role_cards import render_role_card_set  # noqa: E402
 from d12ball.species_cards import (  # noqa: E402
@@ -79,12 +84,12 @@ def main() -> None:
 
     args.out.mkdir(parents=True, exist_ok=True)
     front_path = args.out / "front-sheet.png"
-    print_sheet(fronts, columns=DUPLEX_COLUMNS).save(front_path, dpi=(300, 300))
+    avery_95328_sheet(fronts).save(front_path, dpi=(300, 300))
     print(f"wrote {front_path}")
     back_path = args.out / "back-sheet.png"
-    print_sheet(
-        duplex_order(backs, DUPLEX_COLUMNS), columns=DUPLEX_COLUMNS,
-    ).save(back_path, dpi=(300, 300))
+    avery_95328_sheet(duplex_order(backs, DUPLEX_COLUMNS)).save(
+        back_path, dpi=(300, 300)
+    )
     print(f"wrote {back_path}")
 
 
