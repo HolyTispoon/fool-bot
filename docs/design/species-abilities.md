@@ -606,11 +606,13 @@ missing other half for Injured, scoped the same way.
   the cog is one a second frontend would have to copy.
 - **New art, not a recolour.** `drained.png`/`damaged.png`
   (`scripts/render_condition_tokens.py`) are their own icons and application
-  emoji (`DRAINED_EMOJI_NAME`/`DAMAGED_EMOJI_NAME`), teal/amber rather than the
-  human pair's blue/red -- teal because it is the Cyborgs' own team colour,
-  amber because a card carrying an amber Damaged badge and a red Injured
-  badge in the same slot would otherwise be the same picture with new words
-  stapled on. The teal is a shade brighter than a literal `TEAM_COLORS` teal:
+  emoji (`DRAINED_EMOJI_NAME`/`DAMAGED_EMOJI_NAME`), teal/wine beside
+  the human pair's amber/red -- teal because it is the Cyborgs' own team
+  colour, and a colour of Damaged's own because a card carrying a Damaged
+  badge and a red Injured badge in the same slot would otherwise be the
+  same picture with new words stapled on. (Damaged was amber until
+  2026-09-28, when Exhausted moved from blue to amber and Damaged took
+  wine, between dark crimson and deep purple, from the author.) The teal is a shade brighter than a literal `TEAM_COLORS` teal:
   the author's read on a first draft using the exact team hex was that the
   lettering got lost in the sunburst behind it at the 26px the board actually
   draws it.

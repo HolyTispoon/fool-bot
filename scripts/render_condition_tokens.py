@@ -27,8 +27,9 @@ thing coaches already recognise at 26px: a black face inside a thin
 coloured ring inside a thicker black edge, a sunburst behind the word,
 and the word itself condensed to the full width of the face. What
 changed is the colour, which is the whole point of the rewrite --
-**injury is red and exhaustion is blue**, where it used to be the other
-way round.
+**injury is red and exhaustion is amber** (blue until 2026-09-28, when
+the author moved Exhausted to amber, the colour of the exhaustion
+triangle it grows out of, on every platform at once).
 
 **The word grew and the rays behind it were cut out, 2026-09-19.** The
 first cut of this art set the word to a fifth of the face's height,
@@ -46,11 +47,15 @@ redesign.
 **Drained and Damaged are a Cyborg's own words for Exhausted and
 Injured** (see "Lithium Powered" in docs/living-rules.md) -- the same
 mechanic under a different name, so they get their own art rather than
-a recolour of the human tokens standing in for a different word. Both
-are teal/amber rather than the human pair's blue/red, since teal is the
-Cyborgs' own team colour (`TEAM_COLORS[Team.TEAL]`, see "Team colors" in
-docs/design/teams-and-players.md) and amber reads as a mechanical
-warning light beside it -- deliberately brighter than a literal
+a recolour of the human tokens standing in for a different word. They
+are teal and wine: teal is the Cyborgs' own team colour
+(`TEAM_COLORS[Team.TEAL]`, see "Team colors" in
+docs/design/teams-and-players.md), and Damaged was amber until
+2026-09-28, when Exhausted took amber and the author asked for something
+between dark crimson and deep purple for it. Wine is the author's pick
+from five drafts (2026-09-28), the crimson end of that range -- deep
+rather than bright, and still far enough from Injured's orange-red that
+the two badges in one slot are two pictures. The teal is deliberately brighter than a literal
 `TEAM_COLORS` teal, which the author found too muted a fill at 26px
 once it was next to the sunburst rays it shares its own colour with.
 """
@@ -115,17 +120,17 @@ TEXT_HALO = 0.10  # of the font size
 CLEAR_PAD_X = 0.06
 CLEAR_PAD_Y = 0.10
 
-# The swap. These were the other way round until 2026-08-15; red for
-# injury and blue for exhaustion is the pairing coaches expect, and the
-# board and the emoji both follow from here.
+# Red for injury, amber for exhaustion (blue until 2026-09-28; the other
+# way round before 2026-08-15). The board, the emoji, the web app and
+# the 3D tokens all follow from here.
 TOKENS = {
     "injured": ("INJURED", (255, 52, 0, 255)),
-    "exhausted": ("EXHAUSTED", (0, 164, 255, 255)),
+    "exhausted": ("EXHAUSTED", (255, 176, 0, 255)),
     # A Cyborg's own pair -- Damaged reads with Injured's own urgency
     # and Drained with Exhausted's, so each keeps its human
     # counterpart's role in the pairing and picks up a Cyborg-flavoured
-    # hue instead of red/blue.
-    "damaged": ("DAMAGED", (255, 176, 0, 255)),
+    # hue instead: wine, between dark crimson and deep purple.
+    "damaged": ("DAMAGED", (176, 24, 72, 255)),
     "drained": ("DRAINED", (0, 158, 158, 255)),
 }
 
