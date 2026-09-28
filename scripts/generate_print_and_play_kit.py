@@ -3,7 +3,7 @@
 
     python3 scripts/generate_print_and_play_kit.py
     python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
-    python3 scripts/generate_print_and_play_kit.py --teams --paper a3
+    python3 scripts/generate_print_and_play_kit.py --paper a3
 
 This is the thing to hand somebody before a meetup, a playtest table or
 a con booth: every printable component in one folder (or one zip),
@@ -106,11 +106,13 @@ printer, {sheet_columns} cards to a row.
   turns into on a failed check on the other. Need more? Print the
   pair of pages again.
 - **boards/** -- the field board at every size the ruleset defines
-  (7 and 9 spaces), each also as a `-top` and `-bottom` half for a
-  letter printer; the jumbotron board (clock, score, token supplies);
-  and the team board (a coach's die and maneuvers, the bench, the
+  (7 and 9 spaces), each also cut up two ways for a letter printer --
+  a `-top` and `-bottom` half, or a `-field` sheet and a `-rows`
+  sheet (see below); the jumbotron board (clock, score, token
+  supplies);
+  and the team board (the bench, the back bench, the maneuvers, the
   formation strip -- one sheet holds both coaches' panels, cut in
-  half).
+  half), as the standard board and in each colour team's colour.
 
 ## Paper and cutting
 
@@ -121,10 +123,27 @@ Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
 ({paper_size}) -- see `PAPERS` / `DEFAULT_PAPER` in
 `d12ball/boards.py` -- because its spaces have to be wide enough to
 stand two sides' meeples on, and shrinking it to letter would take
-that away. If you have no printer that size, print
-`field-board-<n>-top.png` and `field-board-<n>-bottom.png` instead:
-they are that same board cut in half, two letter sheets, taped along
-the cut, at exactly the size the big sheet prints.
+that away. If you have no printer that size, print it on two letter
+sheets instead, either of two ways. Both tape up into that same board,
+at exactly the size the big sheet prints, and both print **at 100%
+(actual size), landscape** -- never "fit to page", which shrinks the
+spaces.
+
+- **The field and the rows** -- the field in one piece:
+  1. Print `field-board-<n>-field.png` and `field-board-<n>-rows.png`.
+     The first is the whole field -- the goals, the spaces and the
+     shooting ranges -- along the sheet's long side. The second is
+     the two zone-assignment rows, one above the other.
+  2. Cut the rows sheet in half on its dashed line.
+  3. Lay the field sheet down, the title at the top left. Tape the
+     rows sheet's top half (its writing upside down) along the field
+     sheet's **top** edge -- it faces the visiting coach across the
+     table -- and its bottom half along the field sheet's **bottom**
+     edge, facing the home coach. Each row's zones line up
+     over the field's own: home on the left, visitors on the right.
+- **The two halves** -- `field-board-<n>-top.png` and
+  `field-board-<n>-bottom.png`, taped along the cut. Simpler, but the
+  seam runs across the middle of the field.
 
 **Everything else is letter** ({letter_size}), the size a printer in
 the house has in it: the jumbotron on one sheet, landscape, and the
@@ -162,8 +181,7 @@ The two rulebooks, as PDFs on letter paper, are in **rulebooks/**:
     python3 scripts/generate_print_and_play_kit.py
 
 Add `--bleed` for a print shop, `--pdf` for a PDF of each board
-alongside its PNG, `--teams` for a team board per team colour rather
-than one uncoloured one, and `--zip` to also bundle the whole kit into
+alongside its PNG, and `--zip` to also bundle the whole kit into
 `<out>.zip` for handing to somebody who does not want a folder. See `--help` for the rest.
 """
 
@@ -223,14 +241,6 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--teams",
-        action="store_true",
-        help=(
-            "Render a team board per team colour instead of one "
-            "uncoloured board."
-        ),
-    )
-    parser.add_argument(
         "--bleed",
         action="store_true",
         help="Add the print-shop 1/8in bleed to every component.",
@@ -277,8 +287,6 @@ def main() -> None:
     ]
     if args.pdf:
         board_args.append("--pdf")
-    if args.teams:
-        board_args.append("--teams")
     run("render_boards.py", board_args)
 
     # The two rulebooks as the PDFs a table reads, on letter paper

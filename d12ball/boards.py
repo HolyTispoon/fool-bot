@@ -149,6 +149,29 @@ HALF_PAPERS: dict[str, str] = {
     "a3": "a4",
 }
 
+# **The field board is cut into quarters, not only halves** (the
+# author, 2026-09-28). Its middle half -- title, arrows, strip, goals
+# and the shooting ranges -- is exactly one sheet of the paper below,
+# and each zone-assignment row exactly a quarter of the sheet, so the
+# board prints a second way on the small paper: the field whole on one
+# sheet with no seam across it, and the two rows on another, cut apart
+# and taped above and below. See `render_field_board_pieces` and
+# "Printing a board on small sheets" in docs/design/printed-boards.md.
+#
+# What every band keeps clear of a cut, in inches: a home printer
+# cannot print to the edge of a sheet, and every cut here is the edge
+# of some sheet. It is also the outer margin, for the same reason.
+FIELD_EDGE_INCHES = 0.25
+# The zone name's band over a zone row's cards. A row is this, a card
+# (`CARD_INCHES`), and `FIELD_EDGE_INCHES`, inside a quarter of the
+# sheet -- 4.11 of tabloid's 4.25in -- which is what sizes it.
+ZONE_LABEL_INCHES = 0.36
+# The goal zone beyond each end of the strip. It was a third of an
+# inch, set when the margins beside it were wider; the author asked for
+# more room for the goals (2026-09-28), and it is bought partly from
+# the margin and partly from the spaces.
+END_ZONE_INCHES = 0.45
+
 # Poker size, the maneuver cards' own -- the player cards share their
 # proportions with it on the bot's board (CARD_SIZE is 110 x 154), so
 # the areas that hold them are cut for it.
@@ -216,8 +239,8 @@ CLOCK_COLUMNS = 8
 # already fixed once.
 PANEL_TITLE_SIZE = 17
 PANEL_TITLE_LEADING = 1.35
-# The jumbotron's own chrome -- the header band, the footer band and
-# the gap between two panels -- **measured in the sheet's own units,
+# The jumbotron's own chrome -- the header band and the gap between two
+# panels -- **measured in the sheet's own units,
 # not as a share of its height**. Everything drawn in them is type,
 # and type here is sized in `u`, which is a share of the sheet's
 # *width*; a band that was a share of the height therefore held a
@@ -225,24 +248,42 @@ PANEL_TITLE_LEADING = 1.35
 # held fewer than there are. That is what put the panel's title and
 # the half's own label into the same strip.
 #
-# The type in the header and the footer, and what the bands are
-# therefore worth. **Both bands are derived from their own contents,
-# never chosen**: a band picked by eye and type sized separately is two
-# measurements of one thing, and it is the same fault the team board's
-# footer records -- a line drawn below the band it belongs to, on a
-# render that looks fine, because the crop is silent.
+# The type in the header, and what the band is therefore worth. **The
+# band is derived from its own contents, never chosen**: a band picked
+# by eye and type sized separately is two measurements of one thing,
+# and it is the same fault the team board's footer records -- a line
+# drawn below the band it belongs to, on a render that looks fine,
+# because the crop is silent. The header is the title alone: the two
+# notes that stood beside it moved into the clock panel (the author,
+# 2026-09-28) -- see `CLOCK_NOTES`.
 JUMBOTRON_TITLE_SIZE = 40
-JUMBOTRON_NOTE_SIZE = 16
-JUMBOTRON_NOTE_LEADING = 1.25
-JUMBOTRON_NOTES = 2
-JUMBOTRON_FOOTER_SIZE = 15
-# The title is on the left of the band and the notes on the right, so
-# the band is **the taller of the two blocks, not their sum**.
-JUMBOTRON_HEADER = max(
-    JUMBOTRON_TITLE_SIZE * 1.1,
-    JUMBOTRON_NOTES * JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING,
+JUMBOTRON_HEADER = JUMBOTRON_TITLE_SIZE * 1.1
+# **What the clock charges, and when last possession is declared,
+# printed in the clock panel under the second half** -- the author's
+# own words (2026-09-28), which replaced a footer under the whole board
+# that was set too small to read and had fallen behind the rules (it
+# still charged a shot a minute per space). They are the Charter's
+# 16.2 and 16.3 said the way a coach at the table needs them; a change
+# to either Law is a change here.
+CLOCK_NOTES = (
+    "Maneuvers move the clock by 1, except for High Pass and Cross that "
+    "take 2. A scoring Attempt and a Time Out each move the clock by 1.",
+    "Last possession is declared when the clock reaches the last time "
+    "box of the period. The team that holds the ball after the maneuver "
+    "is fully resolved will have the last possession of the period.",
 )
-JUMBOTRON_FOOTER = JUMBOTRON_FOOTER_SIZE * 1.25
+# The notes are body text a coach reads across the table, so they are
+# set at a size of their own and wrapped to the track, never fitted
+# down to one line -- fitting is what made the old footer too small.
+CLOCK_NOTE_SIZE = 14
+CLOCK_NOTE_LEADING = 1.3
+# Between the two notes, over and above a line's own leading, so they
+# read as two statements rather than one paragraph.
+CLOCK_NOTE_GAP = 5
+# The halftime note on the second half's own label strip: smaller than
+# the label it shares the strip with, and set in the same muted ink as
+# the notes.
+HALFTIME_NOTE_SIZE = 12
 # What two panels keep between them. It is the one number here still
 # chosen rather than measured, because nothing is drawn in it -- and
 # it is charged three times, so it is bought out of the cells
@@ -255,13 +296,6 @@ JUMBOTRON_GAP = 9
 # silo wide and the tracks take the rest, so the sheet carries the
 # same three pieces in the space of a margin.
 SUPPLY_STRIP = 112
-# How the height left over is split between the clock and the score.
-# The clock takes the larger share because it is four rows of cells to
-# the score's two, and both carry a title and two band labels -- so
-# the split is what makes a clock cell and a score cell come out the
-# same height, which is the only reason to choose it rather than
-# measure it.
-CLOCK_SHARE = 0.64
 # The two bands, and the cells under them. **A minute is not a
 # position on this track**: the second half starts on the first half's
 # last minute (the author, 2026-09-22), so 15 has a cell in each band
@@ -569,11 +603,16 @@ class FieldGeometry:
     **The sheet is portrait (11 x 17), not landscape, and the strip
     still runs left to right across the narrower dimension.** That is
     the author's own call, made knowing what it costs: a 9-space
-    board's spaces come out under an inch wide, well short of the
+    board's spaces come out just over an inch wide, short of the
     1.5in floor two meeples side by side would ask for elsewhere on
     this file, but it is what leaves the 17in length for the two zone-
     assignment rows above and below the strip -- see `zone_row_*`, and
     "The zone-assignment rows" below.
+
+    **The bands sit on the sheet's quarters** -- a row in each outer
+    quarter and the field in the middle two -- so the board cuts into
+    a small-paper field sheet and two rows without a cut crossing
+    anything; see `render_field_board_pieces`.
     """
 
     left: float
@@ -598,47 +637,55 @@ class FieldGeometry:
 
     @classmethod
     def for_sheet(cls, sheet: Sheet, layout: BoardLayout) -> "FieldGeometry":
-        margin = sheet.u(28)
-        left = margin
-        right = sheet.width - margin
-        top = margin
-        bottom = sheet.height - margin
+        # **The full width of the sheet, less what a printer cannot
+        # reach** -- 11in on tabloid, which is also a letter sheet's
+        # length, so the field sheet of the small-paper pieces is this
+        # same width to the pixel.
+        edge = FIELD_EDGE_INCHES * PRINT_DPI
+        left = edge
+        right = sheet.width - edge
 
         # The end zone beyond each end of the strip, and the gap to its
         # own outline -- the print counterpart of `GOAL_ZONE_WIDTH` and
-        # `GOAL_ZONE_GAP` in render.py, sized as a share of the sheet
-        # rather than a fixed pixel count so it scales with paper size
-        # the way every other measurement here does. Narrower than a
-        # landscape sheet would carry -- the portrait sheet gives the
-        # strip only its own 11in width to divide among spaces, and an
-        # end zone eats into that the same as a margin does.
+        # `GOAL_ZONE_GAP` in render.py, in inches since the sheet's
+        # width is the one thing every paper this board prints on
+        # shares.
         end_zone_gap = sheet.u(6)
-        end_zone_width = sheet.u(30)
+        end_zone_width = END_ZONE_INCHES * PRINT_DPI
         strip_left = left + end_zone_width + end_zone_gap
         strip_right = right - end_zone_width - end_zone_gap
 
+        # **Four bands on the quarters of the sheet**: the visiting
+        # row, the field (two quarters) and the home row -- which is
+        # what lets the board be cut into a field sheet and two rows
+        # (see `FIELD_EDGE_INCHES`). Each band keeps `edge` clear of
+        # its own outer edge; a row's other edge is its label band's,
+        # and what is left of the quarter lies between them.
+        quarter = sheet.height // 4
         # A zone-assignment row is a card row, full stop -- it holds a
         # real 2.5 x 3.5in card at its own printed size (`CARD_INCHES`),
         # the same size a card is everywhere else in this codebase, plus
         # a label band across its own top for the zone's name and the
         # "cards assigned to this zone" caption.
-        zone_row_gap = sheet.u(14)
-        zone_label_height = sheet.u(56)
-        zone_row_height = CARD_INCHES[1] * PRINT_DPI + zone_label_height
+        zone_row_height = (CARD_INCHES[1] + ZONE_LABEL_INCHES) * PRINT_DPI
 
-        visiting_zone_top = top
+        visiting_zone_top = edge
         visiting_zone_bottom = visiting_zone_top + zone_row_height
-        home_zone_bottom = bottom
+        home_zone_bottom = sheet.height - edge
         home_zone_top = home_zone_bottom - zone_row_height
 
-        content_top = visiting_zone_bottom + zone_row_gap
-        content_bottom = home_zone_top - zone_row_gap
+        content_top = quarter + edge
+        content_bottom = sheet.height - quarter - edge
         content = content_bottom - content_top
 
+        # The header is its type: the title, the subtitle, and one
+        # line of note (see `draw_field_header`). The shooting-range
+        # band is one line of label since "shoot only from here" came
+        # off it. The strip takes the rest.
         gap = content * 0.02
-        header = content * 0.16
+        header = sheet.u(FIELD_NOTE_TOP + FIELD_NOTE_LEADING)
         direction = content * 0.05
-        ranges = content * 0.075
+        ranges = sheet.u(44)
         strip = content - header - direction - ranges - 3 * gap
 
         header_bottom = content_top + header
@@ -772,6 +819,63 @@ def render_field_board_halves(
     return (add_bleed(top), add_bleed(bottom)) if bleed else (top, bottom)
 
 
+def render_field_board_pieces(
+    rules: BasicRuleset,
+    board_size: int = 7,
+    paper: str = DEFAULT_PAPER,
+    bleed: bool = False,
+) -> tuple[Image.Image, Image.Image]:
+    """
+    **The same field board as a field sheet and a sheet of rows** --
+    the second way it prints on the paper below (the author,
+    2026-09-28), beside `render_field_board_halves`.
+
+    The halves put a seam across the strip. These keep the field whole:
+    the first sheet is the board's middle half -- title, arrows, the
+    strip, the goals and the shooting ranges -- on one sheet of the
+    small paper, landscape, the field running along its long side. The
+    second is the two zone-assignment rows, the visiting row over the
+    home row, with a dashed line between them: cut there, and tape the
+    visiting row along the field sheet's top edge and the home row
+    along its bottom. Taped, the three are `render_field_board`'s board.
+
+    **It is a cut of the finished board, never a second layout**, for
+    the reason the halves are: a space is the width the whole board's
+    arithmetic gives it. The cuts fall on the quarters of the sheet,
+    which `FieldGeometry.for_sheet` lays every band out around, so no
+    cut crosses anything drawn.
+    """
+    board = render_field_board(rules, board_size, paper=paper)
+    width, height = board.size
+    quarter = height // 4
+    field = board.crop((0, quarter, width, height - quarter))
+
+    rows = Sheet(width, 2 * quarter)
+    rows.image.paste(board.crop((0, 0, width, quarter)), (0, 0))
+    rows.image.paste(
+        board.crop((0, height - quarter, width, height)), (0, quarter)
+    )
+    draw_dashed_line(
+        rows.draw,
+        0,
+        quarter,
+        width,
+        quarter,
+        fill=PAPER_EDGE,
+        width=max(1, round(TEAM_CUT_INCHES * PRINT_DPI)),
+        dash_length=round(0.10 * PRINT_DPI),
+        gap_length=round(0.08 * PRINT_DPI),
+    )
+    pieces = (field, rows.image)
+    return tuple(add_bleed(piece) for piece in pieces) if bleed else pieces
+
+
+# Where the header's note sits under the title, and the line it takes:
+# the header band is measured from these (`FieldGeometry.for_sheet`).
+FIELD_NOTE_TOP = 84
+FIELD_NOTE_LEADING = 24
+
+
 def draw_field_header(
     sheet: Sheet,
     geometry: FieldGeometry,
@@ -798,18 +902,22 @@ def draw_field_header(
         MUTED,
     )
 
-    note_font = sheet.font(15)
-    y = top + sheet.u(84)
-    for note in (
+    # One note. The second -- that the clock, the score and the token
+    # supplies are kept on the jumbotron -- came off (the author,
+    # 2026-09-28): the jumbotron is on the table beside it and says so
+    # itself. The note has to fit one line, since the band is measured
+    # for one (`FieldGeometry.for_sheet`), so it is fitted, not wrapped.
+    note = (
         f"Two periods on one running clock, 00-{HALFTIME_MINUTE} and "
         f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES}. Home kicks off the "
-        "first, the visitors the second.",
-        "The clock, the score and the token supplies are kept on the "
-        "jumbotron board.",
-    ):
-        for line in wrap_text(sheet.draw, note, note_font, width):
-            sheet.text((left, y), line, note_font, MUTED)
-            y += sheet.u(21)
+        "first, the visitors the second."
+    )
+    sheet.text(
+        (left, top + sheet.u(FIELD_NOTE_TOP)),
+        note,
+        sheet.fitted_font(note, width, 15),
+        MUTED,
+    )
 
 
 def draw_attack_directions(
@@ -1270,9 +1378,16 @@ def draw_zone_assignment_cell(
     cell = Image.new("RGB", (width, height), PAPER)
     draw = ImageDraw.Draw(cell)
 
+    # The label band is `ZONE_LABEL_INCHES`, and the name and the
+    # caption are centred in it on one line.
+    label_height = ZONE_LABEL_INCHES * PRINT_DPI
+    label_middle = label_height / 2
     label = zone_labels(board_size)[zone]
-    label_font = sheet.fitted_font(label, width * 0.5, 21, bold=True)
-    draw.text((sheet.u(6), sheet.u(8)), label, font=label_font, fill=INK)
+    label_font = sheet.fitted_font(label, width * 0.5, 19, bold=True)
+    draw.text(
+        (sheet.u(6), label_middle), label, font=label_font, fill=INK,
+        anchor="lm",
+    )
 
     # The caption only fits next to a short zone name (MIDFIELD's own
     # width, mostly) -- HOME ZONE/THIRD and VISITORS ZONE/THIRD are
@@ -1285,10 +1400,10 @@ def draw_zone_assignment_cell(
     caption_width = draw.textlength(caption, font=caption_font)
     if caption_x + caption_width <= width - sheet.u(6):
         draw.text(
-            (caption_x, sheet.u(15)), caption, font=caption_font, fill=MUTED,
+            (caption_x, label_middle), caption, font=caption_font,
+            fill=MUTED, anchor="lm",
         )
 
-    label_height = sheet.u(56)
     box = (0, label_height, width, height)
     draw.rounded_rectangle(
         box,
@@ -1396,20 +1511,14 @@ def draw_shooting_ranges(
             width=sheet.u(1.6),
         )
         label = labels[side]
+        # The label alone: "shoot only from here" under it came off (the
+        # author, 2026-09-28) -- a bracket named SHOOTING RANGE already
+        # says where a shot is taken from.
         sheet.text(
-            ((left + right) / 2, (top + bottom) / 2 - sheet.u(11)),
+            ((left + right) / 2, (top + bottom) / 2),
             label,
             sheet.fitted_font(label, (right - left) * 0.92, 17, bold=True),
             INK,
-            anchor="mm",
-        )
-        sheet.text(
-            ((left + right) / 2, (top + bottom) / 2 + sheet.u(13)),
-            "shoot only from here",
-            sheet.fitted_font(
-                "shoot only from here", (right - left) * 0.92, 13,
-            ),
-            MUTED,
             anchor="mm",
         )
 
@@ -1460,7 +1569,11 @@ class JumbotronGeometry:
     supply_left: float
     supply_top: float
     supply_bottom: float
-    footer_y: float
+    # The clock notes, wrapped to the track, and the height the block
+    # takes at the bottom of the clock panel -- measured here so the
+    # cells above it are what is left, not a share it may overrun.
+    clock_note_lines: tuple[tuple[str, ...], ...]
+    clock_notes_height: float
     # The strip a panel keeps for its own title, measured off the type
     # that goes in it rather than off the header's share -- see
     # `PANEL_TITLE_SIZE`.
@@ -1507,18 +1620,51 @@ class JumbotronGeometry:
         # number here; portrait has room to spare.
         gap = sheet.u(JUMBOTRON_GAP)
         header = sheet.u(JUMBOTRON_HEADER)
-        footer = sheet.u(JUMBOTRON_FOOTER)
-        # Three gaps: under the header, between the two tracks, and
-        # over the footer. The supply strip runs beside the tracks
-        # rather than under them, so it costs none.
-        panels = content - header - footer - 3 * gap
+        # One gap under the header; the one between the two tracks is
+        # inside `panels` and charged where the rows are divided. The
+        # supply strip runs beside the tracks rather than under them,
+        # so it costs none, and there is no footer any more.
+        panels = content - header - gap
         # The strip is the full height of the two tracks beside it, so
         # the panels below divide what is left of the *height* only --
         # the supplies no longer take a share of it at all.
         supply_left = right - sheet.u(SUPPLY_STRIP)
         tracks_right = supply_left - gap
+        padding = sheet.u(18)
+        label_height = sheet.u(PANEL_TITLE_SIZE * PANEL_TITLE_LEADING)
+        band_label = label_height * 0.7
 
-        clock = (panels - gap) * CLOCK_SHARE
+        note_face = sheet.font(CLOCK_NOTE_SIZE)
+        note_lines = tuple(
+            tuple(
+                wrap_text(
+                    sheet.draw,
+                    note,
+                    note_face,
+                    round(tracks_right - left - 2 * padding),
+                )
+            )
+            for note in CLOCK_NOTES
+        )
+        notes_height = (
+            sum(len(lines) for lines in note_lines)
+            * sheet.u(CLOCK_NOTE_SIZE * CLOCK_NOTE_LEADING)
+            + (len(note_lines) - 1) * sheet.u(CLOCK_NOTE_GAP)
+            + padding
+        )
+
+        # **A clock cell and a score cell come out the same height**,
+        # measured rather than a chosen share: both panels carry a
+        # title and two band labels, the clock the notes as well, and
+        # what is left is split over the clock's four rows and the
+        # score's four (two a side).
+        chrome = label_height + 2 * band_label
+        score_rows = 2 * -(-(SCORE_TRACK_MAX + 1) // SCORE_COLUMNS)
+        clock_rows = -(-len(CLOCK_CELLS) // CLOCK_COLUMNS)
+        row = (panels - gap - 2 * chrome - notes_height) / (
+            clock_rows + score_rows
+        )
+        clock = chrome + clock_rows * row + notes_height
 
         header_bottom = top + header
         clock_top = header_bottom + gap
@@ -1539,9 +1685,10 @@ class JumbotronGeometry:
             supply_left=supply_left,
             supply_top=clock_top,
             supply_bottom=score_bottom,
-            footer_y=bottom - footer / 2,
-            label_height=sheet.u(PANEL_TITLE_SIZE * PANEL_TITLE_LEADING),
-            padding=sheet.u(18),
+            clock_note_lines=note_lines,
+            clock_notes_height=notes_height,
+            label_height=label_height,
+            padding=padding,
         )
 
     @property
@@ -1575,7 +1722,11 @@ class JumbotronGeometry:
         return self.label_height * 0.7
 
     def clock_cell(self) -> tuple[float, float]:
-        used = self.label_height + 2 * self.band_label_height
+        used = (
+            self.label_height
+            + 2 * self.band_label_height
+            + self.clock_notes_height
+        )
         return (
             self.cells_width / CLOCK_COLUMNS,
             (self.clock_bottom - self.clock_top - used) / self.clock_rows,
@@ -1680,66 +1831,29 @@ def render_jumbotron_board(
     draw_clock_track(sheet, geometry)
     draw_score_tracks(sheet, geometry)
     draw_token_supplies(sheet, geometry)
-    footer = (
-        "Every turn costs at least one minute, and a score attempt one "
-        "per space to the attacked end. The clock never stops: it runs "
-        f"past {HALFTIME_MINUTE} and {CLOCK_MINUTES} for as long as last "
-        "possession does."
-    )
-    sheet.text(
-        ((geometry.left + geometry.right) / 2, geometry.footer_y),
-        footer,
-        # Fitted rather than sized: this line grew when the clock did,
-        # and at a fixed size it ran off both edges of the sheet.
-        sheet.fitted_font(
-            footer, geometry.cells_width, JUMBOTRON_FOOTER_SIZE
-        ),
-        MUTED,
-        anchor="mm",
-    )
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
 
 def draw_jumbotron_header(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     """
-    The board's title on the left and its two notes on the right.
+    The board's title, and nothing beside it.
 
-    **The notes are laid out from the bottom of the band upward, by
-    their own line height.** They used to hang at two fixed offsets
-    written for the band the tabloid board had; on a sheet whose band
-    is measured rather than shared, a fixed offset is a line placed off
-    the top of it. See `JUMBOTRON_NOTE_SIZE`.
+    No period boxes, no subtitle and no notes. The boxes were two ticked
+    squares up here while the clock counted one period twice; the clock
+    now runs the whole game in two labelled bands, so where the minute
+    token is standing is already which half it is. The two notes that
+    stood on the right went too (the author, 2026-09-28): which minutes
+    are whose half is what the band labels already say, and when the
+    second half starts is said between the two halves, where it is
+    read -- see `draw_clock_half_bands`.
     """
-    top = geometry.header_top
-    bottom = geometry.header_bottom
     sheet.text(
-        (geometry.left, top),
+        (geometry.left, geometry.header_top),
         "JUMBOTRON",
         sheet.font(JUMBOTRON_TITLE_SIZE, bold=True),
         INK,
     )
-    # No period boxes, and no subtitle either. The boxes were two ticked
-    # squares up here while the clock counted one period twice; the clock
-    # now runs the whole game in two labelled bands, so where the minute
-    # token is standing is already which half it is -- and each panel
-    # names itself, which is what the subtitle was doing over the top.
-    notes = (
-        f"00-{HALFTIME_MINUTE} in the first half, "
-        f"{SECOND_HALF_START_MINUTE}-{CLOCK_MINUTES} in the second.",
-        f"The second half starts at {SECOND_HALF_START_MINUTE} however "
-        "far the first half's last possession ran.",
-    )
-    line = sheet.u(JUMBOTRON_NOTE_SIZE * JUMBOTRON_NOTE_LEADING)
-    note_face = sheet.font(JUMBOTRON_NOTE_SIZE)
-    for index, note in enumerate(reversed(notes)):
-        sheet.text(
-            (geometry.right, bottom - (index + 1) * line),
-            note,
-            note_face,
-            MUTED,
-            anchor="ra",
-        )
 
 
 @dataclass(frozen=True)
@@ -1769,6 +1883,8 @@ class ClockTrackGeometry:
     cell_width: float
     cell_height: float
     band_label: float
+    note_lines: tuple[tuple[str, ...], ...]
+    notes_height: float
 
     @classmethod
     def for_jumbotron(cls, geometry: JumbotronGeometry) -> "ClockTrackGeometry":
@@ -1783,6 +1899,8 @@ class ClockTrackGeometry:
             cell_width=cell_width,
             cell_height=cell_height,
             band_label=geometry.band_label_height,
+            note_lines=geometry.clock_note_lines,
+            notes_height=geometry.clock_notes_height,
         )
 
     def cell_origin(self, position: int) -> tuple[float, float]:
@@ -1800,14 +1918,17 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     The whole game's minutes, in rows of eight under a band per half --
     the frame, the two half labels and the cells, in that order.
 
-    **The overrun has no cells, and no note either.** The clock runs
-    past a period's last minute for as long as its last possession
-    does, and a track drawn for that would be a row of squares nobody
-    can say the length of. What that used to want spelling out in the
-    track's spare slot is already said twice over, by the caption under
-    15 and 30 and by the footer under the whole board -- and since the
-    second half starts on 15 there is no spare slot left anyway: each
-    band is sixteen cells, two full rows.
+    **The overrun has no cells.** The clock runs past a period's last
+    minute for as long as its last possession does, and a track drawn
+    for that would be a row of squares nobody can say the length of.
+    What that used to want spelling out in the track's spare slot is
+    said by the caption under 15 and 30 and by the notes under the
+    second half -- and since the second half starts on 15 there is no
+    spare slot left anyway: each band is sixteen cells, two full rows.
+
+    **The notes are the clock's own**, at the bottom of its panel: what
+    moves the clock and when last possession is declared, at a size
+    that reads across the table (see `CLOCK_NOTES`).
 
     **The two 15s are two cells and mean different things.** The first
     half's is its last minute, bordered and captioned like 30; the
@@ -1817,6 +1938,7 @@ def draw_clock_track(sheet: Sheet, geometry: JumbotronGeometry) -> None:
     draw_clock_track_frame(sheet, track)
     draw_clock_half_bands(sheet, track)
     draw_clock_cells(sheet, track)
+    draw_clock_notes(sheet, track)
 
 
 def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
@@ -1837,7 +1959,7 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
     # the half's own label, and the two read as one paragraph.
     sheet.text(
         (track.cells_left, (track.top + track.cells_top) / 2),
-        "CLOCK  ·  SPACE MINUTES",
+        "CLOCK",
         sheet.font(15, bold=True),
         MUTED,
         anchor="lm",
@@ -1845,6 +1967,12 @@ def draw_clock_track_frame(sheet: Sheet, track: ClockTrackGeometry) -> None:
 
 
 def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
+    """
+    Each half's label over its rows, and **when the second half starts,
+    said between the two halves** -- on the right of the second half's
+    own strip, where a coach moving the minute token over at halftime
+    is already looking.
+    """
     band_face = sheet.font(14, bold=True)
     for band, (first, last_minute) in enumerate(CLOCK_BANDS):
         label_top = (
@@ -1862,6 +1990,21 @@ def draw_clock_half_bands(sheet: Sheet, track: ClockTrackGeometry) -> None:
             INK,
             anchor="lm",
         )
+        if band:
+            note = (
+                f"The second half starts at {SECOND_HALF_START_MINUTE} "
+                "however far the first half's last possession ran."
+            )
+            sheet.text(
+                (
+                    track.cells_left + CLOCK_COLUMNS * track.cell_width,
+                    label_top + track.band_label / 2,
+                ),
+                note,
+                sheet.font(HALFTIME_NOTE_SIZE),
+                MUTED,
+                anchor="rm",
+            )
 
 
 def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
@@ -1919,6 +2062,27 @@ def draw_clock_cells(sheet: Sheet, track: ClockTrackGeometry) -> None:
                 OFFENSE_COLOR,
                 anchor="mm",
             )
+
+
+def draw_clock_notes(sheet: Sheet, track: ClockTrackGeometry) -> None:
+    """The notes under the second half, in the block the geometry measured."""
+    face = sheet.font(CLOCK_NOTE_SIZE)
+    line = sheet.u(CLOCK_NOTE_SIZE * CLOCK_NOTE_LEADING)
+    # The text is centred in the block, which leaves the padding
+    # `for_sheet` charged it split evenly: half clear of the row above,
+    # half clear of the panel's bottom edge.
+    gap = sheet.u(CLOCK_NOTE_GAP)
+    text_height = (
+        sum(len(lines) for lines in track.note_lines) * line
+        + (len(track.note_lines) - 1) * gap
+    )
+    y = track.bottom - (track.notes_height + text_height) / 2
+    for index, lines in enumerate(track.note_lines):
+        if index:
+            y += gap
+        for text in lines:
+            sheet.text((track.cells_left, y), text, face, MUTED)
+            y += line
 
 
 def draw_score_tracks(sheet: Sheet, geometry: JumbotronGeometry) -> None:
@@ -2158,16 +2322,19 @@ TEAM_AREA_PADDING_INCHES = 0.11
 # descenders. The old header drew it straight through them.
 TEAM_RULE_INCHES = 0.018
 TEAM_RULE_GAP_INCHES = 0.055
-# Between the footer's three blocks -- the shapes, the deal, and the
-# two reminders -- over and above each block's own leading.
+# Between the footer's three lines -- the shapes, the standard
+# formation, and the reminder -- over and above each line's own leading.
 TEAM_FOOTER_LINE_GAP_INCHES = 0.05
 # Leading, as a multiple of a line's own size. A heading sits closer to
 # what it heads than body copy does to the next line of itself.
 TEAM_TITLE_LEADING = 1.15
 TEAM_LINE_LEADING = 1.4
-# The d12 badge in the footer, drawn rather than named: it is the one
-# component a coach keeps beside the cards.
-TEAM_DIE_INCHES = 0.17
+# A bench is three cards stacked sideways (the author, 2026-09-28): each
+# card sits this share of its own width to the right of the one behind
+# it, so the left edge of every card shows and a coach counts three
+# without lifting one.
+TEAM_BENCH_CARDS = 3
+TEAM_BENCH_CASCADE = 0.2
 # The dashed line down the seam of the two-up page. It is on the seam
 # and so on the edge of both boards, which is the one place a mark
 # belongs on a sheet that is about to be cut in half.
@@ -2238,7 +2405,7 @@ def draw_fitted(
 class TeamBoardGeometry:
     """
     One coach's board: a header, a row of three cells -- the bench, the
-    back bench and the head coach -- and a footer.
+    back bench and the maneuvers -- and a footer.
 
     **The three cells are one row of equal columns**, and the row takes
     whatever the header and the footer leave. Both of those are a fixed
@@ -2247,13 +2414,15 @@ class TeamBoardGeometry:
     the same two lines on any paper, and a line that does not fit its
     band is the bug this layout replaced.
 
-    `slot` is the card guide drawn inside a bench, capped at a real
-    poker card so a bigger sheet gives a roomier area rather than an
-    outsized guide. `card_slot_inches` reports it, and at half a letter
-    sheet it comes out under a poker card: the head, the footer and two
-    legible cell labels do not leave 3.5 inches between them, and the
-    author's call was legible over life-size. A coach stacks their
-    bench on the area, which is a real card wide either way.
+    `slot` is one card of the cascade drawn inside a bench -- three of
+    them, each `TEAM_BENCH_CASCADE` of a card right of the last -- capped
+    at a real poker card so a bigger sheet gives a roomier area rather
+    than an outsized guide. `card_slot_inches` reports it, and at half a
+    letter sheet it comes out under a poker card: a bench column is not
+    the width of three cascaded cards, nor the row a card's height,
+    once the head, the footer and two legible cell labels are paid for,
+    and the author's call was legible over life-size. A coach stacks their bench on the area the way the guide
+    shows, overhanging it.
     """
 
     left: float
@@ -2294,7 +2463,8 @@ class TeamBoardGeometry:
         # measurement, and the old footer was two -- a band in inches
         # and lines placed in sheet units, which is how the deal and
         # the reminder came to be drawn below the bottom of the board
-        # and cropped away without a mark on the render.
+        # and cropped away without a mark on the render. Three lines:
+        # the shapes, the standard formation, and the one reminder.
         deal_offset = inches(
             TEAM_BODY_INCHES * TEAM_LINE_LEADING + TEAM_FOOTER_LINE_GAP_INCHES
         )
@@ -2302,7 +2472,7 @@ class TeamBoardGeometry:
             TEAM_BODY_INCHES * TEAM_LINE_LEADING + TEAM_FOOTER_LINE_GAP_INCHES
         )
         footer_height = reminder_offset + inches(
-            2 * TEAM_SMALL_INCHES * TEAM_LINE_LEADING
+            TEAM_SMALL_INCHES * TEAM_LINE_LEADING
         )
         footer_top = bottom - footer_height
 
@@ -2328,7 +2498,7 @@ class TeamBoardGeometry:
             + inches(CARD_INCHES[1] + 2 * TEAM_AREA_PADDING_INCHES),
         )
 
-        # **The head coach's column is the width of the card in it**,
+        # **The maneuvers column is the width of the card in it**,
         # and the two benches divide what is left. The reference is the
         # back of the maneuver card at the height the row leaves it,
         # capped at a real card (it is drawn at 300dpi and printing it
@@ -2351,11 +2521,18 @@ class TeamBoardGeometry:
             (right - reference_width, right),
         )
 
+        # The cascade is one card's width plus an offset per card
+        # behind it, so the card is what is left of the column over
+        # that -- or of the row's height, whichever binds first.
         padding = inches(TEAM_AREA_PADDING_INCHES)
+        cascade = 1 + (TEAM_BENCH_CARDS - 1) * TEAM_BENCH_CASCADE
         slot_height = min(
             area_bottom - area_top - 2 * padding,
             inches(CARD_INCHES[1]),
-            (bench_width - 2 * padding) * CARD_INCHES[1] / CARD_INCHES[0],
+            (bench_width - 2 * padding)
+            / cascade
+            * CARD_INCHES[1]
+            / CARD_INCHES[0],
         )
         slot_width = slot_height * CARD_INCHES[0] / CARD_INCHES[1]
 
@@ -2397,9 +2574,9 @@ def team_board_pixels(paper: str = TEAM_BOARD_PAPER) -> tuple[int, int]:
 
 def card_slot_inches(paper: str = TEAM_BOARD_PAPER) -> tuple[float, float]:
     """
-    How big a card the bench areas' guides are cut for, in inches. The
-    CLI prints it, and it is what says whether a print can be laid
-    cards on or only read.
+    How big a card the bench areas' guides are cut for, in inches --
+    one card of the three cascaded. The CLI prints it, and it is what
+    says whether a print can be laid cards on or only read.
     """
     width, height = team_board_pixels(paper)
     geometry = TeamBoardGeometry.for_sheet(Sheet(width, height))
@@ -2418,8 +2595,8 @@ def render_team_board(
     bleed: bool = False,
 ) -> Image.Image:
     """
-    **One coach's board**: the bench, the back bench and the head
-    coach's cell, under a header and over a footer.
+    **One coach's board**: the bench, the back bench and the
+    maneuvers cell, under a header and over a footer.
 
     Half a letter sheet (8.5 x 5.5in), which is what makes two of them
     a page -- `render_team_board_sheet` is that page, and this is the
@@ -2428,8 +2605,10 @@ def render_team_board(
     docs/design/printed-boards.md), which is what leaves a board this
     short in the first place.
 
-    `team` colours the rule under the header, the cell outlines and the
-    team's own name in the corner; with no team it is all ink.
+    `team` colours the rule under the header and the cell outlines, and
+    names the team in the corner; with no team it is all ink and the
+    corner is empty -- the standard board is nobody's, so it names
+    nobody.
     """
     width, height = team_board_pixels(paper)
     sheet = Sheet(width, height)
@@ -2454,8 +2633,8 @@ def render_team_board(
         caption="injured players, and anyone subbed out",
         accent=accent,
     )
-    draw_head_coach_panel(sheet, geometry, maneuvers)
-    draw_team_footer(sheet, geometry, rules, accent)
+    draw_maneuvers_panel(sheet, geometry, maneuvers)
+    draw_team_footer(sheet, geometry, rules)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
@@ -2513,8 +2692,9 @@ def draw_team_header(
     accent: str,
 ) -> None:
     """
-    The board's own title and the team's name on one line, the roster
-    under them, and the rule under that.
+    The board's own title and the team's name on one line -- no name on
+    the standard board, which is no team's -- the roster under them,
+    and the rule under that.
 
     **The roster line is wrapped to what the title leaves**, not fitted
     to it: the line names nine cards by role and is the first thing on
@@ -2524,22 +2704,23 @@ def draw_team_header(
     title_font = print_font(TEAM_TITLE_INCHES, bold=True)
     sheet.text((geometry.left, geometry.top), "TEAM BOARD", title_font, INK)
 
-    # .replace before .upper(), not team_display_name (which title-
-    # cases): an underscored team's value needs the same space an
-    # ordinary one gets nowhere, but this header is deliberately all
-    # caps, unlike everywhere team_display_name is used.
-    name = team.value.replace("_", " ").upper() if team else "TEAM"
-    title_width = sheet.text_width("TEAM BOARD", title_font)
-    draw_fitted(
-        sheet,
-        (geometry.right, geometry.top + 0.04 * PRINT_DPI),
-        name,
-        geometry.right - geometry.left - title_width - 0.3 * PRINT_DPI,
-        TEAM_NAME_INCHES,
-        accent,
-        bold=True,
-        anchor="ra",
-    )
+    if team is not None:
+        # .replace before .upper(), not team_display_name (which title-
+        # cases): an underscored team's value needs the same space an
+        # ordinary one gets, but this header is deliberately all caps,
+        # unlike everywhere team_display_name is used.
+        name = team.value.replace("_", " ").upper()
+        title_width = sheet.text_width("TEAM BOARD", title_font)
+        draw_fitted(
+            sheet,
+            (geometry.right, geometry.top + 0.04 * PRINT_DPI),
+            name,
+            geometry.right - geometry.left - title_width - 0.3 * PRINT_DPI,
+            TEAM_NAME_INCHES,
+            accent,
+            bold=True,
+            anchor="ra",
+        )
     draw_fitted(
         sheet,
         (geometry.left, geometry.roster_top),
@@ -2575,10 +2756,7 @@ def roster_line(players: PlayerCatalog) -> str:
         for role, count in counts.items()
         if count
     ]
-    return (
-        f"Six of your {len(roster)} on the field, three on the bench: "
-        + " · ".join(parts)
-    )
+    return " · ".join(parts)
 
 
 def draw_cell_label(
@@ -2626,15 +2804,18 @@ def draw_card_area(
     accent: str,
 ) -> None:
     """
-    One area a coach's cards sit in, with a card's own footprint
-    dashed inside it.
+    One area a coach's cards sit in, with **three cards dashed inside
+    it, stacked sideways** -- the stack a bench is.
 
-    **One guide, not a fan of three.** A bench holds three cards
-    between them and the old board fanned three outlines across a
-    column five inches wide; half a letter sheet gives a column two
-    and a half, which is one card and no fan. The cards stack -- the
-    guide is where the stack goes, and the area around it is the room
-    to square them up.
+    Each card sits `TEAM_BENCH_CASCADE` of a card to the right of the
+    one behind it (the author, 2026-09-28, over a first cut that
+    stacked them downward). A card behind is drawn only where the one
+    in front leaves it showing -- its top, left and bottom edges out to
+    where the next card covers it -- never a line across the front
+    card's face. Side by side without overlapping does not fit: half a
+    letter sheet gives a column two and a half inches wide. A single
+    outline, which is what this replaced, said nothing about there
+    being three.
     """
     left, right = geometry.columns[column]
     draw_cell_label(sheet, geometry, column, title, caption)
@@ -2649,17 +2830,45 @@ def draw_card_area(
     )
 
     slot_width, slot_height = geometry.slot
-    slot_left = (left + right - slot_width) / 2
-    slot_top = (area[1] + area[3] - slot_height) / 2
-    sheet.dashed_rect(
-        (slot_left, slot_top, slot_left + slot_width, slot_top + slot_height),
-        outline=PAPER_EDGE,
-        width=max(1, round(0.01 * PRINT_DPI)),
-        dash=0.055 * PRINT_DPI,
-    )
+    step = slot_width * TEAM_BENCH_CASCADE
+    stack_width = slot_width + (TEAM_BENCH_CARDS - 1) * step
+    stack_left = (left + right - stack_width) / 2
+    top = (area[1] + area[3] - slot_height) / 2
+    bottom = top + slot_height
+    line = max(1, round(0.01 * PRINT_DPI))
+    dash = 0.055 * PRINT_DPI
+    for index in range(TEAM_BENCH_CARDS):
+        card_left = stack_left + index * step
+        if index == TEAM_BENCH_CARDS - 1:
+            sheet.dashed_rect(
+                (card_left, top, card_left + slot_width, bottom),
+                outline=PAPER_EDGE,
+                width=line,
+                dash=dash,
+            )
+            continue
+        # A card behind shows only its left strip: its left edge, and
+        # its top and bottom edges out to where the next card covers it.
+        covered = card_left + step
+        for x0, y0, x1, y1 in (
+            (card_left, top, card_left, bottom),
+            (card_left, top, covered, top),
+            (card_left, bottom, covered, bottom),
+        ):
+            draw_dashed_line(
+                sheet.draw,
+                round(x0),
+                round(y0),
+                round(x1),
+                round(y1),
+                fill=PAPER_EDGE,
+                width=line,
+                dash_length=round(dash),
+                gap_length=round(dash * 0.7),
+            )
 
 
-def draw_head_coach_panel(
+def draw_maneuvers_panel(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
     maneuvers: ManeuverCatalog,
@@ -2691,7 +2900,7 @@ def draw_head_coach_panel(
         sheet,
         geometry,
         column=2,
-        title="HEAD COACH",
+        title="MANEUVERS",
         caption="both coaches play one face down",
     )
     art = rounded_corners(
@@ -2748,7 +2957,7 @@ def formation_strip_segments(
             ).append(formation.value)
 
     segments: list[tuple[str, bool, float]] = [
-        ("FORMATIONS — READ FROM YOUR OWN GOAL", True, 0.13)
+        ("FORMATIONS", True, 0.13)
     ]
     segments.extend((name, False, 0.14) for name in universal)
     for label, names in restricted.items():
@@ -2768,10 +2977,6 @@ def draw_formation_strip(
     The shapes, as a strip rather than a table -- there is no cell left
     to put a table in, and three numbers a shape reads perfectly well
     in a line. Returns the x it drew out to, which is what says it fit.
-
-    A formation is read from a coach's own goal forward, which is the
-    one thing on this board that is not absolute, and is why the label
-    says so.
 
     **The strip is measured before it is drawn**, and shrinks whole
     rather than running off the edge of the board: a shape added
@@ -2816,57 +3021,17 @@ def standard_deal_line(rules: BasicRuleset) -> str:
         + " + ".join(role.value.title() for role in roles)
         for area, roles in rules.standard_setup.items()
     ]
-    return "Standard deal (2-2-2): " + " · ".join(parts) + "."
+    return "Standard Formation (2-2-2): " + " · ".join(parts) + "."
 
 
-def team_reminders(rules: BasicRuleset) -> tuple[str, str]:
+def team_reminder() -> str:
     """
-    The two lines beside the die badge: what the die is for, and the
-    two things about a card on this board that are not on it.
-
-    **The die's faces are read from the ruleset**, never written here
-    -- the board may not claim a component the bot does not play. It is
-    the one die a coach keeps: the selection d6s the ruleset still
-    defines are not on this board and are not in the rules any more
-    (see "The printed boards" in docs/design/printed-boards.md).
+    The last line of the footer: the two things about a card on this
+    board that are not on it.
     """
-    die = rules.team_board.team_die
     return (
-        f"Every roll in the game is a d{die.sides}: "
-        "skill tests, shots, injury checks.",
         "A card's zone is assigned on the field board. A player is "
-        "Exhausted once their tokens exceed their defence.",
-    )
-
-
-def draw_die_badge(
-    sheet: Sheet,
-    rules: BasicRuleset,
-    center: tuple[float, float],
-    accent: str,
-) -> None:
-    """
-    The die a coach keeps, drawn at the size of the two lines it sits
-    beside: a shape on the board rather than a word in a sentence,
-    because it is a component they have to find in the box.
-    """
-    die = rules.team_board.team_die
-    radius = TEAM_DIE_INCHES * PRINT_DPI
-    sheet.polygon(
-        polygon_points(center[0], center[1], radius, die.sides),
-        fill=PAPER,
-        outline=accent,
-        width=max(1, round(0.012 * PRINT_DPI)),
-    )
-    draw_fitted(
-        sheet,
-        center,
-        f"d{die.sides}",
-        radius * 1.4,
-        TEAM_BODY_INCHES,
-        accent,
-        bold=True,
-        anchor="mm",
+        "Exhausted once their tokens exceed their defence."
     )
 
 
@@ -2874,10 +3039,9 @@ def draw_team_footer(
     sheet: Sheet,
     geometry: TeamBoardGeometry,
     rules: BasicRuleset,
-    accent: str = INK,
 ) -> None:
     """
-    The shapes, the deal, and the two reminders beside the die.
+    The shapes, the standard formation, and the reminder.
 
     **Every line is drawn at a printed size and the band is measured
     off those sizes**, so the last line lands above the bottom of the
@@ -2898,24 +3062,11 @@ def draw_team_footer(
         TEAM_BODY_INCHES,
         INK,
     )
-
-    pitch = TEAM_SMALL_INCHES * TEAM_LINE_LEADING * PRINT_DPI
-    indent = geometry.left + TEAM_DIE_INCHES * 2.6 * PRINT_DPI
-    draw_die_badge(
+    draw_fitted(
         sheet,
-        rules,
-        (
-            geometry.left + TEAM_DIE_INCHES * PRINT_DPI,
-            reminder_line + pitch * 0.85,
-        ),
-        accent,
+        (geometry.left, reminder_line),
+        team_reminder(),
+        geometry.right - geometry.left,
+        TEAM_SMALL_INCHES,
+        MUTED,
     )
-    for index, text in enumerate(team_reminders(rules)):
-        draw_fitted(
-            sheet,
-            (indent, reminder_line + index * pitch),
-            text,
-            geometry.right - indent,
-            TEAM_SMALL_INCHES,
-            MUTED,
-        )

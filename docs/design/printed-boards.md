@@ -17,13 +17,14 @@ only one board still needs it.
 
 ```bash
 python3 scripts/render_boards.py                     # every field size, into print/boards/
-python3 scripts/render_boards.py --teams --bleed --pdf
+python3 scripts/render_boards.py --bleed --pdf
 python3 scripts/render_boards.py --board-size 9        # just the one field
 python3 scripts/render_boards.py --no-halves           # tabloid sheets only
 python3 scripts/render_boards.py --jumbotron-paper a4  # its own sheet size
 ```
 
-The field board comes out three times, whole and as two halves. See below.
+The field board comes out five times: whole, as two halves, and as a field
+sheet and a rows sheet. See below.
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
   cards' -- dark ink on a light face -- because a print goes on paper and the
@@ -80,7 +81,7 @@ The field board comes out three times, whole and as two halves. See below.
   rather than a divergence from it.** Maneuvers are chosen with the cards, so
   the two selection d6s are off the team board, and what a coach needs on the
   board is which maneuver beats which rather than which face rolls it -- the
-  back of the maneuver card itself, printed in the head coach's cell (see "The
+  back of the maneuver card itself, printed in the maneuvers cell (see "The
   team board"). The author retired the selection dice from the rules outright,
   so the living rules no longer mention them either -- see the dated entry in
   the rules log.
@@ -91,9 +92,10 @@ The field board comes out three times, whole and as two halves. See below.
   its maneuver by rolling a d6 through them. None of it reaches a coach, so
   retiring it is a code change and not a rules one -- but the sheet still has
   the column, so an import will keep writing it until the author drops it
-  upstream. `team_reminders` reads `team_die` alone and says why; don't
-  reach for `offense_die`/`die_values` in the module, because the data is
-  still right there to pick up again by accident.
+  upstream. Nothing on the team board reads a die at all since the d12 badge
+  came off it (the author, 2026-09-28); don't reach for
+  `offense_die`/`die_values` in the module, because the data is still right
+  there to pick up again by accident.
 - **The team board is its own paper: half a letter sheet, and two files.**
   `TEAM_BOARD_PAPER` is letter rather than the tabloid the field and the
   jumbotron are drawn on, because letter is the size a printer in the house
@@ -105,8 +107,7 @@ The field board comes out three times, whole and as two halves. See below.
   same picture by construction -- everything but the seam the cut line is
   drawn down. See "The team board" below for what is on it.
 - **Nothing on any board is written in the module.** The layouts, the
-  formations, the standard deal and the coach's die come from
-  `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
+  formations and the standard formation come from `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
   from `players.json` -- so a printed board cannot claim a rule the bot does
   not play, and an import reaches the boards by re-running the script.
 - **The geometry a board asserts is read off the same code the bot enforces.**
@@ -121,8 +122,8 @@ The field board comes out three times, whole and as two halves. See below.
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
   the script being touched. **Each comes out three ways** -- whole on the
-  tabloid sheet and as its own two letter halves; see "Printing a board on
-  two small sheets".
+  tabloid sheet, as its own two letter halves, and as a letter field sheet
+  with a letter sheet of rows; see "Printing a board on small sheets".
 - **Zones keep their real names on the field board's own assignment rows**,
   not the team board any more -- see "The zone-assignment rows". A coach's own
   goal is the Home Goal for one of them and the Visitors Goal for the other,
@@ -132,8 +133,18 @@ The field board comes out three times, whole and as two halves. See below.
   (H/M/V) are all equal (see "The field" in the living rules, and the
   2026-08-24 entry in the rules log; not to be confused with `FONT_GOAL_ZONE`,
   which labels the goal zone beyond the edge of the board). The team board's
-  own formation strip is relative, and it says so. `--teams` colours a board
-  per team and changes nothing else.
+  own formation strip is relative -- a shape is read from a coach's own goal --
+  and no longer says so on the board: the author took "read from your own
+  goal" off it (2026-09-28), since the standard formation printed under it
+  already reads own goal to opponent goal.
+- **The team board comes out five times: the standard board and one per colour
+  team** (the author, 2026-09-28). The standard board is in ink and names no
+  team -- it said "TEAM" in the corner, which named nothing -- and each colour
+  team's is in its `TEAM_COLORS` hex with its name. The species teams get no
+  board of their own: the print game has no cards for them, and each shares
+  its colour team's hex, so their board would be the colour team's with a
+  different word in the corner. There is no flag for it; every run writes all
+  five, and so the print-and-play kit carries them.
 - **The formation strip lists the shapes and nothing else, and groups the ones
   only some boards play.** One team board is printed for every field size, so
   3-2-1 and 1-2-3 are on it under "9-SPACE BOARD ONLY" rather than left off --
@@ -162,7 +173,7 @@ The field board comes out three times, whole and as two halves. See below.
   instead of to that space crossed it -- which on 15 and 30 is the border
   doing the telling.
 - **The clock panel's two label lines are centred in their strips, not hung
-  off the top of them.** `CLOCK · SPACE MINUTES` and `FIRST HALF · 00-15`
+  off the top of them.** `CLOCK` and `FIRST HALF · 00-15`
   are different things -- a panel's name and a band's -- and hung from the
   top of their strips they cleared each other by two hundredths of an inch
   and read as one paragraph. Centred, and a size down from the panel titles
@@ -209,8 +220,8 @@ halves (above).
   sheet is what the score track needed. Beside the tracks the same three
   pieces take the width of a margin: `SUPPLY_STRIP` is that width,
   `tracks_right` is where the clock and the score stop, and everything
-  measured off the cells reads the narrow pair while the header and the footer
-  still span the sheet.
+  measured off the cells reads the narrow pair while the header still spans
+  the sheet.
   - **A silo's width is the piece; its height is stack room.** The width is
     fixed at `SILO_INCHES`, because a token does not get bigger because the
     sheet did -- but down the side there is height to spare, and a well a
@@ -254,39 +265,87 @@ halves (above).
   panel's own title and the half's label landed in one strip and read as one
   paragraph -- the fault "The clock panel's two label lines" below records as
   already fixed once, arriving back by a different door.
-  - `JUMBOTRON_HEADER` and `JUMBOTRON_FOOTER` are **derived from the type
-    that goes in them**, never chosen: the header is the taller of its two
-    blocks (the title on the left, the two notes on the right) rather than
-    their sum, and `draw_jumbotron_header` lays the notes out from the bottom
-    of the band upward by their own line height rather than at two offsets
-    written for the band the tabloid board happened to have.
-    `PANEL_TITLE_SIZE` does the same for a panel's label strip, which used to
-    be `header * 0.48` and so shrank whenever the header was trimmed for a
-    reason that had nothing to do with type.
+  - `JUMBOTRON_HEADER` is **derived from the type that goes in it**, never
+    chosen. It is the title alone now: the two notes that stood on its right
+    went on 2026-09-28 (below). `PANEL_TITLE_SIZE` does the same for a
+    panel's label strip, which used to be `header * 0.48` and so shrank
+    whenever the header was trimmed for a reason that had nothing to do with
+    type.
   - `JUMBOTRON_GAP` is the one number here still chosen rather than measured,
-    because nothing is drawn in it. It is charged three times, so on the
-    landscape sheet it comes out of the cells directly.
-- **There is one share left, `CLOCK_SHARE`.** The supplies take no height at
-  all now, so the only thing still divided is what the clock and the score get
-  of the height between them -- and it is chosen rather than measured for one
-  reason: it is what makes a clock cell and a score cell come out the same
-  height. The clock takes the larger part because it is four rows to the
-  score's two, with both carrying a title and two band labels.
+    because nothing is drawn in it. It is charged twice -- under the header
+    and between the two tracks -- so on the landscape sheet it comes out of
+    the cells directly.
+- **The clock's notes are in the clock panel, under the second half, and there
+  is no footer** (the author, 2026-09-28). The board used to carry two notes
+  beside its title ("00-15 in the first half, 15-30 in the second" and when
+  the second half starts) and a footer under everything about what a turn and
+  a shot cost. The footer was fitted to one line and came out about eight
+  point, too small to read across a table, and it had fallen behind the rules
+  -- it still charged a shot a minute per space to the attacked end, where the
+  Charter charges it 1 (5.4.2). Now:
+  - the first header note is gone, since the band labels (`FIRST HALF ·
+    00-15`) already say it;
+  - when the second half starts is said **between the two halves**, on the
+    right of the second half's own label strip (`draw_clock_half_bands`),
+    where a coach moving the minute token at halftime is looking, and it costs
+    no height;
+  - `CLOCK_NOTES` -- what moves the clock, and when last possession is
+    declared and who takes it -- are the author's own words, set at
+    `CLOCK_NOTE_SIZE` and **wrapped to the track rather than fitted down**,
+    at the bottom of the clock panel. They are Laws 16.2 and 16.3 said the way
+    a coach at the table needs them, and are written in the module rather
+    than read from the data, so a change to either Law is a change there.
+  - **The block is measured by the geometry**, `clock_note_lines` and
+    `clock_notes_height`, and the clock's cells are what is left above it --
+    the same rule as the team board's footer: a band and the lines in it are
+    one measurement.
+- **A clock cell and a score cell are the same height by measurement, not by
+  a chosen share.** `CLOCK_SHARE` was the one share left, picked so the two
+  came out equal; with the notes in the clock panel a share would have had to
+  be picked again every time a note was reworded. `for_sheet` now takes the
+  two panels' titles, band labels and the notes off the height and divides
+  the rest over the clock's four rows and the score's four (two a side).
 - **Every measurement on this board is a share of the sheet's width**, so the
-  smaller sheet took the type down with it. That is the cost and it is real:
-  the footer line is about eight point where it was fifteen on tabloid. The
-  cells did not shrink with it -- a clock cell is 1.08 x 0.94in against the
-  tabloid board's 1.93 x 0.85, so it lost width and gained height, and a score
-  cell is 0.79 x 0.92 where eleven of them used to be thirteen at 1.05 x 0.91.
+  smaller sheet took the type down with it -- which is why the clock notes
+  have a size of their own and wrap rather than being fitted to a line. A
+  clock cell is 1.08 x 0.82in against the tabloid board's 1.93 x 0.85, and a
+  score cell 0.79 x 0.82 where eleven of them used to be thirteen at 1.05 x
+  0.91; both stay above `MIN_TOKEN_INCHES`.
 
-## Printing a board on two small sheets
+## Printing a board on small sheets
 
 `render_field_board_halves` writes the field board a second way: two letter
 sheets, `field-board-7-top.png` and `field-board-7-bottom.png`, which taped
-along the cut are the tabloid board. So a print run comes out with two
-ledger-size field boards and four letter-size halves, and a house with a
-letter printer and no tabloid one can still put the real board on the table.
-`--no-halves` leaves them out.
+along the cut are the tabloid board. `render_field_board_pieces` writes it a
+third way (the author, 2026-09-28): `field-board-7-field.png`, the field
+whole on one letter sheet landscape, and `field-board-7-rows.png`, the two
+zone-assignment rows on another, cut apart on its dashed line and taped
+above and below the field. So a print run comes out with two ledger-size
+field boards and eight letter sheets, and a house with a letter printer and
+no tabloid one can still put the real board on the table -- with the field in
+one piece, if it takes the second way. `--no-halves` leaves both out. The
+print-and-play kit's README says how to print and tape each.
+
+- **The field sheet and the rows are a cut of the finished board too, on its
+  quarters.** The halves put their seam across the strip, a little under half
+  way down a space, because only the middle of the sheet cuts into two
+  letter sheets. The pieces cut at a quarter and three quarters instead: the
+  middle half is a letter sheet on its own, and the two outer quarters
+  together are a second. For that to cut nothing, `FieldGeometry.for_sheet`
+  lays the board out on its quarters: each zone row in an outer quarter, and
+  the header, arrows, strip, goals and shooting ranges in the middle two.
+  Each band keeps `FIELD_EDGE_INCHES` clear of the edges that become a
+  sheet's edge, because a home printer cannot print there.
+  - **A row is a card and its label, and it only just fits.** A quarter of
+    tabloid is 4.25in; a row is `FIELD_EDGE_INCHES` (0.25) outside, the
+    card's 3.5, and a `ZONE_LABEL_INCHES` (0.36) label band -- 4.11in. The
+    label band is what was trimmed for it (it was about 0.6in), with the
+    zone name and caption centred on one line. A3's quarter is 4.13in, which
+    still holds it. A bigger label, a bigger margin, or a paper with a shorter
+    quarter will push a row past the cut, and the crop is silent -- look at
+    the rows sheet after changing any of them.
+  - **The rows sheet carries a dashed cut line on its seam**, like the team
+    board's two-up page; the field sheet needs none, being a whole sheet.
 
 - **A half is a cut of the finished picture, never a second layout.**
   `halve_sheet` crops the rendered board in two and that is the whole of it.
@@ -333,7 +392,7 @@ letter printer and no tabloid one can still put the real board on the table.
 ## The team board
 
 A coach's own board: a header, a row of three cells -- the bench, the back
-bench and the head coach -- and a footer. It is printed as two files,
+bench and the maneuvers -- and a footer. It is printed as two files,
 `team-board.png` (one board, 8.5 x 5.5in) and `team-board-2up.png` (a letter
 page carrying two of them, cut across the middle). It was redrawn from
 scratch in September 2026; what follows is why it is shaped the way it is,
@@ -352,7 +411,7 @@ and each point is a fault the board it replaced actually had.
 - **The footer's own lines are measured by the geometry, not by the routine
   that draws them.** `footer_lines` is where the three blocks go, and the
   band is the sum of them. Two measurements of one band is how the standard
-  deal and the closing reminder came to be drawn *below* the bottom edge of
+  formation and the closing reminder came to be drawn *below* the bottom edge of
   the old panel and cropped away -- on a render that looked fine, because
   the crop is silent, so look at the whole render after a change to a band.
 - **A line that cannot be legible is dropped, not shrunk.**
@@ -366,7 +425,14 @@ and each point is a fault the board it replaced actually had.
   title's.** Sharing one line is what put "players who have yet to play"
   hard against the next cell's title, and a caption squeezed into what a
   title leaves has no width of its own to be legible in.
-- **The head coach's cell is the back of the maneuver card, pasted.** It is
+- **The header is the title, the team's name and the roster's counts.** The
+  roster line is the nine cards by role and nothing else; "six of your 9 on
+  the field, three on the bench" in front of it went (the author,
+  2026-09-28). The standard board has nothing in the corner -- see "The team
+  board comes out five times" above.
+- **The maneuvers cell is the back of the maneuver card, pasted.** It was
+  titled HEAD COACH until the author renamed it MANEUVERS (2026-09-28), which
+  is what is in it. It is
   the same picture `cards.render_maneuver_card_back` draws for the deck --
   the six ranks on one cycle, a solid arrow to what a rank beats and a
   dashed one to what it ties -- so a coach reading a matchup off the board
@@ -381,18 +447,25 @@ and each point is a fault the board it replaced actually had.
   real card (it is drawn at 300dpi and printing it larger would only soften
   it), and the two benches divide what is left. Equal thirds left a band of
   empty board beside the picture.
-- **A bench holds one card guide, and it is under poker size.** Half a letter
-  sheet does not leave 3.5 inches between a legible header, two legible cell
-  labels and a footer, and the author's call was legible over life-size: the
-  guide is a card's proportions at the height the row has, the cells are wider
-  than a real card, and a bench stacks on the area rather than inside the
-  guide. `card_slot_inches` reports it and the CLI says so in as many words.
-  The three-card fan the old board drew across a five-inch column is gone with
-  the column.
-- **The die is in the footer, drawn.** It is the one component a coach keeps
-  beside the cards, so it is a shape on the board rather than a word in a
-  sentence -- and its faces are read from `basic_rules.json` like everything
-  else here, so the board cannot claim a die the bot does not roll.
+- **A bench's guide is three cards stacked sideways, and under poker size.**
+  A bench holds three cards, and the guide draws them the way they lie: each
+  card `TEAM_BENCH_CASCADE` (a fifth) of its width to the right of the one
+  behind it, so the left edge of every card shows (the author, 2026-09-28).
+  A card behind shows only its left edge and its top and bottom edges out to
+  the card in front of it -- no line crosses a card's face. It replaced a
+  single outline, which said nothing about there being three, and then a
+  first cut that stacked the three downward. Side by side without overlapping
+  does not fit, and neither does the stack at life size: a bench column is
+  two and a half inches wide on half a letter sheet, and the author's call
+  was legible over life-size, so the guide is a card's proportions at what
+  the column and the row leave, and a bench stacks on the area, overhanging
+  it. `card_slot_inches` reports one card of the stack and the CLI says so in
+  as many words.
+- **The footer is three lines: the formation strip, the standard formation
+  and one reminder.** The d12 badge and "every roll in the game is a d12"
+  came off it (the author, 2026-09-28), as did "read from your own goal" on
+  the strip; the deal is worded "Standard Formation", since it is one of the
+  shapes on the strip above it.
 - **The cut line is on the seam of the two-up page and on neither board.**
   A dashed line down the middle of the sheet is the one mark on it that
   belongs to the page rather than to either coach.
@@ -454,13 +527,16 @@ into without widening the board itself.
   drawn in ink, not a team's colour** -- the field board is a template for the
   tabletop game with no match to read a team from, unlike the bot's own board,
   which always has one.
-  - **`end_zone_width` is a tight fit, not a generous one**, and tighter still
-    since the field board went portrait to make room for the zone-assignment
-    rows (below): the strip now divides an 11in width instead of a 17in one,
-    so every inch a goal zone takes is an inch a space cannot have. Don't grow
-    it without checking that a space is still big enough to stand meeples on
-    -- a width floor of 1.0in now, not the 1.5in a landscape sheet could
-    promise.
+  - **`END_ZONE_INCHES` is a trade against the spaces.** The strip divides
+    an 11in width, so every inch a goal zone takes is an inch a space cannot
+    have. The author asked for more room for the goal zones (2026-09-28), and it
+    went from a third of an inch to 0.45in, paid for mostly by the margin:
+    the board now runs to `FIELD_EDGE_INCHES` of the sheet's edge, the least
+    a home printer leaves, rather than 0.31in. A 9-space board's space is
+    1.05in wide and a 7-space board's 1.35in. Don't grow the goal zones
+    further without checking that a space is still big enough to stand
+    meeples on -- a width floor of 1.0in, not the 1.5in a landscape sheet
+    could promise.
 
 ## The zone-assignment rows
 
@@ -475,7 +551,7 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   landscape.** A zone row needs a real 3.5in card's worth of height, twice
   over (once for each coach), which the sheet's 17in length holds without
   crowding the strip; the strip's own spaces pay for it instead, coming out
-  under an inch wide on the 9-space board rather than the 1.5in two meeples
+  just over an inch wide on the 9-space board rather than the 1.5in two meeples
   side by side would ask for on a landscape sheet. The author's own call,
   made knowing that cost -- see `FieldGeometry`'s own docstring.
 - **The visiting row is rotated 180 degrees cell by cell, not the row
@@ -504,3 +580,10 @@ and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
   landscape sheet, which the portrait sheet always is. Both are wrapped to
   the sheet's own content width and stacked in one left-aligned column now,
   which cannot overlap regardless of paper size or how long the wording runs.
+  **The header has one note now**, the two periods and who kicks off each.
+  "The clock, the score and the token supplies are kept on the jumbotron
+  board" came off (the author, 2026-09-28), and so did "shoot only from here"
+  under each shooting-range bracket, whose label already names it. The header
+  band and the bracket band are measured from what is in them
+  (`FIELD_NOTE_TOP`, `FIELD_NOTE_LEADING`), and the strip got the height
+  they gave up.
