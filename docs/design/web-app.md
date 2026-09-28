@@ -898,7 +898,7 @@ the coach is looking at it.
 - **The jumbotron is one bar across the top of the play area**
   (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
   replacing the panel at the head of the sidebar). Each team in its
-  colour with an arrow for the way it attacks, "Home · coached by ..."
+  colour with an arrow for the way it attacks, "Home · <coach>"
   under it and a gold BALL mark while it has possession, its d12
   showing the ball's speed as the field's does; the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow

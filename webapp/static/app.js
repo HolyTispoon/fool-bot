@@ -499,7 +499,7 @@ function drawJumbotron(state) {
         "div",
         { class: "jumbo-coach" },
         where === "home" ? "Home" : "Visitors",
-        coach ? [" · coached by ", h("b", {}, coach.name)] : "",
+        coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
       team && team.possession
         ? h("div", { class: "jumbo-ball" },
