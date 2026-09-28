@@ -932,8 +932,11 @@ def resolve_contest_without_a_roll(
         headlines=headlines,
         narration=["\n".join(filter(None, [
             exhaustion_text,
+            # Why there was no roll, said as the special ability it is
+            # (the author, 2026-09-28).
             f"{engine.format_player_label(match, winner)} takes it "
-            "without a roll.",
+            "without a roll -- their special ability wins every contest "
+            "for the ball.",
             announcement,
         ]))],
         board_changed=True,

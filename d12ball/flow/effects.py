@@ -236,9 +236,12 @@ def receives_the_ball(
     ) and match.ball.speed != INFERNO_BALL_SPEED:
         match.ball.speed = INFERNO_BALL_SPEED
         player = engine.get_player_definition(holder)
+        # Said as the special ability it is (the author, 2026-09-28): a
+        # speed that jumps with no card behind it reads as a mistake.
         lines.append(
             f"The ball comes to {engine.format_player_label(match, player)}"
-            f" -- ball speed **{INFERNO_BALL_SPEED}**."
+            f" -- their special ability sets ball speed to "
+            f"**{INFERNO_BALL_SPEED}**."
         )
     if engine.has_personal_ability(
         game, holder, PersonalAbility.CHARGES_ON_THE_BALL,
@@ -252,7 +255,8 @@ def receives_the_ball(
             player = engine.get_player_definition(holder)
             lines.append(
                 f"{engine.format_player_label(match, player)} takes the "
-                f"ball -- **Charge-up** clears {removed} drain."
+                f"ball -- their special ability, **Charge-up**, clears "
+                f"{removed} drain."
             )
     return lines
 
@@ -371,8 +375,8 @@ def low_pass_step(
                 f"{engine.format_player_label(match, handler)}'s Winger "
                 "ability can turn this into a scoring opportunity!"
                 if handler.role == PlayerRole.WINGER
-                else f"{engine.format_player_label(match, receiver)} "
-                "can turn this into a scoring opportunity!"
+                else f"{engine.format_player_label(match, receiver)}'s "
+                "special ability can turn this into a scoring opportunity!"
             ),
         ],
         board_changed=True,
