@@ -1583,12 +1583,12 @@ class RulesEngine:
         if not holders:
             return ""
         if len(holders) == 2:
-            return "Both coaches may play a gambit this maneuver."
+            return "Both coaches may make a gambit this maneuver."
 
         coach = format_player_with_team(
             game, self.side_player_number(game, holders[0]),
         )
-        return f"{coach} may play a gambit this maneuver."
+        return f"{coach} may make a gambit this maneuver."
 
     def maneuver_pick_sides(
         self,
@@ -2930,31 +2930,84 @@ class RulesEngine:
         return f"{where}, {cost} {noun}"
 
 
-    def setup_pass_push_back_distances(self, match: MatchState) -> list[int]:
+    def setup_pass_push_back_range(
+        self, match: MatchState, key: str,
+    ) -> tuple[int, ...]:
         """
-        How much further back a beaten Setup Pass may be driven: 1, 2 or
-        3, less any that would run off the end of the field -- for the
-        reason `high_pass_distances` does not offer those: a longer push
-        landing where a shorter one already would is the same push
-        described twice.
+        **A failed Setup Pass gambit's distances** (Law 19.7.7), before
+        the field has its say: 1, 2 or 3 back for the Deflect that beat
+        it and 2, 3 or 4 for a Clear, each one more where the challenger
+        is a Fullback -- the same space further the Fullback adds to any
+        deflection (`d12ball.flow.effects.deflection_numbers`).
+
+        `key` is the card *resolving*, so a Deflect a blaze or an
+        Overdrive turned into a Clear takes the Clear's (the author,
+        2026-09-27).
+        """
+        base = (2, 3, 4) if key == "clear" else (1, 2, 3)
+        challenger = self.get_player_definition(match.challenger_id)
+        bonus = 1 if challenger.role == PlayerRole.FULLBACK else 0
+        return tuple(distance + bonus for distance in base)
+
+    def setup_pass_push_back_distances(
+        self, game: D12BallGame, match: MatchState,
+    ) -> list[int]:
+        """
+        How far back the coach who beat a Setup Pass may send the ball
+        -- its **failed gambit**, which since 2026-09-27 is the one move
+        the beating card makes rather than a push on top of it (Law
+        19.7.7-19.7.8). Asked before the ball has moved.
+
+        Every distance that lands on the field is offered, and **of the
+        ones that run out of field only the shortest** -- every longer
+        one stops on the same last space, the reason
+        `high_pass_distances` drops a throw a shorter one already makes.
+        The overshoot is kept, unlike a High Pass's, because it is not
+        the same move as stopping on that space: it is the beating
+        player's shot where they are standing there
+        (`d12ball.flow.effects.deflection_lands`). So the list is never
+        empty.
 
         Was `d12ball.flow.effects.setup_pass_push_back_distances` until
         step 6 of docs/architecture-migration.md; here beside the other
         candidate lists so the prompt's options can be built from it.
         """
+        key = self.resolving_maneuver(
+            match, self.settled_maneuver_winner(match, game),
+        )
         offense_side = match.ball.possession
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
-        return [
-            distance
-            for distance in (1, 2, 3)
-            if abs(
+        distances = []
+        for distance in self.setup_pass_push_back_range(match, key):
+            distances.append(distance)
+            reached = abs(
                 match.relative_flat_index(origin_flat, offense_side, -distance)
                 - origin_flat
             )
-            == distance
-        ]
+            if reached < distance:
+                break
+        return distances
+
+    def setup_pass_push_back_overshoot(
+        self, match: MatchState, distances,
+    ) -> Optional[int]:
+        """Which of a failed Setup Pass gambit's `distances` runs the
+        ball out of field -- the last, where any does -- or None."""
+        if not distances:
+            return None
+        origin_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        longest = distances[-1]
+        reached = abs(
+            match.relative_flat_index(
+                origin_flat, match.ball.possession, -longest,
+            )
+            - origin_flat
+        )
+        return longest if reached < longest else None
 
     def speed_targets(
         self,

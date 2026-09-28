@@ -1307,9 +1307,9 @@ def draw_card_header(
     pen.text(badge_center, rank_label, rank_font(38), color, anchor="mm")
 
     # **No corner label** (the author, 2026-09-28). The corner read
-    # "BASIC MANEUVER" or "GAMBIT MANEUVER"; a gambit's subtitle below
-    # already says what it is -- "ADVANCED LOW PASS" -- and
-    # its colour is its own, so the label was a third saying of it, and
+    # "BASIC MANEUVER" or "ADVANCED MANEUVER"; an advanced card's
+    # subtitle below already says what it is -- "ADVANCED LOW PASS" --
+    # and its colour is its own, so the label was a third saying of it, and
     # a basic card is simply the one without a subtitle. Without it the
     # title's room is symmetric, so the title is centred on the card.
     title_left = FRAME + 140
@@ -1376,10 +1376,12 @@ def draw_card_header(
 
 
 
-# Where a gambit's sheet sentence turns from what it does to what it
-# costs. Every gambit's effect carries it exactly once, capitalised or
-# not ("If defeated, gain 2 exhaustion" on Clear).
-GAMBIT_COST_CLAUSE = re.compile(r"\s*\bif defeated,\s*", re.IGNORECASE)
+# The sheet's own labels on an advanced maneuver's effect: "Successful
+# gambit: ... \nFailed gambit: ..." (the import of 2026-09-28; the
+# sentence used to turn on "If defeated" instead). The card sets each
+# half under a heading of its own, so the labels come off the text.
+GAMBIT_SUCCESS_LABEL = re.compile(r"^\s*successful gambit:\s*", re.IGNORECASE)
+GAMBIT_FAILURE_LABEL = re.compile(r"\s*\bfailed gambit:\s*", re.IGNORECASE)
 
 # The three headings over a gambit's effect (the author, 2026-09-28).
 # Law 19.4 is when each applies: the benefit when the card won on the
@@ -1394,30 +1396,33 @@ def gambit_effect_parts(
     maneuver: ManeuverDefinition,
 ) -> tuple[str, Optional[str]]:
     """
-    A gambit's effect as `(success, failure)`: what it does when it
-    succeeds, and what its side pays when it fails -- **both the sheet's
-    own words**, cut where the sentence says "If defeated". Only the
-    clause's own lead-in goes, since the heading over the failure box
-    says it, and the first letter after it is capitalised.
+    An advanced maneuver's effect as `(success, failure)`: what it does
+    when the gambit succeeds, and what its side pays when it fails --
+    **both the sheet's own words**, which since the import of 2026-09-28
+    labels the two halves itself ("Successful gambit:", "Failed
+    gambit:"). The labels go, since the headings over the boxes say
+    them, and the first letter after each is capitalised.
 
-    A basic card, or a gambit whose sentence no longer carries the
-    clause after an import, comes back whole with no failure. The
-    second is logged rather than raised: the bot draws every hand at
-    startup, and a reworded sheet must not stop it starting -- but a
+    A basic card, or an advanced one whose effect no longer carries the
+    failure label after an import, comes back whole with no failure.
+    The second is logged rather than raised: the bot draws every hand
+    at startup, and a reworded sheet must not stop it starting -- but a
     card silently losing its cost box is the failure `draw_card_effect`
     exists to avoid, so it is said.
     """
     if not maneuver.is_gambit:
         return maneuver.effect, None
-    parts = GAMBIT_COST_CLAUSE.split(maneuver.effect, maxsplit=1)
+    parts = GAMBIT_FAILURE_LABEL.split(maneuver.effect, maxsplit=1)
+    success = GAMBIT_SUCCESS_LABEL.sub("", parts[0]).strip()
+    success = success[:1].upper() + success[1:]
     if len(parts) != 2 or not parts[1].strip():
         LOGGER.warning(
-            "%s's effect has no 'If defeated' clause; its card is drawn "
+            "%s's effect has no 'Failed gambit:' label; its card is drawn "
             "without a failure box.",
             maneuver.name,
         )
-        return maneuver.effect, None
-    success, failure = (part.strip() for part in parts)
+        return success, None
+    failure = parts[1].strip()
     return success, failure[:1].upper() + failure[1:]
 
 
@@ -2084,7 +2089,7 @@ def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
     # cycle moving up by 28 paid for.
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 86),
-        "each node is one rank: basic maneuvers above gambits"
+        "each node is one rank: basic maneuvers above advanced"
         if both_tiers
         else "each node is one rank",
         font(24),

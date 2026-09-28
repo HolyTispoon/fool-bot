@@ -491,12 +491,16 @@ class SetupPassPushBackView(SafeView):
         if options is None:
             return
 
-        # The prompt's distances: 1, 2 or 3, less any that run off
-        # the end of the field (`RulesEngine.setup_pass_push_back_distances`),
-        # each with the space it pushes the ball back to.
+        # The prompt's distances (`RulesEngine.setup_pass_push_back_distances`),
+        # each with the space it sends the ball back to -- or, for the
+        # one that runs out of field, saying so.
         for distance in options.distances:
             zone, space_index = options.landing(distance)
-            where = space_label(zone, space_index, match.board)
+            where = (
+                "overshoots"
+                if distance == options.overshoot
+                else space_label(zone, space_index, match.board)
+            )
             button = discord.ui.Button(
 
                 label=(

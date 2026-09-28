@@ -194,24 +194,24 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   card** (the author, 2026-09-28): "TIME · 1", the number alone
   (`time_cost` reads it off the sheet's "1 space minute"), white like the
   rank badge opposite it. It used to be a pill under the effect.
-- **A gambit's effect is three boxes: SUCCESSFUL GAMBIT, FAILED GAMBIT, TIE**
-  (the author, 2026-09-28). The sheet carries one sentence per gambit with
-  "If defeated" in the middle of it, which asked a coach to find the turn in
-  the sentence before knowing which half applied. `gambit_effect_parts` cuts
-  it there: the first box, outlined in the card's colour, is what the gambit
-  does when it succeeds; the second, on grey, is what its side pays when it
-  fails. The third says what a tie on the cards resolves as -- "Resolves as
-  Dribble Advance:" and that basic card's own effect, whole, looked up by
+- **An advanced maneuver's effect is three boxes: SUCCESSFUL GAMBIT, FAILED
+  GAMBIT, TIE** (the author, 2026-09-28). Playing the card is making a
+  gambit (the author, 2026-09-27), and the sheet's effect for each labels
+  its two halves itself -- "Successful gambit: ... \nFailed gambit: ..." --
+  since the import of 2026-09-28; before it the sentence turned on "If
+  defeated", which asked a coach to find the turn before knowing which half
+  applied. `gambit_effect_parts` cuts it at the failure label: the first
+  box, outlined in the card's colour, is what the gambit does when it
+  succeeds; the second, on grey, is what its side pays when it fails. The
+  third says what a tie on the cards resolves as -- "Resolves as Dribble
+  Advance:" and that basic card's own effect, whole, looked up by
   `catalog.counterpart`. Law 19.4 is when each applies: won on the cards,
   lost on the cards, tied. `gambit_effect_boxes` is the list.
-  - **Both halves are the sheet's own words.** Only the lead-in "If
-    defeated," goes, since the heading says it, and the next letter is
-    capitalised. Cutting here rather than adding two columns to
-    `maneuvers.json` because the import rewrites that file whole from the
-    sheet; if the sheet grows the two columns, read them instead.
-  - **A gambit whose sentence loses the clause is drawn without a failure
-    box and logged, not raised.** The bot draws every hand at startup, and a
-    reworded sheet must not stop it starting.
+  - **Both halves are the sheet's own words.** Only the labels go, since
+    the headings say them, and the next letter is capitalised.
+  - **A card whose effect loses the failure label is drawn without a
+    failure box and logged, not raised.** The bot draws every hand at
+    startup, and a reworded sheet must not stop it starting.
   - **All three boxes share one searched size**, so none reads as the more
     important, and the boxes sit close together, since the room between them
     is room the text does not get.

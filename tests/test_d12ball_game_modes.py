@@ -147,7 +147,7 @@ class ModeWordingTests(unittest.TestCase):
         )
         self.assertEqual(
             describe_game_mode(build_game(species_abilities=False)),
-            "a gambit on every rank, personal abilities",
+            "an advanced maneuver on every rank, personal abilities",
         )
 
     def test_a_mode_the_game_is_not_in_is_described_off_its_record(
@@ -158,7 +158,7 @@ class ModeWordingTests(unittest.TestCase):
         game = build_game(mode=GameMode.TRAINING, species_abilities=False)
         self.assertEqual(
             describe_game_mode(game, GameMode.ADVANCED),
-            "a gambit on every rank, personal abilities",
+            "an advanced maneuver on every rank, personal abilities",
         )
         self.assertEqual(game.mode, GameMode.TRAINING)
 

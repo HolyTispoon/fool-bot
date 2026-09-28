@@ -840,7 +840,7 @@ def describe_game_mode(
     if whole:
         return GAME_MODE_DEFINITIONS[mode]
     parts = [
-        "a gambit on every rank" if gambits else "three maneuvers a side",
+        "an advanced maneuver on every rank" if gambits else "three maneuvers a side",
     ]
     if species:
         parts.append("species abilities")

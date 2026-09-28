@@ -105,9 +105,11 @@ LOOSE_BALL = "BEGIN_LOOSE_BALL"
 #: straight to the shot without asking anybody.
 SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
 
-#: **Setup Pass's cost**, asked inside the deflection that beat it
-#: rather than as a step after it: the defending coach drives the ball
-#: a further 1, 2 or 3 spaces back and it is loose where it stops.
+#: **A failed Setup Pass gambit**, asked before the deflection that beat
+#: it moves the ball at all: the defending coach chooses how far it goes
+#: back, once -- 1, 2 or 3 for a Deflect, 2, 3 or 4 for a Clear (Law
+#: 19.7.7, the author, 2026-09-27). Where it lands is the answer's, in
+#: `tests/test_d12ball_deflection_flow.py`'s `FailedSetupPassGambitTests`.
 SETUP_PASS_PUSH_BACK = "OFFER_SETUP_PASS_PUSH_BACK"
 
 #: The offense card a basic deflection beats. Deflect and Clear beat
@@ -437,16 +439,15 @@ def deflect_that_overshoots_into_a_shot() -> DeflectionFixture:
 
 def deflect_beats_a_setup_pass() -> DeflectionFixture:
     """
-    **Setup Pass's cost**, and the only cost either card of this rank
-    can ever collect: Deflect and Clear beat High Pass and Setup Pass
-    and tie with both passes on rank O1, so Setup Pass is the one
-    gambit they ever see lose.
+    **A failed Setup Pass gambit**, and the only one either card of
+    this rank can ever collect: Deflect and Clear beat High Pass and
+    Setup Pass and tie with both passes on rank O1, so Setup Pass is the
+    one advanced maneuver they ever see lose.
 
-    It is asked inside the deflection rather than as a step after it,
-    because a deflection already ends in a loose ball -- the cost only
-    decides where the ball lies when it does. So this branch hands over
-    to the question rather than to the loose ball, and the loose ball
-    happens on the far side of the answer.
+    Since 2026-09-27 the ball goes back **once**, as far as the coach
+    who beat the pass chooses, so the step moves nothing and says
+    nothing: it hands straight to the question, and the deflection is
+    played on the far side of the answer. The board has not moved.
     """
     match, handler, challenger = stand_a_deflection(
         BEATEN_ADVANCED, "deflect",
@@ -457,44 +458,11 @@ def deflect_beats_a_setup_pass() -> DeflectionFixture:
         key="deflect",
         challenger_id=challenger,
         handler_id=handler,
-        narration=deflection_text("deflect", travelled(match, 1), 4),
+        board_changed=False,
         follow_on=SETUP_PASS_PUSH_BACK,
         follow_on_kwargs={},
-        ball_space=deflected_to(match, 1),
-        ball_speed=4,
-    )
-
-
-def an_overshooting_deflection_skips_the_setup_pass_cost() -> (
-    DeflectionFixture
-):
-    """
-    **The shot comes first and the cost is not asked at all.** The ball
-    is already as far back as the field goes, so there is nothing for a
-    push-back to buy, and the shot is the bigger thing happening.
-
-    Worth its own fixture rather than trusting the two above: the only
-    thing distinguishing it from `deflect_beats_a_setup_pass` is a
-    question that is *not* asked, and an ordering nothing else pins.
-    """
-    match, handler, challenger = stand_a_deflection(
-        BEATEN_ADVANCED, "deflect", back_from_own_goal=0,
-    )
-    candidates = [challenger]
-    return DeflectionFixture(
-        game=advanced_game(),
-        match=match,
-        key="deflect",
-        challenger_id=challenger,
-        handler_id=handler,
-        narration=(
-            f"{deflection_text('deflect', 0, 4)} {OVERSHOOT_NOTE}"
-        ),
-        follow_on=SHOOTER_CHOICE,
-        follow_on_kwargs={"candidates": candidates},
-        possession=TeamSide.VISITING,
-        ball_space=deflected_to(match, 1),
-        ball_speed=1,
+        ball_space=(match.ball.zone, match.ball.space_index),
+        ball_speed=5,
     )
 
 
@@ -663,11 +631,9 @@ def clear_clamps_the_speed_at_one() -> DeflectionFixture:
 
 def clear_beats_a_setup_pass() -> DeflectionFixture:
     """
-    The same cost on the other card of the rank. Worth its own fixture
-    rather than trusting the Deflect's: this is where the push-back is
-    offered on top of a clearance that has already driven the ball
-    three spaces, so what the coach is choosing from is a different
-    position entirely.
+    The same failed gambit on the other card of the rank: a Clear
+    beating a Setup Pass moves nothing until its coach has chosen 2, 3
+    or 4 either.
     """
     match, handler, challenger = stand_a_deflection(
         BEATEN_ADVANCED, "clear",
@@ -678,11 +644,11 @@ def clear_beats_a_setup_pass() -> DeflectionFixture:
         key="clear",
         challenger_id=challenger,
         handler_id=handler,
-        narration=deflection_text("clear", travelled(match, 3), 2),
+        board_changed=False,
         follow_on=SETUP_PASS_PUSH_BACK,
         follow_on_kwargs={},
-        ball_space=deflected_to(match, 3),
-        ball_speed=2,
+        ball_space=(match.ball.zone, match.ball.space_index),
+        ball_speed=5,
     )
 
 
@@ -694,10 +660,6 @@ DEFLECTION_CASES: tuple[DeflectionCase, ...] = (
         deflect_that_overshoots_into_a_shot,
     ),
     DeflectionCase("deflect_beats_a_setup_pass", deflect_beats_a_setup_pass),
-    DeflectionCase(
-        "an_overshooting_deflection_skips_the_setup_pass_cost",
-        an_overshooting_deflection_skips_the_setup_pass_cost,
-    ),
     DeflectionCase("clear_plain", clear_plain),
     DeflectionCase("clear_by_a_fullback", clear_by_a_fullback),
     DeflectionCase(
