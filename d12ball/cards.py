@@ -1183,25 +1183,28 @@ def draw_card_header(
     # What kind of card this is, rather than which die faces it stands
     # in for. The faces were printed here while the cards and the
     # selection die had to coexist; naming the tier is what still means
-    # something now that the second set of maneuvers exists -- and this
-    # is the one thing on the *face* that tells the two sets apart,
-    # since the back cannot (see `render_maneuver_card_back`).
+    # something now that the second set of maneuvers exists, since the
+    # back cannot tell the two sets apart (see
+    # `render_maneuver_card_back`). Through `MANEUVER_TIER_WORDS` rather
+    # than the tier itself, which is still the sheet's word.
     #
-    # **"GAMBIT MANEUVER", not "GAMBIT".** A gambit is a maneuver of
-    # its rank (the author, 2026-09-20) -- the badge beside this says
-    # which rank, and the matchup band below names the basic card it
-    # shares it with. Through `MANEUVER_TIER_WORDS` rather than the
-    # tier itself, which is still the sheet's word.
-    pen.text(
-        (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
-        f"{MANEUVER_TIER_WORDS[maneuver.tier].upper()}\nMANEUVER",
-        font(15, bold=True),
-        "#ffffff",
-        anchor="mm",
-    )
-
+    # **Only a basic card carries it** (the author, 2026-09-28). A
+    # gambit's subtitle below already says what it is -- "ADVANCED
+    # VERSION OF LOW PASS" -- and its colour is its own, so "GAMBIT
+    # MANEUVER" in the corner was the third saying of it. Without the
+    # label the title's room is symmetric, so it is centred on the card.
     title_left = FRAME + 140
-    title_right = CARD_WIDTH - FRAME - 118
+    if maneuver.is_gambit:
+        title_right = CARD_WIDTH - FRAME - 140
+    else:
+        pen.text(
+            (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
+            f"{MANEUVER_TIER_WORDS[maneuver.tier].upper()}\nMANEUVER",
+            font(15, bold=True),
+            "#ffffff",
+            anchor="mm",
+        )
+        title_right = CARD_WIDTH - FRAME - 118
     title_width = title_right - title_left
 
     # The subtitle is drawn only on a gambit's face -- a basic card is
@@ -1431,7 +1434,7 @@ def render_maneuver_card(
     # one -- the two sit side by side in a coach's hand and back to
     # back in the print run, so they have to read as two cards at a
     # glance rather than as the same colour under different light. The
-    # "GAMBIT MANEUVER" corner label is the only other thing on the
+    # "ADVANCED VERSION OF ..." subtitle is the only other thing on the
     # face that says so; the back cannot, since one back serves both.
     if maneuver.is_gambit:
         color = OFFENSE_COLOR_GAMBIT if is_offense else DEFENSE_COLOR_GAMBIT
