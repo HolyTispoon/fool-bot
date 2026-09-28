@@ -1812,7 +1812,7 @@ the tab and the Reading Room are handed.
   maps no sentence to a Law.**
 
 **Which aids a room gets is the model's.** The room's state carries
-`aids`: the cards at the game's tier and the hexagon at
+`aids`: the maneuvers table and the hexagon at
 `RulesEngine.maneuver_reference_tier(game)`, the species table and card
 only where `species_abilities_apply(game)`, the team cards in the face
 `personal_abilities_apply(game)` says the game holds, and the three
@@ -1821,13 +1821,13 @@ answers themselves, so `app.js` decides none of them and never reads
 observer's seat 1's); a room no longer draws them as a gallery, since
 the Teams tab is the rosters and a row's hover card is the card in the
 face the game plays. In the Reading Room, with no game to ask, `GET
-/api/aids` offers all of it: all twelve cards, both hexagons named by
+/api/aids` offers all of it: all twelve maneuvers, both hexagons named by
 tier, the species table, every team with both faces (the ROSTERS
 chip). Every picture is the one the reference command posts, drawn by
 the same function (`render_maneuver_reference_image`,
 `render_role_reference`, `player_cards`), in a worker thread and kept
-with the cards; the References draw the role and species *tables*
-from the data those cards are drawn from, as the canvas has it, and
+with the cards; the References draw the maneuver, role and species
+*tables* from the data those cards are drawn from, as the canvas has it, and
 the hexagon, the role card and the two `species_cards.REFERENCE_FACES`
 stay served at their routes for a link.
 The maneuver pick carries `reference`, the cards' shared back at the
