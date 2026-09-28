@@ -1654,6 +1654,27 @@ class ChargeUpTests(unittest.TestCase):
         self.assertFalse(restored.pending_run_back_charge_up)
 
 
+def hand_to_a_teammate(match, taker: str) -> str:
+    """
+    Put a teammate of `taker` on the ball's space holding it -- the
+    receiver a pass was aimed at -- and return them.
+
+    A Smooth takes the ball off somebody (Law 20.4.11), so a fixture
+    that moves the ball onto a Telekinetic owes the movement a carrier,
+    or it is an unheld ball and nobody is offered one.
+    """
+    receiver = next(
+        player_id
+        for player_id in field_players(match, match.ball.possession)
+        if player_id != taker
+    )
+    match.board.place_meeple(
+        receiver, match.ball.zone, match.ball.space_index,
+    )
+    match.set_ball_carrier(receiver)
+    return receiver
+
+
 class SmoothCandidateTests(unittest.TestCase):
     """
     **Smooth**: when your team has possession and the ball comes to
@@ -1675,13 +1696,17 @@ class SmoothCandidateTests(unittest.TestCase):
         )
 
     def cross(self, player_id: str) -> None:
-        """Move the ball one space onto `player_id`, recording a path."""
+        """
+        Pass the ball one space to a teammate standing on `player_id`'s
+        landing space, recording a path.
+        """
         origin = self.match.board.flat_index(
             self.match.ball.zone, self.match.ball.space_index,
         )
         zone, index = self.match.board.position_at_flat_index(origin + 1)
         self.match.board.place_meeple(player_id, zone, index)
         self.match.set_ball_space(zone, index)
+        hand_to_a_teammate(self.match, self.taker)
 
     def test_a_telekinetic_the_ball_reaches_may_take_it_over(self):
         self.cross(self.taker)
@@ -1701,6 +1726,7 @@ class SmoothCandidateTests(unittest.TestCase):
         landing = self.match.board.position_at_flat_index(origin + 2)
         self.match.board.place_meeple(self.taker, *crossed)
         self.match.set_ball_space(*landing)
+        hand_to_a_teammate(self.match, self.taker)
         self.assertNotIn(
             self.taker,
             self.engine.smooth_candidates(self.game, self.match),
@@ -1712,6 +1738,7 @@ class SmoothCandidateTests(unittest.TestCase):
         ))
         self.match.board.place_meeple(self.taker, *landing)
         self.match.set_ball_space(*landing)
+        hand_to_a_teammate(self.match, self.taker)
         self.assertIn(
             self.taker,
             self.engine.smooth_candidates(self.game, self.match),
@@ -1729,6 +1756,7 @@ class SmoothCandidateTests(unittest.TestCase):
         )
         zone, index = self.match.board.position_at_flat_index(origin + 1)
         self.match.set_ball_space(zone, index)
+        hand_to_a_teammate(self.match, self.taker)
         self.assertNotIn(
             self.taker,
             self.engine.smooth_candidates(self.game, self.match),
@@ -1755,7 +1783,12 @@ class SmoothCandidateTests(unittest.TestCase):
         # Telekinetic offered its own receiver a Smooth on the ball
         # they had just caught. Taking it over means taking it off
         # somebody, and there is nobody to take it off here.
-        self.cross(self.taker)
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
         self.match.set_ball_carrier(self.taker)
         self.assertEqual(
             self.engine.smooth_candidates(self.game, self.match), [],
@@ -1782,6 +1815,38 @@ class SmoothCandidateTests(unittest.TestCase):
             [self.taker],
         )
 
+    def test_an_unheld_ball_on_a_lone_telekinetic_is_simply_theirs(self):
+        # The author, 2026-09-28, on a Deflect that came down on a lone
+        # Telekinetic and offered them a Smooth: "that player should
+        # just have the ball". Nobody holds an unheld ball, so there is
+        # nobody to take it off; Law 10.1 settles it.
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.set_ball_space(*landing)
+        self.assertIsNone(self.match.ball_carrier_id)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match), [],
+        )
+
+    def test_an_unheld_ball_both_sides_share_is_still_a_contest(self):
+        # And not a way round the contest either: "never on an unheld
+        # ball" (the author, 2026-09-28), so the Telekinetic rolls for
+        # it like anyone standing there.
+        opponent = field_players(self.match, self.match.defending_side())[0]
+        origin = self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+        landing = self.match.board.position_at_flat_index(origin + 1)
+        self.match.board.place_meeple(self.taker, *landing)
+        self.match.board.place_meeple(opponent, *landing)
+        self.match.set_ball_space(*landing)
+        self.assertEqual(
+            self.engine.smooth_candidates(self.game, self.match), [],
+        )
+
     def test_a_non_telekinetic_teammate_may_not(self):
         # A colour side fields two of each other species, so this is a
         # real case rather than a hypothetical.
@@ -1798,6 +1863,7 @@ class SmoothCandidateTests(unittest.TestCase):
         zone, index = match.board.position_at_flat_index(origin + 1)
         match.board.place_meeple(teammate, zone, index)
         match.set_ball_space(zone, index)
+        hand_to_a_teammate(match, teammate)
         self.assertEqual(self.engine.smooth_candidates(game, match), [])
 
     def test_without_the_module_nobody_may(self):
@@ -1829,6 +1895,7 @@ class SmoothCandidateTests(unittest.TestCase):
         # has, and for the same reason.
         self.match.board.place_meeple(self.taker, Zone.MIDFIELD, 0)
         self.match.restart_ball_at(Zone.MIDFIELD, 0)
+        hand_to_a_teammate(self.match, self.taker)
         self.assertEqual(
             self.engine.smooth_candidates(self.game, self.match), [],
         )
@@ -3458,6 +3525,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
     def cross(self, player_id: str) -> None:
         self.match.board.place_meeple(player_id, *self.crossed)
         self.match.set_ball_space(*self.crossed)
+        hand_to_a_teammate(self.match, self.taker)
 
     async def arrive(self, resume: dict) -> bool:
         """
@@ -3551,6 +3619,7 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
         self.match.board.place_meeple(opponent, *self.crossed)
         self.match.board.place_meeple(self.taker, *landing)
         self.match.set_ball_space(*landing)
+        hand_to_a_teammate(self.match, self.taker)
 
         with suppressed_cog_saves():
             await self.arrive(
@@ -3571,6 +3640,25 @@ class SmoothGateTests(unittest.IsolatedAsyncioTestCase):
             any(isinstance(v, SmoothView) for v in self.sent_views()),
         )
         self.cog.finish_maneuver_resolution.assert_not_awaited()
+
+    async def test_a_deflect_onto_a_lone_telekinetic_offers_no_smooth(self):
+        # The case from a live game (the author, 2026-09-28): a Deflect
+        # came down on the space of one Telekinetic and nobody else,
+        # and they were offered a Smooth on a ball that was theirs
+        # anyway. `begin_loose_ball` is the Deflect's arrival point.
+        from d12ball.flow.arrivals import begin_loose_ball
+        from d12ball.flow.result import FollowOnStep
+
+        self.match.board.place_meeple(self.taker, *self.crossed)
+        self.match.set_ball_space(*self.crossed)
+        self.match.clear_ball_carrier()
+
+        result = begin_loose_ball(
+            self.cog.engine, self.game, self.match, distance_moved=1,
+        )
+
+        self.assertEqual(self.match.pending_smooth, [])
+        self.assertEqual(result.next.step, FollowOnStep.RESOLVE_LOOSE_BALL)
 
     async def test_nobody_wanting_it_falls_through_to_the_arrival(self):
         self.cross(self.taker)

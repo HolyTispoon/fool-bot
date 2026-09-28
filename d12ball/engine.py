@@ -1053,6 +1053,17 @@ class RulesEngine:
           clause**: a carrier is by definition on the side in
           possession, and a pull is only ever offered to the side that
           is not.
+        - **No carrier, no Smooth.** The same sentence once more: with
+          nobody holding the ball there is nobody to take it off. A
+          ball left where nobody is named as holding it -- a Deflect,
+          a pass that reaches nobody, a Clear, a beaten Cross, a High
+          Pass contest -- is settled by what is standing on the space
+          (Law 10.1): a lone Telekinetic there simply has it, one
+          among teammates is their coach's pick, and one beside an
+          opponent contests for it (the author, 2026-09-28). Every
+          effect that hands the ball to somebody sets the carrier, and
+          `select_ball_handler` clears it at the top of the turn, so
+          `None` here is exactly an unheld ball.
         - **Injured players are in.** A pull excludes them because it
           costs an exhaustion token and an injured player cannot gain
           one, so `add_exhaustion` would silently hand them a free
@@ -1071,8 +1082,10 @@ class RulesEngine:
         ours = set(
             match.setup_for_side(match.ball.possession).field_players
         )
-        moved = set(match.last_ball_movers)
         carrier_id = match.ball_carrier_id
+        if carrier_id is None:
+            return []
+        moved = set(match.last_ball_movers)
 
         candidates: list[str] = []
         for zone_value, space_index in match.last_ball_path[-1:]:

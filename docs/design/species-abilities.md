@@ -1194,6 +1194,27 @@ that spends a token on a 1-in-6, or one that simply takes the ball.
     Telekinetic standing on the landing space beside the player the pass was
     aimed at. That is Slip in's own case, and since 2026-09-24 it is the
     only one (below).
+- **No carrier, no Smooth (the author, 2026-09-28).** A Deflect came down on
+  a lone Telekinetic in a live game and offered them a Smooth on a ball that
+  was theirs anyway: *"Smooth only makes sense when someone is handling and
+  locked in to using the ball normally."* So `smooth_candidates` returns
+  nothing while `ball_carrier_id` is unset, and an unheld ball -- a Deflect,
+  a pass that reaches nobody, a Clear, a beaten Cross, the High Pass
+  contest -- is settled by Law 10.1 alone. That includes a space both sides
+  share: asked, the author ruled that a Smooth does not skip a contest either.
+  - **It is the exclusion above read at its limit**, and it needed no state
+    for the same reason: the carrier is set by every effect that completes a
+    delivery (the dribble and the shoves included, which set it to the handler
+    they carry) and cleared by `select_ball_handler`, so `None` at the gate
+    means nobody is holding the ball. The alternative -- gating on the
+    arrival's `resume` kind -- would have missed the ordinary tail
+    (`finish_maneuver`), where an unheld ball on the possessing side's space
+    goes to the turn prompt's handler pick rather than to `begin_loose_ball`,
+    and a Smooth there is just as redundant.
+  - **A fixture that moves the ball onto a Telekinetic now owes it a
+    receiver** (`hand_to_a_teammate` in
+    `tests/test_d12ball_species_abilities.py`), or it is testing an unheld
+    ball.
 
 **Only where the ball arrives (the author, 2026-09-24).** *"Smooth only
 works when the ball gets to the space, not through. So the gate is

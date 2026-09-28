@@ -1188,6 +1188,17 @@ class ShpritzTests(unittest.TestCase):
         zone, index = self.match.board.position_at_flat_index(origin + 1)
         self.match.board.place_meeple(self.taker, zone, index)
         self.match.set_ball_space(zone, index)
+        # A Smooth takes the ball off somebody, so the pass is aimed at
+        # a teammate standing beside the Ooze.
+        receiver = next(
+            player_id
+            for player_id in self.match.setup_for_side(
+                self.match.ball.possession,
+            ).field_players
+            if player_id != self.taker
+        )
+        self.match.board.place_meeple(receiver, zone, index)
+        self.match.set_ball_carrier(receiver)
 
     def test_only_shpritz_may_take_it_over(self) -> None:
         self.assertEqual(ENGINE.smooth_candidates(self.game, self.match), [])
