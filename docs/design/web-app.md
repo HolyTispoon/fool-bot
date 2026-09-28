@@ -830,7 +830,7 @@ tabs on the step's PR (2026-09-27).
   name, OFF and DEF as the card prints them (`card_profile`, the same
   numbers the card and the field carry), the exhaustion as one token
   image a point (the drain token on a Cyborg), the condition emoji,
-  and the space's code, "bench" or "back bench", with "· ball" on the
+  and the space's number, "bench" or "back bench", with "· ball" on the
   holder. Hovering a row shows the card, and clicking it (or Enter)
   opens it. The page adds nothing to a number: `TeamsTabTests` hold
   every row to the card and the space the layout already hands over.
@@ -1176,7 +1176,7 @@ changed for it.
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
-| `high_pass_choice`, `setup_pass_choice`, `setup_pass_push_back`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ past the far end, clicked or with the ball dragged onto it |
+| `high_pass_choice`, `setup_pass_choice`, `setup_pass_push_back`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
 | `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
 | the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each meeple that may declare Overdrive (with its drain) or Boost first | a score attempt's Back is neutral |
@@ -1443,12 +1443,12 @@ whistle to lock it.
 **The field is drawn from scratch** (2026-09-26, step 1 of
 [../web-app-redesign.md](../web-app-redesign.md), off the design the
 author reviewed; it replaces the board drawn in the bot's layout). A
-dark stage: the zone names over a row of rounded spaces, a goal slab
-at each end, and under them the two shooting ranges with a KICKOFF bar
-between -- the side on the ball's range lit gold while it stands where
-it may shoot from. An end zone's spaces carry the defending side's
-colour faintly; the kickoff space a faint ring. Each space has two
-lanes, the visitors' above and home's below.
+dark stage: the zone names over a row of rounded spaces, a goal zone's
+slab at each end, and under them the two shooting ranges with a
+KICKOFF bar between -- the side on the ball's range lit gold while it
+stands where it may shoot from. An outer zone's spaces carry the
+defending side's colour faintly; the kickoff space a faint ring. Each
+space has two lanes, the visitors' above and home's below.
 
 - **The meeple is `render.MEEPLE_PATH`**, drawn from `meeple_geometry`
   at 50px on the stage (scaled with it), in the team's colour with its
@@ -1506,7 +1506,7 @@ drawn against, which is a rule and not a rendering brief.
 **What the layout may carry is what the rules answer.** `board_layout`
 reads the position the way `render_match_image` reads it and asks the
 renderer's own functions, or the match's, for everything worked out
-from the rules -- the space codes, the zone labels, the range bands,
+from the rules -- the space numbers, the zone labels, the range bands,
 whose marks are a Cyborg's, whether a meeple carries a species icon,
 the kickoff space, whether the side on the ball may shoot from where
 it stands. The

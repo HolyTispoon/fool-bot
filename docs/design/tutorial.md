@@ -47,14 +47,14 @@ kicks off in. **A beat that wants a different position has to play its
 way there.** What the deal gives the script for free is exactly what it
 needs:
 
-- the coach's **playmaker on M2** with the ball, one space short of
+- the coach's **playmaker on space 4** with the ball, one space short of
   shooting range, so Shoot is not offered until beat 1's dribble earns
   it -- and beat 2's lesson is written on it appearing;
 - **Dinky's playmaker on the same space**, so the opening maneuver has
   an automatic challenger and beat 1 needs no walk-in to explain yet;
-- the coach's **striker on V2**, which is where beat 5's 2-space High
+- the coach's **striker on space 7**, which is where beat 5's 2-space High
   Pass lands and is inside shooting range;
-- **Dinky's fullback on V2 with them**, which is what prices the final
+- **Dinky's fullback on space 7 with them**, which is what prices the final
   shot -- a defender on the ball adds their whole defensive skill.
 
 `TutorialOpeningTests` asserts each of those against the deal rather
@@ -113,7 +113,7 @@ expects.
   so a rail going missing shows up as a failure rather than as a story
   that drifts.
   - **Beat 2's loose ball dropped out of that list on 2026-08-24.**
-    Dinky's own midfielder is already standing on M3 where the beaten
+    Dinky's own midfielder is already standing on space 5 where the beaten
     Deflect lands, so under the occupancy rule (see
     [Where the ball comes to rest](loose-balls.md#where-the-ball-comes-to-rest)) the
     coach, who has nobody there, is never put on the clock at all --
@@ -172,11 +172,11 @@ previous turn produced -- these are outcomes, not settings:
 
 | # | Coach plays | Dinky plays | Result |
 | --- | --- | --- | --- |
-| 1 | Dribble Advance | Deflect | Decisive win, the Playmaker's own 2 spaces: M2 → V1 |
-| 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to M3 -- right onto Dinky's own midfielder, who keeps it uncontested |
-| 3 | Pressure | Dribble Advance | The coach sends a challenger to M3, then defends and wins: Dinky driven back to V1 |
-| 4 | Steal Intercept | Low Pass | Turnover, the ball back to M3, the run back, and the speed crank |
-| 5 | High Pass | Steal Intercept | 2 spaces onto the striker on V2 -- a scoring opportunity, a set-up shot, and a goal |
+| 1 | Dribble Advance | Deflect | Decisive win, the Playmaker's own 2 spaces: space 4 → space 6 |
+| 2 | Low Pass | Deflect | Rank 1 both: a tie, a skill test the coach loses, the ball knocked to space 5 -- right onto Dinky's own midfielder, who keeps it uncontested |
+| 3 | Pressure | Dribble Advance | The coach sends a challenger to space 5, then defends and wins: Dinky driven back to space 6 |
+| 4 | Steal Intercept | Low Pass | Turnover, the ball back to space 5, the run back, and the speed crank |
+| 5 | High Pass | Steal Intercept | 2 spaces onto the striker on space 7 -- a scoring opportunity, a set-up shot, and a goal |
 
 ### The coach always plays home
 

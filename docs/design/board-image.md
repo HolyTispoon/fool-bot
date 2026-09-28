@@ -97,8 +97,8 @@ one of them.** `render_match_image` is the 2200px one everybody sees;
 layout. The coaching image carries one row of meeples instead of two, so at the
 match image's width it arrives in Discord as an unreadable sliver. **It is
 deliberately not mirrored for the visiting coach**: the zones keep their real
-names and the spaces their real numbers, so V1 is the same space on both images
-and on the board the coaches are looking at.
+names and the spaces their real numbers, so space 6 is the same space on both
+images and on the board the coaches are looking at.
 
 **That half-field is the Coaching Choice's and nothing else's.** The ball is
 left off because a Coaching Choice happens with play stopped and none of its
@@ -120,8 +120,8 @@ window opened"; if something ever charges time inside a window, this is the
 image that would start showing the wrong minute.
 
 **`render_field_image` is the third, and it is a crop rather than a third
-layout.** The field alone -- both sides' meeples, the ball, the space codes and
-the shooting range edges, with no title, jumbotron, assignment cards, team
+layout.** The field alone -- both sides' meeples, the ball, the space numbers
+and the shooting range edges, with no title, jumbotron, assignment cards, team
 boards or benches -- for the message under a coach's maneuver cards (see "The
 maneuver cards"). It draws the match image's canvas, calls the same
 `draw_board`, and cuts the board's rectangle plus `FIELD_MARGIN` out of it, so
@@ -133,7 +133,7 @@ and a strip a third of that height is shown at its own size or smaller.
 
 Two things set its width, and both are three cards wide. A zone's **assigned
 cards** are drawn under that zone, and midfield holds three under 2-3-1 and
-1-3-2 (a goal zone does under board 9's 3-2-1 and 1-2-3, which is the same
+1-3-2 (an outer zone does under board 9's 3-2-1 and 1-2-3, which is the same
 three); a space has to fit a **stack**. `D12BallComponentTests` checks the
 first, because the suite cannot see the image and an overflow here is silent.
 
@@ -294,7 +294,7 @@ value**, and the page may not work one out:
   `cyborg_condition_ids`, `species_abilities_apply`), and so does what
   the page adds: the kickoff space (`kickoff_space_for`), whether the
   side on the ball stands in range (`can_attempt_score`), the colour
-  of the side defending each end zone, and which mark each piece
+  of the side defending each outer zone, and which mark each piece
   carries -- the same choice `draw_card` makes (Injured wins the slot;
   a Cyborg's marks under its own names).
 - **A meeple is drawn from this module's numbers**
@@ -313,7 +313,7 @@ value**, and the page may not work one out:
 
 Check by eye: render the PNG (`scripts/render_sample.py --game <id>`,
 or the web app's own `board.png`) and the page for the same position,
-and compare every value both show -- the space codes, who stands
+and compare every value both show -- the space numbers, who stands
 where, the ball and its speed, each mark.
 
 ## The matchup image

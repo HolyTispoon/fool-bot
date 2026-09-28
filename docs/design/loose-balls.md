@@ -52,8 +52,9 @@ pickup use.
   saying the wording would be a lie, which is the High Pass's case and nobody
   else's.
 - `ball_location_line` and `ball_space_label` in `cogs/d12ball_helpers.py` are
-  the wording, over `space_label`. The line spells the zone out beside the code
-  because "M2" alone means nothing to anyone not already looking at the board.
+  the wording, over `space_label`. The line spells the zone out beside the
+  space's number because "space 4" alone means nothing to anyone not already
+  looking at the board.
 
 ## Where the ball comes to rest
 

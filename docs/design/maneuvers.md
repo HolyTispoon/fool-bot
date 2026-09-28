@@ -224,7 +224,8 @@ once -- one trailing while the other is the more hurt.
       owes the ball-speed choice but does not reach
       `offer_speed_choice` directly -- `finish_run_back` offers it,
       once everybody is back), and `BEGIN_SHOOTER_CHOICE`, for the
-      Intercept that overshoots into a scoring opportunity.
+      Intercept that reaches the goal zone and sets up a scoring
+      opportunity.
       `begin_run_back` and `begin_shooter_choice` themselves did not
       move.
     - **Two persists became one, and nothing was being lost.**
@@ -234,8 +235,8 @@ once -- one trailing while the other is the more hurt.
       everything. Unlike the beaten Clear above, this is the rule
       rather than a fix -- worth saying so, because the two read
       alike in a diff.
-    - **One ordering is open.** An Intercept that overshoots returns
-      before `gambit_cost` is read, so it collects no beaten
+    - **One ordering is open.** An Intercept that reaches the goal zone
+      returns before `gambit_cost` is read, so it collects no beaten
       Skilled Pass. Whether that is the rule (nobody goes back in
       position, so the free pass has no moment) or an oversight is
       the author's; the behaviour is preserved exactly and the
@@ -247,13 +248,14 @@ once -- one trailing while the other is the more hurt.
     `pressure_result_text` and `apply_pressure_turnover` went with it
     as free functions, and `D12Ball.apply_pressure` is four lines
     around it. Nothing either card says changed.
-    - **The overshoot names a new follow-on**,
-      `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method posts a
-      prompt of its own. So `begin_own_goal_roll` (a flow step in
+    - **A shove that sends the ball into the goal zone names a new
+      follow-on**, `BEGIN_OWN_GOAL_ROLL`, and it is the first whose method
+      posts a prompt of its own. So `begin_own_goal_roll` (a flow step in
       [`d12ball/flow/arrivals.py`](../../d12ball/flow/arrivals.py)
       since Phase 4) grew a `lead_in`
-      and carries the shove above its question: an overshooting
-      Pressure is one message now where it used to be two. The roll,
+      and carries the shove above its question: a Pressure that
+      sends the ball into the offense's own goal zone is one message now
+      where it used to be two. The roll,
       its dice image and the messages around it did not move.
     - **`apply_own_goal_outcome` moved with the rank** and stopped
       saving. It is the verdict rather than the card, but it is the
@@ -284,15 +286,15 @@ once -- one trailing while the other is the more hurt.
     - **The rank named two new follow-ons**, `BEGIN_LOOSE_BALL` and
       `OFFER_SETUP_PASS_PUSH_BACK`. The push-back is a follow-on rather
       than a prompt the step returns for rank O2's reason: a ball
-      already at the end of the field has nothing to offer, which the
-      step decides before asking. Dinky answers the prompt with the
-      farthest distance (`DinkyAI._farthest`).
-    - **The overshoot's ordering is unchanged and now pinned.** A
-      deflection that runs out of field and finds a defender standing
+      already on the last space before the goal zone has nothing to
+      offer, which the step decides before asking. Dinky answers the prompt
+      with the farthest distance (`DinkyAI._farthest`).
+    - **The goal-zone branch's ordering is unchanged and now pinned.** A
+      deflection that reaches the goal zone and finds a defender standing
       where the ball stopped turns into a scoring opportunity, and the
       Setup Pass cost is **not** asked on that branch -- the ball is
-      already as far back as it goes. An overshoot onto an empty space
-      is an ordinary loose ball. Neither was asserted anywhere before
+      already as far back as it goes. One that comes to rest on an empty
+      space is an ordinary loose ball. Neither was asserted anywhere before
       the rank's fixtures.
     - **Step-then-save was the rule rather than a fix**, the third time
       of four. `knock_ball_back` saved the moved ball and the shot
@@ -301,14 +303,15 @@ once -- one trailing while the other is the more hurt.
 - **A failed Setup Pass gambit is the beating card's one move, asked
   first** (the author, 2026-09-27). Until then a Deflect or Clear moved
   the ball its own distance and the coach who played it pushed it "a
-  further" 1, 2 or 3, never off the end. Now `deflection_step` moves
-  nothing when `gambit_cost` is `setup_pass` and names
+  further" 1, 2 or 3, never into the goal zone. Now `deflection_step`
+  moves nothing when `gambit_cost` is `setup_pass` and names
   `OFFER_SETUP_PASS_PUSH_BACK`; `RulesEngine.setup_pass_push_back_distances`
   offers 1-3 for a Deflect or 2-4 for a Clear (the *resolving* card's,
   so a blaze's Clear is a Clear), one more each for a Fullback, and of
-  the ones that run out of field only the shortest -- kept, unlike a
+  the ones that reach the goal zone only the shortest -- kept, unlike a
   High Pass's, because it is the challenger's shot where they stand on
-  the last space. The prompt says which it is (`DistanceOptions.overshoot`)
+  the last space. The prompt says which it is (`DistanceOptions.goal_zone`,
+  read off `RulesEngine.setup_pass_push_back_to_goal_zone`)
   so neither frontend labels two buttons with the same space. With one
   distance left there is nothing to ask and the offer plays it.
   `setup_pass_push_back_step` knocks the ball back at the card's own
@@ -377,9 +380,9 @@ once -- one trailing while the other is the more hurt.
     however far the ball actually travelled.
   - **That leaves one position a Setup Pass goes out from, and it is
     still a fourth `new_play=True` call site.** The card cannot
-    overshoot, so `setup_pass_out_step` is reached only where nothing
-    is on the menu at all: the passer on the very last space of the
-    field -- the one place even 1 space runs off the end -- with no
+    reach the goal zone, so `setup_pass_out_step` is reached only where
+    nothing is on the menu at all: the passer on the last space before
+    the goal zone -- the one place even 1 space reaches it -- with no
     teammate beside them. The other three call sites are the score
     attempt, a conceded own goal and the out-of-bounds loose ball.
   - **Dinky answers the distance as it answers a High Pass's**
@@ -393,8 +396,8 @@ once -- one trailing while the other is the more hurt.
   are nonsense on the gambit that inherits it: a Fullback's "ball
   goes back 2" is a *reduction* on a 3-space Clear, its "high pass up to 4"
   is a fourth number against a card offering 0/1/3, and a Playmaker's
-  "may advance 2" was no bonus at all on a run to the end of the field.
-  The author settled all three on 2026-08-19 -- **the Fullback's
+  "may advance 2" was no bonus at all on a run to the last space before the
+  goal zone. The author settled all three on 2026-08-19 -- **the Fullback's
   ability is +1 distance** (High Pass 3->4, Deflect 1->2, Clear
   3->4, Setup Pass gains a 4), and **the Playmaker's is one exhaustion
   token off a Dribble Burst**, kept on 2026-08-26 once the burst was
