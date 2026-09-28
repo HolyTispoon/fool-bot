@@ -143,8 +143,8 @@ loses.
   back a space and your challenger follows onto them. They still have
   the ball -- but they have lost ground, and you are standing on it.
   (Law 6.10)
-- Margin: *push a handler off the end of the field and they roll for an
-  own goal* (Law 11).
+- Margin: *push a handler on their last space and the ball reaches
+  their own goal zone: they roll for an own goal* (Law 11).
 
 **Turn 4 -- Figure 8.** Visitors: Low Pass. Home: Steal.
 

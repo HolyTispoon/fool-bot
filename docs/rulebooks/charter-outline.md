@@ -51,9 +51,10 @@ living-rules heading it is under today.
 *From:* Components, and "Words these rules use". *Moves:* every term
 the living rules define in passing elsewhere is defined here once.
 
-- 2.1 **The field.** The row of spaces, the three zones, the three
-  boards (table), the zone labels per board. Space codes (H1, M2, V3).
-- 2.2 **Forward and back.** Home attacks the visitors goal; the two
+- 2.1 **The field.** The row of spaces, the three zones with spaces and
+  the two goal zones beyond them, the boards (table), the zone labels per
+  board. Spaces numbered from the home end (1 to 7, or 1 to 9).
+- 2.2 **Forward and back.** Home attacks the Visitors Goal; the two
   words point opposite ways for the two sides. A space belongs to
   nobody; distances count straight across zone boundaries.
 - 2.3 **Shooting range.** The far part of the field from the middle;
@@ -149,15 +150,15 @@ what the ball is left with.
   *Playmaker*.
 - 6.7 **High Pass.** 2 or 3, a Fullback's 4; offered distances; the
   three landings (table); a 2 short of range is still received; the
-  overshoot; the passer never receives their own pass; out of play with
+  throw that reaches the goal zone; the passer never receives their own pass; out of play with
   nobody to throw to.
 - 6.8 **Deflect.** One space back, speed -1, nobody moves; *Fullback*;
-  what happens next is Law 10; the overshoot onto a defender is a
-  set-up.
+  what happens next is Law 10; reaching the goal zone with its
+  defender on the last space is a set-up.
 - 6.9 **Steal.** Possession flips, speed 1, one space back, the speed
   change; the interceptor is the carrier.
 - 6.10 **Pressure.** Handler and ball back one, the challenger onto
-  them; no change of possession; against the goal line, the own-goal
+  them; no change of possession; a push into their own goal zone, the own-goal
   roll (Law 11); *Defender*.
 
 ### Law 7. Ball speed
@@ -173,7 +174,7 @@ lists only the four basic changes.
 - 7.4 Where the modifier is added, and nowhere else: the score attempt,
   the defense's Steal, the High Pass contest. Never where the ball
   came to rest.
-- 7.5 The overshoot turns the sign.
+- 7.5 A High Pass that reaches the goal zone turns the sign.
 
 ### Law 8. Scoring opportunities
 
@@ -183,7 +184,7 @@ lists only the four basic changes.
   rule still applies.
 - 8.2 The four set-ups (table).
 - 8.3 The shooter's token; the Striker's +3.
-- 8.4 Declining, and the overshoot's exception.
+- 8.4 Declining, and the goal zone's exception.
 - 8.5 The shot's own minute.
 
 ### Law 9. Sending a player
@@ -209,7 +210,7 @@ lists only the four basic changes.
 - 10.3 **A loose ball.** Both send, one sends, neither sends.
 - 10.4 **The High Pass contest.** Three or more onto a teammate; the
   one exemption that allows a send against an occupied space; the
-  thrower's modifier, against them on an overshoot; a pass that reaches
+  thrower's modifier, against them when it reached the goal zone; a pass that reaches
   nobody carries none.
 - 10.5 **Out of bounds.** Neither side sends; the other side's ball; a
   new play, then a pickup.
@@ -222,7 +223,7 @@ lists only the four basic changes.
 
 *From:* Own goal.
 
-- 11.1 Only a Pressure that runs out of field.
+- 11.1 Only a Pressure whose push reaches the handler's own goal zone.
 - 11.2 The roll: two d12, keep the higher, add offense, 7 or more
   avoids; a token either way; not a skill test.
 - 11.3 Avoided: the ball stays, the side keeps it, both sides reset, a
