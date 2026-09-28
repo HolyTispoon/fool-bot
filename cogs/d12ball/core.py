@@ -529,9 +529,7 @@ class CoreMixin:
         # carry six cards for one side and three for the other -- see
         # `RulesEngine.maneuver_tiers`.
         self.maneuver_hand_image_bytes = {
-            hands: render_maneuver_hands(
-                self.maneuver_catalog, self.player_catalog, hands
-            ).read()
+            hands: render_maneuver_hands(self.maneuver_catalog, hands).read()
             for hands in maneuver_hand_combinations()
         }
 

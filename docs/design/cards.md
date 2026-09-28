@@ -111,7 +111,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **The hand is drawn at a third of the print card's width.** Discord scales an
   inline image down whatever it is sent, so the extra pixels would only be
   payload -- and this send is once per maneuver, not once per coach. The
-  abilities are small print at that size, which is what the full-image link on
+  effect text is small print at that size, which is what the full-image link on
   the message is for. That link is the webhook route, not the channel's edit
   bucket; see "Discord's rate limits" in [rate-limits.md](rate-limits.md).
 - **The field goes under the hands**, drawn by `render_field_image` and sent by
@@ -141,8 +141,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
-  `load_maneuver_catalog` and `cards.matchup_rank_groups`; the abilities come
-  from `players.json`. So a card cannot claim a rule the bot does not play, and
+  `load_maneuver_catalog` and `cards.matchup_rank_groups`. So a card cannot claim a rule the bot does not play, and
   an import is carried onto the cards by re-running this rather than by
   editing them.
   - **Each column names the rank it faces, not one maneuver.** Every column
@@ -165,42 +164,50 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     blank space under its own column. `matchup_content_height` counts the
     actual wrapped lines at the row's own name size (22, large enough that
     every maneuver name in the game still fits one line in a column this
-    wide) and `render_maneuver_card` sizes the row to that, the same way it
-    already sizes the abilities band to `laid_out_abilities`' measured
-    height. The room either measurement frees goes to the effect band
-    between them.
-- **Which roles a card lists is mostly matched, not tabulated.** A role is on
-  the card when its ability sentence names that maneuver, which is why the
-  Fullback is on both High Pass and Deflect, carrying its whole sentence
-  to each. The sentence is never cut down here -- see "Every ability is
-  imported twice". A new ability that mentions a maneuver reaches its card
-  without anything in the script being touched.
-  - **The match is on whole words, not substrings.** It was a substring while
-    every maneuver name was two words; the author renamed the basic D2 card to
-    "Steal" on 2026-08-18, and "steal" is inside "Steals the ball when
-    resolving Pressure" -- so the Defender's ability, which is Pressure's,
-    silently appeared on Steal's card as well.
-  - **No role ability names a gambit**, and that is the data being
-    honest rather than a gap: the six role abilities are training and standard mode's, and the
-    per-player advanced abilities are not played. What a gambit carries instead is the one thing
-    settled about how it resolves -- `tie_note`, which says a tie resolves it
-    as the basic card on its rank with no gambit's effect, and that a skill
-    test forced by injury still carries them. The counterpart it names is
-    looked up by rank rather than written down.
-  - **Two things the match cannot find are listed explicitly**, and both are
-    the author's call rather than an oversight in the data. `EXTRA_ROLES` puts
-    the **Striker** on High Pass: its +3 is for scoring off a set-up, one step
-    removed from the maneuver, and three maneuvers can produce a set-up -- a
-    High Pass is much the most common way, so it goes there and nowhere else.
-    `EXTRA_NOTES` gives **Steal Intercept** the ball speed modifier its
-    defender adds to the skill test, which decides the maneuver and which no
-    role ability names, so its card would otherwise be the only blank one.
-  - **Neither can live in `maneuvers.json`**: `scripts/import_d12ball_maneuvers.py`
-    rewrites that file whole from the sheet, so a field added to it survives
-    until the next import and no longer.
-  - **`EXTRA_NOTES` is keyed by rank in practice**: the ball speed modifier is
-    on Steal *and* Intercept, since the sheet lists it against both rows and it
-    is what decides that rank's skill test either way.
+    wide) and `render_maneuver_card` sizes the row to that, pinned to the
+    card's foot. The room the measurement frees goes to the effect band
+    above it.
+- **No role abilities on the face** (the author, 2026-09-28). There was an
+  "ABILITIES IN PLAY" band along the foot: the roles whose sentence named the
+  maneuver, matched on whole words, plus a hand-kept `EXTRA_ROLES` (the
+  Striker on High Pass), `EXTRA_NOTES` (the ball speed modifier on Steal and
+  Intercept, the Fullback on Clear and Setup Pass, the Playmaker on both
+  dribbles) and, on every gambit, a `CARDS` line saying its effect follows the
+  cards. It went whole, and its code with it. The role reference card and the
+  player cards carry the role abilities; the strip diagram still draws a
+  role's variant as a dashed arc; what a gambit does on the cards is now the
+  two boxes below. **What the face no longer says anywhere is the ball speed
+  modifier a Steal or an Intercept adds to its skill test** (Law 6.4, 19.9.3)
+  -- no role owns it, so no reference card carries it either.
+- **A gambit's effect is two boxes: SUCCESSFUL GAMBIT over FAILED GAMBIT**
+  (the author, 2026-09-28). The sheet carries one sentence per gambit with
+  "If defeated" in the middle of it, which asked a coach to find the turn in
+  the sentence before knowing which half applied. `gambit_effect_parts` cuts
+  it there: the first box, outlined in the card's colour, is what the gambit
+  does when it succeeds; the second, on grey, is what its side pays when it
+  fails. Law 19.4 is when each fires -- won on the cards, lost on the cards.
+  - **Both halves are the sheet's own words.** Only the lead-in "If
+    defeated," goes, since the heading says it, and the next letter is
+    capitalised. Cutting here rather than adding two columns to
+    `maneuvers.json` because the import rewrites that file whole from the
+    sheet; if the sheet grows the two columns, read them instead.
+  - **A gambit whose sentence loses the clause is drawn as one box and
+    logged, not raised.** The bot draws every hand at startup, and a
+    reworded sheet must not stop it starting.
+  - **Both boxes share one searched size**, so neither reads as the more
+    important, and the time pill sits under both: the clock is paid
+    whichever way the gambit goes.
+- **The rank is set in Montserrat ExtraBold** (the author, 2026-09-28), in
+  the header's badge, the matchup band and the back's hexagon --
+  `cards.rank_font` over `render.load_rank_font`. Roboto Slab's O is the
+  width of its 0, so "O1" read as "01"; Montserrat's O is a full circle
+  beside a narrow oval zero. Nine faces were compared (Roboto Slab, DejaVu
+  Sans, Racing Sans One, Poppins, Montserrat, Jost, Outfit, Lexend, Archivo
+  Black); the geometric sans faces were the ones that told the two apart.
+  The file is upstream's static ExtraBold (JulietaUla/Montserrat), bundled
+  unmodified under the OFL. Nothing else on a card changed face, and the
+  ranks drawn outside `cards.py` -- the bot's reference hexagon, the team
+  board -- are still Roboto Slab.
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
@@ -341,7 +348,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   way round.
 - **The effect text's size is searched, not set.** The effects run from Block
   Deflect's twenty words to Double Team's seventy against a band that is
-  whatever the strip, the matchups and the abilities leave behind. A fixed size
+  whatever the strip and the matchups leave behind. A fixed size
   fitted the short cards and ran Double Team's paragraph straight over three
   bands at once, silently, because nothing measured what it had been given.
 - The cards are generated output, written under `print/` and gitignored

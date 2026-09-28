@@ -1884,7 +1884,7 @@ def sale_sheet_fan(
         if len(cards) >= count:
             break
         cards.append(
-            render_maneuver_card(maneuvers, catalog, definition, is_offense, False)
+            render_maneuver_card(maneuvers, definition, is_offense, False)
         )
     return cards
 

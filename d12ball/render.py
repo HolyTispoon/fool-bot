@@ -289,6 +289,31 @@ def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
     return load_font(size, bold=True)
 
 
+def load_rank_font(size: int) -> ImageFont.ImageFont:
+    """
+    Montserrat ExtraBold, for a maneuver's rank -- O1, D2 -- and nothing
+    else. **Roboto Slab's O is the width of its 0**, so on a card "O1"
+    read as "01" (the author, 2026-09-28). Montserrat draws the O as a
+    full circle beside a narrow oval zero. Over the same
+    bundled-path-first chain as `load_goal_zone_font`, and falls back to
+    Roboto Slab Bold the same way.
+    """
+    bundled = FONT_DIR / "Montserrat-ExtraBold.ttf"
+    for candidate in (str(bundled), "Montserrat-ExtraBold.ttf"):
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+
+    LOGGER.warning(
+        "No scalable Montserrat font found for size %d; falling back to "
+        "the bundled Roboto Slab Bold. Expected a bundled font at %s.",
+        size,
+        bundled,
+    )
+    return load_font(size, bold=True)
+
+
 FONT_TITLE = load_font(50, bold=True)
 FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)

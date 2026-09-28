@@ -426,7 +426,6 @@ class ManeuverPickHarness:
         drawn = {
             sides: render_maneuver_hands(
                 catalog,
-                cls.catalog,
                 tuple((side, (MANEUVER_TIER_BASIC,)) for side in sides),
             ).read()
             for sides in (("offense",), ("defense",), ("offense", "defense"))
