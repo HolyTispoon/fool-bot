@@ -901,6 +901,32 @@ two shapes, by which way it is held:
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
+**Three ways to look at the game: desktop, iPad, phone** (the author,
+2026-09-28). The page has three layouts, each its own block in
+`app.css`, and a change to it is looked at, and shown to the author,
+in all three -- never one, since a change that is right on the desktop
+can crowd the phone's one line or push the tablet's column under the
+fold, and nothing in the suite sees any of it:
+
+| View | What the page reads | What it gets |
+| --- | --- | --- |
+| **Desktop** | wider than 960px, where the iPad's query does not hold | the stacked page: jumbotron, field, question box, the sidebar's four tabs |
+| **iPad** | 961px to 1400px on its side with a coarse pointer (`TABLET`) | two columns: the desktop field on the left, the phone's tabs on the right |
+| **Phone** | 960px and under (`phone()`), upright (`UPRIGHT`) | one screen: the narrow field, the bottom sheet, the tab bar |
+
+An iPad held upright is 960px or under and gets the phone's layout, and
+a phone on its side has a shape of its own (below); the three above are
+the ones every change is shown on. `scripts/capture_web_views.py`
+takes them: a kickoff game staged the way the landing page's board
+capture stages one (`landing/capture.py`), or a saved web game with
+`--games-file` and `--game`, opened as an observer in headless Chrome
+at 1440x900, 1180x820 with touch, and 390x844 with touch, one PNG each
+(`--selector` for one element, the jumbotron say). It reads back which
+layout the page chose and fails a view that fell into the wrong one,
+so a picture labelled "ipad" is the tablet's layout and not the
+desktop's at that width. As an observer nothing is lit for the reader;
+a change to what a coach is asked is looked at by playing it.
+
 **A tablet on its side is a third shape: two columns** (2026-09-27).
 A touch screen held on its side and wider than a phone -- 961px to
 1400px across with a coarse pointer anywhere (`any-pointer: coarse`):
@@ -939,9 +965,13 @@ the coach is looking at it.
 - **The jumbotron is one bar across the top of the play area**
   (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
   replacing the panel at the head of the sidebar). Each team in its
-  colour with an arrow for the way it attacks, "Home · coached by ..."
-  under it and a gold BALL mark while it has possession, its d12
-  showing the ball's speed as the field's does; the score with D12 BALL
+  colour, "Home · <coach>" under it and a gold BALL mark while it has
+  possession, its d12 showing the ball's speed as the field's does --
+  the mark is drawn on both sides and hidden on the one without the
+  ball, so the two columns are one height and the names and the
+  Home/Visitors lines sit on the same rows (the author, 2026-09-28,
+  who also dropped the arrow for the way each team attacks and the
+  "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow
   beside the half, a thirty-segment track to the second half's last
   minute with the first half's marked, a red LAST POSSESSION chip, and
@@ -950,8 +980,7 @@ the coach is looking at it.
   `shootout_score_line` reports them, since the scoreboard carries them
   too) -- and under it a time-out tile per team. Where the step's
   prompt and the design canvas differed in the small things (the
-  canvas's upper-case names, its arrow after the visitors' name too,
-  its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
+  canvas's upper-case names, its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
   read by `board.jumbotron`**: possession is `ball.possession`, a tile's
   held or spent is `may_take_time_out` (the half's own count, which
   halftime clears), the track's length and its halftime mark are the

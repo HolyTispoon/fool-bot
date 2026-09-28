@@ -581,25 +581,24 @@ function drawJumbotron(state) {
     const team = j ? j[where] : null;
     const coach = coachOn(where);
     const name = team ? team.name : coach && coach.team ? coach.team : "--";
-    const arrow = where === "home" ? "▶" : "◀";
     return h(
       "div",
       { class: `jumbo-side ${where}` },
       h(
         "div",
         { class: "jumbo-team", style: team ? `color: ${team.colour}` : null },
-        name, " ", h("span", { class: "jumbo-arrow" }, arrow),
+        name,
       ),
       h(
         "div",
         { class: "jumbo-coach" },
         where === "home" ? "Home" : "Visitors",
-        coach ? [" · coached by ", h("b", {}, coach.name)] : "",
+        coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
-      team && team.possession
-        ? h("div", { class: "jumbo-ball" },
-          die(String(j.speed), { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL")
-        : null,
+      /* Drawn on both sides and hidden on the one without the ball, so
+         the two columns are one height and their rows line up. */
+      h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
+        die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
     );
   };
 
