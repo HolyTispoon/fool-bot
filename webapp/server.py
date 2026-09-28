@@ -1928,12 +1928,13 @@ class WebApp:
                 "shootout": shootout_sides(
                     self.engine, game, match, prompt, wire=wire,
                 ),
-                # The maneuver pick links to the hexagon at the game's
-                # tier, as the Discord prompt's reference button posts
-                # it: a link, never a picture inline.
+                # The maneuver pick's rank reference: the cards' shared
+                # back at the game's tier, which carries the defeat
+                # cycle, shown while the pointer is on the words under
+                # the hand (the author, 2026-09-27). The fuller
+                # reference, the hexagon, is in the Rules tab.
                 "reference": (
-                    f"/aids/maneuvers/"
-                    f"{self.engine.maneuver_reference_tier(game)}.png"
+                    f"/api/game/{game.game_id}/maneuver-back.png?size=full"
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None
                 ),
             },
