@@ -10,7 +10,7 @@ it and neither board has a field on it to pay for a bigger sheet. See
 `PAPERS`, `DEFAULT_PAPER`, `JUMBOTRON_PAPER` and `TEAM_BOARD_PAPER` in
 `d12ball/boards.py`:
 
-    python3 scripts/render_boards.py --out print/
+    python3 scripts/render_boards.py --out print/boards
     python3 scripts/render_boards.py --teams --bleed --pdf
     python3 scripts/render_boards.py --board-size 9
 
@@ -91,8 +91,8 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print",
-        help="Directory to write into (default: ./print)",
+        default=PROJECT_ROOT / "print" / "boards",
+        help="Directory to write into (default: ./print/boards)",
     )
     parser.add_argument(
         "--board-size",

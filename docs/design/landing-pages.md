@@ -16,8 +16,7 @@ python3 scripts/build_landing.py                   # both, into landing/dist/<si
 python3 scripts/build_landing.py --only d12ball --out /tmp/site
 ```
 
-`landing/dist/` is generated output and is gitignored, like `box/` and
-`print/`.
+`landing/dist/` is generated output and is gitignored, like `print/`.
 
 ## Why they live here, and not in a repository of their own
 

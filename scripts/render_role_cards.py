@@ -4,7 +4,7 @@
 One double-sided card, print-ready at 2.5 x 3.5 inches (poker size),
 three of the six basic role abilities a face:
 
-    python3 scripts/render_role_cards.py --out cards/roles
+    python3 scripts/render_role_cards.py --out print/role-cards
     python3 scripts/render_role_cards.py --sheet --bleed
 
 The layout lives in `d12ball/role_cards.py` and the text comes from
@@ -31,7 +31,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "cards" / "roles",
+        default=PROJECT_ROOT / "print" / "role-cards",
         help="Directory to write the PNGs into (default: ./cards/roles)",
     )
     parser.add_argument(

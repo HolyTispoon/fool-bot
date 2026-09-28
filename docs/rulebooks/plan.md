@@ -219,7 +219,7 @@ not obvious. All three come off the renderer today.
 `scripts/build_rulebooks.py` builds both books:
 
 ```bash
-python3 scripts/build_rulebooks.py                 # both books -> print/
+python3 scripts/build_rulebooks.py                 # both books -> print/rulebooks/
 python3 scripts/build_rulebooks.py charter --paper a4
 python3 scripts/build_rulebooks.py --figures       # regenerate docs/rulebooks/figures/
 python3 scripts/build_rulebooks.py --outlines      # the two outlines as PDFs, for review
@@ -247,7 +247,7 @@ python3 scripts/build_rulebooks.py --outlines      # the two outlines as PDFs, f
   Learn to Play is imposed as a saddle-stitched booklet at the print
   shop rather than by the script. No bleed: nothing in either book
   reaches the edge.
-- **`print/` is the output folder**, gitignored, as it is for the boards.
+- **`print/rulebooks/` is the output folder**, gitignored, as `print/` is for the boards.
   The figures are the exception: `docs/rulebooks/figures/` is committed,
   regenerated whole by `--figures` and never edited by hand, so the
   outlines and later the books show them on GitHub.
