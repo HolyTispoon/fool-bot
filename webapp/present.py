@@ -36,9 +36,10 @@ frontend's to decide (principle 8):
   two things on the board, the one picked up (`first`) and the one it
   is put on (`place`), so the pair is the page's way of choosing a
   control the options listed, never a move of its own.
-- **A prompt carries its picture** where the cog posts a matchup with
-  the same question (`PROMPT_PICTURES`) -- the shot and the challenge.
-  The kind is the key; the drawing is `webapp/pictures.py`'s.
+- **A prompt carries its situation** where the cog posts a matchup
+  with the same question (`SITUATIONS`) -- the shot and the challenge
+  -- as the brief's words and the players' portraits for the page to
+  lay out, where the cog posts a PNG. The kind is the key.
 - **What a coach may not see is not sent.** A maneuver pick and a
   shootout order are secret (the model says so in the ask itself), so
   the rows for a side this viewer does not coach are left out of the
@@ -78,7 +79,16 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
-from webapp import pictures
+from d12ball.dice_brief import maneuver_challenge_brief, score_attempt_brief
+from d12ball.render import (
+    CHALLENGE_BAND_FULL,
+    CHALLENGE_BAND_HALF,
+    CHALLENGE_TITLE,
+    SCORE_ATTEMPT_TITLE,
+    SCORE_ATTEMPT_UNDEFENDED,
+    TEAM_COLORS,
+    ChallengeSide,
+)
 
 
 #: What the page calls each of a turn's three actions, and each of the
@@ -2128,37 +2138,186 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
 }
 
 
-#: The picture a prompt is asked over, by its kind: the two matchups
-#: the cog posts with the same question -- the shot's composition over
-#: its roll (`D12Ball.begin_score_attempt`), and the challenge over the
-#: maneuver pick, which on Discord sits directly on top of it
-#: (`announce_maneuver_challenge`). A kind not here has no picture.
-#:
-#: **Deliberately not the field strip or the coach's half-field**
-#: (the author, 2026-09-26): the page's board is beside the prompt, so
-#: a coach can see the field. And nothing here goes in the log.
-#:
-#: Each is the position's picture and holds nobody's hand, so it is
-#: the same for a coach and an observer.
-PROMPT_PICTURES: Mapping[PromptKind, Callable[..., bytes]] = {
-    PromptKind.SCORE_ATTEMPT: pictures.score_attempt_png,
-    PromptKind.MANEUVER_ACTION: pictures.challenge_png,
+# -- The situation ----------------------------------------------------------
+#
+# The matchup a question is asked over, where the cog posts one with it:
+# the shot's composition over its roll (`D12Ball.begin_score_attempt`),
+# and the challenge over the maneuver pick (`announce_maneuver_challenge`).
+# On Discord each is a PNG. **The page draws it itself** (the author,
+# 2026-09-28): the same brief the PNG is drawn from --
+# `dice_brief.maneuver_challenge_brief` and `score_attempt_brief` -- as
+# words and portraits on the page's own background, in a window of its
+# own above the question box. The numbers are the brief's and so the
+# game's; how they are laid out, like the PNG's, is the frontend's.
+#
+# **Deliberately not the field strip or the coach's half-field**
+# (the author, 2026-09-26): the page's board is beside the prompt, so
+# a coach can see the field. And nothing here goes in the log.
+#
+# Each is the position's and holds nobody's hand, so it is the same for
+# a coach and an observer.
+
+
+def _situation_player(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    side: ChallengeSide,
+) -> dict:
+    """One portrait in the situation: who, what they add, and whether
+    it is half of their skill (a shot's defender off the ball)."""
+    return {
+        "id": player_id,
+        "label": render_text(
+            game,
+            engine.format_player_label(
+                match, engine.get_player_definition(player_id),
+            ),
+        ),
+        "portrait": f"/api/game/{game.game_id}/portrait/{player_id}.png",
+        "value": side.value,
+        "skill": side.skill,
+        "halved": side.halved,
+    }
+
+
+def _situation_side(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    team: Team,
+    players: Sequence[tuple[str, ChallengeSide]],
+    with_ability: bool,
+    empty: str = "",
+) -> dict:
+    """
+    One side of the matchup, worded as the PNG words it
+    (`render.group_text_lines`): one player reads as themselves -- the
+    skill they roll on, any modifier this attempt earns, their ability
+    -- and several as a wall, their contributions added up, because
+    that sum is the only number the roll uses.
+    """
+    sides = [side for _, side in players]
+    if not sides:
+        skill = ""
+    elif len(sides) == 1:
+        only = sides[0]
+        halved_from = f" (half of {only.skill})" if only.halved else ""
+        skill = f"{only.skill_name} skill +{only.value}{halved_from}"
+    else:
+        terms = " + ".join(str(side.value) for side in sides)
+        skill = (
+            f"{sides[0].skill_name} skill: {terms}"
+            f" = {sum(side.value for side in sides)}"
+        )
+    return {
+        "team": team_display_name(team),
+        "colour": TEAM_COLORS[team],
+        "players": [
+            _situation_player(engine, game, match, player_id, side)
+            for player_id, side in players
+        ],
+        "skill": skill,
+        "modifiers": list(sides[0].modifiers) if len(sides) == 1 else [],
+        "ability": (
+            sides[0].ability
+            if with_ability and len(sides) == 1 and sides[0].ability
+            else None
+        ),
+        # What a wall's two badges mean, in the PNG's own band labels
+        # (`render.CHALLENGE_BAND_FULL`, `CHALLENGE_BAND_HALF`): those
+        # the wall has, whole skills first.
+        "bands": [
+            {"halved": halved, "text": text}
+            for halved, text in (
+                (False, CHALLENGE_BAND_FULL[0]), (True, CHALLENGE_BAND_HALF[0]),
+            )
+            if len(sides) > 1 and any(side.halved == halved for side in sides)
+        ],
+        "empty": empty if not sides else None,
+    }
+
+
+def _challenge_situation(
+    engine: RulesEngine, game: D12BallGame, match: MatchState,
+) -> Optional[dict]:
+    """The player on the ball against the challenger the position
+    holds -- `match.challenger_id`, set when a challenger is sent and
+    cleared by `reset_maneuver`, so an uncontested maneuver has none."""
+    challenger = match.challenger_id
+    if challenger is None:
+        return None
+    attacker = match.active_player_id
+    offense, defense, where = maneuver_challenge_brief(
+        engine, match, challenger, game,
+    )
+    return {
+        "title": CHALLENGE_TITLE,
+        "where": where,
+        "sides": [
+            _situation_side(
+                engine, game, match, match.team_for_player(attacker),
+                [(attacker, offense)], with_ability=True,
+            ),
+            _situation_side(
+                engine, game, match, match.team_for_player(challenger),
+                [(challenger, defense)], with_ability=True,
+            ),
+        ],
+    }
+
+
+def _shot_situation(
+    engine: RulesEngine, game: D12BallGame, match: MatchState,
+) -> dict:
+    """The shooter with the modifiers this attempt earns, and every
+    defender between them and the goal as one wall -- or nobody. No
+    ability on either side, as the PNG leaves them off
+    (`render.render_score_attempt`)."""
+    shooter, defenders, where = score_attempt_brief(engine, match, game)
+    defender_ids = [
+        defender.player.player_id
+        for defender in engine.intervening_defenders(match, game)
+    ]
+    return {
+        "title": SCORE_ATTEMPT_TITLE,
+        "where": where,
+        "sides": [
+            _situation_side(
+                engine, game, match,
+                match.team_for_player(match.active_player_id),
+                [(match.active_player_id, shooter)], with_ability=False,
+            ),
+            _situation_side(
+                engine, game, match,
+                Team(match.setup_for_side(match.defending_side()).team),
+                list(zip(defender_ids, defenders)), with_ability=False,
+                empty=SCORE_ATTEMPT_UNDEFENDED,
+            ),
+        ],
+    }
+
+
+#: The situation a prompt is asked over, by its kind. A kind not here
+#: has none.
+SITUATIONS: Mapping[
+    PromptKind,
+    Callable[[RulesEngine, D12BallGame, MatchState], Optional[dict]],
+] = {
+    PromptKind.SCORE_ATTEMPT: _shot_situation,
+    PromptKind.MANEUVER_ACTION: _challenge_situation,
 }
 
 
-def prompt_picture_key(
-    prompt: Optional[PendingPrompt], match: Optional[MatchState],
-) -> Optional[str]:
-    """
-    What a prompt's picture depends on beyond the position, for its
-    URL, or `None` where the prompt has none: the kind, and for the
-    maneuver pick the challenger -- the picture is of them, and an
-    uncontested maneuver has nobody to draw.
-    """
-    if prompt is None or match is None or prompt.kind not in PROMPT_PICTURES:
+def situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: Optional[PendingPrompt],
+) -> Optional[dict]:
+    """The matchup `prompt` is asked over, as the page draws it, or
+    `None` where it has none."""
+    if prompt is None or match is None or prompt.kind not in SITUATIONS:
         return None
-    if prompt.kind is PromptKind.MANEUVER_ACTION:
-        if match.challenger_id is None:
-            return None
-        return f"{prompt.kind.value}.{match.challenger_id}"
-    return prompt.kind.value
+    return SITUATIONS[prompt.kind](engine, game, match)

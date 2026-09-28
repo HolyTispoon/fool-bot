@@ -1564,7 +1564,7 @@ function drawJournal(state) {
        words read for them. */
     const block = h("div", { class: `entry kind-${entry.kind || "line"}` });
     /* Words only: the log draws no picture (2026-09-26, the author).
-       A question's picture is in the question area, and goes with it. */
+       A question's situation is above the question box, and goes with it. */
     for (const line of entry.lines) block.append(h("p", { html: line }));
     journal.append(block);
   }
@@ -1651,6 +1651,7 @@ function drawPrompt(state) {
   picked = null;
   if (!state.prompt) {
     box.hidden = true;
+    drawSituation(null);
     return;
   }
   box.hidden = false;
@@ -1661,7 +1662,7 @@ function drawPrompt(state) {
   box.dataset.state = state.prompt.state;
   el("prompt-state").textContent = boxTag(state.prompt);
   el("ask").innerHTML = state.prompt.ask;
-  drawPicture(state.prompt);
+  drawSituation(state.prompt);
   drawReference(state.prompt);
   drawControls(state.prompt);
 }
@@ -1749,26 +1750,65 @@ function drawOutcome() {
     && el("outcome-headline").hidden;
 }
 
-/* The picture the prompt is asked over, where the cog posts one with
-   the same question -- the shot, or the challenge over the maneuver
-   pick -- or none. Its URL changes when the position or the question does,
-   so an unchanged one is left alone rather than reloaded. */
-function drawPicture(prompt) {
-  const image = el("prompt-picture");
-  const aside = el("prompt-aside");
-  if (!prompt.picture) {
-    aside.hidden = true;
-    image.removeAttribute("src");
-    return;
-  }
-  if (image.getAttribute("src") !== prompt.picture) image.src = prompt.picture;
-  image.alt = prompt.kind === "score_attempt" ? "The shot" : "The challenge";
-  aside.hidden = false;
+/* The situation the prompt is asked over -- the challenge over the
+   maneuver pick, the shot over its roll -- or none: in a window of its
+   own above the question box, drawn here in words and portraits on the
+   page's background rather than as the bot's PNG. The words are the
+   server's (`present.situation`); the page only lays them out. */
+function drawSituation(prompt) {
+  const box = el("situation");
+  const situation = prompt ? prompt.situation : null;
+  box.replaceChildren();
+  box.hidden = !situation;
+  if (!situation) return;
+  const [attack, defence] = situation.sides;
+  box.append(
+    h("div", { class: "situation-head" },
+      h("span", { class: "situation-title" }, situation.title),
+      h("span", { class: "situation-where" }, situation.where)),
+    h("div", { class: "situation-row" },
+      situationSide(attack),
+      h("div", { class: "situation-vs", "aria-hidden": "true" }, "vs"),
+      situationSide(defence)),
+  );
+}
+
+/* One side of the situation: the team, the portraits (a badge on each
+   when a wall's numbers are added up), who they are, the skill they
+   bring, and the ability where one is weighed. */
+function situationSide(side) {
+  const wall = side.players.length > 1;
+  return h("div", { class: "situation-side", style: `--side: ${side.colour}` },
+    h("div", { class: "situation-team" }, side.team),
+    side.players.length
+      ? h("div", { class: "situation-portraits" },
+        side.players.map((player) => h("div", { class: "situation-portrait" },
+          h("img", { src: player.portrait, alt: "", loading: "lazy" }),
+          wall ? h("span", {
+            class: player.halved ? "situation-badge halved" : "situation-badge",
+            title: player.halved ? `Half of ${player.skill}` : null,
+          }, String(player.value)) : null)))
+      : null,
+    side.bands.length
+      ? h("div", { class: "situation-bands" },
+        side.bands.map((band) => h("span", { class: "situation-band" },
+          h("span", { class: band.halved ? "situation-dot halved" : "situation-dot", "aria-hidden": "true" }),
+          band.text)))
+      : null,
+    side.players.length
+      ? h("div", { class: "situation-names" },
+        side.players.map((player) => h("span", { class: "situation-name", html: player.label })))
+      : null,
+    side.empty ? h("div", { class: "situation-empty" }, side.empty) : null,
+    side.skill ? h("div", { class: "situation-skill" }, side.skill) : null,
+    side.modifiers.map((modifier) => h("div", { class: "situation-modifier" }, modifier)),
+    side.ability ? h("div", { class: "situation-ability" }, side.ability) : null,
+  );
 }
 
 /* The maneuver pick's link to the hexagon, at the tier the server
    named (`maneuver_reference_tier`): never a picture inline, since the
-   question box already carries the challenge over the hand. */
+   situation above the question box already carries the challenge. */
 function drawReference(prompt) {
   const link = el("reference-link");
   el("reference").hidden = !prompt.reference;

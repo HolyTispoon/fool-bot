@@ -1194,23 +1194,16 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 404)
 
 
-class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
+class SituationTests(unittest.IsolatedAsyncioTestCase):
     """
-    The picture a question is asked over (step 8 of
-    docs/web-app-next.md): the two matchups the cog posts with the same
-    question -- the shot over its roll, the challenge over the maneuver
-    pick -- served for the prompt the match is on, and drawn by the
-    renderer the cog calls, off the same brief. The field strip and the
-    coach's half-field are not drawn: the board is beside the prompt.
+    The situation a question is asked over (docs/design/web-app.md,
+    "The situation"): the two matchups the cog posts a PNG of with the
+    same question -- the shot over its roll, the challenge over the
+    maneuver pick -- handed to the page as the same brief's words and
+    the players' portraits, for it to lay out on its own background.
+    The field strip and the coach's half-field are not drawn: the board
+    is beside the prompt.
     """
-
-    #: The fixture, and the renderer the cog calls for its picture --
-    #: named here rather than read off `present.PROMPT_PICTURES`, so a
-    #: wrong pick in the table is caught.
-    PICTURES = (
-        ("score attempt", "render_score_attempt"),
-        ("maneuver picks", "render_maneuver_challenge"),
-    )
 
     async def open(self, name: str):
         fixture = case(name)
@@ -1234,77 +1227,118 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         return await response.json()
 
-    def spy(self, renderer: str, drawn: list):
-        from PIL import Image
-
-        from d12ball import render
-
-        real = getattr(render, renderer)
-
-        def spy(*args, **kwargs):
-            image = real(*args, **kwargs)
-            drawn.append((Image.open(image).size, args))
-            image.seek(0)
-            return image
-
-        return mock.patch(f"webapp.pictures.{renderer}", spy)
-
-    async def test_each_matchup_is_served_as_the_cog_draws_it(self) -> None:
-        from PIL import Image
-
-        for name, renderer in self.PICTURES:
-            with self.subTest(name):
-                ENGINE.rng.seed(11)
-                client, fixture = await self.open(name)
-                game = fixture.game
-                coach = await self.get_state(
-                    client, game, as_coach(game.player_1_id),
-                )
-                watcher = await self.get_state(
-                    client, game, as_coach(STRANGER),
-                )
-                url = coach["prompt"]["picture"]
-                self.assertIsNotNone(url)
-                # The position's picture, so nobody's hand: an observer
-                # is handed the same one.
-                self.assertEqual(watcher["prompt"]["picture"], url)
-
-                drawn = []
-                with self.spy(renderer, drawn):
-                    response = await client.get(url)
-                    body = await response.read()
-
-                self.assertEqual(response.status, 200)
-                self.assertEqual(response.content_type, "image/png")
-                self.assertTrue(body.startswith(b"\x89PNG"))
-                self.assertEqual(
-                    [size for size, _ in drawn],
-                    [Image.open(io.BytesIO(body)).size],
-                )
+    def names(self, side: dict) -> list[str]:
+        return [player["id"] for player in side["players"]]
 
     async def test_the_challenge_is_the_ball_against_the_challenger(
         self,
     ) -> None:
+        from d12ball.dice_brief import maneuver_challenge_brief
+
         ENGINE.rng.seed(11)
         client, fixture = await self.open("maneuver picks")
-        match = fixture.match
-        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
-        drawn = []
+        match, game = fixture.match, fixture.game
+        coach = await self.get_state(client, game, as_coach(game.player_1_id))
+        watcher = await self.get_state(client, game, as_coach(STRANGER))
+        situation = coach["prompt"]["situation"]
+        # The position's, so nobody's hand: an observer is handed the
+        # same one.
+        self.assertEqual(watcher["prompt"]["situation"], situation)
 
-        with self.spy("render_maneuver_challenge", drawn):
-            await client.get(state["prompt"]["picture"])
-
-        (_, (offense, defense, _)), = drawn
+        offense, defense, where = maneuver_challenge_brief(
+            ENGINE, match, match.challenger_id, game,
+        )
+        attack, defence = situation["sides"]
+        self.assertEqual(situation["where"], where)
+        self.assertEqual(self.names(attack), [match.active_player_id])
+        self.assertEqual(self.names(defence), [match.challenger_id])
+        # The numbers are the brief's, the one the PNG is drawn from.
         self.assertEqual(
-            offense.name,
-            ENGINE.get_player_definition(match.active_player_id).name,
+            attack["skill"], f"{offense.skill_name} skill +{offense.skill}",
         )
         self.assertEqual(
-            defense.name,
-            ENGINE.get_player_definition(match.challenger_id).name,
+            defence["skill"], f"{defense.skill_name} skill +{defense.skill}",
         )
+        self.assertEqual(attack["ability"], offense.ability)
+        self.assertEqual(defence["ability"], defense.ability)
+        # A player is named with their role.
+        label = attack["players"][0]["label"]
+        self.assertIn(
+            ENGINE.get_player_definition(match.active_player_id).name, label,
+        )
+        self.assertIn("badge", label)
 
-    async def test_every_other_question_has_no_picture(self) -> None:
+    async def test_the_shot_is_the_shooter_against_the_wall(self) -> None:
+        from d12ball.dice_brief import score_attempt_brief
+
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("score attempt")
+        match, game = fixture.match, fixture.game
+        state = await self.get_state(client, game, as_coach(STRANGER))
+        situation = state["prompt"]["situation"]
+
+        shooter, defenders, where = score_attempt_brief(ENGINE, match, game)
+        attack, defence = situation["sides"]
+        self.assertEqual(situation["where"], where)
+        self.assertEqual(self.names(attack), [match.active_player_id])
+        self.assertEqual(
+            self.names(defence),
+            [
+                defender.player.player_id
+                for defender in ENGINE.intervening_defenders(match, game)
+            ],
+        )
+        self.assertEqual(
+            [player["value"] for player in defence["players"]],
+            [defender.value for defender in defenders],
+        )
+        self.assertEqual(
+            [player["halved"] for player in defence["players"]],
+            [defender.halved for defender in defenders],
+        )
+        self.assertEqual(attack["modifiers"], list(shooter.modifiers))
+        # A shot weighs numbers, not abilities, as the PNG does.
+        self.assertIsNone(attack["ability"])
+        self.assertIsNone(defence["ability"])
+        if len(defenders) > 1:
+            self.assertTrue(
+                defence["skill"].endswith(
+                    f"= {sum(defender.value for defender in defenders)}",
+                ),
+            )
+        elif not defenders:
+            self.assertEqual(defence["empty"], "No one in the way")
+
+    async def test_every_portrait_is_served(self) -> None:
+        for name in ("maneuver picks", "score attempt"):
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, fixture = await self.open(name)
+                state = await self.get_state(
+                    client, fixture.game, as_coach(STRANGER),
+                )
+                players = [
+                    player
+                    for side in state["prompt"]["situation"]["sides"]
+                    for player in side["players"]
+                ]
+                self.assertTrue(players)
+                for player in players:
+                    response = await client.get(player["portrait"])
+                    body = await response.read()
+                    self.assertEqual(response.status, 200, player["id"])
+                    self.assertEqual(response.content_type, "image/png")
+                    self.assertTrue(body.startswith(b"\x89PNG"))
+
+    async def test_a_player_not_in_the_game_has_no_portrait(self) -> None:
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("maneuver picks")
+        response = await client.get(
+            f"/api/game/{fixture.game.game_id}/portrait/nobody.png",
+        )
+        self.assertEqual(response.status, 404)
+
+    async def test_every_other_question_has_no_situation(self) -> None:
         # The distance questions and the Coaching Choice among them:
         # the board beside the prompt is the field.
         for name in (
@@ -1317,12 +1351,7 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
                 state = await self.get_state(
                     client, fixture.game, as_coach(fixture.game.player_1_id),
                 )
-                response = await client.get(
-                    f"/api/room/{fixture.game.game_id}/prompt.png?v=1",
-                )
-
-                self.assertIsNone(state["prompt"]["picture"])
-                self.assertEqual(response.status, 404)
+                self.assertIsNone(state["prompt"]["situation"])
 
     async def test_the_log_says_the_challenge_in_words(self) -> None:
         # Sending a challenger walks one in. On Discord the challenge
@@ -1355,7 +1384,7 @@ class PromptPictureTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(played["refusal"])
         self.assertEqual(played["prompt"]["kind"], "maneuver_action")
-        self.assertIsNotNone(played["prompt"]["picture"])
+        self.assertIsNotNone(played["prompt"]["situation"])
         said = [
             line
             for entry in played["entries"]
@@ -2574,7 +2603,7 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         set(state["prompt"]),
                         {
-                            "kind", "ask", "footnote", "picture", "controls",
+                            "kind", "ask", "footnote", "situation", "controls",
                             "lit", "yours", "state", "waiting_on",
                             "reference", "hand", "shootout",
                         },

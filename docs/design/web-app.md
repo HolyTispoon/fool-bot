@@ -591,8 +591,8 @@ mirrored between a channel and a page.
 `build_ai_strategies`, with the tutorial script checked against the
 catalog the same way), the games `load_games(WEB_GAMES_FILE)` reads, a
 `GameService` with the web app's own `WEB_BATCHING` -- the default
-but for the walk-in, which it closes into a group so the challenge
-image has its challenger ("The prompt's pictures", below); the cog's
+but for the walk-in, which it closes into a group so the log's
+challenge line has its challenger ("The situation", below); the cog's
 `DiscordBatching` is Discord's economy (principle 8), and a page has
 no rate limit to batch for -- and a save that writes that file and no
 other. Then its own `GameLocks`.
@@ -969,7 +969,7 @@ the coach is looking at it.
   no page asks for it now (the author, 2026-09-26). **It draws no
   picture of any kind** (2026-09-26, the author, at step 8): not the
   dice, not the challenge. A picture belongs to a question and goes
-  with it ("The prompt's pictures", below); what the challenge image
+  with it ("The situation", below); what the challenge image
   shows, the log says in words.
 - **The chat is people talking** ("Chat", under "What a page is
   handed"): everybody in the room may post under the name on their
@@ -979,8 +979,7 @@ the coach is looking at it.
 **The question box** (2026-09-26, step 3 of
 [../web-app-redesign.md](../web-app-redesign.md)) is the panel under the
 field, in the canvas's shape: a state tag, the outcome, the ask at
-17px, a muted line for what is lit on the board, the controls, and on
-the right the picture the question is asked over.
+17px, a muted line for what is lit on the board, and the controls.
 
 - **The tag is the server's reading, never the page's.** Four:
   YOUR MOVE (gold, and the box's left edge gold), WAITING ON <NAME>
@@ -1021,9 +1020,11 @@ the right the picture the question is asked over.
   from where the ball stands (a shot out of range is not offered at
   all, `TurnOptions`, and the range bar under the field shows why),
   or no time out to call. The box's own objects are not repeated.
-- **The picture slot is on the right**, behind a rule: the shot or the
-  challenge, `PROMPT_PICTURES` as before ("The prompt's pictures").
-  On a narrow screen it goes under the question.
+- **The matchup is not in the box.** The challenge over the maneuver
+  pick and the shot over its roll are the situation window above it
+  ("The situation", below): the box was the question on the left and
+  the matchup on the right, and the author wanted the situation read
+  first and the question under it (2026-09-28).
 - **A refusal rides on the question it refused**: a red-edged strip
   under the tag with the model's sentence and an outlined Dismiss. The
   page moves the one strip into whichever box is asking -- the question
@@ -1504,40 +1505,52 @@ where they are read. The log keeps the roll's words.
   after a restart, which is why the Mind Pull's `to_dict` carries its
   `target_label`: the die's band is worded once, by the model.
 
-### The prompt's pictures
+### The situation
 
 **A question is asked over the matchup it is about, where the cog
 posts one with it** (step 8 of [../web-app-next.md](../web-app-next.md)):
 the shot's composition over a score attempt's roll
-(`D12Ball.begin_score_attempt`), and the challenge image over the
-maneuver pick, which on Discord sits directly on top of it
-(`announce_maneuver_challenge`). `webapp/present.py`'s
-`PROMPT_PICTURES` is the table, **keyed on the kind**, and each is
-drawn by the function the cog calls off the same brief --
-`dice_brief.score_attempt_brief` and `maneuver_challenge_brief`, moved
-below the renderer for this so the two frontends draw one picture
-(`webapp/pictures.py`: `score_attempt_png`, `challenge_png`).
+(`D12Ball.begin_score_attempt`), and the challenge over the maneuver
+pick, which on Discord sits directly on top of it
+(`announce_maneuver_challenge`). `webapp/present.py`'s `SITUATIONS` is
+the table, **keyed on the kind**, and each reads the brief the cog's
+PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
+`score_attempt_brief` -- so the two frontends show one matchup.
 
+- **The page draws it; it does not serve the bot's PNG** (the author,
+  2026-09-28). Until then the page showed the cog's image in a slot to
+  the right of the question. Now the prompt's `situation` is the
+  brief as data -- a title and where, then each side: the team and
+  its colour, each player's label (tokens rendered, role badge
+  included) and portrait URL, the skill line, the modifiers, the
+  ability where one is weighed, a wall's band key, or the note for an
+  open goal -- and the page lays it out on its own background in a
+  window of its own, `#situation`, **above the question box**, so the
+  situation is read before the question. The words are worded as
+  `render.group_text_lines` words the PNG, and the titles and band
+  labels are its constants: the same caption, not a second voice.
+  Like the PNG's, the layout is the frontend's and decides nothing.
+- **A portrait is the painting the PNG draws**
+  (`render.load_player_portrait`), served at
+  `GET /api/game/{id}/portrait/{card_id}.png` fitted into 240px with
+  its transparency, and kept with the cards: it is the catalog's and
+  the same for everybody.
+- **A wall reads as the PNG's does**: a badge on each face, solid for
+  a whole skill and outlined for a halved one, the band key under the
+  faces in the PNG's own labels, and the contributions added up.
 - **Deliberately not the field strip or the coach's half-field**
   (2026-09-26, the author): coaches can see the field, since the
   page's board is beside the prompt. The cog draws both because a
   channel's board has scrolled away by then; the page's has not.
-- **It is in the question area and goes with the question.** It sits
-  between the ask and the controls, as an attachment sits between a
-  Discord message's text and its buttons, and the next question
-  replaces it. Nothing of it goes in the log.
+- **It goes with the question.** The next question replaces it and
+  nothing of it goes in the log.
 - **The challenge is the position's challenger.** The kind says there
-  is a picture; who is in it is `match.challenger_id`, set when a
+  is a situation; who is in it is `match.challenger_id`, set when a
   challenger is sent and cleared by `reset_maneuver`, so an
   uncontested maneuver has none. That reads who is standing where, as
   the board does -- not what is asked, which is still the prompt's.
-- **It is the same picture for a coach and an observer.** Both are
-  pictures of the position and neither holds a hand.
-- **`GET /api/room/{id}/prompt.png` draws the prompt the match is on
-  now**, whatever the URL says, in a worker thread, and keeps it with
-  the boards. The URL's `v` is the board version and its `p` the kind
-  (and the challenger, for the maneuver pick): a browser keeps a
-  picture by its URL.
+- **It is the same for a coach and an observer.** Both are views of
+  the position and neither holds a hand.
 
 **The log says the challenge in words.** On Discord the walk-in is
 followed by the challenge image; the log draws none, so the entry for
