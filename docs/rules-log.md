@@ -154,6 +154,35 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (Smooth) -- author, no Smooth on a ball nobody is holding
+
+The author, from a game on Discord where a Deflect came down on a space holding one
+Telekinetic and nobody else, and the bot offered them a Smooth: *"that player should just have
+the ball ... Smooth only makes sense when someone is handling and locked in to using the ball
+normally."* Asked whether a Smooth should still let a Telekinetic skip a contest on a space
+they share with an opponent, the author chose **never on an unheld ball**.
+
+**Smooth is offered only where the movement is handing the ball to somebody** -- a pass's
+receiver, a thief, a shooter a set-up hands it to, the handler a dribble or a shove carries --
+and a Telekinetic teammate on that space takes it off them. Where the ball comes to rest with
+nobody named as holding it (Law 10.1: a Deflect, a pass that reaches nobody, a Clear, a beaten
+Cross), the space settles it as it always has: a lone Telekinetic simply has it, one among
+teammates is their coach's pick, and one beside an opponent contests for it. **The High Pass
+contest is the same case**: the receiver has caught it but not kept it (10.4.1), so neither they
+nor a Telekinetic beside them may Smooth their way out of the contest. Written into 20.4.11,
+with "a contest" taken out of 20.4.12's list of what a Smooth pre-empts and the species table's
+summary reworded. No number moved.
+
+It is 20.4.11's own sentence -- *taking it over means taking it off somebody* -- read once
+more: with nobody holding the ball there is nobody to take it off. Implemented as one early
+return in `RulesEngine.smooth_candidates` when `match.ball_carrier_id` is unset; every effect
+that hands the ball to somebody sets the carrier before the arrival gate is asked, so an unset
+carrier is exactly an unheld ball.
+
+**Upstream.** The sheet's short text (*"teammate sharing space may handover ball handling"*)
+already says this. Its long text, *"the ball moves to your space"*, reads wider than the ruling
+but not against it, so it is not listed as behind.
+
 ### 2026-09-28 (wording) -- author, Law 21's abilities are "special abilities"
 
 The author, in a Claude Code session, on the print-and-play kit's README: *"it's not a
