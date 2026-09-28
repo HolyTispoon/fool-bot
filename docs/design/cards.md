@@ -166,18 +166,34 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     when the author read the printed faces as too small; it was 22) and `render_maneuver_card` sizes the row to that, pinned to the
     card's foot. The room the measurement frees goes to the effect band
     above it.
-- **No role abilities on the face** (the author, 2026-09-28). There was an
-  "ABILITIES IN PLAY" band along the foot: the roles whose sentence named the
-  maneuver, matched on whole words, plus a hand-kept `EXTRA_ROLES` (the
-  Striker on High Pass), `EXTRA_NOTES` (the ball speed modifier on Steal and
-  Intercept, the Fullback on Clear and Setup Pass, the Playmaker on both
-  dribbles) and, on every gambit, a `CARDS` line saying its effect follows the
-  cards. It went whole, and its code with it. The role reference card and the
-  player cards carry the role abilities; the strip diagram still draws a
-  role's variant as a dashed arc; what a gambit does on the cards is now the
-  two boxes below. **What the face no longer says anywhere is the ball speed
-  modifier a Steal or an Intercept adds to its skill test** (Law 6.4, 19.9.3)
-  -- no role owns it, so no reference card carries it either.
+- **A basic card lists the role abilities that change it, under its
+  effect; a gambit lists none** (the author, 2026-09-28). The rows are
+  `role_abilities`: the roles whose sentence names the maneuver, matched on
+  whole words, then `EXTRA_ROLES` (the Striker on High Pass) and
+  `EXTRA_NOTES` (the ball speed modifier on Steal, Law 6.4; the Playmaker's
+  extra space on Dribble Advance, since its sentence names "Dribble
+  maneuvers" rather than either card). They sit in a grey box under the
+  sentence, each behind its role in bold, with no heading -- the role names
+  are the labels -- one step smaller than the effect text. The same day
+  they were first taken off every card as an "ABILITIES IN PLAY" band along
+  the foot, then put back on the basic cards alone, which have the room. A
+  gambit's face is its three boxes, and no role ability names a gambit.
+  - **The match is on whole words, not substrings.** It was a substring
+    while every maneuver name was two words; the author renamed the basic D2
+    card to "Steal" on 2026-08-18, and "steal" is inside "Steals the ball
+    when resolving Pressure" -- so the Defender's ability, which is
+    Pressure's, silently appeared on Steal's card as well.
+  - **Neither table can live in `maneuvers.json`**:
+    `scripts/import_d12ball_maneuvers.py` rewrites that file whole from the
+    sheet, so a field added to it survives until the next import and no
+    longer.
+  - **What the gambits no longer print** is what the band used to carry for
+    them: the Fullback on Clear and Setup Pass, the Playmaker on Dribble
+    Burst, the ball speed modifier on Intercept, and the "CARDS" line.
+- **The time cost is a pill in the header's right-hand corner, on every
+  card** (the author, 2026-09-28): "TIME · 1", the number alone
+  (`time_cost` reads it off the sheet's "1 space minute"), white like the
+  rank badge opposite it. It used to be a pill under the effect.
 - **A gambit's effect is three boxes: SUCCESSFUL GAMBIT, FAILED GAMBIT, TIE**
   (the author, 2026-09-28). The sheet carries one sentence per gambit with
   "If defeated" in the middle of it, which asked a coach to find the turn in
@@ -199,9 +215,6 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **All three boxes share one searched size**, so none reads as the more
     important, and the boxes sit close together, since the room between them
     is room the text does not get.
-  - **A gambit has no time pill; the tie box took its place** (the author).
-    A gambit's clock is the same as its basic card's, and the basic card,
-    which is always in the same deck, still carries it.
 - **The rank is Roboto Slab Bold, like everything else on the card**
   (`cards.rank_font`). Roboto Slab's O is the width of its 0, so "O1" can
   read as "01", and on 2026-09-28 Montserrat ExtraBold was tried for the
@@ -236,7 +249,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     three arcs out of one space, and labelling those at their peaks stacked
     three captions on top of each other. A caption's font is sized to the gap
     to the next caption on its row (21 at most), and ability variants get a
-    second row.
+    second row. The legend across the panel's top is 24
+    (`STRIP_LEGEND_SIZE`, the author: 19 was too small).
   - **The panel is as tall as its own diagram, from 230 up**
     (`strip_panel_height`). It was a fixed 288 for every card, which left
     most of them a band of empty panel and still let Double Team's third
@@ -371,7 +385,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   bands at once, silently, because nothing measured what it had been given.
   The search runs from 36 down to 20 (`EFFECT_MAX_SIZE`, `EFFECT_MIN_SIZE`;
   29 and 17 until the author read the printed faces as too small on
-  2026-09-28): a basic card sets at 36, a gambit's three boxes at 23 to 32.
+  2026-09-28). A basic card's search counts its ability rows in; a gambit's
+  three boxes set at about 23 to 32.
   The header band went from 152 to 136 for the same room.
 - The cards are generated output, written under `print/` and gitignored
   ("Where printed output goes", below).

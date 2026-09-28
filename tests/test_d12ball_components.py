@@ -23,6 +23,7 @@ from d12ball.cards import (
     render_maneuver_card,
     render_maneuver_card_back,
     render_maneuver_hands,
+    role_abilities,
     tie_pairs,
 )
 from d12ball.components import (
@@ -2703,6 +2704,7 @@ class D12BallManeuverTests(unittest.TestCase):
         A basic hand is the other half of the same reading: one row,
         and four columns because the shared back is on the end of it.
         """
+        players = load_player_catalog()
         scale = HAND_CARD_WIDTH / CARD_WIDTH
         card_height = round(CARD_HEIGHT * scale)
         band = HAND_HEADING_SIZE + HAND_HEADING_GAP
@@ -2731,7 +2733,7 @@ class D12BallManeuverTests(unittest.TestCase):
             for tiers, columns, card_rows in cases:
                 with self.subTest(side=side, tiers=tiers):
                     hand = render_maneuver_hands(
-                        self.catalog, ((side, tiers),),
+                        self.catalog, players, ((side, tiers),),
                     )
                     with Image.open(hand) as image:
                         self.assertEqual(image.format, "PNG")
@@ -2753,6 +2755,8 @@ class D12BallManeuverTests(unittest.TestCase):
         card count: a back creeping back in is a column, and a column
         is what makes every card on the image smaller.
         """
+        players = load_player_catalog()
+
         def width(columns: int) -> int:
             return (
                 HAND_MARGIN * 2
@@ -2776,7 +2780,7 @@ class D12BallManeuverTests(unittest.TestCase):
         for hands, columns in cases:
             with self.subTest(hands=hands):
                 hand = render_maneuver_hands(
-                    self.catalog, hands,
+                    self.catalog, players, hands,
                 )
                 with Image.open(hand) as image:
                     self.assertEqual(image.width, width(columns))
@@ -2792,6 +2796,7 @@ class D12BallManeuverTests(unittest.TestCase):
         last case is the one the 2026-09-20 gate added: one coach
         holding their gambits and the other not, three card rows.
         """
+        players = load_player_catalog()
         scale = HAND_CARD_WIDTH / CARD_WIDTH
         card_height = round(CARD_HEIGHT * scale)
         band = HAND_HEADING_SIZE + HAND_HEADING_GAP
@@ -2815,7 +2820,7 @@ class D12BallManeuverTests(unittest.TestCase):
         for hands, card_rows in cases:
             with self.subTest(hands=hands):
                 hand = render_maneuver_hands(
-                    self.catalog, hands,
+                    self.catalog, players, hands,
                 )
                 with Image.open(hand) as image:
                     self.assertEqual(
@@ -2848,6 +2853,39 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(
             sorted(named), sorted(maneuver.key for maneuver in basic)
         )
+
+    def test_a_card_names_every_ability_that_touches_its_maneuver(
+        self,
+    ) -> None:
+        """
+        The match is over the ability sentences, so a re-import that
+        rewords one silently drops it off the card it belongs to.
+        Steal is the case with a role and a note. Only a basic card
+        carries the rows (the author, 2026-09-28): a gambit's face is
+        its success, failure and tie boxes.
+        """
+        players = load_player_catalog()
+        by_maneuver = {
+            maneuver.key: {
+                label
+                for label, _ in role_abilities(players, maneuver)
+            }
+            for maneuver in self.catalog.offense + self.catalog.defense
+        }
+
+        self.assertEqual(by_maneuver["low_pass"], {"MIDFIELDER", "WINGER"})
+        self.assertEqual(by_maneuver["dribble_advance"], {"PLAYMAKER"})
+        self.assertEqual(by_maneuver["high_pass"], {"FULLBACK", "STRIKER"})
+        self.assertEqual(by_maneuver["deflect"], {"FULLBACK"})
+        self.assertEqual(by_maneuver["steal"], {"MIDFIELDER", "BALL SPEED"})
+        self.assertEqual(by_maneuver["pressure"], {"DEFENDER"})
+
+        for key in (
+            "skilled_pass", "dribble_burst", "setup_pass",
+            "clear", "intercept", "double_team",
+        ):
+            with self.subTest(gambit=key):
+                self.assertEqual(by_maneuver[key], set())
 
     def reference_skill_test_height(self) -> int:
         """A two-detail-line skill test, the size the others match."""

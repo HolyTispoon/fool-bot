@@ -401,7 +401,7 @@ def write_d12ball_pictures(out: Path) -> None:
         if maneuver.tier != MANEUVER_TIER_BASIC:
             raise ValueError(f"{key} is not a basic card; the turn is a basic one")
         card = render_maneuver_card(
-            maneuvers(), maneuver,
+            maneuvers(), catalog, maneuver,
             is_offense=maneuvers().side_of(key) == "offense", bleed=False,
         )
         write_png(fit_width(card, CARD_PIXELS), out / "images" / "cards" / f"{key}.png")

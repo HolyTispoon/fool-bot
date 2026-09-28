@@ -17,9 +17,10 @@ A gambit's effect is split where the sheet's own sentence says "If
 defeated", into what it does when it succeeds and what it costs when it
 fails; see `gambit_effect_parts`.
 
-The role abilities are not on the face (the author, 2026-09-28): the
-"abilities in play" band that listed them went, and the role and
-species reference cards are where a coach reads them.
+A basic card also lists the role abilities that change it, and the
+ball speed modifier where its rank adds one, read from `players.json`
+(see `role_abilities`). A gambit's face has no room for them and
+carries its success, failure and tie instead (the author, 2026-09-28).
 """
 import logging
 import re
@@ -34,6 +35,7 @@ from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
     ManeuverCatalog,
     ManeuverDefinition,
+    PlayerCatalog,
 )
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
@@ -431,6 +433,76 @@ def fitted_title(
     if face is not None:
         return [name], face
     return name.split(" ", 1), font(min(max_size, 40), bold=True)
+
+
+# A role whose ability does not name the maneuver but belongs on its
+# card anyway. The Striker's +3 is for scoring off a set-up, one step
+# removed from the maneuver that produced the set-up -- three maneuvers
+# can produce one, and the author's ruling is that a High Pass is much
+# the most common way it happens, so it goes there and nowhere else.
+# The sentence still comes from players.json; only the placement is
+# here.
+EXTRA_ROLES: dict[str, tuple[str, ...]] = {
+    "high_pass": ("striker",),
+}
+
+# What a maneuver's own rules add to it, where no role ability names it
+# and so nothing in the data can be matched against. Steal's is the one
+# modifier that decides the maneuver (Law 6.4); the wording is the
+# author's. None of it can live in maneuvers.json, which the sheet
+# import rewrites whole.
+BALL_SPEED_NOTE = (
+    "BALL SPEED",
+    "The defender adds the ball speed modifier to this skill test.",
+)
+# **Abilities that reach a card their sentence does not name**
+# (the author, 2026-09-26). The Playmaker's sentence names "Dribble
+# maneuvers" rather than either card, so neither matches it, and the
+# card says what the ability does there instead.
+EXTRA_NOTES: dict[str, tuple[tuple[str, str], ...]] = {
+    "steal": (BALL_SPEED_NOTE,),
+    "dribble_advance": (
+        ("PLAYMAKER", "May advance an additional space."),
+    ),
+}
+
+
+def role_abilities(
+    catalog: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+) -> list[tuple[str, str]]:
+    """
+    The rows under a basic card's effect: the roles whose ability names
+    this maneuver, then any role placed here by hand, then the
+    maneuver's own modifiers. Matching on the name is what keeps the
+    first group in step with an import -- a new ability mentioning a
+    maneuver reaches the card without anything here being edited.
+
+    **A gambit has none** (the author, 2026-09-28). Its face is its
+    success, failure and tie boxes, and no role ability names a gambit
+    anyway: the six role abilities are training and standard mode's.
+    """
+    if maneuver.is_gambit:
+        return []
+    # Matched on **whole words**, not as a substring. It was a
+    # substring while every maneuver name was two words: the author
+    # renamed the basic D2 card to "Steal" on 2026-08-18, and "steal"
+    # is inside "Steals the ball when resolving Pressure" -- so the
+    # Defender's ability, which is Pressure's, silently appeared on
+    # Steal's card as well.
+    needle = re.compile(
+        r"\b" + r"\s+".join(
+            re.escape(word) for word in maneuver.name.lower().split()
+        ) + r"\b"
+    )
+    extra = EXTRA_ROLES.get(maneuver.key, ())
+    rows = [
+        (role.value.upper(), profile.ability)
+        for role, profile in catalog.role_profiles.items()
+        if needle.search(profile.ability.lower()) or role.value in extra
+    ]
+    rows.extend(EXTRA_NOTES.get(maneuver.key, ()))
+    return rows
 
 
 class Move(NamedTuple):
@@ -1185,6 +1257,9 @@ def draw_matchups(
 
 
 CARD_HEADER_HEIGHT = 136
+# The time pill in a gambit's header.
+HEADER_TIME_SIZE = 20
+HEADER_TIME_HEIGHT = 40
 
 
 def draw_card_header(
@@ -1239,6 +1314,30 @@ def draw_card_header(
     # title's room is symmetric, so the title is centred on the card.
     title_left = FRAME + 140
     title_right = CARD_WIDTH - FRAME - 140
+
+    # **The time cost rides in the header's right-hand corner, on every
+    # card** (the author, 2026-09-28), white like the rank badge opposite
+    # it, and as the number alone. It used to be a pill under the effect,
+    # which on a gambit had no room left beside three boxes.
+    time_font = font(HEADER_TIME_SIZE, bold=True)
+    time_text = f"TIME · {time_cost(maneuver)}"
+    width = pen.text_size(time_text, time_font)[0] + 28
+    center_x = CARD_WIDTH - FRAME - 74
+    center_y = header_top + header_height / 2
+    pen.rect(
+        (
+            center_x - width / 2,
+            center_y - HEADER_TIME_HEIGHT / 2,
+            center_x + width / 2,
+            center_y + HEADER_TIME_HEIGHT / 2,
+        ),
+        radius=HEADER_TIME_HEIGHT / 2,
+        fill=CARD_FACE,
+    )
+    pen.text(
+        (center_x, center_y + 1), time_text, time_font, color, anchor="mm",
+    )
+
     title_width = title_right - title_left
 
     # The subtitle is drawn only on a gambit's face -- a basic card is
@@ -1334,10 +1433,6 @@ EFFECT_BOX_GAP = 10
 # author read the printed size as too small.
 EFFECT_MAX_SIZE = 36
 EFFECT_MIN_SIZE = 20
-# The time pill, on a basic card only, and the room above it.
-TIME_PILL_HEIGHT = 44
-TIME_PILL_GAP = 18
-TIME_PILL_SIZE = 23
 
 
 class EffectBox(NamedTuple):
@@ -1411,10 +1506,89 @@ def draw_effect_box(
         y += step
 
 
+# A basic card's ability rows: the gap above their box, the padding
+# inside it, the room between two rows, and the size range they are
+# set in -- a step under the effect text, whatever size that searched to.
+ABILITY_GAP = 16
+ABILITY_PAD = 12
+ABILITY_ROW_GAP = 6
+ABILITY_MAX_SIZE = 25
+ABILITY_MIN_SIZE = 19
+
+
+def time_cost(maneuver: ManeuverDefinition) -> str:
+    """
+    The time pill's number: "1" out of the sheet's "1 space minute" (the
+    author, 2026-09-28: "space minute" went). The sheet's whole text if
+    it ever stops starting with one, so a card never prints nothing.
+    """
+    match = re.match(r"\s*(\d+)", maneuver.time)
+    return match.group(1) if match else maneuver.time
+
+
+def laid_out_abilities(
+    pen: Pen,
+    abilities: Sequence[tuple[str, str]],
+    size: int,
+) -> tuple[list[tuple[str, float, list[str]]], float]:
+    """
+    Each row as (label, label width, wrapped lines) at `size`, and the
+    height of the box that holds them. Measured in one place, because
+    the effect band searches its size with this height in it and a
+    second measurement that disagreed would overflow the band.
+    """
+    if not abilities:
+        return [], 0.0
+    label_font = font(size, bold=True)
+    body = font(size)
+    step = line_height(pen, body)
+    inner = CARD_WIDTH - MARGIN * 2 - ABILITY_PAD * 2
+    rows: list[tuple[str, float, list[str]]] = []
+    height = ABILITY_PAD * 2 - ABILITY_ROW_GAP
+    for label, text in abilities:
+        label_width = pen.text_size(label, label_font)[0] + 12
+        lines = pen.wrapped(text, body, inner - label_width)
+        rows.append((label, label_width, lines))
+        height += len(lines) * step + ABILITY_ROW_GAP
+    return rows, height
+
+
+def draw_abilities(
+    pen: Pen,
+    rows: Sequence[tuple[str, float, list[str]]],
+    size: int,
+    top: float,
+    height: float,
+) -> None:
+    """
+    The ability rows on grey, each sentence hanging off its role in
+    bold. There is no heading: the role names are the labels.
+    """
+    pen.rect(
+        (MARGIN, top, CARD_WIDTH - MARGIN, top + height),
+        radius=16,
+        fill=PAPER_PANEL,
+        outline=PAPER_EDGE,
+        width=2,
+    )
+    label_font = font(size, bold=True)
+    body = font(size)
+    step = line_height(pen, body)
+    left = MARGIN + ABILITY_PAD
+    y = top + ABILITY_PAD
+    for label, label_width, lines in rows:
+        pen.text((left, y), label, label_font, INK)
+        for line in lines:
+            pen.text((left + label_width, y), line, body, INK)
+            y += step
+        y += ABILITY_ROW_GAP
+
+
 def draw_card_effect(
     pen: Pen,
     catalog: ManeuverCatalog,
     maneuver: ManeuverDefinition,
+    abilities: Sequence[tuple[str, str]],
     band_top: float,
     band_bottom: float,
     color: str,
@@ -1422,10 +1596,11 @@ def draw_card_effect(
     """
     The effect, in the band between the strip and the matchups.
 
-    **A basic card's is its sentence, with the time cost pinned under
-    it** -- the clock is part of what the maneuver costs, so it belongs
-    to the effect rather than to the diagram, where it used to sit and
-    collide with the board strip.
+    **A basic card's is its sentence, then the role abilities that
+    change it** (the author, 2026-09-28): `role_abilities`' rows, the
+    ball speed modifier among them, on grey under the sentence, each
+    behind its role in bold. The time cost is in the header's corner
+    (`draw_card_header`).
 
     **A gambit's is three boxes** (the author, 2026-09-28): what it does
     when it succeeds, in the card's colour; what its side pays when it
@@ -1433,8 +1608,7 @@ def draw_card_effect(
     its rank, in that card's own words. It was one paragraph with "If
     defeated" in the middle of it, which asked a coach to find the turn
     in the sentence before knowing which half applied. All three are set
-    in one size, so none reads as the more important. There is no time
-    pill: a gambit's clock is its basic card's.
+    in one size, so none reads as the more important.
     """
     # **The size is searched, not set.** The effects run from Deflect's
     # twenty words to Double Team's seventy, and the band they share is
@@ -1451,10 +1625,9 @@ def draw_card_effect(
         if maneuver.is_gambit
         else []
     )
-    time_font = font(TIME_PILL_SIZE, bold=True)
-    time_text = f"TIME · {maneuver.time}"
-    time_width = pen.text_size(time_text, time_font)[0] + 40
     box_chrome = EFFECT_BOX_PAD * 2 + EFFECT_BOX_HEADING
+    ability_rows: list[tuple[str, float, list[str]]] = []
+    ability_height = 0.0
 
     for size in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
         effect_font = font(size)
@@ -1470,8 +1643,14 @@ def draw_card_effect(
             paragraphs = [pen.wrapped(
                 maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
             )]
-            block_height = (
-                step * len(paragraphs[0]) + TIME_PILL_GAP + TIME_PILL_HEIGHT
+            ability_size = max(
+                ABILITY_MIN_SIZE, min(ABILITY_MAX_SIZE, size - 8),
+            )
+            ability_rows, ability_height = laid_out_abilities(
+                pen, abilities, ability_size,
+            )
+            block_height = step * len(paragraphs[0]) + (
+                ability_height + ABILITY_GAP if abilities else 0
             )
         if block_height <= room:
             break
@@ -1486,30 +1665,14 @@ def draw_card_effect(
     for line in paragraphs[0]:
         pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
         y += step
-    y += TIME_PILL_GAP
-    pen.rect(
-        (
-            (CARD_WIDTH - time_width) / 2,
-            y,
-            (CARD_WIDTH + time_width) / 2,
-            y + TIME_PILL_HEIGHT,
-        ),
-        radius=TIME_PILL_HEIGHT / 2,
-        fill=PANEL_COLOR,
-        outline=PANEL_EDGE,
-        width=2,
-    )
-    pen.text(
-        (CARD_WIDTH / 2, y + TIME_PILL_HEIGHT / 2 + 1),
-        time_text,
-        time_font,
-        MUTED,
-        anchor="mm",
-    )
+    if ability_rows:
+        y += ABILITY_GAP
+        draw_abilities(pen, ability_rows, ability_size, y, ability_height)
 
 
 def render_maneuver_card(
     catalog: ManeuverCatalog,
+    players: PlayerCatalog,
     maneuver: ManeuverDefinition,
     is_offense: bool,
     bleed: bool,
@@ -1556,7 +1719,8 @@ def render_maneuver_card(
     )
 
     draw_card_effect(
-        pen, catalog, maneuver, strip_top + strip_height, matchup_top, color,
+        pen, catalog, maneuver, role_abilities(players, maneuver),
+        strip_top + strip_height, matchup_top, color,
     )
 
     return pen.finish(bleed, CARD_FACE)
@@ -2049,6 +2213,7 @@ HAND_HEADINGS = {"offense": "OFFENSE HAND", "defense": "DEFENSE HAND"}
 
 def hand_card_rows(
     catalog: ManeuverCatalog,
+    players: PlayerCatalog,
     side: str,
     tiers: Sequence[str],
 ) -> list[list[Image.Image]]:
@@ -2085,7 +2250,7 @@ def hand_card_rows(
         ]
         rows.append([
             render_maneuver_card(
-                catalog, maneuver, side == "offense", bleed=False
+                catalog, players, maneuver, side == "offense", bleed=False
             )
             for maneuver in sorted(maneuvers, key=lambda item: item.rank)
         ])
@@ -2229,6 +2394,7 @@ def maneuver_hand_combinations() -> tuple[
 
 def render_maneuver_hands(
     catalog: ManeuverCatalog,
+    players: PlayerCatalog,
     hands: Sequence[tuple[str, Sequence[str]]],
 ) -> BytesIO:
     """
@@ -2271,7 +2437,7 @@ def render_maneuver_hands(
     prompt went public -- three cards and the back, one row of four.
     """
     blocks = [
-        hand_card_rows(catalog, side, tiers)
+        hand_card_rows(catalog, players, side, tiers)
         for side, tiers in hands
     ]
     headings: list[Optional[tuple[str, str]]] = [

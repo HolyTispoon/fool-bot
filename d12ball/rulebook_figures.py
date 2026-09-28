@@ -503,10 +503,11 @@ def cycle_figure(tier: str = MANEUVER_TIER_BASIC) -> Image.Image:
 def hand_figure(tier: str = MANEUVER_TIER_BASIC) -> Image.Image:
     """The three offense cards over the three defense cards."""
     catalog = load_maneuver_catalog()
+    players = load_player_catalog()
     rows = []
     for side, is_offense in (("offense", True), ("defense", False)):
         faces = [
-            render_maneuver_card(catalog, maneuver, is_offense, bleed=False)
+            render_maneuver_card(catalog, players, maneuver, is_offense, bleed=False)
             for maneuver in catalog.for_tier(side, tier)
         ]
         rows.append(faces)

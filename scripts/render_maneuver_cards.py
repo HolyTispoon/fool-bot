@@ -32,6 +32,7 @@ from d12ball.cards import (  # noqa: E402
 from d12ball.components import (  # noqa: E402
     MANEUVER_TIER_GAMBIT,
     load_maneuver_catalog,
+    load_player_catalog,
 )
 
 
@@ -75,6 +76,7 @@ def main() -> None:
     args.sheet = args.sheet or args.sheets_only
 
     catalog = load_maneuver_catalog()
+    players = load_player_catalog()
     args.out.mkdir(parents=True, exist_ok=True)
 
     cards: list[Image.Image] = []
@@ -84,7 +86,7 @@ def main() -> None:
     ):
         for maneuver in maneuvers:
             card = render_maneuver_card(
-                catalog, maneuver, is_offense, args.bleed
+                catalog, players, maneuver, is_offense, args.bleed
             )
             slug = maneuver.name.lower().replace(" ", "-")
             side = "o" if is_offense else "d"
@@ -127,7 +129,7 @@ def main() -> None:
             )
             hand_path = args.out / f"hand-{name}.png"
             hand_path.write_bytes(
-                render_maneuver_hands(catalog, hands).getvalue()
+                render_maneuver_hands(catalog, players, hands).getvalue()
             )
             print(f"wrote {hand_path}")
 

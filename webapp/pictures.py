@@ -214,7 +214,7 @@ def maneuver_card_png(
     if maneuver is None:
         raise KeyError(key)
     return _png(
-        render_maneuver_card(maneuvers, maneuver, offense, False),
+        render_maneuver_card(maneuvers, catalog, maneuver, offense, False),
         size,
     )
 
