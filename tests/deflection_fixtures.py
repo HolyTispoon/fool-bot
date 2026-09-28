@@ -334,7 +334,7 @@ def deflection_text(
 #: what sends the turn to a shot instead of to a loose ball. It reads
 #: as one sentence after the deflection's own, joined by the single
 #: space `dispatch_step_result` joins narration blocks with.
-OVERSHOOT_NOTE = "That overshoots the field -- a scoring opportunity!"
+OVERSHOOT_NOTE = "The ball reaches the goal zone -- a scoring opportunity!"
 
 
 def speed_after(speed: int, drop: int) -> int:

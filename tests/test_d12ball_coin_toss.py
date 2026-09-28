@@ -650,7 +650,7 @@ class D12BallRunBackAnnouncementTests(
         if displace:
             # Drag a home player out of their zone, so there is a real
             # run back to announce (and a real reset to undo).
-            stray = match.home.zones[Zone.HOME_GOAL][0]
+            stray = match.home.zones[Zone.HOME_ZONE][0]
             match.board.place_meeple(stray, Zone.MIDFIELD, 0)
         if time_out_spent:
             # A spent time out, which is no longer anything a new
@@ -694,7 +694,7 @@ class D12BallRunBackAnnouncementTests(
         self,
     ) -> None:
         cog, interaction, game, match = self.build_stubs()
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        stray = match.home.zones[Zone.HOME_ZONE][0]
         home_zone, home_space = match.assigned_positions[stray]
         self.assertEqual(
             match.board.meeple_position(stray), (Zone.MIDFIELD, 0),
@@ -736,7 +736,7 @@ class D12BallRunBackAnnouncementTests(
         # stopped saying so, which skipped a coach who had called a
         # time out past every later restart in the half.
         cog, interaction, game, match = self.build_stubs(time_out_spent=True)
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        stray = match.home.zones[Zone.HOME_ZONE][0]
         home_zone, home_space = match.assigned_positions[stray]
 
         with suppressed_cog_saves():
@@ -981,7 +981,7 @@ class D12BallNewPlayKickoffTests(
         for player_id, space_index in zip(midfield, (1, 2)):
             match.board.place_meeple(player_id, Zone.MIDFIELD, space_index)
         match.set_assigned_positions(TeamSide.VISITING)
-        match.board.place_meeple(midfield[0], Zone.HOME_GOAL, 0)
+        match.board.place_meeple(midfield[0], Zone.HOME_ZONE, 0)
 
         match.restart_after_goal(TeamSide.VISITING)
         await self.run_goal_restart(match)

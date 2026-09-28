@@ -168,7 +168,7 @@ Defending, your hand is the other half of the cycle:
 
 - **Deflect** -- knocks the ball back a space, nothing more. Land on an empty space and *that's* what makes it loose, open to both sides; land where only one side already is and it's simply theirs, no contest -- you were on the wrong end of that last turn; land where both are and they contest it.
 - **Steal** -- takes the ball outright. A turnover.
-- **Pressure** -- drives the handler and the ball back a space and moves your challenger forward onto them. Push a handler past their own goal line with it and they have an **own goal** to roll for.
+- **Pressure** -- drives the handler and the ball back a space and moves your challenger forward onto them. Push the ball back into a handler's own goal zone with it and they have an **own goal** to roll for.
 
 **Pick Pressure.** Dinky is dribbling, and Pressure beats Dribble -- so instead of losing a space you will take one off them.
 --- board changed
@@ -265,7 +265,7 @@ Dravox has moved 1 space.
 ### High Pass, and what a shot is up against
 **Pick High Pass.** Dinky is playing Steal, and High Pass beats it, so the pass gets through.
 
-You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would run off the end of the field, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
+You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would reach the goal zone, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
 
 Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. Ties go to the shooter.
 

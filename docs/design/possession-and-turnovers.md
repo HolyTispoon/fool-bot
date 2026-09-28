@@ -64,7 +64,7 @@ ball's space -- see "Choosing the handler" in the living rules.
     the seam a site sits on changes nothing about the rule -- the point
     of the bullet is that there are nine of them and each decides for
     itself.
-- **Pressure sets it before the overshoot branch returns.** An own goal
+- **Pressure sets it before the goal-zone branch returns.** An own goal
   survived is still a handler who was pressured and kept the ball; a conceded
   one is a new play and gets cleared with everything else. The shove is
   what sets it, which is why `pressure_step` can return straight into
@@ -127,9 +127,9 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   fields. It is consumed inside `begin_run_back`, and by the time anything is
   saved the state already records which branch was taken: a window open, or a
   run back pending. A restart resumes from that, never from the flag.
-- **A Deflect that overshoots is neither.** It flips possession and goes
-  straight to the shot without calling `begin_run_back` at all; the goal or
-  miss that follows is the new play.
+- **A Deflect that reaches the goal zone is neither.** It flips possession and
+  goes straight to the shot without calling `begin_run_back` at all; the goal
+  or miss that follows is the new play.
 - **A new play posts its board and pins it**, via `post_new_play_board` inside
   `announce_new_play_reset`. The reset is the arrangement the play starts from
   and the one point in a restart where nothing is still moving, so it is the
@@ -204,7 +204,7 @@ contested and nothing went dead, so nobody runs back and nothing restarts.)
   and how far each space is, the same reasoning as
   [a loose ball](loose-balls.md#loose-balls-and-the-board), and the persistent message has
   scrolled away up the channel by the time a turn has resolved. And
-  `RunBackChoiceView`'s buttons read `M2 (4 spaces)` -- a run back costs a
+  `RunBackChoiceView`'s buttons read `Space 4 (4 away)` -- a run back costs a
   token a space, so the distance *is* the price and the two spaces of a zone
   are rarely the same offer. `MatchState.run_back_distance` is the one reading
   of it, asked by the labels and spent by `run_back_player`, so what a button

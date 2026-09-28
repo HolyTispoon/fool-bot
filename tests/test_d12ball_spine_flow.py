@@ -748,7 +748,7 @@ class SpineSurvivesASaveTests(SpineFixture):
         the match and has to find the same question.
         """
         displaced = fielded(self.match, PlayerRole.FULLBACK)
-        self.match.move_meeple(displaced, Zone.VISITORS_GOAL, 0)
+        self.match.move_meeple(displaced, Zone.VISITORS_ZONE, 0)
         self.match.pending_run_back = True
         self.match.pending_run_back_distance = 1
         self.match.pending_run_back_turnover = True

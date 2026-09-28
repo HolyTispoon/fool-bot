@@ -54,9 +54,9 @@ suppresses it, which is what `skip_tutorial` setting that flag is for.
 
 **The opening position is the standard deal**, and the script places
 nothing. Both sides are dealt 2-2-2 exactly as every game deals them:
-the coach's playmaker has the ball on M2 with Dinky's playmaker
-standing on it to challenge, the coach's striker is on V2, and Dinky's
-fullback is on V2 with them. Writing a position of our own was tried
+the coach's playmaker has the ball on space 4 with Dinky's playmaker
+standing on it to challenge, the coach's striker is on space 7, and Dinky's
+fullback is on space 7 with them. Writing a position of our own was tried
 and dropped -- it put both sides in shapes (2-3-1 and 1-3-2) no game
 ever kicks off in, which taught the wrong thing before the first
 button was pressed. **A beat that wants a different position has to
@@ -77,13 +77,10 @@ tutorial beyond that: it puts the note back up like any other prompt.
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Optional
 
-from .components import MatchState, PlayerRole, TeamSide, Zone
-from .formatting import capitalized, space_label
-from .space_numbering import FLAT_SPACE_NUMBERING, flat_space_number
+from .components import MatchState, PlayerRole, TeamSide
 
 
 # Maneuver **keys**, spelled once. They are the catalog's own, out of
@@ -192,10 +189,10 @@ BEATS: tuple[TutorialBeat, ...] = (
             "## 1. Your first turn\n"
             "Both sides are dealt the standard **2-2-2** -- two cards in "
             "your own zone, two in midfield, two in the zone you "
-            "are attacking -- and the ball is yours, on **M2**.\n\n"
+            "are attacking -- and the ball is yours, on **space 4**.\n\n"
             "The field is **seven spaces** across in three zones: your "
-            "own Zone (H1-H2), midfield (M1-M3), and the Zone you are "
-            "attacking (V1-V2). Your six cards are on the board as "
+            "own Zone (spaces 1-2), midfield (spaces 3-5), and the Zone you are "
+            "attacking (spaces 6-7). Your six cards are on the board as "
             "meeples and three more wait on your bench. The two numbers "
             "on a card are that player's **offensive** and **defensive "
             "skill**.\n\n"
@@ -205,7 +202,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "A handler can do three things: shoot, maneuver, or call "
             "a time out to buy both coaches a pause. **You are not offered "
             "the shot** -- a shot may only be taken from inside your "
-            "shooting range, which is M3 and beyond, and you are one "
+            "shooting range, which is space 5 and beyond, and you are one "
             "space short of it.\n\n"
             "**Press Maneuver.**"
         ),
@@ -259,8 +256,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "## 2. Every role has an ability\n"
             "Dribble beat Deflect outright -- no dice, "
             "because the cycle had already settled it -- and your "
-            "playmaker carried the ball **two** spaces, from M2 to "
-            "**V1**.\n\n"
+            "playmaker carried the ball **two** spaces, from space 4 to "
+            "**space 6**.\n\n"
             "Moving forward two spaces is not the ordinary move. "
             "A Dribble typically moves the player one "
             "space. But your **Playmaker** is a skilled dribbler and "
@@ -274,7 +271,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**`/d12ball role_abilities_reference`** for all six, and "
             "**`/d12ball team_roster`** gives you a list of your team "
             "with their roles.\n\n"
-            "You are on V1 now, which is inside your shooting range, so "
+            "You are on space 6 now, which is inside your shooting range, so "
             "the **Shoot** button has appeared. It is greyed out here, "
             "and it would be a poor shot anyway: your playmaker's "
             "offensive skill is 4, Dinky's defender is standing on the "
@@ -298,7 +295,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "Deflect does: it knocks the ball back a space, nothing "
             "more. It only comes **loose** -- open to both sides -- "
             "when it lands where nobody is standing. Dinky already has "
-            "a midfielder right there on M3, so the ball is simply "
+            "a midfielder right there on space 5, so the ball is simply "
             "theirs: no roll, no contest, never loose."
         ),
         player_has_ball=True,
@@ -308,7 +305,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         # beats 3 and 4 -- the two lessons in defending -- have nothing
         # to defend against. See the module docstring. There is no
         # loose-ball roll to rig any more: Dinky's own midfielder is
-        # already standing on M3 where the beaten Deflect lands, so
+        # already standing on space 5 where the beaten Deflect lands, so
         # since 2026-08-24 they keep it outright and nothing is asked
         # of either coach.
         rolls={"skill_test": (2, 11)},
@@ -319,11 +316,11 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 3. Your turn to defend\n"
             "Dang it. You lost possession. Dinky won the skill test, and "
-            "their Deflect knocked the ball back to **M3** -- right onto "
+            "their Deflect knocked the ball back to **space 5** -- right onto "
             "one of their own midfielders, who was already standing "
             "there. Nobody of yours was, so it went straight to them: "
             "no roll, and never loose at all. Your playmaker, left "
-            "standing outside her own zone at V1, has run back into "
+            "standing outside her own zone at space 6, has run back into "
             "midfield -- and exhausted 1 per space to do "
             "it.\n\n"
             "Dinky is coming at your goal now, and this time **nobody "
@@ -347,9 +344,9 @@ BEATS: tuple[TutorialBeat, ...] = (
             "- **Steal** -- takes the ball outright. A "
             "turnover.\n"
             "- **Pressure** -- drives the handler and the ball back a "
-            "space and moves your challenger forward onto them. Push a "
-            "handler past their own goal line with it and they have an "
-            "**own goal** to roll for.\n\n"
+            "space and moves your challenger forward onto them. Push "
+            "the ball back into a handler's own goal zone with it and "
+            "they have an **own goal** to roll for.\n\n"
             "**Pick Pressure.** Dinky is dribbling, and Pressure beats "
             "Dribble -- so instead of losing a space you will "
             "take one off them."
@@ -372,7 +369,7 @@ BEATS: tuple[TutorialBeat, ...] = (
         lesson=(
             "## 4. Winning the ball back\n"
             "Pressure drove them backwards: their handler and the ball "
-            "went back a space to **V1**, and your challenger moved up "
+            "went back a space to **space 6**, and your challenger moved up "
             "onto them. Dinky still has it -- but they have lost "
             "ground, and you are standing on the ball.\n\n"
             "Now take it off them."
@@ -409,16 +406,16 @@ BEATS: tuple[TutorialBeat, ...] = (
         title="A shot at goal",
         lesson=(
             "## 5. A shot at goal\n"
-            "The ball is yours again, on **M3**, and moving fast. This "
+            "The ball is yours again, on **space 5**, and moving fast. This "
             "is the last lesson, and it is worth a goal.\n\n"
-            "M3 is inside your shooting range, so **Shoot** is offered "
+            "Space 5 is inside your shooting range, so **Shoot** is offered "
             "again -- and again it is the wrong button. Your midfielder "
             "has an offensive skill of 3 and Dinky's players are between "
             "you and the goal.\n\n"
-            "Look at **V2** instead. Your striker has been standing "
+            "Look at **space 7** instead. Your striker has been standing "
             "there all game, inside shooting range, offensive skill "
             "**6** -- the best on your team.\n\n"
-            "A High Pass of exactly 2 spaces lands on V2. A pass that "
+            "A High Pass of exactly 2 spaces lands on space 7. A pass that "
             "reaches a teammate already inside shooting range is a "
             "**scoring opportunity**: they shoot immediately, out of "
             "turn. And the Striker's ability is worth **+3** on "
@@ -430,8 +427,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**Pick High Pass.** Dinky is playing Steal, and "
             "High Pass beats it, so the pass gets through.\n\n"
             "You will be asked how far to throw. **2 spaces** is the "
-            "only distance offered here -- a longer throw would run off "
-            "the end of the field, and the menu never offers one that "
+            "only distance offered here -- a longer throw would reach "
+            "the goal zone, and the menu never offers one that "
             "would. It is also the distance you want: a pass of 2 is "
             "caught cleanly, where a 3-space throw has to be *won* by "
             "whoever it lands near, with the ball's speed counting "
@@ -442,7 +439,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "standing **on** the ball adds all of their defensive "
             "skill, one further back adds half, rounded up. Ties go to "
             "the shooter.\n\n"
-            "Their fullback is standing on V2, so you get their whole "
+            "Their fullback is standing on space 7, so you get their whole "
             "defensive skill of 6 against you. Even so: your striker "
             "rolls **d12+11** against their **d12+6**. That is a real "
             "roll and it can miss -- but you should score about six "
@@ -500,7 +497,7 @@ COACHING_NOTE = (
     "Two things to know. You may only *declare* one of these per half, "
     "so taking it now means going without until halftime -- and it is "
     "worth two substitutions. And Done is refused until somebody of "
-    "yours is standing on your own kickoff space, M2.\n\n"
+    "yours is standing on your own kickoff space, space 4.\n\n"
     "Take the window or decline it; both are fine."
 )
 
@@ -530,78 +527,6 @@ SKIPPED = (
     "playing for real -- the board, the score and the clock stay "
     "exactly as they are."
 )
-
-
-# --- TEMPORARY EXPERIMENT: flat space numbering ---------------------
-# Every lesson above names spaces in the letter form -- "M2",
-# "H1-H2" -- because that is what the game called them when the
-# script was written, and the prose reads them out mid-sentence
-# rather than building them. While the numbering experiment is on,
-# the notes are rewritten here, once, as this module is loaded, so
-# that a lesson and the board a coach reads it beside cannot
-# disagree about what a space is called.
-#
-# A plain substitution is exact because the tutorial is always
-# played on the 7-space board (`create_game` refuses any other), so
-# the codes can be read straight off the text.
-#
-# **Delete this whole block to revert** -- the notes go back to the
-# letter form they are written in. See
-# docs/SPACE-NUMBERING-EXPERIMENT.md.
-_EXPERIMENT_SPACE_CODE = re.compile(r"\b([HMV])([1-3])\b")
-# A range -- "(H1-H2)" -- is renamed as one, "(spaces 1-2)", rather
-# than code by code, which would read "space 1-space 2".
-_EXPERIMENT_SPACE_RANGE = re.compile(r"\b([HMV])([1-3])-([HMV])([1-3])\b")
-
-_EXPERIMENT_ZONES = {
-    "H": Zone.HOME_GOAL,
-    "M": Zone.MIDFIELD,
-    "V": Zone.VISITORS_GOAL,
-}
-
-
-def renumber_spaces(text: str) -> str:
-    """Every space code in a note, as the bot currently names it."""
-    if not FLAT_SPACE_NUMBERING:
-        return text
-    text = _EXPERIMENT_SPACE_RANGE.sub(
-        lambda found: "spaces {}-{}".format(
-            flat_space_number(
-                _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
-            ),
-            flat_space_number(
-                _EXPERIMENT_ZONES[found.group(3)], int(found.group(4)) - 1,
-            ),
-        ),
-        text,
-    )
-    def renamed(found: re.Match) -> str:
-        label = space_label(
-            _EXPERIMENT_ZONES[found.group(1)], int(found.group(2)) - 1,
-        )
-        # "M3 is inside your shooting range" opens a paragraph, and
-        # "space 5" there needs its capital.
-        before = text[:found.start()].rstrip(" *")
-        return capitalized(label) if before[-1:] in ("", "\n", ".") else label
-
-    return _EXPERIMENT_SPACE_CODE.sub(renamed, text)
-
-
-if FLAT_SPACE_NUMBERING:
-    WELCOME = renumber_spaces(WELCOME)
-    COACHING_NOTE = renumber_spaces(COACHING_NOTE)
-    HANDOVER = renumber_spaces(HANDOVER)
-    SKIPPED = renumber_spaces(SKIPPED)
-    BEATS = tuple(
-        replace(
-            beat,
-            lesson=renumber_spaces(beat.lesson),
-            maneuver_note=renumber_spaces(beat.maneuver_note),
-            speed_note=renumber_spaces(beat.speed_note),
-        )
-        for beat in BEATS
-    )
-
 
 
 # The notes a Continue gate can hold, by key -- what

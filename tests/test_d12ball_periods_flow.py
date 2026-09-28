@@ -796,7 +796,7 @@ class TimeOutFlowTests(PeriodFixture):
                 self.match.ball.space_index
             ]
         ):
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         self.match.set_assigned_positions(TeamSide.HOME)
 
         result = finish_time_out(self.engine, self.game, self.match)
@@ -818,7 +818,7 @@ class TimeOutFlowTests(PeriodFixture):
                 self.match.ball.space_index
             ]
         ):
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
 
         finish_time_out(self.engine, self.game, self.match)
 

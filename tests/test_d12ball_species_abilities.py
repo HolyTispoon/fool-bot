@@ -1551,7 +1551,7 @@ class ChargeUpTests(unittest.TestCase):
         # moved.
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
-        self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
+        self.match.board.place_meeple(cyborg, Zone.VISITORS_ZONE, 0)
         self.assertIn(cyborg, self.charged())
 
         self.match.run_back_moved = [cyborg]
@@ -1583,7 +1583,7 @@ class ChargeUpTests(unittest.TestCase):
         # nothing moves them, so they are not in `run_back_moved`.
         cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
         self.match.add_exhaustion(cyborg, 4)
-        self.match.board.place_meeple(cyborg, Zone.VISITORS_GOAL, 0)
+        self.match.board.place_meeple(cyborg, Zone.VISITORS_ZONE, 0)
         self.match.pending_run_back_stays_player_id = cyborg
         self.assertIn(cyborg, self.charged())
 
@@ -2045,7 +2045,7 @@ class MergeTests(unittest.TestCase):
             ]
         ):
             self.match.board.place_meeple(
-                player_id, Zone.HOME_GOAL, 0,
+                player_id, Zone.HOME_ZONE, 0,
             )
 
     def stand_on_the_ball(self, player_id: str) -> None:
@@ -2511,8 +2511,8 @@ class DeadBallPathTests(unittest.TestCase):
     def send_the_ball_downfield(self) -> None:
         """Put the ball at the visitors' end, so a restart is a long trip."""
         self.match.set_ball_space(
-            Zone.VISITORS_GOAL,
-            len(self.match.board.spaces[Zone.VISITORS_GOAL]) - 1,
+            Zone.VISITORS_ZONE,
+            len(self.match.board.spaces[Zone.VISITORS_ZONE]) - 1,
         )
         self.assertTrue(self.match.last_ball_path)
 
@@ -2583,7 +2583,7 @@ class MindPullCandidateTests(unittest.TestCase):
         mentioned.
         """
         for player_id in self.defenders():
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
 
     def line_up_on_the_path(self, *player_ids) -> None:
         """
@@ -2895,7 +2895,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
 
         defending = self.match.defending_side()
         for player_id in self.match.setup_for_side(defending).field_players:
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         self.puller = self.match.setup_for_side(defending).field_players[0]
 
         origin = self.match.board.flat_index(
@@ -2948,7 +2948,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_a_movement_crossing_nobody_does_not_interrupt(self):
-        self.match.board.place_meeple(self.puller, Zone.HOME_GOAL, 0)
+        self.match.board.place_meeple(self.puller, Zone.HOME_ZONE, 0)
         self.match.last_ball_path = []
         with suppressed_cog_saves():
             interrupted = check_for_mind_pull(
@@ -3154,7 +3154,7 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
 
         defending = self.match.defending_side()
         for player_id in self.match.setup_for_side(defending).field_players:
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         self.puller = self.match.setup_for_side(defending).field_players[0]
 
         origin = self.match.board.flat_index(
@@ -3293,23 +3293,23 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # nearest defender to the ball that is not the challenger -- is
         # the one this fixture named.
         for player_id in others[2:]:
-            board.place_meeple(player_id, Zone.VISITORS_GOAL, 1)
+            board.place_meeple(player_id, Zone.VISITORS_ZONE, 1)
 
         self.handler = field_players(self.match, offense)[0]
         # One space short of the offense's own goal: far enough back
         # that a 2-space Double Team overshoots, near enough that it
         # still moves them a real space first.
-        board.place_meeple(self.handler, Zone.HOME_GOAL, 1)
-        board.place_meeple(self.challenger, Zone.HOME_GOAL, 1)
-        board.place_meeple(self.partner, Zone.HOME_GOAL, 1)
-        board.place_meeple(self.puller, Zone.HOME_GOAL, 0)
+        board.place_meeple(self.handler, Zone.HOME_ZONE, 1)
+        board.place_meeple(self.challenger, Zone.HOME_ZONE, 1)
+        board.place_meeple(self.partner, Zone.HOME_ZONE, 1)
+        board.place_meeple(self.puller, Zone.HOME_ZONE, 0)
 
         self.match.active_player_id = self.handler
         self.match.challenger_id = self.challenger
         # `restart_ball_at` rather than `set_ball_space`: placing the
         # ball for a fixture must not leave a path behind for the gate
         # under test to read.
-        self.match.restart_ball_at(Zone.HOME_GOAL, 1)
+        self.match.restart_ball_at(Zone.HOME_ZONE, 1)
 
     def sent_views(self) -> list:
         return [
@@ -3356,9 +3356,9 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(
             self.match.board.meeple_position(self.handler),
-            (Zone.HOME_GOAL, 0),
+            (Zone.HOME_ZONE, 0),
         )
-        self.assertEqual(self.match.ball.zone, Zone.HOME_GOAL)
+        self.assertEqual(self.match.ball.zone, Zone.HOME_ZONE)
         self.assertEqual(self.match.ball.space_index, 0)
 
     async def test_declining_the_pull_hands_the_own_goal_roll_back(self):
@@ -3388,8 +3388,8 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # only way a 1-space Pressure overshoots at all: the handler
         # does not move, so there is no path and nothing to gate. The
         # puller is standing right on them.
-        self.match.board.place_meeple(self.handler, Zone.HOME_GOAL, 0)
-        self.match.restart_ball_at(Zone.HOME_GOAL, 0)
+        self.match.board.place_meeple(self.handler, Zone.HOME_ZONE, 0)
+        self.match.restart_ball_at(Zone.HOME_ZONE, 0)
 
         with suppressed_cog_saves():
             await apply_pressure(self.cog, 
@@ -3802,8 +3802,8 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         # A clamped shove leaves the handler exactly where they stood,
         # which has carried them nowhere -- the same reading the path
         # itself makes of a ball that does not travel.
-        self.match.board.place_meeple(self.handler, Zone.HOME_GOAL, 0)
-        self.match.restart_ball_at(Zone.HOME_GOAL, 0)
+        self.match.board.place_meeple(self.handler, Zone.HOME_ZONE, 0)
+        self.match.restart_ball_at(Zone.HOME_ZONE, 0)
         self.match.move_player_relative(self.handler, self.offense, -1)
         self.assertEqual(self.match.last_ball_movers, [])
 
@@ -3819,7 +3819,7 @@ class MovedWithTheBallTests(unittest.IsolatedAsyncioTestCase):
         # its end: both sides here are Telekinetics, and anyone standing
         # on the space would be asked first and keep the path alive.
         for player_id in list(self.match.board.spaces[Zone.MIDFIELD][1]):
-            self.match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            self.match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         self.match.last_ball_movers = [self.handler]
         self.match.last_ball_path = [[Zone.MIDFIELD.value, 1]]
         with suppressed_cog_saves():

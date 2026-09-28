@@ -277,7 +277,7 @@ class UncontestedManeuverTests(unittest.IsolatedAsyncioTestCase):
         handler = next(
             player_id
             for player_id in match.visiting.field_players
-            if match.board.meeple_position(player_id)[0] == Zone.VISITORS_GOAL
+            if match.board.meeple_position(player_id)[0] == Zone.VISITORS_ZONE
         )
         match.set_ball_space(*match.board.meeple_position(handler))
         match.active_player_id = handler

@@ -133,7 +133,7 @@ class TimeOutOfferTests(unittest.TestCase):
         match = self.build_match()
         self.assertTrue(match.may_call_time_out())
 
-        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.zone = Zone.VISITORS_ZONE
         match.ball.space_index = 0
         self.assertTrue(match.can_attempt_score())
         self.assertFalse(match.may_call_time_out())
@@ -469,7 +469,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
-            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         match.set_assigned_positions(TeamSide.HOME)
         interaction = build_interaction()
 
@@ -497,7 +497,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match = self.build()
         match.call_time_out()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
-            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         match.pending_ball_recovery = True
         match.pending_recovery_from_time_out = True
         fetcher = match.contest_candidates(TeamSide.HOME)[0]
@@ -525,7 +525,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         # turnover.
         cog, game, match = self.build()
         for player_id in list(match.board.spaces[Zone.MIDFIELD][0]):
-            match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+            match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
         match.pending_ball_recovery = True
         fetcher = match.contest_candidates(TeamSide.HOME)[0]
         interaction = build_interaction()
@@ -908,9 +908,9 @@ class TimeOutConfirmTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_stale_time_out_click_is_refused(self) -> None:
         cog, game, match = self.build()
-        match.ball.zone = Zone.VISITORS_GOAL
+        match.ball.zone = Zone.VISITORS_ZONE
         match.ball.space_index = 0
-        match.move_meeple(match.active_player_id, Zone.VISITORS_GOAL, 0)
+        match.move_meeple(match.active_player_id, Zone.VISITORS_ZONE, 0)
         game.match_state = match.to_dict()
         interaction = build_interaction()
 

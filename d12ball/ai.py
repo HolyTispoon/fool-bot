@@ -350,7 +350,7 @@ class DinkyAI(AIStrategy):
 
     def _take_the_shot(self, prompt, game, match, side, options) -> Action:
         """Always take the shot when offered one -- a High Pass's own
-        2-space pass, an overshoot, a Winger's Low Pass -- rather than
+        2-space pass, one into the goal zone, a Winger's Low Pass -- rather than
         letting the maneuver resolve normally."""
         return Action(prompt.kind, options.railed or "take")
 

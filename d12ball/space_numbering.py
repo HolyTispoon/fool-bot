@@ -1,36 +1,31 @@
 """
-**TEMPORARY EXPERIMENT -- flat left-to-right space numbering.**
+**The spaces' numbers**: every space is named by its number counted
+from the home end -- `1` to `7` on the standard board, `1` to `9` on
+the big one (Law 2.1.3). It was an experiment from 2026-09-23 behind a
+switch, with the rules still naming spaces `H1`/`M2`/`V1`; the author
+kept it on 2026-09-28, and the rules and the Learn to Play number
+spaces the same way since.
 
-The board's spaces are ordinarily named by zone letter and position
-within the zone: `H1 H2 | M1 M2 M3 | V1 V2`. This module is the one
-switch that renames them as a single run across the whole field,
-`1 2 3 4 5 6 7`, to see how the references read in play before any
-rule or rulebook is changed.
+**Nothing here is a rule.** The number is presentation: no rule reads
+it, and the model still measures everything in (zone, space_index)
+pairs. `BoardState.flat_index` already numbers the board left to right
+for distances -- this is that same number, one-based, put in front of a
+coach.
 
-**Nothing here is a rule.** The numbering is presentation: no rule
-reads a space code, and the model still measures everything in
-(zone, space_index) pairs. `BoardState.flat_index` already numbers
-the board left to right for distances -- this is that same number,
-one-based, put in front of a coach.
-
-To turn the experiment off, set `FLAT_SPACE_NUMBERING = False`
-below; every space code in the bot goes back to the letter form on
-the next restart. The full reversal is
-[docs/SPACE-NUMBERING-EXPERIMENT.md](../docs/SPACE-NUMBERING-EXPERIMENT.md).
-
-**Two readers, one answer.** `d12ball.formatting.space_label` writes
-the code into sentences and buttons; `d12ball.render.space_code`
-draws it in the corner of each space on the board image. Both ask
+**Two readers, one answer.** `d12ball.formatting.space_label` writes it
+into sentences and buttons ("space 4"); `d12ball.render.space_code`
+draws it in the corner of each space on the board image ("4"). Both ask
 here, so the board and the message a coach reads beside it cannot
 disagree about what a space is called.
 
-**The board is asked because the zones differ by size.** A flat
-number needs to know how many spaces the zones to its left hold, and
-that is not the same on the 7-space board (2/3/2) and the 9-space one
-(3/3/3). Every caller has the board or its layout in hand, so the
-count comes from the position rather than from a table here; where a
-caller genuinely has neither, `DEFAULT_BOARD_ZONES` stands in, which
-is the 7-space board.
+**The board is asked because the zones differ by size.** A flat number
+needs to know how many spaces the zones to its left hold, and that is
+not the same on the 7-space board (2/3/2) and the 9-space one (3/3/3).
+Every caller has the board or its layout in hand, so the count comes
+from the position rather than from a table here; where a caller
+genuinely has neither, `DEFAULT_BOARD_ZONES` stands in, which is the
+7-space board. The goal zones hold no spaces (Law 2.1.4), so they are
+not zones here and never shift a number.
 """
 
 from typing import Optional, Union
@@ -38,17 +33,11 @@ from typing import Optional, Union
 from d12ball.components import BoardLayout, BoardState, Zone
 
 
-# The experiment's one switch. False restores H1/M1/V1 everywhere.
-FLAT_SPACE_NUMBERING = True
-
-
-# The zone letters the codes are built from when the experiment is
-# off. `formatting.ZONE_LETTERS` and `render.ZONE_CODES` are the two
-# that spell them; neither is touched by this module.
+# The 7-space board's zones, for a caller with no board to hand.
 DEFAULT_BOARD_ZONES = {
-    Zone.HOME_GOAL: 2,
+    Zone.HOME_ZONE: 2,
     Zone.MIDFIELD: 3,
-    Zone.VISITORS_GOAL: 2,
+    Zone.VISITORS_ZONE: 2,
 }
 
 

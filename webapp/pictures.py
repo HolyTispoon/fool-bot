@@ -156,7 +156,7 @@ def board_card_png(
 
 def goal_png(team: Team, angle: int) -> bytes:
     """
-    One end zone as the bot's board draws it (`render.draw_end_zone`):
+    One goal zone as the bot's board draws it (`render.draw_end_zone`):
     GOAL in the defending team's colour, turned 90 degrees at the home
     end and 270 at the visitors', with the d12 standing in for the O.
     """

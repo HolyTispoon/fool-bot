@@ -422,8 +422,8 @@ def high_pass_text(actual_distance: int, fullback: bool = False) -> str:
     """
     if not actual_distance:
         return (
-            "**High Pass:** the ball is thrown up from the last space "
-            "and comes straight back down on it."
+            "**High Pass:** the ball is thrown from the last space into "
+            "the goal zone and comes straight back down on it."
         )
     space_word = "space" if actual_distance == 1 else "spaces"
     ability_note = " (Fullback ability)" if fullback else ""
@@ -561,8 +561,8 @@ def an_overshoot_into_a_set_up() -> PassFixture:
         passer_id=passer,
         distance=2,
         narration=(
-            f"{high_pass_text(1)} That overshoots the field -- a scoring "
-            "opportunity! The ball comes in too fast to settle -- the "
+            f"{high_pass_text(1)} The ball reaches the goal zone -- a "
+            "scoring opportunity! The ball comes in too fast to settle -- the "
             "ball speed modifier counts **against** what follows (-2)."
         ),
         follow_on=SCORING_ATTEMPT,
@@ -595,8 +595,8 @@ def an_overshoot_with_no_modifier_to_pay() -> PassFixture:
         passer_id=passer,
         distance=2,
         narration=(
-            f"{high_pass_text(1)} That overshoots the field -- a scoring "
-            "opportunity!"
+            f"{high_pass_text(1)} The ball reaches the goal zone -- a "
+            "scoring opportunity!"
         ),
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={

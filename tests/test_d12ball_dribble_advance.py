@@ -120,7 +120,7 @@ class DribbleAdvanceDestinationTests(unittest.TestCase):
         # the honest answer: the longer dribble buys nothing, which is
         # exactly what a coach cannot tell from "1 or 2".
         self.assertEqual(
-            self.labels(self.build(TeamSide.HOME, Zone.VISITORS_GOAL, 1)),
+            self.labels(self.build(TeamSide.HOME, Zone.VISITORS_ZONE, 1)),
             [
                 f"Advance 1 space ({code(self.board, 'V2')})",
                 f"Advance 2 spaces ({code(self.board, 'V2')})",

@@ -494,12 +494,12 @@ class SetupPassPushBackView(SafeView):
 
         # The prompt's distances (`RulesEngine.setup_pass_push_back_distances`),
         # each with the space it sends the ball back to -- or, for the
-        # one that runs out of field, saying so.
+        # one that reaches the goal zone, saying so.
         for distance in options.distances:
             zone, space_index = options.landing(distance)
             where = (
-                "overshoots"
-                if distance == options.overshoot
+                "into the goal zone"
+                if distance == options.goal_zone
                 else space_label(zone, space_index, match.board)
             )
             button = discord.ui.Button(
@@ -561,8 +561,8 @@ class HighPassChoiceView(SafeView):
     where a shorter one already would is the same pass at a
     disadvantage, so a Fullback near the end is not offered 4 and
     nobody is offered 3 when a 2 fits. When nothing fits the view is
-    not shown at all -- resolve_high_pass sends the pass straight to
-    its overshoot rather than putting up one answer three times.
+    not shown at all -- resolve_high_pass sends the pass straight
+    into the goal zone rather than putting up one answer three times.
 
     **The prompt carries the field strip**, for the reason the
     maneuver cards do: which distance to throw is a question about
@@ -659,12 +659,12 @@ class HighPassChoiceView(SafeView):
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High
-    Pass's own 2-space pass, a High Pass that overshoots the field, or
+    Pass's own 2-space pass, a High Pass that reaches the goal zone, or
     a Winger's Low Pass ability -- or let the maneuver resolve as a
     normal pass instead. Declining meant the same thing everywhere
     between 2026-08-07, when a 2-space High Pass stopped forcing a
-    contest for the ball it had just delivered, and 2026-08-10, when an
-    overshoot started offering a shot *or* a contest, both at the same
+    contest for the ball it had just delivered, and 2026-08-10, when a
+    pass into the goal zone started offering a shot *or* a contest, both at the same
     disadvantage: `contest_on_decline` is that one case, and the button
     says so rather than promising a normal pass it will not deliver.
 
@@ -872,16 +872,17 @@ class DribbleBurstChoiceView(SafeView):
     """
     How far a won Burst runs: 1 up to
     `DRIBBLE_BURST_MAX_DISTANCE` (one more for a Playmaker), less
-    anything the end of the field takes away. Shaped like DribbleAdvanceChoiceView, which is the
+    anything the last space before the goal zone takes away. Shaped like DribbleAdvanceChoiceView, which is the
     other dribble that asks a distance, and reconstructible on restart
     from match state alone (see D12Ball.build_effect_choice_view).
 
     **Every button carries its price**, because the exhaustion is a
     token a space and that is the whole of what makes the shorter runs
     worth offering -- the same reasoning as RunBackChoiceView's
-    `M2 (4 spaces)` labels, where the distance *is* the cost.
+    `Space 4 (2 away)` labels, where the distance *is* the cost.
 
-    A handler already on the last space of the field never sees this:
+    A handler already on the last space before the goal zone never
+    sees this:
     resolve_dribble_burst applies a run of 0 without a prompt.
     """
 

@@ -2479,8 +2479,9 @@ class RulesEngine:
         maneuver with Steal or Intercept, or holding the thrower's side
         of a High Pass contest -- because Zorch adds it once, not twice
         (the author, 2026-09-27). It is the ball's speed halved and
-        never signed: an overshoot counts the modifier against the pass
-        that overshot, and Zorch's own bonus is not that pass's.
+        never signed: a High Pass that reaches the goal zone counts the
+        modifier against itself, and Zorch's own bonus is not that
+        pass's.
         """
         if not self.has_personal_ability(
             game, player_id, PersonalAbility.SPEED_ROLLS,
@@ -2613,8 +2614,8 @@ class RulesEngine:
 
         With nothing left on the list the pass goes out; see
         `D12Ball.apply_setup_pass_out`. That needs the passer on the
-        very last space of the field -- the only position from which
-        even 1 runs off the end -- with no teammate beside them, which
+        last space before the goal zone -- the only position from which
+        even 1 would reach it -- with no teammate beside them, which
         is the whole of when a Cross can go out of play.
 
         **The Fullback's ability is +1 distance, and that is what it
@@ -2626,9 +2627,6 @@ class RulesEngine:
         so the extra distance is appended rather than replacing the 3.
         """
         offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
 
         handler = self.get_player_definition(match.active_player_id)
         distances = list(SETUP_PASS_DISTANCES)
@@ -2643,13 +2641,11 @@ class RulesEngine:
                 if match.high_pass_receivers_at(offense_side, 0):
                     legal.append(0)
                 continue
-            target_flat = match.relative_flat_index(
-                origin_flat, offense_side, distance,
-            )
-            # Off the end of the field: a clamped throw is a shorter
-            # pass wearing a longer one's label, which is the reason
-            # `high_pass_distances` drops one too.
-            if abs(target_flat - origin_flat) != distance:
+            # A Cross never reaches the goal zone (Law 19.7.6): a
+            # throw that would is a shorter pass wearing a longer one's
+            # label, which is the reason `high_pass_distances` drops
+            # one too.
+            if match.ball_reaches_goal_zone(offense_side, distance):
                 continue
             legal.append(distance)
         return legal
@@ -2735,7 +2731,8 @@ class RulesEngine:
         card was Precise Pass and read "any teammate", which on board
         9 is a pass eight spaces across the whole field; the author
         bounded it at 3 and renamed it on 2026-08-26. Distances that
-        run off the end are dropped by `low_pass_receivers`, so a
+        would reach the goal zone are dropped by `low_pass_receivers`,
+        so a
         short board narrows this without the reach knowing about it.
         """
         candidates: list[tuple[int, str]] = []
@@ -2812,22 +2809,24 @@ class RulesEngine:
         Usually one, and then the destination *is* the choice. A space
         a coach has stacked makes two ordinary, and which of them
         receives the ball is the passer's to pick: it decides who a Winger's set-up hands the
-        shot to. Empty when the distance runs off the end of the
-        board, or when the space holds nobody but the handler.
+        shot to. Empty when the distance would reach the goal zone, or
+        when the space holds nobody but the handler.
         """
         offense_side = match.ball.possession
         offense_players = set(match.setup_for_side(offense_side).field_players)
         origin_flat = match.board.flat_index(
             match.ball.zone, match.ball.space_index,
         )
+        # A pass is played to a teammate on a space, so a distance
+        # that reaches the goal zone has nobody to reach and is no
+        # candidate.
+        if match.goal_zone_reached(
+            origin_flat, offense_side, distance,
+        ) is not None:
+            return []
         target_flat = match.relative_flat_index(
             origin_flat, offense_side, distance,
         )
-        # relative_flat_index() clamps to the board edge -- if that
-        # shortened the move, this distance doesn't reach an actual
-        # space and isn't a candidate.
-        if abs(target_flat - origin_flat) != abs(distance):
-            return []
 
         zone, space_index = match.board.position_at_flat_index(target_flat)
         return [
@@ -2841,8 +2840,9 @@ class RulesEngine:
         """
         The distances this High Pass may be thrown at: the handler's
         maximum -- 4 for a Fullback, 3 for everyone else -- less any
-        that run out of field. Empty when even the shortest does,
-        which is the overshoot-before-anyone-chooses case.
+        that reach the goal zone. Empty when even the shortest does,
+        which is the case where it reaches the goal zone before anyone
+        chooses.
 
         One home for both halves of that, because three things have to
         agree about what is on offer: the menu a coach sees, what the
@@ -2927,8 +2927,8 @@ class RulesEngine:
         distances they may run onto -- or `(None, ())`.
 
         Never the passer, never an injured player, and only a distance
-        whose space is on the field: a High Pass that overshoots is
-        clamped short of where it was aimed, so there is no target
+        that lands on a space: a High Pass that reaches the goal zone
+        comes to rest short of where it was aimed, so there is no target
         space to run to. The distances are the prompt's own, so this
         narrows what is already offered rather than offering anything
         new. Carried on the prompt's options, so the button, the refusal
@@ -2939,12 +2939,12 @@ class RulesEngine:
             return None, ()
         side = match.ball.possession
         # A Cross only offers distances on the field already, so
-        # the test only ever removes an overshooting High Pass; it is
+        # the test only ever removes a High Pass into the goal zone; it is
         # asked of both so a Cross that grew one could not slip by.
         reachable = tuple(
             distance
             for distance in distances
-            if not match.high_pass_overshoots(side, distance)
+            if not match.high_pass_reaches_goal_zone(side, distance)
         )
         return (runner, reachable) if reachable else (None, ())
 
@@ -2966,7 +2966,7 @@ class RulesEngine:
         self, game: D12BallGame, match: MatchState, distance: int,
     ) -> str:
         """
-        Where a burst of `distance` lands and what it costs -- "M3,
+        Where a burst of `distance` lands and what it costs -- "space 5,
         2 exhaustion" -- for the button offering it. The cost is named
         by what it is ("drain" for a Cyborg, `token_word_and_mark`),
         never as bare "tokens": the board carries other tokens too. Naming the destination
@@ -3011,11 +3011,12 @@ class RulesEngine:
         the beating card makes rather than a push on top of it (Law
         19.7.7-19.7.8). Asked before the ball has moved.
 
-        Every distance that lands on the field is offered, and **of the
-        ones that run out of field only the shortest** -- every longer
-        one stops on the same last space, the reason
+        Every distance that lands on a space is offered, and **of the
+        ones that reach the goal zone only the shortest** -- every
+        longer one comes to rest on the same last space, the reason
         `high_pass_distances` drops a throw a shorter one already makes.
-        The overshoot is kept, unlike a High Pass's, because it is not
+        The one into the goal zone is kept, unlike a High Pass's,
+        because it is not
         the same move as stopping on that space: it is the beating
         player's shot where they are standing there
         (`d12ball.flow.effects.deflection_lands`). So the list is never
@@ -3029,38 +3030,25 @@ class RulesEngine:
             match, self.settled_maneuver_winner(match, game),
         )
         offense_side = match.ball.possession
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
         distances = []
         for distance in self.setup_pass_push_back_range(match, key):
             distances.append(distance)
-            reached = abs(
-                match.relative_flat_index(origin_flat, offense_side, -distance)
-                - origin_flat
-            )
-            if reached < distance:
+            if match.ball_reaches_goal_zone(offense_side, -distance):
                 break
         return distances
 
-    def setup_pass_push_back_overshoot(
+    def setup_pass_push_back_to_goal_zone(
         self, match: MatchState, distances,
     ) -> Optional[int]:
-        """Which of a failed Cross gambit's `distances` runs the
-        ball out of field -- the last, where any does -- or None."""
+        """Which of a failed Cross gambit's `distances` sends the
+        ball into the goal zone -- the last, where any does -- or
+        None."""
         if not distances:
             return None
-        origin_flat = match.board.flat_index(
-            match.ball.zone, match.ball.space_index,
-        )
         longest = distances[-1]
-        reached = abs(
-            match.relative_flat_index(
-                origin_flat, match.ball.possession, -longest,
-            )
-            - origin_flat
-        )
-        return longest if reached < longest else None
+        if match.ball_reaches_goal_zone(match.ball.possession, -longest):
+            return longest
+        return None
 
     def speed_targets(
         self,
@@ -3097,7 +3085,7 @@ class RulesEngine:
         on, less the passer -- **a passer never receives their own
         pass** (2026-08-12). See "High Pass" in the living rules.
 
-        It is the one reading of that, asked by the overshoot's
+        It is the one reading of that, asked by the goal zone's
         set-up, the ordinary 2-space one, and the long-pass contest
         behind both. They have to agree: the receiver who fights to
         keep the ball is the same player the shot was offered to, and
@@ -3131,8 +3119,8 @@ class RulesEngine:
         offense_side: TeamSide,
     ) -> list[str]:
         """
-        Offensive players occupying the ball's current (overshot)
-        space -- the field of shooter candidates a set-up offers,
+        Offensive players occupying the ball's current space (the
+        last one, where a High Pass reached the goal zone) -- the field of shooter candidates a set-up offers,
         shared by High Pass and a Winger's Low Pass.
         """
         offense_setup = match.setup_for_side(offense_side)
@@ -4201,7 +4189,7 @@ class RulesEngine:
         how far off each one is -- the question the buttons underneath
         ask, said once as a sentence.
 
-        It reads as the offer it is ("M2 (1 space away) or M3 (2 spaces
+        It reads as the offer it is ("space 4 (1 away) or space 5 (2
         away)") rather than as a list with a rule under it. The
         "Options:" heading labelled something already sitting in front
         of the coach, and the token-a-space clause restated a price the

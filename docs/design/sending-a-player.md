@@ -71,12 +71,12 @@ rather than borrowing it -- see
   2026-09-26). Whichever of the four left it owed -- an out-of-bounds ball, a
   missed shot, an avoided own goal, a time out -- the side with the ball is
   offered `contest_candidates` (the nearest either way, only the one in front
-  at the end of the field, every tie), must send one, and the one sent adds
-  a token a space; the time out's pickup was free until then. The prompt is
-  a `PlayerOptions` with no decline in it, and it carries what each candidate
-  would be charged (`costs`, `RulesEngine.pickup_cost`), so the Discord
-  button and the web chip both say the price off the prompt rather than
-  working it out from the distance.
+  on the last space before a goal zone, every tie), must send one, and the one
+  sent adds a token a space; the time out's pickup was free until then. The
+  prompt is a `PlayerOptions` with no decline in it, and it carries what each
+  candidate would be charged (`costs`, `RulesEngine.pickup_cost`), so the
+  Discord button and the web chip both say the price off the prompt rather
+  than working it out from the distance.
 
 ## The maneuver with nobody to challenge it
 

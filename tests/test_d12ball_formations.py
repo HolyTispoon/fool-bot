@@ -185,10 +185,10 @@ class FormationShapeTests(unittest.TestCase):
         )
 
         # The visiting side defends the visitors goal, so 1-3-2's two
-        # attackers stand in the *home* goal zone.
-        self.assertEqual(len(setup.zones[Zone.VISITORS_GOAL]), 1)
+        # attackers stand in the *home* outer zone.
+        self.assertEqual(len(setup.zones[Zone.VISITORS_ZONE]), 1)
         self.assertEqual(len(setup.zones[Zone.MIDFIELD]), 3)
-        self.assertEqual(len(setup.zones[Zone.HOME_GOAL]), 2)
+        self.assertEqual(len(setup.zones[Zone.HOME_ZONE]), 2)
 
     def test_an_assignment_has_to_match_its_formation(self) -> None:
         roster = self.catalog.teams[Team.ORANGE]
@@ -215,7 +215,7 @@ class FormationShapeTests(unittest.TestCase):
         # Four players into a two-space zone: both spaces first, then
         # round again, rather than four on one space.
         self.assertEqual(
-            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 2, 4),
+            setup_space_order(TeamSide.HOME, Zone.HOME_ZONE, 2, 4),
             [0, 1, 0, 1],
         )
         # The visiting side fills from its own end, so its order is the
@@ -226,32 +226,32 @@ class FormationShapeTests(unittest.TestCase):
         )
 
     def test_a_goal_zone_deeper_than_its_pair_spreads_them(self) -> None:
-        # Board 9's three-space goal zones: one card on each end rather
+        # Board 9's three-space outer zones: one card on each end rather
         # than both against the coach's own edge. The two sides are
         # mirror images, and midfield packs instead so that whoever
         # kicks off is standing on the kickoff space.
         self.assertEqual(
-            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 3, 2), [0, 2],
+            setup_space_order(TeamSide.HOME, Zone.HOME_ZONE, 3, 2), [0, 2],
         )
         self.assertEqual(
-            setup_space_order(TeamSide.HOME, Zone.VISITORS_GOAL, 3, 2), [0, 2],
+            setup_space_order(TeamSide.HOME, Zone.VISITORS_ZONE, 3, 2), [0, 2],
         )
         self.assertEqual(
-            setup_space_order(TeamSide.VISITING, Zone.VISITORS_GOAL, 3, 2),
+            setup_space_order(TeamSide.VISITING, Zone.VISITORS_ZONE, 3, 2),
             [2, 0],
         )
         self.assertEqual(
             setup_space_order(TeamSide.HOME, Zone.MIDFIELD, 3, 2), [0, 1],
         )
         # A zone no deeper than it is full is packed either way, which
-        # is every goal zone on boards 6 and 7.
+        # is every outer zone on boards 6 and 7.
         self.assertEqual(
-            setup_space_order(TeamSide.HOME, Zone.HOME_GOAL, 2, 2), [0, 1],
+            setup_space_order(TeamSide.HOME, Zone.HOME_ZONE, 2, 2), [0, 1],
         )
         # A shape that leaves one card in a zone puts it on that
         # coach's own end, spread or not.
         self.assertEqual(
-            setup_space_order(TeamSide.HOME, Zone.VISITORS_GOAL, 3, 1), [0],
+            setup_space_order(TeamSide.HOME, Zone.VISITORS_ZONE, 3, 1), [0],
         )
 
     def test_board_9_deals_spread_goal_zones_and_a_clumped_midfield(
@@ -259,7 +259,7 @@ class FormationShapeTests(unittest.TestCase):
     ) -> None:
         """
         The author's board-9 deal, stated as the six spaces it comes
-        out on: the goal zones spread their pair to the ends, and
+        out on: the outer zones spread their pair to the ends, and
         midfield clumps toward that side's own goal instead. The
         second half is what keeps a home card on the kickoff space.
         """
@@ -400,7 +400,7 @@ class BoardScopedFormationTests(unittest.TestCase):
             )
 
     def test_board_9_deals_the_new_shapes_one_card_a_space(self) -> None:
-        # Both put three in a goal zone, which is exactly board 9's
+        # Both put three in an outer zone, which is exactly board 9's
         # depth, so neither stacks -- and midfield's two still cover
         # the kickoff space, which is what holds a coach in the window.
         match = MatchState.standard(
@@ -422,15 +422,15 @@ class BoardScopedFormationTests(unittest.TestCase):
                 for player_id in match.setup_for_side(side).zones[zone]
             )
 
-        self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_GOAL),
+        self.assertEqual(spaces(TeamSide.HOME, Zone.HOME_ZONE),
                          codes(match.board, "H1", "H2", "H3"))
-        self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_GOAL),
+        self.assertEqual(spaces(TeamSide.HOME, Zone.VISITORS_ZONE),
                          codes(match.board, "V1"))
         # 1-2-3 is read from the visitors' own goal, so their three
-        # attackers stand in the home goal zone.
-        self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_GOAL),
+        # attackers stand in the Home Zone.
+        self.assertEqual(spaces(TeamSide.VISITING, Zone.HOME_ZONE),
                          codes(match.board, "H1", "H2", "H3"))
-        self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_GOAL),
+        self.assertEqual(spaces(TeamSide.VISITING, Zone.VISITORS_ZONE),
                          codes(match.board, "V3"))
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
 
@@ -450,8 +450,8 @@ class BoardScopedFormationTests(unittest.TestCase):
                     visiting_team=Team.PURPLE,
                 )
                 setup = match.home
-                setup.zones[Zone.HOME_GOAL].append(
-                    setup.zones[Zone.VISITORS_GOAL].pop()
+                setup.zones[Zone.HOME_ZONE].append(
+                    setup.zones[Zone.VISITORS_ZONE].pop()
                 )
                 self.assertEqual(
                     cog.engine.current_formation(match, TeamSide.HOME), expected,
@@ -513,13 +513,13 @@ class CoverageRuleTests(unittest.TestCase):
     ) -> None:
         # Board 9's three-space zones leave 2-2-2 a space spare.
         match = self.build_match(board_size=9)
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        player_id = match.home.zones[Zone.HOME_ZONE][0]
 
         spaces = match.placement_spaces_in_zone(
-            TeamSide.HOME, Zone.HOME_GOAL, player_id,
+            TeamSide.HOME, Zone.HOME_ZONE, player_id,
         )
         teammate_space = match.board.meeple_position(
-            match.home.zones[Zone.HOME_GOAL][1]
+            match.home.zones[Zone.HOME_ZONE][1]
         )[1]
 
         self.assertNotIn(teammate_space, spaces)
@@ -528,7 +528,7 @@ class CoverageRuleTests(unittest.TestCase):
         self,
     ) -> None:
         match = self.build_match()
-        # 2-2-2 covers both spaces of board 7's home goal zone, so a
+        # 2-2-2 covers both spaces of board 7's Home Zone, so a
         # midfielder sent out of position and running back into it may
         # stand on either of them -- on top of a teammate if that is
         # where they want to be.
@@ -536,20 +536,20 @@ class CoverageRuleTests(unittest.TestCase):
 
         self.assertEqual(
             match.placement_spaces_in_zone(
-                TeamSide.HOME, Zone.HOME_GOAL, stray,
+                TeamSide.HOME, Zone.HOME_ZONE, stray,
             ),
             [0, 1],
         )
 
     def test_the_mover_does_not_count_as_covering_a_space(self) -> None:
         match = self.build_match(board_size=9)
-        player_id = match.home.zones[Zone.HOME_GOAL][0]
+        player_id = match.home.zones[Zone.HOME_ZONE][0]
         own_space = match.board.meeple_position(player_id)[1]
 
         self.assertIn(
             own_space,
             match.placement_spaces_in_zone(
-                TeamSide.HOME, Zone.HOME_GOAL, player_id,
+                TeamSide.HOME, Zone.HOME_ZONE, player_id,
             ),
         )
 
@@ -565,53 +565,53 @@ class CoverageRuleTests(unittest.TestCase):
         )
 
     def test_running_back_may_stack_once_the_zone_is_covered(self) -> None:
-        # Three cards in board 7's two-space home goal zone -- the
+        # Three cards in board 7's two-space Home Zone -- the
         # arrangement a Coaching Choice can make and no deal does.
         match = self.build_match()
         setup = match.home
         extra = setup.zones[Zone.MIDFIELD].pop()
-        setup.zones[Zone.HOME_GOAL].append(extra)
+        setup.zones[Zone.HOME_ZONE].append(extra)
         match.board.remove_meeple(extra)
-        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(extra, Zone.HOME_ZONE, 0)
 
-        stray = setup.zones[Zone.HOME_GOAL][0]
+        stray = setup.zones[Zone.HOME_ZONE][0]
         match.board.remove_meeple(stray)
-        match.board.place_meeple(stray, Zone.VISITORS_GOAL, 1)
+        match.board.place_meeple(stray, Zone.VISITORS_ZONE, 1)
 
         self.assertIn(stray, match.displaced_players(TeamSide.HOME))
 
         # Both spaces are still covered without them, so they may run
         # back onto either -- and either one stacks.
-        match.run_back_player(stray, Zone.HOME_GOAL, 1)
+        match.run_back_player(stray, Zone.HOME_ZONE, 1)
 
         self.assertEqual(
-            match.board.meeple_position(stray), (Zone.HOME_GOAL, 1),
+            match.board.meeple_position(stray), (Zone.HOME_ZONE, 1),
         )
         match.validate(self.catalog)
 
     def test_running_back_refuses_to_leave_a_space_uncovered(self) -> None:
         match = self.build_match(board_size=9)
-        stray = match.home.zones[Zone.HOME_GOAL][0]
+        stray = match.home.zones[Zone.HOME_ZONE][0]
         teammate_space = match.board.meeple_position(
-            match.home.zones[Zone.HOME_GOAL][1]
+            match.home.zones[Zone.HOME_ZONE][1]
         )[1]
         match.board.remove_meeple(stray)
         match.board.place_meeple(stray, Zone.MIDFIELD, 1)
 
         with self.assertRaises(ValueError):
-            match.run_back_player(stray, Zone.HOME_GOAL, teammate_space)
+            match.run_back_player(stray, Zone.HOME_ZONE, teammate_space)
 
     def test_a_stack_only_breaks_up_while_a_space_is_free(self) -> None:
-        # Three cards in board 7's two-space home goal zone, which no
+        # Three cards in board 7's two-space Home Zone, which no
         # shape deals but a Coaching Choice can arrange: both spaces
         # are covered, so the pair stays paired and nobody is asked to
         # move somewhere that does not help.
         match = self.build_match()
         setup = match.home
         extra = setup.zones[Zone.MIDFIELD].pop()
-        setup.zones[Zone.HOME_GOAL].append(extra)
+        setup.zones[Zone.HOME_ZONE].append(extra)
         match.board.remove_meeple(extra)
-        match.board.place_meeple(extra, Zone.HOME_GOAL, 0)
+        match.board.place_meeple(extra, Zone.HOME_ZONE, 0)
 
         self.assertEqual(match.crowded_candidates(TeamSide.HOME), [])
 
@@ -672,14 +672,14 @@ class CoverageRuleTests(unittest.TestCase):
         # checked at one. Board 9 gives 2-2-2 a space to spare in every
         # zone, which is where a coverage break could show up.
         match = self.build_match(board_size=9)
-        first, second = match.home.zones[Zone.HOME_GOAL]
-        before = len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL))
+        first, second = match.home.zones[Zone.HOME_ZONE]
+        before = len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_ZONE))
 
         # Onto the free space: coverage improves or holds.
-        free = match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)[0]
+        free = match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_ZONE)[0]
         match.position_meeple(TeamSide.HOME, first, free)
         self.assertEqual(
-            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)),
+            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_ZONE)),
             before,
         )
 
@@ -689,7 +689,7 @@ class CoverageRuleTests(unittest.TestCase):
             match.position_meeple(TeamSide.HOME, first, occupied), second,
         )
         self.assertEqual(
-            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_GOAL)),
+            len(match.open_spaces_in_zone(TeamSide.HOME, Zone.HOME_ZONE)),
             before,
         )
 
@@ -806,7 +806,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
                     *match.board.meeple_position(player_id),
                     match.board,
                 )
-                for player_id in match.home.zones[Zone.HOME_GOAL]
+                for player_id in match.home.zones[Zone.HOME_ZONE]
             ),
             codes(match.board, "H1", "H2", "H3"),
         )
@@ -873,7 +873,7 @@ class CoachingFormationFlowTests(unittest.IsolatedAsyncioTestCase):
                 for player_id in match.home.zones[zone]
             ]
             for zone in (
-                Zone.HOME_GOAL, Zone.MIDFIELD, Zone.VISITORS_GOAL,
+                Zone.HOME_ZONE, Zone.MIDFIELD, Zone.VISITORS_ZONE,
             )
         ]
         self.assertEqual([len(group) for group in by_zone], [1, 3, 2])

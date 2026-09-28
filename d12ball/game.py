@@ -157,7 +157,7 @@ class Formation(str, Enum):
 
     **Not every shape is played on every board.** The first three are,
     and `basic_rules.json` says so by giving them no `board_sizes`;
-    3-2-1 and 1-2-3 put three cards in a goal zone, which only the
+    3-2-1 and 1-2-3 put three cards in an outer zone, which only the
     nine-space board has three spaces for, so those two are listed for
     board 9 alone. That is the author's call and not a consequence of
     the geometry: a shape too deep for a zone would be dealt anyway,

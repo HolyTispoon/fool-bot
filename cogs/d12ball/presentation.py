@@ -325,7 +325,7 @@ class PresentationMixin:
     ) -> str:
         """
         One roster line. `location` is the space the player stands on
-        (e.g. "H1") for a player on the board, and None on a bench --
+        (e.g. "space 1") for a player on the board, and None on a bench --
         the group heading above the line already names the place, so
         the line only has to say where within it.
 

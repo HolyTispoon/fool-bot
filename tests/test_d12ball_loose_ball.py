@@ -187,7 +187,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         nobody on it: nothing at all lies beyond the ball, so each side
         is down to whoever is nearest behind it.
         """
-        zone = Zone.VISITORS_GOAL
+        zone = Zone.VISITORS_ZONE
         match.set_ball_space(zone, len(match.board.spaces[zone]) - 1)
         self.clear_the_ball_s_space(match)
         # Clearing the space stacks that zone's pair on one space, and
@@ -274,7 +274,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         for player_id, _ in list(self.offsets_from_the_ball(match, side).items()):
             if match.board.meeple_position(player_id)[0] == match.ball.zone:
                 match.board.remove_meeple(player_id)
-                match.board.place_meeple(player_id, Zone.HOME_GOAL, 0)
+                match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
 
         candidates = cog.engine.loose_ball_candidates(match, side)
 
@@ -469,7 +469,7 @@ class LooseBallTests(unittest.IsolatedAsyncioTestCase):
         # Deep in the home goal zone, where the visitors' nearest
         # either way are different distances off -- the middle of the
         # board has them symmetrical, and a tie would prove nothing.
-        match.set_ball_space(Zone.HOME_GOAL, 1)
+        match.set_ball_space(Zone.HOME_ZONE, 1)
         self.go_out_of_bounds(match)
         # Player 2 is the AI and holds the visiting side.
         match.ball.possession = TeamSide.VISITING

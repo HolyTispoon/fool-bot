@@ -154,6 +154,52 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (goal zones) -- author, the goal zones are part of the field; spaces are numbered
+
+The author, in a Claude Code session: *"in defining zones, include the goal zones as part of the
+field. There are two goal zones - to the left of 1 and to the right of whatever is the last
+space (7 or 9). These zones hold no spaces and no players can be set on them but the ball
+reaches them. This is just a way to replace the language of 'if overshoots the goal' would
+instead be 'if reaches the goal zone'."* Asked whether a ball that reaches a goal zone stays
+there, the author said it is **purely a change of wording**: it comes to rest on the last space
+before it, exactly where an overshoot left it. **No change to play.**
+
+- **The field is five zones** (Law 2.1): the Home Goal, the Home Zone, midfield, the Visitors
+  Zone and the Visitors Goal. The two goal zones hold no spaces and no meeple; only the ball
+  reaches one (2.1.4-2.1.5). "Overshoots", "runs out of field" and "off the end of the field"
+  are now "reaches the goal zone" everywhere -- the High Pass (6.7), the Deflect (6.8) and the
+  Clear (19.8), the Pressure and its own-goal roll (6.10, 11.1), the Intercept (19.9), the
+  Double Team (19.10), the Cross and its push back (19.7), and the clock (16.2.2). Section
+  7.5 is renamed *A High Pass that reaches the goal zone*, and the glossary's *Overshoot* row
+  becomes *Goal zone*.
+- **"Home goal" and "visitors goal" mean only the goal zones.** The author: *"the zone that has
+  spaces 1-2 is called Home Zone, not Home Goal. On a 9 board map the zone that has spaces 1-3
+  is called Home Third, not Home Goal. The latter is an old name that needs to be revised."*
+  The board labels were renamed on 2026-08-24, but the prose had kept the old names for the
+  zones with spaces (2.1.1, 2.1.3, 2.3.1, 3.2.1-3.2.2, the 14.7 table). Those are now the Home
+  Zone and the Visitors Zone, the Home Third and Visitors Third on board 9, and the **outer
+  zones** together.
+- **Spaces are numbered 1 to 7 (or 1 to 9) from the home end**, rather than H1-H2, M1-M3,
+  V1-V2 (2.1.3, the 2.3 table, 3.2.2, Appendix C, and the Learn to Play). The author asked for
+  this as the follow-up to the bot's numbering experiment of 2026-09-23, which is now how the
+  bot names spaces for good.
+
+**One paragraph now says what the bot already did.** Law 19.10.3 said a Double Team risks an
+own goal "where the handler is already on the space closest to their own goal". The bot has
+always rolled for one whenever the push of 2 could not be made in full -- the handler on the
+last space **or on the one next to it** -- and the 2026-09-20 entry calls that an "overshooting
+Double Team". Written as "where the push reaches the handler's own goal zone" the paragraph says
+exactly that, and names both spaces. Confirmed by the author on PR #395: *"When Double team
+succeeds in space 2, pushing home team twice backwards - they should risk an own goal because
+the ball reached the goal zone."*
+
+**The Learn to Play's first run back was miscounted.** With the codes as numbers it read "walks
+from space 6 to space 4 and exhausts 1 for the one space"; that is two spaces and two tokens,
+which is what the tutorial it follows does. Corrected.
+
+**Upstream still says "overshoots"** on four maneuver cards (Deflect, Clear, Pressure, Double
+Team), so they are a new row in "Where upstream is behind".
+
 ### 2026-09-28 (later) -- author and sheet, Hellguard's advanced offense is 1
 
 The author: *"Hellguard's advanced offensive skill is now 1"*, and the sheet is updated to
@@ -3256,6 +3302,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
+| The maneuvers tab: "If overshoots the goal" (Deflect), "Overshoot may set up scoring" (Clear), "If overshoots goal, own goal risk" (Pressure), "Overshoot risks an own goal" (Double Team) | The ball **reaches the goal zone** (Law 2.1.5); nothing about the rule differs |
 
 ---
 
@@ -3271,7 +3318,7 @@ no-challenger case; what *disadvantage* means; what a scoring opportunity is.
 
 **Board and setup:** board sizes 6/7/9 with 7 the default, and a 3-space zone leaving a space
 empty; the kickoff space per board size, governing every restart; the coin toss and side choice
-as a real rule; the bot's space notation as the one to keep.
+as a real rule; the bot's space notation as the one to keep -- since 2026-09-28 the spaces' numbers, 1 to 7 or 1 to 9 from the home end.
 
 **Score attempts:** two dice total; no exhaustion for a plain attempt and no injury check;
 "score to shoot" is an ordinary score attempt; the set-up token is taken after the roll; a

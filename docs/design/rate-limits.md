@@ -104,11 +104,11 @@ invariants read as ordinary cog surface among 223 methods.
   - **Cross's push back is skipped one step removed**
     (`PROMPTS_DRAWN_LATER`), because every answer ends in a picture of
     its own: `begin_loose_ball`, or the challenger's shot where the ball
-    ran out of field onto them. Since 2026-09-27 the question comes
-    before the ball moves at all (a failed Cross gambit is one move
-    of the beating coach's choosing, Law 19.7.7), so the board reaches
-    the channel once, after the answer, rather than in front of a
-    question whose answer moves the ball.
+    reached the goal zone and came to rest on them. Since 2026-09-27 the
+    question comes before the ball moves at all (a failed Cross
+    gambit is one move of the beating coach's choosing, Law 19.7.7), so
+    the board reaches the channel once, after the answer, rather than in
+    front of a question whose answer moves the ball.
   - **It lives in the cog on purpose.** This is a five-in-five economy, and
     rate limits are the frontend's -- principle 8 in CLAUDE.md. A web app
     reading the same `StepResult` has no such bucket and should redraw every
