@@ -1277,13 +1277,37 @@ class RulesEngine:
         their own skill is already in the total; it is a collection so
         a score attempt can pass its shooter and a contest its two.
         """
-        if not self.species_abilities_apply(game):
-            return 0, [], []
-
-        contesting = {player_id for player_id in rolling if player_id}
         total = 0
         lines: list[str] = []
         contributors: list[tuple[str, int]] = []
+        for player_id, value in self.merge_contributions(
+            game, match, side, rolling, skill,
+        ):
+            player = self.get_player_definition(player_id)
+            total += value
+            lines.append(f"+{value} {player.name} (Merge)")
+            contributors.append((player.name, value))
+        return total, lines, contributors
+
+    def merge_contributions(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        rolling: Collection[Optional[str]],
+        skill: str,
+    ) -> list[tuple[str, int]]:
+        """
+        `merge_bonus`'s reading, as `(player_id, value)` for each Ooze
+        that adds: the one answer to who Merges, for a caller that
+        names them rather than totals them -- the Discord caption over
+        a challenge image, which names a player with their role.
+        """
+        if not self.species_abilities_apply(game):
+            return []
+
+        contesting = {player_id for player_id in rolling if player_id}
+        contributions: list[tuple[str, int]] = []
         for player_id in match.contest_occupants(side):
             if player_id in contesting or player_id in match.injured:
                 continue
@@ -1295,13 +1319,9 @@ class RulesEngine:
                 game, player_id, PersonalAbility.MERGES_HARDER,
             ):
                 value += VISCOR_MERGE_BONUS
-            if not value:
-                continue
-            player = self.get_player_definition(player_id)
-            total += value
-            lines.append(f"+{value} {player.name} (Merge)")
-            contributors.append((player.name, value))
-        return total, lines, contributors
+            if value:
+                contributions.append((player_id, value))
+        return contributions
 
     def spread_exempt_ids(
         self, game: D12BallGame, match: MatchState, side: TeamSide,

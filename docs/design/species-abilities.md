@@ -779,7 +779,10 @@ people, and **not** who was displaced.
 
 **Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
 twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
-with it.
+with it. Who adds what is `merge_contributions`, `(player_id, value)` apiece,
+which `merge_bonus` is built on -- one reading, for the caller that names each
+Ooze with their role rather than totalling them (the Discord caption over a
+challenge image Glompex's offer held back, in [game-service.md](game-service.md)).
 
 - **The skill is the side of the contest, not anything about the Ooze** --
   offensive on the attacking side, defensive on the defending one -- so the

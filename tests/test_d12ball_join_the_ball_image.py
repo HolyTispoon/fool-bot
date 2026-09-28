@@ -153,16 +153,16 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
                 ("prompt", PromptKind.MANEUVER_ACTION),
             ],
         )
-        # The two players, and the Ooze who stepped on adding to the
-        # side on the ball.
+        # The two players, then the Ooze who stepped on, named, and
+        # what they add to the side on the ball.
         [caption] = self.captions
         match = cog.engine.load_match_state(game)
         merge = cog.engine.skills(game, joiner).of("offense")
         self.assertEqual(
             caption,
-            f"{cog.player_id_label(match, match.active_player_id)} "
-            f"(+{merge} by Merge) against "
-            f"{cog.player_id_label(match, challenger)}",
+            f"{cog.player_id_label(match, match.active_player_id)} against "
+            f"{cog.player_id_label(match, challenger)}\n"
+            f"{cog.player_id_label(match, joiner)} Merges in +{merge}",
         )
 
     async def test_the_image_goes_up_under_the_ai_s_answer(self) -> None:

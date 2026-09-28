@@ -17,7 +17,6 @@ from typing import Callable, Optional
 from d12ball.components import (
     MatchState,
     TeamSetup,
-    TeamSide,
     load_species_abilities,
 )
 from d12ball.engine import IgnitedRoll
@@ -281,30 +280,34 @@ class PresentationMixin:
     ) -> str:
         """
         The caption on a challenge image that Glompex's offer held back
-        (the author, 2026-09-28): the two players, each with what their
-        side adds by Merge where anybody does (Law 20.5). The image
-        draws the two and not the Oozes beside them, and whoever just
-        stepped on is the reason the image waited.
+        (the author, 2026-09-28): the two players, then each Ooze on the
+        ball's space who adds by Merge (Law 20.5) and what they add, a
+        line apiece. The image draws the two and not the Oozes beside
+        them, and whoever just stepped on is the reason it waited.
 
-        The sums are `RulesEngine.merge_bonus`'s, asked the way the
-        skill test asks it: offense for the side on the ball, defense
-        for the other, with the two contesting players struck out.
+        Who Merges is `RulesEngine.merge_contributions`, asked the way
+        the skill test asks it: offense for the side on the ball,
+        defense for the other, with the two contesting players struck
+        out.
         """
         handler_id = match.active_player_id
         rolling = (handler_id, challenger_id)
-
-        def named(player_id: str, side: TeamSide, skill: str) -> str:
-            merge, _, _ = self.engine.merge_bonus(
-                game, match, side, rolling, skill,
+        lines = [
+            f"{self.player_id_label(match, handler_id)} against "
+            f"{self.player_id_label(match, challenger_id)}"
+        ]
+        for side, skill in (
+            (match.ball.possession, "offense"),
+            (match.defending_side(), "defense"),
+        ):
+            lines.extend(
+                f"{self.player_id_label(match, player_id)} Merges in "
+                f"+{value}"
+                for player_id, value in self.engine.merge_contributions(
+                    game, match, side, rolling, skill,
+                )
             )
-            label = self.player_id_label(match, player_id)
-            return f"{label} (+{merge} by Merge)" if merge else label
-
-        return (
-            f"{named(handler_id, match.ball.possession, 'offense')} "
-            "against "
-            f"{named(challenger_id, match.defending_side(), 'defense')}"
-        )
+        return "\n".join(lines)
 
     async def post_walk_in(
         self,
