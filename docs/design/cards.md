@@ -622,7 +622,15 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   die cut's corner is a 0.375in radius where the card draws its own
   outline at `CORNER`, a tighter one, so the cut takes a sliver off
   each drawn corner. The player cards, nine a team, stay on
-  `print_sheet`.
+  `print_sheet`, and come as Avery pages as well, beside the sheets
+  rather than instead of them (the author, 2026-09-28):
+  `avery_95328_pages` cuts any number of cards into pages of six --
+  a team is a page and a half -- and with `backs` puts each page's
+  backs in `duplex_order` on their own, so a back lands behind its
+  front on the same sheet of stock. They are `<team>-avery-<n>.png`
+  and `<team>-advanced-avery-<n>.png`. The landing page's kit is built
+  with `--no-avery-players` and leaves them out, as the same cards a
+  second way ([landing-pages.md](landing-pages.md)).
 
 ## The species cards
 

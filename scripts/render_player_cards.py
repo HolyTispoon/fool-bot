@@ -30,7 +30,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from d12ball.cards import print_sheet  # noqa: E402
+from d12ball.cards import avery_95328_pages, print_sheet  # noqa: E402
 from d12ball.components import Team, load_player_catalog  # noqa: E402
 from d12ball.player_cards import (  # noqa: E402
     TEAM_SHEET_COLUMNS,
@@ -70,8 +70,14 @@ def main() -> None:
             "Also write <team>-sheet.png and <team>-advanced-sheet.png: "
             f"that team's nine in an even grid {TEAM_SHEET_COLUMNS} "
             "across, each centred in its own cell, the backs in duplex "
-            "order."
+            "order; and the same nine as Avery Presta 95328 pages, "
+            "<team>-avery-<n>.png and <team>-advanced-avery-<n>.png."
         ),
+    )
+    parser.add_argument(
+        "--no-avery",
+        action="store_true",
+        help="With --sheet, skip the Avery Presta 95328 pages.",
     )
     parser.add_argument(
         "--fronts-only",
@@ -136,6 +142,22 @@ def main() -> None:
                     columns=TEAM_SHEET_COLUMNS,
                 ).save(back_sheet, dpi=(300, 300))
                 print(f"wrote {back_sheet}")
+
+            if args.no_avery:
+                continue
+            # The same nine on Avery Presta 95328 stock, beside the
+            # sheets rather than instead of them (the author,
+            # 2026-09-28): six a page, so a page and a half.
+            for number, page in enumerate(avery_95328_pages(fronts), start=1):
+                page_path = args.out / f"{team.value}-avery-{number}.png"
+                page.save(page_path, dpi=(300, 300))
+                print(f"wrote {page_path}")
+            for number, page in enumerate(
+                avery_95328_pages(backs, backs=True), start=1
+            ):
+                page_path = args.out / f"{team.value}-advanced-avery-{number}.png"
+                page.save(page_path, dpi=(300, 300))
+                print(f"wrote {page_path}")
 
 
 if __name__ == "__main__":

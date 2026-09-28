@@ -449,7 +449,11 @@ def write_kit(downloads: Path) -> None:
     with tempfile.TemporaryDirectory() as scratch:
         kit = Path(scratch) / KIT_DIR
         subprocess.run(
-            [sys.executable, str(KIT_SCRIPT), "--out", str(kit)],
+            # The player cards' Avery pages are the sheets' cards a
+            # second way, so the site leaves them out (the author,
+            # 2026-09-28); the maneuver and reference sheets are Avery
+            # pages only, and stay.
+            [sys.executable, str(KIT_SCRIPT), "--out", str(kit), "--no-avery-players"],
             check=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL,
         )
         downloads.mkdir(parents=True, exist_ok=True)

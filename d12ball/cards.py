@@ -2669,6 +2669,24 @@ def avery_95328_sheet(cards: list[Image.Image]) -> Image.Image:
     return page
 
 
+def avery_95328_pages(
+    cards: list[Image.Image], backs: bool = False
+) -> list[Image.Image]:
+    """
+    Any number of cards as Avery 95328 pages, six a page and the last
+    one short where it has to be -- a team's nine is a page and a half.
+    With `backs`, each page's cards go in `duplex_order`, page by page,
+    so a back lands behind its front on the same sheet of stock.
+    """
+    pages = []
+    for start in range(0, len(cards), AVERY_95328_CARDS):
+        page = cards[start:start + AVERY_95328_CARDS]
+        if backs:
+            page = duplex_order(page, len(AVERY_95328_LEFTS))
+        pages.append(avery_95328_sheet(page))
+    return pages
+
+
 def duplex_order(
     cards: list[Image.Image], columns: int = DUPLEX_COLUMNS
 ) -> list[Image.Image]:
