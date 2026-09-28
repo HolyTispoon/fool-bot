@@ -758,11 +758,21 @@ select {
   align-items: baseline;
   gap: 20px;
 }
-.jumbo-side { min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+/* Each name centred on the score by the letters themselves: the row
+   is on one baseline, and the side is raised by half the difference in
+   cap height -- the Goal face's capitals are 0.635 of its size, and
+   the names and the goals are both set in it. --team and --goals are
+   the two sizes, set with them in each layout. */
+.jumbo-teams { --team: 26px; --goals: 44px; }
+.jumbo-side {
+  min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  position: relative;
+  top: calc((var(--team) - var(--goals)) * 0.3175);
+}
 .jumbo-side.visiting { align-items: flex-end; text-align: right; }
 .jumbo-team {
   font-family: "Goal", "Board", sans-serif;
-  font-size: 26px;
+  font-size: var(--team);
   letter-spacing: 1px;
   line-height: 1;
   text-transform: uppercase;
@@ -792,7 +802,7 @@ select {
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
   font-family: "Goal", "Board", sans-serif;
-  font-size: 44px;
+  font-size: var(--goals);
   line-height: 1;
   color: var(--strong);
   white-space: nowrap;
@@ -1489,8 +1499,8 @@ button.goal { display: block; }
   .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
-  .jumbo-team { font-size: 13px; letter-spacing: 0.3px; }
-  .jumbo-goals { font-size: 24px; }
+  .jumbo-teams { --team: 13px; --goals: 24px; }
+  .jumbo-team { letter-spacing: 0.3px; }
   .jumbo-coach, .jumbo-brand, .jumbo-rule, .jumbo-track, .jumbo-marks, .jumbo-tiles { display: none; }
   .jumbo-ball { font-size: 0; gap: 0; }
   .jumbo-ball.idle { display: none; }
@@ -1640,31 +1650,40 @@ button.goal { display: block; }
   .pane { flex: none; height: calc(100dvh - var(--topbar) - 56px); overflow-y: auto; }
   .topbar-title .back { font-size: 13px; }
   .back-master { display: none; }
-  /* The title and the pill each keep to their side of the jumbotron
-     laid over the bar's middle, so neither runs under it: half of what
-     it leaves, less the bar's padding and a gap. --jumbo-w is its
-     width, measured by app.js; the title's topic and the pill's name
-     are what give way. */
-  body:not(.at-table) .topbar-title,
+  /* The jumbotron is laid over the bar between the title and the pill,
+     centred in the gap they leave rather than on the screen, so the
+     reader's name keeps its room (the author, 2026-09-28). The pill
+     takes what the jumbotron and the title's number leave; the title
+     what the jumbotron and the pill leave, its topic giving way. Every
+     width is measured by app.js (placeJumbotron): --jumbo-w the
+     jumbotron, --title-min the way back and the room's number,
+     --pill-w the pill, --jumbo-x the gap's middle. 40px is the bar's
+     padding and an 8px gap each side of the jumbotron. */
+  body:not(.at-table) .topbar { padding: 0 12px; }
+  body:not(.at-table) .topbar-title {
+    flex: 0 1 auto;
+    min-width: var(--title-min, 0px);
+    max-width: calc(100vw - var(--jumbo-w, 0px) - var(--pill-w, 0px) - 40px);
+  }
   body:not(.at-table) .topbar-end.me {
     flex: 0 1 auto;
-    max-width: calc((100vw - var(--jumbo-w, 0px)) / 2 - 28px);
+    max-width: calc(100vw - var(--jumbo-w, 0px) - var(--title-min, 0px) - 40px);
   }
+  body:not(.at-table) .you-pill .pill-name { max-width: none; }
 
-  /* The jumbotron, laid over the middle of the top bar as one line. */
-  /* One baseline for the whole line -- the names, the score, the
+  /* The jumbotron, laid over the top bar as one line. One baseline for the whole line -- the names, the score, the
      minute and the half -- and the line centred on the bar by its own
      height, since a baseline row sits at the top of a fixed one. */
   .jumbotron {
     position: fixed;
     top: calc(var(--topbar) / 2);
-    left: 50%;
+    left: var(--jumbo-x, 50%);
     transform: translate(-50%, -50%);
     z-index: 6;
     align-items: baseline;
     max-width: calc(100vw - 280px);
-    padding: 0 6px;
-    gap: 10px;
+    padding: 0 4px;
+    gap: 8px;
     background: none;
     border: 0;
     border-radius: 0;
@@ -1673,8 +1692,7 @@ button.goal { display: block; }
   .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
-  .jumbo-team { font-size: 15px; }
-  .jumbo-goals { font-size: 22px; }
+  .jumbo-teams { --team: 15px; --goals: 22px; }
   .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
   .jumbo-rule { align-self: center; height: 18px; }
   .jumbo-ball { font-size: 0; gap: 0; }
@@ -1727,6 +1745,21 @@ button.goal { display: block; }
   body[data-show="rules"] .tab[data-show="rules"] { background: var(--field); }
   .tab.news::after { top: 2px; right: 2px; width: 6px; height: 6px; }
   .move-pane, .pane { order: 4; scroll-margin-top: 8px; }
+}
+
+/* The narrowest phones on their side (an iPhone SE is 667px): during
+   play the way back is its chevron alone, the room's number a size
+   smaller, and the jumbotron and the pill a little tighter -- which is
+   what lets the longest made-up name (23 characters) fit whole in the
+   pill beside the jumbotron. The way back's title and label still name
+   the Master Lobby. */
+@media (max-width: 720px) and (orientation: landscape) {
+  body:not(.at-table) .back-word { display: none; }
+  body:not(.at-table) .room-title .channel-name { font-size: 15px; letter-spacing: 0.5px; }
+  body:not(.at-table) .jumbo-teams { gap: 5px; }
+  body:not(.at-table) .jumbo-side { gap: 3px; }
+  body:not(.at-table) .jumbotron { gap: 6px; }
+  body:not(.at-table) .you-pill { padding: 4px 6px; gap: 3px; }
 }
 
 /* -- A tablet on its side: two columns ------------------------------------
