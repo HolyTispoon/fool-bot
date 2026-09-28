@@ -114,12 +114,16 @@ short edge**. The cards need no cutting.
   the double-sided role-ability card (the six basic roles). `front-sheet.png` is each card's front and `back-sheet.png`
   its back, printed as a pair.
 - **tokens/** -- the condition tokens, double-sided, on one piece of
-  letter paper: {token_counts}. `front-sheet.png` is every token's
-  front and `back-sheet.png` its back. Print the two duplex (flip on
-  the long edge) and cut the tokens out: each lands with its back
-  behind it -- the back sheet is laid out mirrored so they line up,
-  and each face has a thin black margin so a printer a little out of
-  line still cuts clean. The exhaustion token has its Cyborg drain on
+  letter paper: {token_counts}. They come two ways -- pick one:
+  `light-*` is drawn for paper, pale with a coloured ring, and easy on
+  ink; `dark-*` is the bot's own black art, as it looks on screen.
+  `<style>-front-sheet.png` is every token's front and
+  `<style>-back-sheet.png` its back. Print the two duplex (flip on the
+  long edge) and cut the tokens out -- a light token along the grey
+  line on the front, a dark one through its black margin: each lands
+  with its back behind it -- the back sheet is laid out mirrored so
+  they line up, and either way the cut runs a little outside the art so
+  a printer a little out of line still cuts clean. The exhaustion token has its Cyborg drain on
   the back, and each marker is a condition on one side and what it
   turns into on a failed check on the other. Need more? Print the
   pair of pages again.

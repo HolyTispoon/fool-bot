@@ -4,8 +4,8 @@
 Three tokens, each a different piece of art on each face:
 
     exhaust          the amber ZZZ triangle  /  the same triangle in Cyborg teal
-    exhausted        EXHAUSTED (blue)        /  INJURED (red)
-    drained          DRAINED (teal)          /  DAMAGED (amber)
+    exhausted        EXHAUSTED (amber)       /  INJURED (red)
+    drained          DRAINED (teal)          /  DAMAGED (wine)
 
     python3 scripts/render_token_models.py
     python3 scripts/render_token_models.py --size 20 --thickness 3
@@ -425,11 +425,11 @@ scripts/render_token_models.py. Three tokens; print as many of each as
 the table needs.
 
   exhaust    amber ZZZ triangle  /  Cyborg teal triangle
-  exhausted  EXHAUSTED (blue)    /  INJURED (red)
-  drained    DRAINED (teal)      /  DAMAGED (amber)
+  exhausted  EXHAUSTED (amber)   /  INJURED (red)
+  drained    DRAINED (teal)      /  DAMAGED (wine)
 
 Colours (pick the nearest filament; the two ambers differ on purpose --
-the exhaust amber is pale, Damaged's is deeper):
+the exhaust amber is pale, Exhausted's is deeper):
 {chr(10).join(colors)}
 
 A. MULTI-MATERIAL PRINTER (AMS, MMU, tool changer) -- <token>.3mf
