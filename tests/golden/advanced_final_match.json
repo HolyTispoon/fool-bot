@@ -313,7 +313,7 @@
     {
       "details": {
         "conceded": false,
-        "offense_skill": 0,
+        "offense_skill": 1,
         "rolls": [
           3,
           12
