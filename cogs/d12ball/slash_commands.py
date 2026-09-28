@@ -1630,15 +1630,14 @@ class CommandsMixin:
             return
 
         for setup in setups:
-            await interaction.followup.send(
-                self.build_team_roster_section(
-                    game,
-                    match,
-                    setup,
-                    show_role_abilities=role_abilities,
-                    show_advanced_abilities=advanced_abilities,
-                )
-            )
+            for message in self.build_team_roster_messages(
+                game,
+                match,
+                setup,
+                show_role_abilities=role_abilities,
+                show_advanced_abilities=advanced_abilities,
+            ):
+                await interaction.followup.send(message)
 
     @app_commands.command(
         name="team_reference",

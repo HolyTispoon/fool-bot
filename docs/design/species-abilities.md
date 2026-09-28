@@ -314,6 +314,16 @@ their own (below).
   wording, never a rule. It is shown without italics, which is how the
   role's reads, and because a sheet sentence may carry markdown of its
   own (Gearclaw's `*Boost*`).
+  - **A roster is as many messages as it takes**
+    (`build_team_roster_messages`, breaking between players and never
+    inside one), for the command and the Coaching Choice's button
+    alike. The sentences made one team's roster about a thousand
+    characters with the emoji fallbacks, and the live bot's
+    application emoji (`<:name:id>`, three or four to a line) take it
+    past Discord's 2000; the button, which joined a test game's two
+    teams into one message, was refused outright (2026-09-28). A test
+    that measures a roster measures it with emoji at their live
+    length, not the fallbacks'.
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
   Demons with personal lines, are on the field; the seed was re-swept
