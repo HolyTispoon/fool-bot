@@ -669,7 +669,7 @@ class GambitAccessTests(GambitHarness, unittest.TestCase):
 
         match.scoreboard.visiting_score += 1
         one = cog.engine.describe_gambit_access(game, match)
-        self.assertIn("may play a gambit", one)
+        self.assertIn("may make a gambit", one)
         self.assertIn(game.player_1_name, one)
         self.assertNotIn(game.player_2_name, one)
 
@@ -678,7 +678,7 @@ class GambitAccessTests(GambitHarness, unittest.TestCase):
         )
         self.assertEqual(
             cog.engine.describe_gambit_access(game, match),
-            "Both coaches may play a gambit this maneuver.",
+            "Both coaches may make a gambit this maneuver.",
         )
 
     def test_an_unchallenged_maneuver_is_told_nothing(self) -> None:
@@ -1817,44 +1817,50 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.pending_ball_recovery)
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
 
-    async def test_its_cost_drives_the_ball_back_and_leaves_it_loose(
+    async def test_a_failed_gambit_moves_the_ball_back_once(
         self,
     ) -> None:
+        """
+        Beaten by a Clear, the ball goes back **once**, as far as the
+        clearing coach chooses -- 2, 3 or 4 -- rather than the Clear's
+        own 3 and a further push on top (Law 19.7.7, the author,
+        2026-09-27). So the Clear moves nothing until the choice is
+        made, and the speed still drops by the Clear's 3.
+        """
         cog, game, match = self.build("setup_pass", "clear", board_size=9)
         cog.begin_loose_ball = mock.AsyncMock()
         interaction = build_interaction()
+        before = self.flat(match)
+        speed = match.ball.speed
 
         with suppressed_cog_saves():
             await resolve_clear(cog, interaction, game, match)
 
-        # The deflection did not settle the ball itself: the cost put
-        # the choice to the coach who beat the card.
+        # The question was put, and nothing moved to ask it.
         cog.begin_loose_ball.assert_not_awaited()
         interaction.followup.send.assert_awaited()
-
-        # Clear has already driven it back 3, so how much field is
-        # left is what decides the push -- asked of the board rather
-        # than assumed, which is the same question the view asks before
-        # it builds a button.
-        after_clear = self.flat(match)
-        push = max(
-            distance
-            for distance in (1, 2, 3)
-            if abs(
-                match.relative_flat_index(
-                    after_clear, match.ball.possession, -distance,
-                )
-                - after_clear
+        self.assertEqual(self.flat(match), before)
+        distances = cog.engine.setup_pass_push_back_distances(game, match)
+        self.assertEqual(distances[0], 2)
+        chosen = max(
+            distance for distance in distances
+            if distance != cog.engine.setup_pass_push_back_overshoot(
+                match, distances,
             )
-            == distance
         )
 
         with suppressed_cog_saves():
             await apply_setup_pass_push_back(cog, 
-                interaction, game, match, push,
+                interaction, game, match, chosen,
             )
 
-        self.assertEqual(self.flat(match), after_clear - push)
+        self.assertEqual(
+            self.flat(match),
+            match.relative_flat_index(
+                before, match.ball.possession, -chosen,
+            ),
+        )
+        self.assertEqual(match.ball.speed, max(1, speed - 3))
         cog.begin_loose_ball.assert_awaited_once()
         # Same occupancy rule as the plain Deflect/Clear landing --
         # see OccupancyDecidesTests in test_d12ball_loose_ball.py for
@@ -1863,31 +1869,24 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
         )
 
-    async def test_no_legal_push_back_still_wires_the_occupancy_rule(
+    async def test_on_the_last_space_there_is_nothing_to_choose(
         self,
     ) -> None:
-        # With the ball already at the edge of the field, none of 1/2/3
-        # fits -- the loose ball happens right where the beaten card
-        # left it, through the `if not distances:` fallback rather than
-        # apply_setup_pass_push_back, and it still has to settle by
+        # With the ball already on the last space every distance runs
+        # out of field, and only the shortest is offered -- so there is
+        # nothing to ask, and the Clear is played at it. The challenger
+        # is not standing there, so it sets up nothing and settles by
         # occupancy like every other arrival.
         cog, game, match = self.build("setup_pass", "clear", board_size=9)
         edge_zone, edge_space = match.board.position_at_flat_index(0)
         match.set_ball_space(edge_zone, edge_space)
+        self.assertNotIn(
+            match.challenger_id, match.board.spaces[edge_zone][edge_space],
+        )
         cog.begin_loose_ball = mock.AsyncMock()
 
         self.assertEqual(
-            [
-                distance
-                for distance in (1, 2, 3)
-                if abs(
-                    match.relative_flat_index(
-                        0, match.ball.possession, -distance,
-                    )
-                )
-                == distance
-            ],
-            [],
+            cog.engine.setup_pass_push_back_distances(game, match), [2],
         )
 
         with suppressed_cog_saves():

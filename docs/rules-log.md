@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-27.
+**As of:** 2026-09-28.
 
 ## Where the rules come from
 
@@ -153,6 +153,119 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-09-28 -- author, the clock advances when an action's outcome is decided
+
+The author, in a Claude Code session: *"When a maneuver resolution decides which side wins - either
+outright by rank or after a successful skill test - the time has to tick forward 1 or 2 rather
+than wait until the very end of the resolution. In case there is a scoring attempt, the time
+would tick again after the scoring attempt has either succeeded or resolved. Review all possible
+time passing rules so we can create consistency."*
+
+Until now every action's cost was charged at the very end of the turn, after the ball was
+settled, any turnover run and any Coaching Choice taken (Law 4.1.1 f, 4.4.3). **The cost is now
+charged the moment the action's outcome is decided** (Law 16.2.4), and everything the action
+leads to happens on the clock as it then stands (16.2.5). The costs themselves do not change.
+
+- **A maneuver** is charged when its winner is known: on the cards, when a skill test is won
+  (before the injury checks it owes), or, with no challenger, as the offense's maneuver
+  succeeds (6.1.4).
+- **A score attempt** is charged once the shot has resolved, goal or miss, before the restart
+  (5.4.2). A set-up shot therefore charges twice: the maneuver's cost when its winner is
+  decided, the shot's 1 once the shot resolves (8.5.1). Declining still adds nothing.
+- **A time out** is charged the moment it is called, before either Coaching Choice (13.4.1).
+  This one was not in the request; it was proposed on the same principle, since calling a time
+  out is its outcome, and the author confirmed it on PR #385.
+- **Last possession is declared when the clock reaches the last minute, and it belongs to
+  whoever is offered the next turn** (4.1.1 f, 4.4.4, 16.3.1-16.3.2). The author, on PR #385:
+  *"last possession should be declared when the time advances but whoever has the ball at the
+  end of maneuver resolution gets to have last possession. Basically when last possession is
+  announced it should turn on a flag. The next time an offensive choice is offered that flag is
+  cleared and whoever had that offensive choice now has last possession."* So the clock can
+  read 15 or 30 in the middle of the action that reached it, and last possession is announced
+  there; that action is finished in full as before, and its own turnover does not end the
+  period, because last possession is nobody's until the next turn is offered. Until now it was
+  both declared and in force at the end of the action, in one step.
+
+The review this asked for turned up three things, all confirmed by the author on PR #385:
+
+- **The turnover that ends a period was never charged.** Law 16.3.4 says every turn of a last
+  possession is charged, but a turnover under last possession ended the period before the
+  clock was reached, so the period's final maneuver or shot cost nothing and the whistle
+  announced the minute before it. Charging at the decision puts it on the clock before the
+  turnover, so the whistle's minute now includes it. The 2026-08-16 entry had patched the same
+  hole for ceding alone.
+- **Which card is charged was only in this log**, in the 2026-09-27 Setup Pass entry: the card
+  that resolves, so a beaten High Pass costs the Deflect's 1. It is now Law 16.2.3.
+- **A goal's minute.** A goal is stamped as the ball crosses the line, before the shot's own
+  minute (16.2.5). A goal off a set-up now already carries the maneuver's cost, since that was
+  charged first; an own goal already carries its Pressure's minute. Both were stamped a minute
+  or two earlier before.
+
+Already consistent, and unchanged: the free Low Pass after a beaten Skilled Pass costs no clock
+(19.5.5), a Mind Pull that lands leaves the maneuver's minute charged (20.4.8), a Setup Pass
+thrown out of play still costs its 2 (6.7.6), and running back, resets, contests, rolls,
+pickups and Coaching Choices cost nothing (4.4.3). The shootout has no clock.
+
+### 2026-09-27 (after the gambits) -- sheet, the advanced cards say which gambit; five upstream rows close
+
+Re-imported all three tabs after the author's edit for the entry below. **No change to play**:
+every rules change here is already in the Charter, and this is the sheet catching up.
+
+- **The six advanced maneuvers** now read *"Successful gambit: ... Failed gambit: ..."*, and the
+  Setup Pass's failed gambit is *"opponent picks 1-2-3 spaces for the ball to go back (Clear:
+  2-3-4)"*. Dribble Burst now says the ball speed *"goes to 12"*, as Law 19.6.4 always has
+  (it read "adjust ball speed up to 12"). `maneuvers.json` steps to data_version 13.
+- **The maneuvers tab's `Rank` column** now reads as the card prints it -- `O1`, `D3` -- where it
+  held a bare number. The importer reads both, and a letter has to agree with the `Type` column;
+  the JSON is unchanged.
+- **Dravox, Hexis and Synapse** are reworded in the new terms (*"Defensive gambits succeed when
+  won on a skill test."*, and so on), and `personal_abilities.py`'s sheet sentences with them.
+- **The species tab** catches up too: blaze and burn for surge and backfire (2026-09-22),
+  *drain 3* for Overdrive, *exhaust 1* for Mind Pull, and Smooth offered only where the ball
+  comes to rest (2026-09-24). Five rows of "Where upstream is behind" close with this pull --
+  Lithium Powered's drain, the *exhaust* verb (Dribble Burst, Clear and Mind Pull), Smooth, and
+  the two this morning's entry opened.
+
+### 2026-09-27 (end of day) -- author, the gambit is the play, not the card; a beaten Setup Pass goes back once
+
+The author: *"instead of calling Advanced maneuvers Gambits, we'll now call their special
+outcomes gambits ... Using an advanced maneuver should be referred to as 'making a gambit' - a
+successful gambit means that the advanced maneuver won by rank, a failed gambit means that the
+advanced maneuver lost on rank."* Law 19 is now "Advanced maneuvers and gambits".
+
+- **The six cards are advanced maneuvers again** -- their name until 2026-09-20 -- and
+  **playing one is making a gambit**. Nothing about who may play one, when, or what each does
+  changes: "may play a gambit" is "may make a gambit" (19.3), a gambit is still made only
+  against a challenge (19.2), and a coach who is behind still chooses from six.
+- **A gambit succeeds or fails on rank.** What 19.4 called a gambit's *benefit* is the
+  **successful** gambit's outcome, and its *cost* -- every "*Beaten:*" paragraph -- is the
+  **failed** gambit's (the author: Setup Pass's *"successful gambit outcome is to set up a
+  scoring opportunity at 0,1,3 and its failed gambit outcome is opponents pick 1-2-3 spaces
+  back"*). A tie on rank is neither, as it always carried neither. Volatile, Scorchit, Synapse,
+  Dravox and Hexis are reworded in the same terms and play as they did.
+
+And a correction to the Setup Pass's failed gambit, which until now drove the ball back twice
+-- the Deflect's or Clear's own distance, then a further 1, 2 or 3 of the beating coach's
+choosing, never past the end of the field:
+
+- **Beaten by a Deflect**, *"the ball moves back only once - either 1,2, or 3 as chosen by the
+  deflecting player. If overshoots the goal may set up a scoring opportunity."*
+- **Beaten by a Clear**, *"the ball should no longer bounce back twice. the coach who won with
+  clear chooses if the ball goes back 2,3,4 - and overshoot sets up a scoring opportunity."*
+- Asked on this change, the author settled four readings:
+  - **A Fullback still gets their +1**: 2, 3 or 4 on a Deflect, 3, 4 or 5 on a Clear. Read as
+    the same one space further the Fullback always adds to a deflection (6.8, 19.8), so each
+    distance moves up by one.
+  - **The shot is the overshot Deflect's** (2026-09-26): only the player who beat the pass
+    shoots, and only when standing on the last space, the one closest to the goal they attack.
+  - **Of the distances that run out of field, only the shortest is offered** -- every longer one
+    stops on the same last space. So an overshoot is a choice the coach makes, where the old
+    push never ran off the end at all.
+  - **A Deflect a blaze or Synapse's Overdrive resolves as a Clear** takes the Clear's 2, 3 or 4.
+- The speed drop is the beating card's own, 1 or 3, and the ball lands as a Deflect's does.
+  Law 19.7.7-19.7.8 has the rule, Clear gains 19.8.5 pointing at it, and Part II's table in
+  18.3 lists it against the Deflect in Part I.
 
 ### 2026-09-27 (last) -- author, Setup Pass costs a High Pass's 2 in the clock table too
 
@@ -3068,8 +3181,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | "Place the ball ... on the space 3 of the home team" | The kickoff space, by board size |
 | Cleanup restarts "from the middle (back of the midfield)" | The same kickoff space rule, for every restart |
 | "Clash" / "clash roll" | Skill test |
-| Lithium Powered: "can gain 3 drain tokens to add +5", "3 drain → +5" (the sheet) | Drain 3 for +5 -- *drain* is the verb for gaining drain |
-| Dribble Burst "adding exhaustion per space", Clear "if defeated, add 2 exhaustion", Mind Pull "take 1 exhaustion" (both columns) (the sheet) | Exhausting 1 per space, exhaust 2, exhaust 1 -- *exhaust* is the verb for gaining exhaustion |
 | Volatile: "When a Fire Demon rolls a natural 6 or 7", on any roll (the sheet) | Only a skill test, a contest, a score attempt's shooter and a shootout test ignite; never an injury check or an own-goal roll |
 | A score attempt's "each player rolls a d12" | Exactly two dice, one per coach; the defence sums intervening meeples |
 | Every meeple in the way adds its whole defensive skill | Full on the ball's own space, half rounded up beyond it |
@@ -3109,8 +3220,6 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Two 15-minute periods, each clocked 0 to 15 | One running clock: 00-15 in the first half, 16-30 in the second, and it keeps counting past a period's last minute for as long as last possession runs |
 | The maneuvers sheet has a "Die value" column, and the component data two head-coach d6s | Maneuvers are chosen from the cards; the selection dice are not part of the rules at all (2026-08-17). The column and `head_coach_dice` are still imported, so a fresh pull rewrites them |
 | Nothing about which of a stack of teammates runs back | The coach picks, unless one of them is holding the ball, in which case the other goes |
-| The maneuvers sheet's `Mode` column reads `basic` / `advanced` | A gambit, on the rank of a basic maneuver. The importer keeps the sheet's word as the tier value, so a fresh pull rewrites it unchanged |
-| Smooth: "the ball moves to or through your space" (the `spec_abilities` tab, and so `species.json` and the printed species cards) | Only where the ball comes to rest -- a Telekinetic it passes through is offered nothing (2026-09-24) |
 
 ---
 

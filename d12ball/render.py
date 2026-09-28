@@ -4781,9 +4781,9 @@ def draw_reference_legend(draw: ImageDraw.ImageDraw, both_tiers: bool) -> None:
 
     if both_tiers:
         legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense (basic)")
-        legend_swatch(MANEUVER_OFFENSE_COLOR_GAMBIT, "Offense (gambit)")
+        legend_swatch(MANEUVER_OFFENSE_COLOR_GAMBIT, "Offense (advanced)")
         legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense (basic)")
-        legend_swatch(MANEUVER_DEFENSE_COLOR_GAMBIT, "Defense (gambit)")
+        legend_swatch(MANEUVER_DEFENSE_COLOR_GAMBIT, "Defense (advanced)")
     else:
         legend_swatch(MANEUVER_OFFENSE_COLOR, "Offense")
         legend_swatch(MANEUVER_DEFENSE_COLOR, "Defense")

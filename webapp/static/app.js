@@ -203,6 +203,7 @@ function draw(state) {
   /* Before kickoff the table is the whole of the play area: no
      jumbotron and no board until there is a match to draw. */
   document.body.classList.toggle("at-table", Boolean(state.table));
+  placeJumbotronSoon();
   drawHeader(state);
   drawJumbotron(state);
   drawBoard(state);
@@ -567,6 +568,43 @@ async function drawStats(state) {
    carries the time out for that side (`place` on its control, from
    webapp/present.py), and pressing it sends that control's answer. */
 let shownJumbotron = null;
+
+/* On a phone on its side the jumbotron is laid over the top bar,
+   centred in the gap between the room's title and the pill rather than
+   on the screen, so the reader's name keeps its room (app.css). Every
+   width that layout needs is measured here into a custom property; in
+   any other layout, or before kickoff, they are cleared. */
+const SIDEWAYS = window.matchMedia("(max-width: 960px) and (orientation: landscape)");
+const TOPBAR_VARS = ["--jumbo-w", "--title-min", "--pill-w", "--jumbo-x"];
+let placing = 0;
+
+function placeJumbotron() {
+  placing = 0;
+  const root = document.documentElement.style;
+  if (!SIDEWAYS.matches || document.body.classList.contains("at-table")) {
+    TOPBAR_VARS.forEach((name) => root.removeProperty(name));
+    return;
+  }
+  const width = (node) => (node ? node.getBoundingClientRect().width : 0);
+  const title = document.querySelector(".topbar-title");
+  const end = document.querySelector(".topbar-end.me");
+  const titleMin = width(title.querySelector(".back")) + 8 + width(title.querySelector(".channel-name"));
+  root.setProperty("--jumbo-w", `${Math.ceil(width(el("jumbotron")))}px`);
+  root.setProperty("--title-min", `${Math.ceil(titleMin)}px`);
+  root.setProperty("--pill-w", `${Math.ceil(width(end))}px`);
+  const gapStart = title.getBoundingClientRect().right;
+  const gapEnd = end.getBoundingClientRect().left;
+  root.setProperty("--jumbo-x", `${Math.round((gapStart + gapEnd) / 2)}px`);
+}
+
+/* Once a frame at most, however many of them changed size. */
+function placeJumbotronSoon() {
+  if (!placing) placing = requestAnimationFrame(placeJumbotron);
+}
+const placer = new ResizeObserver(placeJumbotronSoon);
+[el("jumbotron"), document.querySelector(".topbar-title"), document.querySelector(".topbar-end.me")]
+  .forEach((node) => placer.observe(node));
+SIDEWAYS.addEventListener("change", placeJumbotronSoon);
 
 function drawJumbotron(state) {
   const layout = state.board.layout;
@@ -2293,7 +2331,7 @@ function handRows(controls) {
     const withheld = gambits.find((one) => one.card.withheld);
     rows.append(
       h("div", { class: "hand-label" },
-        "Gambits",
+        "Advanced",
         withheld ? h("span", { class: "quiet" }, ` · ${withheld.note.replace(/\.$/, "").toLowerCase()}`) : null),
       h("div", { class: "hand" }, gambits.map(handCard)),
     );

@@ -888,6 +888,15 @@ SETUP_PASS_DISTANCES = (0, 1, 3)
 # Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
+# What a maneuver costs on the clock (Law 16.2.1): a flat space minute,
+# and two for a High Pass and for the Setup Pass it is the advanced
+# version of. `RulesEngine.maneuver_clock_cost` is the one reading; the
+# printed cards say the same in words, and a test holds the two
+# together.
+MANEUVER_CLOCK_COST = 1
+HIGH_PASS_CLOCK_COST = 2
+# A time out's (Law 13.4.1), charged the moment it is called.
+TIME_OUT_CLOCK_COST = 1
 # How far a Skilled Pass reaches, either way. The card was Precise
 # Pass and read "any teammate", which on the nine-space board is a
 # pass across the whole field; the author bounded it at 3 and renamed
@@ -907,26 +916,27 @@ DRIBBLE_BURST_MAX_DISTANCE = 4
 BALL_SPEED_MAX = 12
 
 MANEUVER_TIER_BASIC = "basic"
-# **The constant is the noun and the value is the tier, and both are
-# the rules'.** A second maneuver on every rank is a **gambit** as of
-# 2026-09-20, and a gambit *is* the advanced version of the basic
-# maneuver on its rank (the author, the same day) -- so "advanced" is
-# what the tier still is, and the `maneuvers` tab's `Mode` column
-# saying so is right rather than stale. This is **not** a
-# `legacy_maneuver_key` case: nothing here is waiting on a sheet edit,
-# and a rename of the value would put the code out of step with both
-# the data and the rules. What a person reads is `MANEUVER_TIER_WORDS`
-# below.
+# **The value is the tier, and it is the rules' word.** A second
+# maneuver on every rank is an **advanced maneuver** -- the advanced
+# version of the basic maneuver on its rank -- and playing one is
+# **making a gambit** (the author, 2026-09-27; from 2026-09-20 until
+# then the card itself was called a gambit, which is where the
+# constant's name comes from). The name is an identifier and stays:
+# `is_gambit`, `may_play_gambits` and the rest read as "is this the
+# card a gambit is made with". The value is the `maneuvers` tab's
+# `Mode` column, and is **not** a `legacy_maneuver_key` case. What a
+# person reads is `MANEUVER_TIER_WORDS` below.
 MANEUVER_TIER_GAMBIT = "advanced"
 MANEUVER_TIERS = (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
 # What a tier is called where a person reads it -- a card's corner
 # label, an attachment's name. One table rather than `tier.upper()` at
-# each site, because a coach reads the noun ("GAMBIT MANEUVER") where
-# the tier is the adjective: the card is the advanced version, and
-# "gambit" is what it is called.
+# each site. Since 2026-09-27 the word and the sheet's value agree
+# again: the card is an **advanced maneuver**, and a *gambit* is
+# playing one (the author) -- see "Advanced maneuvers and gambits" in
+# docs/living-rules.md.
 MANEUVER_TIER_WORDS = {
     MANEUVER_TIER_BASIC: "basic",
-    MANEUVER_TIER_GAMBIT: "gambit",
+    MANEUVER_TIER_GAMBIT: "advanced",
 }
 
 
@@ -1675,6 +1685,8 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     ),
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
+    SavedField("clock_charged", default=False),
+    SavedField("last_possession_declared", default=False),
     SavedField("pending_high_pass_overshoot", default=False),
     SavedField("pending_own_goal", default=False),
     SavedField("pending_own_goal_distance", default=1),
@@ -2038,10 +2050,40 @@ class MatchState:
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
-    # cost (1, or 2 for a High Pass), so ScoreAttemptView.roll can add
-    # the shot's own extra minute on top of it rather than replacing it.
-    # See "When a maneuver includes a setup" and start_set_up_shot.
+    # cost (1, or 2 for a High Pass). **Charged only by a game saved
+    # before 2026-09-28**, whose maneuver had not been charged yet when
+    # the shot was offered: since then the maneuver is charged the
+    # moment its winner is decided, `clock_charged` says so, and the
+    # shot adds only its own minute -- see `settle_score_attempt`.
     pending_shot_setup_cost: int = 0
+    # **Whether this turn's action has had its clock charged** (Law
+    # 16.2.4, 2026-09-28). The cost is charged the moment the outcome
+    # is decided -- a maneuver's winner known, a shot resolved, a time
+    # out called -- and everything the action leads to happens on the
+    # clock as it then stands. What this flag is for is the finish:
+    # `finish_maneuver_resolution` charges nothing when it is up.
+    # Persisted because the decision and the finish are often prompts
+    # apart. Absent from an older save, which reads as False -- the
+    # right answer for a game saved mid-action under the old rule,
+    # whose decision was never charged, so its finish charges the cost
+    # it carried the old way. `reset_maneuver` clears it with the rest
+    # of the turn. See docs/design/clock-and-records.md.
+    clock_charged: bool = False
+    # **Last possession declared and not yet anyone's** (Law 16.3,
+    # the author, 2026-09-28). Raised the moment the clock reaches the
+    # period's last minute, which can be the middle of the action that
+    # got it there; the next offensive choice clears it and raises
+    # `scoreboard.last_possession` for whoever is offered that choice
+    # (`begin_last_possession`, in `start_turn`). Two flags because
+    # they are two facts: the declaration is announced when the clock
+    # gets there, and the possession it names is not known until the
+    # action has resolved -- and only the second ends a period on a
+    # turnover. Deliberately **not** cleared by `reset_maneuver`, which
+    # runs at the action's finish, before the turn that takes it up.
+    # Absent from an older save, which reads as False: under the old
+    # rule the declaration and the possession were one flag, raised
+    # together at the finish.
+    last_possession_declared: bool = False
     # A High Pass was clamped short of the distance thrown, so the
     # ball speed modifier is paid the other way round for whatever
     # that overshoot leads to -- the set-up's shot, or the long-pass
@@ -2910,9 +2952,13 @@ class MatchState:
         that can disagree about what a match did -- the same reason
         `record_goal` below is the only writer of the goal log.
 
-        The stamp is the clock at the moment of the event, before
-        whatever it costs is charged, so the log reads as the minute
-        something happened rather than the minute play restarted.
+        The stamp is the clock at the moment of the event, so the log
+        reads as the minute something happened rather than the minute
+        play restarted. An action's cost is charged the moment its
+        outcome is decided (Law 16.2.4): an event logged before that --
+        the turn action, the shot -- is stamped without it, and one
+        logged after -- the maneuver's own record, anything its effect
+        logs -- with it.
         """
         event = MatchEvent(
             kind=kind,
@@ -3132,16 +3178,33 @@ class MatchState:
         self.ball.possession = defending_side
         self.ball.speed = 1
 
-    def advance_time(self, minutes: int) -> bool:
+    def advance_time(self, minutes: int) -> None:
         """
         Advance the clock by `minutes` space minutes. It has no ceiling:
         every turn of a last possession is charged like any other, so a
         period ends on the minute its last turnover falls on rather than
         on its last minute.
 
-        Returns True only the moment this call first reaches the
-        period's last minute (entering last possession), so callers can
-        react to it once.
+        **It does not declare last possession**; `declare_last_possession`
+        does, asked by the one charge (`d12ball/flow/clock.py`) right
+        after this. And neither raises `scoreboard.last_possession`: the
+        possession is whoever is offered the next turn (Law 16.3.2),
+        which is `begin_last_possession`. Raising that flag here would
+        have the declaring action's own turnover end the period.
+        """
+        if minutes <= 0:
+            return
+        self.scoreboard.time += minutes
+
+    def declare_last_possession(self) -> bool:
+        """
+        Declare last possession if the clock has reached the period's
+        last minute (Law 16.3.1): at once, in the middle of the action
+        that took it there if that is where it did.
+
+        Returns True only on the call that declares it, so callers can
+        announce it once. It names nobody: `begin_last_possession`
+        hands it to whoever is offered the next turn.
 
         **"The clock has reached the last minute" and "last possession
         is live" are two facts, not one.** They were one while the clock
@@ -3150,15 +3213,38 @@ class MatchState:
         The flag alone ends the period now -- on the first turnover
         under it -- and the clock is nobody's signal for it.
         """
-        if minutes <= 0:
-            return False
-        self.scoreboard.time += minutes
-        if self.scoreboard.last_possession:
+        if self.scoreboard.last_possession or self.last_possession_declared:
             return False
         if self.scoreboard.time >= self.scoreboard.last_minute:
-            self.scoreboard.last_possession = True
+            self.last_possession_declared = True
             return True
         return False
+
+    def begin_last_possession(self) -> bool:
+        """
+        Hand a declared last possession to the side being offered the
+        turn (Law 16.3.2, the author, 2026-09-28): the declaration is
+        cleared and `scoreboard.last_possession` raised, and from here
+        that side's next turnover ends the period.
+
+        Returns True only on the call that hands it over, so the turn
+        can say whose it is once.
+        """
+        if not self.last_possession_declared:
+            return False
+        self.last_possession_declared = False
+        self.scoreboard.last_possession = True
+        return True
+
+    @property
+    def last_possession_called(self) -> bool:
+        """
+        Whether last possession has been announced this period --
+        declared, or already somebody's. What a jumbotron shows; never
+        what a rule reads, since only `scoreboard.last_possession` ends
+        a period.
+        """
+        return self.scoreboard.last_possession or self.last_possession_declared
 
     def add_exhaustion(self, player_id: str, amount: int) -> None:
         """
@@ -3648,6 +3734,7 @@ class MatchState:
         self.pending_scoring_opportunity = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
+        self.clock_charged = False
         self.pending_high_pass_overshoot = False
         self.pending_own_goal = False
         self.pending_own_goal_distance = 1

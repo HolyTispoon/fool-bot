@@ -1123,9 +1123,9 @@ def _answer_setup_pass_push_back(
     *,
     distance: int,
 ) -> StepResult:
-    """Setup Pass's cost, spent: how much further back the ball goes."""
+    """A failed Setup Pass gambit, spent: how far back the ball goes."""
     if distance not in prompt.options.distances:
-        _refuse("That push runs off the end of the field.")
+        _refuse("That distance is not one of the choices.")
     return effects.setup_pass_push_back_step(
         engine, game, match, distance=distance,
     )

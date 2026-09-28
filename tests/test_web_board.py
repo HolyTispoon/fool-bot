@@ -476,6 +476,15 @@ class JumbotronTests(unittest.TestCase):
         self.assertTrue(bar["last_possession"])
         self.assertEqual(bar["track"]["filled"], 16)
 
+    def test_last_possession_is_lit_from_its_declaration(self) -> None:
+        # Announced the moment the clock gets there, before the next
+        # turn hands it to anybody (Law 16.3.1-16.3.2).
+        fixture = case("plain turn")
+        fixture.match.scoreboard.time = 15
+        fixture.match.last_possession_declared = True
+
+        self.assertTrue(self.bar(fixture)["last_possession"])
+
     def test_a_spent_time_out_is_the_half_s_own_count(self) -> None:
         # Home called it: its window opened declared, which charged the
         # half's time out; the visitors still hold theirs.

@@ -43,11 +43,13 @@ from d12ball.components import (
     EVENT_TIME_OUT,
     MatchState,
     RuleRefusal,
+    TIME_OUT_CLOCK_COST,
     TeamSide,
 )
 from d12ball import tutorial
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
+from d12ball.flow.clock import charge_clock
 from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
 from d12ball.flow.turnovers import announce_new_play_reset
 from d12ball import tokens
@@ -688,8 +690,8 @@ def begin_time_out(
     coaching window ... if it did [change], they would go to their new
     position. Only then check to see if there's a need to send
     someone." What it costs is the flat space minute every action
-    costs (2026-08-16), charged in `finish_time_out` once its tail (a
-    pickup may span a restart) is settled.
+    costs (2026-08-16), charged here, the moment it is called and
+    before either Coaching Choice (Law 13.4.1, 16.2.4, 2026-09-28).
 
     Both coaches then coach: the caller's window opens at once, and
     `finish_substitution_window` hands the other theirs exactly as a
@@ -733,6 +735,9 @@ def begin_time_out(
 
     side = match.call_time_out()
     label = format_team_side_label(match.setup_for_side(side))
+    # After `call_time_out`, whose `reset_maneuver` would clear the
+    # flag this sets.
+    clock = charge_clock(match, TIME_OUT_CLOCK_COST)
 
     # **The announcement is narration, not the window's heading.** It
     # is the answer's own line -- what the time out is, said by
@@ -745,7 +750,7 @@ def begin_time_out(
             f"# {label} call a time out\n"
             "Both coaches get a Coaching Choice. The ball stays "
             f"with {label} on "
-            f"{ball_space_label(match)}."
+            f"{ball_space_label(match)}. {clock}"
         ],
         board_changed=True,
         next=FollowOn(
@@ -804,11 +809,12 @@ def finish_time_out(
         reset.next = FollowOn(FollowOnStep.BEGIN_BALL_RECOVERY)
         return reset
 
-    # A time out costs the flat space minute every action costs
-    # (2026-08-16), and nothing else: speed was reset when it was
+    # The time out's minute was charged when it was called; the 1 here
+    # is only what a game saved mid-time-out under the old rule still
+    # owes (`finish_maneuver_resolution`). Speed was reset when it was
     # called, and it is not a turnover.
     reset.next = FollowOn(
         FollowOnStep.FINISH_MANEUVER_RESOLUTION,
-        {"distance_moved": 1, "turnover_occurred": False},
+        {"distance_moved": TIME_OUT_CLOCK_COST, "turnover_occurred": False},
     )
     return reset

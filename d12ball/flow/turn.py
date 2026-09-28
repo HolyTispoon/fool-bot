@@ -40,6 +40,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
+from d12ball.flow.clock import charge_maneuver_clock
 from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.formatting import (
     challenger_prompt_ask,
@@ -214,12 +215,15 @@ def resolve_maneuver(
     if match.maneuver_uncontested:
         # Nothing to reveal against and nothing to rank: the offense's
         # pick is the winner, and its effect runs the same pipeline a
-        # decisive win always does.
+        # decisive win always does -- the clock charged as it
+        # succeeds, like any other win (Law 6.1.4, 16.2.4).
         succeeds = f"**{offense_name}** succeeds!"
+        clock = charge_maneuver_clock(engine, match, offense_key)
         return StepResult(
             narration=[
                 f"{offense_display} chose **{offense_name}**, "
                 f"unchallenged.\n\n## {succeeds}"
+                + (f"\n{clock}" if clock else "")
             ],
             headlines=(Headline(succeeds, match.ball.possession),),
             next=FollowOn(
@@ -259,6 +263,9 @@ def resolve_maneuver(
     winner_key = engine.settled_maneuver_winner(match, game)
 
     if winner_key is not None:
+        # **Decided on the cards, so the clock is charged now** (Law
+        # 16.2.4), before anything the winning card leads to.
+        clock = charge_maneuver_clock(engine, match, winner_key)
         return StepResult(
             narration=[
                 maneuver_winner_text(
@@ -271,6 +278,7 @@ def resolve_maneuver(
                     offense_name,
                     defense_name,
                 )
+                + (f"\n{clock}" if clock else "")
             ],
             headlines=(
                 Headline(
@@ -872,8 +880,13 @@ def force_test_step(
         )
     winner_key = engine.settled_maneuver_winner(match, game)
     wins = maneuver_wins(engine.maneuver_name(winner_key))
+    # The cards stand, so this is the decision (Law 16.2.4).
+    clock = charge_maneuver_clock(engine, match, winner_key)
     return StepResult(
-        narration=[f"{label} lets it stand.\n\n## {wins}"],
+        narration=[
+            f"{label} lets it stand.\n\n## {wins}"
+            + (f"\n{clock}" if clock else "")
+        ],
         headlines=(Headline(wins, winning_side(match, winner_key)),),
         next=FollowOn(
             FollowOnStep.BEGIN_EFFECT_RESOLUTION,
@@ -1149,6 +1162,12 @@ def start_turn(
     leave and the frontend reports rather than acts on.
     """
     narration = [lead_in] if lead_in else []
+    # A turn starts with nothing on the clock for it (Law 16.2.4).
+    # `reset_maneuver` has already cleared this at the last turn's
+    # finish; restated here so that a recovery which starts a turn
+    # without one having finished cannot hand the next action a
+    # charge it never paid.
+    match.clock_charged = False
 
     eligible_handlers = engine.turn_handler_candidates(game, match)
     if not eligible_handlers:
@@ -1156,6 +1175,20 @@ def start_turn(
             "The team in possession has no player in the ball's space."
         )
     carrying = match.ball_carrier_id in eligible_handlers
+
+    # **A declared last possession becomes this side's here** (Law
+    # 16.3.2, the author, 2026-09-28): "the next time an offensive
+    # choice is offered that flag is cleared and whoever had that
+    # offensive choice now has last possession". Before the prompt is
+    # built, so its time-out button already reads the possession.
+    if match.begin_last_possession():
+        holder = format_team_side_label(
+            match.setup_for_side(match.ball.possession)
+        )
+        narration.append(
+            f"{holder} has **last possession**: their next turnover "
+            "ends the period."
+        )
 
     if len(eligible_handlers) == 1:
         match.select_ball_handler(eligible_handlers[0])

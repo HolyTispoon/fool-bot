@@ -114,8 +114,8 @@ prompts reached for this image and grew it a `show_ball` to make it fit.
 their side can see how much of the half is left. It reads
 `match.scoreboard.time`, and that is the minute the window opened on,
 because nothing moves the clock while a window is open -- a time out charges
-its minute in `finish_time_out`, after both windows close, and halftime puts
-the clock on 15 before either window opens. So there is no saved "minute the
+its minute as it is called, before either window opens (2026-09-28), and
+halftime puts the clock on 15 before either window opens. So there is no saved "minute the
 window opened"; if something ever charges time inside a window, this is the
 image that would start showing the wrong minute.
 

@@ -250,19 +250,6 @@ class TimeOutStateTests(unittest.TestCase):
         self.assertIsNone(match.ball_carrier_id)
         self.assertTrue(match.pending_time_out)
 
-    def test_it_costs_its_flat_space_minute(self) -> None:
-        # The clock cost is read back off pending_run_back_distance by
-        # whatever the tail still owes, and ceding costs the same flat
-        # 1 space minute as any other maneuver (2026-08-16) -- the
-        # same 1 reset_maneuver already leaves there, restated
-        # explicitly.
-        match = self.build_match()
-        match.call_time_out()
-
-        self.assertEqual(match.pending_run_back_distance, 1)
-        self.assertFalse(match.advance_time(match.pending_run_back_distance))
-        self.assertEqual(match.scoreboard.time, 1)
-
     def test_the_flag_survives_a_save(self) -> None:
         # It has to outlive two coaching windows, which is the whole
         # reason it is on the match rather than in a call.
@@ -387,11 +374,16 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         _, _, match = self.build()
         match.scoreboard.time = 13
 
-        self.assertFalse(match.advance_time(1))
+        match.advance_time(1)
+        self.assertFalse(match.declare_last_possession())
         self.assertEqual(match.scoreboard.time, 14)
         self.assertTrue(match.may_call_time_out())
 
-        self.assertTrue(match.advance_time(1))
+        # Declared as the clock gets there, and the side's own from the
+        # turn it is offered -- which is the prompt a time out is on.
+        match.advance_time(1)
+        self.assertTrue(match.declare_last_possession())
+        self.assertTrue(match.begin_last_possession())
         self.assertEqual(match.scoreboard.time, 15)
         self.assertFalse(match.may_call_time_out())
 
@@ -402,6 +394,8 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         _, _, match = self.build()
         match.scoreboard.time = 14
         match.advance_time(3)
+        match.declare_last_possession()
+        match.begin_last_possession()
 
         self.assertEqual(match.scoreboard.time, 17)
         self.assertTrue(match.scoreboard.last_possession)
@@ -1075,6 +1069,42 @@ class TimeOutIsANewPlayTests(unittest.TestCase):
         self.assertEqual(self.match.ball.speed, 1)
         # Possession stays: it is a new play, not a turnover.
         self.assertIs(TeamSide(self.match.ball.possession), TeamSide.HOME)
+
+    def test_its_minute_is_charged_as_it_is_called_and_once(self) -> None:
+        """
+        A time out costs its flat space minute the moment it is called,
+        before either Coaching Choice (Law 13.4.1, 16.2.4), and the end
+        of the time out charges nothing more.
+        """
+        from d12ball.prompts import PromptKind
+
+        before = self.match.scoreboard.time
+        run = self.apply(PromptKind.PLAYER_ACTION, "time_out")
+
+        self.assertIs(self.prompt().kind, PromptKind.COACHING_HUB)
+        self.assertEqual(self.match.scoreboard.time, before + 1)
+        said = " ".join(
+            [line for group in run.groups for line in group.narration]
+            + list(run.result.narration)
+        )
+        self.assertIn(f"Time has advanced 1, now at {before + 1:02d}.", said)
+
+        from d12ball.flow import FollowOn, StepResult, driver
+
+        for _ in range(2):
+            prompt = self.prompt()
+            run = self.apply(
+                PromptKind.COACHING_HUB, "done", side=prompt.side.value,
+            )
+        # On past the new play's board, as a frontend re-enters the
+        # loop once it is up, to the finish.
+        while isinstance(run.result.next, FollowOn):
+            run = driver.advance(
+                self.engine, self.game, self.match,
+                StepResult(next=run.result.next),
+            )
+        self.assertEqual(self.match.scoreboard.time, before + 1)
+        self.assertFalse(self.match.clock_charged)
 
     def test_both_sides_reset_after_the_windows_to_what_they_left(
         self,
