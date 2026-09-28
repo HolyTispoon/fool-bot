@@ -1685,6 +1685,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
     SavedField("clock_charged", default=False),
+    SavedField("last_possession_declared", default=False),
     SavedField("pending_high_pass_overshoot", default=False),
     SavedField("pending_own_goal", default=False),
     SavedField("pending_own_goal_distance", default=1),
@@ -2067,6 +2068,21 @@ class MatchState:
     # it carried the old way. `reset_maneuver` clears it with the rest
     # of the turn. See docs/design/clock-and-records.md.
     clock_charged: bool = False
+    # **Last possession declared and not yet anyone's** (Law 16.3,
+    # the author, 2026-09-28). Raised the moment the clock reaches the
+    # period's last minute, which can be the middle of the action that
+    # got it there; the next offensive choice clears it and raises
+    # `scoreboard.last_possession` for whoever is offered that choice
+    # (`begin_last_possession`, in `start_turn`). Two flags because
+    # they are two facts: the declaration is announced when the clock
+    # gets there, and the possession it names is not known until the
+    # action has resolved -- and only the second ends a period on a
+    # turnover. Deliberately **not** cleared by `reset_maneuver`, which
+    # runs at the action's finish, before the turn that takes it up.
+    # Absent from an older save, which reads as False: under the old
+    # rule the declaration and the possession were one flag, raised
+    # together at the finish.
+    last_possession_declared: bool = False
     # A High Pass was clamped short of the distance thrown, so the
     # ball speed modifier is paid the other way round for whatever
     # that overshoot leads to -- the set-up's shot, or the long-pass
@@ -3168,13 +3184,12 @@ class MatchState:
         period ends on the minute its last turnover falls on rather than
         on its last minute.
 
-        **It does not declare last possession**, and since 2026-09-28
-        that is a separate question on purpose. The clock is charged the
-        moment an action's outcome is decided (Law 16.2.4), which can be
-        the middle of that action; last possession is declared once the
-        action has finished (Law 4.4.4, 16.3.1), which is
-        `declare_last_possession`. Raising the flag here would have the
-        declaring maneuver's own turnover end the period.
+        **It does not declare last possession**; `declare_last_possession`
+        does, asked by the one charge (`d12ball/flow/clock.py`) right
+        after this. And neither raises `scoreboard.last_possession`: the
+        possession is whoever is offered the next turn (Law 16.3.2),
+        which is `begin_last_possession`. Raising that flag here would
+        have the declaring action's own turnover end the period.
         """
         if minutes <= 0:
             return
@@ -3182,11 +3197,13 @@ class MatchState:
 
     def declare_last_possession(self) -> bool:
         """
-        Raise last possession if the clock has reached the period's
-        last minute, at the end of the action that took it there.
+        Declare last possession if the clock has reached the period's
+        last minute (Law 16.3.1): at once, in the middle of the action
+        that took it there if that is where it did.
 
-        Returns True only on the call that raises it, so callers can
-        announce it once.
+        Returns True only on the call that declares it, so callers can
+        announce it once. It names nobody: `begin_last_possession`
+        hands it to whoever is offered the next turn.
 
         **"The clock has reached the last minute" and "last possession
         is live" are two facts, not one.** They were one while the clock
@@ -3195,12 +3212,38 @@ class MatchState:
         The flag alone ends the period now -- on the first turnover
         under it -- and the clock is nobody's signal for it.
         """
-        if self.scoreboard.last_possession:
+        if self.scoreboard.last_possession or self.last_possession_declared:
             return False
         if self.scoreboard.time >= self.scoreboard.last_minute:
-            self.scoreboard.last_possession = True
+            self.last_possession_declared = True
             return True
         return False
+
+    def begin_last_possession(self) -> bool:
+        """
+        Hand a declared last possession to the side being offered the
+        turn (Law 16.3.2, the author, 2026-09-28): the declaration is
+        cleared and `scoreboard.last_possession` raised, and from here
+        that side's next turnover ends the period.
+
+        Returns True only on the call that hands it over, so the turn
+        can say whose it is once.
+        """
+        if not self.last_possession_declared:
+            return False
+        self.last_possession_declared = False
+        self.scoreboard.last_possession = True
+        return True
+
+    @property
+    def last_possession_called(self) -> bool:
+        """
+        Whether last possession has been announced this period --
+        declared, or already somebody's. What a jumbotron shows; never
+        what a rule reads, since only `scoreboard.last_possession` ends
+        a period.
+        """
+        return self.scoreboard.last_possession or self.last_possession_declared
 
     def add_exhaustion(self, player_id: str, amount: int) -> None:
         """

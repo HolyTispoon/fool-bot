@@ -142,30 +142,34 @@ class FinishManeuverResolutionTests(SpineFixture):
         comes out of that maneuver with the ball plays it out, and only
         loses the period when *they* lose the ball.
         """
-        # Charged at its decision, onto the last minute.
+        # Charged at its decision, onto the last minute, which declared
+        # it: nobody's until the next turn is offered (Law 16.3.2).
         self.match.scoreboard.time = self.match.scoreboard.last_minute
         self.match.clock_charged = True
+        self.match.last_possession_declared = True
         result = finish_maneuver_resolution(
             self.engine, self.game, self.match, turnover_occurred=True,
         )
-        self.assertTrue(self.match.scoreboard.last_possession)
         self.assertEqual(
             self.follow_on(result), FollowOnStep.SEND_TURN_PROMPT,
         )
-        self.assertIn("last possession", result.narration[0])
+        self.assertTrue(self.match.last_possession_declared)
+        self.assertFalse(self.match.scoreboard.last_possession)
 
-    def test_the_two_lines_stay_two(self) -> None:
+    def test_the_declaration_is_not_the_finish_s_to_say(self) -> None:
         """
-        The last-possession announcement and the closing line are two
-        events, so they come back as two blocks -- the frontend posts
-        the first on its own and the second under the board. See
-        `None`.
+        Last possession is announced where the clock reaches it, in the
+        charge's own sentence (d12ball/flow/clock.py), so the finish of
+        a charged action is its one closing line and nothing more.
         """
-        self.match.scoreboard.time = self.match.scoreboard.last_minute - 1
+        self.match.scoreboard.time = self.match.scoreboard.last_minute
+        self.match.clock_charged = True
+        self.match.last_possession_declared = True
         result = finish_maneuver_resolution(
             self.engine, self.game, self.match,
         )
-        self.assertEqual(len(result.narration), 2)
+        self.assertEqual(len(result.narration), 1)
+        self.assertNotIn("last possession", result.narration[0])
 
 
 class LooseBallFlowTests(SpineFixture):

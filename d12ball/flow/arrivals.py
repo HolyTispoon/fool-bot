@@ -476,10 +476,10 @@ def finish_maneuver_resolution(
 ) -> StepResult:
     """
     The tail of every maneuver-effect path once movement, speed, any
-    turnover, and run-back are all settled: declare last possession if
-    the clock has reached the last minute, end the period if this
+    turnover, and run-back are all settled: end the period if this
     turnover closes out last possession, clear the maneuver state, and
-    hand the offensive choice back to whoever now has the ball.
+    hand the offensive choice back to whoever now has the ball -- which
+    is where a declared last possession becomes theirs (`start_turn`).
 
     **The clock is not charged here any more** (Law 16.2.4,
     2026-09-28): it was charged the moment the action's outcome was
@@ -489,12 +489,13 @@ def finish_maneuver_resolution(
     charged, so its finish charges the cost it carried the old way.
     Everything that threads `distance_moved` here is that fallback's.
 
-    The maneuver that reaches the period's last minute never ends it,
-    even when it is itself a turnover: last possession is the
-    possession that starts there, so whoever comes out of that maneuver
-    with the ball gets to play it out and only loses the period when
-    *they* lose the ball. Only a turnover under a last possession that
-    was already in force ends it -- which is the case `begin_run_back`
+    The action that reaches the period's last minute never ends it,
+    even when it is itself a turnover: the clock declared last
+    possession as it got there (`d12ball/flow/clock.py`), but it is
+    nobody's until the next turn is offered, so whoever comes out of
+    that action with the ball plays it out and only loses the period
+    when *they* lose the ball. Only a turnover under a last possession
+    already in force ends it -- which is the case `begin_run_back`
     catches earlier, before any run back.
 
     Checked first, before the clock moves: does the possessing team
@@ -530,47 +531,21 @@ def finish_maneuver_resolution(
 
     narration: list[str] = []
     # A game saved mid-action before 2026-09-28: see the docstring.
+    # Charged through the one charge, so a legacy action that reaches
+    # the last minute declares it here, and says so, like any other.
     legacy_clock = (
         ""
         if match.clock_charged
         else charge_clock(match, distance_moved)
     )
-    entered_last_possession = match.declare_last_possession()
-    if entered_last_possession:
-        prefix = f"{lead_in}\n\n" if lead_in else ""
-        possessing_side = format_team_side_label(
-            match.setup_for_side(match.ball.possession)
-        )
-        body = (
-            "The turnover that got here doesn't end it -- "
-            f"{possessing_side} came out of that maneuver with the "
-            "ball, so they play last possession out."
-            if turnover_occurred
-            else "Play continues until the ball turns over, which "
-            "ends the period."
-        )
-        # The minute is the period's own, and the clock does not stop
-        # on it: from here every turn is charged as usual and only the
-        # turnover ends the period.
-        narration.append(
-            f"{prefix}The clock has reached "
-            f"{match.scoreboard.last_minute:02d} -- this is now "
-            f"**last possession**. {body} The clock keeps running."
-        )
-        lead_in = ""
 
-    if (
-        turnover_occurred
-        and match.scoreboard.last_possession
-        and not entered_last_possession
-    ):
-        # `narration` is empty here: the two branches are exclusive,
-        # since entering last possession is what stops this one being
-        # reached. So the lead-in is still whatever the effect handed
-        # over, and it rides through `StepResult.narration` into
+    if turnover_occurred and match.scoreboard.last_possession:
+        # Under a last possession already in force -- a declared one is
+        # nobody's yet, so the declaring action never reaches this.
+        # The lead-in rides through `StepResult.narration` into
         # `end_period`'s own `lead_in` like any other follow-on's.
         return StepResult(
-            narration=[lead_in] if lead_in else [],
+            narration=[line for line in (lead_in, legacy_clock) if line],
             next=FollowOn(FollowOnStep.END_PERIOD),
         )
 

@@ -1176,6 +1176,20 @@ def start_turn(
         )
     carrying = match.ball_carrier_id in eligible_handlers
 
+    # **A declared last possession becomes this side's here** (Law
+    # 16.3.2, the author, 2026-09-28): "the next time an offensive
+    # choice is offered that flag is cleared and whoever had that
+    # offensive choice now has last possession". Before the prompt is
+    # built, so its time-out button already reads the possession.
+    if match.begin_last_possession():
+        holder = format_team_side_label(
+            match.setup_for_side(match.ball.possession)
+        )
+        narration.append(
+            f"{holder} has **last possession**: their next turnover "
+            "ends the period."
+        )
+
     if len(eligible_handlers) == 1:
         match.select_ball_handler(eligible_handlers[0])
         kind = PromptKind.PLAYER_ACTION

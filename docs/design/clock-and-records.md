@@ -119,13 +119,27 @@ the charge now, and the sites that call it are the decisions:
   again as a backstop behind every decision. `charge_clock` always charges:
   a set-up shot is the one action charged twice, the maneuver's cost at its
   decision and the shot's minute once the shot resolves.
-- **Last possession is declared at the finish, not at the charge.**
-  `advance_time` only moves the number; `declare_last_possession` raises the
-  flag, and `finish_maneuver_resolution` asks it once the action is done (Law
-  4.4.4, 16.3.1). Raising it at the charge would have `begin_run_back` end
-  the period on the declaring maneuver's own turnover. So the clock can read
-  15 in the middle of the maneuver that got there, and nothing reads the
-  number as the flag.
+- **Last possession is declared at the charge and taken up at the next
+  turn: two flags, because they are two facts** (Law 16.3.1-16.3.2; the
+  author on PR #385: "when last possession is announced it should turn on a
+  flag. The next time an offensive choice is offered that flag is cleared and
+  whoever had that offensive choice now has last possession").
+  `charge_clock` asks `declare_last_possession` after every charge, which
+  raises `MatchState.last_possession_declared` and adds the announcement to
+  the charge's own sentence -- so it is said where the clock gets there, in
+  the reveal, the skill test's result, the shot's verdict or the time out's
+  call. `start_turn`, where every offensive choice is offered, asks
+  `begin_last_possession`, which clears the declaration and raises
+  `scoreboard.last_possession` for the side being offered the turn, and says
+  whose it is. **Only `scoreboard.last_possession` ends a period**, so the
+  declaring action's own turnover runs back like any other: that is why the
+  declaration cannot simply be the old flag raised early -- `begin_run_back`
+  would end the period on it. `reset_maneuver` leaves the declaration alone,
+  because it runs at the finish, before the turn that takes it up.
+  `last_possession_called` is the one reading of "has it been announced"
+  (the web jumbotron's badge), and no rule reads it. Until 2026-09-28 the two
+  were one flag, raised at the finish, with the announcement worded two ways
+  there by whether the action had turned the ball over.
 - **The turnover that ends a period is on the clock now.** `begin_run_back`
   ends the period on a turnover under last possession before the finish is
   ever reached, so under the old timing that last maneuver or shot was never

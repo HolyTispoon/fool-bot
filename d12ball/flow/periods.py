@@ -127,6 +127,7 @@ def end_period(
         # already on the scoreboard.
         match.scoreboard.time = SECOND_HALF_START_MINUTE
         match.scoreboard.last_possession = False
+        match.last_possession_declared = False
         # A time out is once every half, so both sides get theirs
         # back. Their two substitutions for the half come back with
         # it; halftime's own two are counted separately and are not

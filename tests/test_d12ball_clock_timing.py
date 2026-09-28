@@ -196,20 +196,57 @@ class ClockTimingTests(unittest.TestCase):
         self.assertEqual(match.scoreboard.time, 1)
         self.assertIn("Time has advanced 1, now at 01.", " ".join(lines))
 
-    def test_the_reveal_that_reaches_the_last_minute_declares_nothing_yet(
+    def test_the_last_minute_is_declared_at_the_reveal_and_taken_up_next(
         self,
     ) -> None:
         """
-        The clock reads 15 in the middle of the maneuver that got there
-        (Law 16.3.1); last possession is declared once it has finished,
-        and its own turnover does not end the period.
+        The author, on PR #385: last possession is declared when the
+        time advances, and whoever is offered the next offensive choice
+        has it. Here the Steal that reaches 15 declares it at the
+        reveal; its own turnover does not end the period, and the
+        stealing side, offered the next turn, is the side that has it.
         """
         game, match = build("maneuver picks")
         match.scoreboard.time = 14
-        self.pick(game, match, "low_pass", "steal")
+        defending = match.defending_side()
+        lines = self.pick(game, match, "low_pass", "steal")
 
         self.assertEqual(match.scoreboard.time, 15)
+        self.assertTrue(match.last_possession_declared)
         self.assertFalse(match.scoreboard.last_possession)
+        self.assertIn("**last possession** is declared", " ".join(lines))
+
+        lines = self.play_out(
+            game, match,
+            lambda prompt: prompt.kind in (
+                PromptKind.PLAYER_ACTION, PromptKind.BALL_HANDLER_SELECTION,
+            ),
+        )
+        self.assertFalse(match.last_possession_declared)
+        self.assertTrue(match.scoreboard.last_possession)
+        self.assertEqual(match.ball.possession, defending)
+        self.assertIn("has **last possession**", " ".join(lines))
+        self.assertIs(
+            MatchPeriod(match.scoreboard.period), MatchPeriod.FIRST_HALF,
+        )
+        self.assertEqual(match.scoreboard.time, 15)
+
+    def test_a_time_out_on_14_declares_it_for_the_side_that_called_it(
+        self,
+    ) -> None:
+        """
+        A time out is legal on 14 and costs its minute as it is called,
+        so that call reaches 15 and declares last possession; the caller
+        keeps the ball, and takes it up at their next turn.
+        """
+        game, match = build("plain turn")
+        match.scoreboard.time = 14
+        calling = match.ball.possession
+        lines = self.apply(game, match, PromptKind.PLAYER_ACTION, "time_out")
+
+        self.assertEqual(match.scoreboard.time, 15)
+        self.assertTrue(match.last_possession_declared)
+        self.assertIn("**last possession** is declared", " ".join(lines))
 
         self.play_out(
             game, match,
@@ -218,10 +255,23 @@ class ClockTimingTests(unittest.TestCase):
             ),
         )
         self.assertTrue(match.scoreboard.last_possession)
-        self.assertIs(
-            MatchPeriod(match.scoreboard.period), MatchPeriod.FIRST_HALF,
+        self.assertEqual(match.ball.possession, calling)
+        self.assertFalse(match.may_call_time_out())
+
+    def test_a_declaration_survives_a_save(self) -> None:
+        from d12ball.components import MatchState
+        from prompt_fixtures import RULESET
+
+        _, match = build("plain turn")
+        match.last_possession_declared = True
+        saved = match.to_dict()
+        self.assertTrue(
+            MatchState.from_dict(saved, RULESET).last_possession_declared,
         )
-        self.assertEqual(match.scoreboard.time, 15)
+        saved.pop("last_possession_declared")
+        self.assertFalse(
+            MatchState.from_dict(saved, RULESET).last_possession_declared,
+        )
 
     def test_the_turnover_that_ends_a_period_is_on_the_clock(self) -> None:
         """

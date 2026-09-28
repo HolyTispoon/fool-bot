@@ -329,7 +329,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 # Missed attempt!
 Orange (Home) manages to avoid a goal! (phew)
 
-Time has advanced 1, now at 15.
+Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
 # Coaching Choice
 <@111>, **Orange (Home)** -- 2 substitutions left.
@@ -349,9 +349,9 @@ No substitutions, and no change of shape.
 --- message
 The ball speed goes down to **1**.
 --- message
-The clock has reached 15 -- this is now **last possession**. The turnover that got here doesn't end it -- Orange (Home) came out of that maneuver with the ball, so they play last possession out. The clock keeps running.
---- message
 Ball is now in space 1, Orange (Home) has possession.
+--- message
+Orange (Home) has **last possession**: their next turnover ends the period.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -820,7 +820,7 @@ You chose **High Pass**.
 🟣 Dinky AI chose **Steal**.
 
 ## **High Pass** wins!
-Time has advanced 2, now at 30.
+Time has advanced 2, now at 30. The clock has reached 30: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
 🟠 <@111>, choose your High Pass distance:
 === press 67: HighPassChoiceView -> '2 spaces (space 4, Sizzifizik [PM])'
@@ -829,9 +829,9 @@ Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward.
 
-The clock has reached 30 -- this is now **last possession**. Play continues until the ball turns over, which ends the period. The clock keeps running.
---- message
 Ball is now in space 4, Orange (Home) has possession.
+--- message
+Orange (Home) has **last possession**: their next turnover ends the period.
 --- message
 🟠 <@111>, it is your turn.
 

@@ -179,19 +179,20 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         match.scoreboard.time = 15
         match.clock_charged = True
+        # The charge that got here declared it; it is nobody's until
+        # the next turn is offered (Law 16.3.2).
+        match.last_possession_declared = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        interaction = await self.resolve(
+        await self.resolve(
             cog, game, match, distance_moved=1, turnover_occurred=True,
         )
 
         cog.end_period.assert_not_awaited()
-        self.assertTrue(match.scoreboard.last_possession)
         cog.send_turn_prompt.assert_awaited_once()
-        announcement = sent_texts(interaction)[0]
-        self.assertIn("last possession", announcement)
-        self.assertIn("doesn't end it", announcement)
+        self.assertTrue(match.last_possession_declared)
+        self.assertFalse(match.scoreboard.last_possession)
 
     async def test_a_later_turnover_ends_the_period(self) -> None:
         # The next turnover, with last possession already in force, is
@@ -282,9 +283,14 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("at 19", sent_texts(interaction)[0])
         self.assertIn("# Halftime", sent_texts(interaction)[1])
 
-    async def test_reaching_15_without_a_turnover_reads_the_old_way(
+    async def test_a_legacy_finish_that_reaches_15_declares_it(
         self,
     ) -> None:
+        """
+        A game saved mid-action under the old rule charges at its
+        finish, through the one charge -- so reaching 15 there declares
+        last possession and says so, as a charge at a decision would.
+        """
         cog = build_cog()
         cog.end_period = mock.AsyncMock()
         game = build_game()
@@ -298,8 +304,10 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         )
 
         cog.end_period.assert_not_awaited()
-        announcement = sent_texts(interaction)[0]
-        self.assertIn("Play continues until the ball turns over", announcement)
+        self.assertTrue(match.last_possession_declared)
+        self.assertIn(
+            "**last possession** is declared", " ".join(sent_texts(interaction)),
+        )
 
 
 class FullTimeSummaryTests(unittest.TestCase):

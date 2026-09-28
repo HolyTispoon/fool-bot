@@ -10,10 +10,12 @@ it then stands. Until then the whole cost was charged at the very end,
 in `finish_maneuver_resolution`, which is also why the turnover that
 ended a period never reached the clock at all.
 
-**Last possession is not this module's.** It is declared at the end of
-the action that reached the last minute (Law 4.4.4, 16.3.1), which is
-still `finish_maneuver_resolution`; charging here only moves the
-number. See `MatchState.advance_time` and `declare_last_possession`.
+**Last possession is declared here**, the moment the charge reaches the
+period's last minute (Law 16.3.1, the author, 2026-09-28), and announced
+in the charge's own sentence. It is nobody's yet: `start_turn` hands it
+to whoever is offered the next turn (`MatchState.begin_last_possession`),
+so the declaring action is finished in full and its own turnover does
+not end the period.
 
 A leaf: it imports nothing from the rest of the flow, so every step
 that decides an outcome can charge through it. See
@@ -34,10 +36,21 @@ def clock_line(match: MatchState, minutes: int) -> str:
     )
 
 
+def last_possession_line(match: MatchState) -> str:
+    """The declaration, said when the clock gets there."""
+    return (
+        f"The clock has reached {match.scoreboard.last_minute:02d}: "
+        "**last possession** is declared. Whoever has the ball once "
+        "this play resolves has it, and their next turnover ends the "
+        "period. The clock keeps running."
+    )
+
+
 def charge_clock(match: MatchState, minutes: int) -> str:
     """
     Advance the clock by an action's cost, mark the action charged, and
-    say so.
+    say so -- with last possession declared, and said, when the charge
+    is what reaches the period's last minute.
 
     **It always charges.** A set-up shot is the one action charged
     twice -- the maneuver's cost when its winner is decided and the
@@ -47,7 +60,10 @@ def charge_clock(match: MatchState, minutes: int) -> str:
     """
     match.advance_time(minutes)
     match.clock_charged = True
-    return clock_line(match, minutes)
+    line = clock_line(match, minutes)
+    if match.declare_last_possession():
+        line = f"{line} {last_possession_line(match)}"
+    return line
 
 
 def charge_maneuver_clock(

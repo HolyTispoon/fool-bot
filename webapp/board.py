@@ -206,7 +206,9 @@ def jumbotron(game: D12BallGame, match: MatchState) -> dict:
             "halftime": FIRST_HALF_LAST_MINUTE,
             "filled": min(board.time, SECOND_HALF_LAST_MINUTE),
         },
-        "last_possession": board.last_possession,
+        # Announced, whether or not it is anybody's yet: the jumbotron
+        # shows it from the moment the clock gets there (Law 16.3.1).
+        "last_possession": match.last_possession_called,
         # The d12 on the BALL mark shows what the ball on the field shows.
         "speed": match.ball.speed,
         "note": clock_note(game, match),

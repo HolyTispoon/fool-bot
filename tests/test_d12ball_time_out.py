@@ -379,8 +379,11 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(match.scoreboard.time, 14)
         self.assertTrue(match.may_call_time_out())
 
+        # Declared as the clock gets there, and the side's own from the
+        # turn it is offered -- which is the prompt a time out is on.
         match.advance_time(1)
         self.assertTrue(match.declare_last_possession())
+        self.assertTrue(match.begin_last_possession())
         self.assertEqual(match.scoreboard.time, 15)
         self.assertFalse(match.may_call_time_out())
 
@@ -392,6 +395,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         match.scoreboard.time = 14
         match.advance_time(3)
         match.declare_last_possession()
+        match.begin_last_possession()
 
         self.assertEqual(match.scoreboard.time, 17)
         self.assertTrue(match.scoreboard.last_possession)
