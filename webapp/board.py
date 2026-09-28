@@ -62,7 +62,8 @@ from d12ball.render import (
     zone_labels,
 )
 
-#: The field left to right, which is the order the bot draws it in.
+#: The zones with spaces left to right, which is the order the bot
+#: draws them in. The goal zones beyond each end hold none (Law 2.1).
 ZONES = (Zone.HOME_ZONE, Zone.MIDFIELD, Zone.VISITORS_ZONE)
 
 #: Which end of the field each side defends, as `ZONES` draws it: the
@@ -293,7 +294,7 @@ def board_layout(
     """
     Everything the page needs to draw one position. `card_url` is the
     route a card's picture is served from, with `{card}` where the
-    card id goes, and `goal_url` an end zone's, with `{side}` -- the
+    card id goes, and `goal_url` a goal zone's, with `{side}` -- the
     server's to say, since a snapshot and the live board are drawn
     from the same game's cards. A card's URL carries the marks the
     match puts on it, since the picture is drawn with them.
@@ -410,8 +411,8 @@ def board_layout(
                     # Which space it is, as a control names one it
                     # lights (`webapp/present.py`, `on_space`).
                     "index": index,
-                    # The end zones in the colour of the side defending
-                    # them, as the goal beyond them is.
+                    # The outer zones in the colour of the side
+                    # defending them, as the goal zone beyond them is.
                     "tint": _defender_colour(match, zone),
                     "kickoff": zone == Zone.MIDFIELD and index in kickoff,
                     **lanes,
@@ -549,7 +550,7 @@ def side_colour(match: MatchState, side: TeamSide) -> str:
 
 
 def _defender_colour(match: MatchState, zone: Zone) -> Optional[str]:
-    """The colour of the side whose goal an end zone is in front of."""
+    """The colour of the side whose goal an outer zone is in front of."""
     if zone == Zone.HOME_ZONE:
         return TEAM_COLORS[match.home.team]
     if zone == Zone.VISITORS_ZONE:

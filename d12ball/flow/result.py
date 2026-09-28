@@ -72,13 +72,13 @@ class FollowOnStep(Enum):
     #: owes is offered at the end of it rather than before it.
     BEGIN_RUN_BACK = auto()
     #: A scoring opportunity, and the candidates who may take it. An
-    #: Intercept with no field left ahead of it ends here instead of
+    #: Intercept that reaches the goal zone ends here instead of
     #: on a run back: the play never stopped, so there is nothing to
     #: run back from -- and that drops the speed choice with it.
     BEGIN_SHOOTER_CHOICE = auto()
     #: The own-goal risk a Pressure can create, put behind a button
-    #: for the coach whose player is about to concede. The shove that
-    #: overshot has nothing further to say and the roll is where the
+    #: for the coach whose player is about to concede. The shove into
+    #: the goal zone has nothing further to say and the roll is where the
     #: turn stops, so the narration opens that prompt rather than a
     #: message before it.
     BEGIN_OWN_GOAL_ROLL = auto()
@@ -95,7 +95,8 @@ class FollowOnStep(Enum):
     #: beat it drives the ball a further 1, 2 or 3 spaces back, and it
     #: is loose where it stops. A step rather than a bare prompt
     #: because whether anybody is asked at all is decided here: a ball
-    #: already at the end of the field has nothing to offer, so the
+    #: already on the last space before the goal zone has nothing to
+    #: offer, so the
     #: cost is simply spent. Every branch ends in `BEGIN_LOOSE_BALL`,
     #: which is why the prompt it puts up is in `PROMPTS_DRAWN_LATER`
     #: in `cogs/d12ball/core.py`: the board a deflection moved reaches

@@ -240,7 +240,7 @@ Time has advanced 1, now at 07.
 --- message
 **Double Team:** 🔥 Hellguard [FB] and the ball go back 0 spaces. 🔮 Noxar [SK] moves forward. 🔮 Quillon [PM] joins them -- and **both** will challenge on the next maneuver, each adding their defensive skill.
 
-That overshoots toward their own goal!
+The ball reaches their own goal zone!
 
 **Own goal risk!** Dinky AI, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (0). A total of 7 or more and the own goal is avoided.
 === press 25: OwnGoalRollView -> 'Roll for the own goal'
@@ -516,7 +516,7 @@ You chose **Setup Pass**.
 ## **Deflect** wins!
 Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
 --- message
-**Deflect** beat the **Setup Pass**: the ball moves 0 spaces back. Ball speed is now 1. That overshoots the field -- a scoring opportunity!
+**Deflect** beat the **Setup Pass**: the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
 --- message
 🔥 Brightburn [SK] takes the shot off the set-up.
 --- message

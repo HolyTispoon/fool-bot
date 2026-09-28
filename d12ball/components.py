@@ -53,6 +53,32 @@ class TeamSide(str, Enum):
     VISITING = "visiting"
 
 
+class GoalZone(Enum):
+    """
+    The two goal zones, one beyond each end of the row of spaces (Law
+    2.1.4):
+    the Home Goal before space 1 and the Visitors Goal after the last
+    space. **A goal zone holds no spaces and no meeple**, which is why
+    it is not a `Zone` -- nothing stands in one, so nothing is placed
+    in, saved in or drawn in one. Only the ball reaches a goal zone,
+    and the ball that does comes to rest on the last space before it
+    (2.1.5): `MatchState.goal_zone_reached` is the one reading of
+    whether a move does.
+
+    Deliberately not a `str` enum, and never saved or sent: `Zone`'s
+    values are the old names `home_goal` and `visitors_goal`, and a
+    string enum here would compare equal to them.
+    """
+
+    HOME_GOAL = "home"
+    VISITORS_GOAL = "visiting"
+
+    @property
+    def defended_by(self) -> TeamSide:
+        """The side whose goal this is -- the side the other attacks."""
+        return TeamSide(self.value)
+
+
 class CoachingOccasion(str, Enum):
     """
     The five occasions that offer a coach a Coaching Choice. They run
@@ -785,7 +811,7 @@ FIELD_PLAYER_COUNT = 6
 # The shortest High Pass a coach may choose. A Fullback's ability
 # raises the maximum to 4, never this -- and this is the one that
 # decides whether there is a choice to make at all, since a position
-# where even a 2 runs out of field makes every distance identical.
+# where even a 2 reaches the goal zone makes every distance identical.
 # See MatchState.high_pass_distance_is_moot.
 MIN_HIGH_PASS_DISTANCE = 2
 
@@ -910,7 +936,7 @@ TIME_OUT_CLOCK_COST = 1
 # How far a Skilled Pass reaches, either way. The card was Precise
 # Pass and read "any teammate", which on the nine-space board is a
 # pass across the whole field; the author bounded it at 3 and renamed
-# it on 2026-08-26. A distance running off the end of the board is
+# it on 2026-08-26. A distance that would reach the goal zone is
 # dropped by `RulesEngine.low_pass_receivers`, so this is a reach and
 # not a promise that all seven destinations exist.
 SKILLED_PASS_REACH = 3
@@ -2039,7 +2065,7 @@ class MatchState:
     # and the reason is that neither question could be a
     # `PendingPrompt` without it. The attempt's `distance_moved` and
     # `contest_on_decline` are nowhere else in match state -- by the
-    # time it is asked, an overshot High Pass and an ordinary 2-space
+    # time it is asked, a High Pass that reached the goal zone and an ordinary 2-space
     # one have left the match in the same position -- so they lived on
     # the view, which is to say they lived nowhere a restart could
     # read them. A game that went down inside either offer came back
@@ -2094,10 +2120,11 @@ class MatchState:
     # rule the declaration and the possession were one flag, raised
     # together at the finish.
     last_possession_declared: bool = False
-    # A High Pass was clamped short of the distance thrown, so the
-    # ball speed modifier is paid the other way round for whatever
-    # that overshoot leads to -- the set-up's shot, or the long-pass
-    # contest behind it. Persisted because both of those outlive the
+    # A High Pass reached the goal zone (Law 6.7.4), so the ball speed
+    # modifier is paid the other way round for whatever that leads
+    # to -- the set-up's shot, or the long-pass contest behind it.
+    # **The name is the old word for it and stays**: it is a saved key,
+    # and a saved key is never renamed. Persisted because both of those outlive the
     # effect that set it: the shot is a view a restart re-attaches,
     # and the contest is rolled a click later. See ball_speed_modifier.
     pending_high_pass_overshoot: bool = False
@@ -2604,18 +2631,16 @@ class MatchState:
         self.pending_time_out = True
         return side
 
-    def high_pass_overshoots(self, side: TeamSide, distance: int) -> bool:
+    def high_pass_reaches_goal_zone(
+        self, side: TeamSide, distance: int,
+    ) -> bool:
         """
         Whether a High Pass of `distance` in `side`'s attack direction
-        runs out of field -- the ball is clamped short of where it was
-        aimed. Read before the ball moves, since the clamp is what
-        loses the evidence.
+        reaches the goal zone (Law 6.7.4) -- the ball comes to rest
+        short of where it was aimed, on the last space. Read before the
+        ball moves, since the clamp is what loses the evidence.
         """
-        origin_flat = self.board.flat_index(
-            self.ball.zone, self.ball.space_index,
-        )
-        target_flat = self.relative_flat_index(origin_flat, side, distance)
-        return abs(target_flat - origin_flat) < distance
+        return self.ball_reaches_goal_zone(side, distance)
 
     def high_pass_distances(
         self, side: TeamSide, max_distance: int,
@@ -2623,22 +2648,22 @@ class MatchState:
         """
         The distances a High Pass may actually be thrown at from where
         the ball is: the minimum up to `max_distance`, less any that
-        run out of field. **A distance is dropped when a shorter one
+        reach the goal zone. **A distance is dropped when a shorter one
         already reaches the space it would land on**, because the
         longer one is then the same pass at a disadvantage -- it
-        counts as an overshoot, so it pays the ball speed modifier the
+        reaches the goal zone, so it pays the ball speed modifier the
         wrong way round and owes a contest the shorter one does not.
         So a Fullback two spaces from the end is offered 2 and 3 but
         not 4, and anyone one space further out is offered 2 alone.
 
-        Empty when even the shortest overshoots -- see
+        Empty when even the shortest reaches the goal zone -- see
         high_pass_distance_is_moot, which is the same question asked
         without needing to know the handler's maximum.
         """
         return [
             distance
             for distance in range(MIN_HIGH_PASS_DISTANCE, max_distance + 1)
-            if not self.high_pass_overshoots(side, distance)
+            if not self.high_pass_reaches_goal_zone(side, distance)
         ]
 
     def high_pass_receivers_at(
@@ -2669,20 +2694,20 @@ class MatchState:
         """
         Whether there is anything to choose about a High Pass's
         distance: there is not when even the shortest one already
-        overshoots, because 2, 3 and 4 then all land on the same
-        space -- the one closest to the goal. That is the ball sitting
-        0 or 1 spaces from the end of the field, and it makes the pass
-        an overshoot before anyone has picked anything. See "High
+        reaches the goal zone, because 2, 3 and 4 then all come to
+        rest on the same space -- the last one before it. That is the
+        ball sitting 0 or 1 spaces from that last space, and the pass
+        reaches the goal zone before anyone has picked anything. See "High
         Pass" in the living rules.
         """
-        return self.high_pass_overshoots(side, MIN_HIGH_PASS_DISTANCE)
+        return self.high_pass_reaches_goal_zone(side, MIN_HIGH_PASS_DISTANCE)
 
     def ball_speed_modifier(self) -> int:
         """
         The ball speed modifier as this turn pays it: the speed halved
-        and rounded down, but **negated** when a High Pass overshot the
-        field -- see "Ball speed" and "High Pass" in the living rules.
-        A pass that ran out of field arrives too fast to do anything
+        and rounded down, but **negated** when a High Pass reached the
+        goal zone -- see "Ball speed" and "High Pass" in the living
+        rules. A pass that reached the goal zone arrives too fast to do anything
         with, so the speed that would have helped is what makes the
         shot hard, and the same sign carries into the long-pass contest
         a declined set-up falls into.
@@ -2690,8 +2715,8 @@ class MatchState:
         This is the modifier a *High Pass outcome* pays: the set-up's
         shot and that contest. The one place the modifier is paid to
         somebody else -- a skill test the defense won with Steal
-        Intercept -- reads the speed itself, because the overshoot is
-        the offense's problem and the intercept happens before any
+        Intercept -- reads the speed itself, because reaching the goal
+        zone is the offense's problem and the intercept happens before any
         High Pass has been thrown.
         """
         modifier = self.ball.speed // 2
@@ -4024,9 +4049,25 @@ class MatchState:
         """
         `origin_flat` shifted `spaces` steps in `side`'s attack
         direction, clamped to the board edge. Shared by
-        move_ball_relative/move_player_relative; also useful on its own
-        to detect an overshoot by comparing the clamped distance
-        against the requested one.
+        move_ball_relative/move_player_relative. Where the clamp bites,
+        the move has reached a goal zone -- `goal_zone_reached` is the
+        question to ask of that, before anything moves.
+        """
+        target_flat = self.unclamped_flat_index(origin_flat, side, spaces)
+        return max(0, min(self.board.layout.board_size - 1, target_flat))
+
+    def unclamped_flat_index(
+        self,
+        origin_flat: int,
+        side: TeamSide,
+        spaces: int,
+    ) -> int:
+        """
+        `origin_flat` shifted `spaces` steps in `side`'s attack
+        direction, **not** clamped: below 0 or past the last space is
+        where a move would have gone had the goal zone held spaces.
+        `relative_flat_index` clamps it to the field and
+        `goal_zone_reached` reads the part the clamp throws away.
         """
         direction = (
             1
@@ -4034,8 +4075,43 @@ class MatchState:
             == AttackDirection.LEFT_TO_RIGHT
             else -1
         )
-        target_flat = origin_flat + direction * spaces
-        return max(0, min(self.board.layout.board_size - 1, target_flat))
+        return origin_flat + direction * spaces
+
+    def goal_zone_reached(
+        self,
+        origin_flat: int,
+        side: TeamSide,
+        spaces: int,
+    ) -> Optional[GoalZone]:
+        """
+        The goal zone a move of `spaces` from `origin_flat` in `side`'s
+        attack direction reaches -- a negative `spaces` moves back, the
+        way a Pressure or a Deflect does -- or None where it lands on a
+        space. **The one reading of "reaches the goal zone"** (Law
+        2.1.5): a move longer than the spaces left in front of it.
+
+        Only the ball reaches a goal zone, and it comes to rest on the
+        last space before it, which is where `relative_flat_index`
+        clamps it. So this is read **before** the move, the way every
+        rule that asks it does: after the clamp the evidence is gone.
+        """
+        target_flat = self.unclamped_flat_index(origin_flat, side, spaces)
+        if target_flat < 0:
+            return GoalZone.HOME_GOAL
+        if target_flat >= self.board.layout.board_size:
+            return GoalZone.VISITORS_GOAL
+        return None
+
+    def ball_reaches_goal_zone(self, side: TeamSide, spaces: int) -> bool:
+        """
+        Whether the ball, moved `spaces` from where it is now in
+        `side`'s attack direction (back for a negative `spaces`),
+        reaches a goal zone. `goal_zone_reached` from the ball's space.
+        """
+        origin_flat = self.board.flat_index(
+            self.ball.zone, self.ball.space_index,
+        )
+        return self.goal_zone_reached(origin_flat, side, spaces) is not None
 
     def move_ball(self, zone: Zone, space_index: int) -> None:
         """

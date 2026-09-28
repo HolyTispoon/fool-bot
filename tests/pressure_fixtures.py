@@ -346,7 +346,7 @@ def burst_cost_text(match: MatchState, speed: int) -> str:
 
 #: What an overshooting shove adds, and the whole of what sends the
 #: turn to the own-goal roll instead of to the ordinary tail.
-OVERSHOOT_NOTE = "\n\nThat overshoots toward their own goal!"
+OVERSHOOT_NOTE = "\n\nThe ball reaches their own goal zone!"
 
 
 # -- Pressure ----------------------------------------------------------

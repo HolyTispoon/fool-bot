@@ -1844,7 +1844,7 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertEqual(distances[0], 2)
         chosen = max(
             distance for distance in distances
-            if distance != cog.engine.setup_pass_push_back_overshoot(
+            if distance != cog.engine.setup_pass_push_back_to_goal_zone(
                 match, distances,
             )
         )

@@ -38,6 +38,7 @@ from d12ball.components import (
     SECOND_HALF_START_MINUTE,
     CoachingOccasion,
     AssignmentEdge,
+    GoalZone,
     AttackDirection,
     BoardState,
     MatchPeriod,
@@ -3989,6 +3990,40 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(call.args[-1], 2)
         cog.engine.side_controlled_by_ai.assert_not_called()
 
+    def test_a_move_past_the_last_space_reaches_that_end_s_goal_zone(
+        self,
+    ) -> None:
+        # Law 2.1.5: the goal zones hold no spaces, so a move longer
+        # than the spaces left in front of it reaches the goal zone at
+        # that end -- named by the end, whichever side is moving and
+        # whichever way. `relative_flat_index` clamps the same move to
+        # the last space, and the two answer together for every move.
+        match = self.build_match()
+        last = match.board.layout.board_size - 1
+        self.assertIs(
+            match.goal_zone_reached(last, TeamSide.HOME, 1),
+            GoalZone.VISITORS_GOAL,
+        )
+        self.assertIs(
+            match.goal_zone_reached(0, TeamSide.HOME, -1),
+            GoalZone.HOME_GOAL,
+        )
+        self.assertIs(
+            match.goal_zone_reached(0, TeamSide.VISITING, 1),
+            GoalZone.HOME_GOAL,
+        )
+        self.assertIsNone(match.goal_zone_reached(last, TeamSide.HOME, 0))
+        self.assertIs(GoalZone.HOME_GOAL.defended_by, TeamSide.HOME)
+        for side, origin, spaces in itertools.product(
+            TeamSide, range(last + 1), range(-5, 6),
+        ):
+            clamped = match.relative_flat_index(origin, side, spaces)
+            self.assertEqual(
+                match.goal_zone_reached(origin, side, spaces) is not None,
+                abs(clamped - origin) < abs(spaces),
+                (side, origin, spaces),
+            )
+
     def test_a_high_pass_distance_two_spaces_out_is_a_real_choice(
         self,
     ) -> None:
@@ -3998,8 +4033,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.VISITORS_ZONE, 0)  # flat 6 of 0..8
         self.assertFalse(match.high_pass_distance_is_moot(TeamSide.HOME))
-        self.assertFalse(match.high_pass_overshoots(TeamSide.HOME, 2))
-        self.assertTrue(match.high_pass_overshoots(TeamSide.HOME, 3))
+        self.assertFalse(match.high_pass_reaches_goal_zone(TeamSide.HOME, 2))
+        self.assertTrue(match.high_pass_reaches_goal_zone(TeamSide.HOME, 3))
 
         # And the same reading from the other end of the board, where
         # the attack direction is reversed.

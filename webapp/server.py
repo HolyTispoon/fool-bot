@@ -1470,7 +1470,7 @@ class WebApp:
         return await self._card(key, draw)
 
     async def goal(self, request: web.Request) -> web.Response:
-        """One end zone, in the colour of the side defending it, turned
+        """One goal zone, in the colour of the side defending it, turned
         the way the bot's board turns it."""
         game = self._game(request)
         match = self._match(game)

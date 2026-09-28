@@ -1439,8 +1439,8 @@ const GOLD = "#f0b232";
 
 /* The ball: the d12 showing its speed, on a dark ring. On the field
    (`lit: true` asks) it is lit where a control names it -- the
-   maneuver, or sending nobody -- and it may be dragged off the end to
-   the ✕ where a pass may be put out of play. */
+   maneuver, or sending nobody -- and it may be dragged into the goal
+   zone, to the ✕ where a pass may be put out of play. */
 function ball(speed, size, { lit: onField = false } = {}) {
   const face = die(String(speed), {
     size, fill: "#ffffff", ink: "#243347", font: size * 0.44, ring: true,
@@ -1453,7 +1453,7 @@ function ball(speed, size, { lit: onField = false } = {}) {
     {
       type: "button",
       class: `ball-button${controls.length ? " lit" : ""}${out.length ? " draggable" : ""}`,
-      title: controls.length ? controls.map((c) => c.label).join(" · ") : "Drag the ball off the end to put it out of play",
+      title: controls.length ? controls.map((c) => c.label).join(" · ") : "Drag the ball into the goal zone to put it out of play",
       "aria-label": controls.length ? controls[0].label : "The ball",
       onclick: (event) => {
         event.stopPropagation();
@@ -1467,8 +1467,8 @@ function ball(speed, size, { lit: onField = false } = {}) {
   return node;
 }
 
-/* Putting a pass out of play by dragging the ball past the end: let go
-   over the ✕ (or the goal it is drawn on) and it is the same answer as
+/* Putting a pass out of play by dragging the ball into the goal zone:
+   let go over the ✕ (or the goal it is drawn on) and it is the same answer as
    clicking the ✕. */
 function dragOff(node, out) {
   let dragging = null;

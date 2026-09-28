@@ -438,7 +438,7 @@ def section(
 # Each names a thing the page already draws: the board's meeples and
 # spaces (by the zone and index `webapp/board.py` hands every space),
 # the ball, the goals (by the side that defends it, as the board draws
-# them), the out-of-play mark past an end, the time-out tiles on the
+# them), the out-of-play mark on a goal zone, the time-out tiles on the
 # jumbotron bar, and in the question box the die, the faces of a speed
 # choice, the whistle, the note, the hand's cards and the rematch mark.
 
@@ -468,7 +468,7 @@ def on_goal(side: TeamSide) -> dict:
 
 
 def off_the_end(side: TeamSide) -> dict:
-    """The ✕ past the end of the field `side` defends: out of play."""
+    """The ✕ on the goal zone `side` defends: out of play."""
     return {"at": "out_of_play", "side": TeamSide(side).value}
 
 
@@ -774,7 +774,7 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
     if at == "time_out_tile":
         return "The time-out tile"
     if at == "out_of_play":
-        return "Past the end"
+        return "The goal zone"
     if at == "face":
         return f"Speed {place['value']}"
     if at == "card":
@@ -1216,8 +1216,9 @@ def _distance(asked: Asked) -> list:
     Every prompt that asks how far, and the push back a failed Setup
     Pass gambit owes: each distance lights the space it lands on
     (`DistanceOptions.landings`), with a chip saying what landing there
-    means -- the push back's overshoot the ✕ past the end instead. A Setup Pass with nowhere to go is put out of play at the
-    ✕ past the far end; Quantor's run onto the pass is a second chip
+    means -- the push back into the goal zone lights the ✕ on that goal
+    zone instead. A Setup Pass with nowhere to go is put out of play at
+    the ✕ on the far goal zone; Quantor's run onto the pass is a second chip
     on the same spaces.
     """
     options = asked.options
@@ -1232,13 +1233,13 @@ def _distance(asked: Asked) -> list:
             on_space(landing["zone"], landing["space_index"])
             if landing else None
         )
-        if distance == options.get("overshoot"):
-            # The push back that runs out of field lands on the same
+        if distance == options.get("goal_zone"):
+            # The push back into the goal zone comes to rest on the same
             # last space as the longest that does not, so it lights the
-            # ✕ past that end instead: the side asked is the defense,
+            # ✕ on that goal zone instead: the side asked is the defense,
             # and the end is the one the offense defends.
             place = off_the_end(asked.attacking_goal())
-            chip = f"{distance} back · overshoots"
+            chip = f"{distance} back · into the goal zone"
         controls.append(
             button(
                 _spaces(distance),

@@ -496,7 +496,7 @@ class FailedSetupPassGambitTests(unittest.TestCase):
                     game, match,
                 )
                 self.assertEqual(distances, expected)
-                overshoot = ENGINE.setup_pass_push_back_overshoot(
+                overshoot = ENGINE.setup_pass_push_back_to_goal_zone(
                     match, distances,
                 )
                 self.assertEqual(

@@ -568,7 +568,7 @@ class HighPassDistanceMenuTests(unittest.IsolatedAsyncioTestCase):
         # is applied -- see `driver._answer_high_pass_choice`.
         interaction.response.edit_message.assert_not_awaited()
         message, = interaction.response.send_message.await_args.args
-        self.assertIn("runs off the end of the field", message)
+        self.assertIn("would reach the goal zone", message)
         self.assertTrue(
             interaction.response.send_message.await_args.kwargs["ephemeral"]
         )

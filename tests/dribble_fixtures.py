@@ -519,9 +519,9 @@ def burst_with_nowhere_to_go() -> DribbleFixture:
         key="dribble_burst",
         distance=0,
         narration=(
-            f"**Dribble Burst:** {label(match, handler)} is already as "
-            "far forward as the field goes, so the ball stays where it "
-            "is."
+            f"**Dribble Burst:** {label(match, handler)} is already on "
+            "the last space before the goal zone, so the ball stays "
+            "where it is."
             f" {BURST_SPEED_LINE}"
         ),
         follow_on=FINISH,

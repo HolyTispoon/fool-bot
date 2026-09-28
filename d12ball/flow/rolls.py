@@ -770,7 +770,8 @@ def score_loose_ball(
     # yet, so neither side gets it there.
     #
     # The modifier is signed: this contest is also where a declined
-    # overshoot set-up lands, and an overshoot pays the modifier
+    # goal-zone set-up lands, and a pass into the goal zone pays the
+    # modifier
     # against the receiver in the contest exactly as it would have
     # against the shot (2026-08-10). See `ball_speed_modifier`.
     if match.pending_loose_ball_is_high_pass:
@@ -1133,7 +1134,8 @@ def score_score_attempt(
     # Two dice, one per human: the attacker adds the shooting player's
     # offensive skill and the ball-speed modifier, the defence adds the
     # defensive skill of every meeple in the way. The speed modifier is
-    # signed -- an overshot High Pass pays it against the shot -- so it
+    # signed -- a High Pass into the goal zone pays it against the
+    # shot -- so it
     # is added, never abs()'d.
     attack_roll, defense_roll = scripted_or_random(
         engine, game, "score_attempt", 2,
