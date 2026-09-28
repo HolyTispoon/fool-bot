@@ -110,6 +110,16 @@ mechanic of its own. Two are not -- Glompex's join and Zenith's Fly are
 a coach's choice at a moment nothing else asks one, and are prompts of
 their own (below).
 
+- **What a player reads says "special ability"; the code says
+  `personal`.** The author renamed Law 21 *Special abilities* on
+  2026-09-28, back to the word they were first specified in, and every
+  sentence the bot or the web app shows -- the narration's "(special
+  ability)", the mode description, the roster's **Special:** line --
+  follows. The identifiers (`personal_abilities.py`, `PersonalAbility`,
+  `has_personal_ability`, `personal_ability_text`, the wire key
+  `personal`) were left alone: renaming them changes nothing a player
+  sees, and the wire key is read by the page.
+
 - **`d12ball/personal_abilities.py` is the one place a player is tied to
   an ability.** The sheet carries a sentence, not a key, so the table
   maps a catalog id to a `PersonalAbility` *and keeps the sentence it

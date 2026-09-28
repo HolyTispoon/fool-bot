@@ -455,7 +455,7 @@ def dribble_advance_step(
     # Emberdash's third space is theirs alone (Law 21); the second is
     # every Playmaker's.
     ability_note = (
-        " (personal ability)"
+        " (special ability)"
         if distance > 2
         else " (Playmaker ability)"
         if handler.role == PlayerRole.PLAYMAKER and distance > 1
@@ -565,7 +565,7 @@ def dribble_burst_step(
     # Worth saying only for Emberdash: everybody else, Playmaker
     # included, pays the plain token-a-space cost.
     if free_burst and actual_distance:
-        content += " That costs them nothing (personal ability)."
+        content += " That costs them nothing (special ability)."
     if exhaustion_text:
         content += f"\n{exhaustion_text}"
 
@@ -1587,7 +1587,7 @@ def run_onto_pass(
     return "\n".join(filter(None, (
         f"{engine.format_player_label(match, runner)} runs to "
         f"{space_label(zone, space_index, match.board)} to take the pass "
-        "(personal ability).",
+        "(special ability).",
         exhaustion_text,
     )))
 

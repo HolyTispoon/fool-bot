@@ -611,7 +611,7 @@ def skill_test_step(
         if dice_gambit:
             volatile_lines.append(
                 f"The win on the dice plays it as **{raised}** "
-                "(personal ability)."
+                "(special ability)."
             )
         elif overdrive_upgrade:
             volatile_lines.append(

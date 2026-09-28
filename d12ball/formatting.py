@@ -814,7 +814,7 @@ def describe_game_mode(
     if species:
         parts.append("species abilities")
     if mode == GameMode.ADVANCED and not game.tutorial:
-        parts.append("personal abilities")
+        parts.append("special abilities")
     return ", ".join(parts)
 
 

@@ -424,7 +424,7 @@ class PresentationMixin:
             else ""
         )
         if personal:
-            entry += f"\n     **Personal:** {personal}"
+            entry += f"\n     **Special:** {personal}"
         if show_role_abilities:
             ability = self.player_catalog.effective_profile(player).ability
             entry += f"\n     *{ability}*"
