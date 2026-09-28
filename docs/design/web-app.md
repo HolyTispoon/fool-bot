@@ -897,7 +897,15 @@ two shapes, by which way it is held:
   and the strip stays at the foot; the box, or the tab a pill opens,
   is under the field, and a tap on the strip's ask brings the box up.
   The field is large enough there to answer on, so the strip repeats
-  nothing.
+  nothing. **The room's title and the pill keep to their own side of
+  the laid-over jumbotron** (the author, 2026-09-28): each is capped at
+  half of what the jumbotron leaves of the bar, its width measured by
+  `app.js` into `--jumbo-w`, and the topic and then the reader's name
+  are what give way. Uncapped, the wider pill of the room's menu pushed
+  the title under the jumbotron's teams. The split is even, not the
+  pill first, because the jumbotron sits over the bar's middle; on the
+  narrowest phones on their side (667px) the name is cut to a letter
+  or two.
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 

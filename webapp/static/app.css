@@ -1636,6 +1636,16 @@ button.goal { display: block; }
   .pane { flex: none; height: calc(100dvh - var(--topbar) - 56px); overflow-y: auto; }
   .topbar-title .back { font-size: 13px; }
   .back-master { display: none; }
+  /* The title and the pill each keep to their side of the jumbotron
+     laid over the bar's middle, so neither runs under it: half of what
+     it leaves, less the bar's padding and a gap. --jumbo-w is its
+     width, measured by app.js; the title's topic and the pill's name
+     are what give way. */
+  body:not(.at-table) .topbar-title,
+  body:not(.at-table) .topbar-end.me {
+    flex: 0 1 auto;
+    max-width: calc((100vw - var(--jumbo-w, 0px)) / 2 - 28px);
+  }
 
   /* The jumbotron, laid over the middle of the top bar as one line. */
   .jumbotron {

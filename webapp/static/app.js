@@ -568,6 +568,15 @@ async function drawStats(state) {
    webapp/present.py), and pressing it sends that control's answer. */
 let shownJumbotron = null;
 
+/* On a phone on its side the jumbotron is laid over the middle of the
+   top bar (app.css), and the room's title and the pill share what it
+   leaves, half each side: its width is --jumbo-w, which caps them.
+   Zero when it is not drawn -- before kickoff, or any other layout. */
+new ResizeObserver(([record]) => {
+  const width = Math.ceil(record.target.getBoundingClientRect().width);
+  document.documentElement.style.setProperty("--jumbo-w", `${width}px`);
+}).observe(el("jumbotron"));
+
 function drawJumbotron(state) {
   const layout = state.board.layout;
   const j = layout ? layout.jumbotron : null;
