@@ -1931,8 +1931,7 @@ class WebApp:
                 # The maneuver pick's rank reference: the cards' shared
                 # back at the game's tier, which carries the defeat
                 # cycle, shown while the pointer is on the words under
-                # the hand (the author, 2026-09-27). The fuller
-                # reference, the hexagon, is in the Rules tab.
+                # the hand (the author, 2026-09-27).
                 "reference": (
                     f"/api/game/{game.game_id}/maneuver-back.png?size=full"
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None

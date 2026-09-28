@@ -1770,7 +1770,7 @@ function drawPicture(prompt) {
    the game's tier (the server's `reference`), as the hover card, while
    the pointer is on them or after a press and hold (the author,
    2026-09-27). The back is one picture a game, so the hover card is
-   put on once; the hexagon is the Rules tab's References. */
+   put on once. */
 let referenceHover = false;
 function drawReference(prompt) {
   el("reference").hidden = !prompt.reference;

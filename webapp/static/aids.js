@@ -129,9 +129,8 @@
 
   // -- The References ----------------------------------------------------
 
-  /* The maneuvers table and the hexagon under it, the roles table and
-     the species table -- the tables the Reading Room's right column
-     sets too. */
+  /* The maneuvers table, the roles table and the species table -- the
+     same three the Reading Room's right column sets. */
   function references(aids) {
     if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
     const maneuvers = (aids.maneuver_rows || []).map((table) =>
@@ -145,14 +144,6 @@
               h("span", { class: "maneuver-time" }, one.time)),
             h("td", { class: "beats" }, one.beats),
             h("td", { class: "ability" }, one.effect)))));
-    /* The fuller maneuver reference under the maneuvers table: the hexagon the
-       bot's reference command posts, at the tier the model named
-       (both, named, in the Reading Room). */
-    const hexagons = (aids.maneuvers || []).map((one) =>
-      h("figure", { class: "ref-hexagon" },
-        h("a", { href: one.url, target: "_blank", rel: "noopener", title: one.name },
-          h("img", { src: one.url, alt: one.name, loading: "lazy" })),
-        (aids.maneuvers.length > 1) ? h("figcaption", {}, one.name) : null));
     const roles = h("table", { class: "ref-table" },
       h("tr", {}, h("th", {}), h("th", {}, "Role"), h("th", {}, "OFF"), h("th", {}, "DEF"), h("th", {}, "Ability")),
       (aids.role_rows || []).map((one) =>
@@ -176,8 +167,6 @@
     return [
       h("div", { class: "panel-label" }, "Maneuvers"),
       ...maneuvers,
-      hexagons.length ? h("div", { class: "panel-label" }, "Maneuver reference") : null,
-      ...hexagons,
       h("div", { class: "panel-label" }, "Roles"),
       roles,
       species ? h("div", { class: "panel-label" }, "Species") : null,
