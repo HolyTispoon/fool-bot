@@ -1530,6 +1530,25 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   `render.group_text_lines` words the PNG, and the titles and band
   labels are its constants: the same caption, not a second voice.
   Like the PNG's, the layout is the frontend's and decides nothing.
+- **The three rolls a player makes alone have a situation too** (the
+  author, 2026-09-28): the injury check, the own-goal roll and the
+  Mind Pull on offer. None has a matchup PNG on Discord -- its dice
+  come after the roll -- so the window is the page's alone: the roller
+  on the left, as a matchup's side is drawn, with what they bring (the
+  tokens they carry, their skill, what a pull costs) and anything
+  already declared on the roll (an Overdrive, a Boost, Zorch's
+  speed); an arrow; and on the right the die drawn with the face it
+  has to show, and what each way it goes means. **Every number is the
+  model's**: the injury check's target is
+  `RulesEngine.injury_test_target`, the own-goal roll's
+  `effects.OWN_GOAL_SAFE_TOTAL` less `attacking_skill`'s own-goal
+  reading, the pull's `mind_pull_minimum` and `mind_pull_cost` -- the
+  first two named in the model for this, in their own commit, so the
+  roll and the page read one number rather than the page restating
+  Law 11.2 or 15.3. The face is clamped to a die's, with "any" where
+  nothing could fail and "13+" where only a modifier drawn at the roll
+  (an ignite) could save it. An own-goal roll with nobody on the ball,
+  a position no game reaches, has none.
 - **A portrait is the painting the PNG draws**
   (`render.load_player_portrait`), served at
   `GET /api/game/{id}/portrait/{card_id}.png` fitted into 240px with

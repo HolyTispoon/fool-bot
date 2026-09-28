@@ -80,6 +80,7 @@ from d12ball.game import (
 )
 from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
 from d12ball.dice_brief import maneuver_challenge_brief, score_attempt_brief
+from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
 from d12ball.render import (
     CHALLENGE_BAND_FULL,
     CHALLENGE_BAND_HALF,
@@ -88,6 +89,7 @@ from d12ball.render import (
     SCORE_ATTEMPT_UNDEFENDED,
     TEAM_COLORS,
     ChallengeSide,
+    zone_labels,
 )
 
 
@@ -2163,10 +2165,11 @@ def _situation_player(
     game: D12BallGame,
     match: MatchState,
     player_id: str,
-    side: ChallengeSide,
+    side: Optional[ChallengeSide],
 ) -> dict:
     """One portrait in the situation: who, what they add, and whether
-    it is half of their skill (a shot's defender off the ball)."""
+    it is half of their skill (a shot's defender off the ball) -- the
+    last three `None` for a roll nobody contests."""
     return {
         "id": player_id,
         "label": render_text(
@@ -2176,9 +2179,9 @@ def _situation_player(
             ),
         ),
         "portrait": f"/api/game/{game.game_id}/portrait/{player_id}.png",
-        "value": side.value,
-        "skill": side.skill,
-        "halved": side.halved,
+        "value": None if side is None else side.value,
+        "skill": None if side is None else side.skill,
+        "halved": False if side is None else side.halved,
     }
 
 
@@ -2239,8 +2242,204 @@ def _situation_side(
     }
 
 
+def _where(match: MatchState, zone: Zone, space_index: int) -> str:
+    """A space as the matchup images caption it: "Space 4 — Midfield"
+    (`dice_brief.maneuver_challenge_brief`)."""
+    return capitalized(
+        f"{space_label(zone, space_index, match.board)}"
+        f" — {zone_labels(match.board.layout.board_size)[zone].title()}"
+    )
+
+
+def _player_where(match: MatchState, player_id: str) -> str:
+    zone, space_index = match.board.meeple_position(player_id)
+    return _where(match, Zone(zone), space_index)
+
+
+def _roller(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    line: str,
+    modifiers: Sequence[str] = (),
+) -> dict:
+    """
+    The one side of a roll nobody rolls against -- an injury check, an
+    own-goal roll, a Mind Pull: who rolls, the line that says what they
+    bring to it, and anything declared on it (an Overdrive, a Boost,
+    Zorch's speed), in the shape `_situation_side` hands a matchup's.
+    """
+    team = match.team_for_player(player_id)
+    return {
+        "team": team_display_name(team),
+        "colour": TEAM_COLORS[team],
+        "players": [
+            _situation_player(engine, game, match, player_id, None),
+        ],
+        "skill": line,
+        "modifiers": list(modifiers),
+        "ability": None,
+        "bands": [],
+        "empty": None,
+    }
+
+
+def _declared(
+    engine: RulesEngine, game: D12BallGame, match: MatchState, player_id: str,
+) -> tuple[int, list[str]]:
+    """What is already added to this player's next roll, and the lines
+    the dice list it under -- `overdrive_details` and Zorch's
+    `speed_roll_bonus`, the two every one of these rolls adds."""
+    speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
+    return (
+        match.overdrive_modifier(player_id) + speed,
+        [*engine.overdrive_details(match, player_id), *filter(None, [speed_line])],
+    )
+
+
+def _roll(
+    dice: int, target: int, added: int, rule: str, otherwise: str,
+) -> dict:
+    """
+    What a roll needs, for the die the page draws beside the roller:
+    how many d12 (the higher kept of two), the lowest total that does
+    it, the face that total asks of the die once everything declared
+    is added -- `face`, clamped to a die's faces -- and what each way
+    it goes means.
+    """
+    face = target - added
+    return {
+        "dice": dice,
+        "target": target,
+        "face": min(max(face, 1), 12),
+        "certain": face <= 1,
+        "impossible": face > 12,
+        "rule": rule,
+        "otherwise": otherwise,
+    }
+
+
+def _injury_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    An injury check (Law 15.3): the player, the tokens they carry, and
+    the total that beats them -- `injury_test_target`, the number the
+    check compares against. A Cyborg's is a damage test, over drain
+    tokens, and what it risks is Damaged.
+    """
+    player_id = prompt.player_id
+    if player_id is None:
+        return None
+    carried = match.exhaustion.get(player_id, 0)
+    token_noun, _ = engine.token_word_and_mark(game, player_id)
+    injured_word, _ = engine.injured_word_and_mark(game, player_id)
+    added, modifiers = _declared(engine, game, match, player_id)
+    target = engine.injury_test_target(match, player_id)
+    tokens_word = "token" if carried == 1 else "tokens"
+    return {
+        "title": engine.injury_test_name(game, player_id).upper(),
+        "where": _player_where(match, player_id),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                f"Carries {carried} {token_noun} {tokens_word}",
+                modifiers,
+            ),
+        ],
+        "roll": _roll(
+            1, target, added,
+            f"One d12. Safe on a total of {target} or more: higher than"
+            f" their {carried} {tokens_word}.",
+            f"Anything lower and they are {injured_word}.",
+        ),
+    }
+
+
+def _own_goal_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    The own-goal roll (Law 11.2): the handler with nowhere left to be
+    pushed, what they add -- `attacking_skill`'s own-goal reading, Umbrik
+    included -- and `OWN_GOAL_SAFE_TOTAL`.
+    """
+    player_id = match.active_player_id
+    if player_id is None:
+        return None
+    skill = engine.attacking_skill(game, match, player_id, "own_goal")
+    added, modifiers = _declared(engine, game, match, player_id)
+    against = Team(match.setup_for_side(match.defending_side()).team)
+    return {
+        "title": "Own goal risk",
+        "where": _where(match, match.ball.zone, match.ball.space_index),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                f"Offensive skill {skill:+d}", modifiers,
+            ),
+        ],
+        "roll": _roll(
+            2, OWN_GOAL_SAFE_TOTAL, skill + added,
+            f"Two d12, the higher kept, plus their skill. A total of"
+            f" {OWN_GOAL_SAFE_TOTAL} or more avoids it.",
+            f"Under {OWN_GOAL_SAFE_TOTAL} and the goal counts for"
+            f" {team_display_name(against)}.",
+        ),
+    }
+
+
+def _mind_pull_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A Mind Pull on offer (Law 20.4): the Telekinetic, what it costs --
+    `mind_pull_cost`, paid pull or miss -- and `mind_pull_minimum`.
+    Nothing declared reaches it, so the face is the total.
+    """
+    player_id = prompt.player_id
+    if player_id is None:
+        return None
+    cost = engine.mind_pull_cost(game, player_id)
+    token_noun, _ = engine.token_word_and_mark(game, player_id)
+    minimum = engine.mind_pull_minimum(game, player_id)
+    return {
+        "title": "Mind Pull",
+        "where": _player_where(match, player_id),
+        "sides": [
+            _roller(
+                engine, game, match, player_id,
+                (
+                    f"Costs {cost} {token_noun} "
+                    f"{'token' if cost == 1 else 'tokens'}, pull or miss"
+                    if cost else "Costs no token"
+                ),
+            ),
+        ],
+        "roll": _roll(
+            1, minimum, 0,
+            f"One d12. {minimum} or more pulls the ball in: it stops on"
+            " their space and their side has it.",
+            "Anything lower and the ball goes on past them.",
+        ),
+    }
+
+
 def _challenge_situation(
-    engine: RulesEngine, game: D12BallGame, match: MatchState,
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
 ) -> Optional[dict]:
     """The player on the ball against the challenger the position
     holds -- `match.challenger_id`, set when a challenger is sent and
@@ -2265,11 +2464,15 @@ def _challenge_situation(
                 [(challenger, defense)], with_ability=True,
             ),
         ],
+        "roll": None,
     }
 
 
 def _shot_situation(
-    engine: RulesEngine, game: D12BallGame, match: MatchState,
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
 ) -> dict:
     """The shooter with the modifiers this attempt earns, and every
     defender between them and the goal as one wall -- or nobody. No
@@ -2296,17 +2499,26 @@ def _shot_situation(
                 empty=SCORE_ATTEMPT_UNDEFENDED,
             ),
         ],
+        "roll": None,
     }
 
 
-#: The situation a prompt is asked over, by its kind. A kind not here
-#: has none.
+#: The situation a prompt is asked over, by its kind: the two matchups,
+#: and the three rolls a player makes alone -- the injury check, the
+#: own-goal roll and the Mind Pull on offer (the author, 2026-09-28). A
+#: kind not here has none.
 SITUATIONS: Mapping[
     PromptKind,
-    Callable[[RulesEngine, D12BallGame, MatchState], Optional[dict]],
+    Callable[
+        [RulesEngine, D12BallGame, MatchState, PendingPrompt],
+        Optional[dict],
+    ],
 ] = {
     PromptKind.SCORE_ATTEMPT: _shot_situation,
     PromptKind.MANEUVER_ACTION: _challenge_situation,
+    PromptKind.INJURY_TEST: _injury_situation,
+    PromptKind.OWN_GOAL_ROLL: _own_goal_situation,
+    PromptKind.MIND_PULL: _mind_pull_situation,
 }
 
 
@@ -2320,4 +2532,4 @@ def situation(
     `None` where it has none."""
     if prompt is None or match is None or prompt.kind not in SITUATIONS:
         return None
-    return SITUATIONS[prompt.kind](engine, game, match)
+    return SITUATIONS[prompt.kind](engine, game, match, prompt)

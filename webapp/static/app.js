@@ -1761,15 +1761,41 @@ function drawSituation(prompt) {
   box.replaceChildren();
   box.hidden = !situation;
   if (!situation) return;
-  const [attack, defence] = situation.sides;
+  const [first, second] = situation.sides;
   box.append(
     h("div", { class: "situation-head" },
       h("span", { class: "situation-title" }, situation.title),
       h("span", { class: "situation-where" }, situation.where)),
-    h("div", { class: "situation-row" },
-      situationSide(attack),
-      h("div", { class: "situation-vs", "aria-hidden": "true" }, "vs"),
-      situationSide(defence)),
+    second
+      ? h("div", { class: "situation-row" },
+        situationSide(first),
+        h("div", { class: "situation-vs", "aria-hidden": "true" }, "vs"),
+        situationSide(second))
+      : h("div", { class: "situation-row" },
+        situationSide(first),
+        h("div", { class: "situation-vs arrow", "aria-hidden": "true" }, "\u2192"),
+        situationRoll(situation.roll, first.colour)),
+  );
+}
+
+/* What a roll nobody contests needs -- an injury check, an own-goal
+   roll, a Mind Pull: the dice drawn with the face they have to show once
+   everything declared is added, and what each way it goes means. The
+   numbers and the words are the server's. */
+function situationRoll(roll, colour) {
+  const mark = roll.certain ? "any" : roll.impossible ? "13+" : `${roll.face}+`;
+  const dice = [];
+  for (let i = 0; i < roll.dice; i += 1) {
+    /* The second of two is the one that may be dropped: an outline. */
+    dice.push(i === 0
+      ? die(mark, { size: 88, fill: colour, ink: "#ffffff", font: mark.length > 2 ? 26 : 32 })
+      : die("", { size: 88, fill: "#1e1f22", ink: colour, font: 32 }));
+  }
+  return h("div", { class: "situation-side situation-roll", style: `--side: ${colour}` },
+    h("div", { class: "situation-team" }, roll.dice > 1 ? "Needs, on the higher die" : "Needs"),
+    h("div", { class: roll.dice > 1 ? "situation-dice two" : "situation-dice" }, dice),
+    h("div", { class: "situation-rule" }, roll.rule),
+    h("div", { class: "situation-otherwise" }, roll.otherwise),
   );
 }
 

@@ -461,6 +461,10 @@ img { display: block; }
 .situation-skill { font-family: "Board", serif; font-size: 17px; font-weight: 700; color: var(--strong); }
 .situation-modifier { font-family: "Board", serif; font-size: 14px; color: var(--text); }
 .situation-ability { margin-top: 4px; font-size: 14px; line-height: 1.35; color: var(--muted); font-style: italic; }
+.situation-dice { display: flex; justify-content: center; gap: 8px; margin: 6px 0 8px; }
+.situation-vs.arrow { font-family: "Board", serif; font-size: 34px; text-transform: none; }
+.situation-rule { font-family: "Board", serif; font-size: 15px; font-weight: 700; color: var(--strong); max-width: 34ch; }
+.situation-otherwise { margin-top: 2px; font-size: 14px; color: var(--muted); max-width: 34ch; }
 .situation-empty { margin: 18px 0; font-size: 15px; color: var(--muted); }
 
 .state-tag {
@@ -575,6 +579,10 @@ img { display: block; }
   .situation-vs { font-size: 18px; }
   .situation-side { padding: 8px 8px 10px; }
   .situation-ability { font-size: 13px; }
+  .situation-dice .die { width: 56px; height: 56px; }
+  .situation-rule { font-size: 13px; }
+  .situation-otherwise { font-size: 12px; }
+  .situation-row { gap: 6px; }
   .outcome { flex-wrap: wrap; gap: 14px; }
   .outcome-headline { font-size: 34px; }
 }

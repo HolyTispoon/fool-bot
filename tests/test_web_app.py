@@ -1309,6 +1309,88 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         elif not defenders:
             self.assertEqual(defence["empty"], "No one in the way")
 
+    async def open_staged(self, name: str, stage):
+        """A fixture with the position moved on first, where the fixture
+        alone is barer than any game reaches (no tokens on a player who
+        owes an injury check, nobody on the ball at an own-goal roll)."""
+        fixture = case(name)
+        stage(fixture.match)
+        fixture.game.match_state = fixture.match.to_dict()
+        service = GameService(
+            ENGINE,
+            {fixture.game.game_id: fixture.game},
+            batching=server.WEB_BATCHING,
+            save=lambda games: None,
+        )
+        web = WebApp(service, GameLocks())
+        web.watch()
+        client = TestClient(TestServer(web.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        self.addAsyncCleanup(web.stop)
+        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
+        return fixture, state["prompt"]["situation"]
+
+    async def test_an_injury_check_needs_more_than_the_tokens(self) -> None:
+        def seven_tokens(match):
+            match.exhaustion[match.pending_injury_tests[0]] = 7
+
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged("injury test", seven_tokens)
+        hurt = fixture.match.pending_injury_tests[0]
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [hurt])
+        self.assertEqual(roller["skill"], "Carries 7 exhaustion tokens")
+        self.assertEqual(
+            situation["roll"]["target"],
+            ENGINE.injury_test_target(fixture.match, hurt),
+        )
+        self.assertEqual(situation["roll"]["face"], 8)
+        self.assertEqual(situation["roll"]["dice"], 1)
+        self.assertEqual(situation["title"], "INJURY TEST")
+
+    async def test_an_own_goal_needs_the_safe_total_less_the_skill(
+        self,
+    ) -> None:
+        from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+
+        def on_the_ball(match):
+            match.active_player_id = match.eligible_ball_handlers()[0]
+
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged("own goal", on_the_ball)
+        match, game = fixture.match, fixture.game
+        skill = ENGINE.attacking_skill(
+            game, match, match.active_player_id, "own_goal",
+        )
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [match.active_player_id])
+        self.assertEqual(situation["roll"]["dice"], 2)
+        self.assertEqual(situation["roll"]["target"], OWN_GOAL_SAFE_TOTAL)
+        self.assertEqual(
+            situation["roll"]["face"],
+            min(max(OWN_GOAL_SAFE_TOTAL - skill, 1), 12),
+        )
+
+    async def test_a_mind_pull_needs_its_minimum_and_costs_its_token(
+        self,
+    ) -> None:
+        ENGINE.rng.seed(11)
+        fixture, situation = await self.open_staged(
+            "mind pull", lambda match: None,
+        )
+        match, game = fixture.match, fixture.game
+        puller = match.pending_mind_pull[0]
+        (roller,) = situation["sides"]
+        self.assertEqual(self.names(roller), [puller])
+        self.assertEqual(
+            situation["roll"]["target"],
+            ENGINE.mind_pull_minimum(game, puller),
+        )
+        self.assertIn(
+            f"Costs {ENGINE.mind_pull_cost(game, puller)}", roller["skill"],
+        )
+
     async def test_every_portrait_is_served(self) -> None:
         for name in ("maneuver picks", "score attempt"):
             with self.subTest(name):
@@ -1352,6 +1434,14 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                     client, fixture.game, as_coach(fixture.game.player_1_id),
                 )
                 self.assertIsNone(state["prompt"]["situation"])
+
+    async def test_an_own_goal_with_nobody_on_the_ball_has_none(self) -> None:
+        # The bare fixture: a position no game reaches, answered with no
+        # situation rather than an error.
+        ENGINE.rng.seed(11)
+        client, fixture = await self.open("own goal")
+        state = await self.get_state(client, fixture.game, as_coach(STRANGER))
+        self.assertIsNone(state["prompt"]["situation"])
 
     async def test_the_log_says_the_challenge_in_words(self) -> None:
         # Sending a challenger walks one in. On Discord the challenge
