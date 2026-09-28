@@ -1678,13 +1678,24 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     author, 2026-09-28): Emberdash's dribble, Vorix's set-up and
     Acidel's pressure, each on the attack alone. Quantor's run on is
     never named: it is for a teammate's pass, so it does not apply to a
-    roll Quantor is in. Bulwark's drain threshold is named on every roll
-    he is in (`ALWAYS_BEARS`). Kindlefinger's ignite is the injury
+    roll Quantor is in. It is instead **a note under the challenge**
+    while a teammate is on the ball and Quantor is on the field, since
+    he may run onto that teammate's pass (`pass_runner_on_field`, the
+    model's reading of who may). Bulwark's drain threshold is named on
+    every roll he is in (`ALWAYS_BEARS`). Kindlefinger's ignite is the injury
     check's alone, never a maneuver's. The five players whose line is an advanced skill score
     ("High defensive skill.") have it named where the roll adds that
     skill, read as `skills` under the game against the role's. Which
     ability goes with which part of which roll is `BEARINGS`; whether
     the player holds it is `has_personal_ability`.
+- **Glompex's step onto the ball has a situation of its own**: the
+  offer (`JOIN_THE_BALL`) is made before the cards are chosen, so its
+  window is the challenge he would step into, with his ability as a
+  note under it (the author, 2026-09-28). Once he has stepped on, the
+  challenge names what he adds by Merge, so the maneuver pick does not
+  repeat him. A note -- the situation's `notes` -- is a special ability
+  of somebody who is not rolling, with whose it is, edged in their
+  team's colour.
 - **It is a strip, not a panel** (the author, 2026-09-28: "takes too
   much space ... no need for the black background"). Nothing sits
   behind it: the title and the space on one line, then each side as a

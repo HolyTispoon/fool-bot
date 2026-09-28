@@ -1573,6 +1573,86 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 ]
                 self.assertEqual(named, ["Special ability"] if shown else [])
 
+    def test_a_pass_runner_is_noted_while_a_teammate_is_on_the_ball(
+        self,
+    ) -> None:
+        # Quantor may run onto any teammate's pass, so the challenge says
+        # so while a teammate is on the ball and he is on the field --
+        # not when he is the one passing, and not outside an advanced
+        # game (the author, 2026-09-28).
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture = case("maneuver picks")
+        match = fixture.match
+        teammate = next(
+            player_id
+            for player_id in match.setup_for_side(match.ball.possession)
+            .field_players
+            if player_id != match.active_player_id
+        )
+        for mode, runner, noted in (
+            (GameMode.ADVANCED, teammate, True),
+            (GameMode.ADVANCED, match.active_player_id, False),
+            (GameMode.STANDARD, teammate, False),
+        ):
+            with self.subTest(mode=mode, noted=noted):
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {
+                        catalog_player_id(runner):
+                        (PersonalAbility.RUN_ON, "test"),
+                    },
+                    clear=False,
+                ):
+                    # Nobody else on the side holds it for this test.
+                    for player_id, (ability, _) in list(
+                        PERSONAL_ABILITIES.items(),
+                    ):
+                        if (
+                            ability is PersonalAbility.RUN_ON
+                            and player_id != catalog_player_id(runner)
+                        ):
+                            del PERSONAL_ABILITIES[player_id]
+                    _, got = self.situation_in("maneuver picks", mode)
+                self.assertEqual(
+                    [note["id"] for note in got["notes"]],
+                    [runner] if noted else [],
+                )
+
+    def test_the_join_offer_is_the_challenge_with_the_joiner_noted(
+        self,
+    ) -> None:
+        # Glompex is offered the ball before the cards are chosen, so his
+        # ability is said there, over the challenge he would step into.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        fixture = case("join the ball")
+        fixture.game.mode = GameMode.ADVANCED
+        joiner = fixture.match.pending_join[0]
+        with mock.patch.dict(
+            PERSONAL_ABILITIES,
+            {catalog_player_id(joiner): (PersonalAbility.JOINS_THE_BALL, "test")},
+        ):
+            _, got = self.situation_in("join the ball", GameMode.ADVANCED)
+        self.assertEqual(got["title"], "MANEUVER CHALLENGE")
+        self.assertEqual(got["notes"][0]["id"], joiner)
+        self.assertEqual(
+            got["notes"][0]["text"],
+            ENGINE.personal_ability_text(fixture.game, joiner),
+        )
+
     def test_an_advanced_score_is_named_where_the_roll_adds_it(self) -> None:
         # The wall adds defensive skill, so a defender whose card line is
         # a raised defensive score has it named, and one whose line is

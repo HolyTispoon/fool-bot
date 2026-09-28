@@ -2652,6 +2652,57 @@ def _mind_pull_situation(
     }
 
 
+def _notes(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_ids: Sequence[Optional[str]],
+) -> list[dict]:
+    """
+    A special ability that bears on the situation from somebody who is
+    not rolling -- Quantor waiting on a teammate's pass, Glompex offered
+    the step onto the ball -- said under the row with whose it is, as
+    the advanced face of their card prints it (`personal_ability_text`).
+    """
+    notes = []
+    for player_id in player_ids:
+        if player_id is None:
+            continue
+        text = engine.personal_ability_text(game, player_id)
+        if not text:
+            continue
+        notes.append({
+            "id": player_id,
+            "short": player_with_role(engine.get_player_definition(player_id)),
+            "colour": TEAM_COLORS[match.team_for_player(player_id)],
+            "name": "Special ability",
+            "text": text,
+        })
+    return notes
+
+
+def _join_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    Glompex's offer (Law 21), made before the cards are chosen: the
+    challenge he would step into, and his ability said under it. Once
+    he has stepped on, the challenge names what he adds by Merge, so
+    the maneuver pick does not repeat him (the author, 2026-09-28).
+    """
+    challenge = _challenge_situation(engine, game, match, prompt)
+    if challenge is None:
+        return None
+    challenge["notes"] = [
+        *_notes(engine, game, match, [prompt.player_id]),
+        *challenge["notes"],
+    ]
+    return challenge
+
+
 def _challenge_situation(
     engine: RulesEngine,
     game: D12BallGame,
@@ -2695,6 +2746,13 @@ def _challenge_situation(
             ),
         ],
         "roll": None,
+        # Quantor may run onto any teammate's High Pass or Set-up Pass,
+        # so while a teammate is on the ball and he is on the field the
+        # coach choosing the card is told (the author, 2026-09-28).
+        "notes": _notes(
+            engine, game, match,
+            [engine.pass_runner_on_field(game, match)],
+        ),
     }
 
 
@@ -2754,6 +2812,7 @@ SITUATIONS: Mapping[
 ] = {
     PromptKind.SCORE_ATTEMPT: _shot_situation,
     PromptKind.MANEUVER_ACTION: _challenge_situation,
+    PromptKind.JOIN_THE_BALL: _join_situation,
     PromptKind.INJURY_TEST: _injury_situation,
     PromptKind.OWN_GOAL_ROLL: _own_goal_situation,
     PromptKind.MIND_PULL: _mind_pull_situation,
@@ -2770,4 +2829,7 @@ def situation(
     `None` where it has none."""
     if prompt is None or match is None or prompt.kind not in SITUATIONS:
         return None
-    return SITUATIONS[prompt.kind](engine, game, match, prompt)
+    found = SITUATIONS[prompt.kind](engine, game, match, prompt)
+    if found is not None:
+        found.setdefault("notes", [])
+    return found

@@ -468,6 +468,11 @@ img { display: block; }
    species icon in front of a species' own, the name in bold. */
 .situation-ability-line { font-size: 12px; line-height: 1.35; color: var(--muted); }
 .situation-ability-line strong { color: var(--text); font-weight: 700; }
+/* A special ability from somebody who is not rolling (Quantor on a
+   teammate's pass, Glompex offered the ball), under the row, edged in
+   their team's colour. */
+.situation-notes-row { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+.situation-notes-row .situation-ability-line { padding-left: 10px; border-left: 3px solid var(--side); }
 .situation-species { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 .situation-dice { display: flex; flex: none; gap: 4px; }
 .situation-dice .die { width: 44px; height: 44px; }

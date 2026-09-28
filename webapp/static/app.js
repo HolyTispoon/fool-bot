@@ -1907,6 +1907,12 @@ function drawSituation(prompt) {
         situationSide(first),
         h("div", { class: "situation-vs arrow", "aria-hidden": "true" }, "\u2192"),
         situationRoll(situation.roll, first.colour)),
+    situation.notes.length
+      ? h("div", { class: "situation-notes-row" },
+        situation.notes.map((note) => h("div", {
+          class: "situation-ability-line personal", style: `--side: ${note.colour}`,
+        }, h("strong", {}, `${note.short} · ${note.name}`), " ", note.text)))
+      : null,
   );
 }
 
