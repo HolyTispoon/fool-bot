@@ -2860,14 +2860,15 @@ class D12BallManeuverTests(unittest.TestCase):
         """
         The match is over the ability sentences, so a re-import that
         rewords one silently drops it off the card it belongs to.
-        Steal is the case with a role and a note, and Intercept the
-        one with no role, which is why it carries the note alone.
+        Steal is the case with a role and a note. Only a basic card
+        carries the rows (the author, 2026-09-28): a gambit's face is
+        its success, failure and tie boxes.
         """
         players = load_player_catalog()
         by_maneuver = {
             maneuver.key: {
                 label
-                for label, _ in role_abilities(players, maneuver, self.catalog)
+                for label, _ in role_abilities(players, maneuver)
             }
             for maneuver in self.catalog.offense + self.catalog.defense
         }
@@ -2879,23 +2880,12 @@ class D12BallManeuverTests(unittest.TestCase):
         self.assertEqual(by_maneuver["steal"], {"MIDFIELDER", "BALL SPEED"})
         self.assertEqual(by_maneuver["pressure"], {"DEFENDER"})
 
-        # **No role ability names a gambit**, which is the
-        # data being honest rather than a gap: advanced mode's other
-        # half is a unique ability per player and the sheet's column
-        # for it is empty for all thirty-six. What every gambit
-        # does carry is the skill-test line, and Intercept carries the
-        # ball speed modifier its rank has always carried.
-        self.assertEqual(by_maneuver["skilled_pass"], {"CARDS"})
-        self.assertEqual(by_maneuver["double_team"], {"CARDS"})
-        self.assertEqual(by_maneuver["intercept"], {"BALL SPEED", "CARDS"})
-
-        # **Abilities reach cards their sentence does not name**, so
-        # they cannot be matched and are placed by hand, each worded
-        # for its card: the Fullback's +1 distance (2026-08-19), and the
-        # Playmaker's additional space on both dribbles (2026-09-26).
-        self.assertEqual(by_maneuver["clear"], {"FULLBACK", "CARDS"})
-        self.assertEqual(by_maneuver["setup_pass"], {"FULLBACK", "CARDS"})
-        self.assertEqual(by_maneuver["dribble_burst"], {"PLAYMAKER", "CARDS"})
+        for key in (
+            "skilled_pass", "dribble_burst", "setup_pass",
+            "clear", "intercept", "double_team",
+        ):
+            with self.subTest(gambit=key):
+                self.assertEqual(by_maneuver[key], set())
 
     def reference_skill_test_height(self) -> int:
         """A two-detail-line skill test, the size the others match."""
@@ -4210,6 +4200,7 @@ class D12BallFontTests(unittest.TestCase):
             "RobotoSlab-Regular.ttf",
             "RobotoSlab-Bold.ttf",
             "RacingSansOne-Regular.ttf",
+            "Montserrat-ExtraBold.ttf",
         ):
             self.assertTrue(
                 (FONT_DIR / file_name).is_file(),

@@ -111,7 +111,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **The hand is drawn at a third of the print card's width.** Discord scales an
   inline image down whatever it is sent, so the extra pixels would only be
   payload -- and this send is once per maneuver, not once per coach. The
-  abilities are small print at that size, which is what the full-image link on
+  effect text is small print at that size, which is what the full-image link on
   the message is for. That link is the webhook route, not the channel's edit
   bucket; see "Discord's rate limits" in [rate-limits.md](rate-limits.md).
 - **The field goes under the hands**, drawn by `render_field_image` and sent by
@@ -141,8 +141,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 
 - **Nothing on a face is written in the script.** The effect, the time cost and
   the beats/ties/loses row come from `maneuvers.json` through
-  `load_maneuver_catalog` and `cards.matchup_rank_groups`; the abilities come
-  from `players.json`. So a card cannot claim a rule the bot does not play, and
+  `load_maneuver_catalog` and `cards.matchup_rank_groups`. So a card cannot claim a rule the bot does not play, and
   an import is carried onto the cards by re-running this rather than by
   editing them.
   - **Each column names the rank it faces, not one maneuver.** Every column
@@ -163,44 +162,80 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     sized for a name long enough to wrap to two lines, which left every card
     whose names were shorter than that -- almost all of them -- a band of
     blank space under its own column. `matchup_content_height` counts the
-    actual wrapped lines at the row's own name size (22, large enough that
-    every maneuver name in the game still fits one line in a column this
-    wide) and `render_maneuver_card` sizes the row to that, the same way it
-    already sizes the abilities band to `laid_out_abilities`' measured
-    height. The room either measurement frees goes to the effect band
-    between them.
-- **Which roles a card lists is mostly matched, not tabulated.** A role is on
-  the card when its ability sentence names that maneuver, which is why the
-  Fullback is on both High Pass and Deflect, carrying its whole sentence
-  to each. The sentence is never cut down here -- see "Every ability is
-  imported twice". A new ability that mentions a maneuver reaches its card
-  without anything in the script being touched.
-  - **The match is on whole words, not substrings.** It was a substring while
-    every maneuver name was two words; the author renamed the basic D2 card to
-    "Steal" on 2026-08-18, and "steal" is inside "Steals the ball when
-    resolving Pressure" -- so the Defender's ability, which is Pressure's,
-    silently appeared on Steal's card as well.
-  - **No role ability names a gambit**, and that is the data being
-    honest rather than a gap: the six role abilities are training and standard mode's, and the
-    per-player advanced abilities are not played. What a gambit carries instead is the one thing
-    settled about how it resolves -- `tie_note`, which says a tie resolves it
-    as the basic card on its rank with no gambit's effect, and that a skill
-    test forced by injury still carries them. The counterpart it names is
-    looked up by rank rather than written down.
-  - **Two things the match cannot find are listed explicitly**, and both are
-    the author's call rather than an oversight in the data. `EXTRA_ROLES` puts
-    the **Striker** on High Pass: its +3 is for scoring off a set-up, one step
-    removed from the maneuver, and three maneuvers can produce a set-up -- a
-    High Pass is much the most common way, so it goes there and nowhere else.
-    `EXTRA_NOTES` gives **Steal Intercept** the ball speed modifier its
-    defender adds to the skill test, which decides the maneuver and which no
-    role ability names, so its card would otherwise be the only blank one.
-  - **Neither can live in `maneuvers.json`**: `scripts/import_d12ball_maneuvers.py`
-    rewrites that file whole from the sheet, so a field added to it survives
-    until the next import and no longer.
-  - **`EXTRA_NOTES` is keyed by rank in practice**: the ball speed modifier is
-    on Steal *and* Intercept, since the sheet lists it against both rows and it
-    is what decides that rank's skill test either way.
+    actual wrapped lines at the row's own name size (26 since 2026-09-28,
+    when the author read the printed faces as too small; it was 22) and `render_maneuver_card` sizes the row to that, pinned to the
+    card's foot. The room the measurement frees goes to the effect band
+    above it.
+- **A basic card lists the role abilities that change it, under its
+  effect; a gambit lists none** (the author, 2026-09-28). The rows are
+  `role_abilities`: the roles whose sentence names the maneuver, matched on
+  whole words, then `EXTRA_ROLES` (the Striker on High Pass) and
+  `EXTRA_NOTES` (the ball speed modifier on Steal, Law 6.4; the Playmaker's
+  extra space on Dribble Advance, since its sentence names "Dribble
+  maneuvers" rather than either card). They sit in a grey box under the
+  sentence, each behind its role in bold, with no heading -- the role names
+  are the labels -- one step smaller than the effect text. The same day
+  they were first taken off every card as an "ABILITIES IN PLAY" band along
+  the foot, then put back on the basic cards alone, which have the room. A
+  gambit's face is its three boxes, and no role ability names a gambit.
+  - **The six basic cards share one layout** (`basic_effect_layout`, the
+    author, 2026-09-28): the effect in one size on all six, set from the top
+    of the band, and the grey box starting below the room the longest effect
+    takes -- so every card's role rows start on the same line, and a short
+    effect leaves space under it rather than pulling its box up. The size is
+    the largest at which every card fits above its own matchup row. It is
+    worked out once per set of texts and kept, since the hands draw the same
+    cards many times over. An advanced card's boxes also start from the top
+    of the band, at a size searched per card.
+  - **The match is on whole words, not substrings.** It was a substring
+    while every maneuver name was two words; the author renamed the basic D2
+    card to "Steal" on 2026-08-18, and "steal" is inside "Steals the ball
+    when resolving Pressure" -- so the Defender's ability, which is
+    Pressure's, silently appeared on Steal's card as well.
+  - **Neither table can live in `maneuvers.json`**:
+    `scripts/import_d12ball_maneuvers.py` rewrites that file whole from the
+    sheet, so a field added to it survives until the next import and no
+    longer.
+  - **What the gambits no longer print** is what the band used to carry for
+    them: the Fullback on Clear and Setup Pass, the Playmaker on Dribble
+    Burst, the ball speed modifier on Intercept, and the "CARDS" line.
+- **The time cost is a pill in the header's right-hand corner, on every
+  card** (the author, 2026-09-28): "TIME · 1", the number alone
+  (`time_cost` reads it off the sheet's "1 space minute"), white like the
+  rank badge opposite it. It used to be a pill under the effect.
+- **An advanced maneuver's effect is three boxes: SUCCESSFUL GAMBIT, FAILED
+  GAMBIT, TIE** (the author, 2026-09-28). Playing the card is making a
+  gambit (the author, 2026-09-27), and the sheet's effect for each labels
+  its two halves itself -- "Successful gambit: ... \nFailed gambit: ..." --
+  since the import of 2026-09-28; before it the sentence turned on "If
+  defeated", which asked a coach to find the turn before knowing which half
+  applied. `gambit_effect_parts` cuts it at the failure label: the first
+  box, outlined in the card's colour, is what the gambit does when it
+  succeeds; the second, on grey, is what its side pays when it fails. The
+  third says what a tie on the cards resolves as -- "Resolves as Dribble
+  Advance:" and that basic card's own effect, whole, looked up by
+  `catalog.counterpart`. Law 19.4 is when each applies: won on the cards,
+  lost on the cards, tied. `gambit_effect_boxes` is the list.
+  - **Both halves are the sheet's own words.** Only the labels go, since
+    the headings say them, and the next letter is capitalised.
+  - **A card whose effect loses the failure label is drawn without a
+    failure box and logged, not raised.** The bot draws every hand at
+    startup, and a reworded sheet must not stop it starting.
+  - **All three boxes share one searched size**, so none reads as the more
+    important, and the boxes sit close together, since the room between them
+    is room the text does not get.
+- **The rank is set in Montserrat ExtraBold** (the author, 2026-09-28), in
+  the header's badge, the matchup band and the back's hexagon --
+  `cards.rank_font` over `render.load_rank_font`. Roboto Slab's O is the
+  width of its 0, so "O1" can read as "01"; Montserrat's O is a full circle
+  beside a narrow oval zero. Nine faces were compared side by side on the
+  review canvas. The same day the rank went to Montserrat, back to Roboto
+  Slab Bold, to Jost Bold (a lighter geometric sans), and back to
+  Montserrat, the author's choice after seeing each on the cards. The file
+  is upstream's static ExtraBold (JulietaUla/Montserrat), bundled unmodified
+  under the OFL. The bot's reference hexagon draws its rank badges in it
+  too (`render.FONT_MANEUVER_RANK`), the one rank label outside
+  `cards.py`; the team board carries the card back, so it already did.
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
@@ -227,7 +262,21 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **Distances are labelled under the space they land on.** High Pass throws
     three arcs out of one space, and labelling those at their peaks stacked
     three captions on top of each other. A caption's font is sized to the gap
-    to the next caption on its row, and ability variants get a second row.
+    to the next caption on its row (21 at most), and ability variants get a
+    second row. The legend across the panel's top is 24
+    (`STRIP_LEGEND_SIZE`, the author: 19 was too small).
+  - **The panel is as tall as the tallest diagram in its tier, from 230 up**
+    (`strip_panel_height` over `diagram_height`). It was a fixed 288 for
+    every card, which left most of them a band of empty panel and still let
+    Double Team's third caption row run out underneath. Each diagram's
+    height is found off the same `strip_geometry` that draws it, the way the
+    matchup row is measured; the tier's tallest is used on every card of the
+    tier, so the effect below starts on the same line on all six (the author,
+    2026-09-28). The diagram is centred in any room left over and is never
+    pushed up into the legend.
+  - **An arc's reserve above the strip is half its `arc_rise`.** `arc_rise`
+    is the quadratic Bezier's control point, and the curve only climbs half
+    way to it; reserving the whole rise was most of the empty panel.
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
   the same two colours. **A gambit is a distinct shade, not a tint of
@@ -280,7 +329,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     direction every node has clear room in, since the hexagon already
     clears the header above and the caption below. The two caption lines at
     the foot of the card were pushed lower to clear the D1 badge below the
-    bottom node, which still sits on this same vertical line.
+    bottom node, which still sits on this same vertical line. **They are set
+    at 24** (the author, 2026-09-28: 19 was too small), paid for by moving
+    the cycle up 28 and the title up with it.
   - **One size for all six nodes, and it is the tightest of them.** With one
     name to a node the tightest fit was a single long word and capping there
     shrank every other node for nothing; with both tiers on a node all six are
@@ -317,15 +368,19 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     printed a page at a time either way. Nothing about the image says how
     wide it is meant to be, so check the arithmetic -- width over 300dpi,
     against 10.5in -- after changing either margin.
-- **The header's corner names the tier, not the die faces.** It printed
-  "die 1-2" while the cards and the selection die had to coexist, then "BASIC
-  MANEUVER" while there was only one set; it now reads the card's own tier,
-  and is **the one thing on a card that tells the two sets apart** -- the back
-  cannot, and must not.
+- **The header carries no tier label** (the author, 2026-09-28). Its corner
+  printed "die 1-2" while the cards and the selection die had to coexist, then
+  "BASIC MANEUVER", then the card's own tier on both sets. It went from both:
+  a gambit's subtitle says "ADVANCED ..." and its colour is its
+  own, so the label was the third saying of it, and a basic card is the one
+  with no subtitle. The title is centred on the card in the room the label
+  left. The face is still what tells the two sets apart -- the back cannot,
+  and must not.
 - **A gambit's header also says, in words, which basic maneuver it is
   the advanced version of** (the author, 2026-09-20) -- a line under
-  the title reading "ADVANCED VERSION OF PRESSURE", the same phrase the
-  living rules' own gambit table uses. The matchup band already carried
+  the title reading "ADVANCED PRESSURE". It read "ADVANCED VERSION OF
+  PRESSURE", the living rules' gambit table's phrase, until the author cut
+  it to the two words on 2026-09-28. The matchup band already carried
   this once, by naming the rank both cards share (see "Each column
   names the rank it faces" above), but that asks a coach to notice two
   cards on the same rank badge and infer the relation; the header states
@@ -339,11 +394,16 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   same reason `matchup_content_height` is measured rather than fixed:
   the subtitle has to fit in the room the title leaves, not the other
   way round.
-- **The effect text's size is searched, not set.** The effects run from Block
+- **The effect text's size is searched, not set.** The effects run from
   Deflect's twenty words to Double Team's seventy against a band that is
-  whatever the strip, the matchups and the abilities leave behind. A fixed size
+  whatever the strip and the matchups leave behind. A fixed size
   fitted the short cards and ran Double Team's paragraph straight over three
   bands at once, silently, because nothing measured what it had been given.
+  The search runs from 36 down to 20 (`EFFECT_MAX_SIZE`, `EFFECT_MIN_SIZE`;
+  29 and 17 until the author read the printed faces as too small on
+  2026-09-28). A basic card's search counts its ability rows in; a gambit's
+  three boxes set at about 23 to 32.
+  The header band went from 152 to 136 for the same room.
 - The cards are generated output, written under `print/` and gitignored
   ("Where printed output goes", below).
 

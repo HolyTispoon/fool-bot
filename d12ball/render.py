@@ -289,6 +289,34 @@ def load_goal_zone_font(size: int) -> ImageFont.ImageFont:
     return load_font(size, bold=True)
 
 
+def load_rank_font(size: int) -> ImageFont.ImageFont:
+    """
+    Montserrat ExtraBold, for a maneuver's rank -- O1, D2 -- and nothing
+    else (the author, 2026-09-28): the maneuver cards' badges, matchup
+    row and back, and the reference hexagon's badges
+    (`FONT_MANEUVER_RANK`). Roboto Slab's O is the width of its
+    0, so "O1" can read as "01"; Montserrat's O is a full circle beside
+    a narrow oval zero. The file is upstream's static ExtraBold
+    (JulietaUla/Montserrat), unmodified. Over the same
+    bundled-path-first chain as `load_goal_zone_font`, falling back to
+    Roboto Slab Bold the same way.
+    """
+    bundled = FONT_DIR / "Montserrat-ExtraBold.ttf"
+    for candidate in (str(bundled), "Montserrat-ExtraBold.ttf"):
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+
+    LOGGER.warning(
+        "No scalable Montserrat font found for size %d; falling back to "
+        "the bundled Roboto Slab Bold. Expected a bundled font at %s.",
+        size,
+        bundled,
+    )
+    return load_font(size, bold=True)
+
+
 FONT_TITLE = load_font(50, bold=True)
 FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)
@@ -312,7 +340,9 @@ FONT_TOKEN_ROLE = load_font(18, bold=True)
 # than).
 FONT_TOKEN_SOLO = load_font(20, bold=True)
 FONT_BADGE_COUNT = load_font(16, bold=True)
-FONT_MANEUVER_RANK = load_font(34, bold=True)
+# The reference hexagon's rank badges, in the face the maneuver cards
+# draw their ranks in (see `load_rank_font`).
+FONT_MANEUVER_RANK = load_rank_font(34)
 FONT_MANEUVER_LEGEND = load_font(22)
 FONT_DICE_TOTAL = load_font(28, bold=True)
 FONT_DICE_VALUE = load_font(26, bold=True)
