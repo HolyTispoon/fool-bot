@@ -1192,10 +1192,10 @@ def _run_back_space(asked: Asked) -> list:
 
 def _distance(asked: Asked) -> list:
     """
-    Every prompt that asks how far, and the push back a beaten Setup
-    Pass owes: each distance lights the space it lands on
+    Every prompt that asks how far, and the push back a failed Setup
+    Pass gambit owes: each distance lights the space it lands on
     (`DistanceOptions.landings`), with a chip saying what landing there
-    means. A Setup Pass with nowhere to go is put out of play at the
+    means -- the push back's overshoot the ✕ past the end instead. A Setup Pass with nowhere to go is put out of play at the
     ✕ past the far end; Quantor's run onto the pass is a second chip
     on the same spaces.
     """
@@ -1207,14 +1207,22 @@ def _distance(asked: Asked) -> list:
     for distance, landing in zip(options["distances"], landings):
         railed = options["railed"] is not None and distance != options["railed"]
         chip, cost = _landing_chip(asked, distance)
+        place = (
+            on_space(landing["zone"], landing["space_index"])
+            if landing else None
+        )
+        if distance == options.get("overshoot"):
+            # The push back that runs out of field lands on the same
+            # last space as the longest that does not, so it lights the
+            # ✕ past that end instead: the side asked is the defense,
+            # and the end is the one the offense defends.
+            place = off_the_end(asked.attacking_goal())
+            chip = f"{distance} back · overshoots"
         controls.append(
             button(
                 _spaces(distance),
                 asked.kind,
-                place=(
-                    on_space(landing["zone"], landing["space_index"])
-                    if landing else None
-                ),
+                place=place,
                 chip=chip,
                 cost=cost,
                 disabled=railed,

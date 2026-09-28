@@ -165,11 +165,13 @@ the two paths that did not pass it kept the old behaviour.
     (`DRIVER_STOPS`), and `stop_draws_the_board` skips the ordinary write in
     front of it. Keyed to the step, so every caller inherits it; see
     "Discord's rate limits" in [rate-limits.md](rate-limits.md).
-  - **Setup Pass's cost rides inside the deflection**, so its prompt is
-    skipped too (`PROMPTS_DRAWN_LATER`). `offer_setup_pass_push_back` asks
-    the coach who beat the pass how much further back the ball goes, and all
-    three of its branches end here anyway -- so the board arrives with the
-    loose ball, once, on the far side of the answer.
+  - **A failed Setup Pass gambit rides inside the deflection**, so its
+    prompt is skipped too (`PROMPTS_DRAWN_LATER`). Since 2026-09-27
+    `offer_setup_pass_push_back` asks the coach who beat the pass how far
+    back the ball goes *before* the deflection moves it -- once, 1-3 for a
+    Deflect and 2-4 for a Clear -- and the answer lands through
+    `deflection_lands`, here or in the challenger's shot -- so the board
+    arrives once, on the far side of the answer.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks. What changed on 2026-08-26 is what happens

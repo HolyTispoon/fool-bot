@@ -41,13 +41,24 @@ from unittest import mock
 
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.effects import deflection_numbers, deflection_step
-from d12ball.prompts import pending
+from d12ball.components import PlayerRole, TeamSide
+from d12ball.flow.effects import (
+    deflection_numbers,
+    deflection_step,
+    offer_setup_pass_push_back,
+    setup_pass_push_back_step,
+)
+from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
 
 from deflection_fixtures import (
+    BEATEN_ADVANCED,
     DEFLECTION_CASES,
     ENGINE,
+    OVERSHOOT_NOTE,
+    advanced_game,
     defenders_waiting_at,
+    deflected_to,
+    stand_a_deflection,
     LOOSE_BALL,
     SETUP_PASS_PUSH_BACK,
     SHOOTER_CHOICE,
@@ -113,11 +124,17 @@ class DeflectionStepTests(unittest.TestCase):
         The model's answer, and it is the same on all three endings:
         every deflection drives the ball back, or takes speed off it,
         or both. What differs is only what the **frontend** does with
-        that, which is the next test down.
+        that, which is the next test down. A failed Setup Pass gambit
+        is the exception, and says so: nothing moves until its coach
+        has chosen how far.
         """
         for case in DEFLECTION_CASES:
             with self.subTest(case=case.name):
-                self.assertTrue(run_step(case.build()).board_changed)
+                fixture = case.build()
+                self.assertEqual(
+                    run_step(fixture).board_changed,
+                    fixture.follow_on != SETUP_PASS_PUSH_BACK,
+                )
 
     def test_the_overshoot_note_is_a_block_of_its_own(self) -> None:
         """
@@ -405,6 +422,167 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
 
         cog.refresh_match_image.assert_not_awaited()
         cog.announce_board_update.assert_awaited_once()
+
+
+
+def failed_setup_pass(
+    key: str,
+    role: PlayerRole = PlayerRole.MIDFIELDER,
+    back_from_own_goal=None,
+):
+    """A Setup Pass that `key` has just beaten, and the challenger who
+    played it -- nothing moved yet."""
+    match, _, challenger = stand_a_deflection(
+        BEATEN_ADVANCED, key, role=role,
+        back_from_own_goal=back_from_own_goal,
+    )
+    return advanced_game(), match, challenger
+
+
+def flat(match) -> int:
+    return match.board.flat_index(match.ball.zone, match.ball.space_index)
+
+
+class FailedSetupPassGambitTests(unittest.TestCase):
+    """
+    **A failed Setup Pass gambit** (Law 19.7.7-19.7.8, the author,
+    2026-09-27): the card that beat the pass moves the ball back once,
+    as far as its coach chooses -- 1, 2 or 3 for a Deflect, 2, 3 or 4
+    for a Clear, one more each for a Fullback -- and it lands as any
+    deflection does. Of the distances that run out of field only the
+    shortest is offered, and that one is the challenger's shot where
+    they stand on the last space.
+    """
+
+    def test_the_distances_are_the_beating_cards(self) -> None:
+        for key, role, expected in (
+            ("deflect", PlayerRole.MIDFIELDER, (1, 2, 3)),
+            ("clear", PlayerRole.MIDFIELDER, (2, 3, 4)),
+            ("deflect", PlayerRole.FULLBACK, (2, 3, 4)),
+            ("clear", PlayerRole.FULLBACK, (3, 4, 5)),
+        ):
+            with self.subTest(key=key, role=role):
+                _, match, _ = failed_setup_pass(key, role)
+                self.assertEqual(
+                    ENGINE.setup_pass_push_back_range(match, key), expected,
+                )
+
+    def test_a_blaze_turning_a_deflect_into_a_clear_takes_the_clears(
+        self,
+    ) -> None:
+        """The range is the *resolving* card's: a Deflect a blaze or an
+        Overdrive resolves as a Clear sends it 2, 3 or 4."""
+        _, match, _ = failed_setup_pass("deflect")
+        self.assertEqual(
+            ENGINE.setup_pass_push_back_range(match, "clear"), (2, 3, 4),
+        )
+
+    def test_only_the_shortest_distance_off_the_field_is_offered(
+        self,
+    ) -> None:
+        for key, back, expected in (
+            ("deflect", 5, [1, 2, 3]),
+            ("deflect", 1, [1, 2]),
+            ("deflect", 0, [1]),
+            ("clear", 5, [2, 3, 4]),
+            ("clear", 2, [2, 3]),
+            ("clear", 1, [2]),
+        ):
+            with self.subTest(key=key, back=back):
+                game, match, _ = failed_setup_pass(
+                    key, back_from_own_goal=back,
+                )
+                distances = ENGINE.setup_pass_push_back_distances(
+                    game, match,
+                )
+                self.assertEqual(distances, expected)
+                overshoot = ENGINE.setup_pass_push_back_overshoot(
+                    match, distances,
+                )
+                self.assertEqual(
+                    overshoot, expected[-1] if expected[-1] > back else None,
+                )
+
+    def test_the_coach_who_beat_it_is_asked_before_anything_moves(
+        self,
+    ) -> None:
+        game, match, _ = failed_setup_pass("deflect", back_from_own_goal=5)
+        before = flat(match)
+
+        self.assertEqual(
+            deflection_step(ENGINE, match, "deflect").next.step,
+            FollowOnStep[SETUP_PASS_PUSH_BACK],
+        )
+        result = offer_setup_pass_push_back(ENGINE, game, match)
+
+        self.assertIsInstance(result.next, PendingPrompt)
+        self.assertIs(result.next.kind, PromptKind.SETUP_PASS_PUSH_BACK)
+        self.assertEqual(flat(match), before)
+        asked = pending_prompt(ENGINE, game, match)
+        self.assertIs(asked.kind, PromptKind.SETUP_PASS_PUSH_BACK)
+        self.assertEqual(asked.options.distances, (1, 2, 3))
+
+    def test_the_chosen_distance_is_the_one_move(self) -> None:
+        game, match, _ = failed_setup_pass("clear", back_from_own_goal=5)
+        landing = deflected_to(match, 4)
+
+        result = setup_pass_push_back_step(ENGINE, game, match, distance=4)
+
+        self.assertEqual((match.ball.zone, match.ball.space_index), landing)
+        self.assertEqual(match.ball.speed, 2)
+        self.assertEqual(
+            result.narration,
+            [
+                f"**{ENGINE.maneuver_name('clear')}** beat the "
+                f"**{ENGINE.maneuver_name('setup_pass')}**: the ball "
+                "moves 4 spaces back. Ball speed is now 2."
+            ],
+        )
+        self.assertTrue(result.board_changed)
+        self.assertEqual(result.next.step, FollowOnStep[LOOSE_BALL])
+
+    def test_the_overshoot_is_the_challengers_shot_on_the_last_space(
+        self,
+    ) -> None:
+        game, match, challenger = failed_setup_pass(
+            "deflect", back_from_own_goal=1,
+        )
+        match.move_meeple(
+            challenger, *match.own_goal_restart_space(TeamSide.HOME),
+        )
+
+        result = setup_pass_push_back_step(ENGINE, game, match, distance=2)
+
+        self.assertEqual(result.narration[-1], OVERSHOOT_NOTE)
+        self.assertEqual(result.next.step, FollowOnStep[SHOOTER_CHOICE])
+        self.assertEqual(result.next.kwargs["candidates"], [challenger])
+        self.assertEqual(match.ball.possession, TeamSide.VISITING)
+
+    def test_stopping_on_the_last_space_is_not_the_overshoot(self) -> None:
+        game, match, challenger = failed_setup_pass(
+            "deflect", back_from_own_goal=1,
+        )
+        match.move_meeple(
+            challenger, *match.own_goal_restart_space(TeamSide.HOME),
+        )
+
+        result = setup_pass_push_back_step(ENGINE, game, match, distance=1)
+
+        self.assertEqual(result.next.step, FollowOnStep[LOOSE_BALL])
+
+    def test_one_distance_is_played_without_asking(self) -> None:
+        """On the last space already, only the shortest distance runs
+        out of field and nothing else is on it -- so nothing is asked,
+        and the challenger standing there shoots."""
+        game, match, challenger = failed_setup_pass(
+            "deflect", back_from_own_goal=0,
+        )
+
+        result = offer_setup_pass_push_back(ENGINE, game, match)
+
+        self.assertIsInstance(result.next, FollowOn)
+        self.assertEqual(result.next.step, FollowOnStep[SHOOTER_CHOICE])
+        self.assertEqual(result.next.kwargs["candidates"], [challenger])
 
 
 if __name__ == "__main__":

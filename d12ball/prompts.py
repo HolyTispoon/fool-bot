@@ -429,6 +429,12 @@ class DistanceOptions:
     #: measure, and no frontend decides which way a kind moves. Empty
     #: where there is nobody to move (a dribble with no handler).
     landings: tuple[tuple[Zone, int], ...] = ()
+    #: SETUP_PASS_PUSH_BACK: the one distance that runs the ball out of
+    #: field, or `None`. It lands on the same last space as the longest
+    #: distance that does not, so a label reading only `landings` would
+    #: offer the same space twice; it is a different move, the beating
+    #: player's shot where they stand there (Law 19.7.8).
+    overshoot: Optional[int] = None
 
     def landing(self, distance: int) -> Optional[tuple[Zone, int]]:
         """The space `distance` lands on, or `None` where the prompt
@@ -445,6 +451,7 @@ class DistanceOptions:
             "may_pass_out": self.may_pass_out,
             "runner_id": self.runner_id,
             "runner_distances": list(self.runner_distances),
+            "overshoot": self.overshoot,
             "landings": [
                 {"zone": Zone(zone).value, "space_index": space_index}
                 for zone, space_index in self.landings
@@ -1387,12 +1394,17 @@ def effect_choice_prompt(
         and not match.pending_loose_ball
         and match.pending_scoring_opportunity is None
     ):
-        # **Setup Pass's cost**, still owed: the deflection has been
-        # played and the ball is not yet loose, so the coach who beat
-        # it is being asked how much further back it goes. Once the
-        # loose ball begins the `pending_loose_ball` branch above
-        # answers instead, and an overshoot into a shot is the
+        # **A failed Setup Pass gambit**, still owed: the card that
+        # beat it has won but not yet moved the ball, because its
+        # coach chooses how far (Law 19.7.7). Once the ball has moved
+        # and the loose ball begins the `pending_loose_ball` branch
+        # above answers instead, and an overshoot into a shot is the
         # scoring opportunity's.
+        #
+        # A game saved at this prompt before 2026-09-27 had already
+        # knocked the ball back by the card's own distance; answered
+        # now it moves again, from there. Nothing tells the two apart,
+        # and it is one prompt in one kind of turn.
         return PendingPrompt(PromptKind.SETUP_PASS_PUSH_BACK, EFFECT_ASK)
     return None
 
@@ -2541,9 +2553,11 @@ def _push_back_options(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> DistanceOptions:
-    distances = tuple(engine.setup_pass_push_back_distances(match))
+    distances = tuple(engine.setup_pass_push_back_distances(game, match))
     return DistanceOptions(
-        distances, landings=_ball_landings(match, distances, direction=-1),
+        distances,
+        landings=_ball_landings(match, distances, direction=-1),
+        overshoot=engine.setup_pass_push_back_overshoot(match, distances),
     )
 
 

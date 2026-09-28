@@ -93,7 +93,8 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "synapse_playmaker": (
         PersonalAbility.OVERDRIVE_UPGRADE,
-        "When wins with overdrive, resolve maneuver as a gambit.",
+        "When wins a skill test while using overdrive, resolve as "
+        "successful gambit.",
     ),
     "noxar_striker": (
         PersonalAbility.ADJACENT_PULL,
@@ -123,11 +124,11 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "dravox_defender": (
         PersonalAbility.DEFENSIVE_GAMBITS,
-        "Resolves defensive gambit's bonuses when winning with skill test.",
+        "Defensive gambits succeed when won on a skill test.",
     ),
     "hexis_playmaker": (
         PersonalAbility.OFFENSIVE_GAMBITS,
-        "Resolves offensive gambit's bonuses when winning with skill test.",
+        "Offensive gambits succeed when won on a skill test.",
     ),
     "flickerwing_winger": (
         PersonalAbility.CLEAR_SHOT,

@@ -41,27 +41,30 @@ tutorial rails and every game saved mid-turn.
 ## Gambits
 
 Six more maneuvers, one on each basic card's rank, turned on by
-`GameMode.ADVANCED`. They were "advanced maneuvers" until 2026-09-20;
-the author renamed the noun, and then sharpened what it names --
-**a gambit is the advanced version of the basic maneuver on its
-rank**. Double Team *is* Pressure, advanced, which is why rank alone
-decides and why a tie on the cards resolves as Pressure. "A kind of"
-was the first wording and was too loose; the relation is one to one,
-and `ManeuverCatalog.counterpart` is it. See "Gambits" in the living
-rules; what is left open is in
+`GameMode.ADVANCED`. **Each is an advanced maneuver, and playing one
+is making a gambit** (the author, 2026-09-27): the gambit succeeds
+when the advanced maneuver wins on rank and fails when it loses, and
+what the code calls a card's *benefit* and *cost* are the successful
+and the failed gambit's outcomes. From 2026-09-20 until then the card
+itself was called a gambit, which is why the identifiers say so --
+`is_gambit`, `may_play_gambits`, `gambit_cost`, `withheld_gambits` --
+and they stay: each reads as "the card a gambit is made with", and
+renaming them is churn through the saves' neighbours for no reader.
+An advanced maneuver is **the advanced version of the basic maneuver
+on its rank**. Double Team *is* Pressure, advanced, which is why rank
+alone decides and why a tie on the cards resolves as Pressure. "A kind
+of" was the first wording and was too loose; the relation is one to
+one, and `ManeuverCatalog.counterpart` is it. See "Advanced maneuvers
+and gambits" in the living rules; what is left open is in
 [docs/gambit-matrix.md](../gambit-matrix.md).
 
-**The rename is the noun's, not the tier's**, which is the second half
-of the same ruling: a gambit **is** the advanced version of its rank's
-basic maneuver, so `MANEUVER_TIER_GAMBIT` is `"advanced"` and that is
-not a mismatch to be tidied up. The constant carries what the card is
-called and the value carries what tier it is, `maneuvers.json` and the
-`Mode` column behind it are right as they stand, and nothing here is
-waiting on an import. `MANEUVER_TIER_WORDS` is the one table between
-the value and anything a person reads -- the card's corner label
-(GAMBIT MANEUVER) and the reference image's filename. Unlike
-`legacy_maneuver_key` above, this pair is not a migration waiting to
-die: don't "fix" the value.
+**`MANEUVER_TIER_GAMBIT` is `"advanced"`**, the `maneuvers` tab's
+`Mode` column, and since 2026-09-27 the rules' word agrees with it
+again. `MANEUVER_TIER_WORDS` is the one table between the value and
+anything a person reads -- the card's corner label (ADVANCED
+MANEUVER), the web page's hexagon and the reference image's filename.
+Unlike `legacy_maneuver_key` above, this pair is not a migration
+waiting to die: don't "fix" the value.
 
 **`RulesEngine.maneuver_tiers` is the only answer to who holds what**,
 and the buttons, the hand image and the click that answers all read
@@ -295,6 +298,24 @@ once -- one trailing while the other is the more hurt.
       of four. `knock_ball_back` saved the moved ball and the shot
       branch saved again over the turnover it then applied; nothing
       between them mutates the match, so both wrote the same state.
+- **A failed Setup Pass gambit is the beating card's one move, asked
+  first** (the author, 2026-09-27). Until then a Deflect or Clear moved
+  the ball its own distance and the coach who played it pushed it "a
+  further" 1, 2 or 3, never off the end. Now `deflection_step` moves
+  nothing when `gambit_cost` is `setup_pass` and names
+  `OFFER_SETUP_PASS_PUSH_BACK`; `RulesEngine.setup_pass_push_back_distances`
+  offers 1-3 for a Deflect or 2-4 for a Clear (the *resolving* card's,
+  so a blaze's Clear is a Clear), one more each for a Fullback, and of
+  the ones that run out of field only the shortest -- kept, unlike a
+  High Pass's, because it is the challenger's shot where they stand on
+  the last space. The prompt says which it is (`DistanceOptions.overshoot`)
+  so neither frontend labels two buttons with the same space. With one
+  distance left there is nothing to ask and the offer plays it.
+  `setup_pass_push_back_step` knocks the ball back at the card's own
+  speed drop and lands through `deflection_lands`, the tail it shares
+  with every deflection. A game saved at the prompt before the change
+  had already been knocked back once, and moves again from there;
+  nothing tells the two apart, and it is one prompt in one kind of turn.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `gambit_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2

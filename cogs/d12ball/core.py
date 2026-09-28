@@ -172,15 +172,15 @@ COACHING_PROMPT_KINDS = frozenset({
 
 
 #: Prompts the board is **not** written in front of, because the
-#: answer draws it a moment later. Setup Pass's push back ends in a
-#: loose ball on every branch -- the fallback where no distance fits,
-#: Dinky's maximum, and the coach's own answer -- and a loose ball is
-#: announced with the board under it. So the board a deflection moved
-#: reaches the channel either way; what this decides is only that it
-#: is not *also* drawn in front of a question whose answer moves the
-#: ball again. Rank D1's economy, keyed on the prompt now that the
-#: offer is a step the driver runs. See "Discord's rate limits" in
-#: docs/design/rate-limits.md.
+#: answer draws it a moment later. A failed Setup Pass gambit's push
+#: back is the one ball move whose distance is asked before it is made
+#: (Law 19.7.7), and every answer ends in a loose ball or the
+#: challenger's shot, each announced with the board under it. So what
+#: the run moved on the way to the question reaches the channel either
+#: way; what this decides is only that it is not *also* drawn in front
+#: of a question whose answer moves the ball. Rank D1's economy, keyed
+#: on the prompt now that the offer is a step the driver runs. See
+#: "Discord's rate limits" in docs/design/rate-limits.md.
 PROMPTS_DRAWN_LATER = frozenset({
     PromptKind.SETUP_PASS_PUSH_BACK,
 })

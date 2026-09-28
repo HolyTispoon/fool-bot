@@ -542,7 +542,7 @@ def cards_note(
     return (
         "CARDS",
         f"Resolves as {counterpart.name} unless it won on the cards. "
-        "Its cost is paid only when it lost on the cards.",
+        "A failed gambit costs only when it lost on the cards.",
     )
 
 
@@ -1368,11 +1368,11 @@ def draw_card_header(
     # is the one thing on the *face* that tells the two sets apart,
     # since the back cannot (see `render_maneuver_card_back`).
     #
-    # **"GAMBIT MANEUVER", not "GAMBIT".** A gambit is a maneuver of
-    # its rank (the author, 2026-09-20) -- the badge beside this says
-    # which rank, and the matchup band below names the basic card it
-    # shares it with. Through `MANEUVER_TIER_WORDS` rather than the
-    # tier itself, which is still the sheet's word.
+    # **"ADVANCED MANEUVER".** The card is an advanced maneuver, and
+    # playing it is making a gambit (the author, 2026-09-27) -- the
+    # badge beside this says which rank, and the matchup band below
+    # names the basic card it shares it with. Through
+    # `MANEUVER_TIER_WORDS`, the one table a tier is worded from.
     pen.text(
         (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
         f"{MANEUVER_TIER_WORDS[maneuver.tier].upper()}\nMANEUVER",
@@ -1905,7 +1905,7 @@ def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
     # straight down into where the caption block used to start.
     pen.text(
         (CARD_WIDTH / 2, CARD_HEIGHT - 76),
-        "each node is one rank: basic maneuvers above gambits"
+        "each node is one rank: basic maneuvers above advanced"
         if both_tiers
         else "each node is one rank",
         font(19),
