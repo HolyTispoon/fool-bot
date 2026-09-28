@@ -1158,8 +1158,9 @@ chooser, or puts a refusal away.
 - **The other hand is a back, `present.hand_table`**: every hand this
   viewer does not hold, as the cards' shared back
   (`pictures.maneuver_back_png`, at `maneuver_reference_tier`, served by
-  `GET /api/game/{id}/maneuver-back.png`), with "turned over together"
-  under them. **A back is drawn whether or not that side has picked**:
+  `GET /api/game/{id}/maneuver-back.png`), with "turned over together".
+  **The page draws only that line** (2026-09-27): the backs are still
+  in the state but not put in the question box. **A back is drawn whether or not that side has picked**:
   on Discord whether the other coach has chosen is not said either, so
   a back that came up with the pick would publish it; the secret test
   holds the table the same before the other side picks and after. An

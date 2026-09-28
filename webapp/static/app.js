@@ -2134,21 +2134,16 @@ function handCard(control) {
   return button;
 }
 
-/* The hands this viewer does not hold, face down (`present.hand_table`)
-   -- whether or not they have been picked, so a back says nothing. The
-   card this coach laid down is in their own hand, ringed. */
+/* The hands this viewer does not hold (`present.hand_table`): only the
+   line that says they are turned over together. Their face-down backs
+   are not drawn in the question box (the author, 2026-09-27); the card
+   this coach laid down is in their own hand, ringed. */
 function handTable(prompt) {
   const table = prompt.hand;
   if (!table) return null;
   return h(
     "div",
     { class: "hand-table" },
-    h("div", { class: "hand" }, table.backs.map((back) => h(
-      "figure",
-      { class: "table-card" },
-      h("img", { src: `/api/game/${GAME_ID}/maneuver-back.png`, alt: `${back.team}'s card, face down` }),
-      h("figcaption", {}, `${back.team} · face down`),
-    ))),
     h("p", { class: "note-line" }, table.note),
   );
 }
