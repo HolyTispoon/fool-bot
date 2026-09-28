@@ -1525,6 +1525,48 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 ]
                 self.assertEqual(bool(personal), shown)
 
+    def test_a_maneuver_s_ability_is_named_on_the_side_that_plays_it(
+        self,
+    ) -> None:
+        # On the maneuver challenge the coach is choosing a maneuver, so
+        # what one does once won is named too (the author, 2026-09-28):
+        # a pass on the attack, a pressure on the defence -- and not on
+        # the side that cannot play that card.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+
+        cases = (
+            (0, PersonalAbility.RUN_ON, True),
+            (1, PersonalAbility.RUN_ON, False),
+            (1, PersonalAbility.PRESSURE_SHOT, True),
+            (0, PersonalAbility.PRESSURE_SHOT, False),
+        )
+        for side, ability, shown in cases:
+            with self.subTest(side=side, ability=ability):
+                fixture = case("maneuver picks")
+                player_id = (
+                    fixture.match.active_player_id,
+                    fixture.match.challenger_id,
+                )[side]
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {catalog_player_id(player_id): (ability, "test")},
+                ):
+                    _, got = self.situation_in(
+                        "maneuver picks", GameMode.ADVANCED,
+                    )
+                (player,) = got["sides"][side]["players"]
+                named = [
+                    note["name"] for note in player["abilities"]
+                    if note["kind"] == "personal"
+                ]
+                self.assertEqual(named, ["Special ability"] if shown else [])
+
     def test_an_advanced_score_is_named_where_the_roll_adds_it(self) -> None:
         # The wall adds defensive skill, so a defender whose card line is
         # a raised defensive score has it named, and one whose line is

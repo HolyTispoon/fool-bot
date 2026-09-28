@@ -1663,7 +1663,8 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     skill test and the attack alone in a shot (Law 20.5), so the
     window's numbers are the dice's;
   - **in an advanced game, a personal ability where it applies to the
-    roll** (the author, 2026-09-28: "only show personal abilities that
+    roll** -- labelled "Special ability" on the page, the author's word
+    (2026-09-28), where the Law says personal ability -- (the author, 2026-09-28: "only show personal abilities that
     apply to the roll"), as the advanced face of the card prints it
     (`personal_ability_text`), prefixed with whose it is in a wall.
     Applies means it changes the roll's number, whether it is rolled,
@@ -1672,9 +1673,12 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     already), Umbrik's throw, the three pulls, Kindlefinger's check,
     Goopkeeper's block and Flickerwing's clear shot, Dravox's and
     Hexis's gambits and Synapse's upgrade on a skill test, Scorchit's
-    forced test. What a maneuver does once it has won is not the roll's
-    -- Emberdash's dribble, Quantor's run on, Vorix's set-up, Acidel's
-    pressure. The five players whose line is an advanced skill score
+    forced test. On the maneuver challenge, what a maneuver does once
+    it has won is named too, since the coach is choosing one there (the
+    author, 2026-09-28): Emberdash's dribble, Quantor's run on and
+    Vorix's set-up on the attack, which plays the dribbles and passes,
+    Acidel's pressure on the defence -- never on the side that cannot
+    play the card. The five players whose line is an advanced skill score
     ("High defensive skill.") have it named where the roll adds that
     skill, read as `skills` under the game against the role's. Which
     ability goes with which part of which roll is `BEARINGS`; whether

@@ -2236,9 +2236,11 @@ _IGNITES = frozenset({
 #: reaches a skill test and the shooter's die, never an injury check or
 #: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls (Law
 #: 20.3.5). A personal ability is here where it changes the roll's
-#: number, whether it is rolled, or what winning it means -- not where
-#: it changes what a maneuver does once it has won (Emberdash's
-#: dribble, Quantor's run on, Vorix's set-up, Acidel's pressure). Zorch
+#: number, whether it is rolled, or what winning it means -- and on the
+#: maneuver challenge also what a maneuver does once it has won, since
+#: the coach is choosing one there (the author, 2026-09-28): Emberdash's
+#: dribble, Quantor's run on and Vorix's set-up on the attack, which
+#: plays the dribbles and passes, Acidel's pressure on the defence. Zorch
 #: adds the speed modifier to every roll but the shot, which adds it
 #: already (`speed_roll_bonus`). Merge is not here: it is a number
 #: another player adds, the model's own line in the side's modifiers
@@ -2253,6 +2255,11 @@ BEARINGS: Mapping[str, Bearing] = {
             PersonalAbility.FORCES_THE_TEST,
             PersonalAbility.DEFENSIVE_THROW,
             PersonalAbility.SPEED_ROLLS,
+            # What an attacking card does once won -- the dribble, the
+            # High Pass and Set-up Pass -- since the coach is choosing it.
+            PersonalAbility.FREE_BURST,
+            PersonalAbility.RUN_ON,
+            PersonalAbility.LONG_SET_UP,
         },
         "offense",
     ),
@@ -2263,6 +2270,8 @@ BEARINGS: Mapping[str, Bearing] = {
             PersonalAbility.DEFENSIVE_GAMBITS,
             PersonalAbility.FORCES_THE_TEST,
             PersonalAbility.SPEED_ROLLS,
+            # A Pressure or Double Team that would risk an own goal.
+            PersonalAbility.PRESSURE_SHOT,
         },
         "defense",
     ),
@@ -2325,7 +2334,11 @@ def _abilities(
             })
     personal = engine.personal_ability_text(game, player_id)
     if personal and _personal_bears(engine, game, player_id, bearing):
-        notes.append({"kind": "personal", "name": "Personal", "text": personal})
+        # "Special ability", the author's word for it on the page
+        # (2026-09-28); the Law calls it a personal ability.
+        notes.append({
+            "kind": "personal", "name": "Special ability", "text": personal,
+        })
     return notes
 
 
