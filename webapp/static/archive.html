@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>D12 Ball · The archive</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png" />
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body class="front">
+    <!-- Every web game that is over -- played to the end, abandoned by a
+         coach, or abandoned after fourteen days with nothing happening
+         (GET /api/archive). Each card opens the room: its board, its
+         log and its numbers stay readable. -->
+    <main class="front-door archive-door">
+      <div class="list-head">
+        <a href="/" class="back" title="The Master Lobby: your rooms">&lsaquo; Master Lobby</a>
+        <span class="field-label">· THE ARCHIVE</span>
+      </div>
+      <p class="quiet">
+        Every finished and abandoned game. A game nothing has happened
+        in for fourteen days -- or a day, if it never kicked off -- is
+        abandoned and comes here. Your own finished games stay on your
+        Master Lobby too.
+      </p>
+      <div id="filters" class="pills" role="group" aria-label="Which games"></div>
+      <div id="archive-list" class="room-list"></div>
+      <p id="nothing" class="quiet" hidden>Nothing here yet.</p>
+    </main>
+    <script src="/static/rooms.js"></script>
+    <script src="/static/archive.js"></script>
+  </body>
+</html>

@@ -225,6 +225,22 @@ async def https_only(
 #: people who saw nothing and never came back. The room is not closed.
 OPEN_ROOM_IDLE = 24 * 60 * 60
 
+#: How long a room may go with nothing happening in it before its game
+#: is abandoned and goes to the archive, in seconds: fourteen days, the
+#: author's choice (2026-09-27). "Happening" is the rooms file's
+#: `active_at` -- a move, a seat, a line of chat -- never a page left
+#: open.
+ABANDON_IDLE = 14 * 24 * 60 * 60
+
+#: The same for a room nothing was ever played in -- no match dealt,
+#: the lobby or the rest of setup: a day (the author, 2026-09-27).
+#: Abandoned too, not deleted; the record's `abandon` takes a game
+#: still in setup.
+LOBBY_ABANDON_IDLE = 24 * 60 * 60
+
+#: How often the idle sweep runs while the app is up, in seconds.
+SWEEP_EVERY = 60 * 60
+
 
 PORT_VARIABLE = "FOOLBOT_WEB_PORT"
 HOST_VARIABLE = "FOOLBOT_WEB_HOST"
@@ -281,6 +297,7 @@ class WebApp:
         self._cards: dict[tuple, bytes] = {}
         self._dice: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
+        self._sweeper: Optional[asyncio.Task] = None
         #: The time, per game, somebody last had its page open -- every
         #: poll sets it -- which is what takes a room nobody comes back
         #: to off the Open rooms list (`OPEN_ROOM_IDLE`). Memory only:
@@ -313,6 +330,8 @@ class WebApp:
                 web.get("/api/room/{game_id}/stats", self.room_stats),
                 web.get("/api/stats", self.all_stats),
                 web.get("/stats", self.stats_page),
+                web.get("/archive", self.archive_page),
+                web.get("/api/archive", self.archive),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
                 web.post("/api/room/{game_id}/chat", self.say),
                 web.get(
@@ -377,8 +396,9 @@ class WebApp:
         self.service.listeners.append(self.record)
 
     def record(self, game: D12BallGame, result: GameResult) -> None:
-        """One result, into that game's journal. It must not raise:
-        this runs inside somebody's click."""
+        """One result, into that game's journal -- and the room marked
+        active. It must not raise: this runs inside somebody's click."""
+        self._active(game.game_id)
         try:
             self.journals.add(
                 game.game_id,
@@ -422,11 +442,62 @@ class WebApp:
     def journal(self, game_id: str) -> Journal:
         return self.journals.journal(game_id)
 
+    def _active(self, game_id: str) -> None:
+        """Something happened in this room just now (`Rooms.touch`),
+        which is what keeps its game off the idle sweep."""
+        self.rooms.touch(game_id, self.clock())
+
+    async def sweep_idle(self) -> list[str]:
+        """
+        Abandon every game nothing has happened in for `ABANDON_IDLE`,
+        or `LOBBY_ABANDON_IDLE` where nothing was ever played
+        (`abandon_after`; the author, 2026-09-27) -- `GameService.abandon`, the same door
+        the room's Abandon is, each under its game's lock -- which puts
+        it in the archive and its coaches' finished games. Nothing is
+        deleted. A room with no recorded activity (one from before it
+        was kept) is stamped now instead, so it has the whole fourteen
+        days from here. The ids abandoned.
+        """
+        abandoned = []
+        for game in list(self.service.games.values()):
+            if game.is_finished:
+                continue
+            room = self.rooms.room(game.game_id)
+            if room.active_at is None:
+                self._active(game.game_id)
+                continue
+            if self.clock() - room.active_at <= abandon_after(game):
+                continue
+            async with self.locks.hold(game.game_id):
+                if game.game_id not in self.service.games or game.is_finished:
+                    continue
+                try:
+                    self.service.abandon(game.game_id)
+                except RuleRefusal:
+                    continue
+            LOGGER.info(
+                "Abandoned web game %s (#pbw%s): nothing has happened in "
+                "it for %d day(s).",
+                game.game_id, game.game_number, abandon_after(game) // 86400,
+            )
+            abandoned.append(game.game_id)
+        return abandoned
+
+    async def _sweep_forever(self) -> None:
+        """The idle sweep, at start and every `SWEEP_EVERY` after."""
+        while True:
+            try:
+                await self.sweep_idle()
+            except Exception:  # pragma: no cover - a frontend's own bug
+                LOGGER.exception("The web app's idle sweep failed")
+            await asyncio.sleep(SWEEP_EVERY)
+
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app)
         await self._runner.setup()
         site = web.TCPSite(self._runner, self.host, self.port)
         await site.start()
+        self._sweeper = asyncio.create_task(self._sweep_forever())
         LOGGER.info(
             "The D12 Ball web app is listening on %s:%s (links point at %s).",
             self.host,
@@ -435,6 +506,9 @@ class WebApp:
         )
 
     async def stop(self) -> None:
+        if self._sweeper is not None:
+            self._sweeper.cancel()
+            self._sweeper = None
         if self.service is not None and self.record in self.service.listeners:
             self.service.listeners.remove(self.record)
         if self._runner is not None:
@@ -780,6 +854,7 @@ class WebApp:
             ai_seats=[],
         )
         self.rooms.first_sight(game.game_id, coach.id)
+        self._active(game.game_id)
         return web.json_response(
             {"id": game.game_id, "url": f"/room/{game.game_id}"},
         )
@@ -896,6 +971,7 @@ class WebApp:
                     },
                     status=409,
                 )
+            self._active(game.game_id)
             state = self._state(
                 game,
                 self._viewer(request, game),
@@ -943,6 +1019,7 @@ class WebApp:
                 raise web.HTTPConflict(text=str(refusal))
             for seated in seats_held_by(rematch):
                 self.rooms.first_sight(rematch.game_id, seated)
+            self._active(rematch.game_id)
             state = self._state(
                 game,
                 self._viewer(request, game),
@@ -1071,6 +1148,7 @@ class WebApp:
                     },
                     status=409,
                 )
+            self._active(game.game_id)
             state = self._state(
                 game,
                 self._viewer(request, game),
@@ -1186,6 +1264,40 @@ class WebApp:
         return web.json_response(state)
 
     # -- The statistics -----------------------------------------------
+
+    async def archive_page(self, request: web.Request) -> web.Response:
+        """The archive: every finished and abandoned web game."""
+        return web.FileResponse(STATIC / "archive.html")
+
+    async def archive(self, request: web.Request) -> web.Response:
+        """
+        Every game that is over -- played to the end, abandoned by a
+        coach, or abandoned by the idle sweep (`ABANDON_IDLE`) -- newest
+        first, as the Master Lobby's cards, with which of them the
+        reader coached. Open to anybody, as each room's page is. The
+        archive is a view over the games file, not a second copy: a
+        game leaves it only when its record is deleted, and a coach's
+        finished games are deleted only by their own "Delete all my
+        games" (the author, 2026-09-27).
+        """
+        coach = self._person(request)
+        games = sorted(
+            (game for game in self.service.games.values() if game.is_finished),
+            key=lambda one: one.game_number,
+            reverse=True,
+        )
+        return web.json_response(
+            {
+                "games": [
+                    {
+                        **self._listing(game, coach),
+                        "yours": coach is not None
+                        and seat_of(game, coach.id) is not None,
+                    }
+                    for game in games
+                ],
+            },
+        )
 
     async def stats_page(self, request: web.Request) -> web.Response:
         """Every web game's numbers, as a page of its own (linked from
@@ -1307,6 +1419,7 @@ class WebApp:
             raise web.HTTPBadRequest(text=str(refusal))
         async with self.locks.hold(game.game_id):
             self.chats.post(game.game_id, coach.id, coach.name, text)
+            self._active(game.game_id)
             state = self._state(
                 game,
                 self._viewer(request, game),
@@ -2466,6 +2579,13 @@ class WebApp:
             "colour": None if team is None else TEAM_COLORS[team],
             "side": side,
         }
+
+
+def abandon_after(game: D12BallGame) -> int:
+    """How long `game` may go with nothing happening before the idle
+    sweep abandons it: a day where no match was ever dealt, fourteen
+    days once one has been."""
+    return LOBBY_ABANDON_IDLE if game.match_state is None else ABANDON_IDLE
 
 
 def others_seated(game: D12BallGame, coach: Optional[Coach]) -> bool:

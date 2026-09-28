@@ -418,6 +418,41 @@ its coaches still see it in their own list, where its card closes it.
 which puts off hiding a room and never hides one early -- and nothing
 about it is written to any file.
 
+**A game nothing happens in for fourteen days is abandoned**
+(`ABANDON_IDLE`; the author, 2026-09-27) -- through
+`GameService.abandon`, the room's own Abandon, under the game's lock
+-- which puts it in the archive and in its coaches' finished games.
+**A room nothing was ever played in -- no match dealt, the lobby or
+the rest of setup -- goes after a day** (`LOBBY_ABANDON_IDLE`, the
+author, the same day): abandoned the same way, not deleted, since the
+record's `abandon` takes a game still in setup (`abandon_after` is the
+one reading of which limit a game has). "Happens" is not "is looked at": a page left open in
+a tab is not a game being played, so the clock is `active_at` in the
+rooms file (`webapp/rooms.py`), set by a move on the game (the
+service's listener), a table or seat move, a room opened or rematched,
+and a line of chat -- never a poll. It is a file and not memory, unlike
+`_looked_at`, because fourteen days outlives any process; it is the
+rooms file's and not the record's because no rule reads it. It is
+written at most once a minute (`ACTIVE_GRAIN`). A room with no
+`active_at` -- one from before it was kept -- is stamped by the sweep
+rather than abandoned, so it gets its fourteen days from then. The
+sweep runs at start and every `SWEEP_EVERY` (an hour) while the app is
+up (`WebApp.sweep_idle`).
+
+**The archive** (`/archive`, `GET /api/archive`) is every game that is
+over -- played to the end, abandoned by a coach, abandoned by the
+sweep -- newest first, as the Master Lobby's cards (`webapp/static/
+rooms.js`, which both pages draw from), filtered in the page by what
+the listing says: played to the end, abandoned, yours. Open to anybody,
+as each room's page is, and linked from the Reading Room card and from
+**"Your finished games"**, the Master Lobby's own list of the reader's
+finished and abandoned games, under their rooms still going. **A
+coach's finished games are never deleted but by their own "Delete all
+my games"** (the author, 2026-09-27): the archive is a view over the
+games file, not a second copy, so when it comes to be trimmed that is
+trimming what it lists, and a game any person still holds a seat in
+stays on their Master Lobby whatever the archive shows.
+
 **The front door is row 1 of the design canvas** (2026-09-26, step 9
 of [../web-app-redesign.md](../web-app-redesign.md)), as the author
 reworded it on 2026-09-27: on the left "New to the game? Start by
