@@ -77,7 +77,7 @@
           5,
           6
         ],
-        "effect": "Succesful gambit: adjust ball speed up to oSkill, then set up scoring at 0, 1, or 3 (with the speed bonus). \nFailed gambit: opponent picks 1-2-3 spaces for the ball to go back (Clear: 2-3-4).",
+        "effect": "Successful gambit: adjust ball speed up to oSkill, then set up scoring at 0, 1, or 3 (with the speed bonus). \nFailed gambit: opponent picks 1-2-3 spaces for the ball to go back (Clear: 2-3-4).",
         "time": "2 space minutes",
         "defeats_rank": 2
       }

@@ -10,11 +10,11 @@
     "cyborg": {
       "name": "Lithium Powered",
       "ability": "Your exhaustion tokens are drain. You are Drained (treated as Exhausted) at 7 drain. \nOverdrive:  drain 3 to add +5 (once per roll). \nCharge-up: clear one token if cyborg doesn't move during run back.",
-      "ability_short": "Exhaustion = drain.  drain 3 → +5 one per roll. Drained at 7. −1 drain for holding still on a run back."
+      "ability_short": "Exhaustion = drain. Drain 3 → +5 once per roll. Drained at 7. −1 drain for holding still on a run back."
     },
     "telekinetic": {
       "name": "Mind Pull",
-      "ability": "Mind pull: When your team doesn't have possession and the ball moves to or through your space, you may exhaust 1  and roll a d12 — on 11–12 you pull it in and take possession.\nSmooth: When your team has possession and the ball moves to your space, you may take it to become ball handler.",
+      "ability": "Mind pull: When your team doesn't have possession and the ball moves to or through your space, you may exhaust 1 and roll a d12 — on 11–12 you pull it in and take possession.\nSmooth: When your team has possession and the ball moves to your space, you may take it to become ball handler.",
       "ability_short": "Ball passes you: exhaust 1, roll d12; 11–12 = you take the ball. Smooth: teammate sharing space may handover ball handling."
     },
     "ooze": {
