@@ -1069,7 +1069,7 @@ class DrainThresholdTests(unittest.TestCase):
         # Nine Cyborgs a side is the cleanest fixture for a threshold
         # that is about the species and not about the role.
         # Standard mode: the species rule alone, with no Cyborg's
-        # personal ability (Law 21) moving the numbers.
+        # special ability (Law 21) moving the numbers.
         self.game = build_game(
             player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
@@ -1378,7 +1378,7 @@ class OverdriveTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = build_engine()
         # Standard mode: the species rule alone, with no Cyborg's
-        # personal ability (Law 21) moving the numbers.
+        # special ability (Law 21) moving the numbers.
         self.game = build_game(
             player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
@@ -1523,7 +1523,7 @@ class ChargeUpTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = build_engine()
         # Standard mode: the species rule alone, with no Cyborg's
-        # personal ability (Law 21) moving the numbers.
+        # special ability (Law 21) moving the numbers.
         self.game = build_game(
             player_1_team=Team.CYBORGS, mode=GameMode.STANDARD,
         )
@@ -2020,7 +2020,7 @@ class MergeTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.engine = build_engine()
-        # Standard mode: Merge without the personal abilities, since an
+        # Standard mode: Merge without the special abilities, since an
         # Oozes side fields Viscor, who adds 3 more (Law 21).
         self.game = build_game(
             player_1_team=Team.OOZES, mode=GameMode.STANDARD,
@@ -3141,7 +3141,7 @@ class RunBackGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # `build_mind_pull_cog` mocks out for the tests above.
         del self.cog.begin_run_back
         self.cog.announce_run_back = mock.AsyncMock()
-        # Standard mode: the species abilities without the personal ones,
+        # Standard mode: the species abilities without the special ones,
         # since a Telekinetics side fields Zenith, whose Fly (Law 21)
         # would stop the run back before the gate these assert.
         self.game = build_game(

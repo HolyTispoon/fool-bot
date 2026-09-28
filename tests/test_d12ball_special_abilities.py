@@ -1,6 +1,6 @@
 """
-The personal abilities and the advanced skill scores (Law 21 of
-docs/living-rules.md; "Personal abilities" in
+The special abilities and the advanced skill scores (Law 21 of
+docs/living-rules.md; "Special abilities" in
 docs/design/species-abilities.md).
 
 Two kinds of test. The table's own tests read `players.json` and say
@@ -56,7 +56,7 @@ from d12ball.flow.turn import (
 from d12ball.flow.turnovers import begin_run_back, fly_step
 from d12ball.prompts import PendingPrompt, PromptKind
 from d12ball.game import GameMode, Team
-from d12ball.personal_abilities import (
+from d12ball.special_abilities import (
     ADVANCED_SKILL_SENTENCES,
     INFERNO_BALL_SPEED,
     SCORCHIT_FORCED_TEST_TOKENS,
@@ -65,12 +65,12 @@ from d12ball.personal_abilities import (
     BOOST_BONUS,
     BOOST_DRAIN_COST,
     BULWARK_DRAINED_AT,
-    PERSONAL_ABILITIES,
+    SPECIAL_ABILITIES,
     SPECTRA_PULL_MINIMUM,
     STRIDER_CHARGE_UP,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     QUANTOR_RUN_DRAIN,
-    PersonalAbility,
+    SpecialAbility,
 )
 
 from roster import fielded_of_species
@@ -90,10 +90,10 @@ ENGINE = build_engine()
 
 
 @contextmanager
-def holding(player_id: str, ability: PersonalAbility):
+def holding(player_id: str, ability: SpecialAbility):
     """Give `player_id`'s person this ability for the test's length."""
     with mock.patch.dict(
-        PERSONAL_ABILITIES,
+        SPECIAL_ABILITIES,
         {catalog_player_id(player_id): (ability, "test")},
     ):
         yield
@@ -114,7 +114,7 @@ class TableTests(unittest.TestCase):
     def test_every_row_is_built_from_the_sentence_the_sheet_carries(
         self,
     ) -> None:
-        for player_id, (_, sentence) in PERSONAL_ABILITIES.items():
+        for player_id, (_, sentence) in SPECIAL_ABILITIES.items():
             with self.subTest(player_id):
                 self.assertEqual(
                     self.players[player_id]["advanced_ability"], sentence,
@@ -127,7 +127,7 @@ class TableTests(unittest.TestCase):
                 continue
             with self.subTest(player_id):
                 self.assertTrue(
-                    player_id in PERSONAL_ABILITIES
+                    player_id in SPECIAL_ABILITIES
                     or player_id in ADVANCED_SKILL_SENTENCES,
                     "a player has an ability the engine does not play",
                 )
@@ -144,8 +144,8 @@ class GateTests(unittest.TestCase):
     """Advanced mode alone, and never a tutorial (Law 21)."""
 
     def setUp(self) -> None:
-        self.player_id = next(iter(PERSONAL_ABILITIES))
-        self.ability = PERSONAL_ABILITIES[self.player_id][0]
+        self.player_id = next(iter(SPECIAL_ABILITIES))
+        self.ability = SPECIAL_ABILITIES[self.player_id][0]
 
     def test_only_advanced_mode_plays_them(self) -> None:
         for mode, expected in (
@@ -155,28 +155,28 @@ class GateTests(unittest.TestCase):
         ):
             with self.subTest(mode.value):
                 self.assertEqual(
-                    ENGINE.has_personal_ability(
+                    ENGINE.has_special_ability(
                         build_game(mode=mode), self.player_id, self.ability,
                     ),
                     expected,
                 )
 
     def test_a_tutorial_never_does(self) -> None:
-        self.assertFalse(ENGINE.has_personal_ability(
+        self.assertFalse(ENGINE.has_special_ability(
             advanced(tutorial=True), self.player_id, self.ability,
         ))
 
     def test_the_second_sides_card_is_the_same_person(self) -> None:
-        self.assertTrue(ENGINE.has_personal_ability(
+        self.assertTrue(ENGINE.has_special_ability(
             advanced(), duplicate_card_id(self.player_id), self.ability,
         ))
 
     def test_nobody_holds_an_ability_that_is_not_theirs(self) -> None:
         other = next(
-            ability for ability in PersonalAbility
+            ability for ability in SpecialAbility
             if ability != self.ability
         )
-        self.assertFalse(ENGINE.has_personal_ability(
+        self.assertFalse(ENGINE.has_special_ability(
             advanced(), self.player_id, other,
         ))
 
@@ -282,7 +282,7 @@ class FireDemonTests(unittest.TestCase):
 
     def test_sizzifizik_ignites_on_five_to_eight(self) -> None:
         self.assertFalse(self.ignite(5, 9).ignited)
-        with holding(self.demon, PersonalAbility.WIDE_IGNITION):
+        with holding(self.demon, SpecialAbility.WIDE_IGNITION):
             for face in (5, 6, 7, 8):
                 with self.subTest(face=face):
                     self.assertTrue(self.ignite(face, 9).ignited)
@@ -291,7 +291,7 @@ class FireDemonTests(unittest.TestCase):
 
     def test_blazebulk_never_burns(self) -> None:
         self.assertTrue(self.ignite(6, 2).burn)
-        with holding(self.demon, PersonalAbility.ALWAYS_BLAZES):
+        with holding(self.demon, SpecialAbility.ALWAYS_BLAZES):
             roll = self.ignite(6, 2)
         self.assertTrue(roll.blaze)
         self.assertEqual(roll.modifier, 2)
@@ -299,7 +299,7 @@ class FireDemonTests(unittest.TestCase):
 
     def test_brightburn_s_burn_upgrades_nothing(self) -> None:
         winner = IgnitedRoll(face=3)
-        with holding(self.demon, PersonalAbility.BRIGHT_BURN):
+        with holding(self.demon, SpecialAbility.BRIGHT_BURN):
             burn = self.ignite(6, 2)
         self.assertTrue(burn.burn)
         self.assertFalse(
@@ -310,7 +310,7 @@ class FireDemonTests(unittest.TestCase):
 
     def test_brightburn_sheds_a_token_on_every_burn(self) -> None:
         self.match.exhaustion[self.demon] = 2
-        with holding(self.demon, PersonalAbility.BRIGHT_BURN):
+        with holding(self.demon, SpecialAbility.BRIGHT_BURN):
             burn = ENGINE.settle_burn(
                 self.game, self.match, self.demon, self.ignite(6, 2),
             )
@@ -334,7 +334,7 @@ class CyborgTests(unittest.TestCase):
         self.cyborg = fielded_of_species(self.match, SPECIES_CYBORG)
 
     def test_bulwark_is_drained_at_ten(self) -> None:
-        with holding(self.cyborg, PersonalAbility.HIGH_DRAIN_THRESHOLD):
+        with holding(self.cyborg, SpecialAbility.HIGH_DRAIN_THRESHOLD):
             self.assertEqual(
                 ENGINE.exhaustion_threshold(self.game, self.cyborg),
                 BULWARK_DRAINED_AT - 1,
@@ -345,7 +345,7 @@ class CyborgTests(unittest.TestCase):
             ENGINE.overdrive_cost(self.game, self.cyborg),
             OVERDRIVE_DRAIN_COST,
         )
-        with holding(self.cyborg, PersonalAbility.CHEAP_OVERDRIVE):
+        with holding(self.cyborg, SpecialAbility.CHEAP_OVERDRIVE):
             self.assertEqual(
                 ENGINE.overdrive_cost(self.game, self.cyborg),
                 VOLTUS_OVERDRIVE_DRAIN_COST,
@@ -356,7 +356,7 @@ class CyborgTests(unittest.TestCase):
             ENGINE.boost_candidates(self.game, self.match, [self.cyborg]),
             [],
         )
-        with holding(self.cyborg, PersonalAbility.BOOST):
+        with holding(self.cyborg, SpecialAbility.BOOST):
             self.assertEqual(
                 ENGINE.boost_candidates(
                     self.game, self.match, [self.cyborg],
@@ -380,7 +380,7 @@ class CyborgTests(unittest.TestCase):
         self.assertEqual(self.match.overdrive_modifier(self.cyborg), 0)
 
     def test_boost_and_overdrive_stack_on_one_roll(self) -> None:
-        with holding(self.cyborg, PersonalAbility.BOOST):
+        with holding(self.cyborg, SpecialAbility.BOOST):
             self.match.declare_overdrive(self.cyborg, CYBORG_DRAINED_AT - 1)
             # An Overdrive leaves Boost open on the same roll, and the
             # other way round (Law 21) ...
@@ -441,7 +441,7 @@ class CyborgTests(unittest.TestCase):
 
     def test_strider_charges_up_two(self) -> None:
         self.assertEqual(ENGINE.charge_up_amount(self.game, self.cyborg), 1)
-        with holding(self.cyborg, PersonalAbility.EFFICIENT_RUN):
+        with holding(self.cyborg, SpecialAbility.EFFICIENT_RUN):
             self.assertEqual(
                 ENGINE.charge_up_amount(self.game, self.cyborg),
                 STRIDER_CHARGE_UP,
@@ -449,7 +449,7 @@ class CyborgTests(unittest.TestCase):
 
     def test_strider_s_run_back_drains_one_at_most(self) -> None:
         self.assertEqual(ENGINE.run_back_cost(self.game, self.cyborg, 3), 3)
-        with holding(self.cyborg, PersonalAbility.EFFICIENT_RUN):
+        with holding(self.cyborg, SpecialAbility.EFFICIENT_RUN):
             for distance, cost in ((3, 1), (1, 1), (0, 0)):
                 with self.subTest(distance=distance):
                     self.assertEqual(
@@ -464,7 +464,7 @@ class CyborgTests(unittest.TestCase):
         self.assertFalse(
             ENGINE.overdrive_raises_tier(self.game, self.cyborg, overdriven),
         )
-        with holding(self.cyborg, PersonalAbility.OVERDRIVE_UPGRADE):
+        with holding(self.cyborg, SpecialAbility.OVERDRIVE_UPGRADE):
             self.assertTrue(ENGINE.overdrive_raises_tier(
                 self.game, self.cyborg, overdriven,
             ))
@@ -486,12 +486,12 @@ class TelekineticTests(unittest.TestCase):
             ENGINE.mind_pull_cost(self.game, self.puller),
             MIND_PULL_TOKEN_COST,
         )
-        with holding(self.puller, PersonalAbility.FREE_PULL):
+        with holding(self.puller, SpecialAbility.FREE_PULL):
             self.assertEqual(ENGINE.mind_pull_cost(self.game, self.puller), 0)
 
     def test_spectra_succeeds_on_nine(self) -> None:
         self.assertEqual(ENGINE.mind_pull_minimum(self.game, self.puller), 11)
-        with holding(self.puller, PersonalAbility.STRONG_PULL):
+        with holding(self.puller, SpecialAbility.STRONG_PULL):
             self.assertEqual(
                 ENGINE.mind_pull_minimum(self.game, self.puller),
                 SPECTRA_PULL_MINIMUM,
@@ -511,7 +511,7 @@ class TelekineticTests(unittest.TestCase):
         self.assertNotIn(
             self.puller, ENGINE.mind_pull_candidates(self.game, match),
         )
-        with holding(self.puller, PersonalAbility.ADJACENT_PULL):
+        with holding(self.puller, SpecialAbility.ADJACENT_PULL):
             self.assertIn(
                 self.puller, ENGINE.mind_pull_candidates(self.game, match),
             )
@@ -534,7 +534,7 @@ class EmberdashTests(unittest.TestCase):
         self.assertEqual(
             ENGINE.dribble_advance_distances(self.game, self.match), (1, 2),
         )
-        with holding(self.handler, PersonalAbility.FREE_BURST):
+        with holding(self.handler, SpecialAbility.FREE_BURST):
             self.assertEqual(
                 ENGINE.dribble_advance_distances(self.game, self.match),
                 (1, 2, 3),
@@ -544,7 +544,7 @@ class EmberdashTests(unittest.TestCase):
         self.assertGreater(
             ENGINE.dribble_burst_cost(self.match, 3, self.game), 0,
         )
-        with holding(self.handler, PersonalAbility.FREE_BURST):
+        with holding(self.handler, SpecialAbility.FREE_BURST):
             self.assertEqual(
                 ENGINE.dribble_burst_cost(self.match, 3, self.game), 0,
             )
@@ -576,20 +576,20 @@ class DiceGambitTests(unittest.TestCase):
 
     def test_dravox_s_defensive_gambit_resolves(self) -> None:
         self.assertTrue(self.asked(
-            PersonalAbility.DEFENSIVE_GAMBITS, "defense", self.gambit,
+            SpecialAbility.DEFENSIVE_GAMBITS, "defense", self.gambit,
         ))
 
     def test_a_basic_card_is_not_upgraded(self) -> None:
         self.assertFalse(self.asked(
-            PersonalAbility.DEFENSIVE_GAMBITS, "defense", self.basic,
+            SpecialAbility.DEFENSIVE_GAMBITS, "defense", self.basic,
         ))
 
     def test_each_reads_their_own_side_of_the_ball(self) -> None:
         self.assertFalse(self.asked(
-            PersonalAbility.OFFENSIVE_GAMBITS, "defense", self.gambit,
+            SpecialAbility.OFFENSIVE_GAMBITS, "defense", self.gambit,
         ))
         self.assertFalse(self.asked(
-            PersonalAbility.DEFENSIVE_GAMBITS, "offense", self.gambit,
+            SpecialAbility.DEFENSIVE_GAMBITS, "offense", self.gambit,
         ))
 
     def test_nobody_else_does(self) -> None:
@@ -616,24 +616,24 @@ class QuantorTests(unittest.TestCase):
         self.assertEqual(
             ENGINE.pass_runner(self.game, self.match, (2, 3)), (None, ()),
         )
-        with holding(self.runner, PersonalAbility.RUN_ON):
+        with holding(self.runner, SpecialAbility.RUN_ON):
             runner, _ = ENGINE.pass_runner(self.game, self.match, (2, 3))
         self.assertEqual(runner, self.runner)
 
     def test_never_on_their_own_pass(self) -> None:
-        with holding(self.passer, PersonalAbility.RUN_ON):
+        with holding(self.passer, SpecialAbility.RUN_ON):
             runner, _ = ENGINE.pass_runner(self.game, self.match, (2, 3))
         self.assertIsNone(runner)
 
     def test_never_to_a_space_off_the_field(self) -> None:
-        with holding(self.runner, PersonalAbility.RUN_ON):
+        with holding(self.runner, SpecialAbility.RUN_ON):
             _, distances = ENGINE.pass_runner(
                 self.game, self.match, (2, 3, 40),
             )
         self.assertNotIn(40, distances)
 
     def test_the_run_drains_three_and_takes_the_pass(self) -> None:
-        with holding(self.runner, PersonalAbility.RUN_ON):
+        with holding(self.runner, SpecialAbility.RUN_ON):
             _, distances = ENGINE.pass_runner(self.game, self.match, (3,))
             self.assertEqual(distances, (3,))
             before = self.match.exhaustion.get(self.runner, 0)
@@ -655,7 +655,7 @@ class QuantorTests(unittest.TestCase):
 
 class GoopkeeperTests(unittest.TestCase):
     def test_a_full_block_counts_all_of_it_beyond_the_ball(self) -> None:
-        player = ENGINE.get_player_definition(next(iter(PERSONAL_ABILITIES)))
+        player = ENGINE.get_player_definition(next(iter(SPECIAL_ABILITIES)))
         self.assertEqual(ShotDefender(player, 5, on_ball=False).value, 3)
         blocking = ShotDefender(player, 5, on_ball=False, full_block=True)
         self.assertEqual(blocking.value, 5)
@@ -678,7 +678,7 @@ class AcidelTests(unittest.TestCase):
 
     def test_acidel_takes_the_ball_and_the_shot(self) -> None:
         defending = self.match.defending_side()
-        with holding(self.challenger, PersonalAbility.PRESSURE_SHOT):
+        with holding(self.challenger, SpecialAbility.PRESSURE_SHOT):
             result = pressure_step(
                 ENGINE, self.match, "pressure", advanced(),
             )
@@ -691,7 +691,7 @@ class AcidelTests(unittest.TestCase):
         self.assertEqual(self.match.ball.speed, 1)
 
     def test_not_outside_advanced_mode(self) -> None:
-        with holding(self.challenger, PersonalAbility.PRESSURE_SHOT):
+        with holding(self.challenger, SpecialAbility.PRESSURE_SHOT):
             result = pressure_step(
                 ENGINE, self.match, "pressure",
                 build_game(mode=GameMode.STANDARD),
@@ -728,7 +728,7 @@ class ZorchTests(unittest.TestCase):
         )
 
     def test_it_is_half_the_speed_and_nothing_at_speed_one(self) -> None:
-        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.offense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(
                 ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
                 (3, "+3 ball speed modifier"),
@@ -741,7 +741,7 @@ class ZorchTests(unittest.TestCase):
 
     def test_only_in_advanced_mode(self) -> None:
         game = build_game(mode=GameMode.STANDARD)
-        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.offense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(
                 ENGINE.speed_roll_bonus(game, self.match, self.offense),
                 (0, ""),
@@ -749,9 +749,9 @@ class ZorchTests(unittest.TestCase):
 
     def test_a_skill_test_adds_it_on_either_side(self) -> None:
         plain = self.skill_test()
-        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.offense, SpecialAbility.SPEED_ROLLS):
             attacking = self.skill_test()
-        with holding(self.defense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.defense, SpecialAbility.SPEED_ROLLS):
             defending = self.skill_test()
         self.assertEqual(attacking, (plain[0] + 3, plain[1]))
         self.assertEqual(defending, (plain[0], plain[1] + 3))
@@ -759,7 +759,7 @@ class ZorchTests(unittest.TestCase):
     def test_a_steal_already_adds_it_so_zorch_adds_nothing_more(self) -> None:
         self.match.defense_maneuver = "steal"
         plain = self.skill_test()
-        with holding(self.defense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.defense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(self.skill_test(), plain)
 
     def test_an_injury_check_adds_it(self) -> None:
@@ -771,7 +771,7 @@ class ZorchTests(unittest.TestCase):
             )
         self.match.injured.discard(self.offense)
         self.match.exhaustion[self.offense] = 4
-        with holding(self.offense, PersonalAbility.SPEED_ROLLS), \
+        with holding(self.offense, SpecialAbility.SPEED_ROLLS), \
                 mock.patch.object(ENGINE.rng, "randint", return_value=3):
             zorch, result = injury_test_step(
                 ENGINE, self.game, self.match, self.offense,
@@ -781,7 +781,7 @@ class ZorchTests(unittest.TestCase):
         self.assertIn("+3 ball speed modifier", " ".join(result.narration))
 
     def test_tests_are_no_longer_free(self) -> None:
-        with holding(self.offense, PersonalAbility.SPEED_ROLLS):
+        with holding(self.offense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(
                 ENGINE.re_roll_tokens(self.game, self.offense), 1,
             )
@@ -816,7 +816,7 @@ class ScorchitTests(unittest.TestCase):
         self.assertIs(result.next.step, FollowOnStep.BEGIN_EFFECT_RESOLUTION)
 
     def test_scorchit_is_asked_at_the_reveal(self) -> None:
-        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
             result = self.reveal()
         self.assertIsInstance(result.next, PendingPrompt)
         self.assertIs(result.next.kind, PromptKind.FORCE_TEST)
@@ -824,7 +824,7 @@ class ScorchitTests(unittest.TestCase):
         self.assertEqual(self.match.pending_force_test, self.offense)
 
     def test_forcing_it_owes_the_test_at_two_tokens_to_none(self) -> None:
-        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
             self.reveal()
             result = force_test_step(
                 ENGINE, self.game, self.match, self.offense, True,
@@ -851,7 +851,7 @@ class ScorchitTests(unittest.TestCase):
         )
 
     def test_letting_it_stand_resolves_the_winner(self) -> None:
-        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
             self.reveal()
             result = force_test_step(
                 ENGINE, self.game, self.match, self.offense, False,
@@ -861,12 +861,12 @@ class ScorchitTests(unittest.TestCase):
         self.assertIsNone(self.match.pending_force_test)
 
     def test_not_off_a_card_they_won(self) -> None:
-        with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.defense, SpecialAbility.FORCES_THE_TEST):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_an_injured_winner_s_test_is_the_injury_s(self) -> None:
         self.match.mark_injured(self.defense)
-        with holding(self.offense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_nothing_once_the_stealer_has_the_ball(self) -> None:
@@ -876,7 +876,7 @@ class ScorchitTests(unittest.TestCase):
         self.match.offense_maneuver = "skilled_pass"
         self.match.defense_maneuver = "steal"
         self.match.active_player_id = self.defense
-        with holding(self.defense, PersonalAbility.FORCES_THE_TEST):
+        with holding(self.defense, SpecialAbility.FORCES_THE_TEST):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
             self.assertEqual(
                 ENGINE.settled_maneuver_winner(self.match, self.game),
@@ -913,7 +913,7 @@ class UmbrikTests(unittest.TestCase):
         self.assertEqual(self.asked("skill_test"), self.skills.offense)
 
     def test_umbrik_uses_defense_on_the_three_rolls(self) -> None:
-        with holding(self.player, PersonalAbility.DEFENSIVE_THROW):
+        with holding(self.player, SpecialAbility.DEFENSIVE_THROW):
             self.assertEqual(self.asked("own_goal"), self.skills.defense)
             self.match.offense_maneuver = "low_pass"
             self.assertEqual(self.asked("skill_test"), self.skills.offense)
@@ -934,7 +934,7 @@ class UmbrikTests(unittest.TestCase):
         # coach reading the wrong number (the author, 2026-09-28).
         self.match.offense_maneuver = "high_pass"
         self.assertEqual(self.named("own_goal"), "Offensive")
-        with holding(self.player, PersonalAbility.DEFENSIVE_THROW):
+        with holding(self.player, SpecialAbility.DEFENSIVE_THROW):
             self.assertEqual(self.named("own_goal"), "Defensive")
             self.assertEqual(self.named("skill_test"), "Defensive")
             self.assertEqual(self.named("contest"), "Offensive")
@@ -958,7 +958,7 @@ class KindlefingerTests(unittest.TestCase):
         self.assertFalse(self.ignite(6, 9).ignited)
 
     def test_a_blaze_clears_a_token_and_a_burn_adds_one(self) -> None:
-        with holding(self.demon, PersonalAbility.INJURY_IGNITION):
+        with holding(self.demon, SpecialAbility.INJURY_IGNITION):
             blaze = self.ignite(6, 9)
             burn = self.ignite(7, 2)
             self.assertFalse(self.ignite(5, 9).ignited)
@@ -975,7 +975,7 @@ class KindlefingerTests(unittest.TestCase):
             self.assertEqual(self.match.exhaustion[self.demon], 3)
 
     def test_an_injured_player_s_tokens_are_left_alone(self) -> None:
-        with holding(self.demon, PersonalAbility.INJURY_IGNITION):
+        with holding(self.demon, SpecialAbility.INJURY_IGNITION):
             burn = self.ignite(7, 2)
         self.match.mark_injured(self.demon)
         self.assertEqual(
@@ -1005,7 +1005,7 @@ class SlitheronTests(unittest.TestCase):
         # A ball come down between both sides too -- "a deflect
         # bouncing the ball to a space with Slitheron and another
         # player" (the author, 2026-09-26).
-        with holding(self.defense, PersonalAbility.WINS_CONTESTS):
+        with holding(self.defense, SpecialAbility.WINS_CONTESTS):
             self.match.pending_loose_ball_on_empty_space = False
             self.match.pending_loose_ball_is_high_pass = False
             self.assertEqual(self.winner(), self.defense)
@@ -1018,12 +1018,12 @@ class SlitheronTests(unittest.TestCase):
     def test_nobody_else_and_not_against_each_other(self) -> None:
         self.match.pending_loose_ball_on_empty_space = True
         self.assertIsNone(self.winner())
-        with mock.patch.dict(PERSONAL_ABILITIES, {
+        with mock.patch.dict(SPECIAL_ABILITIES, {
             catalog_player_id(self.offense): (
-                PersonalAbility.WINS_CONTESTS, "test",
+                SpecialAbility.WINS_CONTESTS, "test",
             ),
             catalog_player_id(self.defense): (
-                PersonalAbility.WINS_CONTESTS, "test",
+                SpecialAbility.WINS_CONTESTS, "test",
             ),
         }):
             self.assertIsNone(self.winner())
@@ -1042,7 +1042,7 @@ class SlitheronFlowTests(unittest.TestCase):
         match.pending_loose_ball_distance = 1
         match.loose_ball_offense_player = offense
         match.loose_ball_defense_player = defense
-        with holding(defense, PersonalAbility.WINS_CONTESTS):
+        with holding(defense, SpecialAbility.WINS_CONTESTS):
             result = resolve_loose_ball(ENGINE, game, match)
         self.assertIs(result.next.step, FollowOnStep.BEGIN_RUN_BACK)
         self.assertTrue(result.next.kwargs["turnover_occurred"])
@@ -1063,7 +1063,7 @@ class KindlefingerFlowTests(unittest.TestCase):
         demon = fielded_of_species(match, SPECIES_FIRE_DEMON)
         match.exhaustion[demon] = 8
         match.pending_injury_tests = [demon]
-        with holding(demon, PersonalAbility.INJURY_IGNITION), \
+        with holding(demon, SpecialAbility.INJURY_IGNITION), \
                 mock.patch.object(ENGINE.rng, "randint", side_effect=[6, 9]):
             roll, result = injury_test_step(ENGINE, game, match, demon)
         # 6 + 9 = 15 beats 8 tokens, where a plain 6 would not have.
@@ -1080,7 +1080,7 @@ class KindlefingerFlowTests(unittest.TestCase):
         demon = fielded_of_species(match, SPECIES_FIRE_DEMON)
         match.exhaustion[demon] = 11
         match.pending_injury_tests = [demon]
-        with holding(demon, PersonalAbility.INJURY_IGNITION), \
+        with holding(demon, SpecialAbility.INJURY_IGNITION), \
                 mock.patch.object(ENGINE.rng, "randint", side_effect=[6, 5]):
             roll, _ = injury_test_step(ENGINE, game, match, demon)
         self.assertTrue(roll.safe)
@@ -1128,7 +1128,7 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertTrue(wall[self.beyond].halved)
 
     def test_goopkeeper_blocks_in_full_beyond_the_ball(self) -> None:
-        with holding(self.beyond, PersonalAbility.FULL_BLOCK):
+        with holding(self.beyond, SpecialAbility.FULL_BLOCK):
             wall = self.defending()
         self.assertFalse(wall[self.beyond].halved)
         self.assertEqual(
@@ -1137,7 +1137,7 @@ class ShotDefenseTests(unittest.TestCase):
         )
 
     def test_goopkeeper_behind_the_ball_adds_nothing(self) -> None:
-        with holding(self.behind, PersonalAbility.FULL_BLOCK):
+        with holding(self.behind, SpecialAbility.FULL_BLOCK):
             self.assertNotIn(self.behind, self.defending())
 
     def test_flickerwing_shoots_past_the_wall_every_time(self) -> None:
@@ -1146,9 +1146,9 @@ class ShotDefenseTests(unittest.TestCase):
         for set_up in (False, True):
             with self.subTest(set_up=set_up):
                 self.match.pending_shot_is_set_up = set_up
-                with holding(self.shooter, PersonalAbility.CLEAR_SHOT):
+                with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
                     self.assertEqual(set(self.defending()), {self.on_ball})
-                    with holding(self.beyond, PersonalAbility.FULL_BLOCK):
+                    with holding(self.beyond, SpecialAbility.FULL_BLOCK):
                         self.assertEqual(
                             set(self.defending()),
                             {self.on_ball, self.beyond},
@@ -1165,7 +1165,7 @@ class ViscorTests(unittest.TestCase):
         ooze = fielded_of_species(match, SPECIES_OOZE, side)
         match.move_meeple(ooze, match.ball.zone, match.ball.space_index)
         plain, _, _ = ENGINE.merge_bonus(game, match, side, (), "offense")
-        with holding(ooze, PersonalAbility.MERGES_HARDER):
+        with holding(ooze, SpecialAbility.MERGES_HARDER):
             harder, lines, _ = ENGINE.merge_bonus(
                 game, match, side, (), "offense",
             )
@@ -1191,7 +1191,7 @@ class ShpritzTests(unittest.TestCase):
 
     def test_only_shpritz_may_take_it_over(self) -> None:
         self.assertEqual(ENGINE.smooth_candidates(self.game, self.match), [])
-        with holding(self.taker, PersonalAbility.SMOOTH):
+        with holding(self.taker, SpecialAbility.SMOOTH):
             self.assertEqual(
                 ENGINE.smooth_candidates(self.game, self.match),
                 [self.taker],
@@ -1243,7 +1243,7 @@ class LongPassTests(unittest.TestCase):
 
     def test_vorix_sets_up_at_twelve(self) -> None:
         passer, receiver = self.pass_from(2, 5)
-        with holding(passer, PersonalAbility.LONG_SET_UP):
+        with holding(passer, SpecialAbility.LONG_SET_UP):
             result = high_pass_step(ENGINE, self.match, 3, game=self.game)
         self.assertIs(
             result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
@@ -1253,7 +1253,7 @@ class LongPassTests(unittest.TestCase):
 
     def test_vorix_out_of_range_is_simply_received(self) -> None:
         passer, receiver = self.pass_from(0, 3)
-        with holding(passer, PersonalAbility.LONG_SET_UP):
+        with holding(passer, SpecialAbility.LONG_SET_UP):
             result = high_pass_step(ENGINE, self.match, 3, game=self.game)
         self.assertIs(
             result.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
@@ -1265,7 +1265,7 @@ class LongPassTests(unittest.TestCase):
         # "Contest comes first and shooting is possible only if
         # Zytheris wins it" (the author, 2026-09-26).
         _, receiver = self.pass_from(2, 5)
-        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+        with holding(receiver, SpecialAbility.SHOOTS_OFF_ANY_PASS):
             result = high_pass_step(ENGINE, self.match, 3, game=self.game)
         self.assertIs(
             result.next.step, FollowOnStep.BEGIN_HIGH_PASS_CONTEST,
@@ -1275,7 +1275,7 @@ class LongPassTests(unittest.TestCase):
         _, receiver = self.pass_from(2, 5)
         match = self.match
         match.set_ball_space(*match.board.meeple_position(receiver))
-        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+        with holding(receiver, SpecialAbility.SHOOTS_OFF_ANY_PASS):
             kept = after_the_contest(
                 ENGINE, self.game, match, receiver, True, False, 2,
             )
@@ -1298,7 +1298,7 @@ class LongPassTests(unittest.TestCase):
         match.pending_loose_ball_is_high_pass = True
         match.pending_loose_ball_distance = 2
         match.loose_ball_offense_player = receiver
-        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+        with holding(receiver, SpecialAbility.SHOOTS_OFF_ANY_PASS):
             result = resolve_loose_ball(ENGINE, self.game, match)
         self.assertIs(
             result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
@@ -1312,7 +1312,7 @@ class LongPassTests(unittest.TestCase):
             plain.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
         )
         self.pass_from(3, 4)
-        with holding(receiver, PersonalAbility.SHOOTS_OFF_ANY_PASS):
+        with holding(receiver, SpecialAbility.SHOOTS_OFF_ANY_PASS):
             result = low_pass_step(ENGINE, self.match, 1, game=self.game)
         self.assertIs(
             result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
@@ -1341,7 +1341,7 @@ class BallComesToTests(unittest.TestCase):
         self.assertEqual(self.match.ball.speed, 3)
 
     def test_inferno_lights_the_ball(self) -> None:
-        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+        with holding(self.player, SpecialAbility.LIGHTS_THE_BALL):
             said = self.comes()
         self.assertEqual(self.match.ball.speed, INFERNO_BALL_SPEED)
         # Said as the special ability it is (the author, 2026-09-28).
@@ -1349,7 +1349,7 @@ class BallComesToTests(unittest.TestCase):
 
     def test_only_when_it_comes_to_them(self) -> None:
         self.match.set_ball_carrier(self.player)
-        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+        with holding(self.player, SpecialAbility.LIGHTS_THE_BALL):
             self.assertEqual(
                 ball_comes_to(ENGINE, self.game, self.match, self.player),
                 [],
@@ -1362,7 +1362,7 @@ class BallComesToTests(unittest.TestCase):
         before = ENGINE.ball_holder(self.match)
         self.match.clear_ball_carrier()
         self.match.active_player_id = self.player
-        with holding(self.player, PersonalAbility.LIGHTS_THE_BALL):
+        with holding(self.player, SpecialAbility.LIGHTS_THE_BALL):
             self.assertEqual(
                 ball_comes_to(ENGINE, self.game, self.match, before), [],
             )
@@ -1376,7 +1376,7 @@ class BallComesToTests(unittest.TestCase):
         self.match.clear_ball_carrier()
         self.match.pending_ball_recovery = True
         picker = self.match.contest_candidates(self.match.ball.possession)[0]
-        with holding(picker, PersonalAbility.LIGHTS_THE_BALL):
+        with holding(picker, SpecialAbility.LIGHTS_THE_BALL):
             result = recover_ball_step(
                 ENGINE, self.game, self.match, player_id=picker,
             )
@@ -1385,7 +1385,7 @@ class BallComesToTests(unittest.TestCase):
 
     def test_pulsar_charges_up(self) -> None:
         self.match.exhaustion[self.player] = 2
-        with holding(self.player, PersonalAbility.CHARGES_ON_THE_BALL):
+        with holding(self.player, SpecialAbility.CHARGES_ON_THE_BALL):
             said = self.comes()
         self.assertEqual(self.match.exhaustion[self.player], 1)
         self.assertIn("special ability", said[0])
@@ -1397,7 +1397,7 @@ class GlompexTests(unittest.TestCase):
     def setUp(self) -> None:
         # Only the player a test hands the ability to holds it: the
         # deal fields the real Glompex, who would be asked as well.
-        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared = mock.patch.dict(SPECIAL_ABILITIES, {}, clear=True)
         cleared.start()
         self.addCleanup(cleared.stop)
         self.game = advanced()
@@ -1418,7 +1418,7 @@ class GlompexTests(unittest.TestCase):
 
     def test_only_glompex_beside_the_ball_against_a_challenge(self) -> None:
         self.assertEqual(ENGINE.join_candidates(self.game, self.match), [])
-        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+        with holding(self.joiner, SpecialAbility.JOINS_THE_BALL):
             self.assertEqual(
                 ENGINE.join_candidates(self.game, self.match),
                 [self.joiner],
@@ -1431,7 +1431,7 @@ class GlompexTests(unittest.TestCase):
             )
 
     def test_asked_before_the_cards_once(self) -> None:
-        with holding(self.joiner, PersonalAbility.JOINS_THE_BALL):
+        with holding(self.joiner, SpecialAbility.JOINS_THE_BALL):
             asked = begin_maneuver_action_selection(
                 ENGINE, self.game, self.match,
             )
@@ -1468,7 +1468,7 @@ class ZenithTests(unittest.TestCase):
     """Zenith flies before a steal's run back (Law 21)."""
 
     def setUp(self) -> None:
-        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared = mock.patch.dict(SPECIAL_ABILITIES, {}, clear=True)
         cleared.start()
         self.addCleanup(cleared.stop)
         self.game = advanced()
@@ -1482,7 +1482,7 @@ class ZenithTests(unittest.TestCase):
         here = match.board.flat_index(*match.board.meeple_position(self.flier))
         target = 0 if here > 2 else 6
         zone, index = match.board.position_at_flat_index(target)
-        with holding(self.flier, PersonalAbility.FLY):
+        with holding(self.flier, SpecialAbility.FLY):
             asked = begin_run_back(ENGINE, self.game, match)
             self.assertIs(asked.next.kind, PromptKind.FLY)
             flown = fly_step(
@@ -1506,20 +1506,20 @@ class ZenithTests(unittest.TestCase):
         self.assertEqual(ENGINE.fly_candidates(self.game, self.match), [])
         holder = self.flier
         self.match.set_ball_carrier(holder)
-        with holding(holder, PersonalAbility.FLY):
+        with holding(holder, SpecialAbility.FLY):
             self.assertEqual(
                 ENGINE.fly_candidates(self.game, self.match), [],
             )
 
     def test_never_injured(self) -> None:
         self.match.mark_injured(self.flier)
-        with holding(self.flier, PersonalAbility.FLY):
+        with holding(self.flier, SpecialAbility.FLY):
             self.assertEqual(
                 ENGINE.fly_candidates(self.game, self.match), [],
             )
 
     def test_not_a_new_play(self) -> None:
-        with holding(self.flier, PersonalAbility.FLY):
+        with holding(self.flier, SpecialAbility.FLY):
             result = begin_run_back(
                 ENGINE, self.game, self.match, new_play=True,
             )

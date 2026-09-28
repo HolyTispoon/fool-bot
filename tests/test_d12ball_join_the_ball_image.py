@@ -23,7 +23,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from cogs.d12ball_views import JoinTheBallView, PlayerActionView
 from d12ball.components import SPECIES_OOZE, TeamSide, catalog_player_id
 from d12ball.game import AIOpponent, GameMode
-from d12ball.personal_abilities import PERSONAL_ABILITIES, PersonalAbility
+from d12ball.special_abilities import SPECIAL_ABILITIES, SpecialAbility
 from d12ball.prompts import PromptKind
 from roster import fielded_of_species
 from save_patches import suppressed_cog_saves
@@ -62,7 +62,7 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # Nobody but the test's own joiner has an ability, so who is
         # fielded where decides nothing.
-        cleared = mock.patch.dict(PERSONAL_ABILITIES, {}, clear=True)
+        cleared = mock.patch.dict(SPECIAL_ABILITIES, {}, clear=True)
         cleared.start()
         self.addCleanup(cleared.stop)
 
@@ -100,8 +100,8 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
         game.match_state = match.to_dict()
 
         self.ability = mock.patch.dict(
-            PERSONAL_ABILITIES,
-            {catalog_player_id(joiner): (PersonalAbility.JOINS_THE_BALL, "test")},
+            SPECIAL_ABILITIES,
+            {catalog_player_id(joiner): (SpecialAbility.JOINS_THE_BALL, "test")},
         )
         return cog, game, challenger, joiner
 

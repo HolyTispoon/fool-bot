@@ -16,7 +16,7 @@ layout to keep right beside the printed one and the board's -- see
 docs/design/cards.md, "One layout for print and Discord".
 
 Nothing here reads a rule. What a card *is* is the catalog's; which
-face a game shows is `RulesEngine.personal_abilities_apply`, and
+face a game shows is `RulesEngine.special_abilities_apply`, and
 which skills a board card prints is `RulesEngine.card_skills`, both
 asked by the caller. Pillow is CPU-bound, so every render is the caller's to
 put in a worker thread (`asyncio.to_thread`), as every render on

@@ -12,7 +12,7 @@ what is here is how they are wired, and the reasoning the rules do not carry.
 
 **There are three modes, each adding to the one before** (the author,
 2026-09-25): training plays no ability, standard adds the species abilities,
-advanced adds the gambits and the personal abilities. Until then advanced
+advanced adds the gambits and the special abilities. Until then advanced
 mode was one switch over two modules (the gambits and these) with an
 opt-out for each (PR #177 review); the ruling moved these into basic (now standard) mode and
 named three modes to offer, so the opt-outs went from the screens.
@@ -56,7 +56,7 @@ named three modes to offer, so the opt-outs went from the screens.
   started; the tests use them the same way, to isolate the gambits from
   the species abilities in an advanced game. A rematch no longer carries
   them, since the game it opens could never have set them.
-- **The personal abilities are advanced mode's** -- see "Personal
+- **The special abilities are advanced mode's** -- see "Special
   abilities" below.
 - **Nothing may read either bool, or the mode, to decide a rule.**
   `RulesEngine.gambits_apply` and `species_abilities_apply` are
@@ -99,7 +99,7 @@ named three modes to offer, so the opt-outs went from the screens.
     fires -- the same tolerance `turn_handler_candidates` shows a stale
     carrier.
 
-### Personal abilities
+### Special abilities
 
 Law 21: thirty-one players' own abilities and five players' advanced
 skill scores -- a line for every one of the thirty-six since 2026-09-26
@@ -110,19 +110,17 @@ mechanic of its own. Two are not -- Glompex's join and Zenith's Fly are
 a coach's choice at a moment nothing else asks one, and are prompts of
 their own (below).
 
-- **What a player reads says "special ability"; the code says
-  `personal`.** The author renamed Law 21 *Special abilities* on
-  2026-09-28, back to the word they were first specified in, and every
-  sentence the bot or the web app shows -- the narration's "(special
-  ability)", the mode description, the roster's **Special:** line --
-  follows. The identifiers (`personal_abilities.py`, `PersonalAbility`,
-  `has_personal_ability`, `personal_ability_text`, the wire key
-  `personal`) were left alone: renaming them changes nothing a player
-  sees, and the wire key is read by the page.
+- **They are special abilities, everywhere.** The Charter called them
+  personal abilities until the author renamed Law 21 *Special
+  abilities* on 2026-09-28, back to the word they were first specified
+  in; every sentence the bot and the web app show, and every name in the
+  code (`special_abilities.py`, `SpecialAbility`, `has_special_ability`,
+  `special_abilities_apply`, the wire key `special`), followed the same
+  day. No saved key carried the old name, so no save changed.
 
-- **`d12ball/personal_abilities.py` is the one place a player is tied to
+- **`d12ball/special_abilities.py` is the one place a player is tied to
   an ability.** The sheet carries a sentence, not a key, so the table
-  maps a catalog id to a `PersonalAbility` *and keeps the sentence it
+  maps a catalog id to a `SpecialAbility` *and keeps the sentence it
   was built from*. `TableTests` compares each sentence with
   `players.json`: when the author rewords or moves an ability, the
   import changes the sentence and the test fails, rather than the old
@@ -130,8 +128,8 @@ their own (below).
   every number the abilities change, beside the ones in
   `components.py` they replace. **Nothing else may key a rule on a
   player id.**
-- **`RulesEngine.has_personal_ability` is the one question**, the twin
-  of `has_species_ability`: the mode gate (`personal_abilities_apply`:
+- **`RulesEngine.has_special_ability` is the one question**, the twin
+  of `has_species_ability`: the mode gate (`special_abilities_apply`:
   advanced, never a tutorial) folded into the lookup, a second-side card
   resolved to its person (`catalog_player_id`). It tolerates no game
   and no player because roll sites ask it of dice that belong to nobody.
@@ -158,7 +156,7 @@ their own (below).
 - **Each ability is asked where its number already lived**, never
   re-derived:
   - *Volatile* -- `ignite` reads Sizzifizik's faces and Blazebulk's
-    always-blaze, and marks the roll with `IgnitedRoll.personal`, from
+    always-blaze, and marks the roll with `IgnitedRoll.special`, from
     which `rule` (the ignition die's caption) and `explain` word it.
     Brightburn's burn neither raises the opponent's tier
     (`IgnitedRoll.upgrades_opponent`, read by `volatile_raises_tier`)
@@ -318,12 +316,12 @@ their own (below).
     `run_back_flown`, which `run_back_displaced` and
     `crowded_candidates` leave alone and `run_back_moved` starts from,
     so a flier never charges up.
-- **The roster shows them, through `RulesEngine.personal_ability_text`.**
-  In a game playing the personal abilities, `/d12ball team_roster` lists
+- **The roster shows them, through `RulesEngine.special_ability_text`.**
+  In a game playing the special abilities, `/d12ball team_roster` lists
   each player's sheet sentence under their line, on by default
   (`advanced_abilities`), while the role's stays off unless asked for
   (`role_abilities`): the role badge already names the role's, and a
-  personal ability is the one thing on the roster the badge does not.
+  special ability is the one thing on the roster the badge does not.
   The two are shown side by side because in play a player keeps both.
   The mode gate is the engine's, so the cog never reads `game.mode` or
   `advanced_ability` to decide whether to show it; the sentence is
@@ -342,7 +340,7 @@ their own (below).
     length, not the fallbacks'.
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
-  Demons with personal lines, are on the field; the seed was re-swept
+  Demons with special lines, are on the field; the seed was re-swept
   when they came in (see its docstring). The per-ability tests hand an
   ability to a fielded player by patching the table (`holding`), so no
   test depends on the roster.

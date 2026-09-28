@@ -1137,7 +1137,7 @@ what the page adds is a place to open them.
 | `/d12ball maneuver_reference` | The hexagon, `render.render_maneuver_reference_image` | The gambit tier where `engine.gambits_apply(game)`, basic everywhere else: `D12Ball.reference_tier`, **which is in the cog** |
 | `/d12ball role_abilities_reference` | The role card, `role_cards.render_role_card` over `player_catalog.role_profiles` | One card for every mode |
 | `/d12ball species_abilities_reference` | The species card's two faces, `species_cards.render_species_card` over `CARD_FACES[0]`, **chosen in the cog** (`build_species_reference_files`) | Where `engine.species_abilities_apply(game)` |
-| `/d12ball team_reference` | A team's player cards in catalog order, `player_cards.render_player_card`, or `render_player_card_back` where `engine.personal_abilities_apply(game)` | The seat's own team first; both for an observer |
+| `/d12ball team_reference` | A team's player cards in catalog order, `player_cards.render_player_card`, or `render_player_card_back` where `engine.special_abilities_apply(game)` | The seat's own team first; both for an observer |
 
 **Two findings from reading the code**, which is why this is a step
 and not a page section:
@@ -1193,7 +1193,7 @@ Read CLAUDE.md, docs/design/web-app.md, docs/design/cards.md,
 docs/design/rulebooks.md, docs/design/rules-and-data.md ("how
 /d12ball rules_* serve the living rules") and
 docs/design/species-abilities.md (gambits_apply,
-species_abilities_apply, personal_abilities_apply). Branch off an
+species_abilities_apply, special_abilities_apply). Branch off an
 up-to-date main. Assumes step 2 of docs/web-app-next.md has landed
 (the room's routes); if it has not, use the /api/game/ prefix
 webapp/server.py has today.
@@ -1238,7 +1238,7 @@ drawing or text.
      faces from item 1), and a team's cards through the player-card
      route webapp/pictures.py already serves. In a room the page asks
      the model which: maneuver_reference_tier(game),
-     species_abilities_apply(game), personal_abilities_apply(game);
+     species_abilities_apply(game), special_abilities_apply(game);
      the room's state carries those three answers so app.js never
      decides one.
 4. The page: a "Rules & aids" button in the room's header and on the

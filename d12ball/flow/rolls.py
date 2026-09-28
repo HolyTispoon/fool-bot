@@ -80,10 +80,10 @@ from d12ball.formatting import (
     player_with_role,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
-from d12ball.personal_abilities import (
+from d12ball.special_abilities import (
     BOOST_BONUS,
     BOOST_DRAIN_COST,
-    PersonalAbility,
+    SpecialAbility,
 )
 from d12ball.prompts import (
     PendingPrompt,
@@ -951,8 +951,8 @@ def after_the_contest(
         was_high_pass
         and not turnover_occurred
         and match.can_attempt_score(match.ball.possession)
-        and engine.has_personal_ability(
-            game, winner_id, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        and engine.has_special_ability(
+            game, winner_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         )
     ):
         return {

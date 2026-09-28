@@ -283,7 +283,7 @@ the lobby's toggle does, so `/d12ball create_game tutorial:true` and
 the web app's tutorial are Training on the 7-space board. Before, a
 tutorial made that way carried `mode="basic"`. It was already *played*
 as training, since `species_abilities_apply` and
-`personal_abilities_apply` never answer yes for a tutorial, but it was
+`special_abilities_apply` never answer yes for a tutorial, but it was
 described and offered as basic (now standard) mode. A tutorial saved as `basic` before
 this still loads as it was; nothing rewrites a save.
 

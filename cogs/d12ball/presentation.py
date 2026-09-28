@@ -410,21 +410,21 @@ class PresentationMixin:
         entry += f" — {count} {token_emoji}"
         if conditions:
             entry += f" — {', '.join(conditions)}"
-        # The personal ability, in a game playing them, is on unless the
+        # The special ability, in a game playing them, is on unless the
         # coach turns it off, where the role's is off unless asked for:
         # the role's is the same on every roster and the badge already
-        # names it, and a personal ability is the one thing here a coach
+        # names it, and a special ability is the one thing here a coach
         # cannot read off the badge. It is played beside the role's
         # (Law 21), so both may show. Not in italics, which is how the
         # role's reads, and because the sheet's own sentence may carry
         # markdown of its own (Gearclaw's "*Boost*").
-        personal = (
-            self.engine.personal_ability_text(game, player_id)
+        special = (
+            self.engine.special_ability_text(game, player_id)
             if show_advanced_abilities
             else ""
         )
-        if personal:
-            entry += f"\n     **Special:** {personal}"
+        if special:
+            entry += f"\n     **Special:** {special}"
         if show_role_abilities:
             ability = self.player_catalog.effective_profile(player).ability
             entry += f"\n     *{ability}*"
@@ -558,10 +558,10 @@ class PresentationMixin:
         """
         A team's printed player cards, one file each, for
         `/d12ball team_reference`: the advanced face in a game playing
-        the personal abilities and advanced skills, and the front
+        the special abilities and advanced skills, and the front
         everywhere else -- the front carries the role's ability and
         skills, which is the whole of a player in training and standard
-        mode. Which face is `personal_abilities_apply`'s answer, not
+        mode. Which face is `special_abilities_apply`'s answer, not
         the game's mode read here.
 
         In catalog order, which is the same whatever has happened on
@@ -571,7 +571,7 @@ class PresentationMixin:
         """
         render = (
             render_player_card_back
-            if self.engine.personal_abilities_apply(game)
+            if self.engine.special_abilities_apply(game)
             else render_player_card
         )
         files = []

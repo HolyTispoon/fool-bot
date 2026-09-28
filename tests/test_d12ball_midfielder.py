@@ -30,7 +30,7 @@ BONUS = "+3 Midfielder ability"
 class MidfielderBonusTests(unittest.TestCase):
 
     def setUp(self) -> None:
-        # Training mode, so no species or personal ability adds to
+        # Training mode, so no species or special ability adds to
         # either side and the +3 is the only thing being read.
         self.game = build_game(mode=GameMode.TRAINING)
         self.match = build_match(ENGINE, self.game)

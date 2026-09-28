@@ -558,21 +558,21 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   mode.
   - **What makes it the advanced one is what advanced mode plays for this
     player** (the author, 2026-09-25): their advanced skills in the stats row
-    (`advanced_card_skills` -- Hellguard prints 0/8), and **their personal
+    (`advanced_card_skills` -- Hellguard prints 0/8), and **their special
     ability instead of the role's** in the band where they have one
     (`advanced_card_ability`). The replacement is the card's, not the game's:
     in play a player keeps their role ability too, and its sentence is on the
     front. A player whose sheet sentence only names a higher skill prints that
     sentence ("High defensive skill.") as the sheet words it, and a player
-    with no personal ability prints the role's sentence on both faces.
+    with no special ability prints the role's sentence on both faces.
     `CardSkills` rather than a `RoleProfile` carries the numbers, because an
     advanced score is not held to 1-6.
   - **It is laid out exactly as the front** (the author, 2026-09-27): the
     same header, stats panel and ability band, the role badge in front of
-    the personal ability and the species badge and ability name under it.
+    the special ability and the species badge and ability name under it.
     `draw_face` draws both faces; they differ only in the subtitle, the
     skills and the sentence they are handed. The role badge stays in front
-    of a personal ability because the ability belongs to a player of that
+    of a special ability because the ability belongs to a player of that
     role, and the badge is what marks the row as the player's own rather
     than the species'.
   - **This replaced a fixed band with the species keyword in a pill, and the
@@ -584,14 +584,14 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     all went. The back no longer carries the species' short form, as the
     front never did: the species' rules are on the species reference cards.
   - **A long sentence is set smaller rather than squeezing the portrait
-    past its floor.** At 36 a five-line personal ability (Scorchit's,
+    past its floor.** At 36 a five-line special ability (Scorchit's,
     Glompex's, Zenith's, Quantor's) would leave the portrait 260-315 units
     against `MIN_PORTRAIT_HEIGHT`'s 380, so `ability_band` comes down a
     point at a time until the portrait keeps its floor, stopping at
     `ABILITY_MIN_SIZE` (24): those four print at 28-33 and every other
     card, front and back, at 36. A card whose sentence is smaller than its
     neighbours' was judged better than a card that has stopped being a
-    picture. An import that lengthens a personal ability past what 24 fits
+    picture. An import that lengthens a special ability past what 24 fits
     would push the portrait under the floor, so look at the backs after one.
   - **`duplex_order` reverses every row of the back sheet.** A duplex print
     comes out flipped about the paper's long edge, so the leftmost cell of a
@@ -813,7 +813,7 @@ reading the same card:
   `all_teams`), one message a team, nine cards inside Discord's ten
   attachments a message. **Which face is the game's mode**:
   `render_player_card_back`, the advanced face, where
-  `RulesEngine.personal_abilities_apply` says the game plays the personal
+  `RulesEngine.special_abilities_apply` says the game plays the special
   abilities and advanced skills, and the front everywhere else. The cards are
   in catalog order rather than the roster's by-place order, so a card is in
   the same place every time it is asked for.

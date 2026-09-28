@@ -3063,7 +3063,7 @@ def render_mind_pull_die(
     verdict_color = (
         MIND_PULL_AURA_COLOR if pulled else MIND_PULL_MISSED_COLOR
     )
-    # A personal ability's own band (Spectra, Law 21) where the roll
+    # A special ability's own band (Spectra, Law 21) where the roll
     # carries one; the rule's otherwise.
     target_label = target_label or mind_pull_target_label()
     # Measured on a throwaway canvas: the real one cannot be created
@@ -3232,7 +3232,7 @@ def render_volatile_die(
     sides") and whose roll it is still has to be legible.
 
     `explainer` is the rule the image is captioned with where a
-    personal ability changed it (`IgnitedRoll.rule`); None is the plain
+    special ability changed it (`IgnitedRoll.rule`); None is the plain
     Volatile rule.
     """
     verdict = VOLATILE_BLAZE_TEXT if blaze else VOLATILE_BURN_TEXT

@@ -12,7 +12,7 @@ is the routes and what the page is told --
   observer, and nobody at all, may open every aid;
 - **which aids a room gets is the model's**: the room's state carries
   `maneuver_reference_tier`, `species_abilities_apply` and
-  `personal_abilities_apply` as the engine answers them, and they
+  `special_abilities_apply` as the engine answers them, and they
   change with the game's mode;
 - **the rules are headed with the Charter's numbers** and grouped by
   its Laws: every heading the Charter build numbers is a `RulesSection`
@@ -417,7 +417,7 @@ class RoomAidsTests(Harness):
                 )
                 self.assertEqual(
                     room["advanced_cards"],
-                    ENGINE.personal_abilities_apply(game),
+                    ENGINE.special_abilities_apply(game),
                 )
                 self.assertEqual(
                     (room["maneuver_tier"], room["species_abilities"],

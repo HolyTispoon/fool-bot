@@ -1313,7 +1313,7 @@ class SmoothView(SafeView):
 
 class PlayerDecisionView(SafeView):
     """
-    A yes or a no a personal ability puts to one player's coach (Law 21)
+    A yes or a no a special ability puts to one player's coach (Law 21)
     -- Glompex's join, Scorchit's forced test. Shaped like
     `MindPullView`: only that player's own coach may answer, and the
     player is in the custom_ids so an older offer cannot answer a newer

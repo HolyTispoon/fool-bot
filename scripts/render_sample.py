@@ -113,7 +113,7 @@ def match_from_saved_game(
         and game.species_abilities
         and not game.tutorial
     )
-    # ...and RulesEngine.personal_abilities_apply's, for the cards.
+    # ...and RulesEngine.special_abilities_apply's, for the cards.
     advanced = game.mode == GameMode.ADVANCED and not game.tutorial
     return match, f"PBD{game.game_number}", species_icons, advanced
 

@@ -52,7 +52,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
-from d12ball.personal_abilities import (
+from d12ball.special_abilities import (
     GLOMPEX_JOIN_COST,
     SCORCHIT_FORCED_TEST_TOKENS,
 )

@@ -765,7 +765,7 @@ with the rule the author gave on 2026-09-22.
   overshoot's does: the side that took the ball keeps it where it stands.
 - **Spectra pulls on 11 or more**, since +3 carries a total past 12.
 
-**In the bot**, all sixteen are played -- see "Personal abilities" in
+**In the bot**, all sixteen are played -- see "Special abilities" in
 docs/design/species-abilities.md.
 
 ### 2026-09-25 -- author, three modes: training, basic and advanced

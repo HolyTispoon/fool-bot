@@ -1704,11 +1704,11 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     Acidel (Merge)") in the side's modifiers, attack and defence in a
     skill test and the attack alone in a shot (Law 20.5), so the
     window's numbers are the dice's;
-  - **in an advanced game, a personal ability where it applies to the
+  - **in an advanced game, a special ability where it applies to the
     roll** -- labelled "Special ability" on the page, the author's word
-    (2026-09-28), where the Law says personal ability -- (the author, 2026-09-28: "only show personal abilities that
+    (2026-09-28), where the Law says special ability -- (the author, 2026-09-28: "only show special abilities that
     apply to the roll"), as the advanced face of the card prints it
-    (`personal_ability_text`), prefixed with whose it is in a wall.
+    (`special_ability_text`), prefixed with whose it is in a wall.
     Applies means it changes the roll's number, whether it is rolled,
     or what winning it means: the ignites, Voltus's Overdrive and
     Gearclaw's Boost, Zorch's speed (not on a shot, which adds it
@@ -1729,7 +1729,7 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     ("High defensive skill.") have it named where the roll adds that
     skill, read as `skills` under the game against the role's. Which
     ability goes with which part of which roll is `BEARINGS`; whether
-    the player holds it is `has_personal_ability`.
+    the player holds it is `has_special_ability`.
 - **Glompex's step onto the ball has a situation of its own**: the
   offer (`JOIN_THE_BALL`) is made before the cards are chosen, so its
   window is the challenge he would step into, with his ability as a
@@ -2069,7 +2069,7 @@ the tab and the Reading Room are handed.
 `aids`: the maneuvers table and the hexagon at
 `RulesEngine.maneuver_reference_tier(game)`, the species table and card
 only where `species_abilities_apply(game)`, the team cards in the face
-`personal_abilities_apply(game)` says the game holds, and the three
+`special_abilities_apply(game)` says the game holds, and the three
 answers themselves, so `app.js` decides none of them and never reads
 `game.mode`. The team cards come the seat's own team first (an
 observer's seat 1's); a room no longer draws them as a gallery, since

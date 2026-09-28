@@ -88,7 +88,7 @@ from d12ball.dice_brief import (
     score_attempt_brief,
 )
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
-from d12ball.personal_abilities import PersonalAbility
+from d12ball.special_abilities import SpecialAbility
 from d12ball.player_cards import species_ability
 from d12ball.render import (
     CHALLENGE_BAND_FULL,
@@ -2183,14 +2183,14 @@ class Bearing:
     """
     What bears on one part of a roll -- the player rolling a skill test's
     attack, a shot's wall, the one rolling an injury check: the species
-    whose ability reaches it, the personal abilities that act on it, and
+    whose ability reaches it, the special abilities that act on it, and
     the skill it adds, if any. **Which reminder goes with which roll,
     never whether an ability fires**: whether a player holds one is
-    `has_species_ability` / `has_personal_ability`, asked below.
+    `has_species_ability` / `has_special_ability`, asked below.
     """
 
     species: tuple[str, ...] = ()
-    personal: frozenset = frozenset()
+    special: frozenset = frozenset()
     skill: Optional[str] = None
 
 
@@ -2224,23 +2224,23 @@ def _situation_player(
     }
 
 
-#: The personal abilities any roll a Cyborg makes can carry: Voltus's
+#: The special abilities any roll a Cyborg makes can carry: Voltus's
 #: cheap Overdrive and Gearclaw's Boost, spent on the die (Law 21).
 _ON_THE_DIE = frozenset({
-    PersonalAbility.CHEAP_OVERDRIVE, PersonalAbility.BOOST,
+    SpecialAbility.CHEAP_OVERDRIVE, SpecialAbility.BOOST,
 })
 #: The ignites a Fire Demon's own die can carry in a skill test and on
 #: a shot -- Blazebulk's, Sizzifizik's, Brightburn's burn (Law 21).
 _IGNITES = frozenset({
-    PersonalAbility.ALWAYS_BLAZES, PersonalAbility.WIDE_IGNITION,
-    PersonalAbility.BRIGHT_BURN,
+    SpecialAbility.ALWAYS_BLAZES, SpecialAbility.WIDE_IGNITION,
+    SpecialAbility.BRIGHT_BURN,
 })
 
 #: What bears on each part of each roll the situation is asked over
 #: (the author, 2026-09-28: only what applies to the roll). Volatile
 #: reaches a skill test and the shooter's die, never an injury check or
 #: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls (Law
-#: 20.3.5). A personal ability is here where it changes the roll's
+#: 20.3.5). A special ability is here where it changes the roll's
 #: number, whether it is rolled, or what winning it means -- and on the
 #: maneuver challenge also what a maneuver does once it has won, since
 #: the coach is choosing one there (the author, 2026-09-28): Emberdash's
@@ -2254,36 +2254,36 @@ _IGNITES = frozenset({
 #: another player adds, the model's own line in the side's modifiers
 #: (`merge_bonus`); and a Mind Pull is the Telekinetics' ability
 #: already, which the window says.
-#: The personal abilities named on every roll the player is in: Bulwark
+#: The special abilities named on every roll the player is in: Bulwark
 #: is only Drained at 10, which is what his tokens mean on any of them
 #: (the author, 2026-09-28).
-ALWAYS_BEARS = frozenset({PersonalAbility.HIGH_DRAIN_THRESHOLD})
+ALWAYS_BEARS = frozenset({SpecialAbility.HIGH_DRAIN_THRESHOLD})
 
 BEARINGS: Mapping[str, Bearing] = {
     "skill_test_attack": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {
-            PersonalAbility.OVERDRIVE_UPGRADE,
-            PersonalAbility.OFFENSIVE_GAMBITS,
-            PersonalAbility.FORCES_THE_TEST,
-            PersonalAbility.DEFENSIVE_THROW,
-            PersonalAbility.SPEED_ROLLS,
+            SpecialAbility.OVERDRIVE_UPGRADE,
+            SpecialAbility.OFFENSIVE_GAMBITS,
+            SpecialAbility.FORCES_THE_TEST,
+            SpecialAbility.DEFENSIVE_THROW,
+            SpecialAbility.SPEED_ROLLS,
             # What an attacking card does once won -- the dribble, the
             # High Pass, the Pressure into the goal zone -- since the
             # coach is choosing it (the author, 2026-09-28).
-            PersonalAbility.FREE_BURST,
-            PersonalAbility.LONG_SET_UP,
-            PersonalAbility.PRESSURE_SHOT,
+            SpecialAbility.FREE_BURST,
+            SpecialAbility.LONG_SET_UP,
+            SpecialAbility.PRESSURE_SHOT,
         },
         "offense",
     ),
     "skill_test_defence": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {
-            PersonalAbility.OVERDRIVE_UPGRADE,
-            PersonalAbility.DEFENSIVE_GAMBITS,
-            PersonalAbility.FORCES_THE_TEST,
-            PersonalAbility.SPEED_ROLLS,
+            SpecialAbility.OVERDRIVE_UPGRADE,
+            SpecialAbility.DEFENSIVE_GAMBITS,
+            SpecialAbility.FORCES_THE_TEST,
+            SpecialAbility.SPEED_ROLLS,
         },
         "defense",
     ),
@@ -2293,14 +2293,14 @@ BEARINGS: Mapping[str, Bearing] = {
     "contest_attack": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {
-            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+            SpecialAbility.SPEED_ROLLS, SpecialAbility.WINS_CONTESTS,
         },
         "offense",
     ),
     "contest_defence": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {
-            PersonalAbility.SPEED_ROLLS, PersonalAbility.WINS_CONTESTS,
+            SpecialAbility.SPEED_ROLLS, SpecialAbility.WINS_CONTESTS,
         },
         "defense",
     ),
@@ -2309,36 +2309,36 @@ BEARINGS: Mapping[str, Bearing] = {
     "set_up": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
         _ON_THE_DIE | _IGNITES | {
-            PersonalAbility.CLEAR_SHOT, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+            SpecialAbility.CLEAR_SHOT, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         },
         "offense",
     ),
     "shot_attack": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
-        _ON_THE_DIE | _IGNITES | {PersonalAbility.CLEAR_SHOT},
+        _ON_THE_DIE | _IGNITES | {SpecialAbility.CLEAR_SHOT},
         "offense",
     ),
     "shot_defence": Bearing(
-        (), frozenset({PersonalAbility.FULL_BLOCK}), "defense",
+        (), frozenset({SpecialAbility.FULL_BLOCK}), "defense",
     ),
     "injury": Bearing(
         (SPECIES_CYBORG,),
         _ON_THE_DIE | {
-            PersonalAbility.INJURY_IGNITION, PersonalAbility.SPEED_ROLLS,
+            SpecialAbility.INJURY_IGNITION, SpecialAbility.SPEED_ROLLS,
         },
     ),
     "own_goal": Bearing(
         (SPECIES_CYBORG,),
         _ON_THE_DIE | {
-            PersonalAbility.DEFENSIVE_THROW, PersonalAbility.SPEED_ROLLS,
+            SpecialAbility.DEFENSIVE_THROW, SpecialAbility.SPEED_ROLLS,
         },
         "offense",
     ),
     "mind_pull": Bearing(
         (),
         frozenset({
-            PersonalAbility.STRONG_PULL, PersonalAbility.FREE_PULL,
-            PersonalAbility.ADJACENT_PULL,
+            SpecialAbility.STRONG_PULL, SpecialAbility.FREE_PULL,
+            SpecialAbility.ADJACENT_PULL,
         }),
     ),
 }
@@ -2354,9 +2354,9 @@ def _abilities(
     What a player brings to this roll beyond their skill (the author,
     2026-09-28): their species' ability where it reaches the roll and
     the game plays it, in the sheet's own short words (`species.json`,
-    never shortened here), and in an advanced game their personal
-    ability where it applies to the roll (`_personal_bears`), as the
-    advanced face of their card prints it (`personal_ability_text`).
+    never shortened here), and in an advanced game their special
+    ability where it applies to the roll (`_special_bears`), as the
+    advanced face of their card prints it (`special_ability_text`).
     """
     notes = []
     for kind in bearing.species:
@@ -2370,29 +2370,29 @@ def _abilities(
                 "name": entry.get("name", ""),
                 "text": entry["ability_short"],
             })
-    personal = engine.personal_ability_text(game, player_id)
-    if personal and _personal_bears(engine, game, player_id, bearing):
+    special = engine.special_ability_text(game, player_id)
+    if special and _special_bears(engine, game, player_id, bearing):
         # "Special ability", the author's word for it on the page
-        # (2026-09-28); the Law calls it a personal ability.
+        # (2026-09-28); the Law calls it a special ability.
         notes.append({
-            "kind": "personal", "name": "Special ability", "text": personal,
+            "kind": "special", "name": "Special ability", "text": special,
         })
     return notes
 
 
-def _personal_bears(
+def _special_bears(
     engine: RulesEngine,
     game: D12BallGame,
     player_id: str,
     bearing: Bearing,
 ) -> bool:
-    """Whether a player's personal line applies to this roll: an ability
+    """Whether a player's special line applies to this roll: an ability
     the bearing names, or -- for the players whose line is an advanced
     skill score ("High defensive skill.") -- a raised score in the skill
     this roll adds, read as the game plays it against the role's."""
     if any(
-        engine.has_personal_ability(game, player_id, ability)
-        for ability in bearing.personal | ALWAYS_BEARS
+        engine.has_special_ability(game, player_id, ability)
+        for ability in bearing.special | ALWAYS_BEARS
     ):
         return True
     if bearing.skill is None:
@@ -2693,13 +2693,13 @@ def _notes(
     A special ability that bears on the situation from somebody who is
     not rolling -- Quantor waiting on a teammate's pass, Glompex offered
     the step onto the ball -- said under the row with whose it is, as
-    the advanced face of their card prints it (`personal_ability_text`).
+    the advanced face of their card prints it (`special_ability_text`).
     """
     notes = []
     for player_id in player_ids:
         if player_id is None:
             continue
-        text = engine.personal_ability_text(game, player_id)
+        text = engine.special_ability_text(game, player_id)
         if not text:
             continue
         notes.append({
@@ -2912,8 +2912,8 @@ def _set_up_situation(
     a High Pass reaching the goal -- is the ask's to say and has none.
     """
     shooter = prompt.player_id
-    if shooter is None or not engine.has_personal_ability(
-        game, shooter, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+    if shooter is None or not engine.has_special_ability(
+        game, shooter, SpecialAbility.SHOOTS_OFF_ANY_PASS,
     ):
         return None
     skill = engine.skills(game, shooter).offense
