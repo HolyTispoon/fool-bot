@@ -382,6 +382,16 @@ which the code still cites by finding number.
   that fit the structure already described.
 - **Read the design doc for the area before editing it**, and only that one.
   Each is five to fifteen minutes of context; all of them is the whole budget.
+- **A change to what the web app shows is shown to the author at desktop,
+  tablet and phone widths**, in every game mode it looks different in --
+  standard and advanced at least, training too where it differs (the
+  author, 2026-09-28). The suite does not see the page, so render it:
+  headless Chromium over a game staged as `landing/capture.py` stages
+  one, opened to the view the change is in, and send the pictures. The
+  tablet layout needs a touch pointer as well as the width (`TABLET` in
+  `webapp/static/app.js` asks `any-pointer: coarse`), so emulate touch
+  or it renders as a narrow desktop; a tablet held upright gets the
+  phone's layout (`max-width: 960px`).
 - **Use an Explore subagent for any wide search** -- sweeping many files, a
   naming convention, "where is X read", anything that would take more than
   two or three greps. Every Bash result lands in the main context permanently
