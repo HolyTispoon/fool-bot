@@ -905,7 +905,11 @@ two shapes, by which way it is held:
   the title under the jumbotron's teams. The split is even, not the
   pill first, because the jumbotron sits over the bar's middle; on the
   narrowest phones on their side (667px) the name is cut to a letter
-  or two.
+  or two. The laid-over line is one baseline -- the names, the
+  score, the minute and the half -- centred on the bar by its own
+  height, and the way back and the room's number share one too (the
+  author, 2026-09-28: text side by side in different faces is aligned
+  on its baseline, never centred).
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
@@ -977,7 +981,9 @@ the coach is looking at it.
   possession, its d12 showing the ball's speed as the field's does --
   the mark is drawn on both sides and hidden on the one without the
   ball, so the two columns are one height and the names and the
-  Home/Visitors lines sit on the same rows (the author, 2026-09-28,
+  Home/Visitors lines sit on the same rows, and the two names share the
+  score's baseline, in every layout, since centred the smaller names
+  sat higher than the goals (the author, 2026-09-28,
   who also dropped the arrow for the way each team attacks and the
   "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow

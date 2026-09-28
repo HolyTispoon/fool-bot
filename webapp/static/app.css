@@ -97,7 +97,9 @@ img { display: block; }
   top: 0;
   z-index: 5;
 }
-.topbar-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* The way back and the room's number sit on one baseline, though they
+   are set in different faces and sizes; the divider is centred. */
+.topbar-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .back {
   color: var(--muted);
   font-weight: 600;
@@ -107,7 +109,7 @@ img { display: block; }
 .back:hover, .back:focus-visible { color: var(--strong); }
 .hash { color: var(--faint); font-size: 24px; font-weight: 500; }
 .channel-name { color: var(--strong); font-weight: 600; white-space: nowrap; }
-.topbar-divider { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.topbar-divider { align-self: center; width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
 .topic {
   color: var(--muted);
   font-size: 14px;
@@ -746,12 +748,14 @@ select {
   border-radius: 14px;
   color: var(--text);
 }
+/* The two names and the score on one baseline, in every layout: the
+   names are smaller than the goals, and centred they sat higher. */
 .jumbo-teams {
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: baseline;
   gap: 20px;
 }
 .jumbo-side { min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
@@ -1481,7 +1485,7 @@ button.goal { display: block; }
      and the tiles are the wide screen's; a time out that is lit is on
      the sheet with everything else lit. */
   .jumbotron { order: 1; gap: 8px; padding: 6px 10px; border-radius: 12px; }
-  .jumbo-teams { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .jumbo-teams { display: flex; align-items: baseline; gap: 6px; flex: 1 1 auto; min-width: 0; }
   .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
@@ -1648,13 +1652,16 @@ button.goal { display: block; }
   }
 
   /* The jumbotron, laid over the middle of the top bar as one line. */
+  /* One baseline for the whole line -- the names, the score, the
+     minute and the half -- and the line centred on the bar by its own
+     height, since a baseline row sits at the top of a fixed one. */
   .jumbotron {
     position: fixed;
-    top: 0;
+    top: calc(var(--topbar) / 2);
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 6;
-    height: var(--topbar);
+    align-items: baseline;
     max-width: calc(100vw - 280px);
     padding: 0 6px;
     gap: 10px;
@@ -1662,7 +1669,7 @@ button.goal { display: block; }
     border: 0;
     border-radius: 0;
   }
-  .jumbo-teams { display: flex; align-items: center; gap: 8px; flex: none; }
+  .jumbo-teams { display: flex; align-items: baseline; gap: 8px; flex: none; }
   .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
@@ -1672,7 +1679,7 @@ button.goal { display: block; }
   .jumbo-rule { align-self: center; height: 18px; }
   .jumbo-ball { font-size: 0; gap: 0; }
   .jumbo-ball.idle { display: none; }
-  .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: center; gap: 8px; }
+  .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: baseline; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }
   .jumbo-half { font-size: 10px; color: var(--muted); }
