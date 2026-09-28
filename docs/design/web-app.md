@@ -1784,11 +1784,13 @@ the tab and the Reading Room are handed.
   table, two of them -- the offense's and the defense's -- set like the
   roles table, in place of the printed card faces they used to be (the
   author, 2026-09-28). Each row is the card's own data from
-  `maneuvers.json`: its die range, its name, its time, its effect in
-  the sheet's words, and the opposing cards its rank beats, read off
+  `maneuvers.json`: its name, its time, its effect in the sheet's
+  words, and the opposing cards its rank beats, read off
   `defeats_rank` -- both of that rank's cards where both tiers are
-  shown, because rank alone decides. The six basic ones always, and
-  the six gambits among them where the game's hexagon is the gambit one -- an
+  shown, because rank alone decides. It has no die range: a maneuver
+  has none (the author, 2026-09-28), whatever the import still writes
+  into `die_values`. The six basic ones always, and the six gambits
+  among them where the game's hexagon is the gambit one -- an
   advanced game that plays them (the author, 2026-09-27), which is
   `maneuver_reference_tier`'s answer, never `game.mode` read here. The
   roles table is `role_profiles` -- the role card's own numbers, its

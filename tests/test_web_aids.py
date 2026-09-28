@@ -357,10 +357,6 @@ class ReferenceTests(Harness):
                     self.assertFalse(row["gambit"])
                     self.assertEqual(row["effect"], card.effect)
                     self.assertEqual(row["time"], card.time)
-                    self.assertEqual(
-                        row["dice"],
-                        f"{min(card.die_values)}\u2013{max(card.die_values)}",
-                    )
                     # Only the tiers shown, and the rank the card beats.
                     beaten = [
                         one for one in catalog.for_tier(opposing, MANEUVER_TIER_BASIC)

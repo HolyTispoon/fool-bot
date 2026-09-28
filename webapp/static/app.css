@@ -2318,7 +2318,6 @@ body.front .front-door.stats-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
-.maneuver-table .die { white-space: nowrap; color: var(--gold); }
 .maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
 .maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .maneuver-table .beats { color: var(--text); font-size: 11px; }

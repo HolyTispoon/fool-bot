@@ -571,9 +571,9 @@ def _species() -> list[dict]:
 def maneuver_rows(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
     """
     The maneuvers as two tables, the offense's and then the defense's,
-    from the data the cards are printed from: each card's die range, its
-    name, the opposing cards its rank beats, its time and its effect in
-    the sheet's own words (never cut down here). The rows are in the
+    from the data the cards are printed from: each card's name, the
+    opposing cards its rank beats, its time and its effect in the
+    sheet's own words (never cut down here). The rows are in the
     catalog's order -- by rank, a rank's gambit under its basic card --
     and hold only the tiers asked for; `beats` names the opposing cards
     of those tiers too, because rank alone decides who wins.
@@ -587,7 +587,6 @@ def maneuver_rows(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
                 "name": maneuver.name,
                 "tier": maneuver.tier,
                 "gambit": maneuver.is_gambit,
-                "dice": f"{min(maneuver.die_values)}\u2013{max(maneuver.die_values)}",
                 "beats": " / ".join(
                     one.name
                     for one in catalog.side(opposing)
@@ -816,11 +815,10 @@ def references_html(offered: dict) -> str:
     same dict (`webapp/static/aids.js`).
     """
     maneuvers = "".join(
-        '<table class="ref-table maneuver-table"><tr><th>Die</th>'
-        f'<th>{html.escape(table["name"])}</th><th>Beats</th><th>Effect</th></tr>'
+        '<table class="ref-table maneuver-table">'
+        f'<tr><th>{html.escape(table["name"])}</th><th>Beats</th><th>Effect</th></tr>'
         + "".join(
-            f'<tr><td class="num die">{one["dice"]}</td>'
-            f'<td><span class="ability-name">{html.escape(one["name"])}</span>'
+            f'<tr><td><span class="ability-name">{html.escape(one["name"])}</span>'
             + ('<span class="tier-tag">Gambit</span>' if one["gambit"] else "")
             + f'<span class="maneuver-time">{html.escape(one["time"])}</span></td>'
             f'<td class="beats">{html.escape(one["beats"])}</td>'

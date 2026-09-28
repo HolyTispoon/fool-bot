@@ -135,10 +135,9 @@
     if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
     const maneuvers = (aids.maneuver_rows || []).map((table) =>
       h("table", { class: "ref-table maneuver-table" },
-        h("tr", {}, h("th", {}, "Die"), h("th", {}, table.name), h("th", {}, "Beats"), h("th", {}, "Effect")),
+        h("tr", {}, h("th", {}, table.name), h("th", {}, "Beats"), h("th", {}, "Effect")),
         table.rows.map((one) =>
           h("tr", {},
-            h("td", { class: "num die" }, one.dice),
             h("td", {},
               h("span", { class: "ability-name" }, one.name),
               one.gambit ? h("span", { class: "tier-tag" }, "Gambit") : null,
