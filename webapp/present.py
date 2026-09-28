@@ -1239,7 +1239,7 @@ def _distance(asked: Asked) -> list:
             # ✕ on that goal zone instead: the side asked is the defense,
             # and the end is the one the offense defends.
             place = off_the_end(asked.attacking_goal())
-            chip = f"{distance} back · into the goal zone"
+            chip = f"{distance} back · goal zone"
         controls.append(
             button(
                 _spaces(distance),

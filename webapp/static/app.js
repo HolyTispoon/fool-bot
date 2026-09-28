@@ -860,7 +860,7 @@ function litItems(layout) {
         `${name}'s goal`, goals));
     }
     const out = lit.out[side];
-    if (out) items.push(item(thing("out", out, "✕", " out"), "Out of play", out));
+    if (out) items.push(item(thing("out", out, "✕", " out"), "The goal zone", out));
     const tile = lit.tile[side];
     if (tile) {
       items.push(item(thing("tile", tile, h("span", { class: "repeat-tile", style: `--team: ${colour}` }, "TIME OUT"), " tile"),
