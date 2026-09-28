@@ -53,7 +53,7 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 ![Figure 3 - The six cards](rulebooks/figures/fig-03-the-six-cards.png)
 
-**A maneuver is a fight for the ball between two players**: your handler, and one defender. Both coaches choose a card in secret and reveal together. The offense chooses from Low Pass, Dribble Advance and High Pass; the defense from Deflect, Steal and Pressure. Each card says what it does. *(Law 6.1, 6.2)*
+**A maneuver is a fight for the ball between two players**: your handler, and one defender. Both coaches choose a card in secret and reveal together. The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. Each card says what it does. *(Law 6.1, 6.2)*
 
 ![Figure 2 - The cycle](rulebooks/figures/fig-02-the-cycle.png)
 
@@ -68,13 +68,13 @@ Two coaches. Nine players each, six on the field. Thirty minutes on a clock that
 
 The board is set up as in Figure 1. You play home, purple. A friend, or your other hand, plays the visitors, teal, and plays the card this book names. Each turn is one lesson: the position, what both sides play, what happens, and the rule it shows. This is the same opening the bot's tutorial plays, turn for turn.
 
-### Turn 1: Dribble Advance beats Deflect
+### Turn 1: Dribble beats Deflect
 
-Your Playmaker, Emberdash, is on the ball at M2, with the visitors' Playmaker standing on the same space -- so they challenge. **You play Dribble Advance. The visitors play Deflect.**
+Your Playmaker, Emberdash, is on the ball at M2, with the visitors' Playmaker standing on the same space -- so they challenge. **You play Dribble. The visitors play Deflect.**
 
 ![Figure 5 - Beat 1](rulebooks/figures/fig-05-beat-1.png)
 
-Dribble Advance beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, M2 to V1, which is the Playmaker's own ability; anyone else moves one -- and then sets the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
+Dribble beats Deflect on rank alone, so nothing is rolled. Your Playmaker carries the ball forward -- **two spaces**, M2 to V1, which is the Playmaker's own ability; anyone else moves one -- and then sets the ball's speed by up to their offensive skill. Pick any speed you like this turn; it will not survive to matter. *(Law 6.6, 2.6)*
 
 You are standing in your shooting range now, so next turn a shot would be offered.
 
@@ -90,13 +90,13 @@ That is a **turnover**, and a turnover by steal makes everyone outside their own
 
 > A ball only comes **loose** when it lands on an empty space. Page 12 shows all three cases.
 
-### Turn 3: a challenger is sent, and Pressure beats Dribble Advance
+### Turn 3: a challenger is sent, and Pressure beats Dribble
 
-The visitors have the ball on M3 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on M2 or your Winger on V1, one space and exhaust 1 either way. Send the Playmaker. **The visitors play Dribble Advance. You play Pressure.**
+The visitors have the ball on M3 and nobody of yours is standing there, so before they play you are asked to **send a challenger**: your Playmaker on M2 or your Winger on V1, one space and exhaust 1 either way. Send the Playmaker. **The visitors play Dribble. You play Pressure.**
 
 ![Figure 7 - Beat 3](rulebooks/figures/fig-07-beat-3.png)
 
-Pressure beats Dribble Advance. Their handler and the ball are **shoved one space back** for them, to V1, and your challenger moves forward onto the same space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
+Pressure beats Dribble. Their handler and the ball are **shoved one space back** for them, to V1, and your challenger moves forward onto the same space. Possession does not change -- they still have the ball -- but they have lost ground, and you are standing on it. *(Law 6.10, Law 9)*
 
 > Push a handler who is already on their last space and they roll to avoid an **own goal** *(Law 11)*.
 
@@ -133,7 +133,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ![Figure 13 - Ball speed](rulebooks/figures/fig-13-ball-speed.png)
 
-**Ball speed.** The ball is a d12 and the face it shows is its speed. Half the speed, rounded down, is the **modifier**: it is added to your shot, and to a defender's Steal against you. Only maneuvers change the speed -- Low Pass +1, Deflect -1, and a Dribble Advance or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
+**Ball speed.** The ball is a d12 and the face it shows is its speed. Half the speed, rounded down, is the **modifier**: it is added to your shot, and to a defender's Steal against you. Only maneuvers change the speed -- Low Pass +1, Deflect -1, and a Dribble or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
 
 ![Figure 11 - Where the ball comes to rest](rulebooks/figures/fig-11-where-the-ball-lands.png)
 
@@ -164,7 +164,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
-**Advanced maneuvers and gambits (advanced).** Every rank gets a second card, the **advanced maneuver**: the same maneuver, bigger. Playing one is **making a gambit**. Win on rank and the gambit succeeds; lose on rank and it fails, and a failed gambit has a price. Skilled Pass reaches any teammate within 3; Dribble Burst runs up to 4; Setup Pass sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. An advanced maneuver is the advanced version of the basic card on its rank, so the cycle does not change. You may make gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and only against a challenge. *(Law 19)*
+**Advanced maneuvers and gambits (advanced).** Every rank gets a second card, the **advanced maneuver**: the same maneuver, bigger. Playing one is **making a gambit**. Win on rank and the gambit succeeds; lose on rank and it fails, and a failed gambit has a price. Pinpoint reaches any teammate within 3; Burst runs up to 4; Cross sets up a shot; Clear knocks the ball back 3; Intercept steals forward; Double Team pushes 2 with help. An advanced maneuver is the advanced version of the basic card on its rank, so the cycle does not change. You may make gambits only while your team is **behind** -- fewer goals, or more Exhausted-or-Injured players on the field -- and only against a challenge. *(Law 19)*
 
 ![Figure 15 - The four species](rulebooks/figures/fig-15-the-species.png)
 
@@ -182,7 +182,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 | Fullback | 1 | 6 | +1 space on a pass or a deflection |
 | Defender | 2 | 5 | A won Pressure also steals the ball |
 | Midfielder | 3 | 4 | +3 on a skill test for a Low Pass or a Steal |
-| Playmaker | 4 | 3 | May Dribble Advance 2 spaces |
+| Playmaker | 4 | 3 | May Dribble 2 spaces |
 | Winger | 5 | 2 | A completed Low Pass may set up a shot |
 | Striker | 6 | 1 | +3 on a shot off a set-up |
 

@@ -147,7 +147,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_free_pass_spends_its_continuation(self) -> None:
         """
-        Applying the pass is what spends Skilled Pass's cost -- see
+        Applying the pass is what spends Pinpoint's cost -- see
         `continue_effect`. Asserted on its own because it is the one
         thing the branch changes that no narration mentions.
         """
@@ -212,7 +212,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
 
         cog.send_field_prompt.assert_awaited_once()
         content, view = cog.send_field_prompt.await_args.args[3:5]
-        self.assertIn("Skilled Pass", content)
+        self.assertIn("Pinpoint", content)
         # Which card, and whether it is free, are the prompt's rather
         # than the view's: the step names them and the driver reads
         # them back off the position.
@@ -226,7 +226,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_free_pass_is_asked_as_a_low_pass(self) -> None:
         """
-        **Skilled Pass's cost.** The defense's unopposed pass is a Low
+        **Pinpoint's cost.** The defense's unopposed pass is a Low
         Pass -- the card that was beaten does not come with it -- and
         it is `free`, which is what will charge it no space minute
         when it is applied.
@@ -247,7 +247,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         cog.send_field_prompt.assert_awaited_once()
         content, view = cog.send_field_prompt.await_args.args[3:5]
         self.assertIn("Low Pass", content)
-        self.assertNotIn("Skilled Pass", content)
+        self.assertNotIn("Pinpoint", content)
         prompt = driver.MODEL_STEPS[FollowOnStep.CONTINUE_EFFECT](
             cog.engine, fixture.game, match,
         ).next

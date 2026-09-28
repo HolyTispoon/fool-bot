@@ -165,8 +165,8 @@ class StealStepTests(unittest.TestCase):
         package later is caught too.
 
         This is the one rank where the old code saved a *different*
-        number of times on different branches -- twice where a Skilled
-        Pass was beaten, once otherwise.
+        number of times on different branches -- twice where a
+        Pinpoint was beaten, once otherwise.
         """
         recorder = mock.Mock()
         with suppressed_cog_saves(), mock.patch(
@@ -187,7 +187,7 @@ class StealStepTests(unittest.TestCase):
         trip has to be what it answered before -- see "Recovering a
         stuck game" in docs/design/recovery.md.
 
-        The continuation a beaten Skilled Pass records is part of what
+        The continuation a beaten Pinpoint records is part of what
         has to survive that trip, and it is not a field of its own:
         `pending_effect_continuation` is read back off the save like
         everything else.

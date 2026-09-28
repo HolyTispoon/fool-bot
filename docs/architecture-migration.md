@@ -284,7 +284,7 @@ the match byte for byte. The goldens did not change.
 
 **Two positions the one chain misread were found by the policy
 walking them for the first time**, and read right in the same
-commit: the speed step a Pressure that beats a Dribble Burst owes
+commit: the speed step a Pressure that beats a Burst owes
 the defense (the chain named `BEGIN_EFFECT_RESOLUTION` again, so a
 resume there would have replayed the pressure), and whose the
 steal's speed step is when a Smooth took the ball over during the
@@ -367,7 +367,7 @@ alone, as it was. `Action` moved beside `PendingPrompt` in
 `d12ball/prompts.py` (the AI builds one and the engine holds the AI;
 the driver re-exports it). Finding 16 of `docs/web-app.md` is closed,
 and the speed choice's `distance_moved` asymmetry went with it: the
-argument was inert on the AI's path (Setup Pass charges its own
+argument was inert on the AI's path (Cross charges its own
 clock), and the one reading is the adapter's.
 
 Tests. `tests/test_d12ball_driver_actions.AIAnswerTests` stands
@@ -600,9 +600,9 @@ landed, and what it changed (branch `simplify-to-architecture`).
 **Rules still decided by a button.** Six, all in the views, and one
 each in the web page beside them: the run back's price and zone, the
 challenger's walk-in and the contestant's reach, the reposition's zone,
-which side of the board a maneuver hand is, and whether an empty Setup
-Pass menu is a pass out of play were measured off the match by both
-frontends; the Dribble Burst's exhaustion price was the Playmaker
+which side of the board a maneuver hand is, and whether an empty
+Cross menu is a pass out of play were measured off the match by both
+frontends; the Burst's exhaustion price was the Playmaker
 discount copied from the step; the Fullback's fourth distance was
 `distance == 4` in a label; a tutorial coach taking Home was a disabled
 button and nothing else; the low pass view asked the engine for the

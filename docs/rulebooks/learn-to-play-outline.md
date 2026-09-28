@@ -113,7 +113,7 @@ names. Each turn is one column: the position, what both sides play,
 what happens, the rule it shows. This is the bot's tutorial opening
 turn for turn, so the two teach the same five lessons in the same order.
 
-**Turn 1 -- Figure 5.** Home: Dribble Advance. Visitors: Deflect.
+**Turn 1 -- Figure 5.** Home: Dribble. Visitors: Deflect.
 
 ![Beat 1](figures/fig-05-beat-1.png)
 
@@ -133,13 +133,13 @@ loses.
   one token a space. Your Playmaker walks home. (Law 12.3)
 - Margin: *a ball only comes loose on an empty space* (page 11).
 
-**Turn 3 -- Figure 7.** Visitors: Dribble Advance. Home: Pressure.
+**Turn 3 -- Figure 7.** Visitors: Dribble. Home: Pressure.
 
 ![Beat 3](figures/fig-07-beat-3.png)
 
 - Nobody of yours is on the ball, so you send a challenger: either of
   your two nearest, one token a space. (Law 9)
-- Pressure beats Dribble Advance: their handler and the ball are shoved
+- Pressure beats Dribble: their handler and the ball are shoved
   back a space and your challenger follows onto them. They still have
   the ball -- but they have lost ground, and you are standing on it.
   (Law 6.10)

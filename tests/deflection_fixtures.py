@@ -105,7 +105,7 @@ LOOSE_BALL = "BEGIN_LOOSE_BALL"
 #: straight to the shot without asking anybody.
 SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
 
-#: **A failed Setup Pass gambit**, asked before the deflection that beat
+#: **A failed Cross gambit**, asked before the deflection that beat
 #: it moves the ball at all: the defending coach chooses how far it goes
 #: back, once -- 1, 2 or 3 for a Deflect, 2, 3 or 4 for a Clear (Law
 #: 19.7.7, the author, 2026-09-27). Where it lands is the answer's, in
@@ -113,7 +113,7 @@ SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
 SETUP_PASS_PUSH_BACK = "OFFER_SETUP_PASS_PUSH_BACK"
 
 #: The offense card a basic deflection beats. Deflect and Clear beat
-#: High Pass and Setup Pass and tie with both passes on rank O1, so a
+#: High Pass and Cross and tie with both passes on rank O1, so a
 #: fixture that wants "no advanced cost in this" plays the basic one
 #: of the two the card actually beats.
 BEATEN_BASIC = "high_pass"
@@ -439,9 +439,9 @@ def deflect_that_overshoots_into_a_shot() -> DeflectionFixture:
 
 def deflect_beats_a_setup_pass() -> DeflectionFixture:
     """
-    **A failed Setup Pass gambit**, and the only one either card of
+    **A failed Cross gambit**, and the only one either card of
     this rank can ever collect: Deflect and Clear beat High Pass and
-    Setup Pass and tie with both passes on rank O1, so Setup Pass is the
+    Cross and tie with both passes on rank O1, so Cross is the
     one advanced maneuver they ever see lose.
 
     Since 2026-09-27 the ball goes back **once**, as far as the coach
@@ -632,7 +632,7 @@ def clear_clamps_the_speed_at_one() -> DeflectionFixture:
 def clear_beats_a_setup_pass() -> DeflectionFixture:
     """
     The same failed gambit on the other card of the rank: a Clear
-    beating a Setup Pass moves nothing until its coach has chosen 2, 3
+    beating a Cross moves nothing until its coach has chosen 2, 3
     or 4 either.
     """
     match, handler, challenger = stand_a_deflection(

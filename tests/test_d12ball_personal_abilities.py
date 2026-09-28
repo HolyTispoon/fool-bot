@@ -870,7 +870,7 @@ class ScorchitTests(unittest.TestCase):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
     def test_nothing_once_the_stealer_has_the_ball(self) -> None:
-        # A beaten Skilled Pass owes the stealer a free Low Pass, which
+        # A beaten Pinpoint owes the stealer a free Low Pass, which
         # makes them the handler: the cards now name one player twice,
         # and the settled maneuver must stay settled.
         self.match.offense_maneuver = "skilled_pass"

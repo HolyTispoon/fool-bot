@@ -25,7 +25,7 @@
     "playmaker": {
       "offense": 4,
       "defense": 3,
-      "ability": "May advance an additional space when resolving Dribble maneuvers.",
+      "ability": "May advance an additional space when resolving Dribble and Burst.",
       "ability_short": "Dribble for 1 additional space"
     },
     "winger": {
@@ -37,7 +37,7 @@
     "striker": {
       "offense": 6,
       "defense": 1,
-      "ability": "Add +3 when rolling a score attempt off a set up.",
+      "ability": "Add +3 when rolling a score attempt off a set-up.",
       "ability_short": "+3 for scoring off setup"
     }
   },
@@ -87,7 +87,7 @@
       "role": "playmaker",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "Dribble Advance up to 3 or Dribble Burst with no exhaustion.",
+      "advanced_ability": "Dribble up to 3, Burst with no exhaustion.",
       "advanced_skills": {}
     },
     "flickerwing_winger": {
@@ -210,7 +210,7 @@
       "role": "winger",
       "species": "cyborg",
       "stat_overrides": {},
-      "advanced_ability": "Before resolving High/Setup Pass, drain 3 to move to the pass's target space. Quantor gains possession without contest.",
+      "advanced_ability": "Before resolving High Pass or Cross, drain 3 to move to the pass's target space. Quantor gains possession without contest.",
       "advanced_skills": {}
     },
     "quillon_playmaker": {

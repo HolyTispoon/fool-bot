@@ -120,7 +120,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "emberdash_playmaker": (
         PersonalAbility.FREE_BURST,
-        "Dribble Advance up to 3 or Dribble Burst with no exhaustion.",
+        "Dribble up to 3, Burst with no exhaustion.",
     ),
     "dravox_defender": (
         PersonalAbility.DEFENSIVE_GAMBITS,
@@ -196,7 +196,7 @@ PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
     ),
     "quantor_winger": (
         PersonalAbility.RUN_ON,
-        "Before resolving High/Setup Pass, drain 3 to move to the "
+        "Before resolving High Pass or Cross, drain 3 to move to the "
         "pass's target space. Quantor gains possession without contest.",
     ),
 }

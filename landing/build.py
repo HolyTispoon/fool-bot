@@ -691,7 +691,7 @@ TURN_BEATS = (
      "sides reveal their choice simultaneously."),
     ("Resolution",
      "The maneuvers relate to each other in a rock-paper-scissors cycle of "
-     "priority: a low pass beats pressure, which beats dribble advance, and "
+     "priority: a low pass beats pressure, which beats a dribble, and "
      "so forth. In case of a tie in rank, players engage in an exhausting "
      "skill test, rolling d12s until one side gains the upper hand, or "
      "tentacle!"),

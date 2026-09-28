@@ -1,5 +1,5 @@
 """
-A match standing in each branch a High Pass or a Setup Pass resolves
+A match standing in each branch a High Pass or a Cross resolves
 through, and what that resolution should produce.
 
 Rank O3 of Phase 3 of docs/design/model-discord-split.md moves the two cards'
@@ -13,7 +13,7 @@ So the fixtures live here, built with no `discord` in scope, and two
 test modules read the same table:
 
 - `tests/test_d12ball_high_pass_flow.py` asks the model
-  (`d12ball.flow.effects.high_pass_step` and its Setup Pass
+  (`d12ball.flow.effects.high_pass_step` and its Cross
   neighbours) for the `StepResult`.
 - `tests/test_d12ball_high_pass_recording.py` asks the cog what it
   handed the step that comes next.
@@ -28,7 +28,7 @@ branch for exactly that reason.
 
 **This rank has four entry points, not one**, which is the first way it
 differs from every rank before it. A High Pass resolves through one
-function; a Setup Pass is two prompts -- the speed first, the
+function; a Cross is two prompts -- the speed first, the
 destination after -- and its out-of-play ending is reachable from the
 menu that never offered a distance as well as from the pass itself. So
 each fixture names the `entry` it is driven through and the table reads
@@ -43,7 +43,7 @@ is the ordinary case, and the contested ones name the card they beat.
 position. What the frontend does with it is not in this table any
 more: the three branches that hand over to a step which draws its own
 board (the two passes that run out of play, whose new play posts and
-pins its own, and the Setup Pass that lands on nobody, whose loose
+pins its own, and the Cross that lands on nobody, whose loose
 ball is announced under the board) have that write skipped by the
 dispatcher reading what the *next* step reports -- which a recorder
 standing in for it does not. The recording tests therefore see one
@@ -108,7 +108,7 @@ FINISH = "FINISH_MANEUVER_RESOLUTION"
 #: not a settled pass.
 SCORING_ATTEMPT = "OFFER_SCORING_ATTEMPT_CHOICE"
 
-#: Setup Pass's first half: the ball's speed, set before the pass is
+#: Cross's first half: the ball's speed, set before the pass is
 #: picked out. The card is the only one that asks it *first*, which is
 #: why the rest of the pass is recorded as an effect continuation
 #: once the speed has been chosen (`speed_choice_step`).
@@ -119,7 +119,7 @@ SPEED_CHOICE = "OFFER_SPEED_CHOICE"
 #: ball.
 RUN_BACK = "BEGIN_RUN_BACK"
 
-#: A Setup Pass that lands where nobody of the passing side is
+#: A Cross that lands where nobody of the passing side is
 #: standing: the ball settles there like a deflection's, and what is
 #: on the space decides how it is won.
 LOOSE_BALL = "BEGIN_LOOSE_BALL"
@@ -142,7 +142,7 @@ BEATEN_ADVANCED = "intercept"
 
 #: High Pass's own clock cost -- a flat 2 space minutes whatever the
 #: pass did (2026-08-16), which is why it is apart from the distance
-#: the ball actually travelled. Setup Pass's is the same 2, as
+#: the ball actually travelled. Cross's is the same 2, as
 #: `SETUP_PASS_CLOCK_COST` in `d12ball/components.py`.
 CLOCK_COST = 2
 
@@ -186,7 +186,7 @@ class PassFixture:
     #: come back to.
     overshoot_flag: bool = False
     ball_recovery: bool = False
-    #: Setup Pass's own continuation: set when the speed is chosen,
+    #: Cross's own continuation: set when the speed is chosen,
     #: spent by the destination half. None until then, which is what
     #: lets a match waiting on the speed read as waiting on the speed
     #: (see `speed_choice_step`).
@@ -226,7 +226,7 @@ def advanced_game() -> D12BallGame:
     An advanced game with species abilities off, so nothing but the
     card under test reads into the resolution -- the same guard
     `tests/deflection_fixtures.py` puts on its advanced fixtures.
-    Setup Pass is a gambit, so every fixture for it is built from
+    Cross is a gambit, so every fixture for it is built from
     this one.
     """
     return build_game(mode=GameMode.ADVANCED, species_abilities=False)
@@ -448,9 +448,9 @@ def out_of_play_text(match: MatchState, lead_in: str) -> str:
 
 
 def setup_pass_out_text(match: MatchState) -> str:
-    """Setup Pass's own version of the same dead end."""
+    """Cross's own version of the same dead end."""
     return (
-        "**Setup Pass:** there is nobody to pick the ball out to, "
+        "**Cross:** there is nobody to pick the ball out to, "
         "so it runs out of play. "
         f"{gaining_side_label(match)} gain possession."
     )
@@ -638,7 +638,7 @@ def nowhere_left_to_throw_it() -> PassFixture:
     throw the field clamped to nothing -- a High Pass moves the ball
     and not the handler -- and with nobody else on the space there is
     no field left to put it on and no teammate to put it to. So it
-    goes out exactly as a Setup Pass with no legal destination does,
+    goes out exactly as a Cross with no legal destination does,
     rather than staying quietly with the passer.
 
     The test is `actual_distance == 0` and not the candidate list
@@ -772,12 +772,12 @@ def a_beaten_intercept_leaves_the_reception_alone() -> PassFixture:
     )
 
 
-# -- Setup Pass --------------------------------------------------------
+# -- Cross --------------------------------------------------------
 
 
 def the_speed_before_the_pass() -> PassFixture:
     """
-    **Setup Pass is two prompts because the card's order is speed
+    **Cross is two prompts because the card's order is speed
     first.** A speed choice has always been the *last* human step of
     an effect; here it is the first, so the rest of the pass is
     recorded as an effect continuation **when the speed is chosen**
@@ -798,7 +798,7 @@ def the_speed_before_the_pass() -> PassFixture:
         entry="setup_pass_speed",
         passer_id=passer,
         narration=(
-            f"**Setup Pass:** {label(match, passer)} sets the ball's "
+            f"**Cross:** {label(match, passer)} sets the ball's "
             "speed before picking out the pass."
         ),
         board_changed=False,
@@ -828,7 +828,7 @@ def setup_pass_into_a_set_up() -> PassFixture:
         passer_id=passer,
         distance=3,
         narration=(
-            "**Setup Pass:** the ball moves 3 spaces forward to "
+            "**Cross:** the ball moves 3 spaces forward to "
             f"{label(match, receiver)} -- a scoring opportunity! "
             "Ball speed is 5."
         ),
@@ -857,7 +857,7 @@ def setup_pass_to_a_teammate_in_the_same_space() -> PassFixture:
         passer_id=passer,
         distance=0,
         narration=(
-            "**Setup Pass:** the ball goes to a teammate in the same "
+            "**Cross:** the ball goes to a teammate in the same "
             f"space to {label(match, receiver)} -- a scoring "
             "opportunity! Ball speed is 2."
         ),
@@ -889,7 +889,7 @@ def setup_pass_onto_nobody() -> PassFixture:
         passer_id=passer,
         distance=3,
         narration=(
-            "**Setup Pass:** the ball is picked out 3 spaces forward, "
+            "**Cross:** the ball is picked out 3 spaces forward, "
             "with nobody there to set up."
         ),
         follow_on=LOOSE_BALL,
@@ -912,7 +912,7 @@ def setup_pass_one_space_onto_nobody() -> PassFixture:
         passer_id=passer,
         distance=1,
         narration=(
-            "**Setup Pass:** the ball is picked out 1 space forward, "
+            "**Cross:** the ball is picked out 1 space forward, "
             "with nobody there to set up."
         ),
         follow_on=LOOSE_BALL,
@@ -950,7 +950,7 @@ def setup_pass_at_zero_with_nobody_there() -> PassFixture:
 
 def setup_pass_with_no_distance_to_offer() -> PassFixture:
     """
-    **Setup Pass cannot overshoot**, so the one way it runs out of
+    **Cross cannot overshoot**, so the one way it runs out of
     play is having nowhere to throw it at all: the passer on the very
     last space of the field, with no teammate beside them to take it
     at 0. The menu never offers a distance, and this is the branch it

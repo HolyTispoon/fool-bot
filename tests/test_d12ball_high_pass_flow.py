@@ -4,7 +4,7 @@ them.
 
 The model half of rank O3 of Phase 3 of docs/design/model-discord-split.md.
 `tests/test_d12ball_high_pass_recording.py` asked the cog what a High
-Pass and a Setup Pass say and do next, off
+Pass and a Cross say and do next, off
 `tests/high_pass_fixtures.py`, and was run green before anything moved.
 This asks the model the same questions off the same fixtures -- so the
 two agreeing is the move having changed nothing.
@@ -78,7 +78,7 @@ def run_step(fixture):
     if fixture.entry == "setup_pass":
         return setup_pass_step(ENGINE, fixture.match, fixture.distance)
     if fixture.entry == "setup_pass_out":
-        return setup_pass_out_step(fixture.match)
+        return setup_pass_out_step(ENGINE, fixture.match)
     if fixture.entry == "setup_pass_speed":
         return setup_pass_speed_step(ENGINE, fixture.match)
     raise AssertionError(f"unknown entry {fixture.entry!r}")
@@ -136,7 +136,7 @@ class PassStepTests(unittest.TestCase):
         """
         `board_changed` is the position's answer, and on this rank it
         is True everywhere except the one step that is not a pass at
-        all: Setup Pass's speed choice records the continuation and
+        all: Cross's speed choice records the continuation and
         asks, and the speed it is about is set by the answer rather
         than here.
         """
@@ -254,7 +254,7 @@ class PassStepTests(unittest.TestCase):
         trip has to be what it answered before -- see "Recovering a
         stuck game" in docs/design/recovery.md.
 
-        Setup Pass is the one card of the twelve where this is not a
+        Cross is the one card of the twelve where this is not a
         formality: the continuation its speed half leaves behind is
         what the rest of the pass is, and a restart that lost it would
         hand the turn back with the pass silently unspent.

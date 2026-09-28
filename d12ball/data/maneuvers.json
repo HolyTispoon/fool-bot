@@ -1,5 +1,5 @@
 {
-  "data_version": 13,
+  "data_version": 14,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -17,7 +17,7 @@
         "defeats_rank": 3
       },
       {
-        "name": "Skilled Pass",
+        "name": "Pinpoint",
         "key": "skilled_pass",
         "rank": 1,
         "tier": "advanced",
@@ -30,7 +30,7 @@
         "defeats_rank": 3
       },
       {
-        "name": "Dribble Advance",
+        "name": "Dribble",
         "key": "dribble_advance",
         "rank": 2,
         "tier": "basic",
@@ -43,7 +43,7 @@
         "defeats_rank": 1
       },
       {
-        "name": "Dribble Burst",
+        "name": "Burst",
         "key": "dribble_burst",
         "rank": 2,
         "tier": "advanced",
@@ -69,7 +69,7 @@
         "defeats_rank": 2
       },
       {
-        "name": "Setup Pass",
+        "name": "Cross",
         "key": "setup_pass",
         "rank": 3,
         "tier": "advanced",
@@ -105,7 +105,7 @@
           1,
           2
         ],
-        "effect": "Successful gambit: ball moves back 3 (vs Setup Pass: 2-3-4, your choice). Overshoot may set up scoring. Ball speed -3. \nFailed gambit: exhaust 2.",
+        "effect": "Successful gambit: ball moves back 3 (vs Cross: 2-3-4, your choice). Overshoot may set up scoring. Ball speed -3. \nFailed gambit: exhaust 2.",
         "time": "1 space minute",
         "defeats_rank": 3
       },
