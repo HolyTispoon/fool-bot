@@ -710,9 +710,16 @@ def strip_geometry(
     label_room = cursor + 12
 
     tallest = max(arc_rise(move) for move in moves)
-    ink_above = strip_height / 2 - 30 - tallest - 12
+    # `arc_rise` is the Bezier's control point, and a quadratic curve
+    # only climbs half way to it -- so half is what the arc's ink takes
+    # above the strip. Reserving the whole of it left a band of empty
+    # panel over every tall diagram.
+    ink_above = strip_height / 2 - 30 - tallest / 2 - 12
     block = strip_height + label_room - ink_above
-    strip_top = top + 46 + ((height - 54) - block) / 2 - ink_above
+    # Centred in whatever room is spare, and never pushed up into the
+    # legend when there is none: the panel grows instead
+    # (`strip_panel_height`).
+    strip_top = top + 46 + max(0.0, ((height - 54) - block) / 2) - ink_above
 
     return StripGeometry(
         left=left,
@@ -726,6 +733,39 @@ def strip_geometry(
         caption_line=caption_line,
         row_top=row_top,
     )
+
+
+# The strip's panel is at least this tall, and taller where its own
+# captions need it -- see `strip_panel_height`.
+STRIP_MIN_HEIGHT = 230
+# What the panel leaves under its lowest caption.
+STRIP_BOTTOM_PAD = 10
+
+
+def strip_panel_height(maneuver: ManeuverDefinition) -> float:
+    """
+    How tall this maneuver's strip panel is: `STRIP_MIN_HEIGHT`, or
+    more where its captions would otherwise run out of the bottom of
+    it. It was a fixed 288 for every card, which left most of them a
+    band of empty panel and still let Double Team's third caption row
+    run out underneath; sized to the card, the room it frees goes to
+    the effect text (the author, 2026-09-28: the fonts were too small).
+    Measured the way `matchup_content_height` is, off the same geometry
+    that draws it.
+    """
+    moves = STRIP_MOVES[maneuver.key]
+    height = STRIP_MIN_HEIGHT
+    while True:
+        geo = strip_geometry(maneuver, 0, height)
+        caption_depth = max(
+            geo.row_top[move.caption_row]
+            + geo.caption_line * len(move.label.split("\n"))
+            for move in moves
+        )
+        bottom = geo.strip_top + geo.strip_height + 8 + caption_depth
+        if bottom <= height - STRIP_BOTTOM_PAD:
+            return height
+        height += 2
 
 
 def draw_strip_spaces(pen: Pen, geo: StripGeometry) -> None:
@@ -822,7 +862,7 @@ def draw_strip_caption(
     ]
     room = geo.space_width * (min(neighbours) if neighbours else 2.4) - 8
     lines = move.label.split("\n")
-    for size in range(17, 11, -1):
+    for size in range(21, 13, -1):
         face = font(size, bold=True)
         width = max(pen.text_size(line, face)[0] for line in lines)
         if width <= room:
@@ -927,14 +967,14 @@ def draw_strip_legend(pen: Pen, geo: StripGeometry, top: float) -> None:
     pen.text(
         (geo.right, top + 16),
         f"offense attacks {'→' if ATTACK_RIGHT else '←'}",
-        font(16),
+        font(19),
         MUTED,
         anchor="ra",
     )
     pen.text(
         (geo.left, top + 16),
         "H handler   C challenger",
-        font(16),
+        font(19),
         MUTED,
         anchor="la",
     )
@@ -1029,9 +1069,9 @@ def matchup_rank_groups(
 # shared between `matchup_content_height` (which measures) and
 # `draw_matchups` (which draws), so the two cannot disagree about how
 # tall a column's names come out.
-MATCHUP_NAME_SIZE = 22
-MATCHUP_NAME_TOP = 74
-MATCHUP_BOTTOM_PAD = 14
+MATCHUP_NAME_SIZE = 26
+MATCHUP_NAME_TOP = 68
+MATCHUP_BOTTOM_PAD = 6
 
 
 def matchup_content_height(
@@ -1105,11 +1145,11 @@ def draw_matchups(
     ):
         cx = MARGIN + column_width * (index + 0.5)
         max_width = column_width - 14
-        pen.text((cx, top + 22), label, font(16, bold=True), MUTED, anchor="mm")
+        pen.text((cx, top + 19), label, font(19, bold=True), MUTED, anchor="mm")
         pen.text(
-            (cx, top + 47),
+            (cx, top + 44),
             f"{opposing_letter}{rank}",
-            rank_font(21),
+            rank_font(25),
             rank_color,
             anchor="mm",
         )
@@ -1133,7 +1173,7 @@ def draw_matchups(
             )
 
 
-CARD_HEADER_HEIGHT = 152
+CARD_HEADER_HEIGHT = 136
 
 
 def draw_card_header(
@@ -1144,16 +1184,17 @@ def draw_card_header(
     color: str,
 ) -> None:
     """
-    The band across the top of a face: the rank badge, the name fit to
-    the room between it and the tier label, and the tier label itself.
+    The band across the top of a face: the rank badge, and the name
+    centred in the room beside it.
 
     **A gambit's header also carries which basic maneuver it is the
     advanced version of, in words, under its own name.** The matchup
     band already said this once, by naming the rank both cards share --
     but a coach who has just picked the card up reads the header
     first, and rank alone asks them to infer the relation rather than
-    read it. So the header states it outright: "ADVANCED VERSION OF
-    {name}", the same phrase the living rules' own gambit table uses.
+    read it. So the header states it outright: "ADVANCED {name}" --
+    "ADVANCED DRIBBLE ADVANCE" (the author, 2026-09-28; it read
+    "ADVANCED VERSION OF", the living rules' gambit table's phrase).
     """
     # Header: the rank badge and the name, in a band whose top corners
     # follow the card's own.
@@ -1181,7 +1222,7 @@ def draw_card_header(
 
     # **No corner label** (the author, 2026-09-28). The corner read
     # "BASIC MANEUVER" or "GAMBIT MANEUVER"; a gambit's subtitle below
-    # already says what it is -- "ADVANCED VERSION OF LOW PASS" -- and
+    # already says what it is -- "ADVANCED LOW PASS" -- and
     # its colour is its own, so the label was a third saying of it, and
     # a basic card is simply the one without a subtitle. Without it the
     # title's room is symmetric, so the title is centred on the card.
@@ -1196,7 +1237,7 @@ def draw_card_header(
     subtitle_font = None
     if maneuver.is_gambit:
         counterpart = catalog.counterpart(maneuver)
-        subtitle = f"ADVANCED VERSION OF {counterpart.name.upper()}"
+        subtitle = f"ADVANCED {counterpart.name.upper()}"
         subtitle_font = fitted_bold_font(
             pen, subtitle, title_width, max_size=20, min_size=13, step=1,
         ) or font(13, bold=True)
@@ -1230,11 +1271,13 @@ def draw_card_header(
 # not ("If defeated, gain 2 exhaustion" on Clear).
 GAMBIT_COST_CLAUSE = re.compile(r"\s*\bif defeated,\s*", re.IGNORECASE)
 
-# The two headings over a gambit's effect (the author, 2026-09-28).
-# Law 19.4 is when each fires: the benefit when the card won on the
-# cards, the cost when it lost on them.
+# The three headings over a gambit's effect (the author, 2026-09-28).
+# Law 19.4 is when each applies: the benefit when the card won on the
+# cards, the cost when it lost on them, and the basic maneuver on its
+# rank when they tied.
 GAMBIT_SUCCESS_HEADING = "SUCCESSFUL GAMBIT"
 GAMBIT_FAILURE_HEADING = "FAILED GAMBIT"
+GAMBIT_TIE_HEADING = "TIE"
 
 
 def gambit_effect_parts(
@@ -1268,40 +1311,87 @@ def gambit_effect_parts(
     return success, failure[:1].upper() + failure[1:]
 
 
-# A gambit's two boxes: the padding inside each, the heading line at
-# its top, and the gap between the two.
-EFFECT_BOX_PAD = 14
-EFFECT_BOX_HEADING = 30
-EFFECT_BOX_GAP = 16
-# The time pill and the room above it.
-TIME_PILL_HEIGHT = 38
-TIME_PILL_GAP = 22
+# A gambit's boxes: the padding inside each, the heading line at its
+# top, and the gap between two. Kept tight (the author, 2026-09-28:
+# "less space between"), so the room goes to the text instead.
+EFFECT_BOX_PAD = 10
+EFFECT_BOX_HEADING = 26
+EFFECT_BOX_HEADING_SIZE = 20
+EFFECT_BOX_GAP = 10
+# The largest and smallest the effect text is set at; see
+# `draw_card_effect`. Both went up on 2026-09-28 (from 29 and 17): the
+# author read the printed size as too small.
+EFFECT_MAX_SIZE = 36
+EFFECT_MIN_SIZE = 20
+# The time pill, on a basic card only, and the room above it.
+TIME_PILL_HEIGHT = 44
+TIME_PILL_GAP = 18
+TIME_PILL_SIZE = 23
+
+
+class EffectBox(NamedTuple):
+    """One of a gambit's boxes: its heading, its text, and its colours."""
+
+    heading: str
+    text: str
+    heading_color: str
+    fill: str
+    outline: str
+
+
+def gambit_effect_boxes(
+    catalog: ManeuverCatalog,
+    maneuver: ManeuverDefinition,
+    color: str,
+) -> list[EffectBox]:
+    """
+    A gambit's effect as the boxes its face draws, in order: what it
+    does when it succeeds, what its side pays when it fails, and what
+    happens on a tie -- it resolves as the basic maneuver on its rank,
+    whose own effect is quoted in full (the author, 2026-09-28; Law
+    19.4). The tie box took the time pill's place: a gambit costs the
+    same clock as the basic card on its rank, which carries it.
+    """
+    success, failure = gambit_effect_parts(maneuver)
+    counterpart = catalog.counterpart(maneuver)
+    boxes = [
+        EffectBox(GAMBIT_SUCCESS_HEADING, success, color, CARD_FACE, color),
+    ]
+    if failure is not None:
+        boxes.append(EffectBox(
+            GAMBIT_FAILURE_HEADING, failure, MUTED, PAPER_PANEL, PAPER_EDGE,
+        ))
+    boxes.append(EffectBox(
+        GAMBIT_TIE_HEADING,
+        f"Resolves as {counterpart.name}: {counterpart.effect}",
+        MUTED,
+        CARD_FACE,
+        PAPER_EDGE,
+    ))
+    return boxes
 
 
 def draw_effect_box(
     pen: Pen,
     top: float,
     height: float,
-    heading: str,
+    box: EffectBox,
     lines: list[str],
     face: ImageFont.ImageFont,
     step: float,
-    heading_color: str,
-    fill: str,
-    outline: str,
 ) -> None:
     pen.rect(
         (MARGIN, top, CARD_WIDTH - MARGIN, top + height),
-        radius=18,
-        fill=fill,
-        outline=outline,
+        radius=16,
+        fill=box.fill,
+        outline=box.outline,
         width=3,
     )
     pen.text(
-        (CARD_WIDTH / 2, top + EFFECT_BOX_PAD + EFFECT_BOX_HEADING / 2 - 2),
-        heading,
-        font(17, bold=True),
-        heading_color,
+        (CARD_WIDTH / 2, top + EFFECT_BOX_PAD + EFFECT_BOX_HEADING / 2 - 1),
+        box.heading,
+        font(EFFECT_BOX_HEADING_SIZE, bold=True),
+        box.heading_color,
         anchor="mm",
     )
     y = top + EFFECT_BOX_PAD + EFFECT_BOX_HEADING
@@ -1312,82 +1402,79 @@ def draw_effect_box(
 
 def draw_card_effect(
     pen: Pen,
+    catalog: ManeuverCatalog,
     maneuver: ManeuverDefinition,
     band_top: float,
     band_bottom: float,
     color: str,
 ) -> None:
     """
-    The effect text, centred in the band between the strip and the
-    matchups, with the time cost pinned under it.
+    The effect, in the band between the strip and the matchups.
 
-    **A gambit's effect is two boxes** (the author, 2026-09-28): what it
-    does when it succeeds, in the card's colour, over what its side pays
-    when it fails, on grey -- read from the one sentence the sheet
-    carries by `gambit_effect_parts`. It was one paragraph with "If
+    **A basic card's is its sentence, with the time cost pinned under
+    it** -- the clock is part of what the maneuver costs, so it belongs
+    to the effect rather than to the diagram, where it used to sit and
+    collide with the board strip.
+
+    **A gambit's is three boxes** (the author, 2026-09-28): what it does
+    when it succeeds, in the card's colour; what its side pays when it
+    fails, on grey; and what a tie resolves as -- the basic maneuver on
+    its rank, in that card's own words. It was one paragraph with "If
     defeated" in the middle of it, which asked a coach to find the turn
-    in the sentence before knowing which half applied. Both boxes are
-    set in one size, so neither reads as the more important.
+    in the sentence before knowing which half applied. All three are set
+    in one size, so none reads as the more important. There is no time
+    pill: a gambit's clock is its basic card's.
     """
-    # The time cost is pinned under the effect -- the clock is part of
-    # what the maneuver costs, so it belongs to the effect rather than
-    # to the diagram, where it used to sit and collide with the board
-    # strip. It is paid whichever way a gambit goes, so it sits under
-    # both of its boxes.
-    #
     # **The size is searched, not set.** The effects run from Deflect's
     # twenty words to Double Team's seventy, and the band they share is
     # whatever the strip and the matchups leave behind -- so a fixed
     # size fits the short cards and runs the long ones straight over the
     # matchup row. Which it did: Double Team's paragraph overran three
     # bands at once, silently, because nothing here measured what it was
-    # given. The largest size that fits is what is drawn, and 17 is the
-    # floor rather than a fit, since a card nobody can read is a
+    # given. The largest size that fits is what is drawn, and the floor
+    # is a floor rather than a fit, since a card nobody can read is a
     # different failure from one that overflows.
-    time_font = font(19, bold=True)
-    time_text = f"TIME · {maneuver.time}"
-    time_width = pen.text_size(time_text, time_font)[0] + 34
     room = band_bottom - band_top - 16
-    success, failure = gambit_effect_parts(maneuver)
-    boxed = failure is not None
-    text_width = CARD_WIDTH - MARGIN * 2 - (EFFECT_BOX_PAD * 2 if boxed else 20)
+    boxes = (
+        gambit_effect_boxes(catalog, maneuver, color)
+        if maneuver.is_gambit
+        else []
+    )
+    time_font = font(TIME_PILL_SIZE, bold=True)
+    time_text = f"TIME · {maneuver.time}"
+    time_width = pen.text_size(time_text, time_font)[0] + 40
     box_chrome = EFFECT_BOX_PAD * 2 + EFFECT_BOX_HEADING
 
-    for size in range(29, 16, -1):
+    for size in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
         effect_font = font(size)
         step = line_height(pen, effect_font)
-        paragraphs = [
-            pen.wrapped(text, effect_font, text_width)
-            for text in (success, failure)
-            if text is not None
-        ]
-        if boxed:
+        if boxes:
+            width = CARD_WIDTH - MARGIN * 2 - EFFECT_BOX_PAD * 2
+            paragraphs = [
+                pen.wrapped(box.text, effect_font, width) for box in boxes
+            ]
             heights = [box_chrome + step * len(lines) for lines in paragraphs]
-            text_height = sum(heights) + EFFECT_BOX_GAP
+            block_height = sum(heights) + EFFECT_BOX_GAP * (len(boxes) - 1)
         else:
-            heights = [step * len(paragraphs[0])]
-            text_height = heights[0]
-        block_height = text_height + TIME_PILL_GAP + TIME_PILL_HEIGHT
+            paragraphs = [pen.wrapped(
+                maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
+            )]
+            block_height = (
+                step * len(paragraphs[0]) + TIME_PILL_GAP + TIME_PILL_HEIGHT
+            )
         if block_height <= room:
             break
 
     y = (band_top + band_bottom) / 2 - block_height / 2
-    if boxed:
-        draw_effect_box(
-            pen, y, heights[0], GAMBIT_SUCCESS_HEADING, paragraphs[0],
-            effect_font, step, color, CARD_FACE, color,
-        )
-        y += heights[0] + EFFECT_BOX_GAP
-        draw_effect_box(
-            pen, y, heights[1], GAMBIT_FAILURE_HEADING, paragraphs[1],
-            effect_font, step, MUTED, PAPER_PANEL, PAPER_EDGE,
-        )
-        y += heights[1]
-    else:
-        for line in paragraphs[0]:
-            pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
-            y += step
+    if boxes:
+        for box, lines, height in zip(boxes, paragraphs, heights):
+            draw_effect_box(pen, y, height, box, lines, effect_font, step)
+            y += height + EFFECT_BOX_GAP
+        return
 
+    for line in paragraphs[0]:
+        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+        y += step
     y += TIME_PILL_GAP
     pen.rect(
         (
@@ -1396,13 +1483,17 @@ def draw_card_effect(
             (CARD_WIDTH + time_width) / 2,
             y + TIME_PILL_HEIGHT,
         ),
-        radius=19,
+        radius=TIME_PILL_HEIGHT / 2,
         fill=PANEL_COLOR,
         outline=PANEL_EDGE,
         width=2,
     )
     pen.text(
-        (CARD_WIDTH / 2, y + 20), time_text, time_font, MUTED, anchor="mm"
+        (CARD_WIDTH / 2, y + TIME_PILL_HEIGHT / 2 + 1),
+        time_text,
+        time_font,
+        MUTED,
+        anchor="mm",
     )
 
 
@@ -1416,7 +1507,7 @@ def render_maneuver_card(
     # one -- the two sit side by side in a coach's hand and back to
     # back in the print run, so they have to read as two cards at a
     # glance rather than as the same colour under different light. The
-    # "ADVANCED VERSION OF ..." subtitle is the only other thing on the
+    # "ADVANCED ..." subtitle is the only other thing on the
     # face that says so; the back cannot, since one back serves both.
     if maneuver.is_gambit:
         color = OFFENSE_COLOR_GAMBIT if is_offense else DEFENSE_COLOR_GAMBIT
@@ -1438,7 +1529,7 @@ def render_maneuver_card(
     draw_card_header(pen, catalog, maneuver, is_offense, color)
 
     strip_top = FRAME + CARD_HEADER_HEIGHT + 22
-    strip_height = 288
+    strip_height = strip_panel_height(maneuver)
     draw_strip(pen, maneuver, strip_top, strip_height)
 
     # The matchups are placed from the bottom edge up, so the effect
@@ -1447,14 +1538,14 @@ def render_maneuver_card(
     # not a fixed constant sized for whichever name is long enough to
     # wrap to two lines -- see matchup_content_height.
     matchup_height = matchup_content_height(pen, catalog, maneuver, is_offense)
-    matchup_top = CARD_HEIGHT - FRAME - 18 - matchup_height
+    matchup_top = CARD_HEIGHT - FRAME - 10 - matchup_height
 
     draw_matchups(
         pen, catalog, maneuver, is_offense, matchup_top, matchup_height
     )
 
     draw_card_effect(
-        pen, maneuver, strip_top + strip_height, matchup_top, color,
+        pen, catalog, maneuver, strip_top + strip_height, matchup_top, color,
     )
 
     return pen.finish(bleed, CARD_FACE)
@@ -1483,7 +1574,7 @@ def render_maneuver_card(
 CYCLE_NODE_RADIUS = 98
 CYCLE_RADIUS_X = 262
 CYCLE_RADIUS_Y = 250
-CYCLE_CENTER_Y = 560
+CYCLE_CENTER_Y = 532
 
 # A node's label is the maneuver's name alone, one word to a line --
 # the O1/D1 rank badge that used to sit above it named the selection
@@ -1641,14 +1732,14 @@ def fit_node_block(
 
 def draw_back_title(pen: Pen) -> None:
     pen.text(
-        (CARD_WIDTH / 2, 96),
+        (CARD_WIDTH / 2, 70),
         "D12 BALL",
         font(44, bold=True),
         INK,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, 138),
+        (CARD_WIDTH / 2, 108),
         "MANEUVERS",
         font(21, bold=True),
         MUTED,
@@ -1812,22 +1903,23 @@ def draw_cycle_node(
 
 
 def draw_back_captions(pen: Pen, both_tiers: bool) -> None:
-    # Pushed lower than the two captions used to sit, to clear the D1
-    # rank badge below the bottom node -- the one node whose spoke runs
-    # straight down into where the caption block used to start.
+    # Below the D1 rank badge under the bottom node -- the one node
+    # whose spoke runs straight down into the caption block. At 24
+    # (the author, 2026-09-28: it was 19 and too small), which the
+    # cycle moving up by 28 paid for.
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 76),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 86),
         "each node is one rank: basic maneuvers above gambits"
         if both_tiers
         else "each node is one rank",
-        font(19),
+        font(24),
         MUTED,
         anchor="mm",
     )
     pen.text(
-        (CARD_WIDTH / 2, CARD_HEIGHT - 48),
+        (CARD_WIDTH / 2, CARD_HEIGHT - 52),
         "solid: beats what it points to · dashed: ties",
-        font(19),
+        font(24),
         MUTED,
         anchor="mm",
     )

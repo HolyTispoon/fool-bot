@@ -162,9 +162,8 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     sized for a name long enough to wrap to two lines, which left every card
     whose names were shorter than that -- almost all of them -- a band of
     blank space under its own column. `matchup_content_height` counts the
-    actual wrapped lines at the row's own name size (22, large enough that
-    every maneuver name in the game still fits one line in a column this
-    wide) and `render_maneuver_card` sizes the row to that, pinned to the
+    actual wrapped lines at the row's own name size (26 since 2026-09-28,
+    when the author read the printed faces as too small; it was 22) and `render_maneuver_card` sizes the row to that, pinned to the
     card's foot. The room the measurement frees goes to the effect band
     above it.
 - **No role abilities on the face** (the author, 2026-09-28). There was an
@@ -179,24 +178,30 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   two boxes below. **What the face no longer says anywhere is the ball speed
   modifier a Steal or an Intercept adds to its skill test** (Law 6.4, 19.9.3)
   -- no role owns it, so no reference card carries it either.
-- **A gambit's effect is two boxes: SUCCESSFUL GAMBIT over FAILED GAMBIT**
+- **A gambit's effect is three boxes: SUCCESSFUL GAMBIT, FAILED GAMBIT, TIE**
   (the author, 2026-09-28). The sheet carries one sentence per gambit with
   "If defeated" in the middle of it, which asked a coach to find the turn in
   the sentence before knowing which half applied. `gambit_effect_parts` cuts
   it there: the first box, outlined in the card's colour, is what the gambit
   does when it succeeds; the second, on grey, is what its side pays when it
-  fails. Law 19.4 is when each fires -- won on the cards, lost on the cards.
+  fails. The third says what a tie on the cards resolves as -- "Resolves as
+  Dribble Advance:" and that basic card's own effect, whole, looked up by
+  `catalog.counterpart`. Law 19.4 is when each applies: won on the cards,
+  lost on the cards, tied. `gambit_effect_boxes` is the list.
   - **Both halves are the sheet's own words.** Only the lead-in "If
     defeated," goes, since the heading says it, and the next letter is
     capitalised. Cutting here rather than adding two columns to
     `maneuvers.json` because the import rewrites that file whole from the
     sheet; if the sheet grows the two columns, read them instead.
-  - **A gambit whose sentence loses the clause is drawn as one box and
-    logged, not raised.** The bot draws every hand at startup, and a
+  - **A gambit whose sentence loses the clause is drawn without a failure
+    box and logged, not raised.** The bot draws every hand at startup, and a
     reworded sheet must not stop it starting.
-  - **Both boxes share one searched size**, so neither reads as the more
-    important, and the time pill sits under both: the clock is paid
-    whichever way the gambit goes.
+  - **All three boxes share one searched size**, so none reads as the more
+    important, and the boxes sit close together, since the room between them
+    is room the text does not get.
+  - **A gambit has no time pill; the tie box took its place** (the author).
+    A gambit's clock is the same as its basic card's, and the basic card,
+    which is always in the same deck, still carries it.
 - **The rank is set in Montserrat ExtraBold** (the author, 2026-09-28), in
   the header's badge, the matchup band and the back's hexagon --
   `cards.rank_font` over `render.load_rank_font`. Roboto Slab's O is the
@@ -234,7 +239,18 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   - **Distances are labelled under the space they land on.** High Pass throws
     three arcs out of one space, and labelling those at their peaks stacked
     three captions on top of each other. A caption's font is sized to the gap
-    to the next caption on its row, and ability variants get a second row.
+    to the next caption on its row (21 at most), and ability variants get a
+    second row.
+  - **The panel is as tall as its own diagram, from 230 up**
+    (`strip_panel_height`). It was a fixed 288 for every card, which left
+    most of them a band of empty panel and still let Double Team's third
+    caption row run out underneath. The height is found off the same
+    `strip_geometry` that draws it, the way the matchup row is measured, and
+    what it frees goes to the effect text. The diagram is centred in any room
+    left over and is never pushed up into the legend.
+  - **An arc's reserve above the strip is half its `arc_rise`.** `arc_rise`
+    is the quadratic Bezier's control point, and the curve only climbs half
+    way to it; reserving the whole rise was most of the empty panel.
 - **The offense red and defense green are the maneuver reference image's**, so
   a coach reading a card and a coach reading the bot's hexagon are looking at
   the same two colours. **A gambit is a distinct shade, not a tint of
@@ -287,7 +303,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     direction every node has clear room in, since the hexagon already
     clears the header above and the caption below. The two caption lines at
     the foot of the card were pushed lower to clear the D1 badge below the
-    bottom node, which still sits on this same vertical line.
+    bottom node, which still sits on this same vertical line. **They are set
+    at 24** (the author, 2026-09-28: 19 was too small), paid for by moving
+    the cycle up 28 and the title up with it.
   - **One size for all six nodes, and it is the tightest of them.** With one
     name to a node the tightest fit was a single long word and capping there
     shrank every other node for nothing; with both tiers on a node all six are
@@ -327,15 +345,16 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
 - **The header carries no tier label** (the author, 2026-09-28). Its corner
   printed "die 1-2" while the cards and the selection die had to coexist, then
   "BASIC MANEUVER", then the card's own tier on both sets. It went from both:
-  a gambit's subtitle says "ADVANCED VERSION OF ..." and its colour is its
+  a gambit's subtitle says "ADVANCED ..." and its colour is its
   own, so the label was the third saying of it, and a basic card is the one
   with no subtitle. The title is centred on the card in the room the label
   left. The face is still what tells the two sets apart -- the back cannot,
   and must not.
 - **A gambit's header also says, in words, which basic maneuver it is
   the advanced version of** (the author, 2026-09-20) -- a line under
-  the title reading "ADVANCED VERSION OF PRESSURE", the same phrase the
-  living rules' own gambit table uses. The matchup band already carried
+  the title reading "ADVANCED PRESSURE". It read "ADVANCED VERSION OF
+  PRESSURE", the living rules' gambit table's phrase, until the author cut
+  it to the two words on 2026-09-28. The matchup band already carried
   this once, by naming the rank both cards share (see "Each column
   names the rank it faces" above), but that asks a coach to notice two
   cards on the same rank badge and infer the relation; the header states
@@ -349,11 +368,15 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   same reason `matchup_content_height` is measured rather than fixed:
   the subtitle has to fit in the room the title leaves, not the other
   way round.
-- **The effect text's size is searched, not set.** The effects run from Block
+- **The effect text's size is searched, not set.** The effects run from
   Deflect's twenty words to Double Team's seventy against a band that is
   whatever the strip and the matchups leave behind. A fixed size
   fitted the short cards and ran Double Team's paragraph straight over three
   bands at once, silently, because nothing measured what it had been given.
+  The search runs from 36 down to 20 (`EFFECT_MAX_SIZE`, `EFFECT_MIN_SIZE`;
+  29 and 17 until the author read the printed faces as too small on
+  2026-09-28): a basic card sets at 36, a gambit's three boxes at 23 to 32.
+  The header band went from 152 to 136 for the same room.
 - The cards are generated output, written under `print/` and gitignored
   ("Where printed output goes", below).
 
