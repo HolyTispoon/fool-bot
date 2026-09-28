@@ -209,7 +209,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 - **c.** Resolve the action, and anything it leads to. **The clock advances by what the action cost as soon as its outcome is decided** ([Space minutes](#162-space-minutes) (16.2)), not once everything it leads to is done.
 - **d.** If the action left nobody holding the ball, settle it [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1).
 - **e.** If the ball changed hands, resolve the [turnover](#12-turnovers) (12).
-- **f.** If the clock has reached the period's last minute, [last possession](#163-last-possession) (16.3) is in force.
+- **f.** If [last possession](#163-last-possession) (16.3) was declared, it goes to the team that takes the next turn.
 
 **4.1.2** Whichever team has the ball at the end of all that takes the next turn.
 
@@ -247,7 +247,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.4.3** The clock has already advanced by then: the action's own cost is charged [the moment its outcome is decided](#162-space-minutes) (16.2), whether or not the action goes on to turn the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
 
-**4.4.4** Last, if the clock has reached the period's last minute, [last possession](#163-last-possession) (16.3) is in force.
+**4.4.4** If the clock reached the period's last minute during the action, [last possession](#163-last-possession) (16.3) was declared the moment it did, and it goes to the team that takes the next turn.
 
 ## 5. Score attempt
 
@@ -840,9 +840,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 16.3 Last possession
 
-**16.3.1** When the clock reaches the period's last minute -- 15 in the first half, 30 in the second -- the action being resolved is finished in full, even if it turns the ball over. Last possession is declared only once it has [finished](#44-finishing-the-turn) (4.4).
+**16.3.1** When the clock reaches the period's last minute -- 15 in the first half, 30 in the second -- **last possession is declared at once**, in the middle of the action if that is where the clock reaches it. The action being resolved is still finished in full, even if it turns the ball over.
 
-**16.3.2** Whichever team holds the ball once it has resolved has **last possession**: the side that kept it, or the side a turnover has just handed it to.
+**16.3.2** **Last possession** goes to the team offered the next turn: whichever team holds the ball once the action has resolved -- the side that kept it, or the side a turnover has just handed it to. It is theirs from the moment that turn is offered.
 
 **16.3.3** Their next turnover ends the period immediately. No run back, no reset, no Coaching Choice, and nothing else that turnover would have led to.
 
@@ -1266,7 +1266,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Injury check | 1d12 | Higher than the player's token count is safe. |
 | Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
 
-**A turn:** choose the player, choose the action, resolve it -- the clock advances as soon as the outcome is decided -- settle the ball, turnover, last-possession check.
+**A turn:** choose the player, choose the action, resolve it -- the clock advances as soon as the outcome is decided -- settle the ball, turnover. A last possession declared on the way goes to whoever takes the next turn.
 
 **A turnover:** reset speed to 1, then -- a steal runs players back; a new play resets both sides and offers the side with the ball a Coaching Choice. **A time out** is not a turnover: the ball stays put and both coaches get one.
 

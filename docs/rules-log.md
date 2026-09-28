@@ -154,9 +154,9 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-09-28 -- the clock advances when an action's outcome is decided
+### 2026-09-28 -- author, the clock advances when an action's outcome is decided
 
-Requested in a Claude Code session: *"When a maneuver resolution decides which side wins - either
+The author, in a Claude Code session: *"When a maneuver resolution decides which side wins - either
 outright by rank or after a successful skill test - the time has to tick forward 1 or 2 rather
 than wait until the very end of the resolution. In case there is a scoring attempt, the time
 would tick again after the scoring attempt has either succeeded or resolved. Review all possible
@@ -174,13 +174,20 @@ leads to happens on the clock as it then stands (16.2.5). The costs themselves d
   (5.4.2). A set-up shot therefore charges twice: the maneuver's cost when its winner is
   decided, the shot's 1 once the shot resolves (8.5.1). Declining still adds nothing.
 - **A time out** is charged the moment it is called, before either Coaching Choice (13.4.1).
-  This one was not asked about; it is the same principle applied, since calling a time out is
-  its outcome.
-- **Last possession is still declared at the end of the action** (4.1.1 f, 4.4.4, 16.3.1). The
-  clock can now read 15 or 30 in the middle of the action that reached it; that action is
-  finished in full as before, and its own turnover still does not end the period.
+  This one was not in the request; it was proposed on the same principle, since calling a time
+  out is its outcome, and the author confirmed it on PR #385.
+- **Last possession is declared when the clock reaches the last minute, and it belongs to
+  whoever is offered the next turn** (4.1.1 f, 4.4.4, 16.3.1-16.3.2). The author, on PR #385:
+  *"last possession should be declared when the time advances but whoever has the ball at the
+  end of maneuver resolution gets to have last possession. Basically when last possession is
+  announced it should turn on a flag. The next time an offensive choice is offered that flag is
+  cleared and whoever had that offensive choice now has last possession."* So the clock can
+  read 15 or 30 in the middle of the action that reached it, and last possession is announced
+  there; that action is finished in full as before, and its own turnover does not end the
+  period, because last possession is nobody's until the next turn is offered. Until now it was
+  both declared and in force at the end of the action, in one step.
 
-The review this asked for turned up three things, all settled here:
+The review this asked for turned up three things, all confirmed by the author on PR #385:
 
 - **The turnover that ends a period was never charged.** Law 16.3.4 says every turn of a last
   possession is charged, but a turnover under last possession ended the period before the
