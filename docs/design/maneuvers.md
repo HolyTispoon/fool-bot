@@ -78,7 +78,9 @@ and gambits" in the living rules; what is left open is in
 `Mode` column, and since 2026-09-27 the rules' word agrees with it
 again. `MANEUVER_TIER_WORDS` is the one table between the value and
 anything a person reads -- the card's corner label (ADVANCED
-MANEUVER), the web page's hexagon and the reference image's filename.
+MANEUVER), the web page's hexagon, the References' tag on an advanced card
+(`tier_word`, which said "Gambit" until 2026-09-28) and the reference
+image's filename.
 Unlike `legacy_maneuver_key` above, this pair is not a migration
 waiting to die: don't "fix" the value.
 
