@@ -178,6 +178,15 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   they were first taken off every card as an "ABILITIES IN PLAY" band along
   the foot, then put back on the basic cards alone, which have the room. A
   gambit's face is its three boxes, and no role ability names a gambit.
+  - **The six basic cards share one layout** (`basic_effect_layout`, the
+    author, 2026-09-28): the effect in one size on all six, set from the top
+    of the band, and the grey box starting below the room the longest effect
+    takes -- so every card's role rows start on the same line, and a short
+    effect leaves space under it rather than pulling its box up. The size is
+    the largest at which every card fits above its own matchup row. It is
+    worked out once per set of texts and kept, since the hands draw the same
+    cards many times over. An advanced card's boxes also start from the top
+    of the band, at a size searched per card.
   - **The match is on whole words, not substrings.** It was a substring
     while every maneuver name was two words; the author renamed the basic D2
     card to "Steal" on 2026-08-18, and "steal" is inside "Steals the ball
@@ -224,8 +233,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   Slab Bold, to Jost Bold (a lighter geometric sans), and back to
   Montserrat, the author's choice after seeing each on the cards. The file
   is upstream's static ExtraBold (JulietaUla/Montserrat), bundled unmodified
-  under the OFL. The ranks drawn outside `cards.py` -- the bot's reference
-  hexagon, the team board -- are still Roboto Slab.
+  under the OFL. The bot's reference hexagon draws its rank badges in it
+  too (`render.FONT_MANEUVER_RANK`), the one rank label outside
+  `cards.py`; the team board carries the card back, so it already did.
 - **The strip diagram is what a card can say that a die face cannot**, so it
   carries the geometry and the effect text carries the wording. A basic card is
   drawn on the standard seven-space board with the ball on the third space,
@@ -255,13 +265,15 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     to the next caption on its row (21 at most), and ability variants get a
     second row. The legend across the panel's top is 24
     (`STRIP_LEGEND_SIZE`, the author: 19 was too small).
-  - **The panel is as tall as its own diagram, from 230 up**
-    (`strip_panel_height`). It was a fixed 288 for every card, which left
-    most of them a band of empty panel and still let Double Team's third
-    caption row run out underneath. The height is found off the same
-    `strip_geometry` that draws it, the way the matchup row is measured, and
-    what it frees goes to the effect text. The diagram is centred in any room
-    left over and is never pushed up into the legend.
+  - **The panel is as tall as the tallest diagram in its tier, from 230 up**
+    (`strip_panel_height` over `diagram_height`). It was a fixed 288 for
+    every card, which left most of them a band of empty panel and still let
+    Double Team's third caption row run out underneath. Each diagram's
+    height is found off the same `strip_geometry` that draws it, the way the
+    matchup row is measured; the tier's tallest is used on every card of the
+    tier, so the effect below starts on the same line on all six (the author,
+    2026-09-28). The diagram is centred in any room left over and is never
+    pushed up into the legend.
   - **An arc's reserve above the strip is half its `arc_rise`.** `arc_rise`
     is the quadratic Bezier's control point, and the curve only climbs half
     way to it; reserving the whole rise was most of the empty panel.

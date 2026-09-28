@@ -825,10 +825,10 @@ STRIP_MIN_HEIGHT = 230
 STRIP_BOTTOM_PAD = 10
 
 
-def strip_panel_height(maneuver: ManeuverDefinition) -> float:
+def diagram_height(maneuver: ManeuverDefinition) -> float:
     """
-    How tall this maneuver's strip panel is: `STRIP_MIN_HEIGHT`, or
-    more where its captions would otherwise run out of the bottom of
+    How tall this maneuver's own diagram needs its panel: `STRIP_MIN_HEIGHT`,
+    or more where its captions would otherwise run out of the bottom of
     it. It was a fixed 288 for every card, which left most of them a
     band of empty panel and still let Double Team's third caption row
     run out underneath; sized to the card, the room it frees goes to
@@ -849,6 +849,22 @@ def strip_panel_height(maneuver: ManeuverDefinition) -> float:
         if bottom <= height - STRIP_BOTTOM_PAD:
             return height
         height += 2
+
+
+def strip_panel_height(
+    catalog: ManeuverCatalog, maneuver: ManeuverDefinition,
+) -> float:
+    """
+    How tall the strip panel is on this maneuver's card: the tallest
+    `diagram_height` of its tier, so every card of a tier starts its
+    effect on the same line (the author, 2026-09-28: the text and the
+    role rows should start at the same place on every card).
+    """
+    return max(
+        diagram_height(other)
+        for other in catalog.offense + catalog.defense
+        if other.tier == maneuver.tier
+    )
 
 
 def draw_strip_spaces(pen: Pen, geo: StripGeometry) -> None:
@@ -1589,11 +1605,93 @@ def draw_abilities(
         y += ABILITY_ROW_GAP
 
 
+# The room between the strip and the effect's first line, on every card.
+EFFECT_TOP_PAD = 18
+
+
+class BasicEffectLayout(NamedTuple):
+    """
+    What every basic card's effect band shares: the effect's size, the
+    ability rows' size, and how far below the effect's first line the
+    ability box starts.
+    """
+
+    size: int
+    ability_size: int
+    ability_offset: float
+
+
+_BASIC_LAYOUTS: dict[tuple, BasicEffectLayout] = {}
+
+
+def basic_effect_layout(
+    pen: Pen, catalog: ManeuverCatalog, players: PlayerCatalog,
+) -> BasicEffectLayout:
+    """
+    **One layout for all six basic cards** (the author, 2026-09-28: the
+    role rows should start at the same place on every card, and the
+    effect texts on the same line). The effect is set in one size on
+    all six, and the ability box starts below the room the longest
+    effect takes at that size -- so a two-line effect leaves space under
+    it rather than pulling its box up. The size is the largest at which
+    every card's effect and box fit above its own matchup row.
+
+    Worked out once per set of texts and kept: the hands draw the same
+    six cards many times over at startup.
+    """
+    basics = [
+        (maneuver, is_offense)
+        for side, is_offense in (("offense", True), ("defense", False))
+        for maneuver in catalog.for_tier(side, MANEUVER_TIER_BASIC)
+    ]
+    rows = {
+        maneuver.key: role_abilities(players, maneuver)
+        for maneuver, _ in basics
+    }
+    key = tuple(
+        (maneuver.key, maneuver.effect, tuple(rows[maneuver.key]))
+        for maneuver, _ in basics
+    )
+    if key in _BASIC_LAYOUTS:
+        return _BASIC_LAYOUTS[key]
+
+    band_top = (
+        FRAME + CARD_HEADER_HEIGHT + 22
+        + strip_panel_height(catalog, basics[0][0])
+        + EFFECT_TOP_PAD
+    )
+    rooms = {
+        maneuver.key: CARD_HEIGHT - FRAME - 10
+        - matchup_content_height(pen, catalog, maneuver, is_offense)
+        - 12 - band_top
+        for maneuver, is_offense in basics
+    }
+    width = CARD_WIDTH - MARGIN * 2 - 20
+    for size in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
+        step = line_height(pen, font(size))
+        lines = max(
+            len(pen.wrapped(maneuver.effect, font(size), width))
+            for maneuver, _ in basics
+        )
+        ability_size = max(ABILITY_MIN_SIZE, min(ABILITY_MAX_SIZE, size - 8))
+        offset = lines * step + ABILITY_GAP
+        if all(
+            offset + laid_out_abilities(pen, rows[maneuver.key], ability_size)[1]
+            <= rooms[maneuver.key]
+            for maneuver, _ in basics
+        ):
+            break
+    layout = BasicEffectLayout(size, ability_size, offset)
+    _BASIC_LAYOUTS[key] = layout
+    return layout
+
+
 def draw_card_effect(
     pen: Pen,
     catalog: ManeuverCatalog,
     maneuver: ManeuverDefinition,
     abilities: Sequence[tuple[str, str]],
+    basic: Optional[BasicEffectLayout],
     band_top: float,
     band_bottom: float,
     color: str,
@@ -1604,8 +1702,12 @@ def draw_card_effect(
     **A basic card's is its sentence, then the role abilities that
     change it** (the author, 2026-09-28): `role_abilities`' rows, the
     ball speed modifier among them, on grey under the sentence, each
-    behind its role in bold. The time cost is in the header's corner
-    (`draw_card_header`).
+    behind its role in bold. Both start on the same line on all six
+    basic cards -- `basic_effect_layout`. The time cost is in the
+    header's corner (`draw_card_header`).
+
+    **Everything is set from the top of the band**, not centred in it,
+    so the text starts on the same line on every card of a tier.
 
     **A gambit's is three boxes** (the author, 2026-09-28): what it does
     when it succeeds, in the card's colour; what its side pays when it
@@ -1624,55 +1726,48 @@ def draw_card_effect(
     # given. The largest size that fits is what is drawn, and the floor
     # is a floor rather than a fit, since a card nobody can read is a
     # different failure from one that overflows.
-    room = band_bottom - band_top - 16
-    boxes = (
-        gambit_effect_boxes(catalog, maneuver, color)
-        if maneuver.is_gambit
-        else []
-    )
-    box_chrome = EFFECT_BOX_PAD * 2 + EFFECT_BOX_HEADING
-    ability_rows: list[tuple[str, float, list[str]]] = []
-    ability_height = 0.0
+    top = band_top + EFFECT_TOP_PAD
+    if not maneuver.is_gambit:
+        layout = basic
+        effect_font = font(layout.size)
+        step = line_height(pen, effect_font)
+        y = top
+        for line in pen.wrapped(
+            maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
+        ):
+            pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
+            y += step
+        if abilities:
+            rows, height = laid_out_abilities(
+                pen, abilities, layout.ability_size,
+            )
+            draw_abilities(
+                pen, rows, layout.ability_size,
+                top + layout.ability_offset, height,
+            )
+        return
 
+    # An advanced card searches its own size, since its three boxes
+    # differ in length far more than the basic sentences do, and starts
+    # them on the same line as every other card of its tier.
+    room = band_bottom - top - 12
+    boxes = gambit_effect_boxes(catalog, maneuver, color)
+    box_chrome = EFFECT_BOX_PAD * 2 + EFFECT_BOX_HEADING
+    width = CARD_WIDTH - MARGIN * 2 - EFFECT_BOX_PAD * 2
     for size in range(EFFECT_MAX_SIZE, EFFECT_MIN_SIZE - 1, -1):
         effect_font = font(size)
         step = line_height(pen, effect_font)
-        if boxes:
-            width = CARD_WIDTH - MARGIN * 2 - EFFECT_BOX_PAD * 2
-            paragraphs = [
-                pen.wrapped(box.text, effect_font, width) for box in boxes
-            ]
-            heights = [box_chrome + step * len(lines) for lines in paragraphs]
-            block_height = sum(heights) + EFFECT_BOX_GAP * (len(boxes) - 1)
-        else:
-            paragraphs = [pen.wrapped(
-                maneuver.effect, effect_font, CARD_WIDTH - MARGIN * 2 - 20,
-            )]
-            ability_size = max(
-                ABILITY_MIN_SIZE, min(ABILITY_MAX_SIZE, size - 8),
-            )
-            ability_rows, ability_height = laid_out_abilities(
-                pen, abilities, ability_size,
-            )
-            block_height = step * len(paragraphs[0]) + (
-                ability_height + ABILITY_GAP if abilities else 0
-            )
-        if block_height <= room:
+        paragraphs = [
+            pen.wrapped(box.text, effect_font, width) for box in boxes
+        ]
+        heights = [box_chrome + step * len(lines) for lines in paragraphs]
+        if sum(heights) + EFFECT_BOX_GAP * (len(boxes) - 1) <= room:
             break
 
-    y = (band_top + band_bottom) / 2 - block_height / 2
-    if boxes:
-        for box, lines, height in zip(boxes, paragraphs, heights):
-            draw_effect_box(pen, y, height, box, lines, effect_font, step)
-            y += height + EFFECT_BOX_GAP
-        return
-
-    for line in paragraphs[0]:
-        pen.text((CARD_WIDTH / 2, y), line, effect_font, INK, anchor="ma")
-        y += step
-    if ability_rows:
-        y += ABILITY_GAP
-        draw_abilities(pen, ability_rows, ability_size, y, ability_height)
+    y = top
+    for box, lines, height in zip(boxes, paragraphs, heights):
+        draw_effect_box(pen, y, height, box, lines, effect_font, step)
+        y += height + EFFECT_BOX_GAP
 
 
 def render_maneuver_card(
@@ -1708,7 +1803,7 @@ def render_maneuver_card(
     draw_card_header(pen, catalog, maneuver, is_offense, color)
 
     strip_top = FRAME + CARD_HEADER_HEIGHT + 22
-    strip_height = strip_panel_height(maneuver)
+    strip_height = strip_panel_height(catalog, maneuver)
     draw_strip(pen, maneuver, strip_top, strip_height)
 
     # The matchups are placed from the bottom edge up, so the effect
@@ -1724,8 +1819,15 @@ def render_maneuver_card(
     )
 
     draw_card_effect(
-        pen, catalog, maneuver, role_abilities(players, maneuver),
-        strip_top + strip_height, matchup_top, color,
+        pen,
+        catalog,
+        maneuver,
+        role_abilities(players, maneuver),
+        None if maneuver.is_gambit
+        else basic_effect_layout(pen, catalog, players),
+        strip_top + strip_height,
+        matchup_top,
+        color,
     )
 
     return pen.finish(bleed, CARD_FACE)
