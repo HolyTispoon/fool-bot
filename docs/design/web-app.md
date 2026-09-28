@@ -897,7 +897,27 @@ two shapes, by which way it is held:
   and the strip stays at the foot; the box, or the tab a pill opens,
   is under the field, and a tap on the strip's ask brings the box up.
   The field is large enough there to answer on, so the strip repeats
-  nothing.
+  nothing. **The jumbotron sits between the room's title and the pill, not over
+  the middle of the bar** (the author, 2026-09-28), so the reader's name
+  keeps its room: the pill takes what the jumbotron and the room's
+  number leave, the title what the jumbotron and the pill leave (its
+  topic gives way), and the jumbotron is centred in the gap between
+  them. Every width is measured by `app.js` (`placeJumbotron`) into
+  `--jumbo-w`, `--title-min`, `--pill-w` and `--jumbo-x`. Centred on
+  the screen with an even split, the wider pill of the room's menu first
+  ran the title under the jumbotron's teams, and then cut the name to a
+  letter at 667px. At 720px and under (an iPhone SE is 667px) the way
+  back is its chevron alone during play, the room's number a size
+  smaller and the spacing a little tighter, which is what lets the
+  longest made-up name (23 characters) fit whole -- measured in headless
+  Chromium, with half a pixel to spare, so a device's own fonts may
+  still cut a pixel; a name somebody chose, up to 32 characters, may
+  still be cut. The laid-over line is one baseline -- the names
+  centred on it as above, the score, the minute and the half --
+  centred on the bar by its own height, and the way back and the
+  room's number share one too (the author, 2026-09-28: text side by
+  side in different faces is aligned on its baseline, never centred on
+  its box).
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
 
@@ -969,7 +989,12 @@ the coach is looking at it.
   possession, its d12 showing the ball's speed as the field's does --
   the mark is drawn on both sides and hidden on the one without the
   ball, so the two columns are one height and the names and the
-  Home/Visitors lines sit on the same rows (the author, 2026-09-28,
+  Home/Visitors lines sit on the same rows, and each name is centred on
+  the score by the letters themselves, in every layout: the row is on
+  one baseline and the side raised by half the difference in cap
+  height (the Goal face's capitals are 0.635 of its size, and the names
+  and the goals are both set in it), since the boxes centred left the
+  smaller names high and a shared baseline left them low (the author, 2026-09-28,
   who also dropped the arrow for the way each team attacks and the
   "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow
