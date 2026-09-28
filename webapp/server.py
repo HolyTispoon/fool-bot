@@ -1549,7 +1549,7 @@ class WebApp:
         One player's card, read-only. `face=board` is the face the
         bot's board draws (the default); `face=full` is the printed
         card with the whole ability on it -- its advanced face in an
-        advanced game (`personal_abilities_apply`: the personal ability
+        advanced game (`special_abilities_apply`: the special ability
         and the advanced skills are that face), which is the card a
         coach in that game is holding.
         """
@@ -1593,7 +1593,7 @@ class WebApp:
                 card_skills=skills,
             )
         else:
-            advanced = self.engine.personal_abilities_apply(game)
+            advanced = self.engine.special_abilities_apply(game)
             key = ("full", card_id, team, advanced)
             draw = lambda: pictures.player_card_png(  # noqa: E731
                 catalog, card_id, team, advanced=advanced, size="full",

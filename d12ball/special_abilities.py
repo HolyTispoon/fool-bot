@@ -1,7 +1,7 @@
 """
-The personal abilities: which player holds which, and the numbers each
-one changes. The rules are Law 21 of docs/living-rules.md ("Personal
-abilities"); how they are wired is "Personal abilities" in
+The special abilities: which player holds which, and the numbers each
+one changes. The rules are Law 21 of docs/living-rules.md ("Special
+abilities"); how they are wired is "Special abilities" in
 docs/design/species-abilities.md.
 
 **The sheet carries a sentence, not a key**, so this table is the one
@@ -14,7 +14,7 @@ ability. Nothing else may key a rule on a player id.
 
 A row is keyed on the catalog id; a card fielded on the second side
 (`duplicate_card_id`) is the same person and is resolved to it by
-`RulesEngine.has_personal_ability`.
+`RulesEngine.has_special_ability`.
 
 The advanced skill scores are not here: they are data the import
 carries on `PlayerDefinition.advanced_skills`, and
@@ -26,7 +26,7 @@ from __future__ import annotations
 from enum import Enum
 
 
-class PersonalAbility(str, Enum):
+class SpecialAbility(str, Enum):
     ALWAYS_BLAZES = "always_blazes"            # Blazebulk
     WIDE_IGNITION = "wide_ignition"            # Sizzifizik
     BRIGHT_BURN = "bright_burn"                # Brightburn
@@ -61,141 +61,141 @@ class PersonalAbility(str, Enum):
 
 
 #: Catalog id -> (the ability, the sheet's sentence it was built from).
-PERSONAL_ABILITIES: dict[str, tuple[PersonalAbility, str]] = {
+SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     "blazebulk_defender": (
-        PersonalAbility.ALWAYS_BLAZES,
+        SpecialAbility.ALWAYS_BLAZES,
         "Always Blazes (no burn).",
     ),
     "sizzifizik_playmaker": (
-        PersonalAbility.WIDE_IGNITION,
+        SpecialAbility.WIDE_IGNITION,
         "Ignites on 5-8.",
     ),
     "brightburn_striker": (
-        PersonalAbility.BRIGHT_BURN,
+        SpecialAbility.BRIGHT_BURN,
         "When burns: opponent does not upgrade maneuver, clear 1 "
         "exhaustion.",
     ),
     "bulwark_fullback": (
-        PersonalAbility.HIGH_DRAIN_THRESHOLD,
+        SpecialAbility.HIGH_DRAIN_THRESHOLD,
         "Is only drained at 10.",
     ),
     "voltus_defender": (
-        PersonalAbility.CHEAP_OVERDRIVE,
+        SpecialAbility.CHEAP_OVERDRIVE,
         "Overdrive drains 2.",
     ),
     "gearclaw_playmaker": (
-        PersonalAbility.BOOST,
+        SpecialAbility.BOOST,
         "Boost: drain 1 for +3 (once per roll).",
     ),
     "strider_midfielder": (
-        PersonalAbility.EFFICIENT_RUN,
+        SpecialAbility.EFFICIENT_RUN,
         "Charge-up 2 when stays put. Max 1 drain when runs back.",
     ),
     "synapse_playmaker": (
-        PersonalAbility.OVERDRIVE_UPGRADE,
+        SpecialAbility.OVERDRIVE_UPGRADE,
         "When wins a skill test while using overdrive, resolve as "
         "successful gambit.",
     ),
     "noxar_striker": (
-        PersonalAbility.ADJACENT_PULL,
+        SpecialAbility.ADJACENT_PULL,
         "Can Mind Pull adjacent spaces.",
     ),
     "quillon_playmaker": (
-        PersonalAbility.FREE_PULL,
+        SpecialAbility.FREE_PULL,
         "Does not  exhaust for Mind Pull.",
     ),
     "spectra_midfielder": (
-        PersonalAbility.STRONG_PULL,
+        SpecialAbility.STRONG_PULL,
         "Mind Pulls on 9+.",
     ),
     "goopkeeper_fullback": (
-        PersonalAbility.FULL_BLOCK,
+        SpecialAbility.FULL_BLOCK,
         "Counts as 'on the ball' when standing between the ball and the "
         "goal during score attempts.",
     ),
     "acidel_striker": (
-        PersonalAbility.PRESSURE_SHOT,
+        SpecialAbility.PRESSURE_SHOT,
         "When successfully pressuring into the goal zone: scoring "
         "opportunity instead of own goal.",
     ),
     "emberdash_playmaker": (
-        PersonalAbility.FREE_BURST,
+        SpecialAbility.FREE_BURST,
         "Dribble up to 3, Burst with no exhaustion.",
     ),
     "dravox_defender": (
-        PersonalAbility.DEFENSIVE_GAMBITS,
+        SpecialAbility.DEFENSIVE_GAMBITS,
         "Defensive gambits succeed when won on a skill test.",
     ),
     "hexis_playmaker": (
-        PersonalAbility.OFFENSIVE_GAMBITS,
+        SpecialAbility.OFFENSIVE_GAMBITS,
         "Offensive gambits succeed when won on a skill test.",
     ),
     "flickerwing_winger": (
-        PersonalAbility.CLEAR_SHOT,
+        SpecialAbility.CLEAR_SHOT,
         "When attempting a scoring opportunity, only defender on the ball "
         "contribute their skill scores.",
     ),
     "inferno_defender": (
-        PersonalAbility.LIGHTS_THE_BALL,
+        SpecialAbility.LIGHTS_THE_BALL,
         "When receives the ball, ball speed to 12.",
     ),
     "kindlefinger_striker": (
-        PersonalAbility.INJURY_IGNITION,
+        SpecialAbility.INJURY_IGNITION,
         "Can iginite on injury test: when blazes clear 1 exhaustion and "
         "when burns exhaust 1.",
     ),
     "scorchit_midfielder": (
-        PersonalAbility.FORCES_THE_TEST,
+        SpecialAbility.FORCES_THE_TEST,
         "When their maneuver loses on rank, may exhaust 2 to force a "
         "skill test while rival doesn't exhaust. Subseuqent ties "
         "exhaust as normal.",
     ),
     "pulsar_striker": (
-        PersonalAbility.CHARGES_ON_THE_BALL,
+        SpecialAbility.CHARGES_ON_THE_BALL,
         "Charge-up when receives the ball.",
     ),
     "umbrik_fullback": (
-        PersonalAbility.DEFENSIVE_THROW,
+        SpecialAbility.DEFENSIVE_THROW,
         "Uses dSkill for high pass skill tests and when avoiding own "
         "goals.",
     ),
     "vorix_defender": (
-        PersonalAbility.LONG_SET_UP,
+        SpecialAbility.LONG_SET_UP,
         "When high passing for 3: speed ball to 12 and set up a scoring "
         "opportunity without contest.",
     ),
     "zenith_winger": (
-        PersonalAbility.FLY,
+        SpecialAbility.FLY,
         "Fly: if not injured or in possession, after turnover can move "
         "anywhere, exhausting per space. Does not run back if Flying.",
     ),
     "zytheris_striker": (
-        PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        SpecialAbility.SHOOTS_OFF_ANY_PASS,
         "Gets a scoring opportunity when receiving any pass.",
     ),
     "glompex_midfielder": (
-        PersonalAbility.JOINS_THE_BALL,
+        SpecialAbility.JOINS_THE_BALL,
         "After a maneuver is challenged, if Glomplex is adjacent to the "
         "ball they may exhaust 1 to move to the ball's space and Merge.",
     ),
     "slitheron_striker": (
-        PersonalAbility.WINS_CONTESTS,
+        SpecialAbility.WINS_CONTESTS,
         "Auto wins contests for ball including high pass and loose ball.",
     ),
     "shpritz_winger": (
-        PersonalAbility.SMOOTH,
+        SpecialAbility.SMOOTH,
         "Smooth (teammate sharing space may handover ball handling).",
     ),
     "viscor_defender": (
-        PersonalAbility.MERGES_HARDER,
+        SpecialAbility.MERGES_HARDER,
         "Gain +3 when Merging.",
     ),
     "zorch_playmaker": (
-        PersonalAbility.SPEED_ROLLS,
+        SpecialAbility.SPEED_ROLLS,
         "Adds ball speed modifier to all rolls.",
     ),
     "quantor_winger": (
-        PersonalAbility.RUN_ON,
+        SpecialAbility.RUN_ON,
         "Before resolving High Pass or Cross, drain 3 to move to the "
         "pass's target space. Quantor gains possession without contest.",
     ),

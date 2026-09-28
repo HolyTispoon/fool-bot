@@ -1602,7 +1602,7 @@ class CommandsMixin:
         all_teams="Show both teams' rosters instead of just your own.",
         role_abilities="Include each player's role ability.",
         advanced_abilities=(
-            "Include each player's personal ability, in an advanced game."
+            "Include each player's special ability, in an advanced game."
         ),
     )
     @app_commands.guild_only()

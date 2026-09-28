@@ -363,7 +363,7 @@ Either player can roll:
 === press 35: SkillTestView -> 'Roll the skill test'
 --- message
 ## **Intercept** wins the skill test!
-The win on the dice plays it as **Intercept** (personal ability).
+The win on the dice plays it as **Intercept** (special ability).
 Time has advanced 1, now at 11.
 --- message
 <@111> 🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who can take the ball to become the ball handler.

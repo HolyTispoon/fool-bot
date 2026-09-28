@@ -65,7 +65,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FONT_DIR = PROJECT_ROOT / "d12ball" / "fonts"
 DOCS_DIR = PROJECT_ROOT / "docs"
 RULEBOOKS_DIR = DOCS_DIR / "rulebooks"
-PRINT_DIR = PROJECT_ROOT / "print" / "rulebooks"
+PRINT_DIR = PROJECT_ROOT / "d12ball" / "print" / "rulebooks"
 
 PAPERS = {"letter": letter, "a4": A4}
 DEFAULT_PAPER = "letter"
@@ -1223,7 +1223,7 @@ def quote_flowable(markup: str, style: dict, available_width: float) -> Table:
 def book_bytes(book: Book, paper: str = DEFAULT_PAPER) -> bytes:
     """
     Set the book into memory and return the PDF's bytes. `build_book`
-    writes these; the web app serves them without a file in `print/`
+    writes these; the web app serves them without a file in `d12ball/print/`
     (docs/design/rulebooks.md).
     """
     source = book.source

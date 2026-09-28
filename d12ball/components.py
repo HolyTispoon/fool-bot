@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional
 # nobody may join) and this module imports from it; it is still
 # imported from here everywhere else.
 from d12ball.game import Formation, RuleRefusal, Team, team_display_name  # noqa: F401
-from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
+from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -359,7 +359,7 @@ class PlayerDefinition:
     # anything meaningful, so a caller that needs one has to check.
     species: str = ""
     # The advanced sheet's two per-player columns, imported and carried
-    # but not yet played: the advanced personal-ability module of
+    # but not yet played: the advanced special-ability module of
     # advanced mode is not built (see "Blocked or deferred" in
     # docs/rules-log.md), so nothing reads either to decide a rule.
     # `advanced_ability` is "" for a player who has none. An advanced
@@ -390,7 +390,7 @@ class ShotDefender:
     arithmetic -- a lone 2 in the way is unreadable without the 4 it
     came from.
 
-    `full_block` is Goopkeeper's personal ability (Law 21): all of it
+    `full_block` is Goopkeeper's special ability (Law 21): all of it
     from further along too. The engine answers it
     (`RulesEngine.intervening_defenders`), so this stays a record.
     """
@@ -1678,7 +1678,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     ),
     # Gearclaw's Boost (Law 21). Absent from an older save, which reads
     # as nobody having declared one -- which is what every game before
-    # the personal abilities was.
+    # the special abilities was.
     SavedField(
         "pending_boost", factory=list, write=list, read=list,
     ),
@@ -1949,7 +1949,7 @@ class MatchState:
     # clicks with a save between them -- the whole point of declaring
     # blind is that a coach commits and *then* somebody presses Roll.
     pending_overdrive: list[str] = field(default_factory=list)
-    # **Boost** -- Gearclaw's personal ability (Law 21): Overdrive's
+    # **Boost** -- Gearclaw's special ability (Law 21): Overdrive's
     # shape at drain 1 for +3, declared and spent the same way, and
     # free to sit beside an Overdrive on the same roll. Its own list
     # rather than a mark on `pending_overdrive` because the two are

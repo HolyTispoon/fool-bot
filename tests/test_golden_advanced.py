@@ -89,7 +89,7 @@ ignite there no longer draws a second die, which shifts every draw after
 it, and seed 134's game stopped reaching the own-goal roll. And when
 Smooth stopped reading the spaces the ball passes through and Mind Pull
 came to be asked before it (2026-09-24), which changed which offers the
-game makes. And when advanced mode took on the personal abilities and
+game makes. And when advanced mode took on the special abilities and
 the advanced skill scores (Law 21, 2026-09-25): Hellguard's 8 and the
 Fire Demons' own ignites change the game from the first skill test, and
 seed 11 stopped reaching the Cross choice and Clear. And again the

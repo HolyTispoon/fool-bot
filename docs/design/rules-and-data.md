@@ -75,7 +75,7 @@ most; a missing key means the role's basic score. The player cards tab's `Oskill
 `DskillA` show the basic score where a player has no advanced one, and that and a blank cell
 both come out as a missing key, so the two spellings of "no advanced score" cannot disagree. An advanced score is not held to 1-6 and a player's two need not sum to 7,
 which is why they are a dict on `PlayerDefinition` and not a `RoleProfile`. They are for the
-personal-ability module of advanced mode, which is not built (see "Blocked or deferred" in
+special-ability module of advanced mode, which is not built (see "Blocked or deferred" in
 [rules-log.md](../rules-log.md)); until it is, nothing reads either field to decide a rule,
 `effective_profile` is the basic one in every mode, and the printed card back still repeats
 the basic sentence (see [cards.md](cards.md)). A player the advanced tab does not name at all

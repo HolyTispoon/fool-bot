@@ -107,13 +107,13 @@ from d12ball.game import (
     team_display_name,
 )
 from d12ball import tokens
-from d12ball.personal_abilities import (
+from d12ball.special_abilities import (
     BOOST_BONUS,
     BRIGHTBURN_BURN_RECOVERY,
     BULWARK_DRAINED_AT,
     EMBERDASH_ADVANCE_MAX,
     KINDLEFINGER_TOKEN,
-    PERSONAL_ABILITIES,
+    SPECIAL_ABILITIES,
     SCORCHIT_FORCED_TEST_TOKENS,
     SIZZIFIZIK_IGNITE_FACES,
     SPECTRA_PULL_MINIMUM,
@@ -121,7 +121,7 @@ from d12ball.personal_abilities import (
     STRIDER_RUN_BACK_MAXIMUM,
     VISCOR_MERGE_BONUS,
     VOLTUS_OVERDRIVE_DRAIN_COST,
-    PersonalAbility,
+    SpecialAbility,
 )
 
 
@@ -181,9 +181,9 @@ class IgnitedRoll:
     modifier: int = 0
     second: Optional[int] = None
     blaze: bool = False
-    # The Fire Demon's personal ability, where one shaped this ignite
+    # The Fire Demon's special ability, where one shaped this ignite
     # (Law 21): `always_blazes`, `wide_ignition` or `bright_burn`.
-    personal: Optional[str] = None
+    special: Optional[str] = None
     # Brightburn's tokens shed by this burn -- set by the roll site,
     # which holds the match (`RulesEngine.settle_burn`).
     recovered: int = 0
@@ -191,23 +191,23 @@ class IgnitedRoll:
     @property
     def upgrades_opponent(self) -> bool:
         """Whether a burn that loses hands the opponent the gambit."""
-        return self.burn and self.personal != PersonalAbility.BRIGHT_BURN
+        return self.burn and self.special != SpecialAbility.BRIGHT_BURN
 
     @property
     def rule(self) -> Optional[str]:
         """
-        The rule the ignition die is captioned with, where a personal
+        The rule the ignition die is captioned with, where a special
         ability changed it -- None for the plain Volatile rule, which
         the renderer words for itself (`volatile_explainer_label`).
         """
-        if self.personal == PersonalAbility.WIDE_IGNITION:
+        if self.special == SpecialAbility.WIDE_IGNITION:
             faces = SIZZIFIZIK_IGNITE_FACES
             return (
                 f"a natural {faces[0]} to {faces[-1]} ignites — the second "
                 f"d12 adds on {VOLATILE_BLAZE_MINIMUM}-12, subtracts on "
                 f"1-{VOLATILE_BLAZE_MINIMUM - 1}"
             )
-        if self.personal == PersonalAbility.ALWAYS_BLAZES:
+        if self.special == SpecialAbility.ALWAYS_BLAZES:
             faces = " or ".join(str(face) for face in VOLATILE_IGNITE_FACES)
             return f"a natural {faces} ignites — the second d12 always adds"
         return None
@@ -267,7 +267,7 @@ class IgnitedRoll:
             f"so **the ball ignites**. The second d12 comes up "
             f"**{self.second}**"
         )
-        if self.blaze and self.personal == PersonalAbility.ALWAYS_BLAZES:
+        if self.blaze and self.special == SpecialAbility.ALWAYS_BLAZES:
             return (
                 f"{opening}, and they always blaze: "
                 f"**{self.modifier:+d}** to their roll."
@@ -281,7 +281,7 @@ class IgnitedRoll:
             f"{opening} — under {VOLATILE_BLAZE_MINIMUM}, so it "
             f"**burns**: **{self.modifier:+d}** to their roll."
         )
-        if self.personal == PersonalAbility.BRIGHT_BURN:
+        if self.special == SpecialAbility.BRIGHT_BURN:
             sentence += " Their burn upgrades nothing"
             sentence += (
                 f", and sheds {self.recovered} token."
@@ -297,7 +297,7 @@ class IgnitedRoll:
             "modifier": self.modifier,
             "second": self.second,
             "blaze": self.blaze,
-            "personal": self.personal,
+            "special": self.special,
             "recovered": self.recovered,
         }
 
@@ -676,22 +676,22 @@ class RulesEngine:
             return False
         return self.species_of(player_id) == species
 
-    def personal_abilities_apply(self, game: D12BallGame) -> bool:
+    def special_abilities_apply(self, game: D12BallGame) -> bool:
         """
-        Whether this game plays the **personal abilities** and the
+        Whether this game plays the **special abilities** and the
         advanced skill scores: advanced mode alone (Law 21), and never a
         tutorial, for the reason `species_abilities_apply` gives.
         """
         return game.mode == GameMode.ADVANCED and not game.tutorial
 
-    def has_personal_ability(
+    def has_special_ability(
         self,
         game: Optional[D12BallGame],
         player_id: Optional[str],
-        ability: PersonalAbility,
+        ability: SpecialAbility,
     ) -> bool:
         """
-        **The one question every personal-ability site asks**: does this
+        **The one question every special-ability site asks**: does this
         card, in this game, hold that ability? The twin of
         `has_species_ability`, folding the mode gate into the lookup so
         no site can check the player and forget the mode.
@@ -703,26 +703,26 @@ class RulesEngine:
         """
         if game is None or player_id is None:
             return False
-        if not self.personal_abilities_apply(game):
+        if not self.special_abilities_apply(game):
             return False
-        row = PERSONAL_ABILITIES.get(catalog_player_id(player_id))
+        row = SPECIAL_ABILITIES.get(catalog_player_id(player_id))
         return row is not None and row[0] == ability
 
-    def personal_ability_text(
+    def special_ability_text(
         self, game: D12BallGame, player_id: str,
     ) -> str:
         """
-        The sentence a roster shows for a player's personal ability:
+        The sentence a roster shows for a player's special ability:
         the sheet's own words, as the advanced face of the card prints
-        them, in a game playing the personal abilities, and `""`
+        them, in a game playing the special abilities, and `""`
         anywhere else or for a player who has none. For wording
-        alone -- a rule asks `has_personal_ability` or `skills`.
+        alone -- a rule asks `has_special_ability` or `skills`.
 
         The column also carries the four advanced-skill sentences
         ("High defensive skill."), which are shown too, since that is
         the card's own line for those players.
         """
-        if not self.personal_abilities_apply(game):
+        if not self.special_abilities_apply(game):
             return ""
         return self.get_player_definition(player_id).advanced_ability
 
@@ -733,7 +733,7 @@ class RulesEngine:
         **A player's offensive and defensive skill, as this game plays
         them** -- the one reading every roll, threshold and bonus asks.
         The role's profile, with the player's advanced scores laid over
-        it in a game playing the personal abilities (Law 21, "Advanced
+        it in a game playing the special abilities (Law 21, "Advanced
         skills"); a player with no advanced score of a kind keeps the
         role's.
 
@@ -743,7 +743,7 @@ class RulesEngine:
         player = self.get_player_definition(player_id)
         profile = self.player_catalog.effective_profile(player)
         offense, defense = profile.offense, profile.defense
-        if game is not None and self.personal_abilities_apply(game):
+        if game is not None and self.special_abilities_apply(game):
             offense = player.advanced_skills.get("offense", offense)
             defense = player.advanced_skills.get("defense", defense)
         return PlayerSkills(offense=offense, defense=defense)
@@ -760,7 +760,7 @@ class RulesEngine:
         is asked, bench and back bench included, since the team board
         draws them all.
         """
-        if not self.personal_abilities_apply(game):
+        if not self.special_abilities_apply(game):
             return {}
         answer: dict[str, tuple[int, int]] = {}
         for setup in (match.home, match.visiting):
@@ -845,21 +845,21 @@ class RulesEngine:
         if not self.has_species_ability(game, player_id, SPECIES_FIRE_DEMON):
             return IgnitedRoll(face=face)
         # Law 21: three Fire Demons read their own die differently.
-        personal = next(
+        special = next(
             (
                 ability
                 for ability in (
-                    PersonalAbility.WIDE_IGNITION,
-                    PersonalAbility.ALWAYS_BLAZES,
-                    PersonalAbility.BRIGHT_BURN,
+                    SpecialAbility.WIDE_IGNITION,
+                    SpecialAbility.ALWAYS_BLAZES,
+                    SpecialAbility.BRIGHT_BURN,
                 )
-                if self.has_personal_ability(game, player_id, ability)
+                if self.has_special_ability(game, player_id, ability)
             ),
             None,
         )
         faces = (
             SIZZIFIZIK_IGNITE_FACES
-            if personal == PersonalAbility.WIDE_IGNITION
+            if special == SpecialAbility.WIDE_IGNITION
             else VOLATILE_IGNITE_FACES
         )
         if face not in faces:
@@ -867,7 +867,7 @@ class RulesEngine:
 
         second = self.rng.randint(1, 12)
         blaze = (
-            personal == PersonalAbility.ALWAYS_BLAZES
+            special == SpecialAbility.ALWAYS_BLAZES
             or second >= VOLATILE_BLAZE_MINIMUM
         )
         return IgnitedRoll(
@@ -875,7 +875,7 @@ class RulesEngine:
             modifier=second if blaze else -second,
             second=second,
             blaze=blaze,
-            personal=personal.value if personal else None,
+            special=special.value if special else None,
         )
 
     def settle_burn(
@@ -892,7 +892,7 @@ class RulesEngine:
         what comes back carries how many came off, for the sentence
         posted with the ignition die (`IgnitedRoll.explain`).
         """
-        if not ignite.burn or ignite.personal != PersonalAbility.BRIGHT_BURN:
+        if not ignite.burn or ignite.special != SpecialAbility.BRIGHT_BURN:
             return ignite
         removed = match.recover_exhaustion(
             player_id,
@@ -958,8 +958,8 @@ class RulesEngine:
         The drain an Overdrive takes from this Cyborg: 3, or Voltus's 2
         (Law 21).
         """
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.CHEAP_OVERDRIVE,
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.CHEAP_OVERDRIVE,
         ):
             return VOLTUS_OVERDRIVE_DRAIN_COST
         return OVERDRIVE_DRAIN_COST
@@ -972,7 +972,7 @@ class RulesEngine:
     ) -> list[str]:
         """
         Which of the players about to roll may still declare **Boost**
-        -- Gearclaw's personal ability (Law 21), offered on every roll
+        -- Gearclaw's special ability (Law 21), offered on every roll
         an Overdrive is and on the same terms, narrowed to the player
         who holds it. Once per roll, like Overdrive, and independent of
         it: an Overdrive declared on this roll leaves Boost open, and
@@ -984,8 +984,8 @@ class RulesEngine:
                 game, match, player_ids,
             )
             if player_id not in match.pending_boost
-            and self.has_personal_ability(
-                game, player_id, PersonalAbility.BOOST,
+            and self.has_special_ability(
+                game, player_id, SpecialAbility.BOOST,
             )
         ]
 
@@ -1083,13 +1083,13 @@ class RulesEngine:
                     continue
                 # Shpritz has the Telekinetics' Smooth (Law 21); the
                 # early return above already covers them, since every
-                # mode playing personal abilities plays species ones.
+                # mode playing special abilities plays species ones.
                 if not (
                     self.has_species_ability(
                         game, player_id, SPECIES_TELEKINETIC,
                     )
-                    or self.has_personal_ability(
-                        game, player_id, PersonalAbility.SMOOTH,
+                    or self.has_special_ability(
+                        game, player_id, SpecialAbility.SMOOTH,
                     )
                 ):
                     continue
@@ -1209,8 +1209,8 @@ class RulesEngine:
                     game, player_id, SPECIES_TELEKINETIC,
                 ):
                     continue
-                if adjacent and not self.has_personal_ability(
-                    game, player_id, PersonalAbility.ADJACENT_PULL,
+                if adjacent and not self.has_special_ability(
+                    game, player_id, SpecialAbility.ADJACENT_PULL,
                 ):
                     continue
                 candidates.append(player_id)
@@ -1228,8 +1228,8 @@ class RulesEngine:
 
     def mind_pull_cost(self, game: D12BallGame, player_id: str) -> int:
         """The tokens a Mind Pull costs: 1, or Quillon's none (Law 21)."""
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.FREE_PULL,
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.FREE_PULL,
         ):
             return 0
         return MIND_PULL_TOKEN_COST
@@ -1241,8 +1241,8 @@ class RulesEngine:
         could carry a total past 12 and a higher roll is never a worse
         one.
         """
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.STRONG_PULL,
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.STRONG_PULL,
         ):
             return SPECTRA_PULL_MINIMUM
         return min(MIND_PULL_SUCCESS_FACES)
@@ -1315,8 +1315,8 @@ class RulesEngine:
                 continue
             value = self.skills(game, player_id).of(skill)
             # Viscor adds 3 more whenever they Merge (Law 21).
-            if self.has_personal_ability(
-                game, player_id, PersonalAbility.MERGES_HARDER,
+            if self.has_special_ability(
+                game, player_id, SpecialAbility.MERGES_HARDER,
             ):
                 value += VISCOR_MERGE_BONUS
             if value:
@@ -1402,7 +1402,7 @@ class RulesEngine:
         overdriven: Collection[str],
     ) -> bool:
         """
-        **Synapse's personal ability** (Law 21): a maneuver skill test
+        **Synapse's special ability** (Law 21): a maneuver skill test
         won on a roll Synapse Overdrove resolves the winner's maneuver
         as its gambit, whether or not the coach may play one -- the
         winning blaze's rider, reached by a different road, so it sets
@@ -1411,8 +1411,8 @@ class RulesEngine:
         """
         if not self.gambits_apply(game):
             return False
-        return winner_id in overdriven and self.has_personal_ability(
-            game, winner_id, PersonalAbility.OVERDRIVE_UPGRADE,
+        return winner_id in overdriven and self.has_special_ability(
+            game, winner_id, SpecialAbility.OVERDRIVE_UPGRADE,
         )
 
     def dice_resolve_gambit(
@@ -1438,11 +1438,11 @@ class RulesEngine:
         if card is None or not card.is_gambit:
             return False
         ability = (
-            PersonalAbility.OFFENSIVE_GAMBITS
+            SpecialAbility.OFFENSIVE_GAMBITS
             if outcome == "offense"
-            else PersonalAbility.DEFENSIVE_GAMBITS
+            else SpecialAbility.DEFENSIVE_GAMBITS
         )
-        return self.has_personal_ability(game, winner_id, ability)
+        return self.has_special_ability(game, winner_id, ability)
 
     def volatile_loser_cost(
         self, game: D12BallGame, loser: IgnitedRoll,
@@ -2095,7 +2095,7 @@ class RulesEngine:
         rule; the roll and the image both read it rather than the raw
         skill, and neither may go back to summing `defense`.
 
-        Two personal abilities reach this (Law 21). **Goopkeeper counts
+        Two special abilities reach this (Law 21). **Goopkeeper counts
         as on the ball** anywhere between the ball and the goal, at
         their full skill (`full_block`); behind the ball they are not
         in the list, like anyone else. **Flickerwing's shot** -- every
@@ -2105,13 +2105,13 @@ class RulesEngine:
         who the preview before the shot is drawn for.
         """
         in_the_way = match.defenders_between_ball_and_goal()
-        clear_shot = self.has_personal_ability(
-            game, match.active_player_id, PersonalAbility.CLEAR_SHOT,
+        clear_shot = self.has_special_ability(
+            game, match.active_player_id, SpecialAbility.CLEAR_SHOT,
         )
         defenders = []
         for player_id, on_ball in in_the_way:
-            full_block = self.has_personal_ability(
-                game, player_id, PersonalAbility.FULL_BLOCK,
+            full_block = self.has_special_ability(
+                game, player_id, SpecialAbility.FULL_BLOCK,
             )
             if clear_shot and not (on_ball or full_block):
                 continue
@@ -2239,8 +2239,8 @@ class RulesEngine:
         # is owed.
         if winner_id == loser_id or winner_id in match.injured:
             return None
-        if not self.has_personal_ability(
-            game, loser_id, PersonalAbility.FORCES_THE_TEST,
+        if not self.has_special_ability(
+            game, loser_id, SpecialAbility.FORCES_THE_TEST,
         ):
             return None
         return loser_id
@@ -2280,8 +2280,8 @@ class RulesEngine:
         holders = [
             player_id
             for player_id in (offense_player_id, defense_player_id)
-            if self.has_personal_ability(
-                game, player_id, PersonalAbility.WINS_CONTESTS,
+            if self.has_special_ability(
+                game, player_id, SpecialAbility.WINS_CONTESTS,
             )
         ]
         return holders[0] if len(holders) == 1 else None
@@ -2298,7 +2298,7 @@ class RulesEngine:
         """
         if match.maneuver_uncontested or match.challenger_id is None:
             return []
-        if not self.personal_abilities_apply(game):
+        if not self.special_abilities_apply(game):
             return []
         rolling = {match.active_player_id, match.challenger_id}
         return [
@@ -2307,8 +2307,8 @@ class RulesEngine:
             for player_id in match.setup_for_side(side).field_players
             if player_id not in rolling
             and match.distance_to_ball(player_id) == 1
-            and self.has_personal_ability(
-                game, player_id, PersonalAbility.JOINS_THE_BALL,
+            and self.has_special_ability(
+                game, player_id, SpecialAbility.JOINS_THE_BALL,
             )
         ]
 
@@ -2320,7 +2320,7 @@ class RulesEngine:
         fielded player with the ability, of either side, who is neither
         holding the ball nor injured. Home first.
         """
-        if not self.personal_abilities_apply(game):
+        if not self.special_abilities_apply(game):
             return []
         return [
             player_id
@@ -2328,8 +2328,8 @@ class RulesEngine:
             for player_id in match.setup_for_side(side).field_players
             if player_id != match.ball_carrier_id
             and player_id not in match.injured
-            and self.has_personal_ability(
-                game, player_id, PersonalAbility.FLY,
+            and self.has_special_ability(
+                game, player_id, SpecialAbility.FLY,
             )
         ]
 
@@ -2374,8 +2374,8 @@ class RulesEngine:
         a Volatile roll does. What the ignite then does to their tokens
         is `settle_injury_ignite`'s, once the check is read.
         """
-        if not self.has_personal_ability(
-            game, player_id, PersonalAbility.INJURY_IGNITION,
+        if not self.has_special_ability(
+            game, player_id, SpecialAbility.INJURY_IGNITION,
         ):
             return IgnitedRoll(face=face)
         return self.ignite(game, player_id, face)
@@ -2462,8 +2462,8 @@ class RulesEngine:
     ) -> bool:
         """Umbrik's swap (Law 21): his defensive skill on the attack in
         an own-goal roll and a skill test over his own High Pass."""
-        if not self.has_personal_ability(
-            game, player_id, PersonalAbility.DEFENSIVE_THROW,
+        if not self.has_special_ability(
+            game, player_id, SpecialAbility.DEFENSIVE_THROW,
         ):
             return False
         return roll == "own_goal" or (
@@ -2478,7 +2478,7 @@ class RulesEngine:
         skill test or a contest for the ball: 1 for everybody. It stays
         a question, asked of the player, because the answer used to
         depend on who was asked (Zorch's free tests, until 2026-09-27)
-        and a personal ability is the kind of thing that changes it.
+        and a special ability is the kind of thing that changes it.
         """
         return 1
 
@@ -2503,8 +2503,8 @@ class RulesEngine:
         modifier against itself, and Zorch's own bonus is not that
         pass's.
         """
-        if not self.has_personal_ability(
-            game, player_id, PersonalAbility.SPEED_ROLLS,
+        if not self.has_special_ability(
+            game, player_id, SpecialAbility.SPEED_ROLLS,
         ):
             return 0, ""
         modifier = match.ball.speed // 2
@@ -2901,8 +2901,8 @@ class RulesEngine:
         space its sheet sentence names, so the cost here is everybody's
         same token a space, including a Playmaker's fifth.
         """
-        if self.has_personal_ability(
-            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        if self.has_special_ability(
+            game, match.active_player_id, SpecialAbility.FREE_BURST,
         ):
             return 0
         return distance
@@ -2918,7 +2918,7 @@ class RulesEngine:
         it to the distances a pass is offered; a frontend saying the
         ability is there before the cards are chosen asks this.
         """
-        if game is None or not self.personal_abilities_apply(game):
+        if game is None or not self.special_abilities_apply(game):
             return None
         return next(
             (
@@ -2928,8 +2928,8 @@ class RulesEngine:
                 ).field_players
                 if player_id != match.active_player_id
                 and player_id not in match.injured
-                and self.has_personal_ability(
-                    game, player_id, PersonalAbility.RUN_ON,
+                and self.has_special_ability(
+                    game, player_id, SpecialAbility.RUN_ON,
                 )
             ),
             None,
@@ -2976,8 +2976,8 @@ class RulesEngine:
         Emberdash's 3 (Law 21). Everybody else advances 1 and is not
         asked (`offer_dribble_advance`).
         """
-        if self.has_personal_ability(
-            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        if self.has_special_ability(
+            game, match.active_player_id, SpecialAbility.FREE_BURST,
         ):
             return tuple(range(1, EMBERDASH_ADVANCE_MAX + 1))
         return (1, 2)
@@ -3550,8 +3550,8 @@ class RulesEngine:
         The drain a Cyborg's Charge-up removes: 1, or Strider's 2
         (Law 21).
         """
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.EFFICIENT_RUN,
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.EFFICIENT_RUN,
         ):
             return STRIDER_CHARGE_UP
         return 1
@@ -3563,8 +3563,8 @@ class RulesEngine:
         The tokens a run back of `distance` spaces charges this player:
         one a space, or for Strider 1 at most (Law 21).
         """
-        if self.has_personal_ability(
-            game, player_id, PersonalAbility.EFFICIENT_RUN,
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.EFFICIENT_RUN,
         ):
             return min(distance, STRIDER_RUN_BACK_MAXIMUM)
         return distance
@@ -3826,8 +3826,8 @@ class RulesEngine:
         module.
         """
         if self.has_species_ability(game, player_id, SPECIES_CYBORG):
-            if self.has_personal_ability(
-                game, player_id, PersonalAbility.HIGH_DRAIN_THRESHOLD,
+            if self.has_special_ability(
+                game, player_id, SpecialAbility.HIGH_DRAIN_THRESHOLD,
             ):
                 return BULWARK_DRAINED_AT - 1
             return CYBORG_DRAINED_AT - 1

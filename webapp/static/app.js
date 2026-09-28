@@ -1914,7 +1914,7 @@ function drawSituation(prompt) {
     situation.notes.length
       ? h("div", { class: "situation-notes-row" },
         situation.notes.map((note) => h("div", {
-          class: "situation-ability-line personal", style: `--side: ${note.colour}`,
+          class: "situation-ability-line special", style: `--side: ${note.colour}`,
         }, h("strong", {}, `${note.short} · ${note.name}`), " ", note.text)))
       : null,
   ].filter(Boolean));

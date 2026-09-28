@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the box, the sale sheet and the playtest card, print-ready.
 
-    python3 scripts/render_box_art.py --out print/box
+    python3 scripts/render_box_art.py --out d12ball/print/box
     python3 scripts/render_box_art.py --bleed --pdf
     python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 
@@ -100,8 +100,8 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "box",
-        help="Directory to write into (default: ./print/box).",
+        default=PROJECT_ROOT / "d12ball" / "print" / "box",
+        help="Directory to write into (default: ./d12ball/print/box).",
     )
     parser.add_argument(
         "--only",

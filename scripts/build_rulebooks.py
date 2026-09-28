@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the two rulebooks as PDFs, and the figures they show.
 
-    python3 scripts/build_rulebooks.py                 # both books -> print/rulebooks/
+    python3 scripts/build_rulebooks.py                 # both books -> d12ball/print/rulebooks/
     python3 scripts/build_rulebooks.py charter --paper a4
     python3 scripts/build_rulebooks.py --outlines      # the plan and outlines as PDFs
     python3 scripts/build_rulebooks.py --figures       # regenerate docs/rulebooks/figures/
@@ -83,7 +83,7 @@ def main() -> int:
         help=f"Which books to build (default: both rulebooks). One of: {', '.join([*BOOKS, *OUTLINE_BOOKS])}.",
     )
     parser.add_argument("--paper", default=DEFAULT_PAPER, choices=sorted(PAPERS))
-    parser.add_argument("--out", type=Path, default=PRINT_DIR, help="Output folder (default: print/rulebooks/).")
+    parser.add_argument("--out", type=Path, default=PRINT_DIR, help="Output folder (default: d12ball/print/rulebooks/).")
     parser.add_argument(
         "--outlines", action="store_true",
         help="Build the plan and the two outlines in docs/rulebooks/ instead of the books.",

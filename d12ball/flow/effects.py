@@ -70,13 +70,13 @@ from d12ball.formatting import (
 )
 from d12ball import tokens
 from d12ball.game import D12BallGame, team_display_name
-from d12ball.personal_abilities import (
+from d12ball.special_abilities import (
     INFERNO_BALL_SPEED,
     PULSAR_CHARGE_UP,
     QUANTOR_RUN_DRAIN,
     VORIX_BALL_SPEED,
     VORIX_PASS_DISTANCE,
-    PersonalAbility,
+    SpecialAbility,
 )
 from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
 
@@ -231,8 +231,8 @@ def receives_the_ball(
     Inferno's speed and Pulsar's Charge-up -- and what to say about it.
     """
     lines = []
-    if engine.has_personal_ability(
-        game, holder, PersonalAbility.LIGHTS_THE_BALL,
+    if engine.has_special_ability(
+        game, holder, SpecialAbility.LIGHTS_THE_BALL,
     ) and match.ball.speed != INFERNO_BALL_SPEED:
         match.ball.speed = INFERNO_BALL_SPEED
         player = engine.get_player_definition(holder)
@@ -243,8 +243,8 @@ def receives_the_ball(
             f" -- their special ability sets ball speed to "
             f"**{INFERNO_BALL_SPEED}**."
         )
-    if engine.has_personal_ability(
-        game, holder, PersonalAbility.CHARGES_ON_THE_BALL,
+    if engine.has_special_ability(
+        game, holder, SpecialAbility.CHARGES_ON_THE_BALL,
     ):
         removed = match.recover_exhaustion(
             holder,
@@ -347,8 +347,8 @@ def low_pass_step(
     zytheris = (
         receiver_id is not None
         and match.ball_carrier_id == receiver_id
-        and engine.has_personal_ability(
-            game, receiver_id, PersonalAbility.SHOOTS_OFF_ANY_PASS,
+        and engine.has_special_ability(
+            game, receiver_id, SpecialAbility.SHOOTS_OFF_ANY_PASS,
         )
     )
     if not (
@@ -455,7 +455,7 @@ def dribble_advance_step(
     # Emberdash's third space is theirs alone (Law 21); the second is
     # every Playmaker's.
     ability_note = (
-        " (personal ability)"
+        " (special ability)"
         if distance > 2
         else " (Playmaker ability)"
         if handler.role == PlayerRole.PLAYMAKER and distance > 1
@@ -527,8 +527,8 @@ def dribble_burst_step(
     playmaker_bonus = handler.role == PlayerRole.PLAYMAKER
     # Emberdash bursts for nothing (Law 21), which the cost already
     # says; the note below says why.
-    free_burst = engine.has_personal_ability(
-        game, match.active_player_id, PersonalAbility.FREE_BURST,
+    free_burst = engine.has_special_ability(
+        game, match.active_player_id, SpecialAbility.FREE_BURST,
     )
     tokens = engine.dribble_burst_cost(match, actual_distance, game)
     exhaustion_text = engine.apply_exhaustion(
@@ -565,7 +565,7 @@ def dribble_burst_step(
     # Worth saying only for Emberdash: everybody else, Playmaker
     # included, pays the plain token-a-space cost.
     if free_burst and actual_distance:
-        content += " That costs them nothing (personal ability)."
+        content += " That costs them nothing (special ability)."
     if exhaustion_text:
         content += f"\n{exhaustion_text}"
 
@@ -962,10 +962,10 @@ def pressure_step(
     # nowhere to go walks the challenger onto the handler's space.
     # So `board_changed` is True throughout, which is where
     # `refresh_match_image` sat in the cog on both paths.
-    if reaches_goal_zone and engine.has_personal_ability(
-        game, match.challenger_id, PersonalAbility.PRESSURE_SHOT,
+    if reaches_goal_zone and engine.has_special_ability(
+        game, match.challenger_id, SpecialAbility.PRESSURE_SHOT,
     ):
-        # **Acidel's personal ability** (Law 21): "a scoring
+        # **Acidel's special ability** (Law 21): "a scoring
         # opportunity replaces the own goal" (the author, 2026-09-25).
         # The shove walked Acidel onto the handler's space, so the ball
         # is taken there -- the Intercept's goal-zone shape in
@@ -1587,7 +1587,7 @@ def run_onto_pass(
     return "\n".join(filter(None, (
         f"{engine.format_player_label(match, runner)} runs to "
         f"{space_label(zone, space_index, match.board)} to take the pass "
-        "(personal ability).",
+        "(special ability).",
         exhaustion_text,
     )))
 
@@ -1614,7 +1614,7 @@ def high_pass_step(
     that reaches the goal zone with nobody there goes out rather than
     staying with the passer.
 
-    It reads nothing off the game record but the personal abilities
+    It reads nothing off the game record but the special abilities
     -- the gambit's cost is an engine question and nothing here
     charges exhaustion -- so `game` is optional, and without it none
     of Law 21 applies: Vorix's long set-up is asked of it below.
@@ -1703,8 +1703,8 @@ def high_pass_step(
         distance == VORIX_PASS_DISTANCE
         and not reaches_goal_zone
         and receiver_candidates
-        and engine.has_personal_ability(
-            game, match.active_player_id, PersonalAbility.LONG_SET_UP,
+        and engine.has_special_ability(
+            game, match.active_player_id, SpecialAbility.LONG_SET_UP,
         )
     )
     if vorix:
@@ -2469,8 +2469,8 @@ def offer_dribble_burst(
     # price rather than one that is not charged.
     price = (
         ""
-        if engine.has_personal_ability(
-            game, match.active_player_id, PersonalAbility.FREE_BURST,
+        if engine.has_special_ability(
+            game, match.active_player_id, SpecialAbility.FREE_BURST,
         )
         else f" ({cost} a space)"
     )

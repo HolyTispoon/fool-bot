@@ -28,16 +28,16 @@ reaches the cards by re-running `scripts/render_player_cards.py`.
 not a shared back, since these are dealt face up and nothing about
 them is hidden. `render_player_card_back` draws it, laid out exactly
 as the front: the same header and portrait, **the player's advanced
-skills** in the stats row, and **their personal ability instead of the
+skills** in the stats row, and **their special ability instead of the
 role's** beside the role badge where they have one (Law 21; the
 author, 2026-09-25), with the species badge and its ability's name
 under it (the author, 2026-09-27).
 
-The personal ability replaces the role's *on the card only*: in play a
+The special ability replaces the role's *on the card only*: in play a
 player keeps both (the author, 2026-09-25), and the role's sentence is
 on the front. A player whose sheet sentence only names their higher
 skill ("High defensive skill.") prints that sentence, as the sheet words
-it; the numbers above it say how high. A player with no personal
+it; the numbers above it say how high. A player with no special
 ability prints their role's sentence on both faces.
 """
 from dataclasses import dataclass
@@ -49,6 +49,7 @@ from d12ball.cards import (
     CARD_HEIGHT,
     CARD_WIDTH,
     CORNER,
+    DUPLEX_COLUMNS,
     EDGE_WIDTH,
     FRAME,
     INK,
@@ -57,6 +58,7 @@ from d12ball.cards import (
     PANEL_COLOR,
     PANEL_EDGE,
     Pen,
+    duplex_order,
     fitted_bold_font,
     font,
     line_height,
@@ -314,7 +316,7 @@ def advanced_card_ability(
     catalog: PlayerCatalog, player: PlayerDefinition,
 ) -> str:
     """
-    The sentence the advanced face prints: the player's personal
+    The sentence the advanced face prints: the player's special
     ability as the sheet words it, or the role's where they have none.
     Never shortened here -- see "Every ability is imported twice".
     """
@@ -413,7 +415,7 @@ BAND_ROW_GAP = 18
 # The portrait is the reason a player card is a picture at all, so a
 # layout leaving it less than this much of a 1050-unit card has stopped
 # being a player card and become a paragraph. Both faces are held to
-# it; the back's longest personal ability is the one that comes
+# it; the back's longest special ability is the one that comes
 # nearest.
 MIN_PORTRAIT_HEIGHT = 380
 
@@ -490,7 +492,7 @@ def ability_band(
     bottom edge up and the portrait above it takes what is left.
 
     Almost every card is set at ABILITY_SIZE. The few whose sentence
-    runs to five lines or more -- personal abilities on the back, today
+    runs to five lines or more -- special abilities on the back, today
     -- come down a point at a time until the portrait keeps its floor,
     and stop at ABILITY_MIN_SIZE whatever that leaves.
     """
@@ -558,7 +560,7 @@ def draw_ability(
 
     The sentence is the role's on the front and the player's advanced
     ability on the back (`advanced_card_ability`) -- the badge in front
-    of it is the role's on both, since a personal ability belongs to a
+    of it is the role's on both, since a special ability belongs to a
     player of that role. Only the species ability's *name* is here; its
     rules are on the species reference cards.
 
@@ -739,7 +741,7 @@ def render_player_card_back(
     nothing about a player to hide.
 
     What makes it the advanced one is what advanced mode plays for this
-    player: their advanced skills in the stats row, and their personal
+    player: their advanced skills in the stats row, and their special
     ability in the band where they have one (`advanced_card_skills`,
     `advanced_card_ability`; see the module docstring). Otherwise it is
     laid out exactly as the front (the author, 2026-09-27).
@@ -758,35 +760,8 @@ def render_player_card_back(
 
 # A team is nine players, so a team's sheet is three across and three
 # down: nine cards to a page, which is what a poker-sized card and an
-# A4 or letter sheet come out at. The maneuvers print four across
-# because there are seven of them, not because four is the number.
-TEAM_SHEET_COLUMNS = 3
-
-
-def duplex_order(
-    cards: list[Image.Image], columns: int = TEAM_SHEET_COLUMNS
-) -> list[Image.Image]:
-    """
-    The backs in the order a duplex printer wants them: each row
-    reversed, and the rows themselves left alone.
-
-    A sheet printed on both sides comes out of the printer flipped
-    about the paper's long edge, so the leftmost cell of a row on the
-    front is the rightmost cell of that row on the back. Reversing
-    every row is the whole of the correction -- a maneuver deck never
-    needed it because all thirteen of its backs are the same picture,
-    where every one of these is a different player and landing the
-    wrong one behind a card is not something a print run recovers
-    from.
-
-    A short last row is reversed as it stands, which is right:
-    `print_sheet` pads a short row at its *end*, so on the back that
-    padding lands at the start of the row and the cards keep their
-    columns. A team is nine cards three across, so this does not come
-    up today.
-    """
-    rows = [
-        cards[start:start + columns]
-        for start in range(0, len(cards), columns)
-    ]
-    return [card for row in rows for card in reversed(row)]
+# A4 or letter sheet come out at. It is printed duplex, so it is the
+# duplex width; `duplex_order` (in `cards.py`, beside `print_sheet`,
+# since the maneuver and reference sheets print duplex too) is imported
+# here so the name a team's sheet was built with still answers.
+TEAM_SHEET_COLUMNS = DUPLEX_COLUMNS

@@ -11,7 +11,7 @@ Three tokens, each a different piece of art on each face:
     python3 scripts/render_token_models.py --size 20 --thickness 3
 
 It writes three ways to print each token into `--out` (default
-`print/tokens-3d/`), and a README.txt that says which is which and how
+`d12ball/print/tokens-3d/`), and a README.txt that says which is which and how
 to slice it:
 
 - `<token>.3mf` -- **one piece, flush faces**, for a printer that changes
@@ -353,8 +353,8 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--out", type=Path, default=PROJECT_ROOT / "print" / "tokens-3d",
-        help="Directory to write into (default: ./print/tokens-3d).",
+        "--out", type=Path, default=PROJECT_ROOT / "d12ball" / "print" / "tokens-3d",
+        help="Directory to write into (default: ./d12ball/print/tokens-3d).",
     )
     parser.add_argument("--size", type=float, default=19.0, help="mm across (default 19)")
     parser.add_argument("--thickness", type=float, default=3.0, help="one-piece token, mm (default 3.0)")

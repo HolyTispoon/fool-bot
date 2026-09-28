@@ -48,7 +48,7 @@ from d12ball.formatting import (
     format_team_side_label,
 )
 from d12ball.game import D12BallGame, team_display_name
-from d12ball.personal_abilities import GLOMPEX_JOIN_COST
+from d12ball.special_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,

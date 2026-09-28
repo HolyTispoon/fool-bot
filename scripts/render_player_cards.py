@@ -4,7 +4,7 @@
 One card a player, print-ready at 2.5 x 3.5 inches (poker size), with
 the player's ability printed under the portrait:
 
-    python3 scripts/render_player_cards.py --out print/player-cards
+    python3 scripts/render_player_cards.py --out d12ball/print/player-cards
     python3 scripts/render_player_cards.py --sheet --bleed
     python3 scripts/render_player_cards.py --team orange
 
@@ -16,7 +16,7 @@ the cards by re-running this.
 player's advanced version -- the same card with the keyword of their
 species ability beside their role ability. `--sheet` writes the backs
 as a sheet of their own, with every row reversed so a duplex print
-lands each back behind its own front; see `duplex_order`. Pass
+lands each back behind its own front; see `cards.duplex_order`. Pass
 `--fronts-only` for the one-sided run these used to be.
 
 What the back is still waiting on is an advanced *role* ability: the
@@ -47,8 +47,8 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "player-cards",
-        help="Directory to write the PNGs into (default: ./cards/players)",
+        default=PROJECT_ROOT / "d12ball" / "print" / "player-cards",
+        help="Directory to write the PNGs into (default: ./d12ball/print/player-cards)",
     )
     parser.add_argument(
         "--team",

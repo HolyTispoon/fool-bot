@@ -17,7 +17,7 @@ from d12ball.components import (
 )
 from d12ball.game import D12BallGame
 from d12ball.flow.driver import STEP_OWED, Action
-from d12ball.personal_abilities import BOOST_BONUS, BOOST_DRAIN_COST
+from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
 from d12ball.prompts import PromptKind, pending_prompt
 from gamesaves.d12ball.service import CarryFrom, GameResult

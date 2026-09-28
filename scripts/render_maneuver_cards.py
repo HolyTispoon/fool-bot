@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """Render the twelve maneuver cards for the physical game.
 
-Twelve faces and one shared back, print-ready at 2.5 x 3.5 inches (poker size):
+Twelve faces and their two backs, print-ready at 2.5 x 3.5 inches (poker size):
 
-    python3 scripts/render_maneuver_cards.py --out print/maneuver-cards
+    python3 scripts/render_maneuver_cards.py --out d12ball/print/maneuver-cards
     python3 scripts/render_maneuver_cards.py --bleed --sheet
     python3 scripts/render_maneuver_cards.py --hands
+
+**Two backs, one a tier** (the author, 2026-09-28). The six basic
+maneuvers carry the standard back -- the hexagon with one name on each
+node -- and the six advanced maneuvers the advanced back, whose hexagon
+carries both tiers (`render_maneuver_card_back`'s `tier`). `--sheet`
+writes each tier as a front sheet and a back sheet, six cards to a
+sheet, three across, printed duplex.
 
 The layout itself lives in `d12ball/cards.py`, because the bot draws
 from it too -- `--hands` writes exactly the images a coach is shown
@@ -16,13 +23,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from PIL import Image
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from d12ball.cards import (  # noqa: E402
-    SHEET_COLUMNS,
+    DUPLEX_COLUMNS,
+    duplex_order,
     maneuver_hand_combinations,
     print_sheet,
     render_maneuver_card,
@@ -31,6 +37,8 @@ from d12ball.cards import (  # noqa: E402
 )
 from d12ball.components import (  # noqa: E402
     MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
+    MANEUVER_TIERS,
     load_maneuver_catalog,
     load_player_catalog,
 )
@@ -38,13 +46,13 @@ from d12ball.components import (  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render the twelve maneuver cards and their shared back.",
+        description="Render the twelve maneuver cards and their two backs.",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=PROJECT_ROOT / "print" / "maneuver-cards",
-        help="Directory to write the PNGs into (default: ./cards)",
+        default=PROJECT_ROOT / "d12ball" / "print" / "maneuver-cards",
+        help="Directory to write the PNGs into (default: ./d12ball/print/maneuver-cards)",
     )
     parser.add_argument(
         "--bleed",
@@ -55,8 +63,9 @@ def main() -> None:
         "--sheet",
         action="store_true",
         help=(
-            "Also write print-sheet.png: every card in an even grid "
-            f"{SHEET_COLUMNS} across, each centred in its own cell."
+            "Also write <tier>-front-sheet.png and <tier>-back-sheet.png "
+            "for the basic and the advanced tier: its six cards "
+            f"{DUPLEX_COLUMNS} across, and their backs in duplex order."
         ),
     )
     parser.add_argument(
@@ -70,7 +79,7 @@ def main() -> None:
     parser.add_argument(
         "--sheets-only",
         action="store_true",
-        help="Write only the print sheet, not a PNG per card. Implies --sheet.",
+        help="Write only the print sheets, not a PNG per card. Implies --sheet.",
     )
     args = parser.parse_args()
     args.sheet = args.sheet or args.sheets_only
@@ -79,40 +88,41 @@ def main() -> None:
     players = load_player_catalog()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    cards: list[Image.Image] = []
-    for maneuvers, is_offense in (
-        (catalog.offense, True),
-        (catalog.defense, False),
-    ):
-        for maneuver in maneuvers:
-            card = render_maneuver_card(
-                catalog, players, maneuver, is_offense, args.bleed
+    for tier in MANEUVER_TIERS:
+        word = MANEUVER_TIER_WORDS[tier]
+        # Offense then defense, rank order within each, so a sheet's
+        # top row is the offense and its bottom row the defense.
+        fronts = []
+        for side, is_offense in (("offense", True), ("defense", False)):
+            for maneuver in catalog.for_tier(side, tier):
+                card = render_maneuver_card(
+                    catalog, players, maneuver, is_offense, args.bleed
+                )
+                fronts.append(card)
+                if not args.sheets_only:
+                    slug = maneuver.name.lower().replace(" ", "-")
+                    path = args.out / f"{side[0]}{maneuver.rank}-{slug}.png"
+                    card.save(path, dpi=(300, 300))
+                    print(f"wrote {path}")
+
+        back = render_maneuver_card_back(catalog, args.bleed, tier)
+        if not args.sheets_only:
+            back_path = args.out / f"back-{word}.png"
+            back.save(back_path, dpi=(300, 300))
+            print(f"wrote {back_path}")
+
+        if args.sheet:
+            front_path = args.out / f"{word}-front-sheet.png"
+            print_sheet(fronts, columns=DUPLEX_COLUMNS).save(
+                front_path, dpi=(300, 300)
             )
-            slug = maneuver.name.lower().replace(" ", "-")
-            side = "o" if is_offense else "d"
-            cards.append(card)
-            if not args.sheets_only:
-                path = args.out / f"{side}{maneuver.rank}-{slug}.png"
-                card.save(path, dpi=(300, 300))
-                print(f"wrote {path}")
-
-    back = render_maneuver_card_back(catalog, args.bleed)
-    cards.append(back)
-    if not args.sheets_only:
-        back_path = args.out / "back.png"
-        back.save(back_path, dpi=(300, 300))
-        print(f"wrote {back_path}")
-
-    if args.sheet:
-        # Padded to a full grid with spare backs: the six faces and one
-        # back leave a hole in a 4-wide sheet, and a splitter cutting
-        # it into equal cells would hand back a blank. Backs are what
-        # you need more of anyway.
-        while len(cards) % SHEET_COLUMNS:
-            cards.append(back)
-        sheet_path = args.out / "print-sheet.png"
-        print_sheet(cards).save(sheet_path, dpi=(300, 300))
-        print(f"wrote {sheet_path}")
+            print(f"wrote {front_path}")
+            back_sheet = args.out / f"{word}-back-sheet.png"
+            print_sheet(
+                duplex_order([back] * len(fronts), DUPLEX_COLUMNS),
+                columns=DUPLEX_COLUMNS,
+            ).save(back_sheet, dpi=(300, 300))
+            print(f"wrote {back_sheet}")
 
     if args.hands:
         # Every image the maneuver prompt can carry, which is what the

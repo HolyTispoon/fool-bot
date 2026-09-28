@@ -61,7 +61,7 @@ FIGURE_PREFIX = "rulebooks/figures/"
 
 #: What a face of a team's cards is called where a person picks one.
 #: The front is the card training and standard mode play; the advanced
-#: face is the one `personal_abilities_apply` says an advanced game
+#: face is the one `special_abilities_apply` says an advanced game
 #: holds (`player_cards.render_player_card_back`).
 FACE_FRONT = "front"
 FACE_ADVANCED = "advanced"
@@ -713,14 +713,14 @@ def for_game(
     A room's reading room: the aids that game plays, each chosen by the
     model's answer -- the hexagon at `maneuver_reference_tier`, the
     species card only where `species_abilities_apply`, the team cards
-    in the face `personal_abilities_apply` says the game holds. The
+    in the face `special_abilities_apply` says the game holds. The
     three answers are handed over as well, so the page never decides
     one. The seat's own team comes first; an observer's are seat 1's
     and then seat 2's.
     """
     tier = engine.maneuver_reference_tier(game)
     species = engine.species_abilities_apply(game)
-    advanced = engine.personal_abilities_apply(game)
+    advanced = engine.special_abilities_apply(game)
     face = FACE_ADVANCED if advanced else FACE_FRONT
     picked = [
         (number, team)

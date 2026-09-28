@@ -160,7 +160,7 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ## Appendix: standard and advanced mode
 
-Standard mode adds the species abilities to everything in this book. Advanced mode adds the advanced maneuvers and the players' personal abilities to standard mode. Everything here is Part II of the Charter, Laws 18 to 21.
+Standard mode adds the species abilities to everything in this book. Advanced mode adds the advanced maneuvers and the players' special abilities to standard mode. Everything here is Part II of the Charter, Laws 18 to 21.
 
 ![Figure 14 - The twelve cards on the cycle](rulebooks/figures/fig-14-the-gambits.png)
 
@@ -170,7 +170,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 **Species abilities (standard and advanced).** Fire Demons **ignite** on a natural 6 or 7. Cyborgs run on **drain** and can **Overdrive** a roll. Telekinetics **pull** the opponent's ball as it crosses them, and take their own ball for free. Oozes **merge** into a skill test on their space. The species reference cards in the box carry the rest, and the Charter carries all of it. *(Law 20)*
 
-**Personal abilities (advanced).** Some players carry an ability of their own, and a few a higher skill, on the advanced side of their card. *(Law 21)*
+**Special abilities (advanced).** Some players carry an ability of their own, and a few a higher skill, on the advanced side of their card. *(Law 21)*
 
 
 ## Quick reference

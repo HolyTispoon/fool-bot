@@ -404,7 +404,7 @@ class LegacyFinishTests(unittest.TestCase):
 class EveryFinishIsChargedTests(unittest.TestCase):
     """
     Whole advanced games through the driver, on eight seeds so the
-    personal abilities' detours get their turn: no maneuver, shot or
+    special abilities' detours get their turn: no maneuver, shot or
     time out reaches its finish with nothing on the clock. The finish's own
     charge is only for a game saved under the old rule, so a path
     reaching it uncharged is a decision that forgot to charge.

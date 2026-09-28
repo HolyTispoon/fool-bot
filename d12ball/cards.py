@@ -2223,7 +2223,9 @@ def render_maneuver_card_back(
     `MANEUVER_TIER_BASIC` draws six -- a standard-mode coach's own hand is
     never anything but the three basic cards, so there is no tier to
     hide and a node showing its one name reads larger than one showing
-    two stacked on a hairline.
+    two stacked on a hairline. The printed deck gives each tier its
+    own: the basic six on this back, the advanced six on the other
+    (`scripts/render_maneuver_cards.py`; the author, 2026-09-28).
 
     **The cycle is six nodes however many cards are on it**, because
     rank alone decides who beats whom (the author, 2026-08-18). In
@@ -2615,3 +2617,42 @@ def print_sheet(
             ),
         )
     return sheet
+
+
+# A sheet printed on both sides is three across: three poker cards are
+# 7.5in, which a letter or A4 page takes upright, so the front and the
+# back are the same page the same way up and a duplex printer needs no
+# landscape setting to keep them in register. `SHEET_COLUMNS` is four
+# only because a one-sided sheet can be turned.
+DUPLEX_COLUMNS = 3
+
+
+def duplex_order(
+    cards: list[Image.Image], columns: int = DUPLEX_COLUMNS
+) -> list[Image.Image]:
+    """
+    The backs in the order a duplex printer wants them: each row
+    reversed, and the rows themselves left alone.
+
+    A sheet printed on both sides comes out of the printer flipped
+    about the paper's long edge, so the leftmost cell of a row on the
+    front is the rightmost cell of that row on the back. Reversing
+    every row is the whole of the correction. It matters wherever the
+    backs differ -- a player's advanced side, a reference card's other
+    face -- and is harmless where they are all one picture.
+
+    **A short last row is padded to full width before it is reversed**,
+    with a blank the size of a card in the sheet's own colour. The
+    front's short row keeps its cards in the leftmost cells
+    (`print_sheet` pads at the end), so their backs belong in the
+    rightmost; reversing the row as it stood and letting `print_sheet`
+    pad it would put them on the left again, behind the wrong cells.
+    Four reference cards three across is the case that meets it.
+    """
+    blank = Image.new(cards[0].mode, cards[0].size, CARD_FACE)
+    padded = list(cards) + [blank] * (-len(cards) % columns)
+    rows = [
+        padded[start:start + columns]
+        for start in range(0, len(padded), columns)
+    ]
+    return [card for row in rows for card in reversed(row)]

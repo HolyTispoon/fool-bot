@@ -332,12 +332,12 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(team_display_name(match.visiting.team), content[0])
 
 
-class PersonalAbilityRosterTests(unittest.TestCase):
+class SpecialAbilityRosterTests(unittest.TestCase):
     """
-    In advanced mode the roster shows each player's personal ability
+    In advanced mode the roster shows each player's special ability
     (Law 21) unless the coach turns it off; the role's is shown only
     when asked for. The players are picked off the data -- who has a
-    personal ability is the sheet's to revise -- never by id.
+    special ability is the sheet's to revise -- never by id.
     """
 
     @classmethod
@@ -368,7 +368,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
             game, self.match, player.player_id, **flags,
         )
 
-    def test_an_advanced_game_shows_the_personal_ability_by_default(
+    def test_an_advanced_game_shows_the_special_ability_by_default(
         self,
     ) -> None:
         game = build_game(mode=GameMode.ADVANCED)
@@ -377,7 +377,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
         role = self.catalog.effective_profile(self.holder).ability
         self.assertNotIn(role, line)
 
-    def test_the_coach_may_turn_the_personal_ability_off(self) -> None:
+    def test_the_coach_may_turn_the_special_ability_off(self) -> None:
         game = build_game(mode=GameMode.ADVANCED)
         line = self.entry(game, self.holder, show_advanced_abilities=False)
         self.assertNotIn(self.holder.advanced_ability, line)
@@ -390,7 +390,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
             self.catalog.effective_profile(self.holder).ability, line,
         )
 
-    def test_a_player_with_no_personal_ability_gets_no_line(self) -> None:
+    def test_a_player_with_no_special_ability_gets_no_line(self) -> None:
         # Nearly every player on the sheet has one now, and which do
         # not is the sheet's to revise, so the test takes the ability
         # away rather than looking for somebody without one.
@@ -407,7 +407,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
             line = self.entry(game, self.holder)
         self.assertNotIn("\n", line)
 
-    def test_no_other_mode_shows_a_personal_ability(self) -> None:
+    def test_no_other_mode_shows_a_special_ability(self) -> None:
         for game in (
             build_game(mode=GameMode.STANDARD),
             build_game(mode=GameMode.TRAINING),
@@ -415,7 +415,7 @@ class PersonalAbilityRosterTests(unittest.TestCase):
         ):
             with self.subTest(mode=game.mode, tutorial=game.tutorial):
                 self.assertEqual(
-                    self.cog.engine.personal_ability_text(
+                    self.cog.engine.special_ability_text(
                         game, self.holder.player_id,
                     ),
                     "",

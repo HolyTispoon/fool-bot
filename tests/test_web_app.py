@@ -1381,9 +1381,9 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
         from d12ball.prompts import pending
         from webapp.present import situation
@@ -1396,10 +1396,10 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 fixture.game.mode = mode
                 handler = take_the_ball(fixture.match)
                 with mock.patch.dict(
-                    PERSONAL_ABILITIES,
+                    SPECIAL_ABILITIES,
                     {
                         catalog_player_id(handler):
-                        (PersonalAbility.DEFENSIVE_THROW, "test"),
+                        (SpecialAbility.DEFENSIVE_THROW, "test"),
                     },
                 ):
                     skill = ENGINE.attacking_skill(
@@ -1490,7 +1490,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(lines)
             self.assertEqual(side["modifiers"][-len(lines):], lines)
 
-    def test_a_personal_ability_is_named_only_where_it_bears(self) -> None:
+    def test_a_special_ability_is_named_only_where_it_bears(self) -> None:
         # In an advanced game only, and only the abilities that apply to
         # the roll (the author, 2026-09-28): a shooter's clear shot is,
         # a dribble is not. Granted by the ability, never named by the
@@ -1498,34 +1498,34 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
 
         def shooter_holding(ability):
             fixture = case("score attempt")
             shooter = fixture.match.active_player_id
             return shooter, mock.patch.dict(
-                PERSONAL_ABILITIES,
+                SPECIAL_ABILITIES,
                 {catalog_player_id(shooter): (ability, "test")},
             )
 
         for mode, ability, shown in (
-            (GameMode.ADVANCED, PersonalAbility.CLEAR_SHOT, True),
-            (GameMode.ADVANCED, PersonalAbility.FREE_BURST, False),
-            (GameMode.STANDARD, PersonalAbility.CLEAR_SHOT, False),
+            (GameMode.ADVANCED, SpecialAbility.CLEAR_SHOT, True),
+            (GameMode.ADVANCED, SpecialAbility.FREE_BURST, False),
+            (GameMode.STANDARD, SpecialAbility.CLEAR_SHOT, False),
         ):
             with self.subTest(mode=mode, ability=ability):
                 shooter, holding = shooter_holding(ability)
                 with holding:
                     fixture, got = self.situation_in("score attempt", mode)
                 (player,) = got["sides"][0]["players"]
-                personal = [
+                special = [
                     note for note in player["abilities"]
-                    if note["kind"] == "personal"
+                    if note["kind"] == "special"
                 ]
-                self.assertEqual(bool(personal), shown)
+                self.assertEqual(bool(special), shown)
 
     def test_a_maneuver_s_ability_is_named_on_the_side_that_plays_it(
         self,
@@ -1537,22 +1537,22 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
 
         cases = (
-            (0, PersonalAbility.FREE_BURST, True),
-            (1, PersonalAbility.FREE_BURST, False),
-            (0, PersonalAbility.PRESSURE_SHOT, True),
-            (1, PersonalAbility.PRESSURE_SHOT, False),
+            (0, SpecialAbility.FREE_BURST, True),
+            (1, SpecialAbility.FREE_BURST, False),
+            (0, SpecialAbility.PRESSURE_SHOT, True),
+            (1, SpecialAbility.PRESSURE_SHOT, False),
             # A teammate's pass, so never a roll the player is in.
-            (0, PersonalAbility.RUN_ON, False),
-            (1, PersonalAbility.RUN_ON, False),
+            (0, SpecialAbility.RUN_ON, False),
+            (1, SpecialAbility.RUN_ON, False),
             # Bulwark's threshold, on every roll.
-            (0, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
-            (1, PersonalAbility.HIGH_DRAIN_THRESHOLD, True),
+            (0, SpecialAbility.HIGH_DRAIN_THRESHOLD, True),
+            (1, SpecialAbility.HIGH_DRAIN_THRESHOLD, True),
         )
         for side, ability, shown in cases:
             with self.subTest(side=side, ability=ability):
@@ -1562,7 +1562,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                     fixture.match.challenger_id,
                 )[side]
                 with mock.patch.dict(
-                    PERSONAL_ABILITIES,
+                    SPECIAL_ABILITIES,
                     {catalog_player_id(player_id): (ability, "test")},
                 ):
                     _, got = self.situation_in(
@@ -1571,7 +1571,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 (player,) = got["sides"][side]["players"]
                 named = [
                     note["name"] for note in player["abilities"]
-                    if note["kind"] == "personal"
+                    if note["kind"] == "special"
                 ]
                 self.assertEqual(named, ["Special ability"] if shown else [])
 
@@ -1585,9 +1585,9 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
 
         fixture = case("maneuver picks")
@@ -1605,22 +1605,22 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(mode=mode, noted=noted):
                 with mock.patch.dict(
-                    PERSONAL_ABILITIES,
+                    SPECIAL_ABILITIES,
                     {
                         catalog_player_id(runner):
-                        (PersonalAbility.RUN_ON, "test"),
+                        (SpecialAbility.RUN_ON, "test"),
                     },
                     clear=False,
                 ):
                     # Nobody else on the side holds it for this test.
                     for player_id, (ability, _) in list(
-                        PERSONAL_ABILITIES.items(),
+                        SPECIAL_ABILITIES.items(),
                     ):
                         if (
-                            ability is PersonalAbility.RUN_ON
+                            ability is SpecialAbility.RUN_ON
                             and player_id != catalog_player_id(runner)
                         ):
-                            del PERSONAL_ABILITIES[player_id]
+                            del SPECIAL_ABILITIES[player_id]
                     _, got = self.situation_in("maneuver picks", mode)
                 self.assertEqual(
                     [note["id"] for note in got["notes"]],
@@ -1635,24 +1635,24 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
 
         fixture = case("join the ball")
         fixture.game.mode = GameMode.ADVANCED
         joiner = fixture.match.pending_join[0]
         with mock.patch.dict(
-            PERSONAL_ABILITIES,
-            {catalog_player_id(joiner): (PersonalAbility.JOINS_THE_BALL, "test")},
+            SPECIAL_ABILITIES,
+            {catalog_player_id(joiner): (SpecialAbility.JOINS_THE_BALL, "test")},
         ):
             _, got = self.situation_in("join the ball", GameMode.ADVANCED)
         self.assertEqual(got["title"], "MANEUVER CHALLENGE")
         self.assertEqual(got["notes"][0]["id"], joiner)
         self.assertEqual(
             got["notes"][0]["text"],
-            ENGINE.personal_ability_text(fixture.game, joiner),
+            ENGINE.special_ability_text(fixture.game, joiner),
         )
 
     def test_a_contest_for_the_ball_is_its_two_contestants(self) -> None:
@@ -1714,19 +1714,19 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         from unittest import mock
 
         from d12ball.components import catalog_player_id
-        from d12ball.personal_abilities import (
-            PERSONAL_ABILITIES,
-            PersonalAbility,
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
         )
 
         fixture, bare = self.situation_in("set-up attempt", GameMode.ADVANCED)
         self.assertIsNone(bare)
         shooter = fixture.match.pending_scoring_opportunity["shooter_id"]
         with mock.patch.dict(
-            PERSONAL_ABILITIES,
+            SPECIAL_ABILITIES,
             {
                 catalog_player_id(shooter):
-                (PersonalAbility.SHOOTS_OFF_ANY_PASS, "test"),
+                (SpecialAbility.SHOOTS_OFF_ANY_PASS, "test"),
             },
         ):
             _, got = self.situation_in("set-up attempt", GameMode.ADVANCED)
@@ -1741,7 +1741,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         # The wall adds defensive skill, so a defender whose card line is
         # a raised defensive score has it named, and one whose line is
         # about something else does not.
-        from d12ball.personal_abilities import PersonalAbility
+        from d12ball.special_abilities import SpecialAbility
 
         fixture, got = self.situation_in("score attempt", GameMode.ADVANCED)
         game = fixture.game
@@ -1751,15 +1751,15 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 ENGINE.skills(game, player["id"]).defense
                 != ENGINE.skills(None, player["id"]).defense
             )
-            blocks = ENGINE.has_personal_ability(
-                game, player["id"], PersonalAbility.FULL_BLOCK,
+            blocks = ENGINE.has_special_ability(
+                game, player["id"], SpecialAbility.FULL_BLOCK,
             )
             named = any(
-                note["kind"] == "personal" for note in player["abilities"]
+                note["kind"] == "special" for note in player["abilities"]
             )
             self.assertEqual(named, raised or blocks, player["short"])
         self.assertTrue(any(
-            note["kind"] == "personal"
+            note["kind"] == "special"
             for player in wall for note in player["abilities"]
         ))
 
