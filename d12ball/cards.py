@@ -32,7 +32,6 @@ from PIL import Image, ImageDraw, ImageFont
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
-    MANEUVER_TIER_WORDS,
     ManeuverCatalog,
     ManeuverDefinition,
 )
@@ -1180,31 +1179,14 @@ def draw_card_header(
     pen.circle(badge_center, 46, fill=CARD_FACE)
     pen.text(badge_center, rank_label, rank_font(38), color, anchor="mm")
 
-    # What kind of card this is, rather than which die faces it stands
-    # in for. The faces were printed here while the cards and the
-    # selection die had to coexist; naming the tier is what still means
-    # something now that the second set of maneuvers exists, since the
-    # back cannot tell the two sets apart (see
-    # `render_maneuver_card_back`). Through `MANEUVER_TIER_WORDS` rather
-    # than the tier itself, which is still the sheet's word.
-    #
-    # **Only a basic card carries it** (the author, 2026-09-28). A
-    # gambit's subtitle below already says what it is -- "ADVANCED
-    # VERSION OF LOW PASS" -- and its colour is its own, so "GAMBIT
-    # MANEUVER" in the corner was the third saying of it. Without the
-    # label the title's room is symmetric, so it is centred on the card.
+    # **No corner label** (the author, 2026-09-28). The corner read
+    # "BASIC MANEUVER" or "GAMBIT MANEUVER"; a gambit's subtitle below
+    # already says what it is -- "ADVANCED VERSION OF LOW PASS" -- and
+    # its colour is its own, so the label was a third saying of it, and
+    # a basic card is simply the one without a subtitle. Without it the
+    # title's room is symmetric, so the title is centred on the card.
     title_left = FRAME + 140
-    if maneuver.is_gambit:
-        title_right = CARD_WIDTH - FRAME - 140
-    else:
-        pen.text(
-            (CARD_WIDTH - FRAME - 62, header_top + header_height / 2),
-            f"{MANEUVER_TIER_WORDS[maneuver.tier].upper()}\nMANEUVER",
-            font(15, bold=True),
-            "#ffffff",
-            anchor="mm",
-        )
-        title_right = CARD_WIDTH - FRAME - 118
+    title_right = CARD_WIDTH - FRAME - 140
     title_width = title_right - title_left
 
     # The subtitle is drawn only on a gambit's face -- a basic card is

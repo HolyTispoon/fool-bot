@@ -324,14 +324,14 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     printed a page at a time either way. Nothing about the image says how
     wide it is meant to be, so check the arithmetic -- width over 300dpi,
     against 10.5in -- after changing either margin.
-- **A basic card's header corner names the tier, not the die faces.** It
-  printed "die 1-2" while the cards and the selection die had to coexist,
-  then "BASIC MANEUVER" while there was only one set, then the card's own
-  tier on both sets. **A gambit carries no corner label** (the author,
-  2026-09-28): its subtitle below says "ADVANCED VERSION OF ..." and its
-  colour is its own, so "GAMBIT MANEUVER" was the third saying of it, and
-  without it the title is centred on the card. The face is still what tells
-  the two sets apart -- the back cannot, and must not.
+- **The header carries no tier label** (the author, 2026-09-28). Its corner
+  printed "die 1-2" while the cards and the selection die had to coexist, then
+  "BASIC MANEUVER", then the card's own tier on both sets. It went from both:
+  a gambit's subtitle says "ADVANCED VERSION OF ..." and its colour is its
+  own, so the label was the third saying of it, and a basic card is the one
+  with no subtitle. The title is centred on the card in the room the label
+  left. The face is still what tells the two sets apart -- the back cannot,
+  and must not.
 - **A gambit's header also says, in words, which basic maneuver it is
   the advanced version of** (the author, 2026-09-20) -- a line under
   the title reading "ADVANCED VERSION OF PRESSURE", the same phrase the
