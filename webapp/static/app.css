@@ -97,7 +97,9 @@ img { display: block; }
   top: 0;
   z-index: 5;
 }
-.topbar-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* The way back and the room's number sit on one baseline, though they
+   are set in different faces and sizes; the divider is centred. */
+.topbar-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .back {
   color: var(--muted);
   font-weight: 600;
@@ -107,7 +109,7 @@ img { display: block; }
 .back:hover, .back:focus-visible { color: var(--strong); }
 .hash { color: var(--faint); font-size: 24px; font-weight: 500; }
 .channel-name { color: var(--strong); font-weight: 600; white-space: nowrap; }
-.topbar-divider { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.topbar-divider { align-self: center; width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
 .topic {
   color: var(--muted);
   font-size: 14px;
@@ -746,19 +748,31 @@ select {
   border-radius: 14px;
   color: var(--text);
 }
+/* The two names and the score on one baseline, in every layout: the
+   names are smaller than the goals, and centred they sat higher. */
 .jumbo-teams {
   flex: 1 1 auto;
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: baseline;
   gap: 20px;
 }
-.jumbo-side { min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+/* Each name centred on the score by the letters themselves: the row
+   is on one baseline, and the side is raised by half the difference in
+   cap height -- the Goal face's capitals are 0.635 of its size, and
+   the names and the goals are both set in it. --team and --goals are
+   the two sizes, set with them in each layout. */
+.jumbo-teams { --team: 26px; --goals: 44px; }
+.jumbo-side {
+  min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  position: relative;
+  top: calc((var(--team) - var(--goals)) * 0.3175);
+}
 .jumbo-side.visiting { align-items: flex-end; text-align: right; }
 .jumbo-team {
   font-family: "Goal", "Board", sans-serif;
-  font-size: 26px;
+  font-size: var(--team);
   letter-spacing: 1px;
   line-height: 1;
   text-transform: uppercase;
@@ -767,7 +781,6 @@ select {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.jumbo-arrow { font-size: 14px; color: var(--muted); }
 .jumbo-coach {
   font-size: 12px;
   color: var(--muted);
@@ -785,10 +798,11 @@ select {
   font-weight: 800;
   color: var(--gold);
 }
+.jumbo-ball.idle { visibility: hidden; }
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
   font-family: "Goal", "Board", sans-serif;
-  font-size: 44px;
+  font-size: var(--goals);
   line-height: 1;
   color: var(--strong);
   white-space: nowrap;
@@ -1392,7 +1406,22 @@ button.goal { display: block; }
   .topbar-title, .room-title, .topic { min-width: 0; overflow: hidden; }
   .topic .topic-field { width: 150px; }
   .you-pill { padding: 4px 10px; font-size: 12px; gap: 6px; }
-  .you-pill .pill-lead, .you-pill .pill-team { display: none; }
+  button.you-pill { font-size: 12px; }
+  .you-pill .pill-team, .you-pill .pill-long { display: none; }
+  /* The name truncates but never vanishes; the title gives way first. */
+  .you-pill .pill-name { flex: 0 1 auto; min-width: 3.5em; max-width: 26vw; }
+  .you-pill { padding: 4px 8px; gap: 4px; }
+  /* The bar is the room's number, its topic and the pill; the free
+     seat is in the pill's menu. */
+  #take-free-seat { display: none; }
+  .topbar { gap: 8px; }
+  /* The title takes what the pill leaves -- at least half the bar, so
+     the room's number and a stub of its topic stay: before kickoff the
+     topic is where the game is renamed, so it is cut short and never
+     cut away. */
+  .topbar-title { flex: 1 1 0; }
+  .topbar-title .room-title { flex: 1 1 auto; }
+  .topbar-end.me { flex: 0 1 auto; min-width: 0; max-width: 48%; }
 
   .board-panel { order: 2; flex: none; padding: 0; background: none; border: 0; }
   .benches { margin-top: 6px; gap: 6px; padding: 6px; flex-direction: column; }
@@ -1459,21 +1488,22 @@ button.goal { display: block; }
 @media (max-width: 960px) and (orientation: portrait) {
   :root { --topbar: 44px; }
   .topbar { padding: 0 12px; background: var(--deep); border-bottom-color: var(--line); }
+  .back-master { display: none; }
 
   /* One line: the teams and the score, the minute and the half, and
      the ball's d12 beside the side that has it. The coaches, the track
      and the tiles are the wide screen's; a time out that is lit is on
      the sheet with everything else lit. */
   .jumbotron { order: 1; gap: 8px; padding: 6px 10px; border-radius: 12px; }
-  .jumbo-teams { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .jumbo-teams { display: flex; align-items: baseline; gap: 6px; flex: 1 1 auto; min-width: 0; }
   .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
-  .jumbo-team { font-size: 13px; letter-spacing: 0.3px; }
-  .jumbo-arrow { font-size: inherit; color: inherit; }
-  .jumbo-goals { font-size: 24px; }
+  .jumbo-teams { --team: 13px; --goals: 24px; }
+  .jumbo-team { letter-spacing: 0.3px; }
   .jumbo-coach, .jumbo-brand, .jumbo-rule, .jumbo-track, .jumbo-marks, .jumbo-tiles { display: none; }
   .jumbo-ball { font-size: 0; gap: 0; }
+  .jumbo-ball.idle { display: none; }
   .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
   /* The minute over the half, so the teams keep the width. */
   .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
@@ -1619,33 +1649,55 @@ button.goal { display: block; }
      and scrolls in itself: the log opens on its latest lines. */
   .pane { flex: none; height: calc(100dvh - var(--topbar) - 56px); overflow-y: auto; }
   .topbar-title .back { font-size: 13px; }
+  .back-master { display: none; }
+  /* The jumbotron is laid over the bar between the title and the pill,
+     centred in the gap they leave rather than on the screen, so the
+     reader's name keeps its room (the author, 2026-09-28). The pill
+     takes what the jumbotron and the title's number leave; the title
+     what the jumbotron and the pill leave, its topic giving way. Every
+     width is measured by app.js (placeJumbotron): --jumbo-w the
+     jumbotron, --title-min the way back and the room's number,
+     --pill-w the pill, --jumbo-x the gap's middle. 40px is the bar's
+     padding and an 8px gap each side of the jumbotron. */
+  body:not(.at-table) .topbar { padding: 0 12px; }
+  body:not(.at-table) .topbar-title {
+    flex: 0 1 auto;
+    min-width: var(--title-min, 0px);
+    max-width: calc(100vw - var(--jumbo-w, 0px) - var(--pill-w, 0px) - 40px);
+  }
+  body:not(.at-table) .topbar-end.me {
+    flex: 0 1 auto;
+    max-width: calc(100vw - var(--jumbo-w, 0px) - var(--title-min, 0px) - 40px);
+  }
+  body:not(.at-table) .you-pill .pill-name { max-width: none; }
 
-  /* The jumbotron, laid over the middle of the top bar as one line. */
+  /* The jumbotron, laid over the top bar as one line. One baseline for the whole line -- the names, the score, the
+     minute and the half -- and the line centred on the bar by its own
+     height, since a baseline row sits at the top of a fixed one. */
   .jumbotron {
     position: fixed;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    top: calc(var(--topbar) / 2);
+    left: var(--jumbo-x, 50%);
+    transform: translate(-50%, -50%);
     z-index: 6;
-    height: var(--topbar);
+    align-items: baseline;
     max-width: calc(100vw - 280px);
-    padding: 0 6px;
-    gap: 10px;
+    padding: 0 4px;
+    gap: 8px;
     background: none;
     border: 0;
     border-radius: 0;
   }
-  .jumbo-teams { display: flex; align-items: center; gap: 8px; flex: none; }
+  .jumbo-teams { display: flex; align-items: baseline; gap: 8px; flex: none; }
   .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
   .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
   .jumbo-score { order: 2; min-width: 0; }
-  .jumbo-team { font-size: 15px; }
-  .jumbo-arrow { font-size: inherit; color: inherit; }
-  .jumbo-goals { font-size: 22px; }
+  .jumbo-teams { --team: 15px; --goals: 22px; }
   .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
   .jumbo-rule { align-self: center; height: 18px; }
   .jumbo-ball { font-size: 0; gap: 0; }
-  .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: center; gap: 8px; }
+  .jumbo-ball.idle { display: none; }
+  .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: baseline; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }
   .jumbo-half { font-size: 10px; color: var(--muted); }
@@ -1693,6 +1745,21 @@ button.goal { display: block; }
   body[data-show="rules"] .tab[data-show="rules"] { background: var(--field); }
   .tab.news::after { top: 2px; right: 2px; width: 6px; height: 6px; }
   .move-pane, .pane { order: 4; scroll-margin-top: 8px; }
+}
+
+/* The narrowest phones on their side (an iPhone SE is 667px): during
+   play the way back is its chevron alone, the room's number a size
+   smaller, and the jumbotron and the pill a little tighter -- which is
+   what lets the longest made-up name (23 characters) fit whole in the
+   pill beside the jumbotron. The way back's title and label still name
+   the Master Lobby. */
+@media (max-width: 720px) and (orientation: landscape) {
+  body:not(.at-table) .back-word { display: none; }
+  body:not(.at-table) .room-title .channel-name { font-size: 15px; letter-spacing: 0.5px; }
+  body:not(.at-table) .jumbo-teams { gap: 5px; }
+  body:not(.at-table) .jumbo-side { gap: 3px; }
+  body:not(.at-table) .jumbotron { gap: 6px; }
+  body:not(.at-table) .you-pill { padding: 4px 6px; gap: 3px; }
 }
 
 /* -- A tablet on its side: two columns ------------------------------------
@@ -2027,6 +2094,37 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   white-space: nowrap;
 }
 .you-pill strong { color: var(--strong); font-weight: 700; }
+/* The pill is the room menu's button: the reader's name, what they are
+   here, and a caret. The name gives way first on a narrow bar. */
+button.you-pill { font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; min-width: 0; }
+button.you-pill:hover { background: var(--field); }
+button.you-pill:focus-visible { outline: 2px solid var(--link); }
+.you-pill .pill-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.you-pill .pill-seat, .you-pill .emoji, .you-pill .pill-caret { flex: none; }
+.you-pill .pill-sep { white-space: pre; flex: none; }
+.you-pill .pill-caret { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.you-menu { gap: 2px; padding: 8px; width: min(320px, calc(100vw - 24px)); }
+.you-menu .menu-head {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--deep);
+  overflow-wrap: anywhere;
+}
+.you-menu .menu-head strong { color: var(--strong); }
+.you-menu .me-divider { margin: 6px 0; }
+.menu-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--text); font: inherit; font-size: 14px;
+  text-align: left; cursor: pointer;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--field); color: var(--strong); outline: none; }
+.menu-item.danger { color: var(--red); }
+.menu-item.danger:hover, .menu-item.danger:focus-visible { background: var(--red); color: var(--strong); }
+.menu-note { color: var(--faint); font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item { overflow-wrap: anywhere; }
+.menu-item:hover .menu-note { color: var(--muted); }
+.menu-hint { margin: 4px 10px; font-size: 12px; }
 
 @media (max-width: 960px) {
   .seat-cards { flex-direction: column; }
@@ -2157,6 +2255,9 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
 .room-card:hover, .room-card:focus-visible { border-color: var(--muted); }
 .room-card.your-move { border-color: var(--gold); }
 .card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* A card's links stay one word each; on a phone they wrap as a row. */
+.card-head { flex-wrap: wrap; row-gap: 4px; }
+.card-head .linkish { white-space: nowrap; }
 .card-number { font-family: "Goal", sans-serif; font-size: 17px; color: var(--strong); white-space: nowrap; }
 .card-number .hash { font-size: inherit; color: var(--muted); }
 .card-topic { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2314,14 +2415,8 @@ body.front .front-door.stats-door {
 .learn-contents { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .learn { font-size: 14px; }
 
-/* The References: the cards, the roles and the species. */
+/* The References: the maneuvers, the roles and the species. */
 .references { display: flex; flex-direction: column; gap: 8px; }
-.ref-cards { display: flex; flex-wrap: wrap; gap: 6px; }
-.ref-card img { width: 74px; height: auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
-.ref-card:hover img, .ref-card:focus-visible img { outline: 2px solid var(--gold); }
-.ref-hexagon { margin: 0; display: flex; flex-direction: column; gap: 4px; }
-.ref-hexagon img { display: block; width: 100%; height: auto; border-radius: 10px; }
-.ref-hexagon figcaption { font-size: 12px; color: var(--muted); }
 .ref-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .ref-table th { color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; padding: 2px 4px; }
 .ref-table td { padding: 3px 4px; vertical-align: middle; }
@@ -2332,6 +2427,10 @@ body.front .front-door.stats-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
+.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.maneuver-table .beats { color: var(--text); font-size: 11px; }
+.maneuver-table + .maneuver-table { margin-top: 6px; }
 
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */

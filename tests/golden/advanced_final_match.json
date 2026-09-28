@@ -95,6 +95,7 @@
     }
   },
   "challenger_id": "hellguard_fullback",
+  "clock_charged": false,
   "defense_maneuver": "pressure",
   "events": [
     {
@@ -138,7 +139,7 @@
       "period": "first_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 0
+      "time": 1
     },
     {
       "details": {
@@ -166,7 +167,7 @@
       "period": "first_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 1
+      "time": 2
     },
     {
       "details": {
@@ -194,7 +195,7 @@
       "period": "first_half",
       "player_id": "blazebulk_defender",
       "side": "visiting",
-      "time": 2
+      "time": 3
     },
     {
       "details": {
@@ -236,7 +237,7 @@
       "period": "first_half",
       "player_id": "noxar_striker",
       "side": "home",
-      "time": 3
+      "time": 5
     },
     {
       "details": {
@@ -250,7 +251,7 @@
       "period": "first_half",
       "player_id": "blazebulk_defender",
       "side": "visiting",
-      "time": 3
+      "time": 5
     },
     {
       "details": {
@@ -278,7 +279,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 5
+      "time": 6
     },
     {
       "details": {
@@ -307,7 +308,7 @@
       "period": "first_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 6
+      "time": 7
     },
     {
       "details": {
@@ -322,7 +323,7 @@
       "period": "first_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 6
+      "time": 7
     },
     {
       "details": {
@@ -350,7 +351,7 @@
       "period": "first_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 7
+      "time": 9
     },
     {
       "details": {
@@ -378,7 +379,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 9
+      "time": 10
     },
     {
       "details": {
@@ -422,7 +423,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 10
+      "time": 11
     },
     {
       "details": {
@@ -450,7 +451,7 @@
       "period": "first_half",
       "player_id": "dravox_defender",
       "side": "home",
-      "time": 11
+      "time": 12
     },
     {
       "details": {
@@ -475,7 +476,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 12
+      "time": 13
     },
     {
       "details": {
@@ -529,7 +530,7 @@
       "period": "first_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 14
+      "time": 15
     },
     {
       "details": {
@@ -544,7 +545,7 @@
       "period": "first_half",
       "player_id": "brightburn_striker",
       "side": "visiting",
-      "time": 14
+      "time": 15
     },
     {
       "details": {
@@ -555,7 +556,7 @@
       "period": "first_half",
       "player_id": "brightburn_striker",
       "side": "visiting",
-      "time": 14
+      "time": 15
     },
     {
       "details": {
@@ -596,7 +597,7 @@
       "period": "first_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 16
+      "time": 17
     },
     {
       "details": {
@@ -610,7 +611,7 @@
       "period": "first_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 16
+      "time": 17
     },
     {
       "details": {
@@ -639,7 +640,7 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "visiting",
-      "time": 15
+      "time": 17
     },
     {
       "details": {
@@ -667,7 +668,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 17
+      "time": 18
     },
     {
       "details": {
@@ -699,7 +700,7 @@
       "period": "second_half",
       "player_id": "umbrik_fullback",
       "side": "home",
-      "time": 18
+      "time": 19
     },
     {
       "details": {
@@ -714,7 +715,7 @@
       "period": "second_half",
       "player_id": "brightburn_striker",
       "side": "visiting",
-      "time": 18
+      "time": 19
     },
     {
       "details": {
@@ -725,7 +726,7 @@
       "period": "second_half",
       "player_id": "brightburn_striker",
       "side": "visiting",
-      "time": 18
+      "time": 19
     },
     {
       "details": {
@@ -740,7 +741,7 @@
       "period": "second_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 19
+      "time": 20
     },
     {
       "details": {
@@ -754,7 +755,7 @@
       "period": "second_half",
       "player_id": "quillon_playmaker",
       "side": "home",
-      "time": 19
+      "time": 22
     },
     {
       "details": {
@@ -768,7 +769,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 21
+      "time": 22
     },
     {
       "details": {
@@ -782,7 +783,7 @@
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 21
+      "time": 23
     },
     {
       "details": {
@@ -799,7 +800,7 @@
       "period": "second_half",
       "player_id": "noxar_striker",
       "side": "home",
-      "time": 22
+      "time": 23
     },
     {
       "details": {
@@ -813,7 +814,7 @@
       "period": "second_half",
       "player_id": "noxar_striker",
       "side": "home",
-      "time": 22
+      "time": 24
     },
     {
       "details": {
@@ -828,7 +829,7 @@
       "period": "second_half",
       "player_id": "noxar_striker",
       "side": "home",
-      "time": 23
+      "time": 24
     }
   ],
   "exhausted": [
@@ -854,7 +855,7 @@
       "player_id": "brightburn_striker",
       "shootout": false,
       "side": "visiting",
-      "time": 14
+      "time": 15
     },
     {
       "own_goal": false,
@@ -862,7 +863,7 @@
       "player_id": "brightburn_striker",
       "shootout": false,
       "side": "visiting",
-      "time": 18
+      "time": 19
     }
   ],
   "half_substitutions_used": {},
@@ -898,6 +899,7 @@
   "injured": [],
   "last_ball_movers": [],
   "last_ball_path": [],
+  "last_possession_declared": false,
   "loose_ball_defense_declined": false,
   "loose_ball_defense_player": null,
   "loose_ball_offense_declined": false,
@@ -959,7 +961,7 @@
     "home_score": 0,
     "last_possession": false,
     "period": "second_half",
-    "time": 23,
+    "time": 24,
     "visiting_score": 2
   },
   "shootout_goals": {},

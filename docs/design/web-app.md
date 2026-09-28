@@ -323,6 +323,21 @@ room with an empty seat rather than seating Dinky in it. A test
 game's one coach holds both seats and may not leave them once it has
 started.
 
+**A seat is taken over in one move** (the author, 2026-09-27): a coach
+seated on one device who opens the room on another is, as far as the
+room knows, somebody new -- an observer. So they become the room's
+admin there and take the seat over: `D12BallGame.take_over_seat`,
+through `GameService.take_over_seat` (`POST /api/room/{id}/seat/
+takeover`), the kick and the take judged whole -- whoever holds the
+seat, a person or the AI, out, and the reader in -- so a takeover the
+record refuses leaves the seat as it was rather than empty, and the
+match is written once. It refuses somebody already seated (they would
+hold two seats), a one-player game's second seat, and wherever the
+kick would be refused (a test game's seats once it has started), each
+before anything moves. The route is an admin's, as a kick is; the
+room offers it (`room.take_over`, asked of a copy) only to an admin
+who is watching.
+
 **Roles are the frontend's, in its own file.** Who is admin in a room,
 who has been in and what each was last called (the table's sideline,
 step 9 of [../web-app-redesign.md](../web-app-redesign.md)), is
@@ -362,8 +377,16 @@ two seats claimed and the first prompt, and the rematch at the end.
 
 **The front door** (`/`), which the author named **the Master
 Lobby** on 2026-09-27, lists the reader's rooms by where each
-stands -- the lobby, the rest of setup, playing, finished -- and the
-rooms with a seat free (`GET /api/rooms`), and opens a room the one
+stands -- the lobby, the rest of setup, playing, finished -- then
+every other room still being played, those with a seat free above
+the full ones (`GET /api/rooms`: `mine`, `open`, `full`), and opens a
+room the one way. The full rooms are there because a coach on another
+device is another person (the author, 2026-09-27: "if I'm in a game
+in one browser, and want to jump in from a different device -- I
+can't see the game"); they open it, become its admin and take their
+seat over. Somebody else's finished room is not listed, and a room
+nobody has had open for a day leaves both of the others' lists
+(`OPEN_ROOM_IDLE`, below). A room is opened the one
 way: `POST /api/rooms` is always `create_game(in_lobby=True,
 ai_seats=[])`, the creator in seat 1. A room that never started may be
 closed (`DELETE /api/room/{id}`, `discard_game`, whose refusal answers
@@ -383,9 +406,12 @@ the card and on the table's "Close this room" alike -- the author,
 `may_close` is `_may_close`, the same reading as the table's, and
 `may_abandon` is a seat in a game in progress, the room page's rule --
 so the front door offers exactly what the room does, and the route
-judges again. A card in "Rooms with a seat free" carries neither: its
-reader holds no seat. **A room nobody has had open for a day leaves
-"Rooms with a seat free"** (`OPEN_ROOM_IDLE`): it is not closed, and
+judges again. A card of the reader's own also carries **Leave seat** wherever
+`vacate_seat` would stand (`may_leave`, asked of a copy) -- the same
+route the room's menu calls, asked first while the game is under way,
+since the side then waits, empty, for whoever takes it. A card in
+the other two lists carries none of them: its reader holds no seat. **A room nobody has had open for a day leaves
+the rooms with a seat free and the rooms in play** (`OPEN_ROOM_IDLE`): it is not closed, and
 its coaches still see it in their own list, where its card closes it.
 "Open" is any poll of the room's state, kept in memory
 (`_looked_at`), so a restart counts every room from the restart --
@@ -535,11 +561,26 @@ its sideline.
   Copy the room's link / Become admin / Close this room as neutral
   controls.
 
-**The top bar says who the reader is as one pill**: "You are Coach 1"
-(gold edge) before the toss, "You are the Home coach · <team>" (the
-team's colour) after it, "You are an observer" otherwise, with "Take
-the free seat" beside it when there is one -- all off `room.role`,
-the record's `home_player_number` read. The room's number and its
+**The top bar says who the reader is as one pill**, their name first
+(the author, 2026-09-27): "<name> · Coach 1" (gold edge) before the
+toss, "<name> · Home coach · <team>" (the team's colour) after it,
+"<name> · Observer" otherwise, with "Take the free seat" beside it
+when there is one -- all off `room.role`, the record's
+`home_player_number` read. **The pill is the room's menu**: a click
+opens everything the reader may do to the room from anywhere in it
+-- take the free seat, take a seat over (an admin who is watching),
+leave their own, kick the other (an admin; the AI, anybody seated),
+put Dinky in an empty seat, become or give up admin, copy the link,
+and the way out -- Close before kickoff, Abandon after. Which of them
+is offered is the server's (`room.may_leave`, `room.take_over`,
+`room.may_abandon`, the table's `may_close`), each route judges
+again, and a kick is still asked first. An observer who is not an
+admin is told how a seat on another device is taken back. **On a
+phone held upright the pill fits the bar**: the name is cut short,
+never away; the team's name and "coach" are dropped for the team's
+emoji and the edge; "Take the free seat" is only in the menu; and
+the pill takes at most half the bar, so the room's number and a stub
+of its topic -- where the game is renamed -- stay. The room's number and its
 topic (`game.topic`: the room's name, or the coaches and their teams)
 share a baseline.
 
@@ -856,9 +897,55 @@ two shapes, by which way it is held:
   and the strip stays at the foot; the box, or the tab a pill opens,
   is under the field, and a tap on the strip's ask brings the box up.
   The field is large enough there to answer on, so the strip repeats
-  nothing.
+  nothing. **The jumbotron sits between the room's title and the pill, not over
+  the middle of the bar** (the author, 2026-09-28), so the reader's name
+  keeps its room: the pill takes what the jumbotron and the room's
+  number leave, the title what the jumbotron and the pill leave (its
+  topic gives way), and the jumbotron is centred in the gap between
+  them. Every width is measured by `app.js` (`placeJumbotron`) into
+  `--jumbo-w`, `--title-min`, `--pill-w` and `--jumbo-x`. Centred on
+  the screen with an even split, the wider pill of the room's menu first
+  ran the title under the jumbotron's teams, and then cut the name to a
+  letter at 667px. At 720px and under (an iPhone SE is 667px) the way
+  back is its chevron alone during play, the room's number a size
+  smaller and the spacing a little tighter, which is what lets the
+  longest made-up name (23 characters) fit whole -- measured in headless
+  Chromium, with half a pixel to spare, so a device's own fonts may
+  still cut a pixel; a name somebody chose, up to 32 characters, may
+  still be cut. The laid-over line is one baseline -- the names
+  centred on it as above, the score, the minute and the half --
+  centred on the bar by its own height, and the way back and the
+  room's number share one too (the author, 2026-09-28: text side by
+  side in different faces is aligned on its baseline, never centred on
+  its box).
 - The top bar is the room's number and the seat, the team's emoji for
   its name.
+
+**Three ways to look at the game: desktop, iPad, phone** (the author,
+2026-09-28). The page has three layouts, each its own block in
+`app.css`, and a change to it is looked at, and shown to the author,
+in all three -- never one, since a change that is right on the desktop
+can crowd the phone's one line or push the tablet's column under the
+fold, and nothing in the suite sees any of it:
+
+| View | What the page reads | What it gets |
+| --- | --- | --- |
+| **Desktop** | wider than 960px, where the iPad's query does not hold | the stacked page: jumbotron, field, question box, the sidebar's four tabs |
+| **iPad** | 961px to 1400px on its side with a coarse pointer (`TABLET`) | two columns: the desktop field on the left, the phone's tabs on the right |
+| **Phone** | 960px and under (`phone()`), upright (`UPRIGHT`) | one screen: the narrow field, the bottom sheet, the tab bar |
+
+An iPad held upright is 960px or under and gets the phone's layout, and
+a phone on its side has a shape of its own (below); the three above are
+the ones every change is shown on. `scripts/capture_web_views.py`
+takes them: a kickoff game staged the way the landing page's board
+capture stages one (`landing/capture.py`), or a saved web game with
+`--games-file` and `--game`, opened as an observer in headless Chrome
+at 1440x900, 1180x820 with touch, and 390x844 with touch, one PNG each
+(`--selector` for one element, the jumbotron say). It reads back which
+layout the page chose and fails a view that fell into the wrong one,
+so a picture labelled "ipad" is the tablet's layout and not the
+desktop's at that width. As an observer nothing is lit for the reader;
+a change to what a coach is asked is looked at by playing it.
 
 **A tablet on its side is a third shape: two columns** (2026-09-27).
 A touch screen held on its side and wider than a phone -- 961px to
@@ -898,9 +985,18 @@ the coach is looking at it.
 - **The jumbotron is one bar across the top of the play area**
   (2026-09-26, step 2 of [../web-app-redesign.md](../web-app-redesign.md),
   replacing the panel at the head of the sidebar). Each team in its
-  colour with an arrow for the way it attacks, "Home · coached by ..."
-  under it and a gold BALL mark while it has possession, its d12
-  showing the ball's speed as the field's does; the score with D12 BALL
+  colour, "Home · <coach>" under it and a gold BALL mark while it has
+  possession, its d12 showing the ball's speed as the field's does --
+  the mark is drawn on both sides and hidden on the one without the
+  ball, so the two columns are one height and the names and the
+  Home/Visitors lines sit on the same rows, and each name is centred on
+  the score by the letters themselves, in every layout: the row is on
+  one baseline and the side raised by half the difference in cap
+  height (the Goal face's capitals are 0.635 of its size, and the names
+  and the goals are both set in it), since the boxes centred left the
+  smaller names high and a shared baseline left them low (the author, 2026-09-28,
+  who also dropped the arrow for the way each team attacks and the
+  "coached by" before the name); the score with D12 BALL
   under it; then the clock -- the minute in the board's yellow
   beside the half, a thirty-segment track to the second half's last
   minute with the first half's marked, a red LAST POSSESSION chip, and
@@ -909,12 +1005,12 @@ the coach is looking at it.
   `shootout_score_line` reports them, since the scoreboard carries them
   too) -- and under it a time-out tile per team. Where the step's
   prompt and the design canvas differed in the small things (the
-  canvas's upper-case names, its arrow after the visitors' name too,
-  its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
+  canvas's upper-case names, its tiles in a row under the clock), the canvas was followed. **Every value is the match's,
   read by `board.jumbotron`**: possession is `ball.possession`, a tile's
   held or spent is `may_take_time_out` (the half's own count, which
   halftime clears), the track's length and its halftime mark are the
-  clock's constants, last possession the scoreboard's flag;
+  clock's constants, last possession `last_possession_called` -- lit from
+  the moment it is declared, before it is anybody's (2026-09-28);
   `JumbotronTests` hold each against the match. The coach's name is the
   game's coaches, as it always was.
 - **The time out is a tile, not a button.** The tile is outlined in the
@@ -1780,10 +1876,17 @@ the tab and the Reading Room are handed.
   has none of its own: it is the book's markdown in the page's type,
   with the book's figures, and the printed layout stays
   `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
-- **The References are the model's own data.** The cards are the
-  printed faces the hand shows (`pictures.maneuver_card_png`, served at
-  `/aids/cards/{key}.png`): the six basic ones always, and the six
-  gambits under them where the game's hexagon is the gambit one -- an
+- **The References are the model's own data.** The maneuvers are a
+  table, two of them -- the offense's and the defense's -- set like the
+  roles table, in place of the printed card faces they used to be (the
+  author, 2026-09-28). Each row is the card's own data from
+  `maneuvers.json`: its name, its time, its effect in the sheet's
+  words, and the opposing cards its rank beats, read off
+  `defeats_rank` -- both of that rank's cards where both tiers are
+  shown, because rank alone decides. It has no die range: a maneuver
+  has none (the author, 2026-09-28), whatever the import still writes
+  into `die_values`. The six basic ones always, and the six gambits
+  among them where the game's hexagon is the gambit one -- an
   advanced game that plays them (the author, 2026-09-27), which is
   `maneuver_reference_tier`'s answer, never `game.mode` read here. The
   roles table is `role_profiles` -- the role card's own numbers, its
@@ -1805,7 +1908,7 @@ the tab and the Reading Room are handed.
   maps no sentence to a Law.**
 
 **Which aids a room gets is the model's.** The room's state carries
-`aids`: the cards at the game's tier and the hexagon at
+`aids`: the maneuvers table and the hexagon at
 `RulesEngine.maneuver_reference_tier(game)`, the species table and card
 only where `species_abilities_apply(game)`, the team cards in the face
 `personal_abilities_apply(game)` says the game holds, and the three
@@ -1814,25 +1917,27 @@ answers themselves, so `app.js` decides none of them and never reads
 observer's seat 1's); a room no longer draws them as a gallery, since
 the Teams tab is the rosters and a row's hover card is the card in the
 face the game plays. In the Reading Room, with no game to ask, `GET
-/api/aids` offers all of it: all twelve cards, both hexagons named by
+/api/aids` offers all of it: all twelve maneuvers, both hexagons named by
 tier, the species table, every team with both faces (the ROSTERS
 chip). Every picture is the one the reference command posts, drawn by
 the same function (`render_maneuver_reference_image`,
 `render_role_reference`, `player_cards`), in a worker thread and kept
-with the cards; the References draw the role and species *tables*
-from the data those cards are drawn from, as the canvas has it, and
-the role card and the two `species_cards.REFERENCE_FACES` stay served
-at their routes for a link.
+with the cards; the References draw the maneuver, role and species
+*tables* from the data those cards are drawn from, as the canvas has it, and
+the hexagon, the role card and the two `species_cards.REFERENCE_FACES`
+stay served at their routes for a link.
 The maneuver pick carries `reference`, the cards' shared back at the
 game's tier (`GET /api/game/{id}/maneuver-back.png`), which carries the
 defeat cycle: the page writes "Maneuver rank reference" under the hand
 and shows the back as the hover card while the pointer is on the words,
 or after a press and hold -- never a picture inline, since the question
-box already carries the challenge over the hand (step 8). **The fuller
-reference, the hexagon, is the References'** (the author, 2026-09-27),
-under the cards: `aids.maneuvers`, the one at the game's tier in a room
-and both, named, in the Reading Room. The pick used to link to the
-hexagon; that link is gone.
+box already carries the challenge over the hand (step 8). The pick
+used to link to the hexagon; that link is gone. The hexagon was then
+drawn in the Rules tab's References, under the cards (the author,
+2026-09-27), and taken out again once the maneuvers became a table
+(the author, 2026-09-28): the page draws it nowhere now, and
+`aids.maneuvers` -- the one at the game's tier in a room, both, named,
+in the Reading Room -- names it only for its route.
 
 **Why the two choices moved below the cog.** Which hexagon a game gets
 was `D12Ball.reference_tier`, and which two species faces a screen

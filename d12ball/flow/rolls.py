@@ -61,6 +61,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow import injuries
+from d12ball.flow.clock import charge_clock, charge_maneuver_clock
 from d12ball.flow.result import (
     TURNOVER_HEADING,
     FollowOn,
@@ -619,6 +620,13 @@ def skill_test_step(
             )
     volatile_note = "\n" + "\n".join(volatile_lines) if volatile_lines else ""
 
+    # **The winning roll is the decision, so the clock is charged now**
+    # (Law 16.2.4) -- before the injury checks the test owes, which cost
+    # no time and happen on the clock as it stands. Asked after the
+    # tier flags above, since the card charged is the one that
+    # resolves.
+    clock = charge_maneuver_clock(engine, match, winner_key)
+
     exhausted_participants = [
         player
         for player in (offense_player, defense_player)
@@ -638,7 +646,10 @@ def skill_test_step(
         {"kind": "maneuver_effect", "winner_key": winner_key},
     )
     wins = f"**{winner_name}** wins the skill test!"
-    result.narration.insert(0, f"## {wins}{volatile_note}")
+    result.narration.insert(
+        0,
+        f"## {wins}{volatile_note}" + (f"\n{clock}" if clock else ""),
+    )
     high, low = sorted((offense_total, defense_total), reverse=True)
     result.headlines = (Headline(
         wins,
@@ -1209,16 +1220,16 @@ def settle_score_attempt(
     scored: bool,
 ) -> tuple[str, int, Headline]:
     """
-    Credit the goal or the miss, restart play from it, and word the
-    verdict -- with the clock cost the run back behind it is owed, and
+    Credit the goal or the miss, charge the shot's clock, restart play
+    from it, and word the verdict -- with the minutes it charged, and
     the verdict's `Headline`: the side that scored, or the side that
     kept it out.
     """
     if scored:
         # Logged as it is credited, and stamped with the clock as it
-        # stands: the shot's own cost is charged afterwards, so this is
+        # stands: the shot's own cost is charged just below, so this is
         # the minute the ball crossed the line rather than the minute
-        # play restarted.
+        # play restarted (Law 16.2.5).
         match.award_goal(shooter.player_id)
         under = (
             f"{engine.format_player_label(match, shooter)} scores "
@@ -1250,11 +1261,19 @@ def settle_score_attempt(
             game, match, shooter.player_id, 1,
         )
 
-    # Every score attempt is a turnover, win or miss: the clock cost is
-    # a flat space minute (2026-08-16), plus the cost of whatever
-    # maneuver set it up if this was a set-up shot rather than an
-    # ordinary one -- `pending_shot_setup_cost` is 0 for an ordinary
-    # shot, so this is 1 there and maneuver-cost-plus-1 for a set-up.
+    # **The shot has resolved, so the clock is charged now** (Law 5.4.2,
+    # 16.2.4): a flat space minute (2026-08-16), after the goal is
+    # logged and before the restart. A set-up's maneuver was charged
+    # when its winner was decided, which `clock_charged` says; only a
+    # game saved under the old rule reaches here with it down and the
+    # maneuver's cost still owed in `pending_shot_setup_cost`. An
+    # ordinary shot has it down too, and a setup cost of 0.
+    space_minutes = 1 + (
+        0 if match.clock_charged else match.pending_shot_setup_cost
+    )
+    verdict += "\n\n" + charge_clock(match, space_minutes)
+
+    # Every score attempt is a turnover, win or miss.
     # The team that just defended restarts play -- in the middle of the
     # midfield on a goal (the same kickoff rule as the start of a
     # half), or at the space closest to their own goal on a miss.
@@ -1266,7 +1285,6 @@ def settle_score_attempt(
     # a stale `active_player_id` would trip that check the moment
     # `pending_run_back` next goes false.
     match.active_player_id = None
-    space_minutes = 1 + match.pending_shot_setup_cost
     new_possession_side = defending_setup.side
     if scored:
         match.restart_after_goal(new_possession_side)

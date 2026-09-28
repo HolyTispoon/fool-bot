@@ -139,10 +139,12 @@ def sent_texts(interaction: SimpleNamespace) -> list[str]:
 
 class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
     """
-    finish_maneuver_resolution's clock handling: reaching the period's
-    last minute declares last possession, the clock keeps counting past
-    it, and only a turnover under a last possession that was already in
-    force ends the period.
+    finish_maneuver_resolution's last-possession handling: a clock
+    that has reached the period's last minute declares last possession,
+    the clock keeps counting past it, and only a turnover under a last
+    possession that was already in force ends the period. The clock
+    itself was charged when the action's outcome was decided (Law
+    16.2.4), so each position stands with it already charged.
     """
 
     @classmethod
@@ -175,20 +177,22 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         cog.end_period = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
-        match.scoreboard.time = 14
+        match.scoreboard.time = 15
+        match.clock_charged = True
+        # The charge that got here declared it; it is nobody's until
+        # the next turn is offered (Law 16.3.2).
+        match.last_possession_declared = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
-        interaction = await self.resolve(
+        await self.resolve(
             cog, game, match, distance_moved=1, turnover_occurred=True,
         )
 
         cog.end_period.assert_not_awaited()
-        self.assertTrue(match.scoreboard.last_possession)
         cog.send_turn_prompt.assert_awaited_once()
-        announcement = sent_texts(interaction)[0]
-        self.assertIn("last possession", announcement)
-        self.assertIn("doesn't end it", announcement)
+        self.assertTrue(match.last_possession_declared)
+        self.assertFalse(match.scoreboard.last_possession)
 
     async def test_a_later_turnover_ends_the_period(self) -> None:
         # The next turnover, with last possession already in force, is
@@ -220,13 +224,15 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         The clock used to stop dead at 15, which is how last possession
         was recorded at all. It is a flag now, and the minutes a last
         possession takes are charged like any other -- so a first half
-        genuinely ends at 19.
+        genuinely ends at 19. Here four of them were charged at the
+        decision, and the finish leaves them be.
         """
         cog = build_cog()
         cog.end_period = mock.AsyncMock()
         game = build_game()
         match = self.build_match()
-        match.scoreboard.time = 15
+        match.scoreboard.time = 19
+        match.clock_charged = True
         match.scoreboard.last_possession = True
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
@@ -277,9 +283,14 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("at 19", sent_texts(interaction)[0])
         self.assertIn("# Halftime", sent_texts(interaction)[1])
 
-    async def test_reaching_15_without_a_turnover_reads_the_old_way(
+    async def test_a_legacy_finish_that_reaches_15_declares_it(
         self,
     ) -> None:
+        """
+        A game saved mid-action under the old rule charges at its
+        finish, through the one charge -- so reaching 15 there declares
+        last possession and says so, as a charge at a decision would.
+        """
         cog = build_cog()
         cog.end_period = mock.AsyncMock()
         game = build_game()
@@ -293,8 +304,10 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         )
 
         cog.end_period.assert_not_awaited()
-        announcement = sent_texts(interaction)[0]
-        self.assertIn("Play continues until the ball turns over", announcement)
+        self.assertTrue(match.last_possession_declared)
+        self.assertIn(
+            "**last possession** is declared", " ".join(sent_texts(interaction)),
+        )
 
 
 class FullTimeSummaryTests(unittest.TestCase):

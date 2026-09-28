@@ -52,6 +52,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.flow import gates
+from d12ball.flow.clock import charge_maneuver_clock
 from d12ball.flow.result import (
     TURNOVER_HEADING,
     FollowOn,
@@ -2697,8 +2698,18 @@ def begin_effect_resolution(
 
     `lead_in` is always "" today -- `resolve_maneuver`'s reveal is a
     message of its own -- and is kept in front rather than dropped.
+
+    **The clock is charged before the effect, and normally already
+    was** (Law 16.2.4): every place a winner is decided charges it
+    there and then, so this asks again only as a backstop, and
+    `charge_maneuver_clock` answers "" for a maneuver already charged.
+    What it catches is a game saved between a decision and its effect
+    under the old rule -- a skill test's injury checks, most often --
+    which reaches here with nothing on the clock yet.
     """
     record_maneuver(engine, match, winner_key)
+    clock = charge_maneuver_clock(engine, match, winner_key)
+    lead_in = "\n\n".join(filter(None, (lead_in, clock)))
 
     offer = EFFECT_OFFERS.get(engine.resolving_maneuver(match, winner_key))
     if offer is None:

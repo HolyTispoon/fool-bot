@@ -350,7 +350,6 @@ class WebApp:
                 web.get("/api/rules/learn", self.rules_learn),
                 web.get("/rules/figures/{name}", self.rules_figure),
                 web.get("/api/aids", self.all_aids),
-                web.get("/aids/cards/{key}.png", self.card_aid),
                 web.get("/aids/maneuvers/{tier}.png", self.maneuver_aid),
                 web.get("/aids/roles.png", self.roles_aid),
                 web.get("/aids/species/{number}.png", self.species_aid),
@@ -637,16 +636,23 @@ class WebApp:
 
     async def list_rooms(self, request: web.Request) -> web.Response:
         """
-        The front door's two lists: this reader's rooms, by where each
-        stands, and the rooms with a seat free that they are not in.
-        Every room here is a game in the web app's own file -- the
-        bot's games are never in this service.
+        The front door's three lists, in the order the page draws them:
+        this reader's rooms, by where each stands; then every other
+        room still being played -- the ones with a seat free, and
+        after them the full ones (the author, 2026-09-27: somebody
+        seated on one device opens the room from another, which is
+        another person until they take their seat back over). A
+        finished room is its coaches' alone, and a room nobody has had
+        open for `OPEN_ROOM_IDLE` leaves everybody else's lists. Every
+        room here is a game in the web app's own file -- the bot's
+        games are never in this service.
         """
         coach = self._person(request)
         mine: dict[str, list] = {
             "lobby": [], "setup": [], "in_progress": [], "finished": [],
         }
         free: list = []
+        full: list = []
         for game in sorted(
             self.service.games.values(),
             key=lambda one: one.game_number,
@@ -655,13 +661,13 @@ class WebApp:
             held = coach is not None and seat_of(game, coach.id) is not None
             if held:
                 mine[room_status(game)].append(self._listing(game, coach))
-            elif (
-                not game.is_finished
-                and any(game.seat_is_free(number) for number in (1, 2))
-                and not self._idle(game)
-            ):
-                free.append(self._listing(game, None))
-        return web.json_response({"mine": mine, "open": free})
+            elif not game.is_finished and not self._idle(game):
+                (
+                    free
+                    if any(game.seat_is_free(number) for number in (1, 2))
+                    else full
+                ).append(self._listing(game, None))
+        return web.json_response({"mine": mine, "open": free, "full": full})
 
     def _listing(self, game: D12BallGame, coach: Optional[Coach]) -> dict:
         """
@@ -716,6 +722,9 @@ class WebApp:
                 and seat_of(game, coach.id) is not None
                 and game.status == GameStatus.IN_PROGRESS
             ),
+            # Leaving a seat from outside the room: the same route the
+            # room's own menu calls, offered off the record's answer.
+            "may_leave": _may_leave(game, coach),
             "url": f"/room/{game.game_id}",
         }
 
@@ -976,9 +985,11 @@ class WebApp:
     async def seat(self, request: web.Request) -> web.Response:
         """
         `take` (the free seat, or `{"seat": n}`), `leave`, `ai`
-        (`{"seat": n}`: the AI put in an empty seat, by anybody seated)
-        or `kick` (`{"seat": n}`: a person taken out, an admin's; the AI
-        taken out, anybody seated's, as putting it in is) -- each one
+        (`{"seat": n}`: the AI put in an empty seat, by anybody seated),
+        `kick` (`{"seat": n}`: a person taken out, an admin's; the AI
+        taken out, anybody seated's, as putting it in is) or `takeover`
+        (`{"seat": n}`: whoever holds it out and the reader in, one
+        move -- an admin's, and only while they watch) -- each one
         service door over the record's rule, and the record's sentence
         when it refuses.
 
@@ -1029,6 +1040,20 @@ class WebApp:
                         raise RuleRefusal("Nobody holds that seat.")
                     else:
                         self.service.vacate_seat(game.game_id, held_by)
+                elif move == "takeover":
+                    if seat is None:
+                        raise web.HTTPBadRequest(text="Name the seat.")
+                    # The kick is an admin's, and so is this: somebody
+                    # seated on one device takes the seat back from
+                    # another by becoming the room's admin there.
+                    if not self.rooms.is_admin(game.game_id, coach.id):
+                        raise web.HTTPForbidden(
+                            text="Only an admin of this room may take "
+                            "over a seat.",
+                        )
+                    self.service.take_over_seat(
+                        game.game_id, seat, coach.id, coach.name,
+                    )
                 else:
                     raise web.HTTPNotFound()
             except RuleRefusal as refusal:
@@ -1641,24 +1666,6 @@ class WebApp:
         ask which."""
         return web.json_response(aids.everything(self.engine))
 
-    async def card_aid(self, request: web.Request) -> web.Response:
-        """One maneuver card, the printed face the hand shows
-        (`pictures.maneuver_card_png`), for the References."""
-        key = request.match_info["key"]
-        offense = aids.valid_card(self.engine.maneuver_catalog, key)
-        if offense is None:
-            raise web.HTTPNotFound()
-        size = request.query.get("size", "small")
-        if size not in pictures.CARD_WIDTHS:
-            raise web.HTTPBadRequest(text="A size is small or full.")
-        return await self._card(
-            ("aid", "card", key, size),
-            lambda: pictures.maneuver_card_png(
-                self.engine.maneuver_catalog, self.engine.player_catalog,
-                key, offense=offense, size=size,
-            ),
-        )
-
     async def maneuver_aid(self, request: web.Request) -> web.Response:
         tier = request.match_info["tier"]
         if not aids.valid_tier(tier):
@@ -1950,8 +1957,7 @@ class WebApp:
                 # The maneuver pick's rank reference: the cards' shared
                 # back at the game's tier, which carries the defeat
                 # cycle, shown while the pointer is on the words under
-                # the hand (the author, 2026-09-27). The fuller
-                # reference, the hexagon, is in the Rules tab.
+                # the hand (the author, 2026-09-27).
                 "reference": (
                     f"/api/game/{game.game_id}/maneuver-back.png?size=full"
                     if prompt.kind is PromptKind.MANEUVER_ACTION else None
@@ -2056,6 +2062,9 @@ class WebApp:
         1 and Coach 2, because no seat is Home before the toss.
         """
         number = viewer.player_number
+        admin = self.rooms.is_admin(
+            game.game_id, None if coach is None else coach.id,
+        )
         if number is None:
             role = "observer"
         elif number == game.home_player_number:
@@ -2086,10 +2095,27 @@ class WebApp:
             "ai_seats": [
                 one for one in (1, 2) if seated and _ai_may_sit(game, one)
             ],
-            "admin": self.rooms.is_admin(
-                game.game_id, None if coach is None else coach.id,
-            ),
+            "admin": admin,
             "role": role,
+            # The menu under the top bar's pill (the author,
+            # 2026-09-27): whether "Leave your seat" stands
+            # (`vacate_seat` asked of a copy), and the seats an admin
+            # who is watching may take over (`take_over_seat` asked of
+            # one) -- a seat somebody or the AI holds, since a free
+            # one is simply taken.
+            "may_leave": _may_leave(game, coach),
+            "take_over": [
+                one for one in (1, 2)
+                if admin
+                and not seated
+                and not game.seat_is_free(one)
+                and _may_take_over(game, one, coach)
+            ],
+            "may_abandon": (
+                seated
+                and game.match_state is not None
+                and not game.is_finished
+            ),
         }
 
     def _watching(self, game: D12BallGame) -> set[int]:
@@ -2546,6 +2572,33 @@ def _configure_refusal(
     except (TypeError, ValueError):
         return None
     return None
+
+
+def _may_leave(game: D12BallGame, coach: Optional[Coach]) -> bool:
+    """Whether `vacate_seat` would stand for this reader now, asked of
+    a copy -- somebody seated, in a game not over, and never a test
+    game's one coach once it has started."""
+    if coach is None or game.is_finished or seat_of(game, coach.id) is None:
+        return False
+    try:
+        copy.deepcopy(game).vacate_seat(coach.id)
+    except RuleRefusal:
+        return False
+    return True
+
+
+def _may_take_over(
+    game: D12BallGame, seat: int, coach: Optional[Coach],
+) -> bool:
+    """Whether `take_over_seat(seat)` would stand for this reader now,
+    asked of a copy, in a game not over."""
+    if coach is None or game.is_finished:
+        return False
+    try:
+        copy.deepcopy(game).take_over_seat(seat, coach.id, coach.name)
+    except RuleRefusal:
+        return False
+    return True
 
 
 def _ai_may_sit(game: D12BallGame, seat: int) -> bool:

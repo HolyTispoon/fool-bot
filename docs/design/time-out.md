@@ -115,12 +115,15 @@ their side away from it sends one of the two nearest.
     gone; the saved key stays as it is (it is a saved field, and the
     turnover half still reads it). `apply_ball_recovery` reads it before the
     pickup clears it.
-- **The clock cost rides on `pending_run_back_distance`, left at 1.** That
-  field is what every tail step reads back for the clock, and the pickup spans
-  a restart, so a time out has to say so there rather than pass it down a call
-  chain. `call_time_out` sets it explicitly rather than leaning on the 1
-  `reset_maneuver` already leaves, so the value reads as a deliberate fact and
-  not a coincidence.
+- **The minute is charged as it is called** (Law 13.4.1, 2026-09-28), in
+  `begin_time_out`, right after `call_time_out` -- whose `reset_maneuver`
+  would clear `clock_charged` if it came first -- and before either Coaching
+  Choice. The finish charges nothing more. That is the time out's share of
+  "the clock advances the moment the action's outcome is decided"
+  ([clock-and-records.md](clock-and-records.md), "When the clock advances").
+  `pending_run_back_distance`, which `call_time_out` still leaves at 1, and
+  the 1 `finish_time_out` names, are only what a game saved mid-time-out
+  under the old rule still owes.
 - **It is logged, and deliberately not as a turn action** (the author,
   2026-09-16). `EVENT_TIME_OUT` is its own kind: a possession is a run of
   consecutive `turn_action`s by one side and every event in a turn belongs to

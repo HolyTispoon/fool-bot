@@ -631,6 +631,22 @@ class GameService:
         self.save()
         return game
 
+    def take_over_seat(
+        self,
+        game_id: str,
+        seat: int,
+        user_id: int,
+        user_name: Optional[str],
+    ) -> D12BallGame:
+        """A web room's seat handed to somebody else in one move --
+        `D12BallGame.take_over_seat`, saved once. The side is the
+        seat's, so the position asks the newcomer what it asked the
+        one they replaced."""
+        game = self.game(game_id)
+        game.take_over_seat(seat, user_id, user_name)
+        self.save()
+        return game
+
     def seat_ai(
         self, game_id: str, seat: int,
     ) -> tuple[D12BallGame, Optional[GameResult]]:

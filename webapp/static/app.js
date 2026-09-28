@@ -203,6 +203,7 @@ function draw(state) {
   /* Before kickoff the table is the whole of the play area: no
      jumbotron and no board until there is a match to draw. */
   document.body.classList.toggle("at-table", Boolean(state.table));
+  placeJumbotronSoon();
   drawHeader(state);
   drawJumbotron(state);
   drawBoard(state);
@@ -350,32 +351,127 @@ function drawTopic(state) {
   }, h("span", { class: "topic-text" }, state.game.topic), h("span", { class: "topic-pencil", "aria-hidden": "true" }, "✎")));
 }
 
+/* What the reader is here, in words -- the pill's, for the menu's head. */
+let youAre = "";
 function drawHeader(state) {
   el("channel").textContent = `pbw${state.game.number}`;
   drawTopic(state);
   const you = el("you");
   const room = state.room;
   const mine = room.seats.find((seat) => seat.yours);
+  const me = state.you.coach;
+  /* The reader's name first, then what they are here. */
+  const name = me ? [h("strong", { class: "pill-name" }, me.name), h("span", { class: "pill-sep" }, " · ")] : [];
   you.style.removeProperty("--pill-edge");
   if (room.role === "home" || room.role === "visiting") {
     const coach = state.game.coaches.find((one) => one.player_number === mine.number);
-    /* The lead words and the team's name are what a phone's top bar
-       leaves out: the seat and the team's emoji say it. */
+    /* The team's name is what a phone's top bar leaves out: the
+       team's emoji and the pill's edge say it. */
     you.replaceChildren(
-      h("span", { class: "pill-lead" }, "You are the "),
-      h("strong", {}, room.role === "home" ? "Home coach" : "Visitors coach"),
-      coach && coach.team ? h("span", { class: "pill-lead" }, " · ") : "",
+      ...name,
+      h("span", { class: "pill-seat" }, room.role === "home" ? "Home" : "Visitors", h("span", { class: "pill-long" }, " coach")),
+      coach && coach.team ? h("span", { class: "pill-sep pill-team" }, " · ") : "",
       coach && coach.team ? teamEmoji(coach.team_key, coach.team) : "",
       coach && coach.team ? h("strong", { class: "pill-team" }, coach.team) : "",
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"),
     );
     if (coach && coach.colour) you.style.setProperty("--pill-edge", coach.colour);
+    youAre = [room.role === "home" ? "Home coach" : "Visitors coach", coach && coach.team].filter(Boolean).join(" · ");
   } else if (mine) {
-    you.replaceChildren(h("span", { class: "pill-lead" }, "You are "), h("strong", {}, mine.label));
+    youAre = mine.label;
+    you.replaceChildren(...name, h("span", { class: "pill-seat" }, mine.label),
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"));
     you.style.setProperty("--pill-edge", GOLD);
   } else {
-    you.replaceChildren(h("span", { class: "pill-lead" }, "You are an "), "observer");
+    youAre = "Observer";
+    you.replaceChildren(...name, h("span", { class: "pill-seat" }, "Observer"),
+      h("span", { class: "pill-caret", "aria-hidden": "true" }, "▾"));
   }
   el("take-free-seat").hidden = Boolean(mine) || !room.seats.some((seat) => seat.free);
+  if (!el("you-menu").hidden) drawYouMenu(state);
+}
+
+/* The pill's menu (the author, 2026-09-27): everything the reader may
+   do to the room from anywhere in it -- take the free seat or leave
+   theirs, take a seat over as an admin who is watching (somebody's
+   own seat, from another device), kick the other seat, the admin role,
+   the link, and the way out (Close before kickoff, Abandon after).
+   Which of them is offered is the server's (`room.may_leave`,
+   `room.take_over`, `room.may_abandon`, the table's `may_close`);
+   each route judges again, and the record refuses with its sentence. */
+function drawYouMenu(state) {
+  const room = state.room;
+  const me = state.you.coach;
+  const mine = room.seats.find((seat) => seat.yours);
+  const item = (label, onclick, { danger = false, note = null } = {}) => h("button", {
+    type: "button",
+    class: `menu-item${danger ? " danger" : ""}`,
+    onclick: (event) => { closeYouMenu(); onclick(event); },
+  }, label, note ? h("span", { class: "menu-note" }, note) : null);
+  const held = (seat) => (seat.ai ? `${seat.name} (AI)` : seat.name);
+  const items = [];
+  if (!mine) {
+    const free = room.seats.find((seat) => seat.free);
+    if (free) items.push(item(`Take the free seat · ${free.label}`, () => roomMove("/seat/take", { seat: free.number })));
+    for (const number of room.take_over) {
+      const seat = room.seats.find((one) => one.number === number);
+      items.push(item(`Take over ${seat.label}`, () => {
+        if (confirm(`Are you sure? ${held(seat)} will lose ${seat.label}, and you will hold it.`)) {
+          roomMove("/seat/takeover", { seat: number });
+        }
+      }, { note: `from ${held(seat)}` }));
+    }
+  }
+  if (room.may_leave) {
+    items.push(item("Leave your seat", () => {
+      /* Mid-game the side waits, empty, for whoever takes it. */
+      if (!state.scoreboard || confirm(`Leave ${mine.label}? Your side waits for whoever takes the seat.`)) {
+        roomMove("/seat/leave");
+      }
+    }));
+  }
+  for (const seat of room.seats) {
+    if (seat.yours || !mayKick(seat, room)) continue;
+    items.push(item(`Kick ${held(seat)}`, () => kickSeat(seat), { note: seat.label }));
+  }
+  for (const number of room.ai_seats) {
+    const seat = room.seats.find((one) => one.number === number);
+    items.push(item("Put Dinky in the empty seat", () => roomMove("/seat/ai", { seat: number }), { note: seat.label }));
+  }
+  if (!mine && !room.admin && room.seats.some((seat) => seat.name)) {
+    items.push(h("p", { class: "menu-hint quiet" },
+      "Seated on another device? Become admin here, then take your seat over."));
+  }
+  items.push(h("div", { class: "me-divider", "aria-hidden": "true" }));
+  items.push(room.admin
+    ? item("Give up admin", dropAdmin)
+    : item("Become admin", becomeAdmin));
+  items.push(item("Copy the room's link", copyLink));
+  const table = state.table;
+  if (table && table.may_close) {
+    items.push(item("Close this room", () => {
+      if (!table.close_asks || confirm("Close this room? Nothing has been played in it.")) roomMove("", {}, "DELETE");
+    }, { danger: true }));
+  }
+  if (room.may_abandon) items.push(item("Abandon the game", abandonGame, { danger: true }));
+  el("you-menu").replaceChildren(
+    h("div", { class: "menu-head" },
+      h("strong", {}, me ? me.name : "You"),
+      h("span", { class: "quiet" }, youAre, room.admin ? " · admin" : "")),
+    ...items,
+  );
+}
+
+function openYouMenu() {
+  if (!current) return;
+  el("you-menu").hidden = false;
+  el("you").setAttribute("aria-expanded", "true");
+  drawYouMenu(current);
+}
+
+function closeYouMenu() {
+  el("you-menu").hidden = true;
+  el("you").setAttribute("aria-expanded", "false");
 }
 
 // -- The room -------------------------------------------------------------
@@ -431,7 +527,7 @@ function drawRoom(state) {
      record refuses one that is, and the route refuses anybody unseated,
      an admin included). Before kickoff the table's "Close this room" is
      the one way out, so the two are never offered together. */
-  el("abandon").hidden = !(seated && state.scoreboard && state.game.status !== "finished");
+  el("abandon").hidden = !room.may_abandon;
 }
 
 // -- A finished game's numbers --------------------------------------------
@@ -473,6 +569,43 @@ async function drawStats(state) {
    webapp/present.py), and pressing it sends that control's answer. */
 let shownJumbotron = null;
 
+/* On a phone on its side the jumbotron is laid over the top bar,
+   centred in the gap between the room's title and the pill rather than
+   on the screen, so the reader's name keeps its room (app.css). Every
+   width that layout needs is measured here into a custom property; in
+   any other layout, or before kickoff, they are cleared. */
+const SIDEWAYS = window.matchMedia("(max-width: 960px) and (orientation: landscape)");
+const TOPBAR_VARS = ["--jumbo-w", "--title-min", "--pill-w", "--jumbo-x"];
+let placing = 0;
+
+function placeJumbotron() {
+  placing = 0;
+  const root = document.documentElement.style;
+  if (!SIDEWAYS.matches || document.body.classList.contains("at-table")) {
+    TOPBAR_VARS.forEach((name) => root.removeProperty(name));
+    return;
+  }
+  const width = (node) => (node ? node.getBoundingClientRect().width : 0);
+  const title = document.querySelector(".topbar-title");
+  const end = document.querySelector(".topbar-end.me");
+  const titleMin = width(title.querySelector(".back")) + 8 + width(title.querySelector(".channel-name"));
+  root.setProperty("--jumbo-w", `${Math.ceil(width(el("jumbotron")))}px`);
+  root.setProperty("--title-min", `${Math.ceil(titleMin)}px`);
+  root.setProperty("--pill-w", `${Math.ceil(width(end))}px`);
+  const gapStart = title.getBoundingClientRect().right;
+  const gapEnd = end.getBoundingClientRect().left;
+  root.setProperty("--jumbo-x", `${Math.round((gapStart + gapEnd) / 2)}px`);
+}
+
+/* Once a frame at most, however many of them changed size. */
+function placeJumbotronSoon() {
+  if (!placing) placing = requestAnimationFrame(placeJumbotron);
+}
+const placer = new ResizeObserver(placeJumbotronSoon);
+[el("jumbotron"), document.querySelector(".topbar-title"), document.querySelector(".topbar-end.me")]
+  .forEach((node) => placer.observe(node));
+SIDEWAYS.addEventListener("change", placeJumbotronSoon);
+
 function drawJumbotron(state) {
   const layout = state.board.layout;
   const j = layout ? layout.jumbotron : null;
@@ -486,25 +619,24 @@ function drawJumbotron(state) {
     const team = j ? j[where] : null;
     const coach = coachOn(where);
     const name = team ? team.name : coach && coach.team ? coach.team : "--";
-    const arrow = where === "home" ? "▶" : "◀";
     return h(
       "div",
       { class: `jumbo-side ${where}` },
       h(
         "div",
         { class: "jumbo-team", style: team ? `color: ${team.colour}` : null },
-        name, " ", h("span", { class: "jumbo-arrow" }, arrow),
+        name,
       ),
       h(
         "div",
         { class: "jumbo-coach" },
         where === "home" ? "Home" : "Visitors",
-        coach ? [" · coached by ", h("b", {}, coach.name)] : "",
+        coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
-      team && team.possession
-        ? h("div", { class: "jumbo-ball" },
-          die(String(j.speed), { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL")
-        : null,
+      /* Drawn on both sides and hidden on the one without the ball, so
+         the two columns are one height and their rows line up. */
+      h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
+        die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
     );
   };
 
@@ -1770,7 +1902,7 @@ function drawPicture(prompt) {
    the game's tier (the server's `reference`), as the hover card, while
    the pointer is on them or after a press and hold (the author,
    2026-09-27). The back is one picture a game, so the hover card is
-   put on once; the hexagon is the Rules tab's References. */
+   put on once. */
 let referenceHover = false;
 function drawReference(prompt) {
   el("reference").hidden = !prompt.reference;
@@ -3261,7 +3393,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     press(keyed[0]);
   } else if (event.key === "Escape") {
-    if (draftedAny()) {
+    if (!el("you-menu").hidden) {
+      closeYouMenu();
+      el("you").focus();
+    } else if (draftedAny()) {
       clearDrafts();
     } else if (picked) {
       pick(null);
@@ -3273,10 +3408,15 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
-el("abandon").addEventListener("click", () => {
+function abandonGame() {
   if (confirm("Are you sure? The game ends here with no result. The room, its board and its log are kept.")) {
     roomMove("/abandon");
   }
+}
+el("abandon").addEventListener("click", abandonGame);
+el("you").addEventListener("click", () => (el("you-menu").hidden ? openYouMenu() : closeYouMenu()));
+document.addEventListener("click", (event) => {
+  if (!el("you-menu").hidden && !el("you-menu").contains(event.target) && !el("you").contains(event.target)) closeYouMenu();
 });
 function becomeAdmin() {
   if (confirm("Take the admin role for this room?")) roomMove("/admin");
@@ -3451,10 +3591,8 @@ function rosterRow(row) {
 // -- The Rules tab -------------------------------------------------------------
 
 /* The Charter, the Learn to Play and the References
-   (webapp/static/aids.js), with the room's hover card for a card. */
-const rulesTab = window.D12Rules.mountTab(el("rules-tab"), {
-  hover: (node, url) => hoverCard(node, url),
-});
+   (webapp/static/aids.js). */
+const rulesTab = window.D12Rules.mountTab(el("rules-tab"));
 
 /* A refusal's Law, opened where the reader is: the Rules tab. */
 function openRule(slug) {
