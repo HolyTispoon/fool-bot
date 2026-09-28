@@ -372,117 +372,116 @@ img { display: block; }
 .qbox .ask { margin: 0; font-size: 17px; line-height: 1.35; color: var(--strong); }
 
 /* -- The situation ------------------------------------------------------
-   The matchup the question is asked over -- the challenge over the
-   maneuver pick, the shot over its roll -- in a window of its own
-   above the question box: the brief's words and the players'
-   portraits on the page's own background, where Discord posts a PNG
-   (`present.situation`). Each side in its team's colour. */
+   The matchup or the lone roll the question is asked over, in a strip
+   of its own above the question box: the brief's words and the
+   players' portraits straight on the page's background, where Discord
+   posts a PNG (`present.situation`). Condensed on purpose (the author,
+   2026-09-28): a small portrait beside its words, each side edged in
+   its team's colour, no card behind anything. */
 
 .situation {
   container-type: inline-size;
   flex-shrink: 0;
-  border-radius: 14px;
-  padding: 12px 18px 16px;
+  padding: 2px 4px 4px;
 }
 .situation-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 12px;
-  margin-bottom: 10px;
+  gap: 2px 10px;
+  margin-bottom: 6px;
 }
 .situation-title {
   font-family: "Goal", "Board", sans-serif;
-  font-size: 22px;
-  letter-spacing: 1px;
+  font-size: 17px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--strong);
 }
-.situation-where { font-family: "Board", serif; font-size: 15px; color: var(--muted); }
+.situation-where { font-family: "Board", serif; font-size: 13px; color: var(--muted); }
 .situation-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 .situation-vs {
-  align-self: center;
   font-family: "Goal", "Board", sans-serif;
-  font-size: 26px;
+  font-size: 18px;
   color: var(--faint);
   text-transform: uppercase;
 }
+.situation-vs.arrow { font-family: "Board", serif; font-size: 22px; text-transform: none; }
 .situation-side {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 10px;
   min-width: 0;
-  padding: 10px 12px 12px;
-  border-radius: 10px;
-  background: var(--deep);
-  border-top: 3px solid var(--side);
-  text-align: center;
+  padding-left: 10px;
+  border-left: 3px solid var(--side);
 }
+.situation-portraits { display: flex; flex: none; gap: 4px; }
+.situation-portrait { position: relative; width: 60px; height: 60px; }
+.situation-portraits.wall .situation-portrait { width: 44px; height: 44px; }
+.situation-portrait img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.situation-words { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.3; }
 .situation-team {
-  font-family: "Goal", "Board", sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
   color: var(--side);
 }
-.situation-portraits { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 2px 0 4px; }
-.situation-portrait { position: relative; width: 104px; height: 104px; }
-.situation-portrait img { display: block; width: 100%; height: 100%; object-fit: contain; }
 /* A wall's numbers on the faces they belong to, as the PNG draws them:
    a whole skill a solid disc, a halved one an outline. */
 .situation-badge {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 14px;
+  right: -3px;
+  bottom: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 11px;
   background: #f0b429;
   color: var(--deep);
-  border: 2px solid var(--deep);
+  border: 1.5px solid var(--page);
 }
-.situation-badge.halved { background: var(--deep); color: #7fa8c9; border-color: #7fa8c9; }
-.situation-bands { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; margin-bottom: 2px; }
-.situation-band { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: 0.3px; color: var(--muted); }
-.situation-dot { width: 10px; height: 10px; border-radius: 50%; background: #f0b429; }
-.situation-dot.halved { background: none; border: 2px solid #7fa8c9; }
-.situation-names { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 10px; }
-.situation-name { font-size: 16px; font-weight: 700; color: var(--strong); }
-.situation-skill { font-family: "Board", serif; font-size: 17px; font-weight: 700; color: var(--strong); }
-.situation-modifier { font-family: "Board", serif; font-size: 14px; color: var(--text); }
-.situation-ability { margin-top: 4px; font-size: 14px; line-height: 1.35; color: var(--muted); font-style: italic; }
-.situation-dice { display: flex; justify-content: center; gap: 8px; margin: 6px 0 8px; }
-.situation-vs.arrow { font-family: "Board", serif; font-size: 34px; text-transform: none; }
-.situation-rule { font-family: "Board", serif; font-size: 15px; font-weight: 700; color: var(--strong); max-width: 34ch; }
-.situation-otherwise { margin-top: 2px; font-size: 14px; color: var(--muted); max-width: 34ch; }
-/* Narrow wherever the window is narrow -- a phone, or the tablet's
+.situation-badge.halved { background: var(--page); color: #7fa8c9; border-color: #7fa8c9; }
+.situation-bands { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.situation-band { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px; color: var(--muted); }
+.situation-dot { width: 8px; height: 8px; border-radius: 50%; background: #f0b429; }
+.situation-dot.halved { background: none; border: 1.5px solid #7fa8c9; }
+.situation-names { display: flex; flex-wrap: wrap; gap: 0 8px; }
+.situation-name { font-size: 14px; font-weight: 700; color: var(--strong); }
+.situation-skill { font-family: "Board", serif; font-size: 14px; font-weight: 700; color: var(--strong); }
+/* The modifiers and the ability on one muted line, a dot between. */
+.situation-notes { font-size: 12.5px; color: var(--muted); }
+.situation-notes .situation-ability { font-style: italic; }
+.situation-dice { display: flex; flex: none; gap: 4px; }
+.situation-dice .die { width: 44px; height: 44px; }
+.situation-rule { font-family: "Board", serif; font-size: 13px; font-weight: 700; color: var(--strong); }
+.situation-otherwise { font-size: 12.5px; color: var(--muted); }
+.situation-empty { font-size: 13px; color: var(--muted); }
+
+/* Narrow wherever the strip is narrow -- a phone, or the tablet's
    right-hand column -- so it is sized by its own width, not the
-   screen's. */
-@container (max-width: 620px) {
-  .situation-portrait { width: 72px; height: 72px; }
-  .situation-title { font-size: 18px; }
-  .situation-vs { font-size: 18px; }
-  .situation-side { padding: 8px 8px 10px; }
-  .situation-name { font-size: 14px; }
-  .situation-skill { font-size: 15px; }
-  .situation-ability { font-size: 13px; }
-  .situation-dice .die { width: 52px; height: 52px; }
-  .situation-rule { font-size: 13px; }
-  .situation-otherwise { font-size: 12px; }
-  .situation-row { gap: 6px; }
+   screen's: smaller faces, and a side's words under its faces. */
+@container (max-width: 560px) {
+  .situation-row { gap: 6px; align-items: start; }
+  .situation-side.wall .situation-name { font-size: 12px; }
+  .situation-side { flex-direction: column; align-items: flex-start; gap: 4px; padding-left: 8px; }
+  .situation-portrait { width: 40px; height: 40px; }
+  .situation-portraits.wall .situation-portrait { width: 32px; height: 32px; }
+  .situation-dice .die { width: 36px; height: 36px; }
+  .situation-name, .situation-skill { font-size: 13px; }
+  .situation-notes, .situation-otherwise, .situation-rule { font-size: 12px; }
+  .situation-vs { font-size: 14px; }
 }
-.situation-empty { margin: 18px 0; font-size: 15px; color: var(--muted); }
 
 .state-tag {
   display: inline-flex;

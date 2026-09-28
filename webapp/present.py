@@ -2368,13 +2368,18 @@ def _own_goal_situation(
 ) -> Optional[dict]:
     """
     The own-goal roll (Law 11.2): the handler with nowhere left to be
-    pushed, what they add -- `attacking_skill`'s own-goal reading, Umbrik
-    included -- and `OWN_GOAL_SAFE_TOTAL`.
+    pushed, what they add -- `attacking_skill`'s own-goal reading and
+    its name, Umbrik's defensive skill included -- and
+    `OWN_GOAL_SAFE_TOTAL`.
     """
     player_id = match.active_player_id
     if player_id is None:
         return None
     skill = engine.attacking_skill(game, match, player_id, "own_goal")
+    # Umbrik's is his defensive skill (Law 21), named as the one added.
+    skill_name = engine.attacking_skill_name(
+        game, match, player_id, "own_goal",
+    )
     added, modifiers = _declared(engine, game, match, player_id)
     against = Team(match.setup_for_side(match.defending_side()).team)
     return {
@@ -2383,7 +2388,7 @@ def _own_goal_situation(
         "sides": [
             _roller(
                 engine, game, match, player_id,
-                f"Offensive skill {skill:+d}", modifiers,
+                f"{skill_name} skill {skill:+d}", modifiers,
             ),
         ],
         "roll": _roll(

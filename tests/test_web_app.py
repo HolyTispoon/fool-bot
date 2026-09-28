@@ -1372,6 +1372,44 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
             min(max(OWN_GOAL_SAFE_TOTAL - skill, 1), 12),
         )
 
+    def test_umbrik_s_own_goal_names_his_defensive_skill(self) -> None:
+        # Umbrik adds his defensive skill avoiding an own goal (Law 21),
+        # and the window says so, in an advanced game only (the author,
+        # 2026-09-28). Granted by the ability, never named by the player.
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.personal_abilities import (
+            PERSONAL_ABILITIES,
+            PersonalAbility,
+        )
+        from d12ball.prompts import pending
+        from webapp.present import situation
+
+        for mode, word in (
+            (GameMode.STANDARD, "Offensive"), (GameMode.ADVANCED, "Defensive"),
+        ):
+            with self.subTest(mode):
+                fixture = case("own goal")
+                fixture.game.mode = mode
+                handler = take_the_ball(fixture.match)
+                with mock.patch.dict(
+                    PERSONAL_ABILITIES,
+                    {
+                        catalog_player_id(handler):
+                        (PersonalAbility.DEFENSIVE_THROW, "test"),
+                    },
+                ):
+                    skill = ENGINE.attacking_skill(
+                        fixture.game, fixture.match, handler, "own_goal",
+                    )
+                    got = situation(
+                        ENGINE, fixture.game, fixture.match,
+                        pending(ENGINE, fixture.game, fixture.match),
+                    )
+                (roller,) = got["sides"]
+                self.assertEqual(roller["skill"], f"{word} skill {skill:+d}")
+
     async def test_a_mind_pull_needs_its_minimum_and_costs_its_token(
         self,
     ) -> None:

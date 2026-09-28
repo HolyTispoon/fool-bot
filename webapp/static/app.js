@@ -1874,34 +1874,50 @@ function drawSituation(prompt) {
 
 /* What a roll nobody contests needs -- an injury check, an own-goal
    roll, a Mind Pull: the dice drawn with the face they have to show once
-   everything declared is added, and what each way it goes means. The
-   numbers and the words are the server's. */
+   everything declared is added, beside what each way it goes means.
+   The numbers and the words are the server's. */
 function situationRoll(roll, colour) {
   const mark = roll.certain ? "any" : roll.impossible ? "13+" : `${roll.face}+`;
   const dice = [];
   for (let i = 0; i < roll.dice; i += 1) {
     /* The second of two is the one that may be dropped: an outline. */
     dice.push(i === 0
-      ? die(mark, { size: 88, fill: colour, ink: "#ffffff", font: mark.length > 2 ? 26 : 32 })
-      : die("", { size: 88, fill: "#1e1f22", ink: colour, font: 32 }));
+      ? die(mark, { size: 44, fill: colour, ink: inkOn(colour), font: mark.length > 2 ? 15 : 20 })
+      : die("", { size: 44, fill: "none", ink: colour, font: 32 }));
   }
-  return h("div", { class: "situation-side situation-roll", style: `--side: ${colour}` },
-    h("div", { class: "situation-team" }, roll.dice > 1 ? "Needs, on the higher die" : "Needs"),
-    h("div", { class: roll.dice > 1 ? "situation-dice two" : "situation-dice" }, dice),
-    h("div", { class: "situation-rule" }, roll.rule),
-    h("div", { class: "situation-otherwise" }, roll.otherwise),
+  return h("div", { class: "situation-side", style: `--side: ${colour}` },
+    h("div", { class: "situation-dice" }, dice),
+    h("div", { class: "situation-words" },
+      h("div", { class: "situation-team" }, roll.dice > 1 ? "Needs, on the higher die" : "Needs"),
+      h("div", { class: "situation-rule" }, roll.rule),
+      h("div", { class: "situation-otherwise" }, roll.otherwise),
+    ),
   );
 }
 
-/* One side of the situation: the team, the portraits (a badge on each
-   when a wall's numbers are added up), who they are, the skill they
-   bring, and the ability where one is weighed. */
+/* White or near-black, whichever reads on a team's colour: the die is
+   filled with it, and Slime's green takes dark ink where Purple's
+   takes white. */
+function inkOn(hex) {
+  const [r, g, b] = [1, 3, 5].map((at) => {
+    const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1e1f22" : "#ffffff";
+}
+
+/* One side of the situation: the portraits (a badge on each when a
+   wall's numbers are added up) beside the team, who they are, the skill
+   they bring, and on one muted line the modifiers and the ability. */
 function situationSide(side) {
   const wall = side.players.length > 1;
-  return h("div", { class: "situation-side", style: `--side: ${side.colour}` },
-    h("div", { class: "situation-team" }, side.team),
+  const notes = [
+    ...side.modifiers.map((modifier) => h("span", {}, modifier)),
+    side.ability ? h("span", { class: "situation-ability" }, side.ability) : null,
+  ].filter(Boolean);
+  return h("div", { class: wall ? "situation-side wall" : "situation-side", style: `--side: ${side.colour}` },
     side.players.length
-      ? h("div", { class: "situation-portraits" },
+      ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
         side.players.map((player) => h("div", { class: "situation-portrait" },
           h("img", { src: player.portrait, alt: "", loading: "lazy" }),
           wall ? h("span", {
@@ -1909,20 +1925,25 @@ function situationSide(side) {
             title: player.halved ? `Half of ${player.skill}` : null,
           }, String(player.value)) : null)))
       : null,
-    side.bands.length
-      ? h("div", { class: "situation-bands" },
-        side.bands.map((band) => h("span", { class: "situation-band" },
-          h("span", { class: band.halved ? "situation-dot halved" : "situation-dot", "aria-hidden": "true" }),
-          band.text)))
-      : null,
-    side.players.length
-      ? h("div", { class: "situation-names" },
-        side.players.map((player) => h("span", { class: "situation-name", html: player.label })))
-      : null,
-    side.empty ? h("div", { class: "situation-empty" }, side.empty) : null,
-    side.skill ? h("div", { class: "situation-skill" }, side.skill) : null,
-    side.modifiers.map((modifier) => h("div", { class: "situation-modifier" }, modifier)),
-    side.ability ? h("div", { class: "situation-ability" }, side.ability) : null,
+    h("div", { class: "situation-words" },
+      h("div", { class: "situation-team" }, side.team),
+      side.players.length
+        ? h("div", { class: "situation-names" },
+          side.players.map((player) => h("span", { class: "situation-name", html: player.label })))
+        : null,
+      side.empty ? h("div", { class: "situation-empty" }, side.empty) : null,
+      side.skill ? h("div", { class: "situation-skill" }, side.skill) : null,
+      side.bands.length
+        ? h("div", { class: "situation-bands" },
+          side.bands.map((band) => h("span", { class: "situation-band" },
+            h("span", { class: band.halved ? "situation-dot halved" : "situation-dot", "aria-hidden": "true" }),
+            band.text)))
+        : null,
+      notes.length
+        ? h("div", { class: "situation-notes" },
+          notes.flatMap((note, i) => (i ? [" · ", note] : [note])))
+        : null,
+    ),
   );
 }
 
