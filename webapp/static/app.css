@@ -1724,7 +1724,7 @@ button.goal { display: block; }
   .stage.narrow .out-mark::before { width: 24px; height: 24px; top: -4px; }
   .stage.narrow .space {
     min-height: 0;
-    height: 180px;
+    height: 164px;
     padding: 12px 1px 2px;
     border-width: 1.5px;
     border-radius: 6px;
