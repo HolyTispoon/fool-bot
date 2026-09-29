@@ -3028,3 +3028,57 @@ def situation(
     if found is not None:
         found.setdefault("notes", [])
     return found
+
+
+# -- The dice just rolled ------------------------------------------------------
+
+
+def rolled_dice(
+    match: Optional[MatchState],
+    detail: Optional[Mapping[str, Any]],
+) -> list[dict]:
+    """
+    The dice of the roll still showing, as the page draws them in the
+    situation window: each die's face, the colour of the side that
+    rolled it, the colour of its halo where it was Overdriven (the
+    Cyborgs' own, as the bot's picture haloes it) and whether it counts
+    -- the lower of the own-goal roll's two does not. Only the dice: the model's working under the headline
+    already says every number added to them (`Headline.working`), so
+    nothing here repeats it. `detail` is the roll as the journal keeps
+    it (`to_dict`); the match is only asked whose a player is. A roll
+    with no dice to draw -- or no roll -- is an empty list.
+    """
+    if match is None or not isinstance(detail, Mapping):
+        return []
+    shape = detail.get("shape")
+    if shape in ("contest", "shot"):
+        return [
+            {
+                "face": side["roll"],
+                "colour": TEAM_COLORS[Team(side["team"])],
+                "halo": _halo(side["overdriven"]),
+                "counts": True,
+            }
+            for side in detail["contestants"]
+        ]
+    if shape not in ("own_goal", "mind_pull", "injury"):
+        return []
+    colour = TEAM_COLORS[match.team_for_player(detail["player_id"])]
+    halo = _halo(detail.get("overdrive"))
+    if shape != "own_goal":
+        return [
+            {"face": detail["roll"], "colour": colour, "halo": halo, "counts": True},
+        ]
+    # The higher of the two counts (Law 11.2); on a pair, the first.
+    faces = list(detail["rolls"])
+    kept = faces.index(max(faces))
+    return [
+        {"face": face, "colour": colour, "halo": halo, "counts": index == kept}
+        for index, face in enumerate(faces)
+    ]
+
+
+def _halo(overdriven: Any) -> Optional[str]:
+    """An Overdriven die's halo: the Cyborgs' colour, as
+    `render.draw_skill_test_die` draws it; `None` for any other die."""
+    return TEAM_COLORS[Team.CYBORGS] if overdriven else None

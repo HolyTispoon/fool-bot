@@ -109,6 +109,7 @@ from webapp.present import (
     plain_text,
     render_text,
     reveal,
+    rolled_dice,
     shootout_sides,
     situation,
     split_footnote,
@@ -1977,10 +1978,10 @@ class WebApp:
             # model (`webapp/aids.py`), with the three answers beside
             # them so the page decides none.
             "aids": aids.for_game(self.engine, game, viewer.player_number),
-            # The dice just rolled, drawn in the question box until the
-            # next thing happens ("The dice", docs/design/web-app.md);
+            # The dice just rolled, drawn in the situation window until
+            # the next thing happens ("The dice", docs/design/web-app.md);
             # the log keeps the words.
-            "roll": self._roll(game, journal),
+            "roll": self._roll(game, match, journal),
             # The outcome beside them, large and first: the model's own
             # headline ("The outcome banner", docs/design/web-app.md).
             "outcome": self._outcome(game, match, journal),
@@ -2129,7 +2130,12 @@ class WebApp:
             "log": f"/api/room/{game.game_id}/log.txt",
         }
 
-    def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:
+    def _roll(
+        self,
+        game: D12BallGame,
+        match: Optional[MatchState],
+        journal: Journal,
+    ) -> Optional[dict]:
         entry = (
             None if journal.showing_roll is None
             else journal.entry(journal.showing_roll)
@@ -2138,6 +2144,9 @@ class WebApp:
             return None
         return {
             "shape": pictures.dice_shape(entry.detail),
+            # What the page draws: the faces, in the roller's colours.
+            "dice": rolled_dice(match, entry.detail),
+            # The bot's own picture of it, still served.
             "url": (
                 f"/api/room/{game.game_id}/detail/{entry.id}.png"
                 f"?at={entry.at}"

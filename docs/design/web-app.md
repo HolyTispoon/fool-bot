@@ -1146,10 +1146,10 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   which are about whether *this* coach has something to press -- a
   roll is NOW and still theirs to press.
 - **The outcome comes first and stays until the next thing happens**:
-  the dice at 180px ("The dice", below) beside the headline. The
-  headline and the line under it are the model's narration, not the
-  page's wording; where they come from is in "The outcome banner",
-  below.
+  the headline, the line under it and the working, under the dice in
+  the situation window ("The dice", below). The headline and the line
+  under it are the model's narration, not the page's wording; where
+  they come from is in "The outcome banner", below.
 - **The lit line says what is lit, and what is dark.** A line per
   object lit outside the box -- a meeple, a space, the ball, a goal,
   the tile -- with what clicking it means and its cost, and muted, a
@@ -1588,17 +1588,36 @@ it here, headlines at all three of the levels the model writes.
 
 ### The dice
 
-**A roll's picture is the bot's own** (step 7 of
-[../web-app-next.md](../web-app-next.md)): one picture for both
-frontends, because the model's voice is one and so is its picture of a
-roll; HTML dice would be a second drawing to keep right. Step 7 drew
-it in the log. **Since step 8 it is drawn in the question box**
-(2026-09-26, the author: no picture in the log, and the dice in the
-question box), at the top, above whatever is asked next -- since step 3
-of the redesign in the outcome block, 180px high beside the headline --
-on Discord
-the prompt a coach pressed *becomes* the dice, so the question area is
-where they are read. The log keeps the roll's words.
+**The page draws a roll's dice itself, bare, at the top of the
+situation window** (the author, 2026-09-29: "Skill test results ... are
+still reported with the image from discord with a black background
+rather than in the situation window. Since the text already covers the
+math we just need the dice"). The state's `roll.dice` is
+`present.rolled_dice` over the roll's wire dict: a die a face, in the
+colour of the side that rolled it (`TEAM_COLORS`), with the Cyborgs'
+colour as its halo where it was Overdriven, as the bot's picture haloes
+it, and whether it counts -- the lower of the own-goal roll's two does
+not, and is drawn as an outline, as the situation draws the droppable
+die. Nothing else from the bot's picture is carried -- no team label,
+no detail lines, no total -- because `Headline.working`, under the
+headline in the question box, already writes every number out, and the
+page's own die (`die` in `app.js`) is the one the board and the
+situation already draw. Volatile's ignition die is not drawn: the
+page never drew it (the PNG it replaced did not either), and its face
+and what it added are in the working. The window holds the dice
+(`#rolled`) above the question's matchup (`#matchup`), a rule between
+them when both are up, and is up while either is.
+
+History: step 7 of [../web-app-next.md](../web-app-next.md) served the
+bot's own PNG (one picture for both frontends, and HTML dice judged a
+second drawing to keep right) and drew it in the log; step 8 moved it
+into the question box (2026-09-26, the author: no picture in the log),
+and step 3 of the redesign into the outcome block at 180px beside the
+headline. The PNG is drawn on the renderer's dark card, which read as a
+black box on the page, and its breakdown repeated the working beside
+it. On Discord the prompt a coach pressed *becomes* the dice; here
+they are read just above the question box. The log keeps the roll's
+words.
 
 - **Every roll's dice**, whatever rolled them -- a skill test, a loose
   ball, a score attempt, a shootout test, an own goal, an injury test,
@@ -1615,8 +1634,8 @@ where they are read. The log keeps the roll's words.
   only redrawn when it changes.
 - **Not animated yet.** The author would like a roll to be rolled with
   an animation at some point ([../web-app-next.md](../web-app-next.md),
-  "Later, and not now"); the picture is still the bot's own, drawn
-  once.
+  "Later, and not now"); the page's own SVG dice are what one would
+  animate.
 
 - **The journal keeps the roll on the entry it rode on.** An entry
   made from a result's answer keeps `GameResult.detail`; one made from
@@ -1626,7 +1645,9 @@ where they are read. The log keeps the roll's words.
   draw today). A roll with no line beside it still makes an entry.
   The entry's wire shape says `dice` -- the roll's shape, or `null` --
   and `dice_after`.
-- **`GET /api/room/{id}/detail/{entry}.png` draws it** with the same
+- **`GET /api/room/{id}/detail/{entry}.png` still serves the bot's
+  picture**, and the state's `roll.url` still names it, though the page
+  no longer shows it (2026-09-29): it draws it with the same
   `render.py` function the Discord view for that roll calls, off the
   same numbers, in a worker thread, and keeps it (`DICE_CACHE`): an
   entry never changes. **The renderer is picked by the roll's shape**,
@@ -1909,10 +1930,10 @@ canvas joins them -- joining is presentation, the words are the
 model's -- in the colour of the first that is a side's, with the first
 line under one and the first working. The page sets them in the
 outcome block -- the headline 46px in the display face, the line under
-it 17px, the working under that at 15px -- beside the dice at 180px,
-large enough to read the picture's own breakdown (the author: "make the
-die larger"; the canvas's 84px dice were bare dice, where this is the
-bot's picture with its words on it). The canvas's "HALFTIME · 1 : 1" is
+it 17px, the working under that at 15px. The dice were beside them at
+180px, the bot's picture with its words on it (the author: "make the
+die larger"); since 2026-09-29 they are bare dice, the page's own, at
+the top of the situation window above ("The dice"). The canvas's "HALFTIME · 1 : 1" is
 the model's "Halftime": the score is the jumbotron's.
 `OutcomeBannerTests` hold every headline to words the narration itself
 says, word for word, and the working to the faces rolled, for a

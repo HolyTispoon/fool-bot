@@ -477,6 +477,17 @@ img { display: block; }
 .situation-species { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 .situation-dice { display: flex; flex: none; gap: 4px; }
 .situation-dice .die { width: 44px; height: 44px; }
+/* The dice just rolled, at the top of the window, bare: the working
+   under the headline says the numbers (`present.rolled_dice`). */
+.rolled { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.rolled .die { width: 64px; height: 64px; }
+.rolled .die.haloed { filter: drop-shadow(0 0 7px var(--halo)) drop-shadow(0 0 3px var(--halo)); }
+/* Dice above a matchup: a rule between what was rolled and what is asked. */
+.rolled:not([hidden]) + #matchup:not([hidden]) {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
 .situation-rule { font-family: "Board", serif; font-size: 13px; font-weight: 700; color: var(--strong); }
 .situation-otherwise { font-size: 12.5px; color: var(--muted); }
 .situation-empty { font-size: 13px; color: var(--muted); }
@@ -491,6 +502,7 @@ img { display: block; }
   .situation-portrait { width: 40px; height: 40px; }
   .situation-portraits.wall .situation-portrait { width: 32px; height: 32px; }
   .situation-dice .die { width: 36px; height: 36px; }
+  .rolled .die { width: 52px; height: 52px; }
   .situation-name, .situation-skill { font-size: 13px; }
   .situation-notes, .situation-otherwise, .situation-rule { font-size: 12px; }
   .situation-vs { font-size: 14px; }
@@ -513,8 +525,8 @@ img { display: block; }
 
 .lit-line { margin: 0; font-size: 13px; color: var(--muted); }
 
-/* The outcome: the dice at 84px beside the model's own headline, in
-   the display face, and the line under it. */
+/* The outcome: the model's own headline in the display face, the line
+   under it, and the working; the dice are the situation window's. */
 .outcome {
   display: flex;
   align-items: center;
@@ -525,7 +537,6 @@ img { display: block; }
   border: 1px solid var(--line);
   box-shadow: inset 4px 0 0 var(--outcome, var(--gold));
 }
-.outcome-dice { display: block; height: 180px; width: auto; max-width: 45%; object-fit: contain; }
 .outcome-words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .outcome-headline {
   font-family: "Goal", "Board", sans-serif;
@@ -1758,7 +1769,6 @@ button.goal { display: block; }
   .qbox-main > #reveal { order: 9; }
   .qbox-main > #rematch-note { order: 10; }
   .outcome { padding: 10px 12px; }
-  .outcome-dice { height: 110px; }
   .outcome-headline { font-size: 26px; }
   .outcome-detail { font-size: 14px; }
   .outcome-working { font-size: 13px; }

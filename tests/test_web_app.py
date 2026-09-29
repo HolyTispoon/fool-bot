@@ -45,7 +45,7 @@ from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
 from d12ball.formatting import coach_name
-from d12ball.game import AIOpponent, GameMode
+from d12ball.game import AIOpponent, GameMode, Team
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
@@ -1103,7 +1103,7 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(body.startswith(b"\x89PNG"))
                 self.assertEqual(drawn, [Image.open(io.BytesIO(body)).size])
 
-    async def test_the_dice_are_up_in_the_question_box_until_the_next_thing(
+    async def test_the_dice_are_up_until_the_next_thing(
         self,
     ) -> None:
         ENGINE.rng.seed(11)
@@ -1154,6 +1154,64 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(f"/detail/{entry['id']}.png", played["roll"]["url"])
         else:
             self.assertIsNone(played["roll"])
+
+    async def test_every_roll_s_dice_are_handed_to_the_page_bare(self) -> None:
+        """The page draws the dice itself, in the situation window, off
+        `roll.dice`: a face a die in the roller's colour, and nothing
+        the working already says (the author, 2026-09-29)."""
+        count = {"contest": 2, "shot": 2, "own_goal": 2, "mind_pull": 1, "injury": 1}
+        for name, shape, _ in self.ROLLS:
+            with self.subTest(name):
+                ENGINE.rng.seed(11)
+                client, game = await self.open(name)
+                _, headers = await self.roll(client, game)
+                state = await (
+                    await client.get(f"/api/game/{game.game_id}", headers=headers)
+                ).json()
+                dice = state["roll"]["dice"]
+                self.assertEqual(len(dice), count[shape])
+                for one in dice:
+                    self.assertEqual(set(one), {"face", "colour", "halo", "counts"})
+                    self.assertIn(one["face"], range(1, 13))
+                    self.assertIn(one["colour"], TEAM_COLORS.values())
+                # Only the own-goal roll has a die that does not count.
+                self.assertEqual(
+                    sum(not one["counts"] for one in dice),
+                    1 if shape == "own_goal" else 0,
+                )
+
+    def test_the_dice_are_the_roll_s_own_faces(self) -> None:
+        fixture = case("own goal")
+        match = fixture.match
+        handler = take_the_ball(match)
+        colour = TEAM_COLORS[match.team_for_player(handler)]
+        self.assertEqual(
+            present.rolled_dice(match, {
+                "shape": "own_goal", "rolls": [9, 3], "offense_skill": 4,
+                "safe": True, "overdrive": 2, "player_id": handler,
+            }),
+            [
+                {"face": 9, "colour": colour, "halo": TEAM_COLORS[Team.CYBORGS], "counts": True},
+                {"face": 3, "colour": colour, "halo": TEAM_COLORS[Team.CYBORGS], "counts": False},
+            ],
+        )
+        self.assertEqual(
+            present.rolled_dice(match, {
+                "shape": "contest", "ignites": [],
+                "contestants": [
+                    {"roll": 7, "team": Team.ORANGE.value, "detail": [], "total": 7,
+                     "overdriven": False, "merge": []},
+                    {"roll": 12, "team": Team.PURPLE.value, "detail": [], "total": 12,
+                     "overdriven": True, "merge": []},
+                ],
+            }),
+            [
+                {"face": 7, "colour": TEAM_COLORS[Team.ORANGE], "halo": None, "counts": True},
+                {"face": 12, "colour": TEAM_COLORS[Team.PURPLE],
+                 "halo": TEAM_COLORS[Team.CYBORGS], "counts": True},
+            ],
+        )
+        self.assertEqual(present.rolled_dice(match, None), [])
 
     async def test_the_own_goal_breakdown_is_read_above_its_dice(self) -> None:
         # On Discord the breakdown is the text of the message the dice

@@ -65,11 +65,16 @@
           <div id="pick-up"></div>
         </section>
 
-        <!-- The situation: the matchup the question is asked over --
-             the challenge over the maneuver pick, the shot over its
-             roll -- drawn on the page in words and portraits
-             (`present.situation`), above the question it goes with. -->
-        <section id="situation" class="situation" aria-label="The situation" hidden></section>
+        <!-- The situation: the dice just rolled, up until the next
+             thing happens (`present.rolled_dice`), and the matchup the
+             question is asked over -- the challenge over the maneuver
+             pick, the shot over its roll -- drawn on the page in words
+             and portraits (`present.situation`), above the question it
+             goes with. -->
+        <section id="situation" class="situation" aria-label="The situation" hidden>
+          <div id="rolled" class="rolled" aria-label="The dice" hidden></div>
+          <div id="matchup" hidden></div>
+        </section>
 
         <!-- The question box (docs/design/web-app.md, "The question
              box"): the state tag, the outcome, the ask, what is lit on
@@ -86,12 +91,11 @@
               <p id="refusal-law" class="refusal-law" hidden></p>
               <button type="button" class="btn small" id="dismiss">Dismiss</button>
             </div>
-            <!-- The outcome, large and first: the dice just rolled, and
-                 the model's own headline beside them. Up until the
+            <!-- The outcome, large and first: the model's own headline,
+                 under the dice in the situation window. Up until the
                  next thing happens. -->
             <div class="outcome-row">
               <div id="outcome" class="outcome" hidden>
-                <img id="roll-picture" class="outcome-dice" alt="The dice" hidden>
                 <div class="outcome-words">
                   <div id="outcome-headline" class="outcome-headline" hidden></div>
                   <div id="outcome-detail" class="outcome-detail" hidden></div>
