@@ -652,6 +652,13 @@ IN_THE_BOX = frozenset({
 })
 
 
+#: The board objects whose picture in the question box says what they
+#: are -- the ball's die, a goal, a time-out or bench tile in the
+#: team's colour -- so the words beside it say only what choosing it
+#: does. A player and a space are named beside theirs.
+PICTURED = frozenset({"ball", "goal", "time_out_tile", "bench"})
+
+
 def split_footnote(
     engine: RulesEngine,
     game: D12BallGame,
@@ -685,9 +692,13 @@ def lit_line(
     wire: Optional[Mapping[str, Any]] = None,
 ) -> list[dict]:
     """
-    What the question box says is lit on the board (and on the
+    What the question box lists as the choices on the board (and on the
     jumbotron's tile), and -- muted -- what is dark and why: a line per
-    object, `{"text", "dark"}`. The box's own objects are not repeated.
+    control, `{"text", "dark"}`. A live one also carries the object the
+    box draws a picture of (`place`), the `words` said beside that
+    picture, and which of the viewer's controls pressing it answers
+    (`control`, its group and its index). The box's own objects are not
+    repeated.
 
     It is built from the controls this viewer was handed and nothing
     else, so it cannot name a thing that is not lit. The turn is the
@@ -701,8 +712,8 @@ def lit_line(
     if asked is None or not controls:
         return []
     lines = []
-    for group in controls:
-        for control in group["controls"]:
+    for group_index, group in enumerate(controls):
+        for index, control in enumerate(group["controls"]):
             place = control.get("place")
             if not place or place["at"] in IN_THE_BOX:
                 # The box draws its own objects, which say themselves.
@@ -714,22 +725,36 @@ def lit_line(
                 # of them here only repeats the board (the author,
                 # 2026-09-26).
                 continue
-            name = " and ".join(
-                _object_name(asked, one)
-                for one in (place, *control.get("also", ()))
-            )
+            objects = (place, *control.get("also", ()))
+            name = " and ".join(_object_name(asked, one) for one in objects)
             said = control.get("chip") or control["label"]
             if said == name:
                 said = control["label"]
             text = name if said == name else f"{name} · {said}"
+            # Beside its picture, a thing the picture says for itself
+            # (the ball, a goal, a tile) is not named again; a player
+            # or a space still is (the author, 2026-09-29).
+            named = " and ".join(
+                _object_name(asked, one)
+                for one in objects
+                if one["at"] not in PICTURED
+            )
+            words = said if not named or said == named else f"{named} · {said}"
             cost = control.get("cost")
             if cost:
                 verb = "drain" if cost["emoji"] == "exhaust_cyborg" else "exhaust"
                 text = f"{text} ({verb} {cost['count']})"
+                words = f"{words} ({verb} {cost['count']})"
             if control.get("disabled"):
                 lines.append({"text": f"{text} -- {control['note']}", "dark": True})
             else:
-                lines.append({"text": text, "dark": False})
+                lines.append({
+                    "text": text,
+                    "dark": False,
+                    "place": place,
+                    "words": words,
+                    "control": [group_index, index],
+                })
     if asked.kind is PromptKind.COACHING_HUB:
         # What the window has left to substitute with is the options'
         # (`allowance`); the bench is dark once it is spent.
@@ -797,7 +822,9 @@ def _continue(asked: Asked) -> list:
 
 
 #: What clicking each of the turn's three objects does, on its chip.
-TURN_CHIPS = {"maneuver": "maneuver", "shoot": "shoot", "time_out": "call it"}
+TURN_CHIPS = {
+    "maneuver": "maneuver", "shoot": "shoot to score", "time_out": "call it",
+}
 
 
 def _turn(asked: Asked) -> list:
