@@ -227,8 +227,10 @@ class ModuleSwitchTests(unittest.TestCase):
         engine = self.engine
         game = build_game(advanced_maneuvers=False)
         match = build_match(engine, game)
-        # A goal down, so the module is the only thing left that can
-        # close the hand -- see `RulesEngine.may_play_gambits`.
+        # A gambit declared against the offense and a goal down, so the
+        # module is the only thing left that can close the hand -- see
+        # `RulesEngine.may_answer_gambit`.
+        match.gambit_declared_by = "defense"
         match.scoreboard.visiting_score += 1
         self.assertEqual(
             len(engine.maneuver_tiers(game, match, "offense")), 1,

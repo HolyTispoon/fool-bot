@@ -34,6 +34,7 @@ from d12ball.components import (
     EVENT_MANEUVER,
     EVENT_SKILL_TEST,
     EVENT_TURN_ACTION,
+    MANEUVER_TIER_GAMBIT,
     MatchState,
     RuleRefusal,
     TeamSide,
@@ -666,7 +667,11 @@ def maneuver_pick_refusal(
         if side == "offense"
         else (match.defense_maneuver, match.offense_maneuver)
     )
-    if mine is not None:
+    # A pick a gambit put back in question (Law 19.3.5) may be changed
+    # for any card in the hand, or picked again as it stands -- which
+    # confirms it -- whatever the other side has done.
+    unconfirmed = match.pick_unconfirmed == side
+    if mine is not None and not unconfirmed:
         if match.maneuver_uncontested or theirs is not None:
             return "You have already chosen your maneuver."
         if mine == maneuver_key:
@@ -734,6 +739,7 @@ def maneuver_pick_step(
         match.offense_maneuver if side == "offense"
         else match.defense_maneuver
     )
+    confirming = match.pick_unconfirmed == side
     if previous is not None:
         match.change_maneuver(side, maneuver_key)
     elif side == "offense":
@@ -743,20 +749,142 @@ def maneuver_pick_step(
 
     narration = []
     if not match.maneuver_uncontested:
-        side_number = (
-            engine.possession_player_number(game, match)
-            if side == "offense"
-            else engine.defending_player_number(game, match)
+        coach = format_player_with_team(
+            game, _maneuver_side_number(engine, game, match, side),
         )
-        narration.append(
-            f"{format_player_with_team(game, side_number)}"
-            + (
-                " has changed their maneuver."
-                if previous is not None
-                else " has picked their maneuver."
+        answering = (
+            match.gambit_declared_by not in (None, side)
+            and engine.maneuver_catalog.definition(maneuver_key).tier
+            == MANEUVER_TIER_GAMBIT
+        )
+        if answering:
+            # An answering gambit is public, as the declaration is:
+            # the advanced cards have their own back (Law 19.3.5).
+            narration.append(f"{coach} answers with a gambit of their own.")
+        elif confirming and previous == maneuver_key:
+            narration.append(f"{coach} has confirmed their maneuver.")
+        else:
+            narration.append(
+                coach
+                + (
+                    " has changed their maneuver."
+                    if previous is not None
+                    else " has picked their maneuver."
+                )
             )
-        )
 
+    if not match.maneuver_selections_complete:
+        return StepResult(narration=narration)
+    return StepResult(
+        narration=narration,
+        next=FollowOn(FollowOnStep.RESOLVE_MANEUVER),
+    )
+
+
+def _maneuver_side_number(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: str,
+) -> Optional[int]:
+    """Which coach plays this maneuver side -- the possession's for
+    the offense, the other one for the defense."""
+    return (
+        engine.possession_player_number(game, match)
+        if side == "offense"
+        else engine.defending_player_number(game, match)
+    )
+
+
+def gambit_declaration_refusal(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    side: str,
+) -> Optional[str]:
+    """
+    Why this side may not declare a gambit now, or None (Law 19.3.2).
+    Like `maneuver_pick_refusal`, everything except who is allowed to
+    press: that is the frontend's, asked first.
+    """
+    if not engine.gambits_apply(game):
+        return "This game is not played with the advanced maneuvers."
+    if match.maneuver_uncontested:
+        return "A gambit can only be made against a challenge."
+    if match.gambit_declared_by is not None:
+        return "A gambit has already been declared this maneuver."
+    if not engine.may_declare_gambit(game, match, side):
+        return "Only the coach holding the coin may declare a gambit."
+    return None
+
+
+def declare_gambit_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: str,
+) -> StepResult:
+    """
+    A gambit declared (Law 19.3.2-19.3.3): this side's own pick, if it
+    had made one, is withdrawn, the other side's waits to be confirmed,
+    and the coin crosses the table.
+
+    **Said out loud, because it is public**: the advanced cards have
+    their own back. Who is now behind enough to answer is the prompt's
+    own paragraph (`describe_gambit_access`).
+
+    **It puts the pick up again** (`SEND_MANEUVER_ACTION_PROMPT`)
+    rather than leaving the prompt that was answered standing: both
+    hands have changed -- the declarer's to three advanced cards, the
+    other's to six where it may answer, or to a pick waiting to be
+    confirmed -- and a prompt whose buttons no longer match the hands
+    is one a restart would not rebuild. On Discord that prompt is a new
+    message, and the old one goes (`D12Ball.close_turn_prompt`). It
+    never resolves the maneuver: a withdrawn pick leaves the declaring
+    side still to choose.
+    """
+    other = "defense" if side == "offense" else "offense"
+    declarer_number = _maneuver_side_number(engine, game, match, side)
+    other_number = _maneuver_side_number(engine, game, match, other)
+    match.declare_gambit(side, engine.maneuver_side_team(match, side))
+
+    declarer = format_player_with_team(game, declarer_number)
+    receiver = format_player_with_team(game, other_number)
+    narration = [
+        f"{declarer} declares a gambit and hands the coin to {receiver}."
+    ]
+    if match.pick_unconfirmed == other and not engine.side_controlled_by_ai(
+        game, match, other,
+    ):
+        # Said to a coach, who has a button to press for it; the AI
+        # answers before anything is posted.
+        narration.append(
+            f"{receiver} may confirm their maneuver or change it."
+        )
+    return StepResult(
+        narration=narration,
+        next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
+    )
+
+
+def confirm_maneuver_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: str,
+) -> StepResult:
+    """
+    A pick a gambit put back in question, confirmed as it stands (Law
+    19.3.5) -- the card stays secret, so only the confirming is said.
+    Resolves the maneuver when the other card is already down.
+    """
+    match.confirm_maneuver(side)
+    coach = format_player_with_team(
+        game, _maneuver_side_number(engine, game, match, side),
+    )
+    narration = [f"{coach} has confirmed their maneuver."]
     if not match.maneuver_selections_complete:
         return StepResult(narration=narration)
     return StepResult(

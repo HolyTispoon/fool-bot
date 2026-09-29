@@ -829,6 +829,22 @@ def _card_not_in_hand(fixture: PromptFixture) -> dict:
     return {"side": hand.side, "maneuver_key": "no_such_card"}
 
 
+def _gambit_without_the_coin(fixture: PromptFixture) -> dict:
+    """A declaration by a side the position does not let declare: one
+    without the coin, or any side of a game or a maneuver with no
+    gambits in it (Law 19.3)."""
+    hands = _prompt(fixture).options.hands
+    hand = next((hand for hand in hands if not hand.may_declare), hands[0])
+    return {"side": hand.side}
+
+
+def _nothing_to_confirm(fixture: PromptFixture) -> dict:
+    """A confirmation where no gambit has put a pick in question."""
+    hands = _prompt(fixture).options.hands
+    hand = next((hand for hand in hands if not hand.unconfirmed), hands[0])
+    return {"side": hand.side}
+
+
 def _ai_side_s_shot(fixture: PromptFixture) -> dict:
     fixture.game = build_game(player_2_id=None)
     match = fixture.match
@@ -915,6 +931,8 @@ REFUSED_ACTIONS = {
     (PromptKind.MANEUVER_CHALLENGE, "send"): _wrong_player,
     (PromptKind.MANEUVER_CHALLENGE, "decline"): _defender_on_the_ball,
     (PromptKind.MANEUVER_ACTION, ""): _card_not_in_hand,
+    (PromptKind.MANEUVER_ACTION, "gambit"): _gambit_without_the_coin,
+    (PromptKind.MANEUVER_ACTION, "confirm"): _nothing_to_confirm,
     (PromptKind.INJURY_TEST, "roll"): _wrong_side_player,
     (PromptKind.INJURY_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.INJURY_TEST, "boost"): _wrong_boost,

@@ -69,8 +69,10 @@ from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
 #: six-space board went (2026-09-22 in docs/rules-log.md) and this game
 #: moved to board 7, which is a different game from the first roll, and
 #: again when Smooth stopped reading the spaces the ball passes through
-#: (2026-09-24), which took a Smooth out of seed 2's game.
-SEED = 4
+#: (2026-09-24), which took a Smooth out of seed 2's game, and again
+#: when the coin came in (2026-09-28): the policy declares and confirms
+#: gambits off the same stream, so every seed's game is a new one.
+SEED = 0
 
 #: More actions than any game takes: thirty-odd minutes a half at one
 #: a turn, a handful of prompts a turn, both halves and a shootout.
@@ -147,10 +149,18 @@ class Policy:
             # has both rows on one prompt and the offense answers
             # first here, as the prompt lists them.
             hand = next(
-                hand for hand in options.hands if not hand.picked
+                hand for hand in options.hands
+                if not hand.picked or hand.unconfirmed
             )
             # Off the engine's own stream, so the policy's picks and
-            # the game's dice are one seeded sequence.
+            # the game's dice are one seeded sequence. The coin holder
+            # declares a gambit on a coin flip, and a pick a gambit put
+            # back in question is confirmed on another (Law 19.3), so
+            # the run covers the coin crossing both ways.
+            if hand.may_declare and self.engine.rng.randint(1, 2) == 1:
+                return Action(kind, "gambit", {"side": hand.side})
+            if hand.unconfirmed and self.engine.rng.randint(1, 2) == 1:
+                return Action(kind, "confirm", {"side": hand.side})
             card = self.engine.rng.choice(hand.maneuver_keys)
             return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
@@ -183,7 +193,8 @@ class TutorialPolicy(Policy):
             return Action(kind, action)
         if kind is PromptKind.MANEUVER_ACTION:
             hand = next(
-                hand for hand in options.hands if not hand.picked
+                hand for hand in options.hands
+                if not hand.picked or hand.unconfirmed
             )
             if hand.railed is not None:
                 return Action(

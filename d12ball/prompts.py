@@ -548,6 +548,20 @@ class ManeuverHand:
     #: (step 5 of docs/web-app-redesign.md). Empty wherever the
     #: gambits are not in the game or the maneuver is unchallenged.
     withheld: tuple[str, ...] = ()
+    #: Whether this side's coach may declare a gambit now -- they hold
+    #: the coin, the maneuver is challenged and nobody has declared
+    #: (`RulesEngine.may_declare_gambit`, Law 19.3.2). Answered with
+    #: the choice `"gambit"`.
+    may_declare: bool = False
+    #: Whether this side declared this maneuver's gambit, and so plays
+    #: from its three advanced maneuvers alone.
+    declared: bool = False
+    #: Whether this side's pick waits to be confirmed because the other
+    #: side declared a gambit after it was made (Law 19.3.5). Answered
+    #: with the choice `"confirm"`, or by picking any card in the hand.
+    #: The card itself is not on the prompt: the pick is secret, and a
+    #: Discord prompt is public.
+    unconfirmed: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -560,6 +574,9 @@ class ManeuverHand:
                 else TeamSide(self.team_side).value
             ),
             "withheld": list(self.withheld),
+            "may_declare": self.may_declare,
+            "declared": self.declared,
+            "unconfirmed": self.unconfirmed,
         }
 
 
@@ -571,8 +588,12 @@ class ManeuverOptions:
     hands: tuple[ManeuverHand, ...]
 
     def owed(self) -> tuple[str, ...]:
-        """The sides still to pick."""
-        return tuple(hand.side for hand in self.hands if not hand.picked)
+        """The sides still to pick, or to confirm a pick a gambit put
+        back in question."""
+        return tuple(
+            hand.side for hand in self.hands
+            if not hand.picked or hand.unconfirmed
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -1201,12 +1222,12 @@ def maneuver_action_ask(
     would read a different question after the note from the one it
     was put in front of. See `d12ball.flow.gates`.
 
-    Who holds their gambits goes under the instruction and above the
-    cards. It is public knowledge either coach could work out from the
-    scoreboard and the board (see `RulesEngine.may_play_gambits`), and
-    `""` in the games and positions where the question does not arise
-    -- so this adds a paragraph to an advanced prompt and nothing at
-    all to a basic one.
+    Who may make a gambit goes under the instruction and above the
+    cards. It is public knowledge -- the coin is on the table and the
+    card backs show a declaration (`RulesEngine.describe_gambit_access`)
+    -- and `""` in the games and positions where the question does not
+    arise, so this adds a paragraph to an advanced prompt and nothing
+    at all to a basic one.
     """
     sides = list(engine.maneuver_pick_sides(game, match))
     waiting_on, instruction = maneuver_prompt_wording(
@@ -2098,6 +2119,11 @@ ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS)
 #: the empty choice and nothing else, which is what a prompt with one
 #: answer means.
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
+    # The maneuver pick is a card (the empty choice, with its key), and
+    # two answers that are not a card: declaring a gambit, which only
+    # the coach holding the coin may, and confirming a pick a gambit put
+    # back in question (Law 19.3). Neither settles the prompt.
+    PromptKind.MANEUVER_ACTION: ("", "gambit", "confirm"),
     # **Every roll prompt offers two answers**, and the second one
     # does not settle it: Overdrive is declared before the dice and
     # the roll is still owed afterwards. `SCORE_ATTEMPT` has its
@@ -2252,6 +2278,12 @@ def _maneuver_options(
                 card.key
                 for card in engine.withheld_gambits(game, match, side)
             ),
+            may_declare=(
+                allowed is None
+                and engine.may_declare_gambit(game, match, side)
+            ),
+            declared=match.gambit_declared_by == side,
+            unconfirmed=match.pick_unconfirmed == side,
         ))
 
     return ManeuverOptions(tuple(hands))

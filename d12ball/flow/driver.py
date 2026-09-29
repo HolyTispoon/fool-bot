@@ -1221,10 +1221,14 @@ def _answer_maneuver_action(
     choice: str,
     *,
     side: str,
-    maneuver_key: str,
+    maneuver_key: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's maneuver, picked.
+    One coach's maneuver, picked -- or, with the choice `"gambit"`, a
+    gambit declared, and with `"confirm"` a pick a gambit put back in
+    question confirmed as it stands (Law 19.3). The card is the empty
+    choice's argument (`REQUIRED_ARGUMENTS`); the other two name only
+    the side.
 
     **The refusal is asked here and raised**, which is what puts it
     through `answer`'s own `RuleRefusal` door: "you have already chosen",
@@ -1238,6 +1242,15 @@ def _answer_maneuver_action(
     rows on it**, so which side a click answers for is part of what was
     clicked.
     """
+    if side not in ("offense", "defense"):
+        raise RuleRefusal("That side is not on this maneuver.")
+    if choice == "gambit":
+        refusal = turn.gambit_declaration_refusal(engine, game, match, side)
+        if refusal is not None:
+            raise RuleRefusal(refusal, law="who-may-make-a-gambit")
+        return turn.declare_gambit_step(engine, game, match, side=side)
+    if choice == "confirm":
+        return turn.confirm_maneuver_step(engine, game, match, side=side)
     refusal = turn.maneuver_pick_refusal(
         engine, game, match, side, maneuver_key,
     )
@@ -1842,6 +1855,7 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    PromptKind.MANEUVER_ACTION: {"": ("maneuver_key",)},
     PromptKind.FLY: {"fly": ("zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
     # declared on -- and so is Gearclaw's Boost (Law 21).
