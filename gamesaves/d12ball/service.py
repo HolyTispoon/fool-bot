@@ -70,6 +70,7 @@ from d12ball.formatting import format_player
 from d12ball.game import (
     AIOpponent,
     D12BallGame,
+    GAME_COINS,
     GameMode,
     GameStatus,
     HomeChoice,
@@ -529,6 +530,9 @@ class GameService:
             tutorial_step=None,
             in_lobby=in_lobby,
             ai_seats=ai_seats,
+            # One of the six coins, kept for the whole game: the toss
+            # is flipped with it and a gambit hands it across.
+            coin=self.engine.rng.choice(GAME_COINS),
         )
         if tutorial:
             # Training on a 7-space board against Dinky, whatever the

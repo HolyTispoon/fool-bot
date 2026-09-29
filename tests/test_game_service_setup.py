@@ -19,6 +19,8 @@ from d12ball.game import (
     AIOpponent,
     CoinFace,
     D12BallGame,
+    DEFAULT_COIN,
+    GAME_COINS,
     GAME_SETTINGS,
     GameMode,
     GameStatus,
@@ -460,6 +462,31 @@ class CoinAndSidesTests(SetupHarness):
         self.service.pick_team(game.game_id, 1, Team.ORANGE)
         self.service.pick_team(game.game_id, 2, Team.PURPLE)
         return game
+
+    def test_each_game_is_played_with_one_of_the_six_coins(self) -> None:
+        """The author, 2026-09-28: drawn when the game is made, off the
+        engine's `rng`, and kept to the end."""
+        drawn = set()
+        for seed in range(60):
+            self.seeded(seed)
+            game = self.open_lobby()
+            self.assertIn(game.coin, GAME_COINS)
+            drawn.add(game.coin)
+        self.assertEqual(drawn, set(GAME_COINS))
+
+        game = self.two_coaches()
+        kept = game.coin
+        self.service.flip_coin(game.game_id, 1)
+        self.assertEqual(game.coin, kept)
+        self.assertEqual(
+            D12BallGame.from_dict(game.to_dict()).game_coin, kept,
+        )
+
+    def test_a_game_from_before_the_coin_shows_the_gold_three(self) -> None:
+        game = self.open_lobby()
+        data = game.to_dict()
+        data.pop("coin")
+        self.assertEqual(D12BallGame.from_dict(data).game_coin, DEFAULT_COIN)
 
     def test_the_coin_needs_both_teams(self) -> None:
         game = self.open_lobby()

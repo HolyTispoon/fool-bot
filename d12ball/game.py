@@ -196,6 +196,20 @@ class CoinFace(str, Enum):
     DOOM = "doom"
 
 
+#: The six Fortune and Doom coins, by the key their two faces' emoji
+#: are filed under (`<key>_fortune`, `<key>_doom`). **A game is played
+#: with one of them**, drawn when it is created and kept to the end
+#: (the author, 2026-09-28): it is the coin the toss is flipped with
+#: and the coin a gambit hands across (Law 3.1.4, 19.3).
+GAME_COINS: tuple[str, ...] = (
+    "1_bronze", "1_silver", "1_gold", "3_bronze", "3_silver", "3_gold",
+)
+
+#: The coin a game drawn before the coin was per game shows -- the one
+#: every toss used to be flipped with.
+DEFAULT_COIN = "3_gold"
+
+
 #: The boards a game may be played on. The six-space board was
 #: withdrawn on 2026-09-22 -- see that day's entry in docs/rules-log.md
 #: -- so a record carrying it no longer loads, which `load_games`
@@ -346,6 +360,11 @@ class D12BallGame:
     coin_winner_player_number: Optional[int] = None
     coin_flipped_by_player_number: Optional[int] = None
     coin_face: Optional[CoinFace] = None
+    # Which of the six `GAME_COINS` this game is played with, drawn by
+    # `GameService` when the game is created. `None` in a game saved
+    # before the coin was per game, which `game_coin` reads as the
+    # gold 3 it always showed.
+    coin: Optional[str] = None
 
     # Home and visiting assignments (1 = Player 1, 2 = Player 2/AI)
     home_player_number: Optional[int] = None
@@ -407,6 +426,8 @@ class D12BallGame:
 
         if self.coin_face is not None:
             self.coin_face = CoinFace(self.coin_face)
+        if self.coin is not None and self.coin not in GAME_COINS:
+            raise ValueError(f"No such coin: {self.coin!r}.")
 
         if (
             self.coin_flipped
@@ -1155,6 +1176,12 @@ class D12BallGame:
             self.player_2_team = team
 
     # -- The coin toss and the sides ---------------------------------
+
+    @property
+    def game_coin(self) -> str:
+        """The key of the coin this game is played with -- one of
+        `GAME_COINS` -- and the gold 3 for a game that predates it."""
+        return self.coin or DEFAULT_COIN
 
     @property
     def coin_is_owed(self) -> bool:

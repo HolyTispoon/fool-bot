@@ -96,6 +96,7 @@
   },
   "challenger_id": "sizzifizik_playmaker",
   "clock_charged": false,
+  "coin_holder": null,
   "defense_maneuver": null,
   "events": [
     {
@@ -299,6 +300,7 @@
     "sizzifizik_playmaker": 4
   },
   "forced_test_player": null,
+  "gambit_declared_by": null,
   "goals": [
     {
       "own_goal": false,
@@ -395,6 +397,7 @@
   "pending_smooth": [],
   "pending_smooth_resume": null,
   "pending_time_out": false,
+  "pick_unconfirmed": null,
   "player_data_version": 1,
   "ruleset_id": "basic-v1",
   "run_back_flown": [],
