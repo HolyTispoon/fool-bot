@@ -1073,7 +1073,14 @@ the coach is looking at it.
   boxes edged in its colour -- BENCH, "may come on", and BACK BENCH,
   "off for the game" -- home's under the home end and the visitors'
   under theirs, holding the meeples the field draws, badges and the
-  hover card included. **Which player is on which is the record's**:
+  hover card included. **A benched meeple is the size the field shows
+  its own** (the author, 2026-09-29): the field is scaled to fit its
+  box, or held upright drawn with the narrow field's smaller piece, and
+  the sideline is not, so `fit` sets `--bench-scale` and the bench
+  zooms its pieces by it -- zoomed rather than redrawn, so the badges
+  shrink with the piece as they do on the field. A player coming on
+  should not change size on the way. An empty box is as tall as the
+  word saying so. **Which player is on which is the record's**:
   `team_board.bench` and `back_bench`, the two rows the popover had,
   each entry the card and the piece (`board.py` hands both, so a
   benched player is the same `meeple` on the sideline as on a space);
