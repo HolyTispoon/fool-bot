@@ -602,7 +602,7 @@ class RulesEngine:
         A coach the 2026-09-20 gate has closed this turn still needs to
         read what the *other* side may be about to play, and the
         hexagon is the twelve relations rather than a hand -- so it
-        asks the module and not `may_play_gambits`.
+        asks the module and not `coin_holder`.
 
         It was the cog's `reference_tier` until the web app needed the
         same answer (step 11 of docs/web-app-next.md); a choice two
@@ -1549,42 +1549,103 @@ class RulesEngine:
             > len(match.conditioned_field_players(other))
         )
 
-    def may_play_gambits(
-        self, game: D12BallGame, match: MatchState, side: TeamSide,
-    ) -> bool:
+    def behind(self, match: MatchState, side: TeamSide) -> bool:
         """
-        Whether this team's coach holds their gambits **right now** --
-        the author, 2026-09-20: a gambit needs a reason, and the reason
-        is that the team is behind.
+        Whether this team is **behind** (Law 19.3.4): fewer goals, or
+        more Exhausted-or-Injured players on the field than the other.
+        Either is enough, and both are asked of one team, so both teams
+        can be behind at once -- one trailing while the other is the
+        more hurt.
 
-        Two positions count and either is enough: behind on the
-        scoreboard, or fielding more Exhausted-or-Injured players than
-        the opponent. Both coaches can hold them at once -- one trailing
-        while the other is the more hurt -- which is why this is a
-        question about one team rather than a comparison returning a
-        side.
-
-        **Both are on the board, which is the point.** The author
-        called it out as public knowledge: a coach can work out what
-        the other is holding from the scoreboard and the meeples,
-        without being told and without either side hiding anything.
-        `describe_gambit_access` is the bot saying it out loud anyway,
-        because Dinky's hand is never drawn on the prompt.
-
-        **Nothing is persisted for it.** It is read when the hand is
-        drawn, so a restart mid-maneuver draws the same hand; and a
-        gambit already played keeps its benefit and its cost however
-        the position moves afterwards, since those are read off the two
-        stored keys (see `gambit_benefit_applies`).
-
-        Gated on the module as well, so no caller can ask this and
-        forget that a standard game has no gambits at all.
+        Until 2026-09-28 this was the gate on making a gambit at all
+        (the author's 2026-09-20 rule, "a gambit needs a reason"). The
+        coin took that over, and being behind is now what lets a coach
+        **answer** a gambit with one of their own -- `may_answer_gambit`.
+        Read off the scoreboard and the field when the hand is drawn,
+        so a restart draws the same hand, and nothing is persisted for
+        it.
         """
-        if not self.gambits_apply(game):
-            return False
         return self.trailing(match, side) or self.carrying_more_conditions(
             match, side,
         )
+
+    def coin_holder(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[TeamSide]:
+        """
+        Which team's coach holds **the coin** (Law 19.3) -- `None` in a
+        game not playing the gambits, where there is nothing to hold it
+        for.
+
+        The toss winner keeps it (Law 3.1.4) and a declaration hands it
+        over (`MatchState.declare_gambit`), so the match records it only
+        once it has moved; until then it is read off the game record.
+        That is also the whole of the fallback for a game saved before
+        the coin existed. A game seated without a toss -- a test game --
+        has no winner to read, and the coin starts with the home team.
+        """
+        if not self.gambits_apply(game):
+            return None
+        if match.coin_holder is not None:
+            return TeamSide(match.coin_holder)
+        winner = game.coin_winner_player_number
+        if winner is not None and winner == game.visiting_player_number:
+            return TeamSide.VISITING
+        return TeamSide.HOME
+
+    def may_declare_gambit(
+        self, game: D12BallGame, match: MatchState, side: str,
+    ) -> bool:
+        """
+        Whether this maneuver side's coach may declare a gambit right
+        now (Law 19.3.2): the game plays the gambits, the maneuver is
+        challenged, nobody has declared one this maneuver, and their
+        team holds the coin. Whether the maneuver has already resolved
+        is the prompt's question -- this is only asked while it is up.
+        """
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return False
+        if match.gambit_declared_by is not None:
+            return False
+        return self.coin_holder(game, match) == self.maneuver_side_team(
+            match, side,
+        )
+
+    def may_answer_gambit(
+        self, game: D12BallGame, match: MatchState, side: str,
+    ) -> bool:
+        """
+        Whether this maneuver side's coach may answer this maneuver's
+        gambit with one of their own (Law 19.3.4): the other side
+        declared one, and their team is `behind`. Holding the coin they
+        have just been handed does not come into it.
+        """
+        declared = match.gambit_declared_by
+        if declared is None or declared == side:
+            return False
+        if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return False
+        return self.behind(match, self.maneuver_side_team(match, side))
+
+    def gambit_answer_owed(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[str]:
+        """
+        The maneuver side still to say whether it answers this
+        maneuver's gambit with one of its own, or `None` (Law 19.3.4,
+        the author, 2026-09-28): asked of a side that is behind, as
+        soon as the gambit is declared and **before either side picks a
+        card**, so neither hand is ever six.
+        """
+        declared = match.gambit_declared_by
+        # Settled at the declaration for a side that was not behind
+        # then (`declare_gambit_step`), so only ever owed before a card.
+        if declared is None or match.gambit_answer is not None:
+            return None
+        other = "defense" if declared == "offense" else "offense"
+        if not self.may_answer_gambit(game, match, other):
+            return None
+        return other
 
     def maneuver_side_team(self, match: MatchState, side: str) -> TeamSide:
         """Which team is playing this side of the maneuver."""
@@ -1606,73 +1667,85 @@ class RulesEngine:
         coach is shown, the buttons built under it and the click that
         answers cannot disagree.
 
-        Three things narrow it, and all three are rules rather than
-        settings:
-
         - **A standard game is the basic three**, and so is an advanced
           game that took the species abilities without this module --
           `gambits_apply` is both halves of that.
         - **An unchallenged maneuver is always basic** (the author):
-          *"Gambit can only be played when a maneuver is
-          challenged."* That is answerable here because all three
-          routes into the unopposed branch settle it before the offense
-          is prompted, so `maneuver_uncontested` is already set by the
-          time a hand is drawn. It also makes declining a challenge a
-          defensive weapon rather than only a saving -- sending nobody
-          denies the offense their gambits.
-        - **A coach holds their gambits only while their team is
-          behind** -- `may_play_gambits`, the author's 2026-09-20 rule.
+          *"Gambit can only be played when a maneuver is challenged."*
+          All three routes into the unopposed branch settle it before
+          the offense is prompted, so `maneuver_uncontested` is already
+          set by the time a hand is drawn.
+        - **Nobody holds a gambit until one is declared** (Law 19.3,
+          the author, 2026-09-28). The coach holding the coin declares
+          it, and from then on their hand is **the three advanced
+          maneuvers alone** -- they set the basic three aside.
+        - **The other coach, where behind, answers first** -- a gambit
+          of their own or their basic cards (`gambit_answer_owed`,
+          `MatchState.gambit_answer`) -- and plays the three that
+          answer chose. **A hand is always three cards** (the author,
+          2026-09-28: "each side should be shown only 3 cards").
 
-        **`side` is what that last one added**, and it is the one
-        structural change it makes: the two coaches no longer
-        necessarily hold the same cards, so nothing may ask this
-        question without saying whose hand it is asking about. The
-        callers that draw a hand already had a side; the one that did
-        not was the prompt's own image, which now asks once per side.
+        `side` is a maneuver side, so the two hands on one prompt can
+        be different threes.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
-        if not self.may_play_gambits(
-            game, match, self.maneuver_side_team(match, side),
-        ):
-            return (MANEUVER_TIER_BASIC,)
-        return (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+        if match.gambit_declared_by == side:
+            return (MANEUVER_TIER_GAMBIT,)
+        if match.gambit_declared_by is not None and match.gambit_answer == "gambit":
+            return (MANEUVER_TIER_GAMBIT,)
+        return (MANEUVER_TIER_BASIC,)
 
     def describe_gambit_access(
         self, game: D12BallGame, match: MatchState,
     ) -> str:
         """
-        Who holds their gambits this maneuver, for the public prompt --
-        `""` where nobody does, or where the question does not arise.
+        Who may make a gambit this maneuver, for the public prompt --
+        `""` where the question does not arise.
 
-        **Said out loud even though it is public knowledge**, because
-        the prompt only draws a hand for a side a *person* still picks
-        for (`maneuver_pick_sides`): in a solo game Dinky's cards are
-        never on the message, and in a contested one a coach would
-        otherwise be counting the other side's meeples to work out
-        whether six cards are coming back at them.
-
-        Nothing is said where neither coach holds them -- three cards a
-        side is the standard game the coaches already know, and a line
-        saying so would be answering a question nobody asked.
+        Before a declaration it names the coach holding the coin; after
+        one, the coach who declared it and whether the other may answer.
+        **Said out loud even though it is public knowledge** -- the coin
+        is on the table and the card backs show a gambit -- because the
+        prompt only draws a hand for a side a *person* still picks for,
+        so in a solo game Dinky's cards are never on the message.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
             return ""
+        declared = match.gambit_declared_by
+        if declared is None:
+            holder = self.coin_holder(game, match)
+            if holder is None:
+                return ""
+            coach = format_player_with_team(
+                game, self.side_player_number(game, holder),
+            )
+            return f"{coach} holds the coin and may declare a gambit."
 
-        holders = [
-            side
-            for side in (TeamSide.HOME, TeamSide.VISITING)
-            if self.may_play_gambits(game, match, side)
-        ]
-        if not holders:
-            return ""
-        if len(holders) == 2:
-            return "Both coaches may make a gambit this maneuver."
-
-        coach = format_player_with_team(
-            game, self.side_player_number(game, holders[0]),
+        other = "defense" if declared == "offense" else "offense"
+        declarer = format_player_with_team(
+            game,
+            self.side_player_number(
+                game, self.maneuver_side_team(match, declared),
+            ),
         )
-        return f"{coach} may make a gambit this maneuver."
+        answerer = format_player_with_team(
+            game,
+            self.side_player_number(
+                game, self.maneuver_side_team(match, other),
+            ),
+        )
+        if match.gambit_answer == "gambit":
+            return (
+                f"{declarer} has declared a gambit. {answerer} answers "
+                "with one of their own."
+            )
+        if self.gambit_answer_owed(game, match) is not None:
+            return (
+                f"{declarer} has declared a gambit. {answerer} is behind "
+                "and may answer with one of their own."
+            )
+        return f"{declarer} has declared a gambit."
 
     def maneuver_pick_sides(
         self,
@@ -1717,7 +1790,11 @@ class RulesEngine:
 
         return tuple(
             side for side in sides
-            if not (self.side_controlled_by_ai(game, match, side) and picked(side))
+            if not (
+                self.side_controlled_by_ai(game, match, side)
+                and picked(side)
+                and match.pick_unconfirmed != side
+            )
         )
 
     def maneuver_hand(
@@ -1749,8 +1826,9 @@ class RulesEngine:
         side: str,
     ) -> tuple[ManeuverDefinition, ...]:
         """
-        The gambits this side would hold if its team were behind, and
-        does not this maneuver -- empty wherever the question does not
+        The gambits this side does not hold this maneuver -- held back
+        until the coin holder declares, or from a side that is not behind
+        enough to answer (Law 19.3) -- empty wherever the question does not
         arise: a game not playing the gambits, an unchallenged maneuver
         (always basic, for everybody), or a side that holds them.
 
@@ -1763,6 +1841,10 @@ class RulesEngine:
         cannot disagree.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return ()
+        # Once a gambit is declared each hand is its three cards and
+        # nothing dimmed beside them (the author, 2026-09-28).
+        if match.gambit_declared_by is not None:
             return ()
         if MANEUVER_TIER_GAMBIT in self.maneuver_tiers(game, match, side):
             return ()

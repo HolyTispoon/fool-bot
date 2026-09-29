@@ -171,7 +171,11 @@ HALF_NAMES = {
 }
 
 
-def jumbotron(game: D12BallGame, match: MatchState) -> dict:
+def jumbotron(
+    game: D12BallGame,
+    match: MatchState,
+    engine: Optional[RulesEngine] = None,
+) -> dict:
     """
     The bar across the top of the play area (step 2 of
     docs/web-app-redesign.md): both teams, the score, the clock and
@@ -183,8 +187,16 @@ def jumbotron(game: D12BallGame, match: MatchState) -> dict:
     possession is the scoreboard's flag. Whether a tile is *lit* is not
     here: that is the turn prompt's to say (`webapp/present.py`), and
     only to the coach it is put to.
+
+    **The coin sits beside the team holding it** (Law 19.3) --
+    `RulesEngine.coin_holder`, asked rather than worked out, and `None`
+    in a game with no gambits -- drawn as the game's own coin
+    (`D12BallGame.game_coin`), its Fortune face up.
     """
     board = match.scoreboard
+    holder = (
+        engine.coin_holder(game, match) if engine is not None else None
+    )
     possession = match.ball.possession
 
     def side(setup) -> dict:
@@ -193,6 +205,7 @@ def jumbotron(game: D12BallGame, match: MatchState) -> dict:
             "possession": possession is not None
             and TeamSide(possession) == setup.side,
             "time_out": "held" if match.may_take_time_out(setup.side) else "spent",
+            "coin": holder is not None and TeamSide(holder) == setup.side,
         }
 
     return {
@@ -213,6 +226,10 @@ def jumbotron(game: D12BallGame, match: MatchState) -> dict:
         # The d12 on the BALL mark shows what the ball on the field shows.
         "speed": match.ball.speed,
         "note": clock_note(game, match),
+        "coin": (
+            None if holder is None
+            else f"/emoji/{game.game_coin}_fortune.png"
+        ),
     }
 
 
@@ -445,7 +462,7 @@ def board_layout(
     in_range = match.can_attempt_score()
 
     return {
-        "jumbotron": jumbotron(game, match),
+        "jumbotron": jumbotron(game, match, engine),
         "zones": [
             {
                 "zone": zone.value,

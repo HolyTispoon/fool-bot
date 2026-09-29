@@ -230,7 +230,8 @@ class DinkyAI(AIStrategy):
         **Dinky makes no judgement here and this does not change
         that.** The die picks a rank, exactly as it always has; the
         second draw only decides whether the card is the basic one or
-        its gambit, which is the same coin-flip indifference Dinky
+        its advanced one -- a hand holds both only when Dinky is
+        answering a gambit while behind (Law 19.3.4) -- which is the same coin-flip indifference Dinky
         brings to every other choice it is not maximizing. A gambit
         carries a cost as well as a benefit and weighing the two is
         judgement, which Dinky does not do. The alternative was Dinky
@@ -245,6 +246,13 @@ class DinkyAI(AIStrategy):
         hand = next(
             hand for hand in options.hands if hand.side == pick_side
         )
+        if hand.may_declare and not hand.picked and self.rng.randint(1, 2) == 1:
+            # Holding the coin, Dinky declares a gambit on a coin flip
+            # (Law 19.3) -- the same indifference as the tier below,
+            # and the only way a solo coach ever sees the coin cross.
+            # The prompt asks again, and the die picks from the three
+            # advanced maneuvers the declaration leaves it.
+            return Action(prompt.kind, "gambit", {"side": pick_side})
         if hand.railed is not None:
             key = hand.railed
         else:
@@ -376,6 +384,14 @@ class DinkyAI(AIStrategy):
             options.railed or "decline",
             {"player_id": prompt.player_id},
         )
+
+    def _gambit_answer(self, prompt, game, match, side, options) -> Action:
+        """
+        Behind with a gambit declared against it, Dinky answers with one
+        of its own on a coin flip (Law 19.3.4) -- the same indifference
+        it brings to declaring one.
+        """
+        return Action(prompt.kind, self.rng.choice(options.choices))
 
     # -- The turnovers --------------------------------------------------
 
@@ -690,6 +706,7 @@ class DinkyAI(AIStrategy):
         # Nor does it spend Scorchit's two tokens on a lost card.
         PromptKind.FORCE_TEST: _let_it_pass,
         PromptKind.FLY: _let_it_pass,
+        PromptKind.GAMBIT_ANSWER: _gambit_answer,
         PromptKind.LOOSE_BALL_PICK: _loose_ball,
         PromptKind.RUN_BACK_PLAYER: _run_back_player,
         PromptKind.RUN_BACK_SPACE: _run_back_space,

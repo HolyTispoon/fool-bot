@@ -136,6 +136,10 @@ class PromptKind(Enum):
     JOIN_THE_BALL = "join_the_ball"
     # Scorchit may force a test off a lost card, at the reveal (Law 21).
     FORCE_TEST = "force_test"
+    # The side a gambit was declared against, where behind, answers it
+    # -- a gambit of its own or its basic cards -- before either side
+    # picks a card (Law 19.3.4).
+    GAMBIT_ANSWER = "gambit_answer"
     MANEUVER_ACTION = "maneuver_action"
     SKILL_TEST = "skill_test"
 
@@ -170,7 +174,8 @@ class PendingPrompt:
     #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE,
     #: JOIN_THE_BALL, FLY, FORCE_TEST.
     player_id: Optional[str] = None
-    #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK: the board side asked.
+    #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK, GAMBIT_ANSWER: the board
+    #: side asked.
     side: Optional[TeamSide] = None
     #: LOW_PASS_CHOICE and SPEED_DELTA_CHOICE: the card resolving.
     maneuver_key: Optional[str] = None
@@ -548,6 +553,20 @@ class ManeuverHand:
     #: (step 5 of docs/web-app-redesign.md). Empty wherever the
     #: gambits are not in the game or the maneuver is unchallenged.
     withheld: tuple[str, ...] = ()
+    #: Whether this side's coach may declare a gambit now -- they hold
+    #: the coin, the maneuver is challenged and nobody has declared
+    #: (`RulesEngine.may_declare_gambit`, Law 19.3.2). Answered with
+    #: the choice `"gambit"`.
+    may_declare: bool = False
+    #: Whether this side declared this maneuver's gambit, and so plays
+    #: from its three advanced maneuvers alone.
+    declared: bool = False
+    #: Whether this side's pick waits to be confirmed because the other
+    #: side declared a gambit after it was made (Law 19.3.6). Answered
+    #: with the choice `"confirm"`, or by picking any card in the hand.
+    #: The card itself is not on the prompt: the pick is secret, and a
+    #: Discord prompt is public.
+    unconfirmed: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -560,6 +579,9 @@ class ManeuverHand:
                 else TeamSide(self.team_side).value
             ),
             "withheld": list(self.withheld),
+            "may_declare": self.may_declare,
+            "declared": self.declared,
+            "unconfirmed": self.unconfirmed,
         }
 
 
@@ -571,8 +593,12 @@ class ManeuverOptions:
     hands: tuple[ManeuverHand, ...]
 
     def owed(self) -> tuple[str, ...]:
-        """The sides still to pick."""
-        return tuple(hand.side for hand in self.hands if not hand.picked)
+        """The sides still to pick, or to confirm a pick a gambit put
+        back in question."""
+        return tuple(
+            hand.side for hand in self.hands
+            if not hand.picked or hand.unconfirmed
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -1201,12 +1227,12 @@ def maneuver_action_ask(
     would read a different question after the note from the one it
     was put in front of. See `d12ball.flow.gates`.
 
-    Who holds their gambits goes under the instruction and above the
-    cards. It is public knowledge either coach could work out from the
-    scoreboard and the board (see `RulesEngine.may_play_gambits`), and
-    `""` in the games and positions where the question does not arise
-    -- so this adds a paragraph to an advanced prompt and nothing at
-    all to a basic one.
+    Who may make a gambit goes under the instruction and above the
+    cards. It is public knowledge -- the coin is on the table and the
+    card backs show a declaration (`RulesEngine.describe_gambit_access`)
+    -- and `""` in the games and positions where the question does not
+    arise, so this adds a paragraph to an advanced prompt and nothing
+    at all to a basic one.
     """
     sides = list(engine.maneuver_pick_sides(game, match))
     waiting_on, instruction = maneuver_prompt_wording(
@@ -1215,6 +1241,33 @@ def maneuver_action_ask(
     return maneuver_gambit_paragraph(
         f"{' and '.join(waiting_on)}, {instruction}",
         engine.describe_gambit_access(game, match),
+    )
+
+
+def gambit_answer_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    The question put to the side a gambit was declared against, where
+    it is behind and has not yet answered (Law 19.3.4) -- or `None`.
+    One ask for the live question and the restored one: the flow puts
+    it up (`turn.offer_maneuver_action`) and the chain re-reads it.
+    """
+    side = engine.gambit_answer_owed(game, match)
+    if side is None:
+        return None
+    team = engine.maneuver_side_team(match, side)
+    coach = format_player_with_team(
+        game, engine.side_player_number(game, team), mention=True,
+    )
+    return PendingPrompt(
+        PromptKind.GAMBIT_ANSWER,
+        f"{coach}, a gambit has been declared against you and you are "
+        "behind: answer with a gambit of your own -- your three advanced "
+        "maneuvers -- or play your basic cards?",
+        side=team,
     )
 
 
@@ -1520,6 +1573,7 @@ def asked_sides(
         PromptKind.COACHING_OFFER,
         PromptKind.HALFTIME_EXTRA_TOKEN,
         PromptKind.LOOSE_BALL_PICK,
+        PromptKind.GAMBIT_ANSWER,
     ):
         return (TeamSide(prompt.side),) if prompt.side is not None else ()
 
@@ -1971,6 +2025,10 @@ def _pending(
             return join_the_ball_prompt(
                 engine, game, match, match.pending_join[0],
             )
+        answer_prompt = gambit_answer_prompt(engine, game, match)
+        if answer_prompt is not None:
+            # A gambit answered before anybody picks (Law 19.3.4).
+            return answer_prompt
         if not match.maneuver_selections_complete:
             return PendingPrompt(
                 PromptKind.MANEUVER_ACTION,
@@ -2098,6 +2156,11 @@ ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS)
 #: the empty choice and nothing else, which is what a prompt with one
 #: answer means.
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
+    # The maneuver pick is a card (the empty choice, with its key), and
+    # two answers that are not a card: declaring a gambit, which only
+    # the coach holding the coin may, and confirming a pick a gambit put
+    # back in question (Law 19.3). Neither settles the prompt.
+    PromptKind.MANEUVER_ACTION: ("", "gambit", "confirm"),
     # **Every roll prompt offers two answers**, and the second one
     # does not settle it: Overdrive is declared before the dice and
     # the roll is still owed afterwards. `SCORE_ATTEMPT` has its
@@ -2114,6 +2177,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.FLY: ("fly", "decline"),
     PromptKind.JOIN_THE_BALL: ("join", "decline"),
     PromptKind.FORCE_TEST: ("force", "decline"),
+    PromptKind.GAMBIT_ANSWER: ("gambit", "basic"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
@@ -2252,6 +2316,12 @@ def _maneuver_options(
                 card.key
                 for card in engine.withheld_gambits(game, match, side)
             ),
+            may_declare=(
+                allowed is None
+                and engine.may_declare_gambit(game, match, side)
+            ),
+            declared=match.gambit_declared_by == side,
+            unconfirmed=match.pick_unconfirmed == side,
         ))
 
     return ManeuverOptions(tuple(hands))
@@ -2664,6 +2734,7 @@ OPTIONS = {
     PromptKind.FLY: _fly_options,
     PromptKind.JOIN_THE_BALL: _decision_options,
     PromptKind.FORCE_TEST: _decision_options,
+    PromptKind.GAMBIT_ANSWER: _decision_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,

@@ -12,6 +12,7 @@ from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import (
     COIN_EMOJI_FALLBACK,
     COIN_EMOJI_NAMES,
+    GAME_COIN_EMOJI_NAMES,
     CONDITION_EMOJI_FALLBACKS,
     CONDITION_EMOJI_NAMES,
     DRAIN_EMOJI_FALLBACK,
@@ -174,9 +175,11 @@ class FakeCog:
 
 
 def build_coin_emojis() -> dict:
+    """The gold 3's two faces as the cog holds them -- by emoji name,
+    since a game is played with any of the six coins."""
     return {
-        CoinFace.FORTUNE: f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
-        CoinFace.DOOM: f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
+        "3_gold_fortune": f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
+        "3_gold_doom": f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
     }
 
 
@@ -1028,7 +1031,26 @@ class D12BallCoinEmojiTests(unittest.TestCase):
 
         coin_emojis = asyncio.run(load_coin_emojis(bot))
 
-        self.assertEqual(coin_emojis, build_coin_emojis())
+        # Every coin's faces are kept, since a game may be played with
+        # any of the six; the one with no emoji is left out.
+        self.assertEqual(coin_emojis, {
+            "1_gold_fortune": "<:1_gold_fortune:1532254775624601700>",
+            **build_coin_emojis(),
+        })
+
+    def test_a_game_s_own_coin_is_the_one_drawn(self) -> None:
+        coin_emojis = {
+            "1_silver_doom": f"<:1_silver_doom:{DOOM_EMOJI_ID}>",
+            **build_coin_emojis(),
+        }
+        self.assertEqual(
+            format_coin_emoji(coin_emojis, CoinFace.DOOM, "1_silver"),
+            f"<:1_silver_doom:{DOOM_EMOJI_ID}>",
+        )
+        self.assertEqual(
+            format_coin_emoji(coin_emojis, CoinFace.FORTUNE, "1_silver"),
+            COIN_EMOJI_FALLBACK,
+        )
 
     def test_an_application_without_the_emoji_is_not_an_error(self) -> None:
         coin_emojis = asyncio.run(load_coin_emojis(FakeBot([])))
@@ -1053,7 +1075,7 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         )
 
     def test_a_missing_emoji_falls_back_to_a_plain_coin(self) -> None:
-        only_doom = {CoinFace.DOOM: f"<:3_gold_doom:{DOOM_EMOJI_ID}>"}
+        only_doom = {"3_gold_doom": f"<:3_gold_doom:{DOOM_EMOJI_ID}>"}
 
         for coin_emojis in ({}, None, only_doom):
             with self.subTest(coin_emojis=coin_emojis):
@@ -1695,14 +1717,11 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bot.fetches, 1)
 
     async def test_a_complete_set_never_refetches(self) -> None:
+        # Complete is every face of all six coins.
         bot = self.CountingBot(
             [
-                discord.PartialEmoji(
-                    name="3_gold_fortune", id=FORTUNE_EMOJI_ID,
-                ),
-                discord.PartialEmoji(
-                    name="3_gold_doom", id=DOOM_EMOJI_ID,
-                ),
+                discord.PartialEmoji(name=name, id=FORTUNE_EMOJI_ID + index)
+                for index, name in enumerate(GAME_COIN_EMOJI_NAMES)
             ]
         )
         cog = self.build_cog(bot)

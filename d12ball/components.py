@@ -958,7 +958,7 @@ MANEUVER_TIER_BASIC = "basic"
 # **making a gambit** (the author, 2026-09-27; from 2026-09-20 until
 # then the card itself was called a gambit, which is where the
 # constant's name comes from). The name is an identifier and stays:
-# `is_gambit`, `may_play_gambits` and the rest read as "is this the
+# `is_gambit`, `gambit_cost` and the rest read as "is this the
 # card a gambit is made with". The value is the `maneuvers` tab's
 # `Mode` column, and is **not** a `legacy_maneuver_key` case. What a
 # person reads is `MANEUVER_TIER_WORDS` below.
@@ -1638,6 +1638,16 @@ class SavedField:
         return self.read(value) if self.read is not None else value
 
 
+def _optional_team_side(value: Optional[str]) -> Optional["TeamSide"]:
+    """A team side as saved -- its value -- or `None` kept as `None`."""
+    return None if value is None else TeamSide(value)
+
+
+def _optional_team_side_value(value: Optional["TeamSide"]) -> Optional[str]:
+    """A team side's saved spelling, or `None` kept as `None`."""
+    return None if value is None else TeamSide(value).value
+
+
 def _copy_optional_list(value: Optional[list]) -> Optional[list]:
     """A list's copy, or `None` kept as `None` -- see `pending_join`."""
     return None if value is None else list(value)
@@ -1667,6 +1677,17 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField("pending_action"),
     SavedField("challenger_id"),
     SavedField("maneuver_uncontested", default=False),
+    # The coin and this maneuver's declaration (Law 19.3). Absent in a
+    # save that predates them: nobody has declared, and the toss winner
+    # holds the coin -- `RulesEngine.coin_holder`.
+    SavedField(
+        "coin_holder",
+        write=_optional_team_side_value,
+        read=_optional_team_side,
+    ),
+    SavedField("gambit_declared_by"),
+    SavedField("pick_unconfirmed"),
+    SavedField("gambit_answer"),
     SavedField("volatile_tier_upgrade", default=False),
     SavedField("volatile_loser_cost"),
     # The card the dice settled a tie for -- see the field. Absent
@@ -1875,6 +1896,23 @@ class MatchState:
     # load.
     offense_maneuver: Optional[str] = None
     defense_maneuver: Optional[str] = None
+    # **The coin** (Law 19.3): the team whose coach may declare a
+    # gambit. `None` until a declaration first hands it over -- until
+    # then the toss winner holds it, which `RulesEngine.coin_holder`
+    # reads off the game record. That is also how a game saved before
+    # the coin existed reads it, so there is nothing to migrate.
+    coin_holder: Optional[TeamSide] = None
+    # This maneuver's gambit, if one was declared: the maneuver side
+    # ("offense" or "defense") whose coach declared it, and the side
+    # whose standing pick has to be confirmed because of it (Law
+    # 19.3.6). Both go with the maneuver, in `reset_maneuver`.
+    gambit_declared_by: Optional[str] = None
+    pick_unconfirmed: Optional[str] = None
+    # How the other side answered this maneuver's gambit, where it was
+    # behind and so asked (Law 19.3.4): "gambit" (a gambit of its own)
+    # or "basic". `None` while nobody has declared, or the question is
+    # still owed, or it was never asked. Goes with the maneuver.
+    gambit_answer: Optional[str] = None
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -3586,8 +3624,12 @@ class MatchState:
         picked. An uncontested maneuver waits on the offense alone --
         nobody is going to fill in `defense_maneuver`, so checking
         both would hang the turn.
+
+        **A pick a gambit has put back in question is not in** (Law
+        19.3.6): it stands only once its coach confirms it, so a
+        maneuver whose other card is down still waits.
         """
-        if self.offense_maneuver is None:
+        if self.offense_maneuver is None or self.pick_unconfirmed is not None:
             return False
         return self.maneuver_uncontested or self.defense_maneuver is not None
 
@@ -3656,7 +3698,12 @@ class MatchState:
         )
         if mine is None:
             raise RuleRefusal("That side has not chosen a maneuver yet.")
-        if self.maneuver_uncontested or theirs is not None:
+        # The other side's card is down only once it is not waiting to
+        # be confirmed (Law 19.3.6-19.3.7).
+        theirs_down = theirs is not None and self.pick_unconfirmed is None
+        if self.pick_unconfirmed != side and (
+            self.maneuver_uncontested or theirs_down
+        ):
             raise RuleRefusal(
                 "Both sides have chosen; the pick stands.",
                 law="choosing-and-revealing",
@@ -3665,6 +3712,78 @@ class MatchState:
             self.offense_maneuver = key
         else:
             self.defense_maneuver = key
+        if self.pick_unconfirmed == side:
+            self.pick_unconfirmed = None
+
+    def confirm_maneuver(self, side: str) -> None:
+        """
+        A pick a gambit put back in question, confirmed as it stands
+        (Law 19.3.6). Refuses where that side's pick is not the one
+        waiting to be confirmed.
+        """
+        if self.pick_unconfirmed != side:
+            raise RuleRefusal(
+                "That maneuver has nothing to confirm.",
+                law="who-may-make-a-gambit",
+            )
+        self.pick_unconfirmed = None
+
+    def answer_gambit(self, side: str, counter: bool) -> None:
+        """
+        The other side's answer to this maneuver's gambit (Law 19.3.4),
+        made before anybody picks a card: a gambit of its own, which
+        sets aside any basic card it had picked, or its basic cards,
+        which leaves that pick waiting to be confirmed. Whether it may
+        be asked is the engine's question (`gambit_answer_owed`).
+        """
+        if self.gambit_declared_by in (None, side):
+            raise RuleRefusal(
+                "There is no gambit for that side to answer.",
+                law="who-may-make-a-gambit",
+            )
+        if self.gambit_answer is not None:
+            raise RuleRefusal(
+                "The gambit has already been answered.",
+                law="who-may-make-a-gambit",
+            )
+        self.gambit_answer = "gambit" if counter else "basic"
+        if counter:
+            if side == "offense":
+                self.offense_maneuver = None
+            else:
+                self.defense_maneuver = None
+            if self.pick_unconfirmed == side:
+                self.pick_unconfirmed = None
+
+    def declare_gambit(self, side: str, declaring_team: TeamSide) -> None:
+        """
+        Record a gambit declared by this maneuver side's coach (Law
+        19.3): their own pick is withdrawn, a pick the other side has
+        already made waits to be confirmed, and the coin passes to the
+        other team. Who may declare is the engine's question
+        (`RulesEngine.may_declare_gambit`); this only writes it down,
+        and refuses a second declaration in one maneuver.
+        """
+        if self.gambit_declared_by is not None:
+            raise RuleRefusal(
+                "A gambit has already been declared this maneuver.",
+                law="who-may-make-a-gambit",
+            )
+        other = "defense" if side == "offense" else "offense"
+        if side == "offense":
+            self.offense_maneuver = None
+        else:
+            self.defense_maneuver = None
+        theirs = (
+            self.defense_maneuver if side == "offense"
+            else self.offense_maneuver
+        )
+        self.gambit_declared_by = side
+        self.pick_unconfirmed = other if theirs is not None else None
+        self.coin_holder = (
+            TeamSide.VISITING if TeamSide(declaring_team) == TeamSide.HOME
+            else TeamSide.HOME
+        )
 
     def begin_loose_ball(
         self, distance_moved: int, is_high_pass: bool = False,
@@ -3761,6 +3880,9 @@ class MatchState:
         self.maneuver_uncontested = False
         self.offense_maneuver = None
         self.defense_maneuver = None
+        self.gambit_declared_by = None
+        self.pick_unconfirmed = None
+        self.gambit_answer = None
         self.volatile_tier_upgrade = False
         self.volatile_loser_cost = None
         self.skill_test_winner = None

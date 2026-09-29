@@ -61,6 +61,27 @@ extra click bought a round trip and nothing else.
     disabled a row would tell the other coach that side had answered. The "X
     has picked their maneuver" message says that already, deliberately and in
     its own message.
+- **The coin's two buttons share the reference's row** (Law 19.3):
+  "Gambit" on the hand whose coach holds the coin, while nobody has
+  declared, and "Confirm maneuver" on a hand whose pick a gambit has
+  put back in question -- `ManeuverHand.may_declare` and `unconfirmed`,
+  the prompt's own options. Anyone may press Gambit and only the coin
+  holder is answered: who holds the coin is public, so the refusal
+  gives nothing away. Neither names a card; the confirm's ephemeral
+  reply does, to its own coach.
+  - **A declaration is the one click that replaces the prompt.** Both
+    hands change, so the model puts the pick up again and the view
+    deletes the message it was pressed on (`close_turn_prompt`) before
+    `present` posts the new one -- one delete and one send, both off the
+    channel's edit bucket. The rule that the prompt is never *edited*
+    stands.
+  - **Fifteen hand images** now, since a declarer's hand is the three
+    advanced cards alone -- see [cards.md](cards.md).
+  - **Where the other coach is behind, the declaration puts up
+    `GambitAnswerView` instead of the pick** -- "Answer with a gambit" /
+    "Play basic cards", only that side's coach may press -- and the
+    answer replaces that message and puts the pick up, each hand three
+    cards.
 - **Authorization is checked before "already picked".** The other coach's row
   is sitting on the same message, so answering a click on it with "that side has
   already chosen" would say whether they had.

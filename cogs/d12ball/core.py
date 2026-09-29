@@ -77,7 +77,7 @@ from gamesaves.d12ball.service import (
 from discord_emoji_cache import ensure_cached_emojis
 from gamelocks import GameLocks
 from cogs.d12ball_helpers import (
-    COIN_EMOJI_NAMES,
+    GAME_COIN_EMOJI_NAMES,
     DiscordTokens,
     build_maneuver_action_caption,
     ERROR_RECOVERY_ADVICE,
@@ -117,6 +117,7 @@ from cogs.d12ball_views import (
     LooseBallChoiceView,
     LooseBallSkillTestView,
     LowPassChoiceView,
+    GambitAnswerView,
     ManeuverActionPromptView,
     ManeuverChallengeView,
     NewGameHubView,
@@ -400,6 +401,7 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.TUTORIAL_CONTINUE,
     PromptKind.GAME_OVER,
     PromptKind.HALFTIME_EXTRA_TOKEN,
+    PromptKind.GAMBIT_ANSWER,
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
     PromptKind.JOIN_THE_BALL,
@@ -525,7 +527,7 @@ class CoreMixin:
         tutorial.validate_script(self.maneuver_catalog)
         self.prerender_maneuver_images()
 
-        self.coin_emojis: dict[CoinFace, str] = {}
+        self.coin_emojis: dict[str, str] = {}
         # When the coin emoji were last asked after, on the monotonic
         # clock -- see ensure_coin_emojis. None, not 0.0: monotonic
         # counts from boot on Linux, so on a host that starts the bot
@@ -833,7 +835,7 @@ class CoreMixin:
             f"{ERROR_RECOVERY_ADVICE}",
         )
 
-    async def ensure_coin_emojis(self) -> dict[CoinFace, str]:
+    async def ensure_coin_emojis(self) -> dict[str, str]:
         """
         The coin emoji, retrying the lookup while any are missing.
 
@@ -848,7 +850,7 @@ class CoreMixin:
         list feeding three loaders, see cog_load -- is this cog's own.
         """
 
-        async def loader() -> dict[CoinFace, str]:
+        async def loader() -> dict[str, str]:
             application_emojis = await fetch_application_emojis(self.bot)
             if application_emojis is None:
                 return self.coin_emojis
@@ -858,7 +860,7 @@ class CoreMixin:
             await ensure_cached_emojis(
                 self.coin_emojis,
                 self.coin_emojis_checked_at,
-                len(COIN_EMOJI_NAMES),
+                len(GAME_COIN_EMOJI_NAMES),
                 loader,
             )
         )
@@ -1346,6 +1348,8 @@ class CoreMixin:
             return RematchView(self, game_id)
         if kind is PromptKind.HALFTIME_EXTRA_TOKEN:
             return HalftimeExtraTokenView(self, game_id, prompt.side)
+        if kind is PromptKind.GAMBIT_ANSWER:
+            return GambitAnswerView(self, game_id, prompt.side)
         if kind is PromptKind.MIND_PULL:
             return MindPullView(self, game_id, prompt.player_id)
         if kind is PromptKind.JOIN_THE_BALL:

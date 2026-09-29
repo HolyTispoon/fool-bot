@@ -3541,12 +3541,25 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         ]
 
     def behind(self) -> PromptFixture:
-        """An advanced game with the home side (seat 1, on the ball) a
-        goal down: its coach holds six cards, the visitors three."""
+        """An advanced game where the visitors held the coin and have
+        declared a gambit, and the home side (seat 1, on the ball), a
+        goal down, has answered with one of its own: both play their
+        three advanced maneuvers (Law 19.3)."""
         ENGINE.rng.seed(11)
         fixture = case("maneuver picks")
         fixture.game.mode = GameMode.ADVANCED
+        fixture.match.coin_holder = TeamSide.VISITING
+        fixture.match.declare_gambit("defense", TeamSide.VISITING)
         fixture.match.scoreboard.visiting_score = 1
+        fixture.match.answer_gambit("offense", True)
+        return fixture
+
+    def level(self) -> PromptFixture:
+        """An advanced game, level, with nobody declared: home (seat 1)
+        holds the coin by default, so both hands are the basic three."""
+        ENGINE.rng.seed(11)
+        fixture = case("maneuver picks")
+        fixture.game.mode = GameMode.ADVANCED
         return fixture
 
     async def test_a_side_holding_three_cards_is_offered_exactly_those(
@@ -3575,7 +3588,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             ["defense"],
         )
 
-    async def test_a_side_holding_six_is_offered_six_and_the_other_sees_its_gambits_dimmed(
+    async def test_after_a_gambit_each_side_is_offered_three(
         self,
     ) -> None:
         fixture = self.behind()
@@ -3590,40 +3603,80 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             client, fixture, as_coach(fixture.game.player_2_id),
         )
 
-        six = self.cards(home)
+        answered = self.cards(home)
         self.assertEqual(
-            [control["card"]["key"] for control in six],
+            [control["card"]["key"] for control in answered],
             list(offense.maneuver_keys),
         )
-        self.assertEqual(len(six), 6)
-        self.assertFalse(any(control["disabled"] for control in six))
-        self.assertEqual(
-            sum(control["card"]["gambit"] for control in six), 3,
+        self.assertEqual(len(answered), 3)
+        self.assertFalse(any(control["disabled"] for control in answered))
+        self.assertTrue(
+            all(control["card"]["gambit"] for control in answered),
         )
 
+        # The side that declared plays its three advanced maneuvers.
         three = self.cards(away)
-        live = [control for control in three if not control["disabled"]]
-        dimmed = [control for control in three if control["disabled"]]
         self.assertEqual(
-            [control["card"]["key"] for control in live],
+            [control["card"]["key"] for control in three],
             list(defense.maneuver_keys),
         )
-        self.assertEqual(
-            [control["card"]["key"] for control in dimmed],
-            list(defense.withheld),
+        self.assertTrue(all(control["card"]["gambit"] for control in three))
+
+    async def test_the_coin_holder_is_offered_the_declaration(self) -> None:
+        from webapp.present import (
+            DECLARE_LABEL,
+            WITHHELD_NOTE,
+            WITHHELD_TO_DECLARE_NOTE,
         )
-        self.assertEqual(len(dimmed), 3)
-        for control in dimmed:
-            self.assertTrue(control["card"]["withheld"])
-            self.assertEqual(control["note"], "Held only by the side behind.")
-            # Never an answer: pressed anyway, the page's own check
-            # refuses it before the model sees it.
-            response = await client.post(
-                f"/api/game/{fixture.game.game_id}/action",
-                headers=as_coach(fixture.game.player_2_id),
-                data=json.dumps({"action": control["action"]}),
-            )
-            self.assertEqual(response.status, 409)
+
+        fixture = self.level()
+        client, _ = await self.serve(fixture)
+
+        home = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+        away = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_2_id),
+        )
+
+        def declarations(state):
+            return [
+                control
+                for group in state["prompt"]["controls"]
+                for control in group["controls"]
+                if control["label"] == DECLARE_LABEL
+            ]
+
+        self.assertEqual(len(declarations(home)), 1)
+        self.assertEqual(declarations(away), [])
+        for state, note in (
+            (home, WITHHELD_TO_DECLARE_NOTE), (away, WITHHELD_NOTE),
+        ):
+            dimmed = [c for c in self.cards(state) if c["disabled"]]
+            self.assertEqual(len(dimmed), 3)
+            for control in dimmed:
+                self.assertTrue(control["card"]["withheld"])
+                self.assertEqual(control["note"], note)
+                # Never an answer: pressed anyway, it is refused.
+                response = await client.post(
+                    f"/api/game/{fixture.game.game_id}/action",
+                    headers=as_coach(fixture.game.player_2_id),
+                    data=json.dumps({"action": control["action"]}),
+                )
+                self.assertEqual(response.status, 409)
+
+        response = await client.post(
+            f"/api/game/{fixture.game.game_id}/action",
+            headers=as_coach(fixture.game.player_1_id),
+            data=json.dumps({"action": declarations(home)[0]["action"]}),
+        )
+        self.assertEqual(response.status, 200)
+        declared = await response.json()
+        self.assertTrue(
+            all(control["card"]["gambit"] for control in self.cards(declared)
+                if not control["disabled"])
+        )
+        self.assertEqual(declarations(declared), [])
 
     async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
         fixture = self.behind()
@@ -3684,7 +3737,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(ringed[0]["disabled"])
         live = [one for one in cards if not one["disabled"]]
-        self.assertEqual(len(live), 5)
+        self.assertEqual(len(live), 2)
         self.assertEqual(picked["prompt"]["state"], "waiting")
         self.assertFalse(picked["prompt"]["yours"])
         self.assertEqual(
@@ -3699,7 +3752,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(theirs["prompt"]["state"], "yours")
 
         # A change of card is taken over the old one.
-        instead = next(one for one in live if one["card"]["key"] == "high_pass")
+        instead = next(one for one in live if one["card"]["key"] == "dribble_burst")
         response = await client.post(
             f"/api/game/{fixture.game.game_id}/action",
             headers=as_coach(fixture.game.player_1_id),
@@ -3712,12 +3765,12 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             web.service.games[fixture.game.game_id].match_state[
                 "offense_maneuver"
             ],
-            "high_pass",
+            "dribble_burst",
         )
         self.assertEqual(
             [one["card"]["key"] for one in self.cards(changed)
              if one["card"].get("picked")],
-            ["high_pass"],
+            ["dribble_burst"],
         )
 
     async def test_both_cards_turn_over_together(self) -> None:

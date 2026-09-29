@@ -20,6 +20,7 @@ from d12ball.game import (
     AIOpponent,
     COLOR_TEAMS,
     CoinFace,
+    DEFAULT_COIN,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -407,6 +408,7 @@ class CoinFlipView(GameConfigurationView):
             emoji=format_coin_emoji(
                 self.cog.coin_emojis,
                 CoinFace.FORTUNE,
+                game.game_coin if game else DEFAULT_COIN,
             ),
             custom_id=f"d12ball:flip_coin:{game_id}",
             disabled=game.coin_flipped if game else False,
@@ -447,6 +449,7 @@ class CoinFlipView(GameConfigurationView):
             format_coin_emoji(
                 await self.cog.ensure_coin_emojis(),
                 game.coin_face,
+                game.game_coin,
             ),
         )
 

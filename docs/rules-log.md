@@ -154,6 +154,65 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (the coin, later) -- author, a gambit is answered before the cards; three cards a hand
+
+The author, reviewing the coin in the web app the same evening: *"Player A declares a gambit and
+player B is behind. Player B should choose whether to counter gambit before either player can
+pick any cards. After player B choose whether to gambit or not, each side should be shown only 3
+cards"*, and *"When showing the gambits - show only the gambits."*
+
+- **The answer comes first** (19.3.5): a coach who may answer says so -- a gambit of their own,
+  or their basic cards -- before either coach chooses a card. Until then neither may pick.
+- **Three cards a hand, never six** (19.3.6): an answering gambit is the three advanced
+  maneuvers alone, as the declarer's is, and a basic card the answering coach had already picked
+  is set aside. Keeping the basic cards leaves that pick to be confirmed, as before.
+- Unchanged: the declarer's own earlier pick is withdrawn and only the other coach is asked to
+  confirm (*"only their opponent should be asked to confirm -- if they had selected a card
+  earlier it should be removed"*), and the coin stays with the answering coach.
+
+Rewrote 19.3.5 and 19.3.6 and the Learn to Play's paragraph. No number moved.
+
+### 2026-09-28 (the coin) -- author, the coin decides who may make a gambit; behind only answers one
+
+The author, in a Claude chat and a voice call the same evening: *"whoever wins the coin flip gets
+to keep the coin ... whoever has the coin can ... at any maneuver choose to say that they're
+going to play the gambit and then they replace their regular three cards with the three gambit
+cards which have a different backside so it is known when someone plays a gambit and when they
+do that they also hand over the coin."* The gate on being behind moves from making a gambit to
+answering one.
+
+- **The toss winner keeps the coin** (new 3.1.4). It is the same coin the toss is flipped with --
+  the author: *"it's a Fortune and Doom coin but since it's the only coin in the game we can just
+  refer to it as the coin"* -- and it is **never flipped again** (*"No flips. I meant the coin is
+  given to the other player"*).
+- **The coin holder may declare a gambit** at any challenged maneuver (19.3.2), swapping their
+  three basic cards for their three advanced maneuvers. A maneuver they had already chosen is
+  withdrawn (the author, asked whether a declaration after a pick is allowed: *"Yes. It would
+  withdraw their maneuver."*). Declaring **hands the coin to the other coach** (19.3.3).
+- **The other coach may answer with a gambit of their own only while behind** (19.3.4) -- the two
+  readings of behind are the old gate's, word for word, and strictly more (*"Strictly greater is
+  right"*). Being handed the coin is not enough on its own, and an answering coach keeps the coin
+  (19.3.5)
+  (*"Keep it. They can only counter gambit if they are behind in one of the two senses
+  mentioned."*).
+- **A coach facing a gambit chooses again, and a pick they had already made stays loaded for
+  them to confirm** (19.3.6; the author: *"Stay picked"*). An answering gambit is announced,
+  as the declaration is (*"Yes, announce it"*).
+- **The declarer may change which advanced maneuver they play** while the other coach is still
+  choosing (19.3.7), as any pick may be changed (*"Yes. Keep it consistent."*).
+- **Unchanged:** a gambit is still only against a challenge (19.2; *"I want to keep it the way it
+  is now"*), and everything in 19.4 onward -- what a gambit does when it succeeds or fails.
+- **The coin carries** through halftime and the shootout (*"Just carry"*).
+
+Replaced 19.3.1-19.3.3 with 19.3.1-19.3.8; reworded 2.8.14, 6.2.2, 19.2.2, the Part II
+changes table's row and the Learn to Play's paragraph; added 3.1.4 and a glossary row for
+the coin. Renumbered. The advanced cards already print on their own back in the print-and-play
+kit, so no component changes.
+
+**Superseded:** the 2026-09-20 rulings that a gambit needs a reason and that the reason is being
+behind, and the same day's widening of that gate to Exhausted players -- both survive as the
+condition for **answering** a gambit, not for making one.
+
 ### 2026-09-28 (Smooth) -- author, no Smooth on a ball nobody is holding
 
 The author, from a game on Discord where a Deflect came down on a space holding one

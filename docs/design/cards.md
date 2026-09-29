@@ -56,16 +56,21 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   thirteen cards on every maneuver. Nothing about a card depends on the match,
   so they cannot go stale. `build_maneuver_hand_file` re-wraps the bytes per
   send, because uploading a `discord.File` consumes the stream inside it.
-  - **Eight images, not four**, keyed by the hands on the prompt -- one
+  - **Fifteen images, not four**, keyed by the hands on the prompt -- one
     `(side, tiers)` pair each: offense alone, defense alone, or both, against
-    the basic three or all six. Which sides is
+    the basic three, all six, or the advanced three alone. Which sides is
     `RulesEngine.maneuver_pick_sides` and which tiers is
     `RulesEngine.maneuver_tiers`, the same two questions the buttons under the
     image ask, and `maneuver_hand_combinations` is the enumeration the cog
-    draws at startup. **The tiers are each side's own, which is what makes it
-    eight**: since 2026-09-20 a gambit is held only by a coach whose team is
-    behind, so a contested prompt can carry six cards for one side and three
-    for the other. **The reference hexagon is keyed by tier the same way** (see
+    draws at startup. **The tiers are each side's own**: since 2026-09-28 the
+    coach holding the coin declares a gambit and plays from the advanced three
+    alone, and the other coach, where behind, answers first with the advanced
+    three or the basic three (Law 19.3) -- so a contested prompt can carry
+    three advanced cards on one side and three basic on the other. Since the
+    answer moved ahead of the cards (2026-09-28) no hand is six, so the six
+    pairings with all six are unreachable, like the rest; an image nobody asks for
+    costs one render at startup, and listing only the reachable ones would be
+    a second reading of the rule. **The reference hexagon is keyed by tier the same way** (see
     below): the button posts the hexagon for the tiers the game is actually
     playing, so what a coach reads a matchup off cannot show cards their hand
     does not hold.

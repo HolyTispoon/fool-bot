@@ -619,6 +619,11 @@ class Refusal:
 #: position is -- the challenge is settled, the ball has been picked
 #: up -- rather than that a click was refused, and a kind with no
 #: sentence of its own gets `MOVED_ON`. See `answer`.
+#: A card pressed while the gambit is still being answered (Law 19.3.4).
+GAMBIT_ANSWER_FIRST = (
+    "The gambit is being answered first; the cards come after."
+)
+
 STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.BALL_HANDLER_SELECTION: "A player has already been selected.",
     PromptKind.PLAYER_ACTION: "That turn has already been taken.",
@@ -636,6 +641,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.SMOOTH: "That Smooth has already been answered.",
     PromptKind.MIND_PULL: "That Mind Pull has already been answered.",
     PromptKind.JOIN_THE_BALL: "That offer has already been answered.",
+    PromptKind.GAMBIT_ANSWER: "That gambit has already been answered.",
     PromptKind.FORCE_TEST: "That offer has already been answered.",
     PromptKind.FLY: "That offer has already been answered.",
     PromptKind.RUN_BACK_PLAYER: "They no longer have to run back.",
@@ -1213,6 +1219,28 @@ def _answer_maneuver_challenge(
     )
 
 
+def _answer_gambit_answer(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> StepResult:
+    """
+    A gambit answered by the side it was declared against (Law
+    19.3.4): `"gambit"` for one of its own, `"basic"` for its basic
+    cards. The side is the prompt's -- only one side is ever asked.
+    """
+    side = engine.gambit_answer_owed(game, match)
+    if side is None:
+        raise RuleRefusal(
+            "There is no gambit to answer.", law="who-may-make-a-gambit",
+        )
+    return turn.answer_gambit_step(
+        engine, game, match, side=side, counter=choice == "gambit",
+    )
+
+
 def _answer_maneuver_action(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1221,10 +1249,14 @@ def _answer_maneuver_action(
     choice: str,
     *,
     side: str,
-    maneuver_key: str,
+    maneuver_key: Optional[str] = None,
 ) -> StepResult:
     """
-    One coach's maneuver, picked.
+    One coach's maneuver, picked -- or, with the choice `"gambit"`, a
+    gambit declared, and with `"confirm"` a pick a gambit put back in
+    question confirmed as it stands (Law 19.3). The card is the empty
+    choice's argument (`REQUIRED_ARGUMENTS`); the other two name only
+    the side.
 
     **The refusal is asked here and raised**, which is what puts it
     through `answer`'s own `RuleRefusal` door: "you have already chosen",
@@ -1238,6 +1270,15 @@ def _answer_maneuver_action(
     rows on it**, so which side a click answers for is part of what was
     clicked.
     """
+    if side not in ("offense", "defense"):
+        raise RuleRefusal("That side is not on this maneuver.")
+    if choice == "gambit":
+        refusal = turn.gambit_declaration_refusal(engine, game, match, side)
+        if refusal is not None:
+            raise RuleRefusal(refusal, law="who-may-make-a-gambit")
+        return turn.declare_gambit_step(engine, game, match, side=side)
+    if choice == "confirm":
+        return turn.confirm_maneuver_step(engine, game, match, side=side)
     refusal = turn.maneuver_pick_refusal(
         engine, game, match, side, maneuver_key,
     )
@@ -1801,6 +1842,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
     PromptKind.JOIN_THE_BALL: _answer_join_the_ball,
+    PromptKind.GAMBIT_ANSWER: _answer_gambit_answer,
     PromptKind.FORCE_TEST: _answer_force_test,
     PromptKind.FLY: _answer_fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
@@ -1842,6 +1884,7 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.SHOOTOUT_ORDER: {"send": ("player_id",)},
     PromptKind.LOOSE_BALL_PICK: {"send": ("player_id",)},
     PromptKind.MANEUVER_CHALLENGE: {"send": ("player_id",)},
+    PromptKind.MANEUVER_ACTION: {"": ("maneuver_key",)},
     PromptKind.FLY: {"fly": ("zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
     # declared on -- and so is Gearclaw's Boost (Law 21).
@@ -1974,6 +2017,12 @@ def answer(
     if isinstance(waiting, FollowOn):
         return Refusal(STEP_OWED, waiting_on=None)
     if waiting.kind is not action.kind:
+        if (
+            waiting.kind is PromptKind.GAMBIT_ANSWER
+            and action.kind is PromptKind.MANEUVER_ACTION
+        ):
+            # The maneuver is not settled; its cards wait on the answer.
+            return Refusal(GAMBIT_ANSWER_FIRST, waiting_on=waiting)
         return Refusal(
             STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=waiting,
         )

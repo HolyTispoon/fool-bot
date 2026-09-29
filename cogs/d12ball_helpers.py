@@ -65,6 +65,8 @@ from d12ball.game import (
     COLOR_TEAMS,
     CoinFace,
     D12BallGame,
+    DEFAULT_COIN,
+    GAME_COINS,
     GameMode,
     Team,
     paired_team,
@@ -94,6 +96,11 @@ COIN_EMOJI_NAMES = {
     CoinFace.FORTUNE: "3_gold_fortune",
     CoinFace.DOOM: "3_gold_doom",
 }
+#: Every face of every coin a game can be played with (`GAME_COINS`),
+#: as the application's emoji are named: `<coin>_<face>`.
+GAME_COIN_EMOJI_NAMES: tuple[str, ...] = tuple(
+    f"{coin}_{face.value}" for coin in GAME_COINS for face in CoinFace
+)
 COIN_EMOJI_FALLBACK = "🪙"
 FULL_IMAGE_BUTTON_LABEL = "View full image"
 # Every board upload is named for its game, which is also how a pinned
@@ -1315,10 +1322,12 @@ def refresh_player_names(
 async def load_coin_emojis(
     bot: commands.Bot,
     emojis_by_name: Optional[dict[str, discord.Emoji]] = None,
-) -> dict[CoinFace, str]:
+) -> dict[str, str]:
     """
     Look up the coin emoji among the application's emoji, and keep
-    them as ready-to-post <:name:id> strings.
+    them as ready-to-post <:name:id> strings, by emoji name -- both
+    faces of all six coins, since each game is played with one of them
+    (`D12BallGame.game_coin`).
 
     `emojis_by_name` is an already-fetched list -- see
     fetch_application_emojis.
@@ -1330,16 +1339,16 @@ async def load_coin_emojis(
     if emojis_by_name is None:
         emojis_by_name = await fetch_application_emojis(bot) or {}
 
-    coin_emojis: dict[CoinFace, str] = {}
+    coin_emojis: dict[str, str] = {}
     missing: list[str] = []
 
-    for face, name in COIN_EMOJI_NAMES.items():
+    for name in GAME_COIN_EMOJI_NAMES:
         emoji = emojis_by_name.get(name)
 
         if emoji is None:
             missing.append(name)
         else:
-            coin_emojis[face] = str(emoji)
+            coin_emojis[name] = str(emoji)
 
     if missing:
         LOGGER.info(
@@ -1353,16 +1362,20 @@ async def load_coin_emojis(
 
 
 def format_coin_emoji(
-    coin_emojis: Optional[dict[CoinFace, str]],
+    coin_emojis: Optional[dict[str, str]],
     face: Optional[CoinFace],
+    coin: str = DEFAULT_COIN,
 ) -> str:
     """
-    The emoji for a coin face, or a plain coin when it is unavailable.
+    The emoji for one face of a game's coin (`D12BallGame.game_coin`),
+    or a plain coin when it is unavailable.
     """
     if not coin_emojis or face is None:
         return COIN_EMOJI_FALLBACK
 
-    return coin_emojis.get(CoinFace(face), COIN_EMOJI_FALLBACK)
+    return coin_emojis.get(
+        f"{coin}_{CoinFace(face).value}", COIN_EMOJI_FALLBACK,
+    )
 
 
 def build_home_choice_message(game: D12BallGame) -> str:

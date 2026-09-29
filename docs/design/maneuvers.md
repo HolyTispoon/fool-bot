@@ -63,7 +63,7 @@ when the advanced maneuver wins on rank and fails when it loses, and
 what the code calls a card's *benefit* and *cost* are the successful
 and the failed gambit's outcomes. From 2026-09-20 until then the card
 itself was called a gambit, which is why the identifiers say so --
-`is_gambit`, `may_play_gambits`, `gambit_cost`, `withheld_gambits` --
+`is_gambit`, `gambit_cost`, `withheld_gambits` --
 and they stay: each reads as "the card a gambit is made with", and
 renaming them is churn through the saves' neighbours for no reader.
 An advanced maneuver is **the advanced version of the basic maneuver
@@ -94,69 +94,101 @@ it. Three things narrow it, and all three are rules:
   into the unopposed branch settle it before the offense is prompted.
   That also makes declining a challenge a defensive weapon rather than
   only a saving;
-- **a gambit needs a reason** (the author, 2026-09-20), below.
+- **the coin decides who may make a gambit** (the author, 2026-09-28),
+  below.
 
-### A gambit needs a reason
+### The coin
 
-`may_play_gambits(game, match, side)` is the gate: a coach holds their
-gambits only while their team is **behind**, which is `trailing` (fewer
-goals) or `carrying_more_conditions` (more Exhausted-or-Injured players
-*on the field* than the opponent -- Drained and Damaged count too,
-being a Cyborg's own words for the same two conditions). Either is
-enough and both are asked of one team, so both coaches can hold them at
-once -- one trailing while the other is the more hurt.
+Until 2026-09-28 a gambit needed a reason -- a coach held their gambits
+only while their team was behind. **Now the coin decides** (Law 19.3):
+the toss winner keeps it, its holder may declare a gambit at any
+challenged maneuver, and declaring hands it to the other coach. Being
+behind survives as the condition for **answering** a gambit.
 
-- **Widened from injured-only on 2026-09-20**, the same day the gate
-  itself landed: `MatchState.conditioned_field_players` reads
-  `match.injured` **or** `match.exhausted` rather than `injured` alone,
-  a plain union since `mark_injured` already discards a player from
-  `exhausted` the moment they go down. See the dated entry in
-  [rules-log.md](../rules-log.md).
-
-- **It is what gave `maneuver_tiers` a `side`, and that is the whole
-  structural change.** The two coaches no longer necessarily hold the
-  same cards, so the question cannot be asked about a match alone. Every
-  caller that draws a hand already had a side; the one that did not was
-  the prompt's own image, which is why `render_maneuver_hands` now takes
-  one `(side, tiers)` pair per hand and the cog pre-renders eight
-  combinations rather than six (`maneuver_hand_combinations`).
-- **Nothing is persisted for it**, the same as the outright rule below:
-  it is read off the scoreboard and the field when the hand is drawn, so
-  a restart mid-maneuver draws the same hand, and a gambit already
-  played keeps its benefit and pays its cost however the score moves
-  afterwards -- those are read off the two stored keys.
-- **What the gate holds back is asked too, not worked out.** The web
+- **Four questions, all on the engine.** `coin_holder` (the match's
+  `coin_holder` once a declaration has moved it, the toss winner's side
+  before that, home for a game seated with no toss, `None` without the
+  gambits); `may_declare_gambit` (the holder, a challenged maneuver,
+  nobody declared yet); `behind` (the old gate's two readings, fewer
+  goals or more Exhausted-or-Injured *on the field*, strictly more, so
+  both teams can be behind at once); and `may_answer_gambit` (the other
+  side declared, and this side is behind). `maneuver_tiers` reads them, with `gambit_answer_owed` (the other
+  side was behind at the declaration and has not yet said how it
+  answers): the declarer's hand is `(advanced,)`, the other side's
+  `(advanced,)` if it answered with a gambit and the basic three
+  otherwise -- **never six** (the author, 2026-09-28: "each side should
+  be shown only 3 cards").
+- **The answer is a question of its own, asked before the cards**
+  (`PromptKind.GAMBIT_ANSWER`, choices `"gambit"` and `"basic"`, asked
+  of `prompt.side`): the author, the same evening, "Player B should
+  choose whether to counter gambit before either player can pick any
+  cards". It sits in the chain ahead of `MANEUVER_ACTION`, so a card
+  pressed meanwhile is refused (`GAMBIT_ANSWER_FIRST`). A counter sets
+  aside a basic card the side had picked; keeping the basic cards leaves
+  it to be confirmed. **A side not behind at the declaration is recorded
+  as keeping its basic cards there and then** (`gambit_answer =
+  "basic"`): behind is read as the maneuvers are chosen, and a score
+  that moves later in the same maneuver -- an own-goal roll -- would
+  otherwise put the question up in the middle of the resolution, ahead
+  of the effect's own prompts. The re-swept golden found exactly that.
+- **Four saved fields, one per thing that outlives a click**:
+  `coin_holder` on the match (None until it first moves -- that is also
+  the fallback for a save that predates it, so nothing migrates);
+  `gambit_declared_by`, `gambit_answer` and `pick_unconfirmed`, this
+  maneuver's, all cleared by `reset_maneuver`. The coin carries through halftime and
+  the shootout because nothing clears it.
+- **A declaration withdraws the declarer's pick and puts the other's
+  in question** (`MatchState.declare_gambit`). A pick in question is
+  not in (`maneuver_selections_complete`); its coach confirms it (the
+  choice `"confirm"`, `MatchState.confirm_maneuver`) or changes it for
+  any card in the hand, whatever the other side has done. Picking the
+  same card again confirms too.
+- **The choices are on the maneuver prompt**, beside the card: `"gambit"`
+  (`side` only) and `"confirm"` (`side` only), and the card is the empty
+  choice with its `maneuver_key` (`REQUIRED_ARGUMENTS`). The hand says
+  which applies -- `ManeuverHand.may_declare`, `declared`, `unconfirmed`
+  -- so a frontend reads it rather than working it out. A refused
+  declaration cites `who-may-make-a-gambit`.
+- **A declaration puts the pick up again**
+  (`declare_gambit_step` names `SEND_MANEUVER_ACTION_PROMPT`): both
+  hands have changed, and a prompt whose buttons no longer match the
+  hands is one a restart would not rebuild. On Discord that is a new
+  message, and the old one is deleted -- see
+  [maneuver-prompt.md](maneuver-prompt.md).
+- **Everything a declaration or an answer does is said.** "X declares
+  a gambit and hands the coin to Y", "Y answers with a gambit of their
+  own" or "Y plays their basic cards" (at the answer, before the cards),
+  "Y has confirmed their maneuver" -- the advanced cards have their own
+  back, so none of it is a secret. "Y may confirm their maneuver or
+  change it" is said only to a person: the AI answers first.
+- **Nothing is persisted for being behind**, as before: it is read off
+  the scoreboard and the field when the hand is drawn.
+- **What the coin holds back is asked too, not worked out.** The web
   page shows a side's gambits dimmed beside a hand that does not hold
-  them ("held only by the side behind", step 5 of
-  [../web-app-redesign.md](../web-app-redesign.md)), so which cards those
-  are is `RulesEngine.withheld_gambits` -- the complement of
-  `maneuver_hand` within the side's cards, asked of `maneuver_tiers`, and
-  empty in a game without the gambits, for an unchallenged maneuver
-  (nobody holds them there, so there is nothing to be behind for) and
-  for a side that holds them. It rides on the prompt as
-  `ManeuverHand.withheld` and is never an answer; the Discord hand image
-  does not draw it.
-- **The gate is on the hand and nothing else.** Volatile still upgrades
-  a maneuver to its rank's gambit off an ignite whether or not that
-  coach may play one: the ability is about the dice, and gating it would
-  make a Fire Demon's ignite quietly worthless to the side in front.
-  The reference hexagon is not gated either (`RulesEngine.maneuver_reference_tier`)
-  -- a coach who holds nothing still has to read what is coming at them.
-- **Dinky needed no policy.** It rolls a rank and picks at random among
-  the cards on it that are in the hand the prompt offers it
-  (`ManeuverHand.maneuver_keys`, since step 7 of
-  docs/architecture-migration.md), so a closed Dinky plays the basic three
-  without knowing why -- the same indifference it brings to the tier
-  itself, below.
-- **The bot says who holds them anyway.** `describe_gambit_access` puts
-  one line under the maneuver prompt. The rule is public knowledge by
-  construction -- the author's point in setting it on the scoreboard and
-  the meeples -- but the prompt only draws a hand for a side still to
-  pick, and Dinky answers through the service before any message goes up
-  (`maneuver_pick_sides` drops an AI hand once it has picked), so in a
-  solo game Dinky's cards are never on the message.
-  Nothing is said where neither coach holds them: three cards a side is
-  the standard game the coaches already know.
+  them, so which cards those are is `RulesEngine.withheld_gambits` --
+  the complement of `maneuver_hand` within the side's cards, asked of
+  `maneuver_tiers`, and empty in a game without the gambits, for an
+  unchallenged maneuver and for a side that holds them. It rides on the
+  prompt as `ManeuverHand.withheld` and is never an answer; the Discord
+  hand image does not draw it.
+- **The coin is on the hand and nothing else.** Volatile still upgrades
+  a maneuver to its rank's gambit off an ignite whatever the coin says,
+  and Synapse's Overdrive and Dravox and Hexis likewise: those are about
+  the dice. The reference hexagon is not gated either
+  (`RulesEngine.maneuver_reference_tier`).
+- **Dinky declares on a coin flip.** Holding the coin with its hand not
+  yet down, it declares half the time; after a declaration it rolls a
+  rank and picks among the cards on it in the hand the prompt offers.
+  Asked to answer a gambit while behind, it answers either way on a
+  coin flip. The
+  same indifference as the tier choice, below -- and the only way a solo
+  coach ever sees the coin cross.
+- **The game's own coin.** Each game is played with one of the six
+  Fortune and Doom coins (`GAME_COINS`), drawn from `engine.rng` when
+  the game is created and kept for the game (the author, 2026-09-28):
+  the toss is flipped with it, Discord shows its emoji, the web page
+  its faces. `D12BallGame.game_coin` is the reading, the gold 3 for a
+  game saved before.
 
 - **The outright rule is two questions about two cards**, not one
   about the matchup: `gambit_benefit_applies` (this card **won on

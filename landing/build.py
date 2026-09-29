@@ -254,7 +254,7 @@ FOLLY_STILL = (
     (ORANGE.doom, 360, (500, 20)),
     (PURPLE.fortune, 360, (780, 20)),
     (PURPLE.doom, 360, (980, 0)),
-    ("3 bronze fortune.png", (400, 375), 115, 8),
+    ("3_bronze_fortune.png", (400, 375), 115, 8),
     ("1_gold_doom.png", (1200, 375), 115, -6),
     ("3_gold_fortune.png", (455, 495), 120, -7),
     ("3_silver_doom.png", (1140, 495), 120, 6),

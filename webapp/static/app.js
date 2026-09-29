@@ -581,9 +581,20 @@ function drawJumbotron(state) {
         coach ? [" · ", h("b", {}, coach.name)] : "",
       ),
       /* Drawn on both sides and hidden on the one without the ball, so
-         the two columns are one height and their rows line up. */
-      h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
-        die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
+         the two columns are one height and their rows line up. The
+         coin beside it, on the side whose coach holds it (Law 19.3):
+         the game's own coin, Fortune face up, only in a game played
+         with the gambits. */
+      h("div", { class: "jumbo-tokens" },
+        h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
+          die(j ? String(j.speed) : "", { size: 18, fill: "#ffffff", ink: "#243347", font: 7 }), "BALL"),
+        j && j.coin
+          ? h("div", {
+              class: `jumbo-coin${team && team.coin ? "" : " idle"}`,
+              title: "Holds the coin: may declare a gambit",
+            },
+            h("img", { src: j.coin, alt: "", width: 18, height: 18 }), "COIN")
+          : null),
     );
   };
 

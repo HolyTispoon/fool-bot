@@ -63,7 +63,11 @@ from d12ball.formatting import (
 )
 from d12ball.game import D12BallGame, Formation, GameMode, GameStatus, Team
 from d12ball import tokens, tutorial
-from d12ball.prompts import maneuver_action_ask, speed_choice_ask
+from d12ball.prompts import (
+    gambit_answer_prompt,
+    maneuver_action_ask,
+    speed_choice_ask,
+)
 from roster import fielded
 
 CATALOG = load_player_catalog()
@@ -330,6 +334,26 @@ def join_the_ball() -> PromptFixture:
         "chosen:",
         {"player_id": joiner},
     )
+
+
+def gambit_answer(ai: bool = False) -> PromptFixture:
+    # Law 19.3.4: home, on the ball and holding the coin, has declared a
+    # gambit; the visitors are a goal down and answer before any card.
+    match = build_match()
+    challenge(match)
+    match.declare_gambit("offense", TeamSide.HOME)
+    match.scoreboard.home_score += 1
+    game = build_game(
+        mode=GameMode.ADVANCED, **({"player_2_id": None} if ai else {}),
+    )
+    return PromptFixture(
+        game, match, gambit_answer_prompt(ENGINE, game, match).ask,
+        {"side": TeamSide.VISITING},
+    )
+
+
+def gambit_answer_for_the_ai() -> PromptFixture:
+    return gambit_answer(ai=True)
 
 
 def force_test() -> PromptFixture:
@@ -979,6 +1003,10 @@ CASES: tuple[PromptCase, ...] = (
     PromptCase("force test", "FORCE_TEST", "ForceTestView", force_test),
     PromptCase("join the ball", "JOIN_THE_BALL", "JoinTheBallView",
                join_the_ball),
+    PromptCase("gambit answer", "GAMBIT_ANSWER", "GambitAnswerView",
+               gambit_answer),
+    ai_case("gambit answer, the AI's", "GAMBIT_ANSWER",
+            gambit_answer_for_the_ai),
     PromptCase("injury test", "INJURY_TEST", "InjuryTestView", injury_test),
     PromptCase("own goal", "OWN_GOAL_ROLL", "OwnGoalRollView", own_goal),
     PromptCase("shootout order", "SHOOTOUT_ORDER", "ShootoutOrderPromptView",

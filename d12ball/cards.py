@@ -2341,8 +2341,8 @@ def hand_card_rows(
     **`tiers` is what this coach may actually play, not a display
     option**, and it is *this* coach's rather than the game's: an
     unchallenged maneuver is basic for everybody, but a gambit is held
-    only by a coach whose team is behind (the author, 2026-09-20), so
-    the two hands on one prompt can be six cards and three.
+    only by the coach who declared it and one who answered it (Law
+    19.3), so the two hands on one prompt can be different threes.
     `RulesEngine.maneuver_tiers` answers it a side at a time; this
     draws what it was handed.
     """
@@ -2479,13 +2479,21 @@ def maneuver_hand_combinations() -> tuple[
     pre-renders all of them rather than drawing up to thirteen cards on
     every maneuver (see `D12Ball.maneuver_hand_image_bytes`), which
     needs the set to be enumerable -- three side combinations against
-    each side's two possible tiers, eight in all.
+    each side's three possible hands, fifteen in all.
 
-    Eight rather than six since 2026-09-20: a gambit is held only by a
-    coach whose team is behind, so a contested prompt has two hands
-    that can differ from each other.
+    A hand is the basic three, all six -- a coach answering a gambit
+    while behind -- or, since 2026-09-28, the three advanced maneuvers
+    alone: the coach who declared the gambit set the basic three aside
+    (Law 19.3). Not every pairing is reachable (only one coach declares
+    a maneuver), but an image nobody asks for costs one render at
+    startup and a list of the reachable ones is a second reading of the
+    rule.
     """
-    options = ((MANEUVER_TIER_BASIC,), (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT))
+    options = (
+        (MANEUVER_TIER_BASIC,),
+        (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
+        (MANEUVER_TIER_GAMBIT,),
+    )
     combinations: list[tuple[tuple[str, tuple[str, ...]], ...]] = []
     for sides in (("offense",), ("defense",), ("offense", "defense")):
         for first in options:
@@ -2518,10 +2526,10 @@ def render_maneuver_hands(
     the menu being private. See "The maneuver cards" in docs/design/cards.md.
 
     **`hands` is one `(side, tiers)` pair per hand on the prompt**, not
-    a list of sides and one set of tiers for all of them: since
-    2026-09-20 a gambit is held only by a coach whose team is behind,
-    so the offense can be drawing six cards while the defense draws
-    three. See `RulesEngine.maneuver_tiers`.
+    a list of sides and one set of tiers for all of them: a gambit is
+    held only by the coach who declared it and one who answered it (Law
+    19.3), so the offense can be drawing its advanced three while the
+    defense draws its basic three. See `RulesEngine.maneuver_tiers`.
 
     **A hand holding gambits is two rows -- the basic three, and the
     gambit on each rank under it -- and carries no back at all** (the
