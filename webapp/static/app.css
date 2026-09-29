@@ -313,13 +313,15 @@ img { display: block; }
 .bench-title { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--team); }
 .bench-said { font-size: 10px; color: var(--faint); }
 /* An empty bench is as tall as the word that says so. */
-.bench-pieces { display: flex; gap: 2px; align-items: flex-start; }
+.bench-pieces { display: flex; gap: 8px; align-items: flex-start; }
+/* A benched player is as wide as their piece or their name, whichever
+   is wider, so the pieces sit close without touching. */
 .bench-piece {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  width: 78px;
+  max-width: 78px;
 }
 /* A benched meeple is the size the field shows its own at: the field's
    fit, or the narrow field's smaller piece (`--bench-scale`, set by
