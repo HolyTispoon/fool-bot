@@ -154,6 +154,24 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-28 (the coin, later) -- author, a gambit is answered before the cards; three cards a hand
+
+The author, reviewing the coin in the web app the same evening: *"Player A declares a gambit and
+player B is behind. Player B should choose whether to counter gambit before either player can
+pick any cards. After player B choose whether to gambit or not, each side should be shown only 3
+cards"*, and *"When showing the gambits - show only the gambits."*
+
+- **The answer comes first** (19.3.5): a coach who may answer says so -- a gambit of their own,
+  or their basic cards -- before either coach chooses a card. Until then neither may pick.
+- **Three cards a hand, never six** (19.3.6): an answering gambit is the three advanced
+  maneuvers alone, as the declarer's is, and a basic card the answering coach had already picked
+  is set aside. Keeping the basic cards leaves that pick to be confirmed, as before.
+- Unchanged: the declarer's own earlier pick is withdrawn and only the other coach is asked to
+  confirm (*"only their opponent should be asked to confirm -- if they had selected a card
+  earlier it should be removed"*), and the coin stays with the answering coach.
+
+Rewrote 19.3.5 and 19.3.6 and the Learn to Play's paragraph. No number moved.
+
 ### 2026-09-28 (the coin) -- author, the coin decides who may make a gambit; behind only answers one
 
 The author, in a Claude chat and a voice call the same evening: *"whoever wins the coin flip gets

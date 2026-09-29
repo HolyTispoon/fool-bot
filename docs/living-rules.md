@@ -978,9 +978,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 - **a.** their team has **scored fewer goals** than the other team;
 - **b.** their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#203-lithium-powered-cyborg) (20.3) and [Damaged](#203-lithium-powered-cyborg) (20.3) are Exhausted and Injured under their own words.
 
-**19.3.5** Holding the coin they have just been handed does not by itself let them answer, and an answering gambit hands the coin to nobody: they keep it.
+**19.3.5** **A coach who may answer does so before either coach chooses a card**: they answer with a gambit of their own, setting their three basic cards aside for their three advanced maneuvers, or they keep their basic cards. The answer is public, as the declaration is. Holding the coin they have just been handed does not by itself let them answer, and an answering gambit hands the coin to nobody: they keep it.
 
-**19.3.6** **A coach facing a gambit chooses again.** A maneuver they had already chosen stands only once they confirm it, and they may change it for any card they may play: their three basic cards, or their three advanced maneuvers where they may answer. An answering gambit is public, as the declaration is.
+**19.3.6** **A coach facing a gambit chooses again, from three cards.** A basic card they had already chosen is set aside if they answer with a gambit, and otherwise stands only once they confirm it; they may change it for another of their three. **Each coach chooses from three cards, never six**: the declarer from their advanced maneuvers, the other coach from whichever three their answer kept.
 
 **19.3.7** Until both are down, the coach who declared may change which advanced maneuver they play, as either coach may change a maneuver while the other is still choosing.
 
