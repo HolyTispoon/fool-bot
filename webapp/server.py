@@ -2363,10 +2363,11 @@ class WebApp:
             "coin": {
                 "owed": game.coin_is_owed,
                 "may": seated and game.coin_is_owed,
-                # The bot's own gold coin, both faces (the emoji the cog
-                # uploads), for the page to draw rather than redraw.
+                # The game's own coin, both faces (the emoji the cog
+                # uploads) -- one of six, drawn when the game was made
+                # -- for the page to draw rather than redraw.
                 "faces": {
-                    face: f"/emoji/3_gold_{face}.png"
+                    face: f"/emoji/{game.game_coin}_{face}.png"
                     for face in ("fortune", "doom")
                 },
                 "flipped": game.coin_flipped,

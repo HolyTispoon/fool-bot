@@ -1426,12 +1426,19 @@ def _maneuver(asked: Asked) -> list:
 
     **The gambits the side does not hold are shown dimmed** --
     `ManeuverHand.withheld`, the model's answer, never worked out here
-    -- as dead controls with the note, so a coach reads what being
-    behind would put in their hand (step 5 of
+    -- as dead controls with a note saying why (`withheld_note`), so a
+    coach reads what the coin would put in their hand (step 5 of
     docs/web-app-redesign.md). A side that holds its gambits has them
     in `maneuver_keys` like any card; either way the page lays the
     gambits out as a second row (`card.gambit`), since a card's tier is
     printed on it.
+
+    **The coin is its own section** (Law 19.3): the coach holding it
+    is offered "Declare a gambit" beside the hand -- the prompt's
+    `may_declare`, answered with the choice `"gambit"` -- and a coach
+    whose card a gambit has put back in question has it ringed and
+    live, pressed to confirm it (`unconfirmed`, the choice
+    `"confirm"`), with the rest of the hand to change it for.
     """
     mine = set(asked.sides())
     groups = []
@@ -1439,10 +1446,22 @@ def _maneuver(asked: Asked) -> list:
         if _side(hand["team_side"]) not in mine:
             continue
         side, railed = hand["side"], hand["railed"]
+        unconfirmed = hand.get("unconfirmed", False)
         laid = _laid_down(asked.match, side) if hand["picked"] else None
         controls = []
         for key in hand["maneuver_keys"]:
             railed_off = railed is not None and key != railed
+            if key == laid and unconfirmed:
+                controls.append(button(
+                    f"Confirm {asked.engine.maneuver_name(key)}",
+                    asked.kind,
+                    "confirm",
+                    place=on_card(key, side),
+                    chip="confirm your card",
+                    card=_card(asked.engine, key, side, picked=True),
+                    side=side,
+                ))
+                continue
             controls.append(button(
                 asked.engine.maneuver_name(key),
                 asked.kind,
@@ -1457,6 +1476,7 @@ def _maneuver(asked: Asked) -> list:
                 disabled=railed_off or key == laid,
                 note=RAILED_NOTE if railed_off else "",
             ))
+        note = withheld_note(asked.match, hand)
         controls.extend(
             button(
                 asked.engine.maneuver_name(key),
@@ -1466,21 +1486,30 @@ def _maneuver(asked: Asked) -> list:
                 side=side,
                 maneuver_key=key,
                 disabled=True,
-                note=WITHHELD_NOTE,
+                note=note,
             )
             for key in hand["withheld"]
         )
-        groups.append(controls)
+        groups.append((hand, controls))
     # One viewer holds both hands only in a test game; each is named.
     labelled = len(groups) > 1
-    return [
-        section(
+    sections = []
+    for hand, controls in groups:
+        sections.append(section(
             f"Your hand · {controls[0]['card']['side']}" if labelled
             else "Your hand",
             controls,
-        )
-        for controls in groups
-    ]
+        ))
+        if hand.get("may_declare"):
+            sections.append(section("The coin", [button(
+                DECLARE_LABEL,
+                asked.kind,
+                "gambit",
+                chip=DECLARE_CHIP,
+                note=DECLARE_NOTE,
+                side=hand["side"],
+            )]))
+    return sections
 
 
 def _laid_down(match: MatchState, side: str) -> Optional[str]:
@@ -1513,7 +1542,7 @@ def still_to_answer(
         return True
     mine = set(asked.sides())
     return any(
-        not hand["picked"]
+        not hand["picked"] or hand.get("unconfirmed", False)
         for hand in asked.options["hands"]
         if _side(hand["team_side"]) in mine
     )
@@ -1558,9 +1587,31 @@ def waiting_on(
     return names
 
 
-#: What a dimmed gambit says: the reason it is not in the hand, which
-#: is the rule `may_play_gambits` answers.
-WITHHELD_NOTE = "Held only by the side behind."
+#: What a dimmed gambit says: the reason it is not in the hand (Law
+#: 19.3), by where the maneuver is -- `withheld_note` picks one.
+WITHHELD_NOTE = "Only the coach holding the coin may make a gambit."
+WITHHELD_TO_DECLARE_NOTE = "Declare a gambit to play these."
+WITHHELD_UNANSWERED_NOTE = "Only a side that is behind may answer a gambit."
+
+#: The coin's control (Law 19.3.2-19.3.3).
+DECLARE_LABEL = "Declare a gambit"
+DECLARE_CHIP = "declare a gambit"
+DECLARE_NOTE = (
+    "Swap your three cards for your three advanced maneuvers and hand "
+    "the coin to the other coach."
+)
+
+
+def withheld_note(match: MatchState, hand: Mapping[str, Any]) -> str:
+    """Why this hand's gambits are dimmed: it holds the coin and has not
+    declared, the other side has declared and it is not behind, or it
+    holds no coin and nobody has declared -- off the prompt's own
+    `may_declare` and the position, never worked out again."""
+    if hand.get("may_declare"):
+        return WITHHELD_TO_DECLARE_NOTE
+    if match.gambit_declared_by not in (None, hand["side"]):
+        return WITHHELD_UNANSWERED_NOTE
+    return WITHHELD_NOTE
 
 
 def _card(

@@ -31,7 +31,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from d12ball.formatting import (
     GAME_MODE_NAMES, SETTING_DEFINITIONS, describe_game_mode,
 )
-from d12ball.game import GameMode, GameStatus, Team, paired_team
+from d12ball.game import GAME_COINS, GameMode, GameStatus, Team, paired_team
 from gamelocks import GameLocks
 from gamesaves.d12ball.service import GameService
 from prompt_fixtures import ENGINE
@@ -633,13 +633,20 @@ class RedesignedTableTests(TableHarness):
         await self.pressed(room, CREATOR, "start")
         coin = (await self.state(room, CREATOR))["table"]["coin"]
         self.assertTrue(coin["owed"] and coin["may"])
+        # The game's own coin -- one of six, drawn when the room was
+        # made -- and every one of them is served.
+        self.assertIn(game.coin, GAME_COINS)
         self.assertEqual(
             coin["faces"],
             {
-                "fortune": "/emoji/3_gold_fortune.png",
-                "doom": "/emoji/3_gold_doom.png",
+                "fortune": f"/emoji/{game.coin}_fortune.png",
+                "doom": f"/emoji/{game.coin}_doom.png",
             },
         )
+        for key in GAME_COINS:
+            for face in ("fortune", "doom"):
+                served = await self.client.get(f"/emoji/{key}_{face}.png")
+                self.assertEqual(served.status, 200, f"{key}_{face}")
         for face in coin["faces"].values():
             served = await self.client.get(face)
             self.assertEqual(served.status, 200)

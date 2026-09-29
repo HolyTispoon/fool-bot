@@ -789,13 +789,17 @@ select {
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 .hand-card.withheld { filter: grayscale(0.6); }
 /* The card laid face down: ringed in gold, and dead, since the same
-   card twice is refused; the others may still replace it. */
-.hand-card.picked:disabled {
-  opacity: 1;
-  cursor: default;
+   card twice is refused; the others may still replace it. A card a
+   gambit has put back in question (Law 19.3.5) is ringed the same way
+   and live: pressing it confirms it. */
+.hand-card.picked {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(240, 178, 50, 0.45);
   position: relative;
+}
+.hand-card.picked:disabled {
+  opacity: 1;
+  cursor: default;
 }
 .hand-card-chip {
   position: absolute;
@@ -904,6 +908,19 @@ select {
   color: var(--gold);
 }
 .jumbo-ball.idle { visibility: hidden; }
+/* The ball and the coin on one line under the coach (Law 19.3). */
+.jumbo-tokens { display: inline-flex; align-items: center; gap: 12px; }
+.jumbo-side.visiting .jumbo-tokens { flex-direction: row-reverse; }
+.jumbo-coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.jumbo-coin img { display: block; width: 18px; height: 18px; }
+.jumbo-coin.idle { display: none; }
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
   font-family: "Goal", "Board", sans-serif;
@@ -1613,6 +1630,9 @@ button.goal { display: block; }
   .jumbo-coach, .jumbo-brand, .jumbo-rule, .jumbo-track, .jumbo-marks, .jumbo-tiles { display: none; }
   .jumbo-ball { font-size: 0; gap: 0; }
   .jumbo-ball.idle { display: none; }
+  .jumbo-tokens { gap: 4px; }
+  .jumbo-coin { font-size: 0; gap: 0; }
+  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
   /* The minute over the half, so the teams keep the width. */
   .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
@@ -1806,6 +1826,9 @@ button.goal { display: block; }
   .jumbo-rule { align-self: center; height: 18px; }
   .jumbo-ball { font-size: 0; gap: 0; }
   .jumbo-ball.idle { display: none; }
+  .jumbo-tokens { gap: 4px; }
+  .jumbo-coin { font-size: 0; gap: 0; }
+  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: baseline; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }

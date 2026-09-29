@@ -1279,9 +1279,19 @@ chooser, or puts a refusal away.
   the gambits a row under them -- a card's tier is printed on it, so
   `card.gambit` is read off the catalog to lay it out and decides
   nothing.
-- **A gambit the side does not hold is shown dimmed**, with "held only
-  by the side behind", as a dead control the page cannot send (and the
-  offer check refuses if it is sent anyway). Which gambits those are is
+- **A gambit the side does not hold is shown dimmed**, with a note
+  saying why (`withheld_note`, since the coin on 2026-09-28: "declare a
+  gambit to play these" to the coach holding the coin, "only a side that
+  is behind may answer a gambit" to one facing a gambit it may not answer,
+  and "only the coach holding the coin may make a gambit" otherwise), as a
+  dead control the page cannot send (and the offer check refuses if it is
+  sent anyway). **The coin is a section of its own** under the hand:
+  "Declare a gambit", the prompt's `may_declare` answered with the choice
+  `"gambit"`. A card a gambit has put back in question is ringed and
+  **live** -- pressed, it confirms the pick (`"confirm"`) -- and the rest
+  of the hand may replace it. The jumbotron draws the game's own coin
+  beside the team holding it (`board.jumbotron`, off
+  `RulesEngine.coin_holder`). Which gambits those are is
   a reading of the rules, so it is the model's:
   `ManeuverHand.withheld`, over `RulesEngine.withheld_gambits`, proposed
   as its own commit on step 5's PR and accepted by the author there
