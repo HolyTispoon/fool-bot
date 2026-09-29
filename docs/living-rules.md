@@ -170,7 +170,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.13** **Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#15-exhaustion-and-injury). In standard and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#203-lithium-powered-cyborg) (20.3).
 
-**2.8.14** **Behind** is the condition under which a coach may make gambits in advanced mode -- see [who may make a gambit](#193-who-may-make-a-gambit) (19.3).
+**2.8.14** **Behind** is the condition under which a coach may answer a gambit with one of their own in advanced mode -- see [who may make a gambit](#193-who-may-make-a-gambit) (19.3).
 
 ## 3. Setting up a game
 
@@ -181,6 +181,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 **3.1.2** One coach flips the coin: a fortune face wins them the toss and a doom face hands it to their opponent.
 
 **3.1.3** The winner chooses whether to be home or the visitors. Home kicks off the first half and the visitors kick off the second.
+
+**3.1.4** In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) the winner of the toss also **keeps the coin**, which is what lets a coach [make a gambit](#193-who-may-make-a-gambit) (19.3). It is never flipped again.
 
 ### 3.2 The standard deal
 
@@ -307,7 +309,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.2.1** Both coaches secretly choose one of their maneuvers and reveal together.
 
-**6.2.2** The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who may make a gambit chooses from six -- see [Law 19](#19-advanced-maneuvers-and-gambits).
+**6.2.2** The offense chooses from Low Pass, Dribble and High Pass; the defense from Deflect, Steal and Pressure. In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) a coach who makes a gambit chooses from their three advanced maneuvers instead -- see [Law 19](#19-advanced-maneuvers-and-gambits).
 
 ### 6.3 Who wins
 
@@ -931,7 +933,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
 | A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Cross, 1, 2 or 3 spaces, the deflecting coach's choice ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
-| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | A coach who is behind chooses from six, against a challenge ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
+| A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | The coach holding the coin may swap them for their three advanced maneuvers against a challenge, and a coach who is behind may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
 | A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -961,18 +963,28 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.2.1** **A gambit can only be made against a challenge.** Where the defense sends nobody, the offense plays a basic maneuver -- so declining a challenge is a defensive weapon as well as a saving.
 
-**19.2.2** A coach who [may make a gambit](#193-who-may-make-a-gambit) (19.3) chooses from six cards instead of three -- but only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
+**19.2.2** A gambit is [declared](#193-who-may-make-a-gambit) (19.3) only when the maneuver is challenged. An unchallenged maneuver is always played with a basic card.
 
 ### 19.3 Who may make a gambit
 
-**19.3.1** A coach may make gambits only while their team is **behind**, which is one of two things:
+**19.3.1** **The coach holding the coin may make a gambit.** The winner of the toss holds it first ([winning the toss](#31-winning-the-toss) (3.1)).
+
+**19.3.2** At any challenged maneuver, until both maneuvers are revealed, the coach holding the coin may **declare a gambit**: they set their three basic cards aside and choose from their side's three advanced maneuvers instead. The advanced cards have their own back, so a gambit is public the moment it is made. A maneuver that coach had already chosen is withdrawn.
+
+**19.3.3** **Declaring a gambit hands the coin to the other coach**, who holds it from then on and may declare a gambit of their own at a later maneuver. The coin passes only this way -- it is never flipped again -- and it carries through halftime and the shootout.
+
+**19.3.4** **The other coach may answer the gambit with one of their own**, in the same maneuver, only while their team is **behind**, which is one of two things:
 
 - **a.** their team has **scored fewer goals** than the other team;
 - **b.** their team **fields more Exhausted-or-Injured players** than the other team. Only the six on the field count, and a Cyborg's [Drained](#203-lithium-powered-cyborg) (20.3) and [Damaged](#203-lithium-powered-cyborg) (20.3) are Exhausted and Injured under their own words.
 
-**19.3.2** It is read when the maneuvers are chosen, off the scoreboard and off the field, so **who may make a gambit is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
+**19.3.5** Holding the coin they have just been handed does not by itself let them answer, and an answering gambit hands the coin to nobody: they keep it.
 
-**19.3.3** Both coaches may hold them at once -- one trailing while the other is the more hurt -- and a coach neither is true of chooses from the basic three.
+**19.3.6** **A coach facing a gambit chooses again.** A maneuver they had already chosen stands only once they confirm it, and they may change it for any card they may play: their three basic cards, or their three advanced maneuvers where they may answer. An answering gambit is public, as the declaration is.
+
+**19.3.7** Until both are down, the coach who declared may change which advanced maneuver they play, as either coach may change a maneuver while the other is still choosing.
+
+**19.3.8** Behind is read when the maneuvers are chosen, off the scoreboard and off the field, and the coin sits in front of the coach holding it, so **who may make a gambit is public knowledge**: neither coach learns anything from it the other cannot see for themselves.
 
 ### 19.4 Successful and failed gambits
 
@@ -1308,13 +1320,14 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Card, meeple | [Definitions](#28-definitions) (2.8) |
 | Carrier | [Definitions](#28-definitions) (2.8); [choosing the handler](#42-choosing-the-handler) (4.2) |
 | Challenger | [Determining the two players](#61-determining-the-two-players) (6.1) |
+| Coin | [Winning the toss](#31-winning-the-toss) (3.1); holding it and handing it over in [who may make a gambit](#193-who-may-make-a-gambit) (19.3) |
 | Contest | [The contest](#102-the-contest) (10.2) |
 | Coverage | [Occupancy](#25-occupancy) (2.5) |
 | Damaged, damage test, drain (verb), Drained | [Lithium Powered (Cyborg)](#203-lithium-powered-cyborg) (20.3) |
 | Dead ball, live ball | [Definitions](#28-definitions) (2.8) |
 | Exhausted | [Becoming Exhausted](#152-becoming-exhausted) (15.2) |
 | Exhaustion token | [The ball, the dice and the tokens](#27-the-ball-the-dice-and-the-tokens) (2.7); [gaining tokens](#151-gaining-tokens) (15.1) |
-| Gambit, making a gambit | [An advanced maneuver is the advanced version of its rank](#191-an-advanced-maneuver-is-the-advanced-version-of-its-rank) (19.1); successful and failed in [successful and failed gambits](#194-successful-and-failed-gambits) (19.4) |
+| Gambit, making a gambit | [An advanced maneuver is the advanced version of its rank](#191-an-advanced-maneuver-is-the-advanced-version-of-its-rank) (19.1); declaring and answering one in [who may make a gambit](#193-who-may-make-a-gambit) (19.3); successful and failed in [successful and failed gambits](#194-successful-and-failed-gambits) (19.4) |
 | Goal zone, Home Goal, Visitors Goal, reaching the goal zone | [The field](#21-the-field) (2.1) |
 | Handler | [Choosing the handler](#42-choosing-the-handler) (4.2) |
 | Injured | [Playing injured](#154-playing-injured) (15.4) |
