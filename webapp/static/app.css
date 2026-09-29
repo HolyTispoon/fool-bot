@@ -312,7 +312,8 @@ img { display: block; }
 .bench-head { display: flex; gap: 8px; align-items: baseline; }
 .bench-title { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--team); }
 .bench-said { font-size: 10px; color: var(--faint); }
-.bench-pieces { display: flex; gap: 2px; min-height: 76px; align-items: flex-start; }
+/* An empty bench is as tall as the word that says so. */
+.bench-pieces { display: flex; gap: 2px; align-items: flex-start; }
 .bench-piece {
   display: inline-flex;
   flex-direction: column;
@@ -320,7 +321,11 @@ img { display: block; }
   gap: 4px;
   width: 78px;
 }
-.bench-body { position: relative; display: inline-flex; justify-content: center; }
+/* A benched meeple is the size the field shows its own at: the field's
+   fit, or the narrow field's smaller piece (`--bench-scale`, set by
+   app.js's fit). Zoomed rather than drawn smaller, so the badges over
+   it shrink with it as the field's do. */
+.bench-body { position: relative; display: inline-flex; justify-content: center; zoom: var(--bench-scale, 1); }
 .bench-name {
   font-size: 12px;
   font-weight: 700;
@@ -333,7 +338,7 @@ img { display: block; }
 .bench-name.lit { color: var(--gold); }
 .bench-chip-line { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
 .bench-chip-line .chip { white-space: normal; text-align: center; line-height: 1.15; }
-.bench-empty { color: var(--muted); font-size: 12px; align-self: center; padding: 0 8px; }
+.bench-empty { color: var(--muted); font-size: 12px; padding: 2px 8px; }
 
 /* -- The prompt ------------------------------------------------------------ */
 
