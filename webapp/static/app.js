@@ -724,6 +724,9 @@ function drawBoard(state) {
   el("sheet-benches").replaceChildren();
   el("sheet-benches").hidden = !(narrow && layout);
   if (!layout) return;
+  /* How much smaller than the bench's meeple the field draws its own
+     before any fitting: the narrow field's pieces are its own width. */
+  box.dataset.meeple = narrow ? layout.narrow_meeple.width / layout.meeple.width : 1;
   box.append(stage(layout, { live: true, narrow }));
   watchFit(box);
   benches.append(...layout.team_boards.map((board) => sideline(board, layout)));
@@ -1527,6 +1530,10 @@ function fit(box) {
   fitted.set(box, { inner, scale, height });
   inner.style.transform = scale === 1 ? "" : `scale(${scale})`;
   box.style.height = `${height}px`;
+  /* The bench draws its meeples the size the field shows its own. */
+  if (box.id === "board") {
+    document.body.style.setProperty("--bench-scale", scale * Number(box.dataset.meeple || 1));
+  }
 }
 
 // -- The game log -------------------------------------------------------------
