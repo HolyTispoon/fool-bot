@@ -588,6 +588,9 @@ class ManeuverChallengeView(SafeView):
 # Discord's own component limits: five rows to a message, five buttons
 # to a row.
 MAX_BUTTON_ROWS = 5
+#: The coin's two buttons on the maneuver prompt (Law 19.3).
+GAMBIT_BUTTON_LABEL = "Gambit"
+CONFIRM_BUTTON_LABEL = "Confirm maneuver"
 MAX_BUTTONS_PER_ROW = 5
 
 
@@ -743,15 +746,60 @@ class ManeuverActionPromptView(SafeView):
             custom_id=f"d12ball:maneuver_reference:{game_id}",
         )
         reference.callback = self.show_reference
+        # **The coin's two buttons share the reference's row** (Law
+        # 19.3): "Gambit" for the hand whose coach holds the coin, while
+        # nobody has declared -- pressed by anybody else it answers with
+        # the model's refusal -- and "Confirm maneuver" for a hand whose
+        # pick a gambit has put back in question. Neither names a card:
+        # the pick is secret and this message is public.
+        extras: list[discord.ui.Button] = []
+        for hand in hands:
+            if hand.may_declare:
+                gambit = discord.ui.Button(
+                    label=GAMBIT_BUTTON_LABEL,
+                    style=discord.ButtonStyle.primary,
+                    custom_id=f"d12ball:maneuver_gambit:{game_id}:{hand.side}",
+                )
+
+                async def declare(
+                    interaction: discord.Interaction,
+                    declaring_side: str = hand.side,
+                ) -> None:
+                    await self.declare_gambit(interaction, declaring_side)
+
+                gambit.callback = declare
+                extras.append(gambit)
+            if hand.unconfirmed:
+                confirm = discord.ui.Button(
+                    label=CONFIRM_BUTTON_LABEL,
+                    style=(
+                        discord.ButtonStyle.danger
+                        if hand.side == "offense"
+                        else discord.ButtonStyle.success
+                    ),
+                    custom_id=(
+                        f"d12ball:maneuver_confirm:{game_id}:{hand.side}"
+                    ),
+                )
+
+                async def confirm_pick(
+                    interaction: discord.Interaction,
+                    confirming_side: str = hand.side,
+                ) -> None:
+                    await self.confirm(interaction, confirming_side)
+
+                confirm.callback = confirm_pick
+                extras.append(confirm)
         if len(rows) < MAX_BUTTON_ROWS:
-            rows.append([reference])
+            rows.append([*extras, reference])
         else:
             # Only reachable if a side ever grows past what four rows
             # hold. Falling back to the first row with space keeps the
             # reference reachable rather than raising on view build.
-            next(row for row in rows if len(row) < MAX_BUTTONS_PER_ROW).append(
-                reference
-            )
+            for button in (*extras, reference):
+                next(
+                    row for row in rows if len(row) < MAX_BUTTONS_PER_ROW
+                ).append(button)
 
         for index, row in enumerate(rows):
             for button in row:
@@ -883,4 +931,78 @@ class ManeuverActionPromptView(SafeView):
 
         await self.cog.close_maneuver_prompt(interaction, game, result.match)
 
+        await self.cog.present(interaction, game, result)
+
+    async def declare_gambit(
+        self, interaction: discord.Interaction, side: str,
+    ) -> None:
+        """
+        The coin holder's gambit (Law 19.3), declared from the prompt's
+        "Gambit" button. **Anyone may press it and only the coach
+        holding the coin is answered**: who holds the coin is public,
+        so refusing somebody else says nothing a coach could not see.
+
+        The declaration puts the pick up again -- both hands have
+        changed -- so this prompt goes, and the new one is what
+        `present` posts. Announced in the channel, because a gambit is
+        public the moment it is made.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if self.pick_refusal(game, match, side, interaction) is not None:
+            await interaction.response.send_message(
+                "Only the coach holding the coin may declare a gambit.",
+                ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(PromptKind.MANEUVER_ACTION, "gambit", {"side": side}),
+        )
+        if result is None:
+            return
+        await interaction.response.send_message(
+            "You declared a gambit: pick one of your advanced maneuvers "
+            "from the new prompt.",
+            ephemeral=True,
+        )
+        for line in result.answer:
+            await send_new_prompt(interaction, line)
+        await self.cog.close_turn_prompt(interaction, game)
+        await self.cog.present(interaction, game, result)
+
+    async def confirm(
+        self, interaction: discord.Interaction, side: str,
+    ) -> None:
+        """
+        A pick a gambit put back in question, confirmed as it stands
+        (Law 19.3.5). The reply names the card, to its own coach only.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        refusal = self.pick_refusal(game, match, side, interaction)
+        if refusal is not None:
+            await interaction.response.send_message(refusal, ephemeral=True)
+            return
+        kept = (
+            match.offense_maneuver if side == "offense"
+            else match.defense_maneuver
+        )
+        result = await self.apply(
+            interaction,
+            game,
+            Action(PromptKind.MANEUVER_ACTION, "confirm", {"side": side}),
+        )
+        if result is None:
+            return
+        await interaction.response.send_message(
+            f"You confirmed **{self.cog.engine.maneuver_name(kept)}**.",
+            ephemeral=True,
+        )
+        for line in result.answer:
+            await send_new_prompt(interaction, line)
+        await self.cog.close_maneuver_prompt(interaction, game, result.match)
         await self.cog.present(interaction, game, result)

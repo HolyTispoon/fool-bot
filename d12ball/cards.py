@@ -2479,13 +2479,21 @@ def maneuver_hand_combinations() -> tuple[
     pre-renders all of them rather than drawing up to thirteen cards on
     every maneuver (see `D12Ball.maneuver_hand_image_bytes`), which
     needs the set to be enumerable -- three side combinations against
-    each side's two possible tiers, eight in all.
+    each side's three possible hands, fifteen in all.
 
-    Eight rather than six since 2026-09-20: a gambit is held only by a
-    coach whose team is behind, so a contested prompt has two hands
-    that can differ from each other.
+    A hand is the basic three, all six -- a coach answering a gambit
+    while behind -- or, since 2026-09-28, the three advanced maneuvers
+    alone: the coach who declared the gambit set the basic three aside
+    (Law 19.3). Not every pairing is reachable (only one coach declares
+    a maneuver), but an image nobody asks for costs one render at
+    startup and a list of the reachable ones is a second reading of the
+    rule.
     """
-    options = ((MANEUVER_TIER_BASIC,), (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT))
+    options = (
+        (MANEUVER_TIER_BASIC,),
+        (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT),
+        (MANEUVER_TIER_GAMBIT,),
+    )
     combinations: list[tuple[tuple[str, tuple[str, ...]], ...]] = []
     for sides in (("offense",), ("defense",), ("offense", "defense")):
         for first in options:

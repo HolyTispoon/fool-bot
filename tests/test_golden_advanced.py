@@ -99,8 +99,13 @@ thirteen more players abilities of their own (2026-09-26): Zenith's Fly
 is offered at a steal's run back in this Telekinetics game, which moves
 every draw after it, and seed 69 stopped reaching the whole spine. Seed
 226 was the one seed of 0-249 that reached all of it, and it flies
-Zenith, which the coverage below now asserts too. Each time the seed was
-swept and scored on the coverage below, not chosen.
+Zenith, which the coverage below now asserts too. The coin (2026-09-28)
+put two buttons on the maneuver prompt and a declaration's draw in
+Dinky's pick, which moved every game again: seed 52 is the first of
+0-600 that reaches the whole spine and also sees a gambit declared, one
+answered and a pick confirmed -- which the coverage below asserts as
+well. Each time the seed was swept and scored on the coverage below,
+not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -151,7 +156,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 226
+ADVANCED_SEED = 52
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and
@@ -397,6 +402,24 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
                 f"the recorded run no longer reaches {view_name}, so the "
                 "golden has stopped covering the branch behind it -- pick "
                 "a seed that reaches it and regenerate.",
+            )
+
+    async def test_the_coin_crosses(self) -> None:
+        """
+        A gambit declared, one answered and a pick a gambit put in
+        question confirmed (Law 19.3) -- the three things the coin adds
+        to a maneuver, each said in the channel.
+        """
+        for said in (
+            "declares a gambit and hands the coin to",
+            "answers with a gambit of their own.",
+            "has confirmed their maneuver.",
+        ):
+            self.assertIn(
+                said,
+                self.transcript,
+                f"the recorded run no longer says {said!r} -- pick a seed "
+                "that reaches it and regenerate.",
             )
 
     async def test_every_maneuver_is_played(self) -> None:
