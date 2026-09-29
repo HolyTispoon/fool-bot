@@ -86,17 +86,19 @@
               <p id="refusal-law" class="refusal-law" hidden></p>
               <button type="button" class="btn small" id="dismiss">Dismiss</button>
             </div>
-            <!-- The outcome, large and first: the dice just rolled,
-                 bare (`present.rolled_dice`), and the model's own
-                 headline beside them. Up until the next thing happens. -->
+            <!-- The outcome, large and first: the model's own headline,
+                 and right after it the dice just rolled, bare
+                 (`present.rolled_dice`) -- to its right on a wide screen,
+                 under it where the box is a column. Up until the next
+                 thing happens. -->
             <div class="outcome-row">
               <div id="outcome" class="outcome" hidden>
-                <div id="rolled" class="rolled" aria-label="The dice" hidden></div>
                 <div class="outcome-words">
                   <div id="outcome-headline" class="outcome-headline" hidden></div>
                   <div id="outcome-detail" class="outcome-detail" hidden></div>
                   <div id="outcome-working" class="outcome-working" hidden></div>
                 </div>
+                <div id="rolled" class="rolled" aria-label="The dice" hidden></div>
               </div>
               <!-- Full time: each side's numbers beside the result,
                    `d12ball/stats.py`'s, and the ways out of the room. -->

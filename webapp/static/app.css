@@ -513,10 +513,11 @@ img { display: block; }
 
 .lit-line { margin: 0; font-size: 13px; color: var(--muted); }
 
-/* The outcome: the dice just rolled, bare, beside the model's own
-   headline in the display face, the line under it and the working. The
-   working says the numbers (`present.rolled_dice`), so the dice say
-   only their faces. */
+/* The outcome: the model's own headline in the display face, the line
+   under it and the working, and right after them the dice just rolled,
+   bare -- to the right, or under them where the box wraps. The working
+   says the numbers (`present.rolled_dice`), so the dice say only their
+   faces. */
 .outcome {
   display: flex;
   align-items: center;

@@ -1146,8 +1146,8 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   which are about whether *this* coach has something to press -- a
   roll is NOW and still theirs to press.
 - **The outcome comes first and stays until the next thing happens**:
-  the dice, bare ("The dice", below), beside the headline, the line
-  under it and the working. The headline and the line under it are the
+  the headline, the line under it and the working, and right after
+  them the dice, bare ("The dice", below). The headline and the line under it are the
   model's narration, not the page's wording; where they come from is
   in "The outcome banner", below.
 - **The lit line says what is lit, and what is dark.** A line per
@@ -1589,12 +1589,13 @@ it here, headlines at all three of the levels the model writes.
 ### The dice
 
 **The page draws a roll's dice itself, bare, in the outcome block
-beside the headline they announce** (the author, 2026-09-29: "Skill
+right after the headline they announce** (the author, 2026-09-29: "Skill
 test results ... are still reported with the image from discord with a
 black background ... Since the text already covers the math we just
 need the dice"; and, once a first cut had put them at the top of the
-situation window, "The dice should be with the announcement"). The
-state's `roll.dice` is
+situation window, "The dice should be with the announcement", and then
+"place the dice right after the announcement so to the right of the
+announcement on desktop and below it on mobile"). The state's `roll.dice` is
 `present.rolled_dice` over the roll's wire dict: a die a face, in the
 colour of the side that rolled it (`TEAM_COLORS`), with the Cyborgs'
 colour as its halo where it was Overdriven, as the bot's picture haloes
@@ -1606,10 +1607,10 @@ headline in the question box, already writes every number out, and the
 page's own die (`die` in `app.js`) is the one the board and the
 situation already draw. Volatile's ignition die is not drawn: the
 page never drew it (the PNG it replaced did not either), and its face
-and what it added are in the working. The dice (`#rolled`) are 72px
-beside the headline, and 52px above it wherever the question box is a
-column (the phone's sheet, the tablet's column), where the outcome
-wraps; the outcome block is up while the dice or the headline is. The
+and what it added are in the working. The dice (`#rolled`) follow the
+headline's words in the outcome block: 72px to their right on a wide
+screen, and 52px under them wherever the question box is a column (the
+phone's sheet, the tablet's column), where the outcome wraps; the outcome block is up while the dice or the headline is. The
 situation window stays the question's: the dice belong to what was
 just said, not to what is asked next.
 

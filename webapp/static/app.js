@@ -1794,8 +1794,8 @@ function boxTag(prompt) {
   return BOX_STATES[prompt.state] || "";
 }
 
-/* The dice just rolled, bare, in the outcome beside the headline they
-   announce: on Discord the prompt a coach pressed becomes the dice, so
+/* The dice just rolled, bare, in the outcome right after the headline
+   they announce: on Discord the prompt a coach pressed becomes the dice, so
    the question box is where they are read. Only the dice -- the model's
    working under the headline says every number added to them. They stay
    until the next thing happens in the game -- the server says which
