@@ -109,6 +109,8 @@ from webapp.present import (
     plain_text,
     render_text,
     reveal,
+    roll_shape,
+    rolled_dice,
     shootout_sides,
     situation,
     split_footnote,
@@ -128,11 +130,6 @@ STATIC = Path(__file__).resolve().parent / "static"
 #: page asks for one per entry it draws, so a few are worth keeping
 #: and a game's worth is not.
 BOARD_CACHE = 24
-
-#: How many rolls' dice are kept in hand. An entry never changes, so
-#: its picture is drawn once however many pages ask; a dice image is
-#: small, and a game rolls a few dozen times.
-DICE_CACHE = 64
 
 #: How many card pictures are kept in hand: every face a game can show
 #: is eighteen players and twelve maneuvers twice, and they never
@@ -294,7 +291,6 @@ class WebApp:
         self._answering: dict[str, PromptKind] = {}
         self._boards: dict[tuple, bytes] = {}
         self._cards: dict[tuple, bytes] = {}
-        self._dice: dict[tuple, bytes] = {}
         self._runner: Optional[web.AppRunner] = None
         self._sweeper: Optional[asyncio.Task] = None
         #: The time, per game, somebody last had its page open -- every
@@ -333,9 +329,6 @@ class WebApp:
                 web.get("/api/archive", self.archive),
                 web.post("/api/room/{game_id}/admin", self.take_admin),
                 web.post("/api/room/{game_id}/chat", self.say),
-                web.get(
-                    "/api/room/{game_id}/detail/{entry_id}.png", self.dice,
-                ),
                 web.delete("/api/room/{game_id}/admin", self.drop_admin),
                 web.get("/api/game/{game_id}", self.state),
                 web.post("/api/game/{game_id}/action", self.act),
@@ -1488,39 +1481,6 @@ class WebApp:
             headers={"Cache-Control": "public, max-age=31536000"},
         )
 
-    async def dice(self, request: web.Request) -> web.Response:
-        """
-        The dice one journal entry rolled, as a PNG -- read-only, like
-        the board. Drawn by the same `render.py` function the Discord
-        view for that roll calls, picked by the shape of the roll
-        (`pictures.DICE`), in a worker thread, and kept: an entry never
-        changes, so its picture is the same for every page that asks.
-        """
-        game = self._game(request)
-        match = self._match(game)
-        entry_id = _int(request.match_info["entry_id"])
-        entry = (
-            None
-            if entry_id is None or match is None
-            else self.journal(game.game_id).entry(entry_id)
-        )
-        if entry is None or pictures.dice_shape(entry.detail) is None:
-            raise web.HTTPNotFound(text="Those dice are no longer in hand.")
-        key = (game.game_id, entry_id)
-        png = self._dice.get(key)
-        if png is None:
-            png = await asyncio.to_thread(
-                pictures.dice_png, self.engine, game, match, entry.detail,
-            )
-            self._dice[key] = png
-            while len(self._dice) > DICE_CACHE:
-                self._dice.pop(next(iter(self._dice)))
-        return web.Response(
-            body=png,
-            content_type="image/png",
-            headers={"Cache-Control": "public, max-age=31536000"},
-        )
-
     async def portrait(self, request: web.Request) -> web.Response:
         """
         One player's portrait, the painting the matchup images draw
@@ -1977,10 +1937,10 @@ class WebApp:
             # model (`webapp/aids.py`), with the three answers beside
             # them so the page decides none.
             "aids": aids.for_game(self.engine, game, viewer.player_number),
-            # The dice just rolled, drawn in the question box until the
-            # next thing happens ("The dice", docs/design/web-app.md);
+            # The dice just rolled, drawn in the situation window until
+            # the next thing happens ("The dice", docs/design/web-app.md);
             # the log keeps the words.
-            "roll": self._roll(game, journal),
+            "roll": self._roll(match, journal),
             # The outcome beside them, large and first: the model's own
             # headline ("The outcome banner", docs/design/web-app.md).
             "outcome": self._outcome(game, match, journal),
@@ -2129,7 +2089,9 @@ class WebApp:
             "log": f"/api/room/{game.game_id}/log.txt",
         }
 
-    def _roll(self, game: D12BallGame, journal: Journal) -> Optional[dict]:
+    def _roll(
+        self, match: Optional[MatchState], journal: Journal,
+    ) -> Optional[dict]:
         entry = (
             None if journal.showing_roll is None
             else journal.entry(journal.showing_roll)
@@ -2137,11 +2099,9 @@ class WebApp:
         if entry is None:
             return None
         return {
-            "shape": pictures.dice_shape(entry.detail),
-            "url": (
-                f"/api/room/{game.game_id}/detail/{entry.id}.png"
-                f"?at={entry.at}"
-            ),
+            "shape": roll_shape(entry.detail),
+            # What the page draws: the faces, in the roller's colours.
+            "dice": rolled_dice(match, entry.detail),
         }
 
     def _room(

@@ -1704,22 +1704,34 @@ function boxTag(prompt) {
   return BOX_STATES[prompt.state] || "";
 }
 
-/* The dice just rolled, in the outcome at the top of the question box: on Discord the
-   prompt a coach pressed becomes the dice, so this is where they are
-   read. They stay until the next thing happens in the game -- the
-   server says which roll, if any, is still showing -- and the log
-   keeps the words. Apart from `drawPrompt`, since a tie can hand back
-   the same question with a new roll behind it. */
+/* The dice just rolled, bare, in the outcome right after the headline
+   they announce: on Discord the prompt a coach pressed becomes the dice, so
+   the question box is where they are read. Only the dice -- the model's
+   working under the headline says every number added to them. They stay
+   until the next thing happens in the game -- the server says which
+   roll, if any, is still showing -- and the log keeps the words. Apart
+   from `drawPrompt`, since a tie can hand back the same question with a
+   new roll behind it. */
+let shownRoll = null;
 function drawRoll(state) {
-  const image = el("roll-picture");
-  if (!state.roll) {
-    image.hidden = true;
-    image.removeAttribute("src");
-    drawOutcome();
-    return;
-  }
-  if (image.getAttribute("src") !== state.roll.url) image.src = state.roll.url;
-  image.hidden = false;
+  const dice = state.roll ? state.roll.dice : [];
+  const shape = JSON.stringify(dice);
+  if (shape === shownRoll) return;
+  shownRoll = shape;
+  const row = el("rolled");
+  row.replaceChildren(...dice.map((one) => {
+    /* The one that does not count -- the lower of the own-goal roll's
+       two -- is an outline, as the situation draws the droppable die. */
+    const drawn = die(String(one.face), one.counts
+      ? { size: 64, fill: one.colour, ink: inkOn(one.colour), font: 34 }
+      : { size: 64, fill: "none", ink: one.colour, font: 34 });
+    if (one.halo) {
+      drawn.classList.add("haloed");
+      drawn.style.setProperty("--halo", one.halo);
+    }
+    return drawn;
+  }));
+  row.hidden = !dice.length;
   drawOutcome();
 }
 
@@ -1746,7 +1758,7 @@ function drawHeadline(state) {
 
 /* The outcome block is up while anything in it is. */
 function drawOutcome() {
-  el("outcome").hidden = el("roll-picture").hidden
+  el("outcome").hidden = el("rolled").hidden
     && el("outcome-headline").hidden;
 }
 

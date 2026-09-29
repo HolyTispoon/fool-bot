@@ -520,8 +520,11 @@ img { display: block; }
 
 .lit-line { margin: 0; font-size: 13px; color: var(--muted); }
 
-/* The outcome: the dice at 84px beside the model's own headline, in
-   the display face, and the line under it. */
+/* The outcome: the model's own headline in the display face, the line
+   under it and the working, and right after them the dice just rolled,
+   bare -- to the right, or under them where the box wraps. The working
+   says the numbers (`present.rolled_dice`), so the dice say only their
+   faces. */
 .outcome {
   display: flex;
   align-items: center;
@@ -532,7 +535,9 @@ img { display: block; }
   border: 1px solid var(--line);
   box-shadow: inset 4px 0 0 var(--outcome, var(--gold));
 }
-.outcome-dice { display: block; height: 180px; width: auto; max-width: 45%; object-fit: contain; }
+.rolled { display: flex; flex: none; align-items: center; gap: 12px; }
+.rolled .die { width: 72px; height: 72px; }
+.rolled .die.haloed { filter: drop-shadow(0 0 7px var(--halo)) drop-shadow(0 0 3px var(--halo)); }
 .outcome-words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .outcome-headline {
   font-family: "Goal", "Board", sans-serif;
@@ -1764,7 +1769,7 @@ button.goal { display: block; }
   .qbox-main > #reveal { order: 9; }
   .qbox-main > #rematch-note { order: 10; }
   .outcome { padding: 10px 12px; }
-  .outcome-dice { height: 110px; }
+  .rolled .die { width: 52px; height: 52px; }
   .outcome-headline { font-size: 26px; }
   .outcome-detail { font-size: 14px; }
   .outcome-working { font-size: 13px; }

@@ -49,10 +49,9 @@ from d12ball.flow import FollowOnStep
 from d12ball.game import D12BallGame
 from gamesaves.d12ball.service import GameResult
 from gamesaves.d12ball.storage import DATA_FOLDER
-from webapp import pictures
 from webapp.board import HALF_NAMES
 from d12ball.prompts import PromptKind
-from webapp.present import own_block_dropped, render_text
+from webapp.present import own_block_dropped, render_text, roll_shape
 
 LOGGER = logging.getLogger(__name__)
 
@@ -71,11 +70,11 @@ def roll_of(detail: object) -> Optional[dict]:
     """
     A roll as the journal keeps it: its numbers as the wire writes them
     (`to_dict`, which is what `result.to_dict()` hands over), where it
-    is a roll the page has a picture for, and `None` for anything else.
+    is a roll the page draws dice for, and `None` for anything else.
     """
     if not isinstance(detail, Mapping):
         return None
-    return dict(detail) if pictures.dice_shape(detail) is not None else None
+    return dict(detail) if roll_shape(detail) is not None else None
 
 
 @dataclass
@@ -92,7 +91,8 @@ class Entry:
     at: float = field(default_factory=time.time)
     #: The roll these lines are the answer to, where there was one --
     #: the result's `detail` (the answer's own) or the group's (an AI's
-    #: answer) -- as its wire dict (`roll_of`), for `detail/{entry}.png`.
+    #: answer) -- as its wire dict (`roll_of`), which the page's dice
+    #: are drawn from (`present.rolled_dice`).
     detail: Optional[dict] = None
     #: The minute and the half on the clock once the result it came
     #: from had run, for the log's heading when the minute changes;
@@ -119,30 +119,25 @@ class Entry:
             return "goal"
         if self.new_play:
             return "new_play"
-        if pictures.dice_shape(self.detail) is not None:
+        if roll_shape(self.detail) is not None:
             return "roll"
         if self.clock:
             return "clock"
         return "line"
 
     def to_dict(self, game: D12BallGame) -> dict:
-        """The entry as the page's log reads it: its words, and the
-        dice where it was a roll. The log draws no board -- the live
-        board is beside it -- so the position an entry stopped at is
-        kept for `board.png?entry=` and not sent. The dice are drawn:
-        they are the roll, where the board is only where it happened.
-        `dice` is the roll's shape where the page has a picture for
-        it, and `dice_after` how many of the lines are read above
-        it."""
-        shape = pictures.dice_shape(self.detail)
+        """The entry as the page's log reads it: its words, and whether
+        it was a roll. The log draws no picture -- the live board is
+        beside it, and the dice are the outcome's -- so the position an
+        entry stopped at is kept for `board.png?entry=` and not sent.
+        `dice` is the roll's shape, or `None`."""
         return {
             "id": self.id,
             "lines": [render_text(game, line) for line in self.lines],
             "board": self.board is not None,
             "new_play": self.new_play,
             "at": self.at,
-            "dice": shape,
-            "dice_after": pictures.LINES_BEFORE_DICE.get(shape, 0),
+            "dice": roll_shape(self.detail),
             "kind": self.kind,
             "minute": self.minute,
             "half": self.half,

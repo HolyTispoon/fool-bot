@@ -1143,10 +1143,10 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   which are about whether *this* coach has something to press -- a
   roll is NOW and still theirs to press.
 - **The outcome comes first and stays until the next thing happens**:
-  the dice at 180px ("The dice", below) beside the headline. The
-  headline and the line under it are the model's narration, not the
-  page's wording; where they come from is in "The outcome banner",
-  below.
+  the headline, the line under it and the working, and right after
+  them the dice, bare ("The dice", below). The headline and the line under it are the
+  model's narration, not the page's wording; where they come from is
+  in "The outcome banner", below.
 - **The lit line becomes the choices: a row per thing lit outside the
   box, its picture and what choosing it does.** The meeple, the space,
   the ball's die, the goal, the ✕, a time-out or bench tile, each drawn
@@ -1604,17 +1604,47 @@ it here, headlines at all three of the levels the model writes.
 
 ### The dice
 
-**A roll's picture is the bot's own** (step 7 of
-[../web-app-next.md](../web-app-next.md)): one picture for both
-frontends, because the model's voice is one and so is its picture of a
-roll; HTML dice would be a second drawing to keep right. Step 7 drew
-it in the log. **Since step 8 it is drawn in the question box**
-(2026-09-26, the author: no picture in the log, and the dice in the
-question box), at the top, above whatever is asked next -- since step 3
-of the redesign in the outcome block, 180px high beside the headline --
-on Discord
-the prompt a coach pressed *becomes* the dice, so the question area is
-where they are read. The log keeps the roll's words.
+**The page draws a roll's dice itself, bare, in the outcome block
+right after the headline they announce** (the author, 2026-09-29: "Skill
+test results ... are still reported with the image from discord with a
+black background ... Since the text already covers the math we just
+need the dice"; and, once a first cut had put them at the top of the
+situation window, "The dice should be with the announcement", and then
+"place the dice right after the announcement so to the right of the
+announcement on desktop and below it on mobile"). The state's `roll.dice` is
+`present.rolled_dice` over the roll's wire dict: a die a face, in the
+colour of the side that rolled it (`TEAM_COLORS`), with the Cyborgs'
+colour as its halo where it was Overdriven, as the bot's picture haloes
+it, and whether it counts -- the lower of the own-goal roll's two does
+not, and is drawn as an outline, as the situation draws the droppable
+die. Nothing else from the bot's picture is carried -- no team label,
+no detail lines, no total -- because `Headline.working`, under the
+headline in the question box, already writes every number out, and the
+page's own die (`die` in `app.js`) is the one the board and the
+situation already draw. Volatile's ignition die is not drawn: the
+page never drew it (the PNG it replaced did not either), and its face
+and what it added are in the working. The dice (`#rolled`) follow the
+headline's words in the outcome block: 72px to their right on a wide
+screen, and 52px under them wherever the question box is a column (the
+phone's sheet, the tablet's column), where the outcome wraps; the
+outcome block is up while the dice or the headline is. The
+situation window stays the question's: the dice belong to what was
+just said, not to what is asked next.
+
+History: step 7 of [../web-app-next.md](../web-app-next.md) served the
+bot's own PNG (one picture for both frontends, and HTML dice judged a
+second drawing to keep right) and drew it in the log; step 8 moved it
+into the question box (2026-09-26, the author: no picture in the log),
+and step 3 of the redesign into the outcome block at 180px beside the
+headline. The PNG is drawn on the renderer's dark card, which read as a
+black box on the page, and its breakdown repeated the working beside
+it. **The PNG is gone** (the author, 2026-09-29: "remove the image that
+isn't used"): the `detail/{entry}.png` route, its cache, the state's
+`roll.url`, the four renderers in `webapp/pictures.py` and the log
+entry's `dice_after` (which said how many lines were read above the
+picture) went with it. The bot's own dice images are untouched; the
+cog still posts them. On Discord the prompt a coach pressed *becomes* the dice, so the
+question box is where they are read. The log keeps the roll's words.
 
 - **Every roll's dice**, whatever rolled them -- a skill test, a loose
   ball, a score attempt, a shootout test, an own goal, an injury test,
@@ -1624,15 +1654,15 @@ where they are read. The log keeps the roll's words.
   `showing_roll` is the last roll of the latest result the service
   handed over, and `None` once a result comes with no roll in it,
   whether or not it said anything. The page is handed it as `roll`
-  (its shape and its picture's URL), everybody in the room the same.
+  (its shape and its `dice`), everybody in the room the same.
   A re-roll after a tie is a new roll, so it replaces the last.
 - **Drawn apart from the prompt** on the page, since a tie can hand
   back the same question with a new roll behind it, and the prompt is
   only redrawn when it changes.
 - **Not animated yet.** The author would like a roll to be rolled with
   an animation at some point ([../web-app-next.md](../web-app-next.md),
-  "Later, and not now"); the picture is still the bot's own, drawn
-  once.
+  "Later, and not now"); the page's own SVG dice are what one would
+  animate.
 
 - **The journal keeps the roll on the entry it rode on.** An entry
   made from a result's answer keeps `GameResult.detail`; one made from
@@ -1640,40 +1670,18 @@ where they are read. The log keeps the roll's words.
   carries its roll (the AI rolls no dice, but its Mind Pull is a
   choice that rolls one -- a die the cog's `post_ai_answer` does not
   draw today). A roll with no line beside it still makes an entry.
-  The entry's wire shape says `dice` -- the roll's shape, or `null` --
-  and `dice_after`.
-- **`GET /api/room/{id}/detail/{entry}.png` draws it** with the same
-  `render.py` function the Discord view for that roll calls, off the
-  same numbers, in a worker thread, and keeps it (`DICE_CACHE`): an
-  entry never changes. **The renderer is picked by the roll's shape**,
-  the `shape` its `to_dict` writes (`webapp/pictures.py`, `DICE`),
-  never by the prompt kind: the kind is the question and the shape is
-  what was rolled, and an AI's Mind Pull and a tie that hands back the
-  same question are where the two part. The four contests are
-  `d12ball/dice_brief.py`'s `render_contest_dice` -- the brief the
-  cog's views call too, moved below the renderer for this -- and the
-  single dice are `render_own_goal_dice`, `render_mind_pull_die` and
-  `render_injury_test_die` with the arguments the cog's `post_*`
-  methods pass. The match is asked only which side a player is on;
-  the own-goal die's colour is the roller's, which
-  `OwnGoalRoll.player_id` carries because by the time the step
-  returns the ball has changed hands (the reason `ShotDice` carries
-  its shooter).
-- **Where the picture goes among the lines is the Discord view's
-  order**, which is batching and so the frontend's (principle 8):
-  every roll's prompt becomes its dice and the verdict follows
-  (`SkillTestView.roll`), so the picture comes first; the own-goal
-  roll's breakdown is the text of the message its dice are attached
-  to, so it is read above them and the verdict under them
-  (`LINES_BEFORE_DICE`). The question box draws no lines beside the
-  dice, so this now reads only for the wire's `dice_after`.
-- **The URL carries the entry's time** as well as its id. A picture is
-  served to be kept, and an entry id is only as lasting as the journal
-  file it is in; the time keeps a browser from showing a roll it
-  cached before under an id handed out again. The dice are drawn from
-  the roll's wire dict, the shape the journal keeps and reads back
-  after a restart, which is why the Mind Pull's `to_dict` carries its
-  `target_label`: the die's band is worded once, by the model.
+  The entry's wire shape says `dice` -- the roll's shape, or `null`.
+- **Which rolls have dice is read off the roll's shape**,
+  `present.roll_shape` over the `shape` its `to_dict` writes
+  (`ROLL_SHAPES`), never off the prompt kind: the kind is the question
+  and the shape is what was rolled, and an AI's Mind Pull and a tie
+  that hands back the same question are where the two part. The match
+  is asked only which side a player is on; the own-goal die's colour
+  is the roller's, which `OwnGoalRoll.player_id` carries because by
+  the time the step returns the ball has changed hands (the reason
+  `ShotDice` carries its shooter). The dice are drawn from the roll's
+  wire dict, the shape the journal keeps and reads back after a
+  restart, so the dice still up come back with it.
 
 ### The situation
 
@@ -1925,10 +1933,10 @@ canvas joins them -- joining is presentation, the words are the
 model's -- in the colour of the first that is a side's, with the first
 line under one and the first working. The page sets them in the
 outcome block -- the headline 46px in the display face, the line under
-it 17px, the working under that at 15px -- beside the dice at 180px,
-large enough to read the picture's own breakdown (the author: "make the
-die larger"; the canvas's 84px dice were bare dice, where this is the
-bot's picture with its words on it). The canvas's "HALFTIME · 1 : 1" is
+it 17px, the working under that at 15px. The dice were beside them at
+180px, the bot's picture with its words on it (the author: "make the
+die larger"); since 2026-09-29 they are bare dice, the page's own, in
+the same place ("The dice"). The canvas's "HALFTIME · 1 : 1" is
 the model's "Halftime": the score is the jumbotron's.
 `OutcomeBannerTests` hold every headline to words the narration itself
 says, word for word, and the working to the faces rolled, for a
