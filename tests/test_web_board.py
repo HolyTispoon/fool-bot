@@ -316,8 +316,8 @@ class FanTests(unittest.TestCase):
     def test_a_narrow_four_fan_fits_a_phone_s_space(self) -> None:
         """No meeple leaves its space on a phone either: a four-fan is
         no wider than a piece and a few pixels, and no taller than the
-        lane `app.css` gives the narrow field (78px, half of a 180px
-        space less its number)."""
+        lane `app.css` gives the narrow field (73px, half of a 164px
+        space less its number and its borders)."""
         space = self.crowd(TeamSide.HOME, 4, ball=False)
         geometry = board_layout(
             ENGINE, self.fixture.game, self.match,
@@ -327,7 +327,7 @@ class FanTests(unittest.TestCase):
         tall = NARROW_MEEPLE_WIDTH * geometry["box"][3] / geometry["box"][2]
         drawn = space["narrow_fans"]["home"]
         self.assertLessEqual(drawn["width"], NARROW_MEEPLE_WIDTH + 4)
-        self.assertLessEqual(max(p["y"] for p in drawn["pieces"]) + tall, 78)
+        self.assertLessEqual(max(p["y"] for p in drawn["pieces"]) + tall, 73)
 
     def test_a_loose_ball_names_no_holder(self) -> None:
         midfield = self.match.board.spaces[Zone.MIDFIELD]
