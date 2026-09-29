@@ -1358,7 +1358,13 @@ def draw_assignment_cards(
 ) -> None:
     for zone in Zone:
         left, right = bounds[zone]
+        # A zone's cards are dealt onto its spaces from that coach's
+        # own end outward (`setup_space_order`), so the visitors' first
+        # card stands rightmost -- their Fullback on the last space --
+        # and the row reads the same way round as the meeples above it.
         player_ids = setup.zones[zone]
+        if setup.side == TeamSide.VISITING:
+            player_ids = list(reversed(player_ids))
         total_width = len(player_ids) * CARD_SIZE[0] + (
             len(player_ids) - 1
         ) * gap
