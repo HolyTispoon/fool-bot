@@ -723,7 +723,6 @@ function drawBoard(state) {
   el("benches").replaceChildren();
   el("sheet-benches").replaceChildren();
   el("sheet-benches").hidden = !(narrow && layout);
-  drawLitRepeat(layout, state.prompt);
   if (!layout) return;
   box.append(stage(layout, { live: true, narrow }));
   watchFit(box);
@@ -736,102 +735,6 @@ UPRIGHT.addEventListener("change", () => {
   shownBoard = null;
   if (current) drawBoard(current);
 });
-
-/* Held upright, the sheet repeats every thing the prompt lights on the
-   board, at the desktop's size with its name and its chip, so nothing
-   needs zooming to answer. It is `lit` read again -- the same controls
-   the field lights, each pressed the same way -- so nothing is on it
-   that is not lit on the field, and nothing lit is missing from it.
-   Not in a Coaching Choice's hub, where every player is lit to pick
-   up: it is answered by clicking the meeples on the field or dragging
-   them between the field and the bench, and nine meeples repeated
-   over its controls only pushed them down (the author, 2026-09-28). */
-function drawLitRepeat(layout, prompt) {
-  const box = el("lit-repeat");
-  box.replaceChildren();
-  const hub = Boolean(prompt && prompt.kind === "coaching_hub");
-  const items = layout && lit && !hub ? litItems(layout) : [];
-  box.hidden = !items.length;
-  if (!items.length) return;
-  box.append(h("span", { class: "repeat-label" }, "LIT ON THE FIELD"), ...items);
-}
-
-function litItems(layout) {
-  const items = [];
-  const item = (object, name, controls, { held = false } = {}) => {
-    const said = chips(controls);
-    return h(
-      "div",
-      { class: `repeat-item${held ? " held" : ""}` },
-      object,
-      name ? h("span", { class: "repeat-name" }, name) : null,
-      said.length ? h("span", { class: "repeat-chips" }, said) : null,
-    );
-  };
-  const thing = (label, controls, content, extra = "") => h(
-    "button",
-    {
-      type: "button",
-      class: `repeat-thing${extra}`,
-      title: controls.map((c) => c.label).join(" · "),
-      "aria-label": controls[0].label,
-      onclick: () => press(controls[0]),
-    },
-    content,
-  );
-  const players = new Map();
-  for (const one of layout.spaces) {
-    for (const m of [...one.home, ...one.visiting]) players.set(m.id, m);
-  }
-  for (const board of layout.team_boards) {
-    for (const entry of [...board.bench, ...board.back_bench]) players.set(entry.id, entry.meeple);
-  }
-  /* The thing picked up first, to put back; then every lit meeple. */
-  if (picked && picked.first && picked.first.at === "player" && players.has(picked.first.id)) {
-    const m = players.get(picked.first.id);
-    items.push(item(meeple(m, layout), `${m.name} · picked up`, [], { held: true }));
-  }
-  for (const [id, controls] of Object.entries(lit.player)) {
-    const m = players.get(id);
-    if (!m) continue;
-    items.push(item(meeple(m, layout, { controls }), m.name, controls));
-  }
-  for (const one of layout.spaces) {
-    const controls = lit.space[`${one.zone}:${one.index}`];
-    if (controls) {
-      items.push(item(thing(one.code, controls, h("span", { class: "repeat-code" }, one.code), " space"),
-        `Space ${one.code}`, controls));
-    }
-  }
-  if (lit.ball.length) {
-    const speed = (layout.spaces.find((one) => one.ball) || {}).ball;
-    items.push(item(thing("ball", lit.ball, die(String(speed ? speed.speed : ""), {
-      size: 40, fill: "#ffffff", ink: "#243347", font: 18, ring: true,
-    }), " ball"), "The ball", lit.ball));
-  }
-  for (const side of ["home", "visiting"]) {
-    const colour = layout.jumbotron[side].colour;
-    const name = layout.jumbotron[side].name;
-    const goals = lit.goal[side];
-    if (goals) {
-      items.push(item(thing("goal", goals, h("span", { class: "repeat-goal", style: `--team: ${colour}` }, "GOAL"), " goal"),
-        `${name}'s goal`, goals));
-    }
-    const out = lit.out[side];
-    if (out) items.push(item(thing("out", out, "✕", " out"), "The goal zone", out));
-    const tile = lit.tile[side];
-    if (tile) {
-      items.push(item(thing("tile", tile, h("span", { class: "repeat-tile", style: `--team: ${colour}` }, "TIME OUT"), " tile"),
-        name, tile));
-    }
-    const bench = lit.bench[side];
-    if (bench) {
-      items.push(item(thing("bench", bench, h("span", { class: "repeat-tile", style: `--team: ${colour}` }, "BENCH"), " tile"),
-        name, bench));
-    }
-  }
-  return items;
-}
 
 /* Redraw what a pick changes: the board's lit things, and the box's
    line saying what is picked up. */
@@ -2099,8 +2002,13 @@ function drawControls(prompt) {
   }
 }
 
-/* What is lit on the board and why, and -- muted -- what is dark:
-   the server's reading of the controls it built (`present.lit_line`). */
+/* The choices on the board, one row each: the thing's own picture --
+   the meeple, the space, the ball's die, the goal, the tile -- drawn
+   plain rather than lit, and beside it what choosing it does (the
+   server's `words`, `present.lit_line`). The row presses the control
+   the thing on the field does, so either may be clicked. Muted under
+   them, what is dark and why. A thing the box already draws as a
+   control of its own (a meeple off the field) has no row. */
 function drawLitLine(prompt) {
   const line = el("lit");
   const items = coaching(prompt) ? [] : litItemsOf(prompt);
@@ -2112,8 +2020,77 @@ function litItemsOf(prompt) {
   /* With a thing picked up, the box says that instead: what was lit
      before it was picked up is not what is lit now. */
   const items = picked ? [] : prompt.lit || [];
-  return items.map((item) =>
-    h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text));
+  const layout = current && current.board.layout;
+  return items.map((item) => {
+    if (item.dark || !item.place) {
+      return h("span", { class: item.dark ? "lit-item dark" : "lit-item" }, item.text);
+    }
+    const group = prompt.controls[item.control[0]];
+    const control = group && group.controls[item.control[1]];
+    if (!control || inBox(control)) return null;
+    const picture = layout ? choicePicture(item.place, layout) : null;
+    if (!picture) return h("span", { class: "lit-item" }, item.text);
+    return h(
+      "button",
+      {
+        type: "button",
+        class: "choice",
+        title: control.label,
+        "aria-label": item.text,
+        onclick: () => press(control),
+      },
+      h("span", { class: "choice-picture" }, picture),
+      h("span", { class: "choice-words" }, item.words),
+    );
+  }).filter(Boolean);
+}
+
+/* A board object as the choices draw it: the field's own drawing, never
+   edged gold -- the gold is the field's, where the thing stands. */
+function choicePicture(place, layout) {
+  const team = (side) => layout.jumbotron[side] || {};
+  if (place.at === "player") {
+    const m = playerOn(layout, place.id);
+    if (!m) return null;
+    const g = layout.meeple;
+    const [, , width, height] = g.box;
+    return h(
+      "span",
+      { class: "meeple choice-meeple", style: `width: ${g.width}px; height: ${(g.width * height) / width}px; color: ${m.ink}` },
+      meepleArt(m, layout, { g }),
+    );
+  }
+  if (place.at === "space") {
+    const one = layout.spaces.find((space) => space.zone === place.zone && space.index === place.space_index);
+    return one ? h("span", { class: "choice-thing" }, h("span", { class: "choice-code" }, one.code)) : null;
+  }
+  if (place.at === "ball") {
+    const speed = (layout.spaces.find((one) => one.ball) || {}).ball;
+    return die(String(speed ? speed.speed : ""), {
+      size: 44, fill: "#ffffff", ink: "#243347", font: 20,
+    });
+  }
+  if (place.at === "goal") {
+    return h("span", { class: "choice-thing team", style: `--team: ${team(place.side).colour}` },
+      h("span", { class: "choice-goal" }, "GOAL"));
+  }
+  if (place.at === "out_of_play") return h("span", { class: "choice-thing out" }, "✕");
+  if (place.at === "time_out_tile" || place.at === "bench") {
+    return h("span", { class: "choice-thing team", style: `--team: ${team(place.side).colour}` },
+      h("span", { class: "choice-goal" }, place.at === "bench" ? "BENCH" : "TIME OUT"));
+  }
+  return null;
+}
+
+/* A player drawn anywhere on the layout: on a space, or on a bench. */
+function playerOn(layout, id) {
+  for (const one of layout.spaces) {
+    for (const m of [...one.home, ...one.visiting]) if (m.id === id) return m;
+  }
+  for (const board of layout.team_boards) {
+    for (const entry of [...board.bench, ...board.back_bench]) if (entry.id === id) return entry.meeple;
+  }
+  return null;
 }
 
 /* The same controls as a list for the keyboard: a number key presses

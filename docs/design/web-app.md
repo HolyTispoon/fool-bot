@@ -913,22 +913,12 @@ two shapes, by which way it is held:
   what is lit -- and the box's own controls; the outcome and the
   reveal of what just happened come after them there, where on a
   wide screen they come first, because in half a phone's height the
-  outcome at full size pushed the question out of sight. **Every
-  thing lit on the field is on the sheet again**, large enough to tap:
-  "LIT ON THE FIELD", each lit meeple at the desktop's 50px with its
-  name and chip, each lit space, the ball, a goal, the ✕, a bench or a
-  time-out tile as a gold object with its chips, and a piece picked up
-  in a Coaching Choice, to put back. It is `readLit`'s index read a
-  second time, each entry pressed exactly as its object on the field
-  is, so nothing is on the sheet that is not lit on the field and
-  nothing lit is missing from it -- **except in a Coaching Choice's
-  hub**, where every player is lit to pick up: repeated, that was nine
-  meeples above the substitution and swap controls, and the hub is
-  answered on the field -- a click on a meeple, or a drag between the
-  field and the bench -- so the sheet repeats nothing there (the
-  author, 2026-09-28). The Coaching Offer lights only the bench tile
-  and keeps its repeat. The sideline is on the sheet too,
-  under the question, since the narrow field has no room under it.
+  outcome at full size pushed the question out of sight. Every thing
+  lit on the field is on the sheet as a row of the choices ("The lit
+  line becomes the choices", below), at the desktop's size, so nothing
+  needs zooming to answer; a time out that may be called is one of
+  them, since the compact jumbotron has no tiles. The sideline is on
+  the sheet too, under the question, since the narrow field has no room under it.
   The compact jumbotron is one line: the teams, the score, the ball's
   d12 beside the side that has it, the minute over the half; the
   coaches, the track and the tiles are the wide screen's, and a time
@@ -1150,17 +1140,36 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   them the dice, bare ("The dice", below). The headline and the line under it are the
   model's narration, not the page's wording; where they come from is
   in "The outcome banner", below.
-- **The lit line says what is lit, and what is dark.** A line per
-  object lit outside the box -- a meeple, a space, the ball, a goal,
-  the tile -- with what clicking it means and its cost, and muted, a
-  railed one with the tutorial's note. It is `present.lit_line`, read
-  off the controls this viewer was just handed, so it cannot name a
-  thing that is not lit and an observer gets none. The turn is the one
-  prompt that also says what is *not* offered, since its three objects
-  are always on the page and a coach looks for the dark one: no shot
-  from where the ball stands (a shot out of range is not offered at
-  all, `TurnOptions`, and the range bar under the field shows why),
-  or no time out to call. The box's own objects are not repeated.
+- **The lit line becomes the choices: a row per thing lit outside the
+  box, its picture and what choosing it does.** The meeple, the space,
+  the ball's die, the goal, the ✕, a time-out or bench tile, each drawn
+  plain -- never gold, since the gold is the field's, where the thing
+  stands -- and beside it the words: "maneuver" beside the ball,
+  "shoot to score" beside the goal, "Glompex [MF] · on the ball" beside
+  a meeple, with its cost. The words are the control's chip, or its
+  `said` where the field's chip is cut short: the goal's chip on the
+  field is "score!" and its row says "shoot to score" (the author,
+  2026-09-29). A thing whose picture says what it is (the
+  ball, a goal, a tile, `present.PICTURED`) is not named again beside
+  it; a player and a space are. The row presses the same control the
+  thing on the field does, so either may be clicked. This replaced a
+  line of words ("The ball · maneuver") on every screen and, on the
+  phone, a second list of the same things headed "LIT ON THE FIELD":
+  the same choices twice (the author, 2026-09-29). It is
+  `present.lit_line`, read off the controls this viewer was just
+  handed -- each live line carries its `place`, its `words` and the
+  `control` it presses, by group and index -- so it cannot name a
+  thing that is not lit and an observer gets none. A thing the box
+  draws as a control of its own (a meeple off the field) has no row.
+  A Coaching Choice's hub lists no players: every one is lit to pick
+  up and the hub is answered on the field (the author, 2026-09-26 and
+  2026-09-28). Muted under the rows, a railed choice with the
+  tutorial's note, and -- the turn alone, since its three objects are
+  always on the page and a coach looks for the dark one -- what is
+  *not* offered: no shot from where the ball stands (a shot out of
+  range is not offered at all, `TurnOptions`, and the range bar under
+  the field shows why), or no time out to call. The box's own objects
+  are not repeated.
 - **The matchup is not in the box.** The challenge over the maneuver
   pick and the shot over its roll are the situation window above it
   ("The situation", below): the box was the question on the left and

@@ -714,10 +714,48 @@ img { display: block; }
 .qbox.note-lit { cursor: pointer; box-shadow: inset 0 0 0 2px var(--gold); }
 .note-chip { display: inline-flex; }
 
-/* The lit line: what is lit on the board and why, and what is dark. */
-.lit-line { display: flex; flex-direction: column; gap: 2px; }
+/* The choices on the board: a row each, the thing's own picture --
+   plain, the gold is the field's -- and what choosing it does; then,
+   muted, what is dark. A row is pressed as the thing on the field is. */
+.lit-line { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .lit-item { color: var(--text); }
 .lit-item.dark { color: var(--muted); }
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 4px 12px 4px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--strong);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.choice:hover { background: var(--field); }
+.choice:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.choice-picture { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 50px; }
+.choice-meeple { cursor: inherit; }
+.choice-thing {
+  min-width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--deep);
+  color: var(--text);
+  font-weight: 800;
+}
+.choice-thing.team { background: var(--b-goal); border-color: var(--team); }
+.choice-thing.out { font-size: 22px; }
+.choice-code { font-size: 20px; }
+.choice-goal { font-family: "Goal", "Board", sans-serif; color: var(--team); font-size: 14px; letter-spacing: 1px; }
 
 /* The keyboard's list of the same controls, out of sight until one of
    them has the focus. */
@@ -1508,7 +1546,7 @@ button.goal { display: block; }
 
 /* A phone's own tabs and its strip are not drawn on a wider screen,
    and the Move tab's pane is only a grouping there. */
-.strip, .lit-repeat { display: none; }
+.strip { display: none; }
 .move-pane { display: contents; }
 
 /* -- A phone: one screen ------------------------------------------------------
@@ -1675,44 +1713,6 @@ button.goal { display: block; }
   body[data-show="rules"] .tab[data-show="rules"] { border-top-color: var(--blurple); }
   .tab.news::after { top: 8px; right: 14%; }
 
-  /* What is lit on the field, again, large enough to tap. */
-  .lit-repeat {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 8px 6px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    background: var(--deep);
-  }
-  .lit-repeat[hidden] { display: none; }
-  .repeat-label { flex-basis: 100%; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
-  .repeat-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; max-width: 132px; text-align: center; }
-  .repeat-name { font-size: 12px; font-weight: 700; color: var(--gold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .repeat-item.held .repeat-name { color: var(--muted); font-weight: 600; white-space: normal; }
-  .repeat-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
-  .repeat-chips .chip { white-space: normal; line-height: 1.15; }
-  .repeat-thing {
-    min-width: 50px;
-    min-height: 50px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    border-radius: 10px;
-    border: 2px dashed var(--gold);
-    background: rgba(240, 178, 50, 0.1);
-    color: var(--gold);
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  .repeat-thing.ball { border-style: solid; border-radius: 50%; }
-  .repeat-thing.out { font-size: 26px; }
-  .repeat-code { font-size: 20px; }
-  .repeat-goal, .repeat-tile { font-family: "Goal", "Board", sans-serif; color: var(--team); font-size: 14px; letter-spacing: 1px; }
-  .repeat-thing.goal, .repeat-thing.tile { border-style: solid; background: var(--b-goal); }
-
   /* The narrow field, laid out at the screen's width, unscaled: the
      seven spaces between narrow goals, 30px meeples with their role
      and species and no names, badges scaled with them. */
@@ -1758,7 +1758,6 @@ button.goal { display: block; }
   .qbox-main > #refusal { order: 1; }
   .qbox-main > #ask { order: 2; }
   .qbox-main > #lit { order: 3; }
-  .qbox-main > #lit-repeat { order: 4; }
   .qbox-main > .outcome-row { order: 8; }
   .qbox-main > #reveal { order: 9; }
   .qbox-main > #rematch-note { order: 10; }
