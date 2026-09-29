@@ -20,7 +20,8 @@ role reference cards share one pair; the condition tokens have their
 own (the author, 2026-09-28). **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
 `render_player_cards.py`, `render_reference_cards.py`,
-`render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`, the same scripts a
+`render_token_sheet.py`, `render_box_art.py` (the playtest card),
+`render_boards.py` and `build_rulebooks.py`, the same scripts a
 developer already reaches for to check one component at a time, and
 is only their sum into a folder meant to leave the repo. So a rules
 change, an import, or an art fix reaches the kit exactly the way it
@@ -86,7 +87,7 @@ each set is a front sheet and a back sheet. Print the pair duplex
 it -- a back sheet's rows are laid out reversed so they land back to
 back.
 
-The maneuver and reference sheets, six cards each,{player_avery_stock} are laid out for **Avery Presta 95328** (rounded-corner, pre-cut, 2.5 x 3.5in, six to a
+The maneuver, reference and playtest sheets, six cards each,{player_avery_stock} are laid out for **Avery Presta 95328** (rounded-corner, pre-cut, 2.5 x 3.5in, six to a
 letter page): load that stock, print each pair duplex at actual size
 (100%, no fit-to-page) with the page landscape, and **flip on the
 short edge**. The cards need no cutting.
@@ -127,6 +128,12 @@ short edge**. The cards need no cutting.
   the back, and each marker is a condition on one side and what it
   turns into on a failed check on the other. Need more? Print the
   pair of pages again.
+- **playtest-cards/** -- the playtest card, six to a page on the same
+  Avery stock: the box cover on its front, and on its back the board,
+  the feedback survey (a QR code and its address) and where to play
+  online. `playtest-cards-front-sheet.png` and
+  `playtest-cards-back-sheet.png` print as a pair, like the reference
+  cards; the cards are landscape, turned on the page.
 - **boards/** -- the field board at every size the ruleset defines
   (7 and 9 spaces), each also cut up two ways for a letter printer --
   a `-top` and `-bottom` half, or a `-field` sheet and a `-rows`
@@ -334,6 +341,16 @@ def main() -> None:
     )
 
     run("render_token_sheet.py", ["--out", str(args.out / "tokens")])
+
+    # The card a playtest table is handed: the box cover on its front,
+    # the board and the survey on its back (the author, 2026-09-29).
+    run(
+        "render_box_art.py",
+        [
+            "--out", str(args.out / "playtest-cards"),
+            "--only", "playtest-card", "--sheets-only", *bleed_flag,
+        ],
+    )
 
     board_args = [
         "--out", str(args.out / "boards"),

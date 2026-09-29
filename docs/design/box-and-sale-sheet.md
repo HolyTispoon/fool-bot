@@ -3,7 +3,7 @@
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules
 are [living-rules.md](../living-rules.md).
 
-`d12ball/box_art.py` draws the five printed things that are *around* the game
+`d12ball/box_art.py` draws the printed things that are *around* the game
 rather than in it, and `scripts/render_box_art.py` is its CLI:
 
 ```bash
@@ -25,7 +25,8 @@ None of it has tests -- the print materials carry none (the author,
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table -- **and the box's underside, for now** |
-| `playtest-card-front/back.png` | 6 x 4in | The board on the front; the box cover and the survey QR on the back |
+| `playtest-card-front/back.png` | 3.5 x 2.5in | The box cover's art and where to read more on the front; the board, the survey QR and where to play online on the back |
+| `playtest-cards-front/back-sheet.png` | letter, landscape | The card six to a page on Avery Presta 95328, printed duplex -- the print-and-play kit's `playtest-cards/` |
 
 Every piece that comes in two grounds follows one spelling: `<name>.png` is
 the page one and `<name>-night.png` the screen one -- the cover, the wide
@@ -144,6 +145,9 @@ what any *other* claim gets until a person supplies it, and
 
 Those three are the whole of the cover's copy under the art:
 `retail_chips` is how many players, how long, and how old, and nothing else.
+**The box's side says the same three as a line** (`retail_line`, "2
+players, 30-45 minutes, ages 10+" -- the author, 2026-09-29), where it had
+said how many coaches and how many players a team.
 What is in the box is on the sale sheet, which is the underside for now --
 see "There is no underside" below.
 
@@ -180,7 +184,7 @@ is the printed one. So the box shows the printed one.
   and most of its length is those two card rows -- and the visiting coach's is
   printed upside down, which is right on a table and a mistake in a picture.
   `strip_only` cuts further, to the spaces and the range bracket alone, for a
-  panel much wider than it is tall (the playtest card's front).
+  panel much wider than it is tall (the playtest card's back).
 
 ### The meeples
 
@@ -258,9 +262,13 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
   module laid a second over it, which came out as two balls with the board's
   showing round the edge of the overlay. Covering it would mean a copy of
   that mark's own placement here, and the board is the thing being
-  photographed, so the board's ball is the ball. The solid, `d12_art`, stays where it is the object rather than a piece on a
-  space: the box's side and the sale sheet's header. The covers and the
-  banners drew it too, until the cast changed -- see "The cover's four".
+  photographed, so the board's ball is the ball. The solid, `d12_art`, was
+  kept for where the die is the object rather than a piece on a space --
+  the box's side and the sale sheet's header -- until those took the
+  game's own dice (below). The covers and the banners drew it too, until the
+  cast changed -- see "The cover's four". Nothing on a panel draws it now;
+  it stays because the portraits' dice were cut from it
+  ([cards.md](cards.md)).
 - **Every face is inset into the solid and what shows between two of them is
   the bevel.** A cast piece has no sharp edges; drawing the creases as lines
   gave a die with a wireframe over it. The inset is the rounded edge seen
@@ -275,6 +283,23 @@ tried in -- a stone grey, this, a tyre black and an ooze green.
 - **It is turned less than it was.** Far enough and a dodecahedron's own
   silhouette goes lopsided -- correctly, it is the shape's outline -- and
   reads as a rock rather than a die.
+
+### The game's own dice
+
+**The box's side and the sale sheet's header carry the purple Fortune and
+Doom** (`draw_dice_pair`; the author, 2026-09-29) -- the resin pair of
+`d12ball/dice.py` whose two dice are the rulebooks' covers, in place of the
+leather solid above. The Fortune stands in front and the Doom a little
+behind it and up the table, smaller for the distance.
+
+- **They are drawn by `dice.render_die`, not read from the books' committed
+  pictures.** Those are cropped to the die with `die_mark`, which cuts the
+  soft edge of the shadow off square; on a book's cover the cut sits on a
+  coloured ground, but on a white panel it shows as a hard-edged grey slab.
+  A full render keeps the shadow fading to nothing. It costs a couple of
+  seconds a die, so `dice_pair_art` is cached by size.
+- `dice` is imported inside the function: it shades with numpy, and the bot
+  imports this package.
 
 ## The banner
 
@@ -323,24 +348,37 @@ words, four quoted lines, the whole component list, an at-a-glance table. It
 is a page nobody reads at a booth, and the author's call was blunt: more
 components, far less text.
 
-So the sheet is the printed board, a **fan of player cards**, and the three
-facts a shopper checks. `sale_sheet_cards` picks which cards, from the four
-colour teams in turn and from a different part of each roster -- a roster is
-grouped by species, so the first player of all four teams is four of the same
-monster, and the first fan came out four fire demons. The cards are `player_cards.render_player_card`'s
-own, not a second drawing of a card.
+**The sheet is the box's cover, and under it two hands of cards** (the
+author, 2026-09-29; it was the printed board and one straight row of cards
+until then): the six basic maneuvers on the left, and on the right six
+players the cover does not show, three on their standard side and three on
+their advanced (`sale_sheet_hands`). The cards are the printed cards' own,
+`render_maneuver_card`, `render_player_card` and `render_player_card_back`,
+not a second drawing of one.
 
-**The fan holds maneuver cards too** (`sale_sheet_fan`): a player card is who
-is on the field and a maneuver card is what they do, and they are the same
-size, which is why they fan together at all.
-
-**They are fanned rather than tiled.** A card small enough for eight to sit
-side by side is a stamp; eight overlapped are eight cards, of which seven
-show their name and their art -- which is what somebody looks at anyway. The
-last one is whole, so at least one card is on the page in full.
+- **Only the basic maneuvers.** They are the cards every game is played
+  with; a gambit's card is held only by a coach who declares one.
+- **Nobody on the cover is in the fan** (`sale_sheet_players`): the fan sits
+  under the cover, so a player on both is a card that shows nothing new. The
+  rest are taken from the four colour teams in turn and from a different part
+  of each roster -- a roster is grouped by species, so the first player of
+  all four teams is four of the same monster, and the first fan came out
+  four fire demons.
+- **A hand is fanned as it is held** (`fanned_hand`): every card turned
+  about one point below their feet, each laid over the one before, the last
+  whole. The corners are the printed cut (`cards.screen_cutout`), since a
+  square corner turned shows as a white triangle over the card under it.
+  `FAN_SPREAD_DEGREES` and `FAN_PIVOT_DEPTH` are how tight the hand is: the
+  two hands share the sheet's width, so a wider spread is a shorter hand.
+- **The three facts a shopper checks are the cover's own chips.** The sheet
+  had a row of them over the board; over the cover it said them twice.
 
 **The foot carries a QR to the game's own page** (`PAGE_URL`,
-`https://d12ball.com`), beside the line an address goes on. It is a second address rather than the survey's --
+`https://d12ball.com`), right beside "For a playtest copy, a demo or the
+rulebooks:", the two centred together and open on the page -- no panel
+round them, no ruled line for an address, and no frame round the code,
+which was there only to make it white on the panel's grey (the author,
+2026-09-29). `--contact` lines go under the words. It is a second address rather than the survey's --
 one asks how a game went, the other says what the game is -- and it is there
 so that a sheet handed across a table is not a dead end when nobody has
 filled the line in.
@@ -465,21 +503,52 @@ is found by somebody holding the card, which is the worst place to find it.
 
 The shorter addresses also make simpler codes: at the same printed size the
 survey's modules went from 0.86mm to about 1.4mm, which is what let the code
-shrink to 1.4in (`PLAYTEST_QR_INCHES`) when the box moved onto the card
-(below) and still print at 0.96mm.
+shrink to 1.4in when the box moved onto the postcard, and then to 0.9in
+(`PLAYTEST_QR_INCHES`) when the card became a poker card, still printing at
+0.62mm.
 
-## The playtest card's back is in the author's words only
+## The playtest card
 
-**Two lines, both the author's (2026-09-27), and nothing else** but the
-address and the publisher: the headline, `PLAYTEST_HEADLINE`, which the
+**A poker card, held landscape, printed on the reference cards' stock**
+(the author, 2026-09-29): `PLAYTEST_CARD_INCHES` is 3.5 x 2.5in, and
+`playtest_card_sheets` puts it six to a page on Avery Presta 95328, the pair
+printed duplex exactly as the reference cards are. It was a 6 x 4in postcard
+until then.
+
+- **The front is the box cover's art, and under it "Visit d12ball.com for
+  more information"** (`PAGE_HOST`; the author, 2026-09-29), so the card a
+  table keeps looks like the box it came out of. The cover is cut to what is
+  printed on it and drawn with no frame: its own white margin is the card's
+  white, and a hairline round it drew a box on a card that is not one.
+- **The back is the board the table has just played on** (`board_photo`,
+  `strip_only`), with the survey's address under it; beside it the words and
+  the survey code; and under a rule, "Play online on play.d12ball.com"
+  (`PLAY_HOST`) and the publisher.
+- **The card is turned into the stock's upright slots, and its two faces the
+  opposite ways.** The page is flipped on its short edge, which mirrors it left
+  to right: the front is turned with its top to the page's right, so that
+  edge comes out at the page's left on the back, and the back is turned with
+  its top there. Cut and turned over side to side, the card reads the right
+  way up. `duplex_order` is still applied to the backs, harmlessly -- six of
+  one card -- so the pair is laid out as every other.
+- **`PLAY_HOST` is a host, not a path on the site**, so it is printed as a
+  name rather than an address and the landing build's `PRINTED_ADDRESSES`
+  check does not cover it. The web app answers there, not the Pages site.
+- The print-and-play kit carries the two sheets in `playtest-cards/`
+  (`scripts/render_box_art.py --only playtest-card --sheets-only`).
+
+### Its words are the author's only
+
+**Two lines, both the author's (2026-09-27)**, beside the address, the play
+line and the publisher: the headline, `PLAYTEST_HEADLINE`, which the
 d12ball.com playtest panel carries too and the landing build reads from
 here, so the two cannot drift; and `PLAYTEST_CARD_INTRO`, the card's own,
 because it sends the reader to the code below it -- which a web page has no
 code for. It used to carry copy written here (a heading, a paragraph, three
 survey prompts, a "Take the survey" over the code) and the Charter line in
-its foot; the author took all of it out. Beside the words and the code is
-**the printed box cover**, so the card a table keeps looks like the box it
-came out of. The front is unchanged.
+its foot; the author took all of it out. On a poker card the headline is
+fitted smaller than a display line goes anywhere else, which is what
+`fitted_display`'s `smallest` is for.
 
 ## The survey code
 
@@ -497,7 +566,7 @@ panel without a word.
   everyone who looks at the render, so check a change by scanning the
   printed card.
 - **`QR_MIN_MODULE_INCHES` is 0.4mm**, the floor a phone reads reliably off an
-  office printer. The card's own code comes out at 0.96mm; a longer URL makes
+  office printer. The card's own code comes out at 0.62mm; a longer URL makes
   a denser code at the same printed size, and the CLI reports the module size
   so an address that has quietly grown past what the card can carry shows
   there. Change the URL with `--survey-url`.
@@ -511,8 +580,8 @@ panel without a word.
 
 Nothing tests any of it, so the render is the only check. **Look at the
 image** --
-`scripts/render_box_art.py` writes all twelve files -- six printed
-panels, the night cover, the original cast's two covers and the three
-banners -- and reports the box's own
+`scripts/render_box_art.py` writes all fourteen files -- six printed
+panels, the playtest card's two Avery sheets, the night cover, the original
+cast's two covers and the three banners -- and reports the box's own
 dimensions, the QR's module size, and that the playing time and the age are
 the author's.
