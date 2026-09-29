@@ -29,7 +29,6 @@ import asyncio
 import base64
 import importlib
 import inspect
-import io
 import json
 import sys
 import tempfile
@@ -1052,23 +1051,21 @@ class OutcomeBannerTests(unittest.TestCase):
 
 class DiceTests(unittest.IsolatedAsyncioTestCase):
     """
-    The dice a roll is drawn with (step 7 of docs/web-app-next.md): one
-    fixture per shape a roll's `detail` comes in, pressed through the
-    route, and the picture its journal entry serves -- drawn by the
-    same `render.py` function the Discord view for that roll calls.
+    The dice a roll is drawn with: one fixture per shape a roll's
+    `detail` comes in, pressed through the route, and the dice the page
+    is handed for it (`present.rolled_dice`), which it draws itself.
     """
 
-    #: The fixture, the shape its roll writes, and the renderer the
-    #: Discord view for it calls, named here rather than read off
-    #: `pictures.DICE`, so a wrong pick in the table is caught.
+    #: The fixture and the shape its roll writes, named here rather
+    #: than read off `present.ROLL_SHAPES`, so a wrong shape is caught.
     ROLLS = (
-        ("skill test", "contest", "render_skill_test_dice"),
-        ("loose ball roll", "contest", "render_skill_test_dice"),
-        ("shootout test", "contest", "render_skill_test_dice"),
-        ("score attempt", "shot", "render_skill_test_dice"),
-        ("own goal", "own_goal", "render_own_goal_dice"),
-        ("mind pull", "mind_pull", "render_mind_pull_die"),
-        ("injury test", "injury", "render_injury_test_die"),
+        ("skill test", "contest"),
+        ("loose ball roll", "contest"),
+        ("shootout test", "contest"),
+        ("score attempt", "shot"),
+        ("own goal", "own_goal"),
+        ("mind pull", "mind_pull"),
+        ("injury test", "injury"),
     )
 
     async def open(self, name: str):
@@ -1115,46 +1112,6 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(rolled), 1, played["entries"])
         return rolled[0], headers
 
-    async def test_every_roll_serves_the_picture_its_view_posts(self) -> None:
-        from PIL import Image
-
-        from d12ball import render
-
-        for name, shape, renderer in self.ROLLS:
-            with self.subTest(name):
-                ENGINE.rng.seed(11)
-                client, game = await self.open(name)
-                drawn = []
-                real = getattr(render, renderer)
-                # Where the web app calls it from: the contest dice
-                # through the brief the cog calls too, the single dice
-                # straight off the renderer.
-                caller = (
-                    "d12ball.dice_brief"
-                    if renderer == "render_skill_test_dice"
-                    else "webapp.pictures"
-                )
-
-                def spy(*args, **kwargs):
-                    image = real(*args, **kwargs)
-                    drawn.append(Image.open(image).size)
-                    image.seek(0)
-                    return image
-
-                entry, headers = await self.roll(client, game)
-                self.assertEqual(entry["dice"], shape)
-                with mock.patch(f"{caller}.{renderer}", spy):
-                    response = await client.get(
-                        f"/api/room/{game.game_id}/detail/{entry['id']}.png",
-                        headers=headers,
-                    )
-                    body = await response.read()
-
-                self.assertEqual(response.status, 200)
-                self.assertEqual(response.content_type, "image/png")
-                self.assertTrue(body.startswith(b"\x89PNG"))
-                self.assertEqual(drawn, [Image.open(io.BytesIO(body)).size])
-
     async def test_the_dice_are_up_until_the_next_thing(
         self,
     ) -> None:
@@ -1171,11 +1128,9 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
             )
         ).json()
         self.assertEqual(state["roll"]["shape"], entry["dice"])
-        self.assertIn(f"/detail/{entry['id']}.png", state["roll"]["url"])
+        self.assertTrue(state["roll"]["dice"])
         # Everybody in the room sees what was rolled.
         self.assertEqual(watcher["roll"], state["roll"])
-        response = await client.get(state["roll"]["url"])
-        self.assertEqual(response.status, 200)
 
         # The next thing that happens takes them down.
         for coach_id in (game.player_1_id, game.player_2_id):
@@ -1203,16 +1158,16 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(played["refusal"])
         rolled_again = any(said["dice"] for said in played["entries"])
         if rolled_again:
-            self.assertNotIn(f"/detail/{entry['id']}.png", played["roll"]["url"])
+            self.assertTrue(played["roll"]["dice"])
         else:
             self.assertIsNone(played["roll"])
 
     async def test_every_roll_s_dice_are_handed_to_the_page_bare(self) -> None:
-        """The page draws the dice itself, in the situation window, off
+        """The page draws the dice itself, right after the headline, off
         `roll.dice`: a face a die in the roller's colour, and nothing
         the working already says (the author, 2026-09-29)."""
         count = {"contest": 2, "shot": 2, "own_goal": 2, "mind_pull": 1, "injury": 1}
-        for name, shape, _ in self.ROLLS:
+        for name, shape in self.ROLLS:
             with self.subTest(name):
                 ENGINE.rng.seed(11)
                 client, game = await self.open(name)
@@ -1265,18 +1220,6 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(present.rolled_dice(match, None), [])
 
-    async def test_the_own_goal_breakdown_is_read_above_its_dice(self) -> None:
-        # On Discord the breakdown is the text of the message the dice
-        # are attached to, and the verdict follows: one line, then the
-        # picture (`D12Ball.post_own_goal_dice`).
-        ENGINE.rng.seed(11)
-        client, game = await self.open("own goal")
-
-        entry, _ = await self.roll(client, game)
-
-        self.assertEqual(entry["dice_after"], 1)
-        self.assertGreater(len(entry["lines"]), 1)
-
     async def test_an_entry_with_no_roll_has_no_dice(self) -> None:
         ENGINE.rng.seed(11)
         client, game = await self.open("coaching hub")
@@ -1298,12 +1241,9 @@ class DiceTests(unittest.IsolatedAsyncioTestCase):
                 data=json.dumps({"action": control["action"]}),
             )
         ).json()
-        response = await client.get(
-            f"/api/room/{game.game_id}/detail/{played['entries'][0]['id']}.png",
-        )
 
         self.assertIsNone(played["entries"][0]["dice"])
-        self.assertEqual(response.status, 404)
+        self.assertIsNone(played["roll"])
 
 
 class SituationTests(unittest.IsolatedAsyncioTestCase):

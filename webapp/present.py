@@ -3068,6 +3068,29 @@ def situation(
 # -- The dice just rolled ------------------------------------------------------
 
 
+#: The shapes of roll the page draws dice for, as each roll's `to_dict`
+#: writes its `shape`: the four contests (a shot is a contest with two
+#: more facts on it) and the three rolls a player makes alone.
+ROLL_SHAPES = frozenset(
+    {"contest", "shot", "own_goal", "mind_pull", "injury"},
+)
+
+
+def roll_shape(detail: object) -> Optional[str]:
+    """
+    The shape of a roll the page draws dice for, or `None` -- for no
+    roll at all, and for anything else a result's `detail` carries.
+    `detail` is the roll as the wire writes it (`to_dict`), which is
+    what the journal keeps. The shape, never the prompt that asked:
+    an AI's Mind Pull answers a choice and carries a die, and a tie
+    hands back the same question with a roll behind it.
+    """
+    if not isinstance(detail, Mapping):
+        return None
+    shape = detail.get("shape")
+    return shape if shape in ROLL_SHAPES else None
+
+
 def rolled_dice(
     match: Optional[MatchState],
     detail: Optional[Mapping[str, Any]],
@@ -3083,9 +3106,9 @@ def rolled_dice(
     it (`to_dict`); the match is only asked whose a player is. A roll
     with no dice to draw -- or no roll -- is an empty list.
     """
-    if match is None or not isinstance(detail, Mapping):
+    shape = roll_shape(detail)
+    if match is None or shape is None:
         return []
-    shape = detail.get("shape")
     if shape in ("contest", "shot"):
         return [
             {
@@ -3096,8 +3119,6 @@ def rolled_dice(
             }
             for side in detail["contestants"]
         ]
-    if shape not in ("own_goal", "mind_pull", "injury"):
-        return []
     colour = TEAM_COLORS[match.team_for_player(detail["player_id"])]
     halo = _halo(detail.get("overdrive"))
     if shape != "own_goal":

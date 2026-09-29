@@ -288,9 +288,8 @@ class JournalRestartTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(after["latest"], before["latest"])
         self.assertEqual(after["roll"], before["roll"])
         self.assertEqual(after["board"]["version"], before["board"]["version"])
-        response = await after_client.get(after["roll"]["url"])
-        self.assertEqual(response.status, 200)
-        self.assertEqual(response.content_type, "image/png")
+        # The dice still up are the roll's own, drawn off the file.
+        self.assertTrue(after["roll"]["dice"])
 
 
 if __name__ == "__main__":
