@@ -631,6 +631,32 @@ class LitLineTests(unittest.TestCase):
         ball = next(line for line in live if line["place"] == {"at": "ball"})
         self.assertEqual(ball["words"], "maneuver")
 
+    def test_the_goal_says_score_on_the_field_and_more_in_the_box(self) -> None:
+        """The goal's chip on the field is "score!", and the question
+        box says "shoot to score" beside its picture (the author,
+        2026-09-29)."""
+        fixture = case("plain turn")
+        mine = ENGINE.side_player_number(
+            fixture.game, fixture.match.ball.possession,
+        )
+        with mock.patch.object(MatchState, "can_attempt_score", return_value=True):
+            prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+            controls = controls_for(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(mine),
+            )
+            lines = lit_line(
+                ENGINE, fixture.game, fixture.match, prompt, Viewer(mine),
+                controls,
+            )
+        shot = next(
+            control
+            for group in controls for control in group["controls"]
+            if control["action"]["choice"] == "shoot"
+        )
+        self.assertEqual(shot["chip"], "score!")
+        goal = next(line for line in lines if line.get("place") == shot["place"])
+        self.assertEqual(goal["words"], "shoot to score")
+
     def test_nobody_but_the_coach_asked_is_told_what_is_lit(self) -> None:
         fixture = case("plain turn")
         mine = ENGINE.side_player_number(

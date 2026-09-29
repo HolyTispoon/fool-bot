@@ -296,6 +296,7 @@ def button(
     place: Optional[dict] = None,
     also: Sequence[dict] = (),
     chip: str = "",
+    said: str = "",
     cost: Optional[dict] = None,
     disabled: bool = False,
     note: str = "",
@@ -311,7 +312,10 @@ def button(
     `ON_*` names and `on_*` builders below), or `None` for the neutral
     control; `also` is any further object the same answer lights -- a
     Set Up's shot is the goal *and* the shooter -- so clicking either
-    sends it; `chip` is what clicking the lit object means, and `cost`
+    sends it; `chip` is what clicking the lit object means, `said` the
+    same said at more length beside the object's picture in the question
+    box, where the field's chip is cut short (the shot's "score!" is
+    "shoot to score" there), and `cost`
     what it charges, drawn as the token image and a count
     (`{"emoji", "count"}`), never the word "token". `label` is the
     control said in full, for the keyboard list and anywhere the
@@ -342,6 +346,7 @@ def button(
         "place": place,
         "also": list(also) if place else [],
         "chip": chip or None,
+        "said": (said or None) if place else None,
         "cost": cost,
         "style": None if place else NEUTRAL,
         "player": player,
@@ -727,7 +732,7 @@ def lit_line(
                 continue
             objects = (place, *control.get("also", ()))
             name = " and ".join(_object_name(asked, one) for one in objects)
-            said = control.get("chip") or control["label"]
+            said = control.get("said") or control.get("chip") or control["label"]
             if said == name:
                 said = control["label"]
             text = name if said == name else f"{name} · {said}"
@@ -822,9 +827,11 @@ def _continue(asked: Asked) -> list:
 
 
 #: What clicking each of the turn's three objects does, on its chip.
-TURN_CHIPS = {
-    "maneuver": "maneuver", "shoot": "shoot to score", "time_out": "call it",
-}
+TURN_CHIPS = {"maneuver": "maneuver", "shoot": "score!", "time_out": "call it"}
+
+#: The same said beside the object's picture in the question box, where
+#: it is longer than the field's chip (the author, 2026-09-29).
+TURN_SAID = {"shoot": "shoot to score"}
 
 
 def _turn(asked: Asked) -> list:
@@ -849,6 +856,7 @@ def _turn(asked: Asked) -> list:
             action,
             place=places[action],
             chip=TURN_CHIPS[action],
+            said=TURN_SAID.get(action, ""),
             disabled=action not in options["live"],
             note=RAILED_NOTE if action not in options["live"] else "",
         )

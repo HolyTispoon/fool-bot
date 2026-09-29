@@ -1146,7 +1146,10 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   plain -- never gold, since the gold is the field's, where the thing
   stands -- and beside it the words: "maneuver" beside the ball,
   "shoot to score" beside the goal, "Glompex [MF] · on the ball" beside
-  a meeple, with its cost. A thing whose picture says what it is (the
+  a meeple, with its cost. The words are the control's chip, or its
+  `said` where the field's chip is cut short: the goal's chip on the
+  field is "score!" and its row says "shoot to score" (the author,
+  2026-09-29). A thing whose picture says what it is (the
   ball, a goal, a tile, `present.PICTURED`) is not named again beside
   it; a player and a space are. The row presses the same control the
   thing on the field does, so either may be clicked. This replaced a
