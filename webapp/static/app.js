@@ -1794,9 +1794,9 @@ function boxTag(prompt) {
   return BOX_STATES[prompt.state] || "";
 }
 
-/* The dice just rolled, at the top of the situation window: on Discord
-   the prompt a coach pressed becomes the dice, and here the window over
-   the question is where they are read. Only the dice -- the model's
+/* The dice just rolled, bare, in the outcome beside the headline they
+   announce: on Discord the prompt a coach pressed becomes the dice, so
+   the question box is where they are read. Only the dice -- the model's
    working under the headline says every number added to them. They stay
    until the next thing happens in the game -- the server says which
    roll, if any, is still showing -- and the log keeps the words. Apart
@@ -1822,7 +1822,7 @@ function drawRoll(state) {
     return drawn;
   }));
   row.hidden = !dice.length;
-  drawSituationWindow();
+  drawOutcome();
 }
 
 /* The outcome's words, large and first: the model's own headline and
@@ -1846,9 +1846,10 @@ function drawHeadline(state) {
   drawOutcome();
 }
 
-/* The outcome block is up while its headline is. */
+/* The outcome block is up while anything in it is. */
 function drawOutcome() {
-  el("outcome").hidden = el("outcome-headline").hidden;
+  el("outcome").hidden = el("rolled").hidden
+    && el("outcome-headline").hidden;
 }
 
 /* The situation the prompt is asked over -- the challenge over the
@@ -1857,11 +1858,10 @@ function drawOutcome() {
    page's background rather than as the bot's PNG. The words are the
    server's (`present.situation`); the page only lays them out. */
 function drawSituation(prompt) {
-  const box = el("matchup");
+  const box = el("situation");
   const situation = prompt ? prompt.situation : null;
   box.replaceChildren();
   box.hidden = !situation;
-  drawSituationWindow();
   if (!situation) return;
   const [first, second] = situation.sides;
   /* `append` is the DOM's, which writes a null as the word "null":
@@ -1888,11 +1888,6 @@ function drawSituation(prompt) {
         }, h("strong", {}, `${note.short} · ${note.name}`), " ", note.text)))
       : null,
   ].filter(Boolean));
-}
-
-/* The situation window is up while the dice or the matchup is. */
-function drawSituationWindow() {
-  el("situation").hidden = el("rolled").hidden && el("matchup").hidden;
 }
 
 /* What a roll nobody contests needs -- an injury check, an own-goal
