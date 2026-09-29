@@ -5,10 +5,12 @@
     python3 scripts/render_box_art.py --bleed --pdf
     python3 scripts/render_box_art.py --only sale-sheet --contact "you@example.com"
 
-Five panels at 300dpi: the box cover, one side of the box (the box is
-square, so the same panel is all four), the underside of the box, a
-one-page sale sheet, and the two faces of the playtest card whose back
-carries the survey QR.
+At 300dpi: the box cover, one side of the box (the box is square, so
+the same panel is all four), a one-page sale sheet -- the underside of
+the box, for now -- and the two faces of the playtest card, whose back
+carries the survey QR, with the card six to a page on Avery Presta
+95328 stock, the reference cards' (`--sheets-only` writes just those
+pages, for the print-and-play kit).
 
 Everything printed on them is read from the game -- the counts from
 the catalogs, the component list from the Learn to Play, and every
@@ -52,6 +54,7 @@ from d12ball.box_art import (  # noqa: E402
     render_playtest_card_back,
     render_playtest_card_front,
     render_sale_sheet,
+    playtest_card_sheets,
 )
 from d12ball.components import (  # noqa: E402
     load_basic_ruleset,
@@ -151,6 +154,14 @@ def main() -> None:
             f"Printed minimum age (the author's own "
             f"{DEFAULT_CLAIMS.minimum_age}+ without it). The same caveat "
             "as --play-minutes."
+        ),
+    )
+    parser.add_argument(
+        "--sheets-only",
+        action="store_true",
+        help=(
+            "Write the playtest card's Avery sheets and not its two faces "
+            "on their own (the print-and-play kit's playtest-cards/)."
         ),
     )
     arguments = parser.parse_args()
@@ -259,7 +270,7 @@ def main() -> None:
 
     if "side" in wanted:
         save(
-            render_box_side(facts=facts, bleed=arguments.bleed),
+            render_box_side(facts=facts, claims=claims, bleed=arguments.bleed),
             out / "box-side.png",
             arguments.pdf,
         )
@@ -278,19 +289,25 @@ def main() -> None:
             print("  no --contact given; the answer panel is left ruled and empty")
         print("  this is the box's underside as well, for now")
     if "playtest-card" in wanted:
-        save(
-            render_playtest_card_front(
-                catalog=catalog, rules=rules, bleed=arguments.bleed
-            ),
-            out / "playtest-card-front.png",
-            arguments.pdf,
+        front = render_playtest_card_front(
+            catalog=catalog, rules=rules, bleed=arguments.bleed
         )
-        save(
-            render_playtest_card_back(
-                survey_url=arguments.survey_url, bleed=arguments.bleed
-            ),
-            out / "playtest-card-back.png",
-            arguments.pdf,
+        back = render_playtest_card_back(
+            catalog=catalog, rules=rules, survey_url=arguments.survey_url,
+            bleed=arguments.bleed,
+        )
+        if not arguments.sheets_only:
+            save(front, out / "playtest-card-front.png", arguments.pdf)
+            save(back, out / "playtest-card-back.png", arguments.pdf)
+        # The same card six to a page on Avery Presta 95328, the stock
+        # the reference cards print on: the two pages duplex, flipped
+        # on the short edge.
+        front_sheet, back_sheet = playtest_card_sheets(front, back)
+        save(front_sheet, out / "playtest-cards-front-sheet.png", arguments.pdf)
+        save(back_sheet, out / "playtest-cards-back-sheet.png", arguments.pdf)
+        print(
+            "  the sheets are Avery Presta 95328: print the pair duplex at "
+            "100%, landscape, flip on the short edge"
         )
         module = qr_module_inches(arguments.survey_url, PLAYTEST_QR_INCHES)
         print(

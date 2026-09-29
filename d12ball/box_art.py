@@ -36,6 +36,7 @@ nothing and prints nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from math import atan2, cos, hypot, radians, sin, sqrt, tan
 from typing import Optional, Sequence
 
@@ -54,15 +55,20 @@ from d12ball.boards import (
     render_field_board,
 )
 from d12ball.cards import (
+    AVERY_95328_CARDS,
+    AVERY_95328_LEFTS,
     CARD_HEIGHT,
     CARD_WIDTH,
     INK,
     MUTED,
     PAPER,
     PAPER_PANEL,
+    avery_95328_sheet,
+    duplex_order,
     render_maneuver_card,
+    screen_cutout,
 )
-from d12ball.player_cards import render_player_card
+from d12ball.player_cards import render_player_card, render_player_card_back
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     BasicRuleset,
@@ -111,6 +117,9 @@ TITLE = "D12 Ball"
 # A second address rather than the survey's: one asks how a game went,
 # the other says what the game is.
 PAGE_URL = "https://d12ball.com"
+# The same page as the playtest card's front words it: a name to type
+# rather than an address.
+PAGE_HOST = PAGE_URL.split("://", 1)[1]
 # The survey the playtest card sends a table to. A constant rather
 # than a literal in the drawing code because it is the one thing on
 # the card that will be replaced without the card being redesigned,
@@ -895,6 +904,57 @@ def draw_d12(
     paste_rgba(sheet, art, (center[0] - art.width / 2, center[1] - art.height / 2))
 
 
+# The game's own dice, which the box's side and the sale sheet's header
+# carry in place of the leather solid above (the author, 2026-09-29):
+# the purple Fortune and Doom, the pair the rulebooks' covers carry one
+# die each. Drawn here by `dice.render_die` rather than read from the
+# books' committed pictures, which are cropped to the die and cut its
+# shadow off square -- on a white panel that edge shows. How far the
+# Doom tucks behind the Fortune, and how much smaller it stands there,
+# are shares of a die's picture.
+DICE_PAIR_OVERLAP = 0.3
+DICE_PAIR_BACK_SCALE = 0.86
+DICE_PAIR_BACK_LIFT = 0.1
+
+
+@lru_cache(maxsize=None)
+def dice_pair_art(height: int) -> Image.Image:
+    """
+    The purple pair side by side, the Fortune in front on the left and
+    the Doom a little behind it, about `height` pixels tall.
+
+    `dice` is imported here rather than at the top because it shades
+    with numpy, which nothing else in this module needs.
+    """
+    from d12ball import dice
+
+    front_side = height
+    back_side = round(front_side * DICE_PAIR_BACK_SCALE)
+    fortune = dice.render_die(dice.PURPLE.fortune, front_side)
+    doom = dice.render_die(dice.PURPLE.doom, back_side)
+    doom_left = round(front_side * (1 - DICE_PAIR_OVERLAP))
+    # Further away is higher up the table, so the Doom's foot stands
+    # above the Fortune's.
+    doom_top = front_side - back_side - round(front_side * DICE_PAIR_BACK_LIFT)
+    top = min(0, doom_top)
+    art = Image.new(
+        "RGBA", (doom_left + back_side, front_side - top), (0, 0, 0, 0)
+    )
+    art.alpha_composite(doom, (doom_left, doom_top - top))
+    art.alpha_composite(fortune, (0, -top))
+    return art.crop(art.getchannel("A").getbbox())
+
+
+def draw_dice_pair(
+    sheet: Sheet, center: tuple[float, float], height: float
+) -> tuple[float, float]:
+    """The pair centred on a point; returns its left and right edges."""
+    art = dice_pair_art(round(height))
+    left = center[0] - art.width / 2
+    paste_rgba(sheet, art, (left, center[1] - art.height / 2))
+    return left, left + art.width
+
+
 def draw_chip(
     sheet: Sheet,
     left: float,
@@ -1180,16 +1240,23 @@ def cast_color(catalog: PlayerCatalog, name: str) -> str:
 
 
 def fitted_display(
-    sheet: Sheet, text: str, max_width: float, inches_high: float
+    sheet: Sheet,
+    text: str,
+    max_width: float,
+    inches_high: float,
+    smallest: float = 0.2,
 ):
-    """The display face at the largest size whose `text` fits `max_width`."""
+    """The display face at the largest size whose `text` fits
+    `max_width`, and no smaller than `smallest` -- which a poker card's
+    headline has to go under."""
     size = inches_high
-    while size > 0.2:
+    step = min(0.02, smallest / 10)
+    while size > smallest:
         face = load_goal_zone_font(max(6, round(inches(size))))
         if sheet.text_width(text, face) <= max_width:
             return face
-        size -= 0.02
-    return load_goal_zone_font(max(6, round(inches(0.2))))
+        size -= step
+    return load_goal_zone_font(max(6, round(inches(smallest))))
 
 
 def draw_cover_field(
@@ -1590,15 +1657,24 @@ def draw_chip_row(
         ) + gap
 
 
+def retail_line(facts: BoxFacts, claims: RetailClaims) -> str:
+    """The three chips as one line of text, for a panel with no room
+    for chips: "2 players, 30-45 minutes, ages 10+"."""
+    return ", ".join(chip.lower() for chip in retail_chips(facts, claims))
+
+
 def render_box_side(
     facts: Optional[BoxFacts] = None,
+    claims: RetailClaims = DEFAULT_CLAIMS,
     bleed: bool = False,
 ) -> Image.Image:
     """
     One side of the box -- and all four of them, since the box is
     square and every wall is the same rectangle. It is the only panel
     of the five that is read edge-on off a shelf, so it carries the
-    title, the ball and nothing that needs more than a glance.
+    title, the dice and nothing that needs more than a glance: the
+    publisher, and the cover's three facts as a line (the author,
+    2026-09-29).
     """
     facts = facts or BoxFacts.read()
     side, _, depth = box_inches()
@@ -1606,14 +1682,12 @@ def render_box_side(
     sheet = panel.sheet(PAPER)
 
     middle_y = panel.y(depth / 2)
-    ball_center = (panel.x(0.95), middle_y)
-    draw_d12(sheet, ball_center, inches(0.5))
-
-    title_left = panel.x(1.75)
-    # No modes on the side (the author, 2026-09-27).
-    facts_line = (
-        f"{facts.coaches} coaches · {facts.players_per_team} players a team"
+    _, dice_right = draw_dice_pair(
+        sheet, (panel.x(1.3), middle_y), inches(1.55)
     )
+
+    title_left = dice_right + inches(0.35)
+    facts_line = retail_line(facts, claims)
     tail = print_font(0.16, bold=True)
     tail_width = max(
         sheet.text_width(facts_line, tail),
@@ -1836,14 +1910,6 @@ def draw_framed(
     )
 
 
-def first_basic(definitions: Sequence):
-    """The first card of a side that a standard game is played with."""
-    for definition in definitions:
-        if definition.tier == MANEUVER_TIER_BASIC:
-            return definition
-    return definitions[0]
-
-
 def draw_bullet(
     sheet: Sheet,
     left: float,
@@ -1873,68 +1939,79 @@ def draw_bullet(
 # ------------------------------------------------------- the sale sheet
 
 SALE_SHEET_PAPER = "letter"
-# How many cards are fanned across the sheet, and how far each one is
-# slid over the last: enough of a card to read its name and its art,
-# which is what a fan is for.
-SALE_SHEET_CARDS = 8
-# Of those, how many are players; the rest are maneuvers, which is
-# what a coach is actually holding.
-SALE_SHEET_PLAYER_CARDS = 6
+# The two hands fanned under the cover (the author, 2026-09-29): every
+# basic maneuver on the left, and on the right players the cover does
+# not show, some on their standard side and some on their advanced.
+SALE_SHEET_STANDARD_PLAYERS = 3
+SALE_SHEET_ADVANCED_PLAYERS = 3
+# How far the outermost card of a fan leans from upright, and how far
+# below the cards' feet the point they turn about is, in card heights.
+FAN_SPREAD_DEGREES = 15
+FAN_PIVOT_DEPTH = 2.2
 
 
-def sale_sheet_cards(
-    catalog: PlayerCatalog, count: int = SALE_SHEET_CARDS
+def sale_sheet_players(
+    catalog: PlayerCatalog,
+    count: int,
+    cast: CoverCast = COVER_CAST,
 ) -> list[tuple[PlayerDefinition, Team]]:
     """
-    Which cards are fanned across the sheet: taken from the four
-    colour teams in turn, and from a different part of each roster.
+    Which players the right-hand fan holds: taken from the four colour
+    teams in turn, from a different part of each roster, and never one
+    of the cover's four -- the fan sits under the cover, so a player on
+    both is a card that shows nothing new.
 
     Read rather than listed, so an import that revises the roster
     revises the fan. The offset per team is what keeps the species
     mixed: a roster is grouped by species, so the first player of all
-    four teams is four of the same monster, and a fan of four fire
-    demons says the game has one.
+    four teams is four of the same monster.
     """
+    on_cover = {name for name, _ in cast.players}
     chosen: list[tuple[PlayerDefinition, Team]] = []
-    # Rounded up, so a count that is not a multiple of four still
-    # visits every team before it runs out.
-    per_team = max(1, -(-count // len(COLOR_TEAMS)))
-    for index in range(per_team):
-        for position, team in enumerate(COLOR_TEAMS):
-            players = catalog.teams[team].players
+    seen: set[str] = set()
+    rosters = [catalog.teams[team].players for team in COLOR_TEAMS]
+    longest = max(len(players) for players in rosters)
+    for index in range(longest):
+        for position, (team, players) in enumerate(zip(COLOR_TEAMS, rosters)):
             start = position * len(players) // len(COLOR_TEAMS)
-            step = index * len(players) // per_team
-            chosen.append((players[(start + step) % len(players)], team))
-    return chosen[:count]
+            # Stride through the roster rather than walk it, so
+            # consecutive picks from one team are different species.
+            player = players[(start + index * 3) % len(players)]
+            if player.name in on_cover or player.name in seen:
+                continue
+            seen.add(player.name)
+            chosen.append((player, team))
+            if len(chosen) == count:
+                return chosen
+    return chosen
 
 
-def sale_sheet_fan(
+def sale_sheet_hands(
     catalog: PlayerCatalog,
     maneuvers: ManeuverCatalog,
-    count: int = SALE_SHEET_CARDS,
-    players: int = SALE_SHEET_PLAYER_CARDS,
-) -> list[Image.Image]:
+) -> tuple[list[Image.Image], list[Image.Image]]:
     """
-    What the fan holds: player cards, then one maneuver card from
-    each side of a maneuver.
-
-    Both are what a coach picks up -- a player card is who is on the
-    field and a maneuver card is what they do -- so the sheet shows
-    both rather than a row of one and a mention of the other. They are
-    the same size, which is why they fan together at all.
+    The two fans: the basic maneuvers, offense then defense, and the
+    players, their standard sides then their advanced ones. The cards
+    are the printed cards' own, not a second drawing of one.
     """
-    cards = [
-        render_player_card(catalog, player, team, False)
-        for player, team in sale_sheet_cards(catalog, players)
+    basic = [
+        render_maneuver_card(maneuvers, catalog, definition, is_offense, False)
+        for side, is_offense in ((maneuvers.offense, True), (maneuvers.defense, False))
+        for definition in side
+        if definition.tier == MANEUVER_TIER_BASIC
     ]
-    pair = (first_basic(maneuvers.offense), first_basic(maneuvers.defense))
-    for definition, is_offense in zip(pair, (True, False)):
-        if len(cards) >= count:
-            break
-        cards.append(
-            render_maneuver_card(maneuvers, catalog, definition, is_offense, False)
-        )
-    return cards
+    picked = sale_sheet_players(
+        catalog, SALE_SHEET_STANDARD_PLAYERS + SALE_SHEET_ADVANCED_PLAYERS
+    )
+    players = [
+        render_player_card(catalog, player, team, False)
+        for player, team in picked[:SALE_SHEET_STANDARD_PLAYERS]
+    ] + [
+        render_player_card_back(catalog, player, team, False)
+        for player, team in picked[SALE_SHEET_STANDARD_PLAYERS:]
+    ]
+    return basic, players
 
 
 def render_sale_sheet(
@@ -1950,13 +2027,12 @@ def render_sale_sheet(
     One letter page for a buyer, a distributor or a convention table:
     **the components, and almost no words**.
 
-    The first version was three columns of prose -- the game in Law
-    1's words, four quoted lines, the whole component list -- which is
-    a page nobody reads at a booth. What sells a game across a table
-    is what is in the box, so the sheet is the printed board, a fan of
-    player cards, a pair of maneuver cards and the three facts a
-    shopper checks; everything a reader would have to be sitting down
-    for is on the box's own underside and in the rulebooks.
+    The first version was three columns of prose, which is a page
+    nobody reads at a booth. What sells a game across a table is what
+    is in the box, so the sheet is the box's cover, and under it two
+    hands of cards fanned as a coach holds them -- the basic maneuvers
+    and players the cover does not show (the author, 2026-09-29) --
+    and the three facts a shopper checks are the cover's own chips.
 
     Light, unlike a banner: this is the piece somebody prints on an
     office printer and hands over. `contact` is whatever lines it
@@ -1986,8 +2062,7 @@ def render_sale_sheet(
         sheet, (right, panel.y(0.62)), PUBLISHER.upper(), 0.13, ACCENT, 0.05,
         anchor="right",
     )
-    ball_center = (right - inches(0.42), panel.y(1.2))
-    draw_d12(sheet, ball_center, inches(0.38))
+    draw_dice_pair(sheet, (right - inches(0.62), panel.y(1.32)), inches(1.05))
     draw_wrapped(
         sheet, left, panel.y(1.42), content * 0.72, STRAPLINE, 0.165, PAPER_MUTED,
     )
@@ -1995,151 +2070,149 @@ def render_sale_sheet(
         (left, panel.y(2.0), right, panel.y(2.0) + inches(0.025)), fill=PAPER_INK
     )
 
-    # The three facts a shopper checks, and then nothing else in words.
-    draw_chip_row(
-        sheet,
-        retail_chips(facts, claims),
-        (left + right) / 2,
-        panel.y(2.3),
-        content,
-        PAPER_INK,
-        PANEL_EDGE_INK,
-        size_inches=0.16,
-    )
-
-    # The board, across the sheet.
-    photo = board_photo(rules, catalog, strip_only=True)
-    photo_top = panel.y(2.7)
-    # Cut to the room between the chips and the fan rather than to the
-    # sheet's width: the board is the tallest thing here for its
-    # width, and at full width it pushes the cards off the page.
-    photo_height = inches(3.6)
-    photo_width = photo_height * photo.width / photo.height
-    photo_left = (left + right) / 2 - photo_width / 2
+    # The box's own cover, and under it the two hands. The three facts a
+    # shopper checks are the cover's own chips; a row of them over it
+    # said them twice.
+    cover_top = panel.y(2.3)
+    cover_side = inches(4.7)
+    cover_left = (left + right) / 2 - cover_side / 2
     draw_framed(
         sheet,
-        photo,
-        (photo_left, photo_top, photo_left + photo_width, photo_top + photo_height),
+        render_box_cover(facts=facts, catalog=catalog, rules=rules, claims=claims),
+        (cover_left, cover_top, cover_left + cover_side, cover_top + cover_side),
         PANEL_EDGE_INK,
         width=0.012,
     )
-    caption_y = photo_top + photo_height + inches(0.14)
-    draw_fitted(
-        sheet,
-        (left, caption_y),
-        "The field board at kickoff.",
-        content * 0.6,
-        0.13,
-        PAPER_MUTED,
-    )
 
-    # The cards, fanned: a player card is the thing somebody picks up
-    # first, so the sheet shows as many as it can hold.
-    fan_top = caption_y + inches(0.38)
-    fan_height = inches(2.2)
-    fan_cards(
-        sheet, sale_sheet_fan(catalog, maneuvers), left, fan_top, content,
-        fan_height,
-    )
+    basic, players = sale_sheet_hands(catalog, maneuvers)
+    hands_top = cover_top + cover_side + inches(0.15)
+    hands_bottom = panel.y(height - margin - 1.4)
+    middle = (left + right) / 2
+    gap = inches(0.15)
+    draw_hand(sheet, basic, (left, hands_top, middle - gap, hands_bottom))
+    draw_hand(sheet, players, (middle + gap, hands_top, right, hands_bottom))
 
     # The foot: where an answer goes, and the code that answers it
     # without one -- the game's own page, so a sheet handed across a
-    # table is not a dead end when nobody has filled the line in.
-    foot_top = panel.y(height - margin - 1.25)
-    foot_bottom = panel.y(height - margin)
-    sheet.rect(
-        (left, foot_top, right, foot_bottom),
-        radius=inches(0.09),
-        fill=PANEL,
-        outline=PANEL_EDGE_INK,
-        width=max(1, round(inches(0.012))),
-    )
+    # table is not a dead end when nobody has filled the line in. Open
+    # on the page, with the code beside the words it answers (the
+    # author, 2026-09-29): no panel round them, no ruled line, and no
+    # frame round the code, which was only there to make it white on
+    # the panel's grey.
+    heading = "For a playtest copy, a demo or the rulebooks:"
+    heading_face = print_font(0.15, bold=True)
     code = 1.0
-    code_left = right - inches(code + 0.16)
-    sheet.rect(
-        (
-            code_left - inches(0.05),
-            foot_top + inches(0.1),
-            code_left + inches(code + 0.05),
-            foot_top + inches(code + 0.2),
-        ),
-        radius=inches(0.04),
-        fill="#ffffff",
-        outline=PANEL_EDGE_INK,
-        width=max(1, round(inches(0.01))),
+    gap = inches(0.3)
+    heading_width = sheet.text_width(heading, heading_face)
+    words = max(
+        [heading_width]
+        + [sheet.text_width(entry, print_font(0.13)) for entry in contact]
     )
-    draw_qr(sheet, PAGE_URL, code_left, foot_top + inches(0.15), code)
+    words = min(words, content - inches(code) - gap)
+    words_left = (left + right) / 2 - (words + gap + inches(code)) / 2
+    code_left = words_left + words + gap
+    code_top = panel.y(height - margin - code - 0.1)
+    draw_qr(sheet, PAGE_URL, code_left, code_top, code)
 
-    words = code_left - inches(0.4) - (left + inches(0.28))
-    draw_fitted(
-        sheet,
-        (left + inches(0.28), foot_top + inches(0.24)),
-        "For a playtest copy, a demo or the rulebooks:",
-        words,
-        0.15,
-        PAPER_INK,
-        bold=True,
-    )
-    line_y = foot_top + inches(0.62)
+    middle = code_top + inches(code) / 2
     if contact:
+        line_y = middle - inches(0.3)
+        draw_fitted(
+            sheet, (words_left, line_y), heading, words, 0.15, PAPER_INK,
+            bold=True, anchor="lm",
+        )
+        line_y += inches(0.22)
         for entry in contact:
             line_y = draw_wrapped(
-                sheet, left + inches(0.28), line_y, words, entry, 0.13,
-                PAPER_INK,
+                sheet, words_left, line_y, words, entry, 0.13, PAPER_INK,
             )
     else:
-        sheet.rect(
-            (
-                left + inches(0.28),
-                line_y + inches(0.14),
-                left + inches(0.28) + words,
-                line_y + inches(0.15),
-            ),
-            fill=PANEL_EDGE_INK,
+        draw_fitted(
+            sheet, (words_left, middle), heading, words, 0.15, PAPER_INK,
+            bold=True, anchor="lm",
         )
     return sheet.image
 
 
-def fan_cards(
+def fanned_hand(
+    cards: Sequence[Image.Image],
+    spread: float = FAN_SPREAD_DEGREES,
+) -> Image.Image:
+    """
+    Cards held as a hand is held: each turned about one point below
+    their feet, the leftmost leaning furthest left, each laid over the
+    one before, so the last is the one whole card. Transparent round
+    the cards, at the cards' own resolution; the caller scales it.
+
+    The corners are the printed cards' own rounded cut
+    (`screen_cutout`) -- a square corner turned shows as a white
+    triangle over the card under it.
+    """
+    faces = [screen_cutout(card) for card in cards]
+    width, height = faces[0].size
+    pivot_depth = height * FAN_PIVOT_DEPTH
+    reach = height + pivot_depth
+    span = round(reach * 2 + width * 2)
+    canvas = Image.new("RGBA", (span, span), (0, 0, 0, 0))
+    pivot = (span / 2, span * 0.85)
+    count = len(faces)
+    for index, face in enumerate(faces):
+        angle = spread * ((index / (count - 1)) * 2 - 1) if count > 1 else 0.0
+        # A card turned about its own centre, then carried round the
+        # pivot to where its centre sits at that angle.
+        turned = face.rotate(-angle, expand=True, resample=Image.Resampling.BICUBIC)
+        distance = pivot_depth + height / 2
+        center = (
+            pivot[0] + distance * sin(radians(angle)),
+            pivot[1] - distance * cos(radians(angle)),
+        )
+        shadow = Image.new("RGBA", turned.size, (16, 24, 34, 0))
+        shadow.putalpha(
+            turned.getchannel("A").point(lambda value: value * 40 // 255)
+            .filter(ImageFilter.GaussianBlur(6))
+        )
+        left = round(center[0] - turned.width / 2)
+        top = round(center[1] - turned.height / 2)
+        canvas.alpha_composite(shadow, (left + 4, top + 6))
+        canvas.alpha_composite(turned, (left, top))
+    return canvas.crop(canvas.getchannel("A").getbbox())
+
+
+def draw_hand(
     sheet: Sheet,
     cards: Sequence[Image.Image],
-    left: float,
-    top: float,
-    width: float,
-    height: float,
+    box: tuple[float, float, float, float],
 ) -> None:
-    """
-    Cards laid across the sheet, each sliding over the last.
-
-    Overlapped rather than tiled: a card small enough for eight of
-    them to sit side by side is a stamp, where eight fanned are eight
-    cards of which the first seven show their name and their art --
-    which is what somebody looks at anyway. The last one is whole, so
-    at least one card is on the page in full.
-    """
-    card_width = height * CARD_WIDTH / CARD_HEIGHT
-    step = (width - card_width) / max(1, len(cards) - 1)
-    for index, art in enumerate(cards):
-        fitted = art.resize(
-            (max(1, round(card_width)), max(1, round(height))),
-            Image.Resampling.LANCZOS,
-        )
-        x = round(left + index * step)
-        sheet.image.paste(fitted, (x, round(top)))
-        sheet.rect(
-            (x, top, x + card_width, top + height),
-            outline=PANEL_EDGE_INK,
-            width=max(1, round(inches(0.01))),
-        )
+    """A fanned hand fitted into `box`, centred across it and standing
+    on its floor."""
+    hand = fanned_hand(cards)
+    left, top, right, bottom = box
+    scale = min((right - left) / hand.width, (bottom - top) / hand.height)
+    fitted = hand.resize(
+        (max(1, round(hand.width * scale)), max(1, round(hand.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    paste_rgba(
+        sheet,
+        fitted,
+        ((left + right) / 2 - fitted.width / 2, bottom - fitted.height),
+    )
 
 
 # ---------------------------------------------------- the playtest card
 
-# A postcard, landscape, because the picture on its front is the
-# board and the board is wider than it is tall.
-PLAYTEST_CARD_INCHES = (6.0, 4.0)
+# A poker card, held landscape, so it prints on the Avery Presta 95328
+# stock the reference cards do (the author, 2026-09-29) -- it was a 6 x
+# 4in postcard until then. Landscape because the picture on its back is
+# the board, which is wider than it is tall; on the stock it stands
+# turned into a card's upright slot (`playtest_card_sheets`).
+PLAYTEST_CARD_INCHES = (CARD_HEIGHT / PRINT_DPI, CARD_WIDTH / PRINT_DPI)
 # The survey code's printed side, which the CLI reports the module size of.
-PLAYTEST_QR_INCHES = 1.4
+PLAYTEST_QR_INCHES = 0.9
+# Where the card sends a reader to play (the author, 2026-09-29): the
+# web app's own host rather than a path on the site, so it is printed as
+# a name, not a link the landing build checks (`PRINTED_ADDRESSES`).
+PLAY_HOST = "play.d12ball.com"
 # The smallest module a printed QR may be drawn at. 0.4mm is the
 # floor a phone camera reads reliably off an office printer at arm's
 # length; the card's own code comes out well above it, and a longer
@@ -2252,16 +2325,74 @@ def draw_hard_wrapped(
 def render_playtest_card_front(
     catalog: Optional[PlayerCatalog] = None,
     rules: Optional[BasicRuleset] = None,
+    cover: Optional[Image.Image] = None,
     bleed: bool = False,
 ) -> Image.Image:
     """
-    The front of the card handed to a table: the board they have just
-    played on, and what it is called.
+    The front of the card handed to a table: **the box cover's art**,
+    and under it where to read more (the author, 2026-09-29) -- so the
+    card a table keeps looks like the box it came out of.
 
-    The picture sits on the card rather than bleeding off it. It used
-    to be full-bleed with the title over a scrim, which was a whole
-    card of ink for a caption -- and the board is a light picture now,
-    so there is nothing for white type to sit on anyway.
+    The cover is cut to what is printed on it, with no frame: the
+    cover's own white margin is the card's white, and a hairline round
+    it drew a box on a card that is not one. Cut, it is a little wider
+    than tall and stands on the line of words.
+    """
+    width, height = PLAYTEST_CARD_INCHES
+    panel = Panel(width, height, bleed=bleed)
+    sheet = panel.sheet(PAPER)
+    cover = cover or render_box_cover(catalog=catalog, rules=rules)
+    inked = ImageChops.difference(
+        cover.convert("RGB"), Image.new("RGB", cover.size, PAPER)
+    ).convert("L").point(lambda value: 255 if value > 8 else 0)
+    art = cover.crop(inked.getbbox())
+
+    margin = 0.14
+    words_y = panel.y(height - margin - 0.06)
+    top = panel.y(margin)
+    floor = words_y - inches(0.16)
+    scale = min(
+        inches(width - margin * 2) / art.width, (floor - top) / art.height
+    )
+    fitted = art.resize(
+        (max(1, round(art.width * scale)), max(1, round(art.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    sheet.image.paste(
+        fitted,
+        (round(panel.x(width / 2) - fitted.width / 2), round(top)),
+    )
+    draw_fitted(
+        sheet,
+        (panel.x(width / 2), words_y),
+        f"Visit {PAGE_HOST} for more information",
+        inches(width - margin * 2),
+        0.075,
+        PAPER_INK,
+        bold=True,
+        anchor="mm",
+        minimum=0.06,
+    )
+    return sheet.image
+
+
+def render_playtest_card_back(
+    catalog: Optional[PlayerCatalog] = None,
+    rules: Optional[BasicRuleset] = None,
+    survey_url: str = SURVEY_URL,
+    bleed: bool = False,
+) -> Image.Image:
+    """
+    The back: the survey, as a code and as the address, beside the board
+    the table has just played on.
+
+    **Its words are the author's and nothing else** (2026-09-27):
+    `PLAYTEST_HEADLINE`, the landing page's too, and
+    `PLAYTEST_CARD_INTRO`, which sends the reader to the code below it;
+    and under the rule, where to play next (`PLAY_HOST`, 2026-09-29).
+    The survey's address is printed under the board as well as encoded,
+    because a code is one smudge away from being nothing, and a card
+    whose only route to the survey is optical fails quietly.
     """
     catalog = catalog or load_player_catalog()
     rules = rules or load_basic_ruleset()
@@ -2269,103 +2400,59 @@ def render_playtest_card_front(
     panel = Panel(width, height, bleed=bleed)
     sheet = panel.sheet(PAPER)
 
-    margin = 0.32
+    margin = 0.16
     left = panel.x(margin)
     right = panel.x(width - margin)
 
-    draw_framed(
-        sheet,
-        board_photo(rules, catalog, strip_only=True),
-        (left, panel.y(margin), right, panel.y(height - 1.15)),
-        PANEL_EDGE_INK,
-        width=0.014,
+    headline = fitted_display(
+        sheet, PLAYTEST_HEADLINE, right - left, 0.2, smallest=0.1
     )
-
-    title = fitted_display(sheet, TITLE.upper(), (right - left) * 0.5, 0.62)
     sheet.text(
-        (left, panel.y(height - 0.78)), TITLE.upper(), title, PAPER_INK, anchor="lm"
-    )
-    # The two share a line, so the note is cut to what the name
-    # leaves rather than to a share of the card: the publisher's line
-    # is letterspaced, and its width is most of that spacing.
-    name_width = letterspaced_width(sheet, PUBLISHER.upper(), 0.125, 0.045)
-    letterspaced(
-        sheet,
-        (right, panel.y(height - 0.78)),
-        PUBLISHER.upper(),
-        0.125,
-        ACCENT,
-        0.045,
-        anchor="right",
-    )
-    draw_fitted(
-        sheet,
-        (left, panel.y(height - 0.45)),
-        "Playtest copy -- the rules are still moving.",
-        right - left - name_width - inches(0.3),
-        0.145,
-        PAPER_MUTED,
-    )
-    return sheet.image
-
-
-def render_playtest_card_back(
-    survey_url: str = SURVEY_URL,
-    bleed: bool = False,
-) -> Image.Image:
-    """
-    The back: the survey, as a code and as the address under it, beside
-    the box.
-
-    **Its words are the author's and nothing else** (2026-09-27):
-    `PLAYTEST_HEADLINE`, the landing page's too, and
-    `PLAYTEST_CARD_INTRO`, which sends the reader to the code below it.
-    The picture is the printed box cover, so the card a table takes home
-    looks like the box it came out of.
-
-    The address is printed as well as encoded because a code is one
-    smudge away from being nothing, and a card whose only route to the
-    survey is optical is a card that fails quietly.
-    """
-    width, height = PLAYTEST_CARD_INCHES
-    panel = Panel(width, height, bleed=bleed)
-    sheet = panel.sheet(PAPER)
-
-    margin = 0.4
-    left = panel.x(margin)
-    right = panel.x(width - margin)
-
-    headline = fitted_display(sheet, PLAYTEST_HEADLINE, right - left, 0.36)
-    sheet.text(
-        (left, panel.y(margin + 0.2)), PLAYTEST_HEADLINE, headline, PAPER_INK,
+        (left, panel.y(margin + 0.1)), PLAYTEST_HEADLINE, headline, PAPER_INK,
         anchor="lm",
     )
 
-    # The box, and to its right the words with the code below them,
-    # both standing on the same floor.
-    top = panel.y(0.92)
-    floor = panel.y(height - margin - 0.5)
-    cover = floor - top
+    # The code, standing in the right-hand column on the same floor as
+    # the board, the words above it.
+    top = panel.y(0.44)
+    floor = panel.y(1.95)
+    qr_size = PLAYTEST_QR_INCHES
+    frame = inches(0.04)
+    column = right - inches(qr_size) - frame * 2
+    qr_left = column + frame
+    qr_top = floor - frame - inches(qr_size)
+
+    # The board fills what the column leaves, and the survey's address
+    # sits under it, above the rule.
+    photo = board_photo(rules, catalog, strip_only=True)
+    board_right = column - inches(0.12)
+    board_height = min(
+        floor - top, (board_right - left) * photo.height / photo.width
+    )
+    board_width = board_height * photo.width / photo.height
     draw_framed(
         sheet,
-        render_box_cover(),
-        (left, top, left + cover, floor),
+        photo,
+        (left, top, left + board_width, top + board_height),
         PANEL_EDGE_INK,
-        width=0.014,
+        width=0.008,
+    )
+    draw_fitted(
+        sheet,
+        (left, top + board_height + inches(0.1)),
+        survey_url,
+        board_width,
+        0.085,
+        PAPER_INK,
+        bold=True,
+        anchor="lm",
+        minimum=0.06,
     )
 
-    column = left + cover + inches(0.3)
     draw_wrapped(
-        sheet, column, top, right - column, PLAYTEST_CARD_INTRO, 0.13,
+        sheet, column, top, right - column, PLAYTEST_CARD_INTRO, 0.068,
         PAPER_INK,
     )
-
-    # The code's frame, not the code, stands on the floor, centred under
-    # the words it is pointed at by.
-    qr_size = PLAYTEST_QR_INCHES
-    frame = inches(0.08)
-    qr_left = (column + right) / 2 - inches(qr_size) / 2
-    qr_top = floor - frame - inches(qr_size)
     sheet.rect(
         (
             qr_left - frame,
@@ -2373,30 +2460,55 @@ def render_playtest_card_back(
             qr_left + inches(qr_size) + frame,
             qr_top + inches(qr_size) + frame,
         ),
-        radius=inches(0.06),
+        radius=inches(0.03),
         fill="#ffffff",
         outline=PANEL_EDGE_INK,
-        width=max(1, round(inches(0.014))),
+        width=max(1, round(inches(0.008))),
     )
     draw_qr(sheet, survey_url, qr_left, qr_top, qr_size)
 
-    # The address the code carries, small but printed, and the
-    # publisher, on one line under a rule.
-    rule = panel.y(height - margin - 0.24)
+    # Under the rule: where to play it again, and who makes it.
+    rule = panel.y(height - margin - 0.2)
     sheet.rect((left, rule, right, rule + 1), fill=PANEL_EDGE_INK)
-    foot = panel.y(height - margin + 0.02)
-    name_width = letterspaced_width(sheet, PUBLISHER.upper(), 0.115, 0.04)
+    foot = panel.y(height - margin - 0.06)
+    name_width = letterspaced_width(sheet, PUBLISHER.upper(), 0.065, 0.025)
     letterspaced(
-        sheet, (right, foot), PUBLISHER.upper(), 0.115, PAPER_INK, 0.04,
+        sheet, (right, foot), PUBLISHER.upper(), 0.065, PAPER_MUTED, 0.025,
         anchor="right",
     )
     draw_fitted(
         sheet,
         (left, foot),
-        survey_url,
-        right - left - name_width - inches(0.3),
-        0.11,
-        PAPER_MUTED,
+        f"Play online on {PLAY_HOST}",
+        right - left - name_width - inches(0.15),
+        0.085,
+        PAPER_INK,
+        bold=True,
         anchor="lm",
+        minimum=0.06,
     )
     return sheet.image
+
+
+def playtest_card_sheets(
+    front: Image.Image, back: Image.Image
+) -> tuple[Image.Image, Image.Image]:
+    """
+    Six of the card on one Avery Presta 95328 page, and six of its back
+    on another, printed duplex as the reference cards are: landscape,
+    flipped on the short edge (`cards.AVERY_95328_PAGE`).
+
+    The card is landscape and the stock's slots are upright, so each
+    face is turned into its slot -- and the two faces the opposite ways.
+    Flipping the page on its short edge mirrors it left to right, so the
+    edge the front's top is turned to (the page's right) comes out on
+    the back at the page's left: the back is turned the other way for
+    its top to be that same edge, and the cut card turned over side to
+    side reads the right way up.
+    """
+    fronts = [front.rotate(-90, expand=True)] * AVERY_95328_CARDS
+    backs = [back.rotate(90, expand=True)] * AVERY_95328_CARDS
+    return (
+        avery_95328_sheet(fronts),
+        avery_95328_sheet(duplex_order(backs, len(AVERY_95328_LEFTS))),
+    )
