@@ -655,7 +655,9 @@ def maneuver_pick_refusal(
     own menu.
 
     **A side that has picked may pick again while the other side is
-    still choosing** -- the cards are revealed together (Law 6), so
+    still choosing** -- or while the other side's pick waits to be
+    confirmed after a gambit (Law 19.3.6-19.3.7) -- the cards are
+    revealed together (Law 6), so
     the first is a card held face down until the second is in. Once
     both are in the maneuver resolves in the same step, so what is
     left to refuse is the same card twice. Against Dinky there is
@@ -667,12 +669,15 @@ def maneuver_pick_refusal(
         if side == "offense"
         else (match.defense_maneuver, match.offense_maneuver)
     )
-    # A pick a gambit put back in question (Law 19.3.5) may be changed
+    # A pick a gambit put back in question (Law 19.3.6) may be changed
     # for any card in the hand, or picked again as it stands -- which
     # confirms it -- whatever the other side has done.
     unconfirmed = match.pick_unconfirmed == side
+    # And the other side's pick is not down while a gambit has put it
+    # in question, so the declarer may still change theirs (Law 19.3.7).
+    theirs_down = theirs is not None and match.pick_unconfirmed is None
     if mine is not None and not unconfirmed:
-        if match.maneuver_uncontested or theirs is not None:
+        if match.maneuver_uncontested or theirs_down:
             return "You have already chosen your maneuver."
         if mine == maneuver_key:
             return (
@@ -759,7 +764,7 @@ def maneuver_pick_step(
         )
         if answering:
             # An answering gambit is public, as the declaration is:
-            # the advanced cards have their own back (Law 19.3.5).
+            # the advanced cards have their own back (Law 19.3.6).
             narration.append(f"{coach} answers with a gambit of their own.")
         elif confirming and previous == maneuver_key:
             narration.append(f"{coach} has confirmed their maneuver.")
@@ -877,7 +882,7 @@ def confirm_maneuver_step(
 ) -> StepResult:
     """
     A pick a gambit put back in question, confirmed as it stands (Law
-    19.3.5) -- the card stays secret, so only the confirming is said.
+    19.3.6) -- the card stays secret, so only the confirming is said.
     Resolves the maneuver when the other card is already down.
     """
     match.confirm_maneuver(side)

@@ -790,7 +790,7 @@ select {
 .hand-card.withheld { filter: grayscale(0.6); }
 /* The card laid face down: ringed in gold, and dead, since the same
    card twice is refused; the others may still replace it. A card a
-   gambit has put back in question (Law 19.3.5) is ringed the same way
+   gambit has put back in question (Law 19.3.6) is ringed the same way
    and live: pressing it confirms it. */
 .hand-card.picked {
   border-color: var(--gold);

@@ -1798,8 +1798,9 @@ class RulesEngine:
         side: str,
     ) -> tuple[ManeuverDefinition, ...]:
         """
-        The gambits this side would hold if its team were behind, and
-        does not this maneuver -- empty wherever the question does not
+        The gambits this side does not hold this maneuver -- held back
+        until the coin holder declares, or from a side that is not behind
+        enough to answer (Law 19.3) -- empty wherever the question does not
         arise: a game not playing the gambits, an unchallenged maneuver
         (always basic, for everybody), or a side that holds them.
 

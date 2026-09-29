@@ -557,7 +557,7 @@ class ManeuverHand:
     #: from its three advanced maneuvers alone.
     declared: bool = False
     #: Whether this side's pick waits to be confirmed because the other
-    #: side declared a gambit after it was made (Law 19.3.5). Answered
+    #: side declared a gambit after it was made (Law 19.3.6). Answered
     #: with the choice `"confirm"`, or by picking any card in the hand.
     #: The card itself is not on the prompt: the pick is secret, and a
     #: Discord prompt is public.

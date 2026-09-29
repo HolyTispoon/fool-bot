@@ -1904,7 +1904,7 @@ class MatchState:
     # This maneuver's gambit, if one was declared: the maneuver side
     # ("offense" or "defense") whose coach declared it, and the side
     # whose standing pick has to be confirmed because of it (Law
-    # 19.3.5). Both go with the maneuver, in `reset_maneuver`.
+    # 19.3.6). Both go with the maneuver, in `reset_maneuver`.
     gambit_declared_by: Optional[str] = None
     pick_unconfirmed: Optional[str] = None
     # **Volatile's tier rider**: the skill test that just resolved was
@@ -3620,7 +3620,7 @@ class MatchState:
         both would hang the turn.
 
         **A pick a gambit has put back in question is not in** (Law
-        19.3.5): it stands only once its coach confirms it, so a
+        19.3.6): it stands only once its coach confirms it, so a
         maneuver whose other card is down still waits.
         """
         if self.offense_maneuver is None or self.pick_unconfirmed is not None:
@@ -3692,8 +3692,11 @@ class MatchState:
         )
         if mine is None:
             raise RuleRefusal("That side has not chosen a maneuver yet.")
+        # The other side's card is down only once it is not waiting to
+        # be confirmed (Law 19.3.6-19.3.7).
+        theirs_down = theirs is not None and self.pick_unconfirmed is None
         if self.pick_unconfirmed != side and (
-            self.maneuver_uncontested or theirs is not None
+            self.maneuver_uncontested or theirs_down
         ):
             raise RuleRefusal(
                 "Both sides have chosen; the pick stands.",
@@ -3709,7 +3712,7 @@ class MatchState:
     def confirm_maneuver(self, side: str) -> None:
         """
         A pick a gambit put back in question, confirmed as it stands
-        (Law 19.3.5). Refuses where that side's pick is not the one
+        (Law 19.3.6). Refuses where that side's pick is not the one
         waiting to be confirmed.
         """
         if self.pick_unconfirmed != side:

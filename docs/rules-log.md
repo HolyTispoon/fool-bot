@@ -174,18 +174,19 @@ answering one.
 - **The other coach may answer with a gambit of their own only while behind** (19.3.4) -- the two
   readings of behind are the old gate's, word for word, and strictly more (*"Strictly greater is
   right"*). Being handed the coin is not enough on its own, and an answering coach keeps the coin
+  (19.3.5)
   (*"Keep it. They can only counter gambit if they are behind in one of the two senses
   mentioned."*).
 - **A coach facing a gambit chooses again, and a pick they had already made stays loaded for
-  them to confirm** (19.3.5; the author: *"Stay picked"*). An answering gambit is announced,
+  them to confirm** (19.3.6; the author: *"Stay picked"*). An answering gambit is announced,
   as the declaration is (*"Yes, announce it"*).
 - **The declarer may change which advanced maneuver they play** while the other coach is still
-  choosing (19.3.6), as any pick may be changed (*"Yes. Keep it consistent."*).
+  choosing (19.3.7), as any pick may be changed (*"Yes. Keep it consistent."*).
 - **Unchanged:** a gambit is still only against a challenge (19.2; *"I want to keep it the way it
   is now"*), and everything in 19.4 onward -- what a gambit does when it succeeds or fails.
 - **The coin carries** through halftime and the shootout (*"Just carry"*).
 
-Replaced 19.3.1-19.3.3 with 19.3.1-19.3.7; reworded 2.8.14, 6.2.2, 19.2.2, the Part II
+Replaced 19.3.1-19.3.3 with 19.3.1-19.3.8; reworded 2.8.14, 6.2.2, 19.2.2, the Part II
 changes table's row and the Learn to Play's paragraph; added 3.1.4 and a glossary row for
 the coin. Renumbered. The advanced cards already print on their own back in the print-and-play
 kit, so no component changes.

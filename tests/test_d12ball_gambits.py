@@ -826,6 +826,23 @@ class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
             "confirming the last pick in question resolves the maneuver",
         )
 
+    def test_the_declarer_may_change_while_the_other_waits_to_confirm(
+        self,
+    ) -> None:
+        """Law 19.3.7: the other side's pick is not down while a gambit
+        has put it in question."""
+        from d12ball.flow.driver import Refusal
+
+        self.apply("", side="defense", maneuver_key="deflect")
+        self.apply("gambit", side="offense")
+        self.apply("", side="offense", maneuver_key="skilled_pass")
+
+        changed = self.apply("", side="offense", maneuver_key="dribble_burst")
+
+        self.assertNotIsInstance(changed, Refusal)
+        self.assertEqual(self.match.offense_maneuver, "dribble_burst")
+        self.assertEqual(self.match.pick_unconfirmed, "defense")
+
     def test_confirm_with_nothing_to_confirm_is_refused(self) -> None:
         from d12ball.flow.driver import Refusal
 
