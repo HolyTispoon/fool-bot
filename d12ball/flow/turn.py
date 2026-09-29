@@ -55,6 +55,7 @@ from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
     force_test_prompt,
+    gambit_answer_prompt,
     join_the_ball_prompt,
     maneuver_action_ask,
 )
@@ -757,16 +758,9 @@ def maneuver_pick_step(
         coach = format_player_with_team(
             game, _maneuver_side_number(engine, game, match, side),
         )
-        answering = (
-            match.gambit_declared_by not in (None, side)
-            and engine.maneuver_catalog.definition(maneuver_key).tier
-            == MANEUVER_TIER_GAMBIT
-        )
-        if answering:
-            # An answering gambit is public, as the declaration is:
-            # the advanced cards have their own back (Law 19.3.6).
-            narration.append(f"{coach} answers with a gambit of their own.")
-        elif confirming and previous == maneuver_key:
+        # An answering gambit is announced when it is chosen, before
+        # the cards (`answer_gambit_step`), so a pick says nothing more.
+        if confirming and previous == maneuver_key:
             narration.append(f"{coach} has confirmed their maneuver.")
         else:
             narration.append(
@@ -853,20 +847,71 @@ def declare_gambit_step(
     declarer_number = _maneuver_side_number(engine, game, match, side)
     other_number = _maneuver_side_number(engine, game, match, other)
     match.declare_gambit(side, engine.maneuver_side_team(match, side))
+    if not engine.may_answer_gambit(game, match, other):
+        # Behind is read now, as the maneuvers are chosen (Law 19.3.8):
+        # a side that is not behind keeps its basic cards, and the
+        # question is settled -- a score that moves later in this same
+        # maneuver (an own-goal roll) does not reopen it mid-resolution.
+        match.gambit_answer = "basic"
 
     declarer = format_player_with_team(game, declarer_number)
     receiver = format_player_with_team(game, other_number)
     narration = [
         f"{declarer} declares a gambit and hands the coin to {receiver}."
     ]
-    if match.pick_unconfirmed == other and not engine.side_controlled_by_ai(
-        game, match, other,
+    if (
+        match.pick_unconfirmed == other
+        and engine.gambit_answer_owed(game, match) is None
+        and not engine.side_controlled_by_ai(game, match, other)
     ):
         # Said to a coach, who has a button to press for it; the AI
-        # answers before anything is posted.
+        # answers before anything is posted. Where the gambit is
+        # answered first, the answer says it instead.
         narration.append(
             f"{receiver} may confirm their maneuver or change it."
         )
+    return StepResult(
+        narration=narration,
+        next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
+    )
+
+
+def answer_gambit_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    *,
+    side: str,
+    counter: bool,
+) -> StepResult:
+    """
+    The side a gambit was declared against, and which is behind, says
+    how it answers (Law 19.3.4) -- **public, as the declaration is**:
+    the advanced cards have their own back. A gambit of its own sets
+    aside a basic card it had already picked; its basic cards leave
+    that pick waiting to be confirmed. Then the pick goes up, each hand
+    three cards.
+    """
+    had_pick = (
+        match.offense_maneuver if side == "offense"
+        else match.defense_maneuver
+    ) is not None
+    match.answer_gambit(side, counter)
+    coach = format_player_with_team(
+        game, _maneuver_side_number(engine, game, match, side),
+    )
+    if counter:
+        narration = [f"{coach} answers with a gambit of their own."]
+        if had_pick:
+            narration.append(f"{coach}'s earlier pick is set aside.")
+    else:
+        narration = [f"{coach} plays their basic cards."]
+        if match.pick_unconfirmed == side and not engine.side_controlled_by_ai(
+            game, match, side,
+        ):
+            narration.append(
+                f"{coach} may confirm their maneuver or change it."
+            )
     return StepResult(
         narration=narration,
         next=FollowOn(FollowOnStep.SEND_MANEUVER_ACTION_PROMPT),
@@ -1088,9 +1133,11 @@ def offer_maneuver_action(
         return gates.hold_behind_note(
             game, tutorial.NOTE_MANEUVER, None, lead_in=lead_in,
         )
+    # A declared gambit is answered before anybody picks (Law 19.3.4).
+    answer_prompt = gambit_answer_prompt(engine, game, match)
     return StepResult(
         narration=[lead_in] if lead_in else [],
-        next=PendingPrompt(
+        next=answer_prompt or PendingPrompt(
             PromptKind.MANEUVER_ACTION,
             maneuver_action_ask(engine, game, match),
         ),

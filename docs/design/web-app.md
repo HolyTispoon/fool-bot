@@ -1291,7 +1291,10 @@ chooser, or puts a refusal away.
   **live** -- pressed, it confirms the pick (`"confirm"`) -- and the rest
   of the hand may replace it. The jumbotron draws the game's own coin
   beside the team holding it (`board.jumbotron`, off
-  `RulesEngine.coin_holder`). Which gambits those are is
+  `RulesEngine.coin_holder`). The answer to a gambit
+  (`GAMBIT_ANSWER`) is two neutral controls in the Discord view's words;
+  **once a gambit is declared nothing is dimmed** -- each hand is its
+  three cards (the author: "show only the gambits"). Which gambits those are is
   a reading of the rules, so it is the model's:
   `ManeuverHand.withheld`, over `RulesEngine.withheld_gambits`, proposed
   as its own commit on step 5's PR and accepted by the author there

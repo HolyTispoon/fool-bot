@@ -385,6 +385,14 @@ class DinkyAI(AIStrategy):
             {"player_id": prompt.player_id},
         )
 
+    def _gambit_answer(self, prompt, game, match, side, options) -> Action:
+        """
+        Behind with a gambit declared against it, Dinky answers with one
+        of its own on a coin flip (Law 19.3.4) -- the same indifference
+        it brings to declaring one.
+        """
+        return Action(prompt.kind, self.rng.choice(options.choices))
+
     # -- The turnovers --------------------------------------------------
 
     def _loose_ball(self, prompt, game, match, side, options) -> Action:
@@ -698,6 +706,7 @@ class DinkyAI(AIStrategy):
         # Nor does it spend Scorchit's two tokens on a lost card.
         PromptKind.FORCE_TEST: _let_it_pass,
         PromptKind.FLY: _let_it_pass,
+        PromptKind.GAMBIT_ANSWER: _gambit_answer,
         PromptKind.LOOSE_BALL_PICK: _loose_ball,
         PromptKind.RUN_BACK_PLAYER: _run_back_player,
         PromptKind.RUN_BACK_SPACE: _run_back_space,

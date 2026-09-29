@@ -117,6 +117,7 @@ from cogs.d12ball_views import (
     LooseBallChoiceView,
     LooseBallSkillTestView,
     LowPassChoiceView,
+    GambitAnswerView,
     ManeuverActionPromptView,
     ManeuverChallengeView,
     NewGameHubView,
@@ -400,6 +401,7 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.TUTORIAL_CONTINUE,
     PromptKind.GAME_OVER,
     PromptKind.HALFTIME_EXTRA_TOKEN,
+    PromptKind.GAMBIT_ANSWER,
     PromptKind.MIND_PULL,
     PromptKind.SMOOTH,
     PromptKind.JOIN_THE_BALL,
@@ -1346,6 +1348,8 @@ class CoreMixin:
             return RematchView(self, game_id)
         if kind is PromptKind.HALFTIME_EXTRA_TOKEN:
             return HalftimeExtraTokenView(self, game_id, prompt.side)
+        if kind is PromptKind.GAMBIT_ANSWER:
+            return GambitAnswerView(self, game_id, prompt.side)
         if kind is PromptKind.MIND_PULL:
             return MindPullView(self, game_id, prompt.player_id)
         if kind is PromptKind.JOIN_THE_BALL:

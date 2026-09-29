@@ -112,14 +112,30 @@ behind survives as the condition for **answering** a gambit.
   nobody declared yet); `behind` (the old gate's two readings, fewer
   goals or more Exhausted-or-Injured *on the field*, strictly more, so
   both teams can be behind at once); and `may_answer_gambit` (the other
-  side declared, and this side is behind). `maneuver_tiers` reads them:
-  the declarer's hand is `(advanced,)`, an answering side's both tiers,
-  everyone else's the basic three.
-- **Three saved fields, one per thing that outlives a click**:
+  side declared, and this side is behind). `maneuver_tiers` reads them, with `gambit_answer_owed` (the other
+  side was behind at the declaration and has not yet said how it
+  answers): the declarer's hand is `(advanced,)`, the other side's
+  `(advanced,)` if it answered with a gambit and the basic three
+  otherwise -- **never six** (the author, 2026-09-28: "each side should
+  be shown only 3 cards").
+- **The answer is a question of its own, asked before the cards**
+  (`PromptKind.GAMBIT_ANSWER`, choices `"gambit"` and `"basic"`, asked
+  of `prompt.side`): the author, the same evening, "Player B should
+  choose whether to counter gambit before either player can pick any
+  cards". It sits in the chain ahead of `MANEUVER_ACTION`, so a card
+  pressed meanwhile is refused (`GAMBIT_ANSWER_FIRST`). A counter sets
+  aside a basic card the side had picked; keeping the basic cards leaves
+  it to be confirmed. **A side not behind at the declaration is recorded
+  as keeping its basic cards there and then** (`gambit_answer =
+  "basic"`): behind is read as the maneuvers are chosen, and a score
+  that moves later in the same maneuver -- an own-goal roll -- would
+  otherwise put the question up in the middle of the resolution, ahead
+  of the effect's own prompts. The re-swept golden found exactly that.
+- **Four saved fields, one per thing that outlives a click**:
   `coin_holder` on the match (None until it first moves -- that is also
   the fallback for a save that predates it, so nothing migrates);
-  `gambit_declared_by` and `pick_unconfirmed`, this maneuver's, both
-  cleared by `reset_maneuver`. The coin carries through halftime and
+  `gambit_declared_by`, `gambit_answer` and `pick_unconfirmed`, this
+  maneuver's, all cleared by `reset_maneuver`. The coin carries through halftime and
   the shootout because nothing clears it.
 - **A declaration withdraws the declarer's pick and puts the other's
   in question** (`MatchState.declare_gambit`). A pick in question is
@@ -141,7 +157,7 @@ behind survives as the condition for **answering** a gambit.
   [maneuver-prompt.md](maneuver-prompt.md).
 - **Everything a declaration or an answer does is said.** "X declares
   a gambit and hands the coin to Y", "Y answers with a gambit of their
-  own" (a pick of an advanced card by the side that did not declare),
+  own" or "Y plays their basic cards" (at the answer, before the cards),
   "Y has confirmed their maneuver" -- the advanced cards have their own
   back, so none of it is a secret. "Y may confirm their maneuver or
   change it" is said only to a person: the AI answers first.
@@ -162,8 +178,9 @@ behind survives as the condition for **answering** a gambit.
   (`RulesEngine.maneuver_reference_tier`).
 - **Dinky declares on a coin flip.** Holding the coin with its hand not
   yet down, it declares half the time; after a declaration it rolls a
-  rank and picks among the cards on it in the hand the prompt offers,
-  which holds both tiers only when it is answering while behind. The
+  rank and picks among the cards on it in the hand the prompt offers.
+  Asked to answer a gambit while behind, it answers either way on a
+  coin flip. The
   same indifference as the tier choice, below -- and the only way a solo
   coach ever sees the coin cross.
 - **The game's own coin.** Each game is played with one of the six

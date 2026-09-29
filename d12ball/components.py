@@ -1687,6 +1687,7 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     ),
     SavedField("gambit_declared_by"),
     SavedField("pick_unconfirmed"),
+    SavedField("gambit_answer"),
     SavedField("volatile_tier_upgrade", default=False),
     SavedField("volatile_loser_cost"),
     # The card the dice settled a tie for -- see the field. Absent
@@ -1907,6 +1908,11 @@ class MatchState:
     # 19.3.6). Both go with the maneuver, in `reset_maneuver`.
     gambit_declared_by: Optional[str] = None
     pick_unconfirmed: Optional[str] = None
+    # How the other side answered this maneuver's gambit, where it was
+    # behind and so asked (Law 19.3.4): "gambit" (a gambit of its own)
+    # or "basic". `None` while nobody has declared, or the question is
+    # still owed, or it was never asked. Goes with the maneuver.
+    gambit_answer: Optional[str] = None
     # **Volatile's tier rider**: the skill test that just resolved was
     # ignited in a way that raises the *winner's* maneuver to its
     # gambit -- see "Volatile (Fire Demon)" in
@@ -3722,6 +3728,33 @@ class MatchState:
             )
         self.pick_unconfirmed = None
 
+    def answer_gambit(self, side: str, counter: bool) -> None:
+        """
+        The other side's answer to this maneuver's gambit (Law 19.3.4),
+        made before anybody picks a card: a gambit of its own, which
+        sets aside any basic card it had picked, or its basic cards,
+        which leaves that pick waiting to be confirmed. Whether it may
+        be asked is the engine's question (`gambit_answer_owed`).
+        """
+        if self.gambit_declared_by in (None, side):
+            raise RuleRefusal(
+                "There is no gambit for that side to answer.",
+                law="who-may-make-a-gambit",
+            )
+        if self.gambit_answer is not None:
+            raise RuleRefusal(
+                "The gambit has already been answered.",
+                law="who-may-make-a-gambit",
+            )
+        self.gambit_answer = "gambit" if counter else "basic"
+        if counter:
+            if side == "offense":
+                self.offense_maneuver = None
+            else:
+                self.defense_maneuver = None
+            if self.pick_unconfirmed == side:
+                self.pick_unconfirmed = None
+
     def declare_gambit(self, side: str, declaring_team: TeamSide) -> None:
         """
         Record a gambit declared by this maneuver side's coach (Law
@@ -3849,6 +3882,7 @@ class MatchState:
         self.defense_maneuver = None
         self.gambit_declared_by = None
         self.pick_unconfirmed = None
+        self.gambit_answer = None
         self.volatile_tier_upgrade = False
         self.volatile_loser_cost = None
         self.skill_test_winner = None

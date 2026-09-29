@@ -1627,6 +1627,26 @@ class RulesEngine:
             return False
         return self.behind(match, self.maneuver_side_team(match, side))
 
+    def gambit_answer_owed(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[str]:
+        """
+        The maneuver side still to say whether it answers this
+        maneuver's gambit with one of its own, or `None` (Law 19.3.4,
+        the author, 2026-09-28): asked of a side that is behind, as
+        soon as the gambit is declared and **before either side picks a
+        card**, so neither hand is ever six.
+        """
+        declared = match.gambit_declared_by
+        # Settled at the declaration for a side that was not behind
+        # then (`declare_gambit_step`), so only ever owed before a card.
+        if declared is None or match.gambit_answer is not None:
+            return None
+        other = "defense" if declared == "offense" else "offense"
+        if not self.may_answer_gambit(game, match, other):
+            return None
+        return other
+
     def maneuver_side_team(self, match: MatchState, side: str) -> TeamSide:
         """Which team is playing this side of the maneuver."""
         return (
@@ -1659,18 +1679,21 @@ class RulesEngine:
           the author, 2026-09-28). The coach holding the coin declares
           it, and from then on their hand is **the three advanced
           maneuvers alone** -- they set the basic three aside.
-        - **The other coach answers from six while behind**, and from
-          the basic three otherwise (`may_answer_gambit`).
+        - **The other coach, where behind, answers first** -- a gambit
+          of their own or their basic cards (`gambit_answer_owed`,
+          `MatchState.gambit_answer`) -- and plays the three that
+          answer chose. **A hand is always three cards** (the author,
+          2026-09-28: "each side should be shown only 3 cards").
 
         `side` is a maneuver side, so the two hands on one prompt can
-        be three and three, three and six, or none of either the same.
+        be different threes.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
             return (MANEUVER_TIER_BASIC,)
         if match.gambit_declared_by == side:
             return (MANEUVER_TIER_GAMBIT,)
-        if self.may_answer_gambit(game, match, side):
-            return (MANEUVER_TIER_BASIC, MANEUVER_TIER_GAMBIT)
+        if match.gambit_declared_by is not None and match.gambit_answer == "gambit":
+            return (MANEUVER_TIER_GAMBIT,)
         return (MANEUVER_TIER_BASIC,)
 
     def describe_gambit_access(
@@ -1712,7 +1735,12 @@ class RulesEngine:
                 game, self.maneuver_side_team(match, other),
             ),
         )
-        if self.may_answer_gambit(game, match, other):
+        if match.gambit_answer == "gambit":
+            return (
+                f"{declarer} has declared a gambit. {answerer} answers "
+                "with one of their own."
+            )
+        if self.gambit_answer_owed(game, match) is not None:
             return (
                 f"{declarer} has declared a gambit. {answerer} is behind "
                 "and may answer with one of their own."
@@ -1813,6 +1841,10 @@ class RulesEngine:
         cannot disagree.
         """
         if not self.gambits_apply(game) or match.maneuver_uncontested:
+            return ()
+        # Once a gambit is declared each hand is its three cards and
+        # nothing dimmed beside them (the author, 2026-09-28).
+        if match.gambit_declared_by is not None:
             return ()
         if MANEUVER_TIER_GAMBIT in self.maneuver_tiers(game, match, side):
             return ()

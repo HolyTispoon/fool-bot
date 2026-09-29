@@ -619,6 +619,11 @@ class Refusal:
 #: position is -- the challenge is settled, the ball has been picked
 #: up -- rather than that a click was refused, and a kind with no
 #: sentence of its own gets `MOVED_ON`. See `answer`.
+#: A card pressed while the gambit is still being answered (Law 19.3.4).
+GAMBIT_ANSWER_FIRST = (
+    "The gambit is being answered first; the cards come after."
+)
+
 STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.BALL_HANDLER_SELECTION: "A player has already been selected.",
     PromptKind.PLAYER_ACTION: "That turn has already been taken.",
@@ -636,6 +641,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.SMOOTH: "That Smooth has already been answered.",
     PromptKind.MIND_PULL: "That Mind Pull has already been answered.",
     PromptKind.JOIN_THE_BALL: "That offer has already been answered.",
+    PromptKind.GAMBIT_ANSWER: "That gambit has already been answered.",
     PromptKind.FORCE_TEST: "That offer has already been answered.",
     PromptKind.FLY: "That offer has already been answered.",
     PromptKind.RUN_BACK_PLAYER: "They no longer have to run back.",
@@ -1210,6 +1216,28 @@ def _answer_maneuver_challenge(
         next=FollowOn(
             FollowOnStep.AUTO_RESOLVE_CHALLENGER, {"challenger_id": player_id},
         ),
+    )
+
+
+def _answer_gambit_answer(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> StepResult:
+    """
+    A gambit answered by the side it was declared against (Law
+    19.3.4): `"gambit"` for one of its own, `"basic"` for its basic
+    cards. The side is the prompt's -- only one side is ever asked.
+    """
+    side = engine.gambit_answer_owed(game, match)
+    if side is None:
+        raise RuleRefusal(
+            "There is no gambit to answer.", law="who-may-make-a-gambit",
+        )
+    return turn.answer_gambit_step(
+        engine, game, match, side=side, counter=choice == "gambit",
     )
 
 
@@ -1814,6 +1842,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.INJURY_TEST: _answer_injury_test,
     PromptKind.MIND_PULL: _answer_mind_pull,
     PromptKind.JOIN_THE_BALL: _answer_join_the_ball,
+    PromptKind.GAMBIT_ANSWER: _answer_gambit_answer,
     PromptKind.FORCE_TEST: _answer_force_test,
     PromptKind.FLY: _answer_fly,
     PromptKind.HALFTIME_EXTRA_TOKEN: _answer_halftime_extra_token,
@@ -1988,6 +2017,12 @@ def answer(
     if isinstance(waiting, FollowOn):
         return Refusal(STEP_OWED, waiting_on=None)
     if waiting.kind is not action.kind:
+        if (
+            waiting.kind is PromptKind.GAMBIT_ANSWER
+            and action.kind is PromptKind.MANEUVER_ACTION
+        ):
+            # The maneuver is not settled; its cards wait on the answer.
+            return Refusal(GAMBIT_ANSWER_FIRST, waiting_on=waiting)
         return Refusal(
             STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=waiting,
         )

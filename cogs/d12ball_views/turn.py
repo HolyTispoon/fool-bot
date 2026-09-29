@@ -12,7 +12,7 @@ from d12ball.flow import FollowOn, FollowOnStep
 from d12ball.flow.driver import Action
 from d12ball.flow.turn import turn_action_refusal
 from d12ball.prompts import PromptKind
-from d12ball.components import MatchState
+from d12ball.components import MatchState, TeamSide
 from d12ball.game import (
     D12BallGame,
 )
@@ -591,6 +591,9 @@ MAX_BUTTON_ROWS = 5
 #: The coin's two buttons on the maneuver prompt (Law 19.3).
 GAMBIT_BUTTON_LABEL = "Gambit"
 CONFIRM_BUTTON_LABEL = "Confirm maneuver"
+#: The two answers to a gambit declared against a side that is behind.
+GAMBIT_ANSWER_LABEL = "Answer with a gambit"
+BASIC_ANSWER_LABEL = "Play basic cards"
 MAX_BUTTONS_PER_ROW = 5
 
 
@@ -1005,4 +1008,80 @@ class ManeuverActionPromptView(SafeView):
         for line in result.answer:
             await send_new_prompt(interaction, line)
         await self.cog.close_maneuver_prompt(interaction, game, result.match)
+        await self.cog.present(interaction, game, result)
+
+
+class GambitAnswerView(SafeView):
+    """
+    The side a gambit was declared against, and which is behind, says
+    how it answers **before anybody picks a card** (Law 19.3.4): a
+    gambit of its own, or its basic cards. Only that side's coach may
+    press; the answer is public, as the declaration was, and the pick
+    goes up after it with each hand three cards.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, side: TeamSide):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        self.side = TeamSide(side)
+
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.GAMBIT_ANSWER)
+        if options is None:
+            return
+        labels = {
+            "gambit": (
+                GAMBIT_ANSWER_LABEL, discord.ButtonStyle.primary,
+            ),
+            "basic": (
+                BASIC_ANSWER_LABEL, discord.ButtonStyle.secondary,
+            ),
+        }
+        for choice in options.choices:
+            label, style = labels[choice]
+            button = discord.ui.Button(
+                label=label,
+                style=style,
+                custom_id=(
+                    f"d12ball:gambit_answer:{game_id}:{self.side.value}:"
+                    f"{choice}"
+                ),
+            )
+
+            async def callback(
+                interaction: discord.Interaction, chosen: str = choice,
+            ) -> None:
+                await self.answer(interaction, chosen)
+
+            button.callback = callback
+            self.add_item(button)
+
+    async def answer(self, interaction: discord.Interaction, choice: str):
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.side_controller_id(game, self.side),
+        ):
+            await interaction.response.send_message(
+                "Only the coach the gambit was declared against can "
+                "answer it.",
+                ephemeral=True,
+            )
+            return
+        result = await self.apply(
+            interaction,
+            game,
+            Action(PromptKind.GAMBIT_ANSWER, choice),
+            carry_from=1,
+        )
+        if result is None:
+            return
+        # The answer's own line replaces the question; the pick that
+        # follows is `present`'s.
+        await interaction.response.edit_message(
+            content=result.answer[0], view=None,
+        )
         await self.cog.present(interaction, game, result)

@@ -77,6 +77,11 @@ extra click bought a round trip and nothing else.
     stands.
   - **Fifteen hand images** now, since a declarer's hand is the three
     advanced cards alone -- see [cards.md](cards.md).
+  - **Where the other coach is behind, the declaration puts up
+    `GambitAnswerView` instead of the pick** -- "Answer with a gambit" /
+    "Play basic cards", only that side's coach may press -- and the
+    answer replaces that message and puts the pick up, each hand three
+    cards.
 - **Authorization is checked before "already picked".** The other coach's row
   is sitting on the same message, so answering a click on it with "that side has
   already chosen" would say whether they had.

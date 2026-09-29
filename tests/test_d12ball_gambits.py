@@ -189,16 +189,17 @@ def open_gambits(match: MatchState) -> None:
     Put **both** hands in the harness on their gambits (Law 19.3).
 
     Since 2026-09-28 nobody holds a gambit until the coach holding the
-    coin declares one, and the other coach answers from six only while
-    behind. So: the visitors (the defense here) hold the coin and
-    declare, which leaves them the three advanced maneuvers, and home
-    (the offense) is a goal down, which lets them answer from all six.
-    Every test about *what a hand looks like* would otherwise be drawing
-    three basic cards and asserting nothing.
+    coin declares one, and the other coach, where behind, answers first
+    with a gambit of their own or their basic cards. So: the visitors
+    (the defense here) hold the coin and declare, and home (the offense,
+    a goal down) answers with a gambit -- both hands the three advanced
+    maneuvers. Every test about *what a hand looks like* would otherwise
+    be drawing three basic cards and asserting nothing.
     """
     match.coin_holder = TeamSide.VISITING
     match.declare_gambit("defense", TeamSide.VISITING)
     match.scoreboard.visiting_score += 1
+    match.answer_gambit("offense", True)
 
 
 class GambitHarness:
@@ -295,23 +296,23 @@ class ManeuverHandTests(GambitHarness, unittest.TestCase):
                     ],
                 )
 
-    def test_a_coach_holding_gambits_is_offered_six_in_rank_order(self) -> None:
+    def test_a_coach_holding_gambits_is_offered_the_three_in_rank_order(
+        self,
+    ) -> None:
+        """Only the gambits: a hand is always three cards (the author,
+        2026-09-28)."""
         cog, game, match = self.build("low_pass", "pressure")
         open_gambits(match)
 
-        hand = cog.engine.maneuver_hand(game, match, "offense")
-
-        self.assertEqual(
-            [m.key for m in hand],
-            [
-                "low_pass",
-                "skilled_pass",
-                "dribble_advance",
-                "dribble_burst",
-                "high_pass",
-                "setup_pass",
-            ],
-        )
+        for side, keys in (
+            ("offense", ["skilled_pass", "dribble_burst", "setup_pass"]),
+            ("defense", ["clear", "intercept", "double_team"]),
+        ):
+            with self.subTest(side=side):
+                self.assertEqual(
+                    [m.key for m in cog.engine.maneuver_hand(game, match, side)],
+                    keys,
+                )
 
     def test_the_gambits_withheld_are_the_rest_of_the_sides_cards(
         self,
@@ -589,20 +590,55 @@ class CoinTests(GambitHarness, unittest.TestCase):
         with self.assertRaises(RuleRefusal):
             match.declare_gambit("defense", TeamSide.VISITING)
 
-    def test_trailing_lets_the_other_coach_answer(self) -> None:
+    def test_trailing_lets_the_other_coach_answer_before_the_cards(
+        self,
+    ) -> None:
         cog, game, match = self.unpicked()
         match.scoreboard.home_score += 1          # the visitors trail
         match.declare_gambit("offense", TeamSide.HOME)
 
         self.assertTrue(cog.engine.may_answer_gambit(game, match, "defense"))
-        self.assertEqual(self.hands(cog, game, match), {
-            "offense": 3, "defense": 6,
-        })
+        self.assertEqual(cog.engine.gambit_answer_owed(game, match), "defense")
+
+        match.answer_gambit("defense", True)
+
+        self.assertIsNone(cog.engine.gambit_answer_owed(game, match))
+        self.assertEqual(
+            [m.key for m in cog.engine.maneuver_hand(game, match, "defense")],
+            ["clear", "intercept", "double_team"],
+        )
+
+    def test_answering_with_the_basic_cards_keeps_them(self) -> None:
+        cog, game, match = self.unpicked()
+        match.scoreboard.home_score += 1
+        match.choose_defense_maneuver("steal")
+        match.declare_gambit("offense", TeamSide.HOME)
+
+        match.answer_gambit("defense", False)
+
+        self.assertEqual(
+            [m.key for m in cog.engine.maneuver_hand(game, match, "defense")],
+            ["deflect", "steal", "pressure"],
+        )
+        self.assertEqual(match.defense_maneuver, "steal")
+        self.assertEqual(match.pick_unconfirmed, "defense")
+
+    def test_a_counter_sets_an_earlier_pick_aside(self) -> None:
+        cog, game, match = self.unpicked()
+        match.scoreboard.home_score += 1
+        match.choose_defense_maneuver("steal")
+        match.declare_gambit("offense", TeamSide.HOME)
+
+        match.answer_gambit("defense", True)
+
+        self.assertIsNone(match.defense_maneuver)
+        self.assertIsNone(match.pick_unconfirmed)
 
     def test_answering_leaves_the_coin_where_it_is(self) -> None:
         cog, game, match = self.unpicked()
         match.scoreboard.home_score += 1
         match.declare_gambit("offense", TeamSide.HOME)
+        match.answer_gambit("defense", True)
         match.choose_defense_maneuver("intercept")
 
         self.assertEqual(match.coin_holder, TeamSide.VISITING)
@@ -615,6 +651,7 @@ class CoinTests(GambitHarness, unittest.TestCase):
         self.assertFalse(
             cog.engine.may_answer_gambit(game, match, "defense")
         )
+        self.assertIsNone(cog.engine.gambit_answer_owed(game, match))
         self.assertEqual(self.hands(cog, game, match), {
             "offense": 3, "defense": 3,
         })
@@ -766,12 +803,12 @@ class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
         match.defense_maneuver = None
         self.cog, self.game, self.match = cog, game, match
 
-    def apply(self, choice: str, **arguments):
+    def apply(self, choice: str, kind=PromptKind.MANEUVER_ACTION, **arguments):
         from d12ball.prompts import Action
 
         return self.driver.apply(
             self.cog.engine, self.game, self.match,
-            Action(PromptKind.MANEUVER_ACTION, choice, arguments),
+            Action(kind, choice, arguments),
         )
 
     def hand(self, side: str):
@@ -843,21 +880,52 @@ class CoinThroughTheDriverTests(GambitHarness, unittest.TestCase):
         self.assertEqual(self.match.offense_maneuver, "dribble_burst")
         self.assertEqual(self.match.pick_unconfirmed, "defense")
 
+    def test_a_side_not_behind_at_the_declaration_is_never_asked(
+        self,
+    ) -> None:
+        """Behind is read as the maneuvers are chosen: a score that moves
+        later in the maneuver (an own-goal roll) must not put the
+        question up in the middle of its resolution."""
+        self.apply("gambit", side="offense")
+        self.assertEqual(self.match.gambit_answer, "basic")
+
+        self.match.scoreboard.home_score += 1   # the visitors now trail
+
+        self.assertIsNone(
+            self.cog.engine.gambit_answer_owed(self.game, self.match),
+        )
+
     def test_confirm_with_nothing_to_confirm_is_refused(self) -> None:
         from d12ball.flow.driver import Refusal
 
         self.assertIsInstance(self.apply("confirm", side="defense"), Refusal)
 
-    def test_an_answering_gambit_is_announced(self) -> None:
+    def test_the_answer_comes_before_either_side_picks(self) -> None:
+        from d12ball.flow.driver import GAMBIT_ANSWER_FIRST, Refusal
+
         self.match.scoreboard.home_score += 1       # the visitors trail
         self.apply("gambit", side="offense")
-        self.assertIn("intercept", self.hand("defense").maneuver_keys)
 
-        run = self.apply("", side="defense", maneuver_key="intercept")
+        prompt = self.pending_prompt(self.cog.engine, self.game, self.match)
+        self.assertIs(prompt.kind, PromptKind.GAMBIT_ANSWER)
+        self.assertEqual(prompt.side, TeamSide.VISITING)
+        refused = self.apply("", side="offense", maneuver_key="setup_pass")
+        self.assertIsInstance(refused, Refusal)
+        self.assertEqual(refused.reason, GAMBIT_ANSWER_FIRST)
+
+        run = self.apply("gambit", kind=PromptKind.GAMBIT_ANSWER)
 
         self.assertIn(
             "answers with a gambit of their own",
             " ".join(run.result.narration),
+        )
+        self.assertEqual(
+            self.hand("defense").maneuver_keys,
+            ("clear", "intercept", "double_team"),
+        )
+        self.assertEqual(
+            self.hand("offense").maneuver_keys,
+            ("skilled_pass", "dribble_burst", "setup_pass"),
         )
         self.assertEqual(self.match.coin_holder, TeamSide.VISITING)
 
@@ -894,16 +962,21 @@ class DinkyGambitPickTests(GambitHarness, unittest.TestCase):
             keys.add(action.arguments["maneuver_key"])
         return keys
 
-    def test_dinky_answering_while_behind_reaches_every_card(self) -> None:
+    def test_dinky_behind_answers_both_ways(self) -> None:
         cog, game, match = self.unpicked("defense")
         match.scoreboard.home_score += 1                 # Dinky trails
         match.declare_gambit("offense", TeamSide.HOME)
-        hand = cog.engine.maneuver_hand(game, match, "defense")
-        self.assertEqual(len(hand), 6)
 
-        picked = self.picks(cog, game, match, "defense", 300)
+        answers = set()
+        for _ in range(60):
+            action = ai_answers(cog.engine, game, match)
+            self.assertIs(action.kind, PromptKind.GAMBIT_ANSWER)
+            answers.add(action.choice)
+        self.assertEqual(answers, {"gambit", "basic"})
 
-        self.assertEqual(picked, {m.key for m in hand})
+        match.answer_gambit("defense", True)
+        picked = self.picks(cog, game, match, "defense", 200)
+        self.assertEqual(picked, {"clear", "intercept", "double_team"})
 
     def test_dinky_having_declared_plays_an_advanced_maneuver(self) -> None:
         cog, game, match = self.unpicked("defense")

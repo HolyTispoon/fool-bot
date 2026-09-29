@@ -101,10 +101,12 @@ every draw after it, and seed 69 stopped reaching the whole spine. Seed
 226 was the one seed of 0-249 that reached all of it, and it flies
 Zenith, which the coverage below now asserts too. The coin (2026-09-28)
 put two buttons on the maneuver prompt and a declaration's draw in
-Dinky's pick, which moved every game again: seed 52 is the first of
-0-600 that reaches the whole spine and also sees a gambit declared, one
+Dinky's pick, which moved every game again: seed 52 was the first of
+0-600 that reached the whole spine and also saw a gambit declared, one
 answered and a pick confirmed -- which the coverage below asserts as
-well. Each time the seed was swept and scored on the coverage below,
+well. The same evening the answer moved ahead of the cards (a question
+of its own, `GAMBIT_ANSWER`), and seed 990 is the first of 0-1500 that
+reaches all of it again. Each time the seed was swept and scored on the coverage below,
 not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
@@ -156,7 +158,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 52
+ADVANCED_SEED = 990
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and

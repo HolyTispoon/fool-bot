@@ -1127,6 +1127,15 @@ def _join_the_ball(asked: Asked) -> list:
     return _decision(asked, {"join": "Join the ball", "decline": "Stay"})
 
 
+def _gambit_answer(asked: Asked) -> list:
+    """The answer to a gambit declared against a side that is behind
+    (Law 19.3.4), in the Discord view's words. Neither lights anything:
+    it is a choice of which three cards to hold, made before the cards."""
+    return _decision(
+        asked, {"gambit": "Answer with a gambit", "basic": "Play basic cards"},
+    )
+
+
 def _force_test(asked: Asked) -> list:
     """Scorchit's yes and no (Law 21), in the Discord view's words."""
     return _decision(
@@ -2182,6 +2191,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.MIND_PULL: _decision,
     PromptKind.SMOOTH: _smooth,
     PromptKind.JOIN_THE_BALL: _join_the_ball,
+    PromptKind.GAMBIT_ANSWER: _gambit_answer,
     PromptKind.FORCE_TEST: _force_test,
     PromptKind.FLY: _fly,
     PromptKind.SET_UP_ATTEMPT: _decision,
@@ -2994,6 +3004,7 @@ SITUATIONS: Mapping[
 ] = {
     PromptKind.SCORE_ATTEMPT: _shot_situation,
     PromptKind.MANEUVER_ACTION: _challenge_situation,
+    PromptKind.GAMBIT_ANSWER: _challenge_situation,
     PromptKind.JOIN_THE_BALL: _join_situation,
     PromptKind.LOOSE_BALL_SKILL_TEST: _contest_situation,
     PromptKind.SET_UP_ATTEMPT: _set_up_situation,

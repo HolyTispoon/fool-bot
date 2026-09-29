@@ -136,6 +136,10 @@ class PromptKind(Enum):
     JOIN_THE_BALL = "join_the_ball"
     # Scorchit may force a test off a lost card, at the reveal (Law 21).
     FORCE_TEST = "force_test"
+    # The side a gambit was declared against, where behind, answers it
+    # -- a gambit of its own or its basic cards -- before either side
+    # picks a card (Law 19.3.4).
+    GAMBIT_ANSWER = "gambit_answer"
     MANEUVER_ACTION = "maneuver_action"
     SKILL_TEST = "skill_test"
 
@@ -170,7 +174,8 @@ class PendingPrompt:
     #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE,
     #: JOIN_THE_BALL, FLY, FORCE_TEST.
     player_id: Optional[str] = None
-    #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK: the board side asked.
+    #: HALFTIME_EXTRA_TOKEN, LOOSE_BALL_PICK, GAMBIT_ANSWER: the board
+    #: side asked.
     side: Optional[TeamSide] = None
     #: LOW_PASS_CHOICE and SPEED_DELTA_CHOICE: the card resolving.
     maneuver_key: Optional[str] = None
@@ -1239,6 +1244,33 @@ def maneuver_action_ask(
     )
 
 
+def gambit_answer_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    The question put to the side a gambit was declared against, where
+    it is behind and has not yet answered (Law 19.3.4) -- or `None`.
+    One ask for the live question and the restored one: the flow puts
+    it up (`turn.offer_maneuver_action`) and the chain re-reads it.
+    """
+    side = engine.gambit_answer_owed(game, match)
+    if side is None:
+        return None
+    team = engine.maneuver_side_team(match, side)
+    coach = format_player_with_team(
+        game, engine.side_player_number(game, team), mention=True,
+    )
+    return PendingPrompt(
+        PromptKind.GAMBIT_ANSWER,
+        f"{coach}, a gambit has been declared against you and you are "
+        "behind: answer with a gambit of your own -- your three advanced "
+        "maneuvers -- or play your basic cards?",
+        side=team,
+    )
+
+
 def speed_choice_ask(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -1541,6 +1573,7 @@ def asked_sides(
         PromptKind.COACHING_OFFER,
         PromptKind.HALFTIME_EXTRA_TOKEN,
         PromptKind.LOOSE_BALL_PICK,
+        PromptKind.GAMBIT_ANSWER,
     ):
         return (TeamSide(prompt.side),) if prompt.side is not None else ()
 
@@ -1992,6 +2025,10 @@ def _pending(
             return join_the_ball_prompt(
                 engine, game, match, match.pending_join[0],
             )
+        answer_prompt = gambit_answer_prompt(engine, game, match)
+        if answer_prompt is not None:
+            # A gambit answered before anybody picks (Law 19.3.4).
+            return answer_prompt
         if not match.maneuver_selections_complete:
             return PendingPrompt(
                 PromptKind.MANEUVER_ACTION,
@@ -2140,6 +2177,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.FLY: ("fly", "decline"),
     PromptKind.JOIN_THE_BALL: ("join", "decline"),
     PromptKind.FORCE_TEST: ("force", "decline"),
+    PromptKind.GAMBIT_ANSWER: ("gambit", "basic"),
     PromptKind.MANEUVER_CHALLENGE: ("send", "decline"),
     PromptKind.PLAYER_ACTION: ("shoot", "maneuver", "time_out"),
     PromptKind.SHOOTOUT_ORDER: ("send", "restart"),
@@ -2696,6 +2734,7 @@ OPTIONS = {
     PromptKind.FLY: _fly_options,
     PromptKind.JOIN_THE_BALL: _decision_options,
     PromptKind.FORCE_TEST: _decision_options,
+    PromptKind.GAMBIT_ANSWER: _decision_options,
     PromptKind.INJURY_TEST: _roll_options,
     PromptKind.OWN_GOAL_ROLL: _roll_options,
     PromptKind.SHOOTOUT_ORDER: _shootout_order_options,
