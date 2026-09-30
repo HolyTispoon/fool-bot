@@ -21,6 +21,7 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from d12ball.components import (
+    SHOT_PASSED_NOTE,
     CYBORG_DRAINED_AT,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
@@ -35,7 +36,8 @@ from d12ball.components import (
     catalog_player_id,
     duplicate_card_id,
 )
-from d12ball.engine import IgnitedRoll
+from d12ball.dice_brief import score_attempt_brief
+from d12ball.engine import CLEAR_SHOT_NOTE, IgnitedRoll
 from d12ball.flow.effects import (
     ball_comes_to,
     high_pass_step,
@@ -45,7 +47,11 @@ from d12ball.flow.effects import (
 )
 from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.flow.injuries import injury_test_step
-from d12ball.flow.rolls import after_the_contest, score_skill_test
+from d12ball.flow.rolls import (
+    after_the_contest,
+    score_score_attempt,
+    score_skill_test,
+)
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.turn import (
     begin_maneuver_action_selection,
@@ -55,6 +61,7 @@ from d12ball.flow.turn import (
 )
 from d12ball.flow.turnovers import begin_run_back, fly_step
 from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.formatting import player_with_role
 from d12ball.game import GameMode, Team
 from d12ball.special_abilities import (
     ADVANCED_SKILL_SENTENCES,
@@ -1147,12 +1154,64 @@ class ShotDefenseTests(unittest.TestCase):
             with self.subTest(set_up=set_up):
                 self.match.pending_shot_is_set_up = set_up
                 with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-                    self.assertEqual(set(self.defending()), {self.on_ball})
+                    wall = self.defending()
+                    counted = {
+                        player_id for player_id, defender in wall.items()
+                        if defender.value
+                    }
+                    self.assertEqual(counted, {self.on_ball})
                     with holding(self.beyond, SpecialAbility.FULL_BLOCK):
+                        wall = self.defending()
+                        self.assertFalse(wall[self.beyond].passed)
                         self.assertEqual(
-                            set(self.defending()),
-                            {self.on_ball, self.beyond},
+                            wall[self.beyond].value,
+                            ENGINE.skills(self.game, self.beyond).defense,
                         )
+
+    def test_flickerwing_leaves_the_passed_in_the_way(self) -> None:
+        # Still in the way, so both pictures can say so, and worth
+        # nothing (the author, 2026-09-30).
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            wall = self.defending()
+        self.assertEqual(set(wall), {self.on_ball, self.beyond})
+        self.assertTrue(wall[self.beyond].passed)
+        self.assertFalse(wall[self.beyond].halved)
+        self.assertEqual(wall[self.beyond].value, 0)
+        self.assertFalse(wall[self.on_ball].passed)
+        self.assertEqual(
+            ENGINE.clear_shot_note(list(wall.values())), CLEAR_SHOT_NOTE,
+        )
+
+    def test_flickerwing_says_nothing_when_nobody_is_passed(self) -> None:
+        self.at(self.beyond, 0)
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            wall = self.defending()
+        self.assertEqual(set(wall), {self.on_ball})
+        self.assertEqual(ENGINE.clear_shot_note(list(wall.values())), "")
+
+    def test_the_shot_announces_the_ability_and_the_passed(self) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            shooter, defenders, _ = score_attempt_brief(
+                ENGINE, self.match, self.game,
+            )
+        self.assertIn(CLEAR_SHOT_NOTE, shooter.modifiers)
+        passed = [side for side in defenders if side.passed]
+        self.assertEqual(len(passed), 1)
+        self.assertEqual(passed[0].value, 0)
+        self.assertEqual(passed[0].band, "passed")
+
+    def test_the_dice_list_the_passed_at_nothing(self) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            (attack, defence), _, defense_total, _ = score_score_attempt(
+                ENGINE, self.game, self.match,
+                ENGINE.get_player_definition(self.shooter),
+                self.match.home, self.match.visiting,
+            )
+        self.assertIn(CLEAR_SHOT_NOTE, attack[2])
+        beyond = player_with_role(ENGINE.get_player_definition(self.beyond))
+        self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
+        on_ball = ENGINE.skills(self.game, self.on_ball).defense
+        self.assertEqual(defense_total, defence[0] + on_ball)
 
 
 class ViscorTests(unittest.TestCase):

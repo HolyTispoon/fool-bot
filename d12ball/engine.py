@@ -133,6 +133,11 @@ SPREADABLE_NOTE = (
     "as a teammate.*"
 )
 
+#: Flickerwing's special ability (Law 21.3.5), as the shot is drawn
+#: with it -- see `RulesEngine.clear_shot_note`. "Special ability", the
+#: author's word for it on the page (2026-09-28).
+CLEAR_SHOT_NOTE = "Special ability: only defenders on the ball count"
+
 
 @dataclass(frozen=True)
 class PlayerSkills:
@@ -2236,9 +2241,11 @@ class RulesEngine:
         their full skill (`full_block`); behind the ball they are not
         in the list, like anyone else. **Flickerwing's shot** -- every
         one, off a set-up or not -- is defended by the ball's space
-        alone, so the players beyond it drop out, except a Goopkeeper,
-        who counts as on it. The shooter is the handler, which is also
-        who the preview before the shot is drawn for.
+        alone, so the players beyond it are `passed`: still in the
+        list, since they are still in the way and both pictures say
+        so, but worth nothing -- except a Goopkeeper, who counts as on
+        it. The shooter is the handler, which is also who the preview
+        before the shot is drawn for.
         """
         in_the_way = match.defenders_between_ball_and_goal()
         clear_shot = self.has_special_ability(
@@ -2249,14 +2256,25 @@ class RulesEngine:
             full_block = self.has_special_ability(
                 game, player_id, SpecialAbility.FULL_BLOCK,
             )
-            if clear_shot and not (on_ball or full_block):
-                continue
             player = self.get_player_definition(player_id)
             defense = self.skills(game, player_id).defense
             defenders.append(ShotDefender(
                 player, defense, on_ball, full_block=full_block,
+                passed=clear_shot and not (on_ball or full_block),
             ))
         return defenders
+
+    def clear_shot_note(self, defenders: list[ShotDefender]) -> str:
+        """
+        Flickerwing's special ability, said wherever the shot is drawn
+        -- the composition before it and the dice after -- when it
+        passes somebody, so a coach sees why the players in the way
+        add nothing. Nobody passed says nothing: the ability changed
+        nothing about this shot.
+        """
+        if any(defender.passed for defender in defenders):
+            return CLEAR_SHOT_NOTE
+        return ""
 
     def settled_maneuver_winner(
         self,

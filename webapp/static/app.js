@@ -1849,8 +1849,10 @@ function situationSide(side) {
         side.players.map((player) => h("div", { class: "situation-portrait" },
           h("img", { src: player.portrait, alt: "", loading: "lazy" }),
           wall ? h("span", {
-            class: player.halved ? "situation-badge halved" : "situation-badge",
-            title: player.halved ? `Half of ${player.skill}` : null,
+            class: player.passed ? "situation-badge passed"
+              : player.halved ? "situation-badge halved" : "situation-badge",
+            title: player.passed ? "In the way, not counting"
+              : player.halved ? `Half of ${player.skill}` : null,
           }, String(player.value)) : null)))
       : null,
     h("div", { class: "situation-words" },
@@ -1864,7 +1866,11 @@ function situationSide(side) {
       side.bands.length
         ? h("div", { class: "situation-bands" },
           side.bands.map((band) => h("span", { class: "situation-band" },
-            h("span", { class: band.halved ? "situation-dot halved" : "situation-dot", "aria-hidden": "true" }),
+            h("span", {
+              class: band.passed ? "situation-dot passed"
+                : band.halved ? "situation-dot halved" : "situation-dot",
+              "aria-hidden": "true",
+            }),
             band.text)))
         : null,
       notes.length

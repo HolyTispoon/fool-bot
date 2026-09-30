@@ -55,6 +55,7 @@ from d12ball.components import (
     PlayerDefinition,
     PlayerRole,
     RuleRefusal,
+    SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
     TeamSide,
 )
@@ -1195,12 +1196,18 @@ def score_score_attempt(
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         attack_total += 3
         attack_detail.append("+3 Striker ability")
+    # Flickerwing's shot: the players it passes are listed on the
+    # defence at +0, and this is the line that says why.
+    clear_shot = engine.clear_shot_note(defenders)
+    if clear_shot:
+        attack_detail.append(clear_shot)
 
     if defenders:
         defense_detail = [
             f"{player_with_role(defender.player)} "
             f"+{defender.value}"
             + (f" (half of {defender.defense})" if defender.halved else "")
+            + (SHOT_PASSED_NOTE if defender.passed else "")
             for defender in defenders
         ]
         if len(defenders) > 1:
@@ -1393,7 +1400,12 @@ def score_attempt_step(
         scored=scored,
         set_up=bool(match.pending_shot_is_set_up),
         speed_modifier=match.ball_speed_modifier(),
-        defender_count=len(engine.intervening_defenders(match, game)),
+        # The defenders the shot was up against: one Flickerwing passed
+        # was in the way and added nothing, so the count leaves them out.
+        defender_count=sum(
+            1 for defender in engine.intervening_defenders(match, game)
+            if not defender.passed
+        ),
         attack_total=attack_total,
         defense_total=defense_total,
     )

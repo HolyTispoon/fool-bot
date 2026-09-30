@@ -57,6 +57,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from d12ball import stats, tokens
 from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
+    SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
     MatchState,
@@ -91,8 +92,7 @@ from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
 from d12ball.special_abilities import SpecialAbility
 from d12ball.player_cards import species_ability
 from d12ball.render import (
-    CHALLENGE_BAND_FULL,
-    CHALLENGE_BAND_HALF,
+    CHALLENGE_BANDS,
     CHALLENGE_TITLE,
     SCORE_ATTEMPT_TITLE,
     SCORE_ATTEMPT_UNDEFENDED,
@@ -2316,6 +2316,9 @@ def _situation_player(
         "value": None if side is None else side.value,
         "skill": None if side is None else side.skill,
         "halved": False if side is None else side.halved,
+        # In the way of Flickerwing's shot and adding nothing
+        # (`ShotDefender.passed`).
+        "passed": False if side is None else side.passed,
         "abilities": _abilities(engine, game, player_id, bearing),
     }
 
@@ -2538,7 +2541,8 @@ def _situation_side(
     elif len(sides) == 1:
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
-        skill = f"{only.skill_name} skill +{only.value}{halved_from}"
+        passed = SHOT_PASSED_NOTE if only.passed else ""
+        skill = f"{only.skill_name} skill +{only.value}{halved_from}{passed}"
     else:
         terms = " + ".join(str(side.value) for side in sides)
         skill = (
@@ -2559,15 +2563,17 @@ def _situation_side(
             if with_ability and len(sides) == 1 and sides[0].ability
             else None
         ),
-        # What a wall's two badges mean, in the PNG's own band labels
-        # (`render.CHALLENGE_BAND_FULL`, `CHALLENGE_BAND_HALF`): those
-        # the wall has, whole skills first.
+        # What a wall's badges mean, in the PNG's own band labels
+        # (`render.CHALLENGE_BANDS`): those the wall has, whole skills
+        # first, then halved, then passed.
         "bands": [
-            {"halved": halved, "text": text}
-            for halved, text in (
-                (False, CHALLENGE_BAND_FULL[0]), (True, CHALLENGE_BAND_HALF[0]),
-            )
-            if len(sides) > 1 and any(side.halved == halved for side in sides)
+            {
+                "halved": band == "half",
+                "passed": band == "passed",
+                "text": CHALLENGE_BANDS[band][1][0],
+            }
+            for band in ("full", "half", "passed")
+            if len(sides) > 1 and any(side.band == band for side in sides)
         ],
         "empty": empty if not sides else None,
     }
