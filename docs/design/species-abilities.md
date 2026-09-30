@@ -243,7 +243,8 @@ their own (below).
     Flickerwing's shot): `ShotDefender.as_on_ball`, drawn gold under
     its own "COUNTS AS ON THE BALL" band, and "+6 (counts as on the
     ball)" on the dice. On the ball the ability changes nothing, so
-    nothing says it there. The shot's `defender_count` in the event log
+    nothing says it there. Its reminder drops "during score attempts"
+    for Flickerwing's reason. The shot's `defender_count` in the event log
     leaves the passed out, since it prices the shot. A dice line
     wider than its cell now wraps (`render.skill_test_detail_lines`),
     before its parenthesis where it can; one that fits draws as it

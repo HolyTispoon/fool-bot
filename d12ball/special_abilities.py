@@ -218,19 +218,26 @@ ADVANCED_SKILL_SENTENCES: dict[str, str] = {
 #: 2026-09-30). Everywhere else -- the roster, the card -- prints the
 #: sheet's whole sentence.
 CLEAR_SHOT_CONDITION = "When attempting to score, "
+#: Goopkeeper's, at the other end of the sentence, dropped for the same
+#: reason (the author, 2026-09-30).
+FULL_BLOCK_CONDITION = " during score attempts."
 
 
 def without_shot_condition(sentence: str) -> str:
     """
-    A sentence with `CLEAR_SHOT_CONDITION` taken off its front and the
-    rest capitalised. A sentence that does not open with it comes back
-    whole, so a reworded sheet shows its own words rather than a cut
-    one; `SPECIAL_ABILITIES`' test fails on the rewording anyway.
+    A sentence with the score attempt's condition taken off --
+    `CLEAR_SHOT_CONDITION` off its front, the rest capitalised, or
+    `FULL_BLOCK_CONDITION` off its end, the full stop kept. A sentence
+    that carries neither comes back whole, so a reworded sheet shows
+    its own words rather than a cut one; `SPECIAL_ABILITIES`' test
+    fails on the rewording anyway.
     """
-    if not sentence.startswith(CLEAR_SHOT_CONDITION):
-        return sentence
-    rest = sentence[len(CLEAR_SHOT_CONDITION):]
-    return rest[:1].upper() + rest[1:]
+    if sentence.startswith(CLEAR_SHOT_CONDITION):
+        rest = sentence[len(CLEAR_SHOT_CONDITION):]
+        return rest[:1].upper() + rest[1:]
+    if sentence.endswith(FULL_BLOCK_CONDITION):
+        return sentence[:-len(FULL_BLOCK_CONDITION)] + "."
+    return sentence
 
 
 # The numbers, beside the ones they replace in d12ball/components.py.

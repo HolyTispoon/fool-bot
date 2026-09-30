@@ -1753,7 +1753,8 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     (2026-09-28), where the Law says special ability -- (the author, 2026-09-28: "only show special abilities that
     apply to the roll"), as the advanced face of the card prints it
     (`special_ability_reminder`: the card's sentence, Flickerwing's
-    without its "When attempting to score,"), prefixed with whose it
+    without its "When attempting to score," and Goopkeeper's without
+    its "during score attempts"), prefixed with whose it
     is in a wall. Goopkeeper's is named only standing beyond the
     ball, where it changes the shot (the author, 2026-09-30); the wall
     marks them with a "COUNTS AS ON THE BALL" band.

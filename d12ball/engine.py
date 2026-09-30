@@ -733,13 +733,16 @@ class RulesEngine:
         """
         A player's special ability as a roll reminds of it -- the web
         page's chip beside a roll, and Flickerwing's line on the shot:
-        `special_ability_text`, with Flickerwing's opening condition
-        dropped, since the reminder only appears when they are
-        attempting to score (the author, 2026-09-30). The rest of the
-        sentence is the sheet's, never reworded.
+        `special_ability_text`, with the score attempt's condition
+        dropped from Flickerwing's and Goopkeeper's, since each is only
+        ever reminded of at a shot (the author, 2026-09-30). The rest of
+        the sentence is the sheet's, never reworded.
         """
         text = self.special_ability_text(game, player_id)
-        if self.has_special_ability(game, player_id, SpecialAbility.CLEAR_SHOT):
+        if any(
+            self.has_special_ability(game, player_id, ability)
+            for ability in (SpecialAbility.CLEAR_SHOT, SpecialAbility.FULL_BLOCK)
+        ):
             return without_shot_condition(text)
         return text
 

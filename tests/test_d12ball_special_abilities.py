@@ -67,6 +67,7 @@ from d12ball.game import GameMode, Team
 from d12ball.special_abilities import (
     ADVANCED_SKILL_SENTENCES,
     CLEAR_SHOT_CONDITION,
+    FULL_BLOCK_CONDITION,
     INFERNO_BALL_SPEED,
     SCORCHIT_FORCED_TEST_TOKENS,
     VISCOR_MERGE_BONUS,
@@ -1231,6 +1232,20 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertEqual(
             ENGINE.special_ability_reminder(self.game, flickerwing),
             "Only defenders on the ball contribute their skill scores.",
+        )
+
+    def test_goopkeepers_reminder_drops_the_condition(self) -> None:
+        # The same reasoning as Flickerwing's (the author, 2026-09-30).
+        goopkeeper = next(
+            player_id for player_id, (ability, _) in SPECIAL_ABILITIES.items()
+            if ability == SpecialAbility.FULL_BLOCK
+        )
+        sentence = ENGINE.special_ability_text(self.game, goopkeeper)
+        self.assertTrue(sentence.endswith(FULL_BLOCK_CONDITION))
+        self.assertEqual(
+            ENGINE.special_ability_reminder(self.game, goopkeeper),
+            "Counts as 'on the ball' when standing between the ball and "
+            "the goal.",
         )
 
     def test_a_frontend_with_its_own_reminder_leaves_the_line_off(
