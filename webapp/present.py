@@ -2331,6 +2331,9 @@ def _situation_player(
         # An Ooze on the ball Merging into the player beside them
         # (`ChallengeSide.merging`, Law 20.5).
         "merging": False if side is None else side.merging,
+        # The badge's colour: the skill's, as the player card prints it
+        # (`ChallengeSide.skill_color`).
+        "skill_colour": None if side is None else side.skill_color,
         "abilities": _abilities(engine, game, player_id, bearing),
     }
 
@@ -2612,23 +2615,24 @@ def _situation_side(
             else None
         ),
         # What a wall's badges mean, in the PNG's own band labels
-        # (`render.CHALLENGE_BANDS`): those the wall has, whole skills
-        # first -- on the ball, then counted as on it -- then halved,
-        # then passed; and the Oozes Merging into a player, whose
-        # badges are the only ones beside a lead player's portrait.
+        # (`render.CHALLENGE_BANDS`) and colours (`band_color`): those
+        # the wall has, whole skills first -- on the ball, then counted
+        # as on it -- then halved, then passed; and the Oozes Merging
+        # into a player.
         "bands": [
             {
                 "halved": band == "half",
                 "passed": band == "passed",
                 "merge": band == "merge",
-                "colour": CHALLENGE_BANDS[band][0],
-                "text": CHALLENGE_BANDS[band][1][0],
+                "colour": banded[0].band_color,
+                "text": CHALLENGE_BANDS[band][0],
             }
             for band in ("full", "as_on_ball", "half", "passed", "merge")
-            if len(sides) > 1 and any(
-                side.band == band
-                for side in (sides[1:] if merged else sides)
-            )
+            for banded in [[
+                side for side in (sides[1:] if merged else sides)
+                if side.band == band
+            ]]
+            if len(sides) > 1 and banded
         ],
         "empty": empty if not sides else None,
     }

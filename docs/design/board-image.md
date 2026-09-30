@@ -321,10 +321,16 @@ where, the ball and its speed, each mark.
 `render_matchup` draws a contest about to happen, and one layout serves two:
 the maneuver challenge (one against one) and the score attempt (one against a
 wall of defenders). **Every face wears a badge with what that player adds**
-(the author, 2026-09-30): a lone player their whole skill, a solid gold disc;
-an Ooze Merging into a side what they add, a solid green one. See "What a shot
-is up against" in [shooting.md](shooting.md) for the halved and passed badges
-and the band labels only a wall carries.
+(the author, 2026-09-30), **in the colour the player card prints that skill
+in** -- `CARD_OFFENSE_COLOR` on the attack, `CARD_DEFENSE_COLOR` on the
+defence (`ChallengeSide.skill_color`), because it is the same number and the
+author wants one colour for it everywhere. How it is added is the badge's
+shape, never a colour of its own: a whole skill a solid disc, a halved or
+passed one an outline. An Ooze Merging keeps their side's colour, ringed in
+the Oozes' green, and the MERGE band is that green; every other band is the
+side's skill colour. See "What a shot is up against" in
+[shooting.md](shooting.md) for the halved and passed badges and the band
+labels only a wall carries.
 
 **Its width is content, not a canvas.** Each side is a group as wide as it
 needs to be, held between `CHALLENGE_MIN_GROUP_WIDTH` and

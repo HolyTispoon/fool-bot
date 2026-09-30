@@ -399,7 +399,7 @@ place. Never while an offer is up, which is also what keeps two
 Glompexes (one per side) to one image. Once Glompex has stepped on he
 is drawn in it: every Ooze on the ball who adds by Merge is part of
 the maneuver, a portrait in the side they Merge into with what they
-add on a green badge under a MERGE band, and the side's skill added
+add on a slime-ringed badge under a MERGE band, and the side's skill added
 up (`dice_brief.maneuver_challenge_brief`, `merging_sides`; the
 author, 2026-09-30). That replaced a caption (2026-09-28) that named
 each Ooze under an image that drew only the two -- the image carries

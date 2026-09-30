@@ -356,7 +356,7 @@ FONT_CHALLENGE_ABILITY = load_font(20)
 FONT_CHALLENGE_TOTAL = load_font(26, bold=True)
 # The value badge a score attempt draws on a defender's portrait, the
 # skill it was halved from underneath it, and the label over a band of
-# them -- see CHALLENGE_FULL_COLOR.
+# them -- see CHALLENGE_BADGE_TEXT_COLOR.
 FONT_CHALLENGE_BADGE = load_font(20, bold=True)
 FONT_CHALLENGE_BADGE_NOTE = load_font(13, bold=True)
 FONTS_CHALLENGE_BAND = [load_font(size, bold=True) for size in (15, 14, 13, 12, 11)]
@@ -3770,31 +3770,29 @@ CHALLENGE_SKILL_COLOR = "#c7ced6"
 CHALLENGE_ABILITY_COLOR = "#9aa5b1"
 CHALLENGE_TOTAL_COLOR = "#ffffff"
 CHALLENGE_TOTAL_LINE_HEIGHT = 34
-# A score attempt's defenders are worth their skill on the ball's own
-# space and half of it further along (see ShotDefender), so the group is
-# two kinds of number stood in a row. The value each one contributes is
-# drawn on their own portrait -- a solid disc for a full one, an outline
-# and the skill it was halved from for the rest -- because the sum
-# underneath is unreadable otherwise: nothing in "6 + 3 + 1" says which
-# term was halved or whose it is.
-CHALLENGE_FULL_COLOR = "#f0b429"
-CHALLENGE_HALF_COLOR = "#7fa8c9"
-# A defender Flickerwing's shot passes (ShotDefender.passed): drawn,
-# because they are in the way, but in a grey outline with a 0, because
-# they add nothing -- the shooter's own line says whose ability that is.
-CHALLENGE_PASSED_COLOR = "#8b96a2"
-CHALLENGE_BADGE_TEXT_COLOR = "#111820"
+# Every face on a matchup wears the number its player adds, in the
+# colour the player card prints that skill in (`CARD_OFFENSE_COLOR`,
+# `CARD_DEFENSE_COLOR`; the author, 2026-09-30) -- the same number, so
+# the same colour everywhere it is shown. How it is added is the badge's
+# shape rather than a colour of its own: a whole skill a solid disc, one
+# halved (see ShotDefender) or passed by Flickerwing's shot an outline,
+# because the sum underneath is unreadable otherwise -- nothing in
+# "6 + 3 + 1" says which term was halved or whose it is.
+CHALLENGE_BADGE_TEXT_COLOR = "#ffffff"
 CHALLENGE_BADGE_RADIUS = 19
 CHALLENGE_BADGE_INSET = 2
 CHALLENGE_BADGE_OUTLINE = 3
+# An Ooze Merging keeps their side's colour and wears a slime ring round
+# it: the one thing on the badge that is theirs rather than the skill's.
+CHALLENGE_MERGE_RING = 4
 # What a banded group costs the layout: a label above the portraits, and
 # room under them for the "1/2 of 5" that hangs off a halved badge.
 CHALLENGE_BAND_GAP = 26
 CHALLENGE_BADGE_NOTE_GAP = 16
 CHALLENGE_BAND_UNDERLINE_GAP = 20
 # Longest first: a band gives up words only once shrinking the type has
-# run out, because "FULL" over a gold badge says less than "ON THE BALL"
-# does about why it is gold. A band of one has 96px to say it in.
+# run out, because "FULL" over a solid badge says less than "ON THE BALL"
+# does about why it is solid. A band of one has 96px to say it in.
 CHALLENGE_BAND_FULL = ("ON THE BALL — FULL", "ON THE BALL", "FULL")
 CHALLENGE_BAND_HALF = (
     "IN THE WAY — HALF, ROUNDED UP",
@@ -3806,7 +3804,7 @@ CHALLENGE_BAND_PASSED = (
     "NOT COUNTING",
     "0",
 )
-# Goopkeeper beyond the ball: gold like the ball's own space, because
+# Goopkeeper beyond the ball: solid like the ball's own space, because
 # they are worth all of it, but its own run, because they are not
 # standing on it and the label is what says why.
 CHALLENGE_BAND_AS_ON_BALL = (
@@ -3816,17 +3814,18 @@ CHALLENGE_BAND_AS_ON_BALL = (
 )
 # An Ooze on the ball who is not rolling, adding by Merge (Law 20.5)
 # beside the player they merge into: drawn as part of the side rather
-# than only totalled, in the Oozes' own green -- the colour the dice
-# image draws Merge in (`MERGE_AURA_COLOR`).
+# than only totalled. Their ring and their band are the Oozes' own
+# green -- the colour the dice image draws Merge in (`MERGE_AURA_COLOR`).
 CHALLENGE_MERGE_COLOR = MERGE_AURA_COLOR
 CHALLENGE_BAND_MERGE = ("MERGE",)
-#: Each run's colour and labels, by `ChallengeSide.band`.
+#: Each run's labels, by `ChallengeSide.band`; its colour is the
+#: side's (`ChallengeSide.band_color`).
 CHALLENGE_BANDS = {
-    "full": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_FULL),
-    "half": (CHALLENGE_HALF_COLOR, CHALLENGE_BAND_HALF),
-    "passed": (CHALLENGE_PASSED_COLOR, CHALLENGE_BAND_PASSED),
-    "as_on_ball": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_AS_ON_BALL),
-    "merge": (CHALLENGE_MERGE_COLOR, CHALLENGE_BAND_MERGE),
+    "full": CHALLENGE_BAND_FULL,
+    "half": CHALLENGE_BAND_HALF,
+    "passed": CHALLENGE_BAND_PASSED,
+    "as_on_ball": CHALLENGE_BAND_AS_ON_BALL,
+    "merge": CHALLENGE_BAND_MERGE,
 }
 
 
@@ -3895,6 +3894,22 @@ class ChallengeSide:
             return "as_on_ball"
         return "half" if self.halved else "full"
 
+    @property
+    def skill_color(self) -> str:
+        """The colour the player card prints the skill this player adds
+        in -- offensive or defensive -- and so their badge's."""
+        return (
+            CARD_OFFENSE_COLOR
+            if self.skill_name == "Offensive"
+            else CARD_DEFENSE_COLOR
+        )
+
+    @property
+    def band_color(self) -> str:
+        """The colour of the band over this player's run: the skill's,
+        but the Oozes' green over a Merge."""
+        return CHALLENGE_MERGE_COLOR if self.merging else self.skill_color
+
 
 def join_names(names: list[str]) -> str:
     if len(names) <= 2:
@@ -3931,7 +3946,7 @@ def group_text_lines(
     A lone player carrying a halved contribution says where it came
     from, since a "+2" with no second term to read it against is a
     number out of nowhere. In a group the badges on the portraits do
-    that job -- see CHALLENGE_FULL_COLOR.
+    that job -- see CHALLENGE_BADGE_TEXT_COLOR.
 
     A player with Oozes Merging into them (`ChallengeSide.merging`)
     reads as that player still -- their modifiers and their ability --
@@ -4037,12 +4052,13 @@ def draw_contribution_badge(
     The number this player adds, on the portrait it belongs to -- every
     player on a matchup wears one (the author, 2026-09-30).
 
-    A full value is a solid disc and a halved one is an outline
-    carrying the skill it was halved from, so every term of the sum
-    below can be checked against a face -- which is the whole reason
-    the badge exists rather than a longer arithmetic line. A passed
-    defender's is a grey outline with a 0, and an Ooze Merging a solid
-    disc in the Oozes' green.
+    In the colour the player card prints that skill in, offensive or
+    defensive (`ChallengeSide.skill_color`). A full value is a solid
+    disc and a halved one an outline carrying the skill it was halved
+    from, so every term of the sum below can be checked against a face
+    -- which is the whole reason the badge exists rather than a longer
+    arithmetic line. A passed defender's is an outline with a 0, and an
+    Ooze Merging a solid disc ringed in the Oozes' green.
     """
     radius = CHALLENGE_BADGE_RADIUS
     center_x = x + CHALLENGE_PORTRAIT_SIZE - radius - CHALLENGE_BADGE_INSET
@@ -4053,39 +4069,31 @@ def draw_contribution_badge(
         center_x + radius,
         center_y + radius,
     )
-    if side.merging:
-        draw.ellipse(
-            box,
-            fill=CHALLENGE_MERGE_COLOR,
-            outline="#111820",
-            width=CHALLENGE_BADGE_OUTLINE,
-        )
-        text_color = CHALLENGE_BADGE_TEXT_COLOR
-    elif side.halved or side.passed:
-        text_color = (
-            CHALLENGE_PASSED_COLOR if side.passed else CHALLENGE_HALF_COLOR
-        )
+    color = side.skill_color
+    if side.halved or side.passed:
         draw.ellipse(
             box,
             fill="#111820",
-            outline=text_color,
+            outline=color,
             width=CHALLENGE_BADGE_OUTLINE,
         )
     else:
         draw.ellipse(
             box,
-            fill=CHALLENGE_FULL_COLOR,
-            outline="#111820",
-            width=CHALLENGE_BADGE_OUTLINE,
+            fill=color,
+            outline=CHALLENGE_MERGE_COLOR if side.merging else "#111820",
+            width=(
+                CHALLENGE_MERGE_RING if side.merging
+                else CHALLENGE_BADGE_OUTLINE
+            ),
         )
-        text_color = CHALLENGE_BADGE_TEXT_COLOR
     draw_centered_text(
         draw,
         center_x,
         center_y - 13,
         str(side.value),
         FONT_CHALLENGE_BADGE,
-        text_color,
+        CHALLENGE_BADGE_TEXT_COLOR,
     )
     if side.halved:
         draw_centered_text(
@@ -4094,7 +4102,7 @@ def draw_contribution_badge(
             center_y + radius + 2,
             f"½ of {side.skill}",
             FONT_CHALLENGE_BADGE_NOTE,
-            CHALLENGE_HALF_COLOR,
+            CHALLENGE_SKILL_COLOR,
         )
 
 
@@ -4119,17 +4127,17 @@ def draw_contribution_bands(
     if not banded:
         return
 
-    spans: list[tuple[str, float, float]] = []
+    spans: list[tuple[str, float, float, str]] = []
     for side, x in banded:
         right = x + CHALLENGE_PORTRAIT_SIZE
         if spans and spans[-1][0] == side.band:
-            band, start, _ = spans.pop()
-            spans.append((band, start, right))
+            band, start, _, color = spans.pop()
+            spans.append((band, start, right, color))
         else:
-            spans.append((side.band, x, right))
+            spans.append((side.band, x, right, side.band_color))
 
-    for band, start, end in spans:
-        color, labels = CHALLENGE_BANDS[band]
+    for band, start, end, color in spans:
+        labels = CHALLENGE_BANDS[band]
         # A label may lean into the gap beside its band, but not so far
         # that two of them touch.
         room = (end - start) + (

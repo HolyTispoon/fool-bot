@@ -1839,9 +1839,10 @@ function inkOn(hex) {
    they bring, and on one muted line the modifiers and the ability. */
 function situationSide(side) {
   const wall = side.players.length > 1;
-  /* Every face in a matchup wears what it adds, as the PNG's does; a
-     roll nobody contests (value null) wears none. An Ooze Merging wears
-     the band's own green. */
+  /* Every face in a matchup wears what it adds, as the PNG's does, in
+     the colour the player card prints that skill in; a roll nobody
+     contests (value null) wears none. An Ooze Merging is ringed in the
+     band's own green. */
   const mergeBand = side.bands.find((band) => band.merge);
   const notes = [
     ...side.modifiers.map((modifier) => h("span", {}, modifier)),
@@ -1856,7 +1857,8 @@ function situationSide(side) {
             class: player.merging ? "situation-badge merge"
               : player.passed ? "situation-badge passed"
               : player.halved ? "situation-badge halved" : "situation-badge",
-            style: player.merging && mergeBand ? `--merge: ${mergeBand.colour}` : null,
+            style: `--skill: ${player.skill_colour}`
+              + (player.merging && mergeBand ? `; --merge: ${mergeBand.colour}` : ""),
             title: player.merging ? "Merges"
               : player.passed ? "In the way, not counting"
               : player.as_on_ball ? "Counts as on the ball"
@@ -1878,7 +1880,7 @@ function situationSide(side) {
               class: band.merge ? "situation-dot merge"
                 : band.passed ? "situation-dot passed"
                 : band.halved ? "situation-dot halved" : "situation-dot",
-              style: band.merge ? `--merge: ${band.colour}` : null,
+              style: `--dot: ${band.colour}`,
               "aria-hidden": "true",
             }),
             band.text)))

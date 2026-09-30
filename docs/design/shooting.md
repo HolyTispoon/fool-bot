@@ -83,8 +83,9 @@ rounded up -- see "Score attempt" in the living rules.
   summing `defense`.**
 - **The image says which half is which.** A defence of "6 + 3 + 1" names
   no term, so each defender's portrait carries the value they
-  contribute: a solid badge on the ball, an outlined one and the skill
-  it was halved from beyond it, under a label per band. It rides on two
+  contribute, in the defensive skill's colour: a solid badge on the
+  ball, an outlined one and the skill it was halved from beyond it,
+  under a label per band. It rides on two
   optional fields of `ChallengeSide` (`contribution` and `halved`); every
   other face on either matchup wears its whole skill on a solid badge
   and no band (the author, 2026-09-30).
