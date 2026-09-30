@@ -108,6 +108,32 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
     diagnosis and somebody has to add the entry. It reads the match
     state alone, since that is the only part of a save holding player
     ids and a game's own name could carry anything.
+- **A roster change and a saved game: a loaded match is checked
+  against itself, and against today's roster only at kickoff.** Every
+  id above still names a real player when a player *moves* between
+  teams in the sheet (Viscor and Gurgoth traded Purple and Slime on
+  2026-09-30), so no migration has anything to rewrite -- yet
+  `load_match_state` used to hold each saved side to the *current*
+  roster of its team, and every in-progress game with either team
+  stopped loading the moment the import landed. The move is not the
+  save's to follow: a game keeps the side it was dealt, the way it
+  keeps its score. So `MatchState.validate(catalog, saved=True)`,
+  which `RulesEngine.load_match_state` asks, runs
+  `TeamSetup.validate_saved` -- whole, every card once, every card a
+  player the catalog knows, as many cards as the team fields -- and
+  the membership check stays in `TeamSetup.validate`, which the deal
+  (`MatchState.standard`) asks. Kept rather than dropped at load:
+  every card resolving through `player_by_id`, which is what still
+  turns an unrecorded rename into a loud `Unknown player` instead of
+  a game that loads a card nobody can draw, so the rename tables
+  above stay needed. Two readers followed from it: `team_for_player`
+  already read only the match, and `RulesEngine.roster_places` now
+  lists the side's own cards (in the catalog roster's order, then any
+  it no longer lists). The web app's team reference cards
+  (`webapp/aids.py`) show today's rosters on purpose -- a reference,
+  not the match -- so an old game's Teams tab can differ from its
+  board until it ends. Pinned by `tests/test_saved_roster_change.py`,
+  which builds the move rather than naming it.
 - **`data/d12ball_games.json` is runtime state and is deliberately untracked**, and so are the web app's `data/d12ball_web_games.json`, `data/d12ball_web_rooms.json`, `data/d12ball_web_chat.json` and `data/d12ball_web_journal.json` beside it (the rooms, chat and journal files are the web app's own -- admins, who has been in, what people said, what each game's log reads -- and never a save; see [web-app.md](web-app.md), "Rooms, seats and who holds them", "Chat" and "What a page is handed").
   The bot rewrites it on every game action. It used to be committed, which
   meant it showed as modified more or less permanently and was a standing

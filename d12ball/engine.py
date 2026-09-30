@@ -2141,7 +2141,7 @@ class RulesEngine:
             game.match_state,
             self.basic_ruleset,
         )
-        match.validate(self.player_catalog)
+        match.validate(self.player_catalog, saved=True)
         return match
 
     def side_for_user(
@@ -4593,10 +4593,24 @@ class RulesEngine:
         # holding the duplicate of a player the other side fields, and
         # its meeple is on the board under that id. See "One player,
         # both sides" in docs/design/teams-and-players.md.
+        # The side's own cards, in the catalog roster's order: a game
+        # saved before a roster change holds a player today's roster
+        # no longer lists, and still lists them, after the rest (see "A
+        # roster change and a saved game" in docs/design/gotchas.md).
+        held = (
+            setup.field_players
+            + setup.team_board.bench
+            + setup.team_board.back_bench
+        )
+        catalog_order = [
+            setup.card_id_for(player.player_id)
+            for player in self.player_catalog.teams[setup.team].players
+        ]
         roster_order = {
-            setup.card_id_for(player.player_id): index
-            for index, player in enumerate(
-                self.player_catalog.teams[setup.team].players
+            card_id: index
+            for index, card_id in enumerate(
+                [card_id for card_id in catalog_order if card_id in held]
+                + [card_id for card_id in held if card_id not in catalog_order]
             )
         }
         placed: dict[Zone, list[tuple[int, int, str]]] = {
