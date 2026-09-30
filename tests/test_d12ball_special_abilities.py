@@ -65,6 +65,7 @@ from d12ball.formatting import player_with_role
 from d12ball.game import GameMode, Team
 from d12ball.special_abilities import (
     ADVANCED_SKILL_SENTENCES,
+    CLEAR_SHOT_CONDITION,
     INFERNO_BALL_SPEED,
     SCORCHIT_FORCED_TEST_TOKENS,
     VISCOR_MERGE_BONUS,
@@ -78,6 +79,7 @@ from d12ball.special_abilities import (
     VOLTUS_OVERDRIVE_DRAIN_COST,
     QUANTOR_RUN_DRAIN,
     SpecialAbility,
+    without_shot_condition,
 )
 
 from roster import fielded_of_species
@@ -1126,7 +1128,7 @@ class ShotDefenseTests(unittest.TestCase):
         sheet's own words, not a paraphrase (the author, 2026-09-30)."""
         sentence = ENGINE.get_player_definition(self.shooter).advanced_ability
         self.assertTrue(sentence)
-        return f"Special ability: {sentence}"
+        return f"Special ability: {without_shot_condition(sentence)}"
 
     def defending(self) -> dict:
         return {
@@ -1214,6 +1216,31 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertEqual(len(passed), 1)
         self.assertEqual(passed[0].value, 0)
         self.assertEqual(passed[0].band, "passed")
+
+    def test_flickerwings_reminder_drops_the_condition(self) -> None:
+        # "It only appears when Flickerwing attempts to score" (the
+        # author, 2026-09-30): the reminder is the rest of the sheet's
+        # sentence, and the card keeps all of it.
+        flickerwing = next(
+            player_id for player_id, (ability, _) in SPECIAL_ABILITIES.items()
+            if ability == SpecialAbility.CLEAR_SHOT
+        )
+        sentence = ENGINE.special_ability_text(self.game, flickerwing)
+        self.assertTrue(sentence.startswith(CLEAR_SHOT_CONDITION))
+        self.assertEqual(
+            ENGINE.special_ability_reminder(self.game, flickerwing),
+            "Only defenders on the ball contribute their skill scores.",
+        )
+
+    def test_a_frontend_with_its_own_reminder_leaves_the_line_off(
+        self,
+    ) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            shooter, defenders, _ = score_attempt_brief(
+                ENGINE, self.match, self.game, ability_note=False,
+            )
+        self.assertNotIn(self.sheet_sentence(), shooter.modifiers)
+        self.assertTrue(any(side.passed for side in defenders))
 
     def test_the_dice_list_the_passed_at_nothing(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):

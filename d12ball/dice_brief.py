@@ -186,6 +186,7 @@ def score_attempt_brief(
     engine: RulesEngine,
     match: MatchState,
     game: Optional[D12BallGame] = None,
+    ability_note: bool = True,
 ) -> tuple[ChallengeSide, list[ChallengeSide], str]:
     """
     What the shot is made of, as `render_score_attempt` takes it: the
@@ -203,7 +204,9 @@ def score_attempt_brief(
     to somewhere else on the field. A defender Flickerwing's shot
     passes is still drawn, at 0, and the shooter carries the ability's
     line (`RulesEngine.clear_shot_note`) as a condition of this
-    attempt like the other two. Who they are is
+    attempt like the other two -- unless `ability_note` is off, for a
+    frontend that reminds of abilities its own way (the web page's
+    chip), so the ability is said once. Who they are is
     `RulesEngine.intervening_defenders`, the reading the roll adds.
     """
     shooter = engine.get_player_definition(match.active_player_id)
@@ -219,7 +222,7 @@ def score_attempt_brief(
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         modifiers.append("+3 Striker ability")
     clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
-    if clear_shot:
+    if clear_shot and ability_note:
         modifiers.append(clear_shot)
 
     return (

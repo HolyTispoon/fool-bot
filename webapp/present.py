@@ -2454,8 +2454,10 @@ def _abilities(
     2026-09-28): their species' ability where it reaches the roll and
     the game plays it, in the sheet's own short words (`species.json`,
     never shortened here), and in an advanced game their special
-    ability where it applies to the roll (`_special_bears`), as the
-    advanced face of their card prints it (`special_ability_text`).
+    ability where it applies to the roll (`_special_bears`), as a roll
+    reminds of it (`special_ability_reminder`: the card's sentence, but
+    Flickerwing's without the "When attempting to score" every roll it
+    shows at already is).
     """
     notes = []
     for kind in bearing.species:
@@ -2469,7 +2471,7 @@ def _abilities(
                 "name": entry.get("name", ""),
                 "text": entry["ability_short"],
             })
-    special = engine.special_ability_text(game, player_id)
+    special = engine.special_ability_reminder(game, player_id)
     if special and _special_bears(engine, game, player_id, bearing):
         # "Special ability", the author's word for it on the page
         # (2026-09-28); the Law calls it a special ability.
@@ -2898,8 +2900,13 @@ def _shot_situation(
     """The shooter with the modifiers this attempt earns, and every
     defender between them and the goal as one wall -- or nobody. No
     ability on either side, as the PNG leaves them off
-    (`render.render_score_attempt`)."""
-    shooter, defenders, where = score_attempt_brief(engine, match, game)
+    (`render.render_score_attempt`) -- and so no line for Flickerwing's
+    either: the page's chip under the shooter already says it
+    (`BEARINGS["shot_attack"]`), and one reminder is the author's
+    (2026-09-30)."""
+    shooter, defenders, where = score_attempt_brief(
+        engine, match, game, ability_note=False,
+    )
     defender_ids = [
         defender.player.player_id
         for defender in engine.intervening_defenders(match, game)

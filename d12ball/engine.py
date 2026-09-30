@@ -122,6 +122,7 @@ from d12ball.special_abilities import (
     VISCOR_MERGE_BONUS,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     SpecialAbility,
+    without_shot_condition,
 )
 
 
@@ -725,6 +726,22 @@ class RulesEngine:
         if not self.special_abilities_apply(game):
             return ""
         return self.get_player_definition(player_id).advanced_ability
+
+    def special_ability_reminder(
+        self, game: Optional[D12BallGame], player_id: str,
+    ) -> str:
+        """
+        A player's special ability as a roll reminds of it -- the web
+        page's chip beside a roll, and Flickerwing's line on the shot:
+        `special_ability_text`, with Flickerwing's opening condition
+        dropped, since the reminder only appears when they are
+        attempting to score (the author, 2026-09-30). The rest of the
+        sentence is the sheet's, never reworded.
+        """
+        text = self.special_ability_text(game, player_id)
+        if self.has_special_ability(game, player_id, SpecialAbility.CLEAR_SHOT):
+            return without_shot_condition(text)
+        return text
 
     def skills(
         self, game: Optional[D12BallGame], player_id: str,
@@ -2272,14 +2289,13 @@ class RulesEngine:
         add nothing. Nobody passed says nothing: the ability changed
         nothing about this shot.
 
-        **The sheet's own sentence**, as `special_ability_text` reads
-        it (the author, 2026-09-30) -- never reworded here -- after
-        "Special ability", the author's word for it on the page
-        (2026-09-28).
+        **The sheet's own sentence**, as `special_ability_reminder`
+        gives it at a shot -- never reworded here -- after "Special
+        ability", the author's word for it on the page (2026-09-28).
         """
         if not any(defender.passed for defender in defenders):
             return ""
-        text = self.special_ability_text(game, shooter_id)
+        text = self.special_ability_reminder(game, shooter_id)
         return f"Special ability: {text}" if text else ""
 
     def settled_maneuver_winner(

@@ -230,8 +230,14 @@ their own (below).
     said why (the author, 2026-09-30). So the composition draws them
     with a grey 0 under "IN THE WAY — NOT COUNTING", the dice list
     them "+0 (in the way, not counting)", and the shooter carries
-    `RulesEngine.clear_shot_note` -- the ability in the sheet's own
-    words (the author, 2026-09-30), said only when it passed somebody. The shot's `defender_count` in the event log
+    `RulesEngine.clear_shot_note`, said only when it passed somebody.
+    **One reminder, and short** (the author, 2026-09-30): it is the
+    sheet's sentence without its opening "When attempting to score,"
+    (`special_ability_reminder`, `without_shot_condition`), since it
+    only ever shows at a shot; the roster and the card keep the whole
+    sentence. The web page's chip under the shooter is that reminder,
+    so the page asks the brief for no line (`ability_note=False`);
+    Discord has no chip, so its two images carry the line. The shot's `defender_count` in the event log
     leaves the passed out, since it prices the shot. A dice line
     wider than its cell now wraps (`render.skill_test_detail_lines`),
     before its parenthesis where it can; one that fits draws as it

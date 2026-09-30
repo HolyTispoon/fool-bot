@@ -132,8 +132,8 @@ SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     ),
     "flickerwing_winger": (
         SpecialAbility.CLEAR_SHOT,
-        "When attempting a scoring opportunity, only defender on the ball "
-        "contribute their skill scores.",
+        "When attempting to score, only defenders on the ball contribute "
+        "their skill scores.",
     ),
     "inferno_defender": (
         SpecialAbility.LIGHTS_THE_BALL,
@@ -211,6 +211,27 @@ ADVANCED_SKILL_SENTENCES: dict[str, str] = {
     "ozul_playmaker": "High offensive and defensive skills.",
     "gurgoth_defender": "High offensive and defensive skills.",
 }
+
+#: The condition Flickerwing's sentence opens with. A reminder shown at
+#: a score attempt drops it -- it only appears when Flickerwing is
+#: attempting to score, so the condition says nothing there (the author,
+#: 2026-09-30). Everywhere else -- the roster, the card -- prints the
+#: sheet's whole sentence.
+CLEAR_SHOT_CONDITION = "When attempting to score, "
+
+
+def without_shot_condition(sentence: str) -> str:
+    """
+    A sentence with `CLEAR_SHOT_CONDITION` taken off its front and the
+    rest capitalised. A sentence that does not open with it comes back
+    whole, so a reworded sheet shows its own words rather than a cut
+    one; `SPECIAL_ABILITIES`' test fails on the rewording anyway.
+    """
+    if not sentence.startswith(CLEAR_SHOT_CONDITION):
+        return sentence
+    rest = sentence[len(CLEAR_SHOT_CONDITION):]
+    return rest[:1].upper() + rest[1:]
+
 
 # The numbers, beside the ones they replace in d12ball/components.py.
 SIZZIFIZIK_IGNITE_FACES = (5, 6, 7, 8)
