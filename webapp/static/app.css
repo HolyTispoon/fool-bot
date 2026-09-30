@@ -443,8 +443,8 @@ img { display: block; }
   color: var(--side);
 }
 /* What each player adds, on their face, as the PNG draws it: in the
-   colour the player card prints that skill in (--skill, handed by the
-   server), a whole skill a solid disc, a halved one or one Flickerwing's
+   colour of that skill (--skill, the advanced maneuver cards', handed
+   by the server), a whole skill a solid disc, a halved one or one Flickerwing's
    shot passes an outline, an Ooze Merging ringed in slime. */
 .situation-badge {
   position: absolute;

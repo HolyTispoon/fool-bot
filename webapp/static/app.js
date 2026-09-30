@@ -1840,7 +1840,7 @@ function inkOn(hex) {
 function situationSide(side) {
   const wall = side.players.length > 1;
   /* Every face in a matchup wears what it adds, as the PNG's does, in
-     the colour the player card prints that skill in; a roll nobody
+     the colour of that skill (the server's); a roll nobody
      contests (value null) wears none. An Ooze Merging is ringed in the
      band's own green. */
   const mergeBand = side.bands.find((band) => band.merge);

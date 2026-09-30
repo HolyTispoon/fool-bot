@@ -3771,9 +3771,13 @@ CHALLENGE_ABILITY_COLOR = "#9aa5b1"
 CHALLENGE_TOTAL_COLOR = "#ffffff"
 CHALLENGE_TOTAL_LINE_HEIGHT = 34
 # Every face on a matchup wears the number its player adds, in the
-# colour the player card prints that skill in (`CARD_OFFENSE_COLOR`,
-# `CARD_DEFENSE_COLOR`; the author, 2026-09-30) -- the same number, so
-# the same colour everywhere it is shown. How it is added is the badge's
+# colour of the skill it is: offense or defense as the advanced maneuver
+# cards are coloured (`MANEUVER_OFFENSE_COLOR_GAMBIT`,
+# `MANEUVER_DEFENSE_COLOR_GAMBIT`; the author, 2026-09-30), read by
+# `ChallengeSide.skill_color` rather than restated here. The player
+# card's crimson was tried first and was too bright on the dark image;
+# the gambit pair is the game's own muted offense and defense. How it
+# is added is the badge's
 # shape rather than a colour of its own: a whole skill a solid disc, one
 # halved (see ShotDefender) or passed by Flickerwing's shot an outline,
 # because the sum underneath is unreadable otherwise -- nothing in
@@ -3896,12 +3900,13 @@ class ChallengeSide:
 
     @property
     def skill_color(self) -> str:
-        """The colour the player card prints the skill this player adds
-        in -- offensive or defensive -- and so their badge's."""
+        """The colour of the skill this player adds -- offensive or
+        defensive, as the advanced maneuver cards are coloured -- and so
+        their badge's."""
         return (
-            CARD_OFFENSE_COLOR
+            MANEUVER_OFFENSE_COLOR_GAMBIT
             if self.skill_name == "Offensive"
-            else CARD_DEFENSE_COLOR
+            else MANEUVER_DEFENSE_COLOR_GAMBIT
         )
 
     @property
@@ -4052,8 +4057,8 @@ def draw_contribution_badge(
     The number this player adds, on the portrait it belongs to -- every
     player on a matchup wears one (the author, 2026-09-30).
 
-    In the colour the player card prints that skill in, offensive or
-    defensive (`ChallengeSide.skill_color`). A full value is a solid
+    In the colour of that skill, offensive or defensive, as the
+    advanced maneuver cards are coloured (`ChallengeSide.skill_color`). A full value is a solid
     disc and a halved one an outline carrying the skill it was halved
     from, so every term of the sum below can be checked against a face
     -- which is the whole reason the badge exists rather than a longer

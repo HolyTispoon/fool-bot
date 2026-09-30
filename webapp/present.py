@@ -2331,8 +2331,8 @@ def _situation_player(
         # An Ooze on the ball Merging into the player beside them
         # (`ChallengeSide.merging`, Law 20.5).
         "merging": False if side is None else side.merging,
-        # The badge's colour: the skill's, as the player card prints it
-        # (`ChallengeSide.skill_color`).
+        # The badge's colour: the skill's, as the advanced maneuver
+        # cards are coloured (`ChallengeSide.skill_color`).
         "skill_colour": None if side is None else side.skill_color,
         "abilities": _abilities(engine, game, player_id, bearing),
     }

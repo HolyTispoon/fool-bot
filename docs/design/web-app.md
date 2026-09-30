@@ -1829,8 +1829,9 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   its transparency, and kept with the cards: it is the catalog's and
   the same for everybody.
 - **A side reads as the PNG's does**: a badge on every face with what
-  that player adds (the author, 2026-09-30), in the colour the player
-  card prints that skill in (`skill_colour`, the server's) -- solid for
+  that player adds (the author, 2026-09-30), in the colour of that
+  skill as the advanced maneuver cards are coloured (`skill_colour`,
+  the server's `ChallengeSide.skill_color`) -- solid for
   a whole skill, outlined for a halved or passed one, ringed in slime
   for an Ooze Merging -- and for a
   wall the band key under the faces in the PNG's own labels, and the

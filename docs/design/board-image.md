@@ -321,10 +321,13 @@ where, the ball and its speed, each mark.
 `render_matchup` draws a contest about to happen, and one layout serves two:
 the maneuver challenge (one against one) and the score attempt (one against a
 wall of defenders). **Every face wears a badge with what that player adds**
-(the author, 2026-09-30), **in the colour the player card prints that skill
-in** -- `CARD_OFFENSE_COLOR` on the attack, `CARD_DEFENSE_COLOR` on the
-defence (`ChallengeSide.skill_color`), because it is the same number and the
-author wants one colour for it everywhere. How it is added is the badge's
+(the author, 2026-09-30), **in the colour of that skill, as the advanced
+maneuver cards are coloured** -- `MANEUVER_OFFENSE_COLOR_GAMBIT` on the
+attack, `MANEUVER_DEFENSE_COLOR_GAMBIT` on the defence
+(`ChallengeSide.skill_color`), read rather than restated. One colour per skill
+because the author wants offense and defense to read the same everywhere; the
+gambit pair because the player card's crimson, tried first, was ink meant for
+white and too bright as a solid disc on the dark image. How it is added is the badge's
 shape, never a colour of its own: a whole skill a solid disc, a halved or
 passed one an outline. An Ooze Merging keeps their side's colour, ringed in
 the Oozes' green, and the MERGE band is that green; every other band is the
