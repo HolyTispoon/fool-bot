@@ -396,19 +396,18 @@ offer when that is in the same result, or, when a coach answered
 everything that answer's result posts -- which is always the cards,
 so the challenger read off `result.match` there is still the one in
 place. Never while an offer is up, which is also what keeps two
-Glompexes (one per side) to one image. That held-back image carries
-a caption (`challenge_caption`; the author, 2026-09-28) -- the two
-players, then each Ooze who adds by Merge, named with their role and
-what they add, a line apiece. The Ooze is named rather than a side's
-total put beside the player rolling, which read as that player's own
-bonus (the author, 2026-09-28). Who Merges is
-`RulesEngine.merge_contributions`, the reading `merge_bonus` totals,
-asked as the skill test asks it -- since the image draws the two and
-not the Oozes beside them, and whoever just stepped on is why it
-waited. The walk-in's own image keeps no
-caption. This is the frontend's
-placement of its own picture: nothing in the model changed, and the
-web app, which lays out its own situation per prompt, is untouched.
+Glompexes (one per side) to one image. Once Glompex has stepped on he
+is drawn in it: every Ooze on the ball who adds by Merge is part of
+the maneuver, a portrait in the side they Merge into with what they
+add on a slime-ringed badge under a MERGE band, and the side's skill added
+up (`dice_brief.maneuver_challenge_brief`, `merging_sides`; the
+author, 2026-09-30). That replaced a caption (2026-09-28) that named
+each Ooze under an image that drew only the two -- the image carries
+none now. Who Merges is `RulesEngine.merge_contributions`, the
+reading `merge_bonus` totals, asked as the skill test asks it, so the
+picture's sum is the dice's. This is the frontend's placement of its
+own picture: nothing in the model's flow changed, and the web app
+draws the same brief in its own situation.
 `tests/test_d12ball_join_the_ball_image.py` covers a coach's
 answer, the AI's, and no offer at all.
 

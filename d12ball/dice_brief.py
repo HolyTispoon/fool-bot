@@ -31,7 +31,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional, Sequence
 
-from d12ball.components import MatchState, PlayerRole
+from d12ball.components import MatchState, PlayerRole, TeamSide
 from d12ball.formatting import (
     ball_space_label,
     capitalized,
@@ -100,6 +100,7 @@ def challenge_side(
     game: Optional[D12BallGame] = None,
     passed: bool = False,
     as_on_ball: bool = False,
+    merging: bool = False,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -110,7 +111,8 @@ def challenge_side(
 
     `contribution`, `halved`, `passed` and `as_on_ball` are a score
     attempt's defenders only -- everyone else adds their whole skill and is drawn
-    without a word about it. `team` is which of the player's two
+    without a word about it -- but for `merging`, an Ooze on the ball
+    whose `contribution` is what they add by Merge (`merging_sides`). `team` is which of the player's two
     rosters this match is fielding them as -- read by both callers
     off `match.team_for_player`, since a player's own definition no
     longer carries one.
@@ -141,7 +143,44 @@ def challenge_side(
         halved=halved,
         passed=passed,
         as_on_ball=as_on_ball,
+        merging=merging,
     )
+
+
+def merging_sides(
+    engine: RulesEngine,
+    match: MatchState,
+    side: TeamSide,
+    rolling: Sequence[Optional[str]],
+    skill: str,
+    game: Optional[D12BallGame] = None,
+) -> list[ChallengeSide]:
+    """
+    Every Ooze on the ball Merging into `side` (Law 20.5), as a matchup
+    draws them: part of the side, beside the player they merge into,
+    with what each adds as their `contribution`. Who Merges and for how
+    much is `RulesEngine.merge_contributions`, asked as the roll asks
+    it -- `rolling` struck out, `skill` "offense" on the attack and
+    "defense" on the defence -- so the picture's sum is the dice's.
+    Glompex once he has stepped on is one of them, and so is every
+    other Ooze standing there.
+    """
+    if game is None:
+        return []
+    return [
+        challenge_side(
+            engine,
+            player_id,
+            match.team_for_player(player_id),
+            attacking=skill == "offense",
+            contribution=value,
+            game=game,
+            merging=True,
+        )
+        for player_id, value in engine.merge_contributions(
+            game, match, side, rolling, skill,
+        )
+    ]
 
 
 def maneuver_challenge_brief(
@@ -149,7 +188,7 @@ def maneuver_challenge_brief(
     match: MatchState,
     defender_id: str,
     game: Optional[D12BallGame] = None,
-) -> tuple[ChallengeSide, ChallengeSide, str]:
+) -> tuple[list[ChallengeSide], list[ChallengeSide], str]:
     """
     The matchup about to be contested, as `render_maneuver_challenge`
     takes it: the player on the ball, the challenger `defender_id`
@@ -158,25 +197,42 @@ def maneuver_challenge_brief(
     abilities are what a coach weighs while choosing a maneuver, and
     neither was in the text.
 
+    Each side is a list: its player first, then every Ooze on the
+    ball Merging into them (`merging_sides`), because an Ooze who adds
+    to the skill test is part of the maneuver -- Glompex once he has
+    joined, and any other (the author, 2026-09-30).
+
     The challenger is handed in rather than read off the match: by the
     time a frontend draws it the match may have moved on, and the walk-in
     that named them carries the id (`Narration.arguments`).
     """
+    rolling = (match.active_player_id, defender_id)
     return (
-        challenge_side(
-            engine,
-            match.active_player_id,
-            match.team_for_player(match.active_player_id),
-            attacking=True,
-            game=game,
-        ),
-        challenge_side(
-            engine,
-            defender_id,
-            match.team_for_player(defender_id),
-            attacking=False,
-            game=game,
-        ),
+        [
+            challenge_side(
+                engine,
+                match.active_player_id,
+                match.team_for_player(match.active_player_id),
+                attacking=True,
+                game=game,
+            ),
+            *merging_sides(
+                engine, match, match.ball.possession, rolling, "offense", game,
+            ),
+        ],
+        [
+            challenge_side(
+                engine,
+                defender_id,
+                match.team_for_player(defender_id),
+                attacking=False,
+                game=game,
+            ),
+            *merging_sides(
+                engine, match, match.defending_side(), rolling, "defense",
+                game,
+            ),
+        ],
         capitalized(
             f"{ball_space_label(match)}"
             f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
@@ -189,11 +245,14 @@ def score_attempt_brief(
     match: MatchState,
     game: Optional[D12BallGame] = None,
     ability_note: bool = True,
-) -> tuple[ChallengeSide, list[ChallengeSide], str]:
+) -> tuple[list[ChallengeSide], list[ChallengeSide], str]:
     """
     What the shot is made of, as `render_score_attempt` takes it: the
     shooter with the modifiers this particular attempt earns them, and
-    every defender between them and the goal.
+    every defender between them and the goal. The attack is a list:
+    the shooter, then any Ooze on the ball Merging into the attack --
+    the attack alone, since the wall already counts a defending one
+    (Law 20.5.2; `merging_sides`).
 
     The two modifiers are listed on the shooter rather than folded
     into their skill, because both are conditions of this attempt
@@ -228,14 +287,20 @@ def score_attempt_brief(
         modifiers.append(clear_shot)
 
     return (
-        challenge_side(
-            engine,
-            shooter.player_id,
-            match.team_for_player(shooter.player_id),
-            attacking=True,
-            game=game,
-            modifiers=tuple(modifiers),
-        ),
+        [
+            challenge_side(
+                engine,
+                shooter.player_id,
+                match.team_for_player(shooter.player_id),
+                attacking=True,
+                game=game,
+                modifiers=tuple(modifiers),
+            ),
+            *merging_sides(
+                engine, match, match.ball.possession, (shooter.player_id,),
+                "offense", game,
+            ),
+        ],
         [
             challenge_side(
                 engine,

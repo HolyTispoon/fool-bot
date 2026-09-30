@@ -1210,7 +1210,7 @@ class ShotDefenseTests(unittest.TestCase):
 
     def test_the_shot_announces_the_ability_and_the_passed(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-            shooter, defenders, _ = score_attempt_brief(
+            [shooter, *_], defenders, _ = score_attempt_brief(
                 ENGINE, self.match, self.game,
             )
         self.assertIn(self.sheet_sentence(), shooter.modifiers)
@@ -1252,7 +1252,7 @@ class ShotDefenseTests(unittest.TestCase):
         self,
     ) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-            shooter, defenders, _ = score_attempt_brief(
+            [shooter, *_], defenders, _ = score_attempt_brief(
                 ENGINE, self.match, self.game, ability_note=False,
             )
         self.assertNotIn(self.sheet_sentence(), shooter.modifiers)

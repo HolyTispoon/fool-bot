@@ -13,6 +13,7 @@ roll (ScoreAttemptView.roll), the composition image
 """
 
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest import mock
 
@@ -35,6 +36,7 @@ from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
     group_text_lines,
+    render_maneuver_challenge,
     render_score_attempt,
 )
 from save_patches import suppressed_cog_saves
@@ -445,6 +447,34 @@ class ShotImageTests(unittest.TestCase):
             [text for text, _, _, _ in lines],
         )
 
+    def test_an_ooze_merging_is_added_to_the_player_it_joins(self) -> None:
+        # Law 20.5: the Ooze is part of the side (the author,
+        # 2026-09-30) -- the player still reads as themselves, ability
+        # and all, with the side's skill added up.
+        lead = ChallengeSide(
+            name="Handler", role="PM", team_color=TEAM_COLORS[Team.TEAL],
+            team_label="Teal", skill_name="Offensive", skill=4,
+            ability="Dribble for 1 additional space",
+        )
+        ooze = replace(
+            self.side("Ooze", 3, 3, False), skill_name="Offensive",
+            merging=True,
+        )
+        texts = [
+            text for text, _, _, _ in group_text_lines(
+                [lead, ooze], with_ability=True,
+            )
+        ]
+
+        self.assertIn("Offensive skill: 4 + 3 = 7", texts)
+        self.assertIn("Dribble for 1 additional space", texts)
+        self.assertEqual(ooze.band, "merge")
+        image = render_maneuver_challenge(
+            [lead, ooze], [self.side("Defender A", 6, 6, False)],
+            location="Space 4 — Midfield",
+        )
+        self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
+
     def test_the_image_renders_with_both_bands(self) -> None:
         shooter = ChallengeSide(
             name="Shooter",
@@ -458,7 +488,7 @@ class ShotImageTests(unittest.TestCase):
         )
 
         image = render_score_attempt(
-            shooter,
+            [shooter],
             [
                 self.side("Defender A", 6, 6, False),
                 self.side("Defender B", 5, 3, True),
@@ -479,7 +509,7 @@ class ShotImageTests(unittest.TestCase):
             ability="+3 for scoring off setup",
         )
 
-        image = render_score_attempt(shooter, [], location="V1 → Teal goal")
+        image = render_score_attempt([shooter], [], location="V1 → Teal goal")
 
         self.assertTrue(image.getvalue().startswith(b"\x89PNG"))
 

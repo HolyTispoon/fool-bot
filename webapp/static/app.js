@@ -1834,11 +1834,16 @@ function inkOn(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1e1f22" : "#ffffff";
 }
 
-/* One side of the situation: the portraits (a badge on each when a
-   wall's numbers are added up) beside the team, who they are, the skill
+/* One side of the situation: the portraits (a badge on each with what
+   that player adds) beside the team, who they are, the skill
    they bring, and on one muted line the modifiers and the ability. */
 function situationSide(side) {
   const wall = side.players.length > 1;
+  /* Every face in a matchup wears what it adds, as the PNG's does, in
+     the colour of that skill (the server's); a roll nobody
+     contests (value null) wears none. An Ooze Merging is ringed in the
+     band's own green. */
+  const mergeBand = side.bands.find((band) => band.merge);
   const notes = [
     ...side.modifiers.map((modifier) => h("span", {}, modifier)),
     side.ability ? h("span", { class: "situation-ability" }, side.ability) : null,
@@ -1848,10 +1853,14 @@ function situationSide(side) {
       ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
         side.players.map((player) => h("div", { class: "situation-portrait" },
           h("img", { src: player.portrait, alt: "", loading: "lazy" }),
-          wall ? h("span", {
-            class: player.passed ? "situation-badge passed"
+          player.value !== null && player.value !== undefined ? h("span", {
+            class: player.merging ? "situation-badge merge"
+              : player.passed ? "situation-badge passed"
               : player.halved ? "situation-badge halved" : "situation-badge",
-            title: player.passed ? "In the way, not counting"
+            style: `--skill: ${player.skill_colour}`
+              + (player.merging && mergeBand ? `; --merge: ${mergeBand.colour}` : ""),
+            title: player.merging ? "Merges"
+              : player.passed ? "In the way, not counting"
               : player.as_on_ball ? "Counts as on the ball"
               : player.halved ? `Half of ${player.skill}` : null,
           }, String(player.value)) : null)))
@@ -1868,8 +1877,10 @@ function situationSide(side) {
         ? h("div", { class: "situation-bands" },
           side.bands.map((band) => h("span", { class: "situation-band" },
             h("span", {
-              class: band.passed ? "situation-dot passed"
+              class: band.merge ? "situation-dot merge"
+                : band.passed ? "situation-dot passed"
                 : band.halved ? "situation-dot halved" : "situation-dot",
+              style: `--dot: ${band.colour}`,
               "aria-hidden": "true",
             }),
             band.text)))

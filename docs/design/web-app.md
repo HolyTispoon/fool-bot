@@ -1749,10 +1749,13 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     which roll. Mind Pull is not repeated on its own window, and Slimey is
     not shown on an Ooze who is rolling, since Merge is what the
     *other* Oozes on the ball add;
-  - **Merge as the number it adds**: `merge_bonus`'s own lines ("+6
-    Acidel (Merge)") in the side's modifiers, attack and defence in a
-    skill test and the attack alone in a shot (Law 20.5), so the
-    window's numbers are the dice's;
+  - **Merge as part of the side**: each Ooze on the ball who adds by
+    Merge is a portrait beside the player they Merge into, with what
+    they add on a slime-ringed badge, a MERGE band, and the side's skill
+    added up -- attack and defence in a skill test or a contest, the
+    attack alone in a shot (Law 20.5) -- off the brief the PNG is
+    drawn from (`dice_brief.merging_sides`; the author, 2026-09-30),
+    so the window's numbers are the dice's;
   - **in an advanced game, a special ability where it applies to the
     roll** -- labelled "Special ability" on the page, the author's word
     (2026-09-28), where the Law says special ability -- (the author, 2026-09-28: "only show special abilities that
@@ -1830,9 +1833,15 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   `GET /api/game/{id}/portrait/{card_id}.png` fitted into 240px with
   its transparency, and kept with the cards: it is the catalog's and
   the same for everybody.
-- **A wall reads as the PNG's does**: a badge on each face, solid for
-  a whole skill and outlined for a halved one, the band key under the
-  faces in the PNG's own labels, and the contributions added up.
+- **A side reads as the PNG's does**: a badge on every face with what
+  that player adds (the author, 2026-09-30), in the colour of that
+  skill as the advanced maneuver cards are coloured (`skill_colour`,
+  the server's `ChallengeSide.skill_color`) -- solid for
+  a whole skill, outlined for a halved or passed one, ringed in slime
+  for an Ooze Merging -- and for a
+  wall the band key under the faces in the PNG's own labels, and the
+  contributions added up. A roll nobody contests carries no value, and
+  no badge.
 - **Deliberately not the field strip or the coach's half-field**
   (2026-09-26, the author): coaches can see the field, since the
   page's board is beside the prompt. The cog draws both because a

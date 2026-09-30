@@ -1297,7 +1297,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         # same one.
         self.assertEqual(watcher["prompt"]["situation"], situation)
 
-        offense, defense, where = maneuver_challenge_brief(
+        [offense], [defense], where = maneuver_challenge_brief(
             ENGINE, match, match.challenger_id, game,
         )
         attack, defence = situation["sides"]
@@ -1329,7 +1329,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         state = await self.get_state(client, game, as_coach(STRANGER))
         situation = state["prompt"]["situation"]
 
-        shooter, defenders, where = score_attempt_brief(ENGINE, match, game)
+        [shooter], defenders, where = score_attempt_brief(ENGINE, match, game)
         attack, defence = situation["sides"]
         self.assertEqual(situation["where"], where)
         self.assertEqual(self.names(attack), [match.active_player_id])
@@ -1572,9 +1572,11 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 for text in texts:
                     self.assertEqual("In a skill test" in text, skill_test)
 
-    def test_merge_is_the_model_s_own_line_in_the_modifiers(self) -> None:
-        # An Ooze of each side stood on the ball, neither rolling: what
-        # each adds is `merge_bonus`'s line, as the dice list it.
+    def test_an_ooze_merging_is_drawn_in_the_side(self) -> None:
+        # An Ooze of each side stood on the ball, neither rolling: each
+        # is part of the side they Merge into (the author, 2026-09-30),
+        # after its player, with what `merge_contributions` says they
+        # add -- the dice's number -- and the side's skill added up.
         from d12ball.components import SPECIES_OOZE
 
         def oozes_on_the_ball(match):
@@ -1596,15 +1598,37 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         match, game = fixture.match, fixture.game
         rolling = (match.active_player_id, match.challenger_id)
         attack, defence = got["sides"]
-        for side, team_side, skill in (
-            (attack, match.ball.possession, "offense"),
-            (defence, match.defending_side(), "defense"),
+        for side, lead, team_side, skill in (
+            (attack, match.active_player_id, match.ball.possession,
+             "offense"),
+            (defence, match.challenger_id, match.defending_side(),
+             "defense"),
         ):
-            _, lines, _ = ENGINE.merge_bonus(
+            merging = ENGINE.merge_contributions(
                 game, match, team_side, rolling, skill,
             )
-            self.assertTrue(lines)
-            self.assertEqual(side["modifiers"][-len(lines):], lines)
+            self.assertTrue(merging)
+            self.assertEqual(
+                [
+                    (player["id"], player["merging"], player["value"])
+                    for player in side["players"][1:]
+                ],
+                [(ooze, True, value) for ooze, value in merging],
+            )
+            self.assertEqual(side["players"][0]["id"], lead)
+            self.assertFalse(side["players"][0]["merging"])
+            self.assertTrue(
+                side["skill"].endswith(
+                    f"= {sum(p['value'] for p in side['players'])}",
+                ),
+            )
+            self.assertEqual(
+                [band["text"] for band in side["bands"]], ["MERGE"],
+            )
+            # Said once: not a modifier line as well.
+            self.assertFalse(
+                any("(Merge)" in line for line in side["modifiers"]),
+            )
 
     def test_a_special_ability_is_named_only_where_it_bears(self) -> None:
         # In an advanced game only, and only the abilities that apply to

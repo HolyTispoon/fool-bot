@@ -442,9 +442,10 @@ img { display: block; }
   text-transform: uppercase;
   color: var(--side);
 }
-/* A wall's numbers on the faces they belong to, as the PNG draws them:
-   a whole skill a solid disc, a halved one an outline, one Flickerwing's
-   shot passes a grey outline. */
+/* What each player adds, on their face, as the PNG draws it: in the
+   colour of that skill (--skill, the advanced maneuver cards', handed
+   by the server), a whole skill a solid disc, a halved one or one Flickerwing's
+   shot passes an outline, an Ooze Merging ringed in slime. */
 .situation-badge {
   position: absolute;
   right: -3px;
@@ -458,17 +459,20 @@ img { display: block; }
   justify-content: center;
   font-weight: 800;
   font-size: 11px;
-  background: #f0b429;
-  color: var(--deep);
+  background: var(--skill);
+  color: #ffffff;
   border: 1.5px solid var(--page);
 }
-.situation-badge.halved { background: var(--page); color: #7fa8c9; border-color: #7fa8c9; }
-.situation-badge.passed { background: var(--page); color: #8b96a2; border-color: #8b96a2; }
+.situation-badge.halved,
+.situation-badge.passed { background: var(--page); border-color: var(--skill); }
+/* An Ooze Merging into the player beside them, in the colour the
+   server hands with the band (the renderer's CHALLENGE_MERGE_COLOR). */
+.situation-badge.merge { border: 2px solid var(--merge); }
 .situation-bands { display: flex; flex-wrap: wrap; gap: 0 10px; }
 .situation-band { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.3px; color: var(--muted); }
-.situation-dot { width: 8px; height: 8px; border-radius: 50%; background: #f0b429; }
-.situation-dot.halved { background: none; border: 1.5px solid #7fa8c9; }
-.situation-dot.passed { background: none; border: 1.5px solid #8b96a2; }
+.situation-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.situation-dot.halved { background: none; border: 1.5px solid var(--dot); }
+.situation-dot.passed { background: none; border: 1.5px solid var(--dot); }
 .situation-names { display: flex; flex-wrap: wrap; gap: 0 8px; }
 .situation-name { font-size: 14px; font-weight: 700; color: var(--strong); }
 .situation-skill { font-family: "Board", serif; font-size: 14px; font-weight: 700; color: var(--strong); }
