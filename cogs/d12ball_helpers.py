@@ -69,6 +69,7 @@ from d12ball.game import (
     GAME_COINS,
     GameMode,
     Team,
+    coin_face_name,
     paired_team,
     team_display_name,
 )
@@ -93,13 +94,12 @@ PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 # and `player_with_role` is the only thing that should be building
 # a name out of it -- see "Naming a player" in docs/design/naming-and-wording.md.
 COIN_EMOJI_NAMES = {
-    CoinFace.FORTUNE: "3_gold_fortune",
-    CoinFace.DOOM: "3_gold_doom",
+    face: coin_face_name(DEFAULT_COIN, face) for face in CoinFace
 }
 #: Every face of every coin a game can be played with (`GAME_COINS`),
-#: as the application's emoji are named: `<coin>_<face>`.
+#: as the application's emoji are named (`coin_face_name`).
 GAME_COIN_EMOJI_NAMES: tuple[str, ...] = tuple(
-    f"{coin}_{face.value}" for coin in GAME_COINS for face in CoinFace
+    coin_face_name(coin, face) for coin in GAME_COINS for face in CoinFace
 )
 COIN_EMOJI_FALLBACK = "🪙"
 FULL_IMAGE_BUTTON_LABEL = "View full image"
@@ -1374,7 +1374,7 @@ def format_coin_emoji(
         return COIN_EMOJI_FALLBACK
 
     return coin_emojis.get(
-        f"{coin}_{CoinFace(face).value}", COIN_EMOJI_FALLBACK,
+        coin_face_name(coin, face), COIN_EMOJI_FALLBACK,
     )
 
 

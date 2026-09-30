@@ -254,17 +254,17 @@ FOLLY_STILL = (
     (ORANGE.doom, 360, (500, 20)),
     (PURPLE.fortune, 360, (780, 20)),
     (PURPLE.doom, 360, (980, 0)),
-    ("3_bronze_fortune.png", (400, 375), 115, 8),
-    ("1_gold_doom.png", (1200, 375), 115, -6),
-    ("3_gold_fortune.png", (455, 495), 120, -7),
-    ("3_silver_doom.png", (1140, 495), 120, 6),
+    ("coin_bronze_3_fortune.png", (400, 375), 115, 8),
+    ("coin_gold_1_doom.png", (1200, 375), 115, -6),
+    ("coin_gold_3_fortune.png", (455, 495), 120, -7),
+    ("coin_silver_3_doom.png", (1140, 495), 120, 6),
     (TEAL.fortune, 410, (470, 215)),
     (TEAL.doom, 410, (720, 235)),
-    ("1_silver_fortune.png", (560, 590), 110, 5),
-    ("1_bronze_doom.png", (1045, 590), 110, -5),
+    ("coin_silver_1_fortune.png", (560, 590), 110, 5),
+    ("coin_bronze_1_doom.png", (1045, 590), 110, -5),
 )
 # The two coins at the foot of the box in the studio's hero.
-HERO_COINS = ("1_gold_fortune.png", "1_gold_doom.png")
+HERO_COINS = ("coin_gold_1_fortune.png", "coin_gold_1_doom.png")
 
 NUMBER_WORDS = (
     "no", "one", "two", "three", "four", "five", "six", "seven", "eight",
