@@ -39,7 +39,9 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.formatting import role_initials
-from d12ball.game import D12BallGame, GameStatus, team_display_name
+from d12ball.game import (
+    D12BallGame, GameStatus, coin_face_name, team_display_name,
+)
 from d12ball.render import (
     BALL_RADIUS,
     FONT_SMALL,
@@ -228,7 +230,7 @@ def jumbotron(
         "note": clock_note(game, match),
         "coin": (
             None if holder is None
-            else f"/emoji/{game.game_coin}_fortune.png"
+            else f"/emoji/{coin_face_name(game.game_coin, 'fortune')}.png"
         ),
     }
 

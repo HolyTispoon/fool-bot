@@ -43,8 +43,8 @@ class CoinsTests(unittest.TestCase):
 
         self.assertEqual(len(COINS), 6)
         self.assertEqual(len(names), 12)
-        self.assertIn("1_bronze_fortune", names)
-        self.assertIn("3_gold_doom", names)
+        self.assertIn("coin_bronze_1_fortune", names)
+        self.assertIn("coin_gold_3_doom", names)
 
     def test_coin_keys_and_labels_cover_all_six_options(self):
         self.assertEqual(
@@ -89,8 +89,8 @@ class CoinsTests(unittest.TestCase):
     def test_load_coin_emojis_finds_all_matching_application_emojis(self):
         emojis = [
             FakeEmoji(
-                "1_bronze_fortune",
-                "<:1_bronze_fortune:1532254775624601701>",
+                "coin_bronze_1_fortune",
+                "<:coin_bronze_1_fortune:1532254775624601701>",
             ),
             FakeEmoji("not_a_coin", "<:not_a_coin:1532254775624601702>"),
         ]
@@ -100,15 +100,15 @@ class CoinsTests(unittest.TestCase):
         self.assertEqual(
             result,
             {
-                "1_bronze_fortune":
-                    "<:1_bronze_fortune:1532254775624601701>"
+                "coin_bronze_1_fortune":
+                    "<:coin_bronze_1_fortune:1532254775624601701>"
             },
         )
 
     def test_flip_with_selected_coin_sends_emoji_and_result_separately(self):
         coin_emojis = {
-            "1_bronze_fortune":
-                "<:1_bronze_fortune:1532254775624601701>"
+            "coin_bronze_1_fortune":
+                "<:coin_bronze_1_fortune:1532254775624601701>"
         }
         cog = SimpleNamespace(
             coin_emojis=coin_emojis,
@@ -125,7 +125,7 @@ class CoinsTests(unittest.TestCase):
             )
 
         interaction.response.send_message.assert_awaited_once_with(
-            "<:1_bronze_fortune:1532254775624601701>"
+            "<:coin_bronze_1_fortune:1532254775624601701>"
         )
         interaction.followup.send.assert_awaited_once_with(
             "Your coin shows Fortune! You have won the coin toss!"
@@ -133,7 +133,7 @@ class CoinsTests(unittest.TestCase):
 
     def test_flip_without_coin_randomly_selects_a_coin(self):
         coin_emojis = {
-            "3_gold_doom": "<:3_gold_doom:1532254775624601702>"
+            "coin_gold_3_doom": "<:coin_gold_3_doom:1532254775624601702>"
         }
         cog = SimpleNamespace(
             coin_emojis=coin_emojis,
@@ -151,7 +151,7 @@ class CoinsTests(unittest.TestCase):
             asyncio.run(CoinCommands.flip.callback(cog, interaction, None))
 
         interaction.response.send_message.assert_awaited_once_with(
-            "<:3_gold_doom:1532254775624601702>"
+            "<:coin_gold_3_doom:1532254775624601702>"
         )
         interaction.followup.send.assert_awaited_once_with(
             "Your coin shows Doom! You have lost the coin toss."

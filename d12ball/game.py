@@ -196,8 +196,10 @@ class CoinFace(str, Enum):
     DOOM = "doom"
 
 
-#: The six Fortune and Doom coins, by the key their two faces' emoji
-#: are filed under (`<key>_fortune`, `<key>_doom`). **A game is played
+#: The six Fortune and Doom coins, by key, `<value>_<metal>`. The key
+#: is saved on the game record, so it never follows a rename of the
+#: art: a face's picture and emoji are named by `coin_face_name`.
+#: **A game is played
 #: with one of them**, drawn when it is created and kept to the end
 #: (the author, 2026-09-28): it is the coin the toss is flipped with
 #: and the coin a gambit hands across (Law 3.1.4, 19.3).
@@ -208,6 +210,17 @@ GAME_COINS: tuple[str, ...] = (
 #: The coin a game drawn before the coin was per game shows -- the one
 #: every toss used to be flipped with.
 DEFAULT_COIN = "3_gold"
+
+
+def coin_face_name(coin: str, face: CoinFace | str) -> str:
+    """
+    What one face of a coin is called, as the art is filed:
+    `coin_<metal>_<value>_<face>`, `coin_gold_3_fortune`. Both the
+    picture in `d12ball/images/emoji/` and the application emoji the
+    bot posts carry it. `coin` is a `GAME_COINS` key.
+    """
+    value, metal = coin.split("_", 1)
+    return f"coin_{metal}_{value}_{CoinFace(face).value}"
 
 
 #: The boards a game may be played on. The six-space board was

@@ -586,7 +586,7 @@ benches only repeated the menu).
   model's `warning` (`configure_warning`: turning the test game on with
   Dinky seated kicks Dinky), and the page confirms it before sending.
 - **The question box** asks one thing at a time: the coin -- the
-  bot's own gold coin (the `3_gold_fortune` and `3_gold_doom` emoji,
+  bot's own gold coin (the `coin_gold_3_fortune` and `coin_gold_3_doom` emoji,
   served) -- dark with `start_lobby`'s refusal until both seats are
   held and every side a person plays has a team, and clicked to flip.
   **There is no whistle: the coin starts the game** (the author,

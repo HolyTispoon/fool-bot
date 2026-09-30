@@ -34,7 +34,7 @@ class Coin:
         return f"{self.value}_{self.material}"
 
     def emoji_name(self, face: CoinFace) -> str:
-        return f"{self.value}_{self.material}_{face.value}"
+        return f"coin_{self.material}_{self.value}_{face.value}"
 
 
 COINS = tuple(

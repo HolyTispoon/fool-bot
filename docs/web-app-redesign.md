@@ -193,7 +193,7 @@ Hard rules for every step of this redesign:
 - Every image the page needs is the model's own, served by
   webapp/pictures.py: player cards, maneuver cards, the emoji
   (exhaust, exhausted, injured, drain, drained, damaged), the coins
-  (3_gold_fortune, 3_gold_doom), the species icons through
+  (coin_gold_3_fortune, coin_gold_3_doom), the species icons through
   render.species_icon. Draw nothing twice.
 - The design is the canvas at https://claude.ai/artifact/Mq7Mw592x9WYKjrN3Muo9V.
   Match it; where the prompt below and the canvas disagree, the prompt

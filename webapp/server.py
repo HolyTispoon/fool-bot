@@ -79,6 +79,7 @@ from d12ball.game import (
     HomeChoice,
     RuleRefusal,
     Team,
+    coin_face_name,
     team_display_name,
 )
 from d12ball.dice_brief import maneuver_challenge_brief
@@ -2327,7 +2328,7 @@ class WebApp:
                 # uploads) -- one of six, drawn when the game was made
                 # -- for the page to draw rather than redraw.
                 "faces": {
-                    face: f"/emoji/{game.game_coin}_{face}.png"
+                    face: f"/emoji/{coin_face_name(game.game_coin, face)}.png"
                     for face in ("fortune", "doom")
                 },
                 "flipped": game.coin_flipped,

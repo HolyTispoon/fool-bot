@@ -178,8 +178,8 @@ def build_coin_emojis() -> dict:
     """The gold 3's two faces as the cog holds them -- by emoji name,
     since a game is played with any of the six coins."""
     return {
-        "3_gold_fortune": f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
-        "3_gold_doom": f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
+        "coin_gold_3_fortune": f"<:coin_gold_3_fortune:{FORTUNE_EMOJI_ID}>",
+        "coin_gold_3_doom": f"<:coin_gold_3_doom:{DOOM_EMOJI_ID}>",
     }
 
 
@@ -1003,11 +1003,11 @@ class D12BallCoinEmojiTests(unittest.TestCase):
     def test_the_names_match_the_uploaded_emoji(self) -> None:
         self.assertEqual(
             COIN_EMOJI_NAMES[CoinFace.FORTUNE],
-            "3_gold_fortune",
+            "coin_gold_3_fortune",
         )
         self.assertEqual(
             COIN_EMOJI_NAMES[CoinFace.DOOM],
-            "3_gold_doom",
+            "coin_gold_3_doom",
         )
 
     def test_application_emoji_are_looked_up_by_name(self) -> None:
@@ -1015,15 +1015,15 @@ class D12BallCoinEmojiTests(unittest.TestCase):
             [
                 discord.PartialEmoji(name="Exhaust", id=100),
                 discord.PartialEmoji(
-                    name="1_gold_fortune",
+                    name="coin_gold_1_fortune",
                     id=1532254775624601700,
                 ),
                 discord.PartialEmoji(
-                    name="3_gold_fortune",
+                    name="coin_gold_3_fortune",
                     id=FORTUNE_EMOJI_ID,
                 ),
                 discord.PartialEmoji(
-                    name="3_gold_doom",
+                    name="coin_gold_3_doom",
                     id=DOOM_EMOJI_ID,
                 ),
             ]
@@ -1034,18 +1034,18 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         # Every coin's faces are kept, since a game may be played with
         # any of the six; the one with no emoji is left out.
         self.assertEqual(coin_emojis, {
-            "1_gold_fortune": "<:1_gold_fortune:1532254775624601700>",
+            "coin_gold_1_fortune": "<:coin_gold_1_fortune:1532254775624601700>",
             **build_coin_emojis(),
         })
 
     def test_a_game_s_own_coin_is_the_one_drawn(self) -> None:
         coin_emojis = {
-            "1_silver_doom": f"<:1_silver_doom:{DOOM_EMOJI_ID}>",
+            "coin_silver_1_doom": f"<:coin_silver_1_doom:{DOOM_EMOJI_ID}>",
             **build_coin_emojis(),
         }
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.DOOM, "1_silver"),
-            f"<:1_silver_doom:{DOOM_EMOJI_ID}>",
+            f"<:coin_silver_1_doom:{DOOM_EMOJI_ID}>",
         )
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.FORTUNE, "1_silver"),
@@ -1067,15 +1067,15 @@ class D12BallCoinEmojiTests(unittest.TestCase):
 
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.FORTUNE),
-            f"<:3_gold_fortune:{FORTUNE_EMOJI_ID}>",
+            f"<:coin_gold_3_fortune:{FORTUNE_EMOJI_ID}>",
         )
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.DOOM),
-            f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
+            f"<:coin_gold_3_doom:{DOOM_EMOJI_ID}>",
         )
 
     def test_a_missing_emoji_falls_back_to_a_plain_coin(self) -> None:
-        only_doom = {"3_gold_doom": f"<:3_gold_doom:{DOOM_EMOJI_ID}>"}
+        only_doom = {"coin_gold_3_doom": f"<:coin_gold_3_doom:{DOOM_EMOJI_ID}>"}
 
         for coin_emojis in ({}, None, only_doom):
             with self.subTest(coin_emojis=coin_emojis):
@@ -1123,7 +1123,7 @@ class D12BallCoinEmojiTests(unittest.TestCase):
 
         self.assertEqual(
             format_coin_emoji(coin_emojis, CoinFace.DOOM),
-            f"<:3_gold_doom:{DOOM_EMOJI_ID}>",
+            f"<:coin_gold_3_doom:{DOOM_EMOJI_ID}>",
         )
         self.assertEqual(
             format_coin_emoji({}, CoinFace.DOOM),
@@ -1141,7 +1141,7 @@ class D12BallCoinEmojiTests(unittest.TestCase):
         # <:name:id> text.
         self.assertEqual(
             view.flip_button.to_component_dict()["emoji"],
-            {"id": FORTUNE_EMOJI_ID, "name": "3_gold_fortune"},
+            {"id": FORTUNE_EMOJI_ID, "name": "coin_gold_3_fortune"},
         )
 
     def test_the_flip_button_falls_back_to_a_plain_coin(self) -> None:
@@ -1180,7 +1180,7 @@ class D12BallConditionEmojiTests(unittest.TestCase):
                 discord.PartialEmoji(name="exhaust", id=100),
                 discord.PartialEmoji(name="exhausted", id=101),
                 discord.PartialEmoji(
-                    name="3_gold_fortune",
+                    name="coin_gold_3_fortune",
                     id=FORTUNE_EMOJI_ID,
                 ),
             ]
