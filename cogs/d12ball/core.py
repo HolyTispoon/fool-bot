@@ -1553,9 +1553,6 @@ class CoreMixin:
                 challenger_id,
                 "",
                 game,
-                caption=self.challenge_caption(
-                    game, result.match, challenger_id,
-                ),
             )
 
         if image_after == -1:

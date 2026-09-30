@@ -3814,12 +3814,19 @@ CHALLENGE_BAND_AS_ON_BALL = (
     "AS ON THE BALL",
     "FULL",
 )
+# An Ooze on the ball who is not rolling, adding by Merge (Law 20.5)
+# beside the player they merge into: drawn as part of the side rather
+# than only totalled, in the Oozes' own green -- the colour the dice
+# image draws Merge in (`MERGE_AURA_COLOR`).
+CHALLENGE_MERGE_COLOR = MERGE_AURA_COLOR
+CHALLENGE_BAND_MERGE = ("MERGE",)
 #: Each run's colour and labels, by `ChallengeSide.band`.
 CHALLENGE_BANDS = {
     "full": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_FULL),
     "half": (CHALLENGE_HALF_COLOR, CHALLENGE_BAND_HALF),
     "passed": (CHALLENGE_PASSED_COLOR, CHALLENGE_BAND_PASSED),
     "as_on_ball": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_AS_ON_BALL),
+    "merge": (CHALLENGE_MERGE_COLOR, CHALLENGE_BAND_MERGE),
 }
 
 
@@ -3848,6 +3855,12 @@ class ChallengeSide:
     Flickerwing's shot passes: in the way, contributing 0 (see
     ShotDefender). `as_on_ball` is a Goopkeeper beyond the ball,
     whole because their ability counts them as on it.
+
+    `merging` is an Ooze on the ball who is not rolling and adds by
+    Merge (Law 20.5), drawn beside the player they merge into with
+    `contribution` the number they add -- their skill, and Viscor's 3
+    more. It is always the lead player's side, never a wall of its own:
+    the group reads as the lead with the Oozes added.
     """
 
     name: str
@@ -3862,6 +3875,7 @@ class ChallengeSide:
     halved: bool = False
     passed: bool = False
     as_on_ball: bool = False
+    merging: bool = False
 
     @property
     def value(self) -> int:
@@ -3871,7 +3885,9 @@ class ChallengeSide:
     @property
     def band(self) -> str:
         """Which run of a wall this player's badge belongs to: "full",
-        "half", "passed" or "as_on_ball"."""
+        "half", "passed", "as_on_ball" or "merge"."""
+        if self.merging:
+            return "merge"
         if self.passed:
             return "passed"
         if self.as_on_ball:
@@ -3883,6 +3899,15 @@ def join_names(names: list[str]) -> str:
     if len(names) <= 2:
         return " and ".join(names)
     return f"{', '.join(names[:-1])}, and {names[-1]}"
+
+
+def merge_sum(sides: list[ChallengeSide]) -> str:
+    """A player and the Oozes Merging into them, added up: "5 + 3 = 8",
+    the lead's skill first and each Ooze's contribution after it."""
+    return (
+        " + ".join(str(side.value) for side in sides)
+        + f" = {sum(side.value for side in sides)}"
+    )
 
 
 def group_text_lines(
@@ -3906,9 +3931,16 @@ def group_text_lines(
     from, since a "+2" with no second term to read it against is a
     number out of nowhere. In a group the badges on the portraits do
     that job -- see CHALLENGE_FULL_COLOR.
+
+    A player with Oozes Merging into them (`ChallengeSide.merging`)
+    reads as that player still -- their modifiers and their ability --
+    with the names of everyone in the group and the sum the roll adds
+    in place of the lone skill line: the Oozes are part of the side,
+    and their badges say what each one brings.
     """
     if not sides:
         return []
+    merged = len(sides) > 1 and all(side.merging for side in sides[1:])
 
     sized = [
         (
@@ -3926,20 +3958,30 @@ def group_text_lines(
     ]
 
     skill_name = sides[0].skill_name
-    if len(sides) == 1:
+    if len(sides) == 1 or merged:
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
         passed = SHOT_PASSED_NOTE if only.passed else ""
         as_on_ball = SHOT_AS_ON_BALL_NOTE if only.as_on_ball else ""
-        sized.append(
-            (
-                f"{skill_name} skill +{only.value}{halved_from}{passed}"
-                f"{as_on_ball}",
-                CHALLENGE_SKILL_COLOR,
-                FONT_CHALLENGE_BODY,
-                CHALLENGE_LINE_HEIGHT,
-            ),
-        )
+        if merged:
+            sized.append(
+                (
+                    f"{skill_name} skill: {merge_sum(sides)}",
+                    CHALLENGE_TOTAL_COLOR,
+                    FONT_CHALLENGE_TOTAL,
+                    CHALLENGE_TOTAL_LINE_HEIGHT,
+                ),
+            )
+        else:
+            sized.append(
+                (
+                    f"{skill_name} skill +{only.value}{halved_from}{passed}"
+                    f"{as_on_ball}",
+                    CHALLENGE_SKILL_COLOR,
+                    FONT_CHALLENGE_BODY,
+                    CHALLENGE_LINE_HEIGHT,
+                ),
+            )
         sized.extend(
             (
                 modifier,
@@ -3961,7 +4003,7 @@ def group_text_lines(
             ),
         )
 
-    if with_ability and len(sides) == 1 and sides[0].ability:
+    if with_ability and (len(sides) == 1 or merged) and sides[0].ability:
         # An empty line is a spacer: it sets the ability apart from the
         # numbers above it without needing a second y-cursor.
         sized.append(
@@ -4008,7 +4050,15 @@ def draw_contribution_badge(
         center_x + radius,
         center_y + radius,
     )
-    if side.halved or side.passed:
+    if side.merging:
+        draw.ellipse(
+            box,
+            fill=CHALLENGE_MERGE_COLOR,
+            outline="#111820",
+            width=CHALLENGE_BADGE_OUTLINE,
+        )
+        text_color = CHALLENGE_BADGE_TEXT_COLOR
+    elif side.halved or side.passed:
         text_color = (
             CHALLENGE_PASSED_COLOR if side.passed else CHALLENGE_HALF_COLOR
         )
@@ -4418,23 +4468,30 @@ def render_matchup(
 
 
 def render_maneuver_challenge(
-    offense: ChallengeSide,
-    defense: ChallengeSide,
+    offense: list[ChallengeSide],
+    defense: list[ChallengeSide],
     location: str,
 ) -> BytesIO:
-    """The two players about to contest a maneuver, one against one."""
+    """
+    The two players about to contest a maneuver, one against one --
+    each side the player contesting and any Ooze on the ball Merging
+    into them (Law 20.5), who is part of the maneuver: drawn beside
+    them with what they add, and the side's skill added up.
+    """
     return render_matchup(
-        CHALLENGE_TITLE, location, [offense], [defense],
+        CHALLENGE_TITLE, location, offense, defense,
     )
 
 
 def render_score_attempt(
-    shooter: ChallengeSide,
+    shooter: list[ChallengeSide],
     defenders: list[ChallengeSide],
     location: str,
 ) -> BytesIO:
     """
     The shooter, and everyone between them and the goal as one group.
+    `shooter` is the shooter and any Ooze on the ball Merging into the
+    attack (Law 20.5.2), drawn as a maneuver's side draws them.
 
     The defenders carry a `contribution` apiece, so the group is drawn
     with a badge on each portrait and a band label over each run of
@@ -4449,7 +4506,7 @@ def render_score_attempt(
     return render_matchup(
         SCORE_ATTEMPT_TITLE,
         location,
-        [shooter],
+        shooter,
         defenders,
         defending_note=SCORE_ATTEMPT_UNDEFENDED,
         attacking_abilities=False,

@@ -1839,6 +1839,10 @@ function inkOn(hex) {
    they bring, and on one muted line the modifiers and the ability. */
 function situationSide(side) {
   const wall = side.players.length > 1;
+  /* A player with Oozes Merging into them: only the Oozes wear a badge,
+     in the band's own green, the lead's skill being the first term. */
+  const merged = wall && side.players.slice(1).every((player) => player.merging);
+  const mergeBand = side.bands.find((band) => band.merge);
   const notes = [
     ...side.modifiers.map((modifier) => h("span", {}, modifier)),
     side.ability ? h("span", { class: "situation-ability" }, side.ability) : null,
@@ -1848,10 +1852,13 @@ function situationSide(side) {
       ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
         side.players.map((player) => h("div", { class: "situation-portrait" },
           h("img", { src: player.portrait, alt: "", loading: "lazy" }),
-          wall ? h("span", {
-            class: player.passed ? "situation-badge passed"
+          wall && !(merged && !player.merging) ? h("span", {
+            class: player.merging ? "situation-badge merge"
+              : player.passed ? "situation-badge passed"
               : player.halved ? "situation-badge halved" : "situation-badge",
-            title: player.passed ? "In the way, not counting"
+            style: player.merging && mergeBand ? `--merge: ${mergeBand.colour}` : null,
+            title: player.merging ? "Merges"
+              : player.passed ? "In the way, not counting"
               : player.as_on_ball ? "Counts as on the ball"
               : player.halved ? `Half of ${player.skill}` : null,
           }, String(player.value)) : null)))
@@ -1868,8 +1875,10 @@ function situationSide(side) {
         ? h("div", { class: "situation-bands" },
           side.bands.map((band) => h("span", { class: "situation-band" },
             h("span", {
-              class: band.passed ? "situation-dot passed"
+              class: band.merge ? "situation-dot merge"
+                : band.passed ? "situation-dot passed"
                 : band.halved ? "situation-dot halved" : "situation-dot",
+              style: band.merge ? `--merge: ${band.colour}` : null,
               "aria-hidden": "true",
             }),
             band.text)))

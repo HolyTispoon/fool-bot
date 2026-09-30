@@ -88,6 +88,7 @@ from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
 from d12ball.dice_brief import (
     challenge_side,
     maneuver_challenge_brief,
+    merging_sides,
     score_attempt_brief,
 )
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
@@ -96,6 +97,7 @@ from d12ball.player_cards import species_ability, species_ability_reminder
 from d12ball.render import (
     CHALLENGE_BANDS,
     CHALLENGE_TITLE,
+    merge_sum,
     SCORE_ATTEMPT_TITLE,
     SCORE_ATTEMPT_UNDEFENDED,
     TEAM_COLORS,
@@ -2326,6 +2328,9 @@ def _situation_player(
         "passed": False if side is None else side.passed,
         # Goopkeeper beyond the ball, whole (`ShotDefender.as_on_ball`).
         "as_on_ball": False if side is None else side.as_on_ball,
+        # An Ooze on the ball Merging into the player beside them
+        # (`ChallengeSide.merging`, Law 20.5).
+        "merging": False if side is None else side.merging,
         "abilities": _abilities(engine, game, player_id, bearing),
     }
 
@@ -2449,6 +2454,9 @@ BEARINGS: Mapping[str, Bearing] = {
             SpecialAbility.ADJACENT_PULL,
         }),
     ),
+    # An Ooze Merging into a side (Law 20.5): Slimey is what the badge
+    # and the band already say, so only Viscor's 3 more.
+    "merge": Bearing((), frozenset({SpecialAbility.MERGES_HARDER})),
 }
 
 
@@ -2515,20 +2523,31 @@ def _special_bears(
     )
 
 
-def _merged(
+def _with_merging(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
-    side: dict,
+    player_id: str,
+    sides: Sequence[ChallengeSide],
     team_side: TeamSide,
     rolling: Sequence[str],
     skill: str,
-) -> dict:
-    """A side with what its Oozes on the ball add by Merge (Law 20.5),
-    in `merge_bonus`'s own lines -- the ones the dice list it under."""
-    _, lines, _ = engine.merge_bonus(game, match, team_side, rolling, skill)
-    side["modifiers"] = [*side["modifiers"], *lines]
-    return side
+) -> list[tuple[str, ChallengeSide]]:
+    """
+    A brief's side -- the player rolling, then the Oozes on the ball
+    Merging into them (`dice_brief.merging_sides`) -- with each one's
+    id beside them, the Oozes' read off `merge_contributions` as the
+    brief reads them, in the same order (Law 20.5). The Oozes are drawn
+    as part of the side (the author, 2026-09-30), and a side's players
+    are what the page draws a portrait for.
+    """
+    merging = [
+        player_id
+        for player_id, _ in engine.merge_contributions(
+            game, match, team_side, rolling, skill,
+        )
+    ]
+    return list(zip([player_id, *merging], sides))
 
 
 def _situation_side(
@@ -2547,11 +2566,18 @@ def _situation_side(
     (`render.group_text_lines`): one player reads as themselves -- the
     skill they roll on, any modifier this attempt earns, their ability
     -- and several as a wall, their contributions added up, because
-    that sum is the only number the roll uses.
+    that sum is the only number the roll uses. A player with Oozes
+    Merging into them (`ChallengeSide.merging`) reads as themselves
+    still, with the Oozes' portraits beside theirs and the side's skill
+    added up.
     """
     sides = [side for _, side in players]
+    merged = len(sides) > 1 and all(side.merging for side in sides[1:])
+    lead = len(sides) == 1 or merged
     if not sides:
         skill = ""
+    elif merged:
+        skill = f"{sides[0].skill_name} skill: {merge_sum(sides)}"
     elif len(sides) == 1:
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
@@ -2573,29 +2599,36 @@ def _situation_side(
         "players": [
             _situation_player(
                 engine, game, match, player_id, side,
-                bearings.get(player_id, bearing),
+                BEARINGS["merge"] if side.merging
+                else bearings.get(player_id, bearing),
             )
             for player_id, side in players
         ],
         "skill": skill,
-        "modifiers": list(sides[0].modifiers) if len(sides) == 1 else [],
+        "modifiers": list(sides[0].modifiers) if lead and sides else [],
         "ability": (
             sides[0].ability
-            if with_ability and len(sides) == 1 and sides[0].ability
+            if with_ability and lead and sides and sides[0].ability
             else None
         ),
         # What a wall's badges mean, in the PNG's own band labels
         # (`render.CHALLENGE_BANDS`): those the wall has, whole skills
         # first -- on the ball, then counted as on it -- then halved,
-        # then passed.
+        # then passed; and the Oozes Merging into a player, whose
+        # badges are the only ones beside a lead player's portrait.
         "bands": [
             {
                 "halved": band == "half",
                 "passed": band == "passed",
+                "merge": band == "merge",
+                "colour": CHALLENGE_BANDS[band][0],
                 "text": CHALLENGE_BANDS[band][1][0],
             }
-            for band in ("full", "as_on_ball", "half", "passed")
-            if len(sides) > 1 and any(side.band == band for side in sides)
+            for band in ("full", "as_on_ball", "half", "passed", "merge")
+            if len(sides) > 1 and any(
+                side.band == band
+                for side in (sides[1:] if merged else sides)
+            )
         ],
         "empty": empty if not sides else None,
     }
@@ -2845,8 +2878,9 @@ def _join_situation(
     """
     Glompex's offer (Law 21), made before the cards are chosen: the
     challenge he would step into, and his ability said under it. Once
-    he has stepped on, the challenge names what he adds by Merge, so
-    the maneuver pick does not repeat him (the author, 2026-09-28).
+    he has stepped on, the challenge draws him in the side he joined,
+    with what he adds by Merge, so the maneuver pick does not repeat
+    his ability (the author, 2026-09-28; 2026-09-30).
     """
     challenge = _challenge_situation(engine, game, match, prompt)
     if challenge is None:
@@ -2875,29 +2909,30 @@ def _challenge_situation(
         engine, match, challenger, game,
     )
     # Both roll if the cards tie, and an Ooze on the ball who is
-    # neither adds by Merge -- as `skill_test_step` asks it.
+    # neither adds by Merge -- as `skill_test_step` asks it -- drawn in
+    # the side they Merge into.
     rolling = (attacker, challenger)
     return {
         "title": CHALLENGE_TITLE,
         "where": where,
         "sides": [
-            _merged(
-                engine, game, match,
-                _situation_side(
-                    engine, game, match, match.team_for_player(attacker),
-                    [(attacker, offense)], with_ability=True,
-                    bearing=BEARINGS["skill_test_attack"],
+            _situation_side(
+                engine, game, match, match.team_for_player(attacker),
+                _with_merging(
+                    engine, game, match, attacker, offense,
+                    match.ball.possession, rolling, "offense",
                 ),
-                match.ball.possession, rolling, "offense",
+                with_ability=True,
+                bearing=BEARINGS["skill_test_attack"],
             ),
-            _merged(
-                engine, game, match,
-                _situation_side(
-                    engine, game, match, match.team_for_player(challenger),
-                    [(challenger, defense)], with_ability=True,
-                    bearing=BEARINGS["skill_test_defence"],
+            _situation_side(
+                engine, game, match, match.team_for_player(challenger),
+                _with_merging(
+                    engine, game, match, challenger, defense,
+                    match.defending_side(), rolling, "defense",
                 ),
-                match.defending_side(), rolling, "defense",
+                with_ability=True,
+                bearing=BEARINGS["skill_test_defence"],
             ),
         ],
         "roll": None,
@@ -2947,15 +2982,16 @@ def _shot_situation(
         "sides": [
             # Merge in a shot is the attack alone (Law 20.5.2), as
             # `score_attempt_step` asks it.
-            _merged(
+            _situation_side(
                 engine, game, match,
-                _situation_side(
-                    engine, game, match,
-                    match.team_for_player(match.active_player_id),
-                    [(match.active_player_id, shooter)], with_ability=False,
-                    bearing=BEARINGS["shot_attack"],
+                match.team_for_player(match.active_player_id),
+                _with_merging(
+                    engine, game, match, match.active_player_id, shooter,
+                    match.ball.possession, (match.active_player_id,),
+                    "offense",
                 ),
-                match.ball.possession, (match.active_player_id,), "offense",
+                with_ability=False,
+                bearing=BEARINGS["shot_attack"],
             ),
             _situation_side(
                 engine, game, match,
@@ -2983,8 +3019,8 @@ def _contest_situation(
     side on the ball adds offensive skill and the other defensive,
     nothing for an injured contestant; the thrower's side of a High
     Pass contest adds the ball speed modifier, signed; Zorch his own
-    elsewhere; Merge on both sides; and whatever Overdrive or Boost is
-    already declared.
+    elsewhere; and whatever Overdrive or Boost is already declared. An
+    Ooze Merging on either side is drawn in it (Law 20.5).
     """
     offense_id = match.loose_ball_offense_player
     defense_id = match.loose_ball_defense_player
@@ -2994,21 +3030,33 @@ def _contest_situation(
     rolling = (offense_id, defense_id)
 
     def contestant(player_id, attacking, bearing, team_side, skill_kind):
+        lead = challenge_side(
+            engine, player_id, match.team_for_player(player_id),
+            attacking=attacking, game=game,
+        )
+        merging = merging_sides(
+            engine, match, team_side, rolling, skill_kind, game,
+        )
         side = _situation_side(
             engine, game, match, match.team_for_player(player_id),
-            [(player_id, challenge_side(
-                engine, player_id, match.team_for_player(player_id),
-                attacking=attacking, game=game,
-            ))],
+            _with_merging(
+                engine, game, match, player_id, [lead, *merging],
+                team_side, rolling, skill_kind,
+            ),
             with_ability=False, bearing=bearing,
         )
         if player_id in match.injured:
             # An injured contestant adds no skill of their own (Law
             # 15.4); the die and everything else still count.
-            side["skill"] = (
-                f"{'Offensive' if attacking else 'Defensive'} skill +0 "
-                "(injured)"
-            )
+            skill_name = "Offensive" if attacking else "Defensive"
+            if merging:
+                terms = " + ".join(str(ooze.value) for ooze in merging)
+                side["skill"] = (
+                    f"{skill_name} skill: 0 (injured) + {terms}"
+                    f" = {sum(ooze.value for ooze in merging)}"
+                )
+            else:
+                side["skill"] = f"{skill_name} skill +0 (injured)"
         extra = list(engine.overdrive_details(match, player_id))
         if attacking and high_pass:
             extra.append(
@@ -3018,9 +3066,7 @@ def _contest_situation(
             _, speed_line = engine.speed_roll_bonus(game, match, player_id)
             extra.extend(filter(None, [speed_line]))
         side["modifiers"] = [*side["modifiers"], *extra]
-        return _merged(
-            engine, game, match, side, team_side, rolling, skill_kind,
-        )
+        return side
 
     return {
         "title": "High Pass contest" if high_pass else "Contest for the ball",

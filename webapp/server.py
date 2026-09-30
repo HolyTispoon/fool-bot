@@ -411,24 +411,46 @@ class WebApp:
         The challenge image in words, for the log: the same brief the
         cog draws it from (`dice_brief.maneuver_challenge_brief`) -- who
         is on the ball, who challenges them, where, and the skill each
-        brings. Read off the match as it stands after the run, which is
-        the position the cog draws the picture from too.
+        brings, with any Ooze Merging into either side named beside the
+        player they join and what they add (Law 20.5). Read off the
+        match as it stands after the run, which is the position the cog
+        draws the picture from too.
         """
         match = self._match(game)
         offense, defense, location = maneuver_challenge_brief(
             self.engine, match, challenger_id, game,
         )
-        attacker = self.engine.format_player_label(
-            match, self.engine.get_player_definition(match.active_player_id),
-        )
-        challenger = self.engine.format_player_label(
-            match, self.engine.get_player_definition(challenger_id),
-        )
+        rolling = (match.active_player_id, challenger_id)
+
+        def label(player_id: str) -> str:
+            return self.engine.format_player_label(
+                match, self.engine.get_player_definition(player_id),
+            )
+
+        def side_words(player_id, sides, team_side, skill) -> str:
+            lead = sides[0]
+            words = (
+                f"{label(player_id)}"
+                f" ({lead.skill_name.lower()} skill {lead.skill:+d})"
+            )
+            merging = self.engine.merge_contributions(
+                game, match, team_side, rolling, skill,
+            )
+            for ooze_id, value in merging:
+                words += f", with {label(ooze_id)} Merging {value:+d}"
+            return words
+
         return (
-            f"**Maneuver challenge**, {location}: {attacker}"
-            f" ({offense.skill_name.lower()} skill {offense.skill:+d})"
-            f" against {challenger}"
-            f" ({defense.skill_name.lower()} skill {defense.skill:+d})."
+            f"**Maneuver challenge**, {location}: "
+            + side_words(
+                match.active_player_id, offense, match.ball.possession,
+                "offense",
+            )
+            + " against "
+            + side_words(
+                challenger_id, defense, match.defending_side(), "defense",
+            )
+            + "."
         )
 
     def journal(self, game_id: str) -> Journal:

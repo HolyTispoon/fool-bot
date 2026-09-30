@@ -5,7 +5,10 @@ The matchup image is what the coaches pick their cards over, and
 Glompex may step onto the ball's space before the cards -- so while
 that offer is outstanding the image waits, and it goes up once the
 offer is answered (the author, 2026-09-28). The walk-in still goes up
-where it did. `D12Ball.present` / `challenge_placement` place it.
+where it did. `D12Ball.present` / `challenge_placement` place it. Once
+he has stepped on he is drawn in it, Merging into the side on the ball
+(`dice_brief.maneuver_challenge_brief`; the author, 2026-09-30), and
+the image carries no caption.
 
 Driven through the real cog: the offense's Maneuver click, a defender
 already on the ball as the challenger, and the offer answered by a
@@ -22,6 +25,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from cogs.d12ball_views import JoinTheBallView, PlayerActionView
 from d12ball.components import SPECIES_OOZE, TeamSide, catalog_player_id
+from d12ball.dice_brief import maneuver_challenge_brief
 from d12ball.game import AIOpponent, GameMode
 from d12ball.special_abilities import SPECIAL_ABILITIES, SpecialAbility
 from d12ball.prompts import PromptKind
@@ -109,13 +113,15 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
         """The challenge image and each prompt put up, into `record`
         beside the messages."""
 
-        self.captions = []
+        self.drawn = []
 
-        async def image(
-            interaction, match, challenger_id, text, game=None, caption="",
-        ):
+        async def image(interaction, match, challenger_id, text, game=None):
             record.append(("image", challenger_id))
-            self.captions.append(caption)
+            self.drawn.append(
+                maneuver_challenge_brief(
+                    cog.engine, match, challenger_id, game,
+                ),
+            )
 
         async def prompt(interaction, game, match, pending, lead_in=""):
             if lead_in:
@@ -153,16 +159,28 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
                 ("prompt", PromptKind.MANEUVER_ACTION),
             ],
         )
-        # The two players, then the Ooze who stepped on, named, and
-        # what they add to the side on the ball.
-        [caption] = self.captions
+        # The Ooze who stepped on is part of the side on the ball,
+        # drawn beside the player there with what they add by Merge.
+        [(offense, defense, _)] = self.drawn
         match = cog.engine.load_match_state(game)
         merge = cog.engine.skills(game, joiner).of("offense")
+        joined = cog.engine.get_player_definition(joiner).name
         self.assertEqual(
-            caption,
-            f"{cog.player_id_label(match, match.active_player_id)} against "
-            f"{cog.player_id_label(match, challenger)}\n"
-            f"{cog.player_id_label(match, joiner)} Merges in +{merge}",
+            [(side.name, side.merging, side.value) for side in offense],
+            [
+                (
+                    cog.engine.get_player_definition(
+                        match.active_player_id,
+                    ).name,
+                    False,
+                    offense[0].skill,
+                ),
+                (joined, True, merge),
+            ],
+        )
+        self.assertEqual(
+            [side.name for side in defense],
+            [cog.engine.get_player_definition(challenger).name],
         )
 
     async def test_the_image_goes_up_under_the_ai_s_answer(self) -> None:
@@ -185,9 +203,9 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             record[-1], ("prompt", PromptKind.MANEUVER_ACTION),
         )
-        # Dinky let it pass, so nobody Merges.
-        self.assertNotIn("Merge", self.captions[0])
-        self.assertIn(" against ", self.captions[0])
+        # Dinky let it pass, so nobody Merges: one against one.
+        [(offense, defense, _)] = self.drawn
+        self.assertEqual((len(offense), len(defense)), (1, 1))
 
     async def test_without_an_offer_the_image_rides_on_the_walk_in(
         self,
@@ -206,7 +224,8 @@ class JoinTheBallImageTests(unittest.IsolatedAsyncioTestCase):
                 ("prompt", PromptKind.MANEUVER_ACTION),
             ],
         )
-        self.assertEqual(self.captions, [""])
+        [(offense, defense, _)] = self.drawn
+        self.assertEqual((len(offense), len(defense)), (1, 1))
 
 
 if __name__ == "__main__":
