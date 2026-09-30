@@ -218,7 +218,7 @@ def score_attempt_brief(
         )
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         modifiers.append("+3 Striker ability")
-    clear_shot = engine.clear_shot_note(defenders)
+    clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
     if clear_shot:
         modifiers.append(clear_shot)
 

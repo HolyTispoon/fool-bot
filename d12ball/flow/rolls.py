@@ -1198,7 +1198,7 @@ def score_score_attempt(
         attack_detail.append("+3 Striker ability")
     # Flickerwing's shot: the players it passes are listed on the
     # defence at +0, and this is the line that says why.
-    clear_shot = engine.clear_shot_note(defenders)
+    clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
     if clear_shot:
         attack_detail.append(clear_shot)
 

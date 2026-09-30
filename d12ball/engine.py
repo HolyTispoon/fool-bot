@@ -133,11 +133,6 @@ SPREADABLE_NOTE = (
     "as a teammate.*"
 )
 
-#: Flickerwing's special ability (Law 21.3.5), as the shot is drawn
-#: with it -- see `RulesEngine.clear_shot_note`. "Special ability", the
-#: author's word for it on the page (2026-09-28).
-CLEAR_SHOT_NOTE = "Special ability: only defenders on the ball count"
-
 
 @dataclass(frozen=True)
 class PlayerSkills:
@@ -2264,17 +2259,28 @@ class RulesEngine:
             ))
         return defenders
 
-    def clear_shot_note(self, defenders: list[ShotDefender]) -> str:
+    def clear_shot_note(
+        self,
+        game: Optional[D12BallGame],
+        shooter_id: str,
+        defenders: list[ShotDefender],
+    ) -> str:
         """
         Flickerwing's special ability, said wherever the shot is drawn
         -- the composition before it and the dice after -- when it
         passes somebody, so a coach sees why the players in the way
         add nothing. Nobody passed says nothing: the ability changed
         nothing about this shot.
+
+        **The sheet's own sentence**, as `special_ability_text` reads
+        it (the author, 2026-09-30) -- never reworded here -- after
+        "Special ability", the author's word for it on the page
+        (2026-09-28).
         """
-        if any(defender.passed for defender in defenders):
-            return CLEAR_SHOT_NOTE
-        return ""
+        if not any(defender.passed for defender in defenders):
+            return ""
+        text = self.special_ability_text(game, shooter_id)
+        return f"Special ability: {text}" if text else ""
 
     def settled_maneuver_winner(
         self,

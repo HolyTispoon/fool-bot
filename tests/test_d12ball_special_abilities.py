@@ -37,7 +37,7 @@ from d12ball.components import (
     duplicate_card_id,
 )
 from d12ball.dice_brief import score_attempt_brief
-from d12ball.engine import CLEAR_SHOT_NOTE, IgnitedRoll
+from d12ball.engine import IgnitedRoll
 from d12ball.flow.effects import (
     ball_comes_to,
     high_pass_step,
@@ -1121,6 +1121,13 @@ class ShotDefenseTests(unittest.TestCase):
             player_id, *self.match.board.position_at_flat_index(flat),
         )
 
+    def sheet_sentence(self) -> str:
+        """The shooter's special ability as the shot says it: the
+        sheet's own words, not a paraphrase (the author, 2026-09-30)."""
+        sentence = ENGINE.get_player_definition(self.shooter).advanced_ability
+        self.assertTrue(sentence)
+        return f"Special ability: {sentence}"
+
     def defending(self) -> dict:
         return {
             defender.player.player_id: defender
@@ -1179,7 +1186,10 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertEqual(wall[self.beyond].value, 0)
         self.assertFalse(wall[self.on_ball].passed)
         self.assertEqual(
-            ENGINE.clear_shot_note(list(wall.values())), CLEAR_SHOT_NOTE,
+            ENGINE.clear_shot_note(
+                self.game, self.shooter, list(wall.values()),
+            ),
+            self.sheet_sentence(),
         )
 
     def test_flickerwing_says_nothing_when_nobody_is_passed(self) -> None:
@@ -1187,14 +1197,19 @@ class ShotDefenseTests(unittest.TestCase):
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
             wall = self.defending()
         self.assertEqual(set(wall), {self.on_ball})
-        self.assertEqual(ENGINE.clear_shot_note(list(wall.values())), "")
+        self.assertEqual(
+            ENGINE.clear_shot_note(
+                self.game, self.shooter, list(wall.values()),
+            ),
+            "",
+        )
 
     def test_the_shot_announces_the_ability_and_the_passed(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
             shooter, defenders, _ = score_attempt_brief(
                 ENGINE, self.match, self.game,
             )
-        self.assertIn(CLEAR_SHOT_NOTE, shooter.modifiers)
+        self.assertIn(self.sheet_sentence(), shooter.modifiers)
         passed = [side for side in defenders if side.passed]
         self.assertEqual(len(passed), 1)
         self.assertEqual(passed[0].value, 0)
@@ -1207,7 +1222,7 @@ class ShotDefenseTests(unittest.TestCase):
                 ENGINE.get_player_definition(self.shooter),
                 self.match.home, self.match.visiting,
             )
-        self.assertIn(CLEAR_SHOT_NOTE, attack[2])
+        self.assertIn(self.sheet_sentence(), attack[2])
         beyond = player_with_role(ENGINE.get_player_definition(self.beyond))
         self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
         on_ball = ENGINE.skills(self.game, self.on_ball).defense
