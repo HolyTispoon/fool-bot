@@ -3565,6 +3565,31 @@ class RulesEngine:
             f"{'s' if remaining != 1 else ''} left"
         )
 
+    def half_substitutions_label(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+    ) -> str:
+        """
+        What `side` has left of its two for the half, for the roster:
+        "1 substitution left this half". Nothing once the second half
+        is over -- the full-time window, the shootout, a finished game
+        -- since there is no half left to spend them in, and full
+        time's one is the window's own to say
+        (`substitution_allowance_label`).
+        """
+        if (
+            game.is_finished
+            or match.pending_full_time_stage is not None
+            or match.pending_shootout
+        ):
+            return ""
+        left = match.half_substitutions_left(side)
+        if not left:
+            return "No substitutions left this half"
+        return f"{left} substitution{'s' if left != 1 else ''} left this half"
+
     def defense_ordered_field_players(
         self,
         match: MatchState,

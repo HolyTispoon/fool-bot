@@ -3595,7 +3595,8 @@ let shownRosters = null;
 
 /* Both rosters as tables, `board.py`'s rows as they come: the role and
    the name, the two skills the card prints, the exhaustion as one token
-   a point, the condition, and the space or the bench. Hover a row for
+   a point, the condition, and the space or the bench, under what the
+   side has left of its substitutions for the half. Hover a row for
    the card; click it (or Enter) to open it. */
 function drawRosters(state) {
   const layout = state.board && state.board.layout;
@@ -3612,6 +3613,7 @@ function drawRosters(state) {
       h("div", { class: "roster-head" },
         h("span", { class: "roster-team", style: `color: ${team.colour}` }, team.name),
         h("span", { class: "quiet" }, "exhaustion · condition · space")),
+      team.substitutions ? h("p", { class: "roster-subs" }, team.substitutions) : null,
       h("table", { class: "roster-table" },
         h("thead", {},
           h("tr", {},

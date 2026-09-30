@@ -4757,6 +4757,22 @@ class MatchState:
         remaining = self.substitutions_remaining()
         return remaining is None or remaining > 0
 
+    def half_substitutions_left(self, side: TeamSide) -> int:
+        """
+        How many of `side`'s two for the half are still unspent (Law
+        14.5.1) -- the pot a new play's or a time out's substitutions
+        come out of, whether or not a window is open. Halftime's two and
+        full time's one are their own and never touch it, so during
+        halftime this is already the second half's, which `end_period`
+        has given back.
+
+        `substitutions_remaining` is the open window's answer; this is
+        the side's, asked between windows too (the roster).
+        """
+        allowance = CoachingOccasion.NEW_PLAY.substitution_allowance
+        spent = self.half_substitutions_used.get(TeamSide(side).value, 0)
+        return max(0, allowance - spent)
+
     def record_substitution(
         self,
         outgoing_player_id: Optional[str] = None,

@@ -114,7 +114,15 @@ with a minute rather than handed out by the play.
   time out's, which draw on the same pot -- come out of
   `half_substitutions_used`, per side, cleared at halftime; halftime's two and
   full time's one are counted inside the window and charged to neither half.
-  So a side can substitute seven times in a game.
+  So a side can substitute seven times in a game. That per-half pot is
+  asked between windows too: `MatchState.half_substitutions_left(side)`
+  is the count whatever window is open or none, and
+  `RulesEngine.half_substitutions_label` its words ("1 substitution left
+  this half"), which the roster prints under each team's heading --
+  `/d12ball team_roster` and the web app's Teams tab alike. It says
+  nothing once the second half is over (the full-time window, the
+  shootout, a finished game), since there is no half left to spend
+  them in; `substitutions_remaining` stays the open window's own answer.
 - **Who may come on is one question, not six.** `MatchState.substitution_pool`
   takes a side and nothing else: the bench while anyone is sitting on it, the
   back bench once it has drained, minus anyone injured. It used to take the

@@ -2577,6 +2577,7 @@ body.front .front-door.archive-door {
 .rosters { display: flex; flex-direction: column; gap: 14px; }
 .roster-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .roster-team { font-family: "Goal", sans-serif; font-size: 16px; letter-spacing: 0.04em; text-transform: uppercase; }
+.roster-subs { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
 .roster-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .roster-table th { color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--line); }
 .roster-table td { padding: 4px; border-bottom: 1px solid rgba(63, 65, 71, 0.5); vertical-align: middle; }
