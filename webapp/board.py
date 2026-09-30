@@ -528,11 +528,17 @@ def board_layout(
         # each the card (its printed numbers and picture, the numbers
         # `card_profile` gives the card itself), its marks as the field
         # draws them, and where it is: the space's code, or which
-        # bench. The page adds nothing to a number.
+        # bench. The page adds nothing to a number. Over the rows,
+        # what the side has left of its two substitutions for the half,
+        # the roster command's own line (empty once the halves are
+        # over).
         "rosters": [
             {
                 "side": setup.side.value,
                 **_team(setup.team),
+                "substitutions": engine.half_substitutions_label(
+                    game, match, setup.side,
+                ),
                 "rows": [
                     {
                         **card(one),

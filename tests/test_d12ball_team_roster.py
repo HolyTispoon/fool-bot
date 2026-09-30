@@ -29,7 +29,10 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
-from d12ball.game import D12BallGame, GameMode, Team, team_display_name
+from d12ball.formatting import format_team_side_label
+from d12ball.game import (
+    D12BallGame, GameMode, GameStatus, Team, team_display_name,
+)
 from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from space_codes import code
 
@@ -175,6 +178,89 @@ class TeamRosterGroupingTests(unittest.TestCase):
         )
 
         self.assertLess(len(text), 2000)
+
+
+class RosterSubstitutionsTests(unittest.TestCase):
+    """
+    Under each team's heading, what the side has left of its two
+    substitutions for the half (Law 14.5.1) -- the pot a new play's and
+    a time out's come out of -- and nothing once the halves are over.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build_match(self) -> MatchState:
+        return MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+
+    def heading_unit(self, game, match, setup) -> str:
+        return build_cog().team_roster_units(game, match, setup)[0]
+
+    def test_a_fresh_half_has_both(self) -> None:
+        match = self.build_match()
+        self.assertEqual(
+            self.heading_unit(build_game(), match, match.home).split("\n")[1],
+            "2 substitutions left this half",
+        )
+
+    def test_each_side_counts_its_own(self) -> None:
+        game = build_game()
+        match = self.build_match()
+        match.half_substitutions_used[TeamSide.HOME.value] = 1
+
+        self.assertIn(
+            "\n1 substitution left this half",
+            self.heading_unit(game, match, match.home),
+        )
+        self.assertIn(
+            "\n2 substitutions left this half",
+            self.heading_unit(game, match, match.visiting),
+        )
+
+        match.half_substitutions_used[TeamSide.HOME.value] = 2
+        self.assertIn(
+            "\nNo substitutions left this half",
+            self.heading_unit(game, match, match.home),
+        )
+
+    def test_a_new_play_s_window_draws_on_the_same_count(self) -> None:
+        match = self.build_match()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.NEW_PLAY)
+        match.record_substitution()
+        self.assertEqual(match.half_substitutions_left(TeamSide.HOME), 1)
+        self.assertEqual(match.half_substitutions_left(TeamSide.VISITING), 2)
+
+    def test_halftime_s_own_two_are_not_counted(self) -> None:
+        match = self.build_match()
+        match.open_coaching_window(TeamSide.HOME, CoachingOccasion.HALFTIME)
+        match.record_substitution()
+        self.assertEqual(match.half_substitutions_left(TeamSide.HOME), 2)
+
+    def test_nothing_once_the_halves_are_over(self) -> None:
+        heading = f"**{format_team_side_label(self.build_match().home)}**"
+        match = self.build_match()
+        match.pending_full_time_stage = "coaching_home"
+        self.assertEqual(self.heading_unit(build_game(), match, match.home), heading)
+
+        match = self.build_match()
+        match.begin_shootout()
+        self.assertEqual(self.heading_unit(build_game(), match, match.home), heading)
+
+        match = self.build_match()
+        self.assertEqual(
+            self.heading_unit(
+                build_game(status=GameStatus.FINISHED), match, match.home,
+            ),
+            heading,
+        )
 
 
 class RosterVisibilityTests(unittest.TestCase):

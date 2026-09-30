@@ -1022,6 +1022,18 @@ class TeamsTabTests(unittest.TestCase):
                 + ["back bench"] * len(setup.team_board.back_bench),
             )
 
+    def test_each_roster_says_the_half_s_substitutions(self) -> None:
+        # The roster command's own line, off the same reading.
+        fixture, layout = layout_for("kickoff")
+        for roster in layout["rosters"]:
+            self.assertEqual(
+                roster["substitutions"],
+                ENGINE.half_substitutions_label(
+                    fixture.game, fixture.match, TeamSide(roster["side"]),
+                ),
+            )
+            self.assertTrue(roster["substitutions"].endswith("left this half"))
+
     def test_the_numbers_are_board_py_s(self) -> None:
         fixture, layout = layout_for("kickoff")
         cards = {

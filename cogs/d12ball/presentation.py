@@ -506,7 +506,13 @@ class PresentationMixin:
         first player (or on the "*nobody*" under it) so that it never
         ends a message with nothing below it.
         """
-        units = [f"**{format_team_side_label(setup)}**"]
+        heading_unit = f"**{format_team_side_label(setup)}**"
+        substitutions = self.engine.half_substitutions_label(
+            game, match, setup.side,
+        )
+        if substitutions:
+            heading_unit += f"\n{substitutions}"
+        units = [heading_unit]
         for heading, members in self.engine.roster_places(match, setup):
             entries = [
                 self.format_team_roster_entry(

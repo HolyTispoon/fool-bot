@@ -879,6 +879,11 @@ tabs on the step's PR (2026-09-27).
   holder. Hovering a row shows the card, and clicking it (or Enter)
   opens it. The page adds nothing to a number: `TeamsTabTests` hold
   every row to the card and the space the layout already hands over.
+  Under each team's name is what the side has left of its two
+  substitutions for the half, the roster's `substitutions` --
+  `RulesEngine.half_substitutions_label`, the same line
+  `/d12ball team_roster` prints under its heading, and empty once the
+  halves are over (2026-09-30).
 - **Rules** is "The rules and the player aids", below.
 
 **A phone is one screen, not a long page** (2026-09-27, step 11 of
