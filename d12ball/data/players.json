@@ -378,7 +378,7 @@
         "emberdash_playmaker",
         "quantor_winger",
         "tachyon_striker",
-        "viscor_defender",
+        "gurgoth_defender",
         "quillon_playmaker",
         "zytheris_striker"
       ]
@@ -391,7 +391,7 @@
         "gearclaw_playmaker",
         "shpritz_winger",
         "brightburn_striker",
-        "gurgoth_defender",
+        "viscor_defender",
         "hexis_playmaker",
         "slitheron_striker"
       ]
@@ -440,9 +440,9 @@
         "goopkeeper_fullback",
         "acidel_striker",
         "glompex_midfielder",
-        "viscor_defender",
-        "shpritz_winger",
         "gurgoth_defender",
+        "shpritz_winger",
+        "viscor_defender",
         "slitheron_striker",
         "ozul_playmaker",
         "zorch_playmaker"

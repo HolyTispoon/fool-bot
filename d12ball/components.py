@@ -759,16 +759,7 @@ class TeamSetup:
         any particular distribution (e.g. two players per zone) since
         /coach and /ref can leave zones and benches uneven.
         """
-        if set(self.zones) != set(Zone):
-            raise ValueError("A setup must assign players to all zones.")
-
-        assigned = (
-            self.field_players
-            + self.team_board.bench
-            + self.team_board.back_bench
-        )
-        if len(set(assigned)) != len(assigned):
-            raise ValueError("Every roster player must be assigned once.")
+        assigned = self._assigned_once()
         # Card ids, which are the roster's own except where this side
         # is the duplicate of a player the other side fields too. A
         # side is checked against its whole roster either way -- the
@@ -781,6 +772,39 @@ class TeamSetup:
             for player in roster.players
         }:
             raise ValueError("The setup does not match the team roster.")
+
+    def validate_saved(self, catalog: "PlayerCatalog") -> None:
+        """
+        The check a side passes when a saved match is loaded: whole,
+        every card once, every card a real player, and as many of them
+        as its team fields -- but **not which players**. A started game
+        keeps the side it kicked off with, so a roster change upstream
+        (a player moving teams in the sheet) must not strand it; the
+        membership check belongs to `validate`, at kickoff, alone. A
+        card the catalog no longer knows at all (a rename with no
+        `RENAMED_PLAYER_IDS` entry) still refuses here, by
+        `player_by_id`. See "A roster change and a saved game" in
+        docs/design/gotchas.md.
+        """
+        assigned = self._assigned_once()
+        for card_id in assigned:
+            catalog.player_by_id(card_id)
+        if len(assigned) != len(catalog.teams[self.team].players):
+            raise ValueError("The setup does not match the team roster.")
+
+    def _assigned_once(self) -> list[str]:
+        """Every card this side holds, checked to be assigned once."""
+        if set(self.zones) != set(Zone):
+            raise ValueError("A setup must assign players to all zones.")
+
+        assigned = (
+            self.field_players
+            + self.team_board.bench
+            + self.team_board.back_bench
+        )
+        if len(set(assigned)) != len(assigned):
+            raise ValueError("Every roster player must be assigned once.")
+        return assigned
 
     def to_dict(self) -> dict:
         return {
@@ -5459,9 +5483,18 @@ class MatchState:
             f"settled {home}-{visiting} on the extreme shootout)"
         )
 
-    def validate(self, catalog: PlayerCatalog) -> None:
-        self.home.validate(catalog.teams[self.home.team])
-        self.visiting.validate(catalog.teams[self.visiting.team])
+    def validate(self, catalog: PlayerCatalog, *, saved: bool = False) -> None:
+        """
+        `saved` is a match read back from a save rather than one just
+        dealt: its sides are checked against themselves, not against
+        today's rosters (`TeamSetup.validate_saved`), so a game outlives
+        a roster change. Everything below holds either way.
+        """
+        for setup in (self.home, self.visiting):
+            if saved:
+                setup.validate_saved(catalog)
+            else:
+                setup.validate(catalog.teams[setup.team])
 
         fielded_players = set(
             self.home.field_players + self.visiting.field_players
