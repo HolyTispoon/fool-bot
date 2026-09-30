@@ -85,9 +85,9 @@ rounded up -- see "Score attempt" in the living rules.
   no term, so each defender's portrait carries the value they
   contribute: a solid badge on the ball, an outlined one and the skill
   it was halved from beyond it, under a label per band. It rides on two
-  optional fields of `ChallengeSide` (`contribution` and `halved`), so
-  the maneuver challenge -- which shares `render_matchup` -- is drawn
-  exactly as it was.
+  optional fields of `ChallengeSide` (`contribution` and `halved`); every
+  other face on either matchup wears its whole skill on a solid badge
+  and no band (the author, 2026-09-30).
 - **`halved` cannot be inferred from the two numbers.** A defensive
   skill of 1 halves to 1, and drawing that as a full value would say the
   defender is on the ball when they are not.

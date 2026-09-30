@@ -320,8 +320,11 @@ where, the ball and its speed, each mark.
 
 `render_matchup` draws a contest about to happen, and one layout serves two:
 the maneuver challenge (one against one) and the score attempt (one against a
-wall of defenders). See "What a shot is up against" in [shooting.md](shooting.md) for the badges only the
-second one carries.
+wall of defenders). **Every face wears a badge with what that player adds**
+(the author, 2026-09-30): a lone player their whole skill, a solid gold disc;
+an Ooze Merging into a side what they add, a solid green one. See "What a shot
+is up against" in [shooting.md](shooting.md) for the halved and passed badges
+and the band labels only a wall carries.
 
 **Its width is content, not a canvas.** Each side is a group as wide as it
 needs to be, held between `CHALLENGE_MIN_GROUP_WIDTH` and

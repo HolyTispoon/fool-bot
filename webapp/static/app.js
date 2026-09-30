@@ -1834,14 +1834,14 @@ function inkOn(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1e1f22" : "#ffffff";
 }
 
-/* One side of the situation: the portraits (a badge on each when a
-   wall's numbers are added up) beside the team, who they are, the skill
+/* One side of the situation: the portraits (a badge on each with what
+   that player adds) beside the team, who they are, the skill
    they bring, and on one muted line the modifiers and the ability. */
 function situationSide(side) {
   const wall = side.players.length > 1;
-  /* A player with Oozes Merging into them: only the Oozes wear a badge,
-     in the band's own green, the lead's skill being the first term. */
-  const merged = wall && side.players.slice(1).every((player) => player.merging);
+  /* Every face in a matchup wears what it adds, as the PNG's does; a
+     roll nobody contests (value null) wears none. An Ooze Merging wears
+     the band's own green. */
   const mergeBand = side.bands.find((band) => band.merge);
   const notes = [
     ...side.modifiers.map((modifier) => h("span", {}, modifier)),
@@ -1852,7 +1852,7 @@ function situationSide(side) {
       ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
         side.players.map((player) => h("div", { class: "situation-portrait" },
           h("img", { src: player.portrait, alt: "", loading: "lazy" }),
-          wall && !(merged && !player.merging) ? h("span", {
+          player.value !== null && player.value !== undefined ? h("span", {
             class: player.merging ? "situation-badge merge"
               : player.passed ? "situation-badge passed"
               : player.halved ? "situation-badge halved" : "situation-badge",

@@ -3848,7 +3848,8 @@ class ChallengeSide:
     `contribution` is what this player actually adds when that is not
     their whole skill -- a score attempt's defenders, half of whom are
     halved. None means the skill itself, which is every other player on
-    every other image, and nothing extra is drawn about it. `halved`
+    every other image: their badge carries it, and no band is drawn
+    over them. `halved`
     cannot be inferred from the two numbers: a defensive skill of 1
     halves to 1, and drawing that as a full value would say the
     defender is on the ball when they are not. `passed` is a defender
@@ -4033,13 +4034,15 @@ def draw_contribution_badge(
     side: ChallengeSide,
 ) -> None:
     """
-    The number this player adds, on the portrait it belongs to.
+    The number this player adds, on the portrait it belongs to -- every
+    player on a matchup wears one (the author, 2026-09-30).
 
     A full value is a solid disc and a halved one is an outline
     carrying the skill it was halved from, so every term of the sum
     below can be checked against a face -- which is the whole reason
     the badge exists rather than a longer arithmetic line. A passed
-    defender's is a grey outline with a 0.
+    defender's is a grey outline with a 0, and an Ooze Merging a solid
+    disc in the Oozes' green.
     """
     radius = CHALLENGE_BADGE_RADIUS
     center_x = x + CHALLENGE_PORTRAIT_SIZE - radius - CHALLENGE_BADGE_INSET
@@ -4395,9 +4398,11 @@ def draw_matchup_group(
             )
         portrait_x += CHALLENGE_PORTRAIT_SIZE + CHALLENGE_PORTRAIT_SPACING
 
+    # Every face wears what it adds (the author, 2026-09-30) -- a lone
+    # player their whole skill -- so the sum under a group reads term by
+    # term, and a one-against-one reads at a glance.
     for side, x in placed:
-        if side.contribution is not None:
-            draw_contribution_badge(canvas, draw, x, layout.portrait_top, side)
+        draw_contribution_badge(canvas, draw, x, layout.portrait_top, side)
     draw_contribution_bands(draw, placed, layout.portrait_top - CHALLENGE_BAND_GAP)
 
     y = layout.text_top

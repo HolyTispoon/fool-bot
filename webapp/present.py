@@ -3034,6 +3034,9 @@ def _contest_situation(
             engine, player_id, match.team_for_player(player_id),
             attacking=attacking, game=game,
         )
+        if player_id in match.injured:
+            # Their badge says what they add: nothing (Law 15.4).
+            lead = replace(lead, skill=0)
         merging = merging_sides(
             engine, match, team_side, rolling, skill_kind, game,
         )

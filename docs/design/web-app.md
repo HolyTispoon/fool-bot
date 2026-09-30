@@ -1828,9 +1828,12 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   `GET /api/game/{id}/portrait/{card_id}.png` fitted into 240px with
   its transparency, and kept with the cards: it is the catalog's and
   the same for everybody.
-- **A wall reads as the PNG's does**: a badge on each face, solid for
-  a whole skill and outlined for a halved one, the band key under the
-  faces in the PNG's own labels, and the contributions added up.
+- **A side reads as the PNG's does**: a badge on every face with what
+  that player adds (the author, 2026-09-30) -- solid for a whole skill,
+  outlined for a halved one, green for an Ooze Merging -- and for a
+  wall the band key under the faces in the PNG's own labels, and the
+  contributions added up. A roll nobody contests carries no value, and
+  no badge.
 - **Deliberately not the field strip or the coach's half-field**
   (2026-09-26, the author): coaches can see the field, since the
   page's board is beside the prompt. The cog draws both because a
