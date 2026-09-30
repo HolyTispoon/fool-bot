@@ -154,6 +154,20 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-09-30 -- author, Goopkeeper counts in full against Flickerwing's shot
+
+The build's reading, recorded under *Every player now has a personal ability or advanced skills*
+below, put to the author on the pull request that shows Flickerwing's passed defenders: does a
+Goopkeeper standing beyond the ball count against Flickerwing's shot? The author: *"Yes."* So
+Goopkeeper, who counts as on the ball anywhere between the ball and the goal (21.6.2), adds
+their full defensive skill to the defense of Flickerwing's shot too; everybody else beyond the
+ball adds nothing.
+
+The same day the sheet's Flickerwing cell was corrected to *"When attempting to score, only
+defenders on the ball contribute their skill scores."* -- a wording fix, no change of meaning.
+
+Rewrote 21.3.5 to name the exception. No number moved.
+
 ### 2026-09-28 (the coin, later) -- author, a gambit is answered before the cards; three cards a hand
 
 The author, reviewing the coin in the web app the same evening: *"Player A declares a gambit and
