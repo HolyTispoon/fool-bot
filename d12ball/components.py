@@ -376,6 +376,11 @@ class PlayerDefinition:
 #: wherever a shot's wall is worded -- the dice, and the composition
 #: drawn before them (`ShotDefender.passed`).
 SHOT_PASSED_NOTE = " (in the way, not counting)"
+#: What a Goopkeeper beyond the ball adds, said after their full value
+#: the same way (`ShotDefender.as_on_ball`) -- the one place their
+#: ability changes the shot, so the one place it is said (the author,
+#: 2026-09-30).
+SHOT_AS_ON_BALL_NOTE = " (counts as on the ball)"
 
 
 @dataclass(frozen=True)
@@ -416,6 +421,12 @@ class ShotDefender:
     @property
     def halved(self) -> bool:
         return not (self.on_ball or self.full_block or self.passed)
+
+    @property
+    def as_on_ball(self) -> bool:
+        """Goopkeeper beyond the ball: whole, because their ability
+        counts them as on it. On the ball it changes nothing."""
+        return self.full_block and not self.on_ball
 
     @property
     def value(self) -> int:

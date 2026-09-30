@@ -99,6 +99,7 @@ def challenge_side(
     halved: bool = False,
     game: Optional[D12BallGame] = None,
     passed: bool = False,
+    as_on_ball: bool = False,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -107,8 +108,8 @@ def challenge_side(
     lines and set the height of the whole image. The full text is
     still what the roster and the rules listing show.
 
-    `contribution`, `halved` and `passed` are a score attempt's
-    defenders only -- everyone else adds their whole skill and is drawn
+    `contribution`, `halved`, `passed` and `as_on_ball` are a score
+    attempt's defenders only -- everyone else adds their whole skill and is drawn
     without a word about it. `team` is which of the player's two
     rosters this match is fielding them as -- read by both callers
     off `match.team_for_player`, since a player's own definition no
@@ -139,6 +140,7 @@ def challenge_side(
         contribution=contribution,
         halved=halved,
         passed=passed,
+        as_on_ball=as_on_ball,
     )
 
 
@@ -243,6 +245,7 @@ def score_attempt_brief(
                 contribution=defender.value,
                 halved=defender.halved,
                 passed=defender.passed,
+                as_on_ball=defender.as_on_ball,
                 game=game,
             )
             for defender in defenders

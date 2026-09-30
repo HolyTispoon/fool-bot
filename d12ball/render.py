@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from d12ball.components import (
     duplicate_card_id,
     BoardState,
+    SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     MIND_PULL_SUCCESS_FACES,
     SPECIES_CYBORG,
@@ -3805,11 +3806,20 @@ CHALLENGE_BAND_PASSED = (
     "NOT COUNTING",
     "0",
 )
+# Goopkeeper beyond the ball: gold like the ball's own space, because
+# they are worth all of it, but its own run, because they are not
+# standing on it and the label is what says why.
+CHALLENGE_BAND_AS_ON_BALL = (
+    "COUNTS AS ON THE BALL",
+    "AS ON THE BALL",
+    "FULL",
+)
 #: Each run's colour and labels, by `ChallengeSide.band`.
 CHALLENGE_BANDS = {
     "full": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_FULL),
     "half": (CHALLENGE_HALF_COLOR, CHALLENGE_BAND_HALF),
     "passed": (CHALLENGE_PASSED_COLOR, CHALLENGE_BAND_PASSED),
+    "as_on_ball": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_AS_ON_BALL),
 }
 
 
@@ -3836,7 +3846,8 @@ class ChallengeSide:
     halves to 1, and drawing that as a full value would say the
     defender is on the ball when they are not. `passed` is a defender
     Flickerwing's shot passes: in the way, contributing 0 (see
-    ShotDefender).
+    ShotDefender). `as_on_ball` is a Goopkeeper beyond the ball,
+    whole because their ability counts them as on it.
     """
 
     name: str
@@ -3850,6 +3861,7 @@ class ChallengeSide:
     contribution: Optional[int] = None
     halved: bool = False
     passed: bool = False
+    as_on_ball: bool = False
 
     @property
     def value(self) -> int:
@@ -3859,9 +3871,11 @@ class ChallengeSide:
     @property
     def band(self) -> str:
         """Which run of a wall this player's badge belongs to: "full",
-        "half" or "passed"."""
+        "half", "passed" or "as_on_ball"."""
         if self.passed:
             return "passed"
+        if self.as_on_ball:
+            return "as_on_ball"
         return "half" if self.halved else "full"
 
 
@@ -3916,9 +3930,11 @@ def group_text_lines(
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
         passed = SHOT_PASSED_NOTE if only.passed else ""
+        as_on_ball = SHOT_AS_ON_BALL_NOTE if only.as_on_ball else ""
         sized.append(
             (
-                f"{skill_name} skill +{only.value}{halved_from}{passed}",
+                f"{skill_name} skill +{only.value}{halved_from}{passed}"
+                f"{as_on_ball}",
                 CHALLENGE_SKILL_COLOR,
                 FONT_CHALLENGE_BODY,
                 CHALLENGE_LINE_HEIGHT,

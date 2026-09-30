@@ -21,6 +21,7 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from d12ball.components import (
+    SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     CYBORG_DRAINED_AT,
     MIND_PULL_TOKEN_COST,
@@ -1241,6 +1242,50 @@ class ShotDefenseTests(unittest.TestCase):
             )
         self.assertNotIn(self.sheet_sentence(), shooter.modifiers)
         self.assertTrue(any(side.passed for side in defenders))
+
+    def test_goopkeeper_beyond_the_ball_is_said_on_the_dice(self) -> None:
+        # Only beyond the ball, where the ability changes the shot (the
+        # author, 2026-09-30); against Flickerwing too (21.3.5).
+        for flickerwing in (False, True):
+            with self.subTest(flickerwing=flickerwing):
+                abilities = {
+                    catalog_player_id(self.beyond): (
+                        SpecialAbility.FULL_BLOCK, "test",
+                    ),
+                    catalog_player_id(self.on_ball): (
+                        SpecialAbility.FULL_BLOCK, "test",
+                    ),
+                }
+                if flickerwing:
+                    abilities[catalog_player_id(self.shooter)] = (
+                        SpecialAbility.CLEAR_SHOT, "test",
+                    )
+                with mock.patch.dict(SPECIAL_ABILITIES, abilities):
+                    wall = self.defending()
+                    (_, defence), _, _, _ = score_score_attempt(
+                        ENGINE, self.game, self.match,
+                        ENGINE.get_player_definition(self.shooter),
+                        self.match.home, self.match.visiting,
+                    )
+                self.assertTrue(wall[self.beyond].as_on_ball)
+                self.assertFalse(wall[self.on_ball].as_on_ball)
+                lines = defence[2]
+                beyond = player_with_role(
+                    ENGINE.get_player_definition(self.beyond),
+                )
+                on_ball = player_with_role(
+                    ENGINE.get_player_definition(self.on_ball),
+                )
+                self.assertTrue(any(
+                    line.startswith(beyond)
+                    and line.endswith(SHOT_AS_ON_BALL_NOTE)
+                    for line in lines
+                ))
+                self.assertFalse(any(
+                    line.startswith(on_ball)
+                    and line.endswith(SHOT_AS_ON_BALL_NOTE)
+                    for line in lines
+                ))
 
     def test_the_dice_list_the_passed_at_nothing(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):

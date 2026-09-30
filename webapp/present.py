@@ -52,11 +52,13 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass, replace
+from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import stats, tokens
 from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
+    SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -90,7 +92,7 @@ from d12ball.dice_brief import (
 )
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
 from d12ball.special_abilities import SpecialAbility
-from d12ball.player_cards import species_ability
+from d12ball.player_cards import species_ability, species_ability_reminder
 from d12ball.render import (
     CHALLENGE_BANDS,
     CHALLENGE_TITLE,
@@ -2288,6 +2290,9 @@ class Bearing:
     species: tuple[str, ...] = ()
     special: frozenset = frozenset()
     skill: Optional[str] = None
+    # A maneuver's skill test: the one roll a species' "In a skill
+    # test" sentence is about (`species_ability_reminder`).
+    skill_test: bool = False
 
 
 def _situation_player(
@@ -2319,6 +2324,8 @@ def _situation_player(
         # In the way of Flickerwing's shot and adding nothing
         # (`ShotDefender.passed`).
         "passed": False if side is None else side.passed,
+        # Goopkeeper beyond the ball, whole (`ShotDefender.as_on_ball`).
+        "as_on_ball": False if side is None else side.as_on_ball,
         "abilities": _abilities(engine, game, player_id, bearing),
     }
 
@@ -2375,6 +2382,7 @@ BEARINGS: Mapping[str, Bearing] = {
             SpecialAbility.PRESSURE_SHOT,
         },
         "offense",
+        skill_test=True,
     ),
     "skill_test_defence": Bearing(
         (SPECIES_FIRE_DEMON, SPECIES_CYBORG),
@@ -2385,6 +2393,7 @@ BEARINGS: Mapping[str, Bearing] = {
             SpecialAbility.SPEED_ROLLS,
         },
         "defense",
+        skill_test=True,
     ),
     # A contest for the ball -- a loose ball's, or a long High Pass's:
     # the same dice as a skill test's, and Slitheron's win without one
@@ -2453,7 +2462,8 @@ def _abilities(
     What a player brings to this roll beyond their skill (the author,
     2026-09-28): their species' ability where it reaches the roll and
     the game plays it, in the sheet's own short words (`species.json`,
-    never shortened here), and in an advanced game their special
+    never reworded here; outside a skill test without the sentence
+    about one, `species_ability_reminder`), and in an advanced game their special
     ability where it applies to the roll (`_special_bears`), as a roll
     reminds of it (`special_ability_reminder`: the card's sentence, but
     Flickerwing's without the "When attempting to score" every roll it
@@ -2464,12 +2474,13 @@ def _abilities(
         if not engine.has_species_ability(game, player_id, kind):
             continue
         entry = species_ability(kind)
-        if entry.get("ability_short"):
+        text = species_ability_reminder(kind, bearing.skill_test)
+        if text:
             notes.append({
                 "kind": "species",
                 "species": kind,
                 "name": entry.get("name", ""),
-                "text": entry["ability_short"],
+                "text": text,
             })
     special = engine.special_ability_reminder(game, player_id)
     if special and _special_bears(engine, game, player_id, bearing):
@@ -2529,6 +2540,7 @@ def _situation_side(
     with_ability: bool,
     empty: str = "",
     bearing: Bearing = Bearing(),
+    bearings: Mapping[str, Bearing] = MappingProxyType({}),
 ) -> dict:
     """
     One side of the matchup, worded as the PNG words it
@@ -2544,7 +2556,11 @@ def _situation_side(
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
         passed = SHOT_PASSED_NOTE if only.passed else ""
-        skill = f"{only.skill_name} skill +{only.value}{halved_from}{passed}"
+        as_on_ball = SHOT_AS_ON_BALL_NOTE if only.as_on_ball else ""
+        skill = (
+            f"{only.skill_name} skill +{only.value}{halved_from}{passed}"
+            f"{as_on_ball}"
+        )
     else:
         terms = " + ".join(str(side.value) for side in sides)
         skill = (
@@ -2555,7 +2571,10 @@ def _situation_side(
         "team": team_display_name(team),
         "colour": TEAM_COLORS[team],
         "players": [
-            _situation_player(engine, game, match, player_id, side, bearing)
+            _situation_player(
+                engine, game, match, player_id, side,
+                bearings.get(player_id, bearing),
+            )
             for player_id, side in players
         ],
         "skill": skill,
@@ -2567,14 +2586,15 @@ def _situation_side(
         ),
         # What a wall's badges mean, in the PNG's own band labels
         # (`render.CHALLENGE_BANDS`): those the wall has, whole skills
-        # first, then halved, then passed.
+        # first -- on the ball, then counted as on it -- then halved,
+        # then passed.
         "bands": [
             {
                 "halved": band == "half",
                 "passed": band == "passed",
                 "text": CHALLENGE_BANDS[band][1][0],
             }
-            for band in ("full", "half", "passed")
+            for band in ("full", "as_on_ball", "half", "passed")
             if len(sides) > 1 and any(side.band == band for side in sides)
         ],
         "empty": empty if not sides else None,
@@ -2907,10 +2927,20 @@ def _shot_situation(
     shooter, defenders, where = score_attempt_brief(
         engine, match, game, ability_note=False,
     )
-    defender_ids = [
-        defender.player.player_id
-        for defender in engine.intervening_defenders(match, game)
-    ]
+    wall = engine.intervening_defenders(match, game)
+    defender_ids = [defender.player.player_id for defender in wall]
+    # Goopkeeper's chip only where the ability changes the shot: beyond
+    # the ball. On it, they are on it anyway (the author, 2026-09-30).
+    on_the_ball = replace(
+        BEARINGS["shot_defence"],
+        special=BEARINGS["shot_defence"].special
+        - {SpecialAbility.FULL_BLOCK},
+    )
+    wall_bearings = {
+        defender.player.player_id: on_the_ball
+        for defender in wall
+        if not defender.as_on_ball
+    }
     return {
         "title": SCORE_ATTEMPT_TITLE,
         "where": where,
@@ -2933,6 +2963,7 @@ def _shot_situation(
                 list(zip(defender_ids, defenders)), with_ability=False,
                 empty=SCORE_ATTEMPT_UNDEFENDED,
                 bearing=BEARINGS["shot_defence"],
+                bearings=wall_bearings,
             ),
         ],
         "roll": None,

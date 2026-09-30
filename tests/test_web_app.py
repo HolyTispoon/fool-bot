@@ -1506,6 +1506,72 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                                 )
                             ])
 
+    def test_goopkeeper_is_named_only_beyond_the_ball(self) -> None:
+        # The chip and the band say it where it changes the shot, and
+        # nowhere else (the author, 2026-09-30).
+        from unittest import mock
+
+        from d12ball.components import catalog_player_id
+        from d12ball.special_abilities import (
+            SPECIAL_ABILITIES,
+            SpecialAbility,
+        )
+
+        def named(player):
+            return any(
+                note["kind"] == "special" for note in player["abilities"]
+            )
+
+        fixture = case("score attempt")
+        wall = ENGINE.intervening_defenders(fixture.match, fixture.game)
+        on_ball = [d for d in wall if d.on_ball]
+        beyond = [d for d in wall if not d.on_ball]
+        self.assertTrue(on_ball and beyond)
+        for defender, expected in ((on_ball[0], False), (beyond[0], True)):
+            player_id = defender.player.player_id
+            with self.subTest(beyond=expected), mock.patch.dict(
+                SPECIAL_ABILITIES,
+                {
+                    catalog_player_id(player_id):
+                    (SpecialAbility.FULL_BLOCK, "test"),
+                },
+            ):
+                _, got = self.situation_in(
+                    "score attempt", GameMode.ADVANCED,
+                )
+                (player,) = [
+                    player for player in got["sides"][1]["players"]
+                    if player["id"] == player_id
+                ]
+                self.assertEqual(named(player), expected)
+                self.assertEqual(player["as_on_ball"], expected)
+                bands = [band["text"] for band in got["sides"][1]["bands"]]
+                self.assertEqual(
+                    "COUNTS AS ON THE BALL" in bands, expected,
+                )
+
+    def test_volatile_s_upgrade_is_said_only_at_a_skill_test(self) -> None:
+        # "In a scoring attempt and anywhere outside a skill test, we can
+        # cut out the part of Volatile about upgrading maneuvers" (the
+        # author, 2026-09-30).
+        from d12ball.components import SPECIES_FIRE_DEMON
+
+        for name, skill_test in (
+            ("maneuver picks", True), ("score attempt", False),
+        ):
+            with self.subTest(name):
+                _, got = self.situation_in(name, GameMode.STANDARD)
+                texts = [
+                    note["text"]
+                    for side in got["sides"]
+                    for player in side["players"]
+                    for note in player["abilities"]
+                    if note.get("species") == SPECIES_FIRE_DEMON
+                ]
+                self.assertTrue(texts)
+                for text in texts:
+                    self.assertEqual("In a skill test" in text, skill_test)
+
     def test_merge_is_the_model_s_own_line_in_the_modifiers(self) -> None:
         # An Ooze of each side stood on the ball, neither rolling: what
         # each adds is `merge_bonus`'s line, as the dice list it.
@@ -1796,13 +1862,21 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         fixture, got = self.situation_in("score attempt", GameMode.ADVANCED)
         game = fixture.game
         wall = got["sides"][1]["players"]
+        beyond = {
+            defender.player.player_id
+            for defender in ENGINE.intervening_defenders(fixture.match, game)
+            if defender.as_on_ball
+        }
         for player in wall:
             raised = (
                 ENGINE.skills(game, player["id"]).defense
                 != ENGINE.skills(None, player["id"]).defense
             )
-            blocks = ENGINE.has_special_ability(
-                game, player["id"], SpecialAbility.FULL_BLOCK,
+            # Goopkeeper's is named only beyond the ball, where it
+            # changes the shot (the author, 2026-09-30).
+            blocks = player["id"] in beyond
+            self.assertEqual(
+                player["as_on_ball"], blocks, player["short"],
             )
             named = any(
                 note["kind"] == "special" for note in player["abilities"]

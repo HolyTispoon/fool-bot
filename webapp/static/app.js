@@ -1852,6 +1852,7 @@ function situationSide(side) {
             class: player.passed ? "situation-badge passed"
               : player.halved ? "situation-badge halved" : "situation-badge",
             title: player.passed ? "In the way, not counting"
+              : player.as_on_ball ? "Counts as on the ball"
               : player.halved ? `Half of ${player.skill}` : null,
           }, String(player.value)) : null)))
       : null,

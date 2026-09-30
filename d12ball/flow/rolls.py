@@ -55,6 +55,7 @@ from d12ball.components import (
     PlayerDefinition,
     PlayerRole,
     RuleRefusal,
+    SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
     TeamSide,
@@ -1208,6 +1209,7 @@ def score_score_attempt(
             f"+{defender.value}"
             + (f" (half of {defender.defense})" if defender.halved else "")
             + (SHOT_PASSED_NOTE if defender.passed else "")
+            + (SHOT_AS_ON_BALL_NOTE if defender.as_on_ball else "")
             for defender in defenders
         ]
         if len(defenders) > 1:

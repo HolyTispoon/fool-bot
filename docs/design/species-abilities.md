@@ -237,7 +237,13 @@ their own (below).
     only ever shows at a shot; the roster and the card keep the whole
     sentence. The web page's chip under the shooter is that reminder,
     so the page asks the brief for no line (`ability_note=False`);
-    Discord has no chip, so its two images carry the line. The shot's `defender_count` in the event log
+    Discord has no chip, so its two images carry the line.
+    **Goopkeeper beyond the ball is said the same way** (the author,
+    2026-09-30, who also confirmed they count in full against
+    Flickerwing's shot): `ShotDefender.as_on_ball`, drawn gold under
+    its own "COUNTS AS ON THE BALL" band, and "+6 (counts as on the
+    ball)" on the dice. On the ball the ability changes nothing, so
+    nothing says it there. The shot's `defender_count` in the event log
     leaves the passed out, since it prices the shot. A dice line
     wider than its cell now wraps (`render.skill_test_detail_lines`),
     before its parenthesis where it can; one that fits draws as it
