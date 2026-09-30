@@ -223,7 +223,32 @@ their own (below).
     the sheet said "always" for a few hours on 2026-09-26, which would
     have reached behind the ball, and the author reverted it), and
     Flickerwing's shot -- every one, set-up or not (the author,
-    2026-09-26) -- drops everybody beyond the ball but a Goopkeeper.
+    2026-09-26) -- passes everybody beyond the ball but a Goopkeeper.
+    **A passed defender stays in the wall** (`ShotDefender.passed`,
+    worth 0) rather than dropping out of it: dropped, a shot past two
+    defenders read "No one in the way" on both pictures and nothing
+    said why (the author, 2026-09-30). So the composition draws them
+    with a grey 0 under "IN THE WAY — NOT COUNTING", the dice list
+    them "+0 (in the way, not counting)", and the shooter carries
+    `RulesEngine.clear_shot_note`, said only when it passed somebody.
+    **One reminder, and short** (the author, 2026-09-30): it is the
+    sheet's sentence without its opening "When attempting to score,"
+    (`special_ability_reminder`, `without_shot_condition`), since it
+    only ever shows at a shot; the roster and the card keep the whole
+    sentence. The web page's chip under the shooter is that reminder,
+    so the page asks the brief for no line (`ability_note=False`);
+    Discord has no chip, so its two images carry the line.
+    **Goopkeeper beyond the ball is said the same way** (the author,
+    2026-09-30, who also confirmed they count in full against
+    Flickerwing's shot): `ShotDefender.as_on_ball`, drawn gold under
+    its own "COUNTS AS ON THE BALL" band, and "+6 (counts as on the
+    ball)" on the dice. On the ball the ability changes nothing, so
+    nothing says it there. Its reminder drops "during score attempts"
+    for Flickerwing's reason. The shot's `defender_count` in the event log
+    leaves the passed out, since it prices the shot. A dice line
+    wider than its cell now wraps (`render.skill_test_detail_lines`),
+    before its parenthesis where it can; one that fits draws as it
+    always did.
     The shooter is `active_player_id`, so the picture drawn before the
     shot and the roll read the same wall.
   - *What a test costs* -- `skill_test_tokens` and `re_roll_tokens`:

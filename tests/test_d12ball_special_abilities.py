@@ -21,6 +21,8 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from d12ball.components import (
+    SHOT_AS_ON_BALL_NOTE,
+    SHOT_PASSED_NOTE,
     CYBORG_DRAINED_AT,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
@@ -35,6 +37,7 @@ from d12ball.components import (
     catalog_player_id,
     duplicate_card_id,
 )
+from d12ball.dice_brief import score_attempt_brief
 from d12ball.engine import IgnitedRoll
 from d12ball.flow.effects import (
     ball_comes_to,
@@ -45,7 +48,11 @@ from d12ball.flow.effects import (
 )
 from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.flow.injuries import injury_test_step
-from d12ball.flow.rolls import after_the_contest, score_skill_test
+from d12ball.flow.rolls import (
+    after_the_contest,
+    score_score_attempt,
+    score_skill_test,
+)
 from d12ball.flow.result import FollowOnStep
 from d12ball.flow.turn import (
     begin_maneuver_action_selection,
@@ -55,9 +62,12 @@ from d12ball.flow.turn import (
 )
 from d12ball.flow.turnovers import begin_run_back, fly_step
 from d12ball.prompts import PendingPrompt, PromptKind
+from d12ball.formatting import player_with_role
 from d12ball.game import GameMode, Team
 from d12ball.special_abilities import (
     ADVANCED_SKILL_SENTENCES,
+    CLEAR_SHOT_CONDITION,
+    FULL_BLOCK_CONDITION,
     INFERNO_BALL_SPEED,
     SCORCHIT_FORCED_TEST_TOKENS,
     VISCOR_MERGE_BONUS,
@@ -71,6 +81,7 @@ from d12ball.special_abilities import (
     VOLTUS_OVERDRIVE_DRAIN_COST,
     QUANTOR_RUN_DRAIN,
     SpecialAbility,
+    without_shot_condition,
 )
 
 from roster import fielded_of_species
@@ -1114,6 +1125,13 @@ class ShotDefenseTests(unittest.TestCase):
             player_id, *self.match.board.position_at_flat_index(flat),
         )
 
+    def sheet_sentence(self) -> str:
+        """The shooter's special ability as the shot says it: the
+        sheet's own words, not a paraphrase (the author, 2026-09-30)."""
+        sentence = ENGINE.get_player_definition(self.shooter).advanced_ability
+        self.assertTrue(sentence)
+        return f"Special ability: {without_shot_condition(sentence)}"
+
     def defending(self) -> dict:
         return {
             defender.player.player_id: defender
@@ -1147,12 +1165,155 @@ class ShotDefenseTests(unittest.TestCase):
             with self.subTest(set_up=set_up):
                 self.match.pending_shot_is_set_up = set_up
                 with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-                    self.assertEqual(set(self.defending()), {self.on_ball})
+                    wall = self.defending()
+                    counted = {
+                        player_id for player_id, defender in wall.items()
+                        if defender.value
+                    }
+                    self.assertEqual(counted, {self.on_ball})
                     with holding(self.beyond, SpecialAbility.FULL_BLOCK):
+                        wall = self.defending()
+                        self.assertFalse(wall[self.beyond].passed)
                         self.assertEqual(
-                            set(self.defending()),
-                            {self.on_ball, self.beyond},
+                            wall[self.beyond].value,
+                            ENGINE.skills(self.game, self.beyond).defense,
                         )
+
+    def test_flickerwing_leaves_the_passed_in_the_way(self) -> None:
+        # Still in the way, so both pictures can say so, and worth
+        # nothing (the author, 2026-09-30).
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            wall = self.defending()
+        self.assertEqual(set(wall), {self.on_ball, self.beyond})
+        self.assertTrue(wall[self.beyond].passed)
+        self.assertFalse(wall[self.beyond].halved)
+        self.assertEqual(wall[self.beyond].value, 0)
+        self.assertFalse(wall[self.on_ball].passed)
+        self.assertEqual(
+            ENGINE.clear_shot_note(
+                self.game, self.shooter, list(wall.values()),
+            ),
+            self.sheet_sentence(),
+        )
+
+    def test_flickerwing_says_nothing_when_nobody_is_passed(self) -> None:
+        self.at(self.beyond, 0)
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            wall = self.defending()
+        self.assertEqual(set(wall), {self.on_ball})
+        self.assertEqual(
+            ENGINE.clear_shot_note(
+                self.game, self.shooter, list(wall.values()),
+            ),
+            "",
+        )
+
+    def test_the_shot_announces_the_ability_and_the_passed(self) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            shooter, defenders, _ = score_attempt_brief(
+                ENGINE, self.match, self.game,
+            )
+        self.assertIn(self.sheet_sentence(), shooter.modifiers)
+        passed = [side for side in defenders if side.passed]
+        self.assertEqual(len(passed), 1)
+        self.assertEqual(passed[0].value, 0)
+        self.assertEqual(passed[0].band, "passed")
+
+    def test_flickerwings_reminder_drops_the_condition(self) -> None:
+        # "It only appears when Flickerwing attempts to score" (the
+        # author, 2026-09-30): the reminder is the rest of the sheet's
+        # sentence, and the card keeps all of it.
+        flickerwing = next(
+            player_id for player_id, (ability, _) in SPECIAL_ABILITIES.items()
+            if ability == SpecialAbility.CLEAR_SHOT
+        )
+        sentence = ENGINE.special_ability_text(self.game, flickerwing)
+        self.assertTrue(sentence.startswith(CLEAR_SHOT_CONDITION))
+        self.assertEqual(
+            ENGINE.special_ability_reminder(self.game, flickerwing),
+            "Only defenders on the ball contribute their skill scores.",
+        )
+
+    def test_goopkeepers_reminder_drops_the_condition(self) -> None:
+        # The same reasoning as Flickerwing's (the author, 2026-09-30).
+        goopkeeper = next(
+            player_id for player_id, (ability, _) in SPECIAL_ABILITIES.items()
+            if ability == SpecialAbility.FULL_BLOCK
+        )
+        sentence = ENGINE.special_ability_text(self.game, goopkeeper)
+        self.assertTrue(sentence.endswith(FULL_BLOCK_CONDITION))
+        self.assertEqual(
+            ENGINE.special_ability_reminder(self.game, goopkeeper),
+            "Counts as 'on the ball' when standing between the ball and "
+            "the goal.",
+        )
+
+    def test_a_frontend_with_its_own_reminder_leaves_the_line_off(
+        self,
+    ) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            shooter, defenders, _ = score_attempt_brief(
+                ENGINE, self.match, self.game, ability_note=False,
+            )
+        self.assertNotIn(self.sheet_sentence(), shooter.modifiers)
+        self.assertTrue(any(side.passed for side in defenders))
+
+    def test_goopkeeper_beyond_the_ball_is_said_on_the_dice(self) -> None:
+        # Only beyond the ball, where the ability changes the shot (the
+        # author, 2026-09-30); against Flickerwing too (21.3.5).
+        for flickerwing in (False, True):
+            with self.subTest(flickerwing=flickerwing):
+                abilities = {
+                    catalog_player_id(self.beyond): (
+                        SpecialAbility.FULL_BLOCK, "test",
+                    ),
+                    catalog_player_id(self.on_ball): (
+                        SpecialAbility.FULL_BLOCK, "test",
+                    ),
+                }
+                if flickerwing:
+                    abilities[catalog_player_id(self.shooter)] = (
+                        SpecialAbility.CLEAR_SHOT, "test",
+                    )
+                with mock.patch.dict(SPECIAL_ABILITIES, abilities):
+                    wall = self.defending()
+                    (_, defence), _, _, _ = score_score_attempt(
+                        ENGINE, self.game, self.match,
+                        ENGINE.get_player_definition(self.shooter),
+                        self.match.home, self.match.visiting,
+                    )
+                self.assertTrue(wall[self.beyond].as_on_ball)
+                self.assertFalse(wall[self.on_ball].as_on_ball)
+                lines = defence[2]
+                beyond = player_with_role(
+                    ENGINE.get_player_definition(self.beyond),
+                )
+                on_ball = player_with_role(
+                    ENGINE.get_player_definition(self.on_ball),
+                )
+                self.assertTrue(any(
+                    line.startswith(beyond)
+                    and line.endswith(SHOT_AS_ON_BALL_NOTE)
+                    for line in lines
+                ))
+                self.assertFalse(any(
+                    line.startswith(on_ball)
+                    and line.endswith(SHOT_AS_ON_BALL_NOTE)
+                    for line in lines
+                ))
+
+    def test_the_dice_list_the_passed_at_nothing(self) -> None:
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
+            (attack, defence), _, defense_total, _ = score_score_attempt(
+                ENGINE, self.game, self.match,
+                ENGINE.get_player_definition(self.shooter),
+                self.match.home, self.match.visiting,
+            )
+        self.assertIn(self.sheet_sentence(), attack[2])
+        beyond = player_with_role(ENGINE.get_player_definition(self.beyond))
+        self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
+        on_ball = ENGINE.skills(self.game, self.on_ball).defense
+        self.assertEqual(defense_total, defence[0] + on_ball)
 
 
 class ViscorTests(unittest.TestCase):

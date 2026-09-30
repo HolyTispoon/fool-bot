@@ -615,6 +615,27 @@ def species_ability(species: str) -> dict[str, str]:
     return _species_abilities().get(species, {})
 
 
+#: The sentence of a species' short ability that is about a skill test
+#: alone -- Volatile's upgrade. A reminder beside any other roll (a
+#: shot, a contest) drops it, since it says nothing there (the author,
+#: 2026-09-30); the card and the reference keep the whole text.
+SKILL_TEST_SENTENCE = "In a skill test"
+
+
+def species_ability_reminder(species: str, skill_test: bool) -> str:
+    """
+    A species' short ability as a roll reminds of it: the sheet's own
+    words, with the sentence that opens "In a skill test" dropped
+    unless the roll is one. Nothing is reworded; a text without that
+    sentence comes back whole.
+    """
+    text = species_ability(species).get("ability_short", "")
+    if skill_test:
+        return text
+    head, found, _ = text.partition(f" {SKILL_TEST_SENTENCE}")
+    return head.rstrip() if found else text
+
+
 def _species_abilities() -> dict[str, dict[str, str]]:
     global _SPECIES_ABILITIES
     if _SPECIES_ABILITIES is None:

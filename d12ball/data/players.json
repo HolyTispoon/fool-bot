@@ -95,7 +95,7 @@
       "role": "winger",
       "species": "fire_demon",
       "stat_overrides": {},
-      "advanced_ability": "When attempting a scoring opportunity, only defender on the ball contribute their skill scores.",
+      "advanced_ability": "When attempting to score, only defenders on the ball contribute their skill scores.",
       "advanced_skills": {}
     },
     "flux_defender": {

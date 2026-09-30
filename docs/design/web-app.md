@@ -1730,8 +1730,12 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
 - **It names the abilities that bear on the roll** (the author,
   2026-09-28), each on a muted line under the player's words:
   - **a species' ability where it reaches the roll**, in the sheet's
-    own short words (`species.json`'s `ability_short`, never cut
-    here), with the species' coloured icon: Volatile on whoever rolls
+    own short words (`species.json`'s `ability_short`, never reworded
+    here), with the species' coloured icon. Outside a maneuver's skill
+    test the sentence opening "In a skill test" is dropped -- Volatile's
+    upgrade says nothing at a shot or a contest (the author,
+    2026-09-30; `player_cards.species_ability_reminder`, keyed on
+    `Bearing.skill_test`). Where it shows: Volatile on whoever rolls
     a skill test and on the shooter (Law 20.2.3 -- never an injury
     check or an own-goal roll), Lithium Powered on any roll a Cyborg
     makes (Law 20.3.5). Whether the player has it is
@@ -1748,7 +1752,12 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     roll** -- labelled "Special ability" on the page, the author's word
     (2026-09-28), where the Law says special ability -- (the author, 2026-09-28: "only show special abilities that
     apply to the roll"), as the advanced face of the card prints it
-    (`special_ability_text`), prefixed with whose it is in a wall.
+    (`special_ability_reminder`: the card's sentence, Flickerwing's
+    without its "When attempting to score," and Goopkeeper's without
+    its "during score attempts"), prefixed with whose it
+    is in a wall. Goopkeeper's is named only standing beyond the
+    ball, where it changes the shot (the author, 2026-09-30); the wall
+    marks them with a "COUNTS AS ON THE BALL" band.
     Applies means it changes the roll's number, whether it is rolled,
     or what winning it means: the ignites, Voltus's Overdrive and
     Gearclaw's Boost, Zorch's speed (not on a shot, which adds it

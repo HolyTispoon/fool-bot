@@ -1225,7 +1225,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.3.4** **Emberdash runs further.** Emberdash's [Dribble](#66-dribble) (6.6) may go up to 3 spaces, and their [Burst](#196-burst) (19.6) costs no exhaustion.
 
-**21.3.5** **Flickerwing shoots past the wall.** In every [score attempt](#5-score-attempt) (5) Flickerwing makes -- off a [set-up](#8-scoring-opportunities) (8) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing.
+**21.3.5** **Flickerwing shoots past the wall.** In every [score attempt](#5-score-attempt) (5) Flickerwing makes -- off a [set-up](#8-scoring-opportunities) (8) or not -- only the defending players standing on the ball's space add their skill to the defense; a defending player between the ball and the goal adds nothing, unless they count as on the ball -- as [Goopkeeper](#216-oozes) (21.6) does, who adds their full skill.
 
 **21.3.6** **Inferno lights the ball.** Whenever Inferno receives the ball -- is left holding it, however that happened: a pass, a steal, a won contest, a pull, a Smooth, or [picking it up](#106-picking-the-ball-up) (10.6) -- its speed goes to 12. Being chosen to handle a ball they were already standing on is not receiving it. Anything that sets the speed later in the same resolution, such as the speed step after a [Steal](#69-steal) (6.9), still does.
 

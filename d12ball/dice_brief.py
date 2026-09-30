@@ -98,6 +98,8 @@ def challenge_side(
     contribution: Optional[int] = None,
     halved: bool = False,
     game: Optional[D12BallGame] = None,
+    passed: bool = False,
+    as_on_ball: bool = False,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -106,8 +108,8 @@ def challenge_side(
     lines and set the height of the whole image. The full text is
     still what the roster and the rules listing show.
 
-    `contribution` and `halved` are a score attempt's defenders
-    only -- everyone else adds their whole skill and is drawn
+    `contribution`, `halved`, `passed` and `as_on_ball` are a score
+    attempt's defenders only -- everyone else adds their whole skill and is drawn
     without a word about it. `team` is which of the player's two
     rosters this match is fielding them as -- read by both callers
     off `match.team_for_player`, since a player's own definition no
@@ -137,6 +139,8 @@ def challenge_side(
         modifiers=modifiers,
         contribution=contribution,
         halved=halved,
+        passed=passed,
+        as_on_ball=as_on_ball,
     )
 
 
@@ -184,6 +188,7 @@ def score_attempt_brief(
     engine: RulesEngine,
     match: MatchState,
     game: Optional[D12BallGame] = None,
+    ability_note: bool = True,
 ) -> tuple[ChallengeSide, list[ChallengeSide], str]:
     """
     What the shot is made of, as `render_score_attempt` takes it: the
@@ -198,7 +203,12 @@ def score_attempt_brief(
     The defenders are the other way round: what each one adds is
     folded in, as their `contribution`, because a coach counting
     the wall is asking what it comes to and not what it would come
-    to somewhere else on the field. Who they are is
+    to somewhere else on the field. A defender Flickerwing's shot
+    passes is still drawn, at 0, and the shooter carries the ability's
+    line (`RulesEngine.clear_shot_note`) as a condition of this
+    attempt like the other two -- unless `ability_note` is off, for a
+    frontend that reminds of abilities its own way (the web page's
+    chip), so the ability is said once. Who they are is
     `RulesEngine.intervening_defenders`, the reading the roll adds.
     """
     shooter = engine.get_player_definition(match.active_player_id)
@@ -213,6 +223,9 @@ def score_attempt_brief(
         )
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         modifiers.append("+3 Striker ability")
+    clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
+    if clear_shot and ability_note:
+        modifiers.append(clear_shot)
 
     return (
         challenge_side(
@@ -231,6 +244,8 @@ def score_attempt_brief(
                 attacking=False,
                 contribution=defender.value,
                 halved=defender.halved,
+                passed=defender.passed,
+                as_on_ball=defender.as_on_ball,
                 game=game,
             )
             for defender in defenders

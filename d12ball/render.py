@@ -11,6 +11,8 @@ from PIL import Image, ImageDraw, ImageFont
 from d12ball.components import (
     duplicate_card_id,
     BoardState,
+    SHOT_AS_ON_BALL_NOTE,
+    SHOT_PASSED_NOTE,
     MIND_PULL_SUCCESS_FACES,
     SPECIES_CYBORG,
     SPECIES_FIRE_DEMON,
@@ -2319,6 +2321,36 @@ SKILL_TEST_TOTAL_GAP = 10
 SKILL_TEST_TOTAL_LINE_HEIGHT = 32
 SKILL_TEST_BOTTOM_PADDING = 12
 
+
+def skill_test_detail_lines(detail: list[str]) -> list[str]:
+    """
+    A die's detail lines as drawn: each one wider than its cell wrapped
+    to it, before its parenthesis where both halves fit ("Emberdash
+    [PM] +3" over "(half of 5)"), so the note reads as a note. A line
+    that fits is drawn as it always was, so only a roll carrying a long
+    line -- a long name halved, or a defender Flickerwing's shot passes
+    -- grows taller; before, such a line ran into the next die's.
+    """
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+
+    def fits(text: str) -> bool:
+        return measure.textlength(text, font=FONT_SMALL) <= SKILL_TEST_CELL_WIDTH
+
+    lines: list[str] = []
+    for line in detail:
+        if fits(line):
+            lines.append(line)
+            continue
+        head, paren, note = line.partition(" (")
+        if paren and fits(head) and fits(f"({note}"):
+            lines.extend((head, f"({note}"))
+            continue
+        lines.extend(
+            wrap_text(measure, line, FONT_SMALL, SKILL_TEST_CELL_WIDTH)
+            or [line]
+        )
+    return lines
+
 # **Overdrive**: the Cyborgs' own teal, on the same halo-and-ring a
 # roll's die already knows how to wear -- brighter and thicker than
 # Volatile's, which is explaining a second die nobody watched land;
@@ -2509,7 +2541,11 @@ class SkillTestRowLayout:
         ],
     ) -> "SkillTestRowLayout":
         max_lines = max(
-            (len(detail) for _, _, _, detail, _, _, _ in dice), default=0,
+            (
+                len(skill_test_detail_lines(detail))
+                for _, _, _, detail, _, _, _ in dice
+            ),
+            default=0,
         )
         detail_block_height = max_lines * SKILL_TEST_DETAIL_LINE_HEIGHT
         merge_extra_height = max(
@@ -2612,7 +2648,7 @@ def draw_skill_test_die(
     )
 
     detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
-    for line in detail_lines:
+    for line in skill_test_detail_lines(detail_lines):
         line_width = draw.textlength(line, font=FONT_SMALL)
         draw.text(
             (center_x - line_width / 2, detail_y),
@@ -3743,6 +3779,10 @@ CHALLENGE_TOTAL_LINE_HEIGHT = 34
 # term was halved or whose it is.
 CHALLENGE_FULL_COLOR = "#f0b429"
 CHALLENGE_HALF_COLOR = "#7fa8c9"
+# A defender Flickerwing's shot passes (ShotDefender.passed): drawn,
+# because they are in the way, but in a grey outline with a 0, because
+# they add nothing -- the shooter's own line says whose ability that is.
+CHALLENGE_PASSED_COLOR = "#8b96a2"
 CHALLENGE_BADGE_TEXT_COLOR = "#111820"
 CHALLENGE_BADGE_RADIUS = 19
 CHALLENGE_BADGE_INSET = 2
@@ -3761,6 +3801,26 @@ CHALLENGE_BAND_HALF = (
     "IN THE WAY — HALVED",
     "HALVED",
 )
+CHALLENGE_BAND_PASSED = (
+    "IN THE WAY — NOT COUNTING",
+    "NOT COUNTING",
+    "0",
+)
+# Goopkeeper beyond the ball: gold like the ball's own space, because
+# they are worth all of it, but its own run, because they are not
+# standing on it and the label is what says why.
+CHALLENGE_BAND_AS_ON_BALL = (
+    "COUNTS AS ON THE BALL",
+    "AS ON THE BALL",
+    "FULL",
+)
+#: Each run's colour and labels, by `ChallengeSide.band`.
+CHALLENGE_BANDS = {
+    "full": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_FULL),
+    "half": (CHALLENGE_HALF_COLOR, CHALLENGE_BAND_HALF),
+    "passed": (CHALLENGE_PASSED_COLOR, CHALLENGE_BAND_PASSED),
+    "as_on_ball": (CHALLENGE_FULL_COLOR, CHALLENGE_BAND_AS_ON_BALL),
+}
 
 
 @dataclass(frozen=True)
@@ -3784,7 +3844,10 @@ class ChallengeSide:
     every other image, and nothing extra is drawn about it. `halved`
     cannot be inferred from the two numbers: a defensive skill of 1
     halves to 1, and drawing that as a full value would say the
-    defender is on the ball when they are not.
+    defender is on the ball when they are not. `passed` is a defender
+    Flickerwing's shot passes: in the way, contributing 0 (see
+    ShotDefender). `as_on_ball` is a Goopkeeper beyond the ball,
+    whole because their ability counts them as on it.
     """
 
     name: str
@@ -3797,11 +3860,23 @@ class ChallengeSide:
     modifiers: tuple[str, ...] = ()
     contribution: Optional[int] = None
     halved: bool = False
+    passed: bool = False
+    as_on_ball: bool = False
 
     @property
     def value(self) -> int:
         """What this player's side adds for them."""
         return self.skill if self.contribution is None else self.contribution
+
+    @property
+    def band(self) -> str:
+        """Which run of a wall this player's badge belongs to: "full",
+        "half", "passed" or "as_on_ball"."""
+        if self.passed:
+            return "passed"
+        if self.as_on_ball:
+            return "as_on_ball"
+        return "half" if self.halved else "full"
 
 
 def join_names(names: list[str]) -> str:
@@ -3854,9 +3929,12 @@ def group_text_lines(
     if len(sides) == 1:
         only = sides[0]
         halved_from = f" (half of {only.skill})" if only.halved else ""
+        passed = SHOT_PASSED_NOTE if only.passed else ""
+        as_on_ball = SHOT_AS_ON_BALL_NOTE if only.as_on_ball else ""
         sized.append(
             (
-                f"{skill_name} skill +{only.value}{halved_from}",
+                f"{skill_name} skill +{only.value}{halved_from}{passed}"
+                f"{as_on_ball}",
                 CHALLENGE_SKILL_COLOR,
                 FONT_CHALLENGE_BODY,
                 CHALLENGE_LINE_HEIGHT,
@@ -3918,7 +3996,8 @@ def draw_contribution_badge(
     A full value is a solid disc and a halved one is an outline
     carrying the skill it was halved from, so every term of the sum
     below can be checked against a face -- which is the whole reason
-    the badge exists rather than a longer arithmetic line.
+    the badge exists rather than a longer arithmetic line. A passed
+    defender's is a grey outline with a 0.
     """
     radius = CHALLENGE_BADGE_RADIUS
     center_x = x + CHALLENGE_PORTRAIT_SIZE - radius - CHALLENGE_BADGE_INSET
@@ -3929,14 +4008,16 @@ def draw_contribution_badge(
         center_x + radius,
         center_y + radius,
     )
-    if side.halved:
+    if side.halved or side.passed:
+        text_color = (
+            CHALLENGE_PASSED_COLOR if side.passed else CHALLENGE_HALF_COLOR
+        )
         draw.ellipse(
             box,
             fill="#111820",
-            outline=CHALLENGE_HALF_COLOR,
+            outline=text_color,
             width=CHALLENGE_BADGE_OUTLINE,
         )
-        text_color = CHALLENGE_HALF_COLOR
     else:
         draw.ellipse(
             box,
@@ -3971,11 +4052,13 @@ def draw_contribution_bands(
 ) -> None:
     """
     Label each run of like-valued portraits: the ones on the ball,
-    worth their whole skill, and the ones further along, worth half.
+    worth their whole skill, the ones further along, worth half, and
+    the ones Flickerwing's shot passes, worth nothing.
 
     The runs come out of the order the portraits are already in, which
-    is the order the shot travels -- so the ball space is the first run
-    and there are never more than two. Labelling the runs rather than
+    is the order the shot travels -- so the ball space is the first
+    run, and there are two at most unless a Goopkeeper stands among
+    the passed. Labelling the runs rather than
     the players is what keeps the rule on the image once a badge alone
     would have to be read one at a time.
     """
@@ -3983,18 +4066,17 @@ def draw_contribution_bands(
     if not banded:
         return
 
-    spans: list[tuple[bool, float, float]] = []
+    spans: list[tuple[str, float, float]] = []
     for side, x in banded:
         right = x + CHALLENGE_PORTRAIT_SIZE
-        if spans and spans[-1][0] == side.halved:
-            halved, start, _ = spans.pop()
-            spans.append((halved, start, right))
+        if spans and spans[-1][0] == side.band:
+            band, start, _ = spans.pop()
+            spans.append((band, start, right))
         else:
-            spans.append((side.halved, x, right))
+            spans.append((side.band, x, right))
 
-    for halved, start, end in spans:
-        color = CHALLENGE_HALF_COLOR if halved else CHALLENGE_FULL_COLOR
-        labels = CHALLENGE_BAND_HALF if halved else CHALLENGE_BAND_FULL
+    for band, start, end in spans:
+        color, labels = CHALLENGE_BANDS[band]
         # A label may lean into the gap beside its band, but not so far
         # that two of them touch.
         room = (end - start) + (

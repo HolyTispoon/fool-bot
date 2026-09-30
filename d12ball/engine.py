@@ -122,6 +122,7 @@ from d12ball.special_abilities import (
     VISCOR_MERGE_BONUS,
     VOLTUS_OVERDRIVE_DRAIN_COST,
     SpecialAbility,
+    without_shot_condition,
 )
 
 
@@ -725,6 +726,25 @@ class RulesEngine:
         if not self.special_abilities_apply(game):
             return ""
         return self.get_player_definition(player_id).advanced_ability
+
+    def special_ability_reminder(
+        self, game: Optional[D12BallGame], player_id: str,
+    ) -> str:
+        """
+        A player's special ability as a roll reminds of it -- the web
+        page's chip beside a roll, and Flickerwing's line on the shot:
+        `special_ability_text`, with the score attempt's condition
+        dropped from Flickerwing's and Goopkeeper's, since each is only
+        ever reminded of at a shot (the author, 2026-09-30). The rest of
+        the sentence is the sheet's, never reworded.
+        """
+        text = self.special_ability_text(game, player_id)
+        if any(
+            self.has_special_ability(game, player_id, ability)
+            for ability in (SpecialAbility.CLEAR_SHOT, SpecialAbility.FULL_BLOCK)
+        ):
+            return without_shot_condition(text)
+        return text
 
     def skills(
         self, game: Optional[D12BallGame], player_id: str,
@@ -2236,9 +2256,11 @@ class RulesEngine:
         their full skill (`full_block`); behind the ball they are not
         in the list, like anyone else. **Flickerwing's shot** -- every
         one, off a set-up or not -- is defended by the ball's space
-        alone, so the players beyond it drop out, except a Goopkeeper,
-        who counts as on it. The shooter is the handler, which is also
-        who the preview before the shot is drawn for.
+        alone, so the players beyond it are `passed`: still in the
+        list, since they are still in the way and both pictures say
+        so, but worth nothing -- except a Goopkeeper, who counts as on
+        it. The shooter is the handler, which is also who the preview
+        before the shot is drawn for.
         """
         in_the_way = match.defenders_between_ball_and_goal()
         clear_shot = self.has_special_ability(
@@ -2249,14 +2271,35 @@ class RulesEngine:
             full_block = self.has_special_ability(
                 game, player_id, SpecialAbility.FULL_BLOCK,
             )
-            if clear_shot and not (on_ball or full_block):
-                continue
             player = self.get_player_definition(player_id)
             defense = self.skills(game, player_id).defense
             defenders.append(ShotDefender(
                 player, defense, on_ball, full_block=full_block,
+                passed=clear_shot and not (on_ball or full_block),
             ))
         return defenders
+
+    def clear_shot_note(
+        self,
+        game: Optional[D12BallGame],
+        shooter_id: str,
+        defenders: list[ShotDefender],
+    ) -> str:
+        """
+        Flickerwing's special ability, said wherever the shot is drawn
+        -- the composition before it and the dice after -- when it
+        passes somebody, so a coach sees why the players in the way
+        add nothing. Nobody passed says nothing: the ability changed
+        nothing about this shot.
+
+        **The sheet's own sentence**, as `special_ability_reminder`
+        gives it at a shot -- never reworded here -- after "Special
+        ability", the author's word for it on the page (2026-09-28).
+        """
+        if not any(defender.passed for defender in defenders):
+            return ""
+        text = self.special_ability_reminder(game, shooter_id)
+        return f"Special ability: {text}" if text else ""
 
     def settled_maneuver_winner(
         self,

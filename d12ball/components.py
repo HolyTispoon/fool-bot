@@ -372,6 +372,17 @@ class PlayerDefinition:
     advanced_skills: dict = field(default_factory=dict)
 
 
+#: What a defender Flickerwing's shot passes adds, said after their +0
+#: wherever a shot's wall is worded -- the dice, and the composition
+#: drawn before them (`ShotDefender.passed`).
+SHOT_PASSED_NOTE = " (in the way, not counting)"
+#: What a Goopkeeper beyond the ball adds, said after their full value
+#: the same way (`ShotDefender.as_on_ball`) -- the one place their
+#: ability changes the shot, so the one place it is said (the author,
+#: 2026-09-30).
+SHOT_AS_ON_BALL_NOTE = " (counts as on the ball)"
+
+
 @dataclass(frozen=True)
 class ShotDefender:
     """
@@ -393,19 +404,34 @@ class ShotDefender:
     `full_block` is Goopkeeper's special ability (Law 21): all of it
     from further along too. The engine answers it
     (`RulesEngine.intervening_defenders`), so this stays a record.
+
+    `passed` is Flickerwing's shot (Law 21): a defender beyond the
+    ball who is still in the way but adds nothing. They stay in the
+    wall rather than dropping out of it, so both pictures show who was
+    passed and why, where leaving them out read as "No one in the way"
+    (the author, 2026-09-30).
     """
 
     player: PlayerDefinition
     defense: int
     on_ball: bool
     full_block: bool = False
+    passed: bool = False
 
     @property
     def halved(self) -> bool:
-        return not (self.on_ball or self.full_block)
+        return not (self.on_ball or self.full_block or self.passed)
+
+    @property
+    def as_on_ball(self) -> bool:
+        """Goopkeeper beyond the ball: whole, because their ability
+        counts them as on it. On the ball it changes nothing."""
+        return self.full_block and not self.on_ball
 
     @property
     def value(self) -> int:
+        if self.passed:
+            return 0
         return ceil(self.defense / 2) if self.halved else self.defense
 
 
