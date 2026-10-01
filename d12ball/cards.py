@@ -1557,8 +1557,9 @@ ABILITY_MIN_SIZE = 19
 
 def time_cost(maneuver: ManeuverDefinition) -> str:
     """
-    The time pill's number: "1" out of the sheet's "1 space minute" (the
-    author, 2026-09-28: "space minute" went). The sheet's whole text if
+    The time pill's number: the "1" the sheet's Time column starts with
+    (the author, 2026-09-28: the unit is not printed; 2026-10-01: it is
+    just time). The sheet's whole text if
     it ever stops starting with one, so a card never prints nothing.
     """
     match = re.match(r"\s*(\d+)", maneuver.time)

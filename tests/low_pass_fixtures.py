@@ -735,7 +735,7 @@ def nobody_on_the_landing_space() -> LowPassFixture:
 def free_pass_across_a_shared_space() -> LowPassFixture:
     """
     The unopposed pass **Pinpoint's cost** hands the defense,
-    played across a shared space: it charges no space minute (the
+    played across a shared space: it charges no time (the
     clock was spent on the steal that produced it) and still steps the
     passer forward, because that step is what a pass of 0 buys rather
     than a part of the maneuver being paid for.

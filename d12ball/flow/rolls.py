@@ -1296,16 +1296,16 @@ def settle_score_attempt(
         )
 
     # **The shot has resolved, so the clock is charged now** (Law 5.4.2,
-    # 16.2.4): a flat space minute (2026-08-16), after the goal is
+    # 16.2.4): a flat 1 time (2026-08-16), after the goal is
     # logged and before the restart. A set-up's maneuver was charged
     # when its winner was decided, which `clock_charged` says; only a
     # game saved under the old rule reaches here with it down and the
     # maneuver's cost still owed in `pending_shot_setup_cost`. An
     # ordinary shot has it down too, and a setup cost of 0.
-    space_minutes = 1 + (
+    time_cost = 1 + (
         0 if match.clock_charged else match.pending_shot_setup_cost
     )
-    verdict += "\n\n" + charge_clock(match, space_minutes)
+    verdict += "\n\n" + charge_clock(match, time_cost)
 
     # Every score attempt is a turnover, win or miss.
     # The team that just defended restarts play -- in the middle of the
@@ -1338,10 +1338,10 @@ def settle_score_attempt(
     # posted. `begin_run_back` repeats this assignment idempotently
     # when it posts the run-back announcement.
     match.pending_run_back = True
-    match.pending_run_back_distance = space_minutes
+    match.pending_run_back_distance = time_cost
     match.pending_run_back_turnover = True
 
-    return verdict, space_minutes, headline
+    return verdict, time_cost, headline
 
 
 def score_attempt_step(
@@ -1411,7 +1411,7 @@ def score_attempt_step(
         attack_total=attack_total,
         defense_total=defense_total,
     )
-    verdict, space_minutes, headline = settle_score_attempt(
+    verdict, time_cost, headline = settle_score_attempt(
         engine, game, match, shooter, attacking_setup, defending_setup,
         scored,
     )
@@ -1458,7 +1458,7 @@ def score_attempt_step(
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK,
             {
-                "distance_moved": space_minutes,
+                "distance_moved": time_cost,
                 "turnover_occurred": True,
                 "new_play": True,
             },

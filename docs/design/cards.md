@@ -208,7 +208,7 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     Burst, the ball speed modifier on Intercept, and the "CARDS" line.
 - **The time cost is a pill in the header's right-hand corner, on every
   card** (the author, 2026-09-28): "TIME · 1", the number alone
-  (`time_cost` reads it off the sheet's "1 space minute"), white like the
+  (`time_cost` reads it off the front of the sheet's Time column), white like the
   rank badge opposite it. It used to be a pill under the effect.
 - **An advanced maneuver's effect is three boxes: SUCCESSFUL GAMBIT, FAILED
   GAMBIT, TIE** (the author, 2026-09-28). Playing the card is making a

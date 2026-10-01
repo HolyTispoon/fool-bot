@@ -134,8 +134,8 @@ The rest is read the same way:
 
 **A playing time and an age rating are printed, and neither is measured
 here.** Nothing in this repository can time a table or judge a ten-year-old,
-and the thirty minutes the game runs over is fifteen space minutes a half on
-a clock that never stops -- not a wall clock, and printing *that* as one
+and the thirty minutes the game runs over is fifteen a half on a
+clock that never stops -- not a wall clock, and printing *that* as one
 would be the box lying about the product. So the two live in one dated
 constant, `DEFAULT_CLAIMS`: **two players, 30-45 minutes, ages 10+, the
 author's own, 2026-09-23**. They are printed because somebody who has run the

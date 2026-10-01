@@ -1103,7 +1103,7 @@ the same door.
 - **A pull that lands drops the resume rather than dispatching it** -- the
   arrival it pre-empted never happens. What it does not drop is that
   maneuver's clock cost: "the maneuver that moved the ball still costs its
-  space minute". Since 2026-09-28 that minute is on the clock before the
+  1 time". Since 2026-09-28 that time is on the clock before the
   ball moves at all -- charged when the maneuver's winner was decided -- so
   nothing a pull does can lose it; the `distance_moved` it still passes to
   `begin_run_back` is only a legacy save's
@@ -1341,7 +1341,7 @@ side's pulls were owed on a movement that no longer ends where it was going.
   so a Smooth there only changes who is standing on the ball when everyone
   runs back, and the carrier it sets is the one who stays.
 - **The clock is not dropped**, the same as a pull: the maneuver that moved
-  the ball still costs its space minute, charged when its winner was decided
+  the ball still costs its time, charged when its winner was decided
   (2026-09-28); the `distance_moved` carried out is only a legacy save's.
 
 **The offer names the ability and the decline names a player**

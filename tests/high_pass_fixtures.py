@@ -140,7 +140,7 @@ BEATEN_BASIC = "steal"
 #: collect: an Intercept it beat leaves the reception uncontested.
 BEATEN_ADVANCED = "intercept"
 
-#: High Pass's own clock cost -- a flat 2 space minutes whatever the
+#: High Pass's own clock cost -- a flat 2 time whatever the
 #: pass did (2026-08-16), which is why it is apart from the distance
 #: the ball actually travelled. Cross's is the same 2, as
 #: `SETUP_PASS_CLOCK_COST` in `d12ball/components.py`.

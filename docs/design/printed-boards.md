@@ -155,7 +155,7 @@ sheet and a rows sheet. See below.
   itself and shrinks to fit, because a sixth shape added upstream lands there
   without anybody measuring.
 - **The clock and score tracks are printed aids, not components the rules
-  name.** What they count is a rule -- fifteen space-minutes a half, a clock
+  name.** What they count is a rule -- fifteen a half, a clock
   that runs past them, a score a shootout can add six to -- but nothing
   upstream says a board carries a track, so don't read them as one.
 - **A clock cell is captioned only where the caption is a rule.** The first

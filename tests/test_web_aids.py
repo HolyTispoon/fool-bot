@@ -34,6 +34,7 @@ from unittest import mock
 from aiohttp.test_utils import TestClient, TestServer
 
 from d12ball import rulebooks
+from d12ball.cards import time_cost
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
@@ -357,7 +358,7 @@ class ReferenceTests(Harness):
                     self.assertEqual(card.tier, MANEUVER_TIER_BASIC)
                     self.assertFalse(row["gambit"])
                     self.assertEqual(row["effect"], card.effect)
-                    self.assertEqual(row["time"], card.time)
+                    self.assertEqual(row["time"], f"TIME · {time_cost(card)}")
                     # Only the tiers shown, and the rank the card beats.
                     beaten = [
                         one for one in catalog.for_tier(opposing, MANEUVER_TIER_BASIC)

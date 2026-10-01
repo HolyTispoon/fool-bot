@@ -967,14 +967,14 @@ class BasicRuleset:
 # ruling added, one card per basic card at the same rank -- see
 # "Gambits" in docs/living-rules.md.
 # Cross's three distances, and its clock cost. It is High Pass's
-# rank and carries High Pass's two space minutes; 0 is a teammate
+# rank and carries High Pass's 2 time; 0 is a teammate
 # sharing the passer's own space.
 SETUP_PASS_DISTANCES = (0, 1, 3)
 # The Fullback's +1, which is the same ability that takes a basic High
 # Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
-# What a maneuver costs on the clock (Law 16.2.1): a flat space minute,
+# What a maneuver costs on the clock (Law 16.2.1): a flat 1 time,
 # and two for a High Pass and for the Cross it is the advanced
 # version of. `RulesEngine.maneuver_clock_cost` is the one reading; the
 # printed cards say the same in words, and a test holds the two
@@ -2879,7 +2879,7 @@ class MatchState:
         How many spaces the ball travels through on a shot at goal,
         counting the space it starts from -- the number of spaces that
         can hold defenders in the way. A score attempt's own clock
-        cost is a flat space minute regardless of this (2026-08-16);
+        cost is a flat 1 time regardless of this (2026-08-16);
         it no longer reads this value.
 
         Home attacks towards the high end of the board's left-to-right
@@ -3349,7 +3349,7 @@ class MatchState:
 
     def advance_time(self, minutes: int) -> None:
         """
-        Advance the clock by `minutes` space minutes. It has no ceiling:
+        Advance the clock by `minutes` time. It has no ceiling:
         every turn of a last possession is charged like any other, so a
         period ends on the minute its last turnover falls on rather than
         on its last minute.
