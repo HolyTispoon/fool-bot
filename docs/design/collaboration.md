@@ -129,15 +129,18 @@ worksheet is what checks it; correct this section from what that finds.
 
 ### The `.env`
 
-The same `.env` the bot reads (both call `load_dotenv()`), with four
+The same `.env` the bot reads (both call `load_dotenv()`), with five
 more lines; the table in [web-app.md](web-app.md), "Running it", is
-the reference for each.
+the reference for the four the web app reads. The fifth,
+`FOOLBOT_TUNNEL_TOKEN`, is read by `run_tunnel.ps1` alone, and only on
+the host that serves `play.d12ball.com` -- "Exposing the port" below.
 
 ```ini
 FOOLBOT_WEB_PORT=8080
 FOOLBOT_WEB_HOST=127.0.0.1
 FOOLBOT_WEB_URL=https://play.d12ball.com
 FOOLBOT_WEB_SECRET=<64 random hex characters>
+FOOLBOT_TUNNEL_TOKEN=<the tunnel's token, from the Zero Trust dashboard>
 ```
 
 - **`FOOLBOT_WEB_SECRET` should be set.** A person is a signed cookie
@@ -204,26 +207,31 @@ on, so the request never reaches this machine.
 `scripts/run_web_app.ps1` is `update_main_bot.ps1`'s process handling
 for the web app, and nothing else:
 
-From the checkout's root folder, through the two launchers beside the
-scripts, or the one that runs both in order:
+From the checkout's root folder, through the launchers beside the
+scripts, or the one that runs them all in order:
 
 ```powershell
 .\scripts\update_main_bot.cmd          # pull, install, restart the bot
 .\scripts\run_web_app.cmd              # restart the web app on the same tree
 .\scripts\run_web_app.cmd -StopOnly
+.\scripts\run_tunnel.cmd               # restart the tunnel's connector
+.\scripts\run_tunnel.cmd -StopOnly
 
-.\scripts\deploy.cmd                   # both of the above, in that order
+.\scripts\deploy.cmd                   # all three, in that order
 ```
 
 (The same lines work in `cmd.exe`, without the comments.)
 
-`deploy.ps1`/`deploy.cmd` call the two scripts above in order and add no
-logic of their own -- no new process matching, no new pid file. It takes
-`update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes them
-through; `run_web_app` never needs one here, since `-StopOnly` has no
-place in a deploy. `$ErrorActionPreference = 'Stop'` means a failed pull,
-install or bot start stops it before the web app is touched, so the web
-app is never restarted onto a tree the first half failed to update.
+`deploy.ps1`/`deploy.cmd` call the three scripts above in order and add
+no logic of their own -- no new process matching, no new pid file. It
+takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
+them through; the other two never need one here, since `-StopOnly` has
+no place in a deploy. `$ErrorActionPreference = 'Stop'` means a failed
+pull, install or bot start stops it before the web app is touched, so
+the web app is never restarted onto a tree the first half failed to
+update. The tunnel goes last: it serves nothing until the web app is
+up, and it is the one step a checkout may skip (see "Exposing the
+port").
 
 - **Run them through the `.cmd` launchers, never as `.\x.ps1`.** The
   checkout is on the Google Drive letter, and on that host the shell's
@@ -262,9 +270,11 @@ app is never restarted onto a tree the first half failed to update.
   and fails loudly if the process has exited four seconds later -- a
   port already in use raises out of `main`, and that is the likeliest
   way it does.
-- **Nothing restarts it on a crash or a reboot**, the same as the bot.
-  To have it come back after a reboot, a Task Scheduler task "At log
-  on" running `<checkout>\scripts\run_web_app.cmd` is the obvious
+- **Nothing restarts it on a crash or a reboot**, the same as the bot
+  and the tunnel. After a reboot all three are down until a deploy:
+  `deploy.cmd -SkipPull` brings them back on the tree already there.
+  To have that happen by itself, a Task Scheduler task "At log on"
+  running `<checkout>\scripts\deploy.cmd -SkipPull` is the obvious
   shape -- at log on rather than at startup, because the `K:\`
   Google Drive letter is mounted per user and is not there before
   somebody logs in.
@@ -291,12 +301,40 @@ the shape, not a promise.
 3. **Create the tunnel in the dashboard:** Zero Trust -> Networks ->
    Tunnels -> *Create a tunnel* -> *Cloudflared*, named `d12ball`.
    Pick Windows; it shows a `cloudflared.exe service install <token>`
-   command. Run that in an administrator PowerShell: it installs the
-   tunnel as a Windows service, which starts with the machine (it
-   needs nothing from `K:\`, so unlike the web app it can start before
-   anybody logs in). **The token is a credential** -- whoever has it
-   can run your tunnel -- so it goes nowhere else, and never in the
-   repository.
+   command. **Do not run it.** Copy the token out of it -- the long
+   string after `install` -- into the checkout's `.env` as
+   `FOOLBOT_TUNNEL_TOKEN=<token>`, and run `.\scripts\run_tunnel.cmd`
+   (or a deploy, which ends with it). **The token is a credential** --
+   whoever has it can run your tunnel -- so it goes in the `.env` and
+   nowhere else, never in the repository. The tunnel and its hostname
+   live in Cloudflare; this machine only runs its *connector*, and the
+   token is what that connector proves itself with. A lost token is
+   not a new tunnel: the tunnel's page in the dashboard shows it again.
+
+   **Why not the Windows service the dashboard offers.** It was the
+   first setup, and on 2026-09-30 it had not come back after a reboot
+   days before: Zero Trust showed the tunnel *Down* and
+   `play.d12ball.com` answered Cloudflare's 1033, while every deploy in
+   between restarted the bot and the web app and never touched it. A
+   service can start before anybody logs in, but the web app cannot
+   (`K:\` is not mounted yet), so that buys nothing; and it takes an
+   administrator to install and to start, which a deploy over SSH is
+   not. `run_tunnel.ps1` runs the connector the way `run_web_app.ps1`
+   runs the web app instead: hidden, out of this checkout, stopped
+   and started on every deploy, its log in `data/tunnel.stderr.log`.
+   The token reaches `cloudflared` as `TUNNEL_TOKEN` in its
+   environment, never on its command line, which any process on the
+   machine can read. The script waits for `cloudflared` to report its
+   first connection -- the pid file it writes only then
+   (`data/tunnel.pid`), or the "Registered tunnel connection" line in
+   the log -- and fails the deploy if neither comes within 30 seconds,
+   so a tunnel that is not serving is a red deploy rather than a 1033
+   somebody finds days later. A checkout with no
+   `FOOLBOT_TUNNEL_TOKEN` skips it with a warning: one connector
+   belongs on the live host, the way one bot belongs to one Discord
+   token. If the service from the first setup is still installed, the
+   script says so on every run; remove it once from an administrator
+   PowerShell with `cloudflared.exe service uninstall`.
 4. **Give it the public hostname:** on the same tunnel, *Public
    Hostname* (a *published application*, in newer dashboards) ->
    subdomain `play`, domain `d12ball.com`, service URL
@@ -310,7 +348,7 @@ the shape, not a promise.
 5. **Turn on "Always Use HTTPS"** for `d12ball.com` (SSL/TLS -> Edge
    Certificates).
 6. **Set `FOOLBOT_WEB_URL=https://play.d12ball.com`** in `.env` and
-   restart the web app with `run_web_app.ps1` (the variable is read per
+   restart the web app with `run_web_app.cmd` (the variable is read per
    link, but the `.env` only at startup).
 7. **Check it from outside**: open `https://play.d12ball.com` on a
    phone off the home Wi-Fi, give a name, open a room, and check the
