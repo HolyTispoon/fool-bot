@@ -107,6 +107,7 @@ from webapp.present import (
     full_time,
     hand_table,
     lit_line,
+    page_ask,
     plain_text,
     render_text,
     reveal,
@@ -114,7 +115,6 @@ from webapp.present import (
     rolled_dice,
     shootout_sides,
     situation,
-    split_coin_line,
     split_footnote,
     still_to_answer,
     waiting_on,
@@ -2024,10 +2024,11 @@ class WebApp:
             self.engine, game, match, prompt, viewer, wire=wire,
         )
         ask, footnote = split_footnote(
-            self.engine, game, match, prompt, wire["ask"],
-        )
-        ask, coin_line = split_coin_line(
-            self.engine, game, match, prompt, ask,
+            self.engine, game, match, prompt,
+            page_ask(
+                self.engine, game, match, prompt, viewer, wire["ask"],
+                wire=wire,
+            ),
         )
         return {
             "prompt": {
@@ -2036,10 +2037,6 @@ class WebApp:
                 # The Spreadable reminder, said under the whistle rather
                 # than under the title (`present.split_footnote`).
                 "footnote": render_text(game, footnote) if footnote else None,
-                # Who holds the coin, or who has declared a gambit, on a
-                # line of its own with the coin beside it where this
-                # viewer may declare (`present.split_coin_line`).
-                "coin_line": render_text(game, coin_line) if coin_line else None,
                 # The matchup the cog posts a picture of with the same
                 # kind, as words and portraits for the page to lay out
                 # (`present.situation`), or null: the same for a coach

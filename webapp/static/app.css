@@ -935,35 +935,6 @@ select {
 .pill-ability b { color: var(--strong); }
 .pill-ability .quiet { color: var(--muted); }
 
-/* The coin on its line under the ask: the game's coin, lit in gold,
-   and pressing it declares a gambit. */
-.coin-line { display: flex; align-items: center; gap: 16px; font-size: 17px; line-height: 1.35; color: var(--strong); }
-.coin-line-text { flex: 0 1 auto; }
-.coin-button {
-  flex-shrink: 0;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-}
-.coin-face {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(240, 178, 50, 0.5);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.coin-button:hover:not(:disabled) .coin-face {
-  transform: scale(1.08) rotate(-8deg);
-  box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(240, 178, 50, 0.7);
-}
-.coin-button:disabled { cursor: not-allowed; opacity: 0.45; }
-.coin-button-word { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
 /* The card laid face down: ringed in gold, and dead, since the same
    card twice is refused; the others may still replace it. A card a
    gambit has put back in question (Law 19.3.6) is ringed the same way
@@ -1236,13 +1207,9 @@ select {
 }
 .emoji.species { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
 
-.coach {
-  background: rgba(88, 101, 242, 0.3);
-  color: #c9cdfb;
-  border-radius: 3px;
-  padding: 0 2px;
-  font-weight: 500;
-}
+/* A coach a sentence is put to: named, never drawn as a Discord
+   mention -- nobody is pinged on a page (the author, 2026-09-30). */
+.coach { font-weight: 600; }
 
 strong { font-weight: 700; color: var(--strong); }
 
@@ -1890,7 +1857,6 @@ button.goal { display: block; }
   .qbox-main > :first-child { order: 0; }
   .qbox-main > #refusal { order: 1; }
   .qbox-main > #ask { order: 2; }
-  .qbox-main > #coin-line { order: 2; }
   .qbox-main > #lit { order: 3; }
   .qbox-main > .outcome-row { order: 8; }
   .qbox-main > #reveal { order: 9; }
@@ -2267,6 +2233,11 @@ button.seat-holder.empty:hover, button.seat-holder.empty:focus-visible { border-
   border-radius: 50%;
   cursor: pointer;
 }
+/* The coin in the maneuver pick's box, with its line beside it. */
+.coin-line { display: flex; align-items: center; gap: 12px; }
+.coin-line .coin-button { align-self: center; flex: none; }
+.coin.line { display: block; width: 44px; height: 44px; }
+.coin-line-words { display: flex; flex-direction: column; gap: 2px; }
 .coin.mid { width: 88px; height: 88px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); }
 .coin-button.coin-pair { border-radius: 16px; padding: 8px 14px 6px; }
 .coin-pair .coin-faces { gap: 18px; }

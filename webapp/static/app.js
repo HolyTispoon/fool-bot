@@ -1927,7 +1927,7 @@ function drawReference(prompt) {
 
 /* The objects the question box draws, rather than the board: the die
    to roll, the faces of a speed to choose, the whistle, the note, the
-   REMATCH mark, the hand's cards. */
+   REMATCH mark, the hand's cards, the coin. */
 const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation", "coin"]);
 
 /* Whether a control is drawn in the question box: the neutral ones, the
@@ -2002,10 +2002,7 @@ function drawControls(prompt) {
     controls.append(block);
   }
 
-  /* The coin is drawn on its own line under the ask, not in a group
-     of its own under the hand (`drawCoinLine`). */
-  const coin = drawCoinLine(prompt);
-  for (const group of groups.filter((one) => !one.how && !(coin && coinGroup(one)))) {
+  for (const group of groups.filter((one) => !one.how)) {
     if (group.label) controls.append(h("div", { class: "group-label" }, group.label));
     controls.append(drawGroup(group));
   }
@@ -2184,6 +2181,7 @@ function drawControl(control) {
     });
   }
   if (at === "rematch") return rematchMark(control);
+  if (at === "coin") return coinLine(control);
   if (at === "note") {
     return h("span", { class: "note-chip" }, chip({ ...control, chip: "click the note to go on" }));
   }
@@ -2262,6 +2260,23 @@ function face(control) {
   );
 }
 
+/* The coin, in the box of the coach holding it (Law 19.3): the game's
+   own coin, lit gold, with its line beside it -- clicking it declares
+   a gambit -- and what that does muted under the line. */
+function coinLine(control) {
+  return h("div", { class: "coin-line" },
+    h("button", {
+      type: "button",
+      class: "coin-button lit",
+      title: control.label,
+      "aria-label": control.label,
+      onclick: () => press(control),
+    }, h("img", { src: control.image, alt: "", class: "coin line" })),
+    h("div", { class: "coin-line-words" },
+      h("span", {}, control.said || control.label),
+      control.note ? h("span", { class: "note-line" }, control.note) : null));
+}
+
 /* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold
    on a dark disc when the position allows it and grey when it does
    not, with the reason under it. */
@@ -2298,51 +2313,6 @@ function whistle({ allowed, label, note = "", onclick }) {
       h("span", { class: "whistle-label" }, label),
     ),
     note ? h("p", { class: "note-line whistle-note" }, note) : null,
-  );
-}
-
-/* Who holds the coin -- or who has declared a gambit -- on a line of
-   its own under the ask, in the model's words
-   (`present.split_coin_line`), and where this coach may declare, the
-   game's own coin beside it, the face the toss came up: pressing the
-   coin is the declaration (the author, 2026-10-01). Whether the line
-   drew the coin, so its group is not drawn again under the hand. */
-function drawCoinLine(prompt) {
-  const line = el("coin-line");
-  if (!prompt.coin_line) {
-    line.hidden = true;
-    line.replaceChildren();
-    return false;
-  }
-  const control = prompt.controls
-    .flatMap((group) => group.controls)
-    .find((one) => one.place && one.place.at === "coin");
-  line.hidden = false;
-  line.replaceChildren(h("span", { class: "coin-line-text", html: prompt.coin_line }));
-  if (control) line.append(coinButton(control));
-  return Boolean(control);
-}
-
-function coinGroup(group) {
-  return group.controls.length
-    && group.controls.every((one) => one.place && one.place.at === "coin");
-}
-
-/* The coin as the control: the game's coin, lit, and what pressing it
-   does under it; the note says the rest. */
-function coinButton(control) {
-  return h(
-    "button",
-    {
-      type: "button",
-      class: "coin-button",
-      disabled: control.disabled,
-      title: control.note || control.label,
-      "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
-      onclick: () => press(control),
-    },
-    h("img", { src: control.place.face, alt: "", class: "coin-face" }),
-    h("span", { class: "coin-button-word" }, control.chip || control.label),
   );
 }
 
