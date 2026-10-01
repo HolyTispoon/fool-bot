@@ -689,7 +689,7 @@ def begin_time_out(
     `finish_time_out` -- "Send them back to their position after the
     coaching window ... if it did [change], they would go to their new
     position. Only then check to see if there's a need to send
-    someone." What it costs is the flat space minute every action
+    someone." What it costs is the flat 1 time every action
     costs (2026-08-16), charged here, the moment it is called and
     before either Coaching Choice (Law 13.4.1, 16.2.4, 2026-09-28).
 

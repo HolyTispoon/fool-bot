@@ -27,7 +27,7 @@ the printed boards are held to.
 **What the box says that the game cannot answer**: a playing time and
 an age rating. Both are retail claims and nothing in this repository
 measures either -- the "thirty minutes" the game is played over is
-fifteen space minutes a half on the game clock, which is not a wall
+fifteen a half on the game clock, which is not a wall
 clock and must not be printed as one. So they are the author's, in
 one dated constant, `DEFAULT_CLAIMS`, printed since 2026-09-23 because
 somebody who has run the table said so; `RetailClaims()` carries

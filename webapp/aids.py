@@ -42,7 +42,7 @@ from d12ball.components import (
     PlayerRole,
     load_species_abilities,
 )
-from d12ball.cards import matchup_rank_groups, role_abilities
+from d12ball.cards import matchup_rank_groups, role_abilities, time_cost
 from d12ball.components import ManeuverDefinition
 from d12ball.engine import RulesEngine
 from d12ball.formatting import role_brackets
@@ -616,7 +616,9 @@ def maneuver_card(
         # never "gambit": the card is an advanced maneuver and a gambit
         # is playing one (the author).
         "tier_word": MANEUVER_TIER_WORDS[maneuver.tier],
-        "time": maneuver.time,
+        # The card's own pill (`cards.time_cost`): the sheet's number,
+        # never its unit -- the unit is just time (the author, 2026-10-01).
+        "time": f"Time {time_cost(maneuver)}",
         "effect": maneuver.effect,
         "diagram": maneuver_diagram_url(maneuver.key),
         "matchups": [

@@ -228,7 +228,7 @@ class SkilledPassDelegationTests(unittest.IsolatedAsyncioTestCase):
         """
         **Pinpoint's cost.** The defense's unopposed pass is a Low
         Pass -- the card that was beaten does not come with it -- and
-        it is `free`, which is what will charge it no space minute
+        it is `free`, which is what will charge it no time
         when it is applied.
         """
         cog, fixture = self._stand_a_pass_up()

@@ -1072,7 +1072,7 @@ class TimeOutIsANewPlayTests(unittest.TestCase):
 
     def test_its_minute_is_charged_as_it_is_called_and_once(self) -> None:
         """
-        A time out costs its flat space minute the moment it is called,
+        A time out costs its flat 1 time the moment it is called,
         before either Coaching Choice (Law 13.4.1, 16.2.4), and the end
         of the time out charges nothing more.
         """

@@ -830,7 +830,7 @@ class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_throw_that_moves_nothing_still_costs_its_flat_time(
         self,
     ) -> None:
-        # High Pass's time cost is a flat 2 space minutes regardless of
+        # High Pass's time cost is a flat 2 time regardless of
         # distance (2026-08-16), so the one throw that moves the ball
         # nowhere is not free, and is not discounted either.
         cog, game, match, _, _ = self.build_last_space_pass(teammate=False)
