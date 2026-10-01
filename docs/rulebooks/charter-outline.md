@@ -73,7 +73,7 @@ the living rules define in passing elsewhere is defined here once.
 - 2.8 **Definitions** (one paragraph each, the bold term first):
   *card* and *meeple*; *handler*; *challenger*; *carrier* (the player a
   resolution leaves the ball with, 4.2); *arrangement*; *set-up*;
-  *skill test*; *contest*; *sending a player*; *loose*; *space minute*;
+  *skill test*; *contest*; *sending a player*; *loose*; *time*;
   *Exhausted*; *Injured*; *behind* (advanced, 19.3 -- listed here,
   defined there); *live ball* and *dead ball*.
 
@@ -119,7 +119,7 @@ the living rules define in passing elsewhere is defined here once.
   defense adds (5.3); equal or higher scores.
 - 5.3 **What the defense adds.** On the ball, whole; between the ball
   and the goal, half rounded up, per player; behind the ball, nothing.
-- 5.4 **Cost.** A shot costs 1 space minute and its shooter nothing;
+- 5.4 **Cost.** A shot costs 1 time and its shooter nothing;
   a set-up's shot costs a token after the roll, and its minute on top.
 - 5.5 **After the shot.** Goal or miss, the ball is dead and a new play
   follows (12.4); a goal restarts from the conceding side's kickoff
@@ -251,7 +251,7 @@ lists only the four basic changes.
 - 13.1 What it is: possession stays, the ball stays; a new play, so speed 1, and both sides reset after the Coaching Choices.
 - 13.2 The three conditions.
 - 13.3 A side with nobody to bring on may still call one.
-- 13.4 The cost: 1 space minute, no tokens.
+- 13.4 The cost: 1 time, no tokens.
 - 13.5 Both coaches take a Coaching Choice, the caller first; then both sides reset.
 - 13.6 The pickup: one of the two nearest, at a token a space.
 
@@ -294,7 +294,7 @@ lists only the four basic changes.
 *From:* The clock.
 
 - 16.1 One clock, two periods, never stops.
-- 16.2 Space minutes (table); a maneuver's cost is flat.
+- 16.2 Time (table); a maneuver's cost is flat.
 - 16.3 Last possession: the trigger; the action finishes in full;
   whoever holds the ball; their next turnover ends the period with
   nothing after it; the clock runs through it.

@@ -164,7 +164,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.10** A ball is **loose** when it has come to rest on a space with nobody standing on it -- see [where the ball comes to rest](#101-where-the-ball-comes-to-rest) (10.1). A ball that comes down on somebody is not loose.
 
-**2.8.11** A **space minute** is the unit of game time -- see [the clock](#16-the-clock) (16).
+**2.8.11** **Time** is what the clock counts. Every action costs some: one that costs 1 advances time by 1 -- see [the clock](#16-the-clock) (16).
 
 **2.8.12** A **live ball** is one in play. A **dead ball** is one being brought back into play after a goal, a missed shot, an own-goal roll, a ball out of bounds or a period's start: it is carried to where play starts again rather than travelling over the spaces between.
 
@@ -212,7 +212,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 - **a.** Choose [which of their players on the ball's space handles it](#42-choosing-the-handler) (4.2).
 - **b.** Choose the action: a [score attempt](#5-score-attempt) (5) if the ball is in that team's shooting range, and otherwise a [maneuver](#6-maneuvers) (6) or a [time out](#13-time-out) (13).
-- **c.** Resolve the action, and anything it leads to. **The clock advances by what the action cost as soon as its outcome is decided** ([Space minutes](#162-space-minutes) (16.2)), not once everything it leads to is done.
+- **c.** Resolve the action, and anything it leads to. **The clock advances by what the action cost as soon as its outcome is decided** ([Time](#162-time) (16.2)), not once everything it leads to is done.
 - **d.** If the action left nobody holding the ball, settle it [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1).
 - **e.** If the ball changed hands, resolve the [turnover](#12-turnovers) (12).
 - **f.** If [last possession](#163-last-possession) (16.3) was declared, it goes to the team that takes the next turn.
@@ -251,7 +251,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **4.4.2** Then the turnover, if the ball changed hands. A [steal](#124-running-back-after-a-steal) (12.4) runs players back and play carries straight on; a [new play](#125-resetting-after-a-new-play) (12.5) resets both sides and offers a Coaching Choice.
 
-**4.4.3** The clock has already advanced by then: the action's own cost is charged [the moment its outcome is decided](#162-space-minutes) (16.2), whether or not the action goes on to turn the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
+**4.4.3** The clock has already advanced by then: the action's own cost is charged [the moment its outcome is decided](#162-time) (16.2), whether or not the action goes on to turn the ball over. Running back, resetting, contests, rolls, pickups and Coaching Choices all cost no time.
 
 **4.4.4** If the clock reached the period's last minute during the action, [last possession](#163-last-possession) (16.3) was declared the moment it did, and it goes to the team that takes the next turn.
 
@@ -283,7 +283,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.4.1** An ordinary shot costs its shooter nothing. A shooter taking a shot off a set-up exhausts 1 after the roll, whether it went in or not.
 
-**5.4.2** A score attempt costs 1 space minute, charged as soon as the shot has resolved, goal or miss, and before play restarts. A set-up's shot costs that on top of the maneuver that created it, which was charged when that maneuver's winner was decided.
+**5.4.2** A score attempt costs 1 time, charged as soon as the shot has resolved, goal or miss, and before play restarts. A set-up's shot costs that on top of the maneuver that created it, which was charged when that maneuver's winner was decided.
 
 ### 5.5 After the shot
 
@@ -303,7 +303,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.1.3** Otherwise the defending coach may [send a player](#9-sending-a-player) (9) to the ball's space, who exhausts 1 per space, **or send nobody** rather than pay for the challenge.
 
-**6.1.4** With no challenger, the maneuver the offense chooses succeeds outright: there is nothing to reveal against, no ranking to read and no test to roll. Nobody moves and nobody pays. The clock still advances by the maneuver's cost, as it succeeds ([Space minutes](#162-space-minutes) (16.2)).
+**6.1.4** With no challenger, the maneuver the offense chooses succeeds outright: there is nothing to reveal against, no ranking to read and no test to roll. Nobody moves and nobody pays. The clock still advances by the maneuver's cost, as it succeeds ([Time](#162-time) (16.2)).
 
 ### 6.2 Choosing and revealing
 
@@ -340,7 +340,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.5 Low Pass
 
-**6.5.1** **Rank O1. Costs 1 space minute. Beats Pressure, loses to Steal.**
+**6.5.1** **Rank O1. Costs 1 time. Beats Pressure, loses to Steal.**
 
 **6.5.2** The ball goes to a teammate, and there are at most three destinations to choose between: the nearest teammate up to 2 spaces ahead of the ball, the nearest teammate up to 2 spaces behind it, and a teammate standing on the ball's own space. A nearer teammate blocks a farther one in the same direction, so the choice is between directions rather than distances. Where several teammates are standing on the destination, the passer chooses which of them receives it.
 
@@ -354,7 +354,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.6 Dribble
 
-**6.6.1** **Rank O2. Costs 1 space minute. Beats Deflect, loses to Pressure.**
+**6.6.1** **Rank O2. Costs 1 time. Beats Deflect, loses to Pressure.**
 
 **6.6.2** The handler and the ball move 1 space forward together. The handler then changes the ball's speed by up to their offensive skill, in either direction, within the range 1 to 12.
 
@@ -364,7 +364,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.7 High Pass
 
-**6.7.1** **Rank O3. Costs 2 space minutes. Beats Steal, loses to Deflect.**
+**6.7.1** **Rank O3. Costs 2 time. Beats Steal, loses to Deflect.**
 
 **6.7.2** The ball is thrown 2 or 3 spaces forward, and a Fullback may throw it 4. Only distances that land on a space short of the goal zone are offered, and a distance is dropped when a shorter one already reaches the space it would land on -- the longer throw would be the same pass at a disadvantage.
 
@@ -380,11 +380,11 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.7.5** **A passer never receives their own pass.** Thrown from the last space, the ball reaches the goal zone and comes back to rest where it was, and a teammate sharing that space receives it and is offered the choice above.
 
-**6.7.6** With no other teammate on that last space, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#105-out-of-bounds) (10.5), the other team gains possession, and the gaining side sends somebody to pick it up. The throw still costs its 2 minutes.
+**6.7.6** With no other teammate on that last space, there is nowhere left to throw it and nobody to throw it to: the ball goes [out of play](#105-out-of-bounds) (10.5), the other team gains possession, and the gaining side sends somebody to pick it up. The throw still costs its 2 time.
 
 ### 6.8 Deflect
 
-**6.8.1** **Rank D1. Costs 1 space minute. Beats High Pass, loses to Dribble.**
+**6.8.1** **Rank D1. Costs 1 time. Beats High Pass, loses to Dribble.**
 
 **6.8.2** The ball moves 1 space back -- toward the goal the offense is defending. Ball speed drops by 1, never below 1. Neither player moves.
 
@@ -396,7 +396,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.9 Steal
 
-**6.9.1** **Rank D2. Costs 1 space minute. Beats Low Pass, loses to High Pass.**
+**6.9.1** **Rank D2. Costs 1 time. Beats Low Pass, loses to High Pass.**
 
 **6.9.2** Possession flips and ball speed resets to 1. The challenger and the ball then move 1 space back for their side, toward the goal the new possessing team is defending.
 
@@ -406,7 +406,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 6.10 Pressure
 
-**6.10.1** **Rank D3. Costs 1 space minute. Beats Dribble, loses to Low Pass.**
+**6.10.1** **Rank D3. Costs 1 time. Beats Dribble, loses to Low Pass.**
 
 **6.10.2** The handler and the ball go 1 space back, toward the goal the offense is defending, and the challenger moves 1 space forward onto the same space. Possession does not change, and the ball is left with the handler.
 
@@ -473,7 +473,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 8.5 The cost in time
 
-**8.5.1** Taking the shot costs its own space minute on top of the maneuver that set it up. The maneuver's cost is already on the clock by the time the shot is offered; the shot's minute is added once it has resolved.
+**8.5.1** Taking the shot costs its own 1 time on top of the maneuver that set it up. The maneuver's cost is already on the clock by the time the shot is offered; the shot's 1 is added once it has resolved.
 
 ## 9. Sending a player
 
@@ -657,7 +657,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 13.4 What a time out costs
 
-**13.4.1** A time out costs **1 space minute** and no exhaustion, charged the moment it is called, before either Coaching Choice. A [pickup](#106-picking-the-ball-up) (10.6) it leaves owed is charged like any other.
+**13.4.1** A time out costs **1 time** and no exhaustion, charged the moment it is called, before either Coaching Choice. A [pickup](#106-picking-the-ball-up) (10.6) it leaves owed is charged like any other.
 
 ### 13.5 The two Coaching Choices
 
@@ -819,7 +819,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **16.1.1** One clock runs over both periods: the first half from 00 through 15, the second from 15 through 30. **It does not stop.**
 
-### 16.2 Space minutes
+### 16.2 Time
 
 **16.2.1**
 
@@ -842,7 +842,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 - **b.** a score attempt, as soon as the shot has resolved, goal or miss, and before play restarts;
 - **c.** a time out, as soon as it is called, before either Coaching Choice.
 
-**16.2.5** Everything the action leads to -- its movement, a loose ball, a contest, a run back, a pickup, an own-goal roll -- happens on the clock as it already stands. A set-up shot therefore advances it twice: by the maneuver's cost when the maneuver's winner is decided, and by the shot's 1 once the shot has resolved. A goal is recorded at the minute the ball crosses the line, before the shot's own minute is added.
+**16.2.5** Everything the action leads to -- its movement, a loose ball, a contest, a run back, a pickup, an own-goal roll -- happens on the clock as it already stands. A set-up shot therefore advances it twice: by the maneuver's cost when the maneuver's winner is decided, and by the shot's 1 once the shot has resolved. A goal is recorded at the minute the ball crosses the line, before the shot's own 1 is added.
 
 ### 16.3 Last possession
 
@@ -1008,7 +1008,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.5 Pinpoint
 
-**19.5.1** **Rank O1. Costs 1 space minute. Beats Pressure and Double Team, loses to Steal and Intercept.**
+**19.5.1** **Rank O1. Costs 1 time. Beats Pressure and Double Team, loses to Steal and Intercept.**
 
 **19.5.2** A Low Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
 
@@ -1020,7 +1020,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.6 Burst
 
-**19.6.1** **Rank O2. Costs 1 space minute. Beats Deflect and Clear, loses to Pressure and Double Team.**
+**19.6.1** **Rank O2. Costs 1 time. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
 **19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space travelled**. A handler nearer the goal zone than their run may go only as far as the last space before it.
 
@@ -1034,7 +1034,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.7 Cross
 
-**19.7.1** **Rank O3. Costs 2 space minutes. Beats Steal and Intercept, loses to Deflect and Clear.**
+**19.7.1** **Rank O3. Costs 2 time. Beats Steal and Intercept, loses to Deflect and Clear.**
 
 **19.7.2** Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out **0, 1 or 3 spaces** ahead. A teammate standing where it lands receives it and takes a [scoring opportunity](#8-scoring-opportunities) (8), with the speed they just set counting for it.
 
@@ -1056,7 +1056,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.8 Clear
 
-**19.8.1** **Rank D1. Costs 1 space minute. Beats High Pass and Cross, loses to Dribble and Burst.**
+**19.8.1** **Rank D1. Costs 1 time. Beats High Pass and Cross, loses to Dribble and Burst.**
 
 **19.8.2** A Deflect at three spaces. The ball moves **3 spaces back**, toward the goal the offense is defending, and ball speed drops by **3**, never below 1. Neither player moves.
 
@@ -1070,7 +1070,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.9 Intercept
 
-**19.9.1** **Rank D2. Costs 1 space minute. Beats Low Pass and Pinpoint, loses to High Pass and Cross.**
+**19.9.1** **Rank D2. Costs 1 time. Beats Low Pass and Pinpoint, loses to High Pass and Cross.**
 
 **19.9.2** A Steal with the sign flipped. Possession flips and ball speed resets to 1, and the challenger and the ball then move 1 space **forward** -- toward the goal the new possessing team attacks, rather than back toward the one they defend. It is the only card that moves the ball against the way the offense was going.
 
@@ -1086,7 +1086,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 19.10 Double Team
 
-**19.10.1** **Rank D3. Costs 1 space minute. Beats Dribble and Burst, loses to Low Pass and Pinpoint.**
+**19.10.1** **Rank D3. Costs 1 time. Beats Dribble and Burst, loses to Low Pass and Pinpoint.**
 
 **19.10.2** A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space -- free of exhaustion, however far they came.
 
@@ -1167,7 +1167,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.7** Mind Pull resolves **before** the ball settles [where it comes to rest](#101-where-the-ball-comes-to-rest) (10.1): a pull that lands pre-empts whatever the movement would have led to -- a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand.
 
-**20.4.8** A successful pull is a [steal](#12-turnovers) (12): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its space minute.
+**20.4.8** A successful pull is a [steal](#12-turnovers) (12): ball speed resets to 1, players run back, and the Telekinetic is the carrier who does not. The maneuver that moved the ball still costs its 1 time.
 
 **20.4.9** **Smooth.** The other half of the ability, with the price taken off. **When the Telekinetic's own side has possession and the ball comes to rest on their space**, they may take it over: no token, no roll, and it cannot fail. The ball stays on their space and they become the [carrier](#42-choosing-the-handler) (4.2).
 
@@ -1343,8 +1343,8 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Set-up, scoring opportunity | [Scoring opportunities](#8-scoring-opportunities) (8) |
 | Shooting range | [Shooting range](#23-shooting-range) (2.3) |
 | Skill test | [The skill test](#64-the-skill-test) (6.4) |
-| Space minute | [Space minutes](#162-space-minutes) (16.2) |
 | Speed | [The ball, the dice and the tokens](#27-the-ball-the-dice-and-the-tokens) (2.7) |
+| Time | [Time](#162-time) (16.2) |
 | Time out | [Time out](#13-time-out) (13) |
 | Training mode, standard mode, advanced mode | [What each mode plays](#181-what-each-mode-plays) (18.1) |
 
