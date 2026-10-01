@@ -2694,6 +2694,22 @@ body.front .front-door.archive-door {
 .ref-ability { margin: 6px 0 0; color: var(--muted); }
 .ref-ability b { color: var(--strong); }
 
+/* The Maneuvers chip's condensed table, a row a card -- each name a
+   link to its card below -- and the hexagon between the two. */
+.maneuver-table .pill-rank { padding: 1px 6px; font-size: 11px; }
+.maneuver-table .ability-name { color: var(--strong); text-decoration: none; }
+.maneuver-table .ability-name:hover { text-decoration: underline; }
+.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.maneuver-table .maneuver-time { color: var(--muted); font-weight: 800; text-align: center; white-space: nowrap; }
+.maneuver-table th:nth-child(3) { text-align: center; }
+.maneuver-table .beats { color: var(--text); }
+.maneuver-table + .maneuver-table { margin-top: 6px; }
+.ref-hexagon { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.ref-hexagon img { display: block; width: 100%; max-width: 420px; height: auto; border-radius: 10px; }
+.ref-hexagon figcaption { font-size: 12px; color: var(--muted); }
+.ref-maneuver { scroll-margin-top: 8px; }
+.ref-jump .chip-tab { text-decoration: none; }
+
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */
 .refusal { flex-wrap: wrap; }
@@ -2757,6 +2773,10 @@ body.reading-room { height: 100vh; height: 100dvh; display: flex; flex-direction
 .roster-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .roster-cards img { width: 180px; height: auto; border-radius: 10px; }
 .reading .chips + .chips { margin-top: 8px; }
+/* The References chip goes down to the column, so it is shown only
+   where the column is under the text (below). */
+.reading-room .chip-tab[data-view="references"] { display: none; }
+.reading-refs .panel-label { scroll-margin-top: 8px; }
 
 /* The rules' own text, in the Rules tab, the Learn to Play and the
    Reading Room alike. */
@@ -2790,6 +2810,7 @@ body.reading-room { height: 100vh; height: 100dvh; display: flex; flex-direction
   .reading-contents, .reading-refs { width: auto; flex: none; }
   .reading-contents ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .reading-text { padding: 0; border: 0; overflow: visible; }
+  .reading-room .chip-tab[data-view="references"] { display: inline-flex; }
 }
 
 /* The Coaching Choice's box: a line for each move made on the board,

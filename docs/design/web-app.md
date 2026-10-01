@@ -2116,9 +2116,18 @@ ERROR and answered 503, as `load_rules` refuses on Discord.
 `CharterTests` read a heading through `rules_doc` and find it in what
 the tab and the Reading Room are handed.
 
-- **The Rules tab** is a search box, three chips -- THE CHARTER, LEARN
-  TO PLAY, REFERENCES -- and the Laws by their headings, one opened to
-  its text: its sections named in a row, then each under its number. A
+- **The Rules tab** is a search box, four chips in the author's order
+  -- ABILITIES, MANEUVERS, LEARN TO PLAY, THE CHARTER (2026-10-01) --
+  and under THE CHARTER the Laws by their headings, one opened to its
+  text: its sections named in a row, then each under its number. The
+  tab still opens on the Charter, last chip or not, because a
+  refusal's Law opens it there. The References were one chip until the
+  author split them: **Abilities** is the roles table and the species
+  table, the role and species abilities a coach looks up together;
+  **Maneuvers** is the maneuvers condensed to a row a card a side --
+  rank, name, the time as the bare number (`time_cost`; the card's own
+  pill, "TIME · 1", is the card's), what it beats, each name a link to
+  its card -- then the hexagon, then every card whole. A
   search is `RulesDocument.search`, except that "Law 12" or "6.4" goes
   straight to the heading the Charter numbers so; a link inside the
   rules opens its heading in the tab rather than leaving the room.
@@ -2127,7 +2136,14 @@ the tab and the Reading Room are handed.
   everything and chips for the Learn to Play and the rosters. The
   Charter and the References are set on the server, so the page reads
   without a script; the Law being read is lit in the contents as it
-  scrolls.
+  scrolls. The References column carries the tab's two chips' content
+  in their order, the abilities then the maneuvers, with two links at
+  its head to jump between them. Its REFERENCES chip in the top bar is
+  shown only at 960px and under, where the column falls under the text
+  and the chip goes down to it; beside the text, it did nothing a
+  reader could see (the author, 2026-10-01), so it is not drawn
+  there. It is not a view: it never lights, and leaves what is being
+  read as it was.
 - **The Learn to Play is read in the page.** `aids.learn_to_play`
   (`GET /api/rules/learn`) reads `docs/learn-to-play.md` with the
   books' own parser, its figures served from
@@ -2207,10 +2223,11 @@ or after a press and hold -- never a picture inline, since the question
 box already carries the challenge over the hand (step 8). The pick
 used to link to the hexagon; that link is gone. The hexagon was then
 drawn in the Rules tab's References, under the cards (the author,
-2026-09-27), and taken out again once the maneuvers became a table
-(the author, 2026-09-28): the page draws it nowhere now, and
-`aids.maneuvers` -- the one at the game's tier in a room, both, named,
-in the Reading Room -- names it only for its route.
+2026-09-27), taken out again once the maneuvers became a table
+(the author, 2026-09-28), and put back between the condensed table and
+the cards when the References split (the author, 2026-10-01):
+`aids.maneuvers` names it -- the one at the game's tier in a room,
+both, named, in the Reading Room.
 
 **Why the two choices moved below the cog.** Which hexagon a game gets
 was `D12Ball.reference_tier`, and which two species faces a screen
