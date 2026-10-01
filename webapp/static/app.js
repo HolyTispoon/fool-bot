@@ -583,7 +583,7 @@ function drawJumbotron(state) {
       /* Drawn on both sides and hidden on the one without the ball, so
          the two columns are one height and their rows line up. The
          coin beside it, on the side whose coach holds it (Law 19.3):
-         the game's own coin, Fortune face up, only in a game played
+         the game's own coin on the face it last landed on, only in a game played
          with the gambits. */
       h("div", { class: "jumbo-tokens" },
         h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },

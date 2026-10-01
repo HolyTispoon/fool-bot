@@ -2659,10 +2659,30 @@ body.front .front-door.archive-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
-.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
-.maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
-.maneuver-table .beats { color: var(--text); font-size: 11px; }
-.maneuver-table + .maneuver-table { margin-top: 6px; }
+
+/* The References' maneuvers: each the whole of its printed card, in
+   the pill's own words -- rank, name, time, the card's diagram, its
+   effect, what it beats, ties and loses to, and its ability rows. */
+.ref-maneuvers { display: flex; flex-direction: column; gap: 8px; }
+.ref-maneuvers + .ref-maneuvers { margin-top: 12px; }
+.ref-side { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.ref-maneuver {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--card);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.ref-maneuver-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 6px; }
+.ref-maneuver-name { font-size: 14px; font-weight: 700; color: var(--strong); }
+.ref-maneuver .tier-tag { padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.ref-diagram { display: block; width: 100%; max-width: 340px; height: auto; border-radius: 8px; }
+.ref-effect { margin: 6px 0; white-space: pre-line; }
+.ref-maneuver .pill-matchups { font-size: 12px; }
+.ref-ability { margin: 6px 0 0; color: var(--muted); }
+.ref-ability b { color: var(--strong); }
 
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */

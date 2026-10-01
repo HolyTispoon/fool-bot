@@ -17,13 +17,14 @@ import pathlib
 import unittest
 
 from cogs.d12ball_helpers import (
+    COIN_EMOJI_FALLBACK,
     DiscordTokens,
     SPECIES_ABILITY_EMOJI_FALLBACKS,
     TEAM_EMOJI_FALLBACKS,
 )
 from d12ball import tokens
 from d12ball.components import PlayerRole, SPECIES_CYBORG
-from d12ball.game import AIOpponent, D12BallGame, GameMode, Team
+from d12ball.game import AIOpponent, CoinFace, D12BallGame, GameMode, Team, coin_face_name
 from prompt_fixtures import CASES
 
 GOLDEN_DIR = pathlib.Path(__file__).parent / "golden"
@@ -63,6 +64,7 @@ class TokenSpellingTests(unittest.TestCase):
         )
         self.assertEqual(tokens.species(SPECIES_CYBORG), "{species:cyborg}")
         self.assertEqual(tokens.coach(1), "{coach:1}")
+        self.assertEqual(tokens.coin(CoinFace.DOOM), "{coin:doom}")
 
     def test_a_mark_that_does_not_exist_is_refused(self) -> None:
         with self.assertRaises(ValueError):
@@ -142,6 +144,19 @@ class DiscordTokensTests(unittest.TestCase):
         game = build_game(test_game=True, player_2_id=111)
         discord = DiscordTokens({}, {}, {}, {}, game)
         self.assertEqual(discord.render("{coach:1}, {coach:2}"), "Player 1, Player 2")
+
+    def test_a_coin_is_that_face_of_the_game_s_own_coin(self) -> None:
+        """The face the token names, of the coin the game was dealt
+        (`game_coin`), or a plain coin until the upload is fetched."""
+        game = build_game(coin="1_silver")
+        doom = coin_face_name("1_silver", CoinFace.DOOM)
+        discord = DiscordTokens({}, {}, {}, {}, game, {doom: "<:doom:9>"})
+        self.assertEqual(discord.render("{coin:doom}"), "<:doom:9>")
+        self.assertEqual(discord.render("{coin:fortune}"), COIN_EMOJI_FALLBACK)
+        self.assertEqual(
+            DiscordTokens({}, {}, {}, {}, game).render("{coin:doom}"),
+            COIN_EMOJI_FALLBACK,
+        )
 
     def test_a_coach_with_no_game_to_read_is_left_as_a_token(self) -> None:
         discord = DiscordTokens({}, {}, {}, {})

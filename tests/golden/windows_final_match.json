@@ -103,6 +103,7 @@
   },
   "challenger_id": null,
   "clock_charged": false,
+  "coin_face": null,
   "coin_holder": null,
   "defense_maneuver": null,
   "events": [

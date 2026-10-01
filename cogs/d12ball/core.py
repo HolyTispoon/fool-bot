@@ -507,6 +507,10 @@ class CoreMixin:
         MappingProxyType({})
     )
     species_ability_emojis: Mapping[str, str] = MappingProxyType({})
+    # The coin's faces, by emoji name (`ensure_coin_emojis`), which a
+    # `{coin:doom}` token is drawn from too; set in `__init__`, with
+    # the same default for a cog built without it.
+    coin_emojis: Mapping[str, str] = MappingProxyType({})
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -935,6 +939,7 @@ class CoreMixin:
             self.condition_emojis,
             self.species_ability_emojis,
             game,
+            self.coin_emojis,
         )
 
     def rendered(self, game: D12BallGame, result: GameResult) -> GameResult:

@@ -78,7 +78,7 @@ loose at the moment a coach calls one; and full time and the shootout,
 which are past where the step budget stops. Those are Phase 5's ground and want a
 golden of their own.
 
-**The seed has been re-picked seven times.** Once when PR #243 and PR
+**The seed has been re-picked eight times.** Once when PR #243 and PR
 #244 landed on main under this branch: both are rule changes in the code
 this phase moves, so the game seed 44 had played was no longer the game
 it plays. Again when the six-space board was withdrawn (2026-09-22 in
@@ -106,8 +106,11 @@ Dinky's pick, which moved every game again: seed 52 was the first of
 answered and a pick confirmed -- which the coverage below asserts as
 well. The same evening the answer moved ahead of the cards (a question
 of its own, `GAMBIT_ANSWER`), and seed 990 is the first of 0-1500 that
-reaches all of it again. Each time the seed was swept and scored on the coverage below,
-not chosen.
+reaches all of it again. And when the coin came to be flipped each time
+it passes (2026-10-01): a declaration draws the face, which moves every
+draw after it, and seed 990 stopped reaching the own-goal roll; seed
+360 is the first of 0-360 that reaches all of it. Each time the seed
+was swept and scored on the coverage below, not chosen.
 
 Regenerating is the tutorial golden's rule, and for the same reason --
 see that module's docstring:
@@ -158,7 +161,7 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "advanced_final_match.json"
 #: the engine's own `rng`, where every draw the game makes comes from
 #: (the dice, the shuffle, the AI's picks), rather than the module
 #: `random`, which nothing in the model reads.
-ADVANCED_SEED = 990
+ADVANCED_SEED = 360
 
 #: The game is not played to full time: the budget stops it in the
 #: second half, which is as far as Phase 4's ground goes. Full time and

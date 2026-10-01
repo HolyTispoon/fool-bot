@@ -1315,7 +1315,14 @@ chooser, or puts a refusal away.
   card (`_names_card`: the name with its last word in any form, a
   count after it being the verb -- "clear 1 exhaustion" is not Clear --
   and "gambit" naming the gambits of the side it speaks of). That last
-  is a reading of words for a reminder and decides nothing. The cards
+  is a reading of words for a reminder and decides nothing. **No
+  player's ability is listed twice** (the author, 2026-10-01): a card
+  fielded on both sides is one person (`catalog_player_id`), listed
+  once under both teams. **The card face is not shown anywhere on the
+  page any more**; its whole content is in the References instead
+  (below), from the one function the pill reads too
+  (`aids.maneuver_card`), and the diagram is an aid like the others,
+  `/aids/maneuver-diagram/<key>.png`. The cards
   offered are exactly the side's `maneuver_keys`. The basic three are a
   row and the gambits a row under them -- a card's tier is printed on
   it, so `card.gambit` is read off the catalog to lay it out and decides
@@ -1330,7 +1337,10 @@ chooser, or puts a refusal away.
   (the author, 2026-09-30): the game's own coin, lit gold, a box object
   like the die (`ON_COIN`), beside "You hold the coin and may declare a
   gambit." -- the prompt's `may_declare`, answered with the choice
-  `"gambit"`. **The pick's ask names nobody** (`present.page_ask`): the
+  `"gambit"`. The coin shows the face it landed on when it last
+  passed -- it is flipped each time (Law 19.3.3) -- or the toss's until
+  then, in the box and on the jumbotron alike (`RulesEngine.coin_face`,
+  see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the
   model's ask addresses each coach by name, which a Discord message
   needs to ping them, but a page is read by one person who sees only
   their own hand, so it says "Both sides pick a maneuver privately --
@@ -2130,14 +2140,16 @@ the tab and the Reading Room are handed.
   has none of its own: it is the book's markdown in the page's type,
   with the book's figures, and the printed layout stays
   `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
-- **The References are the model's own data.** The maneuvers are a
-  table, two of them -- the offense's and the defense's -- set like the
-  roles table, in place of the printed card faces they used to be (the
-  author, 2026-09-28). Each row is the card's own data from
-  `maneuvers.json`: its name, its time, its effect in the sheet's
-  words, and the opposing cards its rank beats, read off
-  `defeats_rank` -- both of that rank's cards where both tiers are
-  shown, because rank alone decides. It has no die range: a maneuver
+- **The References are the model's own data.** The maneuvers are two
+  lists -- the offense's and the defense's -- in place of the printed
+  card faces they used to be (the author, 2026-09-28), and since
+  2026-10-01 **each entry is the whole of its card** (`aids.maneuver_card`,
+  the function the hand's pill reads too), because the page shows the
+  card face nowhere else: the rank as its corner prints it, the name,
+  the time, the card's own diagram, the effect in the sheet's words,
+  what it beats, ties and loses to (`cards.matchup_rank_groups`) -- both
+  of each rank's cards where both tiers are shown, because rank alone
+  decides -- and the role rows the card prints (`cards.role_abilities`). It has no die range: a maneuver
   has none (the author, 2026-09-28), whatever the import still writes
   into `die_values`. The six basic ones always, and the six gambits
   among them where the game's hexagon is the gambit one -- an

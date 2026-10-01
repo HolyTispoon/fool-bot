@@ -348,10 +348,6 @@ class WebApp:
                     self.maneuver_card,
                 ),
                 web.get(
-                    "/api/game/{game_id}/maneuver-diagram/{key}.png",
-                    self.maneuver_diagram,
-                ),
-                web.get(
                     "/api/game/{game_id}/maneuver-back.png",
                     self.maneuver_back,
                 ),
@@ -369,6 +365,9 @@ class WebApp:
                 web.get("/rules/figures/{name}", self.rules_figure),
                 web.get("/api/aids", self.all_aids),
                 web.get("/aids/maneuvers/{tier}.png", self.maneuver_aid),
+                web.get(
+                    "/aids/maneuver-diagram/{key}.png", self.maneuver_diagram,
+                ),
                 web.get("/aids/roles.png", self.roles_aid),
                 web.get("/aids/species/{number}.png", self.species_aid),
                 web.get("/aids/team/{team}/{card_id}.png", self.team_aid),
@@ -1628,9 +1627,9 @@ class WebApp:
         )
 
     async def maneuver_diagram(self, request: web.Request) -> web.Response:
-        """One maneuver's diagram, for the hand's pill
-        (`present.maneuver_pill`)."""
-        self._game(request)
+        """One maneuver's diagram, for the hand's pill and the
+        References (`aids.maneuver_card`): open to anybody, like every
+        aid, since it is printed on the card."""
         key = request.match_info["key"]
         if self.engine.maneuver_catalog.get(key) is None:
             raise web.HTTPNotFound(text="No such maneuver.")

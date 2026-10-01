@@ -98,6 +98,7 @@ from d12ball.formatting import (
     travel_space_phrase,
 )
 from d12ball.game import (
+    COIN_FACE_WORDS,
     AIOpponent,
     CoinFace,
     D12BallGame,
@@ -1613,6 +1614,24 @@ class RulesEngine:
             return TeamSide.VISITING
         return TeamSide.HOME
 
+    def coin_face(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[CoinFace]:
+        """
+        The face the coin shows in front of the coach holding it (Law
+        19.3.3) -- `None` wherever `coin_holder` is, in a game with no
+        coin to hold. The face it landed on when a declaration last
+        handed it over; until then the toss's (Law 3.1.4), which is the
+        same face whoever flipped it, since a doom face hands the toss
+        to the other coach. A game seated without a toss shows Fortune.
+        It decides nothing: it is what the coin looks like.
+        """
+        if self.coin_holder(game, match) is None:
+            return None
+        if match.coin_face is not None:
+            return CoinFace(match.coin_face)
+        return game.coin_face or CoinFace.FORTUNE
+
     def may_declare_gambit(
         self, game: D12BallGame, match: MatchState, side: str,
     ) -> bool:
@@ -1740,7 +1759,11 @@ class RulesEngine:
             coach = format_player_with_team(
                 game, self.side_player_number(game, holder),
             )
-            return f"{coach} holds the coin and may declare a gambit."
+            face = self.coin_face(game, match)
+            return (
+                f"{coach} holds the coin, {tokens.coin(face)} "
+                f"{COIN_FACE_WORDS[face]} up, and may declare a gambit."
+            )
 
         other = "defense" if declared == "offense" else "offense"
         declarer = format_player_with_team(

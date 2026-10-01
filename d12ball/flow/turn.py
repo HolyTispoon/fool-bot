@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-from d12ball import tutorial
+from d12ball import tokens, tutorial
 from d12ball.components import (
     DECISION_CARDS,
     DECISION_INJURY_FORFEIT,
@@ -48,7 +48,7 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
 )
-from d12ball.game import D12BallGame, team_display_name
+from d12ball.game import COIN_FACE_WORDS, D12BallGame, team_display_name
 from d12ball.special_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -827,7 +827,8 @@ def declare_gambit_step(
     """
     A gambit declared (Law 19.3.2-19.3.3): this side's own pick, if it
     had made one, is withdrawn, the other side's waits to be confirmed,
-    and the coin crosses the table.
+    and the coin crosses the table, where the coach it goes to flips it
+    (Law 19.3.3) -- a draw of the engine's, like the toss.
 
     **Said out loud, because it is public**: the advanced cards have
     their own back. Who is now behind enough to answer is the prompt's
@@ -846,7 +847,9 @@ def declare_gambit_step(
     other = "defense" if side == "offense" else "offense"
     declarer_number = _maneuver_side_number(engine, game, match, side)
     other_number = _maneuver_side_number(engine, game, match, other)
-    match.declare_gambit(side, engine.maneuver_side_team(match, side))
+    # The coach the coin goes to flips it (Law 19.3.3).
+    face = engine.flip_coin()
+    match.declare_gambit(side, engine.maneuver_side_team(match, side), face)
     if not engine.may_answer_gambit(game, match, other):
         # Behind is read now, as the maneuvers are chosen (Law 19.3.8):
         # a side that is not behind keeps its basic cards, and the
@@ -857,7 +860,8 @@ def declare_gambit_step(
     declarer = format_player_with_team(game, declarer_number)
     receiver = format_player_with_team(game, other_number)
     narration = [
-        f"{declarer} declares a gambit and hands the coin to {receiver}."
+        f"{declarer} declares a gambit and hands the coin to {receiver}, "
+        f"who flips it: {tokens.coin(face)} {COIN_FACE_WORDS[face]}."
     ]
     if (
         match.pick_unconfirmed == other

@@ -260,7 +260,7 @@ class CharterTests(Harness):
             self.assertIn(f'id="{law["slug"]}"', page)
             self.assertIn(f'data-rule="{law["slug"]}"', page)
         # The References column: every maneuver's effect and the roles.
-        for table in aids.maneuver_rows(ENGINE.maneuver_catalog, MANEUVER_TIERS):
+        for table in aids.maneuver_rows(ENGINE.maneuver_catalog, ENGINE.player_catalog, MANEUVER_TIERS):
             for row in table["rows"]:
                 self.assertIn(html.escape(row["effect"]), page)
         for row in aids.roles(ENGINE.player_catalog):
@@ -347,7 +347,7 @@ class ReferenceTests(Harness):
 
     def test_the_maneuvers_table_is_the_cards_own_data(self) -> None:
         catalog = ENGINE.maneuver_catalog
-        tables = aids.maneuver_rows(catalog, (MANEUVER_TIER_BASIC,))
+        tables = aids.maneuver_rows(catalog, ENGINE.player_catalog, (MANEUVER_TIER_BASIC,))
         for table in tables:
             opposing = "defense" if table["side"] == "offense" else "offense"
             self.assertEqual(len(table["rows"]), 3)
@@ -364,7 +364,7 @@ class ReferenceTests(Harness):
                         if one.rank == card.defeats_rank
                     ]
                     self.assertEqual(row["beats"], beaten[0].name)
-        both = aids.maneuver_rows(catalog, MANEUVER_TIERS)
+        both = aids.maneuver_rows(catalog, ENGINE.player_catalog, MANEUVER_TIERS)
         low_pass = next(
             row for row in both[0]["rows"] if row["key"] == "low_pass"
         )
@@ -378,6 +378,51 @@ class ReferenceTests(Harness):
                 )
                 if row["gambit"]:
                     self.assertEqual(row["tier_word"], "advanced")
+
+    def test_each_maneuver_carries_its_whole_card(self) -> None:
+        """The References hold everything the printed card says, since
+        the hand's pill leaves its foot and ability rows to a hover
+        (the author, 2026-10-01): the rank, what it beats, ties and
+        loses to -- the catalog's own reading -- and its role rows."""
+        from d12ball.cards import role_abilities
+
+        catalog = ENGINE.maneuver_catalog
+        outcomes = {"Beats": "offense", "Ties": "tie", "Loses to": "defense"}
+        for table in aids.maneuver_rows(
+            catalog, ENGINE.player_catalog, MANEUVER_TIERS,
+        ):
+            opposing = "defense" if table["side"] == "offense" else "offense"
+            for row in table["rows"]:
+                with self.subTest(row["key"]):
+                    card = catalog.definition(row["key"])
+                    self.assertEqual(
+                        row["rank"], f"{table['side'][0].upper()}{card.rank}",
+                    )
+                    self.assertEqual(
+                        [one["said"] for one in row["matchups"]], list(outcomes),
+                    )
+                    for one in row["matchups"]:
+                        self.assertEqual(len(one["names"]), 2)
+                        for name in one["names"]:
+                            other = next(
+                                m for m in catalog.side(opposing) if m.name == name
+                            )
+                            offense, defense = (
+                                (card.key, other.key) if table["side"] == "offense"
+                                else (other.key, card.key)
+                            )
+                            winner = catalog.resolve(offense, defense)
+                            said = one["said"]
+                            if table["side"] == "defense" and said != "Ties":
+                                said = "Loses to" if said == "Beats" else "Beats"
+                            self.assertEqual(winner, outcomes[said])
+                    self.assertEqual(
+                        [(one["who"].upper(), one["text"]) for one in row["abilities"]],
+                        role_abilities(ENGINE.player_catalog, card),
+                    )
+                    self.assertEqual(
+                        row["diagram"], f"/aids/maneuver-diagram/{card.key}.png",
+                    )
 
     def test_the_tables_are_the_cards_own_data(self) -> None:
         roles = aids.roles(ENGINE.player_catalog)

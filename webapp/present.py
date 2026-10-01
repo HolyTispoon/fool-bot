@@ -56,11 +56,8 @@ from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import stats, tokens
-from d12ball.cards import matchup_rank_groups, role_abilities
 from d12ball.components import (
-    MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
-    MANEUVER_TIER_WORDS,
     SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
@@ -69,6 +66,7 @@ from d12ball.components import (
     PlayerRole,
     TeamSide,
     Zone,
+    catalog_player_id,
 )
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
@@ -80,6 +78,7 @@ from d12ball.formatting import (
     travel_space_label,
 )
 from d12ball.game import (
+    COIN_FACE_WORDS,
     COLOR_TEAMS,
     CoinFace,
     D12BallGame,
@@ -107,10 +106,6 @@ from d12ball.player_cards import species_ability, species_ability_reminder
 from d12ball.render import (
     CHALLENGE_BANDS,
     CHALLENGE_TITLE,
-    MANEUVER_DEFENSE_COLOR,
-    MANEUVER_DEFENSE_COLOR_GAMBIT,
-    MANEUVER_OFFENSE_COLOR,
-    MANEUVER_OFFENSE_COLOR_GAMBIT,
     merge_sum,
     SCORE_ATTEMPT_TITLE,
     SCORE_ATTEMPT_UNDEFENDED,
@@ -118,6 +113,7 @@ from d12ball.render import (
     ChallengeSide,
     zone_labels,
 )
+from webapp import aids
 
 
 #: What the page calls each of a turn's three actions, and each of the
@@ -249,6 +245,13 @@ def _resolver(game: D12BallGame) -> tokens.Resolver:
             return (
                 '<span class="coach">'
                 f"{html.escape(coach_name(game, int(arguments[0])))}</span>"
+            )
+        if kind == "coin":
+            face = CoinFace(arguments[0])
+            return emoji(
+                coin_face_name(game.game_coin, face),
+                COIN_FACE_WORDS[face],
+                "coin-mark",
             )
         return None
 
@@ -1627,9 +1630,12 @@ def _maneuver(asked: Asked) -> list:
                 note=DECLARE_NOTE,
                 side=hand["side"],
             )
-            # The game's own coin, Fortune up, as the jumbotron draws it.
+            # The game's own coin, on the face it landed on when it
+            # last passed (`RulesEngine.coin_face`), as the jumbotron
+            # draws it.
+            face = asked.engine.coin_face(asked.game, asked.match)
             coin["image"] = (
-                f"/emoji/{coin_face_name(asked.game.game_coin, 'fortune')}.png"
+                f"/emoji/{coin_face_name(asked.game.game_coin, face)}.png"
             )
             sections.append(section(None, [coin]))
         sections.append(section(
@@ -1760,15 +1766,6 @@ def _card(asked: Asked, key: str, side: str, **more: Any) -> dict:
     }
 
 
-#: A pill's colour, by (offense, advanced): the printed card's.
-PILL_COLOURS = {
-    (True, False): MANEUVER_OFFENSE_COLOR,
-    (True, True): MANEUVER_OFFENSE_COLOR_GAMBIT,
-    (False, False): MANEUVER_DEFENSE_COLOR,
-    (False, True): MANEUVER_DEFENSE_COLOR_GAMBIT,
-}
-
-
 def maneuver_pill(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1778,74 +1775,51 @@ def maneuver_pill(
 ) -> Optional[dict]:
     """
     A maneuver as the page draws it in a hand and on the reveal: a pill
-    rather than the printed card (the author, 2026-10-01) -- its name,
-    rank (`O1`, `D2`, as the card's corner prints it), its diagram (the
-    card's own, cut from it: `pictures.maneuver_diagram_png`) and its
-    effect in the sheet's words, never cut down here. `None` for a key
-    the data no longer carries.
+    rather than the printed card (the author, 2026-10-01) -- the
+    printed card's words and diagram (`aids.maneuver_card`, which the
+    References are drawn from too), over the tiers this game plays, in
+    the card's colour. `None` for a key the data no longer carries.
 
-    What it says on hover is the card's bottom row and its ability rows,
-    which the pill leaves out:
-
-    - **`matchups`** -- the opposing cards it beats, ties and loses to,
-      by rank (`cards.matchup_rank_groups`, the card's own reading:
-      rank alone decides), holding only the tiers this game plays
-      (`maneuver_reference_tier`), as the Rules tab's table does.
-    - **`abilities`** -- the role rows the card prints under its effect
-      (`cards.role_abilities`: every role whose ability names the card,
-      and the notes placed there by hand; none on a gambit), then, in a
-      game playing the special abilities (Law 21), each player on the
-      field whose special ability names this card (`_names_card`).
-      Wording alone: nothing here decides a rule.
+    The pill shows the rank, name, time, diagram and effect; its hover
+    shows the card's foot (`matchups`) and its ability rows, and after
+    those, in a game playing the special abilities (Law 21), each player
+    on the field whose sentence names this card (`_names_card`) --
+    **once**, however many sides field them: a card fielded on both is
+    the same person (`catalog_player_id`), named with both teams.
+    Wording alone: nothing here decides a rule.
     """
     maneuver = engine.maneuver_catalog.get(key)
     if maneuver is None:
         return None
-    tier = engine.maneuver_reference_tier(game)
-    tiers = (
-        (MANEUVER_TIER_BASIC,) if tier == MANEUVER_TIER_BASIC
-        else (MANEUVER_TIER_BASIC, tier)
+    card = aids.maneuver_card(
+        engine.maneuver_catalog, engine.player_catalog, maneuver, side,
+        aids.game_tiers(engine, game),
     )
-    is_offense = side == "offense"
-    groups = matchup_rank_groups(engine.maneuver_catalog, maneuver, is_offense)
-    matchups = [
-        {
-            "said": said,
-            "names": [one.name for one in pair if one.tier in tiers],
-        }
-        for said, (_, pair) in zip(("Beats", "Ties", "Loses to"), groups)
-    ]
-    # The card's row labels are its capitals ("FULLBACK", "BALL
-    # SPEED"); the page says them as words.
-    abilities = [
-        {"who": who.capitalize(), "text": text}
-        for who, text in role_abilities(engine.player_catalog, maneuver)
-    ]
+    card["tier_word"] = card["tier_word"] if maneuver.is_gambit else None
     if match is not None and engine.special_abilities_apply(game):
+        named: dict[str, dict] = {}
         for setup in (match.home, match.visiting):
             for player_id in setup.field_players:
                 text = engine.special_ability_text(game, player_id)
-                if text and _names_card(text, maneuver.name, side, maneuver.is_gambit):
-                    abilities.append({
-                        "who": engine.format_roster_player(player_id),
-                        "team": team_display_name(setup.team),
-                        "text": text,
-                    })
-    return {
-        "name": maneuver.name,
-        "rank": f"{'O' if is_offense else 'D'}{maneuver.rank}",
-        # The printed card's own colour: its side's, a darker shade for
-        # an advanced card (`cards.render_maneuver_card`).
-        "colour": PILL_COLOURS[is_offense, maneuver.is_gambit],
-        "tier_word": (
-            MANEUVER_TIER_WORDS[maneuver.tier] if maneuver.is_gambit else None
-        ),
-        "time": maneuver.time,
-        "effect": maneuver.effect,
-        "diagram": f"/api/game/{game.game_id}/maneuver-diagram/{key}.png",
-        "matchups": matchups,
-        "abilities": abilities,
-    }
+                if not text or not _names_card(
+                    text, maneuver.name, side, maneuver.is_gambit,
+                ):
+                    continue
+                team = team_display_name(setup.team)
+                row = named.setdefault(catalog_player_id(player_id), {
+                    "who": engine.format_roster_player(player_id),
+                    "teams": [],
+                    "text": text,
+                })
+                if team not in row["teams"]:
+                    row["teams"].append(team)
+        for row in named.values():
+            card["abilities"].append({
+                "who": row["who"],
+                "team": " and ".join(row["teams"]),
+                "text": row["text"],
+            })
+    return card
 
 
 def _names_card(text: str, name: str, side: str, gambit: bool) -> bool:
@@ -2404,9 +2378,18 @@ def plain_text(game: D12BallGame, text: str) -> str:
             return arguments[0].replace("_", " ").title()
         if kind == "coach":
             return coach_name(game, int(arguments[0]))
+        if kind == "coin":
+            # The face's word follows the mark, so in words the mark is
+            # nothing: dropped with the space after it.
+            return COIN_MARK
         return None
 
-    return tokens.render(text, resolve)
+    rendered = tokens.render(text, resolve)
+    return rendered.replace(f"{COIN_MARK} ", "").replace(COIN_MARK, "")
+
+
+#: Where a coin's mark stood in `plain_text`, until it is taken out.
+COIN_MARK = "\x00"
 
 
 #: One builder per `PromptKind`, the way `PLAIN_PROMPT_VIEWS` and

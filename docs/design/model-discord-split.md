@@ -1231,7 +1231,12 @@ species ability or the coach it is put to writes a token --
 `{team:purple}`, `{role:fullback:orange}`, `{condition:exhaust}`,
 `{species:cyborg}`, `{coach:1}` -- through the five builders in
 `d12ball/tokens.py`, and the cog renders every one of them once, at
-its door. The model held four emoji dicts and built `<@id>` mentions
+its door. A sixth, `{coin:doom}`, came with the coin's flip (Law
+19.3.3, 2026-10-01): the face of the game's own coin, which Discord
+draws as that face's emoji (`format_coin_emoji`, over the cog's
+`coin_emojis`) and the web page as its picture. The token names only
+the face; which of the six coins it is, is the record's
+(`game_coin`), read by the frontend. The model held four emoji dicts and built `<@id>` mentions
 until then, which was principle 5's "one voice" failing the other way
 round: the voice was right, and it was speaking Discord (finding 6 of
 [../web-app.md](../web-app.md)).

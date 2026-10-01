@@ -52,11 +52,14 @@ from d12ball.components import (
     load_player_catalog,
 )
 from d12ball.engine import RulesEngine
+from d12ball import tokens
 from d12ball.flow.effects import speed_choice_step
+from d12ball.flow.turn import declare_gambit_step
 from ai_answers import ai_answers
 from d12ball.prompts import PromptKind
 from d12ball.game import (
     AIOpponent,
+    CoinFace,
     D12BallGame,
     GameMode,
     GameStatus,
@@ -772,6 +775,68 @@ class CoinTests(GambitHarness, unittest.TestCase):
         self.assertEqual(reloaded.coin_holder, TeamSide.VISITING)
         self.assertEqual(reloaded.gambit_declared_by, "offense")
         self.assertEqual(reloaded.pick_unconfirmed, "defense")
+
+    def test_the_coin_shows_the_toss_until_it_passes(self) -> None:
+        """Law 3.1.4: the winner keeps the coin on the face it landed on,
+        whoever flipped it; a game seated without a toss shows Fortune."""
+        cog, game, match = self.unpicked()
+        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.FORTUNE)
+        game.coin_face = CoinFace.DOOM
+        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.DOOM)
+        game.mode = GameMode.STANDARD
+        self.assertIsNone(cog.engine.coin_face(game, match))
+
+    def test_the_coach_it_goes_to_flips_it(self) -> None:
+        """Law 19.3.3: a declaration hands the coin over and it is
+        flipped, the engine's draw, said in the narration with the
+        coin's own mark -- and the face it landed on is the one shown."""
+        cog, game, match = self.unpicked()
+        game.coin_face = CoinFace.FORTUNE
+        with mock.patch.object(
+            cog.engine, "flip_coin", return_value=CoinFace.DOOM,
+        ) as flip:
+            result = declare_gambit_step(cog.engine, game, match, side="offense")
+
+        flip.assert_called_once_with()
+        self.assertEqual(match.coin_face, CoinFace.DOOM)
+        self.assertEqual(cog.engine.coin_face(game, match), CoinFace.DOOM)
+        said = " ".join(result.narration)
+        self.assertIn(
+            f"who flips it: {tokens.coin(CoinFace.DOOM)} Doom.", said,
+        )
+
+    def test_the_holder_is_said_with_the_face_up(self) -> None:
+        cog, game, match = self.unpicked()
+        game.coin_face = CoinFace.DOOM
+        said = cog.engine.describe_gambit_access(game, match)
+        self.assertIn(
+            f"holds the coin, {tokens.coin(CoinFace.DOOM)} Doom up, and may "
+            "declare a gambit.",
+            said,
+        )
+
+    def test_the_face_survives_a_save(self) -> None:
+        cog, game, match = self.unpicked()
+        match.declare_gambit("offense", TeamSide.HOME, CoinFace.DOOM)
+
+        reloaded = MatchState.from_dict(
+            match.to_dict(), cog.engine.basic_ruleset,
+        )
+
+        self.assertEqual(reloaded.coin_face, CoinFace.DOOM)
+        self.assertEqual(cog.engine.coin_face(game, reloaded), CoinFace.DOOM)
+
+    def test_a_save_from_before_the_flip_shows_the_toss(self) -> None:
+        cog, game, match = self.unpicked()
+        match.declare_gambit("offense", TeamSide.HOME)
+        data = match.to_dict()
+        data.pop("coin_face")
+        game.coin_face = CoinFace.DOOM
+
+        reloaded = MatchState.from_dict(data, cog.engine.basic_ruleset)
+
+        self.assertIsNone(reloaded.coin_face)
+        self.assertEqual(cog.engine.coin_face(game, reloaded), CoinFace.DOOM)
 
     def test_a_save_from_before_the_coin_reads_the_toss(self) -> None:
         cog, game, match = self.unpicked()
