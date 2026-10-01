@@ -323,7 +323,7 @@ def low_pass_step(
     # played it and the teammate who would have joined them are
     # each shoved a space forward, away from their own goal.
     content += pay_double_team_cost(engine, match, key, double_team_partner)
-    # Low Pass's own cost is a flat 1 space minute regardless of
+    # Low Pass's own cost is a flat 1 time regardless of
     # distance (2026-08-16), the same as every maneuver but High
     # Pass. A pass granted by Pinpoint's cost is not this
     # side's maneuver and charges nothing: the clock was already
@@ -1018,7 +1018,7 @@ def pressure_step(
     )
     content += turnover_text
 
-    # Fixed 1 space minute per the rules table, whether or not the
+    # Fixed 1 time per the rules table, whether or not the
     # push reached the goal zone, same reasoning as a deflection.
     if burst_cost:
         # The defense has the ball and the speed step the cost
@@ -1470,7 +1470,7 @@ def deflection_lands(
     # other; a space both occupy is a contest between the players
     # already there. See `d12ball.flow.arrivals.begin_loose_ball`.
     #
-    # A deflection's time cost is a fixed 1 space minute per the rules
+    # A deflection's time cost is a fixed 1 time per the rules
     # table, not "distance traveled" like Low/High Pass, so this
     # doesn't shrink if the ball reached the goal zone (or grow with
     # the Fullback's extra distance, or Clear's, or a chosen one).
@@ -1628,7 +1628,7 @@ def high_pass_step(
         match, offense_side, distance, handler,
     )
 
-    # High Pass's own cost is a flat 2 space minutes regardless of
+    # High Pass's own cost is a flat 2 time regardless of
     # distance (2026-08-16) -- the one maneuver that isn't 1. Kept
     # apart from `actual_distance`, which is what the pass actually
     # did and what the result says.
@@ -2147,7 +2147,7 @@ def take_smooth_step(
     about to ask for is never asked, because the ball is no longer
     sitting on the handler who would have rolled it (the author,
     2026-09-20). What it does not drop is the clock: the maneuver that
-    moved the ball still costs its space minute, which rides out in
+    moved the ball still costs its time, which rides out in
     `distance_moved`.
 
     **A turnover-driven arrival is the exception**, and the only one.

@@ -3519,7 +3519,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         cog.offer_scoring_attempt_choice.assert_not_awaited()
         cog.finish_maneuver_resolution.assert_awaited_once()
         _, kwargs = cog.finish_maneuver_resolution.await_args
-        # Low Pass's own clock cost is a flat 1 space minute regardless
+        # Low Pass's own clock cost is a flat 1 time regardless
         # of distance (2026-08-16), even though the ball moved 2.
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("moves 2 spaces forward", kwargs["lead_in"])

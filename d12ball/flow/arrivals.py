@@ -1601,7 +1601,7 @@ def attempt_mind_pull_step(
     arrival it pre-empted never happens -- "a pull that lands pre-empts
     whatever the movement would have led to" -- so the resume is
     dropped rather than dispatched. Its clock cost is not: the maneuver
-    that moved the ball still charges its space minute.
+    that moved the ball still charges its time.
     """
     player = engine.get_player_definition(player_id)
     if player_id in match.pending_mind_pull:

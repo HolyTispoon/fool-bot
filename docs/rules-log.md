@@ -154,6 +154,22 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-01 -- author, "space minute" is just time
+
+The author: *"Remove all mention of space minutes from the game. Just call it time. Time has
+progressed one, has advanced one, etc."* A wording change only: every cost is the number it was,
+and the clock runs as it did.
+
+- **The unit is time** (2.8.11): an action that costs 1 advances time by 1. 16.2 is headed
+  *Time*, and its anchor moved with it (`#162-time`).
+- Every maneuver's rank line says *Costs 1 time* or *Costs 2 time* (6.5-6.10, 19.5-19.10); a
+  shot, a set-up's shot and a time out cost 1 time (5.4.2, 8.5.1, 13.4.1); a Telekinetic's pull
+  still costs its maneuver's 1 time (20.4.8). Appendix B's index row is *Time*.
+- The sheet's maneuver *Time* column still reads "1 space minute"; the cards print only its
+  number, so nothing the bot shows says it. The entries below are left as they were written.
+
+No number moved.
+
 ### 2026-10-01 -- author, the coin is flipped each time it passes
 
 The author, reviewing the web app's coin: *"the coin should be flipped every time it passes from
