@@ -153,7 +153,7 @@
             h("td", {},
               h("a", { class: "ability-name", href: `#ref-card-${one.key}`, onclick: toCard(one.key) }, one.name),
               one.gambit ? h("span", { class: "tier-tag" }, one.tier_word) : null),
-            h("td", { class: "maneuver-time" }, one.time),
+            h("td", { class: "maneuver-time" }, String(one.time_cost)),
             h("td", { class: "beats" }, one.beats)))));
     const hexagons = (aids.maneuvers || []).map((one) =>
       h("figure", { class: "ref-hexagon" },
@@ -245,20 +245,21 @@
 
   // -- The Rules tab -------------------------------------------------------
 
-  /* The tab's four chips, in the order they sit (the author,
-     2026-10-01: the References split into the maneuvers and the
-     abilities). */
+  /* The tab's four chips, in the author's order (2026-10-01: the
+     References split into the abilities and the maneuvers). The
+     Charter is still what the tab opens on, since a refusal's Law
+     opens it there. */
   const TAB_VIEWS = [
-    ["charter", "The Charter"],
-    ["learn", "Learn to Play"],
-    ["maneuvers", "Maneuvers"],
     ["abilities", "Abilities"],
+    ["maneuvers", "Maneuvers"],
+    ["learn", "Learn to Play"],
+    ["charter", "The Charter"],
   ];
   const REFERENCES = { maneuvers: maneuverReference, abilities: abilityReference };
 
-  /* The tab: a search box, four chips, and under them the Laws by
-     their headings -- one opened to its text -- the Learn to Play, the
-     maneuvers or the abilities. */
+  /* The tab: a search box, four chips, and under them the abilities,
+     the maneuvers, the Learn to Play, or the Laws by their headings --
+     one opened to its text. */
   function mountTab(root) {
     let view = "charter";
     let charter = null;

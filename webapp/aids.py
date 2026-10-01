@@ -619,6 +619,8 @@ def maneuver_card(
         # The card's own pill, "TIME · 1" (`cards.time_cost`): the sheet's number,
         # never its unit -- the unit is just time (the author, 2026-10-01).
         "time": f"TIME · {time_cost(maneuver)}",
+        # The bare number, for the condensed table's Time column.
+        "time_cost": time_cost(maneuver),
         "effect": maneuver.effect,
         "diagram": maneuver_diagram_url(maneuver.key),
         "matchups": [
@@ -933,7 +935,7 @@ def _maneuver_table_html(table: dict) -> str:
             f'<span class="tier-tag">{html.escape(one["tier_word"])}</span>'
             if one["gambit"] else ""
         )
-        + f'</td><td class="maneuver-time">{html.escape(one["time"])}</td>'
+        + f'</td><td class="maneuver-time">{one["time_cost"]}</td>'
         f'<td class="beats">{html.escape(one["beats"])}</td></tr>'
         for one in table["rows"]
     )
@@ -957,10 +959,10 @@ def _hexagon_html(one: dict, named: bool) -> str:
 def references_html(offered: dict) -> str:
     """
     The References column, as the Rules tab's two reference chips draw
-    it from the same dict (`webapp/static/aids.js`): the maneuvers --
-    a condensed table a side, the hexagon at each tier offered, and
-    each card whole -- then the abilities, the roles table and the
-    species table.
+    it from the same dict (`webapp/static/aids.js`) and in the tab's
+    order: the abilities, the roles table and the species table, then
+    the maneuvers -- a condensed table a side, the hexagon at each tier
+    offered, and each card whole.
     """
     tables = "".join(_maneuver_table_html(table) for table in offered["maneuver_rows"])
     hexagons = "".join(
@@ -990,16 +992,8 @@ def references_html(offered: dict) -> str:
     )
     return (
         '<nav class="chips ref-jump" aria-label="References">'
-        '<a class="chip-tab" href="#ref-maneuvers">Maneuvers</a>'
-        '<a class="chip-tab" href="#ref-abilities">Abilities</a></nav>'
-        '<div class="panel-label" id="ref-maneuvers">Maneuvers</div>'
-        f"{tables}"
-        + (
-            f'<div class="panel-label">Maneuver reference</div>{hexagons}'
-            if hexagons else ""
-        )
-        + '<div class="panel-label">The cards</div>'
-        f"{cards}"
+        '<a class="chip-tab" href="#ref-abilities">Abilities</a>'
+        '<a class="chip-tab" href="#ref-maneuvers">Maneuvers</a></nav>'
         '<div class="panel-label" id="ref-abilities">Role abilities</div>'
         '<table class="ref-table"><tr><th></th><th>Role</th><th>OFF</th><th>DEF</th><th>Ability</th></tr>'
         f"{roles}</table>"
@@ -1009,6 +1003,14 @@ def references_html(offered: dict) -> str:
             f"{species}</table>"
             if species else ""
         )
+        + '<div class="panel-label" id="ref-maneuvers">Maneuvers</div>'
+        f"{tables}"
+        + (
+            f'<div class="panel-label">Maneuver reference</div>{hexagons}'
+            if hexagons else ""
+        )
+        + '<div class="panel-label">The cards</div>'
+        f"{cards}"
     )
 
 
