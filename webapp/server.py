@@ -114,6 +114,7 @@ from webapp.present import (
     rolled_dice,
     shootout_sides,
     situation,
+    split_coin_line,
     split_footnote,
     still_to_answer,
     waiting_on,
@@ -345,6 +346,10 @@ class WebApp:
                 web.get(
                     "/api/game/{game_id}/maneuver/{key}.png",
                     self.maneuver_card,
+                ),
+                web.get(
+                    "/api/game/{game_id}/maneuver-diagram/{key}.png",
+                    self.maneuver_diagram,
                 ),
                 web.get(
                     "/api/game/{game_id}/maneuver-back.png",
@@ -1622,6 +1627,20 @@ class WebApp:
             ),
         )
 
+    async def maneuver_diagram(self, request: web.Request) -> web.Response:
+        """One maneuver's diagram, for the hand's pill
+        (`present.maneuver_pill`)."""
+        self._game(request)
+        key = request.match_info["key"]
+        if self.engine.maneuver_catalog.get(key) is None:
+            raise web.HTTPNotFound(text="No such maneuver.")
+        return await self._card(
+            ("maneuver_diagram", key),
+            lambda: pictures.maneuver_diagram_png(
+                self.engine.maneuver_catalog, self.engine.player_catalog, key,
+            ),
+        )
+
     async def maneuver_back(self, request: web.Request) -> web.Response:
         """The maneuver cards' back at this game's tier: a hand held
         face down (`present.hand_backs`)."""
@@ -2007,6 +2026,9 @@ class WebApp:
         ask, footnote = split_footnote(
             self.engine, game, match, prompt, wire["ask"],
         )
+        ask, coin_line = split_coin_line(
+            self.engine, game, match, prompt, ask,
+        )
         return {
             "prompt": {
                 "kind": wire["kind"],
@@ -2014,6 +2036,10 @@ class WebApp:
                 # The Spreadable reminder, said under the whistle rather
                 # than under the title (`present.split_footnote`).
                 "footnote": render_text(game, footnote) if footnote else None,
+                # Who holds the coin, or who has declared a gambit, on a
+                # line of its own with the coin beside it where this
+                # viewer may declare (`present.split_coin_line`).
+                "coin_line": render_text(game, coin_line) if coin_line else None,
                 # The matchup the cog posts a picture of with the same
                 # kind, as words and portraits for the page to lay out
                 # (`present.situation`), or null: the same for a coach

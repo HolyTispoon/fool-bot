@@ -56,8 +56,11 @@ from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 from d12ball import stats, tokens
+from d12ball.cards import matchup_rank_groups, role_abilities
 from d12ball.components import (
+    MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
+    MANEUVER_TIER_WORDS,
     SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
@@ -78,9 +81,11 @@ from d12ball.formatting import (
 )
 from d12ball.game import (
     COLOR_TEAMS,
+    CoinFace,
     D12BallGame,
     Formation,
     Team,
+    coin_face_name,
     paired_team,
     team_display_name,
 )
@@ -97,6 +102,10 @@ from d12ball.player_cards import species_ability, species_ability_reminder
 from d12ball.render import (
     CHALLENGE_BANDS,
     CHALLENGE_TITLE,
+    MANEUVER_DEFENSE_COLOR,
+    MANEUVER_DEFENSE_COLOR_GAMBIT,
+    MANEUVER_OFFENSE_COLOR,
+    MANEUVER_OFFENSE_COLOR_GAMBIT,
     merge_sum,
     SCORE_ATTEMPT_TITLE,
     SCORE_ATTEMPT_UNDEFENDED,
@@ -493,6 +502,19 @@ def on_card(key: str, side: str) -> dict:
     return {"at": "card", "key": key, "side": side}
 
 
+def on_coin(game: D12BallGame) -> dict:
+    """The game's own coin in the question box, beside the sentence
+    saying who holds it: pressing it declares a gambit (Law 19.3). It is
+    drawn as the coin the toss was flipped with, the face it came up --
+    Fortune for a game whose toss is not recorded -- so the coin in the
+    box is the coin that was thrown."""
+    face = game.coin_face or CoinFace.FORTUNE
+    return {
+        "at": "coin",
+        "face": f"/emoji/{coin_face_name(game.game_coin, face)}.png",
+    }
+
+
 def on_formation(formation: Any) -> dict:
     """A formation's tile in the question box: the Coaching Choice's
     shapes, drawn as dots per zone."""
@@ -654,10 +676,11 @@ def _asked(
 
 #: The objects the question box draws itself -- the die, a speed's
 #: faces, the whistle, the note, the REMATCH mark, the hand's cards,
-#: the formation tiles --
+#: the formation tiles, the coin --
 #: which the lit line does not repeat: it says what is lit elsewhere.
 IN_THE_BOX = frozenset({
     "die", "face", "whistle", "note", "rematch", "card", "formation",
+    "coin",
 })
 
 
@@ -689,6 +712,30 @@ def split_footnote(
     if not note or not ask.endswith(note):
         return ask, ""
     return ask[: -len(note)].rstrip("\n"), note
+
+
+def split_coin_line(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: PendingPrompt,
+    ask: str,
+) -> tuple[str, str]:
+    """
+    The maneuver pick's ask with its last paragraph -- who holds the
+    coin, or who has declared a gambit -- taken off, and that paragraph:
+    the question box says it on a line of its own, with the coin beside
+    it where this viewer may press it (the author, 2026-10-01). The
+    words are the model's either way (`describe_gambit_access`, which
+    `prompts.maneuver_gambit_paragraph` appends); only where they stand
+    is the page's. Any other ask comes back whole.
+    """
+    if match is None or prompt.kind is not PromptKind.MANEUVER_ACTION:
+        return ask, ""
+    line = engine.describe_gambit_access(game, match)
+    if not line or not ask.endswith(line):
+        return ask, ""
+    return ask[: -len(line)].rstrip("\n"), line
 
 
 def lit_line(
@@ -821,6 +868,7 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
         "whistle": "The whistle",
         "note": "The note",
         "rematch": "Rematch",
+        "coin": "The coin",
     }.get(at, at)
 
 
@@ -1482,8 +1530,10 @@ def _maneuver(asked: Asked) -> list:
     printed on it.
 
     **The coin is its own section** (Law 19.3): the coach holding it
-    is offered "Declare a gambit" beside the hand -- the prompt's
-    `may_declare`, answered with the choice `"gambit"` -- and a coach
+    is offered "Declare a gambit" -- the prompt's `may_declare`,
+    answered with the choice `"gambit"` -- lit on the game's own coin
+    (`on_coin`), which the page draws beside the sentence saying who
+    holds it (`split_coin_line`) rather than under the hand; a coach
     whose card a gambit has put back in question has it ringed and
     live, pressed to confirm it (`unconfirmed`, the choice
     `"confirm"`), with the rest of the hand to change it for.
@@ -1506,7 +1556,7 @@ def _maneuver(asked: Asked) -> list:
                     "confirm",
                     place=on_card(key, side),
                     chip="confirm your card",
-                    card=_card(asked.engine, key, side, picked=True),
+                    card=_card(asked, key, side, picked=True),
                     side=side,
                 ))
                 continue
@@ -1518,7 +1568,7 @@ def _maneuver(asked: Asked) -> list:
                     "your card, face down" if key == laid
                     else "play this instead" if laid else "play"
                 ),
-                card=_card(asked.engine, key, side, picked=key == laid),
+                card=_card(asked, key, side, picked=key == laid),
                 side=side,
                 maneuver_key=key,
                 disabled=railed_off or key == laid,
@@ -1530,7 +1580,7 @@ def _maneuver(asked: Asked) -> list:
                 asked.engine.maneuver_name(key),
                 asked.kind,
                 place=on_card(key, side),
-                card=_card(asked.engine, key, side, withheld=True),
+                card=_card(asked, key, side, withheld=True),
                 side=side,
                 maneuver_key=key,
                 disabled=True,
@@ -1553,6 +1603,7 @@ def _maneuver(asked: Asked) -> list:
                 DECLARE_LABEL,
                 asked.kind,
                 "gambit",
+                place=on_coin(asked.game),
                 chip=DECLARE_CHIP,
                 note=DECLARE_NOTE,
                 side=hand["side"],
@@ -1662,20 +1713,132 @@ def withheld_note(match: MatchState, hand: Mapping[str, Any]) -> str:
     return WITHHELD_NOTE
 
 
-def _card(
-    engine: RulesEngine, key: str, side: str, **more: Any,
-) -> dict:
+def _card(asked: Asked, key: str, side: str, **more: Any) -> dict:
     """A maneuver card as a control or the table shows it: its key, the
     side holding it (which colours it) and whether it is a gambit --
-    printed on the card, so laid out as the second row."""
-    maneuver = engine.maneuver_catalog.get(key)
+    printed on the card, so laid out as the second row -- and the pill
+    the page draws it as (`maneuver_pill`)."""
+    maneuver = asked.engine.maneuver_catalog.get(key)
     return {
         "key": key,
         "side": side,
         "gambit": maneuver is not None
         and maneuver.tier == MANEUVER_TIER_GAMBIT,
+        "pill": maneuver_pill(asked.engine, asked.game, asked.match, key, side),
         **more,
     }
+
+
+#: A pill's colour, by (offense, advanced): the printed card's.
+PILL_COLOURS = {
+    (True, False): MANEUVER_OFFENSE_COLOR,
+    (True, True): MANEUVER_OFFENSE_COLOR_GAMBIT,
+    (False, False): MANEUVER_DEFENSE_COLOR,
+    (False, True): MANEUVER_DEFENSE_COLOR_GAMBIT,
+}
+
+
+def maneuver_pill(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    key: str,
+    side: str,
+) -> Optional[dict]:
+    """
+    A maneuver as the page draws it in a hand and on the reveal: a pill
+    rather than the printed card (the author, 2026-10-01) -- its name,
+    rank (`O1`, `D2`, as the card's corner prints it), its diagram (the
+    card's own, cut from it: `pictures.maneuver_diagram_png`) and its
+    effect in the sheet's words, never cut down here. `None` for a key
+    the data no longer carries.
+
+    What it says on hover is the card's bottom row and its ability rows,
+    which the pill leaves out:
+
+    - **`matchups`** -- the opposing cards it beats, ties and loses to,
+      by rank (`cards.matchup_rank_groups`, the card's own reading:
+      rank alone decides), holding only the tiers this game plays
+      (`maneuver_reference_tier`), as the Rules tab's table does.
+    - **`abilities`** -- the role rows the card prints under its effect
+      (`cards.role_abilities`: every role whose ability names the card,
+      and the notes placed there by hand; none on a gambit), then, in a
+      game playing the special abilities (Law 21), each player on the
+      field whose special ability names this card (`_names_card`).
+      Wording alone: nothing here decides a rule.
+    """
+    maneuver = engine.maneuver_catalog.get(key)
+    if maneuver is None:
+        return None
+    tier = engine.maneuver_reference_tier(game)
+    tiers = (
+        (MANEUVER_TIER_BASIC,) if tier == MANEUVER_TIER_BASIC
+        else (MANEUVER_TIER_BASIC, tier)
+    )
+    is_offense = side == "offense"
+    groups = matchup_rank_groups(engine.maneuver_catalog, maneuver, is_offense)
+    matchups = [
+        {
+            "said": said,
+            "names": [one.name for one in pair if one.tier in tiers],
+        }
+        for said, (_, pair) in zip(("Beats", "Ties", "Loses to"), groups)
+    ]
+    # The card's row labels are its capitals ("FULLBACK", "BALL
+    # SPEED"); the page says them as words.
+    abilities = [
+        {"who": who.capitalize(), "text": text}
+        for who, text in role_abilities(engine.player_catalog, maneuver)
+    ]
+    if match is not None and engine.special_abilities_apply(game):
+        for setup in (match.home, match.visiting):
+            for player_id in setup.field_players:
+                text = engine.special_ability_text(game, player_id)
+                if text and _names_card(text, maneuver.name, side, maneuver.is_gambit):
+                    abilities.append({
+                        "who": engine.format_roster_player(player_id),
+                        "team": team_display_name(setup.team),
+                        "text": text,
+                    })
+    return {
+        "name": maneuver.name,
+        "rank": f"{'O' if is_offense else 'D'}{maneuver.rank}",
+        # The printed card's own colour: its side's, a darker shade for
+        # an advanced card (`cards.render_maneuver_card`).
+        "colour": PILL_COLOURS[is_offense, maneuver.is_gambit],
+        "tier_word": (
+            MANEUVER_TIER_WORDS[maneuver.tier] if maneuver.is_gambit else None
+        ),
+        "time": maneuver.time,
+        "effect": maneuver.effect,
+        "diagram": f"/api/game/{game.game_id}/maneuver-diagram/{key}.png",
+        "matchups": matchups,
+        "abilities": abilities,
+    }
+
+
+def _names_card(text: str, name: str, side: str, gambit: bool) -> bool:
+    """
+    Whether a special ability's sentence names this card, the way the
+    sheet words it: the card's name with its last word in any form
+    ("high passing", "pressuring", "Dribble up to 3"), but not as a
+    verb counting something ("clear 1 exhaustion" is not Clear). A
+    gambit is also named by "gambit", unless the sentence is about the
+    other side's ("Defensive gambits ..." names no offense card).
+    """
+    words = name.lower().split()
+    stem = words[:-1] + [words[-1].rstrip("e")]
+    named = re.compile(
+        r"\b" + r"\s+".join(re.escape(word) for word in stem)
+        + r"\w*(?!\s+\d)",
+        re.IGNORECASE,
+    )
+    if named.search(text):
+        return True
+    if not gambit or not re.search(r"\bgambits?\b", text, re.IGNORECASE):
+        return False
+    other = "defensive" if side == "offense" else "offensive"
+    return not re.search(rf"\b{other}\s+gambits?\b", text, re.IGNORECASE)
 
 
 def hand_table(
@@ -1834,6 +1997,7 @@ def reveal(
     ):
         one["name"] = engine.maneuver_name(one["key"])
         one["team_side"] = TeamSide(team_side).value
+        one["pill"] = maneuver_pill(engine, game, match, one["key"], one["side"])
     outcome = engine.cards_outcome(match)
     between = {
         None: "unchallenged",

@@ -1928,7 +1928,7 @@ function drawReference(prompt) {
 /* The objects the question box draws, rather than the board: the die
    to roll, the faces of a speed to choose, the whistle, the note, the
    REMATCH mark, the hand's cards. */
-const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation"]);
+const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation", "coin"]);
 
 /* Whether a control is drawn in the question box: the neutral ones, the
    box's own objects, and a meeple lit that is not on the field to be
@@ -2002,7 +2002,10 @@ function drawControls(prompt) {
     controls.append(block);
   }
 
-  for (const group of groups.filter((one) => !one.how)) {
+  /* The coin is drawn on its own line under the ask, not in a group
+     of its own under the hand (`drawCoinLine`). */
+  const coin = drawCoinLine(prompt);
+  for (const group of groups.filter((one) => !one.how && !(coin && coinGroup(one)))) {
     if (group.label) controls.append(h("div", { class: "group-label" }, group.label));
     controls.append(drawGroup(group));
   }
@@ -2298,6 +2301,51 @@ function whistle({ allowed, label, note = "", onclick }) {
   );
 }
 
+/* Who holds the coin -- or who has declared a gambit -- on a line of
+   its own under the ask, in the model's words
+   (`present.split_coin_line`), and where this coach may declare, the
+   game's own coin beside it, the face the toss came up: pressing the
+   coin is the declaration (the author, 2026-10-01). Whether the line
+   drew the coin, so its group is not drawn again under the hand. */
+function drawCoinLine(prompt) {
+  const line = el("coin-line");
+  if (!prompt.coin_line) {
+    line.hidden = true;
+    line.replaceChildren();
+    return false;
+  }
+  const control = prompt.controls
+    .flatMap((group) => group.controls)
+    .find((one) => one.place && one.place.at === "coin");
+  line.hidden = false;
+  line.replaceChildren(h("span", { class: "coin-line-text", html: prompt.coin_line }));
+  if (control) line.append(coinButton(control));
+  return Boolean(control);
+}
+
+function coinGroup(group) {
+  return group.controls.length
+    && group.controls.every((one) => one.place && one.place.at === "coin");
+}
+
+/* The coin as the control: the game's coin, lit, and what pressing it
+   does under it; the note says the rest. */
+function coinButton(control) {
+  return h(
+    "button",
+    {
+      type: "button",
+      class: "coin-button",
+      disabled: control.disabled,
+      title: control.note || control.label,
+      "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
+      onclick: () => press(control),
+    },
+    h("img", { src: control.place.face, alt: "", class: "coin-face" }),
+    h("span", { class: "coin-button-word" }, control.chip || control.label),
+  );
+}
+
 /* The REMATCH mark: a new room with this one's settings and seats --
    and once somebody has made it, a link to that room. */
 function rematchMark(control) {
@@ -2343,23 +2391,66 @@ function maneuverUrl(key, side, size = "small") {
 }
 
 function handCard(control) {
-  const { key, side } = control.card;
-  const url = maneuverUrl(key, side);
+  const { key, side, pill } = control.card;
   const button = h(
     "button",
     {
       type: "button",
-      class: `hand-card${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
+      class: `hand-card${pill ? " pill" : ""}${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
       disabled: control.disabled,
-      title: control.note || control.label,
+      title: pill ? control.note || null : control.note || control.label,
       "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
       onclick: () => press(control),
     },
-    h("img", { src: url, alt: control.label }),
+    pill ? pillFace(pill) : h("img", { src: maneuverUrl(key, side), alt: control.label }),
     control.card.picked ? h("span", { class: "hand-card-chip" }, control.chip) : null,
   );
-  hoverCard(button, maneuverUrl(key, side, "full"));
+  hoverCard(button, pill ? () => pillPeek(pill) : maneuverUrl(key, side, "full"));
   return button;
+}
+
+/* A maneuver as a pill rather than the printed card
+   (`present.maneuver_pill`, the author, 2026-10-01): the rank in the
+   card's colour, the name, the time it charges, the card's own diagram
+   and its effect in the sheet's words. */
+function pillFace(pill) {
+  return h(
+    "span",
+    { class: "pill-face", style: `--card: ${pill.colour}` },
+    h("span", { class: "pill-head" },
+      h("span", { class: "pill-rank" }, pill.rank),
+      h("span", { class: "pill-name" }, pill.name),
+      pill.tier_word ? h("span", { class: "tier-tag" }, pill.tier_word) : null,
+      h("span", { class: "pill-time" }, pill.time)),
+    h("span", { class: "pill-body" },
+      h("img", { class: "pill-diagram", src: pill.diagram, alt: "" }),
+      h("span", { class: "pill-effect" }, pill.effect)),
+  );
+}
+
+/* What a pill says on hover, which the printed card says along its
+   foot and under its effect: what it beats, ties and loses to, and the
+   abilities that name it. */
+function pillPeek(pill) {
+  return h(
+    "div",
+    { class: "pill-peek", style: `--card: ${pill.colour}` },
+    h("div", { class: "pill-peek-title" },
+      h("span", { class: "pill-rank" }, pill.rank), " ", pill.name),
+    h("dl", { class: "pill-matchups" },
+      pill.matchups.flatMap((one) => [
+        h("dt", {}, one.said),
+        h("dd", {}, one.names.join(" / ")),
+      ])),
+    pill.abilities.length
+      ? h("div", { class: "pill-abilities" },
+        h("div", { class: "pill-peek-label" }, "Abilities"),
+        pill.abilities.map((one) => h("p", { class: "pill-ability" },
+          h("span", { class: "pill-ability-who" },
+            h("b", {}, one.who), one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null),
+          one.text)))
+      : null,
+  );
 }
 
 /* The hands this viewer does not hold (`present.hand_table`): only the
@@ -2695,7 +2786,10 @@ function teamColour(side) {
 let shownReveal = null;
 function drawReveal(state) {
   const box = el("reveal");
-  const shape = JSON.stringify(state.reveal);
+  /* On the phone and the tablet the pills stack, the first over the
+     second, so BEATS points up or down rather than across. */
+  const stacked = phone() || TABLET.matches;
+  const shape = JSON.stringify([state.reveal, stacked]);
   if (shape === shownReveal) return;
   shownReveal = shape;
   const reveal = state.reveal;
@@ -2707,14 +2801,15 @@ function drawReveal(state) {
   const card = (one) => {
     const node = h(
       "figure",
-      { class: `reveal-card${reveal.winner === one.side ? " won" : ""}` },
-      h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
+      { class: `reveal-card${one.pill ? " pill" : ""}${reveal.winner === one.side ? " won" : ""}` },
+      one.pill ? pillFace(one.pill) : h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
     );
-    hoverCard(node, maneuverUrl(one.key, one.side, "full"));
+    hoverCard(node, one.pill ? () => pillPeek(one.pill) : maneuverUrl(one.key, one.side, "full"));
     return node;
   };
-  const word = reveal.winner === "offense" ? `${reveal.between} ▶`
-    : reveal.winner === "defense" ? `◀ ${reveal.between}` : reveal.between;
+  const [toSecond, toFirst] = stacked ? ["▼", "▲"] : ["▶", "◀"];
+  const word = reveal.winner === "offense" ? `${reveal.between} ${toSecond}`
+    : reveal.winner === "defense" ? `${toFirst} ${reveal.between}` : reveal.between;
   box.replaceChildren(
     card(reveal.cards[0]),
     h("div", { class: `reveal-between${reveal.winner === "tie" ? " tie" : ""}` }, word),
@@ -3344,6 +3439,8 @@ let peekHide = null;
 let peekFor = null;
 let heldOpen = false;
 
+/* `url` is the picture's, or a function drawing what to show instead
+   (a pill's matchups, `pillPeek`). */
 function hoverCard(node, url, { when = () => true } = {}) {
   node.addEventListener("mouseenter", () => {
     if (!finePointer() || el("peek").classList.contains("pinned") || !when()) return;
@@ -3391,8 +3488,17 @@ function showPeek(url, anchor, { pinned = false } = {}) {
   clearTimeout(peekHide);
   const peek = el("peek");
   const image = peek.firstElementChild;
-  if (image.getAttribute("src") !== url) image.src = url;
-  peekFor = url.includes("/card/")
+  const info = peek.querySelector(".peek-info");
+  const drawn = typeof url === "function";
+  image.hidden = drawn;
+  info.hidden = !drawn;
+  peek.classList.toggle("info", drawn);
+  if (drawn) {
+    info.replaceChildren(url());
+  } else if (image.getAttribute("src") !== url) {
+    image.src = url;
+  }
+  peekFor = !drawn && url.includes("/card/")
     ? { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) }
     : null;
   peek.classList.toggle("pinned", pinned);
@@ -3405,8 +3511,9 @@ function showPeek(url, anchor, { pinned = false } = {}) {
 function placePeek(anchor) {
   const peek = el("peek");
   const box = anchor.getBoundingClientRect();
-  const width = Math.min(260, window.innerWidth - 16);
-  const height = width * (364 / 260);
+  const drawn = peek.classList.contains("info");
+  const width = drawn ? peek.offsetWidth : Math.min(260, window.innerWidth - 16);
+  const height = drawn ? peek.offsetHeight : width * (364 / 260);
   let x = box.right + 12;
   if (x + width > window.innerWidth - 8) x = box.left - width - 12;
   x = Math.max(8, Math.min(x, window.innerWidth - width - 8));

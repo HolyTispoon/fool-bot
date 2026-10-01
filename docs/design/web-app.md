@@ -1249,7 +1249,7 @@ changed for it.
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
-| `maneuver_action` (`ManeuverOptions`) | the printed cards of this coach's own hand, 150px, the gambits a row under the basic three | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
+| `maneuver_action` (`ManeuverOptions`) | this coach's own hand as pills (`present.maneuver_pill`), the gambits a row under the basic three; the declaration on the game's coin beside who holds it | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
 | `coaching_hub` | the formation tiles in the box; a bench meeple, then the player it replaces; a player, then the teammate they change zones with or the space they move to; the whistle for Done, grey with `finish_refusal` under it ("The Coaching Choice on the board", below) | a move onto a space two teammates share asks which comes back, in the box |
 | `shootout_order` | -- | neutral until step 7 |
 | `tutorial_continue` | the note: anywhere on it | -- |
@@ -1293,12 +1293,32 @@ chooser, or puts a refusal away.
 **The hand, the reveal and full time** (2026-09-26, step 5 of
 [../web-app-redesign.md](../web-app-redesign.md), with step 12 folded in).
 
-- **The hand is the printed cards**, `pictures.maneuver_card_png` at
-  150px in the question box, each the answer as it was in step 4; hovered,
-  a card lifts and its full-size face opens beside it. The cards offered
-  are exactly the side's `maneuver_keys`. The basic three are a row and
-  the gambits a row under them -- a card's tier is printed on it, so
-  `card.gambit` is read off the catalog to lay it out and decides
+- **The hand is a row of pills** (the author, 2026-10-01; until then the
+  printed cards at 150px, which were too small to read). A pill is
+  `present.maneuver_pill`: the rank as the card's corner prints it (`O1`,
+  `D2`) in the card's own colour, the name, the time it charges, **the
+  card's own diagram** -- cut out of the rendered face where the card
+  draws it (`cards.strip_panel_box`, which `render_maneuver_card` itself
+  places the panel by, so the two cannot drift; served by
+  `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
+  the effect in the sheet's words, never cut down. Each is the answer as
+  it was in step 4. On a desktop three sit in a row with the diagram over
+  the effect; on the phone and the tablet a pill is a column wide and
+  the diagram sits beside the effect, so a hand of six is not several
+  screens tall. **Hovered** (held, on a touch screen), the pill says what
+  the printed card says along its foot and under its effect, which the
+  pill leaves out: what it beats, ties and loses to
+  (`cards.matchup_rank_groups`, the card's own reading of rank, over the
+  tiers the game plays), and the abilities that name it -- the role rows
+  the card prints (`cards.role_abilities`), then, in a game playing the
+  special abilities, each player on the field whose sentence names the
+  card (`_names_card`: the name with its last word in any form, a
+  count after it being the verb -- "clear 1 exhaustion" is not Clear --
+  and "gambit" naming the gambits of the side it speaks of). That last
+  is a reading of words for a reminder and decides nothing. The cards
+  offered are exactly the side's `maneuver_keys`. The basic three are a
+  row and the gambits a row under them -- a card's tier is printed on
+  it, so `card.gambit` is read off the catalog to lay it out and decides
   nothing.
 - **A gambit the side does not hold is shown dimmed**, with a note
   saying why (`withheld_note`, since the coin on 2026-09-28: "declare a
@@ -1306,9 +1326,15 @@ chooser, or puts a refusal away.
   is behind may answer a gambit" to one facing a gambit it may not answer,
   and "only the coach holding the coin may make a gambit" otherwise), as a
   dead control the page cannot send (and the offer check refuses if it is
-  sent anyway). **The coin is a section of its own** under the hand:
-  "Declare a gambit", the prompt's `may_declare` answered with the choice
-  `"gambit"`. A card a gambit has put back in question is ringed and
+  sent anyway). **The coin sits beside the sentence saying who holds
+  it** (the author, 2026-10-01): "Declare a gambit", the prompt's
+  `may_declare` answered with the choice `"gambit"`, is lit on the game's
+  own coin (`on_coin`), drawn with the face the toss came up -- the coin
+  that was thrown -- and the page draws it beside the ask's last
+  paragraph, `describe_gambit_access`, which `present.split_coin_line`
+  takes off the ask and the state sends as `coin_line`, to every viewer,
+  since who holds the coin is public. The words stay the model's; only
+  where they stand is the page's, as with the Spreadable footnote. A card a gambit has put back in question is ringed and
   **live** -- pressed, it confirms the pick (`"confirm"`) -- and the rest
   of the hand may replace it. The jumbotron draws the game's own coin
   beside the team holding it (`board.jumbotron`, off
@@ -1352,7 +1378,8 @@ chooser, or puts a refusal away.
   face up in the question box -- public once turned over, for a coach
   and an observer alike -- with what the cards said between them,
   `RulesEngine.cards_outcome`: TIE, or BEATS pointing at the card beaten,
-  its winner ringed. What the maneuver came to -- an injury's forfeit,
+  its winner ringed, each as its pill; on the phone and the tablet the
+  two stack and BEATS points up or down. What the maneuver came to -- an injury's forfeit,
   a forced test, the roll -- is the outcome banner's, the model's own
   headline, and the die under it is step 4's. An unchallenged card is
   shown alone. The challenge picture stays where step 8 of

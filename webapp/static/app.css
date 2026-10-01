@@ -598,6 +598,7 @@ img { display: block; }
 .reveal-card { margin: 0; width: 120px; border-radius: 10px; overflow: hidden; border: 2px solid transparent; }
 .reveal-card.won { border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 178, 50, 0.35); }
 .reveal-card img { display: block; width: 100%; height: auto; }
+.reveal-card.pill { width: 290px; }
 .reveal-between {
   font-family: "Goal", "Board", sans-serif;
   font-size: 30px;
@@ -817,8 +818,9 @@ select {
   max-width: 100%;
 }
 
-/* A hand of maneuver cards: the printed cards are the buttons, 150px
-   wide, the gambits in a row of their own under the basic three. */
+/* A hand of maneuver cards: each card a pill (`present.maneuver_pill`)
+   -- or the printed card, 150px wide, for a key the data no longer
+   carries -- the gambits in a row of their own under the basic three. */
 .hand-rows { display: flex; flex-direction: column; gap: 8px; }
 .hand-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .hand-label .quiet { text-transform: none; letter-spacing: 0; font-weight: 400; }
@@ -827,6 +829,7 @@ select {
   grid-template-columns: repeat(auto-fill, 150px);
   gap: 10px;
 }
+.hand:has(.pill) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 .hand-card {
   padding: 0;
   border: 2px solid transparent;
@@ -845,6 +848,122 @@ select {
 }
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 .hand-card.withheld { filter: grayscale(0.6); }
+.hand-card.pill:hover:not(:disabled) { transform: translateY(-3px); }
+
+/* The pill: the rank in the card's colour, the name and the time it
+   charges, the card's own diagram, and its effect. */
+.hand-card.pill,
+.reveal-card.pill {
+  border-radius: 22px;
+  background: var(--deep);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+}
+.pill-face {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 10px 14px 12px;
+  box-sizing: border-box;
+}
+.pill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pill-rank {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--card);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.pill-name { font-size: 18px; font-weight: 700; color: var(--strong); }
+.pill-face .tier-tag,
+.pill-peek .tier-tag {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+.pill-time { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--muted); }
+.pill-body { display: flex; flex-direction: column; gap: 8px; }
+.pill-diagram { display: block; width: 100%; height: auto; border-radius: 10px; }
+/* A pill a column wide (the phone's, the tablet's): the diagram beside
+   the effect rather than over it, so a hand of six is not several
+   screens tall; the hover card has the rest. */
+@media (max-width: 960px),
+  (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
+  .pill-body { flex-direction: row; align-items: flex-start; gap: 10px; }
+  .pill .pill-diagram { width: 42%; flex-shrink: 0; border-radius: 6px; }
+  .pill-effect { font-size: 13px; }
+  .pill-face { padding: 8px 12px 10px; gap: 6px; }
+  .pill-name { font-size: 16px; }
+}
+.pill-effect { font-size: 13.5px; line-height: 1.4; white-space: pre-line; }
+
+/* What a pill says on hover: what it beats, ties and loses to, and the
+   abilities that name it, in the peek beside it. */
+.peek.info { width: min(330px, calc(100vw - 16px)); }
+.pill-peek {
+  background: var(--deep);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--card);
+  border-radius: 12px;
+  padding: 10px 14px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  cursor: default;
+}
+.peek.pinned .pill-peek { box-shadow: 0 0 0 2px var(--gold); }
+.pill-peek-title { font-size: 16px; font-weight: 700; color: var(--strong); margin-bottom: 8px; }
+.pill-matchups { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.pill-matchups dt { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
+.pill-matchups dd { margin: 0; color: var(--strong); font-weight: 600; }
+.pill-abilities { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.pill-peek-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.pill-ability { margin: 0 0 6px; }
+.pill-ability:last-child { margin-bottom: 0; }
+.pill-ability-who { display: block; }
+.pill-ability b { color: var(--strong); }
+.pill-ability .quiet { color: var(--muted); }
+
+/* The coin on its line under the ask: the game's coin, lit in gold,
+   and pressing it declares a gambit. */
+.coin-line { display: flex; align-items: center; gap: 16px; font-size: 17px; line-height: 1.35; color: var(--strong); }
+.coin-line-text { flex: 0 1 auto; }
+.coin-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+.coin-face {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(240, 178, 50, 0.5);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.coin-button:hover:not(:disabled) .coin-face {
+  transform: scale(1.08) rotate(-8deg);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 24px rgba(240, 178, 50, 0.7);
+}
+.coin-button:disabled { cursor: not-allowed; opacity: 0.45; }
+.coin-button-word { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
 /* The card laid face down: ringed in gold, and dead, since the same
    card twice is refused; the others may still replace it. A card a
    gambit has put back in question (Law 19.3.6) is ringed the same way
@@ -1771,6 +1890,7 @@ button.goal { display: block; }
   .qbox-main > :first-child { order: 0; }
   .qbox-main > #refusal { order: 1; }
   .qbox-main > #ask { order: 2; }
+  .qbox-main > #coin-line { order: 2; }
   .qbox-main > #lit { order: 3; }
   .qbox-main > .outcome-row { order: 8; }
   .qbox-main > #reveal { order: 9; }
@@ -1781,6 +1901,9 @@ button.goal { display: block; }
   .outcome-detail { font-size: 14px; }
   .outcome-working { font-size: 13px; }
   .reveal-card { width: 96px; }
+  .reveal:has(.pill) { flex-direction: column; align-items: stretch; gap: 8px; }
+  .reveal-card.pill { width: 100%; }
+  .reveal:has(.pill) .reveal-between { text-align: center; }
   .reveal-between { font-size: 22px; }
 }
 

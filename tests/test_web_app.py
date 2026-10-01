@@ -3431,9 +3431,9 @@ class SurveyTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         set(state["prompt"]),
                         {
-                            "kind", "ask", "footnote", "situation", "controls",
-                            "lit", "yours", "state", "waiting_on",
-                            "reference", "hand", "shootout",
+                            "kind", "ask", "footnote", "coin_line",
+                            "situation", "controls", "lit", "yours", "state",
+                            "waiting_on", "reference", "hand", "shootout",
                         },
                     )
                     self.assertNotIn("match", state)
@@ -3797,6 +3797,18 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(declarations(home)), 1)
         self.assertEqual(declarations(away), [])
+        # Lit on the game's own coin, which the page draws beside the
+        # sentence saying who holds it -- said to both coaches, and
+        # taken off the end of the ask so it is not said twice.
+        coin = declarations(home)[0]["place"]
+        self.assertEqual(coin["at"], "coin")
+        self.assertIn(fixture.game.game_coin.split("_")[1], coin["face"])
+        holds = ENGINE.describe_gambit_access(fixture.game, fixture.match)
+        for state in (home, away):
+            self.assertEqual(
+                state["prompt"]["coin_line"], render_text(fixture.game, holds),
+            )
+            self.assertNotIn("coin", state["prompt"]["ask"])
         for state, note in (
             (home, WITHHELD_TO_DECLARE_NOTE), (away, WITHHELD_NOTE),
         ):
@@ -3825,6 +3837,70 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
                 if not control["disabled"])
         )
         self.assertEqual(declarations(declared), [])
+
+    async def test_a_card_is_drawn_as_its_pill(self) -> None:
+        """Each card in the hand carries its pill: the name, the rank as
+        the card's corner prints it, the diagram (served), the effect in
+        the sheet's words, and what it beats, ties and loses to -- the
+        catalog's own reading of rank -- over the tiers the game plays."""
+        fixture = self.level()
+        client, _ = await self.serve(fixture)
+        state = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+        catalog = ENGINE.maneuver_catalog
+        outcomes = {"Beats": "offense", "Ties": "tie", "Loses to": "defense"}
+        cards = self.cards(state)
+        self.assertEqual(len(cards), 6)
+        for control in cards:
+            key = control["card"]["key"]
+            maneuver = catalog.definition(key)
+            pill = control["card"]["pill"]
+            self.assertEqual(pill["name"], maneuver.name)
+            self.assertEqual(pill["rank"], f"O{maneuver.rank}")
+            self.assertEqual(pill["effect"], maneuver.effect)
+            self.assertEqual(
+                [one["said"] for one in pill["matchups"]], list(outcomes),
+            )
+            for one in pill["matchups"]:
+                # An advanced game plays both tiers of every rank.
+                self.assertEqual(len(one["names"]), 2)
+                for name in one["names"]:
+                    other = next(m for m in catalog.defense if m.name == name)
+                    self.assertEqual(
+                        catalog.resolve(key, other.key), outcomes[one["said"]],
+                    )
+            response = await client.get(pill["diagram"])
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.content_type, "image/png")
+
+    def test_a_special_ability_names_a_card_as_the_sheet_words_it(self) -> None:
+        names = present._names_card
+        self.assertTrue(names(
+            "When high passing for 3: speed ball to 12.", "High Pass",
+            "offense", False,
+        ))
+        self.assertTrue(names(
+            "When successfully pressuring into the goal zone.", "Pressure",
+            "defense", False,
+        ))
+        # A count after the word is the verb, not the card.
+        self.assertFalse(names(
+            "When burns: clear 1 exhaustion.", "Clear", "defense", True,
+        ))
+        # "Gambit" names a gambit of the side it speaks of, and only that.
+        self.assertTrue(names(
+            "Offensive gambits succeed when won on a skill test.", "Burst",
+            "offense", True,
+        ))
+        self.assertFalse(names(
+            "Defensive gambits succeed when won on a skill test.", "Burst",
+            "offense", True,
+        ))
+        self.assertFalse(names(
+            "Offensive gambits succeed when won on a skill test.", "Dribble",
+            "offense", False,
+        ))
 
     async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
         fixture = self.behind()
