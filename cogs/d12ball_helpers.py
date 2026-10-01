@@ -844,7 +844,8 @@ class DiscordTokens:
     `{species:cyborg}` are their uploads or their fallbacks; and a
     `{coach:1}` is a mention of the account, the AI's name for the AI,
     and "Player 1" in a test game -- what `format_player(mention=True)`
-    built for itself until this class existed. The four dicts are the
+    built for itself until this class existed; a `{coin:doom}` is that
+    face of the game's own coin, or a plain coin. The four dicts are the
     cog's, replaced whole on every fetch, so this is built at the call
     (`D12Ball.render_text`) rather than held.
 
@@ -857,6 +858,7 @@ class DiscordTokens:
     condition_emojis: Mapping[str, str]
     species_ability_emojis: Mapping[str, str]
     game: Optional[D12BallGame] = None
+    coin_emojis: Optional[Mapping[str, str]] = None
 
     def render(self, text: str) -> str:
         return tokens.render(text, self.resolve)
@@ -878,6 +880,14 @@ class DiscordTokens:
                 )
             if kind == "coach":
                 return self.mention(int(arguments[0]))
+            if kind == "coin":
+                # The face of this game's own coin, or a plain coin
+                # until the upload has been fetched.
+                return format_coin_emoji(
+                    self.coin_emojis,
+                    CoinFace(arguments[0]),
+                    self.game.game_coin if self.game else DEFAULT_COIN,
+                )
         except (KeyError, ValueError):
             return None
         return None

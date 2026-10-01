@@ -196,6 +196,10 @@ class CoinFace(str, Enum):
     DOOM = "doom"
 
 
+#: What a sentence calls each face of the coin.
+COIN_FACE_WORDS = {CoinFace.FORTUNE: "Fortune", CoinFace.DOOM: "Doom"}
+
+
 #: The six Fortune and Doom coins, by key, `<value>_<metal>`. The key
 #: is saved on the game record, so it never follows a rename of the
 #: art: a face's picture and emoji are named by `coin_face_name`.

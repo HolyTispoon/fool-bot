@@ -583,7 +583,7 @@ function drawJumbotron(state) {
       /* Drawn on both sides and hidden on the one without the ball, so
          the two columns are one height and their rows line up. The
          coin beside it, on the side whose coach holds it (Law 19.3):
-         the game's own coin, Fortune face up, only in a game played
+         the game's own coin on the face it last landed on, only in a game played
          with the gambits. */
       h("div", { class: "jumbo-tokens" },
         h("div", { class: `jumbo-ball${team && team.possession ? "" : " idle"}` },
@@ -2260,21 +2260,22 @@ function face(control) {
   );
 }
 
-/* The coin, in the box of the coach holding it (Law 19.3): the game's
-   own coin, lit gold, with its line beside it -- clicking it declares
-   a gambit -- and what that does muted under the line. */
+/* The coin, in the box of the coach holding it (Law 19.3): its line,
+   with what declaring does muted under it, and the game's own coin,
+   lit gold, to the right of the words (the author, 2026-10-01) --
+   clicking it declares a gambit. */
 function coinLine(control) {
   return h("div", { class: "coin-line" },
+    h("div", { class: "coin-line-words" },
+      h("span", {}, control.said || control.label),
+      control.note ? h("span", { class: "note-line" }, control.note) : null),
     h("button", {
       type: "button",
       class: "coin-button lit",
       title: control.label,
       "aria-label": control.label,
       onclick: () => press(control),
-    }, h("img", { src: control.image, alt: "", class: "coin line" })),
-    h("div", { class: "coin-line-words" },
-      h("span", {}, control.said || control.label),
-      control.note ? h("span", { class: "note-line" }, control.note) : null));
+    }, h("img", { src: control.image, alt: "", class: "coin line" })));
 }
 
 /* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold
@@ -2361,23 +2362,66 @@ function maneuverUrl(key, side, size = "small") {
 }
 
 function handCard(control) {
-  const { key, side } = control.card;
-  const url = maneuverUrl(key, side);
+  const { key, side, pill } = control.card;
   const button = h(
     "button",
     {
       type: "button",
-      class: `hand-card${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
+      class: `hand-card${pill ? " pill" : ""}${control.card.withheld ? " withheld" : ""}${control.card.picked ? " picked" : ""}`,
       disabled: control.disabled,
-      title: control.note || control.label,
+      title: pill ? control.note || null : control.note || control.label,
       "aria-label": control.note ? `${control.label}: ${control.note}` : control.label,
       onclick: () => press(control),
     },
-    h("img", { src: url, alt: control.label }),
+    pill ? pillFace(pill) : h("img", { src: maneuverUrl(key, side), alt: control.label }),
     control.card.picked ? h("span", { class: "hand-card-chip" }, control.chip) : null,
   );
-  hoverCard(button, maneuverUrl(key, side, "full"));
+  hoverCard(button, pill ? () => pillPeek(pill) : maneuverUrl(key, side, "full"));
   return button;
+}
+
+/* A maneuver as a pill rather than the printed card
+   (`present.maneuver_pill`, the author, 2026-10-01): the rank in the
+   card's colour, the name, the time it charges, the card's own diagram
+   and its effect in the sheet's words. */
+function pillFace(pill) {
+  return h(
+    "span",
+    { class: "pill-face", style: `--card: ${pill.colour}` },
+    h("span", { class: "pill-head" },
+      h("span", { class: "pill-rank" }, pill.rank),
+      h("span", { class: "pill-name" }, pill.name),
+      pill.tier_word ? h("span", { class: "tier-tag" }, pill.tier_word) : null,
+      h("span", { class: "pill-time" }, pill.time)),
+    h("span", { class: "pill-body" },
+      h("img", { class: "pill-diagram", src: pill.diagram, alt: "" }),
+      h("span", { class: "pill-effect" }, pill.effect)),
+  );
+}
+
+/* What a pill says on hover, which the printed card says along its
+   foot and under its effect: what it beats, ties and loses to, and the
+   abilities that name it. */
+function pillPeek(pill) {
+  return h(
+    "div",
+    { class: "pill-peek", style: `--card: ${pill.colour}` },
+    h("div", { class: "pill-peek-title" },
+      h("span", { class: "pill-rank" }, pill.rank), " ", pill.name),
+    h("dl", { class: "pill-matchups" },
+      pill.matchups.flatMap((one) => [
+        h("dt", {}, one.said),
+        h("dd", {}, one.names.join(" / ")),
+      ])),
+    pill.abilities.length
+      ? h("div", { class: "pill-abilities" },
+        h("div", { class: "pill-peek-label" }, "Abilities"),
+        pill.abilities.map((one) => h("p", { class: "pill-ability" },
+          h("span", { class: "pill-ability-who" },
+            h("b", {}, one.who), one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null),
+          one.text)))
+      : null,
+  );
 }
 
 /* The hands this viewer does not hold (`present.hand_table`): only the
@@ -2713,7 +2757,10 @@ function teamColour(side) {
 let shownReveal = null;
 function drawReveal(state) {
   const box = el("reveal");
-  const shape = JSON.stringify(state.reveal);
+  /* On the phone and the tablet the pills stack, the first over the
+     second, so BEATS points up or down rather than across. */
+  const stacked = phone() || TABLET.matches;
+  const shape = JSON.stringify([state.reveal, stacked]);
   if (shape === shownReveal) return;
   shownReveal = shape;
   const reveal = state.reveal;
@@ -2725,14 +2772,15 @@ function drawReveal(state) {
   const card = (one) => {
     const node = h(
       "figure",
-      { class: `reveal-card${reveal.winner === one.side ? " won" : ""}` },
-      h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
+      { class: `reveal-card${one.pill ? " pill" : ""}${reveal.winner === one.side ? " won" : ""}` },
+      one.pill ? pillFace(one.pill) : h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
     );
-    hoverCard(node, maneuverUrl(one.key, one.side, "full"));
+    hoverCard(node, one.pill ? () => pillPeek(one.pill) : maneuverUrl(one.key, one.side, "full"));
     return node;
   };
-  const word = reveal.winner === "offense" ? `${reveal.between} ▶`
-    : reveal.winner === "defense" ? `◀ ${reveal.between}` : reveal.between;
+  const [toSecond, toFirst] = stacked ? ["▼", "▲"] : ["▶", "◀"];
+  const word = reveal.winner === "offense" ? `${reveal.between} ${toSecond}`
+    : reveal.winner === "defense" ? `${toFirst} ${reveal.between}` : reveal.between;
   box.replaceChildren(
     card(reveal.cards[0]),
     h("div", { class: `reveal-between${reveal.winner === "tie" ? " tie" : ""}` }, word),
@@ -3362,6 +3410,8 @@ let peekHide = null;
 let peekFor = null;
 let heldOpen = false;
 
+/* `url` is the picture's, or a function drawing what to show instead
+   (a pill's matchups, `pillPeek`). */
 function hoverCard(node, url, { when = () => true } = {}) {
   node.addEventListener("mouseenter", () => {
     if (!finePointer() || el("peek").classList.contains("pinned") || !when()) return;
@@ -3409,8 +3459,17 @@ function showPeek(url, anchor, { pinned = false } = {}) {
   clearTimeout(peekHide);
   const peek = el("peek");
   const image = peek.firstElementChild;
-  if (image.getAttribute("src") !== url) image.src = url;
-  peekFor = url.includes("/card/")
+  const info = peek.querySelector(".peek-info");
+  const drawn = typeof url === "function";
+  image.hidden = drawn;
+  info.hidden = !drawn;
+  peek.classList.toggle("info", drawn);
+  if (drawn) {
+    info.replaceChildren(url());
+  } else if (image.getAttribute("src") !== url) {
+    image.src = url;
+  }
+  peekFor = !drawn && url.includes("/card/")
     ? { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) }
     : null;
   peek.classList.toggle("pinned", pinned);
@@ -3423,8 +3482,9 @@ function showPeek(url, anchor, { pinned = false } = {}) {
 function placePeek(anchor) {
   const peek = el("peek");
   const box = anchor.getBoundingClientRect();
-  const width = Math.min(260, window.innerWidth - 16);
-  const height = width * (364 / 260);
+  const drawn = peek.classList.contains("info");
+  const width = drawn ? peek.offsetWidth : Math.min(260, window.innerWidth - 16);
+  const height = drawn ? peek.offsetHeight : width * (364 / 260);
   let x = box.right + 12;
   if (x + width > window.innerWidth - 8) x = box.left - width - 12;
   x = Math.max(8, Math.min(x, window.innerWidth - width - 8));

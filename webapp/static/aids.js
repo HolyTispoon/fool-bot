@@ -133,17 +133,25 @@
      same three the Reading Room's right column sets. */
   function references(aids) {
     if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
+    /* Each maneuver as the whole of its printed card (`aids.maneuver_card`):
+       the hand's pill leaves its foot and ability rows to a hover, and
+       the card face is not shown anywhere else (the author, 2026-10-01). */
     const maneuvers = (aids.maneuver_rows || []).map((table) =>
-      h("table", { class: "ref-table maneuver-table" },
-        h("tr", {}, h("th", {}, table.name), h("th", {}, "Beats"), h("th", {}, "Effect")),
+      h("div", { class: "ref-maneuvers" },
+        h("div", { class: "ref-side" }, table.name),
         table.rows.map((one) =>
-          h("tr", {},
-            h("td", {},
-              h("span", { class: "ability-name" }, one.name),
+          h("div", { class: "ref-maneuver", style: `--card: ${one.colour}` },
+            h("div", { class: "ref-maneuver-head" },
+              h("span", { class: "pill-rank" }, one.rank),
+              h("span", { class: "ref-maneuver-name" }, one.name),
               one.gambit ? h("span", { class: "tier-tag" }, one.tier_word) : null,
-              h("span", { class: "maneuver-time" }, one.time)),
-            h("td", { class: "beats" }, one.beats),
-            h("td", { class: "ability" }, one.effect)))));
+              h("span", { class: "pill-time" }, one.time)),
+            h("img", { class: "ref-diagram", src: one.diagram, alt: "", loading: "lazy" }),
+            h("p", { class: "ref-effect" }, one.effect),
+            h("dl", { class: "pill-matchups" },
+              one.matchups.flatMap((row) => [h("dt", {}, row.said), h("dd", {}, row.names.join(" / "))])),
+            one.abilities.map((row) =>
+              h("p", { class: "ref-ability" }, h("b", {}, row.who), " ", row.text))))));
     const roles = h("table", { class: "ref-table" },
       h("tr", {}, h("th", {}), h("th", {}, "Role"), h("th", {}, "OFF"), h("th", {}, "DEF"), h("th", {}, "Ability")),
       (aids.role_rows || []).map((one) =>

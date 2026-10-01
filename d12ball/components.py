@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional
 # model, because the record refuses too (a coin flipped twice, a lobby
 # nobody may join) and this module imports from it; it is still
 # imported from here everywhere else.
-from d12ball.game import Formation, RuleRefusal, Team, team_display_name  # noqa: F401
+from d12ball.game import CoinFace, Formation, RuleRefusal, Team, team_display_name  # noqa: F401
 from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 
 
@@ -1698,6 +1698,16 @@ def _optional_team_side_value(value: Optional["TeamSide"]) -> Optional[str]:
     return None if value is None else TeamSide(value).value
 
 
+def _optional_coin_face(value: Optional[str]) -> Optional[CoinFace]:
+    """A coin face as saved -- its value -- or `None` kept as `None`."""
+    return None if value is None else CoinFace(value)
+
+
+def _optional_coin_face_value(value: Optional[CoinFace]) -> Optional[str]:
+    """A coin face's saved spelling, or `None` kept as `None`."""
+    return None if value is None else CoinFace(value).value
+
+
 def _copy_optional_list(value: Optional[list]) -> Optional[list]:
     """A list's copy, or `None` kept as `None` -- see `pending_join`."""
     return None if value is None else list(value)
@@ -1734,6 +1744,15 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         "coin_holder",
         write=_optional_team_side_value,
         read=_optional_team_side,
+    ),
+    # The face the coin landed on when it last passed (Law 19.3.3).
+    # Absent in a save that predates the flip: it has not passed since,
+    # or was never flipped when it did, and shows the toss --
+    # `RulesEngine.coin_face`.
+    SavedField(
+        "coin_face",
+        write=_optional_coin_face_value,
+        read=_optional_coin_face,
     ),
     SavedField("gambit_declared_by"),
     SavedField("pick_unconfirmed"),
@@ -1952,6 +1971,11 @@ class MatchState:
     # reads off the game record. That is also how a game saved before
     # the coin existed reads it, so there is nothing to migrate.
     coin_holder: Optional[TeamSide] = None
+    # The face the coin landed on when a declaration last handed it
+    # over -- the coach it went to flips it (Law 19.3.3). `None` until
+    # then, when it shows the toss, which `RulesEngine.coin_face` reads
+    # off the game record. It decides nothing.
+    coin_face: Optional[CoinFace] = None
     # This maneuver's gambit, if one was declared: the maneuver side
     # ("offense" or "defense") whose coach declared it, and the side
     # whose standing pick has to be confirmed because of it (Law
@@ -3805,12 +3829,19 @@ class MatchState:
             if self.pick_unconfirmed == side:
                 self.pick_unconfirmed = None
 
-    def declare_gambit(self, side: str, declaring_team: TeamSide) -> None:
+    def declare_gambit(
+        self,
+        side: str,
+        declaring_team: TeamSide,
+        coin_face: Optional[CoinFace] = None,
+    ) -> None:
         """
         Record a gambit declared by this maneuver side's coach (Law
         19.3): their own pick is withdrawn, a pick the other side has
         already made waits to be confirmed, and the coin passes to the
-        other team. Who may declare is the engine's question
+        other team, landing on `coin_face` -- the flip is the engine's
+        (`declare_gambit_step`), and without one the face stands. Who
+        may declare is the engine's question
         (`RulesEngine.may_declare_gambit`); this only writes it down,
         and refuses a second declaration in one maneuver.
         """
@@ -3834,6 +3865,8 @@ class MatchState:
             TeamSide.VISITING if TeamSide(declaring_team) == TeamSide.HOME
             else TeamSide.HOME
         )
+        if coin_face is not None:
+            self.coin_face = CoinFace(coin_face)
 
     def begin_loose_ball(
         self, distance_moved: int, is_high_pass: bool = False,

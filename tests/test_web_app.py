@@ -45,7 +45,7 @@ from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
 from d12ball.formatting import coach_name
-from d12ball.game import AIOpponent, GameMode, Team
+from d12ball.game import AIOpponent, GameMode, Team, team_display_name
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
@@ -3827,6 +3827,70 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(declarations(declared), [])
 
+    async def test_a_card_is_drawn_as_its_pill(self) -> None:
+        """Each card in the hand carries its pill: the name, the rank as
+        the card's corner prints it, the diagram (served), the effect in
+        the sheet's words, and what it beats, ties and loses to -- the
+        catalog's own reading of rank -- over the tiers the game plays."""
+        fixture = self.level()
+        client, _ = await self.serve(fixture)
+        state = await self.state_of(
+            client, fixture, as_coach(fixture.game.player_1_id),
+        )
+        catalog = ENGINE.maneuver_catalog
+        outcomes = {"Beats": "offense", "Ties": "tie", "Loses to": "defense"}
+        cards = self.cards(state)
+        self.assertEqual(len(cards), 6)
+        for control in cards:
+            key = control["card"]["key"]
+            maneuver = catalog.definition(key)
+            pill = control["card"]["pill"]
+            self.assertEqual(pill["name"], maneuver.name)
+            self.assertEqual(pill["rank"], f"O{maneuver.rank}")
+            self.assertEqual(pill["effect"], maneuver.effect)
+            self.assertEqual(
+                [one["said"] for one in pill["matchups"]], list(outcomes),
+            )
+            for one in pill["matchups"]:
+                # An advanced game plays both tiers of every rank.
+                self.assertEqual(len(one["names"]), 2)
+                for name in one["names"]:
+                    other = next(m for m in catalog.defense if m.name == name)
+                    self.assertEqual(
+                        catalog.resolve(key, other.key), outcomes[one["said"]],
+                    )
+            response = await client.get(pill["diagram"])
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.content_type, "image/png")
+
+    def test_a_special_ability_names_a_card_as_the_sheet_words_it(self) -> None:
+        names = present._names_card
+        self.assertTrue(names(
+            "When high passing for 3: speed ball to 12.", "High Pass",
+            "offense", False,
+        ))
+        self.assertTrue(names(
+            "When successfully pressuring into the goal zone.", "Pressure",
+            "defense", False,
+        ))
+        # A count after the word is the verb, not the card.
+        self.assertFalse(names(
+            "When burns: clear 1 exhaustion.", "Clear", "defense", True,
+        ))
+        # "Gambit" names a gambit of the side it speaks of, and only that.
+        self.assertTrue(names(
+            "Offensive gambits succeed when won on a skill test.", "Burst",
+            "offense", True,
+        ))
+        self.assertFalse(names(
+            "Defensive gambits succeed when won on a skill test.", "Burst",
+            "offense", True,
+        ))
+        self.assertFalse(names(
+            "Offensive gambits succeed when won on a skill test.", "Dribble",
+            "offense", False,
+        ))
+
     async def test_the_pick_is_asked_of_nobody_by_name(self) -> None:
         """The page's ask names no coach: the holder of the coin is told
         about it beside the coin itself, and everybody else reads the
@@ -3860,8 +3924,74 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
                 state["prompt"]["ask"],
             ).split("\n\n")
             self.assertEqual(first, ask)
-            self.assertIn("holds the coin and may declare a gambit", coin_said)
+            self.assertIn("holds the coin, ", coin_said)
+            self.assertIn("Fortune up, and may declare a gambit.", coin_said)
             self.assertNotIn('class="coach"', state["prompt"]["ask"])
+
+    def test_no_player_s_ability_is_listed_twice(self) -> None:
+        """A card fielded on both sides is one person
+        (`catalog_player_id`): a pill's hover lists their ability once,
+        under both teams, never once a side (the author, 2026-10-01)."""
+        from d12ball.components import MatchState, catalog_player_id
+
+        game = build_game()
+        game.mode = GameMode.ADVANCED
+        home, visiting = Team.PURPLE, Team.CYBORGS
+        match = MatchState.standard(
+            catalog=ENGINE.player_catalog, ruleset=ENGINE.basic_ruleset,
+            board_size=9, home_team=home, visiting_team=visiting,
+        )
+        on_both = {
+            catalog_player_id(one) for one in match.home.field_players
+        } & {
+            catalog_player_id(one) for one in match.visiting.field_players
+        }
+        catalog = ENGINE.maneuver_catalog
+        shared_rows = 0
+        for maneuver in catalog.offense + catalog.defense:
+            side = catalog.side_of(maneuver.key)
+            pill = present.maneuver_pill(ENGINE, game, match, maneuver.key, side)
+            players = [one for one in pill["abilities"] if "team" in one]
+            with self.subTest(maneuver.key):
+                self.assertEqual(
+                    len({one["who"] for one in players}), len(players),
+                )
+            shared_rows += sum(
+                one["team"] == f"{team_display_name(home)} and "
+                f"{team_display_name(visiting)}"
+                for one in players
+            )
+        if not on_both or not shared_rows:
+            self.skipTest(
+                "these two teams field nobody on both sides whose ability "
+                "names a card -- pick two that do",
+            )
+
+    async def test_the_coin_shows_the_face_it_landed_on(self) -> None:
+        """Law 19.3.3: the coin in the holder's box and on the jumbotron
+        is the game's own coin on the face it landed on when it last
+        passed -- the same face in both places, and in the sentence."""
+        from d12ball.game import CoinFace, coin_face_name
+
+        fixture = self.level()
+        fixture.match.coin_face = CoinFace.DOOM
+        client, _ = await self.serve(fixture)
+        holder, other = [
+            await self.state_of(client, fixture, as_coach(coach_id))
+            for coach_id in (
+                fixture.game.player_1_id, fixture.game.player_2_id,
+            )
+        ]
+
+        doom = f"/emoji/{coin_face_name(fixture.game.game_coin, CoinFace.DOOM)}.png"
+        coin = holder["prompt"]["controls"][0]["controls"][0]
+        self.assertEqual(coin["image"], doom)
+        for state in (holder, other):
+            self.assertEqual(
+                state["board"]["layout"]["jumbotron"]["coin"], doom,
+            )
+        self.assertIn(doom, other["prompt"]["ask"])
+        self.assertIn("Doom up", other["prompt"]["ask"])
 
     async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
         fixture = self.behind()

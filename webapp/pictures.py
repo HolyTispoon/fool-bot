@@ -30,7 +30,11 @@ from typing import Mapping, Optional
 
 from PIL import Image, ImageDraw
 
-from d12ball.cards import render_maneuver_card, render_maneuver_card_back
+from d12ball.cards import (
+    render_maneuver_card,
+    render_maneuver_card_back,
+    strip_panel_box,
+)
 from d12ball.components import ManeuverCatalog, PlayerCatalog
 from d12ball.game import Team
 from d12ball.player_cards import render_player_card, render_player_card_back
@@ -199,6 +203,28 @@ def maneuver_card_png(
         render_maneuver_card(maneuvers, catalog, maneuver, offense, False),
         size,
     )
+
+
+def maneuver_diagram_png(
+    maneuvers: ManeuverCatalog, catalog: PlayerCatalog, key: str,
+) -> bytes:
+    """
+    One maneuver's diagram -- the strip panel off its printed face, cut
+    where the card draws it (`cards.strip_panel_box`) at the card's own
+    resolution: the picture on the hand's pill (`present.maneuver_pill`).
+    Cut from the card rather than drawn again, so it is the card's
+    diagram and not a second one. The arcs are coloured by who moves,
+    not by whose card it is, so one picture serves both sides.
+    """
+    maneuver = maneuvers.get(key)
+    if maneuver is None:
+        raise KeyError(key)
+    card = render_maneuver_card(
+        maneuvers, catalog, maneuver, maneuvers.side_of(key) == "offense",
+        False,
+    )
+    box = tuple(round(edge) for edge in strip_panel_box(maneuvers, maneuver))
+    return _encode(card.convert("RGB").crop(box))
 
 
 def maneuver_back_png(maneuvers: ManeuverCatalog, tier: str, size: str) -> bytes:

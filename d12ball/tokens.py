@@ -9,13 +9,13 @@ on a web page each is an image or a link; in a test transcript each
 is whatever the test says. The model knows only *which* thing it is
 naming, so that is what it writes down -- a token, `{team:purple}`,
 `{role:fullback:orange}`, `{condition:exhaust}`, `{species:cyborg}`,
-`{coach:1}` -- and the frontend renders every one of them once, at
+`{coach:1}`, `{coin:doom}` -- and the frontend renders every one of them once, at
 its door (`D12Ball.render_text`), the way a `PromptKind` is rendered
 into a view rather than in each view. Step 9 of
 docs/architecture-migration.md; the reasoning is in
 docs/design/model-discord-split.md, "Tokens".
 
-**A token is the model's, and its rendering is not.** The five
+**A token is the model's, and its rendering is not.** The six
 builders below are the only way a token is written, so its spelling
 lives in one place; `render` is the only way one is read, and it
 takes the frontend's resolver rather than knowing any. A resolver
@@ -36,7 +36,7 @@ import re
 from typing import Callable, Optional
 
 from d12ball.components import PlayerRole
-from d12ball.game import Team
+from d12ball.game import CoinFace, Team
 
 
 #: The condition marks a sentence may carry, by the name the token
@@ -69,7 +69,7 @@ CONDITIONS = (
 )
 
 #: The kinds a token may be, in the order a reader meets them.
-KINDS = ("team", "role", "condition", "species", "coach")
+KINDS = ("team", "role", "condition", "species", "coach", "coin")
 
 TOKEN_PATTERN = re.compile(
     r"\{(" + "|".join(KINDS) + r"):([a-z0-9_]+(?::[a-z0-9_]+)*)\}"
@@ -124,6 +124,16 @@ def coach(player_number: int) -> str:
     if player_number not in (1, 2):
         raise ValueError(f"not a player number: {player_number!r}")
     return f"{{coach:{player_number}}}"
+
+
+def coin(face: CoinFace) -> str:
+    """
+    The game's coin, showing `face` -- the coin emoji of that face on
+    Discord, its picture on a page. Which of the six coins it is, is
+    the game's (`D12BallGame.game_coin`), so the frontend reads it off
+    the record; the token names only the face.
+    """
+    return f"{{coin:{CoinFace(face).value}}}"
 
 
 def render(text: str, resolve: Resolver) -> str:

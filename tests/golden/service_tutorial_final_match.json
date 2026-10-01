@@ -96,6 +96,7 @@
   },
   "challenger_id": "sizzifizik_playmaker",
   "clock_charged": false,
+  "coin_face": null,
   "coin_holder": null,
   "defense_maneuver": null,
   "events": [

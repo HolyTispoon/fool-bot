@@ -71,8 +71,11 @@ from test_d12ball_driver_actions import LEGAL_ACTIONS, UNANSWERABLE
 #: again when Smooth stopped reading the spaces the ball passes through
 #: (2026-09-24), which took a Smooth out of seed 2's game, and again
 #: when the coin came in (2026-09-28): the policy declares and confirms
-#: gambits off the same stream, so every seed's game is a new one.
-SEED = 0
+#: gambits off the same stream, so every seed's game is a new one. And
+#: again when the coin came to be flipped as it passes (2026-10-01): a
+#: declaration draws the face, which moves every draw after it, and seed
+#: 0 stopped reaching the shootout. Seed 4 is the first of 0 on that does.
+SEED = 4
 
 #: More actions than any game takes: thirty-odd minutes a half at one
 #: a turn, a handful of prompts a turn, both halves and a shootout.

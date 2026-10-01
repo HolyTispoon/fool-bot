@@ -1249,7 +1249,7 @@ changed for it.
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
-| `maneuver_action` (`ManeuverOptions`) | the printed cards of this coach's own hand, 150px, the gambits a row under the basic three | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
+| `maneuver_action` (`ManeuverOptions`) | this coach's own hand as pills (`present.maneuver_pill`), the gambits a row under the basic three; the declaration on the game's coin beside who holds it | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
 | `coaching_hub` | the formation tiles in the box; a bench meeple, then the player it replaces; a player, then the teammate they change zones with or the space they move to; the whistle for Done, grey with `finish_refusal` under it ("The Coaching Choice on the board", below) | a move onto a space two teammates share asks which comes back, in the box |
 | `shootout_order` | -- | neutral until step 7 |
 | `tutorial_continue` | the note: anywhere on it | -- |
@@ -1293,12 +1293,39 @@ chooser, or puts a refusal away.
 **The hand, the reveal and full time** (2026-09-26, step 5 of
 [../web-app-redesign.md](../web-app-redesign.md), with step 12 folded in).
 
-- **The hand is the printed cards**, `pictures.maneuver_card_png` at
-  150px in the question box, each the answer as it was in step 4; hovered,
-  a card lifts and its full-size face opens beside it. The cards offered
-  are exactly the side's `maneuver_keys`. The basic three are a row and
-  the gambits a row under them -- a card's tier is printed on it, so
-  `card.gambit` is read off the catalog to lay it out and decides
+- **The hand is a row of pills** (the author, 2026-10-01; until then the
+  printed cards at 150px, which were too small to read). A pill is
+  `present.maneuver_pill`: the rank as the card's corner prints it (`O1`,
+  `D2`) in the card's own colour, the name, the time it charges, **the
+  card's own diagram** -- cut out of the rendered face where the card
+  draws it (`cards.strip_panel_box`, which `render_maneuver_card` itself
+  places the panel by, so the two cannot drift; served by
+  `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
+  the effect in the sheet's words, never cut down. Each is the answer as
+  it was in step 4. On a desktop three sit in a row with the diagram over
+  the effect; on the phone and the tablet a pill is a column wide and
+  the diagram sits beside the effect, so a hand of six is not several
+  screens tall. **Hovered** (held, on a touch screen), the pill says what
+  the printed card says along its foot and under its effect, which the
+  pill leaves out: what it beats, ties and loses to
+  (`cards.matchup_rank_groups`, the card's own reading of rank, over the
+  tiers the game plays), and the abilities that name it -- the role rows
+  the card prints (`cards.role_abilities`), then, in a game playing the
+  special abilities, each player on the field whose sentence names the
+  card (`_names_card`: the name with its last word in any form, a
+  count after it being the verb -- "clear 1 exhaustion" is not Clear --
+  and "gambit" naming the gambits of the side it speaks of). That last
+  is a reading of words for a reminder and decides nothing. **No
+  player's ability is listed twice** (the author, 2026-10-01): a card
+  fielded on both sides is one person (`catalog_player_id`), listed
+  once under both teams. **The card face is not shown anywhere on the
+  page any more**; its whole content is in the References instead
+  (below), from the one function the pill reads too
+  (`aids.maneuver_card`), and the diagram is an aid like the others,
+  `/aids/maneuver-diagram/<key>.png`. The cards
+  offered are exactly the side's `maneuver_keys`. The basic three are a
+  row and the gambits a row under them -- a card's tier is printed on
+  it, so `card.gambit` is read off the catalog to lay it out and decides
   nothing.
 - **A gambit the side does not hold is shown dimmed**, with a note
   saying why (`withheld_note`, since the coin on 2026-09-28: "declare a
@@ -1308,9 +1335,19 @@ chooser, or puts a refusal away.
   dead control the page cannot send (and the offer check refuses if it is
   sent anyway). **The coin is a section of its own, above the hand**
   (the author, 2026-09-30): the game's own coin, lit gold, a box object
-  like the die (`ON_COIN`), beside "You hold the coin and may declare a
-  gambit." -- the prompt's `may_declare`, answered with the choice
-  `"gambit"`. **The pick's ask names nobody** (`present.page_ask`): the
+  like the die (`ON_COIN`), to the right of "You hold the coin and may
+  declare a gambit." and the line under it saying what declaring does
+  (`DECLARE_NOTE`, the author's words of 2026-10-01) -- the prompt's
+  `may_declare`, answered with the choice `"gambit"`. On the jumbotron
+  the coin and the ball's d12 are one size, `--token` on `.jumbotron`
+  (30px on a desktop and a tablet, 20px on a phone), and on a phone the
+  names, the score, the ball and the coin are centred on one line: the
+  visitors' row is reversed, and on a baseline it took its baseline off
+  the tokens and stood them high, while the Goal face's capitals sit
+  within half a pixel of the middle of its box. The coin shows the face it landed on when it last
+  passed -- it is flipped each time (Law 19.3.3) -- or the toss's until
+  then, in the box and on the jumbotron alike (`RulesEngine.coin_face`,
+  see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the
   model's ask addresses each coach by name, which a Discord message
   needs to ping them, but a page is read by one person who sees only
   their own hand, so it says "Both sides pick a maneuver privately --
@@ -1364,7 +1401,8 @@ chooser, or puts a refusal away.
   face up in the question box -- public once turned over, for a coach
   and an observer alike -- with what the cards said between them,
   `RulesEngine.cards_outcome`: TIE, or BEATS pointing at the card beaten,
-  its winner ringed. What the maneuver came to -- an injury's forfeit,
+  its winner ringed, each as its pill; on the phone and the tablet the
+  two stack and BEATS points up or down. What the maneuver came to -- an injury's forfeit,
   a forced test, the roll -- is the outcome banner's, the model's own
   headline, and the die under it is step 4's. An unchallenged card is
   shown alone. The challenge picture stays where step 8 of
@@ -2109,14 +2147,16 @@ the tab and the Reading Room are handed.
   has none of its own: it is the book's markdown in the page's type,
   with the book's figures, and the printed layout stays
   `rulebooks.py`'s alone (`scripts/build_rulebooks.py` is unchanged).
-- **The References are the model's own data.** The maneuvers are a
-  table, two of them -- the offense's and the defense's -- set like the
-  roles table, in place of the printed card faces they used to be (the
-  author, 2026-09-28). Each row is the card's own data from
-  `maneuvers.json`: its name, its time, its effect in the sheet's
-  words, and the opposing cards its rank beats, read off
-  `defeats_rank` -- both of that rank's cards where both tiers are
-  shown, because rank alone decides. It has no die range: a maneuver
+- **The References are the model's own data.** The maneuvers are two
+  lists -- the offense's and the defense's -- in place of the printed
+  card faces they used to be (the author, 2026-09-28), and since
+  2026-10-01 **each entry is the whole of its card** (`aids.maneuver_card`,
+  the function the hand's pill reads too), because the page shows the
+  card face nowhere else: the rank as its corner prints it, the name,
+  the time, the card's own diagram, the effect in the sheet's words,
+  what it beats, ties and loses to (`cards.matchup_rank_groups`) -- both
+  of each rank's cards where both tiers are shown, because rank alone
+  decides -- and the role rows the card prints (`cards.role_abilities`). It has no die range: a maneuver
   has none (the author, 2026-09-28), whatever the import still writes
   into `die_values`. The six basic ones always, and the six gambits
   among them where the game's hexagon is the gambit one -- an

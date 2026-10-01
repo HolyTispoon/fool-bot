@@ -865,6 +865,26 @@ def strip_panel_height(
     )
 
 
+def strip_panel_box(
+    catalog: ManeuverCatalog, maneuver: ManeuverDefinition,
+) -> tuple[float, float, float, float]:
+    """
+    Where the strip panel stands on this maneuver's face, as
+    `(left, top, right, bottom)` in the card's own pixels: under the
+    header, the card's margin either side, `strip_panel_height` tall.
+    `render_maneuver_card` draws the panel here, and the web app cuts
+    the diagram out of the card here (`webapp/pictures.py`), so the
+    two cannot disagree about where it is.
+    """
+    top = FRAME + CARD_HEADER_HEIGHT + 22
+    return (
+        MARGIN,
+        top,
+        CARD_WIDTH - MARGIN,
+        top + strip_panel_height(catalog, maneuver),
+    )
+
+
 def draw_strip_spaces(pen: Pen, geo: StripGeometry) -> None:
     for index in range(geo.spaces):
         space_left = geo.left + index * geo.space_width
@@ -1800,8 +1820,8 @@ def render_maneuver_card(
 
     draw_card_header(pen, catalog, maneuver, is_offense, color)
 
-    strip_top = FRAME + CARD_HEADER_HEIGHT + 22
-    strip_height = strip_panel_height(catalog, maneuver)
+    _, strip_top, _, strip_bottom = strip_panel_box(catalog, maneuver)
+    strip_height = strip_bottom - strip_top
     draw_strip(pen, maneuver, strip_top, strip_height)
 
     # The matchups are placed from the bottom edge up, so the effect

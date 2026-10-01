@@ -598,6 +598,7 @@ img { display: block; }
 .reveal-card { margin: 0; width: 120px; border-radius: 10px; overflow: hidden; border: 2px solid transparent; }
 .reveal-card.won { border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 178, 50, 0.35); }
 .reveal-card img { display: block; width: 100%; height: auto; }
+.reveal-card.pill { width: 290px; }
 .reveal-between {
   font-family: "Goal", "Board", sans-serif;
   font-size: 30px;
@@ -817,8 +818,9 @@ select {
   max-width: 100%;
 }
 
-/* A hand of maneuver cards: the printed cards are the buttons, 150px
-   wide, the gambits in a row of their own under the basic three. */
+/* A hand of maneuver cards: each card a pill (`present.maneuver_pill`)
+   -- or the printed card, 150px wide, for a key the data no longer
+   carries -- the gambits in a row of their own under the basic three. */
 .hand-rows { display: flex; flex-direction: column; gap: 8px; }
 .hand-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .hand-label .quiet { text-transform: none; letter-spacing: 0; font-weight: 400; }
@@ -827,6 +829,7 @@ select {
   grid-template-columns: repeat(auto-fill, 150px);
   gap: 10px;
 }
+.hand:has(.pill) { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 .hand-card {
   padding: 0;
   border: 2px solid transparent;
@@ -845,6 +848,93 @@ select {
 }
 .hand-card:disabled { opacity: 0.35; cursor: not-allowed; }
 .hand-card.withheld { filter: grayscale(0.6); }
+.hand-card.pill:hover:not(:disabled) { transform: translateY(-3px); }
+
+/* The pill: the rank in the card's colour, the name and the time it
+   charges, the card's own diagram, and its effect. */
+.hand-card.pill,
+.reveal-card.pill {
+  border-radius: 22px;
+  background: var(--deep);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+}
+.pill-face {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 10px 14px 12px;
+  box-sizing: border-box;
+}
+.pill-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pill-rank {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--card);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.pill-name { font-size: 18px; font-weight: 700; color: var(--strong); }
+.pill-face .tier-tag,
+.pill-peek .tier-tag {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+.pill-time { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--muted); }
+.pill-body { display: flex; flex-direction: column; gap: 8px; }
+.pill-diagram { display: block; width: 100%; height: auto; border-radius: 10px; }
+/* A pill a column wide (the phone's, the tablet's): the diagram beside
+   the effect rather than over it, so a hand of six is not several
+   screens tall; the hover card has the rest. */
+@media (max-width: 960px),
+  (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
+  .pill-body { flex-direction: row; align-items: flex-start; gap: 10px; }
+  .pill .pill-diagram { width: 42%; flex-shrink: 0; border-radius: 6px; }
+  .pill-effect { font-size: 13px; }
+  .pill-face { padding: 8px 12px 10px; gap: 6px; }
+  .pill-name { font-size: 16px; }
+}
+.pill-effect { font-size: 13.5px; line-height: 1.4; white-space: pre-line; }
+
+/* What a pill says on hover: what it beats, ties and loses to, and the
+   abilities that name it, in the peek beside it. */
+.peek.info { width: min(330px, calc(100vw - 16px)); }
+.pill-peek {
+  background: var(--deep);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--card);
+  border-radius: 12px;
+  padding: 10px 14px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  cursor: default;
+}
+.peek.pinned .pill-peek { box-shadow: 0 0 0 2px var(--gold); }
+.pill-peek-title { font-size: 16px; font-weight: 700; color: var(--strong); margin-bottom: 8px; }
+.pill-matchups { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.pill-matchups dt { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
+.pill-matchups dd { margin: 0; color: var(--strong); font-weight: 600; }
+.pill-abilities { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.pill-peek-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.pill-ability { margin: 0 0 6px; }
+.pill-ability:last-child { margin-bottom: 0; }
+.pill-ability-who { display: block; }
+.pill-ability b { color: var(--strong); }
+.pill-ability .quiet { color: var(--muted); }
+
 /* The card laid face down: ringed in gold, and dead, since the same
    card twice is refused; the others may still replace it. A card a
    gambit has put back in question (Law 19.3.6) is ringed the same way
@@ -904,6 +994,9 @@ select {
    the clock in the board's yellow. */
 
 .jumbotron {
+  /* The ball's d12 and the coin, one size in every layout (the
+     author, 2026-10-01). */
+  --token: 30px;
   flex: none;
   display: flex;
   align-items: center;
@@ -965,6 +1058,7 @@ select {
   color: var(--gold);
 }
 .jumbo-ball.idle { visibility: hidden; }
+.jumbo-ball .die { display: block; width: var(--token); height: var(--token); }
 /* The ball and the coin on one line under the coach (Law 19.3). */
 .jumbo-tokens { display: inline-flex; align-items: center; gap: 12px; }
 .jumbo-side.visiting .jumbo-tokens { flex-direction: row-reverse; }
@@ -976,7 +1070,7 @@ select {
   font-weight: 800;
   color: var(--gold);
 }
-.jumbo-coin img { display: block; width: 18px; height: 18px; }
+.jumbo-coin img { display: block; width: var(--token); height: var(--token); }
 .jumbo-coin.idle { display: none; }
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
@@ -1674,9 +1768,16 @@ button.goal { display: block; }
      and the tiles are the wide screen's; a time out that is lit is on
      the sheet with everything else lit. */
   .jumbotron { order: 1; gap: 8px; padding: 6px 10px; border-radius: 12px; }
-  .jumbo-teams { display: flex; align-items: baseline; gap: 6px; flex: 1 1 auto; min-width: 0; }
-  .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
-  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  /* Everything on one line, centred: the names, the score, the ball
+     and the coin (the author, 2026-10-01). On a baseline the visitors'
+     row -- reversed, the tokens first -- took its baseline off the
+     tokens and stood them high; the Goal face's capitals sit within
+     half a pixel of its box's middle, so centring keeps the names on
+     the score as the baseline did. */
+  .jumbotron { --token: 20px; }
+  .jumbo-teams { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 4px; top: 0; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; align-items: center; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-teams { --team: 13px; --goals: 24px; }
   .jumbo-team { letter-spacing: 0.3px; }
@@ -1685,7 +1786,6 @@ button.goal { display: block; }
   .jumbo-ball.idle { display: none; }
   .jumbo-tokens { gap: 4px; }
   .jumbo-coin { font-size: 0; gap: 0; }
-  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
   /* The minute over the half, so the teams keep the width. */
   .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
@@ -1777,6 +1877,9 @@ button.goal { display: block; }
   .outcome-detail { font-size: 14px; }
   .outcome-working { font-size: 13px; }
   .reveal-card { width: 96px; }
+  .reveal:has(.pill) { flex-direction: column; align-items: stretch; gap: 8px; }
+  .reveal-card.pill { width: 100%; }
+  .reveal:has(.pill) .reveal-between { text-align: center; }
   .reveal-between { font-size: 22px; }
 }
 
@@ -1831,9 +1934,10 @@ button.goal { display: block; }
     border: 0;
     border-radius: 0;
   }
-  .jumbo-teams { display: flex; align-items: baseline; gap: 8px; flex: none; }
-  .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
-  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  .jumbotron { --token: 20px; }
+  .jumbo-teams { display: flex; align-items: center; gap: 8px; flex: none; }
+  .jumbo-side { flex-direction: row; align-items: center; gap: 4px; top: 0; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; align-items: center; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-teams { --team: 15px; --goals: 22px; }
   .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
@@ -1842,7 +1946,6 @@ button.goal { display: block; }
   .jumbo-ball.idle { display: none; }
   .jumbo-tokens { gap: 4px; }
   .jumbo-coin { font-size: 0; gap: 0; }
-  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: baseline; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }
@@ -2566,10 +2669,30 @@ body.front .front-door.archive-door {
 .ref-table .ability-name { display: block; font-weight: 700; color: var(--strong); white-space: nowrap; }
 .ref-table .species-team { display: block; font-weight: 700; white-space: nowrap; }
 .ref-table td { vertical-align: top; }
-.maneuver-table .tier-tag { display: inline-block; margin-top: 1px; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
-.maneuver-table .maneuver-time { display: block; color: var(--muted); font-size: 10px; white-space: nowrap; }
-.maneuver-table .beats { color: var(--text); font-size: 11px; }
-.maneuver-table + .maneuver-table { margin-top: 6px; }
+
+/* The References' maneuvers: each the whole of its printed card, in
+   the pill's own words -- rank, name, time, the card's diagram, its
+   effect, what it beats, ties and loses to, and its ability rows. */
+.ref-maneuvers { display: flex; flex-direction: column; gap: 8px; }
+.ref-maneuvers + .ref-maneuvers { margin-top: 12px; }
+.ref-side { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.ref-maneuver {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--card);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.ref-maneuver-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 6px; }
+.ref-maneuver-name { font-size: 14px; font-weight: 700; color: var(--strong); }
+.ref-maneuver .tier-tag { padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); }
+.ref-diagram { display: block; width: 100%; max-width: 340px; height: auto; border-radius: 8px; }
+.ref-effect { margin: 6px 0; white-space: pre-line; }
+.ref-maneuver .pill-matchups { font-size: 12px; }
+.ref-ability { margin: 6px 0 0; color: var(--muted); }
+.ref-ability b { color: var(--strong); }
 
 /* The refusal's Law, under its sentence: the strip wraps so the
    citation takes a line of its own before Dismiss. */

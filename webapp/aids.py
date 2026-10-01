@@ -42,10 +42,19 @@ from d12ball.components import (
     PlayerRole,
     load_species_abilities,
 )
+from d12ball.cards import matchup_rank_groups, role_abilities
+from d12ball.components import ManeuverDefinition
 from d12ball.engine import RulesEngine
 from d12ball.formatting import role_brackets
 from d12ball.game import COLOR_TEAMS, SPECIES_TEAMS, D12BallGame, Team, team_display_name
-from d12ball.render import TEAM_COLORS, render_maneuver_reference_image
+from d12ball.render import (
+    MANEUVER_DEFENSE_COLOR,
+    MANEUVER_DEFENSE_COLOR_GAMBIT,
+    MANEUVER_OFFENSE_COLOR,
+    MANEUVER_OFFENSE_COLOR_GAMBIT,
+    TEAM_COLORS,
+    render_maneuver_reference_image,
+)
 from d12ball.role_cards import render_role_reference
 from d12ball.rules_doc import HEADING_PATTERN, RulesDocument
 from d12ball.species_cards import (
@@ -568,40 +577,102 @@ def _species() -> list[dict]:
     ]
 
 
-def maneuver_rows(catalog: ManeuverCatalog, tiers: Sequence[str]) -> list[dict]:
+def maneuver_card(
+    catalog: ManeuverCatalog,
+    players: PlayerCatalog,
+    maneuver: ManeuverDefinition,
+    side: str,
+    tiers: Sequence[str],
+) -> dict:
+    """
+    Everything a maneuver's printed card says, as words and its
+    diagram, for the References and the hand's pill
+    (`present.maneuver_pill`): the rank as the card's corner prints it
+    (`O1`, `D2`), the name, the tier's word, the time it charges, the
+    diagram (the card's own, cut from its face:
+    `pictures.maneuver_diagram_png`), the effect in the sheet's words,
+    never cut down here, and the card's foot and ability rows --
+
+    - **`matchups`**: the opposing cards it beats, ties and loses to,
+      by rank (`cards.matchup_rank_groups`, the card's own reading:
+      rank alone decides), holding only the tiers asked for;
+    - **`abilities`**: the role rows the card prints under its effect
+      (`cards.role_abilities`: every role whose ability names the card,
+      and the notes placed there by hand; none on a gambit), the card's
+      capitals said as words.
+    """
+    is_offense = side == "offense"
+    groups = matchup_rank_groups(catalog, maneuver, is_offense)
+    return {
+        "key": maneuver.key,
+        "name": maneuver.name,
+        "rank": f"{'O' if is_offense else 'D'}{maneuver.rank}",
+        # The printed card's own colour: its side's, a darker shade for
+        # an advanced card (`cards.render_maneuver_card`).
+        "colour": CARD_COLOURS[is_offense, maneuver.is_gambit],
+        "tier": maneuver.tier,
+        "gambit": maneuver.is_gambit,
+        # What the tag beside an advanced card says -- the tier's word,
+        # never "gambit": the card is an advanced maneuver and a gambit
+        # is playing one (the author).
+        "tier_word": MANEUVER_TIER_WORDS[maneuver.tier],
+        "time": maneuver.time,
+        "effect": maneuver.effect,
+        "diagram": maneuver_diagram_url(maneuver.key),
+        "matchups": [
+            {
+                "said": said,
+                "names": [one.name for one in pair if one.tier in tiers],
+            }
+            for said, (_, pair) in zip(MATCHUP_WORDS, groups)
+        ],
+        "abilities": [
+            {"who": who.capitalize(), "text": text}
+            for who, text in role_abilities(players, maneuver)
+        ],
+    }
+
+
+#: A maneuver card's colour, by (offense, advanced): the printed card's.
+CARD_COLOURS = {
+    (True, False): MANEUVER_OFFENSE_COLOR,
+    (True, True): MANEUVER_OFFENSE_COLOR_GAMBIT,
+    (False, False): MANEUVER_DEFENSE_COLOR,
+    (False, True): MANEUVER_DEFENSE_COLOR_GAMBIT,
+}
+
+#: The card's foot, as the References and the pill say it.
+MATCHUP_WORDS = ("Beats", "Ties", "Loses to")
+
+
+def maneuver_diagram_url(key: str) -> str:
+    """Where a maneuver's diagram is served -- open to anybody, like
+    every aid, since it is printed on the card."""
+    return f"/aids/maneuver-diagram/{key}.png"
+
+
+def maneuver_rows(
+    catalog: ManeuverCatalog, players: PlayerCatalog, tiers: Sequence[str],
+) -> list[dict]:
     """
     The maneuvers as two tables, the offense's and then the defense's,
-    from the data the cards are printed from: each card's name, the
-    opposing cards its rank beats, its time and its effect in the
-    sheet's own words (never cut down here). The rows are in the
-    catalog's order -- by rank, a rank's gambit under its basic card --
-    and hold only the tiers asked for; `beats` names the opposing cards
-    of those tiers too, because rank alone decides who wins.
+    each row the whole of a printed card (`maneuver_card`), so the
+    References carry every detail the hand's pill leaves to its hover
+    and the card face itself (the author, 2026-10-01). The rows are in
+    the catalog's order -- by rank, a rank's gambit under its basic card
+    -- and hold only the tiers asked for; the matchups name the opposing
+    cards of those tiers too, because rank alone decides who wins.
+    `beats` is the first of them as one string, as the table read it.
     """
     tables = []
     for side in ("offense", "defense"):
-        opposing = "defense" if side == "offense" else "offense"
-        rows = [
-            {
-                "key": maneuver.key,
-                "name": maneuver.name,
-                "tier": maneuver.tier,
-                "gambit": maneuver.is_gambit,
-                # What the tag beside an advanced card says -- the
-                # tier's word, never "gambit": the card is an advanced
-                # maneuver and a gambit is playing one (the author).
-                "tier_word": MANEUVER_TIER_WORDS[maneuver.tier],
-                "beats": " / ".join(
-                    one.name
-                    for one in catalog.side(opposing)
-                    if one.rank == maneuver.defeats_rank and one.tier in tiers
-                ),
-                "time": maneuver.time,
-                "effect": maneuver.effect,
-            }
-            for maneuver in catalog.side(side)
-            if maneuver.tier in tiers
-        ]
+        rows = []
+        for maneuver in catalog.side(side):
+            if maneuver.tier not in tiers:
+                continue
+            row = maneuver_card(catalog, players, maneuver, side, tiers)
+            row["beats"] = " / ".join(row["matchups"][0]["names"])
+            rows.append(row)
         tables.append({"side": side, "name": side.title(), "rows": rows})
     return tables
 
@@ -692,7 +763,9 @@ def everything(engine: RulesEngine) -> dict:
     catalog = engine.player_catalog
     return {
         "rules": "/rules",
-        "maneuver_rows": maneuver_rows(engine.maneuver_catalog, MANEUVER_TIERS),
+        "maneuver_rows": maneuver_rows(
+            engine.maneuver_catalog, engine.player_catalog, MANEUVER_TIERS,
+        ),
         "role_rows": roles(catalog),
         "species_rows": species_rows(),
         "maneuvers": [_maneuver(tier) for tier in MANEUVER_TIERS],
@@ -745,9 +818,8 @@ def for_game(
         # tier, the six basic ones always, the role table, and the
         # species table only where the game plays them.
         "maneuver_rows": maneuver_rows(
-            engine.maneuver_catalog,
-            (MANEUVER_TIER_BASIC,) if tier == MANEUVER_TIER_BASIC
-            else (MANEUVER_TIER_BASIC, tier),
+            engine.maneuver_catalog, engine.player_catalog,
+            game_tiers(engine, game),
         ),
         "role_rows": roles(engine.player_catalog),
         "species_rows": species_rows() if species else [],
@@ -759,6 +831,15 @@ def for_game(
             for team in teams
         ],
     }
+
+
+def game_tiers(engine: RulesEngine, game: D12BallGame) -> tuple[str, ...]:
+    """The maneuver tiers a game plays: the basic cards always, and the
+    advanced ones where `maneuver_reference_tier` says so."""
+    tier = engine.maneuver_reference_tier(game)
+    if tier == MANEUVER_TIER_BASIC:
+        return (MANEUVER_TIER_BASIC,)
+    return (MANEUVER_TIER_BASIC, tier)
 
 
 def valid_tier(tier: str) -> bool:
@@ -812,6 +893,34 @@ def _contents_html(found: dict) -> str:
     return "".join(rows)
 
 
+def _maneuver_entry_html(one: dict) -> str:
+    """One maneuver in the References: the whole of its printed card,
+    as `webapp/static/aids.js` draws it in the Rules tab."""
+    tag = (
+        f'<span class="tier-tag">{html.escape(one["tier_word"])}</span>'
+        if one["gambit"] else ""
+    )
+    matchups = "".join(
+        f'<dt>{html.escape(row["said"])}</dt>'
+        f'<dd>{html.escape(" / ".join(row["names"]))}</dd>'
+        for row in one["matchups"]
+    )
+    abilities = "".join(
+        f'<p class="ref-ability"><b>{html.escape(row["who"])}</b> '
+        f'{html.escape(row["text"])}</p>'
+        for row in one["abilities"]
+    )
+    return (
+        f'<div class="ref-maneuver" style="--card: {one["colour"]}">'
+        f'<div class="ref-maneuver-head"><span class="pill-rank">{one["rank"]}</span>'
+        f'<span class="ref-maneuver-name">{html.escape(one["name"])}</span>{tag}'
+        f'<span class="pill-time">{html.escape(one["time"])}</span></div>'
+        f'<img class="ref-diagram" src="{one["diagram"]}" alt="" loading="lazy">'
+        f'<p class="ref-effect">{html.escape(one["effect"])}</p>'
+        f'<dl class="pill-matchups">{matchups}</dl>{abilities}</div>'
+    )
+
+
 def references_html(offered: dict) -> str:
     """
     The References column: the maneuvers table, the roles table and
@@ -819,18 +928,9 @@ def references_html(offered: dict) -> str:
     same dict (`webapp/static/aids.js`).
     """
     maneuvers = "".join(
-        '<table class="ref-table maneuver-table">'
-        f'<tr><th>{html.escape(table["name"])}</th><th>Beats</th><th>Effect</th></tr>'
-        + "".join(
-            f'<tr><td><span class="ability-name">{html.escape(one["name"])}</span>'
-            + (f'<span class="tier-tag">{html.escape(one["tier_word"])}</span>'
-               if one["gambit"] else "")
-            + f'<span class="maneuver-time">{html.escape(one["time"])}</span></td>'
-            f'<td class="beats">{html.escape(one["beats"])}</td>'
-            f'<td class="ability">{html.escape(one["effect"])}</td></tr>'
-            for one in table["rows"]
-        )
-        + "</table>"
+        f'<div class="ref-maneuvers"><div class="ref-side">{html.escape(table["name"])}</div>'
+        + "".join(_maneuver_entry_html(one) for one in table["rows"])
+        + "</div>"
         for table in offered["maneuver_rows"]
     )
     roles = "".join(

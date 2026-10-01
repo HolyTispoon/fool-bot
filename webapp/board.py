@@ -193,7 +193,9 @@ def jumbotron(
     **The coin sits beside the team holding it** (Law 19.3) --
     `RulesEngine.coin_holder`, asked rather than worked out, and `None`
     in a game with no gambits -- drawn as the game's own coin
-    (`D12BallGame.game_coin`), its Fortune face up.
+    (`D12BallGame.game_coin`) on the face it landed on when it last
+    passed, or the toss's until it has (`RulesEngine.coin_face`, Law
+    19.3.3).
     """
     board = match.scoreboard
     holder = (
@@ -230,7 +232,8 @@ def jumbotron(
         "note": clock_note(game, match),
         "coin": (
             None if holder is None
-            else f"/emoji/{coin_face_name(game.game_coin, 'fortune')}.png"
+            else "/emoji/"
+            f"{coin_face_name(game.game_coin, engine.coin_face(game, match))}.png"
         ),
     }
 

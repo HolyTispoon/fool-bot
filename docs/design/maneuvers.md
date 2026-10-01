@@ -131,9 +131,10 @@ behind survives as the condition for **answering** a gambit.
   that moves later in the same maneuver -- an own-goal roll -- would
   otherwise put the question up in the middle of the resolution, ahead
   of the effect's own prompts. The re-swept golden found exactly that.
-- **Four saved fields, one per thing that outlives a click**:
+- **Five saved fields, one per thing that outlives a click**:
   `coin_holder` on the match (None until it first moves -- that is also
   the fallback for a save that predates it, so nothing migrates);
+  `coin_face`, the face the coin landed on when it last passed (below);
   `gambit_declared_by`, `gambit_answer` and `pick_unconfirmed`, this
   maneuver's, all cleared by `reset_maneuver`. The coin carries through halftime and
   the shootout because nothing clears it.
@@ -189,6 +190,23 @@ behind survives as the condition for **answering** a gambit.
   the toss is flipped with it, Discord shows its emoji, the web page
   its faces. `D12BallGame.game_coin` is the reading, the gold 3 for a
   game saved before.
+- **The coin is flipped each time it passes** (Law 19.3.3, the author,
+  2026-10-01, amending "never flipped again"): `declare_gambit_step`
+  draws the face with `engine.flip_coin` -- the toss's own draw, off
+  `engine.rng` -- and `MatchState.declare_gambit` writes it as
+  `coin_face`. **`RulesEngine.coin_face` is the one reading**: that
+  face once the coin has passed, the toss's until then (the same face
+  whoever flipped it, since a doom face hands the toss over), Fortune
+  for a game seated without a toss, and `None` wherever `coin_holder`
+  is. **The face decides nothing**; it is what the coin looks like, so
+  every frontend draws the same one: the declaration says it ("hands
+  the coin to Y, who flips it: [coin] Doom."), the holder's sentence
+  says it ("holds the coin, [coin] Doom up, and may declare a
+  gambit."), each through a `{coin:doom}` token, and the web page's
+  box coin and jumbotron draw it. A save from before the flip has no
+  `coin_face` and shows the toss. The draw moved every seeded game
+  after a declaration, so the advanced golden and the full-game driver
+  test were re-swept for their seeds.
 
 - **The outright rule is two questions about two cards**, not one
   about the matchup: `gambit_benefit_applies` (this card **won on
