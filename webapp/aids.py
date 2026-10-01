@@ -618,7 +618,7 @@ def maneuver_card(
         "tier_word": MANEUVER_TIER_WORDS[maneuver.tier],
         # The card's own pill, "TIME · 1" (`cards.time_cost`): the sheet's number,
         # never its unit -- the unit is just time (the author, 2026-10-01).
-        "time": f"Time · {time_cost(maneuver)}",
+        "time": f"TIME · {time_cost(maneuver)}",
         "effect": maneuver.effect,
         "diagram": maneuver_diagram_url(maneuver.key),
         "matchups": [
