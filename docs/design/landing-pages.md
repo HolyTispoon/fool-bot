@@ -536,8 +536,30 @@ config file, not a rewrite.
     `CLOUDFLARE_ACCOUNT_ID` as repository secrets -- the one case in which
     a secret exists, and it lives in GitHub, not in a checkout.
 
-**Which path was taken, and anything the dashboard did differently, is
-written here when the checklist has been run.** The `*.pages.dev`
+**Run 2026-09-30, on Pages' Git integration** -- step 11 was not needed.
+What the dashboard did differently:
+
+- **The studio's domain is `propheticfools.com`**, the one the author
+  bought; `propheticfoolsgames.com` was never registered. The Pages project
+  kept the name `propheticfoolsgames`, which nothing on the site shows.
+- **Preview deployments** are switched off in Branch control's edit dialog
+  (its preview-branch choice, *None*), not a setting of their own. **Build
+  watch paths** must not carry a bare `*`: it matches every file, and the
+  filter does nothing.
+- **`www`** was added to each project as a custom domain, which made the
+  proxied record, and a zone Single Redirect from the "Redirect from WWW to
+  root" template turns it around before it reaches Pages: wildcard
+  `https://www.*` to `https://${1}`, 301, *Preserve query string* ticked
+  (the template leaves it off). Plain `http://www.` is two hops -- Always
+  Use HTTPS, then the rule.
+- **Step 10 was the zone, not Pages.** Pages sends
+  `public, max-age=0, must-revalidate`; the zone's *Browser Cache TTL*
+  (Caching -> Configuration) raised that to `max-age=14400`, since it
+  replaces any shorter value with its own. A `_headers` file could not
+  have lowered it. *Respect Existing Headers* on both zones is the fix,
+  and both stylesheets now go out with `max-age=0`.
+
+The `*.pages.dev`
 addresses stay reachable after the domains are on; each page's canonical
 link names its own domain (`ORIGINS`), so a search engine files the copy
 under the right one.
