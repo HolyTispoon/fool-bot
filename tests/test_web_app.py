@@ -29,6 +29,7 @@ import asyncio
 import base64
 import importlib
 import inspect
+import html
 import json
 import sys
 import tempfile
@@ -3825,6 +3826,42 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
                 if not control["disabled"])
         )
         self.assertEqual(declarations(declared), [])
+
+    async def test_the_pick_is_asked_of_nobody_by_name(self) -> None:
+        """The page's ask names no coach: the holder of the coin is told
+        about it beside the coin itself, and everybody else reads the
+        model's sentence about who holds it."""
+        from webapp.present import (
+            COIN_LINE,
+            MANEUVER_ASK,
+            MANEUVER_ASK_WATCHING,
+        )
+
+        fixture = self.level()
+        client, _ = await self.serve(fixture)
+        holder, other, watching = [
+            await self.state_of(client, fixture, as_coach(coach_id))
+            for coach_id in (
+                fixture.game.player_1_id, fixture.game.player_2_id, STRANGER,
+            )
+        ]
+
+        self.assertEqual(
+            html.unescape(holder["prompt"]["ask"]), MANEUVER_ASK,
+        )
+        coin = holder["prompt"]["controls"][0]["controls"][0]
+        self.assertEqual(coin["place"], {"at": "coin"})
+        self.assertEqual(coin["said"], COIN_LINE)
+        self.assertTrue(coin["image"].startswith("/emoji/"))
+        for state, ask in (
+            (other, MANEUVER_ASK), (watching, MANEUVER_ASK_WATCHING),
+        ):
+            first, coin_said = html.unescape(
+                state["prompt"]["ask"],
+            ).split("\n\n")
+            self.assertEqual(first, ask)
+            self.assertIn("holds the coin and may declare a gambit", coin_said)
+            self.assertNotIn('class="coach"', state["prompt"]["ask"])
 
     async def test_an_observer_sees_two_backs_and_no_face(self) -> None:
         fixture = self.behind()

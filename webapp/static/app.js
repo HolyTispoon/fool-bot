@@ -1927,8 +1927,8 @@ function drawReference(prompt) {
 
 /* The objects the question box draws, rather than the board: the die
    to roll, the faces of a speed to choose, the whistle, the note, the
-   REMATCH mark, the hand's cards. */
-const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation"]);
+   REMATCH mark, the hand's cards, the coin. */
+const BOX_OBJECTS = new Set(["die", "face", "whistle", "note", "rematch", "card", "formation", "coin"]);
 
 /* Whether a control is drawn in the question box: the neutral ones, the
    box's own objects, and a meeple lit that is not on the field to be
@@ -2181,6 +2181,7 @@ function drawControl(control) {
     });
   }
   if (at === "rematch") return rematchMark(control);
+  if (at === "coin") return coinLine(control);
   if (at === "note") {
     return h("span", { class: "note-chip" }, chip({ ...control, chip: "click the note to go on" }));
   }
@@ -2257,6 +2258,23 @@ function face(control) {
     },
     die(String(control.place.value), { size: 52, fill: "#ffffff", ink: "#243347", font: 24 }),
   );
+}
+
+/* The coin, in the box of the coach holding it (Law 19.3): the game's
+   own coin, lit gold, with its line beside it -- clicking it declares
+   a gambit -- and what that does muted under the line. */
+function coinLine(control) {
+  return h("div", { class: "coin-line" },
+    h("button", {
+      type: "button",
+      class: "coin-button lit",
+      title: control.label,
+      "aria-label": control.label,
+      onclick: () => press(control),
+    }, h("img", { src: control.image, alt: "", class: "coin line" })),
+    h("div", { class: "coin-line-words" },
+      h("span", {}, control.said || control.label),
+      control.note ? h("span", { class: "note-line" }, control.note) : null));
 }
 
 /* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold

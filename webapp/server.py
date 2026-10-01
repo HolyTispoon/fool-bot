@@ -107,6 +107,7 @@ from webapp.present import (
     full_time,
     hand_table,
     lit_line,
+    page_ask,
     plain_text,
     render_text,
     reveal,
@@ -2005,7 +2006,11 @@ class WebApp:
             self.engine, game, match, prompt, viewer, wire=wire,
         )
         ask, footnote = split_footnote(
-            self.engine, game, match, prompt, wire["ask"],
+            self.engine, game, match, prompt,
+            page_ask(
+                self.engine, game, match, prompt, viewer, wire["ask"],
+                wire=wire,
+            ),
         )
         return {
             "prompt": {

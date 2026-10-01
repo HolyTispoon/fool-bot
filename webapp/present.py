@@ -81,10 +81,16 @@ from d12ball.game import (
     D12BallGame,
     Formation,
     Team,
+    coin_face_name,
     paired_team,
     team_display_name,
 )
-from d12ball.prompts import PendingPrompt, PromptKind, asked_sides
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    asked_sides,
+    maneuver_gambit_paragraph,
+)
 from d12ball.dice_brief import (
     challenge_side,
     maneuver_challenge_brief,
@@ -461,6 +467,9 @@ ON_WHISTLE = {"at": "whistle"}
 ON_NOTE = {"at": "note"}
 #: The REMATCH mark in the box.
 ON_REMATCH = {"at": "rematch"}
+#: The coin, in the box of the coach holding it: clicking it declares
+#: a gambit (Law 19.3).
+ON_COIN = {"at": "coin"}
 
 
 def on_player(player_id: str) -> dict:
@@ -654,10 +663,11 @@ def _asked(
 
 #: The objects the question box draws itself -- the die, a speed's
 #: faces, the whistle, the note, the REMATCH mark, the hand's cards,
-#: the formation tiles --
+#: the formation tiles, the coin --
 #: which the lit line does not repeat: it says what is lit elsewhere.
 IN_THE_BOX = frozenset({
     "die", "face", "whistle", "note", "rematch", "card", "formation",
+    "coin",
 })
 
 
@@ -666,6 +676,58 @@ IN_THE_BOX = frozenset({
 #: team's colour -- so the words beside it say only what choosing it
 #: does. A player and a space are named beside theirs.
 PICTURED = frozenset({"ball", "goal", "time_out_tile", "bench"})
+
+
+#: What the maneuver pick says on this page, in place of the model's
+#: address to each coach by name: the page is read by one person, who
+#: sees their own hand and nobody else's, so it says what the pick is
+#: rather than whose it is -- the instruction is a frontend's own, as
+#: the Discord caption's row colours are
+#: (`cogs.d12ball_helpers.maneuver_row_instruction`).
+MANEUVER_ASK = (
+    "Both sides pick a maneuver privately -- only you can see what you "
+    "pick until both sides' picks are revealed."
+)
+MANEUVER_ASK_WATCHING = (
+    "Both sides pick a maneuver privately -- the picks are revealed "
+    "together."
+)
+
+
+def page_ask(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: Optional[MatchState],
+    prompt: PendingPrompt,
+    viewer: Viewer,
+    ask: str,
+    wire: Optional[Mapping[str, Any]] = None,
+) -> str:
+    """
+    The prompt's ask as this page says it: the model's, except on the
+    maneuver pick, whose ask names each coach it waits on for a
+    Discord message somebody must be pinged from.
+
+    There the page says `MANEUVER_ASK` (`MANEUVER_ASK_WATCHING` to
+    somebody coaching neither side), and under it who may make a
+    gambit -- the model's sentence (`describe_gambit_access`), except
+    to the coach it would name as holding the coin: their coin is in
+    the box with its own line (`_maneuver`), so the paragraph would be
+    the same thing said twice.
+    """
+    if match is None or prompt.kind is not PromptKind.MANEUVER_ACTION:
+        return ask
+    mine = set(coached_sides(engine, game, viewer))
+    wire = prompt.to_dict() if wire is None else wire
+    holds_the_coin = any(
+        hand.get("may_declare") and _side(hand["team_side"]) in mine
+        for hand in wire["options"]["hands"]
+    )
+    return maneuver_gambit_paragraph(
+        MANEUVER_ASK if mine else MANEUVER_ASK_WATCHING,
+        "" if holds_the_coin
+        else engine.describe_gambit_access(game, match),
+    )
 
 
 def split_footnote(
@@ -821,6 +883,7 @@ def _object_name(asked: Asked, place: Mapping[str, Any]) -> str:
         "whistle": "The whistle",
         "note": "The note",
         "rematch": "Rematch",
+        "coin": "The coin",
     }.get(at, at)
 
 
@@ -1481,9 +1544,11 @@ def _maneuver(asked: Asked) -> list:
     gambits out as a second row (`card.gambit`), since a card's tier is
     printed on it.
 
-    **The coin is its own section** (Law 19.3): the coach holding it
-    is offered "Declare a gambit" beside the hand -- the prompt's
-    `may_declare`, answered with the choice `"gambit"` -- and a coach
+    **The coin is its own section, above the hand** (Law 19.3): the
+    coach holding it is shown the coin itself, lit, with `COIN_LINE`
+    beside it, and clicking it declares -- the prompt's `may_declare`,
+    answered with the choice `"gambit"`. The ask leaves its own
+    sentence about the coin out for that coach (`page_ask`). A coach
     whose card a gambit has put back in question has it ringed and
     live, pressed to confirm it (`unconfirmed`, the choice
     `"confirm"`), with the rest of the hand to change it for.
@@ -1543,20 +1608,27 @@ def _maneuver(asked: Asked) -> list:
     labelled = len(groups) > 1
     sections = []
     for hand, controls in groups:
+        if hand.get("may_declare"):
+            coin = button(
+                DECLARE_LABEL,
+                asked.kind,
+                "gambit",
+                place=ON_COIN,
+                chip=DECLARE_CHIP,
+                said=COIN_LINE,
+                note=DECLARE_NOTE,
+                side=hand["side"],
+            )
+            # The game's own coin, Fortune up, as the jumbotron draws it.
+            coin["image"] = (
+                f"/emoji/{coin_face_name(asked.game.game_coin, 'fortune')}.png"
+            )
+            sections.append(section(None, [coin]))
         sections.append(section(
             f"Your hand · {controls[0]['card']['side']}" if labelled
             else "Your hand",
             controls,
         ))
-        if hand.get("may_declare"):
-            sections.append(section("The coin", [button(
-                DECLARE_LABEL,
-                asked.kind,
-                "gambit",
-                chip=DECLARE_CHIP,
-                note=DECLARE_NOTE,
-                side=hand["side"],
-            )]))
     return sections
 
 
@@ -1641,9 +1713,11 @@ WITHHELD_NOTE = "Only the coach holding the coin may make a gambit."
 WITHHELD_TO_DECLARE_NOTE = "Declare a gambit to play these."
 WITHHELD_UNANSWERED_NOTE = "Only a side that is behind may answer a gambit."
 
-#: The coin's control (Law 19.3.2-19.3.3).
+#: The coin's control (Law 19.3.2-19.3.3): the coin itself, above the
+#: hand, with its line beside it.
 DECLARE_LABEL = "Declare a gambit"
 DECLARE_CHIP = "declare a gambit"
+COIN_LINE = "You hold the coin and may declare a gambit."
 DECLARE_NOTE = (
     "Swap your three cards for your three advanced maneuvers and hand "
     "the coin to the other coach."

@@ -1306,9 +1306,21 @@ chooser, or puts a refusal away.
   is behind may answer a gambit" to one facing a gambit it may not answer,
   and "only the coach holding the coin may make a gambit" otherwise), as a
   dead control the page cannot send (and the offer check refuses if it is
-  sent anyway). **The coin is a section of its own** under the hand:
-  "Declare a gambit", the prompt's `may_declare` answered with the choice
-  `"gambit"`. A card a gambit has put back in question is ringed and
+  sent anyway). **The coin is a section of its own, above the hand**
+  (the author, 2026-09-30): the game's own coin, lit gold, a box object
+  like the die (`ON_COIN`), beside "You hold the coin and may declare a
+  gambit." -- the prompt's `may_declare`, answered with the choice
+  `"gambit"`. **The pick's ask names nobody** (`present.page_ask`): the
+  model's ask addresses each coach by name, which a Discord message
+  needs to ping them, but a page is read by one person who sees only
+  their own hand, so it says "Both sides pick a maneuver privately --
+  only you can see what you pick until both sides' picks are revealed."
+  (the observer's says the picks are revealed together). The
+  instruction is a frontend's own, as the Discord caption's row colours
+  are; who holds the coin stays the model's sentence
+  (`describe_gambit_access`), left out only for the coach it names,
+  whose coin is in the box. A coach a sentence is put to elsewhere is
+  named in bold rather than drawn as a Discord mention. A card a gambit has put back in question is ringed and
   **live** -- pressed, it confirms the pick (`"confirm"`) -- and the rest
   of the hand may replace it. The jumbotron draws the game's own coin
   beside the team holding it (`board.jumbotron`, off
