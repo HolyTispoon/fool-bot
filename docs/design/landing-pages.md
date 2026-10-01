@@ -291,7 +291,8 @@ the build as Cloudflare Pages' `_redirects` file:
 - `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
   three zips, likewise.
 - `/feedback` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
-  playtest card prints `box_art.SURVEY_URL`, which is this address, so a
+  playtest card prints `box_art.SURVEY_URL`, which is this address on
+  `www.` (the zone's redirect to the bare domain keeps the path), so a
   form that moves is a one-line change here and no printed card is
   reprinted.
 

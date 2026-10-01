@@ -290,7 +290,8 @@ def main() -> None:
         print("  this is the box's underside as well, for now")
     if "playtest-card" in wanted:
         front = render_playtest_card_front(
-            catalog=catalog, rules=rules, bleed=arguments.bleed
+            facts=facts, catalog=catalog, rules=rules, claims=claims,
+            bleed=arguments.bleed,
         )
         back = render_playtest_card_back(
             catalog=catalog, rules=rules, survey_url=arguments.survey_url,

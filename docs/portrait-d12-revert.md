@@ -92,7 +92,7 @@ printed.** Each section below lists what draws that player. The general list:
 | Output | How to regenerate | Committed? |
 | --- | --- | --- |
 | Rulebook figure 12, `docs/rulebooks/figures/fig-12-coaching-choice.png` | `python3 scripts/build_rulebooks.py --figures` | **Yes** |
-| Box cover, night cover, banners, playtest card back (the cover's cast) | `python3 scripts/render_box_art.py` | No, built on demand |
+| Box cover, night cover, banners, playtest card front (the cover's cast) | `python3 scripts/render_box_art.py` | No, built on demand |
 | Sale sheet (its card fan) | `python3 scripts/render_box_art.py` | No |
 | Landing page player cards, and the print-and-play kit's player-card zips | `python3 scripts/build_landing.py` (into `landing/dist/`, gitignored), then redeploy | No |
 | Player card print sheets | `python3 scripts/render_player_cards.py ...` | No |
@@ -201,7 +201,7 @@ foreshortened one on its top face and sometimes a sliver at one side.
 - **Before** `b44f5ce0c5be` (179,601) → **after** `1c30501139df` (180,131)
 - **Changed:** ooze d12, faces 4, 12, 11.
 - **Also drawn in:** **the box cover's cast**, and so the night cover, the
-  banners and the playtest card's back, which carries the cover. Regenerate
+  banners and the playtest card's front, which carries the cover's four. Regenerate
   with `render_box_art.py`. Also Discord and the web app.
 
 #### Shpritz (Spritz at the time)
@@ -268,7 +268,7 @@ foreshortened one on its top face and sometimes a sliver at one side.
 - **Before** `5d87aa9e3177` (179,863) → **after** `081bee9c092c` (186,206)
 - **Changed:** telekinetic d12, faces 11, 7, 12.
 - **Also drawn in:** **the box cover's cast** (and so the night cover, the
-  banners and the playtest card's back), **the sale sheet's card fan**, Discord
+  banners and the playtest card's front), **the sale sheet's card fan**, Discord
   and the web app. Regenerate with `render_box_art.py`.
 
 #### Zytheris
