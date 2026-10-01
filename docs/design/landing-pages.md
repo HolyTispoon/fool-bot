@@ -9,7 +9,7 @@ Two static sites, built from this repository by one script:
 | Site | Served at | What it is |
 | --- | --- | --- |
 | `landing/d12ball/` | `d12ball.com` | The game's public face. `play.d12ball.com` stays the web app |
-| `landing/studio/` | `propheticfoolsgames.com` | The studio: its paragraph, and a card per game |
+| `landing/studio/` | `propheticfools.com` | The studio: its paragraph, and a card per game |
 
 ```bash
 python3 scripts/build_landing.py                   # both, into landing/dist/<site>/
@@ -459,7 +459,7 @@ these need, and moving a site of files and redirects to Workers later is a
 config file, not a rewrite.
 
 1. **Both domains are on Cloudflare**: `d12ball.com` and
-   `propheticfoolsgames.com` listed as sites, each *Active*.
+   `propheticfools.com` listed as sites, each *Active*.
 2. **Create the `d12ball` project**: Workers & Pages -> *Create* -> *Pages*
    -> *Connect to Git* -> `HolyTispoon/fool-bot` (this installs
    Cloudflare's GitHub app on the repository, if it is not already).
@@ -492,7 +492,7 @@ config file, not a rewrite.
      following the game, so when the build starts reading somewhere new,
      add it here.
 5. **Custom domains**: `d12ball.com` on the first project,
-   `propheticfoolsgames.com` on the second (Custom domains -> *Set up a
+   `propheticfools.com` on the second (Custom domains -> *Set up a
    custom domain*). The zones are on the same account, so Cloudflare adds
    the DNS record itself on confirming; a record made by hand first gets a
    522. `play.d12ball.com`'s record is the tunnel's and is not touched.
