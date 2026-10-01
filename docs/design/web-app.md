@@ -1335,9 +1335,16 @@ chooser, or puts a refusal away.
   dead control the page cannot send (and the offer check refuses if it is
   sent anyway). **The coin is a section of its own, above the hand**
   (the author, 2026-09-30): the game's own coin, lit gold, a box object
-  like the die (`ON_COIN`), beside "You hold the coin and may declare a
-  gambit." -- the prompt's `may_declare`, answered with the choice
-  `"gambit"`. The coin shows the face it landed on when it last
+  like the die (`ON_COIN`), to the right of "You hold the coin and may
+  declare a gambit." and the line under it saying what declaring does
+  (`DECLARE_NOTE`, the author's words of 2026-10-01) -- the prompt's
+  `may_declare`, answered with the choice `"gambit"`. On the jumbotron
+  the coin and the ball's d12 are one size, `--token` on `.jumbotron`
+  (30px on a desktop and a tablet, 20px on a phone), and on a phone the
+  names, the score, the ball and the coin are centred on one line: the
+  visitors' row is reversed, and on a baseline it took its baseline off
+  the tokens and stood them high, while the Goal face's capitals sit
+  within half a pixel of the middle of its box. The coin shows the face it landed on when it last
   passed -- it is flipped each time (Law 19.3.3) -- or the toss's until
   then, in the box and on the jumbotron alike (`RulesEngine.coin_face`,
   see [maneuvers.md](maneuvers.md), "The coin"). **The pick's ask names nobody** (`present.page_ask`): the

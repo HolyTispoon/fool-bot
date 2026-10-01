@@ -2260,21 +2260,22 @@ function face(control) {
   );
 }
 
-/* The coin, in the box of the coach holding it (Law 19.3): the game's
-   own coin, lit gold, with its line beside it -- clicking it declares
-   a gambit -- and what that does muted under the line. */
+/* The coin, in the box of the coach holding it (Law 19.3): its line,
+   with what declaring does muted under it, and the game's own coin,
+   lit gold, to the right of the words (the author, 2026-10-01) --
+   clicking it declares a gambit. */
 function coinLine(control) {
   return h("div", { class: "coin-line" },
+    h("div", { class: "coin-line-words" },
+      h("span", {}, control.said || control.label),
+      control.note ? h("span", { class: "note-line" }, control.note) : null),
     h("button", {
       type: "button",
       class: "coin-button lit",
       title: control.label,
       "aria-label": control.label,
       onclick: () => press(control),
-    }, h("img", { src: control.image, alt: "", class: "coin line" })),
-    h("div", { class: "coin-line-words" },
-      h("span", {}, control.said || control.label),
-      control.note ? h("span", { class: "note-line" }, control.note) : null));
+    }, h("img", { src: control.image, alt: "", class: "coin line" })));
 }
 
 /* The whistle: Done, Start the game, Pick it up. A pea-whistle, gold

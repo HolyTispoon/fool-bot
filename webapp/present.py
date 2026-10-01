@@ -1733,8 +1733,8 @@ DECLARE_LABEL = "Declare a gambit"
 DECLARE_CHIP = "declare a gambit"
 COIN_LINE = "You hold the coin and may declare a gambit."
 DECLARE_NOTE = (
-    "Swap your three cards for your three advanced maneuvers and hand "
-    "the coin to the other coach."
+    "Hand the coin to the other coach and replace your hand with three "
+    "advanced maneuvers, offering higher reward and carrying higher risk."
 )
 
 

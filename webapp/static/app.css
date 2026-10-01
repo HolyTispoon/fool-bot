@@ -994,6 +994,9 @@ select {
    the clock in the board's yellow. */
 
 .jumbotron {
+  /* The ball's d12 and the coin, one size in every layout (the
+     author, 2026-10-01). */
+  --token: 30px;
   flex: none;
   display: flex;
   align-items: center;
@@ -1055,6 +1058,7 @@ select {
   color: var(--gold);
 }
 .jumbo-ball.idle { visibility: hidden; }
+.jumbo-ball .die { display: block; width: var(--token); height: var(--token); }
 /* The ball and the coin on one line under the coach (Law 19.3). */
 .jumbo-tokens { display: inline-flex; align-items: center; gap: 12px; }
 .jumbo-side.visiting .jumbo-tokens { flex-direction: row-reverse; }
@@ -1066,7 +1070,7 @@ select {
   font-weight: 800;
   color: var(--gold);
 }
-.jumbo-coin img { display: block; width: 18px; height: 18px; }
+.jumbo-coin img { display: block; width: var(--token); height: var(--token); }
 .jumbo-coin.idle { display: none; }
 .jumbo-score { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 120px; }
 .jumbo-goals {
@@ -1764,9 +1768,16 @@ button.goal { display: block; }
      and the tiles are the wide screen's; a time out that is lit is on
      the sheet with everything else lit. */
   .jumbotron { order: 1; gap: 8px; padding: 6px 10px; border-radius: 12px; }
-  .jumbo-teams { display: flex; align-items: baseline; gap: 6px; flex: 1 1 auto; min-width: 0; }
-  .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 3px; }
-  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  /* Everything on one line, centred: the names, the score, the ball
+     and the coin (the author, 2026-10-01). On a baseline the visitors'
+     row -- reversed, the tokens first -- took its baseline off the
+     tokens and stood them high; the Goal face's capitals sit within
+     half a pixel of its box's middle, so centring keeps the names on
+     the score as the baseline did. */
+  .jumbotron { --token: 20px; }
+  .jumbo-teams { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .jumbo-side { flex: 0 1 auto; flex-direction: row; align-items: center; gap: 4px; top: 0; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; align-items: center; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-teams { --team: 13px; --goals: 24px; }
   .jumbo-team { letter-spacing: 0.3px; }
@@ -1775,7 +1786,6 @@ button.goal { display: block; }
   .jumbo-ball.idle { display: none; }
   .jumbo-tokens { gap: 4px; }
   .jumbo-coin { font-size: 0; gap: 0; }
-  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; gap: 0; align-items: flex-end; }
   /* The minute over the half, so the teams keep the width. */
   .jumbo-time { flex-direction: column; align-items: flex-end; gap: 1px; flex-wrap: nowrap; white-space: nowrap; }
@@ -1924,9 +1934,10 @@ button.goal { display: block; }
     border: 0;
     border-radius: 0;
   }
-  .jumbo-teams { display: flex; align-items: baseline; gap: 8px; flex: none; }
-  .jumbo-side { flex-direction: row; align-items: center; gap: 4px; }
-  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; }
+  .jumbotron { --token: 20px; }
+  .jumbo-teams { display: flex; align-items: center; gap: 8px; flex: none; }
+  .jumbo-side { flex-direction: row; align-items: center; gap: 4px; top: 0; }
+  .jumbo-side.visiting { order: 3; flex-direction: row-reverse; align-items: center; }
   .jumbo-score { order: 2; min-width: 0; }
   .jumbo-teams { --team: 15px; --goals: 22px; }
   .jumbo-coach, .jumbo-brand, .jumbo-track, .jumbo-marks, .jumbo-note { display: none; }
@@ -1935,7 +1946,6 @@ button.goal { display: block; }
   .jumbo-ball.idle { display: none; }
   .jumbo-tokens { gap: 4px; }
   .jumbo-coin { font-size: 0; gap: 0; }
-  .jumbo-coin img { width: 14px; height: 14px; }
   .jumbo-clock { flex: none; min-width: 0; flex-direction: row; align-items: baseline; gap: 8px; }
   .jumbo-time { flex-wrap: nowrap; white-space: nowrap; gap: 6px; }
   .jumbo-minute { font-size: 18px; }
