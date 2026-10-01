@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the two landing pages, d12ball.com and propheticfoolsgames.com.
+"""Build the two landing pages, d12ball.com and propheticfools.com.
 
     python3 scripts/build_landing.py
     python3 scripts/build_landing.py --only d12ball
@@ -33,7 +33,7 @@ from landing.capture import capture_board  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Build the d12ball.com and propheticfoolsgames.com pages.",
+        description="Build the d12ball.com and propheticfools.com pages.",
     )
     parser.add_argument(
         "--out",

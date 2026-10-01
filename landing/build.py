@@ -77,7 +77,7 @@ SITES = ("d12ball", "studio")
 # link inside a site stays relative, so a local build is browsable.
 ORIGINS = {
     "d12ball": "https://d12ball.com",
-    "studio": "https://propheticfoolsgames.com",
+    "studio": "https://propheticfools.com",
 }
 PLAY_URL = "https://play.d12ball.com"
 CONTACT = "politicsgames@gmail.com"
