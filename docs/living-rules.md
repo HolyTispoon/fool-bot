@@ -182,7 +182,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **3.1.3** The winner chooses whether to be home or the visitors. Home kicks off the first half and the visitors kick off the second.
 
-**3.1.4** In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) the winner of the toss also **keeps the coin**, which is what lets a coach [make a gambit](#193-who-may-make-a-gambit) (19.3). It is never flipped again.
+**3.1.4** In a game played with [advanced maneuvers](#19-advanced-maneuvers-and-gambits) (19) the winner of the toss also **keeps the coin**, which is what lets a coach [make a gambit](#193-who-may-make-a-gambit) (19.3). It stays on the face it landed on until it passes, and is flipped each time it does.
 
 ### 3.2 The standard deal
 
@@ -971,7 +971,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.3.2** At any challenged maneuver, until both maneuvers are revealed, the coach holding the coin may **declare a gambit**: they set their three basic cards aside and choose from their side's three advanced maneuvers instead. The advanced cards have their own back, so a gambit is public the moment it is made. A maneuver that coach had already chosen is withdrawn.
 
-**19.3.3** **Declaring a gambit hands the coin to the other coach**, who holds it from then on and may declare a gambit of their own at a later maneuver. The coin passes only this way -- it is never flipped again -- and it carries through halftime and the shootout.
+**19.3.3** **Declaring a gambit hands the coin to the other coach, who flips it** and holds it from then on, and may declare a gambit of their own at a later maneuver. The coin passes only this way, and it carries through halftime and the shootout. The face it lands on decides nothing: it stays face up in front of the coach holding it until the coin passes again.
 
 **19.3.4** **The other coach may answer the gambit with one of their own**, in the same maneuver, only while their team is **behind**, which is one of two things:
 

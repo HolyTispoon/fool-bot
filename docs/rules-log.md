@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-09-28.
+**As of:** 2026-10-01.
 
 ## Where the rules come from
 
@@ -153,6 +153,23 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-01 -- author, the coin is flipped each time it passes
+
+The author, reviewing the web app's coin: *"the coin should be flipped every time it passes from
+player to player and should show the side the player who got the coin has. the jumbotron also
+should show the same side."* Asked whether that changes the Charter, which said the coin was
+never flipped after the toss, the author chose to amend it.
+
+- **The coin is flipped each time it passes** (19.3.3): the coach a declaration hands it to
+  flips it, and it stays face up in front of them until it passes again. **The face decides
+  nothing** -- who may make a gambit is still who holds the coin.
+- **Until it first passes it shows the toss** (3.1.4): the winner keeps the coin on the face it
+  landed on.
+- Unchanged: the coin passes only on a declaration, an answering gambit hands it to nobody, and
+  it carries through halftime and the shootout.
+
+Rewrote 3.1.4 and 19.3.3 and the Learn to Play's gambit paragraph. No number moved.
 
 ### 2026-09-30 -- author, Goopkeeper counts in full against Flickerwing's shot
 
