@@ -56,7 +56,8 @@ red on red; Zenith, Umbrik: purple on purple).
   from v1 or v2 whichever is better for each area. Pick it up there.
 
 `v1_vs_v2.png` puts before, v1, v2 and a native teammate side by side for
-each player. Redraw it with `python3 docs/jersey-recolour/kit/sheet.py`.
+each player. It is the only picture of the pilot committed; the portraits
+themselves are rebuilt from the scripts (below).
 
 One difference between the versions is in the colour, not the masks.
 v1's Ozul and Kindlefinger were made with the first teal model, which
@@ -72,17 +73,29 @@ kit/kit.py          the recolour functions (below)
 kit/refs.pkl        the kit colour models: orange, teal, purple, black
 kit/grid.py         a portrait with a coordinate grid, for drawing polygons
 kit/zoom.py         a gridded before/after crop, in the portrait's own coordinates
-kit/sheet.py        draws v1_vs_v2.png
-v1/run.sh           rebuilds v1/out/ from v1's scripts
+kit/sheet.py        draws v1_vs_v2.png from v1/out/ and v2/out/
+v1/run.sh           builds v1's portraits into v1/out/
 v1/refs_first_teal.pkl   the models before teal was resampled (used by v1's first five)
-v2/run.sh           rebuilds v2/out/ from v2's scripts
-v1/out/, v2/out/    the recoloured portraits (Zenith's v2 with the foot is Zenith_teal_foot.png)
+v2/run.sh           builds v2's portraits into v2/out/ (Zenith with the foot is Zenith_teal_foot.png)
+v1_vs_v2.png        the comparison sheet
 ```
 
-Run either `run.sh` from the repository root. Both rebuild their `out/`
-byte for byte; that was checked when this folder was saved. They need
-numpy, Pillow, scikit-image and opencv-python-headless, none of which
-`requirements.txt` carries.
+The portraits are not committed (`out/` is ignored). To get them back, run
+from the repository root:
+
+```bash
+pip install numpy==2.4.6 Pillow==12.2.0 scikit-image==0.26.0 opencv-python-headless==5.0.0
+docs/jersey-recolour/v1/run.sh
+docs/jersey-recolour/v2/run.sh
+python3 docs/jersey-recolour/kit/sheet.py    # optional: redraws the sheet
+```
+
+Those are the versions the pilot was made with. With them the scripts
+rebuild every portrait byte for byte, and the sheet redrawn from them is
+byte-identical to the committed one; both were checked before the
+portraits were dropped. Other versions may resize, smooth or fill flecks
+slightly differently. None of the four is in `requirements.txt`, because
+nothing the bot runs needs scikit-image or OpenCV.
 
 The v1 files were recovered by rerunning the session's own commands, after
 v2 had overwritten them, and they match the v1 review sheet pixel for pixel.
