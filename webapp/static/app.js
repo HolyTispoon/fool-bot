@@ -3751,7 +3751,7 @@ function rosterRow(row) {
 
 // -- The Rules tab -------------------------------------------------------------
 
-/* The Charter, the Learn to Play and the References
+/* The Charter, the Learn to Play, the maneuvers and the abilities
    (webapp/static/aids.js). */
 const rulesTab = window.D12Rules.mountTab(el("rules-tab"));
 

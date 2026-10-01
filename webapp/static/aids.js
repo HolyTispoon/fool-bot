@@ -129,18 +129,42 @@
 
   // -- The References ----------------------------------------------------
 
-  /* The maneuvers table, the roles table and the species table -- the
-     same three the Reading Room's right column sets. */
-  function references(aids) {
+  /* The Maneuvers chip: the maneuvers as a condensed table a side, the
+     hexagon the bot's reference command posts at the tier the model
+     named (both, named, in the Reading Room), and under them each
+     maneuver as the whole of its printed card (`aids.maneuver_card`) --
+     the hand's pill leaves its foot and ability rows to a hover, and the
+     card face is not shown anywhere else (the author, 2026-10-01). The
+     Reading Room's right column sets the same (`aids.references_html`). */
+  function maneuverReference(aids) {
     if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
-    /* Each maneuver as the whole of its printed card (`aids.maneuver_card`):
-       the hand's pill leaves its foot and ability rows to a hover, and
-       the card face is not shown anywhere else (the author, 2026-10-01). */
-    const maneuvers = (aids.maneuver_rows || []).map((table) =>
+    const tables = aids.maneuver_rows || [];
+    const toCard = (key) => (event) => {
+      event.preventDefault();
+      const card = document.getElementById(`ref-card-${key}`);
+      if (card) card.scrollIntoView({ block: "start", behavior: "smooth" });
+    };
+    const condensed = tables.map((table) =>
+      h("table", { class: "ref-table maneuver-table" },
+        h("tr", {}, h("th", {}), h("th", {}, table.name), h("th", {}, "Time"), h("th", {}, "Beats")),
+        table.rows.map((one) =>
+          h("tr", {},
+            h("td", {}, h("span", { class: "pill-rank", style: `--card: ${one.colour}` }, one.rank)),
+            h("td", {},
+              h("a", { class: "ability-name", href: `#ref-card-${one.key}`, onclick: toCard(one.key) }, one.name),
+              one.gambit ? h("span", { class: "tier-tag" }, one.tier_word) : null),
+            h("td", { class: "maneuver-time" }, one.time),
+            h("td", { class: "beats" }, one.beats)))));
+    const hexagons = (aids.maneuvers || []).map((one) =>
+      h("figure", { class: "ref-hexagon" },
+        h("a", { href: one.url, target: "_blank", rel: "noopener", title: one.name },
+          h("img", { src: one.url, alt: one.name, loading: "lazy" })),
+        aids.maneuvers.length > 1 ? h("figcaption", {}, one.name) : null));
+    const cards = tables.map((table) =>
       h("div", { class: "ref-maneuvers" },
         h("div", { class: "ref-side" }, table.name),
         table.rows.map((one) =>
-          h("div", { class: "ref-maneuver", style: `--card: ${one.colour}` },
+          h("div", { class: "ref-maneuver", id: `ref-card-${one.key}`, style: `--card: ${one.colour}` },
             h("div", { class: "ref-maneuver-head" },
               h("span", { class: "pill-rank" }, one.rank),
               h("span", { class: "ref-maneuver-name" }, one.name),
@@ -152,6 +176,21 @@
               one.matchups.flatMap((row) => [h("dt", {}, row.said), h("dd", {}, row.names.join(" / "))])),
             one.abilities.map((row) =>
               h("p", { class: "ref-ability" }, h("b", {}, row.who), " ", row.text))))));
+    return [
+      h("div", { class: "panel-label" }, "Maneuvers"),
+      ...condensed,
+      hexagons.length ? h("div", { class: "panel-label" }, "Maneuver reference") : null,
+      ...hexagons,
+      h("div", { class: "panel-label" }, "The cards"),
+      ...cards,
+    ];
+  }
+
+  /* The Abilities chip: the roles table, and the species table where
+     the game plays them (the room's `aids` carries none where it does
+     not). */
+  function abilityReference(aids) {
+    if (!aids) return [h("p", { class: "quiet" }, "The references are read once the room is.")];
     const roles = h("table", { class: "ref-table" },
       h("tr", {}, h("th", {}), h("th", {}, "Role"), h("th", {}, "OFF"), h("th", {}, "DEF"), h("th", {}, "Ability")),
       (aids.role_rows || []).map((one) =>
@@ -173,11 +212,9 @@
             h("td", { class: "ability" }, one.ability))))
       : null;
     return [
-      h("div", { class: "panel-label" }, "Maneuvers"),
-      ...maneuvers,
-      h("div", { class: "panel-label" }, "Roles"),
+      h("div", { class: "panel-label" }, "Role abilities"),
       roles,
-      species ? h("div", { class: "panel-label" }, "Species") : null,
+      species ? h("div", { class: "panel-label" }, "Species abilities") : null,
       species,
     ];
   }
@@ -208,9 +245,20 @@
 
   // -- The Rules tab -------------------------------------------------------
 
-  /* The tab: a search box, three chips, and under them the Laws by
-     their headings -- one opened to its text -- the Learn to Play, or
-     the References. */
+  /* The tab's four chips, in the order they sit (the author,
+     2026-10-01: the References split into the maneuvers and the
+     abilities). */
+  const TAB_VIEWS = [
+    ["charter", "The Charter"],
+    ["learn", "Learn to Play"],
+    ["maneuvers", "Maneuvers"],
+    ["abilities", "Abilities"],
+  ];
+  const REFERENCES = { maneuvers: maneuverReference, abilities: abilityReference };
+
+  /* The tab: a search box, four chips, and under them the Laws by
+     their headings -- one opened to its text -- the Learn to Play, the
+     maneuvers or the abilities. */
   function mountTab(root) {
     let view = "charter";
     let charter = null;
@@ -244,7 +292,7 @@
 
     function drawChips() {
       chips.replaceChildren(
-        ...[["charter", "The Charter"], ["learn", "Learn to Play"], ["references", "References"]].map(([name, words]) =>
+        ...TAB_VIEWS.map(([name, words]) =>
           h("button", {
             type: "button",
             class: `chip-tab${view === name ? " current" : ""}`,
@@ -303,8 +351,8 @@
 
     async function draw() {
       drawChips();
-      if (view === "references") {
-        body.replaceChildren(h("div", { class: "references" }, references(aids)));
+      if (REFERENCES[view]) {
+        body.replaceChildren(h("div", { class: "references" }, REFERENCES[view](aids)));
         return;
       }
       if (view === "learn") {
@@ -366,7 +414,7 @@
       setAids(next) {
         const changed = JSON.stringify(next) !== JSON.stringify(aids);
         aids = next;
-        if (changed && view === "references") draw();
+        if (changed && REFERENCES[view]) draw();
       },
     };
   }
@@ -382,14 +430,17 @@
     let face = 0;
     let everything = null;
 
+    /* The References chip is not a view: the column is beside the text
+       on a wide screen, where the chip is not shown, and under it on a
+       narrow one, where the chip goes down to it and leaves what is
+       being read as it was. */
     function show(view) {
       if (view === "references") {
-        page.dataset.view = "references";
         document.getElementById("references").scrollIntoView({ block: "start", behavior: "smooth" });
-      } else {
-        page.dataset.view = view;
-        for (const [name, node] of Object.entries(views)) node.hidden = name !== view;
+        return;
       }
+      page.dataset.view = view;
+      for (const [name, node] of Object.entries(views)) node.hidden = name !== view;
       for (const chip of document.querySelectorAll(".chip-tab[data-view]")) {
         chip.classList.toggle("current", chip.dataset.view === page.dataset.view);
       }

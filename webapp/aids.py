@@ -911,7 +911,7 @@ def _maneuver_entry_html(one: dict) -> str:
         for row in one["abilities"]
     )
     return (
-        f'<div class="ref-maneuver" style="--card: {one["colour"]}">'
+        f'<div class="ref-maneuver" id="ref-card-{one["key"]}" style="--card: {one["colour"]}">'
         f'<div class="ref-maneuver-head"><span class="pill-rank">{one["rank"]}</span>'
         f'<span class="ref-maneuver-name">{html.escape(one["name"])}</span>{tag}'
         f'<span class="pill-time">{html.escape(one["time"])}</span></div>'
@@ -921,13 +921,51 @@ def _maneuver_entry_html(one: dict) -> str:
     )
 
 
+def _maneuver_table_html(table: dict) -> str:
+    """One side's maneuvers condensed to a row each -- rank, name, time
+    and what it beats -- each name a link to its card below."""
+    rows = "".join(
+        f'<tr><td><span class="pill-rank" style="--card: {one["colour"]}">{one["rank"]}</span></td>'
+        f'<td><a class="ability-name" href="#ref-card-{one["key"]}">{html.escape(one["name"])}</a>'
+        + (
+            f'<span class="tier-tag">{html.escape(one["tier_word"])}</span>'
+            if one["gambit"] else ""
+        )
+        + f'</td><td class="maneuver-time">{html.escape(one["time"])}</td>'
+        f'<td class="beats">{html.escape(one["beats"])}</td></tr>'
+        for one in table["rows"]
+    )
+    return (
+        '<table class="ref-table maneuver-table"><tr><th></th>'
+        f'<th>{html.escape(table["name"])}</th><th>Time</th><th>Beats</th></tr>'
+        f"{rows}</table>"
+    )
+
+
+def _hexagon_html(one: dict, named: bool) -> str:
+    caption = f"<figcaption>{html.escape(one['name'])}</figcaption>" if named else ""
+    return (
+        f'<figure class="ref-hexagon"><a href="{one["url"]}" target="_blank" '
+        f'rel="noopener" title="{html.escape(one["name"])}">'
+        f'<img src="{one["url"]}" alt="{html.escape(one["name"])}" loading="lazy"></a>'
+        f"{caption}</figure>"
+    )
+
+
 def references_html(offered: dict) -> str:
     """
-    The References column: the maneuvers table, the roles table and
-    the species table -- the Rules tab draws the same three from the
-    same dict (`webapp/static/aids.js`).
+    The References column, as the Rules tab's two reference chips draw
+    it from the same dict (`webapp/static/aids.js`): the maneuvers --
+    a condensed table a side, the hexagon at each tier offered, and
+    each card whole -- then the abilities, the roles table and the
+    species table.
     """
-    maneuvers = "".join(
+    tables = "".join(_maneuver_table_html(table) for table in offered["maneuver_rows"])
+    hexagons = "".join(
+        _hexagon_html(one, len(offered["maneuvers"]) > 1)
+        for one in offered["maneuvers"]
+    )
+    cards = "".join(
         f'<div class="ref-maneuvers"><div class="ref-side">{html.escape(table["name"])}</div>'
         + "".join(_maneuver_entry_html(one) for one in table["rows"])
         + "</div>"
@@ -949,13 +987,22 @@ def references_html(offered: dict) -> str:
         for one in offered["species_rows"]
     )
     return (
-        '<div class="panel-label">Maneuvers</div>'
-        f"{maneuvers}"
-        '<div class="panel-label">Roles</div>'
+        '<nav class="chips ref-jump" aria-label="References">'
+        '<a class="chip-tab" href="#ref-maneuvers">Maneuvers</a>'
+        '<a class="chip-tab" href="#ref-abilities">Abilities</a></nav>'
+        '<div class="panel-label" id="ref-maneuvers">Maneuvers</div>'
+        f"{tables}"
+        + (
+            f'<div class="panel-label">Maneuver reference</div>{hexagons}'
+            if hexagons else ""
+        )
+        + '<div class="panel-label">The cards</div>'
+        f"{cards}"
+        '<div class="panel-label" id="ref-abilities">Role abilities</div>'
         '<table class="ref-table"><tr><th></th><th>Role</th><th>OFF</th><th>DEF</th><th>Ability</th></tr>'
         f"{roles}</table>"
         + (
-            '<div class="panel-label">Species</div>'
+            '<div class="panel-label">Species abilities</div>'
             '<table class="ref-table"><tr><th></th><th>Species</th><th>Ability</th></tr>'
             f"{species}</table>"
             if species else ""
@@ -968,7 +1015,9 @@ def rules_html(document: RulesDocument, offered: dict) -> str:
     `/rules`, the Reading Room (step 10 of docs/web-app-redesign.md):
     the Laws down the left, the Law text in the middle, the References
     on the right, with a search over `/api/rules` and chips for the
-    Learn to Play and the rosters, which `aids.js` fetches. The Charter
+    Learn to Play and the rosters, which `aids.js` fetches, and one for
+    the References that only a narrow screen shows, where the column
+    falls under the text rather than beside it. The Charter
     and the References are set here, so the page reads without a
     script; every title is escaped, and the text is `rules_page`'s.
     """

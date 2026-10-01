@@ -265,6 +265,13 @@ class CharterTests(Harness):
                 self.assertIn(html.escape(row["effect"]), page)
         for row in aids.roles(ENGINE.player_catalog):
             self.assertIn(row["ability"].replace("'", "&#x27;"), page)
+        # Both hexagons, and each condensed row's link reaches its card.
+        for tier in MANEUVER_TIERS:
+            self.assertIn(f'src="/aids/maneuvers/{tier}.png"', page)
+        for table in aids.maneuver_rows(ENGINE.maneuver_catalog, ENGINE.player_catalog, MANEUVER_TIERS):
+            for row in table["rows"]:
+                self.assertIn(f'href="#ref-card-{row["key"]}"', page)
+                self.assertIn(f'id="ref-card-{row["key"]}"', page)
 
     async def test_the_learn_to_play_is_in_the_page(self) -> None:
         book = await (await self.get("/api/rules/learn")).json()
