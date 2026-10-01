@@ -25,7 +25,7 @@ None of it has tests -- the print materials carry none (the author,
 | `screentop-banner.png` / `-night.png` | 1280 x 720px | The same again at the size a Screentop table asks for |
 | `box-side.png` | 11.375 x 2.75in | One wall -- and all four, since the box is square |
 | `sale-sheet.png` | letter | One page for a buyer or a convention table -- **and the box's underside, for now** |
-| `playtest-card-front/back.png` | 3.5 x 2.5in | The box cover's art and where to read more on the front; the board, the survey QR and where to play online on the back |
+| `playtest-card-front/back.png` | 2.5 x 3.5in | The publisher, the title, the cover's four, the chips and where to read more on the front; the survey QR between two orange d12s, its address and where to play online on the back |
 | `playtest-cards-front/back-sheet.png` | letter, landscape | The card six to a page on Avery Presta 95328, printed duplex -- the print-and-play kit's `playtest-cards/` |
 
 Every piece that comes in two grounds follows one spelling: `<name>.png` is
@@ -485,7 +485,12 @@ without a word.
 
 Both addresses on these panels are `d12ball.com`'s: `PAGE_URL` is the site
 itself and `SURVEY_URL` its `/feedback` (the author's word, 2026-09-27),
-which the site forwards to the form
+printed on `www.` since 2026-10-01 (the author's word) because that is how a
+web address reads to somebody holding a card. The zone turns `www.` round to
+the bare domain, path kept, before Pages sees it
+([landing-pages.md](landing-pages.md), "What the dashboard did
+differently"), so the card's address is two hops -- that 301, then the
+site's own 302 -- to the form
 behind it, `SURVEY_FORM_URL` (landing/build.py, `REDIRECTS`). Until the site
 went up (2026-09-27, the landing pages' step 5) they were the two Notion
 addresses. A printed card cannot be edited; a redirect can, so the form or
@@ -497,40 +502,56 @@ they are not reprinted for this (the author, 2026-09-27), and the next print
 run carries the new code.
 
 **The landing build refuses a printed address the site does not serve**
-(`PRINTED_ADDRESSES` in `landing/build.py`): one that is off `d12ball.com`,
-or a path that is neither the page nor a redirect. A dead address on a card
+(`PRINTED_ADDRESSES` in `landing/build.py`): one that is off `d12ball.com`
+(`www.d12ball.com` counts as on it, for the redirect above), or a path that
+is neither the page nor a redirect. The build cannot see the zone's `www.`
+rule, which lives in the Cloudflare dashboard, so a card printed on `www.` is
+scanned once off paper before a print run. A dead address on a card
 is found by somebody holding the card, which is the worst place to find it.
 
 The shorter addresses also make simpler codes: at the same printed size the
 survey's modules went from 0.86mm to about 1.4mm, which is what let the code
 shrink to 1.4in when the box moved onto the postcard, and then to 0.9in
 (`PLAYTEST_QR_INCHES`) when the card became a poker card, still printing at
-0.62mm.
+0.62mm. The upright card's back carries nothing but the code and its words,
+so the code grew back to 1.3in, at 0.89mm a module; the `www.` costs nothing,
+since both addresses are a version 3 code (29 modules, 37 with the quiet
+zone).
 
 ## The playtest card
 
-**A poker card, held landscape, printed on the reference cards' stock**
-(the author, 2026-09-29): `PLAYTEST_CARD_INCHES` is 3.5 x 2.5in, and
-`playtest_card_sheets` puts it six to a page on Avery Presta 95328, the pair
-printed duplex exactly as the reference cards are. It was a 6 x 4in postcard
-until then.
+**A poker card, upright, printed on the reference cards' stock** (the
+author, 2026-09-29; upright since 2026-10-01): `PLAYTEST_CARD_INCHES` is 2.5
+x 3.5in, and `playtest_card_sheets` puts it six to a page on Avery Presta
+95328, the pair printed duplex exactly as the reference cards are. It was a
+6 x 4in postcard, and then the same card held landscape while its back
+carried the board.
 
-- **The front is the box cover's art, and under it "Visit d12ball.com for
-  more information"** (`PAGE_HOST`; the author, 2026-09-29), so the card a
-  table keeps looks like the box it came out of. The cover is cut to what is
-  printed on it and drawn with no frame: its own white margin is the card's
-  white, and a hairline round it drew a box on a card that is not one.
-- **The back is the board the table has just played on** (`board_photo`,
-  `strip_only`), with the survey's address under it; beside it the words and
-  the survey code; and under a rule, "Play online on play.d12ball.com"
-  (`PLAY_HOST`) and the publisher.
-- **The card is turned into the stock's upright slots, and its two faces the
-  opposite ways.** The page is flipped on its short edge, which mirrors it left
-  to right: the front is turned with its top to the page's right, so that
-  edge comes out at the page's left on the back, and the back is turned with
-  its top there. Cut and turned over side to side, the card reads the right
-  way up. `duplex_order` is still applied to the backs, harmlessly -- six of
-  one card -- so the pair is laid out as every other.
+- **The front is the cover's pieces drawn for a card, not the cover shrunk
+  onto one** (the author, 2026-10-01): the publisher's line at the top, the
+  title as wide as the card takes, the cover's four on their field, the
+  chips, and "Visit d12ball.com for more information" (`PAGE_HOST`) at the
+  foot. The whole cover scaled down to a poker card put every word on it at
+  a size nobody read. The four are `draw_cover_scene` -- the cover's own
+  scene, lifted out of `render_box_cover` with the cover byte-identical --
+  drawn on a scratch panel the cover's size and cut to what is inked on it,
+  so they stand as they do on the box. The chips keep one size and take a
+  second row (`draw_chip_rows`) rather than shrinking into one, which is
+  `draw_chip_row`'s answer on the cover; the title is centred on its ink in
+  the room between the publisher's line and the four's heads.
+- **The back is the survey and nothing else** (the author, 2026-10-01): the
+  headline in two lines broken at the sentence end nearest its middle
+  (`headline_lines`), the intro under it, the code centred between a pair
+  of the orange resin d12s (`dice.ORANGE`, the pair the author plays with,
+  drawn by `die_mark`), the survey's address under the code, and under a
+  rule "Play online on play.d12ball.com" (`PLAY_HOST`) over the publisher.
+  The dice stand clear of the code's frame: the quiet zone inside it is part
+  of the code.
+- **Both faces go into the stock's upright slots unturned**, as the
+  reference cards do. The page is flipped on its short edge, which mirrors
+  it left to right and leaves top as top, so `duplex_order` -- each row of
+  backs reversed -- is the whole of the correction. (Held landscape, the two
+  faces had to be turned opposite ways; upright, nothing is turned.)
 - **`PLAY_HOST` is a host, not a path on the site**, so it is printed as a
   name rather than an address and the landing build's `PRINTED_ADDRESSES`
   check does not cover it. The web app answers there, not the Pages site.

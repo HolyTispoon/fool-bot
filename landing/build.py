@@ -801,13 +801,27 @@ def redirects_file(site: str) -> str:
     )
 
 
+def www_to_bare(address: str, www: str, origin: str) -> str:
+    """`address` with `www.` taken off its host, if it is on `www`."""
+    if address == www or address.startswith(www + "/"):
+        return origin + address[len(www):]
+    return address
+
+
 def unserved_printed_addresses() -> list[str]:
     """The printed addresses the d12ball site does not serve: off its
-    origin, or a path that is neither the page nor a redirect."""
+    origin, or a path that is neither the page nor a redirect.
+
+    An address on `www.` counts as the origin's: the zone redirects
+    `www.` to the bare domain with its path kept before Pages sees it
+    (docs/design/landing-pages.md, "What the dashboard did
+    differently"), so its path is the site's to serve all the same."""
     origin = ORIGINS["d12ball"]
+    www = origin.replace("://", "://www.", 1)
     unserved = []
     for address in PRINTED_ADDRESSES:
-        path = address[len(origin):] if address.startswith(origin) else None
+        bare = www_to_bare(address, www, origin)
+        path = bare[len(origin):] if bare.startswith(origin) else None
         if path is None or (path not in ("", "/") and redirect_target("d12ball", path) is None):
             unserved.append(address)
     return unserved
