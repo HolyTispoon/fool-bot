@@ -899,6 +899,13 @@ class ScorchitTests(unittest.TestCase):
         with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
             self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
 
+    def test_an_injured_scorchit_is_not_asked(self) -> None:
+        # Forcing the test exhausts Scorchit 2, and an injured player
+        # uses no ability that would exhaust them (Law 15.4.2 c).
+        self.match.mark_injured(self.offense)
+        with holding(self.offense, SpecialAbility.FORCES_THE_TEST):
+            self.assertIsNone(ENGINE.force_test_offer(self.game, self.match))
+
     def test_nothing_once_the_stealer_has_the_ball(self) -> None:
         # A beaten Pinpoint owes the stealer a free Low Pass, which
         # makes them the handler: the cards now name one player twice,
@@ -1749,6 +1756,15 @@ class GlompexTests(unittest.TestCase):
             self.match.move_meeple(
                 self.joiner, *self.match.board.position_at_flat_index(1),
             )
+            self.assertEqual(
+                ENGINE.join_candidates(self.game, self.match), [],
+            )
+
+    def test_not_an_injured_glompex(self) -> None:
+        # Joining exhausts 1, and an injured player uses no ability
+        # that would exhaust them (Law 15.4.2 c).
+        self.match.mark_injured(self.joiner)
+        with holding(self.joiner, SpecialAbility.JOINS_THE_BALL):
             self.assertEqual(
                 ENGINE.join_candidates(self.game, self.match), [],
             )

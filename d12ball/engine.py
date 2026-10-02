@@ -2427,8 +2427,10 @@ class RulesEngine:
 
         A test an injury already forces is that test, not Scorchit's:
         where the card-winner is injured this answers None, and the
-        test costs its ordinary token each. The gambits need nothing
-        of their own here -- `gambit_cost_applies` and
+        test costs its ordinary token each. An injured Scorchit is not
+        asked either: the test costs them 2, and an injured player uses
+        no ability that would exhaust them (Law 15.4.2 c). The gambits
+        need nothing of their own here -- `gambit_cost_applies` and
         `gambit_benefit_applies` read the cards, so a forced test lands
         exactly as an injury-forced one does.
         """
@@ -2448,6 +2450,8 @@ class RulesEngine:
         # player. That is a maneuver already settled, and nothing here
         # is owed.
         if winner_id == loser_id or winner_id in match.injured:
+            return None
+        if loser_id in match.injured:
             return None
         if not self.has_special_ability(
             game, loser_id, SpecialAbility.FORCES_THE_TEST,
@@ -2502,8 +2506,9 @@ class RulesEngine:
         """
         **Glompex** (Law 21): who may step onto the ball's space before
         this maneuver's cards are chosen -- a player with the ability,
-        of either side, standing a space from the ball and not one of
-        the two players. Only against a challenge: Merge adds to a
+        of either side, standing a space from the ball, not one of the
+        two players and not injured, since the step exhausts 1 (Law
+        15.4.2 c). Only against a challenge: Merge adds to a
         roll, and an unchallenged maneuver rolls nothing. Offense first.
         """
         if match.maneuver_uncontested or match.challenger_id is None:
@@ -2516,6 +2521,7 @@ class RulesEngine:
             for side in (match.ball.possession, match.defending_side())
             for player_id in match.setup_for_side(side).field_players
             if player_id not in rolling
+            and player_id not in match.injured
             and match.distance_to_ball(player_id) == 1
             and self.has_special_ability(
                 game, player_id, SpecialAbility.JOINS_THE_BALL,
