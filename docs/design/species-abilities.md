@@ -1129,9 +1129,12 @@ the same door.
   - **The face drawn is the natural one**, so an ignite is said in words
     beside it, the same as `run_injury_test`.
 - **A landed pull is announced as a turnover, at the skill test's own size.**
-  `## {player} grabs the ball with their telekinetic powers!` and
-  **Turnover!** under it -- the author's wording, 2026-09-07. It replaced
-  "**They pull it in!**", which named the mechanic rather than what happened
+  `## {player} Mind Pulls` and **Turnover!** under it -- the author's
+  wording, 2026-10-02, when the web app's outcome banner put it up large; a
+  miss is `{player} fails to Mind Pull`, which replaced "The ball slips past
+  them." on the same day. Before that a landed pull was "{player} grabs the
+  ball with their telekinetic powers!" (2026-09-07), which had replaced
+  "**They pull it in!**": that named the mechanic rather than what happened
   and buried a change of possession mid-paragraph. The heading rides in
   `begin_run_back`'s `lead_in`, so it lands *after* the die: a message's
   attachments render below its content, and a result written above the roll
