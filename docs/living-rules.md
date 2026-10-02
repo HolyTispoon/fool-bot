@@ -1133,9 +1133,9 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.3.4** **A Cyborg's injury check is a damage test, and a Cyborg who fails it is Damaged, not Injured.** It is the same check and the same disadvantage under the Cyborgs' own words -- everywhere the rules say [injury check](#153-the-injury-check) (15.3) or [Injured](#154-playing-injured) (15.4), a Cyborg's damage test or a Damaged Cyborg is meant, and nothing about the check, the disadvantage or the substitution rules differs for them. Only the words (and the token art) are a Cyborg's own.
 
-**20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [damage test](#153-the-injury-check) (15.3), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17).
+**20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [damage test](#153-the-injury-check) (15.3) or a [contest](#101-where-the-ball-comes-to-rest) (10.1). **It is never declared in a [shootout test](#17-extreme-shootout) (17).**
 
-**20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. Overdrive is a flat bonus rather than a skill modifier, so a [Damaged](#154-playing-injured) (15.4) Cyborg keeps it.
+**20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: a Damaged player can add no tokens, so the drain cannot be paid.
 
 **20.3.7** **Charge-up.** Whenever players [run back](#124-running-back-after-a-steal) (12.4), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
 
@@ -1298,7 +1298,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Species | Ability |
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's advanced maneuver), and a burn that loses upgrades the opponent's. |
-| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it. Charge-up: -1 drain for not moving at all during a run back. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it; never in a shootout test, and never while Damaged. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball is brought to a teammate on your space -- take it over from them, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 

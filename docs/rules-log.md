@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-01.
+**As of:** 2026-10-02.
 
 ## Where the rules come from
 
@@ -165,6 +165,27 @@ zones are Thirds. Left until play under the full modifier says it is needed.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-02 -- author, no Overdrive or Boost in the shootout or while Damaged
+
+The author, after an odds study of Cyborgs in the extreme shootout: *"need to gate overdrive
+out of extreme shoutout"*; and, on reading 20.3.6: *"should be that you can't boost or
+overdrive while damaged."*
+
+- **Nothing is declared on a shootout test** (20.3.5). The shootout test leaves Overdrive's
+  list of rolls, and Boost goes with it, being declared on any roll Gearclaw could Overdrive
+  (21.4.3). The reason is the price: a shootout test charges no token and owes no damage test,
+  and the game ends after it, so drain cost nothing there. Played every time, the +5 won a
+  single test against an equal shooter 81% of the time rather than 46%, and a whole shootout
+  between two sides of offense 1-6 about 98% of the time rather than 50% (exact per test; the
+  whole shootout simulated, orders at random).
+- **A Damaged Cyborg may not Overdrive or Boost** (20.3.6). Not a change in play: a Damaged
+  player can add no tokens (15.4.1), so the drain could never be paid, and the bot has always
+  refused it. What changes is the sentence, which said the opposite -- *"Overdrive is a flat
+  bonus rather than a skill modifier, so a Damaged Cyborg keeps it"* -- a reading by extension
+  from the 2026-09-06 species entry ("an injured Cyborg keeps it") that the code never followed.
+- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"** and
+  says nothing of the shootout; the Charter's table row now does.
 
 ### 2026-10-01 (later still) -- sheet and author, Zorch keeps a halved speed bonus
 
