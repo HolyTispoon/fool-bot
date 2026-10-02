@@ -964,9 +964,8 @@ class RulesEngine:
         declaration and nothing else, since Gearclaw may declare both
         on one roll (Law 21).
 
-        A side whose coach has already said Roll on this roll
-        (`MatchState.roll_ready`) has closed its declarations: the die
-        is waiting only on the other coach now.
+        A side whose coach has passed on Overdrive for this roll
+        (`MatchState.overdrive_passed`) has closed its declarations.
         """
         if not self.species_abilities_apply(game):
             return []
@@ -977,9 +976,9 @@ class RulesEngine:
             and player_id not in match.injured
             and self.has_species_ability(game, player_id, SPECIES_CYBORG)
             and not (
-                match.roll_ready
+                match.overdrive_passed
                 and match.side_for_player(player_id).value
-                in match.roll_ready
+                in match.overdrive_passed
             )
         ]
 

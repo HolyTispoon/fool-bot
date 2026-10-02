@@ -70,7 +70,7 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Union
+from typing import Any, Callable, Iterable, Mapping, Optional, Union
 
 from d12ball.components import MatchState, RuleRefusal, TeamSide
 from d12ball.engine import RulesEngine
@@ -1299,7 +1299,7 @@ def _answer_injury_test(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The injury test the prompt names, rolled.
@@ -1318,11 +1318,11 @@ def _answer_injury_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
     if player_id is not None and player_id != prompt.player_id:
         _refuse("This injury test is no longer active.")
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return injuries.injury_test_step(engine, game, match, prompt.player_id)
 
 
@@ -1447,7 +1447,7 @@ def _answer_own_goal_roll(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The own-goal roll, and the numbers the dice are drawn from.
@@ -1465,9 +1465,9 @@ def _answer_own_goal_roll(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return effects.own_goal_roll_step(engine, game, match)
 
 
@@ -1502,7 +1502,7 @@ def _answer_skill_test(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """
     The maneuver's skill test, off the button either coach may press.
@@ -1510,9 +1510,9 @@ def _answer_skill_test(
     **It takes no arguments of its own**, which is what "nothing rolls
     dice on its own" looks like from this side: the action is that
     somebody pressed, and everything the roll needs is the position.
-    `sides` is which sides the press speaks for, read only while the
-    die waits on a coach's Overdrive (`rolls.hold_roll_step`, shared
-    by all six rolls).
+    It is refused while a coach is still deciding on Overdrive
+    (`rolls.refuse_roll_while_deciding`, shared by all six rolls); a
+    pass names the `side` passing.
     A tie comes back as this same prompt worded by what happened, so a
     frontend puts the question up again without knowing that a tie is
     a thing.
@@ -1523,9 +1523,9 @@ def _answer_skill_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return rolls.skill_test_step(engine, game, match)
 
 
@@ -1537,7 +1537,7 @@ def _answer_loose_ball_skill_test(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """The contest for the ball, which the long High Pass borrows."""
     if choice == "overdrive":
@@ -1546,9 +1546,9 @@ def _answer_loose_ball_skill_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return rolls.loose_ball_test_step(engine, game, match)
 
 
@@ -1560,7 +1560,7 @@ def _answer_score_attempt(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> object:
     """
     The shot -- or the coach changing their mind about taking it.
@@ -1584,9 +1584,9 @@ def _answer_score_attempt(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return rolls.score_attempt_step(engine, game, match)
 
 
@@ -1598,7 +1598,7 @@ def _answer_shootout_test(
     choice: str,
     *,
     player_id: Optional[str] = None,
-    sides: Sequence[str] = (),
+    side: Optional[str] = None,
 ) -> tuple[object, StepResult]:
     """Both shooters' dice, and the goal one of them scores."""
     if choice == "overdrive":
@@ -1607,9 +1607,9 @@ def _answer_shootout_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
-    held = rolls.hold_roll_step(engine, game, match, prompt, sides)
-    if held is not None:
-        return held
+    if choice == "pass":
+        return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
+    rolls.refuse_roll_while_deciding(engine, game, prompt)
     return rolls.shootout_test_step(engine, game, match)
 
 
@@ -1916,9 +1916,14 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
     PromptKind.MANEUVER_ACTION: {"": ("maneuver_key",)},
     PromptKind.FLY: {"fly": ("zone", "space_index")},
     # Overdrive is declared by a player, on every roll it can be
-    # declared on -- and so is Gearclaw's Boost (Law 21).
+    # declared on -- and so is Gearclaw's Boost (Law 21); a pass on
+    # them is a side's.
     **{
-        kind: {"overdrive": ("player_id",), "boost": ("player_id",)}
+        kind: {
+            "overdrive": ("player_id",),
+            "boost": ("player_id",),
+            "pass": ("side",),
+        }
         for kind in ROLL_KINDS
     },
 }

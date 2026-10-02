@@ -618,7 +618,7 @@ def may_answer(
     "nothing rolls dice on its own" means from this side: the die is
     there for both of them and neither is being asked a question.
     A roll whose die waits on a coach's Overdrive is that coach's
-    (`RollOptions.deciding_sides`). A spectator answers nothing.
+    (`RollOptions.deciding_side`). A spectator answers nothing.
     """
     if not viewer.is_coach:
         return False
@@ -952,16 +952,15 @@ def _roll(asked: Asked) -> list:
     """
     options = asked.options
     # While a coach's Overdrive or Boost is open the die waits on them
-    # (`RollOptions.deciding_sides`), and the press says which of those
-    # sides this viewer speaks for: theirs, or both in a game a viewer
-    # coaches both sides of.
-    waiting = options.get("deciding_sides") or []
-    sides = [side.value for side in asked.sides() if side.value in waiting]
+    # (`RollOptions.deciding_side`, Law 20.3.5): the die is dark, and
+    # beside the declarations is the explicit pass on them.
+    deciding = options.get("deciding_side")
     controls = [
         button(
             CHOICE_LABELS["roll"], asked.kind, "roll",
             place=ON_DIE, chip="roll",
-            **({"sides": sides} if waiting else {}),
+            disabled=deciding is not None,
+            note=DECIDE_FIRST_NOTE if deciding is not None else "",
         ),
     ]
     if options["back"]:
@@ -1002,8 +1001,21 @@ def _roll(asked: Asked) -> list:
             player_id=player_id,
         )
         for player_id in options["boost_player_ids"]
+    ] + [
+        # The explicit no, for the side deciding now if it is this
+        # viewer's: every Overdrive and Boost of theirs closed.
+        button(PASS_LABEL, asked.kind, "pass", side=side.value)
+        for side in asked.sides()
+        if side.value == deciding
     ]
     return [section(None, controls), section("Before the die", before)]
+
+
+#: The roll's note while a coach still decides on Overdrive.
+DECIDE_FIRST_NOTE = "Decide on Overdrive first."
+
+#: The explicit pass on Overdrive and Boost, on every roll they are on.
+PASS_LABEL = "Pass on Overdrive"
 
 
 #: What the yes of each decision is about on the board, and its chip.

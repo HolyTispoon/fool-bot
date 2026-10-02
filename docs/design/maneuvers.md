@@ -572,7 +572,9 @@ them itself and posted the answer.
 Overdrive and Boost are declared *before* the die is thrown (Law 20.3.5), and
 a Roll anybody may press let the other coach throw it before the Cyborg's
 coach had decided. So while a human coach's Cyborg on the roll may still
-declare, the die waits on that coach -- the third case in
+declare, the roll waits on that coach until they declare or pass -- the
+attacker's first, then the defender's -- and only then may either coach
+press Roll. See
 [species-abilities.md](species-abilities.md), "Overdrive is the only thing in
 the game declared before a roll". An AI side declares nothing and holds no
 die, so a solo game against an AI Cyborg rolls exactly as before.

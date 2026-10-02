@@ -813,11 +813,7 @@ class QuestionBoxTests(unittest.TestCase):
         self.assertEqual(self.box(fixture, Viewer(None))["waiting_on"], [])
 
     def cyborg_skill_test(self) -> PromptFixture:
-        """
-        A skill test between two Cyborgs whose attacker's coach has
-        already said Roll -- so the die waits on the defender's coach
-        alone.
-        """
+        """A skill test between two Cyborgs: both coaches may declare."""
         game = build_game(
             player_1_team=Team.CYBORGS,
             player_2_team=Team.CYBORGS,
@@ -835,30 +831,32 @@ class QuestionBoxTests(unittest.TestCase):
         challenge(match)
         match.offense_maneuver = "low_pass"
         match.defense_maneuver = "deflect"
-        match.ready_to_roll([match.side_for_player(match.active_player_id)])
-        return self.named(PromptFixture(game, match, "rolls:"))
+        return self.named(PromptFixture(game, match, "decides on Overdrive"))
 
-    def test_a_roll_waits_on_the_coach_whose_cyborg_may_overdrive(
-        self,
-    ) -> None:
+    def controls(self, box: dict) -> dict:
+        return {
+            control["action"]["choice"]: control
+            for group in box["controls"]
+            for control in group["controls"]
+            if control["action"]["choice"] in ("roll", "pass")
+        }
+
+    def test_a_roll_waits_on_the_attacker_s_overdrive_first(self) -> None:
         """
-        Overdrive is declared before the die is thrown (Law 20.3.5):
-        the die is the defender's coach's, the other coach waits on
-        them, and the press says whose side it speaks for.
+        Overdrive is declared before the die is thrown (Law 20.3.5),
+        the attacker first: their coach is offered the pass and a dark
+        die, and the defender's coach waits on them.
         """
         fixture = self.cyborg_skill_test()
-        side = fixture.match.side_for_player(fixture.match.challenger_id)
-        deciding = ENGINE.side_player_number(fixture.game, side)
+        match = fixture.match
+        attacker = match.side_for_player(match.active_player_id)
+        deciding = ENGINE.side_player_number(fixture.game, attacker)
         mine = self.box(fixture, Viewer(deciding))
         self.assertEqual(mine["state"], "yours")
-        roll = next(
-            control
-            for group in mine["controls"]
-            for control in group["controls"]
-            if control["action"]["choice"] == "roll"
-        )
+        controls = self.controls(mine)
+        self.assertTrue(controls["roll"]["disabled"])
         self.assertEqual(
-            roll["action"]["arguments"], {"sides": [side.value]},
+            controls["pass"]["action"]["arguments"], {"side": attacker.value},
         )
         theirs = self.box(fixture, Viewer(3 - deciding))
         self.assertEqual(theirs["state"], "waiting")

@@ -63,11 +63,6 @@ class SkillTestView(SafeView):
                 ephemeral=True,
             )
             return
-        action = await self.roll_action(
-            interaction, game, match, PromptKind.SKILL_TEST,
-        )
-        if action is None:
-            return
 
         # Acknowledge immediately, before the dice image is rendered.
         # Discord invalidates the interaction token if the first
@@ -85,7 +80,7 @@ class SkillTestView(SafeView):
         # picture and where it goes. A click on a test that is no
         # longer active is the driver's to refuse, by kind.
         result = await self.apply(
-            interaction, game, action,
+            interaction, game, Action(PromptKind.SKILL_TEST, "roll"),
             carry_from=1,
         )
         if result is None:
@@ -210,26 +205,22 @@ class InjuryTestView(SafeView):
                 ephemeral=True,
             )
             return
-        # **Who rolls is the prompt's, not the button's**: the queue
-        # decides whose test is owed next. The player this button was
-        # built for goes with the action so the driver can refuse a
-        # click on an earlier player's prompt after theirs has been
-        # rolled, rather than rolling the next one with it.
-        action = await self.roll_action(
-            interaction, game, match, PromptKind.INJURY_TEST,
-            {"player_id": self.player_id},
-        )
-        if action is None:
-            return
 
         # Deferred before the die is rendered, for the reason spelled
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
+        # **Who rolls is the prompt's, not the button's**: the queue
+        # decides whose test is owed next. The player this button was
+        # built for goes with the action so the driver can refuse a
+        # click on an earlier player's prompt after theirs has been
+        # rolled, rather than rolling the next one with it.
         result = await self.apply(
             interaction,
             game,
-            action,
+            Action(
+                PromptKind.INJURY_TEST, "roll", {"player_id": self.player_id},
+            ),
             carry_from=lambda answered: 0 if answered.detail is None else 1,
         )
         if result is None:
@@ -282,18 +273,13 @@ class OwnGoalRollView(SafeView):
                 ephemeral=True,
             )
             return
-        action = await self.roll_action(
-            interaction, game, match, PromptKind.OWN_GOAL_ROLL,
-        )
-        if action is None:
-            return
 
         # Deferred before the dice are rendered, for the reason spelled
         # out in SkillTestView.roll.
         await interaction.response.defer()
 
         result = await self.apply(
-            interaction, game, action,
+            interaction, game, Action(PromptKind.OWN_GOAL_ROLL, "roll"),
         )
         if result is None:
             return
@@ -371,11 +357,6 @@ class ScoreAttemptView(SafeView):
                 ephemeral=True,
             )
             return
-        action = await self.roll_action(
-            interaction, game, match, PromptKind.SCORE_ATTEMPT,
-        )
-        if action is None:
-            return
 
         # **The rule is `d12ball.flow.rolls.score_attempt_step`** since
         # Phase 6: the roll, the wall's price, Merge, the Striker's +3,
@@ -383,7 +364,7 @@ class ScoreAttemptView(SafeView):
         # all the model's. What is left here is the picture, the
         # portrait, and where each goes.
         result = await self.apply(
-            interaction, game, action,
+            interaction, game, Action(PromptKind.SCORE_ATTEMPT, "roll"),
         )
         if result is None:
             return

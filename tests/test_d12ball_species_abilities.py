@@ -1144,8 +1144,9 @@ class OverdriveBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
     """
     Overdrive is declared before the die is thrown (Law 20.3.5), so a
     roll with a Cyborg's declaration open is put to that Cyborg's
-    coach -- named and pinged -- and the other coach's Roll is refused
-    rather than throwing the die before they have decided.
+    coach -- named and pinged -- with a Pass on Overdrive beside the
+    Overdrive, and Roll is refused, whoever presses it, until they
+    have declared or passed.
     """
 
     def setUp(self) -> None:
@@ -1169,48 +1170,71 @@ class OverdriveBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
         match.defense_maneuver = "deflect"
         self.game.match_state = match.to_dict()
 
-    def press(self, user_id: int) -> SimpleNamespace:
+    def press(self, user_id: int, custom_id: str = "") -> SimpleNamespace:
         interaction = build_ignition_interaction()
         interaction.user = SimpleNamespace(id=user_id, display_name="")
+        interaction.data = {"custom_id": custom_id}
+        # Not yet answered, so a refusal or a pass is the click's own
+        # reply.
+        interaction.response.is_done = lambda: False
         return interaction
 
     def test_the_roll_is_asked_of_the_cyborg_s_coach(self) -> None:
         match = self.cog.engine.load_match_state(self.game)
         prompt = pending_prompt(self.cog.engine, self.game, match)
-        self.assertTrue(prompt.ask.startswith(f"{tokens.coach(1)} rolls"))
-        rendered = self.cog.render_text(prompt.ask, self.game)
-        self.assertIn("<@111>", rendered)
-        self.assertNotIn("Either player", rendered)
+        self.assertTrue(prompt.ask.startswith(
+            f"{tokens.coach(1)} decides on Overdrive",
+        ))
+        self.assertIn("<@111>", self.cog.render_text(prompt.ask, self.game))
 
-    async def test_the_other_coach_s_roll_is_refused(self) -> None:
+    def test_the_prompt_carries_a_pass_for_the_coach_deciding(self) -> None:
         view = SkillTestView(self.cog, self.game.game_id)
-        interaction = self.press(222)
-        # Not yet answered, so the refusal is the click's own reply.
-        interaction.response.is_done = lambda: False
-        with suppressed_cog_saves(), mock.patch(
-            "random.Random.randint", side_effect=AssertionError("rolled"),
-        ):
-            await view.roll(interaction)
-        interaction.response.defer.assert_not_awaited()
-        reply = interaction.response.send_message.await_args
-        self.assertTrue(reply.kwargs["ephemeral"])
-        self.assertIn("The die waits on <@111>", reply.args[0])
-        match = self.cog.engine.load_match_state(self.game)
-        self.assertEqual(
-            pending_prompt(self.cog.engine, self.game, match).kind,
-            PromptKind.SKILL_TEST,
+        custom_ids = [item.custom_id for item in view.children]
+        self.assertIn("d12ball:overdrive_pass:g1:home", custom_ids)
+        self.assertNotIn("d12ball:overdrive_pass:g1:visiting", custom_ids)
+
+    async def test_the_roll_is_refused_until_the_coach_decides(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        for user_id in (111, 222):
+            with self.subTest(user_id), suppressed_cog_saves(), mock.patch(
+                "random.Random.randint", side_effect=AssertionError("rolled"),
+            ):
+                interaction = build_ignition_interaction()
+                interaction.user = SimpleNamespace(id=user_id, display_name="")
+                await view.roll(interaction)
+                interaction.edit_original_response.assert_not_awaited()
+                refusal = interaction.followup.send.await_args
+                self.assertTrue(refusal.kwargs["ephemeral"])
+                self.assertIn("The die waits on <@111>", refusal.args[0])
+
+    async def test_only_that_coach_may_pass(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        interaction = self.press(222, "d12ball:overdrive_pass:g1:home")
+        with suppressed_cog_saves():
+            await view.pass_on_overdrive(interaction)
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"],
         )
+        match = self.cog.engine.load_match_state(self.game)
+        self.assertEqual(match.overdrive_passed, [])
 
-    async def test_the_cyborg_s_coach_throws_the_die(self) -> None:
+    async def test_a_pass_frees_the_die_for_either_coach(self) -> None:
         view = SkillTestView(self.cog, self.game.game_id)
-        interaction = self.press(111)
+        interaction = self.press(111, "d12ball:overdrive_pass:g1:home")
+        with suppressed_cog_saves():
+            await view.pass_on_overdrive(interaction)
+        said = interaction.response.send_message.await_args.args[0]
+        self.assertIn("<@111> passes on Overdrive.", said)
+        self.assertIn("Either player can roll.", said)
+
+        interaction = build_ignition_interaction()
+        interaction.user = SimpleNamespace(id=222, display_name="Two")
         with injury_queue_stops_the_chain(
             self.cog,
         ), suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[6, 1, 9],
         ), mock.patch("discord.File"):
             await view.roll(interaction)
-        interaction.response.defer.assert_awaited_once()
         interaction.edit_original_response.assert_awaited()
 
 

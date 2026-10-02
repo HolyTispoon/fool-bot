@@ -1093,12 +1093,13 @@ renderer (`d12ball/dice_brief.py`) so the web page draws the same dice.
   app re-derive which roll a Cyborg is in, which is the rule.
   - **The roll waits on the Cyborg's coach while a declaration is open**
     (2026-10-02; the why is in species-abilities.md, "Overdrive is the
-    only thing in the game declared before a roll"). Who it waits on is
-    the model's -- `RollOptions.deciding_sides`, read by `asked_sides`
-    -- and who pressed is the frontend's, so the roll action carries the
-    `sides` its press speaks for and `rolls.hold_roll_step` refuses or
-    holds against the prompt's own list. The same split as the
-    declaration's: the rule in `ANSWERS`, the account in `SafeView`.
+    only thing in the game declared before a roll"). Who it waits on,
+    and in what order, is the model's -- `RollOptions.undecided_sides`
+    and its `deciding_side`, read by `asked_sides` -- and the coach's
+    "no" is a fourth choice on the same prompt, `pass`, naming its
+    `side`. The roll itself still takes no arguments and is refused
+    while anybody decides. The same split as the declaration's: the
+    rule in `ANSWERS`, the account in `SafeView`.
 - **The other two rolls went with them**, into their own modules
   rather than this one: `injuries.injury_test_step` and
   `arrivals.attempt_mind_pull_step`, each beside the queue it drains.
