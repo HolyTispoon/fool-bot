@@ -2693,14 +2693,14 @@ class RulesEngine:
         """
         **Zorch** adds the ball speed modifier to every roll they make
         (Law 21): the number, and the line the dice list it under, or
-        `(0, "")` for anybody else or a ball at speed 1 -- a bonus of
-        nothing says nothing.
+        `(0, "")` for anybody else. Since 2026-10-01 the modifier is the
+        speed itself, so Zorch always adds at least 1.
 
         The caller asks only where the roll does not already add the
         modifier to Zorch's side -- Zorch shooting, contesting a
         maneuver with Steal or Intercept, or holding the thrower's side
         of a High Pass contest -- because Zorch adds it once, not twice
-        (the author, 2026-09-27). It is the ball's speed halved and
+        (the author, 2026-09-27). It is `BallState.speed_modifier`,
         never signed: a High Pass that reaches the goal zone counts the
         modifier against itself, and Zorch's own bonus is not that
         pass's.
@@ -2709,9 +2709,7 @@ class RulesEngine:
             game, player_id, SpecialAbility.SPEED_ROLLS,
         ):
             return 0, ""
-        modifier = match.ball.speed // 2
-        if not modifier:
-            return 0, ""
+        modifier = match.ball.speed_modifier
         return modifier, f"+{modifier} ball speed modifier"
 
     def controlling_player_number(

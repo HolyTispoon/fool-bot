@@ -719,7 +719,7 @@ class ZorchTests(unittest.TestCase):
         self.match = build_match(ENGINE, self.game)
         self.offense = self.match.home.field_players[0]
         self.defense = self.match.visiting.field_players[0]
-        self.match.ball.speed = 7  # modifier +3
+        self.match.ball.speed = 3  # modifier +3: the speed itself
         self.match.offense_maneuver = "low_pass"
         self.match.defense_maneuver = "pressure"
 
@@ -738,7 +738,7 @@ class ZorchTests(unittest.TestCase):
             (0, ""),
         )
 
-    def test_it_is_half_the_speed_and_nothing_at_speed_one(self) -> None:
+    def test_it_is_the_speed_and_one_at_speed_one(self) -> None:
         with holding(self.offense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(
                 ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
@@ -747,7 +747,7 @@ class ZorchTests(unittest.TestCase):
             self.match.ball.speed = 1
             self.assertEqual(
                 ENGINE.speed_roll_bonus(self.game, self.match, self.offense),
-                (0, ""),
+                (1, "+1 ball speed modifier"),
             )
 
     def test_only_in_advanced_mode(self) -> None:

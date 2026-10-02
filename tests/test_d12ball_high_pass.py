@@ -146,8 +146,13 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
 
     def rolls_for(
         self, cog: D12Ball, receiver: str, challenger: str, winner: str,
+        by: int = 1,
     ) -> list[int]:
-        """Dice that make `winner` ("offense"/"defense") take the test."""
+        """
+        Dice that make `winner` ("offense"/"defense") take the test by
+        `by` on skill alone -- a High Pass's thrower adds the ball speed
+        on top, at least 1, so a defense meant to win one says `by=2`.
+        """
         offense_skill = cog.player_catalog.effective_profile(
             cog.engine.get_player_definition(receiver)
         ).offense
@@ -159,8 +164,8 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         defense_roll = offense_roll + offense_skill - defense_skill
         self.assertTrue(2 <= defense_roll <= 11)
         if winner == "offense":
-            return [offense_roll, defense_roll - 1]
-        return [offense_roll, defense_roll + 1]
+            return [offense_roll, defense_roll - by]
+        return [offense_roll, defense_roll + by]
 
     def test_the_prompts_name_the_contest_they_belong_to(self) -> None:
         """
@@ -278,7 +283,9 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         view = LooseBallSkillTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
             "random.Random.randint",
-            side_effect=self.rolls_for(cog, receiver, challenger, "defense"),
+            side_effect=self.rolls_for(
+                cog, receiver, challenger, "defense", by=2,
+            ),
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
@@ -349,7 +356,7 @@ class HighPassContestTests(unittest.IsolatedAsyncioTestCase):
         cog, game, match, receiver, challenger = self.build_contest(
             is_high_pass=is_high_pass,
         )
-        match.ball.speed = 4  # a +2 modifier
+        match.ball.speed = 2  # a +2 modifier: the speed itself
         game.match_state = match.to_dict()
         return cog, game, match, receiver, challenger
 
@@ -654,7 +661,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
             match.active_player_id, match.ball.zone, match.ball.space_index,
         )
         match.pending_action = "shoot"
-        match.ball.speed = 6  # a modifier of 3, either way round
+        match.ball.speed = 3  # a modifier of 3, either way round
         match.pending_high_pass_overshoot = overshot
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game

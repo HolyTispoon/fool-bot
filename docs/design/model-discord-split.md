@@ -1062,7 +1062,7 @@ renderer (`d12ball/dice_brief.py`) so the web page draws the same dice.
   they are four functions and not one with flags. Injury withholds a
   contestant's own skill in the loose ball and the shootout and not in
   the other two; a tie is re-rolled at a token each in the skill test
-  and the loose ball, goes to the attacker in a score attempt, and
+  and the loose ball, is a miss in a score attempt, and
   scores for nobody in a shootout; the tutorial scripts the first
   two's dice and deliberately scripts neither of the others; only the
   skill test and the shot write an event.

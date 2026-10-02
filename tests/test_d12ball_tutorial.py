@@ -573,9 +573,9 @@ class TutorialPlaythroughTests(unittest.IsolatedAsyncioTestCase):
         **The shot's outcome is not asserted, because the script does
         not fix it.** It is deliberately left to the dice (see "The
         five beats" in docs/design/tutorial.md), a heavy favourite and not a
-        certainty, so a test demanding a goal fails one run in seven
+        certainty, so a test demanding a goal fails about one run in ten
         for the reason the tutorial is built to allow -- which it did,
-        on `main`, at about that rate. What the fold has to agree with
+        on `main`, at one in seven while ties still scored. What the fold has to agree with
         is what *happened*, so the goal counts are read off the goal
         log: a separate record, written by `record_goal` rather than
         by the `shot` event this fold counts, so the two agreeing is a

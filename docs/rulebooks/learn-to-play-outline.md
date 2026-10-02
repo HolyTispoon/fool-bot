@@ -154,7 +154,7 @@ loses.
   stealer carries the ball a space back toward your goal, and everyone
   out of position runs back. (Law 6.9, 12.1, 12.3)
 - Then the stealer sets the ball's speed, up to their defensive skill.
-  Take the most: speed 4 is worth +2 on the shot you are about to take.
+  Take the most: speed 4 is worth +4 on the shot you are about to take.
   (Law 6.9, 7.1)
 
 **Turn 5 -- Figure 9.** Home: High Pass, 2 spaces. Visitors: Steal.
@@ -165,8 +165,8 @@ loses.
   more has to be won. Caught in shooting range, it is a **scoring
   opportunity**: your Striker shoots at once, out of turn, and adds 3
   for it. (Law 6.7, 8.1-8.3)
-- The shot: d12 + 6 + 3 + 2 against d12 + 6 for the Fullback standing
-  on the ball. Equal totals score. Roll it. (Law 5.2-5.3)
+- The shot: d12 + 6 + 3 + 4 against d12 + 6 for the Fullback standing
+  on the ball. A tie is a miss. Roll it. (Law 5.2-5.3)
 - Whatever happens, the ball is dead: a **new play**. Both sides go
   back to where they started, and the side restarting may take a
   Coaching Choice (page 11). Then keep playing -- you know enough now.
@@ -189,8 +189,8 @@ loses.
 
 ![Ball speed](figures/fig-13-ball-speed.png)
 
-- The ball is a d12 and the face it shows is its speed. Half of it,
-  rounded down, is added to your shot -- and to a Steal against you.
+- The ball is a d12 and the face it shows is its speed. The speed
+  itself is added to your shot -- and to a Steal against you.
   Every turnover resets it to 1. (Law 7)
 
 **Figure 11** -- where the ball comes to rest.

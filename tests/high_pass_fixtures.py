@@ -552,7 +552,7 @@ def an_overshoot_into_a_set_up() -> PassFixture:
     disadvantage, because the pass arrived faster than they could
     settle it.
     """
-    match, passer = stand_a_pass("high_pass", passer_flat=5, speed=4)
+    match, passer = stand_a_pass("high_pass", passer_flat=5, speed=2)
     receiver = put_a_teammate_on(match, 6, PlayerRole.STRIKER)
     return PassFixture(
         game=build_game(),
@@ -572,19 +572,19 @@ def an_overshoot_into_a_set_up() -> PassFixture:
             "contest_on_decline": True,
         },
         ball_space=lands_on(match, 2),
-        ball_speed=4,
+        ball_speed=2,
         carrier_id=receiver,
         overshoot_flag=True,
     )
 
 
-def an_overshoot_with_no_modifier_to_pay() -> PassFixture:
+def an_overshoot_at_walking_pace() -> PassFixture:
     """
-    The same branch with the ball walking: the modifier is the speed
-    halved and rounded down, so a speed of 1 pays nothing and **a move
-    that costs nothing says nothing** -- the note is absent rather
-    than reading "(0)". The flag is set all the same, because the
-    contest behind a declined set-up reads it too.
+    The same branch with the ball walking. The modifier is the speed
+    itself (Law 7.1, since 2026-10-01), so even a speed of 1 pays 1 and
+    the note is always there -- it used to be halved, and a walking
+    ball paid nothing and said nothing. The flag is set all the same,
+    because the contest behind a declined set-up reads it too.
     """
     match, passer = stand_a_pass("high_pass", passer_flat=5, speed=1)
     receiver = put_a_teammate_on(match, 6, PlayerRole.STRIKER)
@@ -596,7 +596,8 @@ def an_overshoot_with_no_modifier_to_pay() -> PassFixture:
         distance=2,
         narration=(
             f"{high_pass_text(1)} The ball reaches the goal zone -- a "
-            "scoring opportunity!"
+            "scoring opportunity! The ball comes in too fast to settle -- the "
+            "ball speed modifier counts **against** what follows (-1)."
         ),
         follow_on=SCORING_ATTEMPT,
         follow_on_kwargs={
@@ -984,7 +985,7 @@ PASS_CASES = [
         two_spaces_into_a_set_up_contested,
         two_spaces_short_of_shooting_range,
         an_overshoot_into_a_set_up,
-        an_overshoot_with_no_modifier_to_pay,
+        an_overshoot_at_walking_pace,
         an_overshoot_onto_nobody,
         nowhere_left_to_throw_it,
         a_long_pass_into_a_contest,

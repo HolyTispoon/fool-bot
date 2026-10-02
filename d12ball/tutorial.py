@@ -31,12 +31,13 @@ step of it lands where the next beat expects, so:
 - **The score attempt at the end is not scripted.** It is the one roll
   in the tutorial that decides something the coach actually wants, and
   the play is built so it is a heavy favourite rather than a certainty:
-  the striker's d12+11 -- offensive skill 6, the Striker's +3 off a
-  set-up, and +2 for the ball speed beat 4 told the coach to crank --
-  against the fullback's d12+6, which is **85.4%**. A tutorial that
-  cannot lose its last shot is not teaching the game. That the speed
-  rail in beat 4 is worth a whole point of that margin is the reason it
-  is railed at all, and the reason the lesson explains it rather than
+  the striker's d12+13 -- offensive skill 6, the Striker's +3 off a
+  set-up, and +4 for the ball speed beat 4 told the coach to crank --
+  against the fullback's d12+6, which scores on a higher total alone
+  (a tie is a miss), **89.6%**. A tutorial that cannot lose its last
+  shot is not teaching the game. That the speed rail in beat 4 is worth
+  three points of that margin over a ball left at speed 1 is the reason
+  it is railed at all, and the reason the lesson explains it rather than
   just greying the buttons.
 
 **There is no beat for the Coaching Choice**, and there cannot be one:
@@ -383,8 +384,8 @@ BEATS: tuple[TutorialBeat, ...] = (
             "their own zone runs back into it**, exhausting 1 per space, the "
             "same cost you watched Dinky pay two turns ago.\n\n"
             "Then you get to set the **ball's speed**, up to your "
-            "stealer's defensive skill. Speed is worth half itself, "
-            "rounded down, **added to a score attempt** -- and it is "
+            "stealer's defensive skill. The speed itself is "
+            "**added to a score attempt** -- and it is "
             "reset by every turnover, so a speed set now is one that "
             "survives. You are about to shoot. **Take the highest "
             "number offered**; the rest are greyed out."
@@ -434,16 +435,16 @@ BEATS: tuple[TutorialBeat, ...] = (
             "whoever it lands near, with the ball's speed counting "
             "against them.\n\n"
             "Then take the shot. A score attempt is your d12 plus the "
-            "shooter's offensive skill and half the ball's speed, "
+            "shooter's offensive skill and the ball's speed, "
             "against Dinky's d12 plus every defender in the way -- one "
             "standing **on** the ball adds all of their defensive "
-            "skill, one further back adds half, rounded up. Ties go to "
-            "the shooter.\n\n"
+            "skill, one further back adds half, rounded up. A tie is a "
+            "miss: the shooter has to be higher.\n\n"
             "Their fullback is standing on space 7, so you get their whole "
             "defensive skill of 6 against you. Even so: your striker "
-            "rolls **d12+11** against their **d12+6**. That is a real "
-            "roll and it can miss -- but you should score about six "
-            "times in seven."
+            "rolls **d12+13** against their **d12+6**. That is a real "
+            "roll and it can miss -- but you should score about nine "
+            "times in ten."
         ),
         player_has_ball=True,
         player_maneuver=HIGH_PASS,

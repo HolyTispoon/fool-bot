@@ -261,7 +261,8 @@ their own (below).
     decides whether to ask**: where the roll already adds the modifier
     to Zorch's side (a Steal or Intercept, the thrower's side of a High
     Pass contest, the shot) it does not, because Zorch adds it once.
-    It is `ball.speed // 2`, never `ball_speed_modifier()`'s signed
+    It is `BallState.speed_modifier` (the speed itself since
+    2026-10-01, so never 0), never `ball_speed_modifier()`'s signed
     value -- the sign a High Pass into the goal zone pays is the pass's
     penalty, not Zorch's. **Scorchit's test is their coach's choice** --
     "may force" (the author, 2026-09-26) -- so it is a prompt,

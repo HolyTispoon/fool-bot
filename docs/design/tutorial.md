@@ -147,11 +147,14 @@ expects.
 - **The score attempt is deliberately not scripted.** It is the one
   roll that decides something the coach wants, and the play is built so
   it is a heavy favourite rather than a certainty: the striker's
-  **d12+11** against the fullback's **d12+6**, which is **85.4%**,
-  measured at 87% over 200 playthroughs. A tutorial that cannot lose
-  its last shot is not teaching the game.
+  **d12+13** against the fullback's **d12+6**, scoring only on a higher
+  total, which is **89.6%** (it was d12+11 with ties scoring, 85.4%,
+  until the ball speed modifier became the speed and a tied shot a
+  miss on 2026-10-01). A tutorial that cannot lose its last shot is not
+  teaching the game.
   - **So a test that plays the script may not assert the ball went
-    in.** One did, and failed about one run in seven on `main` -- for
+    in.** One did, and failed about one run in seven on `main` (one in
+    ten now) -- for
     exactly the reason the shot is left open, which is why it read as
     a flake rather than as the test asking for something the design
     refuses to promise. A test that needs the goal pins the dice
@@ -159,11 +162,12 @@ expects.
     only needs the *statistics* to be right reads the outcome off the
     match and checks the fold agrees with it. See "The playthrough
     test".
-  - **Beat 4's speed rail is worth a whole point of that margin**, and
+  - **Beat 4's speed rail is worth three points of that margin** (speed
+    4 against the 1 a turnover leaves), and
     is the reason the lesson explains it rather than just greying the
     buttons. A turnover resets ball speed, so beat 1's speed choice is
     thrown away and only the one set *after* beat 4's steal survives to
-    the shot -- half of it, rounded down, is added to the attempt.
+    the shot -- the speed itself is added to the attempt.
 
 ### The five beats
 

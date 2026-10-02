@@ -155,7 +155,7 @@ class EndPeriodTests(PeriodFixture):
     def test_full_time_turns_the_ball_over_at_speed_one(self) -> None:
         """Law 7.3: every turnover resets the speed, and full time is
         one -- so the shootout is played at speed 1 (the author,
-        2026-09-27), which is what makes Zorch's bonus nothing there."""
+        2026-09-27), which is what makes Zorch's bonus 1 there."""
         self.match.scoreboard.period = MatchPeriod.SECOND_HALF
         self.match.scoreboard.time = 30
         self.match.scoreboard.last_possession = True

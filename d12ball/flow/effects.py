@@ -1911,14 +1911,11 @@ def offer_goal_zone_set_up(
     match.set_ball_carrier(shooter_id)
 
     penalty = match.ball_speed_modifier()
-    # A move that costs nothing says nothing: the modifier is the
-    # speed halved and rounded down, so a walking ball pays none and
-    # the note is absent rather than reading "(0)".
+    # The modifier is the speed itself (Law 7.1), never below 1, so
+    # every pass that reaches the goal zone pays it.
     speed_note = (
         " The ball comes in too fast to settle -- the ball speed "
         f"modifier counts **against** what follows ({penalty})."
-        if penalty
-        else ""
     )
     return StepResult(
         narration=[

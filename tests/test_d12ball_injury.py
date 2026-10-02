@@ -340,7 +340,7 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         match.set_ball_space(*match.board.meeple_position(striker))
         match.pending_action = "shoot"
         match.pending_shot_is_set_up = True
-        match.ball.speed = 1  # speed // 2 == 0, so no ball speed term.
+        match.ball.speed = 1  # the modifier is the speed: +1.
         if injure:
             match.injured.add(striker)
         game.match_state = match.to_dict()
@@ -385,14 +385,14 @@ class InjuredStrikerKeepsTheSetUpBonusTests(unittest.IsolatedAsyncioTestCase):
         _, _, _, detail, total, _, _ = await self.roll_attempt(injure=False)
 
         self.assertIn("+3 Striker ability", detail)
-        # d12 of 7, offensive skill 6, ability +3.
-        self.assertEqual(total, 16)
+        # d12 of 7, offensive skill 6, ball speed +1, ability +3.
+        self.assertEqual(total, 17)
 
     async def test_an_injured_striker_keeps_it(self) -> None:
         _, _, _, detail, total, _, _ = await self.roll_attempt(injure=True)
 
         self.assertIn("+3 Striker ability", detail)
-        self.assertEqual(total, 16)
+        self.assertEqual(total, 17)
 
 
 class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
@@ -426,7 +426,7 @@ class InjuredContestantAddsNoSkillTests(unittest.IsolatedAsyncioTestCase):
         match.pending_loose_ball_is_high_pass = high_pass
         match.loose_ball_offense_player = offense
         match.loose_ball_defense_player = defense
-        match.ball.speed = 6  # speed // 2 == 3.
+        match.ball.speed = 3  # the modifier is the speed: +3.
         if injure == "offense":
             match.injured.add(offense)
         elif injure == "defense":

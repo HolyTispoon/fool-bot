@@ -32,8 +32,8 @@ is a rule rather than an accident:
   the shootout, and not in the skill test or the score attempt.** See
   "Injured players" in docs/living-rules.md.
 - **A tie is re-rolled in the skill test and the loose ball**, at a
-  token each; a score attempt goes to the attacker on level totals, and
-  a shootout tie simply scores for nobody.
+  token each; a score attempt is a miss on level totals (the author,
+  2026-10-01), and a shootout tie simply scores for nobody.
 - **The tutorial scripts the skill test's dice and the loose ball's**,
   and deliberately scripts neither of the other two -- a beat only
   fixes a roll the next beat depends on. See
@@ -382,7 +382,7 @@ def score_skill_test(
         defense_detail.append("+3 Midfielder ability")
 
     if match.defense_maneuver in ("steal", "intercept"):
-        modifier = match.ball.speed // 2
+        modifier = match.ball.speed_modifier
         defense_total += modifier
         defense_detail.append(f"+{modifier} ball speed modifier")
 
@@ -1352,8 +1352,8 @@ def score_attempt_step(
     """
     The shot, off the button either coach may press.
 
-    **The one contested roll with no tie in it**: level totals go to
-    the attacker, so there is nothing to re-roll and no token to
+    **The one contested roll with no tie in it**: level totals are a
+    miss (Law 5.2.3), so there is nothing to re-roll and no token to
     charge. What it always ends on is a run back -- goal or miss, the
     ball is dead and being restarted, so this is a new play and both
     restarts open a substitution window.
@@ -1379,7 +1379,9 @@ def score_attempt_step(
     )
     match.consume_overdrive()
 
-    scored = attack_total >= defense_total
+    # A tie is a miss (Law 5.2.3, the author 2026-10-01): the attack has
+    # to beat the defense's total.
+    scored = attack_total > defense_total
     dice = ShotDice(
         contestants,
         ((shooter.player_id, attack_ignite),),
@@ -1442,9 +1444,12 @@ def score_attempt_step(
                 ),
             ],
             (
-                f"**{attack_total}** is equal to or higher than "
+                f"**{attack_total}** is higher than "
                 f"**{defense_total}**: the attack scores."
                 if scored else
+                f"**{attack_total}** ties **{defense_total}**: a tie is "
+                "a miss."
+                if attack_total == defense_total else
                 f"**{attack_total}** is lower than **{defense_total}**: "
                 "the attack does not score."
             ),
@@ -1588,8 +1593,8 @@ def score_shootout_test(
         ignites.append((player.player_id, ignite))
         overdrive = match.overdrive_modifier(player.player_id)
         # Zorch adds the modifier to every roll they make (Law 21) --
-        # which here is nothing, since full time left the ball at
-        # speed 1 (Law 7.3), but it is asked like every other roll.
+        # which here is 1, since full time left the ball at speed 1
+        # (Law 7.3) and the modifier is the speed itself (Law 7.1).
         speed, speed_line = engine.speed_roll_bonus(
             game, match, player.player_id,
         )

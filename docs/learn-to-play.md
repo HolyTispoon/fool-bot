@@ -108,7 +108,7 @@ The visitors' Midfielder has the ball on space 6 with your Playmaker and Winger 
 
 Steal beats Low Pass. Possession flips, the ball's speed resets to 1, and your stealer carries the ball **one space back toward your own goal**, to space 5. Then everyone out of position runs back: the visitors' Midfielder walks two spaces home to space 5 and exhausts 2. *(Law 6.9, 12.1, 12.4)*
 
-Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. Half the speed, rounded down, is added to a shot -- speed 4 is worth **+2** on the one you are about to take. *(Law 6.9, 7.1)*
+Last, the stealer **sets the ball's speed**, up or down by up to their defensive skill. Take the most: 1 + 3 = **4**. The speed is added to a shot -- speed 4 is worth **+4** on the one you are about to take. *(Law 6.9, 7.1)*
 
 ### Turn 5: a 2-space High Pass sets up the shot
 
@@ -118,7 +118,7 @@ Your Playmaker has the ball on space 5, in range, with the visitors' Midfielder 
 
 You are asked how far to throw: **2 spaces** lands on space 7, where your Striker has been standing all game. A pass of exactly 2 is caught cleanly; a pass of 3 or more has to be won by the receiver. And a catch inside shooting range is a **scoring opportunity**: the Striker shoots at once, out of turn, and the Striker's ability adds 3 to exactly that shot. *(Law 6.7, 8.1, 8.3)*
 
-**Roll the shot.** Attack: d12 + 6 (the Striker's skill) + 3 (a Striker off a set-up) + 2 (ball speed 4). Defense: d12 + 6 -- the visitors' Fullback is standing on the ball and adds their whole defensive skill. **Equal totals score.** About six times in seven, that is a goal. *(Law 5.2, 5.3)*
+**Roll the shot.** Attack: d12 + 6 (the Striker's skill) + 3 (a Striker off a set-up) + 4 (ball speed 4). Defense: d12 + 6 -- the visitors' Fullback is standing on the ball and adds their whole defensive skill. **The attack has to be higher; a tie is a miss.** About nine times in ten, that is a goal. *(Law 5.2, 5.3)*
 
 Goal or miss, the ball is dead and the game restarts as a **new play**: both sides go back to where they started, and the side restarting -- the visitors, from their kickoff space after a goal -- may take a Coaching Choice, which page 11 explains. Then keep playing: you know enough now. *(Law 5.5, 12.5)*
 
@@ -127,13 +127,13 @@ Goal or miss, the ball is dead and the game restarts as a **new play**: both sid
 
 ![Figure 10 - What a shot is up against](rulebooks/figures/fig-10-the-shot.png)
 
-**What a shot is up against.** Every defender between the ball and the goal counts. One standing **on** the ball adds their whole defensive skill. One anywhere **beyond** it, between the ball and the goal, adds half of it, rounded up -- each one, not the group. One **behind** the ball adds nothing. The attack is d12 + the shooter's offensive skill + the ball's speed modifier; the defense is d12 + all of that; equal totals score. *(Law 5.2, 5.3)*
+**What a shot is up against.** Every defender between the ball and the goal counts. One standing **on** the ball adds their whole defensive skill. One anywhere **beyond** it, between the ball and the goal, adds half of it, rounded up -- each one, not the group. One **behind** the ball adds nothing. The attack is d12 + the shooter's offensive skill + the ball's speed modifier; the defense is d12 + all of that; the attack has to be higher, and a tie is a miss. *(Law 5.2, 5.3)*
 
 **A shot costs** one minute on the clock and nothing else. Goal or miss, it is a new play. A goal restarts from the conceding side's kickoff space with them in possession; a miss gives the ball to the defending side on their own last space. *(Law 5.4, 5.5)*
 
 ![Figure 13 - Ball speed](rulebooks/figures/fig-13-ball-speed.png)
 
-**Ball speed.** The ball is a d12 and the face it shows is its speed. Half the speed, rounded down, is the **modifier**: it is added to your shot, and to a defender's Steal against you. Only maneuvers change the speed -- Low Pass +1, Deflect -1, and a Dribble or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
+**Ball speed.** The ball is a d12 and the face it shows is its speed. The speed itself is the **modifier**: it is added to your shot, and to a defender's Steal against you. Only maneuvers change the speed -- Low Pass +1, Deflect -1, and a Dribble or a Steal by up to the player's own skill -- and every turnover resets it to 1. *(Law 7)*
 
 ![Figure 11 - Where the ball comes to rest](rulebooks/figures/fig-11-where-the-ball-lands.png)
 
@@ -190,7 +190,7 @@ Standard mode adds the species abilities to everything in this book. Advanced mo
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. Equal totals score. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. A tie is a miss. |
 | Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |

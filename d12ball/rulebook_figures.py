@@ -397,7 +397,7 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
             "The visitors played Low Pass and home played Steal, which beats it. Possession flips and the "
             "ball's speed resets to 1; the stealer carries it one space back toward their own goal, to space 5. "
             "Then everyone outside their own zone runs back - the visitors' Midfielder to space 5, two tokens - "
-            "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +2 on a shot.",
+            "and the stealer sets the ball's speed by up to their defensive skill: 1 + 3 = 4, worth +4 on a shot.",
         ],
     ))
 
@@ -413,8 +413,8 @@ def walkthrough_positions(catalog: PlayerCatalog) -> list[Sketch]:
         notes=[
             "High Pass beats the visitors' Steal. A pass of exactly 2 spaces is caught cleanly, and a catch "
             "inside shooting range is a scoring opportunity: the Striker shoots at once, out of turn. "
-            "Attack: d12 + 6 (skill) + 3 (Striker off a set-up) + 2 (ball speed 4). Defense: d12 + 6, "
-            "the Fullback standing on the ball adding their whole defensive skill. Equal totals score.",
+            "Attack: d12 + 6 (skill) + 3 (Striker off a set-up) + 4 (ball speed 4). Defense: d12 + 6, "
+            "the Fullback standing on the ball adding their whole defensive skill. A tie is a miss.",
         ],
     ))
     return sketches
@@ -446,8 +446,8 @@ def score_attempt_figure(catalog: PlayerCatalog) -> Image.Image:
             "On the ball: the visitors' Midfielder adds their whole defensive skill, 4.",
             "Between the ball and the goal: the Defender on space 6 adds half of 5, rounded up to 3, and the "
             "Fullback on space 7 adds half of 6, which is 3. Halving is per player, so the two add 6 together.",
-            "Behind the ball: the Playmaker on space 4 adds nothing. The attack is d12 + 4 (skill) + 2 (speed 4) "
-            "against d12 + 10, and equal totals score - so this is a shot to think twice about.",
+            "Behind the ball: the Playmaker on space 4 adds nothing. The attack is d12 + 4 (skill) + 4 (speed 4) "
+            "against d12 + 10, and a tie is a miss - so this is a shot to think twice about.",
         ],
     )
     return scaled(sketch.render(catalog))
@@ -591,12 +591,12 @@ def speed_figure() -> Image.Image:
         draw.rounded_rectangle((left, top, left + cell, top + cell), radius=16, fill="#ffffff", outline=INK, width=4)
         text = str(speed)
         draw.text((left + (cell - draw.textlength(text, font=cell_font)) / 2, top + 24), text, font=cell_font, fill=INK)
-        modifier = speed // 2
+        modifier = speed
         y = top + cell + gap
         draw.rounded_rectangle((left, y, left + cell, y + cell), radius=16, fill=PAPER_PANEL, outline=INK, width=4)
-        text = f"+{modifier}" if modifier else "0"
+        text = f"+{modifier}"
         draw.text((left + (cell - draw.textlength(text, font=cell_font)) / 2, y + 24), text, font=cell_font, fill=ACCENT)
-    caption = ("The modifier is half the speed, rounded down. It is added to a score attempt, "
+    caption = ("The modifier is the speed itself. It is added to a score attempt, "
                "to a Steal's skill test, and to a High Pass contest - and every turnover resets the speed to 1.")
     cap_font = render.load_font(30)
     y = top + 2 * cell + 2 * gap + 20

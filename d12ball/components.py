@@ -1256,6 +1256,17 @@ class BallState:
         if self.speed not in range(1, BALL_SPEED_MAX + 1):
             raise ValueError(f"Ball speed must be from 1 to {BALL_SPEED_MAX}.")
 
+    @property
+    def speed_modifier(self) -> int:
+        """
+        **The one reading of the ball speed modifier** (Law 7.1): the
+        speed itself, never 0, since the speed never drops below 1. It
+        was half the speed, rounded down, until 2026-10-01 -- see
+        docs/rules-log.md. Unsigned: `MatchState.ball_speed_modifier`
+        is the signed one a High Pass outcome pays.
+        """
+        return self.speed
+
 
 # One running clock over both periods: 00-15 in the first half, 15-30
 # in the second -- see "Clock, halftime, and full time" in
@@ -2838,8 +2849,8 @@ class MatchState:
 
     def ball_speed_modifier(self) -> int:
         """
-        The ball speed modifier as this turn pays it: the speed halved
-        and rounded down, but **negated** when a High Pass reached the
+        The ball speed modifier as this turn pays it: the speed itself
+        (`BallState.speed_modifier`), but **negated** when a High Pass reached the
         goal zone -- see "Ball speed" and "High Pass" in the living
         rules. A pass that reached the goal zone arrives too fast to do anything
         with, so the speed that would have helped is what makes the
@@ -2853,7 +2864,7 @@ class MatchState:
         zone is the offense's problem and the intercept happens before any
         High Pass has been thrown.
         """
-        modifier = self.ball.speed // 2
+        modifier = self.ball.speed_modifier
         return -modifier if self.pending_high_pass_overshoot else modifier
 
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
