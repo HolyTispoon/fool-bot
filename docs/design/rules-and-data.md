@@ -48,12 +48,27 @@ that deals a colour team (it did on 2026-09-26, for names only). **No other tab'
 anything** (the author, 2026-09-26): `import_advanced` keys the `advanced_abilities` tab by
 `player_id`, so a re-sort there changes nothing and is not worth a second look.
 
-**Where `docs.google.com` cannot be reached** -- a cloud session whose network policy does not
-allow it -- the importer can still be run on the sheet: the Drive connector exports the
-workbook as `.xlsx`, and the three tabs it reads (`player cards `, `basic_abilities`,
-`advanced_abilities `, trailing spaces and all) converted to CSV go in through `--source`,
-`--abilities` and `--advanced`. The importer is the same either way; only where the rows come
-from differs, and the `source` fields it writes still name the sheet's own URLs.
+**Where the sheet's CSV export cannot be fetched** -- a cloud session whose network policy
+refuses `docs.google.com`, or the `doc-...-sheets.googleusercontent.com` host every export
+redirects to (allowing `docs.google.com` alone is not enough) -- the importers are still what
+writes the data: the Drive connector exports the workbook as `.xlsx`, and
+`scripts/import_from_workbook.py` runs all three importers on it (the author, 2026-10-02:
+*"every time you need to get to the spreadsheet, you can just write the importer script"*). It
+writes the five tabs they read (`player cards `, `basic_abilities`, `advanced_abilities `,
+`spec_abilities`, `maneuvers`, matched with their trailing spaces ignored) as CSVs and passes
+them through `--source`, `--abilities` and `--advanced`. The importers are the same either way;
+only where the rows come from differs, and the `source` fields they write still name the
+sheet's own URLs. Three things it settles that a hand conversion got wrong:
+
+- **It takes the connector's saved JSON as well as the `.xlsx`.** A workbook is too large for
+  the connector to show, so it lands on disk as `{"content": <base64>, ...}`; the script
+  unwraps it.
+- **A whole number is written `6`, not `6.0`**, as the sheet's own export writes it.
+- **Each file keeps its `data_version`.** The importers default to 1, and `maneuvers.json` is
+  past that; `--data-version maneuvers=15` sets a new one where a change calls for it.
+
+It needs `openpyxl`, which the bot does not, so it is not in `requirements.txt`. Copying rows out
+of the connector by hand is not a substitute: a typo there is a data change nobody made.
 
 **Every ability is imported twice**, in full and abbreviated -- `ability` and `ability_short` on
 each role profile in `players.json`, from the `basic_abilities` sheet's own two columns. Text
