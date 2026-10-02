@@ -161,14 +161,6 @@ Not asked yet: whether "the zone" is the ball's zone or the shooter's, whether i
 steal and the High Pass contest there too or the shot alone, and what it does on board 9, whose
 zones are Thirds. Left until play under the full modifier says it is needed.
 
-### Does a shooter the shootout's check injures keep a declared Overdrive?
-
-Raised with the 2026-10-02 shootout check. Overdrive and Boost are declared before the check, so
-a Cyborg can pay the drain and then fail it. As played now the +5 stands -- injury withholds the
-skill and nothing else (15.4.3), and the drain was paid -- even though the injury clears the
-tokens that paid it. The other reading, that a Damaged Cyborg cannot use an Overdrive at all
-(20.3.6), would make a failed check cost the bonus as well as the skill. Not asked yet.
-
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
@@ -211,11 +203,17 @@ shooters need no check they're already injured"*; and *"kindlefinger applies."*
   stays, here and in the shootout (21.3.7). **Zorch no longer adds his half-speed to a check**
   (21.6.6): the Charter had listed the injury check among his rolls, reading the sheet's *"all
   rolls"*, which does not name it. Volatile already never reached a check (20.2.3).
-- **A shooter the check injures keeps an Overdrive or Boost already declared** -- the bonus was
-  paid for, and injury withholds the skill and nothing else (15.4.3). Not asked; it is what the
-  rules read straight give, and the open question above says so.
-- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"**, and so
-  does the printed species card; neither mentions the check.
+- **A shooter the check injures keeps an Overdrive or Boost already declared, and loses their
+  skill** (17.4.1). Built that way as the rules read straight -- the bonus was paid for, and
+  injury withholds the skill (17.4.2) -- and then confirmed: *"keep the +5 but loses their skill
+  modifier."* It was declared while they were healthy, so 15.4.2 c, which bars an injured
+  player from an ability that drains, does not reach back to it.
+- **A shooter on no tokens still rolls the check**, though it cannot fail, and the bot says they
+  are safe: asked whether to skip a check that cannot fail, the author: *"keep it."*
+  Kindlefinger's burn is the one way such a check changes anything.
+- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"** and is
+  staying: *"Since the charter explicitly says injury tests are different, we don't need to
+  change overdrive."* The author updated Zorch's row on the sheet instead.
 
 ### 2026-10-02 -- author, an injured player uses no ability that costs tokens
 

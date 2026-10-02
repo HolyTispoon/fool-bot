@@ -885,7 +885,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 17.4 Each test
 
-**17.4.1** **Each test starts with an [injury check](#153-the-injury-check) (15.3)**: before the dice, each shooter who is not already injured rolls one, Exhausted or not -- a flat check against the tokens they are carrying, safe on a roll higher than them. A shooter it injures shoots as an injured shooter.
+**17.4.1** **Each test starts with an [injury check](#153-the-injury-check) (15.3)**: before the dice, each shooter who is not already injured rolls one, Exhausted or not -- a flat check against the tokens they are carrying, safe on a roll higher than them. A shooter it injures shoots as an injured shooter -- without their skill, and keeping an Overdrive or Boost they declared before it.
 
 **17.4.2** The two shooters roll one d12 each and add their **offensive** skill -- a shootout has no defender. An injured shooter adds nothing at all and rolls the bare d12.
 
