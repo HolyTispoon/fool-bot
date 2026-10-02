@@ -166,6 +166,30 @@ zones are Thirds. Left until play under the full modifier says it is needed.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-02 -- author, an injured player uses no ability that costs tokens
+
+**A rule changed, for Overdrive and Boost; written down, for the rest.** The author: *"When a
+player is damaged or injured, they cannot do any ability that would add exhaustion or drain,
+like overdrive, boost, mind pool, etc."*
+
+- **One rule in Law 15, not one per ability** (15.4.2 c): an Injured or Damaged player may use
+  no ability that would exhaust or drain them -- Overdrive, Boost, Mind Pull, Quantor's run onto
+  the pass, Zenith's flight, Scorchit's forced test, Glompex joining the ball. The cost is not
+  waived; the ability is not theirs to use.
+- **Overdrive reverses the 2026-09-06 reading** that *"an injured Cyborg keeps it"*, which
+  20.3.6 carried as "a Damaged Cyborg keeps it" on the grounds that it is a flat bonus rather
+  than a skill modifier. That reading could never be played as written: 15.4.1 already let an
+  injured player add no tokens, so a Damaged Cyborg's Overdrive was +5 for nothing. Boost
+  "follows every rule of Overdrive" (21.4.3) and goes with it.
+- **The bot already refused** Overdrive, Boost, Mind Pull, Quantor and Zenith to an injured
+  player, reasoning from 15.4.1 -- so for those the Charter has caught up with the code, and
+  nothing a coach sees changes. **Scorchit and Glompex were still offered** to an injured
+  player, who then paid nothing; they are refused from this change on.
+- **Zenith's own sentence stays** (21.5.7, "An injured Zenith cannot fly"): it is the general
+  rule applied, and says so where a reader of that ability looks.
+- **Upstream says nothing either way** -- the sheet's Lithium Powered and Mind Pull texts do
+  not mention injury -- so there is no row for "Where upstream is behind".
+
 ### 2026-10-01 (later still) -- sheet and author, Zorch keeps a halved speed bonus
 
 On the pull request that made the ball speed modifier the full speed, the author: *"Zorch will
