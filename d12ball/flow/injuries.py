@@ -310,32 +310,90 @@ def injury_test_step(
     so they leave the queue in silence. Back to the queue rather than
     out of it, so this can never be where a turn stops.
     """
-    # Here rather than at the top: `rolls` imports this module.
-    from d12ball.flow.rolls import roll_working
-
-    player = engine.get_player_definition(player_id)
     if player_id in match.injured:
         if player_id in match.pending_injury_tests:
             match.pending_injury_tests.remove(player_id)
         return None, continue_injury_tests(engine, game, match)
 
+    # **Overdrive does not reach an injury check** (Law 20.3.5, the
+    # author, 2026-10-02), so nothing is declared on this roll -- except
+    # in a save that declared one before that rule, whose bonus, already
+    # paid for, still counts here.
+    overdrive = match.overdrive_modifier(player_id)
+    declared = engine.overdrive_details(match, player_id)
+    match.consume_overdrive()
+    if player_id in match.pending_injury_tests:
+        match.pending_injury_tests.remove(player_id)
+    check = roll_injury_check(
+        engine, game, match, player_id,
+        declared=overdrive, declared_details=declared,
+    )
+
+    result = continue_injury_tests(engine, game, match)
+    result.narration.insert(0, check.content)
+    result.headlines = (check.headline, *result.headlines)
+    result.board_changed = result.board_changed or check.board_changed
+    return (
+        InjuryRoll(player_id, check.roll, check.safe, overdrive),
+        result,
+    )
+
+
+@dataclass(frozen=True)
+class InjuryCheck:
+    """
+    One injury check rolled and read: the face, whether it was safe,
+    and what it says -- the narration and its `Headline`.
+    `board_changed` is whether the board has to say it too, an injury
+    or a token Kindlefinger's ignite moved.
+    """
+
+    roll: int
+    safe: bool
+    content: str
+    headline: Headline
+    board_changed: bool
+
+
+def roll_injury_check(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    player_id: str,
+    *,
+    declared: int = 0,
+    declared_details: Sequence[str] = (),
+    shootout: bool = False,
+) -> InjuryCheck:
+    """
+    **The injury check itself** (Law 15.3): a d12, safe when it beats
+    the tokens the player carries, an injury otherwise. The one reading
+    of it, which both the checks a skill test owes
+    (`injury_test_step`) and the check before every shootout test
+    (`d12ball.flow.rolls.shootout_checks`, Law 17.4) roll.
+
+    `declared` is a legacy save's Overdrive, the one bonus a check
+    adds that is not the check's own (`injury_test_step`). `shootout`
+    words it for the shootout, where a check is rolled whether or not
+    the shooter is Exhausted, and records the event as the shootout's.
+    The caller has already turned away an injured player, who carries
+    no tokens and is never checked again.
+    """
+    # Here rather than at the top: `rolls` imports this module.
+    from d12ball.flow.rolls import roll_working
+
+    player = engine.get_player_definition(player_id)
     # The script fixes injury checks to pass for the whole tutorial --
     # see `BLANKET_ROLLS`. The check still runs and the coach still
     # watches it.
     roll = scripted_or_random(engine, game, "injury", 1)[0]
-    # **Volatile does not reach this roll** (the author, 2026-09-23):
-    # a Fire Demon's natural 6 or 7 here is only the number -- except
-    # Kindlefinger's (Law 21), which `injury_ignite` alone answers.
-    # Overdrive still is -- it is the Cyborg's to spend on any roll.
+    # **Nothing modifies this roll but an ability that names it** (Law
+    # 15.3.4, the author, 2026-10-02): not Volatile -- a Fire Demon's
+    # natural 6 or 7 here is only the number -- not Overdrive, not
+    # Zorch's speed. Kindlefinger's ignite is the one that does (Law
+    # 21), which `injury_ignite` alone answers.
     ignite = engine.injury_ignite(game, player_id, roll)
-    overdrive = match.overdrive_modifier(player_id)
-    # One line per declaration, read before they are spent: Gearclaw's
-    # Boost is said as itself, beside an Overdrive or alone (Law 21).
-    overdrive_details = engine.overdrive_details(match, player_id)
-    match.consume_overdrive()
-    # Zorch adds the ball speed modifier to every roll they make (Law 21).
-    speed, speed_line = engine.speed_roll_bonus(game, match, player_id)
-    check = roll + overdrive + ignite.modifier + speed
+    check = roll + declared + ignite.modifier
     # Kindlefinger's token moves **before** the check is compared (the
     # author, 2026-09-26), as a skill test's own tokens count toward the
     # check behind it.
@@ -346,15 +404,12 @@ def injury_test_step(
     # said in words or the number a coach reads and the verdict they
     # are given would not add up.
     modifiers = [
-        part for part in (*overdrive_details, ignite.detail, speed_line)
+        part for part in (*declared_details, ignite.detail)
         if part
     ]
     overdrive_note = (
         f" ({', '.join(modifiers)}, {check})" if modifiers else ""
     )
-
-    if player_id in match.pending_injury_tests:
-        match.pending_injury_tests.remove(player_id)
 
     # Both outcomes, not only the injury. What a coach wants from this
     # is the *rate* -- how often playing a card that ties actually
@@ -368,6 +423,7 @@ def injury_test_step(
         roll=roll,
         tokens=current_tokens,
         injured=not safe,
+        **({"shootout": True} if shootout else {}),
     )
 
     drain = engine.drain_wording(game, player_id)
@@ -378,7 +434,10 @@ def injury_test_step(
     test_name = _with_article(engine.injury_test_name(game, player_id))
 
     player_label = engine.format_player_label(match, player)
-    rolls = f"{player_label} is {exhausted_word} and rolls {test_name}:"
+    rolls = (
+        f"{player_label} rolls {test_name} before the shot:" if shootout
+        else f"{player_label} is {exhausted_word} and rolls {test_name}:"
+    )
     tokens_held = f"their {current_tokens} {token_noun} tokens"
     if safe:
         # The author, 2026-10-01: "Make it 'Player is safe.'" -- it was
@@ -422,13 +481,6 @@ def injury_test_step(
             content,
         ]))
 
-    result = continue_injury_tests(engine, game, match)
-    result.narration.insert(0, content)
-    result.headlines = (headline, *result.headlines)
-    result.board_changed = (
-        result.board_changed or not safe or ignite.ignited
-    )
-    return (
-        InjuryRoll(player_id, roll, safe, overdrive),
-        result,
+    return InjuryCheck(
+        roll, safe, content, headline, not safe or ignite.ignited,
     )

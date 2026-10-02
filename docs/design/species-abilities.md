@@ -257,7 +257,9 @@ their own (below).
     the one question a re-roll's price is read from.)
   - *Zorch's speed* -- `speed_roll_bonus` is the ball speed modifier
     Zorch adds to every roll they make, asked at the skill test, the
-    contest, the injury check and the own-goal roll. **The caller
+    contest and the own-goal roll -- not the injury check, which nothing
+    modifies but an ability that names it (Law 15.3.4, the author,
+    2026-10-02). **The caller
     decides whether to ask**: where the roll already adds the modifier
     to Zorch's side (a Steal or Intercept, the thrower's side of a High
     Pass contest, the shot) it does not, because Zorch adds it once.
@@ -822,17 +824,24 @@ seventh gets it in one line.
   Overdrive being a flat bonus); it was a reading by extension that never
   reached the code, and the author confirmed the code's answer on
   2026-10-02.
-- **Nothing is declared on a shootout test** (the author, 2026-10-02). In a
-  shootout drain costs nothing -- no token is charged, no damage test is
-  owed and the game ends after it -- so a free +5 on every test won a level
-  game for a healthy Cyborg side about 98% of the time. The gate is the
-  table: `OVERDRIVE_ROLLERS` has no `SHOOTOUT_TEST` row, so its options
-  offer nobody and both declare steps refuse there by name
-  (`rolls._refuse_in_the_shootout`). It is still a roll -- in `ROLL_KINDS`,
-  nobody's question -- and its `overdrive`, `boost` and `pass` answers stay
-  in `CHOICES` like any roll's with no Cyborg in it, refused rather than
-  removed. A save that had declared one before the change keeps what it paid
-  for: `score_shootout_test` still adds a declared bonus.
+- **Nothing is declared on an injury check** (the author, 2026-10-02:
+  *"Overdrive should not apply to injury tests at all"*). The gate is the
+  table: `OVERDRIVE_ROLLERS` has no `INJURY_TEST` row, so its options offer
+  nobody and both declare steps refuse there by name
+  (`rolls._refuse_on_an_injury_check`). It is still a roll -- in
+  `ROLL_KINDS`, nobody's question -- and its `overdrive`, `boost` and `pass`
+  answers stay in `CHOICES` like any roll's with no Cyborg in it, refused
+  rather than removed. A save that had declared one before the change keeps
+  what it paid for: `injury_test_step` still adds a declared bonus.
+- **The shootout is where Overdrive got its price back.** Drain used to cost
+  nothing there -- no token charged, no damage test, and the game ends -- so
+  a free +5 on every test won a level game for a healthy Cyborg side about
+  98% of the time. Rather than gate it out (the first answer, replaced the
+  same day), every shootout test now opens with an injury check
+  (`rolls.shootout_checks`, docs/design/shootout.md), and Overdrive and
+  Boost are declared before it, so their drain counts toward it. A shooter
+  the check injures keeps the bonus they declared: `mark_injured` leaves the
+  declarations alone, and the shot reads them after the check.
 
 **Charge-up is about movement, not about being obliged to move** (the author,
 2026-09-07): *"any player that moves is running back. Charging up only occurs

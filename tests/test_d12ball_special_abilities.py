@@ -773,23 +773,21 @@ class ZorchTests(unittest.TestCase):
         with holding(self.defense, SpecialAbility.SPEED_ROLLS):
             self.assertEqual(self.skill_test(), plain)
 
-    def test_an_injury_check_adds_it(self) -> None:
-        # 3 against 4 tokens fails; Zorch's +3 makes it 6, and safe.
-        self.match.exhaustion[self.offense] = 4
-        with mock.patch.object(ENGINE.rng, "randint", return_value=3):
-            plain, _ = injury_test_step(
-                ENGINE, self.game, self.match, self.offense,
-            )
-        self.match.injured.discard(self.offense)
+    def test_an_injury_check_is_rolled_bare(self) -> None:
+        """
+        Law 15.3.4 (the author, 2026-10-02): nothing modifies an injury
+        check but an ability that names it, and Zorch's does not -- 3
+        against 4 tokens fails with the ball at a speed that gives
+        every other roll of theirs +3.
+        """
         self.match.exhaustion[self.offense] = 4
         with holding(self.offense, SpecialAbility.SPEED_ROLLS), \
                 mock.patch.object(ENGINE.rng, "randint", return_value=3):
             zorch, result = injury_test_step(
                 ENGINE, self.game, self.match, self.offense,
             )
-        self.assertFalse(plain.safe)
-        self.assertTrue(zorch.safe)
-        self.assertIn("+3 ball speed modifier", " ".join(result.narration))
+        self.assertFalse(zorch.safe)
+        self.assertNotIn("ball speed modifier", " ".join(result.narration))
 
     def test_tests_are_no_longer_free(self) -> None:
         with holding(self.offense, SpecialAbility.SPEED_ROLLS):

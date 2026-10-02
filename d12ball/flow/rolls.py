@@ -1567,11 +1567,11 @@ def score_shootout_test(
     "Extreme shootout" in docs/living-rules.md.
 
     **Volatile fires here too**, on each shooter's own die: the rules
-    list a shootout test among the rolls it covers. A shootout owes no
-    injury check, which the ignite does not change -- what a burn
-    costs here is the goal, not a card. Both ignites come back with the
-    rest, in shooting order, for the caller to post as dice of their
-    own.
+    list a shootout test among the rolls it covers. The test's injury
+    check is rolled before it (`shootout_checks`), so the ignite does
+    not change it -- what a burn costs here is the goal, not a card.
+    Both ignites come back with the rest, in shooting order, for the
+    caller to post as dice of their own.
     """
     totals: dict = {}
     players: dict = {}
@@ -1593,9 +1593,8 @@ def score_shootout_test(
             engine.ignite(game, player.player_id, roll),
         )
         ignites.append((player.player_id, ignite))
-        # Nothing is declared on a shootout test now (Law 20.3.5), so
-        # this is 0 -- except in a save that declared one, and paid
-        # its drain, before that rule: the bonus it paid for stands.
+        # Declared before the check, and kept by a shooter the check
+        # injured (`shootout_checks`).
         overdrive = match.overdrive_modifier(player.player_id)
         # Zorch adds the modifier to every roll they make (Law 21) --
         # which here is nothing, since full time left the ball at
@@ -1659,6 +1658,36 @@ def settle_shootout_test(
     return winner, f"# {heading}", heading
 
 
+def shootout_checks(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> list[injuries.InjuryCheck]:
+    """
+    **The injury check before every shootout test** (Law 17.4, the
+    author, 2026-10-02): each shooter rolls one, home first, Exhausted
+    or not -- a flat check against the tokens they carry now, which is
+    every Overdrive or Boost already declared on this test, since those
+    are declared before it. A shooter it injures shoots the bare die
+    (Law 17.4.2), with whatever they declared still added: the bonus
+    was paid for, and only the skill is withheld.
+
+    **An injured shooter rolls nothing** -- they are already injured,
+    and an injured player is never checked again (Law 15.4.1).
+    Kindlefinger's check ignites as it does anywhere (Law 21), and
+    Overdrive never reaches it (Law 20.3.5).
+    """
+    checks = []
+    for side in (TeamSide.HOME, TeamSide.VISITING):
+        player_id = match.shootout_shooter(side)
+        if player_id in match.injured:
+            continue
+        checks.append(injuries.roll_injury_check(
+            engine, game, match, player_id, shootout=True,
+        ))
+    return checks
+
+
 def shootout_test_step(
     engine: RulesEngine,
     game: D12BallGame,
@@ -1667,16 +1696,19 @@ def shootout_test_step(
     """
     The shootout test, off the button either coach may press.
 
-    **Nothing is re-rolled and nothing is charged**: a tie scores for
-    nobody, a shootout test owes no injury check (2026-08-15) and costs
-    no exhaustion, so an Exhausted shooter carries that into the
-    shootout and out the other side unchanged. What follows is the next
-    test or the end of it, which is `periods.continue_shootout`.
+    **Each shooter's injury check first** (Law 17.4, the author,
+    2026-10-02): `shootout_checks`, home first, against the tokens they
+    carry -- an Overdrive or Boost declared on this test already among
+    them -- so a shooter it injures shoots the bare die. Then the shot,
+    which **nothing re-rolls and nothing charges**: a tie scores for
+    nobody, and a shootout test costs no exhaustion. What follows is
+    the next test or the end of it, which is `periods.continue_shootout`.
 
-    `board_changed` is true only where a goal went in, because that is
-    the only thing here a board draws -- the running score on the
-    jumbotron.
+    `board_changed` is true where a goal went in -- the running score
+    on the jumbotron -- or a check moved a card's tokens or injured
+    somebody.
     """
+    checks = shootout_checks(engine, game, match)
     dice, totals, players, ignites = score_shootout_test(engine, game, match)
     match.consume_overdrive()
     winner, outcome, heading = settle_shootout_test(
@@ -1695,7 +1727,15 @@ def shootout_test_step(
 
     running = f"Extreme shootout: {engine.shootout_running_score(match)}"
     return ContestDice(dice, tuple(ignites)), StepResult(
-        narration=[f"{outcome}\n{running}"],
+        # One block, so the checks go out in the shot's own message
+        # rather than one each ahead of it.
+        narration=["\n".join([
+            *(check.content for check in checks),
+            f"{outcome}\n{running}",
+        ])],
+        # The shot is the outcome, so it heads the banner; a check is
+        # one only where it injured somebody -- a safe one changed
+        # nothing, and its lines above say so.
         headlines=(
             Headline(
                 heading,
@@ -1710,8 +1750,12 @@ def shootout_test_step(
                     else f"**{high}** and **{low}** are level.",
                 ),
             ),
+            *(check.headline for check in checks if not check.safe),
         ),
-        board_changed=winner is not None,
+        board_changed=(
+            winner is not None
+            or any(check.board_changed for check in checks)
+        ),
         next=FollowOn(FollowOnStep.CONTINUE_SHOOTOUT),
     )
 
@@ -1719,16 +1763,17 @@ def shootout_test_step(
 # -- Overdrive, which rides on five of the six roll prompts -----------
 
 
-def _refuse_in_the_shootout(prompt: PendingPrompt) -> None:
+def _refuse_on_an_injury_check(prompt: PendingPrompt) -> None:
     """
-    **Nothing is declared on a shootout test** (Law 20.3.5, the author,
+    **Nothing is declared on an injury check** (Law 20.3.5, the author,
     2026-10-02): neither Overdrive nor Boost, which is declared on the
-    rolls Overdrive is. Its shooters are in the roll, so this says so
-    rather than "not in this roll".
+    rolls Overdrive is. The player tested is in the roll, so this says
+    so rather than "not in this roll".
     """
-    if prompt.kind is PromptKind.SHOOTOUT_TEST:
+    if prompt.kind is PromptKind.INJURY_TEST:
         raise RuleRefusal(
-            "Overdrive and Boost are not declared in the extreme shootout.",
+            "Overdrive and Boost are not declared on an injury check "
+            "or a damage test.",
             law="lithium-powered-cyborg",
         )
 
@@ -1764,7 +1809,7 @@ def declare_overdrive_step(
     `RulesEngine.controlling_user_id`). See
     docs/design/permissions.md.
     """
-    _refuse_in_the_shootout(prompt)
+    _refuse_on_an_injury_check(prompt)
     if player_id not in overdrive_rollers(match, prompt):
         raise RuleRefusal("That player is not in this roll.")
     if not engine.overdrive_candidates(game, match, [player_id]):
@@ -1905,7 +1950,7 @@ def declare_boost_step(
     drain 1 for +3, re-asked against `boost_candidates` for the same
     reason, and answered by coming back on the same roll.
     """
-    _refuse_in_the_shootout(prompt)
+    _refuse_on_an_injury_check(prompt)
     if player_id not in overdrive_rollers(match, prompt):
         raise RuleRefusal("That player is not in this roll.")
     if not engine.boost_candidates(game, match, [player_id]):

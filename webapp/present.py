@@ -2554,9 +2554,10 @@ _IGNITES = frozenset({
 #: What bears on each part of each roll the situation is asked over
 #: (the author, 2026-09-28: only what applies to the roll). Volatile
 #: reaches a skill test and the shooter's die, never an injury check or
-#: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls (Law
-#: 20.3.5). A special ability is here where it changes the roll's
-#: number, whether it is rolled, or what winning it means -- and on the
+#: an own-goal roll (Law 20.2.3); Overdrive any d12 a Cyborg rolls but
+#: an injury check (Law 20.3.5). A special ability is here where it
+#: changes the roll's number, whether it is rolled, or what winning it
+#: means -- and on the
 #: maneuver challenge also what a maneuver does once it has won, since
 #: the coach is choosing one there (the author, 2026-09-28): Emberdash's
 #: dribble, Vorix's set-up and Acidel's pressure, each on the attack
@@ -2565,7 +2566,8 @@ _IGNITES = frozenset({
 #: 2026-09-28). Bulwark's drain threshold applies to every roll he is
 #: in (`ALWAYS_BEARS`). Zorch
 #: adds the speed modifier to every roll but the shot, which adds it
-#: already (`speed_roll_bonus`). Merge is not here: it is a number
+#: already (`speed_roll_bonus`), and the injury check, which nothing
+#: modifies (Law 15.3.4). Merge is not here: it is a number
 #: another player adds, the model's own line in the side's modifiers
 #: (`merge_bonus`); and a Mind Pull is the Telekinetics' ability
 #: already, which the window says.
@@ -2638,11 +2640,13 @@ BEARINGS: Mapping[str, Bearing] = {
     "shot_defence": Bearing(
         (), frozenset({SpecialAbility.FULL_BLOCK}), "defense",
     ),
+    # A Cyborg's check is a damage test against drain (Law 20.3), and
+    # nothing modifies a check but an ability that names it (Law
+    # 15.3.4): Kindlefinger's ignite, and not Overdrive, Boost or
+    # Zorch's speed.
     "injury": Bearing(
         (SPECIES_CYBORG,),
-        _ON_THE_DIE | {
-            SpecialAbility.INJURY_IGNITION, SpecialAbility.SPEED_ROLLS,
-        },
+        frozenset({SpecialAbility.INJURY_IGNITION}),
     ),
     "own_goal": Bearing(
         (SPECIES_CYBORG,),

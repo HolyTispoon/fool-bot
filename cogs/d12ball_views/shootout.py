@@ -515,11 +515,9 @@ class ShootoutTestView(ShootoutView):
         review.callback = self.review
         self.add_item(review)
 
-        # Overdrive, for whichever of the two shooters is a Cyborg. A
-        # shootout test costs no exhaustion and owes no injury check,
-        # but Overdrive is a Cyborg spending their own drain rather
-        # than the test charging it -- so it is offered here like
-        # anywhere else.
+        # Overdrive, for whichever of the two shooters is a Cyborg,
+        # declared before the injury check the test opens with -- so
+        # its drain is what that check is rolled against (Law 17.4).
         game, match = self.load_match()
         options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
         if options is not None:
@@ -608,9 +606,8 @@ class ShootoutTestView(ShootoutView):
         )
         await send_new_prompt(interaction, result.answer[0])
 
-        # A shootout test owes no injury checks (2026-08-15). It costs
-        # no exhaustion either -- it is not one of the ways to gain a
-        # token -- so an Exhausted shooter carries that into the
-        # shootout and out the other side unchanged. The round goes
+        # The test's injury checks were rolled before the shot, and
+        # their lines lead what `present` posts (Law 17.4); nothing is
+        # owed after it, and it costs no exhaustion. The round goes
         # straight on to the next test, which the service has run.
         await self.cog.present(interaction, game, result)
