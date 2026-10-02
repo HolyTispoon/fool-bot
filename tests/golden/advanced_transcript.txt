@@ -149,7 +149,7 @@ Time has advanced 1, now at 04.
 === press 15: InjuryTestView -> 'Roll the injury test'
 --- message
 🔮 Noxar [SK] is exhausted and rolls an injury test: 6 beats their 2 exhaustion tokens.
-🔮 Noxar [SK] survives the injury test.
+🔮 Noxar [SK] is **safe**.
 --- message
 🔮 <@111>, choose your Low Pass:
 === press 16: LowPassChoiceView -> 'Spectra [MF] -- space 5'
@@ -327,7 +327,7 @@ Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that 
 === press 31: InjuryTestView -> 'Roll the injury test'
 --- message
 🔥 Sizzifizik [PM] is exhausted and rolls an injury test: 9 beats their 4 exhaustion tokens.
-🔥 Sizzifizik [PM] survives the injury test.
+🔥 Sizzifizik [PM] is **safe**.
 --- message
 <@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
 === press 32: MindPullView -> 'Pass'

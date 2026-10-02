@@ -381,13 +381,10 @@ def injury_test_step(
     rolls = f"{player_label} is {exhausted_word} and rolls {test_name}:"
     tokens_held = f"their {current_tokens} {token_noun} tokens"
     if safe:
-        # The author, 2026-10-01: "make it 'player survives the injury
-        # test'" -- it was "— safe." at the end of the reading.
+        # The author, 2026-10-01: "Make it 'Player is safe.'" -- it was
+        # "— safe." at the end of the reading. Bold as **injured** is.
         reading = f"{rolls} {roll}{overdrive_note} beats {tokens_held}"
-        verdict = (
-            f"{player_label} survives the "
-            f"{engine.injury_test_name(game, player_id)}."
-        )
+        verdict = f"{player_label} is **safe**."
         read_as = f"**{check}** beats {tokens_held}: safe."
     else:
         match.mark_injured(player_id)

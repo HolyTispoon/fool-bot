@@ -1988,9 +1988,8 @@ its reading -- who rolled and what they had to beat -- and its verdict
 once each, and the verdict is the headline with the reading under it,
 in the tested player's side's colour either way, since nobody on the
 other side did anything. The verdict is its own line after the
-reading, in the author's wording of the same day: "<player> survives
-the injury test." (a Cyborg's damage test), for what had been "--
-safe." at the end of the reading, or "<player> is **injured**." (a
+reading, in the author's wording of the same day: "<player> is
+**safe**.", for what had been "-- safe." at the end of the reading, or "<player> is **injured**." (a
 Cyborg's **damaged**) -- "no need to say it twice" -- for what had been
 "injury! They are **injured**" with the condition's badge after it.
 Each

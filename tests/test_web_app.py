@@ -1094,7 +1094,7 @@ class OutcomeBannerTests(unittest.TestCase):
         tested player's side's colour, with the roll written out -- the
         die alone said nothing of what it came to."""
         for face, heading, verdict in (
-            (9, "survives the injury test.",
+            (9, "is **safe**.",
              "**9** beats their 5 exhaustion tokens: safe."),
             (3, "is **injured**.",
              "**3** does not beat their 5 exhaustion tokens: injured."),
