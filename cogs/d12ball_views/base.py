@@ -547,7 +547,7 @@ class SafeView(discord.ui.View):
         )
         if result is None:
             return
-        await interaction.response.send_message(result.answer[0])
+        await self.answer_declaration(interaction, result)
 
     async def declare_boost(
         self, interaction: discord.Interaction,
@@ -606,6 +606,18 @@ class SafeView(discord.ui.View):
         if result is None:
             return
 
+        await self.answer_declaration(interaction, result)
+
+    async def answer_declaration(
+        self, interaction: discord.Interaction, result,
+    ) -> None:
+        """
+        Say what an Overdrive, a Boost or a pass did: one reply, which
+        names the next coach to decide where there is one -- the one
+        request a press costs, and the prompt is never redrawn. A roll
+        view whose Roll waits off the message until everybody has
+        decided puts it up here instead (`ShootoutTestView`).
+        """
         await interaction.response.send_message(result.answer[0])
 
 

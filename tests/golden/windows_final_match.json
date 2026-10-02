@@ -29,20 +29,20 @@
       "home_goal",
       0
     ],
+    "gurgoth_defender": [
+      "midfield",
+      2
+    ],
     "hellguard_fullback": [
       "visitors_goal",
       1
     ],
     "noxar_striker": [
-      "visitors_goal",
-      0
-    ],
-    "quantor_winger": [
       "home_goal",
       1
     ],
-    "quillon_playmaker": [
-      "midfield",
+    "quantor_winger": [
+      "home_goal",
       1
     ],
     "sizzifizik_playmaker": [
@@ -59,10 +59,10 @@
     ]
   },
   "ball": {
-    "possession": "home",
-    "space_index": 0,
+    "possession": "visiting",
+    "space_index": 2,
     "speed": 1,
-    "zone": "home_goal"
+    "zone": "midfield"
   },
   "ball_carrier_id": null,
   "board": {
@@ -70,12 +70,12 @@
     "spaces": {
       "home_goal": [
         [
-          "goopkeeper_fullback",
-          "tachyon_striker"
+          "tachyon_striker",
+          "goopkeeper_fullback"
         ],
         [
-          "quantor_winger",
-          "blazebulk_defender"
+          "noxar_striker",
+          "quantor_winger"
         ]
       ],
       "midfield": [
@@ -83,18 +83,17 @@
           "spectra_midfielder"
         ],
         [
-          "quillon_playmaker",
-          "sizzifizik_playmaker"
+          "sizzifizik_playmaker",
+          "emberdash_playmaker"
         ],
         [
-          "glompex_midfielder"
+          "gurgoth_defender",
+          "flickerwing_winger",
+          "dravox_defender"
         ]
       ],
       "visitors_goal": [
-        [
-          "noxar_striker",
-          "dravox_defender"
-        ],
+        [],
         [
           "acidel_striker",
           "hellguard_fullback"
@@ -154,10 +153,10 @@
     },
     {
       "details": {
-        "attack_total": 8,
+        "attack_total": 15,
         "defender_count": 2,
         "defense_total": 14,
-        "scored": false,
+        "scored": true,
         "set_up": false,
         "speed_modifier": 2
       },
@@ -169,60 +168,38 @@
     },
     {
       "details": {
+        "own_goal": false,
+        "shootout": false
+      },
+      "kind": "goal",
+      "period": "first_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 2
+    },
+    {
+      "details": {
         "action": "maneuver",
-        "by_ai": true,
-        "exhaustion": {
-          "acidel_striker": 2,
-          "hellguard_fullback": 1
-        }
+        "by_ai": true
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "emberdash_playmaker",
       "side": "visiting",
       "time": 3
     },
     {
       "details": {
+        "challenger_id": "sizzifizik_playmaker",
+        "decision": "cards",
         "defense_key": "deflect",
-        "defense_total": 11,
-        "offense_key": "low_pass",
-        "offense_total": 6,
-        "tied": false
-      },
-      "kind": "skill_test",
-      "period": "first_half",
-      "player_id": "hellguard_fullback",
-      "side": "visiting",
-      "time": 3
-    },
-    {
-      "details": {
-        "challenger_id": "acidel_striker",
-        "decision": "skill_test",
-        "defense_key": "deflect",
-        "offense_key": "low_pass",
+        "offense_key": "high_pass",
         "winner_key": "deflect"
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "emberdash_playmaker",
       "side": "visiting",
-      "time": 4
-    },
-    {
-      "details": {
-        "attack_total": 14,
-        "defender_count": 1,
-        "defense_total": 16,
-        "scored": false,
-        "set_up": true,
-        "speed_modifier": 1
-      },
-      "kind": "shot",
-      "period": "first_half",
-      "player_id": "acidel_striker",
-      "side": "home",
       "time": 4
     },
     {
@@ -230,68 +207,95 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "acidel_striker": 2,
-          "hellguard_fullback": 1
+          "flickerwing_winger": 2,
+          "glompex_midfielder": 1
         }
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "glompex_midfielder",
       "side": "visiting",
-      "time": 5
+      "time": 4
     },
     {
       "details": {
-        "defense_key": "deflect",
-        "defense_total": 12,
-        "offense_key": "low_pass",
+        "defense_key": "pressure",
+        "defense_total": 10,
+        "offense_key": "high_pass",
         "offense_total": 8,
         "tied": false
       },
       "kind": "skill_test",
       "period": "first_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 4
+    },
+    {
+      "details": {
+        "challenger_id": "flickerwing_winger",
+        "decision": "skill_test",
+        "defense_key": "pressure",
+        "offense_key": "high_pass",
+        "winner_key": "pressure"
+      },
+      "kind": "maneuver",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
       "side": "visiting",
       "time": 5
     },
     {
       "details": {
-        "injured": false,
-        "roll": 7,
-        "tokens": 3
+        "action": "maneuver",
+        "by_ai": true,
+        "exhaustion": {
+          "glompex_midfielder": 3
+        }
       },
-      "kind": "injury_test",
+      "kind": "turn_action",
       "period": "first_half",
-      "player_id": "acidel_striker",
-      "side": "home",
-      "time": 6
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 5
     },
     {
       "details": {
-        "challenger_id": "acidel_striker",
-        "decision": "skill_test",
-        "defense_key": "deflect",
+        "challenger_id": "flickerwing_winger",
+        "decision": "cards",
+        "defense_key": "steal",
         "offense_key": "low_pass",
-        "winner_key": "deflect"
+        "winner_key": "steal"
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "glompex_midfielder",
       "side": "visiting",
       "time": 6
     },
     {
       "details": {
-        "attack_total": 22,
-        "defender_count": 1,
-        "defense_total": 15,
+        "action": "shoot",
+        "by_ai": false
+      },
+      "kind": "turn_action",
+      "period": "first_half",
+      "player_id": "flickerwing_winger",
+      "side": "home",
+      "time": 6
+    },
+    {
+      "details": {
+        "attack_total": 19,
+        "defender_count": 2,
+        "defense_total": 14,
         "scored": true,
-        "set_up": true,
-        "speed_modifier": 1
+        "set_up": false,
+        "speed_modifier": 3
       },
       "kind": "shot",
       "period": "first_half",
-      "player_id": "acidel_striker",
+      "player_id": "flickerwing_winger",
       "side": "home",
       "time": 6
     },
@@ -302,7 +306,7 @@
       },
       "kind": "goal",
       "period": "first_half",
-      "player_id": "acidel_striker",
+      "player_id": "flickerwing_winger",
       "side": "home",
       "time": 6
     },
@@ -311,8 +315,8 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "emberdash_playmaker": 1,
-          "sizzifizik_playmaker": 1
+          "emberdash_playmaker": 2,
+          "sizzifizik_playmaker": 2
         }
       },
       "kind": "turn_action",
@@ -320,374 +324,320 @@
       "player_id": "emberdash_playmaker",
       "side": "visiting",
       "time": 7
-    },
-    {
-      "details": {
-        "defense_key": "steal",
-        "defense_total": 9,
-        "offense_key": "dribble_advance",
-        "offense_total": 13,
-        "tied": false
-      },
-      "kind": "skill_test",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 7
-    },
-    {
-      "details": {
-        "challenger_id": "sizzifizik_playmaker",
-        "decision": "skill_test",
-        "defense_key": "steal",
-        "offense_key": "dribble_advance",
-        "winner_key": "dribble_advance"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 8
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true,
-        "exhaustion": {
-          "blazebulk_defender": 1,
-          "emberdash_playmaker": 2
-        }
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 8
-    },
-    {
-      "details": {
-        "defense_key": "deflect",
-        "defense_total": 13,
-        "offense_key": "low_pass",
-        "offense_total": 10,
-        "tied": false
-      },
-      "kind": "skill_test",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 8
-    },
-    {
-      "details": {
-        "challenger_id": "blazebulk_defender",
-        "decision": "skill_test",
-        "defense_key": "deflect",
-        "offense_key": "low_pass",
-        "winner_key": "deflect"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 9
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "spectra_midfielder",
-      "side": "home",
-      "time": 9
-    },
-    {
-      "details": {
-        "challenger_id": "emberdash_playmaker",
-        "decision": "cards",
-        "defense_key": "steal",
-        "offense_key": "low_pass",
-        "winner_key": "steal"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "spectra_midfielder",
-      "side": "home",
-      "time": 10
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true,
-        "exhaustion": {
-          "emberdash_playmaker": 1,
-          "sizzifizik_playmaker": 1
-        }
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 10
-    },
-    {
-      "details": {
-        "defense_key": "steal",
-        "defense_total": 10,
-        "offense_key": "dribble_advance",
-        "offense_total": 13,
-        "tied": false
-      },
-      "kind": "skill_test",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 10
-    },
-    {
-      "details": {
-        "injured": true,
-        "roll": 4,
-        "tokens": 4
-      },
-      "kind": "injury_test",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 11
-    },
-    {
-      "details": {
-        "challenger_id": "sizzifizik_playmaker",
-        "decision": "skill_test",
-        "defense_key": "steal",
-        "offense_key": "dribble_advance",
-        "winner_key": "dribble_advance"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 11
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true,
-        "exhaustion": {
-          "goopkeeper_fullback": 1
-        }
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 11
-    },
-    {
-      "details": {
-        "challenger_id": "blazebulk_defender",
-        "decision": "cards",
-        "defense_key": "steal",
-        "offense_key": "low_pass",
-        "winner_key": "steal"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "emberdash_playmaker",
-      "side": "visiting",
-      "time": 12
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "blazebulk_defender",
-      "side": "home",
-      "time": 12
-    },
-    {
-      "details": {
-        "challenger_id": "tachyon_striker",
-        "decision": "cards",
-        "defense_key": "deflect",
-        "offense_key": "dribble_advance",
-        "winner_key": "dribble_advance"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "blazebulk_defender",
-      "side": "home",
-      "time": 13
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "blazebulk_defender",
-      "side": "home",
-      "time": 13
-    },
-    {
-      "details": {
-        "challenger_id": "quantor_winger",
-        "decision": "cards",
-        "defense_key": "deflect",
-        "offense_key": "dribble_advance",
-        "winner_key": "dribble_advance"
-      },
-      "kind": "maneuver",
-      "period": "first_half",
-      "player_id": "blazebulk_defender",
-      "side": "home",
-      "time": 14
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false,
-        "exhaustion": {
-          "blazebulk_defender": 1
-        }
-      },
-      "kind": "turn_action",
-      "period": "first_half",
-      "player_id": "blazebulk_defender",
-      "side": "home",
-      "time": 14
     },
     {
       "details": {
         "defense_key": "pressure",
-        "defense_total": 14,
-        "offense_key": "dribble_advance",
-        "offense_total": 11,
+        "defense_total": 8,
+        "offense_key": "high_pass",
+        "offense_total": 8,
+        "tied": true
+      },
+      "kind": "skill_test",
+      "period": "first_half",
+      "player_id": "emberdash_playmaker",
+      "side": "visiting",
+      "time": 7
+    },
+    {
+      "details": {
+        "defense_key": "pressure",
+        "defense_total": 4,
+        "offense_key": "high_pass",
+        "offense_total": 6,
         "tied": false
       },
       "kind": "skill_test",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "emberdash_playmaker",
+      "side": "visiting",
+      "time": 7
+    },
+    {
+      "details": {
+        "challenger_id": "sizzifizik_playmaker",
+        "decision": "skill_test",
+        "defense_key": "pressure",
+        "offense_key": "high_pass",
+        "winner_key": "high_pass"
+      },
+      "kind": "maneuver",
+      "period": "first_half",
+      "player_id": "emberdash_playmaker",
+      "side": "visiting",
+      "time": 9
+    },
+    {
+      "details": {
+        "action": "shoot",
+        "by_ai": true
+      },
+      "kind": "turn_action",
+      "period": "first_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 9
+    },
+    {
+      "details": {
+        "attack_total": 17,
+        "defender_count": 1,
+        "defense_total": 9,
+        "scored": true,
+        "set_up": false,
+        "speed_modifier": 1
+      },
+      "kind": "shot",
+      "period": "first_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 9
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": false
+      },
+      "kind": "goal",
+      "period": "first_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 9
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": false
+      },
+      "kind": "turn_action",
+      "period": "first_half",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 14
+      "time": 10
     },
     {
       "details": {
         "challenger_id": "emberdash_playmaker",
-        "decision": "skill_test",
+        "decision": "cards",
         "defense_key": "pressure",
         "offense_key": "dribble_advance",
         "winner_key": "pressure"
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 15
+      "time": 11
     },
     {
       "details": {
         "action": "maneuver",
-        "by_ai": false,
-        "exhaustion": {
-          "blazebulk_defender": 2
-        }
+        "by_ai": false
+      },
+      "kind": "turn_action",
+      "period": "first_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 11
+    },
+    {
+      "details": {
+        "challenger_id": "emberdash_playmaker",
+        "decision": "cards",
+        "defense_key": "pressure",
+        "offense_key": "low_pass",
+        "winner_key": "low_pass"
+      },
+      "kind": "maneuver",
+      "period": "first_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 12
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": false
       },
       "kind": "turn_action",
       "period": "first_half",
       "player_id": "blazebulk_defender",
       "side": "home",
-      "time": 15
+      "time": 12
     },
     {
       "details": {
+        "challenger_id": "quantor_winger",
+        "decision": "cards",
         "defense_key": "pressure",
-        "defense_total": 10,
-        "offense_key": "dribble_advance",
-        "offense_total": 10,
-        "tied": true
+        "offense_key": "low_pass",
+        "winner_key": "low_pass"
       },
-      "kind": "skill_test",
+      "kind": "maneuver",
       "period": "first_half",
       "player_id": "blazebulk_defender",
       "side": "home",
-      "time": 15
+      "time": 13
     },
     {
       "details": {
-        "defense_key": "pressure",
-        "defense_total": 12,
-        "offense_key": "dribble_advance",
-        "offense_total": 14,
-        "tied": false
+        "action": "maneuver",
+        "by_ai": false
       },
-      "kind": "skill_test",
+      "kind": "turn_action",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 15
+      "time": 13
     },
     {
       "details": {
         "challenger_id": "emberdash_playmaker",
-        "decision": "skill_test",
-        "defense_key": "pressure",
+        "decision": "cards",
+        "defense_key": "deflect",
         "offense_key": "dribble_advance",
         "winner_key": "dribble_advance"
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 16
+      "time": 14
     },
     {
       "details": {
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "blazebulk_defender": 1
+          "glompex_midfielder": 2,
+          "spectra_midfielder": 1
         }
       },
       "kind": "turn_action",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 16
+      "time": 14
     },
     {
       "details": {
         "defense_key": "steal",
-        "defense_total": 14,
-        "offense_key": "low_pass",
-        "offense_total": 8,
+        "defense_total": 16,
+        "offense_key": "dribble_advance",
+        "offense_total": 11,
         "tied": false
       },
       "kind": "skill_test",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "spectra_midfielder",
       "side": "home",
-      "time": 16
+      "time": 14
     },
     {
       "details": {
-        "challenger_id": "emberdash_playmaker",
+        "injured": false,
+        "roll": 9,
+        "tokens": 6
+      },
+      "kind": "injury_test",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 15
+    },
+    {
+      "details": {
+        "challenger_id": "glompex_midfielder",
         "decision": "skill_test",
         "defense_key": "steal",
-        "offense_key": "low_pass",
+        "offense_key": "dribble_advance",
         "winner_key": "steal"
       },
       "kind": "maneuver",
       "period": "first_half",
-      "player_id": "blazebulk_defender",
+      "player_id": "spectra_midfielder",
       "side": "home",
+      "time": 15
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": true,
+        "exhaustion": {
+          "flickerwing_winger": 3,
+          "glompex_midfielder": 2
+        }
+      },
+      "kind": "turn_action",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 15
+    },
+    {
+      "details": {
+        "defense_key": "pressure",
+        "defense_total": 11,
+        "offense_key": "high_pass",
+        "offense_total": 11,
+        "tied": true
+      },
+      "kind": "skill_test",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 15
+    },
+    {
+      "details": {
+        "defense_key": "pressure",
+        "defense_total": 6,
+        "offense_key": "high_pass",
+        "offense_total": 12,
+        "tied": false
+      },
+      "kind": "skill_test",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 15
+    },
+    {
+      "details": {
+        "injured": true,
+        "roll": 5,
+        "tokens": 8
+      },
+      "kind": "injury_test",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
+      "time": 17
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 8,
+        "tokens": 5
+      },
+      "kind": "injury_test",
+      "period": "first_half",
+      "player_id": "flickerwing_winger",
+      "side": "home",
+      "time": 17
+    },
+    {
+      "details": {
+        "challenger_id": "flickerwing_winger",
+        "decision": "skill_test",
+        "defense_key": "pressure",
+        "offense_key": "high_pass",
+        "winner_key": "high_pass"
+      },
+      "kind": "maneuver",
+      "period": "first_half",
+      "player_id": "glompex_midfielder",
+      "side": "visiting",
       "time": 17
     },
     {
@@ -695,12 +645,12 @@
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "spectra_midfielder": 1
+          "spectra_midfielder": 2
         }
       },
       "kind": "turn_action",
       "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "player_id": "emberdash_playmaker",
       "side": "visiting",
       "time": 15
     },
@@ -714,7 +664,7 @@
       },
       "kind": "maneuver",
       "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "player_id": "emberdash_playmaker",
       "side": "visiting",
       "time": 16
     },
@@ -731,8 +681,7 @@
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "quillon_playmaker": 2,
-          "spectra_midfielder": 1
+          "emberdash_playmaker": 1
         }
       },
       "kind": "turn_action",
@@ -743,23 +692,9 @@
     },
     {
       "details": {
-        "defense_key": "pressure",
-        "defense_total": 12,
-        "offense_key": "high_pass",
-        "offense_total": 14,
-        "tied": false
-      },
-      "kind": "skill_test",
-      "period": "second_half",
-      "player_id": "spectra_midfielder",
-      "side": "home",
-      "time": 17
-    },
-    {
-      "details": {
-        "challenger_id": "quillon_playmaker",
-        "decision": "skill_test",
-        "defense_key": "pressure",
+        "challenger_id": "emberdash_playmaker",
+        "decision": "cards",
+        "defense_key": "steal",
         "offense_key": "high_pass",
         "winner_key": "high_pass"
       },
@@ -772,217 +707,64 @@
     {
       "details": {
         "action": "maneuver",
-        "by_ai": true
+        "by_ai": true,
+        "exhaustion": {
+          "flickerwing_winger": 2,
+          "gurgoth_defender": 1
+        }
       },
       "kind": "turn_action",
       "period": "second_half",
-      "player_id": "glompex_midfielder",
+      "player_id": "gurgoth_defender",
       "side": "visiting",
       "time": 19
     },
     {
       "details": {
-        "challenger_id": null,
-        "decision": "uncontested",
-        "defense_key": null,
-        "offense_key": "low_pass",
-        "winner_key": "low_pass"
-      },
-      "kind": "maneuver",
-      "period": "second_half",
-      "player_id": "glompex_midfielder",
-      "side": "visiting",
-      "time": 20
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 20
-    },
-    {
-      "details": {
-        "challenger_id": "spectra_midfielder",
-        "decision": "cards",
-        "defense_key": "deflect",
-        "offense_key": "dribble_advance",
-        "winner_key": "dribble_advance"
-      },
-      "kind": "maneuver",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 21
-    },
-    {
-      "details": {
-        "action": "shoot",
-        "by_ai": true
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 21
-    },
-    {
-      "details": {
-        "attack_total": 19,
-        "defender_count": 1,
-        "defense_total": 15,
-        "scored": true,
-        "set_up": false,
-        "speed_modifier": 6
-      },
-      "kind": "shot",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 21
-    },
-    {
-      "details": {
-        "own_goal": false,
-        "shootout": false
-      },
-      "kind": "goal",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 21
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "sizzifizik_playmaker",
-      "side": "home",
-      "time": 22
-    },
-    {
-      "details": {
-        "challenger_id": "quillon_playmaker",
-        "decision": "cards",
-        "defense_key": "steal",
+        "defense_key": "pressure",
+        "defense_total": 10,
         "offense_key": "high_pass",
-        "winner_key": "high_pass"
-      },
-      "kind": "maneuver",
-      "period": "second_half",
-      "player_id": "sizzifizik_playmaker",
-      "side": "home",
-      "time": 24
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": false,
-        "exhaustion": {
-          "hellguard_fullback": 1
-        }
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "noxar_striker",
-      "side": "home",
-      "time": 24
-    },
-    {
-      "details": {
-        "challenger_id": "dravox_defender",
-        "decision": "cards",
-        "defense_key": "steal",
-        "offense_key": "low_pass",
-        "winner_key": "steal"
-      },
-      "kind": "maneuver",
-      "period": "second_half",
-      "player_id": "noxar_striker",
-      "side": "home",
-      "time": 25
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "dravox_defender",
-      "side": "visiting",
-      "time": 25
-    },
-    {
-      "details": {
-        "challenger_id": "acidel_striker",
-        "decision": "cards",
-        "defense_key": "steal",
-        "offense_key": "high_pass",
-        "winner_key": "high_pass"
-      },
-      "kind": "maneuver",
-      "period": "second_half",
-      "player_id": "dravox_defender",
-      "side": "visiting",
-      "time": 27
-    },
-    {
-      "details": {
-        "action": "maneuver",
-        "by_ai": true,
-        "exhaustion": {
-          "quillon_playmaker": 1,
-          "sizzifizik_playmaker": 1
-        }
-      },
-      "kind": "turn_action",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 27
-    },
-    {
-      "details": {
-        "defense_key": "deflect",
-        "defense_total": 6,
-        "offense_key": "low_pass",
-        "offense_total": 16,
+        "offense_total": 11,
         "tied": false
       },
       "kind": "skill_test",
       "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "player_id": "gurgoth_defender",
       "side": "visiting",
-      "time": 27
+      "time": 19
     },
     {
       "details": {
-        "challenger_id": "sizzifizik_playmaker",
+        "injured": false,
+        "roll": 11,
+        "tokens": 6
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "flickerwing_winger",
+      "side": "home",
+      "time": 21
+    },
+    {
+      "details": {
+        "challenger_id": "flickerwing_winger",
         "decision": "skill_test",
-        "defense_key": "deflect",
-        "offense_key": "low_pass",
-        "winner_key": "low_pass"
+        "defense_key": "pressure",
+        "offense_key": "high_pass",
+        "winner_key": "high_pass"
       },
       "kind": "maneuver",
       "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "player_id": "gurgoth_defender",
       "side": "visiting",
-      "time": 28
+      "time": 21
     },
     {
       "details": {
         "action": "maneuver",
         "by_ai": true,
         "exhaustion": {
-          "blazebulk_defender": 1,
+          "noxar_striker": 1,
           "quantor_winger": 1,
           "tachyon_striker": 1
         }
@@ -991,27 +773,123 @@
       "period": "second_half",
       "player_id": "quantor_winger",
       "side": "visiting",
-      "time": 28
+      "time": 21
     },
     {
       "details": {
-        "defense_key": "pressure",
-        "defense_total": 10,
-        "offense_key": "high_pass",
-        "offense_total": 13,
+        "defense_key": "deflect",
+        "defense_total": 6,
+        "offense_key": "low_pass",
+        "offense_total": 15,
         "tied": false
       },
       "kind": "skill_test",
       "period": "second_half",
       "player_id": "quantor_winger",
       "side": "visiting",
-      "time": 28
+      "time": 21
     },
     {
       "details": {
-        "challenger_id": "blazebulk_defender",
+        "challenger_id": "noxar_striker",
         "decision": "skill_test",
-        "defense_key": "pressure",
+        "defense_key": "deflect",
+        "offense_key": "low_pass",
+        "winner_key": "low_pass"
+      },
+      "kind": "maneuver",
+      "period": "second_half",
+      "player_id": "quantor_winger",
+      "side": "visiting",
+      "time": 22
+    },
+    {
+      "details": {
+        "attack_total": 12,
+        "defender_count": 1,
+        "defense_total": 12,
+        "scored": false,
+        "set_up": true,
+        "speed_modifier": 2
+      },
+      "kind": "shot",
+      "period": "second_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 22
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": false
+      },
+      "kind": "turn_action",
+      "period": "second_half",
+      "player_id": "goopkeeper_fullback",
+      "side": "home",
+      "time": 23
+    },
+    {
+      "details": {
+        "challenger_id": "tachyon_striker",
+        "decision": "cards",
+        "defense_key": "steal",
+        "offense_key": "high_pass",
+        "winner_key": "high_pass"
+      },
+      "kind": "maneuver",
+      "period": "second_half",
+      "player_id": "goopkeeper_fullback",
+      "side": "home",
+      "time": 25
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": false,
+        "exhaustion": {
+          "emberdash_playmaker": 1
+        }
+      },
+      "kind": "turn_action",
+      "period": "second_half",
+      "player_id": "spectra_midfielder",
+      "side": "home",
+      "time": 25
+    },
+    {
+      "details": {
+        "challenger_id": "emberdash_playmaker",
+        "decision": "cards",
+        "defense_key": "deflect",
+        "offense_key": "high_pass",
+        "winner_key": "deflect"
+      },
+      "kind": "maneuver",
+      "period": "second_half",
+      "player_id": "spectra_midfielder",
+      "side": "home",
+      "time": 26
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": true,
+        "exhaustion": {
+          "tachyon_striker": 1
+        }
+      },
+      "kind": "turn_action",
+      "period": "second_half",
+      "player_id": "quantor_winger",
+      "side": "visiting",
+      "time": 26
+    },
+    {
+      "details": {
+        "challenger_id": "noxar_striker",
+        "decision": "cards",
+        "defense_key": "steal",
         "offense_key": "high_pass",
         "winner_key": "high_pass"
       },
@@ -1019,40 +897,91 @@
       "period": "second_half",
       "player_id": "quantor_winger",
       "side": "visiting",
-      "time": 30
+      "time": 28
     },
     {
       "details": {
-        "attack_total": 7,
+        "attack_total": 20,
         "defender_count": 1,
         "defense_total": 18,
-        "scored": false,
+        "scored": true,
         "set_up": true,
-        "speed_modifier": -7
+        "speed_modifier": -1
       },
       "kind": "shot",
       "period": "second_half",
       "player_id": "tachyon_striker",
       "side": "visiting",
-      "time": 30
+      "time": 28
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": false
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 28
     },
     {
       "details": {
         "action": "maneuver",
         "by_ai": false,
         "exhaustion": {
-          "goopkeeper_fullback": 1
+          "emberdash_playmaker": 1,
+          "sizzifizik_playmaker": 1
         }
       },
       "kind": "turn_action",
       "period": "second_half",
-      "player_id": "goopkeeper_fullback",
+      "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 31
+      "time": 29
     },
     {
       "details": {
-        "challenger_id": "tachyon_striker",
+        "defense_key": "deflect",
+        "defense_total": 15,
+        "offense_key": "low_pass",
+        "offense_total": 16,
+        "tied": false
+      },
+      "kind": "skill_test",
+      "period": "second_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 29
+    },
+    {
+      "details": {
+        "challenger_id": "emberdash_playmaker",
+        "decision": "skill_test",
+        "defense_key": "deflect",
+        "offense_key": "low_pass",
+        "winner_key": "low_pass"
+      },
+      "kind": "maneuver",
+      "period": "second_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 30
+    },
+    {
+      "details": {
+        "action": "maneuver",
+        "by_ai": false
+      },
+      "kind": "turn_action",
+      "period": "second_half",
+      "player_id": "flickerwing_winger",
+      "side": "home",
+      "time": 30
+    },
+    {
+      "details": {
+        "challenger_id": "dravox_defender",
         "decision": "cards",
         "defense_key": "pressure",
         "offense_key": "dribble_advance",
@@ -1060,24 +989,35 @@
       },
       "kind": "maneuver",
       "period": "second_half",
-      "player_id": "goopkeeper_fullback",
+      "player_id": "flickerwing_winger",
       "side": "home",
-      "time": 32
+      "time": 31
     },
     {
       "details": {
-        "conceded": false,
-        "offense_skill": 1,
-        "rolls": [
-          5,
-          12
-        ]
+        "injured": false,
+        "roll": 12,
+        "shootout": true,
+        "tokens": 6
       },
-      "kind": "own_goal_roll",
+      "kind": "injury_test",
       "period": "second_half",
-      "player_id": "goopkeeper_fullback",
+      "player_id": "flickerwing_winger",
       "side": "home",
-      "time": 32
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": true,
+        "roll": 1,
+        "shootout": true,
+        "tokens": 1
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "gurgoth_defender",
+      "side": "visiting",
+      "time": 31
     },
     {
       "details": {
@@ -1085,10 +1025,36 @@
         "shootout": true
       },
       "kind": "goal",
+      "period": "second_half",
+      "player_id": "flickerwing_winger",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 7,
+        "shootout": true,
+        "tokens": 0
+      },
+      "kind": "injury_test",
       "period": "second_half",
       "player_id": "acidel_striker",
       "side": "home",
-      "time": 32
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 3,
+        "shootout": true,
+        "tokens": 2
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 31
     },
     {
       "details": {
@@ -1096,21 +1062,147 @@
         "shootout": true
       },
       "kind": "goal",
+      "period": "second_half",
+      "player_id": "tachyon_striker",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 8,
+        "shootout": true,
+        "tokens": 2
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "spectra_midfielder",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 8,
+        "shootout": true,
+        "tokens": 3
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "emberdash_playmaker",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": true
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "emberdash_playmaker",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 3,
+        "shootout": true,
+        "tokens": 1
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "noxar_striker",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 3,
+        "shootout": true,
+        "tokens": 0
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "dravox_defender",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": true
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "noxar_striker",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 2,
+        "shootout": true,
+        "tokens": 0
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "goopkeeper_fullback",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 5,
+        "shootout": true,
+        "tokens": 1
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "quantor_winger",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "own_goal": false,
+        "shootout": true
+      },
+      "kind": "goal",
+      "period": "second_half",
+      "player_id": "quantor_winger",
+      "side": "visiting",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 7,
+        "shootout": true,
+        "tokens": 2
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "sizzifizik_playmaker",
+      "side": "home",
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 12,
+        "shootout": true,
+        "tokens": 0
+      },
+      "kind": "injury_test",
       "period": "second_half",
       "player_id": "hellguard_fullback",
       "side": "visiting",
-      "time": 32
-    },
-    {
-      "details": {
-        "own_goal": false,
-        "shootout": true
-      },
-      "kind": "goal",
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
-      "side": "visiting",
-      "time": 32
+      "time": 31
     },
     {
       "details": {
@@ -1121,29 +1213,33 @@
       "period": "second_half",
       "player_id": "sizzifizik_playmaker",
       "side": "home",
-      "time": 32
+      "time": 31
     },
     {
       "details": {
-        "own_goal": false,
-        "shootout": true
+        "injured": false,
+        "roll": 4,
+        "shootout": true,
+        "tokens": 0
       },
-      "kind": "goal",
+      "kind": "injury_test",
       "period": "second_half",
-      "player_id": "quantor_winger",
-      "side": "visiting",
-      "time": 32
-    },
-    {
-      "details": {
-        "own_goal": false,
-        "shootout": true
-      },
-      "kind": "goal",
-      "period": "second_half",
-      "player_id": "goopkeeper_fullback",
+      "player_id": "acidel_striker",
       "side": "home",
-      "time": 32
+      "time": 31
+    },
+    {
+      "details": {
+        "injured": false,
+        "roll": 10,
+        "shootout": true,
+        "tokens": 0
+      },
+      "kind": "injury_test",
+      "period": "second_half",
+      "player_id": "hellguard_fullback",
+      "side": "visiting",
+      "time": 31
     },
     {
       "details": {
@@ -1152,24 +1248,23 @@
       },
       "kind": "goal",
       "period": "second_half",
-      "player_id": "dravox_defender",
-      "side": "visiting",
-      "time": 32
+      "player_id": "acidel_striker",
+      "side": "home",
+      "time": 31
     }
   ],
   "exhausted": [
-    "acidel_striker"
+    "flickerwing_winger",
+    "tachyon_striker"
   ],
   "exhaustion": {
-    "acidel_striker": 3,
-    "blazebulk_defender": 5,
-    "goopkeeper_fullback": 1,
-    "hellguard_fullback": 1,
+    "emberdash_playmaker": 3,
+    "flickerwing_winger": 6,
+    "noxar_striker": 1,
     "quantor_winger": 1,
-    "quillon_playmaker": 3,
     "sizzifizik_playmaker": 2,
     "spectra_midfielder": 2,
-    "tachyon_striker": 1
+    "tachyon_striker": 2
   },
   "forced_test_player": null,
   "gambit_answer": null,
@@ -1178,50 +1273,66 @@
     {
       "own_goal": false,
       "period": "first_half",
-      "player_id": "acidel_striker",
+      "player_id": "sizzifizik_playmaker",
+      "shootout": false,
+      "side": "home",
+      "time": 2
+    },
+    {
+      "own_goal": false,
+      "period": "first_half",
+      "player_id": "flickerwing_winger",
       "shootout": false,
       "side": "home",
       "time": 6
     },
     {
       "own_goal": false,
-      "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "period": "first_half",
+      "player_id": "tachyon_striker",
       "shootout": false,
       "side": "visiting",
-      "time": 21
+      "time": 9
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "acidel_striker",
+      "player_id": "tachyon_striker",
+      "shootout": false,
+      "side": "visiting",
+      "time": 28
+    },
+    {
+      "own_goal": false,
+      "period": "second_half",
+      "player_id": "flickerwing_winger",
       "shootout": true,
       "side": "home",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "hellguard_fullback",
+      "player_id": "tachyon_striker",
       "shootout": true,
       "side": "visiting",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "quillon_playmaker",
+      "player_id": "emberdash_playmaker",
       "shootout": true,
       "side": "visiting",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "sizzifizik_playmaker",
+      "player_id": "noxar_striker",
       "shootout": true,
       "side": "home",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
@@ -1229,23 +1340,23 @@
       "player_id": "quantor_winger",
       "shootout": true,
       "side": "visiting",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "goopkeeper_fullback",
+      "player_id": "sizzifizik_playmaker",
       "shootout": true,
       "side": "home",
-      "time": 32
+      "time": 31
     },
     {
       "own_goal": false,
       "period": "second_half",
-      "player_id": "dravox_defender",
+      "player_id": "acidel_striker",
       "shootout": true,
-      "side": "visiting",
-      "time": 32
+      "side": "home",
+      "time": 31
     }
   ],
   "half_substitutions_used": {},
@@ -1254,7 +1365,7 @@
     "team": "orange",
     "team_board": {
       "back_bench": [
-        "flickerwing_winger"
+        "blazebulk_defender"
       ],
       "bench": [
         "voltus_defender",
@@ -1267,20 +1378,21 @@
     "zones": {
       "home_goal": [
         "goopkeeper_fullback",
-        "blazebulk_defender"
+        "noxar_striker"
       ],
       "midfield": [
         "spectra_midfielder",
         "sizzifizik_playmaker"
       ],
       "visitors_goal": [
-        "noxar_striker",
+        "flickerwing_winger",
         "acidel_striker"
       ]
     }
   },
   "injured": [
-    "emberdash_playmaker"
+    "glompex_midfielder",
+    "gurgoth_defender"
   ],
   "last_ball_movers": [],
   "last_ball_path": [],
@@ -1345,42 +1457,42 @@
   "run_back_moved": [],
   "run_back_pick": null,
   "scoreboard": {
-    "home_score": 4,
+    "home_score": 6,
     "last_possession": true,
     "period": "second_half",
-    "time": 32,
+    "time": 31,
     "visiting_score": 5
   },
   "shootout_goals": {
-    "home": 3,
-    "visiting": 4
+    "home": 4,
+    "visiting": 3
   },
   "shootout_orders": {
     "home": [
+      "flickerwing_winger",
       "acidel_striker",
-      "noxar_striker",
-      "blazebulk_defender",
-      "sizzifizik_playmaker",
       "spectra_midfielder",
-      "goopkeeper_fullback"
+      "noxar_striker",
+      "goopkeeper_fullback",
+      "sizzifizik_playmaker"
     ],
     "visiting": [
+      "gurgoth_defender",
       "tachyon_striker",
-      "hellguard_fullback",
-      "quillon_playmaker",
+      "emberdash_playmaker",
       "dravox_defender",
       "quantor_winger",
-      "glompex_midfielder"
+      "hellguard_fullback"
     ]
   },
   "shootout_round": 2,
   "shootout_shooters": {},
   "shootout_used": {
     "home": [
-      "goopkeeper_fullback"
+      "acidel_striker"
     ],
     "visiting": [
-      "dravox_defender"
+      "hellguard_fullback"
     ]
   },
   "skill_test_winner": null,
@@ -1392,10 +1504,10 @@
     "team": "purple",
     "team_board": {
       "back_bench": [
-        "emberdash_playmaker"
+        "glompex_midfielder"
       ],
       "bench": [
-        "gurgoth_defender",
+        "quillon_playmaker",
         "zytheris_striker"
       ],
       "defense_die_value": null,
@@ -1408,8 +1520,8 @@
         "tachyon_striker"
       ],
       "midfield": [
-        "glompex_midfielder",
-        "quillon_playmaker"
+        "gurgoth_defender",
+        "emberdash_playmaker"
       ],
       "visitors_goal": [
         "hellguard_fullback",

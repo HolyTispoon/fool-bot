@@ -603,6 +603,101 @@ class OverdriveTests(ApplyFixture):
         self.assertIsInstance(refusal, driver.Refusal)
         self.assertEqual(fixture.match.to_dict(), before)
 
+    def cyborg_shootout(self) -> PromptFixture:
+        """`cyborg_skill_test`'s two Cyborg sides, at their shootout."""
+        fixture = self.cyborg_skill_test()
+        match = fixture.match
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        return fixture
+
+    def test_an_overdrive_in_the_shootout_counts_toward_its_check(
+        self,
+    ) -> None:
+        """
+        Law 17.4 and 20.3.5 (the author, 2026-10-02): Overdrive is
+        declared on a shootout test, before the injury check the test
+        opens with, so its 3 drain is what that check is rolled
+        against. A shooter it injures shoots the bare die with the +5
+        they paid for, and the check comes first in what is said.
+        """
+        fixture = self.cyborg_shootout()
+        game, match = fixture.game, fixture.match
+        home, visiting = (
+            match.shootout_shooter(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        )
+        prompt = pending_prompt(ENGINE, game, match)
+        self.assertEqual(prompt.kind, PromptKind.SHOOTOUT_TEST)
+        self.assertEqual(
+            set(prompt.options.overdrive_player_ids), {home, visiting},
+        )
+
+        for action in (
+            Action(PromptKind.SHOOTOUT_TEST, "overdrive", {"player_id": home}),
+            Action(PromptKind.SHOOTOUT_TEST, "pass", {"side": "visiting"}),
+        ):
+            self.assertNotIsInstance(
+                driver.apply(ENGINE, game, match, action), driver.Refusal,
+            )
+        self.assertEqual(match.exhaustion.get(home), 3)
+
+        # Home's check rolls 3, which does not beat the 3 drain the
+        # Overdrive took; visiting's rolls 12. Then the shots.
+        with mock.patch("random.Random.randint", side_effect=[3, 12, 7, 7]):
+            run = driver.apply(
+                ENGINE, game, match,
+                Action(PromptKind.SHOOTOUT_TEST, "roll"),
+            )
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertIn(home, match.injured)
+        self.assertNotIn(visiting, match.injured)
+        said = run.result.narration[0]
+        self.assertLess(said.index("before the shot"), said.index("#"))
+        # The shot heads the outcome, and the check is one only where it
+        # injured somebody: home's damage, and not visiting's safe roll.
+        shot, damage = run.result.headlines
+        self.assertIn("Overdrive", shot.working)
+        self.assertEqual(damage.side, TeamSide.HOME)
+        self.assertIn("damaged", damage.text)
+
+    def test_nothing_is_declared_on_an_injury_check(self) -> None:
+        """
+        Law 20.3.5 (the author, 2026-10-02): Overdrive never reaches an
+        injury check, and Boost goes with it -- not offered to the
+        Cyborg tested, who could Overdrive on any other roll, and
+        refused by name.
+        """
+        fixture = self.cyborg_skill_test()
+        game, match = fixture.game, fixture.match
+        tested = match.active_player_id
+        match.pending_injury_tests = [tested]
+        prompt = pending_prompt(ENGINE, game, match)
+        self.assertEqual(prompt.kind, PromptKind.INJURY_TEST)
+        self.assertIn(PromptKind.INJURY_TEST, driver.ROLL_KINDS)
+        self.assertEqual(
+            ENGINE.overdrive_candidates(game, match, [tested]), [tested],
+        )
+        self.assertEqual(prompt.options.overdrive_player_ids, ())
+        self.assertEqual(prompt.options.boost_player_ids, ())
+        self.assertIsNone(prompt.options.deciding_side)
+
+        before = match.to_dict()
+        for choice in ("overdrive", "boost"):
+            with self.subTest(choice):
+                refusal = driver.apply(
+                    ENGINE, game, match,
+                    driver.Action(
+                        PromptKind.INJURY_TEST,
+                        choice,
+                        {"player_id": tested},
+                    ),
+                )
+                self.assertIsInstance(refusal, driver.Refusal)
+                self.assertIn("injury check", refusal.reason)
+                self.assertEqual(refusal.law, "lithium-powered-cyborg")
+                self.assertEqual(match.to_dict(), before)
 
 class DieWaitsOnOverdriveTests(ApplyFixture):
     """

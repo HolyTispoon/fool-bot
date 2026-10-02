@@ -2174,7 +2174,7 @@ def _stage_window(
 
 #: Which players a given roll prompt puts an Overdrive offer to.
 #:
-#: **The same six lists the views build their buttons from**, which is
+#: **The same five lists the views build their buttons from**, which is
 #: what makes this one reading rather than two: `RollOptions` carries
 #: whichever of them `RulesEngine.overdrive_candidates` still allows,
 #: and an action naming anybody else is refused by
@@ -2183,8 +2183,13 @@ def _stage_window(
 #: It is keyed on the prompt because that is what a declaration is
 #: attached to -- Overdrive is declared *before* a roll and spent by
 #: it, so "which roll are we in" is the whole of what decides who may
-#: take one. The six are the rules' own list. It lived in `rolls.py`
-#: until the options were built here.
+#: take one. The five are the rules' own list (Law 20.3.5), and Boost
+#: is declared on the same rolls (Law 21.4.3). **The injury check is a
+#: roll and is not on it**: Overdrive never reaches one (the author,
+#: 2026-10-02), so it offers nobody. A shootout test's declarations
+#: come before the check the test opens with (Law 17.4), which is why
+#: their drain counts toward it. It lived in `rolls.py` until the
+#: options were built here.
 OVERDRIVE_ROLLERS = {
     PromptKind.SKILL_TEST: lambda match, prompt: [
         match.active_player_id, match.challenger_id,
@@ -2198,7 +2203,6 @@ OVERDRIVE_ROLLERS = {
     PromptKind.OWN_GOAL_ROLL: lambda match, prompt: [
         match.active_player_id,
     ],
-    PromptKind.INJURY_TEST: lambda match, prompt: [prompt.player_id],
     PromptKind.SHOOTOUT_TEST: lambda match, prompt: [
         match.shootout_shooter(side)
         for side in (TeamSide.HOME, TeamSide.VISITING)
@@ -2206,9 +2210,9 @@ OVERDRIVE_ROLLERS = {
 }
 
 
-#: The six prompts a roll is asked on, and therefore the six an
-#: Overdrive can be declared on. The rules' own list.
-ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS)
+#: The six prompts a roll is asked on: the five an Overdrive can be
+#: declared on, and the injury check, which nobody declares on.
+ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS) | {PromptKind.INJURY_TEST}
 
 
 #: Which of a prompt's answers each kind offers, where it offers more

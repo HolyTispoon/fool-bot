@@ -183,10 +183,10 @@ class InjuryTestView(SafeView):
         button.callback = self.roll
         self.add_item(button)
 
-        # Overdrive is legal on an injury check -- "any d12 the Cyborg
-        # themselves rolls" -- which is the one roll where spending
-        # drain to pass is also three more drain to have passed with.
-        # That trade is the coach's to make.
+        # Overdrive never reaches an injury check (Law 20.3.5), so the
+        # options offer nobody and this adds no button; it is asked
+        # like every roll's, so a legacy save that declared one before
+        # that rule still shows the declaration it paid for.
         options = self.prompt_options(game, match, PromptKind.INJURY_TEST)
         if options is not None:
             self.add_overdrive_buttons(

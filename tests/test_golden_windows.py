@@ -38,14 +38,14 @@ because of what this file has to reach.
   `test_the_game_is_level_at_full_time` asserts it, because a game that
   finishes 2-1 ends at the whistle and guards none of
   `begin_full_time_coaching`, `begin_shootout` or `advance_shootout`.
-  The recorded run is 1-1 and the shootout settles it 3-4 in sudden
+  The recorded run is 2-2 and the shootout settles it 4-3 in sudden
   death.
 
 **The AI side's halftime substitution is pinned here**, which the seed
 before this one could not manage: Dinky substitutes only to get an
 injured player off, so a script cannot make it swap anybody, and
 whether one of its players is hurt at the break is the dice's to
-decide. On seed 2 one is -- Quillon comes on for the injured Emberdash
+decide. On seed 337 one is -- Gurgoth comes on for the injured Glompex
 in Purple's halftime window -- so both sides' halftime windows run
 here *and* both move a player. The old seed covered Dinky's
 substitution routine only in a time out it called itself.
@@ -148,7 +148,15 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: level at full time, goes to sudden death, *and* has Dinky
 #: substituting an injured player at halftime -- seven of the 400 do
 #: all three. It lands on 1-1 and 3-4 again, coincidence again.
-WINDOWS_SEED = 2
+#:
+#: **It was 2 until every shootout test opened with an injury check**
+#: (docs/rules-log.md, 2026-10-02): the checks are dice, so every
+#: shootout's dice moved while every game up to full time stayed as it
+#: was, and seed 2's shootout stopped reaching sudden death. The same
+#: sweep over 0-399 found five seeds that still do all three; 337 is
+#: the shortest, at 2-2 and 4-3, and its shootout injures a shooter on
+#: the check.
+WINDOWS_SEED = 337
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop

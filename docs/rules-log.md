@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-01.
+**As of:** 2026-10-02.
 
 ## Where the rules come from
 
@@ -165,6 +165,55 @@ zones are Thirds. Left until play under the full modifier says it is needed.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-02 (later) -- author, an injury check before every shootout test; nothing modifies a check
+
+An odds study of Cyborgs in the extreme shootout found Overdrive free there: a shootout test
+charged no token and owed no damage test, and the game ends after it, so the drain had no price.
+Played every time, the +5 won a single test against an equal shooter 81% of the time rather than
+46%, and a whole shootout between two sides of offense 1-6 about 98% of the time rather than 50%
+(exact per test; the whole shootout simulated, orders at random). The author first gated
+Overdrive out of the shootout (*"need to gate overdrive out of extreme shoutout"*), then, the
+same day and before that landed, replaced the gate with a price:
+
+> *"before rolling dice, both side roll an injury/damaged check (regardless of whether they are
+> drained/exhausted) - just a flat check against their current exahsut/drain. On a failed check,
+> they are injured and don't add their regular modifier ... Abilities that modify the roll like
+> boost and overdrive are decided before the check."*
+
+Asked what that left open: *"of course overdrive is back that's the point. Overdrive should not
+apply to injury tests at all."* The check is rolled before **every** test; *"Already injured
+shooters need no check they're already injured"*; and *"kindlefinger applies."*
+
+- **Every shootout test starts with an injury check** (17.4.1), each shooter not already injured
+  rolling one whether Exhausted or not, against the tokens they carry. A shooter it injures
+  shoots the bare d12 (17.4.2). A shootout test still costs no exhaustion (17.4.4), so a tired
+  player shooting again in a later round or in sudden death takes the same risk again -- a
+  player on 6 tokens survives two checks a quarter of the time.
+- **Overdrive and Boost are declared before the check, so their drain counts toward it**, as a
+  skill test's own tokens count toward the check behind it (15.3.2): an Overdrive costs a
+  quarter of a d12 on the check, Gearclaw's Boost and Overdrive together a third, and the drain
+  stays for the shooter's next test.
+- **Overdrive never reaches an injury check** (20.3.5), anywhere in the game: a damage test is
+  rolled bare. It used to be on the list.
+- **Nothing modifies an injury check** (15.3.4), anywhere in the game: the author, *"no
+  modifiers apply there at all. The only exceptions should be abilities that explicitly name
+  injury tests ... no zorch speed ball, no volatile (except kindlefinger)"*. Kindlefinger's is
+  the one ability on the sheet that names the check (*"Can ignite on injury test"*), so it
+  stays, here and in the shootout (21.3.7). **Zorch no longer adds his half-speed to a check**
+  (21.6.6): the Charter had listed the injury check among his rolls, reading the sheet's *"all
+  rolls"*, which does not name it. Volatile already never reached a check (20.2.3).
+- **A shooter the check injures keeps an Overdrive or Boost already declared, and loses their
+  skill** (17.4.1). Built that way as the rules read straight -- the bonus was paid for, and
+  injury withholds the skill (17.4.2) -- and then confirmed: *"keep the +5 but loses their skill
+  modifier."* It was declared while they were healthy, so 15.4.2 c, which bars an injured
+  player from an ability that drains, does not reach back to it.
+- **A shooter on no tokens still rolls the check**, though it cannot fail, and the bot says they
+  are safe: asked whether to skip a check that cannot fail, the author: *"keep it."*
+  Kindlefinger's burn is the one way such a check changes anything.
+- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"** and is
+  staying: *"Since the charter explicitly says injury tests are different, we don't need to
+  change overdrive."* The author updated Zorch's row on the sheet instead.
 
 ### 2026-10-02 -- author, an injured player uses no ability that costs tokens
 

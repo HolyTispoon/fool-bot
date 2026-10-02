@@ -192,8 +192,8 @@ SPECIAL_ABILITIES: dict[str, tuple[SpecialAbility, str]] = {
     ),
     "zorch_playmaker": (
         SpecialAbility.SPEED_ROLLS,
-        "Adds a ball speed modifier to all rolls (speed divided by 2 "
-        "rounded down).",
+        "Adds a ball speed modifier to all rolls except injury tests "
+        "(speed divided by 2 rounded down).",
     ),
     "quantor_winger": (
         SpecialAbility.RUN_ON,

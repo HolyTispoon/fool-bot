@@ -14,7 +14,7 @@ from d12ball.components import (
 )
 from d12ball.flow.driver import Action
 from d12ball.game import D12BallGame
-from d12ball.prompts import PromptKind
+from d12ball.prompts import PromptKind, pending_prompt
 from cogs.d12ball_helpers import send_new_prompt
 
 from d12ball.dice_brief import render_contest_dice
@@ -499,13 +499,25 @@ class ShootoutTestView(ShootoutView):
     def __init__(self, cog: "D12Ball", game_id: str):
         super().__init__(cog, game_id)
 
-        button = discord.ui.Button(
-            label="Roll the skill test",
-            style=discord.ButtonStyle.primary,
-            custom_id=f"d12ball:shootout_test:{game_id}",
-        )
-        button.callback = self.roll
-        self.add_item(button)
+        # **Roll is not on the message while a coach still has an
+        # Overdrive or Boost to decide** (the author, 2026-10-02): they
+        # are declared before the test's injury check (Law 17.4), so
+        # the shootout asks for them first and only then offers the
+        # die. The driver refuses Roll until then anyway
+        # (`refuse_roll_while_deciding`); this keeps it from being
+        # offered. The press that settles the last decision puts it up
+        # (`answer_declaration`), and a restart rebuilds this view off
+        # the position, so it comes back with Roll or without it.
+        game, match = self.load_match()
+        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
+        if options is None or not options.undecided_sides:
+            button = discord.ui.Button(
+                label="Roll the skill test",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"d12ball:shootout_test:{game_id}",
+            )
+            button.callback = self.roll
+            self.add_item(button)
 
         review = discord.ui.Button(
             label="Your Order",
@@ -515,17 +527,48 @@ class ShootoutTestView(ShootoutView):
         review.callback = self.review
         self.add_item(review)
 
-        # Overdrive, for whichever of the two shooters is a Cyborg. A
-        # shootout test costs no exhaustion and owes no injury check,
-        # but Overdrive is a Cyborg spending their own drain rather
-        # than the test charging it -- so it is offered here like
-        # anywhere else.
-        game, match = self.load_match()
-        options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
+        # Overdrive, for whichever of the two shooters is a Cyborg,
+        # declared before the injury check the test opens with -- so
+        # its drain is what that check is rolled against (Law 17.4).
         if options is not None:
             self.add_overdrive_buttons(
                 game, match, options,
             )
+
+    async def answer_declaration(
+        self, interaction: discord.Interaction, result,
+    ) -> None:
+        """
+        A declaration or a pass on this prompt, and -- once nobody is
+        left to decide -- the Roll it was waiting for.
+
+        **Roll goes onto this same message**: the press came from its
+        buttons, so `response.edit_message` swaps them for a rebuilt
+        view (Roll, Your Order, and whatever is still open) through the
+        interaction callback, which is not the channel's edit bucket
+        (docs/design/rate-limits.md), and `turn_message_id` still names
+        the message a restart re-arms. What was declared goes out
+        after it, as every answer does. While a coach is still to
+        decide, the reply that names them is the whole of it, as on
+        every other roll.
+        """
+        game = self.cog.games.get(self.game_id)
+        waiting = (
+            None if game is None
+            else pending_prompt(self.cog.engine, game, result.match)
+        )
+        if (
+            waiting is None
+            or waiting.kind is not PromptKind.SHOOTOUT_TEST
+            or waiting.options is None
+            or waiting.options.undecided_sides
+        ):
+            await super().answer_declaration(interaction, result)
+            return
+        await interaction.response.edit_message(
+            view=ShootoutTestView(self.cog, self.game_id),
+        )
+        await send_new_prompt(interaction, result.answer[0])
 
     async def review(self, interaction: discord.Interaction) -> None:
         """
@@ -608,9 +651,8 @@ class ShootoutTestView(ShootoutView):
         )
         await send_new_prompt(interaction, result.answer[0])
 
-        # A shootout test owes no injury checks (2026-08-15). It costs
-        # no exhaustion either -- it is not one of the ways to gain a
-        # token -- so an Exhausted shooter carries that into the
-        # shootout and out the other side unchanged. The round goes
+        # The test's injury checks were rolled before the shot, and
+        # their lines lead what `present` posts (Law 17.4); nothing is
+        # owed after it, and it costs no exhaustion. The round goes
         # straight on to the next test, which the service has run.
         await self.cog.present(interaction, game, result)

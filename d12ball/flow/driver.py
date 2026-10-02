@@ -1481,7 +1481,9 @@ def _declared_overdrive(
     player_id: str,
 ) -> StepResult:
     """
-    The `overdrive` choice, shared by all six roll prompts.
+    The `overdrive` choice, shared by all six roll prompts -- and
+    refused on the injury check, which nothing is declared on
+    (Law 20.3.5).
 
     **It answers the prompt without settling it**, and comes back on
     the same question -- the roll is still owed. That is the coaching

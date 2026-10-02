@@ -46,6 +46,12 @@ from save_patches import suppressed_cog_saves
 from cog_steps import apply_substitution, begin_full_time_coaching, begin_shootout, continue_shootout, end_period, finish_substitution_window, resume
 
 
+#: The two shooters' injury checks on a 12, which beats any count of
+#: tokens a test here gives them: the dice every shootout test opens
+#: with (Law 17.4) where a test is about the shot.
+SAFE = (12, 12)
+
+
 def by_role(match: MatchState, side: TeamSide) -> list[str]:
     """
     A side's six in role order, which is how both sides' orders are set
@@ -800,6 +806,96 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.pending_shootout)
 
 
+class ShootoutDeclarationTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The shootout asks for Overdrive and Boost before it offers the die
+    (the author, 2026-10-02): no Roll on the prompt while a coach is
+    still to decide, and the press that settles the last decision puts
+    it up on the same message.
+    """
+
+    def build(self):
+        cog = build_cog()
+        game = build_game(
+            player_1_team=Team.CYBORGS,
+            player_2_team=Team.CYBORGS,
+            mode=GameMode.ADVANCED,
+            species_abilities=True,
+        )
+        match = MatchState.standard(
+            catalog=load_player_catalog(),
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.CYBORGS,
+            visiting_team=Team.CYBORGS,
+        )
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match
+
+    @staticmethod
+    def labels(view) -> list[str]:
+        return [getattr(item, "label", "") for item in view.children]
+
+    async def test_roll_waits_off_the_message_until_both_have_decided(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        view = ShootoutTestView(cog, game.game_id)
+        self.assertNotIn("Roll the skill test", self.labels(view))
+        self.assertIn("Your Order", self.labels(view))
+
+        # Home declares: the reply names the visiting coach, and the
+        # prompt is left as it is.
+        home = match.shootout_shooter(TeamSide.HOME)
+        first = build_interaction(111)
+        first.data = {"custom_id": f"d12ball:overdrive:g1:{home}"}
+        with suppressed_cog_saves():
+            await view.declare_overdrive(first)
+        first.response.edit_message.assert_not_awaited()
+        self.assertIn(
+            "<@222> decides on Overdrive next",
+            first.response.send_message.await_args.args[0],
+        )
+
+        # Visiting passes: nobody is left to decide, so Roll goes up on
+        # the prompt itself and the pass is said after it.
+        second = build_interaction(222)
+        second.data = {"custom_id": "d12ball:overdrive_pass:g1:visiting"}
+        with suppressed_cog_saves():
+            await view.pass_on_overdrive(second)
+        second.response.send_message.assert_not_awaited()
+        swapped = second.response.edit_message.await_args.kwargs["view"]
+        self.assertIn("Roll the skill test", self.labels(swapped))
+        self.assertNotIn(
+            "Pass on Overdrive: Two", self.labels(swapped),
+        )
+        self.assertIn("Either player can roll", sent_texts(second)[0])
+
+    async def test_a_shootout_with_nothing_to_decide_offers_roll(
+        self,
+    ) -> None:
+        cog = build_cog()
+        game = build_game()
+        match = MatchState.standard(
+            catalog=load_player_catalog(),
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        view = ShootoutTestView(cog, game.game_id)
+        self.assertIn("Roll the skill test", self.labels(view))
+
+
 class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
     """The roll itself: what is added, what is charged, what is owed."""
 
@@ -828,6 +924,11 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         return game, match
 
     async def roll(self, cog, game, rolls: list[int]):
+        """
+        Press Roll with these dice, in the order they are drawn: each
+        healthy shooter's injury check, home first, and then the two
+        shots (Law 17.4). `SAFE` is a check nothing fails.
+        """
         interaction = build_interaction()
         view = ShootoutTestView(cog, game.game_id)
         with suppressed_cog_saves(), mock.patch(
@@ -847,7 +948,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         game, match = self.build_shootout(cog)
         home_shooter = match.shootout_shooter(TeamSide.HOME)
 
-        interaction = await self.roll(cog, game, [12, 1])
+        interaction = await self.roll(cog, game, [*SAFE, 12, 1])
 
         reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals_for(TeamSide.HOME), 1)
@@ -869,7 +970,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         cog.begin_injury_tests = mock.AsyncMock()
         game, match = self.build_shootout(cog)
 
-        interaction = await self.roll(cog, game, [7, 7])
+        interaction = await self.roll(cog, game, [*SAFE, 7, 7])
 
         reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals, {})
@@ -887,7 +988,9 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         match.mark_injured(match.shootout_shooter(TeamSide.HOME))
         game.match_state = match.to_dict()
 
-        await self.roll(cog, game, [7, 7])
+        # An injured shooter rolls no check: one die for the visiting
+        # shooter's, then the shots.
+        await self.roll(cog, game, [12, 7, 7])
 
         reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.shootout_goals_for(TeamSide.VISITING), 1)
@@ -901,35 +1004,49 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         match.add_exhaustion(shooter, 2)
         game.match_state = match.to_dict()
 
-        await self.roll(cog, game, [9, 3])
+        await self.roll(cog, game, [*SAFE, 9, 3])
 
         reloaded = cog.engine.load_match_state(game)
         self.assertEqual(reloaded.exhaustion.get(shooter), 2)
 
-    async def test_an_exhausted_shooter_owes_no_injury_check(
+    async def test_every_test_opens_with_an_injury_check(
         self,
     ) -> None:
-        # 2026-08-15: a shootout test costs no exhaustion and owes no
-        # check either, so an Exhausted shooter carries the condition
-        # through the shootout unchanged. It reverses half of the
-        # 2026-08-10 ruling -- see the rules log.
+        """
+        Law 17.4 (the author, 2026-10-02): each healthy shooter rolls an
+        injury check before the shot, Exhausted or not, against the
+        tokens they carry. A check that does not beat them injures the
+        shooter, who shoots the bare die; a safe one changes nothing.
+        Nothing is owed after the shot.
+        """
         cog = build_cog()
         cog.begin_injury_tests = mock.AsyncMock()
         game, match = self.build_shootout(cog)
-        shooter = match.shootout_shooter(TeamSide.HOME)
-        match.exhausted.add(shooter)
+        home = match.shootout_shooter(TeamSide.HOME)
+        visiting = match.shootout_shooter(TeamSide.VISITING)
+        # Not Exhausted on either count, and checked all the same.
+        match.add_exhaustion(home, 1)
+        match.add_exhaustion(visiting, 1)
         game.match_state = match.to_dict()
+        self.assertNotIn(home, match.exhausted)
 
-        # **What follows a settled test is the driver's** since Phase
-        # 6, so the stop goes on whichever side runs it rather than on
-        # the cog method the view used to call -- see
-        # `tests/flow_stubs.py`.
+        # Home's check rolls 1, which does not beat 1 token; visiting's
+        # rolls 2, which does. Equal shots: the injured home shooter's
+        # skill is withheld, so visiting scores.
         with chain_stops_at(cog, FollowOnStep.CONTINUE_SHOOTOUT) as carried:
-            await self.roll(cog, game, [9, 3])
+            interaction = await self.roll(cog, game, [1, 2, 7, 7])
 
         cog.begin_injury_tests.assert_not_awaited()
         self.assertEqual(carried.call_count, 1)
-        self.assertNotIn(shooter, cog.engine.load_match_state(game).injured)
+        reloaded = cog.engine.load_match_state(game)
+        self.assertIn(home, reloaded.injured)
+        self.assertNotIn(home, reloaded.exhaustion)
+        self.assertNotIn(visiting, reloaded.injured)
+        self.assertEqual(reloaded.exhaustion.get(visiting), 1)
+        self.assertEqual(reloaded.shootout_goals_for(TeamSide.VISITING), 1)
+        said = sent_texts(interaction)[0]
+        self.assertIn("before the shot", said)
+        self.assertLess(said.index("before the shot"), said.index("scores"))
 
     async def test_the_last_test_of_the_shootout_ends_the_game(
         self,
@@ -950,7 +1067,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         )
         game.match_state = match.to_dict()
 
-        interaction = await self.roll(cog, game, [12, 1])
+        interaction = await self.roll(cog, game, [*SAFE, 12, 1])
 
         self.assertTrue(game.is_finished)
         reloaded = cog.engine.load_match_state(game)
@@ -968,7 +1085,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
             match.finish_shootout_test()
         game.match_state = match.to_dict()
 
-        interaction = await self.roll(cog, game, [7, 7])
+        interaction = await self.roll(cog, game, [*SAFE, 7, 7])
         # Nothing scored, so the roll's continuation is the one the
         # injury queue would have made.
         with suppressed_cog_saves():

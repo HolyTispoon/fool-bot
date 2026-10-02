@@ -1074,7 +1074,9 @@ renderer (`d12ball/dice_brief.py`) so the web page draws the same dice.
   having to know that a tie is a thing. **The views read it by kind
   and not by "is it a prompt"**, because the settled path ends on a
   prompt too: the injury test the contest owes.
-- **Overdrive rides on all six roll prompts, as a `choice` on each.**
+- **Overdrive rides on all six roll prompts, as a `choice` on each**
+  -- offered on five: nothing is declared on an injury check (the
+  author, 2026-10-02, docs/design/species-abilities.md).
   It is declared *before* a roll and spent by it, so it answers the
   prompt without settling it and comes back on the same question --
   which is the coaching hub's shape rather than a new one: four of the

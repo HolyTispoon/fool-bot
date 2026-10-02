@@ -89,13 +89,34 @@ dies out on its own.
   look at their own order whenever they like -- they just may not reorder it --
   so it answers ephemerally, and in sudden death, which has no order, it lists
   who they have left this round.
-- **A shootout test costs no exhaustion and owes no injury checks either**
-  (2026-08-15), which is the author's ruling and not a shortcut -- the rule for
-  every other skill test read straight would give checks, so the living rules
-  state the exception in both places. It is not one of the ways to gain a token,
-  and an Exhausted shooter carries that into the shootout and out again
-  unchanged. `finish_shootout_test` goes straight to `continue_shootout` rather
-  than through `begin_injury_tests`.
+- **A shootout test costs no exhaustion** (2026-08-15): it is not one of the
+  ways to gain a token, so a shooter carries their tokens into the shootout and
+  out again unchanged, less what an Overdrive or Boost adds.
+- **Every shootout test opens with an injury check, and owes none after it**
+  (the author, 2026-10-02, Law 17.4). Each shooter not already injured rolls
+  one, Exhausted or not -- a flat check against the tokens they carry -- and a
+  shooter it injures shoots the bare die. It is what gives Overdrive a price in
+  the shootout: declared before the check, its drain counts toward it
+  (docs/design/species-abilities.md). It replaced the 2026-08-15 ruling that a
+  shootout test owed no checks, which was written because the rule for a skill
+  test read straight would have given checks *after* the roll.
+  - **The check is rolled inside the shootout test's own step**
+    (`rolls.shootout_checks`, called by `shootout_test_step` before the dice),
+    behind the same Roll button, not as a queue of `INJURY_TEST` prompts the
+    way a skill test's checks are. Two reasons: the check has to come *before*
+    the shot, and a shot waiting on a separate button per check would be two
+    more clicks on every test of a shootout that already has twelve. It goes
+    through `injuries.roll_injury_check`, the one reading of the check that
+    `injury_test_step` rolls too, so it is the same bare d12 with only
+    Kindlefinger's ignite on it (Law 15.3.4). The checks' dice are said, not drawn: the dice
+    picture stays the two shooters' shot.
+  - `finish_shootout_test` still goes straight to `continue_shootout` rather
+    than through `begin_injury_tests`: nothing is owed after the shot.
+  - **On Discord the prompt asks for Overdrive and Boost before it offers
+    the die**: no Roll button while a coach is still to decide, and the
+    press that settles the last decision puts it up on the same message
+    (docs/design/species-abilities.md). A restart rebuilds the view off the
+    position, so it comes back with Roll or without it as the position says.
   - **The `shootout_test` resume kind is still read and never written.**
     `dispatch_injury_resume` keeps the branch so a game saved between that roll
     and its tests finishes the way it started; nothing writes it any more, so it
