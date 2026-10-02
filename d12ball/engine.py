@@ -2691,17 +2691,19 @@ class RulesEngine:
         player_id: Optional[str],
     ) -> tuple[int, str]:
         """
-        **Zorch** adds the ball speed modifier to every roll they make
-        (Law 21): the number, and the line the dice list it under, or
-        `(0, "")` for anybody else. Since 2026-10-01 the modifier is the
-        speed itself, so Zorch always adds at least 1.
+        **Zorch** adds a ball speed modifier of their own to every roll
+        they make (Law 21.6.6): **half the speed, rounded up** -- not
+        `BallState.speed_modifier`, the full speed everyone else adds
+        (the author, 2026-10-01). The number, and the line the dice list
+        it under, or `(0, "")` for anybody else. Never 0 for Zorch: the
+        speed is at least 1, and half of 1 rounds up to 1.
 
         The caller asks only where the roll does not already add the
         modifier to Zorch's side -- Zorch shooting, contesting a
         maneuver with Steal or Intercept, or holding the thrower's side
         of a High Pass contest -- because Zorch adds it once, not twice
-        (the author, 2026-09-27). It is `BallState.speed_modifier`,
-        never signed: a High Pass that reaches the goal zone counts the
+        (the author, 2026-09-27) -- and there the full modifier is what
+        is added, not this. It is never signed: a High Pass that reaches the goal zone counts the
         modifier against itself, and Zorch's own bonus is not that
         pass's.
         """
@@ -2709,7 +2711,7 @@ class RulesEngine:
             game, player_id, SpecialAbility.SPEED_ROLLS,
         ):
             return 0, ""
-        modifier = match.ball.speed_modifier
+        modifier = (match.ball.speed + 1) // 2
         return modifier, f"+{modifier} ball speed modifier"
 
     def controlling_player_number(
