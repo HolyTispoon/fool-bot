@@ -1831,7 +1831,8 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
     roll Quantor is in. It is instead **a note under the challenge**
     while a teammate is on the ball and Quantor is on the field, since
     he may run onto that teammate's pass (`pass_runner_on_field`, the
-    model's reading of who may). Bulwark's drain threshold is named on
+    model's reading of who may, through `dice_brief.challenge_noted`,
+    which the bot's challenge image reads for its notes row too). Bulwark's drain threshold is named on
     every roll he is in (`ALWAYS_BEARS`). Kindlefinger's ignite is the injury
     check's alone, never a maneuver's. The five players whose line is an advanced skill score
     ("High defensive skill.") have it named where the roll adds that

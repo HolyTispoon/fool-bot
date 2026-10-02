@@ -416,10 +416,21 @@ fills it from a `Bearing` -- which part of which roll the player is in
   modes, both board sizes and six team pairs (3,024 renders) -- training
   and standard byte-identical before and after, and in advanced exactly
   the 768 images with a bearing special ability changed.
-- **Not drawn**: the web page's notes from somebody who is not rolling
-  (Quantor's run on while a teammate is on the ball, Glompex's offer to
-  step onto it). The image is about who rolls; those would need a row
-  of their own.
+- **A note row for somebody who is not rolling** (the author,
+  2026-10-02: "add quantor"). Quantor, while a teammate is on the ball,
+  may run onto their High Pass or Cross, so the coach choosing the card
+  is told: a `MatchupNote` under both groups, whose it is over the
+  card's sentence, edged in their team's colour as the page edges its
+  note. Who gets one is `dice_brief.challenge_noted`, which the page's
+  window reads too, and `maneuver_challenge_notes` dresses it for the
+  image. With no notes the image is byte-identical to before (the same
+  3,024-render sweep).
+- **Glompex's offer has no note on Discord, and needs none.** The page
+  shows the challenge he would step into with his card's sentence under
+  it while `JOIN_THE_BALL` is asked; the bot holds the challenge image
+  back until the offer is answered (`challenge_placement`), and the ask
+  itself is the model's sentence saying what he may do. Once he has
+  stepped on he is drawn in the side he joined, with what he adds.
 
 ## Fonts
 

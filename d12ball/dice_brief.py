@@ -38,6 +38,7 @@ from d12ball.formatting import (
     ball_space_label,
     capitalized,
     format_team_side_label,
+    player_with_role,
     role_initials,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
@@ -46,6 +47,7 @@ from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
     IgnitionDie,
+    MatchupNote,
     render_skill_test_dice,
     zone_labels,
 )
@@ -254,6 +256,46 @@ def maneuver_challenge_brief(
             f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
         ),
     )
+
+
+def challenge_noted(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> list[str]:
+    """
+    Who has a special ability that bears on the maneuver challenge
+    without being in it: Quantor, while a teammate is on the ball,
+    since he may run onto their High Pass or Cross and the coach is
+    choosing the card (`pass_runner_on_field`; the author, 2026-09-28
+    on the page, 2026-10-02 on Discord). Both frontends say it -- the
+    page's window as a note, the bot's image in its notes row.
+    """
+    runner = engine.pass_runner_on_field(game, match)
+    return [runner] if runner is not None else []
+
+
+def maneuver_challenge_notes(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> list[MatchupNote]:
+    """`challenge_noted` as `render_maneuver_challenge` draws it: each
+    player with their role, their team's colour and their card's own
+    sentence (`special_ability_text`)."""
+    if game is None:
+        return []
+    notes = []
+    for player_id in challenge_noted(engine, match, game):
+        text = engine.special_ability_text(game, player_id)
+        if not text:
+            continue
+        notes.append(MatchupNote(
+            who=player_with_role(engine.get_player_definition(player_id)),
+            team_color=TEAM_COLORS[match.team_for_player(player_id)],
+            text=text,
+        ))
+    return notes
 
 
 def score_attempt_brief(

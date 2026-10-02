@@ -94,6 +94,7 @@ from d12ball.prompts import (
     maneuver_gambit_paragraph,
 )
 from d12ball.dice_brief import (
+    challenge_noted,
     challenge_side,
     maneuver_challenge_brief,
     merging_sides,
@@ -2977,8 +2978,7 @@ def _challenge_situation(
         # so while a teammate is on the ball and he is on the field the
         # coach choosing the card is told (the author, 2026-09-28).
         "notes": _notes(
-            engine, game, match,
-            [engine.pass_runner_on_field(game, match)],
+            engine, game, match, challenge_noted(engine, match, game),
         ),
     }
 

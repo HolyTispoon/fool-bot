@@ -3773,6 +3773,13 @@ CHALLENGE_ABILITY_COLOR = "#9aa5b1"
 # the web page sets its name in bold over the muted line.
 CHALLENGE_SPECIAL_LABEL = "Special ability"
 CHALLENGE_SPECIAL_LABEL_COLOR = CHALLENGE_SKILL_COLOR
+# The notes row under both groups (`MatchupNote`): inset from the
+# image's edges, a bar in the player's team colour down its left, and
+# a gap between one note and the next.
+CHALLENGE_NOTE_INSET = 24
+CHALLENGE_NOTE_BAR_WIDTH = 4
+CHALLENGE_NOTE_BAR_GAP = 12
+CHALLENGE_NOTE_SPACING = 10
 CHALLENGE_TOTAL_COLOR = "#ffffff"
 CHALLENGE_TOTAL_LINE_HEIGHT = 34
 # Every face on a matchup wears the number its player adds, in the
@@ -3928,6 +3935,22 @@ class ChallengeSide:
         """The colour of the band over this player's run: the skill's,
         but the Oozes' green over a Merge."""
         return CHALLENGE_MERGE_COLOR if self.merging else self.skill_color
+
+
+@dataclass(frozen=True)
+class MatchupNote:
+    """
+    A special ability that bears on a matchup from somebody who is not
+    rolling -- Quantor, while a teammate is on the ball, may run onto
+    their High Pass or Cross -- drawn in a row under both groups, as
+    the web page's situation window says it under its row: whose it
+    is (`who`, the player with their role), edged in their team's
+    colour, and the card's own sentence (`text`).
+    """
+
+    who: str
+    team_color: str
+    text: str
 
 
 def join_names(names: list[str]) -> str:
@@ -4478,6 +4501,84 @@ def draw_matchup_group(
         y += line_height
 
 
+def matchup_note_blocks(
+    notes: Sequence[MatchupNote],
+    width: int,
+) -> list[tuple[str, list[tuple[str, str, ImageFont.ImageFont, int]]]]:
+    """Each note as its bar's colour and its lines -- whose it is over
+    the sentence -- wrapped to the room beside the bar."""
+    if not notes:
+        return []
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    text_width = (
+        width - CHALLENGE_NOTE_INSET * 2
+        - CHALLENGE_NOTE_BAR_WIDTH - CHALLENGE_NOTE_BAR_GAP
+    )
+    blocks = []
+    for note in notes:
+        lines = []
+        for text, color, font in (
+            (
+                f"{note.who} · {CHALLENGE_SPECIAL_LABEL}",
+                CHALLENGE_SPECIAL_LABEL_COLOR,
+                FONT_CHALLENGE_SPECIAL_LABEL,
+            ),
+            (note.text, CHALLENGE_ABILITY_COLOR, FONT_CHALLENGE_ABILITY),
+        ):
+            lines.extend(
+                (piece, color, font, CHALLENGE_ABILITY_LINE_HEIGHT)
+                for piece in wrap_text(measure, text, font, text_width)
+            )
+        blocks.append((note.team_color, lines))
+    return blocks
+
+
+def matchup_notes_height(
+    blocks: list[tuple[str, list[tuple[str, str, ImageFont.ImageFont, int]]]],
+) -> int:
+    """How much taller the notes make the image: every line, a gap
+    between notes, and the bottom padding again under the last."""
+    if not blocks:
+        return 0
+    return (
+        sum(
+            line_height
+            for _, lines in blocks
+            for _, _, _, line_height in lines
+        )
+        + CHALLENGE_NOTE_SPACING * (len(blocks) - 1)
+        + CHALLENGE_BOTTOM_PADDING
+    )
+
+
+def draw_matchup_notes(
+    draw: ImageDraw.ImageDraw,
+    blocks: list[tuple[str, list[tuple[str, str, ImageFont.ImageFont, int]]]],
+    top: float,
+) -> None:
+    """The notes row, from `top` down: each note's lines left-aligned
+    beside a bar in the player's team colour."""
+    y = top
+    text_x = (
+        CHALLENGE_NOTE_INSET + CHALLENGE_NOTE_BAR_WIDTH
+        + CHALLENGE_NOTE_BAR_GAP
+    )
+    for color, lines in blocks:
+        height = sum(line_height for _, _, _, line_height in lines)
+        draw.rectangle(
+            (
+                CHALLENGE_NOTE_INSET, y + 2,
+                CHALLENGE_NOTE_INSET + CHALLENGE_NOTE_BAR_WIDTH - 1,
+                y + height - 2,
+            ),
+            fill=color,
+        )
+        for text, fill, font, line_height in lines:
+            draw.text((text_x, y), text, font=font, fill=fill)
+            y += line_height
+        y += CHALLENGE_NOTE_SPACING
+
+
 def render_matchup(
     title: str,
     location: str,
@@ -4486,6 +4587,7 @@ def render_matchup(
     defending_note: str = "",
     attacking_abilities: bool = True,
     defending_abilities: bool = True,
+    notes: Sequence[MatchupNote] = (),
 ) -> BytesIO:
     """
     Render a contest about to happen: who is on each side, with
@@ -4518,13 +4620,23 @@ def render_matchup(
     nothing about them: what a coach needs in front of them is the
     other side's skills and abilities, which the board shows only as
     numbers on a card too small to read the ability off.
+
+    `notes` go in a row under both groups (`MatchupNote`), wrapped to
+    the width the groups settled on; with none the image is exactly
+    what it was before they existed.
     """
     layout = matchup_layout(
         attacking, defending, defending_note,
         attacking_abilities, defending_abilities,
     )
-    canvas = Image.new("RGBA", (layout.width, layout.height), "#111820")
+    note_blocks = matchup_note_blocks(notes, layout.width)
+    canvas = Image.new(
+        "RGBA",
+        (layout.width, layout.height + matchup_notes_height(note_blocks)),
+        "#111820",
+    )
     draw = ImageDraw.Draw(canvas)
+    draw_matchup_notes(draw, note_blocks, layout.height)
 
     draw_matchup_heading(draw, layout, title, location)
     draw_matchup_group(
@@ -4543,15 +4655,18 @@ def render_maneuver_challenge(
     offense: list[ChallengeSide],
     defense: list[ChallengeSide],
     location: str,
+    notes: Sequence[MatchupNote] = (),
 ) -> BytesIO:
     """
     The two players about to contest a maneuver, one against one --
     each side the player contesting and any Ooze on the ball Merging
     into them (Law 20.5), who is part of the maneuver: drawn beside
-    them with what they add, and the side's skill added up.
+    them with what they add, and the side's skill added up. `notes`
+    are the special abilities of players not in it that bear on it
+    (`dice_brief.maneuver_challenge_notes`).
     """
     return render_matchup(
-        CHALLENGE_TITLE, location, offense, defense,
+        CHALLENGE_TITLE, location, offense, defense, notes=notes,
     )
 
 

@@ -39,6 +39,7 @@ from d12ball.components import (
 )
 from d12ball.dice_brief import (
     maneuver_challenge_brief,
+    maneuver_challenge_notes,
     score_attempt_brief,
 )
 from d12ball.engine import IgnitedRoll
@@ -1418,6 +1419,41 @@ class MatchupReminderTests(unittest.TestCase):
             self.specials(advanced(), self.attacker, SpecialAbility.RUN_ON),
             ("", ""),
         )
+
+    def notes(self, game, player_id: str):
+        with mock.patch.dict(
+            SPECIAL_ABILITIES,
+            {catalog_player_id(player_id): (SpecialAbility.RUN_ON, "test")},
+            clear=True,
+        ), mock.patch.object(ENGINE, "special_ability_text", reminder):
+            return maneuver_challenge_notes(ENGINE, self.match, game)
+
+    def test_a_teammate_who_may_run_onto_the_pass_is_a_note(self) -> None:
+        # Quantor, while a teammate is on the ball: not in the roll, so
+        # not under either side, but the coach choosing the card is
+        # told (the author, 2026-10-02).
+        runner = next(
+            player_id for player_id in self.match.home.field_players
+            if player_id != self.attacker
+        )
+        (note,) = self.notes(advanced(), runner)
+        self.assertEqual(note.text, reminder(advanced(), runner))
+        self.assertEqual(
+            self.specials(advanced(), runner, SpecialAbility.RUN_ON),
+            ("", ""),
+        )
+
+    def test_no_note_for_the_handler_the_other_side_or_another_mode(
+        self,
+    ) -> None:
+        self.assertEqual(self.notes(advanced(), self.attacker), [])
+        self.assertEqual(self.notes(advanced(), self.challenger), [])
+        runner = self.match.home.field_players[1]
+        for mode in (GameMode.TRAINING, GameMode.STANDARD):
+            with self.subTest(mode.value):
+                self.assertEqual(
+                    self.notes(build_game(mode=mode), runner), [],
+                )
 
     def test_only_an_advanced_game_says_any(self) -> None:
         for mode in (GameMode.TRAINING, GameMode.STANDARD):
