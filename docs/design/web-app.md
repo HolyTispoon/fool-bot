@@ -1982,7 +1982,17 @@ Pull's roll is headed too (2026-10-02, after the author found a landed
 pull up as a bare die), in the author's wording of the same day:
 "<player> Mind Pulls" in the puller's side's colour with the
 Turnover! line under it, or, on a miss, "<player> fails to Mind Pull"
-with the reach under it. Each
+with the reach under it. So is an injury test (2026-10-01, after the
+die was found up with nothing saying what it came to): the step builds
+its reading -- who rolled and what they had to beat -- and its verdict
+once each, and the verdict is the headline with the reading under it,
+in the tested player's side's colour either way, since nobody on the
+other side did anything. The verdict is its own line after the
+reading, in the author's wording of the same day: "<player> is
+**safe**.", for what had been "-- safe." at the end of the reading, or "<player> is **injured**." (a
+Cyborg's **damaged**) -- "no need to say it twice" -- for what had been
+"injury! They are **injured**" with the condition's badge after it.
+Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 `OWN_GOAL_AVOIDED` / `OWN_GOAL`).
@@ -1991,7 +2001,8 @@ headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 "the arithmetic needs explanation, it's not enough to just show the
 math ... the model should write this with greater detail").
 `Headline.working`, set by the skill test, the loose ball, the shot,
-the own-goal roll, the shootout test and the Mind Pull, is each side as who rolled,
+the own-goal roll, the shootout test, the Mind Pull and the injury
+test, is each side as who rolled,
 the face, every addend and the total, then how the two totals are read
 ("**16** beats **10**."; "**13** is lower than **15**: the attack does
 not score."; "**13** is 7 or more: safe."). `rolls.roll_working` and
@@ -2019,8 +2030,8 @@ the model's "Halftime": the score is the jumbotron's.
 `OutcomeBannerTests` hold every headline to words the narration itself
 says, word for word, and the working to the faces rolled, for a
 resolved maneuver, a saved shot, a steal (both of its headlines), a
-skill test, a loose ball, an own goal, a shootout test and a Mind
-Pull landed and missed.
+skill test, a loose ball, an own goal, a shootout test, a Mind Pull
+landed and missed, and an injury test, safe and hurt.
 
 ## Beyond the game
 

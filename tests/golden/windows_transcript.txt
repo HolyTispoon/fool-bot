@@ -164,7 +164,8 @@ Time has advanced 1, now at 06.
 <@111>, 🟠 Acidel [SK] is exhausted and owes an injury test: a d12 that has to beat their 3 exhaustion tokens.
 === press 15: InjuryTestView -> 'Roll the injury test'
 --- message
-🟠 Acidel [SK] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens — safe.
+🟠 Acidel [SK] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens.
+🟠 Acidel [SK] is **safe**.
 --- message
 **Deflect:** the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
 --- message
@@ -319,7 +320,8 @@ Time has advanced 1, now at 11.
 Dinky AI, 🟣 Emberdash [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
 === press 25: InjuryTestView -> 'Roll the injury test'
 --- message
-🟣 Emberdash [PM] is exhausted and rolls an injury test: 4 does not beat their 4 exhaustion tokens — injury! They are **injured** 🤕.
+🟣 Emberdash [PM] is exhausted and rolls an injury test: 4 does not beat their 4 exhaustion tokens.
+🟣 Emberdash [PM] is **injured**.
 --- message
 **Dribble:** 🟣 Emberdash [PM] and the ball move forward 2 spaces (Playmaker ability).
 --- message
