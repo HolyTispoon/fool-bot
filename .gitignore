@@ -1,6 +1,8 @@
 .env
 .venv/
-.claude/settings.local.json
+# Per-machine Claude Code state: local settings, the desktop app's
+# launch.json, session worktrees
+.claude/
 __pycache__/
 *.pyc
 .DS_Store
