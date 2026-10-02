@@ -806,6 +806,96 @@ class PreShootoutCoachingTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.pending_shootout)
 
 
+class ShootoutDeclarationTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The shootout asks for Overdrive and Boost before it offers the die
+    (the author, 2026-10-02): no Roll on the prompt while a coach is
+    still to decide, and the press that settles the last decision puts
+    it up on the same message.
+    """
+
+    def build(self):
+        cog = build_cog()
+        game = build_game(
+            player_1_team=Team.CYBORGS,
+            player_2_team=Team.CYBORGS,
+            mode=GameMode.ADVANCED,
+            species_abilities=True,
+        )
+        match = MatchState.standard(
+            catalog=load_player_catalog(),
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.CYBORGS,
+            visiting_team=Team.CYBORGS,
+        )
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        return cog, game, match
+
+    @staticmethod
+    def labels(view) -> list[str]:
+        return [getattr(item, "label", "") for item in view.children]
+
+    async def test_roll_waits_off_the_message_until_both_have_decided(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        view = ShootoutTestView(cog, game.game_id)
+        self.assertNotIn("Roll the skill test", self.labels(view))
+        self.assertIn("Your Order", self.labels(view))
+
+        # Home declares: the reply names the visiting coach, and the
+        # prompt is left as it is.
+        home = match.shootout_shooter(TeamSide.HOME)
+        first = build_interaction(111)
+        first.data = {"custom_id": f"d12ball:overdrive:g1:{home}"}
+        with suppressed_cog_saves():
+            await view.declare_overdrive(first)
+        first.response.edit_message.assert_not_awaited()
+        self.assertIn(
+            "<@222> decides on Overdrive next",
+            first.response.send_message.await_args.args[0],
+        )
+
+        # Visiting passes: nobody is left to decide, so Roll goes up on
+        # the prompt itself and the pass is said after it.
+        second = build_interaction(222)
+        second.data = {"custom_id": "d12ball:overdrive_pass:g1:visiting"}
+        with suppressed_cog_saves():
+            await view.pass_on_overdrive(second)
+        second.response.send_message.assert_not_awaited()
+        swapped = second.response.edit_message.await_args.kwargs["view"]
+        self.assertIn("Roll the skill test", self.labels(swapped))
+        self.assertNotIn(
+            "Pass on Overdrive: Two", self.labels(swapped),
+        )
+        self.assertIn("Either player can roll", sent_texts(second)[0])
+
+    async def test_a_shootout_with_nothing_to_decide_offers_roll(
+        self,
+    ) -> None:
+        cog = build_cog()
+        game = build_game()
+        match = MatchState.standard(
+            catalog=load_player_catalog(),
+            ruleset=load_basic_ruleset(),
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        game.match_state = match.to_dict()
+        cog.games[game.game_id] = game
+        view = ShootoutTestView(cog, game.game_id)
+        self.assertIn("Roll the skill test", self.labels(view))
+
+
 class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
     """The roll itself: what is added, what is charged, what is owed."""
 

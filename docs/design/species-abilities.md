@@ -825,6 +825,15 @@ seventh gets it in one line.
     defender's is refused until the attacker has decided, so a hand-on never
     has to redraw the prompt: the declaration's reply is the one request a
     press costs, as before.
+  - **The shootout is the one roll on Discord whose Roll is not on the
+    message while a coach decides** (the author, 2026-10-02: "shootouts need
+    to ask for overdrive and boost before letting either player roll").
+    `ShootoutTestView` leaves it off while `undecided_sides` is not empty,
+    and the press that settles the last decision swaps it on through
+    `interaction.response.edit_message` -- the interaction callback, not the
+    channel's edit bucket -- with its line as a follow-up
+    (`ShootoutTestView.answer_declaration`). Every other roll keeps Roll up
+    and refused; asking the same of them is one override each.
   - `MatchState.overdrive_passed` holds the sides that have passed -- a saved
     field, since passing and rolling are separate clicks with a save between
     them, absent from an older save as nobody having passed -- and a side in

@@ -112,6 +112,11 @@ dies out on its own.
     picture stays the two shooters' shot.
   - `finish_shootout_test` still goes straight to `continue_shootout` rather
     than through `begin_injury_tests`: nothing is owed after the shot.
+  - **On Discord the prompt asks for Overdrive and Boost before it offers
+    the die**: no Roll button while a coach is still to decide, and the
+    press that settles the last decision puts it up on the same message
+    (docs/design/species-abilities.md). A restart rebuilds the view off the
+    position, so it comes back with Roll or without it as the position says.
   - **The `shootout_test` resume kind is still read and never written.**
     `dispatch_injury_resume` keeps the branch so a game saved between that roll
     and its tests finishes the way it started; nothing writes it any more, so it
