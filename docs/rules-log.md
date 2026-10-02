@@ -166,6 +166,23 @@ zones are Thirds. Left until play under the full modifier says it is needed.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-01 (later still) -- sheet and author, Zorch keeps a halved speed bonus
+
+On the pull request that made the ball speed modifier the full speed, the author: *"Zorch will
+always halve the ballspeed. I've updated the spreadsheet."* The `advanced_abilities` tab now
+reads *"Adds a ball speed modifier to all rolls (speed divided by 2 rounded up)."*
+
+- **Zorch's own bonus is half the ball's speed, rounded up** (21.6.6): +1 at speeds 1 and 2,
+  +6 at 11 and 12. It is no longer the ball speed modifier itself, which is now the full speed
+  (the entry below).
+- **Where a roll already adds the ball speed modifier to Zorch's side** -- Zorch's shot, a
+  Steal or Intercept Zorch contests, the thrower's side of a High Pass contest -- that full
+  modifier is added and Zorch's own is not, as "once, not twice" (2026-09-27) already read.
+  This is the build's reading of "always": the alternative, Zorch adding only half the speed
+  on those three rolls as well, would make Zorch the one player a fast ball helps less.
+- **The shootout:** played at speed 1, so Zorch adds 1 there. Rounded up, the 2026-09-27
+  reading that Zorch adds nothing in a shootout does not come back.
+
 ### 2026-10-01 (later) -- author, the ball speed modifier is the speed; a tied shot misses
 
 The author, after a study of every recorded game's rolls: *"ball speed is straight up, ties in
@@ -174,8 +191,7 @@ score attempts become a miss."* Two changes, made together on purpose.
 - **The ball speed modifier is the ball's speed** (7.1.1), no longer half of it rounded down. It
   is added where it always was (7.4): to a score attempt by the attack, to a skill test by a
   defense contesting with Steal or Intercept, and to a High Pass contest by the side that threw
-  the pass -- against them if the pass reached the goal zone (7.5). Zorch adds it to every roll
-  they make, as before (21.6.6).
+  the pass -- against them if the pass reached the goal zone (7.5).
 - **A tied score attempt is a miss** (5.2.3). The attack has to beat the defense's total; it
   used to score on an equal one. The shootout is unchanged: it already scored a tie for neither
   side (17.4.2).
@@ -183,10 +199,10 @@ score attempts become a miss."* Two changes, made together on purpose.
   under the new rule plays like one at a modifier of *speed - 1* under the old tie rule: at speeds
   1 and 2 exactly as before, and better than before from speed 3 up. Without it every shot,
   steal and long pass would have gained a point at speed 1, where most of them are taken.
-- **Speed 1 is now worth +1.** The modifier is never 0: a Steal, a High Pass contest's thrower
-  and Zorch all add at least 1. One consequence the author has not yet ruled on: Zorch's shootout
-  test, played at speed 1, now adds 1 where it added 0, and the 2026-09-27 entry's *"the
-  modifier is 0"* no longer holds.
+- **Speed 1 is now worth +1.** The modifier is never 0: a Steal and a High Pass contest's
+  thrower add at least 1.
+- Zorch, who adds the modifier to every roll, was settled the same day: Zorch keeps a halved
+  bonus of their own -- see the entry above.
 
 What the recorded games said (91 games: the archived PBD games, the live bot's and the web
 app's; each roll replayed or worked out at the speed it was taken at, coaches assumed to play the
