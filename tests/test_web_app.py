@@ -1039,6 +1039,46 @@ class OutcomeBannerTests(unittest.TestCase):
                     render_text(game, working),
                 )
 
+    def test_an_injury_test_is_headed_by_its_verdict(self) -> None:
+        """Safe or hurt, the test's own verdict is the outcome, in the
+        tested player's side's colour, with the roll written out -- the
+        die alone said nothing of what it came to."""
+        for face, heading, verdict in (
+            (9, "safe.", "**9** beats their 5 exhaustion tokens: safe."),
+            (3, "injury! They are **injured**",
+             "**3** does not beat their 5 exhaustion tokens: injured."),
+        ):
+            with self.subTest(face=face):
+                ENGINE.rng.seed(11)
+                fixture = case("injury test")
+                (hurt,) = fixture.match.pending_injury_tests
+                fixture.match.exhaustion[hurt] = 5
+                web = WebApp(service_over(fixture), GameLocks())
+                web.watch()
+                game = fixture.game
+                with mock.patch(
+                    "d12ball.flow.injuries.scripted_or_random",
+                    lambda engine, game, kind, count: [face],
+                ), self.assertLogs("d12ball.flow.injuries", "ERROR"):
+                    # The fixture owes the test and nothing behind it,
+                    # so the drained queue logs that it has nothing to
+                    # resume.
+                    self.press(
+                        web, game, 1, lambda action: action["choice"] == "roll",
+                    )
+
+                written = self.assert_the_narration_s_own(web, game)
+                self.assertTrue(written["text"].startswith(heading), written)
+                self.assertIn("rolls an injury test:", written["under"])
+                self.assertIn(f"rolled **{face}** = **{face}**.",
+                              written["working"])
+                self.assertTrue(written["working"].endswith(verdict), written)
+                match = web.service.load(game)
+                self.assertEqual(
+                    written["side"], match.side_for_player(hurt).value,
+                )
+                self.assertEqual(hurt in match.injured, face == 3)
+
     def test_a_result_with_no_outcome_takes_the_banner_down(self) -> None:
         web, game = self.open("maneuver picks")
         self.press(
