@@ -149,10 +149,58 @@ separately from the carrier. Noted for reconsideration rather than settled:
 it has come up once, in a recorded game the test suite pins (press 31 of the
 advanced golden), and nobody has yet played it at a table.
 
+### Should the ball speed modifier be halved in the zone before the goal?
+
+Raised by the author with the 2026-10-01 change that made the modifier the full speed. With
+the full speed, a fast ball makes a shot from the zone closest to the goal close to certain --
+an even shot at speed 8 or more goes in 93% of the time. Halving the modifier (rounded down, as it used to be everywhere) while the ball
+is in that zone would keep speed worth building up the field and in a steal, and blunt it at the
+last step.
+
+Not asked yet: whether "the zone" is the ball's zone or the shooter's, whether it halves the
+steal and the High Pass contest there too or the shot alone, and what it does on board 9, whose
+zones are Thirds. Left until play under the full modifier says it is needed.
+
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-01 (later) -- author, the ball speed modifier is the speed; a tied shot misses
+
+The author, after a study of every recorded game's rolls: *"ball speed is straight up, ties in
+score attempts become a miss."* Two changes, made together on purpose.
+
+- **The ball speed modifier is the ball's speed** (7.1.1), no longer half of it rounded down. It
+  is added where it always was (7.4): to a score attempt by the attack, to a skill test by a
+  defense contesting with Steal or Intercept, and to a High Pass contest by the side that threw
+  the pass -- against them if the pass reached the goal zone (7.5). Zorch adds it to every roll
+  they make, as before (21.6.6).
+- **A tied score attempt is a miss** (5.2.3). The attack has to beat the defense's total; it
+  used to score on an equal one. The shootout is unchanged: it already scored a tie for neither
+  side (17.4.2).
+- **Why the two go together.** Taking the tie away from the shooter is worth one point, so a shot
+  under the new rule plays like one at a modifier of *speed - 1* under the old tie rule: at speeds
+  1 and 2 exactly as before, and better than before from speed 3 up. Without it every shot,
+  steal and long pass would have gained a point at speed 1, where most of them are taken.
+- **Speed 1 is now worth +1.** The modifier is never 0: a Steal, a High Pass contest's thrower
+  and Zorch all add at least 1. One consequence the author has not yet ruled on: Zorch's shootout
+  test, played at speed 1, now adds 1 where it added 0, and the 2026-09-27 entry's *"the
+  modifier is 0"* no longer holds.
+
+What the recorded games said (91 games: the archived PBD games, the live bot's and the web
+app's; each roll replayed or worked out at the speed it was taken at, coaches assumed to play the
+same):
+
+| Roll | No modifier | Half, tie scores (before) | Full, tie scores | **Full, tie misses (now)** |
+| --- | ---: | ---: | ---: | ---: |
+| Score attempt, 124 shots | 58% | 63% | 77-81% | **69-72%** |
+| Steal/Intercept skill test, 137 | 47% | 54% | 65% | **65%** |
+| High Pass contest, 25 | 49% | 57% | 68% | **68%** |
+
+The tie rule touches only the shot. The speed lands hardest on ordinary shots, which are taken at
+a mean speed of 5.5, against 2.6 for a steal or a long pass, most of which follow a turnover's
+reset to 1. Set-up shots (mean speed 2.2) converted 49 of 71 under both rules.
 
 ### 2026-10-01 -- author, "space minute" is just time
 
