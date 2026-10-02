@@ -334,6 +334,13 @@ their own (below).
   optional ability. Each is a queue on the match whose `None` means
   "not asked yet" and `[]` "asked": the offer is made once, at one
   moment, and a restart must neither skip it nor ask it twice.
+  - **None of the three is offered to an injured player** (Law 15.4.2 c,
+    the author, 2026-10-02): each costs tokens, and an injured player
+    can add none, so offering it would hand them the ability for free.
+    The candidate readings (`join_candidates`, `force_test_offer`,
+    `fly_candidates`) leave `match.injured` out, as Overdrive's, Boost's,
+    Mind Pull's and Quantor's already did -- a rule refused where it is
+    offered, not by `add_exhaustion` silently charging nothing.
   - The join is asked in `begin_maneuver_action_selection`, after the
     challenger is in place and before the cards, and only against a
     challenge -- Merge adds to a roll, and an unchallenged maneuver
