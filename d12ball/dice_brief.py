@@ -28,21 +28,26 @@ tests/test_model_purity.py.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional, Sequence
 
+from d12ball.bearings import BEARINGS, Bearing, special_reminder
 from d12ball.components import MatchState, PlayerRole, TeamSide
 from d12ball.formatting import (
     ball_space_label,
     capitalized,
     format_team_side_label,
+    player_with_role,
     role_initials,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.special_abilities import SpecialAbility
 from d12ball.render import (
     TEAM_COLORS,
     ChallengeSide,
     IgnitionDie,
+    MatchupNote,
     render_skill_test_dice,
     zone_labels,
 )
@@ -101,6 +106,7 @@ def challenge_side(
     passed: bool = False,
     as_on_ball: bool = False,
     merging: bool = False,
+    bearing: Optional[Bearing] = None,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -126,6 +132,10 @@ def challenge_side(
     renderer that draws it. The skill is the game's
     (`RulesEngine.skills`), so an advanced score is drawn as the dice
     add it.
+
+    `bearing` is which part of which roll the player is in, and so
+    which of their special abilities the image reminds of
+    (`bearings.special_reminder`); `None` reminds of none.
     """
     player = engine.get_player_definition(player_id)
     profile = engine.player_catalog.effective_profile(player)
@@ -144,6 +154,11 @@ def challenge_side(
         passed=passed,
         as_on_ball=as_on_ball,
         merging=merging,
+        special=(
+            special_reminder(engine, game, player_id, bearing)
+            if bearing is not None
+            else ""
+        ),
     )
 
 
@@ -176,6 +191,7 @@ def merging_sides(
             contribution=value,
             game=game,
             merging=True,
+            bearing=BEARINGS["merge"],
         )
         for player_id, value in engine.merge_contributions(
             game, match, side, rolling, skill,
@@ -215,6 +231,7 @@ def maneuver_challenge_brief(
                 match.team_for_player(match.active_player_id),
                 attacking=True,
                 game=game,
+                bearing=BEARINGS["skill_test_attack"],
             ),
             *merging_sides(
                 engine, match, match.ball.possession, rolling, "offense", game,
@@ -227,6 +244,7 @@ def maneuver_challenge_brief(
                 match.team_for_player(defender_id),
                 attacking=False,
                 game=game,
+                bearing=BEARINGS["skill_test_defence"],
             ),
             *merging_sides(
                 engine, match, match.defending_side(), rolling, "defense",
@@ -238,6 +256,46 @@ def maneuver_challenge_brief(
             f" — {zone_labels(match.board.layout.board_size)[match.ball.zone].title()}"
         ),
     )
+
+
+def challenge_noted(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> list[str]:
+    """
+    Who has a special ability that bears on the maneuver challenge
+    without being in it: Quantor, while a teammate is on the ball,
+    since he may run onto their High Pass or Cross and the coach is
+    choosing the card (`pass_runner_on_field`; the author, 2026-09-28
+    on the page, 2026-10-02 on Discord). Both frontends say it -- the
+    page's window as a note, the bot's image in its notes row.
+    """
+    runner = engine.pass_runner_on_field(game, match)
+    return [runner] if runner is not None else []
+
+
+def maneuver_challenge_notes(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> list[MatchupNote]:
+    """`challenge_noted` as `render_maneuver_challenge` draws it: each
+    player with their role, their team's colour and their card's own
+    sentence (`special_ability_text`)."""
+    if game is None:
+        return []
+    notes = []
+    for player_id in challenge_noted(engine, match, game):
+        text = engine.special_ability_text(game, player_id)
+        if not text:
+            continue
+        notes.append(MatchupNote(
+            who=player_with_role(engine.get_player_definition(player_id)),
+            team_color=TEAM_COLORS[match.team_for_player(player_id)],
+            text=text,
+        ))
+    return notes
 
 
 def score_attempt_brief(
@@ -269,6 +327,12 @@ def score_attempt_brief(
     frontend that reminds of abilities its own way (the web page's
     chip), so the ability is said once. Who they are is
     `RulesEngine.intervening_defenders`, the reading the roll adds.
+
+    Each side carries the special abilities that bear on the shot
+    (`ChallengeSide.special`, off `BEARINGS`), the shooter's without
+    the clear shot where the modifier already says it, and a
+    defender's without Goopkeeper's block unless it is what puts them
+    on the ball.
     """
     shooter = engine.get_player_definition(match.active_player_id)
     speed_modifier = match.ball_speed_modifier()
@@ -283,8 +347,11 @@ def score_attempt_brief(
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         modifiers.append("+3 Striker ability")
     clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
+    shooter_bearing = BEARINGS["shot_attack"]
     if clear_shot and ability_note:
         modifiers.append(clear_shot)
+        # Said once: the modifier already is the sentence.
+        shooter_bearing = _without(shooter_bearing, SpecialAbility.CLEAR_SHOT)
 
     return (
         [
@@ -295,6 +362,7 @@ def score_attempt_brief(
                 attacking=True,
                 game=game,
                 modifiers=tuple(modifiers),
+                bearing=shooter_bearing,
             ),
             *merging_sides(
                 engine, match, match.ball.possession, (shooter.player_id,),
@@ -312,6 +380,16 @@ def score_attempt_brief(
                 passed=defender.passed,
                 as_on_ball=defender.as_on_ball,
                 game=game,
+                # Goopkeeper's block only where it changes the shot:
+                # beyond the ball. On it, they are on it anyway (the
+                # author, 2026-09-30).
+                bearing=(
+                    BEARINGS["shot_defence"]
+                    if defender.as_on_ball
+                    else _without(
+                        BEARINGS["shot_defence"], SpecialAbility.FULL_BLOCK,
+                    )
+                ),
             )
             for defender in defenders
         ],
@@ -320,3 +398,8 @@ def score_attempt_brief(
             f" → {format_team_side_label(defending_setup)} goal"
         ),
     )
+
+
+def _without(bearing: Bearing, ability: SpecialAbility) -> Bearing:
+    """A bearing with one special ability struck out of it."""
+    return replace(bearing, special=bearing.special - {ability})

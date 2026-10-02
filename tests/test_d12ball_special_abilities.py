@@ -37,7 +37,11 @@ from d12ball.components import (
     catalog_player_id,
     duplicate_card_id,
 )
-from d12ball.dice_brief import score_attempt_brief
+from d12ball.dice_brief import (
+    maneuver_challenge_brief,
+    maneuver_challenge_notes,
+    score_attempt_brief,
+)
 from d12ball.engine import IgnitedRoll
 from d12ball.flow.effects import (
     ball_comes_to,
@@ -112,6 +116,21 @@ def holding(player_id: str, ability: SpecialAbility):
 
 def advanced(**overrides):
     return build_game(mode=GameMode.ADVANCED, **overrides)
+
+
+def role_scores():
+    """Every player on their role's scores, since a raised score bears
+    on its own (`special_bears`) and the roster is the author's data."""
+    skills = ENGINE.skills
+    return mock.patch.object(
+        ENGINE, "skills", lambda game, player_id: skills(None, player_id),
+    )
+
+
+def reminder(game, player_id: str) -> str:
+    """A stand-in for the card's sentence, so a test does not depend on
+    which players the sheet gives one."""
+    return f"the line of {player_id}"
 
 
 class TableTests(unittest.TestCase):
@@ -1302,6 +1321,38 @@ class ShotDefenseTests(unittest.TestCase):
                     for line in lines
                 ))
 
+    def test_the_shot_image_says_flickerwings_ability_once(self) -> None:
+        # The modifier is the sentence when somebody is passed, so the
+        # line under the shooter is left off; a frontend with its own
+        # reminder gets it there instead (the author, 2026-10-02).
+        with holding(self.shooter, SpecialAbility.CLEAR_SHOT), \
+                mock.patch.object(
+                    ENGINE, "special_ability_reminder", reminder,
+                ), role_scores():
+            [noted, *_], _, _ = score_attempt_brief(
+                ENGINE, self.match, self.game,
+            )
+            [bare, *_], _, _ = score_attempt_brief(
+                ENGINE, self.match, self.game, ability_note=False,
+            )
+        self.assertEqual(noted.special, "")
+        self.assertEqual(bare.special, reminder(self.game, self.shooter))
+
+    def test_the_shot_image_says_goopkeeper_beyond_the_ball_alone(
+        self,
+    ) -> None:
+        abilities = {
+            catalog_player_id(player_id): (SpecialAbility.FULL_BLOCK, "test")
+            for player_id in (self.beyond, self.on_ball)
+        }
+        with mock.patch.dict(SPECIAL_ABILITIES, abilities, clear=True), \
+                mock.patch.object(
+                    ENGINE, "special_ability_reminder", reminder,
+                ), role_scores():
+            _, wall, _ = score_attempt_brief(ENGINE, self.match, self.game)
+        said = {side.special for side in wall if side.special}
+        self.assertEqual(said, {reminder(self.game, self.beyond)})
+
     def test_the_dice_list_the_passed_at_nothing(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
             (attack, defence), _, defense_total, _ = score_score_attempt(
@@ -1314,6 +1365,106 @@ class ShotDefenseTests(unittest.TestCase):
         self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
         on_ball = ENGINE.skills(self.game, self.on_ball).defense
         self.assertEqual(defense_total, defence[0] + on_ball)
+
+
+class MatchupReminderTests(unittest.TestCase):
+    """The bot's challenge image reminds of the special abilities that
+    bear on the skill test, off the table the web page reads
+    (`d12ball/bearings.py`; the author, 2026-10-02)."""
+
+    def setUp(self) -> None:
+        self.match = build_match(ENGINE, advanced())
+        self.match.ball.possession = TeamSide.HOME
+        self.attacker = self.match.home.field_players[0]
+        self.challenger = self.match.visiting.field_players[0]
+        self.match.active_player_id = self.attacker
+
+    def specials(self, game, player_id: str, ability: SpecialAbility):
+        # The one ability granted is the only one the table holds, and
+        # nobody's score is raised, so it is the only one said.
+        with role_scores(), mock.patch.dict(
+            SPECIAL_ABILITIES,
+            {catalog_player_id(player_id): (ability, "test")},
+            clear=True,
+        ), mock.patch.object(
+            ENGINE, "special_ability_reminder", reminder,
+        ):
+            offense, defense, _ = maneuver_challenge_brief(
+                ENGINE, self.match, self.challenger, game,
+            )
+        return offense[0].special, defense[0].special
+
+    def test_a_maneuvers_ability_is_said_on_the_attack_alone(self) -> None:
+        # What a card does once won is named on the side that plays it.
+        game = advanced()
+        self.assertEqual(
+            self.specials(game, self.attacker, SpecialAbility.FREE_BURST),
+            (reminder(game, self.attacker), ""),
+        )
+        self.assertEqual(
+            self.specials(game, self.challenger, SpecialAbility.FREE_BURST),
+            ("", ""),
+        )
+
+    def test_an_ability_on_the_die_is_said_on_either_side(self) -> None:
+        game = advanced()
+        self.assertEqual(
+            self.specials(game, self.challenger, SpecialAbility.BOOST),
+            ("", reminder(game, self.challenger)),
+        )
+
+    def test_an_ability_that_does_not_bear_is_not_said(self) -> None:
+        # Quantor's run on is a teammate's pass, never his own roll.
+        self.assertEqual(
+            self.specials(advanced(), self.attacker, SpecialAbility.RUN_ON),
+            ("", ""),
+        )
+
+    def notes(self, game, player_id: str):
+        with mock.patch.dict(
+            SPECIAL_ABILITIES,
+            {catalog_player_id(player_id): (SpecialAbility.RUN_ON, "test")},
+            clear=True,
+        ), mock.patch.object(ENGINE, "special_ability_text", reminder):
+            return maneuver_challenge_notes(ENGINE, self.match, game)
+
+    def test_a_teammate_who_may_run_onto_the_pass_is_a_note(self) -> None:
+        # Quantor, while a teammate is on the ball: not in the roll, so
+        # not under either side, but the coach choosing the card is
+        # told (the author, 2026-10-02).
+        runner = next(
+            player_id for player_id in self.match.home.field_players
+            if player_id != self.attacker
+        )
+        (note,) = self.notes(advanced(), runner)
+        self.assertEqual(note.text, reminder(advanced(), runner))
+        self.assertEqual(
+            self.specials(advanced(), runner, SpecialAbility.RUN_ON),
+            ("", ""),
+        )
+
+    def test_no_note_for_the_handler_the_other_side_or_another_mode(
+        self,
+    ) -> None:
+        self.assertEqual(self.notes(advanced(), self.attacker), [])
+        self.assertEqual(self.notes(advanced(), self.challenger), [])
+        runner = self.match.home.field_players[1]
+        for mode in (GameMode.TRAINING, GameMode.STANDARD):
+            with self.subTest(mode.value):
+                self.assertEqual(
+                    self.notes(build_game(mode=mode), runner), [],
+                )
+
+    def test_only_an_advanced_game_says_any(self) -> None:
+        for mode in (GameMode.TRAINING, GameMode.STANDARD):
+            with self.subTest(mode.value):
+                self.assertEqual(
+                    self.specials(
+                        build_game(mode=mode), self.attacker,
+                        SpecialAbility.BOOST,
+                    ),
+                    ("", ""),
+                )
 
 
 class ViscorTests(unittest.TestCase):
