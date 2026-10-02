@@ -169,19 +169,20 @@ the author directly.
 ### 2026-10-01 (later still) -- sheet and author, Zorch keeps a halved speed bonus
 
 On the pull request that made the ball speed modifier the full speed, the author: *"Zorch will
-always halve the ballspeed. I've updated the spreadsheet."* The `advanced_abilities` tab now
-reads *"Adds a ball speed modifier to all rolls (speed divided by 2 rounded up)."*
+always halve the ballspeed. I've updated the spreadsheet."* The `advanced_abilities` tab first
+read *"(speed divided by 2 rounded up)"*, and the author corrected it the same day; it now reads
+*"Adds a ball speed modifier to all rolls (speed divided by 2 rounded down)."*
 
-- **Zorch's own bonus is half the ball's speed, rounded up** (21.6.6): +1 at speeds 1 and 2,
-  +6 at 11 and 12. It is no longer the ball speed modifier itself, which is now the full speed
-  (the entry below).
+- **Zorch's own bonus is half the ball's speed, rounded down** (21.6.6) -- the old modifier,
+  kept for Zorch alone: nothing at speed 1, +6 at 12. It is no longer the ball speed modifier
+  itself, which is now the full speed (the entry below).
 - **Where a roll already adds the ball speed modifier to Zorch's side** -- Zorch's shot, a
   Steal or Intercept Zorch contests, the thrower's side of a High Pass contest -- that full
   modifier is added and Zorch's own is not, as "once, not twice" (2026-09-27) already read.
   This is the build's reading of "always": the alternative, Zorch adding only half the speed
   on those three rolls as well, would make Zorch the one player a fast ball helps less.
-- **The shootout:** played at speed 1, so Zorch adds 1 there. Rounded up, the 2026-09-27
-  reading that Zorch adds nothing in a shootout does not come back.
+- **The shootout:** played at speed 1, so Zorch adds nothing there -- the 2026-09-27 reading
+  stands.
 
 ### 2026-10-01 (later) -- author, the ball speed modifier is the speed; a tied shot misses
 
