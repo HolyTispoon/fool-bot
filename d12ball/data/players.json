@@ -331,7 +331,7 @@
       "role": "playmaker",
       "species": "ooze",
       "stat_overrides": {},
-      "advanced_ability": "Adds a ball speed modifier to all rolls (speed divided by 2 rounded up).",
+      "advanced_ability": "Adds a ball speed modifier to all rolls (speed divided by 2 rounded down).",
       "advanced_skills": {}
     },
     "zytheris_striker": {

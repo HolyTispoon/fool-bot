@@ -2692,11 +2692,11 @@ class RulesEngine:
     ) -> tuple[int, str]:
         """
         **Zorch** adds a ball speed modifier of their own to every roll
-        they make (Law 21.6.6): **half the speed, rounded up** -- not
+        they make (Law 21.6.6): **half the speed, rounded down** -- not
         `BallState.speed_modifier`, the full speed everyone else adds
         (the author, 2026-10-01). The number, and the line the dice list
-        it under, or `(0, "")` for anybody else. Never 0 for Zorch: the
-        speed is at least 1, and half of 1 rounds up to 1.
+        it under, or `(0, "")` for anybody else or a ball at speed 1 --
+        a bonus of nothing says nothing.
 
         The caller asks only where the roll does not already add the
         modifier to Zorch's side -- Zorch shooting, contesting a
@@ -2711,7 +2711,9 @@ class RulesEngine:
             game, player_id, SpecialAbility.SPEED_ROLLS,
         ):
             return 0, ""
-        modifier = (match.ball.speed + 1) // 2
+        modifier = match.ball.speed // 2
+        if not modifier:
+            return 0, ""
         return modifier, f"+{modifier} ball speed modifier"
 
     def controlling_player_number(

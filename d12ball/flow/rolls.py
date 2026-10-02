@@ -1593,8 +1593,9 @@ def score_shootout_test(
         ignites.append((player.player_id, ignite))
         overdrive = match.overdrive_modifier(player.player_id)
         # Zorch adds the modifier to every roll they make (Law 21) --
-        # which here is 1, since full time left the ball at speed 1
-        # (Law 7.3) and half of 1 rounds up (Law 21.6.6).
+        # which here is nothing, since full time left the ball at
+        # speed 1 (Law 7.3) and half of 1 rounds down to 0 (Law 21.6.6),
+        # but it is asked like every other roll.
         speed, speed_line = engine.speed_roll_bonus(
             game, match, player.player_id,
         )
