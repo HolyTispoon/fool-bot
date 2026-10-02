@@ -379,6 +379,48 @@ defenders has none, and packs to its own content.
   and advanced, both images (64 renders, 29 distinct), byte-identical
   before and after.
 
+### The special ability on a matchup
+
+**In an advanced game, each player's special ability is drawn under
+them where it bears on the roll** (the author, 2026-10-02: "show the
+special abilities in advanced mode on Discord like we do on the Web
+app"). `ChallengeSide.special` carries the card's own sentence
+(`special_ability_reminder`) or `""`, and `dice_brief.challenge_side`
+fills it from a `Bearing` -- which part of which roll the player is in
+-- through `bearings.special_reminder`.
+
+- **Which abilities show is the web page's table, not a second one.**
+  `BEARINGS` and `special_bears` were `webapp/present.py`'s and moved to
+  `d12ball/bearings.py` so the bot reads the same rows: an ability
+  shows where it changes the roll's number, whether it is rolled, or
+  what winning it means, and on the challenge also what a maneuver does
+  once it has won (Emberdash, Vorix, Acidel on the attack); Bulwark's
+  threshold on every roll; an advanced skill score where the roll adds
+  that skill. The reasoning for each row is in "The situation"
+  in [web-app.md](web-app.md). The challenge's attacker is
+  `skill_test_attack`, the challenger `skill_test_defence`, an Ooze
+  Merging `merge`; the shooter `shot_attack`, the wall `shot_defence`.
+- **Said once.** Flickerwing's clear shot is already a modifier on the
+  shooter when it passes somebody (`clear_shot_note`), so the shooter's
+  bearing drops it there; Goopkeeper's block shows only beyond the ball,
+  where it changes the shot, as the page does.
+- **Drawn on every image and every player**, unlike the role's ability,
+  which the shot leaves off: it is the one thing a coach cannot read off
+  the badge. A lone player's is under a bold "Special ability" label --
+  the page's word -- and in a group of more than one (a wall, a side
+  with Oozes Merging) the label names whose it is. It is a sentence, so
+  it is left out of the measuring (`group_text_lines(..., with_special=
+  False)`) and wraps to the width the rest settles on; a group carrying
+  one takes `CHALLENGE_MIN_GROUP_WIDTH` as a group with the role's does.
+- **Verified by SHA-256**: every challenge and shot image over three
+  modes, both board sizes and six team pairs (3,024 renders) -- training
+  and standard byte-identical before and after, and in advanced exactly
+  the 768 images with a bearing special ability changed.
+- **Not drawn**: the web page's notes from somebody who is not rolling
+  (Quantor's run on while a teammate is on the ball, Glompex's offer to
+  step onto it). The image is about who rolls; those would need a row
+  of their own.
+
 ## Fonts
 
 **Every word the game draws is Roboto Slab** (the author, 2026-09-27, picked

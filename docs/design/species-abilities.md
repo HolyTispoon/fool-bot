@@ -366,6 +366,14 @@ their own (below).
     teams into one message, was refused outright (2026-09-28). A test
     that measures a roster measures it with emoji at their live
     length, not the fallbacks'.
+- **The matchup images remind of them, through `d12ball/bearings.py`**
+  (the author, 2026-10-02: "show the special abilities in advanced
+  mode on Discord like we do on the web app"). The challenge and the
+  shot image draw, under each player, their special ability where it
+  bears on that roll -- the same `BEARINGS` table the web page's
+  situation window reads, so the two frontends remind of the same
+  abilities at the same roll. See "The special ability on a matchup"
+  in [board-image.md](board-image.md).
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
   Demons with special lines, are on the field; the seed was re-swept

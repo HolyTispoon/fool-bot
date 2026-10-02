@@ -351,6 +351,7 @@ FONT_CHALLENGE_BODY = load_font(22)
 # The ability is a sentence rather than a line of facts, and it wraps:
 # a step under the body keeps it from setting the width on its own.
 FONT_CHALLENGE_ABILITY = load_font(20)
+FONT_CHALLENGE_SPECIAL_LABEL = load_font(20, bold=True)
 # The one line on a matchup image that is a sum rather than a fact
 # about a player -- see group_text_lines. A size up from the body.
 FONT_CHALLENGE_TOTAL = load_font(26, bold=True)
@@ -3768,6 +3769,10 @@ CHALLENGE_VERSUS_COLOR = "#8b96a2"
 CHALLENGE_NAME_COLOR = "#ffffff"
 CHALLENGE_SKILL_COLOR = "#c7ced6"
 CHALLENGE_ABILITY_COLOR = "#9aa5b1"
+# A special ability's label: brighter than the sentence under it, as
+# the web page sets its name in bold over the muted line.
+CHALLENGE_SPECIAL_LABEL = "Special ability"
+CHALLENGE_SPECIAL_LABEL_COLOR = CHALLENGE_SKILL_COLOR
 CHALLENGE_TOTAL_COLOR = "#ffffff"
 CHALLENGE_TOTAL_LINE_HEIGHT = 34
 # Every face on a matchup wears the number its player adds, in the
@@ -3865,6 +3870,14 @@ class ChallengeSide:
     `contribution` the number they add -- their skill, and Viscor's 3
     more. It is always the lead player's side, never a wall of its own:
     the group reads as the lead with the Oozes added.
+
+    `special` is the player's special ability (Law 21) where it bears
+    on this roll -- the card's own sentence, `""` for a player who has
+    none, outside an advanced game, or where it changes nothing about
+    the roll (`d12ball.bearings`, the table the web page's window reads
+    too). Unlike `ability` it is drawn on every image and every player,
+    a wall's included, since it is the one thing a coach cannot read
+    off the role badge.
     """
 
     name: str
@@ -3880,6 +3893,7 @@ class ChallengeSide:
     passed: bool = False
     as_on_ball: bool = False
     merging: bool = False
+    special: str = ""
 
     @property
     def value(self) -> int:
@@ -3934,6 +3948,7 @@ def merge_sum(sides: list[ChallengeSide]) -> str:
 def group_text_lines(
     sides: list[ChallengeSide],
     with_ability: bool,
+    with_special: bool = True,
 ) -> list[tuple[str, str, ImageFont.ImageFont, int]]:
     """
     The (text, color, font, line height) under a group's portraits,
@@ -3958,6 +3973,13 @@ def group_text_lines(
     with the names of everyone in the group and the sum the roll adds
     in place of the lone skill line: the Oozes are part of the side,
     and their badges say what each one brings.
+
+    Last, each special ability that bears on the roll
+    (`ChallengeSide.special`), under a label line -- "Special ability",
+    the web page's word for it (the author, 2026-09-28) -- that names
+    whose it is wherever the group is more than one player. It is a
+    sentence like the role's ability, so it is left out of the
+    measuring (`with_special`) and wraps to the width the rest settles.
     """
     if not sides:
         return []
@@ -4043,6 +4065,38 @@ def group_text_lines(
                 CHALLENGE_ABILITY_LINE_HEIGHT,
             ),
         )
+
+    if with_special:
+        for side in sides:
+            if not side.special:
+                continue
+            label = (
+                CHALLENGE_SPECIAL_LABEL
+                if len(sides) == 1
+                else f"{side.name} [{side.role}] · {CHALLENGE_SPECIAL_LABEL}"
+            )
+            sized.extend(
+                (
+                    (
+                        "",
+                        CHALLENGE_ABILITY_COLOR,
+                        FONT_CHALLENGE_ABILITY,
+                        CHALLENGE_ABILITY_GAP,
+                    ),
+                    (
+                        label,
+                        CHALLENGE_SPECIAL_LABEL_COLOR,
+                        FONT_CHALLENGE_SPECIAL_LABEL,
+                        CHALLENGE_ABILITY_LINE_HEIGHT,
+                    ),
+                    (
+                        side.special,
+                        CHALLENGE_ABILITY_COLOR,
+                        FONT_CHALLENGE_ABILITY,
+                        CHALLENGE_ABILITY_LINE_HEIGHT,
+                    ),
+                ),
+            )
     return sized
 
 
@@ -4207,7 +4261,7 @@ def matchup_group_width(
     # wide. It wraps to whatever the rest of the group settles on.
     texts = [
         (text, font)
-        for text, _, font, _ in group_text_lines(sides, False)
+        for text, _, font, _ in group_text_lines(sides, False, False)
     ]
     if not sides and note:
         texts = [(note, FONT_CHALLENGE_BODY)]
@@ -4231,7 +4285,7 @@ def matchup_group_width(
         portraits,
         text_width + CHALLENGE_TEXT_PADDING * 2,
     )
-    if ability:
+    if ability or any(side.special for side in sides):
         # A group carrying an ability holds a minimum width, so a
         # sentence under one short name doesn't wrap into a narrow
         # column. A group without one is as narrow as its own
