@@ -336,6 +336,13 @@ their own (below).
   optional ability. Each is a queue on the match whose `None` means
   "not asked yet" and `[]` "asked": the offer is made once, at one
   moment, and a restart must neither skip it nor ask it twice.
+  - **None of the three is offered to an injured player** (Law 15.4.2 c,
+    the author, 2026-10-02): each costs tokens, and an injured player
+    can add none, so offering it would hand them the ability for free.
+    The candidate readings (`join_candidates`, `force_test_offer`,
+    `fly_candidates`) leave `match.injured` out, as Overdrive's, Boost's,
+    Mind Pull's and Quantor's already did -- a rule refused where it is
+    offered, not by `add_exhaustion` silently charging nothing.
   - The join is asked in `begin_maneuver_action_selection`, after the
     challenger is in place and before the cards, and only against a
     challenge -- Merge adds to a roll, and an unchallenged maneuver
@@ -368,6 +375,14 @@ their own (below).
     teams into one message, was refused outright (2026-09-28). A test
     that measures a roster measures it with emoji at their live
     length, not the fallbacks'.
+- **The matchup images remind of them, through `d12ball/bearings.py`**
+  (the author, 2026-10-02: "show the special abilities in advanced
+  mode on Discord like we do on the web app"). The challenge and the
+  shot image draw, under each player, their special ability where it
+  bears on that roll -- the same `BEARINGS` table the web page's
+  situation window reads, so the two frontends remind of the same
+  abilities at the same roll. See "The special ability on a matchup"
+  in [board-image.md](board-image.md).
 - **The advanced golden plays some of them.** Its game is Telekinetics
   against Fire Demons, so Noxar, Quillon and Spectra, and the four Fire
   Demons with special lines, are on the field; the seed was re-swept

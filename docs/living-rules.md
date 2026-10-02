@@ -796,6 +796,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 - **a.** in a maneuver, against a healthy opponent, a tie loses outright with nothing rolled, and a maneuver they would have won outright goes to a skill test they have to win instead;
 - **b.** in a contest for the ball or a High Pass contest, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
+- **c.** they may use no ability that would exhaust or drain them -- a Cyborg's [Overdrive](#203-lithium-powered-cyborg) (20.3), a Telekinetic's [Mind Pull](#204-mind-pull-telekinetic) (20.4), or any [special ability](#21-special-abilities) (21) with a token cost. They can add no tokens, so the cost is not waived: the ability is not theirs to use.
 
 **15.4.3** Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched -- an injured Striker still adds 3 off a set-up.
 
@@ -1139,7 +1140,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17), where it is declared before the test's injury check, so the drain counts toward it. **It never reaches an [injury check](#153-the-injury-check) (15.3)**: a damage test is rolled bare.
 
-**20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: a Damaged player can add no tokens, so the drain cannot be paid.
+**20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: Overdrive drains, and a Damaged Cyborg drains no more.
 
 **20.3.7** **Charge-up.** Whenever players [run back](#124-running-back-after-a-steal) (12.4), a Cyborg who **does not move** clears **1 drain**. Once per run back, never below zero.
 

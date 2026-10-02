@@ -23,6 +23,7 @@ from d12ball.engine import IgnitedRoll
 from d12ball.flow import FollowOnStep
 from d12ball.dice_brief import (
     maneuver_challenge_brief,
+    maneuver_challenge_notes,
     score_attempt_brief,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
@@ -142,9 +143,10 @@ class PresentationMixin:
         offense, defense, location = maneuver_challenge_brief(
             self.engine, match, defender_id, game,
         )
+        notes = maneuver_challenge_notes(self.engine, match, game)
         return discord.File(
             await asyncio.to_thread(
-                render_maneuver_challenge, offense, defense, location,
+                render_maneuver_challenge, offense, defense, location, notes,
             ),
             filename="maneuver_challenge.png",
         )
