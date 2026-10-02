@@ -1772,6 +1772,12 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField(
         "pending_boost", factory=list, write=list, read=list,
     ),
+    # Who has said Roll while the die waited on a declaration. Absent
+    # from an older save, which reads as nobody having -- what every
+    # roll was before the die waited on the Cyborg's coach.
+    SavedField(
+        "roll_ready", factory=list, write=list, read=list,
+    ),
     # Mind Pull. The path is a list of [zone, index] pairs, so the
     # copies are deep enough to matter: a shallow list() would hand a
     # restored match the same inner lists the saved dict holds.
@@ -2068,6 +2074,18 @@ class MatchState:
     # declared separately, add different amounts, and the dice image
     # names each.
     pending_boost: list[str] = field(default_factory=list)
+    # **The sides that have said Roll** on the roll at hand while the
+    # die still waited on somebody's Overdrive or Boost
+    # (`RollOptions.deciding_sides`). Declaring is blind, before the
+    # die is thrown (Law 20.3.5), so a roll with a Cyborg's declaration
+    # open waits on that Cyborg's coach; where both coaches have one,
+    # the first to press Roll is ready and the die is thrown when the
+    # second presses. A side in here has closed its own declarations
+    # for this roll. `TeamSide` values, persisted for the same reason
+    # `pending_overdrive` is -- the two presses are two clicks with a
+    # save between them -- and spent with it (`consume_overdrive`), so
+    # a tie's re-roll is decided afresh.
+    roll_ready: list[str] = field(default_factory=list)
     # **Mind Pull.** Three fields, and all three exist because a pull
     # is a *choice with a roll* that has to happen before the ball
     # settles -- see "Mind Pull (Telekinetic)" in docs/living-rules.md.
@@ -3569,6 +3587,17 @@ class MatchState:
         """
         self.pending_overdrive = []
         self.pending_boost = []
+        self.roll_ready = []
+
+    def ready_to_roll(self, sides: Collection[TeamSide]) -> None:
+        """
+        Record that these sides' coaches have said Roll on the roll at
+        hand, closing their declarations for it, while another side's
+        are still open. `consume_overdrive` clears it with the rest.
+        """
+        for side in sides:
+            if TeamSide(side).value not in self.roll_ready:
+                self.roll_ready.append(TeamSide(side).value)
 
     def mark_exhausted_if_needed(
         self,
@@ -3971,6 +4000,7 @@ class MatchState:
         self.skill_test_winner = None
         self.pending_overdrive = []
         self.pending_boost = []
+        self.roll_ready = []
         self.last_ball_path = []
         self.last_ball_movers = []
         self.pending_mind_pull = []

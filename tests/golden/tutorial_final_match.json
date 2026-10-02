@@ -390,6 +390,7 @@
   "pending_time_out": false,
   "pick_unconfirmed": null,
   "player_data_version": 1,
+  "roll_ready": [],
   "ruleset_id": "basic-v1",
   "run_back_flown": [],
   "run_back_moved": [],
