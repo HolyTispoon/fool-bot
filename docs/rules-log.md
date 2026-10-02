@@ -161,31 +161,67 @@ Not asked yet: whether "the zone" is the ball's zone or the shooter's, whether i
 steal and the High Pass contest there too or the shot alone, and what it does on board 9, whose
 zones are Thirds. Left until play under the full modifier says it is needed.
 
+### Does a shooter the shootout's check injures keep a declared Overdrive?
+
+Raised with the 2026-10-02 shootout check. Overdrive and Boost are declared before the check, so
+a Cyborg can pay the drain and then fail it. As played now the +5 stands -- injury withholds the
+skill and nothing else (15.4.3), and the drain was paid -- even though the injury clears the
+tokens that paid it. The other reading, that a Damaged Cyborg cannot use an Overdrive at all
+(20.3.6), would make a failed check cost the bonus as well as the skill. Not asked yet.
+
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
-### 2026-10-02 -- author, no Overdrive or Boost in the shootout or while Damaged
+### 2026-10-02 -- author, an injury check before every shootout test; nothing modifies a check
 
-The author, after an odds study of Cyborgs in the extreme shootout: *"need to gate overdrive
-out of extreme shoutout"*; and, on reading 20.3.6: *"should be that you can't boost or
-overdrive while damaged."*
+An odds study of Cyborgs in the extreme shootout found Overdrive free there: a shootout test
+charged no token and owed no damage test, and the game ends after it, so the drain had no price.
+Played every time, the +5 won a single test against an equal shooter 81% of the time rather than
+46%, and a whole shootout between two sides of offense 1-6 about 98% of the time rather than 50%
+(exact per test; the whole shootout simulated, orders at random). The author first gated
+Overdrive out of the shootout (*"need to gate overdrive out of extreme shoutout"*), then, the
+same day and before that landed, replaced the gate with a price:
 
-- **Nothing is declared on a shootout test** (20.3.5). The shootout test leaves Overdrive's
-  list of rolls, and Boost goes with it, being declared on any roll Gearclaw could Overdrive
-  (21.4.3). The reason is the price: a shootout test charges no token and owes no damage test,
-  and the game ends after it, so drain cost nothing there. Played every time, the +5 won a
-  single test against an equal shooter 81% of the time rather than 46%, and a whole shootout
-  between two sides of offense 1-6 about 98% of the time rather than 50% (exact per test; the
-  whole shootout simulated, orders at random).
+> *"before rolling dice, both side roll an injury/damaged check (regardless of whether they are
+> drained/exhausted) - just a flat check against their current exahsut/drain. On a failed check,
+> they are injured and don't add their regular modifier ... Abilities that modify the roll like
+> boost and overdrive are decided before the check."*
+
+Asked what that left open: *"of course overdrive is back that's the point. Overdrive should not
+apply to injury tests at all."* The check is rolled before **every** test; *"Already injured
+shooters need no check they're already injured"*; and *"kindlefinger applies."*
+
+- **Every shootout test starts with an injury check** (17.4.1), each shooter not already injured
+  rolling one whether Exhausted or not, against the tokens they carry. A shooter it injures
+  shoots the bare d12 (17.4.2). A shootout test still costs no exhaustion (17.4.4), so a tired
+  player shooting again in a later round or in sudden death takes the same risk again -- a
+  player on 6 tokens survives two checks a quarter of the time.
+- **Overdrive and Boost are declared before the check, so their drain counts toward it**, as a
+  skill test's own tokens count toward the check behind it (15.3.2): an Overdrive costs a
+  quarter of a d12 on the check, Gearclaw's Boost and Overdrive together a third, and the drain
+  stays for the shooter's next test.
+- **Overdrive never reaches an injury check** (20.3.5), anywhere in the game: a damage test is
+  rolled bare. It used to be on the list.
+- **Nothing modifies an injury check** (15.3.4), anywhere in the game: the author, *"no
+  modifiers apply there at all. The only exceptions should be abilities that explicitly name
+  injury tests ... no zorch speed ball, no volatile (except kindlefinger)"*. Kindlefinger's is
+  the one ability on the sheet that names the check (*"Can ignite on injury test"*), so it
+  stays, here and in the shootout (21.3.7). **Zorch no longer adds his half-speed to a check**
+  (21.6.6): the Charter had listed the injury check among his rolls, reading the sheet's *"all
+  rolls"*, which does not name it. Volatile already never reached a check (20.2.3).
+- **A shooter the check injures keeps an Overdrive or Boost already declared** -- the bonus was
+  paid for, and injury withholds the skill and nothing else (15.4.3). Not asked; it is what the
+  rules read straight give, and the open question above says so.
 - **A Damaged Cyborg may not Overdrive or Boost** (20.3.6). Not a change in play: a Damaged
   player can add no tokens (15.4.1), so the drain could never be paid, and the bot has always
   refused it. What changes is the sentence, which said the opposite -- *"Overdrive is a flat
   bonus rather than a skill modifier, so a Damaged Cyborg keeps it"* -- a reading by extension
   from the 2026-09-06 species entry ("an injured Cyborg keeps it") that the code never followed.
-- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"** and
-  says nothing of the shootout; the Charter's table row now does.
+  The author: *"should be that you can't boost or overdrive while damaged."*
+- **The sheet's species row still reads "Overdrive: drain 3 to add +5 (once per roll)"**, and so
+  does the printed species card; neither mentions the check.
 
 ### 2026-10-01 (later still) -- sheet and author, Zorch keeps a halved speed bonus
 

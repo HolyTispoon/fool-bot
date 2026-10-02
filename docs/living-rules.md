@@ -784,7 +784,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **15.3.2** Tokens added for that very test count, including the ones a re-roll charged.
 
-**15.3.3** Only a skill test causes checks: a score attempt, an own-goal roll and a shootout test never do.
+**15.3.3** Only a skill test causes checks: a score attempt and an own-goal roll never do. A shootout test has a check of its own, rolled before it ([17.4](#174-each-test)).
+
+**15.3.4** **Nothing modifies an injury check.** It is the bare d12 against the tokens: no skill, no ball speed and no bonus of any kind is added to it. In advanced mode the one exception is an ability that names the injury check itself -- [Kindlefinger's](#213-fire-demons) (21.3), whose check can ignite.
 
 ### 15.4 Playing injured
 
@@ -882,11 +884,13 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 17.4 Each test
 
-**17.4.1** The two shooters roll one d12 each and add their **offensive** skill -- a shootout has no defender. An injured shooter adds nothing at all and rolls the bare d12.
+**17.4.1** **Each test starts with an [injury check](#153-the-injury-check) (15.3)**: before the dice, each shooter who is not already injured rolls one, Exhausted or not -- a flat check against the tokens they are carrying, safe on a roll higher than them. A shooter it injures shoots as an injured shooter.
 
-**17.4.2** The higher total scores a goal. A tie scores for neither side and is not rolled again.
+**17.4.2** The two shooters roll one d12 each and add their **offensive** skill -- a shootout has no defender. An injured shooter adds nothing at all and rolls the bare d12.
 
-**17.4.3** A shootout test costs no exhaustion and owes no [injury check](#153-the-injury-check) (15.3).
+**17.4.3** The higher total scores a goal. A tie scores for neither side and is not rolled again.
+
+**17.4.4** A shootout test costs no exhaustion, and owes no check but the one it starts with.
 
 ### 17.5 A shootout goal is a goal
 
@@ -1133,7 +1137,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.3.4** **A Cyborg's injury check is a damage test, and a Cyborg who fails it is Damaged, not Injured.** It is the same check and the same disadvantage under the Cyborgs' own words -- everywhere the rules say [injury check](#153-the-injury-check) (15.3) or [Injured](#154-playing-injured) (15.4), a Cyborg's damage test or a Damaged Cyborg is meant, and nothing about the check, the disadvantage or the substitution rules differs for them. Only the words (and the token art) are a Cyborg's own.
 
-**20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [damage test](#153-the-injury-check) (15.3) or a [contest](#101-where-the-ball-comes-to-rest) (10.1). **It is never declared in a [shootout test](#17-extreme-shootout) (17).**
+**20.3.5** **Overdrive.** **Once per roll**, *before* the die is thrown, a Cyborg may **drain 3** to add **+5** to that roll. It is declared blind. It may be spent on any d12 the Cyborg themselves rolls -- a [skill test](#64-the-skill-test) (6.4), a [score attempt](#5-score-attempt) (5), an [own-goal roll](#11-own-goal) (11), a [contest](#101-where-the-ball-comes-to-rest) (10.1) or a [shootout test](#17-extreme-shootout) (17), where it is declared before the test's injury check, so the drain counts toward it. **It never reaches an [injury check](#153-the-injury-check) (15.3)**: a damage test is rolled bare.
 
 **20.3.6** A tie that is rolled again is a fresh roll: the +5 does not carry, and the re-roll may be Overdriven by draining another 3. A Drained Cyborg may still Overdrive -- the drain stacks. A [Damaged](#154-playing-injured) (15.4) Cyborg may not: a Damaged player can add no tokens, so the drain cannot be paid.
 
@@ -1275,7 +1279,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
-**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make but an [injury check](#153-the-injury-check) (15.3), which nothing modifies: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
@@ -1287,7 +1291,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |
-| Shootout test | 1d12 each | Both add offensive skill. Higher scores; a tie stands. |
+| Shootout test | 1d12 each | An injury check each first. Both add offensive skill. Higher scores; a tie stands. |
 
 **A turn:** choose the player, choose the action, resolve it -- the clock advances as soon as the outcome is decided -- settle the ball, turnover. A last possession declared on the way goes to whoever takes the next turn.
 
@@ -1298,7 +1302,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Species | Ability |
 | --- | --- |
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's advanced maneuver), and a burn that loses upgrades the opponent's. |
-| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it; never in a shootout test, and never while Damaged. Charge-up: -1 drain for not moving at all during a run back. |
+| Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it; never on a damage test, and never while Damaged. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball is brought to a teammate on your space -- take it over from them, free. |
 | Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
