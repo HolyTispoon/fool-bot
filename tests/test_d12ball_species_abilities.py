@@ -1295,7 +1295,6 @@ class DamagedWordingTests(unittest.TestCase):
             )
 
         line = result.narration[0]
-        self.assertIn("damage!", line)
         self.assertIn("**damaged**", line)
         self.assertNotIn("injury!", line)
         self.assertNotIn("injured", line)

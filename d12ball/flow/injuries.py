@@ -31,7 +31,7 @@ from d12ball.components import (
     legacy_maneuver_key,
 )
 from d12ball.engine import RulesEngine
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.flow.turn import injured_word_and_emoji, scripted_or_random
 from d12ball.formatting import address_coach
 from d12ball.game import D12BallGame
@@ -310,6 +310,9 @@ def injury_test_step(
     so they leave the queue in silence. Back to the queue rather than
     out of it, so this can never be where a turn stops.
     """
+    # Here rather than at the top: `rolls` imports this module.
+    from d12ball.flow.rolls import roll_working
+
     player = engine.get_player_definition(player_id)
     if player_id in match.injured:
         if player_id in match.pending_injury_tests:
@@ -373,15 +376,16 @@ def injury_test_step(
     # A Cyborg's check is a damage test, and what it does to them is
     # damage (the author, 2026-09-23).
     test_name = _with_article(engine.injury_test_name(game, player_id))
-    harm_noun = "damage" if drain else "injury"
 
+    player_label = engine.format_player_label(match, player)
+    rolls = f"{player_label} is {exhausted_word} and rolls {test_name}:"
+    tokens_held = f"their {current_tokens} {token_noun} tokens"
     if safe:
-        content = (
-            f"{engine.format_player_label(match, player)} is "
-            f"{exhausted_word} and rolls {test_name}: "
-            f"{roll}{overdrive_note} beats their {current_tokens} "
-            f"{token_noun} tokens — safe."
-        )
+        # The author, 2026-10-01: "Make it 'Player is safe.'" -- it was
+        # "— safe." at the end of the reading. Bold as **injured** is.
+        reading = f"{rolls} {roll}{overdrive_note} beats {tokens_held}"
+        verdict = f"{player_label} is **safe**."
+        read_as = f"**{check}** beats {tokens_held}: safe."
     else:
         match.mark_injured(player_id)
         # What happened, and nothing about what it means from here. The
@@ -389,23 +393,38 @@ def injury_test_step(
         # further tokens and no further checks -- was recited on every
         # injury in the game, and the board says all of it a moment
         # later: the tokens come off the card and the badge goes on.
-        word, emoji = injured_word_and_emoji(engine, game, player_id)
-        content = (
-            f"{engine.format_player_label(match, player)} is "
-            f"{exhausted_word} and rolls {test_name}: "
-            f"{roll}{overdrive_note} does not beat their {current_tokens} "
-            f"{token_noun} tokens — {harm_noun}! They are **{word}** {emoji}."
+        # Said once, naming the player (the author, 2026-10-01: "the
+        # announcement should be 'PLAYER IS INJURED.' no need to say it
+        # twice") -- it was "injury! They are injured", and the badge
+        # beside it said it a third time.
+        word, _ = injured_word_and_emoji(engine, game, player_id)
+        reading = (
+            f"{rolls} {roll}{overdrive_note} does not beat {tokens_held}"
         )
+        verdict = f"{player_label} is **{word}**."
+        read_as = f"**{check}** does not beat {tokens_held}: {word}."
+    content = f"{reading}.\n{verdict}"
+    # The verdict is the outcome, with the reading under it that names
+    # who rolled -- each the words the sentence is made of, so the two
+    # cannot differ -- and whose outcome it is is the side of the player
+    # tested, safe or hurt: nobody on the other side did anything.
+    headline = Headline(
+        verdict,
+        match.side_for_player(player_id),
+        reading,
+        roll_working([(player_label, roll, modifiers, check)], read_as),
+    )
 
     if ignite.ignited:
         content = "\n".join(filter(None, [
-            ignite.explain(engine.format_player_label(match, player)),
+            ignite.explain(player_label),
             ignite_tokens,
             content,
         ]))
 
     result = continue_injury_tests(engine, game, match)
     result.narration.insert(0, content)
+    result.headlines = (headline, *result.headlines)
     result.board_changed = (
         result.board_changed or not safe or ignite.ignited
     )

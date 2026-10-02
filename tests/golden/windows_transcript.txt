@@ -390,7 +390,8 @@ Time has advanced 1, now at 16.
 Dinky AI, 🟣 Tachyon [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
 === press 32: InjuryTestView -> 'Roll the injury test'
 --- message
-🟣 Tachyon [SK] is exhausted and rolls an injury test: 2 does not beat their 2 exhaustion tokens — injury! They are **injured** 🤕.
+🟣 Tachyon [SK] is exhausted and rolls an injury test: 2 does not beat their 2 exhaustion tokens.
+🟣 Tachyon [SK] is **injured**.
 --- message
 **Pressure:** 🟠 Goopkeeper [FB] and the ball go back 0 spaces. 🟣 Tachyon [SK] moves forward.
 
