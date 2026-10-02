@@ -1041,13 +1041,13 @@ class OutcomeBannerTests(unittest.TestCase):
 
     def test_a_mind_pull_is_headed_by_its_own_line(self) -> None:
         """A landed pull is the puller's side's steal, and a missed one
-        the ball slipping past, each with its roll written out -- the
+        a failed pull, each with its roll written out -- the
         die alone said nothing of what it came to."""
         for face, heading, verdict in (
-            (12, "grabs the ball with their telekinetic powers!",
+            (12, "pulls the ball.",
              "**12** is 11 or more: the pull lands."),
-            (4, "The ball slips past them.",
-             "**4** is under 11: it slips past."),
+            (4, "fails to Mind Pull.",
+             "**4** is under 11: the pull fails."),
         ):
             with self.subTest(face=face):
                 ENGINE.rng.seed(11)

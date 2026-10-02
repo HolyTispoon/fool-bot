@@ -1664,18 +1664,19 @@ def attempt_mind_pull_step(
         # The resume is left exactly as it was: the next Telekinetic in
         # the queue is owed the same offer, and the arrival behind them
         # is still the one to fall back to.
-        slips = "The ball slips past them."
+        # The author's wording, 2026-10-02.
+        fails = f"{player_label} fails to Mind Pull."
         result = continue_mind_pull(engine, game, match)
-        result.narration.insert(0, f"{note}\n{slips}")
+        result.narration.insert(0, f"{note}\n{fails}")
         # Whose outcome it is: the side that keeps the ball, since a
         # Telekinetic only ever reaches for the other side's.
         result.headlines = (Headline(
-            slips,
+            fails,
             match.ball.possession,
             reaches,
             roll_working(
                 [(player_label, roll, added, total)],
-                f"**{total}** is under {minimum}: it slips past.",
+                f"**{total}** is under {minimum}: the pull fails.",
             ),
         ), *result.headlines)
         return numbers, result
@@ -1685,17 +1686,18 @@ def attempt_mind_pull_step(
     match.apply_mind_pull(player_id)
     match.ball.speed = 1
 
-    grabs = f"{player_label} grabs the ball with their telekinetic powers!"
+    # The author's wording, 2026-10-02.
+    pulls = f"{player_label} pulls the ball."
     under = (
         f"**{TURNOVER_HEADING}** They take it on "
         f"{ball_space_phrase(match)}."
     )
     return numbers, StepResult(
-        narration=[f"{note}\n\n## {grabs}\n{under}"],
+        narration=[f"{note}\n\n## {pulls}\n{under}"],
         # The pull is a steal, so the outcome is the puller's side's,
         # which `apply_mind_pull` has just handed the ball.
         headlines=(Headline(
-            grabs,
+            pulls,
             match.ball.possession,
             under,
             roll_working(

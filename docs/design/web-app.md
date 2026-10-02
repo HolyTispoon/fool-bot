@@ -1979,10 +1979,10 @@ hands, and who won it, with who has possession under it), the own-goal
 roll (Own goal avoided! or Own goal!) and each shootout test (who
 scores, or the tie, with the running shootout score under it). A Mind
 Pull's roll is headed too (2026-10-02, after the author found a landed
-pull up as a bare die): the heading it already wrote, "<player> grabs
-the ball with their telekinetic powers!", in the puller's side's
-colour with the Turnover! line under it, or, on a miss, "The ball
-slips past them." with the reach under it. Each
+pull up as a bare die), in the author's wording of the same day:
+"<player> pulls the ball." in the puller's side's colour with the
+Turnover! line under it, or, on a miss, "<player> fails to Mind Pull."
+with the reach under it. Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 `OWN_GOAL_AVOIDED` / `OWN_GOAL`).
