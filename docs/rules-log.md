@@ -175,7 +175,8 @@ like overdrive, boost, mind pool, etc."*
 - **One rule in Law 15, not one per ability** (15.4.2 c): an Injured or Damaged player may use
   no ability that would exhaust or drain them -- Overdrive, Boost, Mind Pull, Quantor's run onto
   the pass, Zenith's flight, Scorchit's forced test, Glompex joining the ball. The cost is not
-  waived; the ability is not theirs to use.
+  waived; the ability is not theirs to use. Asked whether the "etc." reached the last two, the
+  author: *"yes, Scorchit and Glompex count too"*.
 - **Overdrive reverses the 2026-09-06 reading** that *"an injured Cyborg keeps it"*, which
   20.3.6 carried as "a Damaged Cyborg keeps it" on the grounds that it is a flat bonus rather
   than a skill modifier. That reading could never be played as written: 15.4.1 already let an
