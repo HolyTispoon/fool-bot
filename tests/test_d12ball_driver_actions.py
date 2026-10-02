@@ -603,6 +603,48 @@ class OverdriveTests(ApplyFixture):
         self.assertIsInstance(refusal, driver.Refusal)
         self.assertEqual(fixture.match.to_dict(), before)
 
+    def test_nothing_is_declared_in_the_shootout(self) -> None:
+        """
+        Law 20.3.5: a shootout test is a roll, and nobody declares an
+        Overdrive or a Boost on it -- not offered, and refused by name.
+        The shooters are Cyborgs who could Overdrive on any other roll,
+        which is what makes the empty offer the shootout's doing.
+        """
+        fixture = self.cyborg_skill_test()
+        game, match = fixture.game, fixture.match
+        match.begin_shootout()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            match.set_shootout_order(side, match.shootout_squad(side))
+        prompt = pending_prompt(ENGINE, game, match)
+        self.assertEqual(prompt.kind, PromptKind.SHOOTOUT_TEST)
+        self.assertIn(PromptKind.SHOOTOUT_TEST, driver.ROLL_KINDS)
+        shooters = [
+            match.shootout_shooter(side)
+            for side in (TeamSide.HOME, TeamSide.VISITING)
+        ]
+        self.assertEqual(
+            ENGINE.overdrive_candidates(game, match, shooters), shooters,
+        )
+        self.assertEqual(prompt.options.overdrive_player_ids, ())
+        self.assertEqual(prompt.options.boost_player_ids, ())
+        self.assertIsNone(prompt.options.deciding_side)
+
+        before = match.to_dict()
+        for choice in ("overdrive", "boost"):
+            with self.subTest(choice):
+                refusal = driver.apply(
+                    ENGINE, game, match,
+                    driver.Action(
+                        PromptKind.SHOOTOUT_TEST,
+                        choice,
+                        {"player_id": shooters[0]},
+                    ),
+                )
+                self.assertIsInstance(refusal, driver.Refusal)
+                self.assertIn("extreme shootout", refusal.reason)
+                self.assertEqual(refusal.law, "lithium-powered-cyborg")
+                self.assertEqual(match.to_dict(), before)
+
 
 class DieWaitsOnOverdriveTests(ApplyFixture):
     """

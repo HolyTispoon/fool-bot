@@ -1593,6 +1593,9 @@ def score_shootout_test(
             engine.ignite(game, player.player_id, roll),
         )
         ignites.append((player.player_id, ignite))
+        # Nothing is declared on a shootout test now (Law 20.3.5), so
+        # this is 0 -- except in a save that declared one, and paid
+        # its drain, before that rule: the bonus it paid for stands.
         overdrive = match.overdrive_modifier(player.player_id)
         # Zorch adds the modifier to every roll they make (Law 21) --
         # which here is nothing, since full time left the ball at
@@ -1713,7 +1716,21 @@ def shootout_test_step(
     )
 
 
-# -- Overdrive, which rides on all six roll prompts --------------------
+# -- Overdrive, which rides on five of the six roll prompts -----------
+
+
+def _refuse_in_the_shootout(prompt: PendingPrompt) -> None:
+    """
+    **Nothing is declared on a shootout test** (Law 20.3.5, the author,
+    2026-10-02): neither Overdrive nor Boost, which is declared on the
+    rolls Overdrive is. Its shooters are in the roll, so this says so
+    rather than "not in this roll".
+    """
+    if prompt.kind is PromptKind.SHOOTOUT_TEST:
+        raise RuleRefusal(
+            "Overdrive and Boost are not declared in the extreme shootout.",
+            law="lithium-powered-cyborg",
+        )
 
 
 def declare_overdrive_step(
@@ -1747,6 +1764,7 @@ def declare_overdrive_step(
     `RulesEngine.controlling_user_id`). See
     docs/design/permissions.md.
     """
+    _refuse_in_the_shootout(prompt)
     if player_id not in overdrive_rollers(match, prompt):
         raise RuleRefusal("That player is not in this roll.")
     if not engine.overdrive_candidates(game, match, [player_id]):
@@ -1887,6 +1905,7 @@ def declare_boost_step(
     drain 1 for +3, re-asked against `boost_candidates` for the same
     reason, and answered by coming back on the same roll.
     """
+    _refuse_in_the_shootout(prompt)
     if player_id not in overdrive_rollers(match, prompt):
         raise RuleRefusal("That player is not in this roll.")
     if not engine.boost_candidates(game, match, [player_id]):
