@@ -1095,7 +1095,7 @@ class OutcomeBannerTests(unittest.TestCase):
         die alone said nothing of what it came to."""
         for face, heading, verdict in (
             (9, "safe.", "**9** beats their 5 exhaustion tokens: safe."),
-            (3, "injury! They are **injured**",
+            (3, "is **injured**.",
              "**3** does not beat their 5 exhaustion tokens: injured."),
         ):
             with self.subTest(face=face):
@@ -1118,7 +1118,7 @@ class OutcomeBannerTests(unittest.TestCase):
                     )
 
                 written = self.assert_the_narration_s_own(web, game)
-                self.assertTrue(written["text"].startswith(heading), written)
+                self.assertTrue(written["text"].endswith(heading), written)
                 self.assertIn("rolls an injury test:", written["under"])
                 self.assertIn(f"rolled **{face}** = **{face}**.",
                               written["working"])

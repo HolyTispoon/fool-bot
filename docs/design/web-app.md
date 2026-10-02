@@ -1983,13 +1983,15 @@ pull up as a bare die), in the author's wording of the same day:
 "<player> Mind Pulls" in the puller's side's colour with the
 Turnover! line under it, or, on a miss, "<player> fails to Mind Pull"
 with the reach under it. So is an injury test (2026-10-01, after the
-die was found up with nothing saying what it came to): it writes no
-heading, only a sentence, so the step builds that sentence from its
-two halves once -- the verdict ("safe." or "injury! They are
-**injured**", a Cyborg's "damage!" and **damaged**) as the headline,
-and the reading that names who rolled and what they had to beat under
-it -- in the tested player's side's colour either way, since nobody on
-the other side did anything. Each
+die was found up with nothing saying what it came to): the step builds
+its reading -- who rolled and what they had to beat -- and its verdict
+once each, and the verdict is the headline with the reading under it,
+in the tested player's side's colour either way, since nobody on the
+other side did anything. The verdict is "safe." at the end of the
+reading's sentence, or, on its own line, "<player> is **injured**."
+(a Cyborg's **damaged**) -- the author's wording of the same day, "no
+need to say it twice", for what had been "injury! They are
+**injured**" with the condition's badge after it. Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 `OWN_GOAL_AVOIDED` / `OWN_GOAL`).

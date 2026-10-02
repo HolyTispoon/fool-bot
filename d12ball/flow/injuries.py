@@ -376,7 +376,6 @@ def injury_test_step(
     # A Cyborg's check is a damage test, and what it does to them is
     # damage (the author, 2026-09-23).
     test_name = _with_article(engine.injury_test_name(game, player_id))
-    harm_noun = "damage" if drain else "injury"
 
     player_label = engine.format_player_label(match, player)
     rolls = f"{player_label} is {exhausted_word} and rolls {test_name}:"
@@ -385,6 +384,7 @@ def injury_test_step(
         reading = f"{rolls} {roll}{overdrive_note} beats {tokens_held}"
         verdict = "safe."
         read_as = f"**{check}** beats {tokens_held}: safe."
+        content = f"{reading} — {verdict}"
     else:
         match.mark_injured(player_id)
         # What happened, and nothing about what it means from here. The
@@ -392,13 +392,17 @@ def injury_test_step(
         # further tokens and no further checks -- was recited on every
         # injury in the game, and the board says all of it a moment
         # later: the tokens come off the card and the badge goes on.
-        word, emoji = injured_word_and_emoji(engine, game, player_id)
+        # Said once, naming the player (the author, 2026-10-01: "the
+        # announcement should be 'PLAYER IS INJURED.' no need to say it
+        # twice") -- it was "injury! They are injured", and the badge
+        # beside it said it a third time.
+        word, _ = injured_word_and_emoji(engine, game, player_id)
         reading = (
             f"{rolls} {roll}{overdrive_note} does not beat {tokens_held}"
         )
-        verdict = f"{harm_noun}! They are **{word}** {emoji}."
+        verdict = f"{player_label} is **{word}**."
         read_as = f"**{check}** does not beat {tokens_held}: {word}."
-    content = f"{reading} — {verdict}"
+        content = f"{reading}.\n{verdict}"
     # The verdict is the outcome, with the reading under it that names
     # who rolled -- each the words the sentence is made of, so the two
     # cannot differ -- and whose outcome it is is the side of the player
