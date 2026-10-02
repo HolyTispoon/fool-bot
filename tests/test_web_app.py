@@ -1044,9 +1044,9 @@ class OutcomeBannerTests(unittest.TestCase):
         a failed pull, each with its roll written out -- the
         die alone said nothing of what it came to."""
         for face, heading, verdict in (
-            (12, "pulls the ball.",
+            (12, " Mind Pulls",
              "**12** is 11 or more: the pull lands."),
-            (4, "fails to Mind Pull.",
+            (4, " fails to Mind Pull",
              "**4** is under 11: the pull fails."),
         ):
             with self.subTest(face=face):

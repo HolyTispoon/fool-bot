@@ -84,7 +84,7 @@ Time has advanced 1, now at 03.
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
 🔮 Noxar [SK] exhausts 1 😮‍💨 (now 1 total).
 
-## 🔮 Noxar [SK] pulls the ball.
+## 🔮 Noxar [SK] Mind Pulls
 **Turnover!** They take it on **space 6** (Visitors Zone).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
@@ -235,7 +235,7 @@ Time has advanced 1, now at 06.
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
-🔮 Dravox [DD] fails to Mind Pull.
+🔮 Dravox [DD] fails to Mind Pull
 --- message
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
 === press 24: MindPullView -> 'Pass'
@@ -337,7 +337,7 @@ Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that 
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
 🔮 Noxar [SK] exhausts 1 😮‍💨 (now 3 total).
-🔮 Noxar [SK] fails to Mind Pull.
+🔮 Noxar [SK] fails to Mind Pull
 --- message
 **Steal:**
 # Turnover!
@@ -401,7 +401,7 @@ Time has advanced 1, now at 09.
 --- message
 🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
 🔮 Spectra [MF] exhausts 1 😮‍💨 (now 3 total).
-🔮 Spectra [MF] fails to Mind Pull.
+🔮 Spectra [MF] fails to Mind Pull
 --- message
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
 === press 40: MindPullView -> 'Pass'
@@ -414,7 +414,7 @@ Time has advanced 1, now at 09.
 🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
 🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total).
 
-## 🔮 Umbrik [FB] pulls the ball.
+## 🔮 Umbrik [FB] Mind Pulls
 **Turnover!** They take it on **space 1** (Home Zone).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
@@ -557,7 +557,7 @@ Ball speed is now **2**.
 --- message
 🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
 🔮 Noxar [SK] exhausts 1 😮‍💨 (now 6 total).
-🔮 Noxar [SK] fails to Mind Pull.
+🔮 Noxar [SK] fails to Mind Pull
 --- message
 Ball is now in space 6, Fire Demons (Visiting) has possession.
 --- message
@@ -631,7 +631,7 @@ Time has advanced 1, now at 16.
 --- message
 🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 2 total).
-🔮 Dravox [DD] fails to Mind Pull.
+🔮 Dravox [DD] fails to Mind Pull
 --- message
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
 === press 62: MindPullView -> 'Pass'
@@ -712,7 +712,7 @@ Time has advanced 2, now at 17.
 --- message
 🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
 🔮 Spectra [MF] exhausts 1 😮‍💨 (now 3 total).
-🔮 Spectra [MF] fails to Mind Pull.
+🔮 Spectra [MF] fails to Mind Pull
 --- message
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
 === press 68: MindPullView -> 'Pass'
@@ -724,7 +724,7 @@ Time has advanced 2, now at 17.
 --- message
 🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
 🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total).
-🔮 Umbrik [FB] fails to Mind Pull.
+🔮 Umbrik [FB] fails to Mind Pull
 --- message
 **High Pass:** the ball moves 3 spaces forward.
 

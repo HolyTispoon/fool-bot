@@ -3311,7 +3311,7 @@ class MindPullInterruptTests(unittest.IsolatedAsyncioTestCase):
         # all; the cog renders them only on the way out.
         self.assertIn(
             f"## {self.cog.engine.format_player_label(self.match, player)} "
-            "pulls the ball.",
+            "Mind Pulls",
             lead_in,
         )
         self.assertIn("Turnover!", lead_in)

@@ -1665,7 +1665,7 @@ def attempt_mind_pull_step(
         # the queue is owed the same offer, and the arrival behind them
         # is still the one to fall back to.
         # The author's wording, 2026-10-02.
-        fails = f"{player_label} fails to Mind Pull."
+        fails = f"{player_label} fails to Mind Pull"
         result = continue_mind_pull(engine, game, match)
         result.narration.insert(0, f"{note}\n{fails}")
         # Whose outcome it is: the side that keeps the ball, since a
@@ -1687,7 +1687,7 @@ def attempt_mind_pull_step(
     match.ball.speed = 1
 
     # The author's wording, 2026-10-02.
-    pulls = f"{player_label} pulls the ball."
+    pulls = f"{player_label} Mind Pulls"
     under = (
         f"**{TURNOVER_HEADING}** They take it on "
         f"{ball_space_phrase(match)}."

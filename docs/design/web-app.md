@@ -1980,8 +1980,8 @@ roll (Own goal avoided! or Own goal!) and each shootout test (who
 scores, or the tie, with the running shootout score under it). A Mind
 Pull's roll is headed too (2026-10-02, after the author found a landed
 pull up as a bare die), in the author's wording of the same day:
-"<player> pulls the ball." in the puller's side's colour with the
-Turnover! line under it, or, on a miss, "<player> fails to Mind Pull."
+"<player> Mind Pulls" in the puller's side's colour with the
+Turnover! line under it, or, on a miss, "<player> fails to Mind Pull"
 with the reach under it. Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
