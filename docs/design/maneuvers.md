@@ -568,6 +568,15 @@ the AI's. The two that were not always like this were the one-sided ones: the
 own goal and the injury test had no opposing roll to wait for, so the bot rolled
 them itself and posted the answer.
 
+**Except while a Cyborg's Overdrive is open** (the author, 2026-10-02):
+Overdrive and Boost are declared *before* the die is thrown (Law 20.3.5), and
+a Roll anybody may press let the other coach throw it before the Cyborg's
+coach had decided. So while a human coach's Cyborg on the roll may still
+declare, the die waits on that coach -- the third case in
+[species-abilities.md](species-abilities.md), "Overdrive is the only thing in
+the game declared before a roll". An AI side declares nothing and holds no
+die, so a solo game against an AI Cyborg rolls exactly as before.
+
 **A shot is walked back only by the coach who chose it, and never for an
 AI side.** "Back" on the score attempt is an answer to that prompt
 (`retract_shot_step`), and a human standing in for the AI's rolls does

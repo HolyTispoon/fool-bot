@@ -45,7 +45,9 @@ from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
 from d12ball.flow import FollowOnStep
 from d12ball.formatting import coach_name
-from d12ball.game import AIOpponent, GameMode, Team, team_display_name
+from d12ball.game import (
+    AIOpponent, Formation, GameMode, Team, team_display_name,
+)
 from d12ball.prompts import Action, PromptKind, asked_sides, pending_prompt
 from gamesaves.d12ball import storage
 from gamesaves.d12ball.service import GameService
@@ -63,7 +65,10 @@ from webapp.server import (
 )
 from prompt_fixtures import (
     CASES,
+    CATALOG,
     ENGINE,
+    RULESET,
+    challenge,
     GAME_ID,
     build_match,
     PromptFixture,
@@ -806,6 +811,60 @@ class QuestionBoxTests(unittest.TestCase):
     def test_a_roll_waits_on_nobody(self) -> None:
         fixture = self.named(case("skill test"))
         self.assertEqual(self.box(fixture, Viewer(None))["waiting_on"], [])
+
+    def cyborg_skill_test(self) -> PromptFixture:
+        """
+        A skill test between two Cyborgs whose attacker's coach has
+        already said Roll -- so the die waits on the defender's coach
+        alone.
+        """
+        game = build_game(
+            player_1_team=Team.CYBORGS,
+            player_2_team=Team.CYBORGS,
+            mode=GameMode.ADVANCED,
+            species_abilities=True,
+        )
+        match = MatchState.standard(
+            catalog=CATALOG,
+            ruleset=RULESET,
+            board_size=7,
+            home_team=Team.CYBORGS,
+            visiting_team=Team.CYBORGS,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        challenge(match)
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        match.ready_to_roll([match.side_for_player(match.active_player_id)])
+        return self.named(PromptFixture(game, match, "rolls:"))
+
+    def test_a_roll_waits_on_the_coach_whose_cyborg_may_overdrive(
+        self,
+    ) -> None:
+        """
+        Overdrive is declared before the die is thrown (Law 20.3.5):
+        the die is the defender's coach's, the other coach waits on
+        them, and the press says whose side it speaks for.
+        """
+        fixture = self.cyborg_skill_test()
+        side = fixture.match.side_for_player(fixture.match.challenger_id)
+        deciding = ENGINE.side_player_number(fixture.game, side)
+        mine = self.box(fixture, Viewer(deciding))
+        self.assertEqual(mine["state"], "yours")
+        roll = next(
+            control
+            for group in mine["controls"]
+            for control in group["controls"]
+            if control["action"]["choice"] == "roll"
+        )
+        self.assertEqual(
+            roll["action"]["arguments"], {"sides": [side.value]},
+        )
+        theirs = self.box(fixture, Viewer(3 - deciding))
+        self.assertEqual(theirs["state"], "waiting")
+        self.assertEqual(
+            theirs["waiting_on"], [coach_name(fixture.game, deciding)],
+        )
 
 
 class OutcomeBannerTests(unittest.TestCase):

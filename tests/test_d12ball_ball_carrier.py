@@ -38,6 +38,7 @@ from d12ball.flow.turnovers import announce_new_play_reset
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_dribble_advance, apply_low_pass, begin_loose_ball, begin_run_back, resolve_loose_ball, resolve_pressure, resolve_steal
+from roll_presses import press_roll
 
 
 def build_cog() -> D12Ball:
@@ -524,7 +525,7 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch(
             "d12ball.dice_brief.render_skill_test_dice",
         ), mock.patch("discord.File"):
-            await view.roll(build_contest_interaction())
+            await press_roll(view, build_contest_interaction())
         return cog.engine.load_match_state(game)
 
     async def test_a_receiver_who_keeps_a_high_pass_carries_it(self) -> None:

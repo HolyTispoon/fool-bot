@@ -570,6 +570,11 @@ class ShootoutTestView(ShootoutView):
                 ephemeral=True,
             )
             return
+        action = await self.roll_action(
+            interaction, game, match, PromptKind.SHOOTOUT_TEST,
+        )
+        if action is None:
+            return
 
         # Deferred before the dice are rendered, for the reason spelled
         # out in SkillTestView.roll.
@@ -581,7 +586,7 @@ class ShootoutTestView(ShootoutView):
         # is left here is the picture and where it goes; a test already
         # rolled is the driver's to refuse, by kind.
         result = await self.apply(
-            interaction, game, Action(PromptKind.SHOOTOUT_TEST, "roll"),
+            interaction, game, action,
         )
         if result is None:
             return

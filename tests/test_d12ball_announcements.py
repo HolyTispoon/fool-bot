@@ -38,6 +38,7 @@ from d12ball.engine import IgnitedRoll, RulesEngine
 from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import resolve_maneuver, run_own_goal_roll
+from roll_presses import press_roll
 
 
 def build_cog() -> D12Ball:
@@ -153,7 +154,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
 
         dice_message = interaction.edit_original_response.await_args.kwargs
         # No content at all: the dice image carries the whole roll, so
@@ -203,7 +204,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
         return interaction
 
     async def test_keeping_a_high_pass_is_announced_after_the_dice(
@@ -283,7 +284,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch(
             "d12ball.dice_brief.render_skill_test_dice",
         ), mock.patch("discord.File"):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
 
         # The tie is the one result that stays on the dice message,
         # because that message also carries the roll-again button.
@@ -400,7 +401,7 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
         return interaction
 
     async def test_a_goal_is_announced_after_the_dice(self) -> None:

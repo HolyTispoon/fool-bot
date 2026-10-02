@@ -1801,7 +1801,7 @@ class CoreMixin:
             if lead_in:
                 await send_new_prompt(interaction, lead_in)
             await self.begin_score_attempt(
-                interaction, game, match, ask=prompt.ask,
+                interaction, game, match, ask=ask,
             )
             return
 

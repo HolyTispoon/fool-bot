@@ -447,8 +447,9 @@ class SafeView(discord.ui.View):
         roll, and every roll already sits behind a button any coach may
         press (see "Every roll is a coach's"). So it is a second button
         on the same message rather than a step of its own: the coach
-        whose Cyborg it is presses it, the message says so, and
-        whoever was going to press Roll still does. `options` is the
+        whose Cyborg it is presses it, the message says so, and that
+        coach's Roll is what says they are done -- the die waits on
+        them until then (`roll_action`). `options` is the
         prompt's `RollOptions`: whoever is rolling here and may still
         declare, which the prompt knows
         (`d12ball.prompts.OVERDRIVE_ROLLERS`), what each Overdrive
@@ -490,6 +491,68 @@ class SafeView(discord.ui.View):
             )
             button.callback = self.declare_overdrive
             self.add_item(button)
+
+    async def roll_action(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        kind: PromptKind,
+        arguments: Optional[dict] = None,
+    ) -> Optional[Action]:
+        """
+        The Roll press as the action that throws the die -- or `None`
+        where this press has been answered here and nothing is rolled.
+
+        **The die waits on a coach whose Cyborg may still declare**
+        Overdrive or Boost (`RollOptions.deciding_sides`, Law 20.3.5):
+        their Roll says they are done, and anybody else's is refused
+        with the model's sentence naming who it waits on. So the press
+        carries the sides it speaks for -- the coaches' own, by
+        account. A helper who is neither coach stands in for the
+        coaches the die waits on, behind the confirmation
+        `may_act_in_game` has already asked for. Where both coaches
+        have a declaration open, the first Roll makes that side ready
+        and pings the other; the die is thrown on the second.
+
+        Called before the roll's own `defer`, since the answer here is
+        a reply rather than the dice.
+        """
+        arguments = dict(arguments or {})
+        options = self.prompt_options(game, match, kind)
+        waiting = options.deciding_sides if options is not None else ()
+        if not waiting:
+            return Action(kind, "roll", arguments)
+
+        engine = self.cog.engine
+        sides = [
+            side for side in waiting
+            if interaction.user.id == engine.side_controller_id(game, side)
+        ]
+        if not sides and interaction.user.id not in game_participant_ids(
+            game,
+        ):
+            sides = [
+                side for side in waiting
+                if self.may_act_for(
+                    interaction, engine.side_controller_id(game, side),
+                )
+            ]
+        action = Action(
+            kind,
+            "roll",
+            {**arguments, "sides": [side.value for side in sides]},
+        )
+        if len(sides) == len(waiting):
+            return action
+
+        # Refused (the die waits on the other coach), or this side is
+        # ready and the other still deciding: either way a sentence and
+        # no dice, answered the way a declaration is.
+        result = await self.apply(interaction, game, action)
+        if result is not None:
+            await interaction.response.send_message(result.answer[0])
+        return None
 
     async def declare_overdrive(
         self, interaction: discord.Interaction,

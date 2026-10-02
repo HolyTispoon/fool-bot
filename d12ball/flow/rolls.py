@@ -45,7 +45,7 @@ is a rule rather than an accident:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Optional
+from typing import Optional, Sequence
 
 from d12ball.components import (
     EVENT_SHOT,
@@ -73,6 +73,7 @@ from d12ball.flow.result import (
 )
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
+    address_coach,
     contest_noun,
     contestant_detail,
     format_ai_name,
@@ -1754,6 +1755,61 @@ def declare_overdrive_step(
             f"⚡ **Overdrive** — "
             f"{engine.format_player_label(match, player)} drains "
             f"{cost} for +{OVERDRIVE_BONUS} on this roll."
+        ],
+        next=prompt,
+    )
+
+
+def hold_roll_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    sides: Sequence[str] = (),
+) -> Optional[StepResult]:
+    """
+    A Roll pressed while the die waits on a coach's Overdrive or Boost
+    -- `None` where the die may be thrown now, and otherwise the
+    answer that holds it.
+
+    **Overdrive is declared before the die is thrown** (Law 20.3.5),
+    so the coach whose Cyborg may still declare decides first
+    (`RollOptions.deciding_sides`), and their Roll is their answer
+    that they are done. `sides` is which of the board's sides the
+    press speaks for -- the frontend's to say, since who pressed is a
+    fact about an account (docs/design/permissions.md):
+
+    - none of the sides the die waits on: refused, naming who it is
+      waiting for;
+    - some but not all: those sides are ready, their declarations are
+      closed, and the same roll is asked again of the rest -- the
+      shape of `declare_overdrive_step`;
+    - all of them: `None`, and the roll goes ahead.
+    """
+    waiting = prompt.options.deciding_sides if prompt.options else ()
+    if not waiting:
+        return None
+    pressed = set(sides or ())
+    ready = [side for side in waiting if side.value in pressed]
+    still = [side for side in waiting if side.value not in pressed]
+    if not still:
+        return None
+    coaches = " and ".join(
+        address_coach(engine.side_player_number(game, side))
+        for side in still
+    )
+    if not ready:
+        raise RuleRefusal(
+            f"The die waits on {coaches}: Overdrive is declared before "
+            "it is thrown.",
+            law="lithium-powered-cyborg",
+        )
+    # Two sides, so one of them is ready and the other still deciding.
+    match.ready_to_roll(ready)
+    return StepResult(
+        narration=[
+            f"{address_coach(engine.side_player_number(game, ready[0]))} "
+            f"is ready to roll. The die waits on {coaches}."
         ],
         next=prompt,
     )

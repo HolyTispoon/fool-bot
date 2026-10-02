@@ -50,7 +50,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from d12ball.special_abilities import (
     GLOMPEX_JOIN_COST,
@@ -615,6 +615,12 @@ class RollOptions:
     on a score attempt alone -- whether the shot may still be walked
     back (`back`), and whether the tutorial has railed that walk-back
     off (`back_railed`).
+
+    **Except while a coach still has a declaration open**
+    (`deciding_sides`): Overdrive and Boost are declared before the
+    die is thrown (Law 20.3.5), so the die waits on the coach whose
+    Cyborg may still declare, and a Roll pressed by anybody else is
+    refused. That coach's Roll is their answer that they are done.
     """
 
     overdrive_player_ids: tuple[str, ...]
@@ -626,6 +632,11 @@ class RollOptions:
     # or Voltus's 2 -- so a button's label is the prompt's number and
     # not a second reading of the rule.
     overdrive_costs: tuple[tuple[str, int], ...] = ()
+    # The sides the die waits on: those with an Overdrive or a Boost
+    # still open on this roll, whose coach has not said Roll. Never an
+    # AI side, which declares nothing -- so the AI is never asked a
+    # roll. Empty is the roll either coach may press.
+    deciding_sides: tuple[TeamSide, ...] = ()
 
     def overdrive_cost(self, player_id: str) -> int:
         return dict(self.overdrive_costs).get(
@@ -642,6 +653,7 @@ class RollOptions:
             },
             "back": self.back,
             "back_railed": self.back_railed,
+            "deciding_sides": [side.value for side in self.deciding_sides],
         }
 
 
@@ -1542,10 +1554,12 @@ def asked_sides(
     the coach a line names. Empty for a question nobody in particular
     owns: the six rolls, which either coach may press (CLAUDE.md,
     "Nothing rolls dice on its own"), the tutorial's Continue and the
-    finished game. Two sides for the questions put to both at once --
-    the maneuver pick and the shootout's two menus. The shootout's are
-    narrowed to the sides still to answer, which the options already
-    say; **the maneuver pick is not** (the author, 2026-09-26): a side
+    finished game -- **except a roll whose die waits on a coach's
+    Overdrive or Boost** (`RollOptions.deciding_sides`), which is
+    theirs until they press it. Two sides for the questions put to
+    both at once -- the maneuver pick and the shootout's two menus.
+    The shootout's are narrowed to the sides still to answer, which
+    the options already say; **the maneuver pick is not** (the author, 2026-09-26): a side
     that has laid its card down may change it until the other side has
     too (`maneuver_pick_refusal`, Law 6's cards turned over together),
     and the prompt stands only while one side is still to pick -- the
@@ -1562,6 +1576,10 @@ def asked_sides(
     forgot would read as nobody's.
     """
     kind = prompt.kind
+    if kind in ROLL_KINDS and prompt.options is not None:
+        # A roll is nobody's question until a coach has an Overdrive
+        # or a Boost to decide on first: then it is theirs.
+        return tuple(prompt.options.deciding_sides)
     if kind in NOBODYS_QUESTIONS:
         return ()
     if kind is PromptKind.MANEUVER_ACTION:
@@ -1590,8 +1608,11 @@ def asked_sides(
     return (match.ball.possession,)
 
 
-#: The prompts nobody in particular is asked: either coach may press
-#: the roll, and the other two have no side at all.
+#: The prompts nobody in particular is asked, and so never the AI:
+#: either coach may press the roll, and the other two have no side at
+#: all. A roll is a coach's question only while their Cyborg's
+#: declaration is open (`RollOptions.deciding_sides`), which is never
+#: an AI side's.
 NOBODYS_QUESTIONS = frozenset({
     PromptKind.TUTORIAL_CONTINUE,
     PromptKind.GAME_OVER,
@@ -1667,7 +1688,39 @@ def with_options(
     build = OPTIONS.get(prompt.kind)
     if build is None:
         return prompt
-    return replace(prompt, options=build(engine, game, match, prompt))
+    built = replace(prompt, options=build(engine, game, match, prompt))
+    return _whose_roll(engine, game, built)
+
+
+#: How every roll's ask opens while the die is anybody's to throw.
+EITHER_ROLLS = "Either player can roll"
+
+
+def _whose_roll(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    prompt: PendingPrompt,
+) -> PendingPrompt:
+    """
+    A roll's ask, saying whose the die is while it waits on a coach's
+    Overdrive (`RollOptions.deciding_sides`) -- "Either player can
+    roll" is not what the position is then. One place for the six
+    rolls' asks and the steps that re-ask them, since every one opens
+    with the same words.
+    """
+    if prompt.kind not in ROLL_KINDS or prompt.options is None:
+        return prompt
+    sides = prompt.options.deciding_sides
+    if not sides or EITHER_ROLLS not in prompt.ask:
+        return prompt
+    coaches = [
+        address_coach(engine.side_player_number(game, side)) for side in sides
+    ]
+    who = (
+        f"{coaches[0]} rolls" if len(coaches) == 1
+        else f"{' and '.join(coaches)} each roll"
+    )
+    return replace(prompt, ask=prompt.ask.replace(EITHER_ROLLS, who, 1))
 
 
 def _pending(
@@ -2227,20 +2280,45 @@ def _declarations(
 ) -> dict:
     """
     The declarations a roll prompt offers before its die: Overdrive,
-    with what each drains, and Gearclaw's Boost.
+    with what each drains, and Gearclaw's Boost -- and the sides the
+    die waits on because one of theirs is still open.
     """
     rollers = overdrive_rollers(match, prompt)
     overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
+    boosts = tuple(engine.boost_candidates(game, match, rollers))
     return {
         "overdrive_player_ids": overdrives,
-        "boost_player_ids": tuple(
-            engine.boost_candidates(game, match, rollers),
-        ),
+        "boost_player_ids": boosts,
         "overdrive_costs": tuple(
             (player_id, engine.overdrive_cost(game, player_id))
             for player_id in overdrives
         ),
+        "deciding_sides": deciding_sides(
+            engine, game, match, overdrives + boosts,
+        ),
     }
+
+
+def deciding_sides(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+    player_ids: Sequence[str],
+) -> tuple[TeamSide, ...]:
+    """
+    The sides a roll waits on: those of the players who may still
+    declare Overdrive or Boost on it, in the order the rollers are
+    named. Overdrive is declared *before* the die is thrown (Law
+    20.3.5), so the coach who may declare one decides first, and the
+    other coach's Roll waits for them. **An AI side is never one**: it
+    declares nothing, and a roll is never the AI's question.
+    """
+    sides = []
+    for player_id in player_ids:
+        side = match.side_for_player(player_id)
+        if side not in sides and not engine.side_is_ai(game, side):
+            sides.append(side)
+    return tuple(sides)
 
 
 def _score_attempt_options(

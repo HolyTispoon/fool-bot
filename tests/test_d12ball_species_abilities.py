@@ -124,6 +124,7 @@ from d12ball.flow.periods import begin_halftime, halftime_extra_token_step
 from d12ball.components import CoachingOccasion
 from d12ball.render import render_injury_test_die
 from cog_steps import apply_pressure, begin_run_back, continue_mind_pull, continue_smooth, describe_exhaustion_gain, finish_maneuver_resolution, run_mind_pull, run_smooth
+from roll_presses import press_roll
 
 
 def build_engine() -> RulesEngine:
@@ -716,7 +717,7 @@ class VolatileIgnitionDieTests(unittest.IsolatedAsyncioTestCase):
         ), suppressed_cog_saves(), mock.patch(
             "random.Random.randint", side_effect=[6, 1, 9],
         ), mock.patch("discord.File"):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
 
         dice_message = interaction.edit_original_response.await_args
         self.assertIn("ignites", dice_message.kwargs["content"])
@@ -1137,6 +1138,80 @@ class DrainThresholdTests(unittest.TestCase):
             self.engine.exhaustion_threshold(self.game, other),
             self.defense_of(other),
         )
+
+
+class OverdriveBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Overdrive is declared before the die is thrown (Law 20.3.5), so a
+    roll with a Cyborg's declaration open is put to that Cyborg's
+    coach -- named and pinged -- and the other coach's Roll is refused
+    rather than throwing the die before they have decided.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_ignition_cog()
+        self.game = build_game(
+            player_1_team=Team.CYBORGS, player_2_team=Team.FIRE_DEMONS,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        match = build_match(self.cog.engine, self.game)
+        offense = fielded_of_species(match, SPECIES_CYBORG, TeamSide.HOME)
+        zone, space_index = match.board.meeple_position(offense)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(zone, space_index)
+        match.active_player_id = offense
+        challenger = fielded_of_species(
+            match, SPECIES_FIRE_DEMON, TeamSide.VISITING,
+        )
+        match.board.place_meeple(challenger, zone, space_index)
+        match.challenger_id = challenger
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        self.game.match_state = match.to_dict()
+
+    def press(self, user_id: int) -> SimpleNamespace:
+        interaction = build_ignition_interaction()
+        interaction.user = SimpleNamespace(id=user_id, display_name="")
+        return interaction
+
+    def test_the_roll_is_asked_of_the_cyborg_s_coach(self) -> None:
+        match = self.cog.engine.load_match_state(self.game)
+        prompt = pending_prompt(self.cog.engine, self.game, match)
+        self.assertTrue(prompt.ask.startswith(f"{tokens.coach(1)} rolls"))
+        rendered = self.cog.render_text(prompt.ask, self.game)
+        self.assertIn("<@111>", rendered)
+        self.assertNotIn("Either player", rendered)
+
+    async def test_the_other_coach_s_roll_is_refused(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        interaction = self.press(222)
+        # Not yet answered, so the refusal is the click's own reply.
+        interaction.response.is_done = lambda: False
+        with suppressed_cog_saves(), mock.patch(
+            "random.Random.randint", side_effect=AssertionError("rolled"),
+        ):
+            await view.roll(interaction)
+        interaction.response.defer.assert_not_awaited()
+        reply = interaction.response.send_message.await_args
+        self.assertTrue(reply.kwargs["ephemeral"])
+        self.assertIn("The die waits on <@111>", reply.args[0])
+        match = self.cog.engine.load_match_state(self.game)
+        self.assertEqual(
+            pending_prompt(self.cog.engine, self.game, match).kind,
+            PromptKind.SKILL_TEST,
+        )
+
+    async def test_the_cyborg_s_coach_throws_the_die(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        interaction = self.press(111)
+        with injury_queue_stops_the_chain(
+            self.cog,
+        ), suppressed_cog_saves(), mock.patch(
+            "random.Random.randint", side_effect=[6, 1, 9],
+        ), mock.patch("discord.File"):
+            await view.roll(interaction)
+        interaction.response.defer.assert_awaited_once()
+        interaction.edit_original_response.assert_awaited()
 
 
 class DamagedWordingTests(unittest.TestCase):

@@ -32,6 +32,7 @@ from d12ball.engine import RulesEngine
 from d12ball.game import D12BallGame, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import apply_exhaustion, resolve_maneuver, run_own_goal_roll
+from roll_presses import press_roll
 
 
 def build_cog() -> D12Ball:
@@ -186,7 +187,7 @@ class SkillTestExhaustionTests(unittest.IsolatedAsyncioTestCase):
             "random.Random.randint",
             side_effect=[offense_roll, defense_roll],
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
 
         self.assertIn(offense_id, cog.engine.load_match_state(game).exhausted)
         # A tie resolves nothing, so it owes no injury test: the

@@ -163,7 +163,18 @@ def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
     """
     match = fixture.match
     match.active_player_id = match.home.field_players[0]
-    return "roll", {}
+    return _roll(fixture)
+
+
+def _roll(fixture: PromptFixture) -> tuple[str, dict]:
+    """
+    A roll pressed for every coach the die waits on -- nobody, unless
+    a Cyborg's Overdrive is still open (`RollOptions.deciding_sides`).
+    """
+    waiting = _prompt(fixture).options.deciding_sides
+    if not waiting:
+        return "roll", {}
+    return "roll", {"sides": [side.value for side in waiting]}
 
 
 def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
@@ -205,13 +216,14 @@ LEGAL_ACTIONS = {
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
     PromptKind.SMOOTH: lambda fixture: ("take", {}),
     PromptKind.OWN_GOAL_ROLL: _own_goal,
-    # The two contested rolls take no arguments at all: the action
-    # is that somebody pressed, and the position is the rest.
-    PromptKind.SKILL_TEST: lambda fixture: ("roll", {}),
-    PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("roll", {}),
-    PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
-    PromptKind.SHOOTOUT_TEST: lambda fixture: ("roll", {}),
-    PromptKind.INJURY_TEST: lambda fixture: ("roll", {}),
+    # The rolls take no arguments of their own: the action is that
+    # somebody pressed, and the position is the rest -- save which
+    # sides the press speaks for, while the die waits on a coach.
+    PromptKind.SKILL_TEST: _roll,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _roll,
+    PromptKind.SCORE_ATTEMPT: _roll,
+    PromptKind.SHOOTOUT_TEST: _roll,
+    PromptKind.INJURY_TEST: _roll,
     PromptKind.PLAYER_ACTION: _player_action,
     PromptKind.COACHING_OFFER: _coaching_offer,
     PromptKind.COACHING_HUB: _coaching_hub,
@@ -589,6 +601,106 @@ class OverdriveTests(ApplyFixture):
         refusal = driver.apply(ENGINE, fixture.game, fixture.match, action)
         self.assertIsInstance(refusal, driver.Refusal)
         self.assertEqual(fixture.match.to_dict(), before)
+
+
+class DieWaitsOnOverdriveTests(ApplyFixture):
+    """
+    Overdrive is declared before the die is thrown (Law 20.3.5), so a
+    roll with a Cyborg's declaration open waits on that Cyborg's coach:
+    their Roll says they are done, and nobody else's throws the die.
+    """
+
+    cyborg_skill_test = OverdriveTests.cyborg_skill_test
+
+    def roll(self, fixture, *sides: TeamSide):
+        arguments = {"sides": [side.value for side in sides]} if sides else {}
+        return driver.apply(
+            ENGINE,
+            fixture.game,
+            fixture.match,
+            driver.Action(PromptKind.SKILL_TEST, "roll", arguments),
+        )
+
+    def asked(self, fixture):
+        return asked_sides(
+            fixture.match,
+            pending_prompt(ENGINE, fixture.game, fixture.match),
+        )
+
+    def test_a_roll_with_a_declaration_open_is_that_coachs_question(
+        self,
+    ) -> None:
+        fixture = self.cyborg_skill_test()
+        self.assertEqual(
+            set(self.asked(fixture)), {TeamSide.HOME, TeamSide.VISITING},
+        )
+
+    def test_a_roll_pressed_for_nobody_it_waits_on_is_refused(self) -> None:
+        fixture = self.cyborg_skill_test()
+        before = fixture.match.to_dict()
+        refusal = self.roll(fixture)
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertIn("waits on", refusal.reason)
+        self.assertEqual(refusal.law, "lithium-powered-cyborg")
+        self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_the_first_coach_is_ready_and_the_second_throws_the_die(
+        self,
+    ) -> None:
+        fixture = self.cyborg_skill_test()
+        match = fixture.match
+        offense = match.side_for_player(match.active_player_id)
+        defense = match.side_for_player(match.challenger_id)
+
+        ready = self.roll(fixture, offense)
+        self.assertNotIsInstance(ready, driver.Refusal)
+        self.assertIsNone(ready.detail)
+        self.assertIn("is ready to roll", ready.result.narration[0])
+        self.assertEqual(self.asked(fixture), (defense,))
+        # Saying Roll closed that side's declarations for this roll.
+        options = pending_prompt(ENGINE, fixture.game, match).options
+        self.assertNotIn(match.active_player_id, options.overdrive_player_ids)
+        self.assertIn(match.challenger_id, options.overdrive_player_ids)
+
+        with mock.patch("random.Random.randint", side_effect=[7, 2]):
+            rolled = self.roll(fixture, defense)
+        self.assertNotIsInstance(rolled, driver.Refusal)
+        self.assertIsNotNone(rolled.detail)
+        self.assertEqual(match.roll_ready, [])
+
+    def test_a_press_for_every_side_it_waits_on_rolls_at_once(self) -> None:
+        """One account coaching both sides -- a test game -- just rolls."""
+        fixture = self.cyborg_skill_test()
+        with mock.patch("random.Random.randint", side_effect=[7, 2]):
+            rolled = self.roll(fixture, TeamSide.HOME, TeamSide.VISITING)
+        self.assertNotIsInstance(rolled, driver.Refusal)
+        self.assertIsNotNone(rolled.detail)
+
+    def test_the_ai_never_holds_the_die(self) -> None:
+        """
+        The AI declares nothing, so its Cyborgs leave the die to the
+        other coach alone -- and the AI is never asked a roll.
+        """
+        fixture = self.cyborg_skill_test()
+        fixture.game.player_2_id = None
+        human = TeamSide.HOME if fixture.game.home_player_number == 1 else (
+            TeamSide.VISITING
+        )
+        self.assertEqual(self.asked(fixture), (human,))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        self.assertIsNone(
+            driver.ai_action(ENGINE, fixture.game, fixture.match, prompt),
+        )
+
+    def test_with_nothing_to_declare_either_coach_may_roll(self) -> None:
+        fixture = self.cyborg_skill_test()
+        for player_id in (
+            fixture.match.active_player_id, fixture.match.challenger_id,
+        ):
+            fixture.match.injured.add(player_id)
+        self.assertEqual(self.asked(fixture), ())
+        rolled = self.roll(fixture)
+        self.assertNotIsInstance(rolled, driver.Refusal)
 
 
 def _case(name: str) -> PromptFixture:

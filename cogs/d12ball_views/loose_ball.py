@@ -344,6 +344,11 @@ class LooseBallSkillTestView(SafeView):
                 ephemeral=True,
             )
             return
+        action = await self.roll_action(
+            interaction, game, match, PromptKind.LOOSE_BALL_SKILL_TEST,
+        )
+        if action is None:
+            return
 
         # **The rule is `d12ball.flow.rolls.loose_ball_test_step`**
         # since Phase 6: the roll, what injury withholds, the ball
@@ -355,7 +360,7 @@ class LooseBallSkillTestView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(PromptKind.LOOSE_BALL_SKILL_TEST, "roll"),
+            action,
             carry_from=1,
         )
         if result is None:

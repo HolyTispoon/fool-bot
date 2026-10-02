@@ -617,7 +617,8 @@ def may_answer(
     tutorial's Continue -- is either coach's to press, which is what
     "nothing rolls dice on its own" means from this side: the die is
     there for both of them and neither is being asked a question.
-    A spectator answers nothing.
+    A roll whose die waits on a coach's Overdrive is that coach's
+    (`RollOptions.deciding_sides`). A spectator answers nothing.
     """
     if not viewer.is_coach:
         return False
@@ -950,8 +951,18 @@ def _roll(asked: Asked) -> list:
     that may declare Overdrive or Boost, with what the Overdrive drains.
     """
     options = asked.options
+    # While a coach's Overdrive or Boost is open the die waits on them
+    # (`RollOptions.deciding_sides`), and the press says which of those
+    # sides this viewer speaks for: theirs, or both in a game a viewer
+    # coaches both sides of.
+    waiting = options.get("deciding_sides") or []
+    sides = [side.value for side in asked.sides() if side.value in waiting]
     controls = [
-        button(CHOICE_LABELS["roll"], asked.kind, "roll", place=ON_DIE, chip="roll"),
+        button(
+            CHOICE_LABELS["roll"], asked.kind, "roll",
+            place=ON_DIE, chip="roll",
+            **({"sides": sides} if waiting else {}),
+        ),
     ]
     if options["back"]:
         controls.append(
