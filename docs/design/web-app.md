@@ -1977,7 +1977,12 @@ full time or after the shootout (`full_time_heading`, the heading
 loose ball or the long pass's contest (Turnover! where the ball changed
 hands, and who won it, with who has possession under it), the own-goal
 roll (Own goal avoided! or Own goal!) and each shootout test (who
-scores, or the tie, with the running shootout score under it). Each
+scores, or the tie, with the running shootout score under it). A Mind
+Pull's roll is headed too (2026-10-02, after the author found a landed
+pull up as a bare die): the heading it already wrote, "<player> grabs
+the ball with their telekinetic powers!", in the puller's side's
+colour with the Turnover! line under it, or, on a miss, "The ball
+slips past them." with the reach under it. Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 `OWN_GOAL_AVOIDED` / `OWN_GOAL`).
@@ -1986,7 +1991,7 @@ headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 "the arithmetic needs explanation, it's not enough to just show the
 math ... the model should write this with greater detail").
 `Headline.working`, set by the skill test, the loose ball, the shot,
-the own-goal roll and the shootout test, is each side as who rolled,
+the own-goal roll, the shootout test and the Mind Pull, is each side as who rolled,
 the face, every addend and the total, then how the two totals are read
 ("**16** beats **10**."; "**13** is lower than **15**: the attack does
 not score."; "**13** is 7 or more: safe."). `rolls.roll_working` and
@@ -2014,7 +2019,8 @@ the model's "Halftime": the score is the jumbotron's.
 `OutcomeBannerTests` hold every headline to words the narration itself
 says, word for word, and the working to the faces rolled, for a
 resolved maneuver, a saved shot, a steal (both of its headlines), a
-skill test, a loose ball, an own goal and a shootout test.
+skill test, a loose ball, an own goal, a shootout test and a Mind
+Pull landed and missed.
 
 ## Beyond the game
 

@@ -1039,6 +1039,56 @@ class OutcomeBannerTests(unittest.TestCase):
                     render_text(game, working),
                 )
 
+    def test_a_mind_pull_is_headed_by_its_own_line(self) -> None:
+        """A landed pull is the puller's side's steal, and a missed one
+        the ball slipping past, each with its roll written out -- the
+        die alone said nothing of what it came to."""
+        for face, heading, verdict in (
+            (12, "grabs the ball with their telekinetic powers!",
+             "**12** is 11 or more: the pull lands."),
+            (4, "The ball slips past them.",
+             "**4** is under 11: it slips past."),
+        ):
+            with self.subTest(face=face):
+                ENGINE.rng.seed(11)
+                web, game = self.open("mind pull")
+                puller = pending_prompt(
+                    ENGINE, game, web.service.load(game),
+                ).player_id
+                with mock.patch(
+                    "d12ball.flow.arrivals.scripted_or_random",
+                    lambda engine, game, kind, count: [face],
+                ):
+                    for number in (1, 2):
+                        match = web.service.load(game)
+                        prompt = pending_prompt(ENGINE, game, match)
+                        if any(
+                            control["action"]["choice"] == "take"
+                            and not control["disabled"]
+                            for group in controls_for(
+                                ENGINE, game, match, prompt, Viewer(number),
+                            )
+                            for control in group["controls"]
+                        ):
+                            self.press(
+                                web, game, number,
+                                lambda action: action["choice"] == "take",
+                            )
+                            break
+
+                written = self.assert_the_narration_s_own(web, game)
+                self.assertTrue(written["text"].endswith(heading), written)
+                self.assertTrue(written["working"].endswith(verdict), written)
+                self.assertIn("rolled **", written["working"])
+                match = web.service.load(game)
+                self.assertEqual(
+                    written["side"],
+                    (
+                        match.side_for_player(puller) if face == 12
+                        else match.ball.possession
+                    ).value,
+                )
+
     def test_a_result_with_no_outcome_takes_the_banner_down(self) -> None:
         web, game = self.open("maneuver picks")
         self.press(

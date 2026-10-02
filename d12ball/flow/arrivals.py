@@ -44,9 +44,19 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow.clock import charge_clock
-from d12ball.flow.result import FollowOn, FollowOnStep, StepResult
+from d12ball.flow.result import (
+    TURNOVER_HEADING,
+    FollowOn,
+    FollowOnStep,
+    Headline,
+    StepResult,
+)
 from d12ball.flow import injuries
-from d12ball.flow.rolls import after_the_contest, settle_loose_ball_winner
+from d12ball.flow.rolls import (
+    after_the_contest,
+    roll_working,
+    settle_loose_ball_winner,
+)
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
     ball_space_label,
@@ -1638,20 +1648,36 @@ def attempt_mind_pull_step(
     # coach reads and the verdict they are given would not add up.
     ignite_note = f" ({ignite.detail}, {total})" if ignite.detail else ""
     mind_pull_emoji = tokens.species(SPECIES_TELEKINETIC)
-    note = "\n".join(filter(None, (
-        f"{mind_pull_emoji} **Mind Pull** — "
-        f"{engine.format_player_label(match, player)} reaches for the "
-        f"ball{ignite_note}.",
-        exhaustion_text,
-    )))
+    player_label = engine.format_player_label(match, player)
+    reaches = (
+        f"{mind_pull_emoji} **Mind Pull** — {player_label} reaches for "
+        f"the ball{ignite_note}."
+    )
+    note = "\n".join(filter(None, (reaches, exhaustion_text)))
     numbers = MindPullRoll(player_id, roll, pulled, ignite, minimum)
+    # The roll written out for the outcome's `Headline`, as the other
+    # rolls' are: the face, an ignite if one ever reaches it, and the
+    # band the total was read against.
+    added = [ignite.detail] if ignite.detail else []
 
     if not pulled:
         # The resume is left exactly as it was: the next Telekinetic in
         # the queue is owed the same offer, and the arrival behind them
         # is still the one to fall back to.
+        slips = "The ball slips past them."
         result = continue_mind_pull(engine, game, match)
-        result.narration.insert(0, f"{note}\nThe ball slips past them.")
+        result.narration.insert(0, f"{note}\n{slips}")
+        # Whose outcome it is: the side that keeps the ball, since a
+        # Telekinetic only ever reaches for the other side's.
+        result.headlines = (Headline(
+            slips,
+            match.ball.possession,
+            reaches,
+            roll_working(
+                [(player_label, roll, added, total)],
+                f"**{total}** is under {minimum}: it slips past.",
+            ),
+        ), *result.headlines)
         return numbers, result
 
     resume = match.pending_mind_pull_resume
@@ -1659,14 +1685,24 @@ def attempt_mind_pull_step(
     match.apply_mind_pull(player_id)
     match.ball.speed = 1
 
+    grabs = f"{player_label} grabs the ball with their telekinetic powers!"
+    under = (
+        f"**{TURNOVER_HEADING}** They take it on "
+        f"{ball_space_phrase(match)}."
+    )
     return numbers, StepResult(
-        narration=[
-            f"{note}\n\n## "
-            f"{engine.format_player_label(match, player)} grabs "
-            "the ball with their telekinetic powers!\n"
-            f"**Turnover!** They take it on "
-            f"{ball_space_phrase(match)}.",
-        ],
+        narration=[f"{note}\n\n## {grabs}\n{under}"],
+        # The pull is a steal, so the outcome is the puller's side's,
+        # which `apply_mind_pull` has just handed the ball.
+        headlines=(Headline(
+            grabs,
+            match.ball.possession,
+            under,
+            roll_working(
+                [(player_label, roll, added, total)],
+                f"**{total}** is {minimum} or more: the pull lands.",
+            ),
+        ),),
         board_changed=True,
         next=FollowOn(
             FollowOnStep.BEGIN_RUN_BACK,
