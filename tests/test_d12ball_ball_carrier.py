@@ -501,8 +501,13 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
 
     def rolls_for(
         self, cog: D12Ball, receiver: str, challenger: str, winner: str,
+        by: int = 1,
     ) -> list[int]:
-        """Dice that make `winner` ("offense"/"defense") take the test."""
+        """
+        Dice that make `winner` ("offense"/"defense") take the test by
+        `by` on skill alone -- a High Pass's thrower adds the ball speed
+        on top, at least 1, so a defense meant to win one says `by=2`.
+        """
         offense_skill = cog.player_catalog.effective_profile(
             cog.engine.get_player_definition(receiver)
         ).offense
@@ -513,8 +518,8 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         defense_roll = offense_roll + offense_skill - defense_skill
         self.assertTrue(2 <= defense_roll <= 11)
         if winner == "offense":
-            return [offense_roll, defense_roll - 1]
-        return [offense_roll, defense_roll + 1]
+            return [offense_roll, defense_roll - by]
+        return [offense_roll, defense_roll + by]
 
     async def roll_the_contest(
         self, cog: D12Ball, game: D12BallGame, dice: list[int],
@@ -548,7 +553,8 @@ class ContestWinnerTests(unittest.IsolatedAsyncioTestCase):
         )
 
         saved = await self.roll_the_contest(
-            cog, game, self.rolls_for(cog, receiver, challenger, "defense"),
+            cog, game,
+            self.rolls_for(cog, receiver, challenger, "defense", by=2),
         )
 
         self.assertEqual(saved.ball.possession, TeamSide.VISITING)

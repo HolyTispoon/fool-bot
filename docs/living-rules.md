@@ -267,7 +267,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7), and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
 
-**5.2.3** **The attack scores on a total equal to or higher than the defense's.**
+**5.2.3** **The attack scores on a total higher than the defense's.** A tie is a miss.
 
 ### 5.3 What the defense adds
 
@@ -418,11 +418,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.1 The speed and its modifier
 
-**7.1.1** The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is half that, rounded down.
-
-| Speed | 1 | 2-3 | 4-5 | 6-7 | 8-9 | 10-11 | 12 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Modifier | 0 | +1 | +2 | +3 | +4 | +5 | +6 |
+**7.1.1** The ball's speed is the face its d12 shows, from 1 to 12. Its **modifier** is the speed itself: a ball at speed 5 adds 5.
 
 ### 7.2 What changes it
 
@@ -1279,7 +1275,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.6.5** **Shpritz may Smooth.** Shpritz has the Telekinetics' [Smooth](#204-mind-pull-telekinetic) (20.4), and takes their own side's ball over exactly as a Telekinetic does. Shpritz has no Mind Pull.
 
-**21.6.6** **Zorch rolls with the ball.** Zorch adds the [ball speed modifier](#7-ball-speed) (7) to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- it is added once, not twice, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so the modifier is 0. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
+**21.6.6** **Zorch rolls with the ball.** Zorch adds a ball speed modifier of their own -- **half the ball's speed, rounded down**, not the full [ball speed modifier](#7-ball-speed) (7) -- to every roll they make: a maneuver [skill test](#64-the-skill-test) (6.4) on either side, a [contest for the ball](#102-the-contest) (10.2), an [injury check](#153-the-injury-check) (15.3) and an [own-goal roll](#11-own-goal) (11). Where the roll already adds the ball speed modifier to Zorch's side -- Zorch's [score attempt](#5-score-attempt) (5), a skill test Zorch contests with Steal or Intercept, or the throwing side of a [High Pass contest](#104-the-high-pass-contest) (10.4) -- that modifier is added and Zorch's own is not, and a [High Pass that reaches the goal zone](#75-a-high-pass-that-reaches-the-goal-zone) (7.5) still counts it against the pass. A [shootout test](#17-extreme-shootout) (17) adds it too, but full time has turned the ball over and left it at speed 1 ([Turnovers reset it](#73-turnovers-reset-it) (7.3)), so Zorch adds nothing. The defense's die in a score attempt is not Zorch's own roll, so Zorch defending a shot adds nothing, even as the only defender in the way.
 
 **21.6.7** **Acidel turns a pressure into a shot.** When Acidel is the challenger whose won [Pressure](#610-pressure) (6.10) or [Double Team](#1910-double-team) (19.10) would risk an [own goal](#11-own-goal) (11), there is no own-goal roll: Acidel's side takes the ball, at speed 1, and Acidel has a [scoring opportunity](#8-scoring-opportunities) (8) from that space. Declining it leaves Acidel's side holding the ball where it stands.
 
@@ -1287,7 +1283,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. Equal totals score. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. A tie is a miss. |
 | Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |

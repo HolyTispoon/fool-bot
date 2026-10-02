@@ -201,7 +201,7 @@ Now take it off them.
 
 Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
 
-Then you get to set the **ball's speed**, up to your stealer's defensive skill. Speed is worth half itself, rounded down, **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
+Then you get to set the **ball's speed**, up to your stealer's defensive skill. The speed itself is **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
 === press 21: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -263,9 +263,9 @@ Dravox has moved 1 space.
 
 You will be asked how far to throw. **2 spaces** is the only distance offered here -- a longer throw would reach the goal zone, and the menu never offers one that would. It is also the distance you want: a pass of 2 is caught cleanly, where a 3-space throw has to be *won* by whoever it lands near, with the ball's speed counting against them.
 
-Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and half the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. Ties go to the shooter.
+Then take the shot. A score attempt is your d12 plus the shooter's offensive skill and the ball's speed, against Dinky's d12 plus every defender in the way -- one standing **on** the ball adds all of their defensive skill, one further back adds half, rounded up. A tie is a miss: the shooter has to be higher.
 
-Their fullback is standing on space 7, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+11** against their **d12+6**. That is a real roll and it can miss -- but you should score about six times in seven.
+Their fullback is standing on space 7, so you get their whole defensive skill of 6 against you. Even so: your striker rolls **d12+13** against their **d12+6**. That is a real roll and it can miss -- but you should score about nine times in ten.
 === press 26: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -297,7 +297,7 @@ Chose **2 spaces**.
 --- message
 🟠 Acidel [SK] takes the shot off the set-up.
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
 === press 30: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!

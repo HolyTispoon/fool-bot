@@ -45,7 +45,7 @@ because of what this file has to reach.
 before this one could not manage: Dinky substitutes only to get an
 injured player off, so a script cannot make it swap anybody, and
 whether one of its players is hurt at the break is the dice's to
-decide. On seed 39 one is -- Zytheris comes on for the injured Tachyon
+decide. On seed 2 one is -- Quillon comes on for the injured Emberdash
 in Purple's halftime window -- so both sides' halftime windows run
 here *and* both move a player. The old seed covered Dinky's
 substitution routine only in a time out it called itself.
@@ -140,7 +140,15 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: shorter of the two that still land level and still go to sudden
 #: death, and it lands on the same 1-1 and the same 3-4 the old run
 #: did, which is coincidence rather than a property of the change.
-WINDOWS_SEED = 39
+#:
+#: **It was 39 until the ball speed modifier became the speed itself
+#: and a tied shot a miss** (docs/rules-log.md, 2026-10-01): every
+#: shot and steal changed, 39's game stopped being level, and the
+#: sweep was re-run over seeds 0-399. 2 is the shortest whose game is
+#: level at full time, goes to sudden death, *and* has Dinky
+#: substituting an injured player at halftime -- seven of the 400 do
+#: all three. It lands on 1-1 and 3-4 again, coincidence again.
+WINDOWS_SEED = 2
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop

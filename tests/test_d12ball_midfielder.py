@@ -35,7 +35,7 @@ class MidfielderBonusTests(unittest.TestCase):
         self.game = build_game(mode=GameMode.TRAINING)
         self.match = build_match(ENGINE, self.game)
         self.match.ball.possession = TeamSide.HOME
-        # Speed 1: the Steal's ball speed modifier is 0.
+        # Speed 1: the Steal's ball speed modifier is +1.
         self.match.ball.speed = 1
 
     def details(self, offense_role, offense_card, defense_role, defense_card):

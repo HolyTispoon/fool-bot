@@ -51,7 +51,7 @@ Choose an action:
 --- message
 🔮 Player 1 has chosen to shoot to score with 🔮 Zenith [WG].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
 === press 7: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
@@ -253,7 +253,7 @@ Ball is now in space 1, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has chosen to shoot to score with 🔥 Sizzifizik [PM].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
 === press 25: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 🔥 **Volatile** — 🔥 Sizzifizik [PM] rolled a natural 6, so **the ball ignites**. The second d12 comes up **2** — under 5, so it **burns**: **-2** to their roll.
@@ -648,7 +648,7 @@ Ball is now in space 1, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
 === press 63: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
@@ -950,4 +950,4 @@ Ball is now in space 1, Fire Demons (Visiting) has possession.
 --- message
 🔥 Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total equal to or higher than the defence.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.

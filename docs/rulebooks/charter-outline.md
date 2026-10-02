@@ -116,7 +116,7 @@ the living rules define in passing elsewhere is defined here once.
 
 - 5.1 **When a shot may be taken.** Only from within range.
 - 5.2 **The roll.** One d12 each; what the attack adds; what the
-  defense adds (5.3); equal or higher scores.
+  defense adds (5.3); higher scores, a tie is a miss.
 - 5.3 **What the defense adds.** On the ball, whole; between the ball
   and the goal, half rounded up, per player; behind the ball, nothing.
 - 5.4 **Cost.** A shot costs 1 time and its shooter nothing;
@@ -166,7 +166,7 @@ what the ball is left with.
 *From:* Ball speed. The gambit amounts move to Part II; the basic Law
 lists only the four basic changes.
 
-- 7.1 The speed and its modifier (table).
+- 7.1 The speed and its modifier (the speed itself).
 - 7.2 What changes it in training mode: Low Pass, Deflect,
   Dribble, Steal.
 - 7.3 Every turnover resets it to 1. (The Burst exception is

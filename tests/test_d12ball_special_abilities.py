@@ -719,7 +719,7 @@ class ZorchTests(unittest.TestCase):
         self.match = build_match(ENGINE, self.game)
         self.offense = self.match.home.field_players[0]
         self.defense = self.match.visiting.field_players[0]
-        self.match.ball.speed = 7  # modifier +3
+        self.match.ball.speed = 7  # Zorch's +3: half of 7, rounded down
         self.match.offense_maneuver = "low_pass"
         self.match.defense_maneuver = "pressure"
 

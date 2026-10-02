@@ -161,15 +161,14 @@ class PassStepTests(unittest.TestCase):
         self.assertEqual(len(result.narration), 2)
         self.assertTrue(result.narration[1].endswith("(-2)."))
 
-    def test_a_move_that_costs_nothing_says_nothing(self) -> None:
+    def test_a_walking_ball_still_pays_one(self) -> None:
         """
-        The ball speed modifier is the speed halved and rounded down,
-        so a walking ball pays none -- and the note is absent rather
-        than reading "(0)". See "What a message says" in
-        docs/design/naming-and-wording.md.
+        The ball speed modifier is the speed itself (Law 7.1), and the
+        speed is never below 1, so a walking ball that reaches the goal
+        zone still pays 1 -- and says so.
         """
-        result = run_step(case_named("an_overshoot_with_no_modifier_to_pay"))
-        self.assertNotIn("ball speed modifier", " ".join(result.narration))
+        result = run_step(case_named("an_overshoot_at_walking_pace"))
+        self.assertTrue(result.narration[-1].endswith("(-1)."))
 
     def test_the_beaten_intercept_is_one_block_not_two(self) -> None:
         """

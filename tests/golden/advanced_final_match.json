@@ -138,12 +138,12 @@
     },
     {
       "details": {
-        "attack_total": 11,
+        "attack_total": 13,
         "defender_count": 3,
         "defense_total": 22,
         "scored": false,
         "set_up": false,
-        "speed_modifier": 2
+        "speed_modifier": 4
       },
       "kind": "shot",
       "period": "first_half",
@@ -307,12 +307,12 @@
     },
     {
       "details": {
-        "attack_total": 14,
+        "attack_total": 20,
         "defender_count": 1,
         "defense_total": 14,
         "scored": true,
         "set_up": false,
-        "speed_modifier": 6
+        "speed_modifier": 12
       },
       "kind": "shot",
       "period": "first_half",
@@ -352,7 +352,7 @@
     {
       "details": {
         "defense_key": "steal",
-        "defense_total": 13,
+        "defense_total": 14,
         "offense_key": "dribble_burst",
         "offense_total": 6,
         "tied": false
@@ -569,12 +569,12 @@
     },
     {
       "details": {
-        "attack_total": 10,
+        "attack_total": 13,
         "defender_count": 1,
         "defense_total": 18,
         "scored": false,
         "set_up": false,
-        "speed_modifier": 3
+        "speed_modifier": 6
       },
       "kind": "shot",
       "period": "first_half",

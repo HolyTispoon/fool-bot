@@ -3929,7 +3929,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
         match.ball.possession = TeamSide.HOME
         match.set_ball_space(Zone.VISITORS_ZONE, 1)  # flat 7, 3 overshoots
-        match.ball.speed = 4  # a +2 modifier, so the sign is visible
+        match.ball.speed = 2  # a +2 modifier, so the sign is visible
         shooter = match.home.field_players[0]
         self.clear_offense_from(match, Zone.VISITORS_ZONE, 2)
         match.move_meeple(shooter, Zone.VISITORS_ZONE, 2)  # flat 8, landing

@@ -158,7 +158,7 @@ def end_period(
     match.reset_maneuver()
     # Full time turns the ball over, and every turnover resets its
     # speed to 1 (Law 7.3) -- which is the speed a shootout is played
-    # at, and why Zorch's speed bonus is nothing there (Law 21).
+    # at, and why Zorch's speed bonus is nothing there (Law 21.6.6).
     match.ball.speed = 1
 
     summary = build_full_time_summary(game, match, engine.player_catalog)
