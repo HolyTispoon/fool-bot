@@ -163,7 +163,19 @@ def _own_goal(fixture: PromptFixture) -> tuple[str, dict]:
     """
     match = fixture.match
     match.active_player_id = match.home.field_players[0]
-    return "roll", {}
+    return _roll(fixture)
+
+
+def _roll(fixture: PromptFixture) -> tuple[str, dict]:
+    """
+    The roll -- or, while a coach is still deciding on Overdrive
+    (`RollOptions.deciding_side`), their pass, which a whole game's
+    policy answers before the roll it is waiting on.
+    """
+    deciding = _prompt(fixture).options.deciding_side
+    if deciding is None:
+        return "roll", {}
+    return "pass", {"side": deciding.value}
 
 
 def _low_pass(fixture: PromptFixture) -> tuple[str, dict]:
@@ -205,13 +217,14 @@ LEGAL_ACTIONS = {
     PromptKind.SHOOTER_CHOICE: _shooter_choice,
     PromptKind.SMOOTH: lambda fixture: ("take", {}),
     PromptKind.OWN_GOAL_ROLL: _own_goal,
-    # The two contested rolls take no arguments at all: the action
-    # is that somebody pressed, and the position is the rest.
-    PromptKind.SKILL_TEST: lambda fixture: ("roll", {}),
-    PromptKind.LOOSE_BALL_SKILL_TEST: lambda fixture: ("roll", {}),
-    PromptKind.SCORE_ATTEMPT: lambda fixture: ("roll", {}),
-    PromptKind.SHOOTOUT_TEST: lambda fixture: ("roll", {}),
-    PromptKind.INJURY_TEST: lambda fixture: ("roll", {}),
+    # The rolls take no arguments at all: the action is that somebody
+    # pressed, and the position is the rest -- once nobody is still
+    # deciding on Overdrive, whose pass comes first.
+    PromptKind.SKILL_TEST: _roll,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _roll,
+    PromptKind.SCORE_ATTEMPT: _roll,
+    PromptKind.SHOOTOUT_TEST: _roll,
+    PromptKind.INJURY_TEST: _roll,
     PromptKind.PLAYER_ACTION: _player_action,
     PromptKind.COACHING_OFFER: _coaching_offer,
     PromptKind.COACHING_HUB: _coaching_hub,
@@ -591,6 +604,147 @@ class OverdriveTests(ApplyFixture):
         self.assertEqual(fixture.match.to_dict(), before)
 
 
+class DieWaitsOnOverdriveTests(ApplyFixture):
+    """
+    Overdrive is declared before the die is thrown (Law 20.3.5), so a
+    roll with a Cyborg's declaration open waits on that Cyborg's coach
+    until they declare or pass -- the attacker first, then the
+    defender (the author, 2026-10-02) -- and Roll is refused till then.
+    """
+
+    cyborg_skill_test = OverdriveTests.cyborg_skill_test
+
+    def act(self, fixture, choice, **arguments):
+        return driver.apply(
+            ENGINE,
+            fixture.game,
+            fixture.match,
+            driver.Action(PromptKind.SKILL_TEST, choice, arguments),
+        )
+
+    def sides(self, fixture):
+        match = fixture.match
+        return (
+            match.side_for_player(match.active_player_id),
+            match.side_for_player(match.challenger_id),
+        )
+
+    def options(self, fixture):
+        return pending_prompt(ENGINE, fixture.game, fixture.match).options
+
+    def asked(self, fixture):
+        return asked_sides(
+            fixture.match,
+            pending_prompt(ENGINE, fixture.game, fixture.match),
+        )
+
+    def test_the_attacker_decides_first(self) -> None:
+        fixture = self.cyborg_skill_test()
+        attacker, defender = self.sides(fixture)
+        self.assertEqual(
+            self.options(fixture).undecided_sides, (attacker, defender),
+        )
+        self.assertEqual(self.asked(fixture), (attacker,))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        number = ENGINE.side_player_number(fixture.game, attacker)
+        self.assertTrue(prompt.ask.startswith(
+            f"{{coach:{number}}} decides on Overdrive, then either "
+            "player can roll",
+        ))
+
+    def test_the_roll_is_refused_while_a_coach_decides(self) -> None:
+        fixture = self.cyborg_skill_test()
+        before = fixture.match.to_dict()
+        refusal = self.act(fixture, "roll")
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertIn("decides on Overdrive first", refusal.reason)
+        self.assertEqual(refusal.law, "lithium-powered-cyborg")
+        self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_the_defender_may_not_decide_before_the_attacker(self) -> None:
+        fixture = self.cyborg_skill_test()
+        _, defender = self.sides(fixture)
+        before = fixture.match.to_dict()
+        for choice, arguments in (
+            ("pass", {"side": defender.value}),
+            ("overdrive", {"player_id": fixture.match.challenger_id}),
+        ):
+            with self.subTest(choice):
+                refusal = self.act(fixture, choice, **arguments)
+                self.assertIsInstance(refusal, driver.Refusal)
+                self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_a_pass_hands_on_to_the_defender_and_then_the_die(self) -> None:
+        fixture = self.cyborg_skill_test()
+        attacker, defender = self.sides(fixture)
+        match = fixture.match
+
+        passed = self.act(fixture, "pass", side=attacker.value)
+        self.assertNotIsInstance(passed, driver.Refusal)
+        self.assertEqual(passed.result.next.kind, PromptKind.SKILL_TEST)
+        self.assertIn("passes on Overdrive", passed.result.narration[0])
+        self.assertIn("decides on Overdrive next", passed.result.narration[0])
+        self.assertEqual(self.asked(fixture), (defender,))
+        # The attacker's declarations are closed for this roll.
+        self.assertNotIn(
+            match.active_player_id, self.options(fixture).overdrive_player_ids,
+        )
+
+        passed = self.act(fixture, "pass", side=defender.value)
+        self.assertIn("Either player can roll.", passed.result.narration[0])
+        self.assertEqual(self.asked(fixture), ())
+
+        with mock.patch("random.Random.randint", side_effect=[7, 2]):
+            rolled = self.act(fixture, "roll")
+        self.assertNotIsInstance(rolled, driver.Refusal)
+        self.assertIsNotNone(rolled.detail)
+        self.assertEqual(match.overdrive_passed, [])
+
+    def test_an_overdrive_hands_on_as_a_pass_does(self) -> None:
+        fixture = self.cyborg_skill_test()
+        _, defender = self.sides(fixture)
+        declared = self.act(
+            fixture, "overdrive", player_id=fixture.match.active_player_id,
+        )
+        self.assertIn(
+            "decides on Overdrive next", declared.result.narration[0],
+        )
+        self.assertEqual(self.asked(fixture), (defender,))
+
+    def test_a_side_with_nothing_open_has_nothing_to_pass(self) -> None:
+        fixture = self.cyborg_skill_test()
+        attacker, _ = self.sides(fixture)
+        self.act(fixture, "pass", side=attacker.value)
+        refusal = self.act(fixture, "pass", side=attacker.value)
+        self.assertIsInstance(refusal, driver.Refusal)
+
+    def test_the_ai_never_holds_the_die(self) -> None:
+        """
+        The AI declares nothing, so its Cyborgs leave the roll to the
+        other coach alone -- and the AI is never asked a roll.
+        """
+        fixture = self.cyborg_skill_test()
+        fixture.game.player_2_id = None
+        human = TeamSide.HOME if fixture.game.home_player_number == 1 else (
+            TeamSide.VISITING
+        )
+        self.assertEqual(self.options(fixture).undecided_sides, (human,))
+        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+        self.assertIsNone(
+            driver.ai_action(ENGINE, fixture.game, fixture.match, prompt),
+        )
+
+    def test_with_nothing_to_declare_either_coach_may_roll(self) -> None:
+        fixture = self.cyborg_skill_test()
+        for player_id in (
+            fixture.match.active_player_id, fixture.match.challenger_id,
+        ):
+            fixture.match.injured.add(player_id)
+        self.assertEqual(self.asked(fixture), ())
+        rolled = self.act(fixture, "roll")
+        self.assertNotIsInstance(rolled, driver.Refusal)
+
+
 def _case(name: str) -> PromptFixture:
     return next(case.build() for case in CASES if case.name == name)
 
@@ -697,6 +851,22 @@ def _wrong_overdrive(fixture: PromptFixture) -> dict:
             options.overdrive_player_ids, match.home.team_board.bench,
         ),
     }
+
+
+def _wrong_pass(fixture: PromptFixture) -> dict:
+    """
+    A side that is not the one deciding on Overdrive: with nobody
+    deciding, either has nothing to pass on; with somebody, the other
+    side waits its turn.
+    """
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    deciding = _prompt(fixture).options.deciding_side
+    side = TeamSide.HOME if deciding is not TeamSide.HOME else (
+        TeamSide.VISITING
+    )
+    return {"side": side.value}
 
 
 def _wrong_boost(fixture: PromptFixture) -> dict:
@@ -915,6 +1085,7 @@ REFUSED_ACTIONS = {
     (PromptKind.OWN_GOAL_ROLL, "roll"): None,
     (PromptKind.OWN_GOAL_ROLL, "overdrive"): _wrong_overdrive,
     (PromptKind.OWN_GOAL_ROLL, "boost"): _wrong_boost,
+    (PromptKind.OWN_GOAL_ROLL, "pass"): _wrong_pass,
     (PromptKind.PLAYER_ACTION, "shoot"): _shot_out_of_range,
     # A maneuver is always on: the position refuses it by kind alone.
     (PromptKind.PLAYER_ACTION, "maneuver"): None,
@@ -941,6 +1112,7 @@ REFUSED_ACTIONS = {
     (PromptKind.INJURY_TEST, "roll"): _wrong_side_player,
     (PromptKind.INJURY_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.INJURY_TEST, "boost"): _wrong_boost,
+    (PromptKind.INJURY_TEST, "pass"): _wrong_pass,
     (PromptKind.MIND_PULL, "take"): _wrong_side_player,
     (PromptKind.MIND_PULL, "decline"): _wrong_side_player,
     (PromptKind.JOIN_THE_BALL, "join"): _wrong_side_player,
@@ -955,16 +1127,20 @@ REFUSED_ACTIONS = {
     (PromptKind.SKILL_TEST, "roll"): None,
     (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.SKILL_TEST, "boost"): _wrong_boost,
+    (PromptKind.SKILL_TEST, "pass"): _wrong_pass,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "roll"): None,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "boost"): _wrong_boost,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "pass"): _wrong_pass,
     (PromptKind.SCORE_ATTEMPT, "roll"): None,
     (PromptKind.SCORE_ATTEMPT, "back"): _ai_side_s_shot,
     (PromptKind.SCORE_ATTEMPT, "overdrive"): _wrong_overdrive,
     (PromptKind.SCORE_ATTEMPT, "boost"): _wrong_boost,
+    (PromptKind.SCORE_ATTEMPT, "pass"): _wrong_pass,
     (PromptKind.SHOOTOUT_TEST, "roll"): None,
     (PromptKind.SHOOTOUT_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.SHOOTOUT_TEST, "boost"): _wrong_boost,
+    (PromptKind.SHOOTOUT_TEST, "pass"): _wrong_pass,
     (PromptKind.LOW_PASS_CHOICE, ""): _wrong_receiver,
     (PromptKind.HIGH_PASS_CHOICE, ""): _wrong_distance,
     (PromptKind.SETUP_PASS_CHOICE, ""): _wrong_distance,

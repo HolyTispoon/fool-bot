@@ -14,6 +14,7 @@ from d12ball.components import (
     OVERDRIVE_BONUS,
     MatchState,
     RuleRefusal,
+    TeamSide,
 )
 from d12ball.game import D12BallGame
 from d12ball.flow.driver import STEP_OWED, Action
@@ -447,8 +448,10 @@ class SafeView(discord.ui.View):
         roll, and every roll already sits behind a button any coach may
         press (see "Every roll is a coach's"). So it is a second button
         on the same message rather than a step of its own: the coach
-        whose Cyborg it is presses it, the message says so, and
-        whoever was going to press Roll still does. `options` is the
+        whose Cyborg it is presses it, the message says so, and the
+        Roll waits until that coach has declared or pressed **Pass on
+        Overdrive** -- the attacker first, then the defender (Law
+        20.3.5, `RollOptions.undecided_sides`). `options` is the
         prompt's `RollOptions`: whoever is rolling here and may still
         declare, which the prompt knows
         (`d12ball.prompts.OVERDRIVE_ROLLERS`), what each Overdrive
@@ -490,11 +493,61 @@ class SafeView(discord.ui.View):
             )
             button.callback = self.declare_overdrive
             self.add_item(button)
+        # The explicit no, one per coach still to decide. Both are up
+        # from the start, so the message never has to be redrawn; the
+        # defender's is refused until the attacker has decided.
+        for side in options.undecided_sides:
+            button = discord.ui.Button(
+                label=(
+                    "Pass on Overdrive: " + format_player(
+                        game, self.cog.engine.side_player_number(game, side),
+                    )
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=(
+                    f"d12ball:overdrive_pass:{self.game_id}:{side.value}"
+                ),
+            )
+            button.callback = self.pass_on_overdrive
+            self.add_item(button)
 
     async def declare_overdrive(
         self, interaction: discord.Interaction,
     ) -> None:
         await self.declare_before_roll(interaction, "overdrive")
+
+    async def pass_on_overdrive(
+        self, interaction: discord.Interaction,
+    ) -> None:
+        """
+        Answer a Pass on Overdrive button: that side's coach will not
+        declare on this roll. Theirs alone, as a declaration is; which
+        roll it answers is read off the position, as a declaration's
+        is, and the step refuses it out of turn.
+        """
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        side = interaction.data["custom_id"].rsplit(":", 1)[-1]
+        if not self.may_act_for(
+            interaction,
+            self.cog.engine.side_controller_id(game, TeamSide(side)),
+        ):
+            await interaction.response.send_message(
+                "Only that side's coach can pass on Overdrive for it.",
+                ephemeral=True,
+            )
+            return
+        waiting = pending_prompt(self.cog.engine, game, match)
+        if waiting is None:
+            await self.refuse(interaction, STEP_OWED)
+            return
+        result = await self.apply(
+            interaction, game, Action(waiting.kind, "pass", {"side": side}),
+        )
+        if result is None:
+            return
+        await interaction.response.send_message(result.answer[0])
 
     async def declare_boost(
         self, interaction: discord.Interaction,

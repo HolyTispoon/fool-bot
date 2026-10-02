@@ -755,8 +755,8 @@ words both).
   opposite of what happened.
 
 **Overdrive is the only thing in the game declared before a roll**, which is
-what it cost to build. Every roll already sits behind a button any coach may
-press, so the declaration is a **second button on that same prompt** rather
+what it cost to build. Every roll already sits behind a button, so the
+declaration is a **second button on that same prompt** rather
 than a step of its own -- `SafeView.add_overdrive_buttons` builds it and
 `SafeView.declare_overdrive` answers it, shared by all six roll prompts so a
 seventh gets it in one line.
@@ -775,6 +775,43 @@ seventh gets it in one line.
   another coach's tokens. The button carries the player in its custom_id for
   the reason the injury test's does -- an older prompt in the channel must not
   declare for somebody else's roll.
+- **While a declaration is open, the roll waits on its coach** (the author,
+  2026-10-02: *"the player with the cyborg needs to decide if they're using the
+  ability before the dice are rolled"*). Blind before the die was not enough
+  when the other coach could press Roll first. `RollOptions.undecided_sides`
+  is the reading: the sides with an Overdrive or a Boost still on offer for
+  this roll, never an AI side (the AI declares nothing), and its first,
+  `deciding_side`, is who decides now. It is what `asked_sides` returns for a
+  roll, so the Discord ask pings that coach and the web page puts the question
+  to them alone, and `_whose_roll` rewrites the ask's "Either player can roll"
+  to "<coach> decides on Overdrive, then either player can roll".
+  - **The "no" is a button of its own, Pass on Overdrive** (the author,
+    2026-10-02, chosen over "the Cyborg's coach's Roll is the decline"). It is
+    the `pass` choice on all six roll prompts, naming the `side`
+    (`rolls.pass_on_overdrive_step`), and it closes every declaration that
+    side has on this roll -- Gearclaw's Boost with the Overdrive. Roll is
+    refused, whoever presses it, while anybody is still deciding
+    (`rolls.refuse_roll_while_deciding`), and once nobody is, it is either
+    coach's again, as every roll is. A declaration that leaves a side nothing
+    to declare decides for it as a pass does.
+  - **The attacker decides first** (the author, 2026-10-02): the order is the
+    rollers' (`OVERDRIVE_ROLLERS` -- the ball handler before the challenger,
+    the loose ball's offense before its defense), so the defender decides
+    knowing what the attacker did. A defender's declaration or pass is refused
+    until then. A pass or a declaration that hands on says so, addressing the
+    next coach ("<coach> decides on Overdrive next", or "Either player can
+    roll."), which is how the defender is pinged. The shootout's two shooters
+    take the same table's order, home before visiting.
+  - **Both coaches' Pass buttons are on the message from the start**, and the
+    defender's is refused until the attacker has decided, so a hand-on never
+    has to redraw the prompt: the declaration's reply is the one request a
+    press costs, as before.
+  - `MatchState.overdrive_passed` holds the sides that have passed -- a saved
+    field, since passing and rolling are separate clicks with a save between
+    them, absent from an older save as nobody having passed -- and a side in
+    it has its declarations closed (`_may_drain_before_roll`). It is spent
+    with the declarations (`consume_overdrive`), so a tie's re-roll is decided
+    afresh, which is what "a fresh roll" says.
 - **A Drained Cyborg may still Overdrive, and a Damaged one may not.** The
   first is the rules ("the drain stacks"); the second is not a rule about
   Overdrive at all -- a Damaged player carries no tokens and cannot gain any,

@@ -73,6 +73,7 @@ from d12ball.flow.result import (
 )
 from d12ball.flow.turn import scripted_or_random
 from d12ball.formatting import (
+    address_coach,
     contest_noun,
     contestant_detail,
     format_ai_name,
@@ -92,6 +93,7 @@ from d12ball.prompts import (
     PromptKind,
     overdrive_rollers,
     scoring_opportunity_prompt,
+    with_options,
 )
 
 
@@ -1743,6 +1745,9 @@ def declare_overdrive_step(
         raise RuleRefusal("That player is not in this roll.")
     if not engine.overdrive_candidates(game, match, [player_id]):
         raise RuleRefusal("That Overdrive is no longer available.")
+    _refuse_out_of_turn(
+        engine, game, prompt, match.side_for_player(player_id),
+    )
 
     cost = engine.overdrive_cost(game, player_id)
     match.declare_overdrive(
@@ -1750,11 +1755,116 @@ def declare_overdrive_step(
     )
     player = engine.get_player_definition(player_id)
     return StepResult(
-        narration=[
+        narration=[" ".join(filter(None, (
             f"⚡ **Overdrive** — "
             f"{engine.format_player_label(match, player)} drains "
-            f"{cost} for +{OVERDRIVE_BONUS} on this roll."
-        ],
+            f"{cost} for +{OVERDRIVE_BONUS} on this roll.",
+            _hand_on(engine, game, match, prompt),
+        )))],
+        next=prompt,
+    )
+
+
+def refuse_roll_while_deciding(
+    engine: RulesEngine,
+    game: D12BallGame,
+    prompt: PendingPrompt,
+) -> None:
+    """
+    Refuse the die while a coach is still deciding on Overdrive.
+
+    **Overdrive is declared before the die is thrown** (Law 20.3.5),
+    so a roll with a Cyborg's declaration open waits on that Cyborg's
+    coach (`RollOptions.deciding_side`) until they declare or pass --
+    whoever presses Roll. Shared by all six rolls, ahead of the die.
+    """
+    side = prompt.options.deciding_side if prompt.options else None
+    if side is not None:
+        raise RuleRefusal(
+            f"The die waits on "
+            f"{address_coach(engine.side_player_number(game, side))}, "
+            "who decides on Overdrive first.",
+            law="lithium-powered-cyborg",
+        )
+
+
+def _refuse_out_of_turn(
+    engine: RulesEngine,
+    game: D12BallGame,
+    prompt: PendingPrompt,
+    side: TeamSide,
+) -> None:
+    """
+    Refuse a declaration or a pass by a side that is not deciding yet:
+    **the attacker decides first**, then the defender, knowing what the
+    attacker did (the author, 2026-10-02).
+    """
+    deciding = prompt.options.deciding_side if prompt.options else None
+    if deciding is not None and deciding != side:
+        raise RuleRefusal(
+            f"{address_coach(engine.side_player_number(game, deciding))} "
+            "decides on Overdrive first.",
+            law="lithium-powered-cyborg",
+        )
+
+
+def _hand_on(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> str:
+    """
+    What a declaration or a pass hands on to: the next coach to decide,
+    addressed so they hear of it -- or the die, once nobody is left.
+    """
+    after = with_options(engine, game, match, prompt).options
+    if after.deciding_side == (
+        prompt.options.deciding_side if prompt.options else None
+    ):
+        return ""
+    if after.deciding_side is None:
+        return "Either player can roll."
+    coach = address_coach(
+        engine.side_player_number(game, after.deciding_side),
+    )
+    return f"{coach} decides on Overdrive next."
+
+
+def pass_on_overdrive_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    side: str,
+) -> StepResult:
+    """
+    A coach passes on Overdrive (and Boost) for the roll at hand.
+
+    **The explicit "no"** (the author, 2026-10-02): the roll waits on
+    the coach whose Cyborg may still declare, and this is how they say
+    they will not, closing their declarations for this roll
+    (`MatchState.overdrive_passed`). It answers the roll's prompt
+    without settling it, the shape of `declare_overdrive_step`, and
+    hands on to the defender if they have one open, or to the die.
+    """
+    undecided = prompt.options.undecided_sides if prompt.options else ()
+    passing = next(
+        (each for each in undecided if each.value == side), None,
+    )
+    if passing is None:
+        raise RuleRefusal(
+            "There is no Overdrive to pass on.",
+            law="lithium-powered-cyborg",
+        )
+    _refuse_out_of_turn(engine, game, prompt, passing)
+    match.pass_on_overdrive(passing)
+    coach = address_coach(engine.side_player_number(game, passing))
+    return StepResult(
+        narration=[" ".join(filter(None, (
+            f"{coach} passes on Overdrive.",
+            _hand_on(engine, game, match, prompt),
+        )))],
         next=prompt,
     )
 
@@ -1775,16 +1885,20 @@ def declare_boost_step(
         raise RuleRefusal("That player is not in this roll.")
     if not engine.boost_candidates(game, match, [player_id]):
         raise RuleRefusal("That Boost is no longer available.")
+    _refuse_out_of_turn(
+        engine, game, prompt, match.side_for_player(player_id),
+    )
 
     match.declare_boost(
         player_id, engine.exhaustion_threshold(game, player_id),
     )
     player = engine.get_player_definition(player_id)
     return StepResult(
-        narration=[
+        narration=[" ".join(filter(None, (
             f"⚡ **Boost** — "
             f"{engine.format_player_label(match, player)} drains "
-            f"{BOOST_DRAIN_COST} for +{BOOST_BONUS} on this roll."
-        ],
+            f"{BOOST_DRAIN_COST} for +{BOOST_BONUS} on this roll.",
+            _hand_on(engine, game, match, prompt),
+        )))],
         next=prompt,
     )

@@ -37,6 +37,7 @@ from d12ball.components import (
 from d12ball.game import D12BallGame, GameStatus, Team
 from save_patches import suppressed_cog_saves
 from cog_steps import begin_own_goal_roll, resolve_pressure
+from roll_presses import press_roll
 
 
 def build_cog() -> D12Ball:
@@ -209,7 +210,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("cogs.d12ball.effects.render_own_goal_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
         return interaction
 
     async def test_the_button_rolls_and_resolves(self) -> None:
@@ -246,7 +247,7 @@ class OwnGoalPromptTests(unittest.IsolatedAsyncioTestCase):
 
         interaction = build_interaction()
         view = OwnGoalRollView(cog, game.game_id)
-        await view.roll(interaction)
+        await press_roll(view, interaction)
 
         # Refused after the click was acknowledged, so on the follow-up.
         interaction.followup.send.assert_awaited_once()
@@ -287,7 +288,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
         return interaction
 
     async def roll_injury(self, cog, game, player_id, roll):
@@ -298,7 +299,7 @@ class InjuryTestPromptTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("cogs.d12ball.core.render_injury_test_die"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
         return interaction
 
     async def test_the_effect_waits_behind_the_test(self) -> None:
@@ -450,7 +451,7 @@ class ContestInjuryResumeTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("d12ball.dice_brief.render_skill_test_dice"), mock.patch(
             "discord.File",
         ):
-            await view.roll(interaction)
+            await press_roll(view, interaction)
 
         cog.begin_run_back.assert_not_awaited()
         self.assertEqual(

@@ -963,6 +963,9 @@ class RulesEngine:
         declared. Overdrive and Boost each narrow it by their own
         declaration and nothing else, since Gearclaw may declare both
         on one roll (Law 21).
+
+        A side whose coach has passed on Overdrive for this roll
+        (`MatchState.overdrive_passed`) has closed its declarations.
         """
         if not self.species_abilities_apply(game):
             return []
@@ -972,6 +975,11 @@ class RulesEngine:
             if player_id is not None
             and player_id not in match.injured
             and self.has_species_ability(game, player_id, SPECIES_CYBORG)
+            and not (
+                match.overdrive_passed
+                and match.side_for_player(player_id).value
+                in match.overdrive_passed
+            )
         ]
 
     def overdrive_cost(self, game: D12BallGame, player_id: str) -> int:
