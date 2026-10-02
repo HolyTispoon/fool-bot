@@ -1987,11 +1987,13 @@ die was found up with nothing saying what it came to): the step builds
 its reading -- who rolled and what they had to beat -- and its verdict
 once each, and the verdict is the headline with the reading under it,
 in the tested player's side's colour either way, since nobody on the
-other side did anything. The verdict is "safe." at the end of the
-reading's sentence, or, on its own line, "<player> is **injured**."
-(a Cyborg's **damaged**) -- the author's wording of the same day, "no
-need to say it twice", for what had been "injury! They are
-**injured**" with the condition's badge after it. Each
+other side did anything. The verdict is its own line after the
+reading, in the author's wording of the same day: "<player> survives
+the injury test." (a Cyborg's damage test), for what had been "--
+safe." at the end of the reading, or "<player> is **injured**." (a
+Cyborg's **damaged**) -- "no need to say it twice" -- for what had been
+"injury! They are **injured**" with the condition's badge after it.
+Each
 heading is one constant or one variable, used in the line and the
 headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 `OWN_GOAL_AVOIDED` / `OWN_GOAL`).

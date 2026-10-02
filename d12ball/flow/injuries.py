@@ -381,10 +381,14 @@ def injury_test_step(
     rolls = f"{player_label} is {exhausted_word} and rolls {test_name}:"
     tokens_held = f"their {current_tokens} {token_noun} tokens"
     if safe:
+        # The author, 2026-10-01: "make it 'player survives the injury
+        # test'" -- it was "— safe." at the end of the reading.
         reading = f"{rolls} {roll}{overdrive_note} beats {tokens_held}"
-        verdict = "safe."
+        verdict = (
+            f"{player_label} survives the "
+            f"{engine.injury_test_name(game, player_id)}."
+        )
         read_as = f"**{check}** beats {tokens_held}: safe."
-        content = f"{reading} — {verdict}"
     else:
         match.mark_injured(player_id)
         # What happened, and nothing about what it means from here. The
@@ -402,7 +406,7 @@ def injury_test_step(
         )
         verdict = f"{player_label} is **{word}**."
         read_as = f"**{check}** does not beat {tokens_held}: {word}."
-        content = f"{reading}.\n{verdict}"
+    content = f"{reading}.\n{verdict}"
     # The verdict is the outcome, with the reading under it that names
     # who rolled -- each the words the sentence is made of, so the two
     # cannot differ -- and whose outcome it is is the side of the player
