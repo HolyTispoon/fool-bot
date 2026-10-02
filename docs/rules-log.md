@@ -178,9 +178,9 @@ read *"(speed divided by 2 rounded up)"*, and the author corrected it the same d
   itself, which is now the full speed (the entry below).
 - **Where a roll already adds the ball speed modifier to Zorch's side** -- Zorch's shot, a
   Steal or Intercept Zorch contests, the thrower's side of a High Pass contest -- that full
-  modifier is added and Zorch's own is not, as "once, not twice" (2026-09-27) already read.
-  This is the build's reading of "always": the alternative, Zorch adding only half the speed
-  on those three rolls as well, would make Zorch the one player a fast ball helps less.
+  modifier is added and Zorch's own is not: "once, not twice" (2026-09-27) stands, the author
+  confirmed on the same pull request (*"keep the rule 'once, not twice'"*). So "always halve"
+  is Zorch's own bonus on every other roll, not a halving of the full modifier on these three.
 - **The shootout:** played at speed 1, so Zorch adds nothing there -- the 2026-09-27 reading
   stands.
 
