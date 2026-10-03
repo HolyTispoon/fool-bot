@@ -273,15 +273,22 @@ def draw_header(
 
 
 # The corner index in the header's left-hand corner (the author,
-# 2026-10-03): the offence over the defence over the role's initials,
-# on a white panel the size of the team emoji's disc opposite. Centred
-# where the emoji is, mirrored, so the name's room stays symmetric.
-INDEX_CENTER_X = FRAME + 78
-INDEX_WIDTH = 80
+# 2026-10-03): the offence over the defence, and the role's initials
+# beside them rather than under them, on one white panel. The panel
+# ends short of the name's room (`FRAME + 132`), which stays symmetric.
+INDEX_LEFT = FRAME + 18
+INDEX_RIGHT = FRAME + 126
 INDEX_PAD = 8
-INDEX_VALUE_SIZE = 40
-INDEX_ROLE_SIZE = 22
-INDEX_ROWS = (0.21, 0.50, 0.81)
+INDEX_VALUE_SIZE = 44
+INDEX_ROLE_SIZE = 28
+# Where the skills' column, the rule between and the role's column
+# fall, as shares of the panel's width -- the role is two letters to
+# the skills' one digit, so it gets the wider column -- and where the
+# two skills sit in its height.
+INDEX_SKILLS_X = 0.24
+INDEX_DIVIDER_X = 0.45
+INDEX_ROLE_X = 0.73
+INDEX_SKILL_ROWS = (0.29, 0.71)
 
 
 def draw_corner_index(
@@ -299,6 +306,11 @@ def draw_corner_index(
     the two skills with their labels; this is the same two numbers in
     the same two colours, for the card that is not lying face up.
 
+    The skills are a column, offence over defence, and the role sits
+    beside them (the author, 2026-10-03) -- side by side reads as one
+    mark where three lines stacked read as a list, and it lets each be
+    set larger in the header's height.
+
     The panel is white because the numbers are red and green and the
     band is the team's colour: neither reads on orange or purple. The
     role is the badge's initials (`ROLE_INITIALS`), since the role in
@@ -306,34 +318,39 @@ def draw_corner_index(
     """
     top = FRAME + INDEX_PAD
     bottom = FRAME + HEADER_HEIGHT - INDEX_PAD
+    width = INDEX_RIGHT - INDEX_LEFT
     pen.rect(
-        (
-            INDEX_CENTER_X - INDEX_WIDTH / 2,
-            top,
-            INDEX_CENTER_X + INDEX_WIDTH / 2,
-            bottom,
-        ),
+        (INDEX_LEFT, top, INDEX_RIGHT, bottom),
         radius=18,
         fill=CARD_FACE,
     )
     value_face = font(INDEX_VALUE_SIZE, bold=True)
-    rows = (
-        (str(skills.offense), value_face, CARD_OFFENSE_COLOR),
-        (str(skills.defense), value_face, CARD_DEFENSE_COLOR),
-        (
-            ROLE_INITIALS[player.role.value],
-            font(INDEX_ROLE_SIZE, bold=True),
-            INK,
-        ),
-    )
-    for (text, face, color), share in zip(rows, INDEX_ROWS):
+    skills_x = INDEX_LEFT + width * INDEX_SKILLS_X
+    for value, color, share in zip(
+        (skills.offense, skills.defense),
+        (CARD_OFFENSE_COLOR, CARD_DEFENSE_COLOR),
+        INDEX_SKILL_ROWS,
+    ):
         pen.text(
-            (INDEX_CENTER_X, top + (bottom - top) * share),
-            text,
-            face,
+            (skills_x, top + (bottom - top) * share),
+            str(value),
+            value_face,
             color,
             anchor="mm",
         )
+    divider_x = INDEX_LEFT + width * INDEX_DIVIDER_X
+    pen.line(
+        [(divider_x, top + 16), (divider_x, bottom - 16)],
+        fill=PANEL_EDGE,
+        width=2,
+    )
+    pen.text(
+        (INDEX_LEFT + width * INDEX_ROLE_X, (top + bottom) / 2),
+        ROLE_INITIALS[player.role.value],
+        font(INDEX_ROLE_SIZE, bold=True),
+        INK,
+        anchor="mm",
+    )
 
 
 def header_subtitle(player: PlayerDefinition, advanced: bool) -> str:
