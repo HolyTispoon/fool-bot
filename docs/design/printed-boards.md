@@ -103,9 +103,18 @@ sheet and a rows sheet. See below.
   gets printed twice. `render_team_board` is one board, 8.5 x 5.5in;
   `render_team_board_sheet` is the letter page carrying two of them with a
   dashed line down the seam, which is the sheet a match is cut from. The page
-  pastes the board rather than rendering it twice, so the two halves are the
-  same picture by construction -- everything but the seam the cut line is
-  drawn down. See "The team board" below for what is on it.
+  pastes each board rather than rendering it on the page, so the standard
+  page's two halves are the same picture by construction -- everything but
+  the seam the cut line is drawn down. See "The team board" below for what
+  is on it.
+- **A coloured page is two colour teams, one a half** (the author,
+  2026-10-03): Teal over Orange (`team-board-2up-teal-orange.png`) and
+  Purple over Slime (`team-board-2up-purple-slime.png`), `TEAM_BOARD_PAGES`.
+  It was one team's board twice, which made the four colour teams four pages
+  when a print run wants one board each -- two pages now. The pairs are a
+  printing economy and nothing else; a match between Teal and Purple cuts
+  its boards from both pages. The standard page is still the standard board
+  twice, since the ink board is nobody's and either coach takes either half.
 - **Nothing on any board is written in the module.** The layouts, the
   formations and the standard formation come from `basic_rules.json`, the six maneuvers from `maneuvers.json`, and the roster
   from `players.json` -- so a printed board cannot claim a rule the bot does
@@ -138,7 +147,8 @@ sheet and a rows sheet. See below.
   goal" off it (2026-09-28), since the standard formation printed under it
   already reads own goal to opponent goal.
 - **The team board comes out five times: the standard board and one per colour
-  team** (the author, 2026-09-28). The standard board is in ink and names no
+  team** (the author, 2026-09-28) -- on their own, five times; on the two-up
+  pages, three, since a coloured page carries two teams. The standard board is in ink and names no
   team -- it said "TEAM" in the corner, which named nothing -- and each colour
   team's is in its `TEAM_COLORS` hex with its name. The species teams get no
   board of their own: the print game has no cards for them, and each shares
@@ -394,7 +404,8 @@ print-and-play kit's README says how to print and tape each.
 A coach's own board: a header, a row of three cells -- the bench, the back
 bench and the maneuvers -- and a footer. It is printed as two files,
 `team-board.png` (one board, 8.5 x 5.5in) and `team-board-2up.png` (a letter
-page carrying two of them, cut across the middle). It was redrawn from
+page carrying two of them, cut across the middle -- two colour teams on a
+coloured page). It was redrawn from
 scratch in September 2026; what follows is why it is shaped the way it is,
 and each point is a fault the board it replaced actually had.
 

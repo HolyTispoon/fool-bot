@@ -140,8 +140,10 @@ short edge**. The cards need no cutting.
   sheet (see below); the jumbotron board (clock, score, token
   supplies);
   and the team board (the bench, the back bench, the maneuvers, the
-  formation strip -- one sheet holds both coaches' panels, cut in
-  half), as the standard board and in each colour team's colour.
+  formation strip -- one sheet holds two boards, cut in half), as the
+  standard board and in each colour team's colour; the coloured sheets
+  pair Teal with Orange and Purple with Slime, so one board of each
+  team is two sheets.
 
 ## Paper and cutting
 

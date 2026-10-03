@@ -2339,6 +2339,15 @@ TEAM_BENCH_CASCADE = 0.2
 # and so on the edge of both boards, which is the one place a mark
 # belongs on a sheet that is about to be cut in half.
 TEAM_CUT_INCHES = 0.01
+# **A coloured two-up page is two colour teams, one a half** (the
+# author, 2026-10-03): Teal over Orange and Purple over Slime, so the
+# four colour teams' boards are two pages rather than four, and a run
+# that wants one of each prints just those two. The standard board is
+# nobody's, and its page is the one board twice.
+TEAM_BOARD_PAGES: tuple[tuple[Team, Team], ...] = (
+    (Team.TEAL, Team.ORANGE),
+    (Team.PURPLE, Team.SLIME),
+)
 
 
 def print_font(inches: float, bold: bool = False) -> ImageFont.ImageFont:
@@ -2643,28 +2652,33 @@ def render_team_board_sheet(
     rules: BasicRuleset,
     players: PlayerCatalog,
     maneuvers: ManeuverCatalog,
-    team: Optional[Team] = None,
+    teams: tuple[Optional[Team], Optional[Team]] = (None, None),
     paper: str = TEAM_BOARD_PAPER,
     bleed: bool = False,
 ) -> Image.Image:
     """
-    **A match's two boards on one page**, cut across the middle -- the
-    same board twice, since the two coaches' boards are
-    interchangeable: `team` colours both or neither, and a match whose
-    two sides want their own colours prints two pages.
+    **Two boards on one page**, cut across the middle: `teams` is the
+    top half's and the bottom half's. A coloured page is one of
+    `TEAM_BOARD_PAGES` -- two colour teams, so the four print on two
+    pages -- and the standard page is the uncoloured board twice.
 
-    The board is drawn once and pasted twice rather than rendered
-    twice, which is what makes the two halves the same picture by
-    construction rather than by hoping two renders agree.
+    Each board is drawn once and pasted, and a board on both halves is
+    one render pasted twice, which is what makes the two halves of the
+    standard page the same picture by construction rather than by
+    hoping two renders agree.
     """
     width, height = sheet_pixels(paper, landscape=False)
     sheet = Sheet(width, height)
-    board = render_team_board(
-        rules, players, maneuvers, team=team, paper=paper
-    )
-    sheet.image.paste(board, (0, 0))
-    sheet.image.paste(board, (0, height - board.height))
-    draw_cut_line(sheet, board.height)
+    boards: dict[Optional[Team], Image.Image] = {}
+    for team in teams:
+        if team not in boards:
+            boards[team] = render_team_board(
+                rules, players, maneuvers, team=team, paper=paper
+            )
+    top, bottom = (boards[team] for team in teams)
+    sheet.image.paste(top, (0, 0))
+    sheet.image.paste(bottom, (0, height - bottom.height))
+    draw_cut_line(sheet, top.height)
 
     return add_bleed(sheet.image) if bleed else sheet.image
 
