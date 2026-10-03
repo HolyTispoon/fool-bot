@@ -8,7 +8,9 @@ playing by Discord should be reading the same card, so the layout
 follows the one the bot draws on the board (`build_player_card` in
 `d12ball/render.py`): the name, the two skills in their own two
 colours, the role's badge, and the portrait under them, inside the
-team's colour.
+team's colour. The two skills and the role's initials are said again in
+the header's left-hand corner, a playing card's index, for a card whose
+face is covered (`draw_corner_index`).
 
 **What the printed card adds is the ability**, under the portrait,
 behind the role's badge, with the species' badge and its ability's
@@ -74,6 +76,7 @@ from d12ball.game import COLOR_TEAMS, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
+    ROLE_INITIALS,
     TEAM_COLORS,
     high_contrast_ink,
     load_player_portrait,
@@ -267,6 +270,70 @@ def draw_header(
         ink,
         anchor="mm",
     )
+
+
+# The corner index in the header's left-hand corner (the author,
+# 2026-10-03): the offence over the defence over the role's initials,
+# on a white panel the size of the team emoji's disc opposite. Centred
+# where the emoji is, mirrored, so the name's room stays symmetric.
+INDEX_CENTER_X = FRAME + 78
+INDEX_WIDTH = 80
+INDEX_PAD = 8
+INDEX_VALUE_SIZE = 40
+INDEX_ROLE_SIZE = 22
+INDEX_ROWS = (0.21, 0.50, 0.81)
+
+
+def draw_corner_index(
+    pen: Pen,
+    player: PlayerDefinition,
+    skills: "RoleProfile | CardSkills",
+) -> None:
+    """
+    **The card's corner index**, like a playing card's: the two skills
+    and the role, top left, where they still show on a card whose face
+    is covered -- a bench is three cards cascaded so only each one's
+    left edge shows (see "The team board" in
+    docs/design/printed-boards.md), and a hand fanned in a coach's grip
+    shows the same corner. The stats row under the header still says
+    the two skills with their labels; this is the same two numbers in
+    the same two colours, for the card that is not lying face up.
+
+    The panel is white because the numbers are red and green and the
+    band is the team's colour: neither reads on orange or purple. The
+    role is the badge's initials (`ROLE_INITIALS`), since the role in
+    words is under the name and does not fit the corner.
+    """
+    top = FRAME + INDEX_PAD
+    bottom = FRAME + HEADER_HEIGHT - INDEX_PAD
+    pen.rect(
+        (
+            INDEX_CENTER_X - INDEX_WIDTH / 2,
+            top,
+            INDEX_CENTER_X + INDEX_WIDTH / 2,
+            bottom,
+        ),
+        radius=18,
+        fill=CARD_FACE,
+    )
+    value_face = font(INDEX_VALUE_SIZE, bold=True)
+    rows = (
+        (str(skills.offense), value_face, CARD_OFFENSE_COLOR),
+        (str(skills.defense), value_face, CARD_DEFENSE_COLOR),
+        (
+            ROLE_INITIALS[player.role.value],
+            font(INDEX_ROLE_SIZE, bold=True),
+            INK,
+        ),
+    )
+    for (text, face, color), share in zip(rows, INDEX_ROWS):
+        pen.text(
+            (INDEX_CENTER_X, top + (bottom - top) * share),
+            text,
+            face,
+            color,
+            anchor="mm",
+        )
 
 
 def header_subtitle(player: PlayerDefinition, advanced: bool) -> str:
@@ -711,6 +778,7 @@ def draw_face(
     """
     color = TEAM_COLORS[Team(team)]
     draw_header(pen, player, team, color, subtitle)
+    draw_corner_index(pen, player, skills)
     draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
 
     species_name = species_ability(player.species).get("name", "")
