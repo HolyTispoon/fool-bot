@@ -545,8 +545,25 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   on the band of the same colour its ring disappears and what reads is a
   white disc with the team's letter. A species team's emoji is its icon in
   that disc rather than a letter, because that is the emoji the bot shows
-  for it. The left corner stays empty and the name's room stays symmetric,
-  so the name is centred on the card.
+  for it. The name's room stays symmetric, so the name is centred on the
+  card.
+- **The left corner is the card's index: offence over defence, and beside
+  them the role's initials over the species' badge** (the author,
+  2026-10-03), like a playing card's, on one white panel that ends short of
+  the name's room (`draw_corner_index`). It was first the three stacked,
+  offence over defence over the role; side by side was the author's next
+  call, and it reads as one mark rather than a list and sets each larger.
+  The badge is the ability band's own (`draw_species_badge`), smaller, so
+  the corner and the band say the species with one picture -- and filled,
+  for the band's reason: Slime green does not read on white.
+  It is there for a card whose face is covered -- a bench is three cards
+  cascaded so only each one's left edge shows, and a fanned hand shows the
+  same corner -- so it is the stats row said again, not instead: the row
+  stays, labelled, for the card lying face up. The numbers are the row's
+  two colours, which is why the panel is white -- red and green do not read
+  on the team's band -- and the role is the badge's two letters, since the
+  word is under the name and does not fit. The back's corner carries the
+  advanced skills, as its row does.
   The name and the role are set in `high_contrast_ink` -- black on Slime
   green, white on every other band (the author, 2026-09-27) -- because
   white on Slime could not be read. The corner emoji follows: on a band

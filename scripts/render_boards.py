@@ -19,11 +19,14 @@ narrows it to one, so a print run comes out with the 7- and 9-space
 fields, the jumbotron, and the team board -- **twice**: one
 board on its own (`team-board.png`, half a letter sheet) and a letter
 page carrying two of them to be cut apart, one for each coach
-(`team-board-2up.png`). The team board comes out five times over: the
+(`team-board-2up.png`). The board comes out five times over: the
 standard board, in ink and naming no team, and one in each colour
 team's colour with its name (`team-board-orange.png`, ...). The
 species teams get none: the print game has no cards for them, and each
-shares its colour team's hex.
+shares its colour team's hex. **A coloured page carries two colour
+teams**, Teal over Orange (`team-board-2up-teal-orange.png`) and
+Purple over Slime (`team-board-2up-purple-slime.png`), so one board of
+each is two sheets; the standard page is the standard board twice.
 
 A field board also comes out on **letter, two ways**, for a house
 with a letter printer and no tabloid one -- each is that same board at
@@ -58,6 +61,7 @@ from d12ball.boards import (  # noqa: E402
     MIN_TOKEN_INCHES,
     PAPERS,
     PRINT_DPI,
+    TEAM_BOARD_PAGES,
     TEAM_BOARD_PAPER,
     card_slot_inches,
     cell_inches,
@@ -219,10 +223,6 @@ def main() -> None:
 
     for team in (None, *COLOR_TEAMS):
         suffix = f"-{team.value}" if team else ""
-        # Two files per team: the board itself, and the page a match's
-        # two coaches are cut from. They are the same board -- the page
-        # pastes it twice -- so a print run picks whichever suits the
-        # paper it is going on.
         save(
             render_team_board(
                 rules,
@@ -235,12 +235,17 @@ def main() -> None:
             args.out / f"team-board{suffix}.png",
             args.pdf,
         )
+    # The pages the boards are cut from: the standard board twice, and
+    # two colour teams a page (`TEAM_BOARD_PAGES`), so one of each
+    # colour team is two sheets of paper.
+    for teams in ((None, None), *TEAM_BOARD_PAGES):
+        suffix = "".join(f"-{team.value}" for team in teams if team)
         save(
             render_team_board_sheet(
                 rules,
                 players,
                 maneuvers,
-                team=team,
+                teams=teams,
                 paper=args.team_paper,
                 bleed=args.bleed,
             ),

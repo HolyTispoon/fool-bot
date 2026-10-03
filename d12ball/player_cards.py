@@ -8,7 +8,9 @@ playing by Discord should be reading the same card, so the layout
 follows the one the bot draws on the board (`build_player_card` in
 `d12ball/render.py`): the name, the two skills in their own two
 colours, the role's badge, and the portrait under them, inside the
-team's colour.
+team's colour. The two skills and the role's initials are said again in
+the header's left-hand corner, a playing card's index, for a card whose
+face is covered (`draw_corner_index`).
 
 **What the printed card adds is the ability**, under the portrait,
 behind the role's badge, with the species' badge and its ability's
@@ -74,6 +76,7 @@ from d12ball.game import COLOR_TEAMS, Team, paired_team
 from d12ball.render import (
     CARD_DEFENSE_COLOR,
     CARD_OFFENSE_COLOR,
+    ROLE_INITIALS,
     TEAM_COLORS,
     high_contrast_ink,
     load_player_portrait,
@@ -266,6 +269,101 @@ def draw_header(
         or font(14, bold=True),
         ink,
         anchor="mm",
+    )
+
+
+# The corner index in the header's left-hand corner (the author,
+# 2026-10-03): the offence over the defence, and beside them the role's
+# initials over the species' badge, on one white panel. The panel
+# ends short of the name's room (`FRAME + 132`), which stays symmetric.
+INDEX_LEFT = FRAME + 18
+INDEX_RIGHT = FRAME + 126
+INDEX_PAD = 8
+INDEX_VALUE_SIZE = 44
+INDEX_ROLE_SIZE = 28
+# Where the skills' column, the rule between and the role's column
+# fall, as shares of the panel's width -- the role is two letters to
+# the skills' one digit, so it gets the wider column -- and where the
+# two skills sit in its height.
+INDEX_SKILLS_X = 0.24
+INDEX_DIVIDER_X = 0.45
+INDEX_ROLE_X = 0.73
+INDEX_SKILL_ROWS = (0.29, 0.71)
+# The role column: the initials over the species' badge, a small copy
+# of the one in the ability band.
+INDEX_ROLE_ROW = 0.28
+INDEX_BADGE_ROW = 0.70
+INDEX_BADGE = 40
+
+
+def draw_corner_index(
+    pen: Pen,
+    player: PlayerDefinition,
+    skills: "RoleProfile | CardSkills",
+) -> None:
+    """
+    **The card's corner index**, like a playing card's: the two skills
+    and the role, top left, where they still show on a card whose face
+    is covered -- a bench is three cards cascaded so only each one's
+    left edge shows (see "The team board" in
+    docs/design/printed-boards.md), and a hand fanned in a coach's grip
+    shows the same corner. The stats row under the header still says
+    the two skills with their labels; this is the same two numbers in
+    the same two colours, for the card that is not lying face up.
+
+    The skills are a column, offence over defence, and the role sits
+    beside them with the species' badge under it (the author,
+    2026-10-03) -- side by side reads as one mark where a stack reads
+    as a list, and it lets each be set larger in the header's height.
+    The badge is the ability band's own, smaller, so the corner and the
+    band say the species with one picture.
+
+    The panel is white because the numbers are red and green and the
+    band is the team's colour: neither reads on orange or purple. The
+    role is the badge's initials (`ROLE_INITIALS`), since the role in
+    words is under the name and does not fit the corner.
+    """
+    top = FRAME + INDEX_PAD
+    bottom = FRAME + HEADER_HEIGHT - INDEX_PAD
+    width = INDEX_RIGHT - INDEX_LEFT
+    pen.rect(
+        (INDEX_LEFT, top, INDEX_RIGHT, bottom),
+        radius=18,
+        fill=CARD_FACE,
+    )
+    value_face = font(INDEX_VALUE_SIZE, bold=True)
+    skills_x = INDEX_LEFT + width * INDEX_SKILLS_X
+    for value, color, share in zip(
+        (skills.offense, skills.defense),
+        (CARD_OFFENSE_COLOR, CARD_DEFENSE_COLOR),
+        INDEX_SKILL_ROWS,
+    ):
+        pen.text(
+            (skills_x, top + (bottom - top) * share),
+            str(value),
+            value_face,
+            color,
+            anchor="mm",
+        )
+    divider_x = INDEX_LEFT + width * INDEX_DIVIDER_X
+    pen.line(
+        [(divider_x, top + 16), (divider_x, bottom - 16)],
+        fill=PANEL_EDGE,
+        width=2,
+    )
+    role_x = INDEX_LEFT + width * INDEX_ROLE_X
+    pen.text(
+        (role_x, top + (bottom - top) * INDEX_ROLE_ROW),
+        ROLE_INITIALS[player.role.value],
+        font(INDEX_ROLE_SIZE, bold=True),
+        INK,
+        anchor="mm",
+    )
+    draw_species_badge(
+        pen,
+        player.species,
+        (role_x, top + (bottom - top) * INDEX_BADGE_ROW),
+        INDEX_BADGE,
     )
 
 
@@ -522,25 +620,29 @@ def row_height(pen: Pen, size: int, line_count: int) -> float:
 
 
 def draw_species_badge(
-    pen: Pen, species: str, center: tuple[float, float]
+    pen: Pen,
+    species: str,
+    center: tuple[float, float],
+    badge: float = BAND_BADGE,
 ) -> None:
     """
     The species icon on a rounded square of the species' colour, the
-    same size and shape as the role badge above it. Filled rather than
-    the icon set in the colour, for the reason the header band is:
-    Slime green on a white face cannot be read, and `high_contrast_ink`
-    on a fill answers all four species at once.
+    same size and shape as the role badge above it -- or `badge` across,
+    for the corner index's smaller one. Filled rather than the icon set
+    in the colour, for the reason the header band is: Slime green on a
+    white face cannot be read, and `high_contrast_ink` on a fill
+    answers all four species at once.
     """
     color = TEAM_COLORS[SPECIES_TEAM[species]]
-    half = BAND_BADGE / 2
+    half = badge / 2
     pen.rect(
         (center[0] - half, center[1] - half, center[0] + half, center[1] + half),
-        radius=BAND_BADGE * 0.22,
+        radius=badge * 0.22,
         fill=color,
     )
     icon = species_icon(species, high_contrast_ink(color))
     if icon is not None:
-        size = BAND_BADGE * 0.72
+        size = badge * 0.72
         pen.paste(icon, center, (size, size))
 
 
@@ -711,6 +813,7 @@ def draw_face(
     """
     color = TEAM_COLORS[Team(team)]
     draw_header(pen, player, team, color, subtitle)
+    draw_corner_index(pen, player, skills)
     draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
 
     species_name = species_ability(player.species).get("name", "")
