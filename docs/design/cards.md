@@ -547,12 +547,15 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   that disc rather than a letter, because that is the emoji the bot shows
   for it. The name's room stays symmetric, so the name is centred on the
   card.
-- **The left corner is the card's index: offence over defence, with the
-  role's initials beside them** (the author, 2026-10-03), like a playing
-  card's, on one white panel that ends short of the name's room
-  (`draw_corner_index`). It was first the three stacked, offence over
-  defence over the role; side by side was the author's next call, and it
-  reads as one mark rather than a list and sets each larger.
+- **The left corner is the card's index: offence over defence, and beside
+  them the role's initials over the species' badge** (the author,
+  2026-10-03), like a playing card's, on one white panel that ends short of
+  the name's room (`draw_corner_index`). It was first the three stacked,
+  offence over defence over the role; side by side was the author's next
+  call, and it reads as one mark rather than a list and sets each larger.
+  The badge is the ability band's own (`draw_species_badge`), smaller, so
+  the corner and the band say the species with one picture -- and filled,
+  for the band's reason: Slime green does not read on white.
   It is there for a card whose face is covered -- a bench is three cards
   cascaded so only each one's left edge shows, and a fanned hand shows the
   same corner -- so it is the stats row said again, not instead: the row

@@ -273,8 +273,8 @@ def draw_header(
 
 
 # The corner index in the header's left-hand corner (the author,
-# 2026-10-03): the offence over the defence, and the role's initials
-# beside them rather than under them, on one white panel. The panel
+# 2026-10-03): the offence over the defence, and beside them the role's
+# initials over the species' badge, on one white panel. The panel
 # ends short of the name's room (`FRAME + 132`), which stays symmetric.
 INDEX_LEFT = FRAME + 18
 INDEX_RIGHT = FRAME + 126
@@ -289,6 +289,11 @@ INDEX_SKILLS_X = 0.24
 INDEX_DIVIDER_X = 0.45
 INDEX_ROLE_X = 0.73
 INDEX_SKILL_ROWS = (0.29, 0.71)
+# The role column: the initials over the species' badge, a small copy
+# of the one in the ability band.
+INDEX_ROLE_ROW = 0.28
+INDEX_BADGE_ROW = 0.70
+INDEX_BADGE = 40
 
 
 def draw_corner_index(
@@ -307,9 +312,11 @@ def draw_corner_index(
     the same two colours, for the card that is not lying face up.
 
     The skills are a column, offence over defence, and the role sits
-    beside them (the author, 2026-10-03) -- side by side reads as one
-    mark where three lines stacked read as a list, and it lets each be
-    set larger in the header's height.
+    beside them with the species' badge under it (the author,
+    2026-10-03) -- side by side reads as one mark where a stack reads
+    as a list, and it lets each be set larger in the header's height.
+    The badge is the ability band's own, smaller, so the corner and the
+    band say the species with one picture.
 
     The panel is white because the numbers are red and green and the
     band is the team's colour: neither reads on orange or purple. The
@@ -344,12 +351,19 @@ def draw_corner_index(
         fill=PANEL_EDGE,
         width=2,
     )
+    role_x = INDEX_LEFT + width * INDEX_ROLE_X
     pen.text(
-        (INDEX_LEFT + width * INDEX_ROLE_X, (top + bottom) / 2),
+        (role_x, top + (bottom - top) * INDEX_ROLE_ROW),
         ROLE_INITIALS[player.role.value],
         font(INDEX_ROLE_SIZE, bold=True),
         INK,
         anchor="mm",
+    )
+    draw_species_badge(
+        pen,
+        player.species,
+        (role_x, top + (bottom - top) * INDEX_BADGE_ROW),
+        INDEX_BADGE,
     )
 
 
@@ -606,25 +620,29 @@ def row_height(pen: Pen, size: int, line_count: int) -> float:
 
 
 def draw_species_badge(
-    pen: Pen, species: str, center: tuple[float, float]
+    pen: Pen,
+    species: str,
+    center: tuple[float, float],
+    badge: float = BAND_BADGE,
 ) -> None:
     """
     The species icon on a rounded square of the species' colour, the
-    same size and shape as the role badge above it. Filled rather than
-    the icon set in the colour, for the reason the header band is:
-    Slime green on a white face cannot be read, and `high_contrast_ink`
-    on a fill answers all four species at once.
+    same size and shape as the role badge above it -- or `badge` across,
+    for the corner index's smaller one. Filled rather than the icon set
+    in the colour, for the reason the header band is: Slime green on a
+    white face cannot be read, and `high_contrast_ink` on a fill
+    answers all four species at once.
     """
     color = TEAM_COLORS[SPECIES_TEAM[species]]
-    half = BAND_BADGE / 2
+    half = badge / 2
     pen.rect(
         (center[0] - half, center[1] - half, center[0] + half, center[1] + half),
-        radius=BAND_BADGE * 0.22,
+        radius=badge * 0.22,
         fill=color,
     )
     icon = species_icon(species, high_contrast_ink(color))
     if icon is not None:
-        size = BAND_BADGE * 0.72
+        size = badge * 0.72
         pen.paste(icon, center, (size, size))
 
 
