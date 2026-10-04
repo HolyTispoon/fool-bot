@@ -1126,7 +1126,7 @@ def score_score_attempt(
     docs/design/tutorial.md.
     """
     offense_skill = engine.skills(game, shooter.player_id).offense
-    speed_modifier = match.ball_speed_modifier()
+    speed_modifier = match.shot_speed_modifier()
     defenders = engine.intervening_defenders(match, game)
     # What each defender is worth here, not what they are worth -- a
     # defender off the ball adds half their skill, rounded up. See
@@ -1155,7 +1155,10 @@ def score_score_attempt(
 
     attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
     if speed_modifier:
-        attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+        attack_detail.append(
+            f"{speed_modifier:+d} ball speed modifier"
+            + (" (halved from midfield)" if match.shot_speed_halved() else ""),
+        )
     if attack_ignite.detail:
         attack_detail.append(attack_ignite.detail)
     attack_detail.extend(engine.overdrive_details(match, shooter.player_id))
@@ -1386,7 +1389,7 @@ def score_attempt_step(
         player_id=shooter.player_id,
         scored=scored,
         set_up=bool(match.pending_shot_is_set_up),
-        speed_modifier=match.ball_speed_modifier(),
+        speed_modifier=match.shot_speed_modifier(),
         # The defenders the shot was up against: one Flickerwing passed
         # was in the way and added nothing, so the count leaves them out.
         defender_count=sum(
@@ -1833,7 +1836,7 @@ def refuse_roll_while_deciding(
         raise RuleRefusal(
             f"The die waits on "
             f"{address_coach(engine.side_player_number(game, side))}, "
-            "who decides on Overdrive first.",
+            f"who decides on {prompt.options.declarations_named()} first.",
             law="lithium-powered-cyborg",
         )
 
@@ -1853,7 +1856,7 @@ def _refuse_out_of_turn(
     if deciding is not None and deciding != side:
         raise RuleRefusal(
             f"{address_coach(engine.side_player_number(game, deciding))} "
-            "decides on Overdrive first.",
+            f"decides on {prompt.options.declarations_named()} first.",
             law="lithium-powered-cyborg",
         )
 
@@ -1878,7 +1881,7 @@ def _hand_on(
     coach = address_coach(
         engine.side_player_number(game, after.deciding_side),
     )
-    return f"{coach} decides on Overdrive next."
+    return f"{coach} decides on {after.declarations_named()} next."
 
 
 def pass_on_overdrive_step(
@@ -1912,7 +1915,8 @@ def pass_on_overdrive_step(
     coach = address_coach(engine.side_player_number(game, passing))
     return StepResult(
         narration=[" ".join(filter(None, (
-            f"{coach} passes on Overdrive.",
+            f"{coach} passes on "
+            f"{prompt.options.declarations_named(passing)}.",
             _hand_on(engine, game, match, prompt),
         )))],
         next=prompt,

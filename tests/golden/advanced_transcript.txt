@@ -52,7 +52,7 @@ Time has advanced 1, now at 01.
 <@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 6: MindPullView -> 'Pass'
 --- message
-🔮 Noxar [SK] lets the ball go past.
+🔮 Noxar [SK] declines to Mind Pull.
 --- message
 **Steal:**
 # Turnover!
@@ -150,7 +150,7 @@ Time has advanced 1, now at 03.
 <@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 14: MindPullView -> 'Pass'
 --- message
-🔮 Noxar [SK] lets the ball go past.
+🔮 Noxar [SK] declines to Mind Pull.
 --- message
 🔥 Hellguard [FB] picks up the ball.
 --- message
@@ -171,7 +171,7 @@ Time has advanced 1, now at 04.
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 16: MindPullView -> 'Pass'
 --- message
-🔮 Noxar [SK] lets the ball go past.
+🔮 Noxar [SK] declines to Mind Pull.
 --- message
 <@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
 === press 17: MindPullView -> 'Mind Pull'
@@ -240,7 +240,7 @@ Ball speed is now **7**.
 <@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 22: MindPullView -> 'Pass'
 --- message
-🔮 Noxar [SK] lets the ball go past.
+🔮 Noxar [SK] declines to Mind Pull.
 --- message
 Ball is now in space 5, Fire Demons (Visiting) has possession.
 --- message
@@ -304,7 +304,7 @@ Time has advanced 1, now at 07.
 <@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it.
 === press 28: MindPullView -> 'Pass'
 --- message
-🔮 Quillon [PM] lets the ball go past.
+🔮 Quillon [PM] declines to Mind Pull.
 --- message
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 29: MindPullView -> 'Mind Pull'
@@ -316,7 +316,7 @@ Time has advanced 1, now at 07.
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
 === press 30: MindPullView -> 'Pass'
 --- message
-🔮 Dravox [DD] lets the ball go past.
+🔮 Dravox [DD] declines to Mind Pull.
 --- message
 **Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 10.
 
@@ -342,7 +342,7 @@ Time has advanced 1, now at 08.
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 32: MindPullView -> 'Pass'
 --- message
-🔮 Spectra [MF] lets the ball go past.
+🔮 Spectra [MF] declines to Mind Pull.
 --- message
 🔥 Scorchit [MF] (offense skill 3) and 🔮 Spectra [MF] (defense skill 4) both contest the ball -- skill test!
 
@@ -383,7 +383,7 @@ Time has advanced 2, now at 10.
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
 === press 36: MindPullView -> 'Pass'
 --- message
-🔮 Dravox [DD] lets the ball go past.
+🔮 Dravox [DD] declines to Mind Pull.
 --- message
 **Cross:** the ball moves 1 space forward to 🔥 Flickerwing [WG] -- a scoring opportunity! Ball speed is 9.
 --- message
@@ -450,7 +450,7 @@ Time has advanced 1, now at 12.
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 42: MindPullView -> 'Pass'
 --- message
-🔮 Spectra [MF] lets the ball go past.
+🔮 Spectra [MF] declines to Mind Pull.
 --- message
 **Pressure:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward.
 
@@ -513,7 +513,7 @@ Ball speed is now **8**.
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
 === press 48: MindPullView -> 'Pass'
 --- message
-🔮 Umbrik [FB] lets the ball go past.
+🔮 Umbrik [FB] declines to Mind Pull.
 --- message
 <@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
 === press 49: MindPullView -> 'Mind Pull'
@@ -696,7 +696,7 @@ Ball speed is now **5**.
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 62: MindPullView -> 'Pass'
 --- message
-🔮 Spectra [MF] lets the ball go past.
+🔮 Spectra [MF] declines to Mind Pull.
 --- message
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
 === press 63: MindPullView -> 'Mind Pull'
@@ -738,7 +738,7 @@ Time has advanced 2, now at 18.
 <@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
 === press 66: MindPullView -> 'Pass'
 --- message
-🔮 Umbrik [FB] lets the ball go past.
+🔮 Umbrik [FB] declines to Mind Pull.
 --- message
 **High Pass:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-5).
 --- message
@@ -1011,6 +1011,6 @@ Ball speed is now **5**.
 <@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
 === press 90: MindPullView -> 'Pass'
 --- message
-🔮 Spectra [MF] lets the ball go past.
+🔮 Spectra [MF] declines to Mind Pull.
 --- message
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).

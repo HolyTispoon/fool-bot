@@ -32,10 +32,16 @@ from unittest import mock
 
 from d12ball import tutorial
 from d12ball.ai import DinkyAI
-from d12ball.components import MatchState, RuleRefusal, TeamSide
+from d12ball.components import (
+    MatchState,
+    RuleRefusal,
+    TeamSide,
+    catalog_player_id,
+)
 from d12ball.game import Formation, GameMode, Team
 from d12ball.flow import driver
 from d12ball.flow.windows import open_substitution_window
+from d12ball.special_abilities import SPECIAL_ABILITIES, SpecialAbility
 from d12ball.prompts import (
     NOBODYS_QUESTIONS,
     Action,
@@ -812,6 +818,45 @@ class DieWaitsOnOverdriveTests(ApplyFixture):
         self.act(fixture, "pass", side=attacker.value)
         refusal = self.act(fixture, "pass", side=attacker.value)
         self.assertIsInstance(refusal, driver.Refusal)
+
+    def test_a_boost_open_beside_the_overdrive_is_named_too(self) -> None:
+        """
+        Gearclaw may Boost as well as Overdrive (Law 21), so the hold
+        names both -- in the ask, the refusal, the hand-on and the
+        pass -- while the side without a Boost is held on Overdrive
+        alone.
+        """
+        fixture = self.cyborg_skill_test()
+        attacker, defender = self.sides(fixture)
+        with mock.patch.dict(SPECIAL_ABILITIES, {
+            catalog_player_id(fixture.match.active_player_id): (
+                SpecialAbility.BOOST, "test",
+            ),
+        }):
+            options = self.options(fixture)
+            self.assertEqual(
+                options.declarations_named(), "Overdrive and Boost",
+            )
+            self.assertEqual(
+                options.declarations_named(defender), "Overdrive",
+            )
+            prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
+            self.assertIn(
+                "decides on Overdrive and Boost, then either player can "
+                "roll",
+                prompt.ask,
+            )
+            refusal = self.act(fixture, "roll")
+            self.assertIn(
+                "decides on Overdrive and Boost first", refusal.reason,
+            )
+            passed = self.act(fixture, "pass", side=attacker.value)
+            self.assertIn(
+                "passes on Overdrive and Boost.", passed.result.narration[0],
+            )
+            self.assertIn(
+                "decides on Overdrive next", passed.result.narration[0],
+            )
 
     def test_the_ai_never_holds_the_die(self) -> None:
         """

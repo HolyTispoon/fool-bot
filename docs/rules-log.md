@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-03.
+**As of:** 2026-10-04.
 
 ## Where the rules come from
 
@@ -150,22 +150,33 @@ separately from the carrier. Noted for reconsideration rather than settled:
 it has come up once, in a recorded game the test suite pins (press 31 of the
 advanced golden), and nobody has yet played it at a table.
 
-### Should the ball speed modifier be halved in the zone before the goal?
-
-Raised by the author with the 2026-10-01 change that made the modifier the full speed. With
-the full speed, a fast ball makes a shot from the zone closest to the goal close to certain --
-an even shot at speed 8 or more goes in 93% of the time. Halving the modifier (rounded down, as it used to be everywhere) while the ball
-is in that zone would keep speed worth building up the field and in a steal, and blunt it at the
-last step.
-
-Not asked yet: whether "the zone" is the ball's zone or the shooter's, whether it halves the
-steal and the High Pass contest there too or the shot alone, and what it does on board 9, whose
-zones are Thirds. Left until play under the full modifier says it is needed.
-
 ## Change log
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-04 -- author, a shot from midfield adds half the ball speed modifier
+
+The author: *"ball sped counts in full in the zone closest to the ball (home/visitors
+zone/third) but only half (rounded down) when a score attempt from midfield"*. Asked on the pull
+request, *"zone closest to the ball means zone closest to the goal"*, and of the Steal,
+Intercept and the High Pass contest, *"they keep the full speed"*.
+
+- **A score attempt from midfield adds half the ball speed modifier, rounded down** (5.2.2,
+  7.4.1); from the outer zone before the goal being shot at -- the Visitors Zone or Home Zone,
+  the Thirds on board 9 -- it adds it in full, as before. At speed 1 a shot from midfield adds
+  nothing.
+- **It is the shot alone.** A Steal or Intercept and a High Pass contest still add the full
+  modifier wherever they are rolled (the author: *"they keep the full speed"*). This settles the open question of 2026-10-01, which had
+  floated the opposite (halving in the zone before the goal) and asked whether a steal and the
+  contest went with it.
+- **The zone is the ball's**, which is the shooter's: a shot is taken from the ball.
+- **A High Pass that reaches the goal zone is untouched**: its receiver stands on the last
+  space, in the outer zone, so the modifier still counts against the shot in full (7.5).
+- **Zorch** (21.6.6) shooting from midfield adds the halved shot modifier and not his own half
+  speed besides -- the two are the same number there, and "once, not twice" stands.
+- **Upstream** says only that the modifier is added (the row in "Where upstream is behind" is
+  extended).
 
 ### 2026-10-03 -- sheet and author, Cross loses its speed and its push back; Double Team pushes 1 and Merges
 
@@ -3606,7 +3617,7 @@ list to diff a fresh pull against: a difference already here is old news, anythi
 | Nothing about what a score attempt costs | Nothing for a plain attempt; 1 token to a shooter off a set-up, after the roll |
 | The own goal is triggered by a deflected pass, and rolled at a **disadvantage** | Triggered by Pressure's overshoot only, rolled at an **advantage**, and costs 1 token |
 | Setting a scoring opportunity describes only the old fixed-2 High Pass overshoot | Four set-ups (High Pass of 2, a High Pass that overshoots, a Winger's Low Pass, a Block Deflect overshoot), each a choice |
-| The ball speed modifier is always added | An overshot High Pass subtracts it, on the shot it sets up and on the contest behind that shot |
+| The ball speed modifier is always added | An overshot High Pass subtracts it, on the shot it sets up and on the contest behind that shot; a shot from midfield adds half of it, rounded down |
 | A High Pass is a free choice of 2 or 3 (or 4) | Only distances that fit on the field are offered, and none is offered at all with the ball 0 or 1 spaces from the end |
 | A turnover says nothing about ball speed | Every turnover resets it to 1 |
 | Substitutions "when they win possession", with no split between kinds of turnover | Only a new play (goal, own goal, missed attempt, out of bounds) opens a window; a steal opens none. A new play's is free and unlimited; two substitutions a half are the limit |

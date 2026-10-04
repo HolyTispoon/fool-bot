@@ -1945,6 +1945,29 @@ class D12BallScoreAttemptTests(unittest.TestCase):
             for player_id, _ in match.defenders_between_ball_and_goal()
         ]
 
+    def test_a_shot_from_midfield_pays_half_the_speed(self) -> None:
+        """
+        Law 5.2.2 (the author, 2026-10-04): the shot adds the ball speed
+        modifier in full from the outer zone before the goal -- a Third
+        on board 9 -- and half of it, rounded down, from midfield.
+        """
+        for board_size in (7, 9):
+            match = self.build_match(board_size)
+            match.ball.speed = 7
+            with self.subTest(board_size=board_size, zone="midfield"):
+                match.ball.zone = Zone.MIDFIELD
+                self.assertTrue(match.shot_speed_halved())
+                self.assertEqual(match.shot_speed_modifier(), 3)
+            with self.subTest(board_size=board_size, zone="outer"):
+                match.ball.zone = Zone.VISITORS_ZONE
+                match.ball.space_index = 0
+                self.assertFalse(match.shot_speed_halved())
+                self.assertEqual(match.shot_speed_modifier(), 7)
+        match.ball.zone = Zone.MIDFIELD
+        match.ball.space_index = 0
+        match.ball.speed = 1
+        self.assertEqual(match.shot_speed_modifier(), 0)
+
     def test_spaces_in_order_matches_flat_index(self) -> None:
         match = self.build_match(7)
         ordered = match.board.spaces_in_order()

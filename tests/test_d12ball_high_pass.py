@@ -640,7 +640,7 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
-    async def roll_shot(self, overshot: bool):
+    async def roll_shot(self, overshot: bool, from_midfield: bool = False):
         cog = build_cog()
         self.enterContext(driver_reaches_cog_stubs(cog))
         cog.apply_exhaustion = mock.Mock(return_value="")
@@ -657,6 +657,12 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = match.setup_for_side(
             match.ball.possession
         ).field_players[0]
+        # From the last space before the goal home attacks, where an
+        # overshot set-up is taken and the modifier counts in full --
+        # or from the kickoff space in midfield, where a shot pays half.
+        if not from_midfield:
+            match.ball.zone = Zone.VISITORS_ZONE
+            match.ball.space_index = 1
         match.move_meeple(
             match.active_player_id, match.ball.zone, match.ball.space_index,
         )
@@ -699,6 +705,21 @@ class OvershootShotPaysTheSpeedModifierTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("-3 ball speed modifier", detail)
         skill = int(detail[1].removeprefix("Offensive skill +"))
         self.assertEqual(total, 7 + skill - 3)
+
+    async def test_a_shot_from_midfield_adds_half(self) -> None:
+        """
+        A score attempt from midfield adds half the modifier, rounded
+        down (Law 5.2.2; the author, 2026-10-04): speed 3 adds 1.
+        """
+        _, _, _, detail, total, _, _ = await self.roll_shot(
+            overshot=False, from_midfield=True,
+        )
+
+        self.assertIn(
+            "+1 ball speed modifier (halved from midfield)", detail,
+        )
+        skill = int(detail[1].removeprefix("Offensive skill +"))
+        self.assertEqual(total, 7 + skill + 1)
 
 
 class PasserNeverReceivesTheirOwnPassTests(unittest.IsolatedAsyncioTestCase):

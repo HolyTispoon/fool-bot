@@ -265,7 +265,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **5.2.1** The handler shoots and both coaches roll one d12.
 
-**5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7), and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
+**5.2.2** The attack adds the shooter's offensive skill, the [ball speed modifier](#7-ball-speed) (7) -- in full from the outer zone before the goal being shot at, and **half of it, rounded down, from midfield** -- and 3 more if a Striker is shooting off a [set-up](#8-scoring-opportunities) (8). The defense adds the skill of every defending player in the way, as [what the defense adds](#53-what-the-defense-adds) (5.3) says.
 
 **5.2.3** **The attack scores on a total higher than the defense's.** A tie is a miss.
 
@@ -430,7 +430,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 7.4 Where the modifier is added
 
-**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack; to a maneuver skill test, by a defense contesting with Steal; and to a [High Pass contest](#104-the-high-pass-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
+**7.4.1** The modifier is added in three places and nowhere else: to a [score attempt](#5-score-attempt) (5), by the attack, halved and rounded down on a shot from midfield; to a maneuver skill test, by a defense contesting with Steal; and to a [High Pass contest](#104-the-high-pass-contest) (10.4), by the side that threw the pass. In advanced mode one player adds it to every roll they make: see [Oozes](#216-oozes) (21.6).
 
 **7.4.2** The ball [where it came to rest](#101-where-the-ball-comes-to-rest) (10.1) belongs to nobody yet, so neither contestant adds it there.
 
@@ -1290,7 +1290,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 | Roll | Dice | How it reads |
 | --- | --- | --- |
-| Score attempt | 1d12 each | Attack adds offense and the speed modifier; defense adds full skill on the ball and half beyond it. A tie is a miss. |
+| Score attempt | 1d12 each | Attack adds offense and the speed modifier, halved from midfield; defense adds full skill on the ball and half beyond it. A tie is a miss. |
 | Skill test | 1d12 each | Offense against defense, plus any ability and modifier. Higher wins; a tie is re-rolled and each exhausts 1. |
 | Own goal | 2d12, keep the higher | Add offensive skill. 7 or more avoids it. |
 | Injury check | 1d12 | Higher than the player's token count is safe. |

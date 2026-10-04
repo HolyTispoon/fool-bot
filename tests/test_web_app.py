@@ -43,7 +43,7 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 from d12ball.components import MatchState, TeamSide
 from d12ball.engine import SPREADABLE_NOTE
 from d12ball.render import TEAM_COLORS
-from d12ball.flow import FollowOnStep
+from d12ball.flow import FollowOnStep, driver
 from d12ball.formatting import coach_name
 from d12ball.game import (
     AIOpponent, Formation, GameMode, Team, team_display_name,
@@ -863,6 +863,38 @@ class QuestionBoxTests(unittest.TestCase):
         self.assertEqual(
             theirs["waiting_on"], [coach_name(fixture.game, deciding)],
         )
+
+    def test_a_coach_is_offered_only_their_own_declarations(self) -> None:
+        """
+        The other coach's Overdrive and Boost are theirs to declare, so
+        neither coach is shown the other's -- the attacker while they
+        decide, then the defender once the attacker has passed.
+        """
+        fixture = self.cyborg_skill_test()
+        game, match = fixture.game, fixture.match
+        attacker = match.side_for_player(match.active_player_id)
+        defender = match.side_for_player(match.challenger_id)
+        for side in (attacker, defender):
+            with self.subTest(side=side):
+                number = ENGINE.side_player_number(game, side)
+                declared = [
+                    control["action"]["arguments"]["player_id"]
+                    for group in controls_for(
+                        ENGINE, game, match,
+                        pending_prompt(ENGINE, game, match), Viewer(number),
+                    )
+                    for control in group["controls"]
+                    if control["action"]["choice"] in ("overdrive", "boost")
+                ]
+                self.assertTrue(declared)
+                self.assertEqual(
+                    {match.side_for_player(player) for player in declared},
+                    {side},
+                )
+                driver.apply(
+                    ENGINE, game, match,
+                    Action(PromptKind.SKILL_TEST, "pass", {"side": side.value}),
+                )
 
 
 class OutcomeBannerTests(unittest.TestCase):

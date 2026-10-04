@@ -1589,7 +1589,7 @@ def decline_mind_pull_step(
     player_id: str,
 ) -> StepResult:
     """
-    A Telekinetic lets the ball go past rather than reaching for it.
+    A Telekinetic declines to Mind Pull, and the ball goes past.
 
     Nothing is charged for letting it go -- the token is the price of
     *trying* -- so this says only that they did, and hands the queue
@@ -1603,8 +1603,8 @@ def decline_mind_pull_step(
     result = continue_mind_pull(engine, game, match)
     result.narration.insert(
         0,
-        f"{engine.format_player_label(match, player)} lets the ball "
-        "go past.",
+        f"{engine.format_player_label(match, player)} declines to "
+        "Mind Pull.",
     )
     return result
 

@@ -731,12 +731,12 @@
     },
     {
       "details": {
-        "attack_total": 10,
+        "attack_total": 9,
         "defender_count": 3,
         "defense_total": 13,
         "scored": false,
         "set_up": true,
-        "speed_modifier": 1
+        "speed_modifier": 0
       },
       "kind": "shot",
       "period": "second_half",

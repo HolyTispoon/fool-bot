@@ -335,14 +335,16 @@ def score_attempt_brief(
     on the ball.
     """
     shooter = engine.get_player_definition(match.active_player_id)
-    speed_modifier = match.ball_speed_modifier()
+    speed_modifier = match.shot_speed_modifier()
     defenders = engine.intervening_defenders(match, game)
     defending_setup = match.setup_for_side(match.defending_side())
 
     modifiers = []
     if speed_modifier:
         modifiers.append(
-            f"{speed_modifier:+d} ball speed ({match.ball.speed})"
+            f"{speed_modifier:+d} ball speed ({match.ball.speed}"
+            + (", halved from midfield" if match.shot_speed_halved() else "")
+            + ")"
         )
     if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
         modifiers.append("+3 Striker ability")

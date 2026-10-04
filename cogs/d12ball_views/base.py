@@ -499,7 +499,8 @@ class SafeView(discord.ui.View):
         for side in options.undecided_sides:
             button = discord.ui.Button(
                 label=(
-                    "Pass on Overdrive: " + format_player(
+                    f"Pass on {options.declarations_named(side)}: "
+                    + format_player(
                         game, self.cog.engine.side_player_number(game, side),
                     )
                 )[:80],
