@@ -71,7 +71,7 @@ from flow_stubs import (
     was_reached,
 )
 from save_patches import suppressed_cog_saves
-from cog_steps import apply_high_pass, apply_setup_pass, apply_setup_pass_out, resolve_setup_pass
+from cog_steps import apply_high_pass, apply_setup_pass, apply_setup_pass_out
 
 #: The parameters every follow-on takes and no fixture records: the
 #: three the cog threads through everything and the narration, which
@@ -162,9 +162,9 @@ def posted_messages(interaction) -> list[str]:
 
 async def drive(cog, fixture, interaction) -> None:
     """
-    The fixture's own entry point, which for this rank is one of four:
-    a High Pass, a Cross's speed half, its destination half, or
-    the dead end its menu falls to when it has no distance to offer.
+    The fixture's own entry point, which for this rank is one of three:
+    a High Pass, a Cross, or the dead end its menu falls to when it has
+    no distance to offer.
     """
     args = (interaction, fixture.game, fixture.match)
     if fixture.entry == "high_pass":
@@ -173,8 +173,6 @@ async def drive(cog, fixture, interaction) -> None:
         await apply_setup_pass(cog, *args, fixture.distance)
     elif fixture.entry == "setup_pass_out":
         await apply_setup_pass_out(cog, *args)
-    elif fixture.entry == "setup_pass_speed":
-        await resolve_setup_pass(cog, *args)
     else:  # pragma: no cover -- a typo in the table, not a branch
         raise AssertionError(f"unknown entry {fixture.entry!r}")
 

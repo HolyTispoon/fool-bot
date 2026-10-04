@@ -176,10 +176,12 @@ move had no rules risk to weigh against it.
   -- read second, so the rematch buttons are what a restart hands
   back rather than a stale prompt off the last turn. Both read the
   *game* record rather than the match, which is why `pending_prompt`
-  has always taken the game. The third, `SETUP_PASS_PUSH_BACK`, is
-  the push back Cross's cost offers, which was a follow-on
-  until the offer became a step the driver runs and its answer a
-  prompt like the other six effect choices.
+  has always taken the game. The third, `SETUP_PASS_PUSH_BACK`, was
+  the push back Cross's cost offered, a follow-on until the offer
+  became a step the driver runs and its answer a prompt like the other
+  six effect choices -- and gone with the 2026-10-03 card, which asks
+  nothing. `DOUBLE_TEAM_PARTNER` arrived the same day, a pick among the
+  tied defenders read off the position like any other.
 - **A prompt is asserted to survive a save and a load**, every kind of
   it, in `test_a_prompt_survives_a_save_and_a_load`. That is the
   restart in a test, and it is what a new prompt carrying a new
@@ -528,8 +530,9 @@ with Low Pass already, as the same step under a different `key=`.
     `cogs/d12ball/core.py` is where it went, and
     `dispatch_step_result` read it; since the last increment the same
     answer is `stop_draws_the_board` beside `DRIVER_STOPS`, read off
-    the step the loop stopped on, and `PROMPTS_DRAWN_LATER` for the
-    push back. See [rate-limits.md](rate-limits.md).
+    the step the loop stopped on (and, until the 2026-10-03 Cross,
+    `PROMPTS_DRAWN_LATER` for its push back). See
+    [rate-limits.md](rate-limits.md).
   - **It is keyed to the step, not to the card.** Eight sites in
     `cogs/d12ball/effects.py` reach `begin_loose_ball` and this rank
     lifted two of them; the other six inherit the answer as they move,
@@ -706,9 +709,9 @@ the cog still had a table of its own say so.
   runs to its prompt in one call. It is the mirror of the old
   `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, which said "do not write a board
   in front of this step"; that suppression is `stop_draws_the_board`
-  now, read off the stop, plus `PROMPTS_DRAWN_LATER` for the one
-  prompt (Cross's push back) whose answer draws the board a beat
-  later.
+  now, read off the stop (and, until 2026-10-03, `PROMPTS_DRAWN_LATER`
+  for the one prompt, Cross's push back, whose answer drew the board a
+  beat later).
 - **`own_message` is where the carrying stops, and it is what let the
   second batch of steps into the loop.** Until Phase 6's second
   increment the loop could only *carry* a step's lines forward as the
@@ -753,8 +756,9 @@ the cog still had a table of its own say so.
     snapshot attached, and a snapshot taken after the run would show
     a position that has moved on. Those two stopped the loop by being
     absent from the table. The last increment put both in: the loose
-    ball is a `stop_after`, and the push back ends on a prompt
-    (`SETUP_PASS_PUSH_BACK`), which is a stop by definition.
+    ball is a `stop_after`, and the push back ended on a prompt
+    (`SETUP_PASS_PUSH_BACK`), which is a stop by definition, until it
+    went with the 2026-10-03 Cross.
 - **It saves nothing, and its caller saves once.** This is principle 9
   and it is the one place the refactor makes the bot better rather
   than only more portable. Forty-one cog wrappers used to call their

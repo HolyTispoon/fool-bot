@@ -42,7 +42,6 @@ from d12ball.flow import driver
 from d12ball.flow.effects import (
     high_pass_step,
     setup_pass_out_step,
-    setup_pass_speed_step,
     setup_pass_step,
     throw_high_pass,
 )
@@ -79,8 +78,6 @@ def run_step(fixture):
         return setup_pass_step(ENGINE, fixture.match, fixture.distance)
     if fixture.entry == "setup_pass_out":
         return setup_pass_out_step(ENGINE, fixture.match)
-    if fixture.entry == "setup_pass_speed":
-        return setup_pass_speed_step(ENGINE, fixture.match)
     raise AssertionError(f"unknown entry {fixture.entry!r}")
 
 
@@ -132,21 +129,16 @@ class PassStepTests(unittest.TestCase):
                     match.pending_effect_continuation, fixture.continuation,
                 )
 
-    def test_only_the_speed_half_moved_nothing(self) -> None:
+    def test_every_pass_moved_the_board(self) -> None:
         """
         `board_changed` is the position's answer, and on this rank it
-        is True everywhere except the one step that is not a pass at
-        all: Cross's speed choice records the continuation and
-        asks, and the speed it is about is set by the answer rather
-        than here.
+        is True everywhere: every branch throws the ball. (Cross's
+        speed choice, which moved nothing, went with the 2026-10-03
+        card.)
         """
         for case in PASS_CASES:
             with self.subTest(case=case.name):
-                fixture = case.build()
-                self.assertEqual(
-                    run_step(fixture).board_changed,
-                    fixture.entry != "setup_pass_speed",
-                )
+                self.assertTrue(run_step(case.build()).board_changed)
 
     def test_the_overshoot_note_rides_in_the_set_up_s_own_block(
         self,

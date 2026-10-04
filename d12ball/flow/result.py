@@ -91,19 +91,6 @@ class FollowOnStep(Enum):
     #: would otherwise draw the same board twice for one click skips
     #: its own write, which is its business (principle 8).
     BEGIN_LOOSE_BALL = auto()
-    #: **Cross's cost**: beaten by a deflection, the coach who
-    #: beat it drives the ball a further 1, 2 or 3 spaces back, and it
-    #: is loose where it stops. A step rather than a bare prompt
-    #: because whether anybody is asked at all is decided here: a ball
-    #: already on the last space before the goal zone has nothing to
-    #: offer, so the
-    #: cost is simply spent. Every branch ends in `BEGIN_LOOSE_BALL`,
-    #: which is why the prompt it puts up is in `PROMPTS_DRAWN_LATER`
-    #: in `cogs/d12ball/core.py`: the board a deflection moved reaches
-    #: the channel a beat later, from the far side of the coach's
-    #: answer, rather than in front of a question whose answer moves
-    #: the ball again.
-    OFFER_SETUP_PASS_PUSH_BACK = auto()
     #: The whistle (`d12ball.flow.periods.end_period`). The cascade it
     #: opens -- the whistle, the halftime recovery, an AI's extra
     #: token, the shootout's explainer -- is a **run of separate

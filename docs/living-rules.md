@@ -507,7 +507,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 10.1 Where the ball comes to rest
 
-**10.1.1** Some actions leave the ball on a space with nobody named as holding it -- a pass that reaches nobody, a [Deflect](#68-deflect) (6.8), and in advanced mode a [Clear](#198-clear) (19.8) or a beaten [Cross](#197-cross) (19.7). **What is standing on that space decides what happens, and there are three answers.**
+**10.1.1** Some actions leave the ball on a space with nobody named as holding it -- a pass that reaches nobody, a [Deflect](#68-deflect) (6.8), and in advanced mode a [Clear](#198-clear) (19.8). **What is standing on that space decides what happens, and there are three answers.**
 
 | On the space the ball lands on | What happens |
 | --- | --- |
@@ -932,8 +932,8 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Every turnover resets ball speed to 1 ([Law 7](#73-turnovers-reset-it) (7.3)) | A beaten Burst hands the ball over at the speed the burst put into it ([Burst](#196-burst) (19.6)) | Advanced maneuvers |
 | A defense adds the speed modifier when contesting with Steal ([Law 6](#64-the-skill-test) (6.4)) | With Intercept too ([Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
 | A Midfielder adds 3 for their own Low Pass or Steal ([Law 6](#64-the-skill-test) (6.4)) | For their own Pinpoint or Intercept too ([Pinpoint](#195-pinpoint) (19.5), [Intercept](#199-intercept) (19.9)) | Advanced maneuvers |
-| The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | Under a Double Team it adds both defenders' ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
-| A Deflect moves the ball 1 space back ([Law 6](#68-deflect) (6.8)) | Beating a Cross, 1, 2 or 3 spaces, the deflecting coach's choice ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
+| The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | After a won Double Team its partner Merges through the next maneuver ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
+| A contest for the ball is rolled ([Law 10](#102-the-contest) (10.2)) | After a failed Cross the side that beat it takes the ball without a roll ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | The coach holding the coin may swap them for their three advanced maneuvers against a challenge, and a coach who is behind may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
 | A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -1037,7 +1037,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.7.1** **Rank O3. Costs 2 time. Beats Steal and Intercept, loses to Deflect and Clear.**
 
-**19.7.2** Two steps, in this order. The passer first changes the ball's speed by up to their offensive skill, in either direction. They then pick the ball out **0, 1 or 3 spaces** ahead. A teammate standing where it lands receives it and takes a [scoring opportunity](#8-scoring-opportunities) (8), with the speed they just set counting for it.
+**19.7.2** The passer picks the ball out **0, 1 or 3 spaces** ahead. A teammate standing where it lands receives it and takes a [scoring opportunity](#8-scoring-opportunities) (8), with the ball's speed counting for it as it stands: a Cross does not change the speed.
 
 **19.7.3** **Every distance that lands on a space short of the goal zone may be picked**, whether or not anybody of the passing side is standing there. `0` is the one exception: it means a teammate sharing the passer's own space -- a passer never receives their own pass -- so it may only be picked while somebody else is standing there.
 
@@ -1047,13 +1047,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.7.6** **A Cross never reaches the goal zone**, so the only way it runs [out of play](#105-out-of-bounds) (10.5) is having nowhere to pick it out to at all: the passer standing on the last space before the goal zone, where even 1 space would reach it, with no teammate beside them to take it at `0`. Then the other team gains possession, both sides reset, and the gaining side sends somebody to pick the ball up.
 
-**19.7.7** *Failed gambit:* **the ball goes back once, and the coach who beat the pass chooses how far.** The card that beat it resolves at a chosen distance instead of its own:
+**19.7.7** *Failed gambit:* **the card that beat the pass resolves as itself, and the side that played it wins any contest for the ball that follows without a roll.** The ball goes back as that card sends it -- 1 space for a [Deflect](#68-deflect) (6.8), 3 for a [Clear](#198-clear) (19.8), a space more for a *Fullback* -- and its speed drops as that card's own does, by 1 or by 3.
+
+**19.7.8** It lands exactly as that card's deflection does, and only a contest changes. Where both sides are standing on the space it stops on, or both send somebody after it on an empty one, the player of the side that beat the pass takes it and nothing is rolled, so nobody owes an injury check for it. On an empty space both coaches are offered a send as always, and a player sent still exhausts for every space they travel. Where only one side ends up there it is theirs as always -- an offense left alone on the space keeps the ball -- and a deflection that reaches the goal zone with the player who played it on the last space before it is still that player's [scoring opportunity](#8-scoring-opportunities) (8).
+
+**19.7.9** A [Slitheron](#216-oozes) (21.6) of the passing side wins every contest too, so against one the two cancel and the contest is rolled as usual.
 
 - **a.** beaten by a **Deflect**, 1, 2 or 3 spaces back;
 - **b.** beaten by a **Clear**, 2, 3 or 4 spaces back;
 - **c.** a *Fullback* who beat it adds 1 to each: 2, 3 or 4 for a Deflect, 3, 4 or 5 for a Clear.
-
-**19.7.8** Ball speed drops as that card's own does -- by 1 for a Deflect, by 3 for a Clear -- and the ball lands exactly as a [Deflect](#68-deflect) (6.8)'s does: loose if the space it stops on is empty, uncontested if only one side is there, a forced contest if both are. **Of the distances that reach the goal zone only the shortest is offered**, since every longer one comes to rest on the same last space. A ball that reaches the goal zone is a [scoring opportunity](#8-scoring-opportunities) (8) for the player who beat the pass when they are standing on that last space -- the one before the goal their team attacks -- and for nobody else, exactly as a [Deflect](#68-deflect) (6.8)'s is. One that reaches it while they are standing anywhere else sets up nothing.
 
 ### 19.8 Clear
 
@@ -1065,9 +1067,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.8.4** *Fullback:* the ball goes back 4 spaces instead of 3. The speed still drops by 3 -- a Fullback's extra space is distance, not speed, exactly as it is on a Deflect.
 
-**19.8.5** **Against a Cross the distance is a choice.** A Clear that beats a Cross goes back 2, 3 or 4 spaces -- 3, 4 or 5 for a Fullback -- the clearing coach's choice, and nothing further: that choice is the Cross's [failed gambit](#197-cross) (19.7). The speed drop, the landing and the scoring opportunity are as above.
-
-**19.8.6** *Failed gambit:* the defender who played it **exhausts 2**.
+**19.8.5** *Failed gambit:* the defender who played it **exhausts 2**.
 
 ### 19.9 Intercept
 
@@ -1089,13 +1089,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.1** **Rank D3. Costs 1 time. Beats Dribble and Burst, loses to Low Pass and Pinpoint.**
 
-**19.10.2** A Pressure at two spaces, with help. The handler and the ball go **2 spaces back**, and the challenger **and the defending player nearest the space the play started from** both move onto the handler's space -- free of exhaustion, however far they came.
+**19.10.2** A Pressure, with help. The handler and the ball go **1 space back** and the challenger moves 1 space forward onto the handler's space, as for a [Pressure](#610-pressure) (6.10), and **the partner** joins them there -- free of exhaustion, however far they came.
 
-**19.10.3** Possession does not change and the ball is left with the handler. Where the push of 2 reaches the handler's own goal zone -- the handler on the last space before it, or on the space next to that -- it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
+**19.10.3** **The partner is the defending player nearest the ball, on its space or behind it**, measured before anything moves -- behind meaning toward the defending side's own goal. Where several are equally near, the defending coach chooses which of them it is. With nobody else of theirs on the ball's space or behind it, nobody joins.
 
-**19.10.4** **On the defending side's next maneuver both of those players challenge**, and the skill test adds **both** of their defensive skills. It lasts until a [new play](#125-resetting-after-a-new-play) (12.5), which is the only thing that ends it.
+**19.10.4** Possession does not change and the ball is left with the handler. Where the push reaches the handler's own goal zone -- the handler on the last space before it -- it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
 
-**19.10.5** *Failed gambit:* the challenger and that same nearest teammate each move 1 space forward, away from their own goal. Neither exhausts for it.
+**19.10.5** **The partner Merges through the defending side's next maneuver**, as an Ooze does ([Slimey](#205-slimey-ooze) (20.5)): standing on the ball's space and not one of the two rolling, they add their defensive skill to that maneuver's skill test and to any contest for the ball it leads to. It ends with that maneuver, before the offense chooses its next action, and sooner at a [new play](#125-resetting-after-a-new-play) (12.5) or when the partner's side takes the ball. A partner who is an Ooze Merges once, not twice, and an [injured](#154-playing-injured) (15.4) partner adds nothing.
+
+**19.10.6** *Failed gambit:* the challenger and the partner -- found as above, before the ball moves -- each move 1 space forward, away from their own goal. Neither exhausts for it.
 
 ## 20. Species abilities
 

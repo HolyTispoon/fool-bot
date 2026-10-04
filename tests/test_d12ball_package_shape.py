@@ -253,7 +253,6 @@ class FollowOnStepTests(unittest.TestCase):
         "BEGIN_SHOOTER_CHOICE",
         "BEGIN_OWN_GOAL_ROLL",
         "BEGIN_LOOSE_BALL",
-        "OFFER_SETUP_PASS_PUSH_BACK",
         "BEGIN_HIGH_PASS_CONTEST",
         # Phase 4's. The enum grew rather than shrank, which is the
         # honest reading of the phase: the spine's decisions moved and

@@ -236,24 +236,20 @@ class OptionsCarryTheirMeasureTests(unittest.TestCase):
                             distance,
                         )
                     else:
-                        sign = (
-                            -1 if prompt.kind is PromptKind.SETUP_PASS_PUSH_BACK
-                            else 1
-                        )
                         expected = match.ball_destination(
-                            match.ball.possession, sign * distance,
+                            match.ball.possession, distance,
                         )
                     self.assertEqual(landing, expected)
         self.assertIn(PromptKind.HIGH_PASS_CHOICE, seen)
         self.assertIn(PromptKind.DRIBBLE_ADVANCE_CHOICE, seen)
-        self.assertIn(PromptKind.SETUP_PASS_PUSH_BACK, seen)
+        self.assertIn(PromptKind.SETUP_PASS_CHOICE, seen)
 
     def test_the_move_ends_where_the_landing_said(self) -> None:
-        """The dribble and the push back, played: the handler, and the
+        """The dribble and the Cross, played: the handler, and the
         ball, end on the space the prompt named."""
         played = set()
         for case in CASES:
-            if case.name not in ("dribble advance", "setup pass push back"):
+            if case.name not in ("dribble advance", "setup pass"):
                 continue
             played.add(case.name)
             prompt = pending_prompt(ENGINE, *_built(case))

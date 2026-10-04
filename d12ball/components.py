@@ -974,6 +974,11 @@ SETUP_PASS_DISTANCES = (0, 1, 3)
 # Pass from 3 to 4 and a Clear from 3 to 4 (the author, 2026-08-19).
 SETUP_PASS_FULLBACK_DISTANCE = 4
 SETUP_PASS_CLOCK_COST = 2
+# The continuation kind a Double Team's partner is recorded under
+# once known (Law 19.10.3): `RulesEngine.record_double_team_partner`
+# writes it and `reset_maneuver` clears it with the rest of the
+# maneuver. A value inside a saved field, not a field of its own.
+DOUBLE_TEAM_PARTNER_KIND = "double_team_partner"
 # What a maneuver costs on the clock (Law 16.2.1): a flat 1 time,
 # and two for a High Pass and for the Cross it is the advanced
 # version of. `RulesEngine.maneuver_clock_cost` is the one reading; the

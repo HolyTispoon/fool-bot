@@ -463,21 +463,13 @@ class SetupPassChoiceView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
-class SetupPassPushBackView(SafeView):
+class DoubleTeamPartnerView(SafeView):
     """
-    **Cross's cost**, put to the coach who beat it: how far back
-    the ball is driven -- 1, 2 or 3 spaces -- before it is left loose.
-
-    The choice belongs to the *defending* side, which is the side that
-    won the maneuver, so this is the one prompt in a maneuver's effect
-    that the defense answers and the offense watches.
-
-    Not reconstructible from match state: by the time it is up, the
-    deflection has already landed and nothing on the match says a
-    push-back is owed. A restart mid-choice comes back to whatever
-    `pending_turn_view` makes of the position, which is the same gap
-    `SetUpAttemptChoiceView` has and for the same reason -- nothing has
-    been applied yet.
+    **Which tied defender partners a Double Team** (Law 19.10.3), put
+    to the defending coach before the card resolves -- won, when the
+    partner joins and Merges, or beaten, when they go forward with the
+    challenger. The buttons are the prompt's `player_ids`, every one
+    equally near the ball on its space or behind it.
     """
 
     def __init__(self, cog: "D12Ball", game_id: str):
@@ -487,35 +479,24 @@ class SetupPassPushBackView(SafeView):
 
         game, match = self.load_match()
         options = self.prompt_options(
-            game, match, PromptKind.SETUP_PASS_PUSH_BACK,
+            game, match, PromptKind.DOUBLE_TEAM_PARTNER,
         )
         if options is None:
             return
 
-        # The prompt's distances (`RulesEngine.setup_pass_push_back_distances`),
-        # each with the space it sends the ball back to -- or, for the
-        # one that reaches the goal zone, saying so.
-        for distance in options.distances:
-            zone, space_index = options.landing(distance)
-            where = (
-                "into the goal zone"
-                if distance == options.goal_zone
-                else space_label(zone, space_index, match.board)
-            )
+        for player_id in options.player_ids:
+            player = cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
-
-                label=(
-                    f"{distance} back ({where})"
-                ),
+                label=player_with_role(player)[:80],
                 style=discord.ButtonStyle.primary,
-                custom_id=f"d12ball:setup_pass_push:{game_id}:{distance}",
+                custom_id=f"d12ball:double_team_partner:{game_id}:{player_id}",
             )
 
             async def callback(
                 interaction: discord.Interaction,
-                chosen_distance: int = distance,
+                chosen_player_id: str = player_id,
             ) -> None:
-                await self.choose(interaction, chosen_distance)
+                await self.choose(interaction, chosen_player_id)
 
             button.callback = callback
             self.add_item(button)
@@ -523,7 +504,7 @@ class SetupPassPushBackView(SafeView):
     async def choose(
         self,
         interaction: discord.Interaction,
-        distance: int,
+        player_id: str,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -531,8 +512,8 @@ class SetupPassPushBackView(SafeView):
 
         if not self.may_act_for_defense(interaction, game, match):
             await interaction.response.send_message(
-                "Only the coach who beat the "
-                f"{self.cog.engine.maneuver_name('setup_pass')} can choose.",
+                "Only the coach who played the "
+                f"{self.cog.engine.maneuver_name('double_team')} can choose.",
                 ephemeral=True,
             )
             return
@@ -540,7 +521,9 @@ class SetupPassPushBackView(SafeView):
         result = await self.apply(
             interaction,
             game,
-            Action(PromptKind.SETUP_PASS_PUSH_BACK, "", {"distance": distance}),
+            Action(
+                PromptKind.DOUBLE_TEAM_PARTNER, "", {"player_id": player_id},
+            ),
             carry_from=0,
         )
         if result is None:

@@ -130,7 +130,7 @@ from cogs.d12ball_views import (
     SetUpAttemptChoiceView,
     ShooterChoiceView,
     SetupPassChoiceView,
-    SetupPassPushBackView,
+    DoubleTeamPartnerView,
     ShootoutOrderPromptView,
     ShootoutOrderSelectView,
     ShootoutPickPromptView,
@@ -169,21 +169,6 @@ FIELD_PROMPT_KINDS = frozenset({
 COACHING_PROMPT_KINDS = frozenset({
     PromptKind.COACHING_HUB,
     PromptKind.COACHING_OFFER,
-})
-
-
-#: Prompts the board is **not** written in front of, because the
-#: answer draws it a moment later. A failed Cross gambit's push
-#: back is the one ball move whose distance is asked before it is made
-#: (Law 19.7.7), and every answer ends in a loose ball or the
-#: challenger's shot, each announced with the board under it. So what
-#: the run moved on the way to the question reaches the channel either
-#: way; what this decides is only that it is not *also* drawn in front
-#: of a question whose answer moves the ball. Rank D1's economy, keyed
-#: on the prompt now that the offer is a step the driver runs. See
-#: "Discord's rate limits" in docs/design/rate-limits.md.
-PROMPTS_DRAWN_LATER = frozenset({
-    PromptKind.SETUP_PASS_PUSH_BACK,
 })
 
 
@@ -301,7 +286,7 @@ AI_ANSWER_CARRY: Mapping[PromptKind, CarryFrom] = {
     PromptKind.LOW_PASS_CHOICE: 0,
     PromptKind.HIGH_PASS_CHOICE: 0,
     PromptKind.SETUP_PASS_CHOICE: 0,
-    PromptKind.SETUP_PASS_PUSH_BACK: 0,
+    PromptKind.DOUBLE_TEAM_PARTNER: 0,
     PromptKind.SET_UP_ATTEMPT: 0,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: 0,
     PromptKind.DRIBBLE_BURST_CHOICE: 0,
@@ -390,7 +375,7 @@ PLAIN_PROMPT_VIEWS = {
     PromptKind.SETUP_PASS_CHOICE: SetupPassChoiceView,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: DribbleAdvanceChoiceView,
     PromptKind.DRIBBLE_BURST_CHOICE: DribbleBurstChoiceView,
-    PromptKind.SETUP_PASS_PUSH_BACK: SetupPassPushBackView,
+    PromptKind.DOUBLE_TEAM_PARTNER: DoubleTeamPartnerView,
 }
 
 #: The kinds carrying a parameter their view needs -- and the two
@@ -1533,9 +1518,7 @@ class CoreMixin:
         method's decision.** A drawn group writes the persistent board
         from the same render (render once, upload twice), so the plain
         write is owed only for what moved after the last picture, and
-        it goes in front of the first thing posted after it. A prompt
-        whose answer draws the board a moment later
-        (`PROMPTS_DRAWN_LATER`) is not drawn in front of.
+        it goes in front of the first thing posted after it.
         """
         groups = result.groups
         prompt = result.prompt
@@ -1543,9 +1526,7 @@ class CoreMixin:
             (index for index, group in enumerate(groups) if group.drawn),
             default=-1,
         )
-        write_owed = result.board_changed and not (
-            prompt is not None and prompt.kind in PROMPTS_DRAWN_LATER
-        )
+        write_owed = result.board_changed
 
         held, image_after, challenger_id = challenge_placement(
             result, challenge_owed,
