@@ -60,8 +60,6 @@ from d12ball.flow.effects import (  # noqa: F401
     own_goal_roll_step,
     pressure_step,
     setup_pass_out_step,
-    setup_pass_push_back_step,
-    setup_pass_speed_step,
     setup_pass_step,
     speed_choice_step,
     steal_step,
@@ -222,7 +220,7 @@ async def resolve_high_pass(cog, interaction: discord.Interaction, game: D12Ball
 
 
 async def resolve_setup_pass(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:
-    result = setup_pass_speed_step(cog.engine, match)
+    result = flow_offer_setup_pass_distance(cog.engine, game, match)
     await cog.dispatch_step_result(interaction, game, match, result)
 
 
@@ -328,17 +326,6 @@ async def resolve_clear(cog, interaction: discord.Interaction, game: D12BallGame
 
 async def apply_deflection(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, key: str) -> None:
     result = deflection_step(cog.engine, match, key)
-    await cog.dispatch_step_result(interaction, game, match, result)
-
-
-async def offer_setup_pass_push_back(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, lead_in: str='') -> None:
-    await run_step(cog, interaction, game, match, FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK, lead_in=lead_in)
-
-
-async def apply_setup_pass_push_back(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, distance: int, lead_in: str='') -> None:
-    result = setup_pass_push_back_step(cog.engine, game, match, distance=distance)
-    if lead_in:
-        result.narration[0] = f'{lead_in}\n\n{result.narration[0]}'
     await cog.dispatch_step_result(interaction, game, match, result)
 
 

@@ -153,9 +153,8 @@ class PassFixture:
 
     game: D12BallGame
     match: MatchState
-    #: Which of the rank's four entry points drives this fixture:
-    #: `high_pass`, `setup_pass`, `setup_pass_out` or
-    #: `setup_pass_speed`.
+    #: Which of the rank's three entry points drives this fixture:
+    #: `high_pass`, `setup_pass` or `setup_pass_out`.
     entry: str
     #: The passer -- `match.active_player_id`, held here so the
     #: assertions can name them after the match has moved.
@@ -776,49 +775,11 @@ def a_beaten_intercept_leaves_the_reception_alone() -> PassFixture:
 # -- Cross --------------------------------------------------------
 
 
-def the_speed_before_the_pass() -> PassFixture:
-    """
-    **Cross is two prompts because the card's order is speed
-    first.** A speed choice has always been the *last* human step of
-    an effect; here it is the first, so the rest of the pass is
-    recorded as an effect continuation **when the speed is chosen**
-    and picked up afterwards -- and the continuation is persisted, so
-    a restart between the two comes back to whichever prompt is up
-    with the pass still owed. Nothing is recorded by this half: a
-    match waiting on the speed has to read as waiting on the speed.
-
-    Nothing moves here, which is why this is the one fixture of the
-    rank whose board did not change.
-    """
-    match, passer = stand_a_pass(
-        "setup_pass", passer_flat=3, speed=3,
-    )
-    return PassFixture(
-        game=advanced_game(),
-        match=match,
-        entry="setup_pass_speed",
-        passer_id=passer,
-        narration=(
-            f"**Cross:** {label(match, passer)} sets the ball's "
-            "speed before picking out the pass."
-        ),
-        board_changed=False,
-        follow_on=SPEED_CHOICE,
-        follow_on_kwargs={
-            "player_id": passer,
-            "skill_type": "offense",
-            "distance_moved": CLOCK_COST,
-        },
-        ball_space=at(match, 3),
-        ball_speed=3,
-    )
-
-
 def setup_pass_into_a_set_up() -> PassFixture:
     """
     The card doing what it is for: the ball picked out to a teammate,
-    who takes a scoring opportunity with the speed the passer just set
-    counting toward the shot.
+    who takes a scoring opportunity with the ball's speed counting
+    toward the shot -- the card sets none (Law 19.7.2, 2026-10-03).
     """
     match, passer = stand_a_pass("setup_pass", passer_flat=3, speed=5)
     receiver = put_a_teammate_on(match, 6, PlayerRole.STRIKER)
@@ -992,7 +953,6 @@ PASS_CASES = [
         a_long_pass_onto_nobody,
         a_fullback_throws_four,
         a_beaten_intercept_leaves_the_reception_alone,
-        the_speed_before_the_pass,
         setup_pass_into_a_set_up,
         setup_pass_to_a_teammate_in_the_same_space,
         setup_pass_onto_nobody,

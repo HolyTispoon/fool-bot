@@ -142,11 +142,12 @@ def import_maneuvers(rows: Iterable[dict[str, str]]) -> dict:
             )
         rank = int(rank_digits)
 
-        # The die values are retained but no longer validated for
-        # uniqueness: a gambit sits on its basic counterpart's
-        # rank and reuses its faces, and the selection die is off the
-        # rules altogether since 2026-08-17. Only the basic rows have
-        # to cover all six faces, which is checked below.
+        # The die values are retained but not validated for a gambit:
+        # the selection die is off the rules altogether since
+        # 2026-08-17, and the sheet gives the gambits one face each
+        # since 2026-10-03 (2, 4, 6) where they used to reuse their
+        # basic counterpart's two. Only the basic rows have to cover
+        # all six faces, which is checked below.
         die_values = parse_die_values(row.get("Die value") or "", name)
         if tier == "basic":
             overlap = die_faces_by_type[maneuver_type] & set(die_values)

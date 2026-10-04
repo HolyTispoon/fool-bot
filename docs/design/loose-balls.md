@@ -166,13 +166,12 @@ the two paths that did not pass it kept the old behaviour.
     (`DRIVER_STOPS`), and `stop_draws_the_board` skips the ordinary write in
     front of it. Keyed to the step, so every caller inherits it; see
     "Discord's rate limits" in [rate-limits.md](rate-limits.md).
-  - **A failed Cross gambit rides inside the deflection**, so its
-    prompt is skipped too (`PROMPTS_DRAWN_LATER`). Since 2026-09-27
-    `offer_setup_pass_push_back` asks the coach who beat the pass how far
-    back the ball goes *before* the deflection moves it -- once, 1-3 for a
-    Deflect and 2-4 for a Clear -- and the answer lands through
-    `deflection_lands`, here or in the challenger's shot -- so the board
-    arrives once, on the far side of the answer.
+  - **A failed Cross gambit is the deflection itself** (2026-10-03): it
+    lands here like any other, and what the failure changes is the
+    contest -- `RulesEngine.contest_auto_winner` gives it to the side that
+    beat the pass, without a roll, unless a passing Slitheron cancels it.
+    Both coaches are still offered a send to an empty space, and a player
+    sent still pays for the walk; only the roll is gone.
 - **`check_for_loose_ball` has one detour now, not two.** Its guard still
   earns its keep: the maneuvers that leave the ball with a named player are not
   loose, and that is what it asks. What changed on 2026-08-26 is what happens

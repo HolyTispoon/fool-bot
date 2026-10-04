@@ -78,7 +78,12 @@ from d12ball.special_abilities import (
     VORIX_PASS_DISTANCE,
     SpecialAbility,
 )
-from d12ball.prompts import PendingPrompt, PromptKind, speed_choice_ask
+from d12ball.prompts import (
+    PendingPrompt,
+    PromptKind,
+    double_team_partner_prompt,
+    speed_choice_ask,
+)
 
 
 def send_low_pass(
@@ -151,14 +156,14 @@ def pay_double_team_cost(
 ) -> str:
     """
     Double Team's cost, charged inside the pass that beat it: the
-    defender who played it and the nearest teammate each move a
-    space forward, away from their own goal.
+    defender who played it and the partner -- the nearest teammate on
+    the ball's space or behind it (Law 19.10.6) -- each move a space
+    forward, away from their own goal.
 
     `partner_id` is passed rather than looked up, because by the
-    time this runs the pass has already moved the ball and "the
-    closest teammate" would be measured from the wrong space -- the
-    card means the space the play started from. Its caller reads it
-    before the ball moves, the same way a won Double Team does.
+    time this runs the pass has already moved the ball and the
+    partner would be measured from the wrong space. Its caller reads
+    it before the ball moves, the same way a won Double Team does.
 
     No exhaustion -- nobody chose to go, and every per-space charge
     in the game is for a move somebody was sent on. Empty string
@@ -299,15 +304,14 @@ def low_pass_step(
         receiver_id = receivers[0] if receivers else None
 
     # Read before the ball moves too, and for the same reason a
-    # won Double Team reads it before the push: "the closest
-    # teammate" is measured from where the play started, which is
-    # where the ball is standing right now. See
-    # `pay_double_team_cost`.
-    double_team_partner = (
-        engine.double_team_partner(match)
-        if engine.gambit_cost(match, key) == "double_team"
-        else None
-    )
+    # won Double Team reads it before the push: the partner is
+    # measured from where the play started, which is where the ball
+    # is standing right now -- or was chosen there by the defending
+    # coach from a tie. See `pay_double_team_cost`.
+    double_team_partner = None
+    if engine.gambit_cost(match, key) == "double_team":
+        double_team_partner = engine.double_team_partner(match)
+        engine.record_double_team_partner(match, double_team_partner)
 
     actual_distance, passer_advance = send_low_pass(
         engine, match, offense_side, distance, key, receiver_id,
@@ -771,7 +775,7 @@ def shove_pressured_handler(
 ) -> int:
     """
     Drive the handler and the ball back, and bring the challenger
-    (and a Double Team's partner) onto the space they left.
+    (and a Double Team's partner) onto the handler's new space.
 
     Returns how far the handler actually moved, which is less than
     `push` only when the push reaches their own goal zone -- which the
@@ -818,8 +822,9 @@ def pressure_result_text(
     partner_id: Optional[str],
 ) -> str:
     """
-    What the shove reads as, and -- for a Double Team -- the record
-    of who is left challenging the next maneuver.
+    What the shove reads as, with a Double Team's partner joining in.
+    Whether that partner then Merges is `pressure_step`'s to say,
+    once it knows the ball is still the offense's.
     """
     handler = engine.get_player_definition(match.active_player_id)
     defender = engine.get_player_definition(match.challenger_id)
@@ -834,17 +839,7 @@ def pressure_result_text(
 
     if key == "double_team" and partner_id is not None:
         partner = engine.get_player_definition(partner_id)
-        # **The pair is recorded, not the fact that a Double Team
-        # happened.** What the next maneuver needs is who
-        # challenges it, and that is two named cards; a flag would
-        # leave the following turn re-deriving "the nearest
-        # teammate" off a board that has moved since.
-        match.pending_double_team = [match.challenger_id, partner_id]
-        content += (
-            f" {engine.format_player_label(match, partner)} "
-            "joins them -- and **both** will challenge on the next "
-            "maneuver, each adding their defensive skill."
-        )
+        content += f" {engine.format_player_label(match, partner)} joins them."
 
     return content
 
@@ -915,9 +910,8 @@ def pressure_step(
 ) -> StepResult:
     """
     Play a won Pressure -- or a Double Team, which is the same card
-    at two spaces with a second defender brought in free of
-    exhaustion, and the one card whose effect lands on the
-    *following* maneuver. The two differ by the push and by that
+    with a partner brought in free of exhaustion, who Merges through
+    the *following* maneuver (Law 19.10). The two differ only by that
     partner, so they are one function and a `key`, the way Low Pass
     and Pinpoint are.
 
@@ -932,26 +926,26 @@ def pressure_step(
     offense_side = match.ball.possession
     defense_side = match.defending_side()
     name = engine.maneuver_name(key)
-    push = 2 if key == "double_team" else 1
+    # Both cards push 1 (Law 19.10.2, 2026-10-03: a Double Team
+    # pushed 2 until then).
+    push = 1
 
     # Own-goal risk: a pressure is the only thing that threatens
     # one, and only when its push reaches the handler's own goal zone
-    # (Law 11.1) -- the handler already on the last space before it,
-    # or for a Double Team's push of 2 on the space next to that.
+    # (Law 11.1) -- the handler already on the last space before it.
     reaches_goal_zone = match.ball_reaches_goal_zone(offense_side, -push)
 
-    # **Read before anything moves.** The card says "the teammate
-    # closest to the space where the play started", and the play
-    # started where the ball is standing now -- a moment later the
-    # handler has been shoved back two and the ball with them, and
-    # the nearest defender to *that* space can be somebody else
-    # entirely. Asked here, so the answer is the one the card
-    # describes.
-    partner_id = (
-        engine.double_team_partner(match)
-        if key == "double_team"
-        else None
-    )
+    # **Read before anything moves.** The partner is the nearest
+    # defender on the ball's space or behind it, where the play
+    # started (Law 19.10.3) -- a moment later the ball has moved and
+    # the nearest to *that* space can be somebody else. A tie was the
+    # defending coach's to break before this step ran
+    # (`DOUBLE_TEAM_PARTNER`); either way it is recorded here, so no
+    # later reading this maneuver measures again.
+    partner_id = None
+    if key == "double_team":
+        partner_id = engine.double_team_partner(match)
+        engine.record_double_team_partner(match, partner_id)
 
     actual_distance = shove_pressured_handler(match, push, partner_id)
     content = pressure_result_text(
@@ -1017,6 +1011,25 @@ def pressure_step(
         engine, match, key, defense_side,
     )
     content += turnover_text
+
+    if key == "double_team" and partner_id is not None and not (
+        burst_cost or stolen
+    ):
+        # **The partner Merges through the next maneuver** (Law
+        # 19.10.5) -- unless the ball has just changed hands, which
+        # ends it before it starts. Recorded by name, so the next
+        # maneuver does not re-derive a partner off a board that has
+        # moved; `finish_maneuver_resolution` keeps it past this
+        # maneuver's own end (the `merges` mark) and clears it at the
+        # next one's.
+        match.pending_double_team = [partner_id]
+        engine.record_double_team_partner(match, partner_id, merges=True)
+        partner = engine.get_player_definition(partner_id)
+        content += (
+            f" {engine.format_player_label(match, partner)} Merges on the "
+            "next maneuver, adding their defensive skill while they stand "
+            "on the ball."
+        )
 
     # Fixed 1 time per the rules table, whether or not the
     # push reached the goal zone, same reasoning as a deflection.
@@ -1356,17 +1369,11 @@ def deflection_step(
     where the ball is lying when the question is asked
     (`deflection_lands`).
     """
-    # **A failed Cross gambit**: the card that beat it moves the
-    # ball once, as far as the coach who played it chooses (Law
-    # 19.7.7, the author, 2026-09-27) -- so the ball is not moved
-    # here, and the choice is asked first. Until then it was knocked
-    # back by the card's own distance and pushed a further 1, 2 or 3
-    # after it. `setup_pass_push_back_step` is where it moves.
-    if engine.gambit_cost(match, key) == "setup_pass":
-        return StepResult(
-            next=FollowOn(FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK),
-        )
-
+    # **A failed Cross gambit is this card, as itself** (Law 19.7.7,
+    # the author, 2026-10-03): the ball goes back the card's own
+    # distance and lands as it always does. What the failure changes is
+    # the contest it may lead to, which the side that played this card
+    # wins without a roll -- `RulesEngine.contest_auto_winner`.
     offense_side = match.ball.possession
     defender = engine.get_player_definition(match.challenger_id)
     name = engine.maneuver_name(key)
@@ -1398,10 +1405,8 @@ def deflection_lands(
     """
     Where a deflection's ball comes to rest decides what happens next:
     the challenger's shot where it reached the goal zone, or a loose
-    ball settled by
-    who is standing there. Shared by a deflection at the card's own
-    distance and by one at the distance a failed Cross gambit let
-    its coach choose (`setup_pass_push_back_step`), which land alike.
+    ball settled by who is standing there -- a failed Cross's
+    deflection included, which lands exactly as any other.
     """
     defense_side = match.defending_side()
 
@@ -1935,50 +1940,6 @@ def offer_goal_zone_set_up(
     )
 
 
-def setup_pass_speed_step(
-    engine: RulesEngine,
-    match: MatchState,
-) -> StepResult:
-    """
-    Cross, the High Pass gambit, in its first half: **adjust ball
-    speed up to the passer's offensive skill, and then** pick the pass
-    out.
-
-    The order is the card's and it is the reason this is two prompts
-    rather than one. A speed choice has always been the *last* human
-    step of an effect, leading straight into
-    `finish_maneuver_resolution`; here it is the first, so what comes
-    after it is recorded as an effect continuation **when the speed
-    choice is answered** (`speed_choice_step`) and picked up by
-    `continue_effect`. Recorded then and not here, because the record
-    is what `effect_choice_prompt` reads first: written before the
-    speed choice, it made a match still waiting on the speed read as
-    waiting on the pass -- a restart came back to the wrong prompt,
-    and once every click was checked against that reading the speed
-    choice itself was refused.
-
-    **Nothing on the board moves here**, which is what makes this the
-    one step of the rank whose `board_changed` is False: the speed is
-    set by the choice this hands off to, not by the card.
-    """
-    passer = engine.get_player_definition(match.active_player_id)
-    return StepResult(
-        narration=[
-            f"**{engine.maneuver_name('setup_pass')}:** "
-            f"{engine.format_player_label(match, passer)} "
-            "sets the ball's speed before picking out the pass."
-        ],
-        next=FollowOn(
-            FollowOnStep.OFFER_SPEED_CHOICE,
-            {
-                "player_id": match.active_player_id,
-                "skill_type": "offense",
-                "distance_moved": SETUP_PASS_CLOCK_COST,
-            },
-        ),
-    )
-
-
 def setup_pass_step(
     engine: RulesEngine,
     match: MatchState,
@@ -1987,8 +1948,8 @@ def setup_pass_step(
     game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
-    Cross's second half: the ball goes 0, 1 or 3 spaces, and a
-    teammate standing where it lands takes a scoring opportunity.
+    Cross: the ball goes 0, 1 or 3 spaces, and a teammate standing
+    where it lands takes a scoring opportunity.
 
     **Every distance that fits on the field is offered**, whether or
     not anybody of the passing side is standing there, so all three
@@ -1996,8 +1957,9 @@ def setup_pass_step(
     guards -- see `RulesEngine.setup_pass_distances`.
     """
     offense_side = match.ball.possession
-    # Applied, so the continuation is spent -- see
-    # `d12ball.flow.effects.continue_effect` for why it survived until now.
+    # A game saved after the speed choice Cross used to ask first
+    # carries a `setup_pass_shot` continuation; applying the pass spends
+    # it, as it always did.
     match.pending_effect_continuation = None
     actual_distance = match.move_ball_relative(offense_side, distance)
     receivers = engine.high_pass_receiver_candidates(match, offense_side)
@@ -2219,9 +2181,10 @@ def speed_choice_step(
     Set the ball speed a maneuver's last human choice asks for.
 
     A gambit's effect can reach past its own maneuver, and a speed
-    choice is the last human step of the two that do -- Cross's
-    own pass, and the unopposed Low Pass a beaten Pinpoint hands
-    the side that stole it. **What is still owed is written down
+    choice is the last human step of the one that does: the
+    unopposed Low Pass a beaten Pinpoint hands the side that stole
+    it. (Cross's own pass followed a speed choice too, until the
+    2026-10-03 card dropped the speed.) **What is still owed is written down
     here**, at the moment the effect has nothing left in front of it,
     and run instead of the ordinary tail. Written here rather than by
     the card that earned it because the record is what
@@ -2236,9 +2199,7 @@ def speed_choice_step(
         winner_key = engine.settled_maneuver_winner(match, game)
         if winner_key is not None:
             resolving = engine.resolving_maneuver(match, winner_key)
-            if resolving == "setup_pass":
-                match.pending_effect_continuation = {"kind": "setup_pass_shot"}
-            elif (
+            if (
                 resolving in ("steal", "intercept")
                 and engine.gambit_cost(match, winner_key) == "skilled_pass"
             ):
@@ -2271,40 +2232,6 @@ def speed_choice_step(
             },
         ),
     )
-
-
-def setup_pass_push_back_step(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    *,
-    distance: int,
-) -> StepResult:
-    """
-    **A failed Cross gambit**, spent: the Deflect or Clear that
-    beat it moves the ball back the distance its coach chose, once
-    (Law 19.7.7, the author, 2026-09-27), and it lands as any
-    deflection does (`deflection_lands`) -- a shot where it ran out of
-    field onto the challenger, a loose ball settled by who is standing
-    there otherwise. The speed drop is the card's own
-    (`deflection_numbers`), whatever distance was chosen.
-    """
-    key = engine.resolving_maneuver(
-        match, engine.settled_maneuver_winner(match, game),
-    )
-    defender = engine.get_player_definition(match.challenger_id)
-    _, speed_drop, _ = deflection_numbers(defender, key)
-    reaches_goal_zone, actual_distance = knock_ball_back(
-        match, match.ball.possession, distance, speed_drop,
-    )
-    space_word = "space" if actual_distance == 1 else "spaces"
-    content = (
-        f"**{engine.maneuver_name(key)}** beat the "
-        f"**{engine.maneuver_name('setup_pass')}**: the "
-        f"ball moves {actual_distance} {space_word} back. Ball speed is "
-        f"now {match.ball.speed}."
-    )
-    return deflection_lands(engine, match, content, reaches_goal_zone)
 
 
 # -- Offering an effect's choice --------------------------------------
@@ -2525,8 +2452,9 @@ def offer_setup_pass_distance(
     lead_in: str = "",
 ) -> StepResult:
     """
-    The second half of Cross: 0, 1 or 3 spaces, and a teammate
-    standing where it lands takes a scoring opportunity.
+    Cross: 0, 1 or 3 spaces, and a teammate standing where it lands
+    takes a scoring opportunity at the speed the ball already has --
+    the card sets no speed (Law 19.7.2, 2026-10-03).
 
     **Every distance that fits on the field is offered**, whether or
     not anybody of the passing side is standing there -- see
@@ -2552,51 +2480,6 @@ def offer_setup_pass_distance(
             PromptKind.SETUP_PASS_CHOICE,
             f"{_possession_mention(engine, game, match)}, choose where "
             f"your **{engine.maneuver_name('setup_pass')}** lands:",
-        ),
-    )
-
-
-def offer_setup_pass_push_back(
-    engine: RulesEngine,
-    game: D12BallGame,
-    match: MatchState,
-    lead_in: str = "",
-) -> StepResult:
-    """
-    **A failed Cross gambit**: the coach whose Deflect or Clear
-    beat it chooses how far back the ball goes -- 1, 2 or 3 for a
-    Deflect, 2, 3 or 4 for a Clear, one more each for a Fullback
-    (`RulesEngine.setup_pass_push_back_distances`).
-
-    Where the field leaves only one distance -- the ball already so
-    near the end that even the shortest runs out of it -- there is
-    nothing to choose, and it is played without asking.
-    """
-    distances = engine.setup_pass_push_back_distances(game, match)
-
-    if len(distances) == 1:
-        return _with_lead_in(
-            setup_pass_push_back_step(
-                engine, game, match, distance=distances[0],
-            ),
-            lead_in,
-        )
-
-    mention = format_player_with_team(
-        game,
-        engine.defending_player_number(game, match),
-        mention=True,
-    )
-    name = engine.maneuver_name(engine.resolving_maneuver(
-        match, engine.settled_maneuver_winner(match, game),
-    ))
-    return StepResult(
-        narration=[lead_in] if lead_in else [],
-        next=PendingPrompt(
-            PromptKind.SETUP_PASS_PUSH_BACK,
-            f"{mention}, your **{name}** beat the "
-            f"**{engine.maneuver_name('setup_pass')}** -- how "
-            "far back does the ball go?",
         ),
     )
 
@@ -2667,9 +2550,7 @@ EFFECT_OFFERS = {
     "dribble_advance": offer_dribble_advance,
     "dribble_burst": offer_dribble_burst,
     "high_pass": offer_high_pass,
-    "setup_pass": lambda engine, game, match: setup_pass_speed_step(
-        engine, match,
-    ),
+    "setup_pass": offer_setup_pass_distance,
     "deflect": lambda engine, game, match: deflection_step(
         engine, match, "deflect",
     ),
@@ -2727,6 +2608,17 @@ def begin_effect_resolution(
     under the old rule -- a skill test's injury checks, most often --
     which reaches here with nothing on the clock yet.
     """
+    if engine.double_team_partner_owed(
+        match, engine.resolving_maneuver(match, winner_key),
+    ):
+        # **A Double Team's partner is chosen first** where several tie
+        # (Law 19.10.3), won or beaten -- ahead of the log and the
+        # effect, so the answer comes back through here and the
+        # maneuver is still logged exactly once.
+        return StepResult(
+            narration=[lead_in] if lead_in else [],
+            next=double_team_partner_prompt(engine, game, match),
+        )
     record_maneuver(engine, match, winner_key)
     clock = charge_maneuver_clock(engine, match, winner_key)
     lead_in = "\n\n".join(filter(None, (lead_in, clock)))
@@ -2784,11 +2676,6 @@ def continue_effect(
                 engine, game, match, key="low_pass", free=True,
                 lead_in=lead_in,
             )
-
-    if continuation.get("kind") == "setup_pass_shot":
-        # **Cross's benefit**, second half: the speed is set, and
-        # now the scoring opportunity is set up.
-        return offer_setup_pass_distance(engine, game, match, lead_in=lead_in)
 
     match.pending_effect_continuation = None
     # Named rather than called: the tail of a maneuver is a step the

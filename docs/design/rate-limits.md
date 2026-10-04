@@ -89,8 +89,9 @@ invariants read as ordinary cog surface among 223 methods.
   says whether the stopped step is about to draw, and `post_stop` draws
   it -- `announce_board_update` or `post_new_play_board`, each of which
   brings the persistent message in line from the same render.
-  `PROMPTS_DRAWN_LATER` is the same economy for the one *prompt* whose
-  answer draws a beat later, Cross's push back. Until then the same
+  There was a `PROMPTS_DRAWN_LATER` too, the same economy for the one
+  *prompt* whose answer drew a beat later -- Cross's push back -- until
+  that prompt went with the 2026-10-03 card. Until the stops, the same
   answer was a set of follow-ons, `FOLLOW_ONS_THAT_DRAW_THE_BOARD`, read
   off `StepResult.next`; the bullets below were written against it and
   the reasoning has not moved.
@@ -101,14 +102,11 @@ invariants read as ordinary cog surface among 223 methods.
     means each caller inherits it rather than deciding it again, which is
     how the two paths that opted out of `restrict_to_occupants` survived,
     one floor up in this same flow.
-  - **Cross's push back is skipped one step removed**
-    (`PROMPTS_DRAWN_LATER`), because every answer ends in a picture of
-    its own: `begin_loose_ball`, or the challenger's shot where the ball
-    reached the goal zone and came to rest on them. Since 2026-09-27 the
-    question comes before the ball moves at all (a failed Cross
-    gambit is one move of the beating coach's choosing, Law 19.7.7), so
-    the board reaches the channel once, after the answer, rather than in
-    front of a question whose answer moves the ball.
+  - **Cross's push back was skipped one step removed**
+    (`PROMPTS_DRAWN_LATER`, 2026-09-27 to 2026-10-03), because every
+    answer ended in a picture of its own. A failed Cross is the beating
+    card's own deflection now, which asks nothing, so the prompt and the
+    set went together; the deflection's loose ball draws as any does.
   - **It lives in the cog on purpose.** This is a five-in-five economy, and
     rate limits are the frontend's -- principle 8 in CLAUDE.md. A web app
     reading the same `StepResult` has no such bucket and should redraw every

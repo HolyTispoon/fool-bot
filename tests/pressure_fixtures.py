@@ -140,8 +140,8 @@ class PressureFixture:
     handler_space: Optional[tuple[Zone, int]] = None
     challenger_space: Optional[tuple[Zone, int]] = None
     ball_speed: int = 1
-    #: The pair left challenging the next maneuver -- empty where the
-    #: card does not leave one, which is what the match itself holds.
+    #: The partner left Merging through the next maneuver -- empty where
+    #: the card does not leave one, which is what the match itself holds.
     pending_double_team: list[str] = field(default_factory=list)
 
 
@@ -294,7 +294,7 @@ def shove_text(
 ) -> str:
     """
     The sentence both cards share, built rather than spelled out, plus
-    the Double Team's record of who is left challenging next.
+    the Double Team's partner joining in.
     """
     space_word = "space" if actual_distance == 1 else "spaces"
     content = (
@@ -305,12 +305,17 @@ def shove_text(
         "forward."
     )
     if partner is not None:
-        content += (
-            f" {label(match, partner)} "
-            "joins them -- and **both** will challenge on the next "
-            "maneuver, each adding their defensive skill."
-        )
+        content += f" {label(match, partner)} joins them."
     return content
+
+
+def merge_text(match: MatchState, partner: str) -> str:
+    """A won Double Team that kept the ball the offense's: the partner
+    Merges through the next maneuver (Law 19.10.5)."""
+    return (
+        f" {label(match, partner)} Merges on the next maneuver, adding "
+        "their defensive skill while they stand on the ball."
+    )
 
 
 def defender_steal_text(match: MatchState, challenger: str) -> str:
@@ -514,58 +519,22 @@ def pressure_by_a_defender_beats_a_dribble_burst() -> PressureFixture:
 
 def double_team_plain() -> PressureFixture:
     """
-    The gambit is Pressure at two spaces with a second defender
-    brought in free of exhaustion -- **placed** on the handler's new
-    space rather than run to it, which is what "no exhaustion cost"
+    The gambit is a Pressure with a partner (Law 19.10.2): the push is
+    a Pressure's 1, and the nearest defender on the ball's space or
+    behind it joins on the handler's new space free of exhaustion --
+    **placed** rather than run, which is what "no exhaustion cost"
     means in a game where every other way to reach a space charges a
     token a space.
 
-    It is also the one card whose effect lands on the *following*
-    maneuver: `pending_double_team` is the pair, not a flag, so the
-    next turn knows who challenges without re-deriving it off a board
-    that has moved since.
+    The partner Merges through the *following* maneuver:
+    `pending_double_team` names them, so the next turn does not
+    re-derive a partner off a board that has moved since.
     """
     match, handler, challenger = stand_a_pressure(
         "low_pass", "double_team",
     )
     partner = ENGINE.double_team_partner(match)
-    destination = shoved_to(match, handler, 2)
-    return PressureFixture(
-        game=advanced_game(),
-        match=match,
-        key="double_team",
-        handler_id=handler,
-        challenger_id=challenger,
-        partner_id=partner,
-        narration=shove_text(
-            match, "double_team", handler, challenger, 2, partner,
-        ),
-        carrier_id=handler,
-        ball_space=destination,
-        handler_space=destination,
-        challenger_space=destination,
-        pending_double_team=[challenger, partner],
-    )
-
-
-def double_team_that_overshoots() -> PressureFixture:
-    """
-    A Double Team overshoots from one space further out than a
-    Pressure can, and **it shoves them a real space first**: the push
-    of 2 clamps to 1, so the sentence reads the distance actually
-    travelled and the ball has moved by the time the roll is asked
-    for.
-
-    The pair is still recorded. The shove's own wording runs before
-    the overshoot is read, so a Double Team that ends in an own-goal
-    roll still leaves both defenders challenging the next maneuver --
-    which, if the roll is survived, is the next maneuver of a restart.
-    """
-    match, handler, challenger = stand_a_pressure(
-        "low_pass", "double_team", back_from_own_goal=1,
-    )
-    partner = ENGINE.double_team_partner(match)
-    destination = shoved_to(match, handler, 2)
+    destination = shoved_to(match, handler, 1)
     return PressureFixture(
         game=advanced_game(),
         match=match,
@@ -577,32 +546,30 @@ def double_team_that_overshoots() -> PressureFixture:
             shove_text(
                 match, "double_team", handler, challenger, 1, partner,
             )
-            + OVERSHOOT_NOTE
+            + merge_text(match, partner)
         ),
-        follow_on=OWN_GOAL_ROLL,
-        follow_on_kwargs={"distance_moved": 1},
         carrier_id=handler,
         ball_space=destination,
         handler_space=destination,
         challenger_space=destination,
-        pending_double_team=[challenger, partner],
+        pending_double_team=[partner],
     )
 
 
-def double_team_beats_a_dribble_burst() -> PressureFixture:
+def double_team_that_overshoots() -> PressureFixture:
     """
-    The same cost on the other card of the rank. Worth its own fixture
-    rather than trusting the Pressure's: this is where the turnover is
-    pinned after a sentence that has already said two more things, and
-    where the pair recorded for the next maneuver has to survive a
-    branch that hands the ball over.
+    A Double Team reaches the goal zone exactly where a Pressure does,
+    from the last space before the handler's own goal: the push of 1
+    has nowhere to go, so nobody moves back and the roll is owed.
+
+    No Merge is granted: an own-goal roll ends in a new play whichever
+    way it goes, and a new play would end it anyway.
     """
     match, handler, challenger = stand_a_pressure(
-        "dribble_burst", "double_team",
+        "low_pass", "double_team", back_from_own_goal=0,
     )
     partner = ENGINE.double_team_partner(match)
-    match.ball.speed = 2
-    destination = shoved_to(match, handler, 2)
+    destination = shoved_to(match, handler, 1)
     return PressureFixture(
         game=advanced_game(),
         match=match,
@@ -612,7 +579,44 @@ def double_team_beats_a_dribble_burst() -> PressureFixture:
         partner_id=partner,
         narration=(
             shove_text(
-                match, "double_team", handler, challenger, 2, partner,
+                match, "double_team", handler, challenger, 0, partner,
+            )
+            + OVERSHOOT_NOTE
+        ),
+        follow_on=OWN_GOAL_ROLL,
+        follow_on_kwargs={"distance_moved": 1},
+        carrier_id=handler,
+        ball_space=destination,
+        handler_space=destination,
+        challenger_space=destination,
+    )
+
+
+def double_team_beats_a_dribble_burst() -> PressureFixture:
+    """
+    The same cost on the other card of the rank. Worth its own fixture
+    rather than trusting the Pressure's: this is where the turnover is
+    pinned after a sentence that has already said two more things, and
+    where the Merge is **not** granted -- the partner's side has the
+    ball now, and a Merge for their next defensive maneuver ends the
+    moment they take it.
+    """
+    match, handler, challenger = stand_a_pressure(
+        "dribble_burst", "double_team",
+    )
+    partner = ENGINE.double_team_partner(match)
+    match.ball.speed = 2
+    destination = shoved_to(match, handler, 1)
+    return PressureFixture(
+        game=advanced_game(),
+        match=match,
+        key="double_team",
+        handler_id=handler,
+        challenger_id=challenger,
+        partner_id=partner,
+        narration=(
+            shove_text(
+                match, "double_team", handler, challenger, 1, partner,
             )
             + burst_cost_text(match, 2)
         ),
@@ -624,7 +628,6 @@ def double_team_beats_a_dribble_burst() -> PressureFixture:
         handler_space=destination,
         challenger_space=destination,
         ball_speed=2,
-        pending_double_team=[challenger, partner],
     )
 
 

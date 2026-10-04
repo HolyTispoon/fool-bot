@@ -637,16 +637,16 @@ STRIP_MOVES: dict[str, tuple[Move, ...]] = {
     "intercept": (
         Move(-1, "interceptor + ball", "defense", start=-19, end=-19),
     ),
-    # Three pieces end on one space: the handler shoved back two, the
-    # challenger, and the teammate nearest where the play started, who
-    # joins from wherever they are -- dashed, because how far they come
-    # is not a number on the card.
+    # Three pieces end on one space: the handler shoved back one, the
+    # challenger, and the nearest teammate on the ball's space or behind
+    # it, who joins from wherever they are -- dashed, because how far
+    # they come is not a number on the card (Law 19.10.3).
     "double_team": (
-        Move(-2, "handler + ball", "offense", start=-19, end=-19),
-        Move(-2, "challenger", "defense", start=19, end=19, lift=26, row=1),
+        Move(-1, "handler + ball", "offense", start=-19, end=-19),
+        Move(-1, "challenger", "defense", start=19, end=19, lift=26, row=1),
         Move(
-            -2,
-            "+ nearest teammate",
+            -1,
+            "+ nearest teammate\nbehind",
             "defense",
             dashed=True,
             start=57,
@@ -673,7 +673,7 @@ STRIP_ACTORS: dict[str, tuple[str, dict[int, str]]] = {
     "setup_pass": ("H", {1: "R", 3: "R", 4: "R"}),
     "clear": ("H", {}),
     "intercept": ("HC", {-1: "C"}),
-    "double_team": ("HC", {-2: "HCC"}),
+    "double_team": ("HC", {-1: "HCC"}),
 }
 
 # How wide the strip is and where the ball stands on it, per tier.
@@ -911,10 +911,12 @@ def draw_strip_token(
     ghost: bool = False,
     offset: float = 0,
     radius: float = 23,
+    rise: float = 0,
 ) -> None:
     """A piece on a space: solid where it stands, ghosted where it lands."""
     cx, cy = geo.center(index)
     cx += offset
+    cy -= rise
     if ghost:
         pen.circle((cx, cy), radius, fill=STRIP_SPACE_COLOR, outline=color, width=3)
     else:
@@ -997,8 +999,11 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
     """
     The pieces a space is drawn holding, spread evenly across it. One
     is centred; two straddle the middle; Double Team's three -- the
-    handler, the challenger and the teammate who joined -- pack tighter
-    still, which is what the shrinking radius is for.
+    handler, the challenger and the teammate who joined -- are a
+    triangle, one over two, the top one set back from the ball's side:
+    since its push came down to one space (2026-10-03) they land beside
+    the ball's own two tokens and the ball, and three abreast ran into
+    them.
     """
     if len(who) == 1:
         draw_strip_token(
@@ -1006,8 +1011,22 @@ def draw_strip_ghosts(pen: Pen, geo: StripGeometry, index: float, who: str) -> N
             who, ghost=True,
         )
         return
-    gap = 38 if len(who) == 2 else 32
-    radius = 20 if len(who) == 2 else 16
+    if len(who) == 3:
+        for label, (offset, rise) in zip(who, ((-15, -11), (15, -11), (-6, 17))):
+            draw_strip_token(
+                pen,
+                geo,
+                index,
+                SIDE_COLORS["offense" if label in "HR" else "defense"],
+                label,
+                ghost=True,
+                offset=offset,
+                radius=14,
+                rise=rise,
+            )
+        return
+    gap = 38
+    radius = 20
     first = -gap * (len(who) - 1) / 2
     for position, label in enumerate(who):
         draw_strip_token(
@@ -1749,7 +1768,8 @@ def draw_card_effect(
     in one size, so none reads as the more important.
     """
     # **The size is searched, not set.** The effects run from Deflect's
-    # twenty words to Double Team's seventy, and the band they share is
+    # twenty words to the longest gambit's forty-odd (Double Team ran to
+    # seventy before 2026-10-03), and the band they share is
     # whatever the strip and the matchups leave behind -- so a fixed
     # size fits the short cards and runs the long ones straight over the
     # matchup row. Which it did: Double Team's paragraph overran three
