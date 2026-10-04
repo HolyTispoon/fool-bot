@@ -21,7 +21,7 @@ board on its own (`team-board.png`, half a letter sheet) and a letter
 page carrying two of them to be cut apart, one for each coach
 (`team-board-2up.png`). The board comes out five times over: the
 standard board, in ink and naming no team, and one in each colour
-team's colour with its name (`team-board-orange.png`, ...). The
+team's colour with its emoji (`team-board-orange.png`, ...). The
 species teams get none: the print game has no cards for them, and each
 shares its colour team's hex. **A coloured page carries two colour
 teams**, Teal over Orange (`team-board-2up-teal-orange.png`) and

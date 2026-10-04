@@ -80,6 +80,7 @@ from d12ball.components import (
     period_last_minute,
 )
 from d12ball.game import Team
+from d12ball.player_cards import team_emoji
 from d12ball.render import (
     EXHAUSTED_ICON_PATH,
     EXHAUST_ICON_PATH,
@@ -2298,12 +2299,12 @@ TEAM_BOARD_PAPER = "letter"
 # of the sheet's width is exactly how a line of type came to be drawn
 # through the rule under it.
 #
-# Six sizes, and nothing between them: the board's own title, a team's
-# name, a cell's title, a cell's caption, body text, and the small
-# print in the footer. A seventh size is a change to this list, not a
-# number written into a call.
+# Five sizes, and nothing between them: the board's own title, a
+# cell's title, a cell's caption, body text, and the small print in the
+# footer. A sixth size is a change to this list, not a number written
+# into a call. The team is named by its emoji, not a word -- see
+# `draw_team_header`.
 TEAM_TITLE_INCHES = 0.26
-TEAM_NAME_INCHES = 0.20
 TEAM_CELL_TITLE_INCHES = 0.165
 TEAM_CAPTION_INCHES = 0.105
 TEAM_BODY_INCHES = 0.12
@@ -2615,7 +2616,7 @@ def render_team_board(
     short in the first place.
 
     `team` colours the rule under the header and the cell outlines, and
-    names the team in the corner; with no team it is all ink and the
+    puts the team's emoji in the corner; with no team it is all ink and the
     corner is empty -- the standard board is nobody's, so it names
     nobody.
     """
@@ -2706,9 +2707,15 @@ def draw_team_header(
     accent: str,
 ) -> None:
     """
-    The board's own title and the team's name on one line -- no name on
-    the standard board, which is no team's -- the roster under them,
-    and the rule under that.
+    The board's own title, the team's emoji in the corner -- none on
+    the standard board, which is no team's -- the roster under the
+    title, and the rule under that.
+
+    **The team is its emoji, not its name** (the author, 2026-10-04):
+    the ringed letter the bot puts beside a team in Discord and the
+    player cards carry in their corner (`player_cards.team_emoji`), so
+    the board and the cards laid on it are marked the same way. It
+    stands as tall as the header's two lines.
 
     **The roster line is wrapped to what the title leaves**, not fitted
     to it: the line names nine cards by role and is the first thing on
@@ -2718,28 +2725,22 @@ def draw_team_header(
     title_font = print_font(TEAM_TITLE_INCHES, bold=True)
     sheet.text((geometry.left, geometry.top), "TEAM BOARD", title_font, INK)
 
-    if team is not None:
-        # .replace before .upper(), not team_display_name (which title-
-        # cases): an underscored team's value needs the same space an
-        # ordinary one gets, but this header is deliberately all caps,
-        # unlike everywhere team_display_name is used.
-        name = team.value.replace("_", " ").upper()
-        title_width = sheet.text_width("TEAM BOARD", title_font)
-        draw_fitted(
-            sheet,
-            (geometry.right, geometry.top + 0.04 * PRINT_DPI),
-            name,
-            geometry.right - geometry.left - title_width - 0.3 * PRINT_DPI,
-            TEAM_NAME_INCHES,
-            accent,
-            bold=True,
-            anchor="ra",
+    roster_right = geometry.right
+    emoji = team_emoji(team) if team is not None else None
+    if emoji is not None:
+        side = round(
+            geometry.rule_top - geometry.top - TEAM_RULE_GAP_INCHES * PRINT_DPI
         )
+        mark = emoji.resize((side, side), Image.LANCZOS)
+        sheet.image.paste(
+            mark, (round(geometry.right) - side, round(geometry.top)), mark
+        )
+        roster_right -= side + TEAM_COLUMN_GAP_INCHES * PRINT_DPI
     draw_fitted(
         sheet,
         (geometry.left, geometry.roster_top),
         roster_line(players),
-        geometry.right - geometry.left,
+        roster_right - geometry.left,
         TEAM_BODY_INCHES,
         MUTED,
     )
