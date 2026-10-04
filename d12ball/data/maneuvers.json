@@ -1,5 +1,5 @@
 {
-  "data_version": 15,
+  "data_version": 16,
   "source": "https://docs.google.com/spreadsheets/d/1PKPpTseisPmM-tH6PMLbtsrYsZ_zG8smluP5VmHKcMw/export?format=csv&gid=1487033386",
   "maneuvers": {
     "offense": [
@@ -22,7 +22,6 @@
         "rank": 1,
         "tier": "advanced",
         "die_values": [
-          1,
           2
         ],
         "effect": "Successful gambit: ball to any teammate up to 3 spaces away. Ball speed +3. \nFailed gambit: after stealing, the defender may Low Pass unopposed.",
@@ -48,7 +47,6 @@
         "rank": 2,
         "tier": "advanced",
         "die_values": [
-          3,
           4
         ],
         "effect": "Successful gambit: player and ball move up to 4 spaces, exhausting 1 per space. Ball speed goes to 12. \nFailed gambit: lose possession; ball speed does not reset, and the defender adjusts it up to dSkill.",
@@ -74,10 +72,9 @@
         "rank": 3,
         "tier": "advanced",
         "die_values": [
-          5,
           6
         ],
-        "effect": "Successful gambit: adjust ball speed up to oSkill, then set up scoring at 0, 1, or 3 (with the speed bonus). \nFailed gambit: opponent picks 1-2-3 spaces for the ball to go back (Clear: 2-3-4).",
+        "effect": "Successful gambit: Set up scoring at 0, 1, or 3 (with speed bonus). \nFailed gambit: opponent auto wins a contest to get the deflected ball.",
         "time": "2",
         "defeats_rank": 2
       }
@@ -102,10 +99,9 @@
         "rank": 1,
         "tier": "advanced",
         "die_values": [
-          1,
           2
         ],
-        "effect": "Successful gambit: ball moves back 3 (vs Cross: 2-3-4, your choice). If reaches the goal zone may set up scoring. Ball speed -3. \nFailed gambit: exhaust 2.",
+        "effect": "Successful gambit: ball moves back 3. If reaches the goal zone may set up scoring. Ball speed -3. \nFailed gambit: exhaust 2.",
         "time": "1",
         "defeats_rank": 3
       },
@@ -128,7 +124,6 @@
         "rank": 2,
         "tier": "advanced",
         "die_values": [
-          3,
           4
         ],
         "effect": "Successful gambit: turnover. Defender and ball move forward 1. Adjust ball speed after turnover (up to dSkill). \nFailed gambit: High Pass reception is uncontested.",
@@ -154,10 +149,9 @@
         "rank": 3,
         "tier": "advanced",
         "die_values": [
-          5,
           6
         ],
-        "effect": "Successful gambit: player and ball go back 2; the nearest teammate joins the defender for free. Until a new play, both challenge next maneuver, adding dSkill. If reaches the goal zone, own goal risk. \nFailed gambit: both go 1 forward.",
+        "effect": "Successful gambit: player and ball go back 1; Defender moves 1 forward and nearest teammate behind joins, gaining Merging for the next defensive maneuver. If reaches the goal zone, own goal risk.\nFailed gambit: Defender and nearest teammate behind go 1 forward.",
         "time": "1",
         "defeats_rank": 2
       }
