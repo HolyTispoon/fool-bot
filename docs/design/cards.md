@@ -1046,7 +1046,10 @@ the game reads them.
   finds the beaten card on the back rather than assuming where it is). Seen
   from the back, an arrow points the same way through the tile as its
   partner on the front, because on either side a rank beats the other
-  side's rank below it. Round the arrows, `RULE` writes that out. **Its
+  side's rank below it. Round the arrows, `RULE` writes that out, in the
+  side's deep colour rather than the black of the text round it, and every
+  rank on the ring -- an arrow's D3, the rule's 1 and 3 -- in the rank's
+  own font, as on the cards (the author, 2026-10-04). **Its
   wording is the module's own**, not the Charter's -- 6.3.1 gives the cycle
   as a table -- so `check_rule` holds it against `ManeuverCatalog.resolve`
   every time a face is drawn, and a rules change that breaks it stops the

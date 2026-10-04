@@ -55,6 +55,7 @@ CLI; see "The maneuver tiles" in docs/design/cards.md.
 from __future__ import annotations
 
 import math
+import re
 from functools import lru_cache
 from typing import Callable, Optional
 
@@ -106,9 +107,13 @@ BODY_MAX_MM, BODY_MIN_MM = 5.0, 1.4
 SECONDARY = 0.74
 TIE_SCALE = 0.86
 
-# Round the d12: the arrow ring, then the rule.
+# Round the d12: the arrow ring, then the rule. A rank in braces is set in
+# the rank's own font, as it is everywhere else, and the rule in a colour
+# apart from the black of the text round it (the author, 2026-10-04) --
+# the side's deep shade, the gambit cards' own, on both tiles, since the
+# basic defense green is too pale for words this small (2:1 on white).
 ARROW_RING_MM = 4.4
-RULE = "EACH RANK BEATS THE RANK ONE BELOW IT  •  1 BEATS 3  •  SAME RANK TIES  •  "
+RULE = "EACH RANK BEATS THE RANK ONE BELOW IT  •  {1} BEATS {3}  •  SAME RANK TIES  •  "
 
 # The strip, redrawn: the legend columns either side and the padding.
 STRIP_LEGEND_W = 190
@@ -773,28 +778,38 @@ def region(img, maneuver, offense, d: Region, t_max, mm, vertex_line) -> float:
 
 
 # ---- round the d12 -------------------------------------------------------------
-def arc_text(img, text, font, r_base, a_start, fill, spacing=0.0) -> None:
+Run = tuple[str, ImageFont.ImageFont, str]   # some text, its font, its fill
+
+
+def runs_of(text: str, font, rank_font, fill) -> list[Run]:
+    """`text` as runs, a rank in braces in `rank_font` and the rest in `font`."""
+    return [(part, rank_font if i % 2 else font, fill)
+            for i, part in enumerate(re.split(r"[{}]", text)) if part]
+
+
+def runs_length(runs: list[Run]) -> float:
+    return sum(font.getlength(ch) for text, font, _ in runs for ch in text)
+
+
+def arc_text(img, runs: list[Run], r_base, a_start, spacing=0.0) -> None:
     """Text round the tile's centre, tops towards it, reading anticlockwise
     on screen -- upright for a reader outside the circle, as a region's own
     text is from its corner. Its baseline is on r_base; it starts at
     a_start, in degrees clockwise from three o'clock."""
     c = img.width / 2
     a = math.radians(a_start)
-    for ch in text:
-        w = font.getlength(ch) + spacing
-        am = a - (w / 2) / r_base
-        if ch.strip():
-            size = int(font.size * 3)
-            g = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-            ImageDraw.Draw(g).text((size / 2, size / 2), ch, font=font, fill=fill, anchor="ms")
-            g = g.rotate(90 - math.degrees(am), resample=Image.BICUBIC)
-            x, y = c + r_base * math.cos(am), c + r_base * math.sin(am)
-            img.alpha_composite(g, (round(x - g.width / 2), round(y - g.height / 2)))
-        a -= w / r_base
-
-
-def text_length(text, font) -> float:
-    return sum(font.getlength(ch) for ch in text)
+    for text, font, fill in runs:
+        for ch in text:
+            w = font.getlength(ch) + spacing
+            am = a - (w / 2) / r_base
+            if ch.strip():
+                size = int(font.size * 3)
+                g = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+                ImageDraw.Draw(g).text((size / 2, size / 2), ch, font=font, fill=fill, anchor="ms")
+                g = g.rotate(90 - math.degrees(am), resample=Image.BICUBIC)
+                x, y = c + r_base * math.cos(am), c + r_base * math.sin(am)
+                img.alpha_composite(g, (round(x - g.width / 2), round(y - g.height / 2)))
+            a -= w / r_base
 
 
 def arrow(img, maneuver, offense, back, i, r0, r1, mm) -> None:
@@ -819,12 +834,12 @@ def arrow(img, maneuver, offense, back, i, r0, r1, mm) -> None:
     dr = ImageDraw.Draw(img)
     dr.polygon([P(r1, p) for p in range(gap, 121)] + [P(r0, p) for p in range(120, gap - 1, -1)], fill=col)
     dr.polygon([P(r0 - 0.5 * mm, 120), P(rm, 120 + past), P(r1 + 0.5 * mm, 120)], fill=col)
-    label = f"BEATS {rank_label(beaten, not offense)}"
     f = load_font(int((r1 - r0) * 0.56), bold=True)
+    label = runs_of(f"BEATS {{{rank_label(beaten, not offense)}}}", f, load_rank_font(f.size), WHITE)
     rb = rm + f.size * 0.36
-    length = text_length(label, f) + 0.25 * mm * (len(label) - 1)
+    length = runs_length(label) + 0.25 * mm * (sum(len(t) for t, _, _ in label) - 1)
     mid = a_in + sense * (gap + 120) / 2
-    arc_text(img, label, f, rb, mid + math.degrees(length / 2 / rb), WHITE, 0.25 * mm)
+    arc_text(img, label, rb, mid + math.degrees(length / 2 / rb), 0.25 * mm)
 
 
 # ---- a face, and a page ------------------------------------------------------------
@@ -854,8 +869,12 @@ def tile_face(sides: int, side: str, tier: str, die: Image.Image) -> Image.Image
     poly = [(c, c)] + [V(a) for a in range(30, 151, int(step))]
     r_a0 = (D12_MM / 2 + 0.6) * mm
     r_a1 = r_a0 + ARROW_RING_MM * mm
-    rule_size = 2 * math.pi * (r_a1 + 1.6 * mm) * 0.97 / (text_length(RULE, load_font(100, bold=True)) / 100)
-    rule_font = load_font(int(rule_size), bold=True)
+    face_color = color_of(ms[0], offense)
+    rule_color = cards.OFFENSE_COLOR_GAMBIT if offense else cards.DEFENSE_COLOR_GAMBIT
+    rule_at = lambda size: runs_of(RULE, load_font(size, bold=True), load_rank_font(size), rule_color)
+    rule_size = 2 * math.pi * (r_a1 + 1.6 * mm) * 0.97 / (runs_length(rule_at(100)) / 100)
+    rule = rule_at(int(rule_size))
+    rule_font = rule[0][1]
     r_rule = r_a1 + 0.6 * mm + rule_font.size * 0.72
     r_regions = r_rule + 0.9 * mm
     t_max = TILE_PX - r_regions - 0.6 * mm
@@ -870,14 +889,14 @@ def tile_face(sides: int, side: str, tier: str, die: Image.Image) -> Image.Image
         p0 = (c + r_regions * math.cos(math.radians(a)), c + r_regions * math.sin(math.radians(a)))
         dr.line([p0, V(a)], fill=BOUNDARY, width=int(mm * 0.5))
     # the rule starts just inside the bottom sector, so rank 1's corner reads its beginning
-    spacing = (2 * math.pi * r_rule - text_length(RULE, rule_font)) / len(RULE)
-    arc_text(img, RULE, rule_font, r_rule, 147, INK, spacing)
+    spacing = (2 * math.pi * r_rule - runs_length(rule)) / sum(len(t) for t, _, _ in rule)
+    arc_text(img, rule, r_rule, 147, spacing)
     die = die.resize((round(D12_MM * mm),) * 2, Image.LANCZOS)
     img.alpha_composite(die, (round(c - die.width / 2), round(c - die.height / 2)))
     clip = Image.new("L", img.size, 0)
     ImageDraw.Draw(clip).polygon(verts, fill=255)
     img.putalpha(Image.composite(img.getchannel("A"), clip, clip))
-    ImageDraw.Draw(img).line(verts + [verts[0]], fill=color_of(ms[0], offense), width=int(mm * 1.0))
+    ImageDraw.Draw(img).line(verts + [verts[0]], fill=face_color, width=int(mm * 1.0))
     return img
 
 
