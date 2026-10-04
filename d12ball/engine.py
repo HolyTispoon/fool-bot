@@ -58,6 +58,7 @@ from d12ball.components import (
     MANEUVER_TIER_BASIC,
     MANEUVER_TIER_GAMBIT,
     CYBORG_DRAINED_AT,
+    DOUBLE_TEAM_PARTNER_KIND,
     MIND_PULL_SUCCESS_FACES,
     MIND_PULL_TOKEN_COST,
     OVERDRIVE_BONUS,
@@ -1382,11 +1383,21 @@ class RulesEngine:
     ) -> list[tuple[str, int]]:
         """
         `merge_bonus`'s reading, as `(player_id, value)` for each Ooze
-        that adds: the one answer to who Merges, for a caller that
+        -- or Double Team partner -- that adds: the one answer to who Merges, for a caller that
         names them rather than totals them -- the Discord caption over
         a challenge image, which names a player with their role.
         """
-        if not self.species_abilities_apply(game):
+        species = self.species_abilities_apply(game)
+        # **A Double Team's partner gains Merge** for the next maneuver
+        # (Law 19.10.5), on the defending side alone, and only while
+        # that is still their side's job: the list is cleared when the
+        # maneuver after the Double Team is over. An Ooze partner is in
+        # both readings and Merges once.
+        partners = (
+            set(match.pending_double_team)
+            if side == match.defending_side() else set()
+        )
+        if not species and not partners:
             return []
 
         contesting = {player_id for player_id in rolling if player_id}
@@ -1394,7 +1405,10 @@ class RulesEngine:
         for player_id in match.contest_occupants(side):
             if player_id in contesting or player_id in match.injured:
                 continue
-            if not self.has_species_ability(game, player_id, SPECIES_OOZE):
+            if player_id not in partners and not (
+                species
+                and self.has_species_ability(game, player_id, SPECIES_OOZE)
+            ):
                 continue
             value = self.skills(game, player_id).of(skill)
             # Viscor adds 3 more whenever they Merge (Law 21).
@@ -2485,20 +2499,47 @@ class RulesEngine:
         defense_player_id: str,
     ) -> Optional[str]:
         """
-        **Slitheron** (Law 21): the contestant who takes the ball
-        without a roll, or None. Every contest for the ball -- a High
+        The contestant who takes the ball without a roll, or None:
+        **Slitheron** (Law 21), in every contest for the ball -- a High
         Pass's, a loose ball's, a ball come to rest between both sides
         (the author, 2026-09-26) -- where exactly one of the two holds
-        the ability.
+        the ability; and the side that beat a **failed Cross** (Law
+        19.7.7).
         """
-        holders = [
-            player_id
-            for player_id in (offense_player_id, defense_player_id)
-            if self.has_special_ability(
+        offense_takes, defense_takes = (
+            self.has_special_ability(
                 game, player_id, SpecialAbility.WINS_CONTESTS,
             )
-        ]
-        return holders[0] if len(holders) == 1 else None
+            for player_id in (offense_player_id, defense_player_id)
+        )
+        # **A failed Cross gives the contest to the side that beat it**
+        # (Law 19.7.7) -- the defense here, which played the Deflect or
+        # Clear and has not taken the ball yet. A Slitheron of the
+        # passing side wins every contest too, and the two cancel
+        # (19.7.9), as two Slitherons do.
+        if self.failed_cross_contest(match):
+            if offense_takes:
+                offense_takes = False
+            else:
+                defense_takes = True
+        if offense_takes == defense_takes:
+            return None
+        return offense_player_id if offense_takes else defense_player_id
+
+    def failed_cross_contest(self, match: MatchState) -> bool:
+        """
+        Whether the contest being settled follows a failed Cross gambit
+        (Law 19.7.7): the maneuver still under way was a Cross beaten
+        by a Deflect or a Clear. The maneuver's cards stay set until
+        `finish_maneuver_resolution`, and every contest the deflection
+        leads to is settled before that.
+        """
+        if match.offense_maneuver != "setup_pass":
+            return False
+        winner = match.defense_maneuver
+        return winner in ("deflect", "clear") and (
+            self.gambit_cost(match, winner) == "setup_pass"
+        )
 
     def join_candidates(
         self, game: D12BallGame, match: MatchState,
@@ -2888,57 +2929,105 @@ class RulesEngine:
             legal.append(distance)
         return legal
 
+    def double_team_partner_candidates(self, match: MatchState) -> list[str]:
+        """
+        Who a Double Team's partner may be (Law 19.10.3): the defending
+        players other than the challenger standing **nearest the ball,
+        on its space or behind it** -- behind meaning toward the
+        defending side's own goal -- every one tied for nearest, in
+        `field_players` order. Empty where nobody else of theirs is on
+        the ball's space or behind it, and then nobody joins.
+
+        Measured before anything moves: by the time a maneuver resolves
+        the ball has not moved yet, so the ball's space is where the
+        play started. A defender ahead of the ball, between it and the
+        goal the defense attacks, is never a candidate however near.
+        """
+        defense_side = match.defending_side()
+        ball_flat = match.board.flat_index(
+            match.ball.zone, match.ball.space_index,
+        )
+        # +1 where the defense attacks toward the higher indexes.
+        forward = match.unclamped_flat_index(0, defense_side, 1)
+        distances: list[tuple[int, str]] = []
+        for player_id in match.setup_for_side(defense_side).field_players:
+            if player_id == match.challenger_id:
+                continue
+            position = match.board.meeple_position(player_id)
+            if position is None:
+                continue
+            ahead = (match.board.flat_index(*position) - ball_flat) * forward
+            if ahead > 0:
+                continue
+            distances.append((-ahead, player_id))
+        if not distances:
+            return []
+        nearest = min(distance for distance, _ in distances)
+        return [
+            player_id for distance, player_id in distances
+            if distance == nearest
+        ]
+
     def double_team_partner(self, match: MatchState) -> Optional[str]:
         """
-        The teammate a Double Team brings in with the challenger: the
-        defending player, other than the challenger, standing nearest
-        the ball.
+        The partner a Double Team brings in, won or beaten: the one the
+        defending coach chose where several tied
+        (`DOUBLE_TEAM_PARTNER`), recorded on the maneuver's continuation
+        as `{"kind": "double_team_partner", "player_id": ...}`, or the
+        only candidate. None where nobody joins, or where a tie is still
+        to be chosen -- `double_team_partner_owed` says which.
 
-        **Nearest the ball, which is where the play started.** The card
-        says "closest to the space where the play started", and by the
-        time a maneuver resolves the ball has not moved yet -- the
-        challenger was walked onto it and the handler is still standing
-        there. So `distance_to_ball` is that measurement rather than an
-        approximation of it. Ties break on `field_players` order, the
-        way every other list a coach could be offered does, so the same
-        question asked twice comes back the same way.
-
-        None when the defending side has nobody else on the field,
-        which `validate()` makes unreachable from a game that loads --
-        the branch is a guard, not a state.
+        Once the card has been applied the record is written whoever
+        was asked, so a reading after the board has moved returns the
+        partner the card used rather than measuring again from the
+        wrong space.
         """
-        defense = match.setup_for_side(match.defending_side())
-        candidates = [
-            player_id
-            for player_id in defense.field_players
-            if player_id != match.challenger_id
-            and match.board.meeple_position(player_id) is not None
-        ]
-        if not candidates:
-            return None
-        return min(candidates, key=match.distance_to_ball)
+        recorded = match.pending_effect_continuation or {}
+        if recorded.get("kind") == DOUBLE_TEAM_PARTNER_KIND:
+            return recorded.get("player_id")
+        candidates = self.double_team_partner_candidates(match)
+        return candidates[0] if len(candidates) == 1 else None
 
-    def double_team_defenders(self, match: MatchState) -> list[str]:
+    def double_team_partner_owed(
+        self, match: MatchState, winner_key: str,
+    ) -> bool:
         """
-        Everyone challenging this maneuver: the challenger, and the
-        second defender a Double Team left on the ball last time.
-        Ordered challenger-first, so the skill test reads as one
-        defender with help rather than as a pair with no lead.
+        Whether the defending coach still has to choose a Double Team's
+        partner from a tie (Law 19.10.3) before the maneuver resolves:
+        the card resolving is a won Double Team, or the card that beat
+        one, which moves the same partner forward (19.10.6). Asked once
+        the winner is settled and before its effect, so the partner is
+        measured from where the play started.
+        """
+        recorded = match.pending_effect_continuation or {}
+        if recorded.get("kind") == DOUBLE_TEAM_PARTNER_KIND:
+            return False
+        if "double_team" not in (
+            winner_key, self.gambit_cost(match, winner_key),
+        ):
+            return False
+        return len(self.double_team_partner_candidates(match)) > 1
 
-        Empty of the second whenever a Double Team is not in force,
-        which is nearly always -- `pending_double_team` is set by one
-        card and cleared by a new play.
+    def record_double_team_partner(
+        self,
+        match: MatchState,
+        partner_id: Optional[str],
+        merges: bool = False,
+    ) -> None:
         """
-        defenders = [match.challenger_id] if match.challenger_id else []
-        for player_id in match.pending_double_team:
-            if (
-                player_id not in defenders
-                and player_id in match.setup_for_side(
-                    match.defending_side()
-                ).field_players
-            ):
-                defenders.append(player_id)
-        return defenders
+        Write down the Double Team's partner -- chosen by a coach, or
+        the only one there was -- so every later reading this maneuver
+        (`double_team_partner`) is that player. `reset_maneuver`
+        clears it with the rest of the maneuver.
+
+        `merges` marks the won Double Team that has just granted the
+        partner Merge, which `finish_maneuver_resolution` reads to keep
+        `pending_double_team` past this maneuver and no further.
+        """
+        record = {"kind": DOUBLE_TEAM_PARTNER_KIND, "player_id": partner_id}
+        if merges:
+            record["merges"] = True
+        match.pending_effect_continuation = record
 
     def pass_speed_bonus(self, maneuver_key: str) -> int:
         """
@@ -3220,73 +3309,6 @@ class RulesEngine:
         where = space_label(zone, space_index, match.board)
         return f"{where}, {cost} {noun}"
 
-
-    def setup_pass_push_back_range(
-        self, match: MatchState, key: str,
-    ) -> tuple[int, ...]:
-        """
-        **A failed Cross gambit's distances** (Law 19.7.7), before
-        the field has its say: 1, 2 or 3 back for the Deflect that beat
-        it and 2, 3 or 4 for a Clear, each one more where the challenger
-        is a Fullback -- the same space further the Fullback adds to any
-        deflection (`d12ball.flow.effects.deflection_numbers`).
-
-        `key` is the card *resolving*, so a Deflect a blaze or an
-        Overdrive turned into a Clear takes the Clear's (the author,
-        2026-09-27).
-        """
-        base = (2, 3, 4) if key == "clear" else (1, 2, 3)
-        challenger = self.get_player_definition(match.challenger_id)
-        bonus = 1 if challenger.role == PlayerRole.FULLBACK else 0
-        return tuple(distance + bonus for distance in base)
-
-    def setup_pass_push_back_distances(
-        self, game: D12BallGame, match: MatchState,
-    ) -> list[int]:
-        """
-        How far back the coach who beat a Cross may send the ball
-        -- its **failed gambit**, which since 2026-09-27 is the one move
-        the beating card makes rather than a push on top of it (Law
-        19.7.7-19.7.8). Asked before the ball has moved.
-
-        Every distance that lands on a space is offered, and **of the
-        ones that reach the goal zone only the shortest** -- every
-        longer one comes to rest on the same last space, the reason
-        `high_pass_distances` drops a throw a shorter one already makes.
-        The one into the goal zone is kept, unlike a High Pass's,
-        because it is not
-        the same move as stopping on that space: it is the beating
-        player's shot where they are standing there
-        (`d12ball.flow.effects.deflection_lands`). So the list is never
-        empty.
-
-        Was `d12ball.flow.effects.setup_pass_push_back_distances` until
-        step 6 of docs/architecture-migration.md; here beside the other
-        candidate lists so the prompt's options can be built from it.
-        """
-        key = self.resolving_maneuver(
-            match, self.settled_maneuver_winner(match, game),
-        )
-        offense_side = match.ball.possession
-        distances = []
-        for distance in self.setup_pass_push_back_range(match, key):
-            distances.append(distance)
-            if match.ball_reaches_goal_zone(offense_side, -distance):
-                break
-        return distances
-
-    def setup_pass_push_back_to_goal_zone(
-        self, match: MatchState, distances,
-    ) -> Optional[int]:
-        """Which of a failed Cross gambit's `distances` sends the
-        ball into the goal zone -- the last, where any does -- or
-        None."""
-        if not distances:
-            return None
-        longest = distances[-1]
-        if match.ball_reaches_goal_zone(match.ball.possession, -longest):
-            return longest
-        return None
 
     def speed_targets(
         self,

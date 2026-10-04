@@ -907,6 +907,15 @@ Ooze rather than totalling them: `dice_brief.merging_sides`, which puts every
 Ooze Merging into a side into the challenge and shot images as part of that
 side (the author, 2026-09-30; [game-service.md](game-service.md)).
 
+**A Double Team's partner Merges too** (Law 19.10.5, 2026-10-03): "that
+ability has effectively become merge". So the partner, named in
+`pending_double_team`, is one more answer in `merge_contributions` -- on the
+defending side only, whatever their species, and in a game with the species
+abilities off as well, since the Merge is the card's. An Ooze partner is in
+both readings and Merges once; an injured one adds nothing, as an injured
+Ooze does. How long it lasts is the card's -- see
+[maneuvers.md](maneuvers.md).
+
 - **The skill is the side of the contest, not anything about the Ooze** --
   offensive on the attacking side, defensive on the defending one -- so the
   caller passes which it wants. That is also what lets the score attempt ask
@@ -1076,16 +1085,16 @@ split is the whole design.
     the pull was simply lost. Gating before `begin_own_goal_roll` is what
     makes the own-goal risk one of the things a pull can pre-empt rather
     than a hole beside them.
-    - **Only a Double Team can reach the branch with a path at all.**
-      Reaching the goal zone is read before anything moves, by
-      `MatchState.ball_reaches_goal_zone`, so a 1-space Pressure reaches
-      it only from the space closest to the offense's own goal -- where
-      the handler does not move, and `ball_path_to` answers empty for a
-      move that goes nowhere. A Double Team pushing 2 from one space short
-      of it shoves them a real space and clamps on the second. So the gate
-      is a no-op for the ordinary Pressure and is asked there anyway, the
-      way every other arrival asks it rather than deciding for itself that
-      it has nothing to offer.
+    - **Nothing reaches the branch with a path any more.** Reaching the
+      goal zone is read before anything moves, by
+      `MatchState.ball_reaches_goal_zone`, so a 1-space push reaches it
+      only from the space closest to the offense's own goal -- where the
+      handler does not move, and `ball_path_to` answers empty for a move
+      that goes nowhere. A Double Team pushing 2 from one space short of
+      it used to shove them a real space and clamp on the second; since
+      2026-10-03 it pushes 1 like a Pressure. So the gate is a no-op on
+      both and is asked anyway, the way every other arrival asks it
+      rather than deciding for itself that it has nothing to offer.
     - **It gates inside `begin_own_goal_roll`, not at the call site.**
       The Phase 3d lift made Pressure and Double Team a pure
       `pressure_step` that returns

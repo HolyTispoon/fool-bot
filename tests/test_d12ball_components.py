@@ -2631,9 +2631,10 @@ class D12BallManeuverTests(unittest.TestCase):
     def test_die_faces_cover_one_through_six_with_no_overlap(self) -> None:
         # The die is off the rules (2026-08-17) but the data and
         # DinkyAI still carry it -- see "The printed boards". Only the
-        # basic rows have to cover the six: a gambit sits on
-        # its counterpart's rank and reuses its faces, which is why the
-        # importer stopped validating them for uniqueness.
+        # basic rows have to cover the six: DinkyAI reads no gambit's
+        # face, and the sheet's gambit faces are whatever it says (one
+        # each since 2026-10-03), which is why the importer does not
+        # validate them.
         for side in ("offense", "defense"):
             faces = [
                 value

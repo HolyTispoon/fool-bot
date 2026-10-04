@@ -150,11 +150,11 @@ class PromptKind(Enum):
     SPEED_DELTA_CHOICE = "speed_delta_choice"
     DRIBBLE_ADVANCE_CHOICE = "dribble_advance_choice"
     DRIBBLE_BURST_CHOICE = "dribble_burst_choice"
-    # Cross's cost, once a deflection has beaten it: how much
-    # further back the coach who won drives the ball. A kind since
-    # Phase 6; until then the view had no kind at all, so a restart
-    # in that window fell through to the turn prompt.
-    SETUP_PASS_PUSH_BACK = "setup_pass_push_back"
+    # Which tied defender joins a Double Team, won or beaten (Law
+    # 19.10.3): asked of the defense before the card resolves. The
+    # failed Cross's push back that used to sit here went with the
+    # 2026-10-03 card, which plays the deflection as itself.
+    DOUBLE_TEAM_PARTNER = "double_team_partner"
 
 
 @dataclass(frozen=True)
@@ -170,6 +170,7 @@ class PendingPrompt:
     kind: PromptKind
     ask: str
     #: RUN_BACK_PLAYER: which of a stack may be the one to run back.
+    #: SHOOTER_CHOICE and DOUBLE_TEAM_PARTNER: who may be chosen.
     player_ids: list[str] = field(default_factory=list)
     #: MIND_PULL, INJURY_TEST, RUN_BACK_SPACE, SPEED_DELTA_CHOICE,
     #: JOIN_THE_BALL, FLY, FORCE_TEST.
@@ -410,9 +411,8 @@ class SpaceOptions:
 @dataclass(frozen=True)
 class DistanceOptions:
     """
-    How far: a High Pass, a Cross, a Dribble, a
-    Burst, the push back a beaten Cross owes. `railed` is the one
-    distance the tutorial allows, or `None`.
+    How far: a High Pass, a Cross, a Dribble, a Burst. `railed` is
+    the one distance the tutorial allows, or `None`.
     """
 
     distances: tuple[int, ...]
@@ -427,19 +427,13 @@ class DistanceOptions:
     runner_id: Optional[str] = None
     runner_distances: tuple[int, ...] = ()
     #: Where each distance lands, `(zone, space_index)` in the order of
-    #: `distances` -- the ball's space moved that far for a pass (back
-    #: the other way for the push back), the handler's for a dribble.
+    #: `distances` -- the ball's space moved that far for a pass, the
+    #: handler's for a dribble.
     #: A coach choosing a distance is choosing a space; on the prompt
     #: so that a button's label and a lit space on a page read one
     #: measure, and no frontend decides which way a kind moves. Empty
     #: where there is nobody to move (a dribble with no handler).
     landings: tuple[tuple[Zone, int], ...] = ()
-    #: SETUP_PASS_PUSH_BACK: the one distance that sends the ball into
-    #: the goal zone, or `None`. It comes to rest on the same last space
-    #: as the longest distance that does not, so a label reading only `landings` would
-    #: offer the same space twice; it is a different move, the beating
-    #: player's shot where they stand there (Law 19.7.8).
-    goal_zone: Optional[int] = None
 
     def landing(self, distance: int) -> Optional[tuple[Zone, int]]:
         """The space `distance` lands on, or `None` where the prompt
@@ -456,7 +450,6 @@ class DistanceOptions:
             "may_pass_out": self.may_pass_out,
             "runner_id": self.runner_id,
             "runner_distances": list(self.runner_distances),
-            "goal_zone": self.goal_zone,
             "landings": [
                 {"zone": Zone(zone).value, "space_index": space_index}
                 for zone, space_index in self.landings
@@ -1332,6 +1325,28 @@ SCORE_ATTEMPT_ASK = (
 )
 
 
+def double_team_partner_prompt(
+    engine: "RulesEngine",
+    game: D12BallGame,
+    match: MatchState,
+) -> PendingPrompt:
+    """
+    **Which tied defender is a Double Team's partner** (Law 19.10.3),
+    asked of the defending coach -- whether their Double Team won, and
+    the partner joins and Merges, or was beaten, and the partner goes
+    forward with the challenger (19.10.6). The candidates are
+    `RulesEngine.double_team_partner_candidates`, every one equally
+    near the ball on its space or behind it.
+    """
+    mention = address_coach(engine.defending_player_number(game, match))
+    return PendingPrompt(
+        PromptKind.DOUBLE_TEAM_PARTNER,
+        f"{mention}, choose who partners the "
+        f"**{engine.maneuver_name('double_team')}**:",
+        player_ids=list(engine.double_team_partner_candidates(match)),
+    )
+
+
 def effect_choice_prompt(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -1360,17 +1375,14 @@ def effect_choice_prompt(
     then, so the coach re-picks.
     """
     # **An effect continuation is read first**, because it says the
-    # effect is already past the prompt its winner would restore.
-    # Cross's speed choice has been answered by the time one
-    # is set, and a beaten Pinpoint's Low Pass belongs to the
-    # *defense* -- reading the winner there would put the steal's
-    # speed choice back up and let a coach answer it twice. See
-    # `continue_effect` for why the field outlives its dispatch.
+    # effect is already past the prompt its winner would restore: a
+    # beaten Pinpoint's Low Pass belongs to the *defense* -- reading
+    # the winner there would put the steal's speed choice back up and
+    # let a coach answer it twice. See `continue_effect` for why the
+    # field outlives its dispatch. (A game saved with Cross's old
+    # `setup_pass_shot` continuation reads its winner below, which asks
+    # the same pass.)
     continuation = match.pending_effect_continuation or {}
-    if continuation.get("kind") == "setup_pass_shot":
-        return PendingPrompt(
-            PromptKind.SETUP_PASS_CHOICE, EFFECT_ASK,
-        )
     if continuation.get("kind") == "free_low_pass":
         return PendingPrompt(
             PromptKind.LOW_PASS_CHOICE,
@@ -1394,9 +1406,14 @@ def effect_choice_prompt(
     if winner_key == "high_pass":
         return PendingPrompt(PromptKind.HIGH_PASS_CHOICE, EFFECT_ASK)
     if winner_key == "setup_pass":
-        return _speed_delta(
-            engine, game, match, match.active_player_id, "offense", winner_key,
-        )
+        # Straight to the pass: the card sets no speed (Law 19.7.2,
+        # 2026-10-03). With nowhere to throw it the pass goes out,
+        # which is the effect's own step, as a Burst's nothing is.
+        # A game saved at the speed choice the card used to ask first
+        # comes back to the pass, which is now the whole card.
+        if engine.setup_pass_distances(match):
+            return PendingPrompt(PromptKind.SETUP_PASS_CHOICE, EFFECT_ASK)
+        return None
     if winner_key in ("dribble_advance", "dribble_burst"):
         handler = engine.get_player_definition(match.active_player_id)
         # **A Playmaker's advance has two prompts, and the carrier
@@ -1464,24 +1481,10 @@ def effect_choice_prompt(
             "defense",
             winner_key,
         )
-    if (
-        winner_key in ("deflect", "clear")
-        and engine.gambit_cost(match, winner_key) == "setup_pass"
-        and not match.pending_loose_ball
-        and match.pending_scoring_opportunity is None
-    ):
-        # **A failed Cross gambit**, still owed: the card that
-        # beat it has won but not yet moved the ball, because its
-        # coach chooses how far (Law 19.7.7). Once the ball has moved
-        # and the loose ball begins the `pending_loose_ball` branch
-        # above answers instead, and the goal zone's shot is the
-        # scoring opportunity's.
-        #
-        # A game saved at this prompt before 2026-09-27 had already
-        # knocked the ball back by the card's own distance; answered
-        # now it moves again, from there. Nothing tells the two apart,
-        # and it is one prompt in one kind of turn.
-        return PendingPrompt(PromptKind.SETUP_PASS_PUSH_BACK, EFFECT_ASK)
+    # A failed Cross gambit asks nothing: the Deflect or Clear that
+    # beat it moves the ball as itself (Law 19.7.7, 2026-10-03). A game
+    # saved at the push back the card used to ask falls through to the
+    # effect's own step, which plays the deflection as it now reads.
     return None
 
 
@@ -1651,11 +1654,11 @@ PLAYERS_OWN_QUESTIONS = frozenset({
     PromptKind.RUN_BACK_SPACE,
 })
 
-#: The two questions put to the defense: who challenges, and how far
-#: back a beaten Cross goes.
+#: The two questions put to the defense: who challenges, and which of
+#: a tie joins a Double Team.
 DEFENSES_QUESTIONS = frozenset({
     PromptKind.MANEUVER_CHALLENGE,
-    PromptKind.SETUP_PASS_PUSH_BACK,
+    PromptKind.DOUBLE_TEAM_PARTNER,
 })
 
 
@@ -2112,6 +2115,12 @@ def _pending(
             return PendingPrompt(
                 PromptKind.SKILL_TEST, "Either player can roll:",
             )
+        if engine.double_team_partner_owed(
+            match, engine.resolving_maneuver(match, winner_key),
+        ):
+            # Before the card resolves, won or beaten: the partner is
+            # measured from where the play started (Law 19.10.3).
+            return double_team_partner_prompt(engine, game, match)
         # A won card with nothing to ask -- a Deflect, a Pressure, a
         # burst from the last space -- resolves by running its
         # effect, which is the step the reveal names.
@@ -2485,8 +2494,8 @@ def _named_players(
     match: MatchState,
     prompt: PendingPrompt,
 ) -> PlayerOptions:
-    """RUN_BACK_PLAYER and SHOOTER_CHOICE: the branch already named
-    them."""
+    """RUN_BACK_PLAYER, SHOOTER_CHOICE and DOUBLE_TEAM_PARTNER: the
+    branch already named them."""
     return PlayerOptions(tuple(prompt.player_ids))
 
 
@@ -2648,13 +2657,12 @@ def _setup_pass_options(
 
 
 def _ball_landings(
-    match: MatchState, distances: tuple[int, ...], direction: int = 1,
+    match: MatchState, distances: tuple[int, ...],
 ) -> tuple[tuple[Zone, int], ...]:
-    """Where the ball lands moved each distance -- forward for a pass,
-    back (`direction=-1`) for the push back -- by the one measure the
-    move itself takes (`MatchState.ball_destination`)."""
+    """Where the ball lands passed each distance forward, by the one
+    measure the move itself takes (`MatchState.ball_destination`)."""
     return tuple(
-        match.ball_destination(match.ball.possession, direction * distance)
+        match.ball_destination(match.ball.possession, distance)
         for distance in distances
     )
 
@@ -2717,20 +2725,6 @@ def _dribble_burst_options(
     distances = tuple(engine.dribble_burst_distances(match))
     return DistanceOptions(
         distances, landings=_dribble_landings(match, distances),
-    )
-
-
-def _push_back_options(
-    engine: "RulesEngine",
-    game: D12BallGame,
-    match: MatchState,
-    prompt: PendingPrompt,
-) -> DistanceOptions:
-    distances = tuple(engine.setup_pass_push_back_distances(game, match))
-    return DistanceOptions(
-        distances,
-        landings=_ball_landings(match, distances, direction=-1),
-        goal_zone=engine.setup_pass_push_back_to_goal_zone(match, distances),
     )
 
 
@@ -2862,5 +2856,5 @@ OPTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_options,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _dribble_advance_options,
     PromptKind.DRIBBLE_BURST_CHOICE: _dribble_burst_options,
-    PromptKind.SETUP_PASS_PUSH_BACK: _push_back_options,
+    PromptKind.DOUBLE_TEAM_PARTNER: _named_players,
 }

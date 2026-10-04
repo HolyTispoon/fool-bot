@@ -57,6 +57,7 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball.formatting import (
+    address_coach,
     contest_noun,
     format_player_with_team,
     space_label,
@@ -808,15 +809,10 @@ def _speed(fixture: PromptFixture, player_id: str, skill_type: str) -> None:
     )
 
 
-def setup_pass_speed_choice() -> PromptFixture:
-    fixture = _settled("setup_pass", "steal")
-    fixture.params = {
-        "player_id": fixture.match.active_player_id,
-        "skill_type": "offense",
-        "maneuver_key": "setup_pass",
-    }
-    _speed(fixture, fixture.match.active_player_id, "offense")
-    return fixture
+def setup_pass_choice() -> PromptFixture:
+    # A won Cross asks the pass straight away: the card sets no speed
+    # (Law 19.7.2, 2026-10-03).
+    return _settled("setup_pass", "steal")
 
 
 def dribble_advance_choice() -> PromptFixture:
@@ -924,10 +920,41 @@ def skill_test_settled_a_tie() -> PromptFixture:
     return fixture
 
 
-def setup_pass_push_back() -> PromptFixture:
-    # Cross beaten by a Deflect, the deflection played and the
-    # ball not yet loose: the coach who won is owed the push back.
+def failed_cross() -> PromptFixture:
+    # Cross beaten by a Deflect, nothing moved yet: the deflection is
+    # the bot's to play, as itself (Law 19.7.7). A game saved at the
+    # push back the card used to ask comes back here too.
     fixture = _settled("setup_pass", "deflect")
+    fixture.ask = ""
+    return fixture
+
+
+def double_team_partner() -> PromptFixture:
+    """
+    A won Double Team with two more defenders on the ball's space,
+    tied for nearest: the defending coach chooses the partner
+    (Law 19.10.3) before the card resolves.
+    """
+    fixture = _settled("dribble_advance", "double_team")
+    match = fixture.match
+    others = [
+        player_id
+        for player_id in match.visiting.field_players
+        if player_id != match.challenger_id
+    ][:2]
+    for player_id in others:
+        match.board.remove_meeple(player_id)
+        match.board.place_meeple(
+            player_id, match.ball.zone, match.ball.space_index,
+        )
+    candidates = ENGINE.double_team_partner_candidates(match)
+    assert len(candidates) > 1
+    fixture.ask = (
+        f"{address_coach(ENGINE.defending_player_number(fixture.game, match))}"
+        ", choose who partners the "
+        f"**{ENGINE.maneuver_name('double_team')}**:"
+    )
+    fixture.params = {"player_ids": candidates}
     return fixture
 
 
@@ -951,9 +978,8 @@ def game_over() -> PromptFixture:
 
 
 def setup_pass_shot_choice() -> PromptFixture:
-    # The continuation is read ahead of the winner: the speed choice
-    # has already been answered by the time one is set, and reading the
-    # winner would put it back up.
+    # A game saved after the speed choice Cross used to ask first
+    # carries this continuation; it comes back to the same pass.
     fixture = _settled("setup_pass", "steal")
     fixture.match.pending_effect_continuation = {"kind": "setup_pass_shot"}
     return fixture
@@ -1066,8 +1092,8 @@ CASES: tuple[PromptCase, ...] = (
                high_pass_choice),
     PromptCase("setup pass shot", "SETUP_PASS_CHOICE", "SetupPassChoiceView",
                setup_pass_shot_choice),
-    PromptCase("setup pass speed", "SPEED_DELTA_CHOICE",
-               "SpeedDeltaChoiceView", setup_pass_speed_choice),
+    PromptCase("setup pass", "SETUP_PASS_CHOICE", "SetupPassChoiceView",
+               setup_pass_choice),
     PromptCase("dribble advance", "DRIBBLE_ADVANCE_CHOICE",
                "DribbleAdvanceChoiceView", dribble_advance_choice),
     PromptCase("dribble advance speed", "SPEED_DELTA_CHOICE",
@@ -1087,8 +1113,9 @@ CASES: tuple[PromptCase, ...] = (
               effect_with_no_choice),
     PromptCase("skill test settled a tie", "LOW_PASS_CHOICE",
                "LowPassChoiceView", skill_test_settled_a_tie),
-    PromptCase("setup pass push back", "SETUP_PASS_PUSH_BACK",
-               "SetupPassPushBackView", setup_pass_push_back),
+    owed_case("failed cross", "BEGIN_EFFECT_RESOLUTION", failed_cross),
+    PromptCase("double team partner", "DOUBLE_TEAM_PARTNER",
+               "DoubleTeamPartnerView", double_team_partner),
     PromptCase("tutorial note up", "TUTORIAL_CONTINUE",
                "TutorialContinueView", tutorial_note_up),
     PromptCase("game over", "GAME_OVER", "RematchView", game_over),

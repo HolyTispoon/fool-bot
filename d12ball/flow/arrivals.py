@@ -36,6 +36,7 @@ from dataclasses import dataclass, replace
 from typing import Optional
 
 from d12ball.components import (
+    DOUBLE_TEAM_PARTNER_KIND,
     MatchState,
     RuleRefusal,
     SPECIES_TELEKINETIC,
@@ -70,6 +71,7 @@ from d12ball.formatting import (
 )
 from d12ball import tokens
 from d12ball.game import D12BallGame
+from d12ball.special_abilities import SpecialAbility
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
@@ -586,6 +588,17 @@ def finish_maneuver_resolution(
             next=FollowOn(FollowOnStep.END_PERIOD),
         )
 
+    # **A Double Team's Merge lasts one maneuver** (Law 19.10.5): kept
+    # past the end of the Double Team that granted it -- the record it
+    # leaves says so -- and cleared at the end of the maneuver after,
+    # which is here, once every contest that maneuver led to has been
+    # settled (the loose-ball detour above re-enters this function).
+    granted = match.pending_effect_continuation or {}
+    if not (
+        granted.get("kind") == DOUBLE_TEAM_PARTNER_KIND
+        and granted.get("merges")
+    ):
+        match.pending_double_team = []
     match.reset_maneuver()
 
     prefix = f"{lead_in}\n\n" if lead_in else ""
@@ -947,9 +960,10 @@ def resolve_contest_without_a_roll(
     winner_id: str,
 ) -> StepResult:
     """
-    **Slitheron's contest** (Law 21): both contestants were sent and
-    walk in as for any contest, and the ball is Slitheron's without a
-    roll. Nothing was rolled, so nobody owes an injury check, and the
+    **A contest won without a roll** -- Slitheron's (Law 21), or the
+    side that beat a failed Cross (Law 19.7.7): both contestants were
+    sent and walk in as for any contest, and the ball is the winner's
+    without a roll. Nothing was rolled, so nobody owes an injury check, and the
     run back follows straight on.
     """
     exhaustion_text = walk_in_contestants(
@@ -971,11 +985,20 @@ def resolve_contest_without_a_roll(
         headlines=headlines,
         narration=["\n".join(filter(None, [
             exhaustion_text,
-            # Why there was no roll, said as the special ability it is
-            # (the author, 2026-09-28).
+            # Why there was no roll: the special ability it is (the
+            # author, 2026-09-28), or the Cross that failed.
             f"{engine.format_player_label(match, winner)} takes it "
-            "without a roll -- their special ability wins every contest "
-            "for the ball.",
+            "without a roll -- "
+            + (
+                f"the **{engine.maneuver_name('setup_pass')}** failed, so "
+                "the side that beat it wins the contest."
+                if engine.failed_cross_contest(match)
+                and not engine.has_special_ability(
+                    game, winner_id, SpecialAbility.WINS_CONTESTS,
+                )
+                else "their special ability wins every contest for the "
+                "ball."
+            ),
             announcement,
         ]))],
         board_changed=True,
@@ -1284,11 +1307,12 @@ def begin_own_goal_roll(
     `"own_goal"` resume kind and finds the path spent, so this reading
     is a no-op the second time.
 
-    **Only a Double Team can arrive with a path.** A plain Pressure
-    reaches the goal zone only from the last space before the
-    offense's own goal,
-    where the handler does not move and `ball_path_to` answers empty
-    for a move that goes nowhere.
+    **Nothing reaches it with a path today.** Both cards that risk an
+    own goal push 1 (a Double Team pushed 2 until 2026-10-03), so the
+    goal zone is reached only from the last space before the offense's
+    own goal, where the handler does not move and `ball_path_to`
+    answers empty. The gate stays because the rule it applies is the
+    general one, and it costs a no-op.
     """
     taken = check_for_ball_arrival(
         engine,

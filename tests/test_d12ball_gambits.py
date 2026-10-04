@@ -53,10 +53,14 @@ from d12ball.components import (
 )
 from d12ball.engine import RulesEngine
 from d12ball import tokens
-from d12ball.flow.effects import speed_choice_step
+from d12ball.flow.arrivals import finish_maneuver_resolution
+from d12ball.flow.effects import (
+    offer_setup_pass_distance as flow_offer_setup_pass_distance,
+    speed_choice_step,
+)
 from d12ball.flow.turn import declare_gambit_step
 from ai_answers import ai_answers
-from d12ball.prompts import PromptKind
+from d12ball.prompts import PromptKind, pending_prompt
 from d12ball.game import (
     AIOpponent,
     CoinFace,
@@ -71,7 +75,7 @@ from d12ball.flow import FollowOnStep
 from flow_stubs import REAL_MODEL_STEPS
 from flow_stubs import driver_reaches_cog_stubs
 from save_patches import suppressed_cog_saves
-from cog_steps import apply_dribble_advance, apply_dribble_burst, apply_high_pass, apply_low_pass, apply_setup_pass, apply_setup_pass_push_back, build_effect_choice_view, offer_setup_pass_distance, offer_setup_pass_push_back, resolve_clear, resolve_deflect, resolve_double_team, resolve_dribble_burst, resolve_intercept, resolve_maneuver, resolve_pressure, resolve_setup_pass, resolve_steal
+from cog_steps import apply_dribble_advance, apply_dribble_burst, apply_high_pass, apply_low_pass, apply_setup_pass, build_effect_choice_view, offer_setup_pass_distance, resolve_clear, resolve_deflect, resolve_double_team, resolve_dribble_burst, resolve_intercept, resolve_maneuver, resolve_pressure, resolve_setup_pass, resolve_steal
 
 
 def build_cog() -> D12Ball:
@@ -2011,74 +2015,44 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
         self.assertIn(0, cog.engine.setup_pass_distances(match))
 
-    async def test_the_speed_comes_first_and_the_pass_is_owed_after_it(
-        self,
-    ) -> None:
+    async def test_the_pass_is_asked_straight_away(self) -> None:
         """
-        The card's order, and the reason this card needs a persisted
-        continuation: a speed choice has always been the *last* human
-        step of an effect. **The continuation is recorded when the
-        speed is chosen**, not before: a match still waiting on the
-        speed has to read as waiting on the speed (see
-        `speed_choice_step`), so nothing is on the match after the
-        first half alone.
-        """
-        cog, game, match = self.build("setup_pass", "steal")
-        cog.offer_speed_choice = mock.AsyncMock()
-
-        with suppressed_cog_saves():
-            await resolve_setup_pass(cog, build_interaction(), game, match)
-
-        cog.offer_speed_choice.assert_awaited_once()
-        self.assertIsNone(match.pending_effect_continuation)
-
-        speed_choice_step(cog.engine, game, match, target_speed=3)
-        self.assertEqual(
-            match.pending_effect_continuation, {"kind": "setup_pass_shot"},
-        )
-
-    async def test_the_continuation_survives_a_save_and_reload(self) -> None:
-        cog, game, match = self.build("setup_pass", "steal")
-        cog.offer_speed_choice = mock.AsyncMock()
-
-        with suppressed_cog_saves():
-            await resolve_setup_pass(cog, build_interaction(), game, match)
-        speed_choice_step(cog.engine, game, match, target_speed=3)
-
-        restored = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
-        self.assertEqual(
-            restored.pending_effect_continuation, {"kind": "setup_pass_shot"},
-        )
-
-    async def test_a_restart_between_the_halves_comes_back_to_the_pass(
-        self,
-    ) -> None:
-        """
-        The window is wide -- a coach may take hours over the second
-        prompt -- so the continuation has to outlive its dispatch and
-        `build_effect_choice_view` has to read it. Reading the winner
-        instead would put Cross's *speed* choice back up, and let
-        a coach set the speed twice. And before the speed is chosen,
-        the speed choice is exactly what comes back.
+        The card sets no speed (Law 19.7.2, 2026-10-03): a won Cross
+        asks where the pass lands, and nothing about the ball's speed,
+        and nothing is recorded on the match for it.
         """
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
         self.put_a_teammate_at(match, 3)
-        cog.offer_speed_choice = mock.AsyncMock()
+        speed = match.ball.speed
 
-        with suppressed_cog_saves():
-            await resolve_setup_pass(cog, build_interaction(), game, match)
+        result = flow_offer_setup_pass_distance(cog.engine, game, match)
+
+        self.assertIs(result.next.kind, PromptKind.SETUP_PASS_CHOICE)
+        self.assertIsNone(match.pending_effect_continuation)
+        self.assertEqual(match.ball.speed, speed)
+        self.assertIs(
+            pending_prompt(cog.engine, game, match).kind,
+            PromptKind.SETUP_PASS_CHOICE,
+        )
+
+    async def test_a_game_saved_after_the_old_speed_choice_asks_the_pass(
+        self,
+    ) -> None:
+        """
+        A game saved between the speed choice the card used to ask and
+        the pass carries a `setup_pass_shot` continuation; it comes back
+        to the same pass the card now asks first.
+        """
+        cog, game, match = self.build("setup_pass", "steal", board_size=9)
+        self.put_a_teammate_at(match, 3)
+        match.pending_effect_continuation = {"kind": "setup_pass_shot"}
         game.match_state = match.to_dict()
         cog.engine.load_match_state = mock.Mock(return_value=match)
 
         self.assertIsInstance(
             build_effect_choice_view(cog, game.game_id, match),
-            SpeedDeltaChoiceView,
+            SetupPassChoiceView,
         )
-
-        speed_choice_step(cog.engine, game, match, target_speed=3)
-        restored = build_effect_choice_view(cog, game.game_id, match)
-
-        self.assertIsInstance(restored, SetupPassChoiceView)
 
     async def test_the_pass_spends_the_continuation(self) -> None:
         cog, game, match = self.build("setup_pass", "steal", board_size=9)
@@ -2145,83 +2119,27 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         self.assertTrue(match.pending_ball_recovery)
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
 
-    async def test_a_failed_gambit_moves_the_ball_back_once(
-        self,
-    ) -> None:
+    async def test_a_failed_gambit_is_the_clear_itself(self) -> None:
         """
-        Beaten by a Clear, the ball goes back **once**, as far as the
-        clearing coach chooses -- 2, 3 or 4 -- rather than the Clear's
-        own 3 and a further push on top (Law 19.7.7, the author,
-        2026-09-27). So the Clear moves nothing until the choice is
-        made, and the speed still drops by the Clear's 3.
+        Beaten by a Clear, the Cross is a Clear: 3 spaces back and 3 off
+        the speed, landing as any Clear does (Law 19.7.7, the author,
+        2026-10-03). What the failure changes is only the contest the
+        landing may lead to -- `FailedCrossContestTests` in
+        `tests/test_d12ball_deflection_flow.py`.
         """
         cog, game, match = self.build("setup_pass", "clear", board_size=9)
         cog.begin_loose_ball = mock.AsyncMock()
-        interaction = build_interaction()
         before = self.flat(match)
         speed = match.ball.speed
 
         with suppressed_cog_saves():
-            await resolve_clear(cog, interaction, game, match)
-
-        # The question was put, and nothing moved to ask it.
-        cog.begin_loose_ball.assert_not_awaited()
-        interaction.followup.send.assert_awaited()
-        self.assertEqual(self.flat(match), before)
-        distances = cog.engine.setup_pass_push_back_distances(game, match)
-        self.assertEqual(distances[0], 2)
-        chosen = max(
-            distance for distance in distances
-            if distance != cog.engine.setup_pass_push_back_to_goal_zone(
-                match, distances,
-            )
-        )
-
-        with suppressed_cog_saves():
-            await apply_setup_pass_push_back(cog, 
-                interaction, game, match, chosen,
-            )
+            await resolve_clear(cog, build_interaction(), game, match)
 
         self.assertEqual(
             self.flat(match),
-            match.relative_flat_index(
-                before, match.ball.possession, -chosen,
-            ),
+            match.relative_flat_index(before, match.ball.possession, -3),
         )
         self.assertEqual(match.ball.speed, max(1, speed - 3))
-        cog.begin_loose_ball.assert_awaited_once()
-        # Same occupancy rule as the plain Deflect/Clear landing --
-        # see OccupancyDecidesTests in test_d12ball_loose_ball.py for
-        # the three-way behavior this lands in.
-        self.assertFalse(
-            cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
-        )
-
-    async def test_on_the_last_space_there_is_nothing_to_choose(
-        self,
-    ) -> None:
-        # With the ball already on the last space every distance runs
-        # out of field, and only the shortest is offered -- so there is
-        # nothing to ask, and the Clear is played at it. The challenger
-        # is not standing there, so it sets up nothing and settles by
-        # occupancy like every other arrival.
-        cog, game, match = self.build("setup_pass", "clear", board_size=9)
-        edge_zone, edge_space = match.board.position_at_flat_index(0)
-        match.set_ball_space(edge_zone, edge_space)
-        self.assertNotIn(
-            match.challenger_id, match.board.spaces[edge_zone][edge_space],
-        )
-        cog.begin_loose_ball = mock.AsyncMock()
-
-        self.assertEqual(
-            cog.engine.setup_pass_push_back_distances(game, match), [2],
-        )
-
-        with suppressed_cog_saves():
-            await offer_setup_pass_push_back(cog, 
-                build_interaction(), game, match, lead_in="",
-            )
-
         cog.begin_loose_ball.assert_awaited_once()
         self.assertFalse(
             cog.begin_loose_ball.await_args.kwargs.get("is_high_pass", False),
@@ -2229,13 +2147,18 @@ class SetupPassTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
 
 
 class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
-    async def test_it_pushes_the_handler_back_two_and_brings_a_partner(
+    def partner_of(self, cog, match) -> str:
+        candidates = cog.engine.double_team_partner_candidates(match)
+        self.assertEqual(len(candidates), 1)
+        return candidates[0]
+
+    async def test_it_pushes_the_handler_back_one_and_brings_a_partner(
         self,
     ) -> None:
-        cog, game, match = self.build("dribble_burst", "double_team")
+        cog, game, match = self.build("dribble_advance", "double_team")
         handler = match.active_player_id
         challenger = match.challenger_id
-        partner = cog.engine.double_team_partner(match)
+        partner = self.partner_of(cog, match)
         start = self.flat_of(match, handler)
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
@@ -2243,60 +2166,132 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
             await resolve_double_team(cog, build_interaction(), game, match)
 
         end = self.flat_of(match, handler)
-        self.assertEqual(end, start - 2)
+        self.assertEqual(
+            end, match.relative_flat_index(start, match.ball.possession, -1),
+        )
         self.assertEqual(self.flat(match), end)
         # Both defenders end on the handler's space, and neither pays a
         # token for it -- "no exhaustion cost" is the card's own words.
         self.assertEqual(self.flat_of(match, challenger), end)
         self.assertEqual(self.flat_of(match, partner), end)
         self.assertEqual(match.exhaustion.get(partner, 0), 0)
-        self.assertEqual(match.pending_double_team, [challenger, partner])
+        # The partner, and only the partner, Merges next (Law 19.10.5).
+        self.assertEqual(match.pending_double_team, [partner])
 
-    async def test_the_pair_survives_a_save_and_reload(self) -> None:
-        cog, game, match = self.build("dribble_burst", "double_team")
+    async def test_the_merge_survives_a_save_and_reload(self) -> None:
+        cog, game, match = self.build("dribble_advance", "double_team")
         cog.finish_maneuver_resolution = mock.AsyncMock()
 
         with suppressed_cog_saves():
             await resolve_double_team(cog, build_interaction(), game, match)
 
         restored = MatchState.from_dict(match.to_dict(), cog.basic_ruleset)
+        self.assertTrue(restored.pending_double_team)
         self.assertEqual(
             restored.pending_double_team, match.pending_double_team,
         )
 
-    def test_the_partner_is_the_defender_nearest_the_ball(self) -> None:
+    def test_the_partner_is_on_the_ball_or_behind_it(self) -> None:
+        """
+        The nearest defender on the ball's space or behind it -- toward
+        their own goal -- and never one ahead of it, however near (Law
+        19.10.3).
+        """
         cog, game, match = self.build("dribble_advance", "double_team")
-
-        partner = cog.engine.double_team_partner(match)
-
-        others = [
-            player_id
-            for player_id in match.visiting.field_players
+        defense = match.defending_side()
+        ball = self.flat(match)
+        ahead = match.relative_flat_index(ball, defense, 1)
+        behind = match.relative_flat_index(ball, defense, -2)
+        near, far = [
+            player_id for player_id in match.visiting.field_players
             if player_id != match.challenger_id
-        ]
+        ][:2]
+        for player_id in match.visiting.field_players:
+            if player_id != match.challenger_id:
+                match.move_meeple(
+                    player_id, *match.board.position_at_flat_index(
+                        match.relative_flat_index(ball, defense, -3),
+                    ),
+                )
+        match.move_meeple(near, *match.board.position_at_flat_index(ahead))
+        match.move_meeple(far, *match.board.position_at_flat_index(behind))
+
         self.assertEqual(
-            match.distance_to_ball(partner),
-            min(match.distance_to_ball(other) for other in others),
+            cog.engine.double_team_partner_candidates(match), [far],
         )
 
-    def test_both_defenders_challenge_the_next_maneuver(self) -> None:
+    def test_a_tie_is_the_defending_coachs_to_choose(self) -> None:
         cog, game, match = self.build("dribble_advance", "double_team")
-        challenger = match.challenger_id
-        partner = cog.engine.double_team_partner(match)
-        match.pending_double_team = [challenger, partner]
-
-        self.assertEqual(
-            cog.engine.double_team_defenders(match), [challenger, partner],
+        others = [
+            player_id for player_id in match.visiting.field_players
+            if player_id != match.challenger_id
+        ][:2]
+        for player_id in others:
+            match.move_meeple(player_id, match.ball.zone, match.ball.space_index)
+        self.assertGreater(
+            len(cog.engine.double_team_partner_candidates(match)), 1,
         )
 
-    def test_without_a_double_team_only_the_challenger_challenges(
-        self,
-    ) -> None:
+        self.assertIsNone(cog.engine.double_team_partner(match))
+        self.assertTrue(
+            cog.engine.double_team_partner_owed(match, "double_team"),
+        )
+        self.assertIs(
+            pending_prompt(cog.engine, game, match).kind,
+            PromptKind.DOUBLE_TEAM_PARTNER,
+        )
+
+        cog.engine.record_double_team_partner(match, others[1])
+        self.assertEqual(cog.engine.double_team_partner(match), others[1])
+        self.assertFalse(
+            cog.engine.double_team_partner_owed(match, "double_team"),
+        )
+
+    def test_the_partner_merges_on_the_ball(self) -> None:
+        """
+        Merge as an Ooze has it (Law 20.5): on the ball's space and not
+        rolling, the partner adds their defensive skill to the defense;
+        off it, nothing.
+        """
         cog, game, match = self.build("dribble_advance", "pressure")
-
-        self.assertEqual(
-            cog.engine.double_team_defenders(match), [match.challenger_id],
+        partner = next(
+            player_id for player_id in match.visiting.field_players
+            if player_id != match.challenger_id
         )
+        match.pending_double_team = [partner]
+        rolling = (match.active_player_id, match.challenger_id)
+        defense = match.defending_side()
+        skill = cog.engine.skills(game, partner).defense
+
+        match.move_meeple(partner, match.ball.zone, match.ball.space_index)
+        self.assertIn(
+            (partner, skill),
+            cog.engine.merge_contributions(
+                game, match, defense, rolling, "defense",
+            ),
+        )
+        match.move_player_relative(partner, defense, -1)
+        self.assertNotIn(
+            partner,
+            [
+                player_id for player_id, _ in cog.engine.merge_contributions(
+                    game, match, defense, rolling, "defense",
+                )
+            ],
+        )
+
+    def test_the_merge_ends_with_the_next_maneuver(self) -> None:
+        """Kept past the Double Team that granted it, and no further."""
+        cog, game, match = self.build("dribble_advance", "double_team")
+        partner = self.partner_of(cog, match)
+
+        match.pending_double_team = [partner]
+        cog.engine.record_double_team_partner(match, partner, merges=True)
+        finish_maneuver_resolution(cog.engine, game, match)
+        self.assertEqual(match.pending_double_team, [partner])
+
+        finish_maneuver_resolution(cog.engine, game, match)
+        self.assertEqual(match.pending_double_team, [])
 
     async def test_dribble_bursts_cost_turns_the_ball_over_at_speed(
         self,

@@ -188,16 +188,12 @@ def _lead_in_first(
 #: **before** it posts any of the run's groups: the pass's board goes
 #: up, then the contest is announced over it, exactly as it did when
 #: the cog dispatched the step itself. What the loop may not run is a
-#: step that puts up a picture of its *own* -- `BEGIN_LOOSE_BALL` and
-#: `OFFER_SETUP_PASS_PUSH_BACK` announce the position with a snapshot
-#: attached, and a snapshot taken after the run would show a position
-#: that has moved on. Both are in the table since the last increment
-#: and the frontend names the first in `stop_after` -- the loop runs
-#: it and stops, and the frontend takes its picture of the position
-#: it left. The second ends on a prompt, which is a stop by
-#: definition, and the board it would have drawn is drawn a beat
-#: later by the loose ball its answer starts (`PROMPTS_DRAWN_LATER`
-#: in `cogs/d12ball/core.py`). A new play stops the loop the same
+#: step that puts up a picture of its *own* -- `BEGIN_LOOSE_BALL`
+#: announces the position with a snapshot attached, and a snapshot
+#: taken after the run would show a position that has moved on. It is
+#: in the table, and the frontend names it in `stop_after` -- the loop
+#: runs it and stops, and the frontend takes its picture of the
+#: position it left. A new play stops the loop the same
 #: way, on the step's own `new_play`.
 MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.FINISH_MANEUVER_RESOLUTION:
@@ -209,8 +205,6 @@ MODEL_STEPS: Mapping[FollowOnStep, Callable[..., StepResult]] = {
     FollowOnStep.BEGIN_SHOOTER_CHOICE: arrivals.begin_shooter_choice,
     FollowOnStep.BEGIN_OWN_GOAL_ROLL: arrivals.begin_own_goal_roll,
     FollowOnStep.BEGIN_LOOSE_BALL: arrivals.begin_loose_ball,
-    FollowOnStep.OFFER_SETUP_PASS_PUSH_BACK:
-        effects.offer_setup_pass_push_back,
     FollowOnStep.END_PERIOD: periods.end_period,
     FollowOnStep.SEND_TURN_PROMPT: turn.begin_turn,
     FollowOnStep.START_TURN: turn.start_turn,
@@ -659,7 +653,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
         "That scoring opportunity has already been settled."
     ),
     PromptKind.TUTORIAL_CONTINUE: "There is no note to continue from.",
-    PromptKind.SETUP_PASS_PUSH_BACK: "That push back has already been settled.",
+    PromptKind.DOUBLE_TEAM_PARTNER: "That partner has already been chosen.",
     PromptKind.LOW_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.HIGH_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.SETUP_PASS_CHOICE: "That maneuver has already resolved.",
@@ -1122,20 +1116,24 @@ def _answer_game_over(
     raise RuleRefusal("This game is over; nothing more is asked of it.")
 
 
-def _answer_setup_pass_push_back(
+def _answer_double_team_partner(
     engine: RulesEngine,
     game: D12BallGame,
     match: MatchState,
     prompt: PendingPrompt,
     choice: str,
     *,
-    distance: int,
+    player_id: str,
 ) -> StepResult:
-    """A failed Cross gambit, spent: how far back the ball goes."""
-    if distance not in prompt.options.distances:
-        _refuse("That distance is not one of the choices.")
-    return effects.setup_pass_push_back_step(
-        engine, game, match, distance=distance,
+    """
+    Which of a tie partners the Double Team (Law 19.10.3); then the
+    maneuver resolves, through the same entry that asked.
+    """
+    if player_id not in prompt.options.player_ids:
+        _refuse("That player cannot partner the Double Team.")
+    engine.record_double_team_partner(match, player_id)
+    return effects.begin_effect_resolution(
+        engine, game, match, engine.settled_maneuver_winner(match, game),
     )
 
 
@@ -1853,7 +1851,7 @@ def _answer_dribble_burst_choice(
 ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.TUTORIAL_CONTINUE: _answer_tutorial_continue,
     PromptKind.GAME_OVER: _answer_game_over,
-    PromptKind.SETUP_PASS_PUSH_BACK: _answer_setup_pass_push_back,
+    PromptKind.DOUBLE_TEAM_PARTNER: _answer_double_team_partner,
     PromptKind.BALL_HANDLER_SELECTION: _answer_ball_handler_selection,
     PromptKind.RUN_BACK_PLAYER: _answer_run_back_player,
     PromptKind.RUN_BACK_SPACE: _answer_run_back_space,
