@@ -160,7 +160,13 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
     exactly wrong when a tie on the cards resolves as the basic pair (see
     `tie_note` below). `matchup_rank_groups` names the rank instead --
     `O2`/`D1`/etc, coloured the opposing side's colour -- with **both** tiers'
-    names under it, basic in ink and the gambit in its own colour. This is
+    names under it, the basic in that same side colour and the gambit in its
+    own darker shade (the basic was ink until the author asked, 2026-10-04,
+    for it to carry its side's colour the way the rank does). The rank is
+    the column's headline -- 34, larger than the names -- with a gap under
+    it, and the two names sit close together as one pair
+    (`MATCHUP_NAME_LEADING`, 1.2 of a line's ink against `line_height`'s
+    1.62); the band came out no taller, so the effect above keeps its size. This is
     true of a basic card as well as of a gambit: what a basic card beats is
     still a rank, and that rank still has a gambit on it once advanced mode is
     in play.

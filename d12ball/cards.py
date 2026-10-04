@@ -1182,13 +1182,25 @@ def matchup_rank_groups(
     )
 
 
-# The matchup row's own name size, and the fixed offsets around it --
+# The matchup row's own sizes, and the fixed offsets around them --
 # shared between `matchup_content_height` (which measures) and
 # `draw_matchups` (which draws), so the two cannot disagree about how
-# tall a column's names come out.
+# tall a column's names come out. The rank is the column's headline,
+# set large under the label with a gap after it; the two names under
+# it are one pair, so they sit close (`MATCHUP_NAME_LEADING` of a
+# line's ink rather than `line_height`'s 1.62) -- the author,
+# 2026-10-04.
+MATCHUP_RANK_SIZE = 34
+MATCHUP_RANK_CENTER = 49
 MATCHUP_NAME_SIZE = 26
-MATCHUP_NAME_TOP = 68
+MATCHUP_NAME_TOP = 88
+MATCHUP_NAME_LEADING = 1.2
 MATCHUP_BOTTOM_PAD = 6
+
+
+def matchup_name_step(pen: Pen, face: ImageFont.ImageFont) -> float:
+    """The distance from one matchup name's line to the next."""
+    return pen.text_size("Hg", face)[1] * MATCHUP_NAME_LEADING
 
 
 def matchup_content_height(
@@ -1220,7 +1232,7 @@ def matchup_content_height(
         max_lines = max(max_lines, lines)
     return (
         MATCHUP_NAME_TOP
-        + max_lines * line_height(pen, name_font)
+        + max_lines * matchup_name_step(pen, name_font)
         + MATCHUP_BOTTOM_PAD
     )
 
@@ -1264,21 +1276,21 @@ def draw_matchups(
         max_width = column_width - 14
         pen.text((cx, top + 19), label, font(19, bold=True), MUTED, anchor="mm")
         pen.text(
-            (cx, top + 44),
+            (cx, top + MATCHUP_RANK_CENTER),
             f"{opposing_letter}{rank}",
-            rank_font(25),
+            rank_font(MATCHUP_RANK_SIZE),
             rank_color,
             anchor="mm",
         )
         name_y = top + MATCHUP_NAME_TOP
         name_font = font(MATCHUP_NAME_SIZE, bold=True)
         for name, color in (
-            (basic.name, INK),
+            (basic.name, rank_color),
             (gambit.name, DEFENSE_COLOR_GAMBIT if is_offense else OFFENSE_COLOR_GAMBIT),
         ):
             for line in pen.wrapped(name, name_font, max_width):
                 pen.text((cx, name_y), line, name_font, color, anchor="mm")
-                name_y += line_height(pen, name_font)
+                name_y += matchup_name_step(pen, name_font)
         if index:
             pen.line(
                 [
