@@ -341,8 +341,11 @@ numerals. All six show a different number (12, 3, 9, 1, 7, 5), so the picture
 is not one throw repeated. The bot's six coins lie round them, turned a
 little: the fortune faces (gold 3, silver 1, bronze 3) on the Fortune side,
 and the doom faces (gold 1, silver 3, bronze 1) on the Doom side.
-`d12ball/dice.py` draws a die and holds the three pairs (`ORANGE`, `TEAL`,
-`PURPLE`, each built by `resin_pair`); `folly_still` in `landing/build.py`
+`d12ball/dice.py` draws a die and holds the pairs (`ORANGE`, `TEAL`,
+`PURPLE` and `SLIME`, each built by `resin_pair`; the still uses the first
+three, and slime was added on 2026-10-03 so each colour team has a pair, at
+the author's word, after seeing it on a maneuver-tile mockup -- it shows 11
+and 4, so all eight dice still show different numbers); `folly_still` in `landing/build.py`
 draws `FOLLY_STILL`'s layers back to front, on a transparent ground the
 card's panel shows through. The layout was checked by rendering it and
 looking, at the size the card shows it.
