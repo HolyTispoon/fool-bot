@@ -17,9 +17,12 @@ carries its player's special ability on its advanced side (the author,
 2026-09-27). The maneuvers are two pairs, the six basic cards on the
 standard back and the six advanced on the advanced one; the species and
 role reference cards share one pair; the condition tokens have their
-own (the author, 2026-09-28). **It
+own (the author, 2026-09-28). The maneuver tiles are each colour team's
+two, as letter pages printed duplex; the hexagon, the alternative shape,
+is in the kit built here and never in the landing page's, which passes
+`--no-hexagon-tiles` (2026-10-04). **It
 draws nothing on its own** -- it runs `render_maneuver_cards.py`,
-`render_player_cards.py`, `render_reference_cards.py`,
+`render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
 `render_token_sheet.py`, `render_box_art.py` (the playtest card),
 `render_boards.py` and `build_rulebooks.py`, the same scripts a
 developer already reaches for to check one component at a time, and
@@ -100,6 +103,16 @@ short edge**. The cards need no cutting.
   (the cards a gambit is played with) and `advanced-back-sheet.png`
   the advanced back, whose hexagon names both tiers on every point.
   Each sheet's top row is the offense and its bottom row the defense.
+- **maneuver-tiles/** -- the maneuver tiles, the hand of maneuver
+  cards as one flat dodecagon a coach turns so the maneuver they play
+  points at the other coach: each colour team's two, with its own dice
+  in the middle. Tile 1 is the basic maneuvers and tile 2 the gambits,
+  each double-sided, the offense on its front and the defense on its
+  back, every defense maneuver behind the offense maneuver of its rank.
+  `<team>-basic-front-sheet.png` and `<team>-basic-back-sheet.png` are
+  tile 1 and `<team>-gambits-...` tile 2: print each pair duplex (flip
+  on the long edge) at actual size and cut along the tile's coloured
+  edge.{hexagon_tiles}
 - **player-cards/** -- all {team_count} colour teams ({team_names}),
   {players_per_team} players a team, two print sheets a team. Every player
   card is double-sided, and both sides carry the player's role, skills
@@ -188,7 +201,7 @@ if a print shop wants the extra 1/8in margin to trim into.
 
 ## What to bring besides this kit
 
-Printed here: every card, every board and the tokens. Not printed:
+Printed here: every card, every board, the maneuver tiles and the tokens. Not printed:
 
 - **A d12 a side** (a twelve-sided die) -- it is also the ball, and the
   face it shows is the ball's speed.
@@ -217,6 +230,12 @@ alongside its PNG, and `--zip` to also bundle the whole kit into
 """
 
 
+# What the README says of the hexagon tiles, where the kit has them:
+# `--no-hexagon-tiles` leaves them out, and this with them.
+HEXAGON_TILES = """ `hexagon/` holds the same tiles as
+  hexagons, the alternative shape, the same way."""
+
+
 # What the README says of the player cards' Avery pages, where the kit
 # has them: `--no-avery-players` leaves the pages out, and these with
 # them.
@@ -233,9 +252,11 @@ cards' `avery-` pages,"""
 
 def write_readme(
     out_dir: Path, paper: str, players_per_team: int, player_avery: bool,
+    hexagon_tiles: bool,
 ) -> None:
     width, height = PAPERS[paper]
     readme = README_TEMPLATE.format(
+        hexagon_tiles=HEXAGON_TILES if hexagon_tiles else "",
         player_avery=(
             PLAYER_AVERY.format(
                 avery_pages=-(-(len(COLOR_TEAMS) * players_per_team) // AVERY_95328_CARDS)
@@ -275,8 +296,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Build the whole print-and-play kit -- the maneuver, player "
-            "and reference card sheets, the tokens and every board -- in "
-            "one folder."
+            "and reference card sheets, the maneuver tiles, the tokens and "
+            "every board -- in one folder."
         ),
     )
     parser.add_argument(
@@ -313,6 +334,14 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--no-hexagon-tiles",
+        action="store_true",
+        help=(
+            "Leave out the hexagon maneuver tiles, the alternative shape, "
+            "which only the kit built locally carries (the landing page's kit)."
+        ),
+    )
+    parser.add_argument(
         "--zip",
         action="store_true",
         help="Also bundle the finished kit into <out>.zip.",
@@ -329,6 +358,11 @@ def main() -> None:
         "render_maneuver_cards.py",
         ["--out", str(args.out / "maneuver-cards"), "--sheets-only", *bleed_flag],
     )
+
+    tile_args = ["--out", str(args.out / "maneuver-tiles")]
+    if args.no_hexagon_tiles:
+        tile_args.append("--no-hexagons")
+    run("render_maneuver_tiles.py", tile_args)
 
     player_args = ["--out", str(args.out / "player-cards"), "--sheets-only", *bleed_flag]
     for team in COLOR_TEAMS:
@@ -370,7 +404,8 @@ def main() -> None:
     catalog = load_player_catalog()
     players_per_team = len(catalog.teams[COLOR_TEAMS[0]].players)
     write_readme(
-        args.out, args.paper, players_per_team, not args.no_avery_players
+        args.out, args.paper, players_per_team, not args.no_avery_players,
+        not args.no_hexagon_tiles,
     )
 
     if args.zip:

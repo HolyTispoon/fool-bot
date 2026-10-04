@@ -246,20 +246,28 @@ checked by looking: the picture is the page the download opens on. The die on
 each is one committed picture, `rulebooks.cover_die_path`, which both
 drawings put down ("The dice as marks").
 
-**The print-and-play kit is three zips: the components, and the player
-cards in two.** `write_kit` runs `scripts/generate_print_and_play_kit.py`
-into a temporary folder and zips it as `KIT_DOWNLOADS` says:
+**The print-and-play kit is five zips: the components, the player cards in
+two, and the maneuver tiles in two.** `write_kit` runs
+`scripts/generate_print_and_play_kit.py` into a temporary folder and zips it
+as `KIT_DOWNLOADS` says:
 
 - `/kit` -- the boards, the maneuver, reference and token sheets, the README
   and both rulebooks as PDFs (about 12 MB);
 - `/kit-players-1` and `/kit-players-2` -- the player sheets of two colour
-  teams each, Orange and Teal, then Purple and Slime (about 15 MB each).
+  teams each, Orange and Teal, then Purple and Slime (about 15 MB each);
+- `/kit-tiles-1` and `/kit-tiles-2` -- the maneuver tiles of the same two
+  pairs of teams, each team's four pages: its two tiles' fronts and backs
+  (about 15 MB each).
 
 Every part holds one folder, `d12ball-print-and-play/`, so unzipped together
 they are the one kit -- built with `--no-avery-players`, so without the
 player cards' Avery Presta 95328 pages, which are the sheets' cards a second
-way (the author, 2026-09-28). The maneuver and reference sheets are Avery
-pages only, and are in `/kit`. The card links each and says what is in it.
+way (the author, 2026-09-28), and with `--no-hexagon-tiles`, so without the
+hexagon tiles, the alternative shape, which only the kit built locally
+carries (2026-10-04). `kit_part` refuses a hexagon tile outright, so one
+reaching the site is a failed build rather than a download. The maneuver and
+reference sheets are Avery pages only, and are in `/kit`. The card links each
+and says what is in it.
 
 Why: a single file on Cloudflare Pages may be 25 MB. The kit was 128 MB
 (2026-09-27), because it wrote every card of all eight teams as a PNG of its
@@ -271,7 +279,10 @@ eight player sheets, which PNG will not squeeze (re-encoding saved 1%). The
 author kept PNG and split the player cards from the boards and the other
 components. The player sheets alone are over the limit too, so they are
 split again by team pair, each team's standard and advanced sheets in the
-same zip because they print duplex together. **The build refuses a zip over
+same zip because they print duplex together. The maneuver tiles (2026-10-04)
+are sixteen full-colour pages, about 32 MB, so they are two parts of their
+own on the same pairs, rather than a sixth of everything pushed into the
+existing three. **The build refuses a zip over
 the limit** (`PAGES_FILE_LIMIT`) rather than leaving it to fail the deploy.
 The split is fixed rather than worked out from the sizes, because its
 addresses are what a page or a card links: if the art grows past the limit,
@@ -288,8 +299,8 @@ the build as Cloudflare Pages' `_redirects` file:
 - `/play` -- the web app.
 - `/learn` and `/rules` -- the two books' PDFs in `downloads/`, built beside
   the page.
-- `/kit`, `/kit-players-1` and `/kit-players-2` -- the print-and-play kit's
-  three zips, likewise.
+- `/kit`, `/kit-players-1`, `/kit-players-2`, `/kit-tiles-1` and
+  `/kit-tiles-2` -- the print-and-play kit's five zips, likewise.
 - `/feedback` -- `box_art.SURVEY_FORM_URL`, read rather than copied. The
   playtest card prints `box_art.SURVEY_URL`, which is this address on
   `www.` (the zone's redirect to the bare domain keeps the path), so a
@@ -520,7 +531,7 @@ config file, not a rewrite.
 9. **Check from a phone off the home Wi-Fi**: both bare domains load;
    `www.` redirects to the bare one; `/play` reaches the app (once the
    tunnel is up); `/feedback` reaches the form; `/rules` and `/learn` open
-   the books; `/kit`, `/kit-players-1` and `/kit-players-2` download; a
+   the books; `/kit`, `/kit-players-1`, `/kit-players-2`, `/kit-tiles-1` and `/kit-tiles-2` download; a
    link to each site pasted in a Discord message previews with the Open
    Graph card. And scan the sale sheet's and the playtest card's codes off
    a fresh print.
