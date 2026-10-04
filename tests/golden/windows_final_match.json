@@ -286,12 +286,12 @@
     },
     {
       "details": {
-        "attack_total": 19,
+        "attack_total": 17,
         "defender_count": 2,
         "defense_total": 14,
         "scored": true,
         "set_up": false,
-        "speed_modifier": 3
+        "speed_modifier": 1
       },
       "kind": "shot",
       "period": "first_half",

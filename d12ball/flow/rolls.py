@@ -1145,7 +1145,7 @@ def score_score_attempt(
     docs/design/tutorial.md.
     """
     offense_skill = engine.skills(game, shooter.player_id).offense
-    speed_modifier = match.ball_speed_modifier()
+    speed_modifier = match.shot_speed_modifier()
     defenders = engine.intervening_defenders(match, game)
     # What each defender is worth here, not what they are worth -- a
     # defender off the ball adds half their skill, rounded up. See
@@ -1174,7 +1174,10 @@ def score_score_attempt(
 
     attack_detail = contestant_detail(shooter, "Offensive", offense_skill)
     if speed_modifier:
-        attack_detail.append(f"{speed_modifier:+d} ball speed modifier")
+        attack_detail.append(
+            f"{speed_modifier:+d} ball speed modifier"
+            + (" (halved from midfield)" if match.shot_speed_halved() else ""),
+        )
     if attack_ignite.detail:
         attack_detail.append(attack_ignite.detail)
     attack_detail.extend(engine.overdrive_details(match, shooter.player_id))
@@ -1405,7 +1408,7 @@ def score_attempt_step(
         player_id=shooter.player_id,
         scored=scored,
         set_up=bool(match.pending_shot_is_set_up),
-        speed_modifier=match.ball_speed_modifier(),
+        speed_modifier=match.shot_speed_modifier(),
         # The defenders the shot was up against: one Flickerwing passed
         # was in the way and added nothing, so the count leaves them out.
         defender_count=sum(

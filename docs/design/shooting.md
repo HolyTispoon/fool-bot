@@ -205,6 +205,15 @@ the flag -- it keeps the old word because it is a saved key -- and
   itself. The fourth site is deliberately left alone -- the modifier a *defense*
   adds to a maneuver skill test it won with Steal Intercept, which is settled
   before any pass is thrown and is not the offense's to lose.
+- **A shot asks `shot_speed_modifier`, not `ball_speed_modifier`** (the
+  author, 2026-10-04): the same signed modifier, halved and rounded down when
+  the ball is in midfield (`shot_speed_halved`, Law 5.2.2). It is the shot's
+  alone -- the roll, the matchup image (`score_attempt_brief`, which the web
+  page reads too) and the shot's event -- so the long-pass contest and a
+  Steal still pay the full speed wherever they are rolled. The ball's zone is
+  the shooter's, since a shot is taken from the ball, and no shot against the
+  speed is taken from midfield: a pass into the goal zone leaves its receiver
+  on the last space.
 - **Every detail string is `:+d`**, because a modifier that can be negative can
   no longer be printed under a hardcoded `+`.
 - **The flag is set only when a set-up is actually offered**, in

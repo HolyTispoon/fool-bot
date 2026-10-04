@@ -2884,6 +2884,31 @@ class MatchState:
         modifier = self.ball.speed_modifier
         return -modifier if self.pending_high_pass_overshoot else modifier
 
+    def shot_speed_halved(self) -> bool:
+        """
+        Whether a score attempt taken now pays **half** the ball speed
+        modifier: a shot from midfield does (Law 5.2.2), one from the
+        outer zone before the goal pays it in full. The ball's zone,
+        which is the shooter's -- a shot is taken from the ball.
+        """
+        return self.ball.zone == Zone.MIDFIELD
+
+    def shot_speed_modifier(self) -> int:
+        """
+        **The one reading of what a score attempt adds for the ball's
+        speed** (Law 5.2.2): `ball_speed_modifier`, halved and rounded
+        down from midfield (`shot_speed_halved`; the author,
+        2026-10-04). The magnitude is halved and the sign kept, though
+        no shot against the speed is ever taken from midfield: a High
+        Pass reaching the goal zone leaves its receiver on the last
+        space, in the outer zone.
+        """
+        modifier = self.ball_speed_modifier()
+        if not self.shot_speed_halved():
+            return modifier
+        half = abs(modifier) // 2
+        return -half if modifier < 0 else half
+
     def own_goal_restart_space(self, side: TeamSide) -> tuple[Zone, int]:
         """
         The space closest to `side`'s own goal -- where a missed score
