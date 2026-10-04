@@ -157,15 +157,16 @@ the author directly.
 ### 2026-10-04 -- author, a shot from midfield adds half the ball speed modifier
 
 The author: *"ball sped counts in full in the zone closest to the ball (home/visitors
-zone/third) but only half (rounded down) when a score attempt from midfield"* -- read as the
-outer zone before the goal, which is what the parenthesis names.
+zone/third) but only half (rounded down) when a score attempt from midfield"*. Asked on the pull
+request, *"zone closest to the ball means zone closest to the goal"*, and of the Steal,
+Intercept and the High Pass contest, *"they keep the full speed"*.
 
 - **A score attempt from midfield adds half the ball speed modifier, rounded down** (5.2.2,
   7.4.1); from the outer zone before the goal being shot at -- the Visitors Zone or Home Zone,
   the Thirds on board 9 -- it adds it in full, as before. At speed 1 a shot from midfield adds
   nothing.
 - **It is the shot alone.** A Steal or Intercept and a High Pass contest still add the full
-  modifier wherever they are rolled. This settles the open question of 2026-10-01, which had
+  modifier wherever they are rolled (the author: *"they keep the full speed"*). This settles the open question of 2026-10-01, which had
   floated the opposite (halving in the zone before the goal) and asked whether a steal and the
   contest went with it.
 - **The zone is the ball's**, which is the shooter's: a shot is taken from the ball.
