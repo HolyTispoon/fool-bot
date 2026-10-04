@@ -3885,6 +3885,10 @@ class ChallengeSide:
     too). Unlike `ability` it is drawn on every image and every player,
     a wall's included, since it is the one thing a coach cannot read
     off the role badge.
+
+    `coach` is who is coaching this player's side, as the record names
+    them (`formatting.coach_name`), drawn after the team on the group's
+    team line (`team_line`); `""` draws the team alone.
     """
 
     name: str
@@ -3901,6 +3905,17 @@ class ChallengeSide:
     as_on_ball: bool = False
     merging: bool = False
     special: str = ""
+    coach: str = ""
+
+    @property
+    def team_line(self) -> str:
+        """The group's first line: the team, and its coach after it
+        where the brief names one -- "Orange · perrytom"."""
+        return (
+            f"{self.team_label} · {self.coach}"
+            if self.coach
+            else self.team_label
+        )
 
     @property
     def value(self) -> int:
@@ -4010,7 +4025,7 @@ def group_text_lines(
 
     sized = [
         (
-            sides[0].team_label,
+            sides[0].team_line,
             sides[0].team_color,
             FONT_CHALLENGE_BODY,
             CHALLENGE_LINE_HEIGHT,

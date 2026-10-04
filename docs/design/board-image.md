@@ -379,6 +379,18 @@ defenders has none, and packs to its own content.
   and advanced, both images (64 renders, 29 distinct), byte-identical
   before and after.
 
+- **Each group names its coach after its team** -- "Orange · perrytom"
+  (the author, 2026-10-04: "I want the username of the coach with the
+  team name"). `ChallengeSide.coach` is filled by the two briefs for a
+  group's lead through `dice_brief.side_coach`, which is
+  `formatting.coach_name` -- the record's name, so the display name the
+  game was created with, the AI's name for the AI, "Player 1" in a test
+  game -- and `team_line` draws it. It is plain text off the record,
+  never a mention, which an image cannot carry. A side with no coach
+  yet, or a brief with no game, draws the team alone. The web page
+  reads the same brief and ignores the field: its window sits under
+  a top bar that already says who is in each seat.
+
 ### The special ability on a matchup
 
 **In an advanced game, each player's special ability is drawn under
