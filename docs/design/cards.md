@@ -1000,6 +1000,76 @@ python3 scripts/render_species_icons.py --in-place
   because what `--in-place` overwrites is tracked art -- the same reason
   `render_condition_tokens.py` and `recut_player_portraits.py` are.
 
+## The maneuver tiles
+
+`d12ball/maneuver_tiles.py` draws **a coach's maneuvers as tiles**: one flat
+tile a coach turns so the maneuver they play points at the other coach, in
+place of a hand of three cards (the author, 2026-10-03). Nothing hides the
+choice -- both coaches cover the tile with a hand and reveal on three -- so
+the tile needs no mechanism, and it is drawn in 2D only.
+`scripts/render_maneuver_tiles.py` writes them as letter pages; nothing in
+the game reads them.
+
+- **Two tiles a coach, double-sided, ranks aligned through the tile**
+  (2026-10-03). Tile 1 is the basic maneuvers, the offense on its front and
+  the defense on its back; tile 2 the gambits, the same way. Each defense
+  maneuver is printed behind the offense maneuver of its own rank, so the
+  card a maneuver ties is the one behind it, and a back read after turning
+  the tile over has its ranks 1, 3, 2 clockwise (`face_order`). Each page
+  centres its face, so a front sheet and its back sheet printed duplex
+  (flipped on the long edge) put the two back to back.
+- **The dodecagon is the tile and the hexagon an alternative** (2026-10-03).
+  Both are one layout, each maneuver across two sides of the shape, read
+  upright from its corner. The hexagon is in the kit built locally and
+  **never on the landing page** (2026-10-04): the kit script draws it into
+  `maneuver-tiles/hexagon/` unless `--no-hexagon-tiles`, which the site's
+  build passes, and the site's `kit_part` refuses a file under that folder.
+- **What a maneuver's room holds, and in what order, is the author's**
+  (2026-10-03, settled over several rounds). From the corner: the coloured
+  corner with the rank in a white tab and the name over it, both prominent
+  (2026-10-04, after a tab that was too big and a name too small); on the
+  dodecagon the colour reaches only the vertices beside the corner. A
+  gambit's `ADVANCED ...` sits in two small lines beside its name. Then the
+  card's strip diagram, redrawn wide and short (`tile_strip`) to sit on the
+  corner's base, with the time a pill on its top right (2026-10-04). Then,
+  read from the d12 outward: a basic maneuver's **effect**, its BEATS / TIES /
+  LOSES TO, and the role abilities that name it; a gambit's **success**, its
+  **failure**, and its tie box beside its BEATS / TIES / LOSES TO in one band
+  (2026-10-03: the tie read too small stacked). The effect and the success
+  and failure are the most important and are searched to the largest size
+  that fits (`region`); the rest are set a step below. "Success" and
+  "failure" are the tile's headings, where the card says "successful
+  gambit" -- the author's words for the tile.
+- **The cycle round the d12** (2026-10-04). A ring of three arrows, each out
+  of its maneuver's sector and across the boundary into the neighbour whose
+  back holds the card it beats, labelled BEATS D3 or the like (`arrow`, which
+  finds the beaten card on the back rather than assuming where it is). Seen
+  from the back, an arrow points the same way through the tile as its
+  partner on the front, because on either side a rank beats the other
+  side's rank below it. Round the arrows, `RULE` writes that out, in the
+  side's deep colour rather than the black of the text round it, and every
+  rank on the ring -- an arrow's D3, the rule's 1 and 3 -- in the rank's
+  own font, as on the cards (the author, 2026-10-04). **Its
+  wording is the module's own**, not the Charter's -- 6.3.1 gives the cycle
+  as a table -- so `check_rule` holds it against `ManeuverCatalog.resolve`
+  every time a face is drawn, and a rules change that breaks it stops the
+  render rather than printing a wrong rule. The BEATS / TIES / LOSES TO box
+  stayed beside the ring (the author tried a version without it and brought
+  it back).
+- **Every word is the card's.** The effect and the role abilities are the
+  catalog's through the card's own readers (`cards.role_abilities`,
+  `cards.gambit_effect_parts`, `cards.time_cost`), and every matchup is
+  `ManeuverCatalog.resolve`'s, so an import reaches a tile the way it reaches
+  a card.
+- **The d12 in the middle is the colour team's own pair** from
+  `d12ball/dice.py`: the Fortune on the basic tile and the Doom on the
+  gambits. That is all a colour team changes; the maneuver colours are the
+  cards'.
+- **The pages stay full-colour PNG**, about 2 MB each. Cutting them to 256
+  colours made them a quarter of the size, but shifted the dice's colours and
+  greyed the white, so the site carries the tiles in two zips of their own
+  ([landing-pages.md](landing-pages.md), "The downloads").
+
 ## The print-and-play kit
 
 `scripts/generate_print_and_play_kit.py` is the one command for
@@ -1013,7 +1083,7 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
 ```
 
 - **It draws nothing itself.** It runs `render_maneuver_cards.py`,
-  `render_player_cards.py`, `render_reference_cards.py`,
+  `render_maneuver_tiles.py`, `render_player_cards.py`, `render_reference_cards.py`,
   `render_token_sheet.py`, `render_boards.py` and `build_rulebooks.py`
   in turn -- the same scripts a developer already reaches for one at a
   time -- and is only their sum into one
@@ -1067,7 +1137,8 @@ python3 scripts/generate_print_and_play_kit.py --bleed --pdf --zip
   `--sheets-only` for this, and the kit passes it and a `--team` per
   colour team. A developer checking one card still runs the script on
   its own and gets every card. The kit came to 128 MB before this and
-  35 MB after, which d12ball.com carries in three zips
+  35 MB after, which d12ball.com carries in three zips, and the maneuver
+  tiles in two more
   ([landing-pages.md](landing-pages.md), "The downloads").
 - **`d12ball/print/print-and-play/` is generated output and is gitignored**, like
   everything under `d12ball/print/` -- run the script again rather than trusting
@@ -1081,6 +1152,7 @@ one subfolder per script, named as the kit names its own folders:
 | Folder | Written by |
 | --- | --- |
 | `d12ball/print/maneuver-cards/` | `render_maneuver_cards.py` |
+| `d12ball/print/maneuver-tiles/` | `render_maneuver_tiles.py` (the hexagon in `hexagon/`) |
 | `d12ball/print/player-cards/` | `render_player_cards.py` |
 | `d12ball/print/species-cards/` | `render_species_cards.py` |
 | `d12ball/print/role-cards/` | `render_role_cards.py` |

@@ -153,37 +153,48 @@ DOWNLOADS_DIR = "downloads"
 # player cards apart from the boards and the other components, the
 # sheets kept as PNG. The player sheets alone are over the limit too, so
 # they are split again by team, each team's standard and advanced
-# sheets together so a team prints duplex from one download. Every part
-# unzips into the one folder, `KIT_DIR`, and together they are the kit.
-# Each entry is the address, the zip's name, and the colour teams whose
-# player sheets it carries; the first, with none, carries everything
-# that is not a team's.
+# sheets together so a team prints duplex from one download. The
+# maneuver tiles (2026-10-04) are as big again, so they are two parts of
+# their own split the same way, each team's front and back pages
+# together. Every part unzips into the one folder, `KIT_DIR`, and
+# together they are the kit. Each entry is the address, the zip's name,
+# the kit's folder whose sheets it carries by team and the colour teams
+# whose they are; the first, with neither, carries everything that is
+# not a team's.
 KIT_DIR = "d12ball-print-and-play"
-KIT_DOWNLOADS: tuple[tuple[str, str, tuple[Team, ...]], ...] = (
-    ("/kit", f"{KIT_DIR}.zip", ()),
+KIT_TEAM_PAIRS = (COLOR_TEAMS[:2], COLOR_TEAMS[2:])
+KIT_DOWNLOADS: tuple[tuple[str, str, str, tuple[Team, ...]], ...] = (
+    ("/kit", f"{KIT_DIR}.zip", "", ()),
     *(
         (
-            f"/kit-players-{number}",
-            f"{KIT_DIR}-players-{'-'.join(team.value for team in teams)}.zip",
+            f"/kit-{part}-{number}",
+            f"{KIT_DIR}-{part}-{'-'.join(team.value for team in teams)}.zip",
+            folder,
             teams,
         )
-        for number, teams in enumerate((COLOR_TEAMS[:2], COLOR_TEAMS[2:]), start=1)
+        for part, folder in (("players", "player-cards"), ("tiles", "maneuver-tiles"))
+        for number, teams in enumerate(KIT_TEAM_PAIRS, start=1)
     ),
 )
+# The kit's own folder for the hexagon tiles, the alternative shape: in
+# the kit built locally only, never on the site (the author, 2026-10-04).
+# The build leaves it out and refuses a file under it.
+HEXAGON_TILES = Path("maneuver-tiles") / "hexagon"
 # The most a single file on Cloudflare Pages may be. The build refuses a
 # download over it, rather than the deploy.
 PAGES_FILE_LIMIT = 25 * 1024 * 1024
 
 # The addresses a site owns and forwards, Cloudflare Pages' `_redirects`
-# format. `/learn` and `/rules` open the books' PDFs and `/kit` and
-# `/kit-players-<n>` the kit's zips, which the build makes. The survey
-# is a redirect so the form can move without a card being reprinted:
-# the card prints `SURVEY_URL`, and this forwards it to the form.
+# format. `/learn` and `/rules` open the books' PDFs and `/kit`,
+# `/kit-players-<n>` and `/kit-tiles-<n>` the kit's zips, which the build
+# makes. The survey is a redirect so the form can move without a card
+# being reprinted: the card prints `SURVEY_URL`, and this forwards it to
+# the form.
 REDIRECTS: dict[str, tuple[tuple[str, str], ...]] = {
     "d12ball": (
         ("/play", PLAY_URL),
         *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, _, filename in BOOK_DOWNLOADS),
-        *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, filename, _ in KIT_DOWNLOADS),
+        *((source, f"/{DOWNLOADS_DIR}/{filename}") for source, filename, _, _ in KIT_DOWNLOADS),
         ("/feedback", SURVEY_FORM_URL),
     ),
     "studio": (),
@@ -445,10 +456,17 @@ def write_downloads(out: Path) -> None:
 
 def kit_part(relative: Path) -> int:
     """Which of `KIT_DOWNLOADS` a file of the kit goes in: a team's
-    player sheet goes with its team, and everything else in the first."""
-    if relative.parts[0] == "player-cards":
-        for index, (_, _, teams) in enumerate(KIT_DOWNLOADS):
-            if any(relative.name.startswith(f"{team.value}-") for team in teams):
+    player sheet or maneuver tile page goes with its team, and everything
+    else in the first. A hexagon tile is refused: it is never on the
+    site."""
+    if relative.is_relative_to(HEXAGON_TILES):
+        raise ValueError(f"{relative} is a hexagon tile, which the site never carries")
+    folders = {folder for _, _, folder, _ in KIT_DOWNLOADS if folder}
+    if relative.parts[0] in folders:
+        for index, (_, _, folder, teams) in enumerate(KIT_DOWNLOADS):
+            if folder == relative.parts[0] and any(
+                relative.name.startswith(f"{team.value}-") for team in teams
+            ):
                 return index
         raise ValueError(f"{relative} is no colour team's sheet")
     return 0
@@ -463,8 +481,12 @@ def write_kit(downloads: Path) -> None:
             # The player cards' Avery pages are the sheets' cards a
             # second way, so the site leaves them out (the author,
             # 2026-09-28); the maneuver and reference sheets are Avery
-            # pages only, and stay.
-            [sys.executable, str(KIT_SCRIPT), "--out", str(kit), "--no-avery-players"],
+            # pages only, and stay. The hexagon tiles are the kit's
+            # locally only (2026-10-04).
+            [
+                sys.executable, str(KIT_SCRIPT), "--out", str(kit),
+                "--no-avery-players", "--no-hexagon-tiles",
+            ],
             check=True, cwd=PROJECT_ROOT, stdout=subprocess.DEVNULL,
         )
         downloads.mkdir(parents=True, exist_ok=True)
@@ -473,13 +495,13 @@ def write_kit(downloads: Path) -> None:
                 stack.enter_context(
                     zipfile.ZipFile(downloads / filename, "w", zipfile.ZIP_DEFLATED)
                 )
-                for _, filename, _ in KIT_DOWNLOADS
+                for _, filename, _, _ in KIT_DOWNLOADS
             ]
             for path in sorted(kit.rglob("*")):
                 if path.is_file():
                     relative = path.relative_to(kit)
                     archives[kit_part(relative)].write(path, Path(KIT_DIR) / relative)
-    for _, filename, _ in KIT_DOWNLOADS:
+    for _, filename, _, _ in KIT_DOWNLOADS:
         size = (downloads / filename).stat().st_size
         if size > PAGES_FILE_LIMIT:
             raise ValueError(
@@ -671,18 +693,21 @@ def team_names(teams: tuple[Team, ...]) -> str:
     return " and ".join(team_display_name(team) for team in teams)
 
 
-def kit_link_text(teams: tuple[Team, ...]) -> str:
+KIT_PART_NAMES = {"player-cards": "Player cards", "maneuver-tiles": "Maneuver tiles"}
+
+
+def kit_link_text(folder: str, teams: tuple[Team, ...]) -> str:
     if not teams:
         return "Boards and components (zip)"
-    return f"Player cards: {team_names(teams)} (zip)"
+    return f"{KIT_PART_NAMES[folder]}: {team_names(teams)} (zip)"
 
 
 def kit_card_html() -> str:
     """The print-and-play card, with a link to each of the kit's zips,
     each saying what is in it."""
     links = "".join(
-        f'    <a class="way-link" href="{source}">{escape(kit_link_text(teams))}</a>\n'
-        for source, _, teams in KIT_DOWNLOADS
+        f'    <a class="way-link" href="{source}">{escape(kit_link_text(folder, teams))}</a>\n'
+        for source, _, folder, teams in KIT_DOWNLOADS
     )
     return (
         '<div class="card way-card">\n'

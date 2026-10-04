@@ -6,9 +6,10 @@ bevelled edges, a key and a fill light, a specular highlight, numerals
 on every visible face (engraved or painted), a soft contact shadow, and
 the finishes of a resin die -- the light coming through it, the swirl
 poured into it, and a clear body the far faces show through.
-Prophetic Folly's dice are three `DicePair`s, `ORANGE`, `TEAL` and
-`PURPLE`; `landing/build.py` composes the still the studio page's card
-shows from them and the bot's coins. One die of a pair, cropped to
+Prophetic Folly's dice are four `DicePair`s, `ORANGE`, `TEAL`, `PURPLE`
+and `SLIME`, one for each colour team; `landing/build.py` composes the
+still the studio page's card shows from the first three and the bot's
+coins. One die of a pair, cropped to
 itself by `die_mark`, is also a mark: each landing site's tab icon, and
 the die on each rulebook's cover (`rulebooks.write_cover_dice`), which
 is why it lives under `d12ball/` rather than `landing/`.
@@ -79,6 +80,9 @@ class Die:
 # -- for the bright one to be a clear die, and for all six to show a
 # different number. The clear die was 0.6 see-through at first, and
 # was made a little less so (0.45) at the author's word the same day.
+# The slime pair came after (the author, 2026-10-03), so every colour
+# team has its dice: the same resin in the slime team's green, showing
+# its own two numbers, so all eight still differ.
 WHITE = (255, 255, 255)
 GOLD = (236, 184, 76)
 
@@ -107,6 +111,7 @@ def resin_pair(bright, bright_glow, dark, dark_glow, values, yaws) -> DicePair:
 ORANGE = resin_pair((255, 128, 30), (255, 196, 110), (118, 42, 14), (214, 104, 30), (12, 3), (30, -20))
 TEAL = resin_pair((40, 232, 216), (190, 255, 246), (12, 74, 76), (38, 150, 146), (9, 1), (18, -31))
 PURPLE = resin_pair((176, 104, 255), (226, 196, 255), (52, 20, 86), (128, 70, 190), (7, 5), (5, -45))
+SLIME = resin_pair((120, 236, 40), (214, 255, 170), (30, 74, 12), (96, 176, 40), (11, 4), (22, -38))
 
 
 def dodecahedron():
