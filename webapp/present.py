@@ -948,8 +948,9 @@ def _turn(asked: Asked) -> list:
 def _roll(asked: Asked) -> list:
     """
     The die, lit in the question box; the walk-back of a score attempt
-    as the neutral control; and before the die, a ⚡ on each meeple
-    that may declare Overdrive or Boost, with what the Overdrive drains.
+    as the neutral control; and before the die, a ⚡ on each of this
+    viewer's meeples that may declare Overdrive or Boost, with what the
+    Overdrive drains.
     """
     options = asked.options
     # While a coach's Overdrive or Boost is open the die waits on them
@@ -981,6 +982,16 @@ def _roll(asked: Asked) -> list:
                 note=RAILED_NOTE if options["back_railed"] else "",
             )
         )
+    # Only this viewer's own Cyborgs: the other coach's declarations
+    # are theirs to make, so a button for them is noise here.
+    mine = asked.sides()
+
+    def own(player_ids: Sequence[str]) -> list[str]:
+        return [
+            player_id for player_id in player_ids
+            if asked.match.side_for_player(player_id) in mine
+        ]
+
     before = [
         button(
             f"⚡ Overdrive: {asked.label(player_id)} "
@@ -996,7 +1007,7 @@ def _roll(asked: Asked) -> list:
             player=player_id,
             player_id=player_id,
         )
-        for player_id in options["overdrive_player_ids"]
+        for player_id in own(options["overdrive_player_ids"])
     ] + [
         # Gearclaw's Boost (Law 21), on the same terms.
         button(
@@ -1008,7 +1019,7 @@ def _roll(asked: Asked) -> list:
             player=player_id,
             player_id=player_id,
         )
-        for player_id in options["boost_player_ids"]
+        for player_id in own(options["boost_player_ids"])
     ] + [
         # The explicit no, for the side deciding now if it is this
         # viewer's: every Overdrive and Boost of theirs closed.

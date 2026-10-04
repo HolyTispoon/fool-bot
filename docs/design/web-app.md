@@ -1245,7 +1245,7 @@ changed for it.
 | `high_pass_choice`, `setup_pass_choice`, `setup_pass_push_back`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
 | `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
-| the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each meeple that may declare Overdrive (with its drain) or Boost first | a score attempt's Back is neutral |
+| the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each of the viewer's own meeples that may declare Overdrive (with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
