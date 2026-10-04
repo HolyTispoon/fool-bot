@@ -1037,7 +1037,7 @@ what moved here was *who calls them*.
   `speed_choice_step` writes it when the choice is made, because
   until then the match reads as `SPEED_DELTA_CHOICE` and the driver's
   kind check has to agree with what the coach is looking at. Press 37
-  of the advanced golden is what found it.
+  of the advanced golden, as it was recorded then, is what found it.
 - **What a coach sees differently**, all of it: the tutorial's speed
   note now follows the dribble's own line rather than preceding it
   (the golden transcript records the reorder); the AI's time out no
@@ -1434,11 +1434,11 @@ rewords a result has changed the game.
   tutorial only reaches the third. Don't read a green golden as "the wording
   is covered"; a phase that moves narration the golden doesn't reach should
   add its own. Phase 4 did.
-- **Its transcript has changed exactly once since Phase 5**, in the
-  last increment of Phase 6, and the diff is one reorder: the dribble's own line now
+- **Phase 6 changed its transcript exactly once**, in its last
+  increment, and the diff was one reorder: the dribble's own line now
   precedes the tutorial's speed note, because the note is held behind
   a gate that is a prompt and a prompt comes after what was said. The
-  save gained the `tutorial_gate` key. Everything else is byte for
+  save gained the `tutorial_gate` key. Everything else was byte for
   byte.
 
 ### The advanced golden
@@ -1447,8 +1447,8 @@ An advanced solo game, Telekinetics against Fire Demons on board 7 in 2-3-1
 (board 6 until the six-space board was withdrawn on 2026-09-22),
 recorded on the old code as the Phase 4 branch's first commit so that the
 move is what it is compared against. It reaches all twelve maneuvers, the
-Mind Pull and Smooth offers, a loose ball (contest pick and skill test), an
-injury test, an own-goal roll, a run back that stops to ask, a score
+Mind Pull and Smooth offers, a loose ball's skill test, an injury test, an
+own-goal roll, a run back that stops to ask both of its questions, a score
 attempt, a time-out, the halftime extra token and a coaching window. It
 earned its keep inside the hour: it caught three places where a lifted step
 merged two messages into one, which the tutorial golden does not reach.
@@ -1471,39 +1471,48 @@ merged two messages into one, which the tutorial golden does not reach.
   the cards the run has to keep reaching, the way the tutorial golden
   asserts that its run scores, so a change that quietly stops reaching the
   own-goal roll fails here rather than going unnoticed.
-- **What it still does not reach**: the pickup after a time-out, the
-  stacked run back's *player* prompt, and full time and the shootout, which
-  are past where the step budget stops. Those are Phase 5's ground.
+- **What it still does not reach**: the loose ball's contest pick, the
+  choice of ball handler, the pickup after a time-out, and full time and the
+  shootout, which are past where the step budget stops and are Phase 5's
+  ground.
 
 ### The windows golden
 
 `tests/test_golden_windows.py`, Phase 5's, and the one that reaches what the
 advanced golden's own docstring said it could not: full time, the shootout,
-and the windows either side of them. It plays a **solo standard** game on board
-7 from the standard deal, both halves out, to 1-1 at the whistle and 3-4 in
+and the windows either side of them. It plays a **solo training** game on board
+7 from the standard deal, both halves out, to 2-2 at the whistle and 4-3 in
 a shootout that goes to sudden death.
 
-- **Standard and plain on purpose.** The advanced modules are the advanced
-  golden's ground, and every press spent on a gambit here is a press not
-  spent getting to minute 30. A whole game is about 100 presses.
-- **Seed 31 was picked for the two things a script cannot arrange**, both of
-  them dice: a level score at full time (eight seeds in forty) and a first
-  shootout round level enough to go to sudden death (one of those eight). A
+- **Training mode, and plain on purpose.** The advanced modules are the
+  advanced golden's ground, and every press spent on a gambit or a Mind Pull
+  offer here is a press not spent getting to minute 30. A whole game is
+  about 100 presses.
+- **Seed 337 was picked for the three things a script cannot arrange**, all
+  of them dice: a level score at full time, a first shootout round level
+  enough to go to sudden death, and one of Dinky's players hurt at the
+  break, which is what makes it substitute (the last point below). Of the
+  four hundred seeds swept, five do all three, and 337 is the shortest. A
   game that finishes 2-1 ends at the whistle and guards none of
   `begin_full_time_coaching`, `begin_shootout` or `advance_shootout`, so the
-  level score is asserted rather than hoped for.
+  level score is asserted rather than hoped for. It is not the seed this was
+  first recorded on, which was 31: a rules change that moves the dice moves
+  every seed's game, so the sweep is re-run rather than the old seed
+  re-recorded, and the comment on `WINDOWS_SEED` says what moved each time.
 - **Four press rules on top of the advanced golden's two.** Take a time out
   the moment one is offered (`may_call_time_out` is once a half, so "always"
   is exactly once each); make one substitution in a halftime window, read off
   `pending_coaching_swaps` rather than counted in the script; take the first
   player on either ephemeral shootout menu; and roll on the roll prompt
   rather than reading the order six times.
-- **The one window it does not pin is a halftime substitution by the AI
-  side.** Dinky only ever swaps to get an injured player off, so no script
-  can make it, and no seed in the sweep had an injured Purple player on the
-  field at the break. Both halftime windows do run, and Dinky's substitution
-  routine is covered where it does fire -- in the time out it calls itself,
-  at press 32. A halftime where both benches move is the author's bot stop.
+- **The AI side's halftime substitution is pinned too, and it took a seed to
+  do it.** Dinky only ever swaps to get an injured player off, so no script
+  can make it, and no seed in the first sweep had an injured Purple player on
+  the field at the break -- that run covered Dinky's substitution routine
+  only in a time out it called itself. Since the 2026-10-01 sweep it is the
+  third thing a seed is kept for: on seed 337 a Purple player is injured
+  before the break and replaced in Purple's own halftime window, so both
+  halftime windows run and both benches move.
 
 ### The service golden
 
@@ -1529,7 +1538,7 @@ that the coach is addressed by number.
 ### The full game through the driver
 
 `tests/test_driver_full_game.py` is the fifth, and it is not a golden:
-it pins no transcript. It plays a whole solo game and the whole
+it pins no transcript. It plays a whole two-coach game and the whole
 tutorial through `driver.apply` alone -- `pending_prompt` for the
 question, a `Policy` that takes the first legal answer to it off the
 position the way a frontend builds its buttons (with three
@@ -1548,9 +1557,9 @@ against the save**: after each apply the match is written out and
 read back, and the reloaded position has to be waiting on the same
 question the live one is (principle 3) -- the restart, as a loop.
 It is the sentence "the web app is a frontend rather than a port"
-as a test. Seed 3 is the first of twenty swept on which the dumb
+as a test. Seed 4 is the first, counting up from 0, on which the dumb
 policy reaches the shootout, and `test_the_run_reaches_the_shootout`
-says so.
+says so; the comment on `SEED` has each re-sweep a rules change forced.
 
 ## Two things about running the suite that cost time to rediscover
 
