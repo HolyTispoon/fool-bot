@@ -124,13 +124,13 @@ class PressureStepTests(unittest.TestCase):
 
     def test_the_push_and_the_partner_are_the_difference(self) -> None:
         """
-        One function and two parameters read off the key: a Pressure
-        shoves one space alone, a Double Team two with the nearest
-        other defender placed beside it. The distance is read off
-        `relative_flat_index` rather than a literal, since that is
-        what the step itself uses.
+        One function, and the partner is the difference: both cards
+        shove one space (Law 19.10.2, 2026-10-03), and a Double Team
+        places its partner beside the handler. The distance is read off
+        `relative_flat_index` rather than a literal, since that is what
+        the step itself uses.
         """
-        for name, push in (("pressure_plain", 1), ("double_team_plain", 2)):
+        for name, push in (("pressure_plain", 1), ("double_team_plain", 1)):
             with self.subTest(case=name):
                 fixture = case_named(name)
                 match = fixture.match
@@ -148,7 +148,9 @@ class PressureStepTests(unittest.TestCase):
                     match.relative_flat_index(start, holding_side, -push),
                 )
                 partner = fixture.partner_id
-                self.assertEqual(partner is not None, push == 2)
+                self.assertEqual(
+                    partner is not None, fixture.key == "double_team",
+                )
                 if partner is not None:
                     self.assertEqual(
                         match.board.meeple_position(partner),
@@ -200,10 +202,10 @@ class PressureStepTests(unittest.TestCase):
         trip has to be what it answered before -- see "Recovering a
         stuck game" in docs/design/recovery.md.
 
-        The pair a Double Team leaves is part of what has to survive
-        the trip: `pending_double_team` reaches into the *following*
-        maneuver, so a restart that lost it would quietly give the
-        next turn one challenger instead of two.
+        The partner a Double Team leaves Merging is part of what has to
+        survive the trip: `pending_double_team` reaches into the
+        *following* maneuver, so a restart that lost it would quietly
+        take the Merge away.
         """
         for case in PRESSURE_CASES:
             with self.subTest(case=case.name):

@@ -250,7 +250,7 @@ LEGAL_ACTIONS = {
     PromptKind.SPEED_DELTA_CHOICE: _speed_delta,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _first_distance,
     PromptKind.DRIBBLE_BURST_CHOICE: _first_distance,
-    PromptKind.SETUP_PASS_PUSH_BACK: _first_distance,
+    PromptKind.DOUBLE_TEAM_PARTNER: _first_player,
     PromptKind.TUTORIAL_CONTINUE: lambda fixture: ("", {}),
 }
 
@@ -1210,7 +1210,7 @@ def _wrong_receiver(fixture: PromptFixture) -> dict:
 #: the snapshot is taken after it has.
 REFUSED_ACTIONS = {
     (PromptKind.TUTORIAL_CONTINUE, ""): None,
-    (PromptKind.SETUP_PASS_PUSH_BACK, ""): _wrong_distance,
+    (PromptKind.DOUBLE_TEAM_PARTNER, ""): _wrong_player,
     (PromptKind.BALL_HANDLER_SELECTION, ""): _wrong_player,
     (PromptKind.RUN_BACK_PLAYER, ""): _wrong_player,
     (PromptKind.RUN_BACK_SPACE, ""): lambda fixture: {"space_index": 99},

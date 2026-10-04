@@ -51,8 +51,7 @@ rather than about the roster.
 
 **The follow-on step is named by its `FollowOnStep` member name**, a
 string, so this module needs no import from `d12ball/flow/` -- which
-is what lets it be written before `BEGIN_LOOSE_BALL` and
-`OFFER_SETUP_PASS_PUSH_BACK` exist.
+is what let it be written before `BEGIN_LOOSE_BALL` existed.
 """
 
 from __future__ import annotations
@@ -104,13 +103,6 @@ LOOSE_BALL = "BEGIN_LOOSE_BALL"
 #: one candidate it always carries, which `begin_shooter_choice` hands
 #: straight to the shot without asking anybody.
 SHOOTER_CHOICE = "BEGIN_SHOOTER_CHOICE"
-
-#: **A failed Cross gambit**, asked before the deflection that beat
-#: it moves the ball at all: the defending coach chooses how far it goes
-#: back, once -- 1, 2 or 3 for a Deflect, 2, 3 or 4 for a Clear (Law
-#: 19.7.7, the author, 2026-09-27). Where it lands is the answer's, in
-#: `tests/test_d12ball_deflection_flow.py`'s `FailedSetupPassGambitTests`.
-SETUP_PASS_PUSH_BACK = "OFFER_SETUP_PASS_PUSH_BACK"
 
 #: The offense card a basic deflection beats. Deflect and Clear beat
 #: High Pass and Cross and tie with both passes on rank O1, so a
@@ -444,10 +436,10 @@ def deflect_beats_a_setup_pass() -> DeflectionFixture:
     Cross and tie with both passes on rank O1, so Cross is the
     one advanced maneuver they ever see lose.
 
-    Since 2026-09-27 the ball goes back **once**, as far as the coach
-    who beat the pass chooses, so the step moves nothing and says
-    nothing: it hands straight to the question, and the deflection is
-    played on the far side of the answer. The board has not moved.
+    Since 2026-10-03 the card plays **as itself** (Law 19.7.7): the
+    deflection is a plain Deflect's, and what the failure changes is
+    the contest the landing may lead to -- `FailedCrossContestTests`
+    in `tests/test_d12ball_deflection_flow.py`.
     """
     match, handler, challenger = stand_a_deflection(
         BEATEN_ADVANCED, "deflect",
@@ -458,11 +450,9 @@ def deflect_beats_a_setup_pass() -> DeflectionFixture:
         key="deflect",
         challenger_id=challenger,
         handler_id=handler,
-        board_changed=False,
-        follow_on=SETUP_PASS_PUSH_BACK,
-        follow_on_kwargs={},
-        ball_space=(match.ball.zone, match.ball.space_index),
-        ball_speed=5,
+        narration=deflection_text("deflect", travelled(match, 1), 4),
+        ball_space=deflected_to(match, 1),
+        ball_speed=4,
     )
 
 
@@ -632,8 +622,7 @@ def clear_clamps_the_speed_at_one() -> DeflectionFixture:
 def clear_beats_a_setup_pass() -> DeflectionFixture:
     """
     The same failed gambit on the other card of the rank: a Clear
-    beating a Cross moves nothing until its coach has chosen 2, 3
-    or 4 either.
+    beating a Cross is a Clear, 3 spaces back and 3 off the speed.
     """
     match, handler, challenger = stand_a_deflection(
         BEATEN_ADVANCED, "clear",
@@ -644,11 +633,11 @@ def clear_beats_a_setup_pass() -> DeflectionFixture:
         key="clear",
         challenger_id=challenger,
         handler_id=handler,
-        board_changed=False,
-        follow_on=SETUP_PASS_PUSH_BACK,
-        follow_on_kwargs={},
-        ball_space=(match.ball.zone, match.ball.space_index),
-        ball_speed=5,
+        narration=deflection_text(
+            "clear", travelled(match, 3), speed_after(5, 3),
+        ),
+        ball_space=deflected_to(match, 3),
+        ball_speed=speed_after(5, 3),
     )
 
 

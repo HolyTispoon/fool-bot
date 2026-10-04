@@ -57,7 +57,6 @@ from d12ball.engine import RulesEngine
 from deflection_fixtures import (
     DEFLECTION_CASES,
     LOOSE_BALL,
-    SETUP_PASS_PUSH_BACK,
     SHOOTER_CHOICE,
 )
 from flow_stubs import (
@@ -100,7 +99,6 @@ def build_cog() -> D12Ball:
     cog.refresh_match_image = mock.AsyncMock()
     cog.begin_loose_ball = mock.AsyncMock()
     cog.begin_shooter_choice = mock.AsyncMock()
-    cog.offer_setup_pass_push_back = mock.AsyncMock()
     cog.maneuver_hand_image_bytes = {
         hands: b"" for hands in maneuver_hand_combinations()
     }
@@ -142,9 +140,6 @@ def posted_messages(interaction) -> list[str]:
 FOLLOW_ONS = {
     LOOSE_BALL: ("begin_loose_ball", None),
     SHOOTER_CHOICE: ("begin_shooter_choice", None),
-    SETUP_PASS_PUSH_BACK: (
-        "offer_setup_pass_push_back", None,
-    ),
 }
 
 

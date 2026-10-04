@@ -18,8 +18,9 @@ put:
 - the dispatcher saves **after** the run and before anything is
   posted, which is what principle 9 collapsed the Phase 2-5
   transition rule into,
-- `BEGIN_LOOSE_BALL` and `OFFER_SETUP_PASS_PUSH_BACK`, the two members
-  this rank adds, are real and have rows in the driver's table,
+- `BEGIN_LOOSE_BALL`, the member this rank adds, is real and has a
+  row in the driver's table (`OFFER_SETUP_PASS_PUSH_BACK`, the other,
+  went with the 2026-10-03 Cross),
 - and the board write the loose ball takes over: a step says the
   board moved, and the frontend skips its own write when the loose
   ball it hands to draws the board under its announcement -- read
@@ -45,9 +46,8 @@ from d12ball.components import PlayerRole, TeamSide
 from d12ball.flow.effects import (
     deflection_numbers,
     deflection_step,
-    offer_setup_pass_push_back,
-    setup_pass_push_back_step,
 )
+from d12ball.flow.arrivals import resolve_loose_ball
 from d12ball.prompts import PendingPrompt, PromptKind, pending, pending_prompt
 
 from deflection_fixtures import (
@@ -60,7 +60,6 @@ from deflection_fixtures import (
     deflected_to,
     stand_a_deflection,
     LOOSE_BALL,
-    SETUP_PASS_PUSH_BACK,
     SHOOTER_CHOICE,
 )
 from d12ball.flow import driver
@@ -123,18 +122,13 @@ class DeflectionStepTests(unittest.TestCase):
         """
         The model's answer, and it is the same on all three endings:
         every deflection drives the ball back, or takes speed off it,
-        or both. What differs is only what the **frontend** does with
-        that, which is the next test down. A failed Cross gambit
-        is the exception, and says so: nothing moves until its coach
-        has chosen how far.
+        or both -- a failed Cross gambit's included, since the card that
+        beat it plays as itself. What differs is only what the
+        **frontend** does with that, which is the next test down.
         """
         for case in DEFLECTION_CASES:
             with self.subTest(case=case.name):
-                fixture = case.build()
-                self.assertEqual(
-                    run_step(fixture).board_changed,
-                    fixture.follow_on != SETUP_PASS_PUSH_BACK,
-                )
+                self.assertTrue(run_step(case.build()).board_changed)
 
     def test_the_overshoot_note_is_a_block_of_its_own(self) -> None:
         """
@@ -218,16 +212,14 @@ class DeflectionStepTests(unittest.TestCase):
         self.assertEqual(deflection_numbers(fullback, "deflect"), (2, 1, True))
         self.assertEqual(deflection_numbers(fullback, "clear"), (4, 3, True))
 
-    def test_the_two_new_members_are_real_and_have_rows(self) -> None:
+    def test_the_new_member_is_real_and_has_a_row(self) -> None:
         """
-        Rank D1 adds two `FollowOnStep` members, and a member with no
-        row in the driver's table cannot be run. The membership itself
-        is asserted in `tests/test_d12ball_package_shape.py`; this is
-        that the two this rank names are the two it recorded.
+        Rank D1 adds a `FollowOnStep` member, and a member with no row
+        in the driver's table cannot be run. The membership itself is
+        asserted in `tests/test_d12ball_package_shape.py`; this is that
+        the one this rank names is the one it recorded.
         """
-        for member_name in (LOOSE_BALL, SETUP_PASS_PUSH_BACK):
-            with self.subTest(member=member_name):
-                self.assertIn(FollowOnStep[member_name], driver.MODEL_STEPS)
+        self.assertIn(FollowOnStep[LOOSE_BALL], driver.MODEL_STEPS)
 
     def test_the_step_does_not_save(self) -> None:
         """
@@ -425,164 +417,81 @@ class DeflectionWrapperTests(unittest.IsolatedAsyncioTestCase):
 
 
 
-def failed_setup_pass(
-    key: str,
-    role: PlayerRole = PlayerRole.MIDFIELDER,
-    back_from_own_goal=None,
-):
+def failed_setup_pass(key: str, back_from_own_goal=None):
     """A Cross that `key` has just beaten, and the challenger who
     played it -- nothing moved yet."""
     match, _, challenger = stand_a_deflection(
-        BEATEN_ADVANCED, key, role=role,
-        back_from_own_goal=back_from_own_goal,
+        BEATEN_ADVANCED, key, back_from_own_goal=back_from_own_goal,
     )
     return advanced_game(), match, challenger
 
 
-def flat(match) -> int:
-    return match.board.flat_index(match.ball.zone, match.ball.space_index)
-
-
-class FailedSetupPassGambitTests(unittest.TestCase):
+class FailedCrossContestTests(unittest.TestCase):
     """
-    **A failed Cross gambit** (Law 19.7.7-19.7.8, the author,
-    2026-09-27): the card that beat the pass moves the ball back once,
-    as far as its coach chooses -- 1, 2 or 3 for a Deflect, 2, 3 or 4
-    for a Clear, one more each for a Fullback -- and it lands as any
-    deflection does. Of the distances that run out of field only the
-    shortest is offered, and that one is the challenger's shot where
-    they stand on the last space.
+    **A failed Cross gambit** (Law 19.7.7-19.7.9, the author,
+    2026-10-03): the Deflect or Clear that beat the pass plays as
+    itself, and any contest for the ball it leads to is the beating
+    side's without a roll -- unless a Slitheron of the passing side is
+    in it, when the two cancel and it is rolled.
     """
 
-    def test_the_distances_are_the_beating_cards(self) -> None:
-        for key, role, expected in (
-            ("deflect", PlayerRole.MIDFIELDER, (1, 2, 3)),
-            ("clear", PlayerRole.MIDFIELDER, (2, 3, 4)),
-            ("deflect", PlayerRole.FULLBACK, (2, 3, 4)),
-            ("clear", PlayerRole.FULLBACK, (3, 4, 5)),
-        ):
-            with self.subTest(key=key, role=role):
-                _, match, _ = failed_setup_pass(key, role)
+    def contestants(self, match):
+        offense = next(
+            player_id for player_id in match.home.field_players
+            if player_id != match.active_player_id
+        )
+        return offense, match.challenger_id
+
+    def test_the_side_that_beat_it_wins_the_contest(self) -> None:
+        for key in ("deflect", "clear"):
+            with self.subTest(key=key):
+                game, match, challenger = failed_setup_pass(key)
+                offense, defense = self.contestants(match)
+                self.assertTrue(ENGINE.failed_cross_contest(match))
                 self.assertEqual(
-                    ENGINE.setup_pass_push_back_range(match, key), expected,
+                    ENGINE.contest_auto_winner(game, match, offense, defense),
+                    challenger,
                 )
 
-    def test_a_blaze_turning_a_deflect_into_a_clear_takes_the_clears(
-        self,
-    ) -> None:
-        """The range is the *resolving* card's: a Deflect a blaze or an
-        Overdrive resolves as a Clear sends it 2, 3 or 4."""
-        _, match, _ = failed_setup_pass("deflect")
-        self.assertEqual(
-            ENGINE.setup_pass_push_back_range(match, "clear"), (2, 3, 4),
+    def test_a_beaten_high_pass_gives_nothing_away(self) -> None:
+        match, _, _ = stand_a_deflection("high_pass", "deflect")
+        game = advanced_game()
+        offense, defense = self.contestants(match)
+        self.assertFalse(ENGINE.failed_cross_contest(match))
+        self.assertIsNone(
+            ENGINE.contest_auto_winner(game, match, offense, defense),
         )
 
-    def test_only_the_shortest_distance_off_the_field_is_offered(
-        self,
-    ) -> None:
-        for key, back, expected in (
-            ("deflect", 5, [1, 2, 3]),
-            ("deflect", 1, [1, 2]),
-            ("deflect", 0, [1]),
-            ("clear", 5, [2, 3, 4]),
-            ("clear", 2, [2, 3]),
-            ("clear", 1, [2]),
+    def test_a_passing_slitheron_cancels_it(self) -> None:
+        game, match, _ = failed_setup_pass("deflect")
+        offense, defense = self.contestants(match)
+        with mock.patch.object(
+            ENGINE, "has_special_ability",
+            side_effect=lambda game, player_id, ability: player_id == offense,
         ):
-            with self.subTest(key=key, back=back):
-                game, match, _ = failed_setup_pass(
-                    key, back_from_own_goal=back,
-                )
-                distances = ENGINE.setup_pass_push_back_distances(
-                    game, match,
-                )
-                self.assertEqual(distances, expected)
-                overshoot = ENGINE.setup_pass_push_back_to_goal_zone(
-                    match, distances,
-                )
-                self.assertEqual(
-                    overshoot, expected[-1] if expected[-1] > back else None,
-                )
+            self.assertIsNone(
+                ENGINE.contest_auto_winner(game, match, offense, defense),
+            )
 
-    def test_the_coach_who_beat_it_is_asked_before_anything_moves(
-        self,
-    ) -> None:
-        game, match, _ = failed_setup_pass("deflect", back_from_own_goal=5)
-        before = flat(match)
-
-        self.assertEqual(
-            deflection_step(ENGINE, match, "deflect").next.step,
-            FollowOnStep[SETUP_PASS_PUSH_BACK],
+    def test_a_contest_both_sides_sent_to_is_not_rolled(self) -> None:
+        game, match, challenger = failed_setup_pass(
+            "deflect", back_from_own_goal=5,
         )
-        result = offer_setup_pass_push_back(ENGINE, game, match)
-
-        self.assertIsInstance(result.next, PendingPrompt)
-        self.assertIs(result.next.kind, PromptKind.SETUP_PASS_PUSH_BACK)
-        self.assertEqual(flat(match), before)
-        asked = pending_prompt(ENGINE, game, match)
-        self.assertIs(asked.kind, PromptKind.SETUP_PASS_PUSH_BACK)
-        self.assertEqual(asked.options.distances, (1, 2, 3))
-
-    def test_the_chosen_distance_is_the_one_move(self) -> None:
-        game, match, _ = failed_setup_pass("clear", back_from_own_goal=5)
-        landing = deflected_to(match, 4)
-
-        result = setup_pass_push_back_step(ENGINE, game, match, distance=4)
-
-        self.assertEqual((match.ball.zone, match.ball.space_index), landing)
-        self.assertEqual(match.ball.speed, 2)
-        self.assertEqual(
-            result.narration,
-            [
-                f"**{ENGINE.maneuver_name('clear')}** beat the "
-                f"**{ENGINE.maneuver_name('setup_pass')}**: the ball "
-                "moves 4 spaces back. Ball speed is now 2."
-            ],
-        )
-        self.assertTrue(result.board_changed)
+        offense, _ = self.contestants(match)
+        result = deflection_step(ENGINE, match, "deflect")
         self.assertEqual(result.next.step, FollowOnStep[LOOSE_BALL])
 
-    def test_the_overshoot_is_the_challengers_shot_on_the_last_space(
-        self,
-    ) -> None:
-        game, match, challenger = failed_setup_pass(
-            "deflect", back_from_own_goal=1,
-        )
-        match.move_meeple(
-            challenger, *match.own_goal_restart_space(TeamSide.HOME),
-        )
+        match.begin_loose_ball(1)
+        match.loose_ball_offense_player = offense
+        match.loose_ball_defense_player = challenger
+        settled = resolve_loose_ball(ENGINE, game, match)
 
-        result = setup_pass_push_back_step(ENGINE, game, match, distance=2)
-
-        self.assertEqual(result.narration[-1], OVERSHOOT_NOTE)
-        self.assertEqual(result.next.step, FollowOnStep[SHOOTER_CHOICE])
-        self.assertEqual(result.next.kwargs["candidates"], [challenger])
         self.assertEqual(match.ball.possession, TeamSide.VISITING)
-
-    def test_stopping_on_the_last_space_is_not_the_overshoot(self) -> None:
-        game, match, challenger = failed_setup_pass(
-            "deflect", back_from_own_goal=1,
+        self.assertEqual(match.ball_carrier_id, challenger)
+        self.assertIn(
+            f"the **{ENGINE.maneuver_name('setup_pass')}** failed",
+            settled.narration[0],
         )
-        match.move_meeple(
-            challenger, *match.own_goal_restart_space(TeamSide.HOME),
-        )
-
-        result = setup_pass_push_back_step(ENGINE, game, match, distance=1)
-
-        self.assertEqual(result.next.step, FollowOnStep[LOOSE_BALL])
-
-    def test_one_distance_is_played_without_asking(self) -> None:
-        """On the last space already, only the shortest distance runs
-        out of field and nothing else is on it -- so nothing is asked,
-        and the challenger standing there shoots."""
-        game, match, challenger = failed_setup_pass(
-            "deflect", back_from_own_goal=0,
-        )
-
-        result = offer_setup_pass_push_back(ENGINE, game, match)
-
-        self.assertIsInstance(result.next, FollowOn)
-        self.assertEqual(result.next.step, FollowOnStep[SHOOTER_CHOICE])
-        self.assertEqual(result.next.kwargs["candidates"], [challenger])
 
 
 if __name__ == "__main__":

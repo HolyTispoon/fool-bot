@@ -3550,13 +3550,14 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
     conceded, because `restart_after_goal` clears `last_ball_path` on
     its way to the kickoff.
 
-    **Only a Double Team can reach the branch with a path.** A plain
-    Pressure overshoots only from the space closest to the offense's
-    own goal, where the handler does not move at all and
-    `ball_path_to` answers empty; a Double Team pushing 2 from one
-    space short of it shoves them a real space first. Both are asserted
-    here, because "the gate is a no-op for the common case" is the
-    claim that makes adding it safe.
+    **Nothing reaches the branch with a path any more.** Both cards
+    push 1 since 2026-10-03 (a Double Team pushed 2 until then, and was
+    the one that could shove the handler a real space into the goal
+    zone), so each reaches the goal zone only from the space closest
+    to the offense's own goal, where the handler does not move and
+    `ball_path_to` answers empty. The gate stays, and what is asserted
+    here is that it is the no-op it now always is -- the claim that
+    made adding it safe.
     """
 
     def setUp(self) -> None:
@@ -3598,9 +3599,8 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             board.place_meeple(player_id, Zone.VISITORS_ZONE, 1)
 
         self.handler = field_players(self.match, offense)[0]
-        # One space short of the offense's own goal: far enough back
-        # that a 2-space Double Team overshoots, near enough that it
-        # still moves them a real space first.
+        # One space short of the offense's own goal: a push of 1 moves
+        # them onto the last space, and reaches nothing.
         board.place_meeple(self.handler, Zone.HOME_ZONE, 1)
         board.place_meeple(self.challenger, Zone.HOME_ZONE, 1)
         board.place_meeple(self.partner, Zone.HOME_ZONE, 1)
@@ -3624,34 +3624,24 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
             isinstance(view, MindPullView) for view in self.sent_views()
         )
 
-    async def test_an_overshooting_double_team_offers_the_pull_before_the_roll(
-        self,
-    ):
+    async def test_a_double_team_from_the_last_space_offers_nobody(self):
+        # Exactly a Pressure's overshoot: the handler does not move, so
+        # there is no path and nothing to gate, and the roll is owed.
+        self.match.board.place_meeple(self.handler, Zone.HOME_ZONE, 0)
+        self.match.restart_ball_at(Zone.HOME_ZONE, 0)
+
         with suppressed_cog_saves():
             await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
             )
 
-        self.assertTrue(self.offered_a_pull())
-        self.assertEqual(self.match.pending_mind_pull, [self.puller])
-        self.assertEqual(
-            self.match.pending_mind_pull_resume["kind"], "own_goal",
-        )
-        # The whole point of the gate's position: the roll has not been
-        # set up yet, so a pull that lands still pre-empts it -- and a
-        # restart here reads the offer rather than the roll.
-        self.assertFalse(self.match.pending_own_goal)
-        self.assertFalse(
-            any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
-        )
-        # Left for the Smooth, which is asked after every pull and is
-        # the stage that spends it.
-        self.assertNotEqual(self.match.last_ball_path, [])
+        self.assertFalse(self.offered_a_pull())
+        self.assertEqual(self.match.pending_mind_pull, [])
+        self.assertTrue(self.match.pending_own_goal)
 
-    async def test_the_shove_really_moved_the_ball_a_space(self):
-        # The fixture's own claim, asserted rather than assumed: a
-        # Double Team from here overshoots *and* moves the ball, which
-        # is what gives the gate a path to read.
+    async def test_a_double_team_one_space_out_risks_nothing(self):
+        # A push of 1 from one space out lands on the last space: the
+        # ball moves, and no own goal is risked (Law 19.10.4).
         with suppressed_cog_saves():
             await apply_pressure(self.cog, 
                 self.interaction, self.game, self.match, "double_team",
@@ -3662,28 +3652,7 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.match.ball.zone, Zone.HOME_ZONE)
         self.assertEqual(self.match.ball.space_index, 0)
-
-    async def test_declining_the_pull_hands_the_own_goal_roll_back(self):
-        with suppressed_cog_saves():
-            await apply_pressure(self.cog, 
-                self.interaction, self.game, self.match, "double_team",
-            )
-            # What the decline button does: drop this Telekinetic and
-            # let the one exit from the queue run.
-            self.match.pending_mind_pull.remove(self.puller)
-            await continue_mind_pull(self.cog, 
-                self.interaction, self.game, self.match,
-            )
-
-        # The arrival the gate interrupted, put back exactly where it
-        # was -- the roll the shove was about to ask for. Re-entering
-        # the gate on the way is a no-op, because the path is spent.
-        self.assertTrue(self.match.pending_own_goal)
-        self.assertEqual(self.match.pending_own_goal_distance, 1)
-        self.assertTrue(
-            any(isinstance(v, OwnGoalRollView) for v in self.sent_views()),
-        )
-        self.assertIsNone(self.match.pending_mind_pull_resume)
+        self.assertFalse(self.match.pending_own_goal)
 
     async def test_a_plain_pressure_overshoot_offers_nobody(self):
         # Already on the space closest to their own goal, which is the
@@ -3706,6 +3675,8 @@ class PressureOvershootGatesMindPullTests(unittest.IsolatedAsyncioTestCase):
         # Species abilities off is the ordinary game, and the branch has
         # to behave exactly as it did before the gate existed.
         self.game.species_abilities = False
+        self.match.board.place_meeple(self.handler, Zone.HOME_ZONE, 0)
+        self.match.restart_ball_at(Zone.HOME_ZONE, 0)
 
         with suppressed_cog_saves():
             await apply_pressure(self.cog, 

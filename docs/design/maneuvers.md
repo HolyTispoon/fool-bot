@@ -333,12 +333,11 @@ behind survives as the condition for **answering** a gambit.
       immediately after it, on both branches. Both branches already
       wrote the same state, so this is the rule and not a fix --
       unlike rank O2's beaten Clear.
-    - **The pair a Double Team leaves is unchanged.**
-      `pending_double_team` is still set inside the shove's own
-      wording, still cleared by `announce_new_play_reset` alone, and
-      still survives a restart mid-effect -- which the rank asserts
-      rather than assumes, since it is the one record here that
-      reaches into the next turn.
+    - **The pair a Double Team leaves was unchanged by the move.**
+      `pending_double_team` survived a restart mid-effect -- which the
+      rank asserts rather than assumes, since it is the one record here
+      that reaches into the next turn. (What it holds, and what clears
+      it, changed with the card on 2026-10-03; see below.)
   - **Both deflections followed them (rank D1).** `deflection_step` is
     the whole of a Deflect and of a Clear -- the two differ by the
     distance and by how much speed comes off, so they are one function
@@ -352,41 +351,43 @@ behind survives as the condition for **answering** a gambit.
       and still drops it 3. Derived from the distance instead, this
       read correctly right up until the Fullback was let near a Clear.
     - **The rank named two new follow-ons**, `BEGIN_LOOSE_BALL` and
-      `OFFER_SETUP_PASS_PUSH_BACK`. The push-back is a follow-on rather
-      than a prompt the step returns for rank O2's reason: a ball
-      already on the last space before the goal zone has nothing to
-      offer, which the step decides before asking. Dinky answers the prompt
-      with the farthest distance (`DinkyAI._farthest`).
+      `OFFER_SETUP_PASS_PUSH_BACK`. The second went with the 2026-10-03
+      Cross, below.
     - **The goal-zone branch's ordering is unchanged and now pinned.** A
       deflection that reaches the goal zone and finds a defender standing
-      where the ball stopped turns into a scoring opportunity, and the
-      Cross cost is **not** asked on that branch -- the ball is
-      already as far back as it goes. One that comes to rest on an empty
+      where the ball stopped turns into a scoring opportunity -- a
+      failed Cross's included. One that comes to rest on an empty
       space is an ordinary loose ball. Neither was asserted anywhere before
       the rank's fixtures.
     - **Step-then-save was the rule rather than a fix**, the third time
       of four. `knock_ball_back` saved the moved ball and the shot
       branch saved again over the turnover it then applied; nothing
       between them mutates the match, so both wrote the same state.
-- **A failed Cross gambit is the beating card's one move, asked
-  first** (the author, 2026-09-27). Until then a Deflect or Clear moved
-  the ball its own distance and the coach who played it pushed it "a
-  further" 1, 2 or 3, never into the goal zone. Now `deflection_step`
-  moves nothing when `gambit_cost` is `setup_pass` and names
-  `OFFER_SETUP_PASS_PUSH_BACK`; `RulesEngine.setup_pass_push_back_distances`
-  offers 1-3 for a Deflect or 2-4 for a Clear (the *resolving* card's,
-  so a blaze's Clear is a Clear), one more each for a Fullback, and of
-  the ones that reach the goal zone only the shortest -- kept, unlike a
-  High Pass's, because it is the challenger's shot where they stand on
-  the last space. The prompt says which it is (`DistanceOptions.goal_zone`,
-  read off `RulesEngine.setup_pass_push_back_to_goal_zone`)
-  so neither frontend labels two buttons with the same space. With one
-  distance left there is nothing to ask and the offer plays it.
-  `setup_pass_push_back_step` knocks the ball back at the card's own
-  speed drop and lands through `deflection_lands`, the tail it shares
-  with every deflection. A game saved at the prompt before the change
-  had already been knocked back once, and moves again from there;
-  nothing tells the two apart, and it is one prompt in one kind of turn.
+- **A failed Cross gambit is the beating card, as itself, with the
+  contest given away** (the author, 2026-10-03). It was a push back --
+  "a further" 1-3 on top of the deflection until 2026-09-27, then the
+  beating card's one move at a distance its coach chose, which needed a
+  prompt (`SETUP_PASS_PUSH_BACK`), a follow-on that asked it, and the
+  one prompt the board was held back in front of. All three went:
+  `deflection_step` plays a Deflect or Clear exactly as it always does,
+  and the cost is read where a contest is settled --
+  `RulesEngine.contest_auto_winner` gives the defense's contestant the
+  ball with no roll while `failed_cross_contest` holds, which is
+  whenever the maneuver still under way is a Cross the deflection beat
+  on the cards. The maneuver's cards stay set until
+  `finish_maneuver_resolution`, and every contest the landing leads to
+  is settled before that, so nothing new is saved. Slitheron's ability
+  is the same mechanism, so the two meet in one function: a passing
+  Slitheron cancels the cost and the contest is rolled (Law 19.7.9);
+  `resolve_contest_without_a_roll` words the reason for whichever it
+  was. A game saved at the old prompt reads as "effect owed"
+  (`BEGIN_EFFECT_RESOLUTION`) and plays the deflection as it now reads.
+- **A Cross asks no speed** (2026-10-03). It used to set the speed
+  first and pick the pass out after, which made it the one effect whose
+  speed choice came before its move. The pass is asked straight away
+  (`EFFECT_OFFERS["setup_pass"]` is `offer_setup_pass_distance`); a game
+  saved with the old `setup_pass_shot` continuation reads its winner and
+  comes back to the same pass, and `setup_pass_step` still spends it.
 - **Every cost bites inside the winning maneuver's own resolution**,
   which is why there is no cost dispatcher. `gambit_cost` names the
   card that was beaten and the winner's handler asks it: Clear's 2
@@ -398,12 +399,16 @@ behind survives as the condition for **answering** a gambit.
   the thing the handler already knows.
 - **`pending_effect_continuation` is what lets an effect reach past
   its own maneuver**, as `{"kind": ...}` -- the same shape
-  `pending_injury_resume` uses and for the same reason. Two need it:
-  Cross sets the ball's speed and *then* picks the pass out, and a
-  beaten Pinpoint hands the defense an unopposed Low Pass once the
-  steal has settled. A speed choice had always been the *last* human
+  `pending_injury_resume` uses and for the same reason. One needs it
+  now: a beaten Pinpoint hands the defense an unopposed Low Pass once
+  the steal has settled (Cross needed it too, while it set the speed
+  before the pass). A speed choice had always been the *last* human
   step of an effect, leading straight into
-  `finish_maneuver_resolution`; `continue_effect` is the branch.
+  `finish_maneuver_resolution`; `continue_effect` is the branch. A
+  Double Team's partner is recorded on the same field
+  (`DOUBLE_TEAM_PARTNER_KIND`) for the rest of its maneuver, so no
+  later reading measures again off a board that has moved -- a value,
+  not a new saved field.
   - **The record is cleared by whatever applies the step, not by the
     dispatch.** A continuation is one more prompt and a coach may take
     hours over it, so between dispatching and the click that answers,
@@ -418,20 +423,35 @@ behind survives as the condition for **answering** a gambit.
     maneuver rather than stranding the turn -- and *that* branch does
     clear it, or the next speed choice in the game would find it still
     set.
-- **`pending_double_team` is the two defenders, not a flag.** A won
-  Double Team leaves both challenging the next maneuver, each adding
-  their defensive skill, and what the following turn needs is *who* --
-  a flag would leave it re-deriving "the nearest teammate" off a board
-  that has moved since. `announce_new_play_reset` clears it, which is
-  the one thing the card says ends it; `reset_maneuver` deliberately
-  does not, since that runs at the end of the turn that set it.
-- **"The teammate closest to where the play started" is read before
-  anything moves**, by both the benefit and the cost. A moment later
-  the handler has been shoved back two and the ball with them, and the
-  nearest defender to *that* space can be somebody else. The cost's
-  caller reads it before the pass moves the ball and passes it in,
-  which is why `pay_double_team_cost` takes a partner rather than
-  looking one up.
+- **`pending_double_team` is the partner, not a flag, and Merge is
+  the reading of it** (2026-10-03). A won Double Team pushes 1, as a
+  Pressure does, and the partner joins; that partner Merges through the
+  next maneuver as an Ooze would -- on the ball's space, not rolling, in
+  a skill test or a contest. So the partner is one more answer in
+  `RulesEngine.merge_contributions`, the one reading of who Merges, and
+  reaches the skill test, the contests and the dice images through it;
+  the "both defenders add" bonus the skill test used to carry went. It
+  used to last until a new play; now `finish_maneuver_resolution`
+  clears it at the end of the maneuver after the one that set it -- the
+  record the Double Team leaves says `merges`, which is how the first
+  finish knows to keep it -- and after any contest that maneuver led to,
+  since the loose-ball detour re-enters that function. A Defender's
+  steal or a beaten Burst hands the ball over in the same breath, and
+  no Merge is granted. A game saved under the old rule holds both
+  defenders; both Merge where they stand, once, and the list clears
+  with the next maneuver.
+- **The partner is read before anything moves, and a tie is the
+  coach's** (Law 19.10.3). The nearest defender on the ball's space or
+  behind it -- toward their own goal -- by
+  `double_team_partner_candidates`, measured where the play started.
+  The cost's caller reads it before the pass moves the ball and passes
+  it in, which is why `pay_double_team_cost` takes a partner rather than
+  looking one up. Where several tie, `DOUBLE_TEAM_PARTNER` asks the
+  defending coach, won or beaten, ahead of everything else the maneuver
+  does: `begin_effect_resolution` raises it before it logs the maneuver,
+  so the answer comes back through the same entry and the maneuver is
+  logged once; the chain asks it at the same point; Dinky picks the
+  higher defensive skill.
 - **A Cross is gated on the field, not on the roster** (the
   author, 2026-08-25). `RulesEngine.setup_pass_distances` offers 1 and
   3 -- and a Fullback's 4 -- whenever the space they land on is on the

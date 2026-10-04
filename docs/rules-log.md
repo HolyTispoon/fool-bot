@@ -29,8 +29,9 @@ say, linked by formula (the author, 2026-09-22).
 
 **Working practice.** Take rules questions to the author rather than inferring them from the
 code -- several mechanics exist only in the code, so there a bug and a deliberate decision look
-identical. Asking as inline comments on a docs PR has worked far better than asking in chat,
-and it leaves the answers versioned. When upstream moves, update
+identical. Asking in chat works as well as inline comments on a docs PR; the comments are for
+the developer who is not the author (the author, 2026-10-03). Either way, the answer goes in
+the entry it settles, quoted. When upstream moves, update
 [living-rules.md](living-rules.md) as its own commit and add a dated entry below, so each rules
 change stays a reviewable diff.
 
@@ -176,6 +177,45 @@ Intercept and the High Pass contest, *"they keep the full speed"*.
   speed besides -- the two are the same number there, and "once, not twice" stands.
 - **Upstream** says only that the modifier is added (the row in "Where upstream is behind" is
   extended).
+
+### 2026-10-03 -- sheet and author, Cross loses its speed and its push back; Double Team pushes 1 and Merges
+
+A fresh pull of the `maneuvers` tab rewrote two advanced cards. Cross: *"Successful gambit: Set
+up scoring at 0, 1, or 3 (with speed bonus). Failed gambit: opponent auto wins a contest to get
+the deflected ball."* Double Team: *"Successful gambit: player and ball go back 1; Defender moves
+1 forward and nearest teammate behind joins, Merging on the next defensive maneuver. If reaches
+the goal zone, own goal risk. Failed gambit: Defender and nearest teammate behind go 1
+forward."* Clear dropped its *"(vs Cross: 2-3-4, your choice)"* in the same edit. The author
+answered what the cards leave open the same day.
+
+- **A Cross sets nothing about the speed** (19.7.2). The passer used to change it by up to their
+  offensive skill before picking the pass out; now the scoring opportunity counts the speed the
+  ball already has.
+- **A failed Cross is the beating card's own deflection, with the contest given away** (19.7.7,
+  19.7.8). The beating coach no longer chooses 1-2-3 (Clear 2-3-4) spaces: a Deflect goes back
+  1, a Clear 3, a Fullback's a space more, and the ball lands as either card's always does. Only
+  a contest changes: *"the defense still has to send someone and that someone would exhaust ...
+  the offense should be offered to send someone (and exhaust) but the defense would win without
+  contest if they did send someone."* An offense left alone on the space *"would keep it
+  uncontested"*, and a deflection into the goal zone is still the deflector's shot: *"That's not
+  because of the cross, that's because of the deflect or clear."* So **19.8.5 is gone**: a Clear
+  against a Cross is a Clear.
+- **Against a passing side's Slitheron, the contest is rolled** (19.7.9) -- two automatic
+  winners cancel, as two Slitherons already do (21.6.3). Asked.
+- **A Double Team is a Pressure with a partner** (19.10.2): the push is 1, not 2, so the own-goal
+  risk is a Pressure's, from the last space alone (19.10.4).
+- **The partner is the nearest defender on the ball's space or behind it** (19.10.3), before
+  anything moves -- *"behind the ball before it moves. either same spot if there is anyone or
+  further back -back from the perspective of the defending team."* It used to be the nearest
+  in any direction. **A tie is the defending coach's choice**, where the bot took whoever the
+  team listed first; the same partner goes forward on a failed Double Team (19.10.6).
+- **"Both challenge until a new play" is now Merge** (19.10.5): *"that ability has effectively
+  become merge which is the slime ability."* The partner adds their defensive skill as an Ooze
+  does -- on the ball's space, not rolling, in a skill test or a contest -- and **for the next
+  maneuver only**, chosen over "until the next new play or turnover" when the two were set
+  side by side. Only the partner Merges; the challenger rolls.
+- **The advanced cards' die faces went from two each to one** (2, 4 and 6). The die is not part
+  of the rules (2026-08-17) and the bot reads only the basic cards' faces, so nothing changes.
 
 ### 2026-10-02 (later) -- author, an injury check before every shootout test; nothing modifies a check
 

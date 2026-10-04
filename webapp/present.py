@@ -1144,6 +1144,7 @@ PLAYER_CHIPS: Mapping[PromptKind, str] = {
     PromptKind.HALFTIME_EXTRA_TOKEN: "clears one more",
     PromptKind.SHOOTER_CHOICE: "shoots",
     PromptKind.SHOOTOUT_PICK: "shoots",
+    PromptKind.DOUBLE_TEAM_PARTNER: "double teams",
 }
 
 
@@ -1194,6 +1195,27 @@ def _shooter(asked: Asked) -> list:
                     chip=PLAYER_CHIPS[asked.kind],
                     player=player_id,
                     shooter_id=player_id,
+                )
+                for player_id in asked.options["player_ids"]
+            ],
+        )
+    ]
+
+
+def _double_team_partner(asked: Asked) -> list:
+    """Which tied defender partners the Double Team: each lit where
+    they stand (Law 19.10.3)."""
+    return [
+        section(
+            None,
+            [
+                button(
+                    asked.label(player_id),
+                    asked.kind,
+                    place=on_player(player_id),
+                    chip=PLAYER_CHIPS[asked.kind],
+                    player=player_id,
+                    player_id=player_id,
                 )
                 for player_id in asked.options["player_ids"]
             ],
@@ -1382,11 +1404,9 @@ def _run_back_space(asked: Asked) -> list:
 
 def _distance(asked: Asked) -> list:
     """
-    Every prompt that asks how far, and the push back a failed
-    Cross gambit owes: each distance lights the space it lands on
-    (`DistanceOptions.landings`), with a chip saying what landing there
-    means -- the push back into the goal zone lights the ✕ on that goal
-    zone instead. A Cross with nowhere to go is put out of play at
+    Every prompt that asks how far: each distance lights the space it
+    lands on (`DistanceOptions.landings`), with a chip saying what
+    landing there means. A Cross with nowhere to go is put out of play at
     the ✕ on the far goal zone; Quantor's run onto the pass is a second chip
     on the same spaces.
     """
@@ -1402,13 +1422,6 @@ def _distance(asked: Asked) -> list:
             on_space(landing["zone"], landing["space_index"])
             if landing else None
         )
-        if distance == options.get("goal_zone"):
-            # The push back into the goal zone comes to rest on the same
-            # last space as the longest that does not, so it lights the
-            # ✕ on that goal zone instead: the side asked is the defense,
-            # and the end is the one the offense defends.
-            place = off_the_end(asked.attacking_goal())
-            chip = f"{distance} back · goal zone"
         controls.append(
             button(
                 _spaces(distance),
@@ -1482,8 +1495,6 @@ def _landing_chip(asked: Asked, distance: int) -> tuple[str, Optional[dict]]:
         )
     if kind is PromptKind.DRIBBLE_ADVANCE_CHOICE:
         return f"advance {_spaces(distance).lower()}", None
-    if kind is PromptKind.SETUP_PASS_PUSH_BACK:
-        return f"{distance} back", None
     return _spaces(distance), None
 
 
@@ -2470,7 +2481,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.RUN_BACK_SPACE: _run_back_space,
     PromptKind.HIGH_PASS_CHOICE: _distance,
     PromptKind.SETUP_PASS_CHOICE: _distance,
-    PromptKind.SETUP_PASS_PUSH_BACK: _distance,
+    PromptKind.DOUBLE_TEAM_PARTNER: _double_team_partner,
     PromptKind.DRIBBLE_ADVANCE_CHOICE: _distance,
     PromptKind.DRIBBLE_BURST_CHOICE: _distance,
     PromptKind.LOW_PASS_CHOICE: _low_pass,

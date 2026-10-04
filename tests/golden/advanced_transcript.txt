@@ -18,256 +18,392 @@ You chose **Dribble**.
 🔮 Player 1 has picked their maneuver.
 --- message
 🔮 Player 1 chose **Dribble**.
-🔥 Dinky AI chose **Deflect**.
+🔥 Dinky AI chose **Steal**.
 
-## **Dribble** wins!
+**Dribble** ties with **Steal** — skill test!
+
+🔮 Quillon [PM]: offense skill 4
+🔥 Sizzifizik [PM]: defense skill 3
+
+🔮 Quillon [PM] exhausts 1 😮‍💨 (now 1 total).
+🔥 Sizzifizik [PM] exhausts 1 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 3: SkillTestView -> 'Roll the skill test'
+--- message
+## **It's a tie (13-13)!**
+The skill test must be rolled again.
+🔮 Quillon [PM] exhausts 1 😮‍💨 (now 2 total).
+🔥 Sizzifizik [PM] exhausts 1 😮‍💨 (now 2 total).
+
+Roll again:
+=== press 4: SkillTestView -> 'Roll the skill test'
+--- message
+## **Steal** wins the skill test!
 Time has advanced 1, now at 01.
 --- message
-🔮 <@111>, choose your Dribble distance (Playmaker ability):
-=== press 3: DribbleAdvanceChoiceView -> 'Advance 1 space (space 5)'
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
+=== press 5: MindPullView -> 'Mind Pull'
 --- message
-Chose **1 space**.
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] exhausts 1 😮‍💨 (now 1 total).
+🔮 Zenith [WG] fails to Mind Pull
 --- message
-**Dribble:** 🔮 Quillon [PM] and the ball move forward 1 space.
+<@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
+=== press 6: MindPullView -> 'Pass'
+--- message
+🔮 Noxar [SK] declines to Mind Pull.
+--- message
+**Steal:**
+# Turnover!
+🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
 
-<@111>, manipulate the ball's speed (up to 4):
-=== press 4: SpeedDeltaChoiceView -> '4 (+3)'
+<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
+=== press 7: FlyView -> 'Stay'
+--- message
+🔮 Zenith [WG] does not fly.
+--- message
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+--- message
+🔥 Scorchit [MF] runs back to space 3.
+🔥 Scorchit [MF] exhausts 2 😮‍💨😮‍💨 (now 2 total).
 --- message
 Ball speed is now **4**.
 --- message
-<@111> 🔮 **Smooth** — the ball reaches near 🔮 Zenith [WG], who can take the ball to become the ball handler.
-=== press 5: SmoothView -> 'Zenith [WG] takes it over'
+Ball is now in space 5, Fire Demons (Visiting) has possession.
 --- message
-🔮 **Smooth** — 🔮 Zenith [WG] takes the ball on **space 5** (Midfield).
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-Ball is now in space 5, Telekinetics (Home) has possession.
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 8: ManeuverActionPromptView -> 'Gambit'
 --- message
-🔮 <@111>, it is your turn.
+You declared a gambit: pick one of your advanced maneuvers from the new prompt.
+--- message
+🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Doom.
+--- message
+🔥 Dinky AI has confirmed their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-The ball was left with Zenith [WG], who takes this turn.
+🔮 Player 1 has declared a gambit.
+=== press 9: ManeuverActionPromptView -> 'Double Team'
+--- message
+You chose **Double Team**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Double Team**.
 
-Choose an action:
-=== press 6: PlayerActionView -> 'Shoot to score'
---- message
-🔮 Player 1 has chosen to shoot to score with 🔮 Zenith [WG].
---- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 7: ScoreAttemptView -> 'Roll the score attempt'
---- message
-# Missed attempt!
-Fire Demons (Visiting) manages to avoid a goal! (phew)
+**High Pass** ties with **Double Team** — skill test!
 
+🔥 Sizzifizik [PM]: offense skill 4
+🔮 Zenith [WG]: defense skill 2
+
+🔥 Sizzifizik [PM] exhausts 1 😮‍💨 (now 3 total).
+🔮 Zenith [WG] exhausts 1 😮‍💨 (now 2 total).
+--- message
+Either player can roll:
+=== press 10: SkillTestView -> 'Roll the skill test'
+--- message
+## **Double Team** wins the skill test!
 Time has advanced 1, now at 02.
 --- message
-# Coaching Choice
-**🔥 Dinky AI passed.**
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
+=== press 11: MindPullView -> 'Mind Pull'
 --- message
-The ball speed goes down to **1**.
+🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
+🔮 Noxar [SK] exhausts 1 😮‍💨 (now 1 total).
+🔮 Noxar [SK] fails to Mind Pull
+--- message
+**Pressure:** 🔥 Sizzifizik [PM] and the ball go back 1 space. 🔮 Zenith [WG] moves forward.
+
+Ball is now in space 6, Fire Demons (Visiting) has possession.
+--- message
+🔥 Sizzifizik [PM] will maneuver for Fire Demons.
+
+🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
+=== press 12: ManeuverChallengeView -> 'Noxar [SK] (0)'
+--- message
+🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔥 Dinky AI has declared a gambit.
+=== press 13: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Cross**.
+🔮 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+Time has advanced 1, now at 03.
+--- message
+<@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
+=== press 14: MindPullView -> 'Pass'
+--- message
+🔮 Noxar [SK] declines to Mind Pull.
+--- message
+🔥 Hellguard [FB] picks up the ball.
 --- message
 Ball is now in space 7, Fire Demons (Visiting) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 8: ManeuverChallengeView -> 'Send nobody'
+=== press 15: ManeuverChallengeView -> 'Send nobody'
 --- message
 **Unchallenged!** Telekinetics (Home) have sent nobody in to challenge 🔥 Hellguard [FB], so whichever maneuver the offense picks succeeds.
 --- message
 🔥 Dinky AI chose **Low Pass**, unchallenged.
 
 ## **Low Pass** succeeds!
-Time has advanced 1, now at 03.
---- message
-<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
-=== press 9: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
-🔮 Noxar [SK] exhausts 1 😮‍💨 (now 1 total).
-
-## 🔮 Noxar [SK] Mind Pulls
-**Turnover!** They take it on **space 6** (Visitors Zone).
-
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 10: FlyView -> 'Space 3 (2 away)'
---- message
-🔮 Zenith [WG] **flies** to space 3 and will not run back.
-🔮 Zenith [WG] exhausts 2 😮‍💨😮‍💨 (now 2 total).
---- message
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
---- message
-Ball is now in space 6, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-The ball was left with Noxar [SK], who takes this turn.
-
-Choose an action:
-=== press 11: PlayerActionView -> 'Maneuver'
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
-=== press 12: ManeuverActionPromptView -> 'Gambit'
---- message
-You declared a gambit: pick one of your advanced maneuvers from the new prompt.
---- message
-🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Fortune.
---- message
-🔥 Dinky AI has confirmed their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 has declared a gambit.
-=== press 13: ManeuverActionPromptView -> 'Pinpoint'
---- message
-You chose **Pinpoint**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔮 Player 1 chose **Pinpoint**.
-🔥 Dinky AI chose **Deflect**.
-
-**Pinpoint** ties with **Deflect** — skill test!
-
-🔮 Noxar [SK]: offense skill 6
-🔥 Blazebulk [DD]: defense skill 5
-
-🔮 Noxar [SK] exhausts 1 😮‍💨 (now 2 total).
-🔮 Noxar [SK] is now *exhausted* 🥵
-🔥 Blazebulk [DD] exhausts 1 😮‍💨 (now 1 total).
---- message
-Either player can roll:
-=== press 14: SkillTestView -> 'Roll the skill test'
---- message
-## **Pinpoint** wins the skill test!
 Time has advanced 1, now at 04.
 --- message
-<@111>, 🔮 Noxar [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
-=== press 15: InjuryTestView -> 'Roll the injury test'
+<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
+=== press 16: MindPullView -> 'Pass'
 --- message
-🔮 Noxar [SK] is exhausted and rolls an injury test: 6 beats their 2 exhaustion tokens.
-🔮 Noxar [SK] is **safe**.
+🔮 Noxar [SK] declines to Mind Pull.
 --- message
-🔮 <@111>, choose your Low Pass:
-=== press 16: LowPassChoiceView -> 'Spectra [MF] -- space 5'
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
+=== press 17: MindPullView -> 'Mind Pull'
 --- message
-**🔮 Coach** chose to pass the ball to 🔮 Spectra [MF] at space 5.
---- message
-**Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
-
-Ball is now in space 5, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-The ball was left with Spectra [MF], who takes this turn.
-
-Choose an action:
-=== press 17: PlayerActionView -> 'Maneuver'
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI holds the coin, 🪙 Fortune up, and may declare a gambit.
-=== press 18: ManeuverActionPromptView -> 'High Pass'
---- message
-You chose **High Pass**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔮 Player 1 chose **High Pass**.
-🔥 Dinky AI chose **Deflect**.
-
-## **Deflect** wins!
-Time has advanced 1, now at 05.
---- message
-🔮 Quillon [PM] (offense skill 4) and 🔥 Sizzifizik [PM] (defense skill 3) both contest the ball -- skill test!
-
-
-Either player can roll:
-=== press 19: LooseBallSkillTestView -> 'Roll for the ball'
---- message
-🔥 **Volatile** — 🔥 Sizzifizik [PM] rolled a natural 5, so **the ball ignites**. The second d12 comes up **11** — 5 or more, so it **blazes**: **+11** to their roll.
---- message
-# Turnover!
-
-🔥 Sizzifizik [PM] wins the ball! 🔥 Dinky AI has possession.
---- message
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 20: FlyView -> 'Space 7 (4 away)'
---- message
-🔮 Zenith [WG] **flies** to space 7 and will not run back.
-🔮 Zenith [WG] exhausts 4 😮‍💨😮‍💨😮‍💨😮‍💨 (now 6 total).
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] exhausts 1 😮‍💨 (now 3 total).
 🔮 Zenith [WG] is now *exhausted* 🥵
+🔮 Zenith [WG] fails to Mind Pull
 --- message
-The ball speed goes down to **1**.
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
+
+Ball is now in space 6, Fire Demons (Visiting) has possession.
 --- message
-Ball is now in space 4, Fire Demons (Visiting) has possession.
---- message
-🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
---- message
-🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
-=== press 21: GambitAnswerView -> 'Answer with a gambit'
---- message
-🔮 Player 1 answers with a gambit of their own.
+🔥 Sizzifizik [PM] will maneuver for Fire Demons.
+
+🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
+=== press 18: ManeuverChallengeView -> 'Noxar [SK] (0)'
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
 
-🔥 Dinky AI has declared a gambit. 🔮 Player 1 answers with one of their own.
-=== press 22: ManeuverActionPromptView -> 'Clear'
+🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 19: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Low Pass**.
+🔮 Player 1 chose **Pressure**.
+
+## **Low Pass** wins!
+Time has advanced 1, now at 05.
+--- message
+**Low Pass:** the ball goes to a teammate in the same space, and 🔥 Sizzifizik [PM] moves a space forward. Ball speed is now 5.
+
+Ball is now in space 6, Fire Demons (Visiting) has possession.
+--- message
+🔥 Blazebulk [DD] will maneuver for Fire Demons.
+
+🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
+=== press 20: ManeuverChallengeView -> 'Noxar [SK] (0)'
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 21: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Dribble**.
+🔮 Player 1 chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 06.
+--- message
+**Dribble:** 🔥 Blazebulk [DD] and the ball move forward 1 space.
+--- message
+Ball speed is now **7**.
+--- message
+<@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
+=== press 22: MindPullView -> 'Pass'
+--- message
+🔮 Noxar [SK] declines to Mind Pull.
+--- message
+Ball is now in space 5, Fire Demons (Visiting) has possession.
+--- message
+🔥 Blazebulk [DD] will maneuver for Fire Demons.
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 23: ManeuverChallengeView -> 'Noxar [SK] (1)'
+--- message
+Noxar has moved 1 space.
+🔮 Noxar [SK] exhausts 1 😮‍💨 (now 2 total).
+🔮 Noxar [SK] is now *exhausted* 🥵
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 24: ManeuverActionPromptView -> 'Gambit'
+--- message
+You declared a gambit: pick one of your advanced maneuvers from the new prompt.
+--- message
+🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Doom.
+--- message
+🔥 Dinky AI has changed their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 has declared a gambit.
+=== press 25: ManeuverActionPromptView -> 'Clear'
 --- message
 You chose **Clear**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔥 Dinky AI chose **Burst**.
+🔥 Dinky AI chose **Low Pass**.
 🔮 Player 1 chose **Clear**.
 
-## **Burst** wins!
-Time has advanced 1, now at 06.
+**Low Pass** ties with **Clear** — skill test!
+
+🔥 Blazebulk [DD]: offense skill 2
+🔮 Noxar [SK]: defense skill 1
+
+🔥 Blazebulk [DD] exhausts 1 😮‍💨 (now 1 total).
+🔮 Noxar [SK] exhausts 1 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 26: SkillTestView -> 'Roll the skill test'
+--- message
+🔥 **Volatile** — 🔥 Blazebulk [DD] rolled a natural 7, so **the ball ignites**. The second d12 comes up **8**, and they always blaze: **+8** to their roll.
+--- message
+## **Low Pass** wins the skill test!
+🔥 **Volatile** — the blaze raises it to **Pinpoint**.
+Time has advanced 1, now at 07.
+--- message
+<@111>, 🔮 Noxar [SK] is exhausted and owes an injury test: a d12 that has to beat their 3 exhaustion tokens.
+=== press 27: InjuryTestView -> 'Roll the injury test'
+--- message
+🔮 Noxar [SK] is exhausted and rolls an injury test: 9 beats their 3 exhaustion tokens.
+🔮 Noxar [SK] is **safe**.
+--- message
+<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it.
+=== press 28: MindPullView -> 'Pass'
+--- message
+🔮 Quillon [PM] declines to Mind Pull.
+--- message
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
+=== press 29: MindPullView -> 'Mind Pull'
+--- message
+🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
+🔮 Spectra [MF] exhausts 1 😮‍💨 (now 1 total).
+🔮 Spectra [MF] fails to Mind Pull
 --- message
 <@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
-=== press 23: MindPullView -> 'Mind Pull'
+=== press 30: MindPullView -> 'Pass'
 --- message
-🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
-🔮 Dravox [DD] fails to Mind Pull
+🔮 Dravox [DD] declines to Mind Pull.
 --- message
-<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
-=== press 24: MindPullView -> 'Pass'
---- message
-🔮 Umbrik [FB] declines to Mind Pull.
---- message
-**Burst:** 🔥 Sizzifizik [PM] bursts 3 spaces forward, past everyone in the way.
-🔥 Sizzifizik [PM] exhausts 3 😮‍💨😮‍💨😮‍💨 (now 3 total).
+**Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 10.
 
-**Clear** was beaten -- exhaust 2.
-🔮 Quillon [PM] exhausts 2 😮‍💨😮‍💨 (now 2 total). Ball speed is now **12**.
-
-Ball is now in space 1, Fire Demons (Visiting) has possession.
+Ball is now in space 2, Fire Demons (Visiting) has possession.
 --- message
-🔥 Dinky AI has chosen to shoot to score with 🔥 Sizzifizik [PM].
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔥 Dinky AI holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 31: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+Time has advanced 1, now at 08.
+--- message
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
+=== press 32: MindPullView -> 'Pass'
+--- message
+🔮 Spectra [MF] declines to Mind Pull.
+--- message
+🔥 Scorchit [MF] (offense skill 3) and 🔮 Spectra [MF] (defense skill 4) both contest the ball -- skill test!
+
+
+Either player can roll:
+=== press 33: LooseBallSkillTestView -> 'Roll for the ball'
+--- message
+🔥 **Volatile** — 🔥 Scorchit [MF] rolled a natural 7, so **the ball ignites**. The second d12 comes up **7** — 5 or more, so it **blazes**: **+7** to their roll.
+--- message
+🔥 Scorchit [MF] wins the ball! 🔥 Dinky AI has possession.
+--- message
+Ball is now in space 3, Fire Demons (Visiting) has possession.
+--- message
+🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
+--- message
+🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
+=== press 34: GambitAnswerView -> 'Play basic cards'
+--- message
+🔮 Player 1 plays their basic cards.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔥 Dinky AI has declared a gambit.
+=== press 35: ManeuverActionPromptView -> 'Steal'
+--- message
+You chose **Steal**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Cross**.
+🔮 Player 1 chose **Steal**.
+
+## **Cross** wins!
+Time has advanced 2, now at 10.
+--- message
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
+=== press 36: MindPullView -> 'Pass'
+--- message
+🔮 Dravox [DD] declines to Mind Pull.
+--- message
+**Cross:** the ball moves 1 space forward to 🔥 Flickerwing [WG] -- a scoring opportunity! Ball speed is 9.
+--- message
+🔥 Flickerwing [WG] takes the shot off the set-up.
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 25: ScoreAttemptView -> 'Roll the score attempt'
---- message
-🔥 **Volatile** — 🔥 Sizzifizik [PM] rolled a natural 6, so **the ball ignites**. The second d12 comes up **2** — under 5, so it **burns**: **-2** to their roll.
+=== press 37: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Sizzifizik [PM] scores for Fire Demons (Visiting) on **06**!
+🔥 Flickerwing [WG] scores for Fire Demons (Visiting) on **10**!
 Telekinetics 0:1 Fire Demons
 
-Time has advanced 1, now at 07.
+🔥 Flickerwing [WG] exhausts 1 😮‍💨 (now 1 total).
+
+Time has advanced 1, now at 11.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
 Coach?
-=== press 26: CoachingOfferView -> 'Pass'
+=== press 38: CoachingOfferView -> 'Pass'
 --- message
 # Coaching Choice
 **🔮 Player 1 passed.**
@@ -281,14 +417,14 @@ Ball is now in space 4, Telekinetics (Home) has possession.
 Quillon [PM] will be handling the ball.
 
 Out of shooting range. Maneuver, or take a time out:
-=== press 27: PlayerActionView -> 'Maneuver'
+=== press 39: PlayerActionView -> 'Maneuver'
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 28: ManeuverActionPromptView -> 'Gambit'
+=== press 40: ManeuverActionPromptView -> 'Gambit'
 --- message
 You declared a gambit: pick one of your advanced maneuvers from the new prompt.
 --- message
@@ -299,512 +435,7 @@ You declared a gambit: pick one of your advanced maneuvers from the new prompt.
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔮 Player 1 has declared a gambit.
-=== press 29: ManeuverActionPromptView -> 'Burst'
---- message
-You chose **Burst**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔮 Player 1 chose **Burst**.
-🔥 Dinky AI chose **Steal**.
-
-**Burst** ties with **Steal** — skill test!
-
-🔮 Quillon [PM]: offense skill 4
-🔥 Sizzifizik [PM]: defense skill 3
-
-🔮 Quillon [PM] exhausts 1 😮‍💨 (now 3 total).
-🔥 Sizzifizik [PM] exhausts 1 😮‍💨 (now 4 total).
-🔥 Sizzifizik [PM] is now *exhausted* 🥵
---- message
-Either player can roll:
-=== press 30: SkillTestView -> 'Roll the skill test'
---- message
-## **Steal** wins the skill test!
-Time has advanced 1, now at 08.
---- message
-Dinky AI, 🔥 Sizzifizik [PM] is exhausted and owes an injury test: a d12 that has to beat their 4 exhaustion tokens.
-=== press 31: InjuryTestView -> 'Roll the injury test'
---- message
-🔥 Sizzifizik [PM] is exhausted and rolls an injury test: 9 beats their 4 exhaustion tokens.
-🔥 Sizzifizik [PM] is **safe**.
---- message
-<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
-=== press 32: MindPullView -> 'Pass'
---- message
-🔮 Zenith [WG] declines to Mind Pull.
---- message
-<@111> The ball passed beside 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
-=== press 33: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
-🔮 Noxar [SK] exhausts 1 😮‍💨 (now 3 total).
-🔮 Noxar [SK] fails to Mind Pull
---- message
-**Steal:**
-# Turnover!
-🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
-
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 34: FlyView -> 'Space 7 (2 away)'
---- message
-🔮 Zenith [WG] **flies** to space 7 and will not run back.
-🔮 Zenith [WG] exhausts 2 😮‍💨😮‍💨 (now 8 total).
---- message
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
---- message
-🔥 Scorchit [MF] runs back to space 3.
-🔥 Scorchit [MF] exhausts 2 😮‍💨😮‍💨 (now 2 total).
---- message
-Ball speed is now **4**.
---- message
-Ball is now in space 5, Fire Demons (Visiting) has possession.
---- message
-🔥 Sizzifizik [PM] will maneuver for Fire Demons.
-
-🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 35: ManeuverChallengeView -> 'Noxar [SK] (1)'
---- message
-Noxar has moved 1 space.
-🔮 Noxar [SK] exhausts 1 😮‍💨 (now 4 total).
---- message
-🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
---- message
-🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
-=== press 36: GambitAnswerView -> 'Play basic cards'
---- message
-🔮 Player 1 plays their basic cards.
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-
-🔥 Dinky AI has declared a gambit.
-=== press 37: ManeuverActionPromptView -> 'Deflect'
---- message
-You chose **Deflect**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔥 Dinky AI chose **Burst**.
-🔮 Player 1 chose **Deflect**.
-
-## **Burst** wins!
-Time has advanced 1, now at 09.
---- message
-<@111> The ball crossed 🔮 Quillon [PM], who may 🔮 Mind Pull it.
-=== press 38: MindPullView -> 'Pass'
---- message
-🔮 Quillon [PM] declines to Mind Pull.
---- message
-<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
-=== press 39: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
-🔮 Spectra [MF] exhausts 1 😮‍💨 (now 3 total).
-🔮 Spectra [MF] fails to Mind Pull
---- message
-<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
-=== press 40: MindPullView -> 'Pass'
---- message
-🔮 Dravox [DD] declines to Mind Pull.
---- message
-<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
-=== press 41: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
-🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total).
-
-## 🔮 Umbrik [FB] Mind Pulls
-**Turnover!** They take it on **space 1** (Home Zone).
-
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 42: FlyView -> 'Stay'
---- message
-🔮 Zenith [WG] does not fly.
---- message
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
---- message
-🔥 Sizzifizik [PM] runs back to space 4.
-🔥 Sizzifizik [PM] exhausts 3 😮‍💨😮‍💨😮‍💨 (now 11 total).
---- message
-Ball is now in space 1, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-The ball was left with Umbrik [FB], who takes this turn.
-
-Out of shooting range. Maneuver, or take a time out:
-=== press 43: PlayerActionView -> 'Maneuver'
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 44: ManeuverActionPromptView -> 'Gambit'
---- message
-You declared a gambit: pick one of your advanced maneuvers from the new prompt.
---- message
-🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Fortune.
---- message
-🔥 Dinky AI has confirmed their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 has declared a gambit.
-=== press 45: ManeuverActionPromptView -> 'Cross'
---- message
-You chose **Cross**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔮 Player 1 chose **Cross**.
-🔥 Dinky AI chose **Steal**.
-
-## **Cross** wins!
-Time has advanced 2, now at 11.
---- message
-**Cross:** 🔮 Umbrik [FB] sets the ball's speed before picking out the pass.
-
-<@111>, manipulate the ball's speed (up to 1):
-=== press 46: SpeedDeltaChoiceView -> '2 (+1)'
---- message
-Ball speed is now **2**.
---- message
-🔮 <@111>, choose where your **Cross** lands:
-=== press 47: SetupPassChoiceView -> '3 spaces (space 4, Quillon [PM])'
---- message
-**🔮 Coach** picks out a **Cross** of 3.
---- message
-**Cross:** the ball moves 3 spaces forward to 🔮 Quillon [PM] -- a scoring opportunity! Ball speed is 2.
-
-<@111> 🔮 Quillon [PM] can attempt the scoring opportunity, or let it go:
-=== press 48: SetUpAttemptChoiceView -> 'Decline -- resolve as a normal pass'
---- message
-Declined the scoring opportunity.
---- message
-Ball is now in space 4, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-The ball was left with Quillon [PM], who takes this turn.
-
-Out of shooting range. Maneuver, or take a time out:
-=== press 49: PlayerActionView -> 'Maneuver'
---- message
-🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Fortune.
---- message
-🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
-=== press 50: GambitAnswerView -> 'Play basic cards'
---- message
-🔮 Player 1 plays their basic cards.
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔥 Dinky AI has declared a gambit.
-=== press 51: ManeuverActionPromptView -> 'High Pass'
---- message
-You chose **High Pass**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔮 Player 1 chose **High Pass**.
-🔥 Dinky AI chose **Intercept**.
-
-## **High Pass** wins!
-Time has advanced 2, now at 13.
---- message
-🔮 <@111>, choose your High Pass distance:
-=== press 52: HighPassChoiceView -> '3 spaces (space 7, no teammate)'
---- message
-Chose **3 spaces**.
---- message
-# Turnover!
-🔥 Hellguard [FB] picks up the ball. Fire Demons (Visiting) now has possession.
---- message
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 53: FlyView -> 'Space 4 (1 away)'
---- message
-🔮 Zenith [WG] **flies** to space 4 and will not run back.
-🔮 Zenith [WG] exhausts 1 😮‍💨 (now 11 total).
---- message
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
---- message
-Ball is now in space 7, Fire Demons (Visiting) has possession.
---- message
-🔥 Hellguard [FB] will maneuver for Fire Demons.
-
-🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 54: ManeuverChallengeView -> 'Send nobody'
---- message
-**Unchallenged!** Telekinetics (Home) have sent nobody in to challenge 🔥 Hellguard [FB], so whichever maneuver the offense picks succeeds.
---- message
-🔥 Dinky AI chose **Dribble**, unchallenged.
-
-## **Dribble** succeeds!
-Time has advanced 1, now at 14.
---- message
-**Dribble:** 🔥 Hellguard [FB] and the ball move forward 1 space.
---- message
-Ball speed is now **2**.
---- message
-<@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
-=== press 55: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Noxar [SK] reaches for the ball.
-🔮 Noxar [SK] exhausts 1 😮‍💨 (now 6 total).
-🔮 Noxar [SK] fails to Mind Pull
---- message
-Ball is now in space 6, Fire Demons (Visiting) has possession.
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-
-🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
-=== press 56: ManeuverActionPromptView -> 'Gambit'
---- message
-You declared a gambit: pick one of your advanced maneuvers from the new prompt.
---- message
-🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Fortune.
---- message
-🔥 Dinky AI has changed their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-
-🔮 Player 1 has declared a gambit.
-=== press 57: ManeuverActionPromptView -> 'Double Team'
---- message
-You chose **Double Team**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔥 Dinky AI chose **Low Pass**.
-🔮 Player 1 chose **Double Team**.
-
-## **Low Pass** wins!
-Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
---- message
-<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
-=== press 58: MindPullView -> 'Pass'
---- message
-🔮 Zenith [WG] declines to Mind Pull.
---- message
-**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 3.
-
-**Double Team** was beaten -- 🔮 Noxar [SK] and 🔮 Quillon [PM] are each shoved a space forward, away from their own goal.
-
-Ball is now in space 4, Fire Demons (Visiting) has possession.
---- message
-Fire Demons (Visiting) has **last possession**: their next turnover ends the period.
---- message
-🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
---- message
-🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
-=== press 59: GambitAnswerView -> 'Answer with a gambit'
---- message
-🔮 Player 1 answers with a gambit of their own.
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-
-🔥 Dinky AI has declared a gambit. 🔮 Player 1 answers with one of their own.
-=== press 60: ManeuverActionPromptView -> 'Double Team'
---- message
-You chose **Double Team**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔥 Dinky AI chose **Pinpoint**.
-🔮 Player 1 chose **Double Team**.
-
-## **Pinpoint** wins!
-Time has advanced 1, now at 16.
---- message
-<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
-=== press 61: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
-🔮 Dravox [DD] exhausts 1 😮‍💨 (now 2 total).
-🔮 Dravox [DD] fails to Mind Pull
---- message
-<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
-=== press 62: MindPullView -> 'Pass'
---- message
-🔮 Umbrik [FB] declines to Mind Pull.
---- message
-**Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 6.
-
-**Double Team** was beaten -- 🔮 Zenith [WG] and 🔮 Spectra [MF] are each shoved a space forward, away from their own goal.
-
-Ball is now in space 1, Fire Demons (Visiting) has possession.
---- message
-🔥 Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
---- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 63: ScoreAttemptView -> 'Roll the score attempt'
---- message
-# Missed attempt!
-Telekinetics (Home) manages to avoid a goal! (phew)
-
-Time has advanced 1, now at 17.
---- message
-**End of the first half!** The ball turns over at 17 under last possession -- the period ends. The second half starts at 15.
---- message
-# Halftime
-Every fielded player clears 1 exhaustion:
-🔮 Umbrik [FB] clears 1 exhaustion (now 0).
-🔮 Dravox [DD] clears 1 exhaustion (now 1).
-🔮 Spectra [MF] clears 1 exhaustion (now 2).
-🔮 Quillon [PM] clears 1 exhaustion (now 3).
-🔮 Zenith [WG] clears 1 exhaustion (now 10).
-🔮 Noxar [SK] clears 1 exhaustion (now 5).
-🔥 Scorchit [MF] clears 1 exhaustion (now 1).
-🔥 Sizzifizik [PM] clears 1 exhaustion (now 10).
-🔥 Blazebulk [DD] clears 1 exhaustion (now 0).
---- message
-🔥 Sizzifizik [PM] clears an extra exhaustion token (now 9).
---- message
-<@111>, Telekinetics (Home): choose one fielded player to clear an extra exhaustion token.
-=== press 64: HalftimeExtraTokenView -> 'Quillon [PM] (3 exhaustion)'
---- message
-🔮 Quillon [PM] clears an extra exhaustion token (now 2).
---- message
-# Coaching Choice
-**Fire Demons (Visiting) are done.**
-No substitutions, and no change of shape.
---- message
-## Halftime
-Telekinetics (Home) set up for the second half.
-# Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
-Your side is back on the arrangement you last set.
-=== press 65: CoachingHubView -> 'Done coaching'
---- message
-# Coaching Choice
-**Telekinetics (Home) are done.**
-No substitutions, and no change of shape.
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-
-🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 66: ManeuverActionPromptView -> 'Steal'
---- message
-You chose **Steal**.
---- message
-🔮 Player 1 has picked their maneuver.
---- message
-🔥 Dinky AI chose **High Pass**.
-🔮 Player 1 chose **Steal**.
-
-## **High Pass** wins!
-Time has advanced 2, now at 17.
---- message
-<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
-=== press 67: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Spectra [MF] reaches for the ball.
-🔮 Spectra [MF] exhausts 1 😮‍💨 (now 3 total).
-🔮 Spectra [MF] fails to Mind Pull
---- message
-<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
-=== press 68: MindPullView -> 'Pass'
---- message
-🔮 Dravox [DD] declines to Mind Pull.
---- message
-<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
-=== press 69: MindPullView -> 'Mind Pull'
---- message
-🔮 **Mind Pull** — 🔮 Umbrik [FB] reaches for the ball.
-🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 1 total).
-🔮 Umbrik [FB] fails to Mind Pull
---- message
-**High Pass:** the ball moves 3 spaces forward.
-
-**High Pass:** the receiving player must win a skill test to keep possession.
---- message
-🔮 Umbrik [FB] (defense skill 6) challenges 🔥 Brightburn [SK] (offense skill 6) for the high pass -- the receiver must win this skill test to keep possession!
-
-
-Either player can roll:
-=== press 70: LooseBallSkillTestView -> 'Roll for the high pass'
---- message
-# Turnover!
-
-🔮 Umbrik [FB] wins possession off the high pass! 🔮 <@111> has possession.
---- message
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 71: FlyView -> 'Space 1 (4 away)'
---- message
-🔮 Zenith [WG] **flies** to space 1 and will not run back.
-🔮 Zenith [WG] exhausts 4 😮‍💨😮‍💨😮‍💨😮‍💨 (now 14 total).
---- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 1, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-The ball was left with Umbrik [FB], who takes this turn.
-
-Out of shooting range. Maneuver, or take a time out:
-=== press 72: PlayerActionView -> 'Time out'
---- message
-# Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
-=== press 73: TimeOutConfirmView -> 'Take the time out'
---- message
-# Telekinetics (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 1. Time has advanced 1, now at 18.
---- message
-# Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
-Your side is back on the arrangement you last set.
-=== press 74: CoachingHubView -> 'Done coaching'
---- message
-# Coaching Choice
-**Telekinetics (Home) are done.**
-No substitutions, and no change of shape.
---- message
-# Coaching Choice
-**Fire Demons (Visiting) are done.**
-No substitutions, and no change of shape.
---- message
-Ball is now in space 1, Telekinetics (Home) has possession.
---- message
-🔮 <@111>, it is your turn.
-
-Umbrik [FB] will be handling the ball.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 75: PlayerActionView -> 'Maneuver'
---- message
-🔥 Dinky AI has picked their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 76: ManeuverActionPromptView -> 'Gambit'
---- message
-You declared a gambit: pick one of your advanced maneuvers from the new prompt.
---- message
-🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Fortune.
---- message
-🔥 Dinky AI has changed their maneuver.
---- message
-🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-
-🔮 Player 1 has declared a gambit.
-=== press 77: ManeuverActionPromptView -> 'Burst'
+=== press 41: ManeuverActionPromptView -> 'Burst'
 --- message
 You chose **Burst**.
 --- message
@@ -814,38 +445,120 @@ You chose **Burst**.
 🔥 Dinky AI chose **Pressure**.
 
 ## **Pressure** wins!
-Time has advanced 1, now at 19.
+Time has advanced 1, now at 12.
 --- message
-**Pressure:** 🔮 Umbrik [FB] and the ball go back 0 spaces. 🔥 Brightburn [SK] moves forward.
-
-The ball reaches their own goal zone!
-
-**Own goal risk!** <@111>, 🔮 Umbrik [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (6). A total of 7 or more and the own goal is avoided.
-=== press 78: OwnGoalRollView -> 'Roll for the own goal'
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
+=== press 42: MindPullView -> 'Pass'
 --- message
-**Own goal risk!** 🔮 Umbrik [FB] rolls at an advantage: higher of 12/7 is 12, + 6 (defensive skill) = 18
+🔮 Spectra [MF] declines to Mind Pull.
 --- message
-## Own goal avoided!
+**Pressure:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward.
 
-🔮 Umbrik [FB] exhausts 1 😮‍💨 (now 2 total).
+# Turnover!
+**Burst** was beaten -- Fire Demons (Visiting) take the ball, and it keeps the speed the burst put into it (1).
+
+<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
+=== press 43: FlyView -> 'Space 1 (4 away)'
+--- message
+🔮 Zenith [WG] **flies** to space 1 and will not run back.
+🔮 Zenith [WG] exhausts 4 😮‍💨😮‍💨😮‍💨😮‍💨 (now 7 total).
+--- message
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled.
+--- message
+<@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
+🔮 Spectra [MF] on space 3
+🔮 Quillon [PM] on space 3
+=== press 44: RunBackPlayerChoiceView -> 'Quillon [PM] — space 3'
+--- message
+<@111>, choose where 🔮 Quillon [PM] runs back to:
+Space 4 (1 away) or space 5 (2 away).
+=== press 45: RunBackChoiceView -> 'Space 4 (1 away)'
+--- message
+🔮 Quillon [PM] runs back to space 4.
+🔮 Quillon [PM] exhausts 1 😮‍💨 (now 3 total).
+--- message
+Ball speed is now **4**.
+--- message
+Ball is now in space 3, Fire Demons (Visiting) has possession.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔥 Dinky AI holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 46: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Dribble**.
+🔮 Player 1 chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 13.
+--- message
+**Dribble:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+--- message
+Ball speed is now **8**.
+--- message
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
+=== press 47: MindPullView -> 'Mind Pull'
+--- message
+🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
+🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
+🔮 Dravox [DD] fails to Mind Pull
+--- message
+<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
+=== press 48: MindPullView -> 'Pass'
+--- message
+🔮 Umbrik [FB] declines to Mind Pull.
+--- message
+<@111> The ball crossed 🔮 Zenith [WG], who may 🔮 Mind Pull it (exhaust 1).
+=== press 49: MindPullView -> 'Mind Pull'
+--- message
+🔮 **Mind Pull** — 🔮 Zenith [WG] reaches for the ball.
+🔮 Zenith [WG] exhausts 1 😮‍💨 (now 8 total).
+
+## 🔮 Zenith [WG] Mind Pulls
+**Turnover!** They take it on **space 1** (Home Zone).
+
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+--- message
+🔥 Sizzifizik [PM] runs back to space 3.
+🔥 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 5 total).
+🔥 Sizzifizik [PM] is now *exhausted* 🥵
+--- message
+Ball is now in space 1, Telekinetics (Home) has possession.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Zenith [WG], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 50: PlayerActionView -> 'Time out'
+--- message
+# Take a time out?
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
+=== press 51: TimeOutConfirmView -> 'Take the time out'
+--- message
+# Telekinetics (Home) call a time out
+Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 1. Time has advanced 1, now at 14.
 --- message
 # Coaching Choice
 <@111>, **Telekinetics (Home)** -- 2 substitutions left.
-Coach?
-=== press 79: CoachingOfferView -> 'Coach'
---- message
-# Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
-=== press 80: CoachingHubView -> 'Done coaching'
+Your side is back on the arrangement you last set.
+=== press 52: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **Telekinetics (Home) are done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**🔥 Dinky AI passed.**
---- message
-The ball speed goes down to **1**.
+**Fire Demons (Visiting) are done.**
+No substitutions, and no change of shape.
 --- message
 Ball is now in space 1, Telekinetics (Home) has possession.
 --- message
@@ -854,12 +567,217 @@ Ball is now in space 1, Telekinetics (Home) has possession.
 Umbrik [FB] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
-=== press 81: PlayerActionView -> 'Maneuver'
+=== press 53: PlayerActionView -> 'Maneuver'
 --- message
-🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI holds the coin, 🪙 Doom up, and may declare a gambit.
+=== press 54: ManeuverActionPromptView -> 'High Pass'
+--- message
+You chose **High Pass**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **High Pass**.
+🔥 Dinky AI chose **Steal**.
+
+## **High Pass** wins!
+Time has advanced 2, now at 16. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
+--- message
+🔮 <@111>, choose your High Pass distance:
+=== press 55: HighPassChoiceView -> '2 spaces (space 3, Spectra [MF])'
+--- message
+Chose **2 spaces**.
+--- message
+**High Pass:** the ball moves 2 spaces forward.
+
+Ball is now in space 3, Telekinetics (Home) has possession.
+--- message
+Telekinetics (Home) has **last possession**: their next turnover ends the period.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Spectra [MF], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 56: PlayerActionView -> 'Maneuver'
+--- message
+Sizzifizik has moved 1 space.
+🔥 Sizzifizik [PM] exhausts 1 😮‍💨 (now 6 total).
+--- message
+🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Fortune.
 --- message
 🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
-=== press 82: GambitAnswerView -> 'Play basic cards'
+=== press 57: GambitAnswerView -> 'Answer with a gambit'
+--- message
+🔮 Player 1 answers with a gambit of their own.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔥 Dinky AI has declared a gambit. 🔮 Player 1 answers with one of their own.
+=== press 58: ManeuverActionPromptView -> 'Pinpoint'
+--- message
+You chose **Pinpoint**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Pinpoint**.
+🔥 Dinky AI chose **Intercept**.
+
+## **Intercept** wins!
+Time has advanced 1, now at 17.
+--- message
+**Intercept:**
+# Turnover!
+🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then carries it 1 space forward, toward the goal they now attack.
+
+**Pinpoint** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
+
+**End of the first half!** The ball turns over at 17 under last possession -- the period ends. The second half starts at 15.
+--- message
+# Halftime
+Every fielded player clears 1 exhaustion:
+🔮 Dravox [DD] clears 1 exhaustion (now 0).
+🔮 Spectra [MF] clears 1 exhaustion (now 0).
+🔮 Quillon [PM] clears 1 exhaustion (now 2).
+🔮 Zenith [WG] clears 1 exhaustion (now 7).
+🔮 Noxar [SK] clears 1 exhaustion (now 2).
+🔥 Flickerwing [WG] clears 1 exhaustion (now 0).
+🔥 Scorchit [MF] clears 1 exhaustion (now 1).
+🔥 Sizzifizik [PM] clears 1 exhaustion (now 5).
+🔥 Blazebulk [DD] clears 1 exhaustion (now 0).
+--- message
+🔥 Sizzifizik [PM] clears an extra exhaustion token (now 4).
+--- message
+<@111>, Telekinetics (Home): choose one fielded player to clear an extra exhaustion token.
+=== press 59: HalftimeExtraTokenView -> 'Zenith [WG] (7 exhaustion)'
+--- message
+🔮 Zenith [WG] clears an extra exhaustion token (now 6).
+--- message
+# Coaching Choice
+**Fire Demons (Visiting) are done.**
+No substitutions, and no change of shape.
+--- message
+## Halftime
+Telekinetics (Home) set up for the second half.
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+=== press 60: CoachingHubView -> 'Done coaching'
+--- message
+# Coaching Choice
+**Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 61: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Dribble**.
+🔮 Player 1 chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 16.
+--- message
+**Dribble:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+--- message
+Ball speed is now **5**.
+--- message
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
+=== press 62: MindPullView -> 'Pass'
+--- message
+🔮 Spectra [MF] declines to Mind Pull.
+--- message
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).
+=== press 63: MindPullView -> 'Mind Pull'
+--- message
+🔮 **Mind Pull** — 🔮 Dravox [DD] reaches for the ball.
+🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
+🔮 Dravox [DD] fails to Mind Pull
+--- message
+Ball is now in space 2, Fire Demons (Visiting) has possession.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 64: ManeuverActionPromptView -> 'Gambit'
+--- message
+You declared a gambit: pick one of your advanced maneuvers from the new prompt.
+--- message
+🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Doom.
+--- message
+🔥 Dinky AI has confirmed their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 has declared a gambit.
+=== press 65: ManeuverActionPromptView -> 'Intercept'
+--- message
+You chose **Intercept**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **High Pass**.
+🔮 Player 1 chose **Intercept**.
+
+## **High Pass** wins!
+Time has advanced 2, now at 18.
+--- message
+<@111> The ball crossed 🔮 Umbrik [FB], who may 🔮 Mind Pull it (exhaust 1).
+=== press 66: MindPullView -> 'Pass'
+--- message
+🔮 Umbrik [FB] declines to Mind Pull.
+--- message
+**High Pass:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-5).
+--- message
+🔥 Brightburn [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 67: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **18**!
+Telekinetics 0:2 Fire Demons
+
+🔥 Brightburn [SK] exhausts 1 😮‍💨 (now 1 total).
+
+Time has advanced 1, now at 19.
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Coach?
+=== press 68: CoachingOfferView -> 'Pass'
+--- message
+# Coaching Choice
+**🔮 Player 1 passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 4, Telekinetics (Home) has possession.
+--- message
+🔮 <@111>, it is your turn.
+
+Quillon [PM] will be handling the ball.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 69: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Fortune.
+--- message
+🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
+=== press 70: GambitAnswerView -> 'Play basic cards'
 --- message
 🔮 Player 1 plays their basic cards.
 --- message
@@ -868,31 +786,53 @@ Out of shooting range, and no time out available. Maneuver:
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
 🔥 Dinky AI has declared a gambit.
-=== press 83: ManeuverActionPromptView -> 'Dribble'
+=== press 71: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
 🔮 Player 1 chose **Dribble**.
-🔥 Dinky AI chose **Clear**.
+🔥 Dinky AI chose **Double Team**.
 
-## **Dribble** wins!
+## **Double Team** wins!
 Time has advanced 1, now at 20.
 --- message
-**Dribble:** 🔮 Umbrik [FB] and the ball move forward 1 space.
-
-**Clear** was beaten -- exhaust 2.
-🔥 Brightburn [SK] exhausts 2 😮‍💨😮‍💨 (now 2 total).
-🔥 Brightburn [SK] is now *exhausted* 🥵
-
-<@111>, manipulate the ball's speed (up to 1):
-=== press 84: SpeedDeltaChoiceView -> '2 (+1)'
+<@111> 🔮 **Smooth** — the ball reaches near 🔮 Spectra [MF], who can take the ball to become the ball handler.
+=== press 72: SmoothView -> 'Quillon [PM] keeps the ball'
 --- message
-Ball speed is now **2**.
+🔮 Spectra [MF] lets it run.
+--- message
+**Double Team:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward. 🔥 Scorchit [MF] joins them. 🔥 Scorchit [MF] Merges on the next maneuver, adding their defensive skill while they stand on the ball.
+
+Ball is now in space 3, Telekinetics (Home) has possession.
+--- message
+🔮 <@111>, it is your turn.
+
+The ball was left with Quillon [PM], who takes this turn.
+
+Out of shooting range. Maneuver, or take a time out:
+=== press 73: PlayerActionView -> 'Maneuver'
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 74: ManeuverActionPromptView -> 'Dribble'
+--- message
+You chose **Dribble**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔮 Player 1 chose **Dribble**.
+🔥 Dinky AI chose **Pressure**.
+
+## **Pressure** wins!
+Time has advanced 1, now at 21.
 --- message
 <@111> 🔮 **Smooth** — the ball reaches near 🔮 Dravox [DD], who can take the ball to become the ball handler.
-=== press 85: SmoothView -> 'Dravox [DD] takes it over'
+=== press 75: SmoothView -> 'Dravox [DD] takes it over'
 --- message
 🔮 **Smooth** — 🔮 Dravox [DD] takes the ball on **space 2** (Home Zone).
 
@@ -902,52 +842,175 @@ Ball is now in space 2, Telekinetics (Home) has possession.
 
 The ball was left with Dravox [DD], who takes this turn.
 
+Out of shooting range. Maneuver, or take a time out:
+=== press 76: PlayerActionView -> 'Time out'
+--- message
+# Take a time out?
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
+=== press 77: TimeOutConfirmView -> 'Take the time out'
+--- message
+# Telekinetics (Home) call a time out
+Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 2. Time has advanced 1, now at 22.
+--- message
+# Coaching Choice
+<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+Your side is back on the arrangement you last set.
+=== press 78: CoachingHubView -> 'Done coaching'
+--- message
+# Coaching Choice
+**Telekinetics (Home) are done.**
+No substitutions, and no change of shape.
+--- message
+# Coaching Choice
+**Fire Demons (Visiting) are done.**
+No substitutions, and no change of shape.
+--- message
+Ball is now in space 2, Telekinetics (Home) has possession.
+--- message
+🔮 <@111>, it is your turn.
+
+Dravox [DD] will be handling the ball.
+
 Out of shooting range, and no time out available. Maneuver:
-=== press 86: PlayerActionView -> 'Maneuver'
+=== press 79: PlayerActionView -> 'Maneuver'
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
 🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
 
-🔮 Player 1 holds the coin, 🪙 Doom up, and may declare a gambit.
-=== press 87: ManeuverActionPromptView -> 'High Pass'
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 80: ManeuverActionPromptView -> 'Gambit'
 --- message
-You chose **High Pass**.
+You declared a gambit: pick one of your advanced maneuvers from the new prompt.
+--- message
+🔮 Player 1 declares a gambit and hands the coin to 🔥 Dinky AI, who flips it: 🪙 Doom.
+--- message
+🔥 Dinky AI has confirmed their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+
+🔮 Player 1 has declared a gambit.
+=== press 81: ManeuverActionPromptView -> 'Cross'
+--- message
+You chose **Cross**.
 --- message
 🔮 Player 1 has picked their maneuver.
 --- message
-🔮 Player 1 chose **High Pass**.
-🔥 Dinky AI chose **Deflect**.
+🔮 Player 1 chose **Cross**.
+🔥 Dinky AI chose **Steal**.
 
-## **Deflect** wins!
-Time has advanced 1, now at 21.
+## **Cross** wins!
+Time has advanced 2, now at 24.
 --- message
-# Turnover!
-🔥 Brightburn [SK] picks up the ball. Fire Demons (Visiting) now has possession.
+🔮 <@111>, choose where your **Cross** lands:
+=== press 82: SetupPassChoiceView -> '3 spaces (space 5, Zenith [WG])'
 --- message
-<@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
-=== press 88: FlyView -> 'Space 4 (1 away)'
+**🔮 Coach** picks out a **Cross** of 3.
 --- message
-🔮 Zenith [WG] **flies** to space 4 and will not run back.
-🔮 Zenith [WG] exhausts 1 😮‍💨 (now 15 total).
+**Cross:** the ball moves 3 spaces forward to 🔮 Zenith [WG] -- a scoring opportunity! Ball speed is 1.
+
+<@111> 🔮 Zenith [WG] can attempt the scoring opportunity, or let it go:
+=== press 83: SetUpAttemptChoiceView -> 'Zenith [WG] takes the shot'
 --- message
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+🔮 Zenith [WG] takes the shot.
 --- message
-<@111>, your players are doubled up while their zone still has a space with nobody on it — choose which of them runs back:
-🔮 Dravox [DD] on space 2
-🔮 Umbrik [FB] on space 2
-=== press 89: RunBackPlayerChoiceView -> 'Dravox [DD] — space 2'
---- message
-<@111>, choose where 🔮 Dravox [DD] runs back to:
-Space 1 (1 away).
-=== press 90: RunBackChoiceView -> 'Space 1 (1 away)'
---- message
-🔮 Dravox [DD] runs back to space 1.
-🔮 Dravox [DD] exhausts 1 😮‍💨 (now 2 total).
---- message
-Ball is now in space 1, Fire Demons (Visiting) has possession.
---- message
-🔥 Dinky AI has chosen to shoot to score with 🔥 Brightburn [SK].
+🔮 Zenith [WG] takes the shot off the set-up.
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 84: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# Missed attempt!
+Fire Demons (Visiting) manages to avoid a goal! (phew)
+
+🔮 Zenith [WG] exhausts 1 😮‍💨 (now 7 total).
+
+Time has advanced 1, now at 25.
+--- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 7, Fire Demons (Visiting) has possession.
+--- message
+🔥 Hellguard [FB] will maneuver for Fire Demons.
+
+🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 85: ManeuverChallengeView -> 'Noxar [SK] (1)'
+--- message
+Noxar has moved 1 space.
+🔮 Noxar [SK] exhausts 1 😮‍💨 (now 3 total).
+--- message
+🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Fortune.
+--- message
+🔮 <@111>, a gambit has been declared against you and you are behind: answer with a gambit of your own -- your three advanced maneuvers -- or play your basic cards?
+=== press 86: GambitAnswerView -> 'Play basic cards'
+--- message
+🔮 Player 1 plays their basic cards.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔥 Dinky AI has declared a gambit.
+=== press 87: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Burst**.
+🔮 Player 1 chose **Pressure**.
+
+## **Pressure** wins!
+Time has advanced 1, now at 26.
+--- message
+**Pressure:** 🔥 Hellguard [FB] and the ball go back 0 spaces. 🔮 Noxar [SK] moves forward.
+
+The ball reaches their own goal zone!
+
+**Own goal risk!** Dinky AI, 🔥 Hellguard [FB] rolls two d12 at an advantage — the higher of the two, plus their offensive skill (1). A total of 7 or more and the own goal is avoided.
+=== press 88: OwnGoalRollView -> 'Roll for the own goal'
+--- message
+**Own goal risk!** 🔥 Hellguard [FB] rolls at an advantage: higher of 1/1 is 1, + 1 (offensive skill) = 2
+--- message
+# Own goal!
+🔥 Hellguard [FB] puts it in their own net on **26**.
+Telekinetics 1:2 Fire Demons
+
+🔥 Hellguard [FB] exhausts 1 😮‍💨 (now 1 total).
+--- message
+# Coaching Choice
+**🔥 Dinky AI passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 4, Fire Demons (Visiting) has possession.
+--- message
+🔥 Dinky AI has picked their maneuver.
+--- message
+🔮 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+
+🔮 Player 1 holds the coin, 🪙 Fortune up, and may declare a gambit.
+=== press 89: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🔮 Player 1 has picked their maneuver.
+--- message
+🔥 Dinky AI chose **Dribble**.
+🔮 Player 1 chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 27.
+--- message
+**Dribble:** 🔥 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+--- message
+Ball speed is now **5**.
+--- message
+<@111> The ball crossed 🔮 Spectra [MF], who may 🔮 Mind Pull it (exhaust 1).
+=== press 90: MindPullView -> 'Pass'
+--- message
+🔮 Spectra [MF] declines to Mind Pull.
+--- message
+<@111> The ball crossed 🔮 Dravox [DD], who may 🔮 Mind Pull it (exhaust 1).

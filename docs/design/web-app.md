@@ -1238,11 +1238,11 @@ changed for it.
 
 | Kind (option shape) | What lights, and its chip | The rest |
 | --- | --- | --- |
-| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots" | -- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots", "double teams" | -- |
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
-| `high_pass_choice`, `setup_pass_choice`, `setup_pass_push_back`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
+| `high_pass_choice`, `setup_pass_choice`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
 | `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
 | the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each of the viewer's own meeples that may declare Overdrive (with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
@@ -1275,8 +1275,8 @@ the one pressing it would have been refused with.
 **A distance names its landing because the model says so.** A
 distance prompt carried only the distances, and each Discord view
 worked out where its label's space was -- the ball's space moved
-forward for a pass, back for the push back, the handler's for a
-dribble. Which way a kind moves is a rule, and a page that lit a space
+forward for a pass, back for the push back a failed Cross used to
+owe, the handler's for a dribble. Which way a kind moves is a rule, and a page that lit a space
 would have been a third copy of it, so `DistanceOptions.landings`
 carries the space, off the measures the moves themselves take
 (`ball_destination`, `relative_move_destination`), and the two Discord

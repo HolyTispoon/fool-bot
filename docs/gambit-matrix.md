@@ -53,16 +53,16 @@ worth a look in play, in case the author wants something else to happen there.
 
 ### Judgement calls the build made, worth confirming
 
-Neither blocked anything, and both are visible in play:
+It blocked nothing, and it is visible in play:
 
 - **An Intercept with no field left ahead of it is a scoring opportunity** (the author,
   2026-08-19). The build takes that straight to the shot, the way a deflection's overshoot
   does — which skips Intercept's own speed-manipulation step, since there is no run back to
   hang it off. The shot still reads the speed the turnover reset.
-- **Cross's cost applies after the deflection that beat it**, so the ball goes back 3 (or
-  1) and *then* a further 1–3 at the winning coach's choice. Where the deflection already
-  overshot into a scoring opportunity, the shot happens and the push-back does not: the ball is
-  already as far back as the field goes.
+
+(A second call -- Cross's cost as a push back on top of the deflection that beat it -- was
+settled on 2026-09-27 and then replaced on 2026-10-03: the card that beats a Cross plays as
+itself, and wins any contest it leads to without a roll. See `docs/rules-log.md`.)
 
 ---
 
@@ -77,15 +77,16 @@ changing any of it should know these are load-bearing.
   that. This was the first step and it shrank every step after it.
 - **Relations are by rank, not by name.** `defeats_rank` replaced `defeats`, because each rank
   carries two cards and naming one of them is naming half a relation.
-- **The importer stopped validating one die face per side.** A gambit reuses its
-  counterpart's faces. The die has been off the rules since 2026-08-17.
-- **`pending_effect_continuation`** is what lets an effect reach past its own maneuver. Two do:
-  Cross sets the speed and *then* picks the pass out, and a beaten Pinpoint hands the
-  defense a Low Pass once the steal has settled. A speed choice had always been the last human
-  step of an effect.
-- **`pending_double_team`** carries a won Double Team into the following maneuver, where both
-  defenders add their defensive skill. A new play clears it, which is the only thing the card
-  says ends it.
+- **The importer stopped validating one die face per side.** A gambit reused its
+  counterpart's faces (one face each since 2026-10-03). The die has been off the rules since
+  2026-08-17.
+- **`pending_effect_continuation`** is what lets an effect reach past its own maneuver: a
+  beaten Pinpoint hands the defense a Low Pass once the steal has settled. (Cross used to set
+  the speed and *then* pick the pass out, until 2026-10-03.) It also holds a Double Team's
+  partner once known, for the rest of that maneuver.
+- **`pending_double_team`** carries a won Double Team's partner into the following maneuver,
+  where they Merge as an Ooze does (2026-10-03; until then both defenders added their skill
+  until a new play). The end of that next maneuver clears it, and a new play sooner.
 - **A fourth `new_play=True` call site**: a Cross that finds nobody goes out of play.
   CLAUDE.md used to pin the count at three.
 - **One back for all twelve printed cards**, since a coach in advanced mode holds both tiers

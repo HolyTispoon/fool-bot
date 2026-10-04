@@ -405,8 +405,9 @@ def score_skill_test(
 
     # **Merge**: an Ooze standing on the ball who is not one of the two
     # rolling adds to their own side -- offensive skill on the attack,
-    # defensive on the defence. A maneuver's skill test is always
-    # fought on the ball's space, so it always qualifies.
+    # defensive on the defence -- and so does a Double Team's partner
+    # on the maneuver after it (Law 19.10.5). A maneuver's skill test
+    # is always fought on the ball's space, so it always qualifies.
     rolling = (offense_player.player_id, defense_player.player_id)
     (
         offense_merge, offense_merge_lines, offense_merge_contributors,
@@ -422,26 +423,6 @@ def score_skill_test(
     defense_total += defense_merge
     offense_detail.extend(offense_merge_lines)
     defense_detail.extend(defense_merge_lines)
-
-    # **A won Double Team lands on the *next* maneuver**: both
-    # defenders challenge the ball holder, and both add their defensive
-    # skill. `double_team_defenders` is challenger-first and holds the
-    # second only while `pending_double_team` is set, which one card
-    # sets and a new play clears -- so this is a no-op in every game
-    # that never played it.
-    double_team_detail = ""
-    partners = [
-        player_id
-        for player_id in engine.double_team_defenders(match)
-        if player_id != match.challenger_id
-    ]
-    for player_id in partners:
-        partner = engine.get_player_definition(player_id)
-        partner_skill = engine.skills(game, partner.player_id).defense
-        defense_total += partner_skill
-        double_team_detail = f"+{partner_skill} {partner.name} (Double Team)"
-    if double_team_detail:
-        defense_detail.append(double_team_detail)
 
     return (
         [

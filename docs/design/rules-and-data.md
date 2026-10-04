@@ -129,8 +129,9 @@ and don't implement from it.
 
 **Take rules questions to the author rather than inferring them from the code** -- several
 mechanics exist only in the code, so there a bug and a deliberate decision look identical.
-Asking as inline comments on a docs PR has worked far better than asking in chat, and it
-leaves the answers versioned.
+Asking in chat works as well as inline comments on a docs PR (the author, 2026-10-03); the
+comments are for the developer who is not the author. Either way the answer is quoted in the
+`rules-log.md` entry it settles, which is what keeps it versioned.
 
 ### Serving the rules in Discord
 

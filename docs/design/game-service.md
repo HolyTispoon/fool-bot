@@ -317,8 +317,9 @@ The board write is the one piece of arithmetic left: a drawn group
 writes the persistent message from its own render (render once,
 upload twice), so the plain write is owed only for what moved after
 the last picture, and it goes in front of the first thing posted
-after it. `PROMPTS_DRAWN_LATER` still holds off the write in front of
-a question whose answer draws the board a moment later.
+after it. (`PROMPTS_DRAWN_LATER` held off the write in front of the
+one question whose answer drew the board a moment later, Cross's push
+back, until that prompt went on 2026-10-03.)
 `render_match_png`, `post_new_play_board` and `announce_board_update`
 take the position to draw, so a snapshot renders from the dict the
 service handed back rather than from the save.

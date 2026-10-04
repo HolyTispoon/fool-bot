@@ -116,17 +116,17 @@ and nothing else** -- "reaches the goal zone" where the rules said
   `relative_flat_index` clamps away. It is read **before** anything moves,
   because after the clamp the ball is on the last space either way.
   `ball_reaches_goal_zone` asks it from the ball's space. Every maneuver that
-  can send the ball there asks it -- High Pass, Deflect and Clear, the Setup
-  Pass's distances and its push back, Intercept, Pressure and Double Team -- as
+  can send the ball there asks it -- High Pass, Deflect and Clear, the Cross's
+  distances, Intercept, Pressure and Double Team -- as
   does a Low Pass's candidate list, which drops a distance with no space at the
   end of it. Each of them used to compare the clamped distance with the one
   asked for; the answers are the same for every move, which
   `test_a_move_past_the_last_space_reaches_that_end_s_goal_zone` checks
   against the clamp.
-- **A Double Team reaches the goal zone from two spaces out**, because its
-  push is 2. The bot always rolled for an own goal there; Law 19.10.3 used to
-  name only the last space, and now says "where the push reaches the handler's
-  own goal zone", which names both.
+- **A Double Team reaches the goal zone from the last space alone**, since
+  its push came down to 1 on 2026-10-03. It pushed 2 until then and reached it
+  from two spaces out as well, which Law 19.10 named as both spaces; it names
+  the last space now, as a Pressure's does.
 - **The drawn GOAL slab at each end is the goal zone** (`render.draw_end_zone`,
   `boards.draw_field_end_zones`, the web app's `.goal`): the pictures had it
   before the rules did. The ball is never drawn in one, since it never rests

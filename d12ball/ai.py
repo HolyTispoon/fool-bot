@@ -334,8 +334,8 @@ class DinkyAI(AIStrategy):
     def _farthest(self, prompt, game, match, side, options) -> Action:
         """
         Always the full distance on offer: a Playmaker's 2-space
-        Dribble, the whole Burst, the push back as far
-        as it goes, the ball as fast as this player can set it.
+        Dribble, the whole Burst, the ball as fast as this player can
+        set it.
 
         The burst is a token a space, so a shorter one is a real option
         and Dinky is deliberately not taking it: weighing field
@@ -368,6 +368,23 @@ class DinkyAI(AIStrategy):
             prompt.kind,
             "",
             {"shooter_id": self._best_offense(options.player_ids)},
+        )
+
+    def _double_team_partner(self, prompt, game, match, side, options) -> Action:
+        """
+        The tied defender with the higher defensive skill, which is
+        what they will Merge with on the next maneuver (Law 19.10.5);
+        the first of them on a tie.
+        """
+        return Action(
+            prompt.kind,
+            "",
+            {
+                "player_id": min(
+                    options.player_ids,
+                    key=lambda player_id: -self._profile(player_id).defense,
+                ),
+            },
         )
 
     def _let_it_pass(self, prompt, game, match, side, options) -> Action:
@@ -692,7 +709,7 @@ class DinkyAI(AIStrategy):
         PromptKind.LOW_PASS_CHOICE: _low_pass,
         PromptKind.HIGH_PASS_CHOICE: _longest_reaching_pass,
         PromptKind.SETUP_PASS_CHOICE: _longest_reaching_pass,
-        PromptKind.SETUP_PASS_PUSH_BACK: _farthest,
+        PromptKind.DOUBLE_TEAM_PARTNER: _double_team_partner,
         PromptKind.DRIBBLE_ADVANCE_CHOICE: _farthest,
         PromptKind.DRIBBLE_BURST_CHOICE: _farthest,
         PromptKind.SPEED_DELTA_CHOICE: _speed,
