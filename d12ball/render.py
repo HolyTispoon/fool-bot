@@ -3765,6 +3765,10 @@ CHALLENGE_ABILITY_LINE_HEIGHT = 23
 CHALLENGE_TEXT_PADDING = 14
 CHALLENGE_BOTTOM_PADDING = 16
 CHALLENGE_VERSUS_TEXT = "vs"
+# A coach's name on a group's team line is cut to this many characters,
+# with an ellipsis after (the author, 2026-10-04), so a long Discord
+# display name does not widen the whole image (`ChallengeSide.team_line`).
+CHALLENGE_COACH_MAX_CHARS = 12
 CHALLENGE_VERSUS_COLOR = "#8b96a2"
 CHALLENGE_NAME_COLOR = "#ffffff"
 CHALLENGE_SKILL_COLOR = "#c7ced6"
@@ -3888,7 +3892,8 @@ class ChallengeSide:
 
     `coach` is who is coaching this player's side, as the record names
     them (`formatting.coach_name`), drawn after the team on the group's
-    team line (`team_line`); `""` draws the team alone.
+    team line (`team_line`), cut to `CHALLENGE_COACH_MAX_CHARS`; `""`
+    draws the team alone.
     """
 
     name: str
@@ -3910,12 +3915,14 @@ class ChallengeSide:
     @property
     def team_line(self) -> str:
         """The group's first line: the team, and its coach after it
-        where the brief names one -- "Orange · perrytom"."""
-        return (
-            f"{self.team_label} · {self.coach}"
-            if self.coach
-            else self.team_label
-        )
+        where the brief names one -- "Orange · perrytom" -- cut to
+        `CHALLENGE_COACH_MAX_CHARS` with an ellipsis after."""
+        if not self.coach:
+            return self.team_label
+        coach = self.coach.strip()
+        if len(coach) > CHALLENGE_COACH_MAX_CHARS:
+            coach = coach[:CHALLENGE_COACH_MAX_CHARS].rstrip() + "…"
+        return f"{self.team_label} · {coach}"
 
     @property
     def value(self) -> int:

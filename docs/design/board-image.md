@@ -385,8 +385,14 @@ defenders has none, and packs to its own content.
   group's lead through `dice_brief.side_coach`, which is
   `formatting.coach_name` -- the record's name, so the display name the
   game was created with, the AI's name for the AI, "Player 1" in a test
-  game -- and `team_line` draws it. It is plain text off the record,
-  never a mention, which an image cannot carry. A side with no coach
+  game -- and `team_line` draws it. The record's name is Discord's
+  `display_name` wherever a seat is taken (the server nickname, else the
+  global display name, else the username). **It is cut to
+  `CHALLENGE_COACH_MAX_CHARS`, twelve, with an ellipsis after** (the
+  author, 2026-10-04): a 32-character name widened its group and so
+  shrank everything else when Discord scaled the image to the message.
+  It is plain text off the record, never a mention, which an image
+  cannot carry. A side with no coach
   yet, or a brief with no game, draws the team alone. The web page
   reads the same brief and ignores the field: its window sits under
   a top bar that already says who is in each seat.
