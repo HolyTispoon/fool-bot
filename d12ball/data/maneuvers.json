@@ -151,7 +151,7 @@
         "die_values": [
           6
         ],
-        "effect": "Successful gambit: player and ball go back 1; Defender moves 1 forward and nearest teammate behind joins, gaining Merging for the next defensive maneuver. If reaches the goal zone, own goal risk.\nFailed gambit: Defender and nearest teammate behind go 1 forward.",
+        "effect": "Successful gambit: player and ball go back 1; Defender moves 1 forward and nearest teammate behind joins, gaining Merge for the next defensive maneuver. If reaches the goal zone, own goal risk.\nFailed gambit: Defender and nearest teammate behind go 1 forward.",
         "time": "1",
         "defeats_rank": 2
       }
