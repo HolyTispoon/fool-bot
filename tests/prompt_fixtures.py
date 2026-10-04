@@ -951,8 +951,7 @@ def double_team_partner() -> PromptFixture:
     assert len(candidates) > 1
     fixture.ask = (
         f"{address_coach(ENGINE.defending_player_number(fixture.game, match))}"
-        ", choose who partners the "
-        f"**{ENGINE.maneuver_name('double_team')}**:"
+        ", choose who double teams:"
     )
     fixture.params = {"player_ids": candidates}
     return fixture

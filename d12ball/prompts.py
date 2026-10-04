@@ -1341,8 +1341,7 @@ def double_team_partner_prompt(
     mention = address_coach(engine.defending_player_number(game, match))
     return PendingPrompt(
         PromptKind.DOUBLE_TEAM_PARTNER,
-        f"{mention}, choose who partners the "
-        f"**{engine.maneuver_name('double_team')}**:",
+        f"{mention}, choose who double teams:",
         player_ids=list(engine.double_team_partner_candidates(match)),
     )
 

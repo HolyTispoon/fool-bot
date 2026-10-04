@@ -1120,7 +1120,7 @@ PLAYER_CHIPS: Mapping[PromptKind, str] = {
     PromptKind.HALFTIME_EXTRA_TOKEN: "clears one more",
     PromptKind.SHOOTER_CHOICE: "shoots",
     PromptKind.SHOOTOUT_PICK: "shoots",
-    PromptKind.DOUBLE_TEAM_PARTNER: "partners the Double Team",
+    PromptKind.DOUBLE_TEAM_PARTNER: "double teams",
 }
 
 

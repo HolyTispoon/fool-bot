@@ -1238,7 +1238,7 @@ changed for it.
 
 | Kind (option shape) | What lights, and its chip | The rest |
 | --- | --- | --- |
-| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots", "partners the Double Team" | -- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots", "double teams" | -- |
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
