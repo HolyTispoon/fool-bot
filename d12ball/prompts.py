@@ -639,11 +639,23 @@ class RollOptions:
     # side, which declares nothing, so the AI is never asked a roll.
     # Empty is the roll either coach may press.
     undecided_sides: tuple[TeamSide, ...] = ()
+    # What each undecided side still has open, `(side, keys)` in
+    # `undecided_sides`' order, the keys as `CHOICES` spells them --
+    # Overdrive, Boost or both -- so the hold names what it waits on.
+    open_declarations: tuple[tuple[TeamSide, tuple[str, ...]], ...] = ()
 
     @property
     def deciding_side(self) -> Optional[TeamSide]:
         """The side deciding now: the first still undecided."""
         return self.undecided_sides[0] if self.undecided_sides else None
+
+    def declarations_named(self, side: Optional[TeamSide] = None) -> str:
+        """
+        What `side` (the deciding side by default) still decides on,
+        named: "Overdrive", "Boost" or "Overdrive and Boost".
+        """
+        side = self.deciding_side if side is None else side
+        return name_declarations(dict(self.open_declarations).get(side, ()))
 
     def overdrive_cost(self, player_id: str) -> int:
         return dict(self.overdrive_costs).get(
@@ -661,11 +673,29 @@ class RollOptions:
             "back": self.back,
             "back_railed": self.back_railed,
             "undecided_sides": [side.value for side in self.undecided_sides],
+            "open_declarations": {
+                side.value: list(keys) for side, keys in self.open_declarations
+            },
             "deciding_side": (
                 None if self.deciding_side is None
                 else self.deciding_side.value
             ),
         }
+
+
+#: A declaration before the die, by its `CHOICES` key, as a sentence
+#: names it -- in the order a roll offers them.
+DECLARATION_NAMES = {"overdrive": "Overdrive", "boost": "Boost"}
+
+
+def name_declarations(keys: Sequence[str]) -> str:
+    """
+    The declarations `keys` open, named: "Overdrive", "Boost" or
+    "Overdrive and Boost". Overdrive where there are none, which is
+    what the hold was called before Boost joined it.
+    """
+    names = [name for key, name in DECLARATION_NAMES.items() if key in keys]
+    return " and ".join(names) or DECLARATION_NAMES["overdrive"]
 
 
 @dataclass(frozen=True)
@@ -1729,7 +1759,8 @@ def _whose_roll(
     who = address_coach(engine.side_player_number(game, side))
     return replace(prompt, ask=prompt.ask.replace(
         EITHER_ROLLS,
-        f"{who} decides on Overdrive, then either player can roll",
+        f"{who} decides on {prompt.options.declarations_named()}, "
+        "then either player can roll",
         1,
     ))
 
@@ -2304,6 +2335,13 @@ def _declarations(
     rollers = overdrive_rollers(match, prompt)
     overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
     boosts = tuple(engine.boost_candidates(game, match, rollers))
+    undecided = undecided_sides(
+        engine, game, match,
+        [
+            player_id for player_id in rollers
+            if player_id in overdrives or player_id in boosts
+        ],
+    )
     return {
         "overdrive_player_ids": overdrives,
         "boost_player_ids": boosts,
@@ -2311,12 +2349,18 @@ def _declarations(
             (player_id, engine.overdrive_cost(game, player_id))
             for player_id in overdrives
         ),
-        "undecided_sides": undecided_sides(
-            engine, game, match,
-            [
-                player_id for player_id in rollers
-                if player_id in overdrives or player_id in boosts
-            ],
+        "undecided_sides": undecided,
+        "open_declarations": tuple(
+            (side, tuple(
+                key for key, offered in (
+                    ("overdrive", overdrives), ("boost", boosts),
+                )
+                if any(
+                    match.side_for_player(player_id) == side
+                    for player_id in offered
+                )
+            ))
+            for side in undecided
         ),
     }
 

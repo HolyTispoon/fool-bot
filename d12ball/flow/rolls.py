@@ -1852,7 +1852,7 @@ def refuse_roll_while_deciding(
         raise RuleRefusal(
             f"The die waits on "
             f"{address_coach(engine.side_player_number(game, side))}, "
-            "who decides on Overdrive first.",
+            f"who decides on {prompt.options.declarations_named()} first.",
             law="lithium-powered-cyborg",
         )
 
@@ -1872,7 +1872,7 @@ def _refuse_out_of_turn(
     if deciding is not None and deciding != side:
         raise RuleRefusal(
             f"{address_coach(engine.side_player_number(game, deciding))} "
-            "decides on Overdrive first.",
+            f"decides on {prompt.options.declarations_named()} first.",
             law="lithium-powered-cyborg",
         )
 
@@ -1897,7 +1897,7 @@ def _hand_on(
     coach = address_coach(
         engine.side_player_number(game, after.deciding_side),
     )
-    return f"{coach} decides on Overdrive next."
+    return f"{coach} decides on {after.declarations_named()} next."
 
 
 def pass_on_overdrive_step(
@@ -1931,7 +1931,8 @@ def pass_on_overdrive_step(
     coach = address_coach(engine.side_player_number(game, passing))
     return StepResult(
         narration=[" ".join(filter(None, (
-            f"{coach} passes on Overdrive.",
+            f"{coach} passes on "
+            f"{prompt.options.declarations_named(passing)}.",
             _hand_on(engine, game, match, prompt),
         )))],
         next=prompt,

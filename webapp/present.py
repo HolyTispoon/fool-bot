@@ -92,6 +92,7 @@ from d12ball.prompts import (
     PromptKind,
     asked_sides,
     maneuver_gambit_paragraph,
+    name_declarations,
 )
 from d12ball.dice_brief import (
     challenge_noted,
@@ -955,12 +956,19 @@ def _roll(asked: Asked) -> list:
     # (`RollOptions.deciding_side`, Law 20.3.5): the die is dark, and
     # beside the declarations is the explicit pass on them.
     deciding = options.get("deciding_side")
+    # What the deciding side still has open -- Overdrive, Boost or both.
+    deciding_on = name_declarations(
+        options.get("open_declarations", {}).get(deciding, ()),
+    )
     controls = [
         button(
             CHOICE_LABELS["roll"], asked.kind, "roll",
             place=ON_DIE, chip="roll",
             disabled=deciding is not None,
-            note=DECIDE_FIRST_NOTE if deciding is not None else "",
+            note=(
+                DECIDE_FIRST_NOTE.format(deciding_on)
+                if deciding is not None else ""
+            ),
         ),
     ]
     if options["back"]:
@@ -1004,18 +1012,23 @@ def _roll(asked: Asked) -> list:
     ] + [
         # The explicit no, for the side deciding now if it is this
         # viewer's: every Overdrive and Boost of theirs closed.
-        button(PASS_LABEL, asked.kind, "pass", side=side.value)
+        button(
+            PASS_LABEL.format(deciding_on), asked.kind, "pass",
+            side=side.value,
+        )
         for side in asked.sides()
         if side.value == deciding
     ]
     return [section(None, controls), section("Before the die", before)]
 
 
-#: The roll's note while a coach still decides on Overdrive.
-DECIDE_FIRST_NOTE = "Decide on Overdrive first."
+#: The roll's note while a coach still decides on Overdrive, Boost or
+#: both (`RollOptions.open_declarations`).
+DECIDE_FIRST_NOTE = "Decide on {} first."
 
-#: The explicit pass on Overdrive and Boost, on every roll they are on.
-PASS_LABEL = "Pass on Overdrive"
+#: The explicit pass on Overdrive and Boost, on every roll they are
+#: on, naming which of the two are open.
+PASS_LABEL = "Pass on {}"
 
 
 #: What the yes of each decision is about on the board, and its chip.
