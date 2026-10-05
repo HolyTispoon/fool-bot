@@ -49,7 +49,7 @@ class SkillTestView(SafeView):
         options = self.prompt_options(game, match, PromptKind.SKILL_TEST)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options,
+                game, match, options, roll=button,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -190,7 +190,7 @@ class InjuryTestView(SafeView):
         options = self.prompt_options(game, match, PromptKind.INJURY_TEST)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options,
+                game, match, options, roll=button,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -259,7 +259,7 @@ class OwnGoalRollView(SafeView):
         options = self.prompt_options(game, match, PromptKind.OWN_GOAL_ROLL)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options,
+                game, match, options, roll=button,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
@@ -308,7 +308,7 @@ class ScoreAttemptView(SafeView):
 
         button = discord.ui.Button(
             label="Roll the score attempt",
-            style=discord.ButtonStyle.danger,
+            style=discord.ButtonStyle.success,
             custom_id=f"d12ball:score_attempt:{game_id}",
         )
         button.callback = self.roll
@@ -321,7 +321,7 @@ class ScoreAttemptView(SafeView):
         options = self.prompt_options(game, match, PromptKind.SCORE_ATTEMPT)
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options,
+                game, match, options, roll=button,
             )
 
         # A shot not yet rolled always has somewhere to walk back to,
@@ -345,6 +345,14 @@ class ScoreAttemptView(SafeView):
             )
             back.callback = self.back
             self.add_item(back)
+
+    def redrawn(self, match, prompt) -> discord.ui.View:
+        # The composition image is still this shot's, so Back still
+        # deletes it after an Overdrive has redrawn the buttons.
+        view = super().redrawn(match, prompt)
+        if isinstance(view, ScoreAttemptView):
+            view.composition_message_id = self.composition_message_id
+        return view
 
     async def roll(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)

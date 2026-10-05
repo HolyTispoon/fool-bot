@@ -821,19 +821,29 @@ seventh gets it in one line.
     until then. A pass or a declaration that hands on says so, addressing the
     next coach ("<coach> decides on Overdrive next", or "Either player can
     roll."), which is how the defender is pinged.
-  - **Both coaches' Pass buttons are on the message from the start**, and the
-    defender's is refused until the attacker has decided, so a hand-on never
-    has to redraw the prompt: the declaration's reply is the one request a
-    press costs, as before.
+  - **Every press redraws the roll's message, and the colours say whose
+    press is owed** (the author, 2026-10-05: *"the button for 'pass on
+    overdrive' should be red so long as it's the one needed and score attempt
+    should be grayed out"*). Both coaches' Pass buttons are on the message
+    from the start; the deciding coach's is red, the defender's grey and
+    refused until the attacker has decided, and Roll is grey and disabled
+    while `undecided_sides` is not empty (`SafeView.add_overdrive_buttons`,
+    handed each view's Roll). A declaration or a pass rebuilds the view off
+    the position through `interaction.response.edit_message` -- the
+    interaction callback, not the channel's edit bucket -- so the side that
+    decided loses its Pass and its Overdrive and Boost buttons (a passed
+    side's are closed by `_may_drain_before_roll`), the next coach's Pass
+    turns red, and Roll comes back live in its own colour once nobody is
+    left; what was declared follows as its own message
+    (`SafeView.answer_declaration`). That is one request more a press than
+    the plain reply it replaced, and the score attempt's view carries its
+    composition message over the rebuild (`ScoreAttemptView.redrawn`) so
+    Back still deletes it. The score attempt's Roll is green.
   - **The shootout is the one roll on Discord whose Roll is not on the
     message while a coach decides** (the author, 2026-10-02: "shootouts need
     to ask for overdrive and boost before letting either player roll").
     `ShootoutTestView` leaves it off while `undecided_sides` is not empty,
-    and the press that settles the last decision swaps it on through
-    `interaction.response.edit_message` -- the interaction callback, not the
-    channel's edit bucket -- with its line as a follow-up
-    (`ShootoutTestView.answer_declaration`). Every other roll keeps Roll up
-    and refused; asking the same of them is one override each.
+    and the redraw after the last decision puts it on.
   - `MatchState.overdrive_passed` holds the sides that have passed -- a saved
     field, since passing and rolling are separate clicks with a save between
     them, absent from an older save as nobody having passed -- and a side in
