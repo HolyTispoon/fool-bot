@@ -482,6 +482,29 @@ _PLAYER_PORTRAIT_CACHE: dict[str, Optional[Image.Image]] = {}
 # is what supplies the colour, so nothing else may paste one of these
 # straight.
 SPECIES_ICON_DIR = Path(__file__).resolve().parent / "images" / "species"
+TEAM_EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
+
+
+def team_emoji(team: Team) -> Optional[Image.Image]:
+    """
+    The team's emoji as the bot uploads it (`images/emoji/team_<team>.png`,
+    under `TEAM_EMOJI_NAMES`), read off disk once, or None when the file
+    is missing -- the swallowed-`OSError` contract every bundled image
+    follows. A colour team's is its letter in a ring of its colour, a
+    species team's its species' icon in one. The player cards' header
+    corner and a matchup image's team line both draw it.
+    """
+    if team not in _TEAM_EMOJI:
+        try:
+            _TEAM_EMOJI[team] = Image.open(
+                TEAM_EMOJI_DIR / f"team_{team.value}.png"
+            ).convert("RGBA")
+        except OSError:
+            _TEAM_EMOJI[team] = None
+    return _TEAM_EMOJI[team]
+
+
+_TEAM_EMOJI: dict[Team, Optional[Image.Image]] = {}
 _SPECIES_ICON_CACHE: dict[str, Optional[Image.Image]] = {}
 _SPECIES_ICON_TINTS: dict[
     tuple[str, str, Optional[int]], Optional[Image.Image]
@@ -3769,6 +3792,10 @@ CHALLENGE_VERSUS_TEXT = "vs"
 # with an ellipsis after (the author, 2026-10-04), so a long Discord
 # display name does not widen the whole image (`ChallengeSide.team_line`).
 CHALLENGE_COACH_MAX_CHARS = 12
+# The team's emoji drawn in front of a group's team line, a little
+# taller than the line's capitals, and the room between it and the words.
+CHALLENGE_TEAM_MARK_SIZE = 26
+CHALLENGE_TEAM_MARK_GAP = 7
 CHALLENGE_VERSUS_COLOR = "#8b96a2"
 CHALLENGE_NAME_COLOR = "#ffffff"
 CHALLENGE_SKILL_COLOR = "#c7ced6"
@@ -3890,10 +3917,14 @@ class ChallengeSide:
     a wall's included, since it is the one thing a coach cannot read
     off the role badge.
 
-    `coach` is who is coaching this player's side, as the record names
-    them (`formatting.coach_name`), drawn after the team on the group's
-    team line (`team_line`), cut to `CHALLENGE_COACH_MAX_CHARS`; `""`
-    draws the team alone.
+    `side_label`, `team` and `coach` are the group's heading, which the
+    two briefs give a group's lead (`dice_brief.challenge_side`'s
+    `side`): which end the side plays from ("Home", "Visitors"), the
+    team whose emoji is drawn in front of it (`team_emoji`), and who
+    coaches it as the record names them (`formatting.coach_name`), cut
+    to `CHALLENGE_COACH_MAX_CHARS` -- "(O) Home · perrytom" (the author,
+    2026-10-04). Without a `side_label` the line is the team's name, as
+    it was; see `team_line`.
     """
 
     name: str
@@ -3910,19 +3941,40 @@ class ChallengeSide:
     as_on_ball: bool = False
     merging: bool = False
     special: str = ""
+    side_label: str = ""
+    team: Optional[Team] = None
     coach: str = ""
 
     @property
     def team_line(self) -> str:
-        """The group's first line: the team, and its coach after it
-        where the brief names one -- "Orange · perrytom" -- cut to
-        `CHALLENGE_COACH_MAX_CHARS` with an ellipsis after."""
+        """The words of the group's first line: the side ("Home",
+        "Visitors") where the brief names one and the team's name where
+        it does not, then the coach -- "Home · perrytom" -- cut to
+        `CHALLENGE_COACH_MAX_CHARS` with an ellipsis after. The team's
+        emoji in front of it is `team_mark`'s."""
+        heading = self.side_label or self.team_label
         if not self.coach:
-            return self.team_label
+            return heading
         coach = self.coach.strip()
         if len(coach) > CHALLENGE_COACH_MAX_CHARS:
             coach = coach[:CHALLENGE_COACH_MAX_CHARS].rstrip() + "…"
-        return f"{self.team_label} · {coach}"
+        return f"{heading} · {coach}"
+
+    @property
+    def team_mark(self) -> Optional[Image.Image]:
+        """The team's emoji drawn in front of `team_line`, at
+        `CHALLENGE_TEAM_MARK_SIZE` -- only where the line names the
+        side rather than the team, since then the emoji is what says
+        which team it is."""
+        if not self.side_label or self.team is None:
+            return None
+        emoji = team_emoji(self.team)
+        if emoji is None:
+            return None
+        return emoji.resize(
+            (CHALLENGE_TEAM_MARK_SIZE, CHALLENGE_TEAM_MARK_SIZE),
+            Image.Resampling.LANCZOS,
+        )
 
     @property
     def value(self) -> int:
@@ -4314,6 +4366,12 @@ def matchup_group_width(
         (measure.textlength(text, font=font) for text, font in texts),
         default=0,
     )
+    if sides and sides[0].team_mark is not None:
+        text_width = max(
+            text_width,
+            measure.textlength(sides[0].team_line, font=FONT_CHALLENGE_BODY)
+            + CHALLENGE_TEAM_MARK_SIZE + CHALLENGE_TEAM_MARK_GAP,
+        )
     # The sum is the one line that must not wrap: a total broken
     # over two lines, with the number stranded on the second, is
     # unreadable however wide the alternative makes the image. So
@@ -4518,9 +4576,37 @@ def draw_matchup_group(
     draw_contribution_bands(draw, placed, layout.portrait_top - CHALLENGE_BAND_GAP)
 
     y = layout.text_top
-    for text, color, font, line_height in lines:
-        draw_centered_text(draw, center_x, y, text, font, color)
+    mark = sides[0].team_mark if sides else None
+    for index, (text, color, font, line_height) in enumerate(lines):
+        if index == 0 and mark is not None:
+            draw_marked_text(canvas, draw, center_x, y, text, font, color, mark)
+        else:
+            draw_centered_text(draw, center_x, y, text, font, color)
         y += line_height
+
+
+def draw_marked_text(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    y: float,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+    mark: Image.Image,
+) -> None:
+    """A line centred with `mark` in front of it, the mark's middle on
+    the middle of the line's ink."""
+    width = draw.textlength(text, font=font)
+    left = center_x - (mark.width + CHALLENGE_TEAM_MARK_GAP + width) / 2
+    top, bottom = draw.textbbox((0, y), text, font=font)[1::2]
+    canvas.alpha_composite(
+        mark, (round(left), round((top + bottom) / 2 - mark.height / 2)),
+    )
+    draw.text(
+        (left + mark.width + CHALLENGE_TEAM_MARK_GAP, y), text,
+        font=font, fill=fill,
+    )
 
 
 def matchup_note_blocks(

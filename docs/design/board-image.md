@@ -379,23 +379,35 @@ defenders has none, and packs to its own content.
   and advanced, both images (64 renders, 29 distinct), byte-identical
   before and after.
 
-- **Each group names its coach after its team** -- "Orange · perrytom"
-  (the author, 2026-10-04: "I want the username of the coach with the
-  team name"). `ChallengeSide.coach` is filled by the two briefs for a
-  group's lead through `dice_brief.side_coach`, which is
-  `formatting.coach_name` -- the record's name, so the display name the
-  game was created with, the AI's name for the AI, "Player 1" in a test
-  game -- and `team_line` draws it. The record's name is Discord's
-  `display_name` wherever a seat is taken (the server nickname, else the
-  global display name, else the username). **It is cut to
-  `CHALLENGE_COACH_MAX_CHARS`, twelve, with an ellipsis after** (the
-  author, 2026-10-04): a 32-character name widened its group and so
-  shrank everything else when Discord scaled the image to the message.
-  It is plain text off the record, never a mention, which an image
-  cannot carry. A side with no coach
-  yet, or a brief with no game, draws the team alone. The web page
-  reads the same brief and ignores the field: its window sits under
-  a top bar that already says who is in each seat.
+- **Each group is headed by its side and its coach, behind the team's
+  emoji** -- "(O) Home · perrytom", "(P) Visitors · Glorbo" (the author,
+  2026-10-04: first "the username of the coach with the team name",
+  then "instead of team name say home/visitors and inside team
+  symbol"). The emoji says which team; the words say which end and
+  who is playing it, which the colour name did not.
+  - **The brief gives it.** `dice_brief.challenge_side` takes the
+    player's `side`, and the two briefs pass it for each group's lead
+    alone: it fills `ChallengeSide.side_label`
+    (`formatting.side_display_name`, the word the Home Zone and the
+    Visitors Zone are named with), `team`, and `coach`
+    (`dice_brief.side_coach`, which is `formatting.coach_name`).
+    `team_line` is the words and `team_mark` the emoji, which is
+    `render.team_emoji` -- the bot's uploaded team emoji, the one
+    loader the player cards' header corner reads too (moved there from
+    `player_cards.py`; all 144 card renders byte-identical before and
+    after).
+  - **The coach is the record's name**, which is Discord's
+    `display_name` wherever a seat is taken (the server nickname, else
+    the global display name, else the username), the AI's name for the
+    AI, and "Player 1" in a test game. It is plain text, never a
+    mention, which an image cannot carry. **It is cut to
+    `CHALLENGE_COACH_MAX_CHARS`, twelve, with an ellipsis after** (the
+    author, 2026-10-04): a 32-character name widened its group and so
+    shrank everything else when Discord scaled the image to the message.
+  - **Without a side the line is the team's name, as before**, and a
+    side with nobody seated yet names no coach. The web page reads the
+    same brief and ignores all three fields: its window sits under a
+    top bar that already says who is in each seat.
 
 ### The special ability on a matchup
 

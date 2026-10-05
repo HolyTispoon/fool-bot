@@ -81,6 +81,7 @@ from d12ball.render import (
     high_contrast_ink,
     load_player_portrait,
     species_icon,
+    team_emoji,
 )
 from d12ball.role_cards import ROLE_EMOJI_DIR
 from d12ball.species_cards import SPECIES_TEAM
@@ -113,7 +114,6 @@ SUBTITLE_SIZE = 26
 # a white disc with the letter in it. The left-hand corner is left
 # empty and the name stays centred on the card.
 HEADER_EMOJI = 104
-TEAM_EMOJI_DIR = ROLE_EMOJI_DIR
 
 # A portrait is around 400px on its longest side -- the bot's own art,
 # and there is no larger source -- so filling this slot scales it up by
@@ -139,27 +139,6 @@ def fitted_name(
         fitted_bold_font(pen, name, max_width, max_size=54, min_size=22)
         or font(22, bold=True)
     )
-
-
-def team_emoji(team: Team) -> Image.Image | None:
-    """
-    The team's emoji as the bot uploads it, read off disk, or None when
-    the file is missing -- the swallowed-`OSError` contract every
-    bundled image here follows. A species team's emoji is its species'
-    icon in a ring rather than a letter, because that is the emoji the
-    bot shows for it.
-    """
-    if team not in _TEAM_EMOJI:
-        try:
-            _TEAM_EMOJI[team] = Image.open(
-                TEAM_EMOJI_DIR / f"team_{team.value}.png"
-            ).convert("RGBA")
-        except OSError:
-            _TEAM_EMOJI[team] = None
-    return _TEAM_EMOJI[team]
-
-
-_TEAM_EMOJI: dict[Team, Image.Image | None] = {}
 
 
 def corner_mark(team: Team, color: str) -> Image.Image | None:

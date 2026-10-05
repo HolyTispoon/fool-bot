@@ -134,8 +134,14 @@ def zone_display_name(zone: Zone, board_size: int) -> str:
     """
     if zone is Zone.MIDFIELD:
         return "Midfield"
-    side = "Home" if zone is Zone.HOME_ZONE else "Visitors"
-    return f"{side} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
+    side = TeamSide.HOME if zone is Zone.HOME_ZONE else TeamSide.VISITING
+    return f"{side_display_name(side)} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
+
+
+def side_display_name(side: TeamSide) -> str:
+    """A side named by the end it plays from: "Home" or "Visitors", the
+    word the Home Zone and the Visitors Zone are named with."""
+    return "Home" if TeamSide(side) == TeamSide.HOME else "Visitors"
 
 
 def destination_display_name(destination: str, board_size: int) -> str:

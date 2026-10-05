@@ -41,6 +41,7 @@ from d12ball.formatting import (
     format_team_side_label,
     player_with_role,
     role_initials,
+    side_display_name,
 )
 from d12ball.game import D12BallGame, Team, team_display_name
 from d12ball.special_abilities import SpecialAbility
@@ -108,7 +109,7 @@ def challenge_side(
     as_on_ball: bool = False,
     merging: bool = False,
     bearing: Optional[Bearing] = None,
-    coach: str = "",
+    side: Optional[TeamSide] = None,
 ) -> ChallengeSide:
     """
     A player as a matchup image draws them. The ability is the
@@ -139,8 +140,10 @@ def challenge_side(
     which of their special abilities the image reminds of
     (`bearings.special_reminder`); `None` reminds of none.
 
-    `coach` is who coaches the player's side (`side_coach`), drawn after
-    the team; only the two briefs below name one, for a group's lead.
+    `side` is the end the player's side plays from, which the two
+    briefs below give a group's lead: the image's heading then names
+    the side, with the team's emoji in front and its coach after
+    (`side_coach`), in place of the team's name.
     """
     player = engine.get_player_definition(player_id)
     profile = engine.player_catalog.effective_profile(player)
@@ -164,7 +167,9 @@ def challenge_side(
             if bearing is not None
             else ""
         ),
-        coach=coach,
+        side_label="" if side is None else side_display_name(side),
+        team=None if side is None else Team(team),
+        coach="" if side is None else side_coach(engine, game, side),
     )
 
 
@@ -255,7 +260,7 @@ def maneuver_challenge_brief(
                 attacking=True,
                 game=game,
                 bearing=BEARINGS["skill_test_attack"],
-                coach=side_coach(engine, game, match.ball.possession),
+                side=match.ball.possession,
             ),
             *merging_sides(
                 engine, match, match.ball.possession, rolling, "offense", game,
@@ -269,7 +274,7 @@ def maneuver_challenge_brief(
                 attacking=False,
                 game=game,
                 bearing=BEARINGS["skill_test_defence"],
-                coach=side_coach(engine, game, match.defending_side()),
+                side=match.defending_side(),
             ),
             *merging_sides(
                 engine, match, match.defending_side(), rolling, "defense",
@@ -390,7 +395,7 @@ def score_attempt_brief(
                 game=game,
                 modifiers=tuple(modifiers),
                 bearing=shooter_bearing,
-                coach=side_coach(engine, game, match.ball.possession),
+                side=match.ball.possession,
             ),
             *merging_sides(
                 engine, match, match.ball.possession, (shooter.player_id,),
@@ -418,7 +423,7 @@ def score_attempt_brief(
                         BEARINGS["shot_defence"], SpecialAbility.FULL_BLOCK,
                     )
                 ),
-                coach=side_coach(engine, game, match.defending_side()),
+                side=match.defending_side(),
             )
             for defender in defenders
         ],
