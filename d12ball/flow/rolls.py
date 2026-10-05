@@ -44,6 +44,7 @@ is a rule rather than an accident:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from typing import Optional
 
@@ -167,11 +168,15 @@ def roll_working(
     `sides` is `(who, roll, added, total)`, and `added` is the lines
     the dice picture is drawn with -- "Offensive skill +4", "+3
     Midfielder ability", "+1 ball speed modifier" -- so the words and
-    the picture cannot say different things.
+    the picture cannot say different things. A side's running total
+    (`with_skill_total`) is left out: it is not an addend, and written
+    out beside the addends it would read as one.
     """
     written = " ".join(
         f"{who} rolled **{roll}**"
-        + "".join(f", {line}" for line in added)
+        + "".join(
+            f", {line}" for line in added if not is_skill_total(line)
+        )
         + f" = **{total}**."
         for who, roll, added, total in sides
     )
@@ -196,6 +201,49 @@ def contest_working(
         ],
         verdict,
     )
+
+
+# A dice line that adds a number: "+3 Midfielder ability", "-1 Volatile
+# burn (1)", or the skill line itself, "Offensive skill +5". A note --
+# "Injured — no skill modifier", a special ability's sentence -- adds
+# nothing and is not counted.
+_ADDEND = re.compile(r"(?:^| skill )([+-]\d+)")
+
+SKILL_TOTAL_PREFIX = "Total "
+
+
+def is_skill_total(line: str) -> bool:
+    """Whether a dice line is a side's running total rather than one of
+    the things added up in it."""
+    return line.startswith(SKILL_TOTAL_PREFIX)
+
+
+def with_skill_total(
+    detail: list[str],
+    skill_word: str,
+    roll: int,
+    total: int,
+) -> None:
+    """
+    Sum a side's modifiers for the dice image, as one last line --
+    "Total offensive skill +5" -- wherever two or more of them were
+    added (the author, 2026-10-05: "any time there's multiple
+    modifiers, the bot should sum them and show the total"). One
+    modifier is its own total and says nothing more.
+
+    The number is `total - roll`, the side's total less its face, so
+    the line cannot disagree with the total drawn under it whatever
+    the lines above it say; the lines are only counted.
+    """
+    addends = [
+        int(match.group(1))
+        for line in detail[1:]
+        if (match := _ADDEND.search(line)) and int(match.group(1))
+    ]
+    if len(addends) > 1:
+        detail.append(
+            f"{SKILL_TOTAL_PREFIX}{skill_word} skill {total - roll:+d}"
+        )
 
 
 def _with_extras(
@@ -423,6 +471,8 @@ def score_skill_test(
     defense_total += defense_merge
     offense_detail.extend(offense_merge_lines)
     defense_detail.extend(defense_merge_lines)
+    with_skill_total(offense_detail, "offensive", offense_roll, offense_total)
+    with_skill_total(defense_detail, "defensive", defense_roll, defense_total)
 
     return (
         [
@@ -799,6 +849,8 @@ def score_loose_ball(
     defense_total += defense_merge
     offense_detail.extend(offense_lines)
     defense_detail.extend(defense_lines)
+    with_skill_total(offense_detail, "offensive", offense_roll, offense_total)
+    with_skill_total(defense_detail, "defensive", defense_roll, defense_total)
 
     return (
         [
@@ -1188,6 +1240,7 @@ def score_score_attempt(
     clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
     if clear_shot:
         attack_detail.append(clear_shot)
+    with_skill_total(attack_detail, "offensive", attack_roll, attack_total)
 
     if defenders:
         defense_detail = [
@@ -1200,7 +1253,8 @@ def score_score_attempt(
         ]
         if len(defenders) > 1:
             defense_detail.append(
-                f"Total defensive skill +{defense_skill_total}"
+                f"{SKILL_TOTAL_PREFIX}defensive skill "
+                f"+{defense_skill_total}"
             )
     else:
         defense_detail = ["No one in the way"]
@@ -1419,13 +1473,7 @@ def score_attempt_step(
                 (
                     format_team_side_label(defending_setup),
                     defense_roll,
-                    # The picture's running total of the defenders is
-                    # not an addend; written out, it would read as one.
-                    [
-                        line for line in defense_detail
-                        if line != "Total defensive skill "
-                        f"+{defense_total - defense_roll}"
-                    ],
+                    defense_detail,
                     defense_total,
                 ),
             ],
@@ -1596,6 +1644,7 @@ def score_shootout_test(
         )
         _with_extras(engine, match, detail, ignite, player.player_id)
         detail.extend(filter(None, [speed_line]))
+        with_skill_total(detail, "offensive", roll, totals[side])
         dice.append(
             (
                 roll,
