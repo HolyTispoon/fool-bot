@@ -1017,6 +1017,26 @@ GAME_MODE_BUTTONS: tuple[tuple[str, GameMode], ...] = tuple(
 )
 
 
+# The modes the nine-space board is recommended for: Standard and
+# Advanced (the author, 2026-10-05). Training, the tutorial's mode, is
+# left to its 7-space board.
+NINE_SPACE_BOARD_MODES = frozenset({GameMode.STANDARD, GameMode.ADVANCED})
+
+
+def board_size_recommendation(game: D12BallGame) -> str:
+    """
+    The setup screen's note recommending the nine-space board, read
+    off the mode alone, or "" for a mode it is not recommended for.
+    """
+    mode = GameMode(game.mode)
+    if mode not in NINE_SPACE_BOARD_MODES:
+        return ""
+    return (
+        f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
+        "mode on a board size of 9."
+    )
+
+
 def build_setup_message(
     game: D12BallGame,
     mention_players: bool = True,
@@ -1040,11 +1060,9 @@ def build_setup_message(
         f"Board size: {game.board_size}\n\n"
     )
 
-    if game.mode == GameMode.ADVANCED:
-        text += (
-            "It is recommended to play advanced mode on a board size "
-            "of 9.\n\n"
-        )
+    recommendation = board_size_recommendation(game)
+    if recommendation:
+        text += f"{recommendation}\n\n"
 
     if game.coin_flipped:
         text += (
@@ -1295,14 +1313,12 @@ def build_lobby_message(
         f"Board size: **{game.board_size}** spaces\n"
     )
 
-    if game.mode == GameMode.ADVANCED:
-        # Shown the whole time Advanced is on, not only once the board is
-        # off 9 -- picking Advanced defaults the board to 9, and this note
-        # is what tells a coach why it moved.
-        text += (
-            "\n_It is recommended to play advanced mode on a board size "
-            "of 9._\n"
-        )
+    # Shown the whole time the mode is on, not only once the board is
+    # off 9 -- picking Advanced defaults the board to 9, and this note
+    # is what tells a coach why it moved.
+    recommendation = board_size_recommendation(game)
+    if recommendation:
+        text += f"\n_{recommendation}_\n"
 
     return text
 
