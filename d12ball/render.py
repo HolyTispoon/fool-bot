@@ -3922,8 +3922,8 @@ class ChallengeSide:
     `side`): which end the side plays from ("Home", "Visitors"), the
     team whose emoji is drawn in front of it (`team_emoji`), and who
     coaches it as the record names them (`formatting.coach_name`), cut
-    to `CHALLENGE_COACH_MAX_CHARS` -- "(O) Home · perrytom" (the author,
-    2026-10-04). Without a `side_label` the line is the team's name, as
+    to `CHALLENGE_COACH_MAX_CHARS` -- "(O) perrytom (Home)" (the author,
+    2026-10-05). Without a `side_label` the line is the team's name, as
     it was; see `team_line`.
     """
 
@@ -3947,18 +3947,20 @@ class ChallengeSide:
 
     @property
     def team_line(self) -> str:
-        """The words of the group's first line: the side ("Home",
-        "Visitors") where the brief names one and the team's name where
-        it does not, then the coach -- "Home · perrytom" -- cut to
-        `CHALLENGE_COACH_MAX_CHARS` with an ellipsis after. The team's
-        emoji in front of it is `team_mark`'s."""
-        heading = self.side_label or self.team_label
-        if not self.coach:
-            return heading
+        """The words of the group's first line where the brief names a
+        side: the coach, cut to `CHALLENGE_COACH_MAX_CHARS` with an
+        ellipsis after, and the side in brackets -- "perrytom (Home)",
+        the team's emoji in front of it being `team_mark`'s. The side
+        alone where nobody coaches it yet, and the team's name where
+        the brief names no side."""
+        if not self.side_label:
+            return self.team_label
         coach = self.coach.strip()
+        if not coach:
+            return self.side_label
         if len(coach) > CHALLENGE_COACH_MAX_CHARS:
             coach = coach[:CHALLENGE_COACH_MAX_CHARS].rstrip() + "…"
-        return f"{heading} · {coach}"
+        return f"{coach} ({self.side_label})"
 
     @property
     def team_mark(self) -> Optional[Image.Image]:

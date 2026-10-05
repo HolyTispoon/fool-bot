@@ -379,12 +379,16 @@ defenders has none, and packs to its own content.
   and advanced, both images (64 renders, 29 distinct), byte-identical
   before and after.
 
-- **Each group is headed by its side and its coach, behind the team's
-  emoji** -- "(O) Home · perrytom", "(P) Visitors · Glorbo" (the author,
-  2026-10-04: first "the username of the coach with the team name",
-  then "instead of team name say home/visitors and inside team
-  symbol"). The emoji says which team; the words say which end and
-  who is playing it, which the colour name did not.
+- **Each group is headed by its coach and side, behind the team's
+  emoji** -- "(O) perrytom (Home)", "(P) Glorbo (Visitors)" (the
+  author, 2026-10-04 and -05: first "the username of the coach with the
+  team name", then "home/visitors and inside team symbol", then
+  ":team_emoji: PlayerName (Home/Visitors) to be consistent with other
+  views"). The emoji in front of a coach is how the bot's messages name
+  one (`format_player_with_team`); the side in brackets is how
+  `format_team_side_label` names a team's ("Purple (Home)"), with the
+  word the zones use, "Visitors". The emoji says which team; the words
+  say who is playing it and from which end.
   - **The brief gives it.** `dice_brief.challenge_side` takes the
     player's `side`, and the two briefs pass it for each group's lead
     alone: it fills `ChallengeSide.side_label`
@@ -405,7 +409,7 @@ defenders has none, and packs to its own content.
     author, 2026-10-04): a 32-character name widened its group and so
     shrank everything else when Discord scaled the image to the message.
   - **Without a side the line is the team's name, as before**, and a
-    side with nobody seated yet names no coach. The web page reads the
+    side with nobody seated yet is the side's word alone. The web page reads the
     same brief and ignores all three fields: its window sits under a
     top bar that already says who is in each seat.
 
