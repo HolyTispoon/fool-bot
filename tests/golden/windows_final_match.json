@@ -737,7 +737,7 @@
       "details": {
         "injured": false,
         "roll": 11,
-        "tokens": 6
+        "tokens": 5
       },
       "kind": "injury_test",
       "period": "second_half",
@@ -998,7 +998,7 @@
         "injured": false,
         "roll": 12,
         "shootout": true,
-        "tokens": 6
+        "tokens": 5
       },
       "kind": "injury_test",
       "period": "second_half",
@@ -1259,7 +1259,7 @@
   ],
   "exhaustion": {
     "emberdash_playmaker": 3,
-    "flickerwing_winger": 6,
+    "flickerwing_winger": 5,
     "noxar_striker": 1,
     "quantor_winger": 1,
     "sizzifizik_playmaker": 2,
