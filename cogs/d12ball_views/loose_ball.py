@@ -370,6 +370,17 @@ class LooseBallSkillTestView(SafeView):
             *dice.ignites,
         )
 
+        # The result follows the dice in its own message, the way every
+        # other skill test announces itself -- a message's attachments
+        # render below its content, so writing the outcome into this
+        # one would put it above the roll that decided it. A tie
+        # follows the same way; see SkillTestView.roll.
+        await interaction.response.edit_message(
+            content=ignition,
+            attachments=[dice_file],
+            view=None,
+        )
+
         following = result.prompt
         # A tie is the step handing back this same question, worded by
         # what happened -- read by kind and not by "is it a prompt",
@@ -380,12 +391,13 @@ class LooseBallSkillTestView(SafeView):
             and following is not None
             and following.kind is PromptKind.LOOSE_BALL_SKILL_TEST
         ):
-            # The service saved the two tokens the tie charged before
-            # anything here was drawn. The ignites that produced the tie
-            # are still shown -- see SkillTestView.roll's own tie.
-            await interaction.response.edit_message(
-                content="\n\n".join(filter(None, (ignition, following.ask))),
-                attachments=[dice_file],
+            # Below the dice, with the roll-again buttons, so an
+            # Overdrive declared on the tied roll stays above them --
+            # see SkillTestView.roll's own tie. The service saved the
+            # two tokens the tie charged before anything here was drawn.
+            await send_new_prompt(
+                interaction,
+                following.ask,
                 view=self.cog.view_for_prompt(
                     self.game_id, result.match, following,
                 ),
@@ -395,20 +407,8 @@ class LooseBallSkillTestView(SafeView):
 
         # The service saved before anything here is posted: the
         # contest is settled, possession has flipped and Overdrive is
-        # spent, and the dice upload below is a render and a request
+        # spent, and the dice upload above is a render and a request
         # that can fail.
-
-        # The result follows the dice in its own message, the way every
-        # other skill test announces itself -- a message's attachments
-        # render below its content, so writing the outcome into this
-        # one would put it above the roll that decided it. The tie
-        # above is the exception, since that message carries the
-        # roll-again button. See SkillTestView.roll.
-        await interaction.response.edit_message(
-            content=ignition,
-            attachments=[dice_file],
-            view=None,
-        )
         await send_new_prompt(
             interaction,
             result.answer[0],

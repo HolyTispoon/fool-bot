@@ -9,9 +9,10 @@ passes and loose balls, goals, and missed attempts. The dice message
 itself carries no text at all -- the image already names both players
 and shows every modifier that built the totals.
 
-The tie is the exception -- its message also carries the roll-again
-button, so its text stays with it. See SkillTestView.roll and
-ScoreAttemptView.roll in cogs/d12ball_views.py.
+The tie follows the dice the same way, and its message carries the
+roll-again button -- so an Overdrive declared on the tied roll, a
+reply to the prompt that became the dice, stays above the re-roll.
+See SkillTestView.roll in cogs/d12ball_views/rolls.py.
 
 A maneuver challenge is announced the same way round for the same
 reason, except that there the image is the whole announcement.
@@ -286,13 +287,44 @@ class AnnouncementOrderTests(unittest.IsolatedAsyncioTestCase):
         ), mock.patch("discord.File"):
             await press_roll(view, interaction)
 
-        # The tie is the one result that stays on the dice message,
-        # because that message also carries the roll-again button.
-        content = interaction.edit_original_response.await_args.kwargs[
-            "content"
-        ]
+        # The tie follows the dice in a message of its own, which
+        # carries the roll-again button: the clicked prompt becomes the
+        # dice and loses its buttons, so a reply posted under it -- an
+        # Overdrive declared on the tied roll -- stays above the
+        # re-roll rather than under it.
+        edit = interaction.edit_original_response.await_args.kwargs
+        self.assertIsNone(edit["content"])
+        self.assertIsNone(edit["view"])
+        [tie] = interaction.followup.send.await_args_list
+        content = tie.args[0]
         self.assertTrue(content.startswith("## "), content)
         self.assertIn("It's a tie (7-7)!", content)
+        self.assertIsInstance(tie.kwargs["view"], SkillTestView)
+
+    async def test_a_tied_loose_ball_asks_again_below_its_dice(
+        self,
+    ) -> None:
+        # The loose ball's tie follows its dice the way the skill
+        # test's does, roll-again button and all.
+        cog = build_cog()
+        game, _ = self.build_contest(cog, is_high_pass=False)
+        interaction = build_interaction()
+
+        view = LooseBallSkillTestView(cog, game.game_id)
+        with suppressed_cog_saves(), mock.patch(
+            "d12ball.flow.rolls.score_loose_ball",
+            return_value=([], 7, 7, IgnitedRoll(face=7), IgnitedRoll(face=7)),
+        ), mock.patch(
+            "d12ball.dice_brief.render_skill_test_dice",
+        ), mock.patch("discord.File"):
+            await press_roll(view, interaction)
+
+        edit = interaction.response.edit_message.await_args.kwargs
+        self.assertIsNone(edit["content"])
+        self.assertIsNone(edit["view"])
+        [tie] = interaction.followup.send.await_args_list
+        self.assertIn("It's a tie (7-7)!", tie.args[0])
+        self.assertIsInstance(tie.kwargs["view"], LooseBallSkillTestView)
 
     # -- Maneuver won outright -----------------------------------------
 

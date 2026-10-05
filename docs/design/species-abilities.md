@@ -503,8 +503,8 @@ Mind Pull die, which cannot ignite today.
 - **On the dice message, at every site including a tie.** The ignite
   happened to the die a coach is looking at and before the verdict they
   are about to read, and the verdict is still its own message after it.
-  On a tie the sentence goes ahead of the roll-again question on that
-  same message.
+  On a tie it stays there too, and the roll-again question follows as
+  its own message, as any verdict does.
 - **The sentence is above the dice**, unlike every result in the game.
   It is not a verdict the picture is about to reveal -- it says what the
   second die added, never who won -- so it may stand where a result may
@@ -790,6 +790,15 @@ seventh gets it in one line.
 - **Every roll site clears it**, win, lose or tie. A tie that is re-rolled is a
   fresh roll and has to be Overdriven again, which the rules say outright and
   which falls out of consuming rather than being special-cased.
+- **On Discord a tie's re-roll is a new message, below the declaration.** The
+  declaration's answer is a reply under the prompt it was pressed on, and the
+  Roll turns that prompt into the dice. The tie and its roll-again buttons used
+  to be written into the same message, which left the reply sitting under the
+  re-roll's buttons -- read as an Overdrive declared for the re-roll, when it
+  was spent on the roll that tied (the author, 2026-10-05). So the tie is
+  posted after the dice like every other verdict (`SkillTestView.roll`,
+  `LooseBallSkillTestView.roll`): the dice, then the declaration, then the
+  re-roll. One request more per tie, which is rare.
 - **The declaration is the Cyborg's own coach's, unlike the roll.** Either
   coach may throw a die (see "Every roll is a coach's" in [maneuvers.md](maneuvers.md)); nobody else may spend
   another coach's tokens. The button carries the player in its custom_id for
