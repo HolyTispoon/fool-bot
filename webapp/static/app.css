@@ -1858,17 +1858,18 @@ button.goal { display: block; }
 }
 
 /* The phone's sheet held upright, and a tablet's column on its side:
-   the box opens on the question -- its tag, the ask and what is lit,
-   then the box's own controls; the outcome and the reveal of what just
-   happened follow them, so answering never needs a scroll. */
+   the box opens on what just happened -- its tag and the outcome, at
+   the column's smaller size -- then the question: the ask and what is
+   lit, then the box's own controls. The reveal of the two cards follows
+   them, since it stays up through every prompt of a maneuver. */
 @media (max-width: 960px) and (orientation: portrait),
   (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
   .qbox-main > * { order: 5; }
   .qbox-main > :first-child { order: 0; }
   .qbox-main > #refusal { order: 1; }
-  .qbox-main > #ask { order: 2; }
-  .qbox-main > #lit { order: 3; }
-  .qbox-main > .outcome-row { order: 8; }
+  .qbox-main > .outcome-row { order: 2; }
+  .qbox-main > #ask { order: 3; }
+  .qbox-main > #lit { order: 4; }
   .qbox-main > #reveal { order: 9; }
   .qbox-main > #rematch-note { order: 10; }
   .outcome { padding: 10px 12px; }
