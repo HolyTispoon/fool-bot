@@ -1283,7 +1283,7 @@ class D12BallGame:
             )
 
         if self.home_and_visiting_selected:
-            raise RuleRefusal("Home and visiting teams are already assigned.")
+            raise RuleRefusal("Home and Visitors are already assigned.")
 
         choice = HomeChoice(choice)
         rail = self.home_choice_rail(player_number)

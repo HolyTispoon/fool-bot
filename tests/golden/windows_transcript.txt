@@ -7,7 +7,7 @@ Out of shooting range. Maneuver, or take a time out:
 === press 1: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
 === press 2: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Orange (Home) call a time out
@@ -22,7 +22,7 @@ Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 4
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visiting) are done.**
+**Purple (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now in space 4, Orange (Home) has possession.
@@ -86,7 +86,7 @@ Time has advanced 1, now at 03.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Purple (Visiting) has possession.
+Ball is now in space 4, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -105,7 +105,7 @@ Time has advanced 1, now at 04.
 --- message
 🟣 Glompex [MF] picks up the ball.
 --- message
-Ball is now in space 5, Purple (Visiting) has possession.
+Ball is now in space 5, Purple (Visitors) has possession.
 --- message
 🟣 Glompex [MF] will maneuver for Purple.
 
@@ -143,7 +143,7 @@ Time has advanced 1, now at 05.
 --- message
 **Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Flickerwing [WG] moves forward.
 
-Ball is now in space 6, Purple (Visiting) has possession.
+Ball is now in space 6, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -200,7 +200,7 @@ Time has advanced 1, now at 07.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Purple (Visiting) has possession.
+Ball is now in space 4, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -248,7 +248,7 @@ Either player can roll:
 --- message
 🟣 Tachyon [SK] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now in space 1, Purple (Visiting) has possession.
+Ball is now in space 1, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has chosen to shoot to score with 🟣 Tachyon [SK].
 --- message
@@ -256,7 +256,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 22: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟣 Tachyon [SK] scores for Purple (Visiting) on **09**!
+🟣 Tachyon [SK] scores for Purple (Visitors) on **09**!
 Orange 2:1 Purple
 
 Time has advanced 1, now at 10.
@@ -448,15 +448,15 @@ Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has
 --- message
 **Steal:**
 # Turnover!
-🟣 Glompex [MF] steals the ball. Purple (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
+🟣 Glompex [MF] steals the ball. Purple (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
 
 The ball speed goes down to **1**.
 --- message
 Ball speed is now **5**.
 --- message
-Ball is now in space 5, Purple (Visiting) has possession.
+Ball is now in space 5, Purple (Visitors) has possession.
 --- message
-Purple (Visiting) has **last possession**: their next turnover ends the period.
+Purple (Visitors) has **last possession**: their next turnover ends the period.
 --- message
 🟣 Glompex [MF] will maneuver for Purple.
 
@@ -544,7 +544,7 @@ Every fielded player clears 1 exhaustion:
 🟠 Flickerwing [WG] clears an extra exhaustion token (now 3).
 --- message
 # Coaching Choice
-**Purple (Visiting) are done.**
+**Purple (Visitors) are done.**
 🟣 Gurgoth [DD] came on for 🟣 Glompex [MF].
 --- message
 ## Halftime
@@ -618,7 +618,7 @@ Out of shooting range. Maneuver, or take a time out:
 === press 56: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 3 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 3 at speed 1, with you in possession.
 === press 57: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Orange (Home) call a time out
@@ -634,7 +634,7 @@ Your side is back on the arrangement you last set.
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visiting) are done.**
+**Purple (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now in space 3, Orange (Home) has possession.
@@ -670,11 +670,11 @@ Time has advanced 2, now at 19.
 Chose **2 spaces**.
 --- message
 # Turnover!
-🟣 Gurgoth [DD] picks up the ball. Purple (Visiting) now has possession.
+🟣 Gurgoth [DD] picks up the ball. Purple (Visitors) now has possession.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 5, Purple (Visiting) has possession.
+Ball is now in space 5, Purple (Visitors) has possession.
 --- message
 🟣 Gurgoth [DD] will maneuver for Purple.
 
@@ -728,7 +728,7 @@ Either player can roll:
 --- message
 🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now in space 2, Purple (Visiting) has possession.
+Ball is now in space 2, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -850,7 +850,7 @@ Either player can roll:
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 2, Purple (Visiting) has possession.
+Ball is now in space 2, Purple (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -875,7 +875,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 78: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟣 Tachyon [SK] scores for Purple (Visiting) on **28**!
+🟣 Tachyon [SK] scores for Purple (Visitors) on **28**!
 Orange 2:2 Purple
 
 🟣 Tachyon [SK] exhausts 1 😮‍💨 (now 2 total).
@@ -972,7 +972,7 @@ Time has advanced 1, now at 31.
 **Pressure:** 🟠 Flickerwing [WG] and the ball go back 1 space. 🟣 Dravox [DD] moves forward.
 
 # Turnover!
-🟣 Dravox [DD] steals the ball (Defender ability)! Purple (Visiting) now has possession.
+🟣 Dravox [DD] steals the ball (Defender ability)! Purple (Visitors) now has possession.
 
 **Full time!** The ball turns over at 31 under last possession -- the game ends.
 
@@ -991,7 +991,7 @@ Orange (Home) may make **one substitution** -- the last change either side gets.
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visiting) are done.**
+**Purple (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 # Extreme shootout
@@ -999,7 +999,7 @@ The scores are level, so the game is settled on the extreme shootout.
 
 Each coach secretly puts their **six field players** in the order they will shoot. Both sides then reveal their top card together. Each of the two first rolls an **injury check** against the tokens they carry, Exhausted or not, unless already injured; then they roll a **skill test**, each adding their offensive skill -- an injured player adds none and rolls the bare d12. The winner scores a goal; a tie scores for nobody. Six skill tests is a **round**, and a level round goes to sudden death.
 --- message
-Purple (Visiting) has set their shooting order.
+Purple (Visitors) has set their shooting order.
 --- message
 ### Extreme shootout
 <@111>: set the order your six players shoot in. Nobody else sees it.
@@ -1144,7 +1144,7 @@ Either player can roll:
 # 🟠 Sizzifizik [PM] scores!
 Extreme shootout: Orange 3 — 3 Purple
 --- message
-Purple (Visiting) has chosen their shooter.
+Purple (Visitors) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
 Orange 3 — 3 Purple
@@ -1189,7 +1189,7 @@ Congratulations, <@111>!
 `02`  Sizzifizik [PM]
 `06`  Flickerwing [WG]
 
-**🟣 Purple (Visiting)**
+**🟣 Purple (Visitors)**
 `09`  Tachyon [SK]
 `28`  Tachyon [SK]
 

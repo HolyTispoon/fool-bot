@@ -2152,7 +2152,7 @@ class RulesEngine:
     ) -> MatchState:
         if not game.home_and_visiting_selected:
             raise ValueError(
-                "Home and visiting teams must be selected first."
+                "Home and Visitors must be assigned first."
             )
         if game.player_1_team is None or game.player_2_team is None:
             raise ValueError("Both teams must be selected first.")

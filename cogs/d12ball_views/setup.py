@@ -44,6 +44,7 @@ from cogs.d12ball_helpers import (
     refresh_player_names,
     send_new_prompt,
 )
+from d12ball.formatting import side_display_name
 
 from cogs.d12ball_views.base import SafeView
 
@@ -571,7 +572,7 @@ class HomeAwaySelectionView(SafeView):
 
         for label, choice in (
             ("Home", HomeChoice.HOME),
-            ("Visiting", HomeChoice.VISITING),
+            ("Visitors", HomeChoice.VISITING),
         ):
             button = discord.ui.Button(
                 label=label,
@@ -659,7 +660,7 @@ class HomeAwaySelectionView(SafeView):
             format_player_with_team(game, winner_player_number), game,
         )
         await send_new_prompt(
-            interaction, f"{winner} chose **{choice.value.title()}**.",
+            interaction, f"{winner} chose **{side_display_name(choice)}**.",
         )
         await self.cog.begin_setup_coaching(interaction, game)
 

@@ -3167,7 +3167,7 @@ function drawTableBox(table) {
       // What the toss decides (the author, 2026-09-27); why the coin is
       // dark is the ask above it, and the record's sentence its title.
       h("span", { class: "quiet faint" },
-        "The winner of the coin toss chooses whether to play as the home or visiting team.")));
+        "The winner of the coin toss chooses whether to play as Home or Visitors.")));
     return;
   }
 
