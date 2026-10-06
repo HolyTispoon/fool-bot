@@ -1428,8 +1428,10 @@ rewords a result has changed the game.
   is identical under `PYTHONHASHSEED` 0, 1 and 42 (checked by hand) -- a set
   of player ids iterated into a message would otherwise vary by machine
   rather than by the change that broke it.
-- **It covers one standard-mode solo game on board 7** -- no gambit, no species
-  ability, no halftime, no shootout, no time out. Rewording two of the three
+- **It covers one training-mode solo game on board 7** -- no gambit, no species
+  ability, no halftime, no shootout, no time out. (The fixture's record
+  says `TRAINING` as a real tutorial's does; the engine would play it as
+  training whatever it said, since a tutorial never plays an ability.) Rewording two of the three
   `Ball speed is now` sites in `effects.py` did not fail it, because the
   tutorial only reaches the third. Don't read a green golden as "the wording
   is covered"; a phase that moves narration the golden doesn't reach should
@@ -1466,7 +1468,9 @@ merged two messages into one, which the tutorial golden does not reach.
   the game that can be walked in a circle -- and otherwise a rotation
   (`live[step % len(live)]`) rather than the first enabled button.
   First-always is deterministic too, and it plays Low Pass and Deflect for
-  the whole game: ten of the twelve cards never run.
+  the whole game -- the first card of each hand -- so the script never
+  declares a gambit or plays a gambit card, and the only other cards that
+  run are whatever Dinky picks.
 - **The coverage is asserted, not trusted.** Two tests name the branches and
   the cards the run has to keep reaching, the way the tutorial golden
   asserts that its run scores, so a change that quietly stops reaching the

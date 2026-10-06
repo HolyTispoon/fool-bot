@@ -127,7 +127,8 @@ class Policy:
     prompt's options -- `tests/test_d12ball_driver_actions.LEGAL_ACTIONS`
     with the few answers a whole game needs to be smarter about.
 
-    **It reads `PendingPrompt.options` and nothing else** (step 6 of
+    **It reads the prompt -- `PendingPrompt.options`, and `side` for
+    whose window a Coaching Choice is -- and nothing else** (step 6 of
     docs/architecture-migration.md): a policy that read the match to
     choose is a web app that would have to. `match` is still handed
     in for `_Fixture`'s sake and never consulted here.
@@ -167,12 +168,9 @@ class Policy:
             card = self.engine.rng.choice(hand.maneuver_keys)
             return Action(kind, "", {"side": hand.side, "maneuver_key": card})
         if kind is PromptKind.COACHING_HUB:
-            return Action(kind, "done", {"side": match.pending_coaching_side})
+            return Action(kind, "done", {"side": prompt.side})
         if kind is PromptKind.COACHING_OFFER:
-            return Action(
-                kind, "decline",
-                {"side": match.pending_coaching_side},
-            )
+            return Action(kind, "decline", {"side": prompt.side})
         choice, arguments = LEGAL_ACTIONS[kind](fixture)
         return Action(kind, choice, arguments)
 
@@ -360,7 +358,8 @@ class DriverFullGameTests(unittest.TestCase):
 
 
 def build_tutorial_game() -> D12BallGame:
-    """The tutorial suite's game: a person against Dinky, on the rails."""
+    """The tutorial suite's game: a person against Dinky, on the rails,
+    in training mode -- what `pin_tutorial` makes of a real one."""
     return D12BallGame(
         game_id="driver-tutorial",
         game_number=2,
@@ -371,6 +370,7 @@ def build_tutorial_game() -> D12BallGame:
         player_2_team=Team.PURPLE,
         home_player_number=1,
         visiting_player_number=2,
+        mode=GameMode.TRAINING,
         status=GameStatus.IN_PROGRESS,
         tutorial=True,
     )
