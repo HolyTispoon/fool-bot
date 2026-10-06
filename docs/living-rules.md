@@ -178,7 +178,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 3.1 Winning the toss
 
-**3.1.1** Choose a 7-, 9- or 10-space board. A standard or advanced game is recommended the 9- or 10-space board.
+**3.1.1** Choose a 7-, 9- or 10-space board. A standard game is recommended the 9-space board, and an advanced game the 9- or 10-space board; the 10-space board is recommended for advanced games alone.
 
 **3.1.2** One coach flips the coin: a fortune face wins them the toss and a doom face hands it to their opponent.
 
