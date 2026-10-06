@@ -56,7 +56,7 @@ Time has advanced 1, now at 01.
 --- message
 **Steal:**
 # Turnover!
-🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
+🔥 Sizzifizik [PM] steals the ball. 🔥 Dinky AI (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 7: FlyView -> 'Stay'
@@ -71,7 +71,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 5, Fire Demons (Visitors) has possession.
+Ball is now in space 5, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -121,9 +121,9 @@ Time has advanced 1, now at 02.
 --- message
 **Pressure:** 🔥 Sizzifizik [PM] and the ball go back 1 space. 🔮 Zenith [WG] moves forward.
 
-Ball is now in space 6, Fire Demons (Visitors) has possession.
+Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Sizzifizik [PM] will maneuver for Fire Demons.
+🔥 Sizzifizik [PM] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
 === press 12: ManeuverChallengeView -> 'Noxar [SK] (0)'
@@ -154,14 +154,14 @@ Time has advanced 1, now at 03.
 --- message
 🔥 Hellguard [FB] picks up the ball.
 --- message
-Ball is now in space 7, Fire Demons (Visitors) has possession.
+Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Hellguard [FB] will maneuver for Fire Demons.
+🔥 Hellguard [FB] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 15: ManeuverChallengeView -> 'Send nobody'
 --- message
-**Unchallenged!** Telekinetics (Home) have sent nobody in to challenge 🔥 Hellguard [FB], so whichever maneuver the offense picks succeeds.
+**Unchallenged!** 🔮 Player 1 (Home) has sent nobody in to challenge 🔥 Hellguard [FB], so whichever maneuver the offense picks succeeds.
 --- message
 🔥 Dinky AI chose **Low Pass**, unchallenged.
 
@@ -183,9 +183,9 @@ Time has advanced 1, now at 04.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
 
-Ball is now in space 6, Fire Demons (Visitors) has possession.
+Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Sizzifizik [PM] will maneuver for Fire Demons.
+🔥 Sizzifizik [PM] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
 === press 18: ManeuverChallengeView -> 'Noxar [SK] (0)'
@@ -209,9 +209,9 @@ Time has advanced 1, now at 05.
 --- message
 **Low Pass:** the ball goes to a teammate in the same space, and 🔥 Sizzifizik [PM] moves a space forward. Ball speed is now 5.
 
-Ball is now in space 6, Fire Demons (Visitors) has possession.
+Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Blazebulk [DD] will maneuver for Fire Demons.
+🔥 Blazebulk [DD] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, these players are already on the ball, so one of them has to challenge -- choose which.
 === press 20: ManeuverChallengeView -> 'Noxar [SK] (0)'
@@ -242,9 +242,9 @@ Ball speed is now **7**.
 --- message
 🔮 Noxar [SK] declines to Mind Pull.
 --- message
-Ball is now in space 5, Fire Demons (Visitors) has possession.
+Ball is now in space 5, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Blazebulk [DD] will maneuver for Fire Demons.
+🔥 Blazebulk [DD] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 23: ManeuverChallengeView -> 'Noxar [SK] (1)'
@@ -320,7 +320,7 @@ Time has advanced 1, now at 07.
 --- message
 **Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 10.
 
-Ball is now in space 2, Fire Demons (Visitors) has possession.
+Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -354,7 +354,7 @@ Either player can roll:
 --- message
 🔥 Scorchit [MF] wins the ball! 🔥 Dinky AI has possession.
 --- message
-Ball is now in space 3, Fire Demons (Visitors) has possession.
+Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
 --- message
@@ -393,15 +393,15 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 37: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Flickerwing [WG] scores for Fire Demons (Visitors) on **10**!
-Telekinetics 0:1 Fire Demons
+🔥 Flickerwing [WG] scores for 🔥 Dinky AI (Visitors) on **10**!
+🔮 Player 1 (Home) 0:1 🔥 Dinky AI (Visitors)
 
 🔥 Flickerwing [WG] exhausts 1 😮‍💨 (now 1 total).
 
 Time has advanced 1, now at 11.
 --- message
 # Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**🔮 <@111> (Home)** -- 2 substitutions left.
 Coach?
 === press 38: CoachingOfferView -> 'Pass'
 --- message
@@ -410,7 +410,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Telekinetics (Home) has possession.
+Ball is now in space 4, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -455,7 +455,7 @@ Time has advanced 1, now at 12.
 **Pressure:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward.
 
 # Turnover!
-**Burst** was beaten -- Fire Demons (Visitors) take the ball, and it keeps the speed the burst put into it (1).
+**Burst** was beaten -- 🔥 Dinky AI (Visitors) takes the ball, and it keeps the speed the burst put into it (1).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 43: FlyView -> 'Space 1 (4 away)'
@@ -480,7 +480,7 @@ Space 4 (1 away) or space 5 (2 away).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 3, Fire Demons (Visitors) has possession.
+Ball is now in space 3, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -531,7 +531,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 🔥 Sizzifizik [PM] exhausts 2 😮‍💨😮‍💨 (now 5 total).
 🔥 Sizzifizik [PM] is now *exhausted* 🥵
 --- message
-Ball is now in space 1, Telekinetics (Home) has possession.
+Ball is now in space 1, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -541,26 +541,26 @@ Out of shooting range. Maneuver, or take a time out:
 === press 50: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
 === press 51: TimeOutConfirmView -> 'Take the time out'
 --- message
-# Telekinetics (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 1. Time has advanced 1, now at 14.
+# 🔮 Player 1 (Home) calls a time out
+Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space 1. Time has advanced 1, now at 14.
 --- message
 # Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**🔮 <@111> (Home)** -- 2 substitutions left.
 Your side is back on the arrangement you last set.
 === press 52: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Telekinetics (Home) are done.**
+**🔮 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Fire Demons (Visitors) are done.**
+**🔥 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 1, Telekinetics (Home) has possession.
+Ball is now in space 1, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -593,9 +593,9 @@ Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward.
 
-Ball is now in space 3, Telekinetics (Home) has possession.
+Ball is now in space 3, 🔮 Player 1 (Home) has possession.
 --- message
-Telekinetics (Home) has **last possession**: their next turnover ends the period.
+🔮 Player 1 (Home) has **last possession**: their next turnover ends the period.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -633,7 +633,7 @@ Time has advanced 1, now at 17.
 --- message
 **Intercept:**
 # Turnover!
-🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visitors) now has possession, then carries it 1 space forward, toward the goal they now attack.
+🔥 Sizzifizik [PM] steals the ball. 🔥 Dinky AI (Visitors) now has possession, then carries it 1 space forward, toward the goal they now attack.
 
 **Pinpoint** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
 
@@ -653,23 +653,23 @@ Every fielded player clears 1 exhaustion:
 --- message
 🔥 Sizzifizik [PM] clears an extra exhaustion token (now 4).
 --- message
-<@111>, Telekinetics (Home): choose one fielded player to clear an extra exhaustion token.
+🔮 <@111> (Home): choose one fielded player to clear an extra exhaustion token.
 === press 59: HalftimeExtraTokenView -> 'Zenith [WG] (7 exhaustion)'
 --- message
 🔮 Zenith [WG] clears an extra exhaustion token (now 6).
 --- message
 # Coaching Choice
-**Fire Demons (Visitors) are done.**
+**🔥 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
 ## Halftime
-Telekinetics (Home) set up for the second half.
+🔮 Player 1 (Home) sets up for the second half.
 # Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**🔮 <@111> (Home)** -- 2 substitutions left.
 === press 60: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Telekinetics (Home) are done.**
+**🔮 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 🔥 Dinky AI has picked their maneuver.
@@ -705,7 +705,7 @@ Ball speed is now **5**.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 🔮 Dravox [DD] fails to Mind Pull
 --- message
-Ball is now in space 2, Fire Demons (Visitors) has possession.
+Ball is now in space 2, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -748,15 +748,15 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 67: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Brightburn [SK] scores for Fire Demons (Visitors) on **18**!
-Telekinetics 0:2 Fire Demons
+🔥 Brightburn [SK] scores for 🔥 Dinky AI (Visitors) on **18**!
+🔮 Player 1 (Home) 0:2 🔥 Dinky AI (Visitors)
 
 🔥 Brightburn [SK] exhausts 1 😮‍💨 (now 1 total).
 
 Time has advanced 1, now at 19.
 --- message
 # Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**🔮 <@111> (Home)** -- 2 substitutions left.
 Coach?
 === press 68: CoachingOfferView -> 'Pass'
 --- message
@@ -765,7 +765,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Telekinetics (Home) has possession.
+Ball is now in space 4, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -805,7 +805,7 @@ Time has advanced 1, now at 20.
 --- message
 **Double Team:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward. 🔥 Scorchit [MF] joins them. 🔥 Scorchit [MF] Merges on the next maneuver, adding their defensive skill while they stand on the ball.
 
-Ball is now in space 3, Telekinetics (Home) has possession.
+Ball is now in space 3, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -836,7 +836,7 @@ Time has advanced 1, now at 21.
 --- message
 🔮 **Smooth** — 🔮 Dravox [DD] takes the ball on **space 2** (Home Zone).
 
-Ball is now in space 2, Telekinetics (Home) has possession.
+Ball is now in space 2, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -846,26 +846,26 @@ Out of shooting range. Maneuver, or take a time out:
 === press 76: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
 === press 77: TimeOutConfirmView -> 'Take the time out'
 --- message
-# Telekinetics (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Telekinetics (Home) on space 2. Time has advanced 1, now at 22.
+# 🔮 Player 1 (Home) calls a time out
+Both coaches get a Coaching Choice. The ball stays with 🔮 Player 1 (Home) on space 2. Time has advanced 1, now at 22.
 --- message
 # Coaching Choice
-<@111>, **Telekinetics (Home)** -- 2 substitutions left.
+**🔮 <@111> (Home)** -- 2 substitutions left.
 Your side is back on the arrangement you last set.
 === press 78: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Telekinetics (Home) are done.**
+**🔮 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Fire Demons (Visitors) are done.**
+**🔥 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 2, Telekinetics (Home) has possession.
+Ball is now in space 2, 🔮 Player 1 (Home) has possession.
 --- message
 🔮 <@111>, it is your turn.
 
@@ -920,7 +920,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 84: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
-Fire Demons (Visitors) manages to avoid a goal! (phew)
+🔥 Dinky AI (Visitors) manages to avoid a goal! (phew)
 
 🔮 Zenith [WG] exhausts 1 😮‍💨 (now 7 total).
 
@@ -931,9 +931,9 @@ Time has advanced 1, now at 25.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 7, Fire Demons (Visitors) has possession.
+Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
 --- message
-🔥 Hellguard [FB] will maneuver for Fire Demons.
+🔥 Hellguard [FB] will maneuver for 🔥 Dinky AI.
 
 🔮 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 85: ManeuverChallengeView -> 'Noxar [SK] (1)'
@@ -976,7 +976,7 @@ The ball reaches their own goal zone!
 --- message
 # Own goal!
 🔥 Hellguard [FB] puts it in their own net on **26**.
-Telekinetics 1:2 Fire Demons
+🔮 Player 1 (Home) 1:2 🔥 Dinky AI (Visitors)
 
 🔥 Hellguard [FB] exhausts 1 😮‍💨 (now 1 total).
 --- message
@@ -985,7 +985,7 @@ Telekinetics 1:2 Fire Demons
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Fire Demons (Visitors) has possession.
+Ball is now in space 4, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message

@@ -460,7 +460,11 @@ class PresentationMixin:
         first player (or on the "*nobody*" under it) so that it never
         ends a message with nothing below it.
         """
-        heading_unit = f"**{format_team_side_label(setup)}**"
+        # Drawn here: the players' lines are the cog's own labels and
+        # already Discord's, and nothing renders the units after this.
+        heading_unit = self.render_text(
+            f"**{format_team_side_label(setup, game)}**", game,
+        )
         substitutions = self.engine.half_substitutions_label(
             game, match, setup.side,
         )

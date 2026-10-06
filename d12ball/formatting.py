@@ -157,8 +157,68 @@ def destination_display_name(destination: str, board_size: int) -> str:
     return zone_display_name(Zone(destination), board_size)
 
 
-def format_team_side_label(setup) -> str:
-    return f"{team_display_name(setup.team)} ({side_display_name(setup.side)})"
+def side_coach_number(
+    game: Optional[D12BallGame],
+    side: TeamSide,
+) -> Optional[int]:
+    """Which coach plays `side` -- `None` with no record, or before the
+    coin has seated anybody. `RulesEngine.side_player_number` is the
+    same reading; this is it below the engine, for the labels."""
+    if game is None:
+        return None
+    return (
+        game.home_player_number
+        if TeamSide(side) == TeamSide.HOME
+        else game.visiting_player_number
+    )
+
+
+def format_team_side_label(
+    setup,
+    game: Optional[D12BallGame] = None,
+    mention: bool = False,
+    mark: bool = True,
+) -> str:
+    """
+    **A side named the long way**: its team's mark, its coach and its
+    end -- "{team:purple} perrytom (Home)" (the author, 2026-10-05: "the
+    long one ... emoji username (side)"). The coach is the record's name
+    (`format_player`), or addressed where `mention` asks -- for the
+    questions that open on whose they are.
+
+    Where there is no record or nobody holds the side yet, the team's
+    name stands in for the coach and the mark is left off -- "Purple
+    (Home)", which is what this said everywhere before -- and so it does
+    on the surfaces that cannot draw a mark: an autocomplete's plain
+    text, a caption drawn on an image. The short way is
+    `format_team_coach`.
+
+    `mark=False` leaves the team's mark off and keeps the coach and the
+    end -- "perrytom (Home)" -- for a sentence no frontend renders a
+    token in: a refusal, and the time out's confirmation, which a view
+    puts up as it is.
+    """
+    side = side_display_name(setup.side)
+    number = side_coach_number(game, setup.side)
+    if number is None:
+        return f"{team_display_name(setup.team)} ({side})"
+    coach = format_player(game, number, mention=mention)
+    if not mark:
+        return f"{coach} ({side})"
+    return f"{tokens.team(setup.team)} {coach} ({side})"
+
+
+def format_team_coach(
+    setup,
+    game: Optional[D12BallGame] = None,
+) -> str:
+    """**A side named the short way**: its team's mark and its coach,
+    with no end -- "{team:purple} perrytom" -- or the team's name where
+    nobody holds the side yet. The long way is `format_team_side_label`."""
+    number = side_coach_number(game, setup.side)
+    if number is None:
+        return team_display_name(setup.team)
+    return f"{tokens.team(setup.team)} {format_player(game, number)}"
 
 
 def space_label(zone: Zone, space_index: int, board=None) -> str:
@@ -426,6 +486,30 @@ def format_player_with_team(
     return f"{tokens.team(team)} {player}"
 
 
+def format_player_with_team_and_side(
+    game: D12BallGame,
+    player_number: Optional[int],
+    mention: bool = False,
+) -> str:
+    """
+    "{team:purple} perrytom (Home)" -- `format_player_with_team` with
+    the end the coach plays from, which is `format_team_side_label`'s
+    long way read off the record alone, for where there is no match
+    yet: the coin toss's result. A coach not yet given an end is named
+    the short way.
+    """
+    named = format_player_with_team(game, player_number, mention=mention)
+    if player_number is None:
+        return named
+    if player_number == game.home_player_number:
+        side = TeamSide.HOME
+    elif player_number == game.visiting_player_number:
+        side = TeamSide.VISITING
+    else:
+        return named
+    return f"{named} ({side_display_name(side)})"
+
+
 def format_player_with_team_name(
     game: D12BallGame,
     player_number: Optional[int],
@@ -538,6 +622,7 @@ def format_goal_scorer(
 def build_goal_log(
     match: MatchState,
     catalog: PlayerCatalog,
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     The scoresheet at full time: every goal of the game, under the side
@@ -565,9 +650,12 @@ def build_goal_log(
     # columns down a phone rather than as one list with headings in it.
     sections = ["## Goals"]
     for setup in (match.home, match.visiting):
+        # The long way where a coach holds the side, which carries the
+        # mark itself; the team's mark and name where nobody does.
         heading = (
-            f"**{tokens.team(setup.team)} "
-            f"{format_team_side_label(setup)}**"
+            f"**{format_team_side_label(setup, game)}**"
+            if side_coach_number(game, setup.side) is not None
+            else f"**{tokens.team(setup.team)} {format_team_side_label(setup)}**"
         )
         scored = [
             goal
@@ -597,10 +685,13 @@ def build_goal_log(
                 for goal in shootout
                 if goal.side == setup.side
             ]
+            side = (
+                format_team_coach(setup, game)
+                if side_coach_number(game, setup.side) is not None
+                else f"{tokens.team(setup.team)} {team_display_name(setup.team)}"
+            )
             lines.append(
-                f"{tokens.team(setup.team)} "
-                f"{team_display_name(setup.team)}: "
-                + (", ".join(scorers) if scorers else "none")
+                f"{side}: " + (", ".join(scorers) if scorers else "none")
             )
         sections.append("\n".join(lines))
 
@@ -680,13 +771,13 @@ def build_full_time_summary(
     """
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
-    score_line = final_score_line(match)
+    score_line = final_score_line(match, game)
     winning = "" if catalog is None else winning_goal_line(match, catalog)
     if winning:
         score_line = f"{score_line}\n{winning}"
 
     if home_score == visiting_score:
-        return f"{score_line}\n\n# {full_time_heading(match)[0]}"
+        return f"{score_line}\n\n# {full_time_heading(match, game)[0]}"
 
     home_won = home_score > visiting_score
     winning_player_number = (
@@ -696,18 +787,34 @@ def build_full_time_summary(
 
     return (
         f"{score_line}\n\n"
-        f"# {full_time_heading(match)[0]}\n"
+        f"# {full_time_heading(match, game)[0]}\n"
         f"Congratulations, {winner}!"
     )
 
 
-def final_score_line(match: MatchState) -> str:
+def score_side_label(
+    setup,
+    game: Optional[D12BallGame] = None,
+) -> str:
+    """One side of a score line: the long way where a coach holds it
+    (the author, 2026-10-05), the team's name where nobody does."""
+    if side_coach_number(game, setup.side) is None:
+        return team_display_name(setup.team)
+    return format_team_side_label(setup, game)
+
+
+def final_score_line(
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> str:
     """The final score, and the shootout's under it where there was
-    one -- the line the full-time summary opens with."""
+    one -- the line the full-time summary opens with. Each side the long
+    way where a coach holds it: "{team:purple} perrytom (Home) 2:1
+    {team:orange} Glorbo (Visitors)"."""
     score_line = (
-        f"**Final score:** {team_display_name(match.home.team)} "
+        f"**Final score:** {score_side_label(match.home, game)} "
         f"{match.scoreboard.home_score}:{match.scoreboard.visiting_score} "
-        f"{team_display_name(match.visiting.team)}"
+        f"{score_side_label(match.visiting, game)}"
     )
     shootout = match.shootout_score_line()
     if shootout:
@@ -715,18 +822,22 @@ def final_score_line(match: MatchState) -> str:
     return score_line
 
 
-def full_time_heading(match: MatchState) -> tuple[str, Optional[TeamSide]]:
+def full_time_heading(
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> tuple[str, Optional[TeamSide]]:
     """
     The heading `build_full_time_summary` announces the result under,
     and whose it is -- the winner, or nobody while the score is level.
-    One wording, for the summary and the `Headline` beside it.
+    One wording, for the summary and the `Headline` beside it. The
+    winner is named the short way (`format_team_coach`).
     """
     home_score = match.scoreboard.home_score
     visiting_score = match.scoreboard.visiting_score
     if home_score == visiting_score:
         return "It's a tie! The game goes to the extreme shootout.", None
     side = TeamSide.HOME if home_score > visiting_score else TeamSide.VISITING
-    return f"{team_display_name(match.setup_for_side(side).team)} wins!", side
+    return f"{format_team_coach(match.setup_for_side(side), game)} wins!", side
 
 
 def contestant_detail(

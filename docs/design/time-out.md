@@ -148,7 +148,7 @@ their side away from it sends one of the two nearest.
   docs/architecture-migration.md), which runs `begin_time_out` **ahead of
   `record_turn_action`**, since a time out is not one.
 - **The announcement is the answer's own line, not the window's heading.**
-  "# X call a time out / Both coaches get a Coaching Choice..." is
+  "# X calls a time out / Both coaches get a Coaching Choice..." is
   `begin_time_out`'s narration since step 7: a coach's turn prompt is edited
   into it and the menu follows, where it used to ride at the top of the
   caller's menu as its `heading`. It moved because an AI caller has no menu

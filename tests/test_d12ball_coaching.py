@@ -613,7 +613,7 @@ class CoachingSummaryTests(unittest.IsolatedAsyncioTestCase):
             await CoachingHubView(cog, game.game_id).finish(click)
 
         content = click.response.edit_message.await_args.kwargs["content"]
-        self.assertIn("are done.", content)
+        self.assertIn("is done.", content)
         self.assertIn(
             cog.engine.get_player_definition(incoming).name, content,
         )

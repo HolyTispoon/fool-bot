@@ -83,9 +83,10 @@ from d12ball.formatting import (
     format_team_side_label,
     is_total_modifier,
     player_with_role,
+    score_side_label,
     total_modifier_line,
 )
-from d12ball.game import D12BallGame, Team, team_display_name
+from d12ball.game import D12BallGame, Team
 from d12ball.special_abilities import (
     BOOST_BONUS,
     BOOST_DRAIN_COST,
@@ -1296,20 +1297,20 @@ def settle_score_attempt(
         match.award_goal(shooter.player_id)
         under = (
             f"{engine.format_player_label(match, shooter)} scores "
-            f"for {format_team_side_label(attacking_setup)} on "
+            f"for {format_team_side_label(attacking_setup, game)} on "
             f"**{format_goal_time(match.goals[-1])}**!"
         )
         headline = Headline("GOAL!", attacking_setup.side, under)
         verdict = (
             f"# {headline.text}\n{under}\n"
-            f"{team_display_name(match.home.team)} "
+            f"{score_side_label(match.home, game)} "
             f"{match.scoreboard.home_score}:"
             f"{match.scoreboard.visiting_score} "
-            f"{team_display_name(match.visiting.team)}"
+            f"{score_side_label(match.visiting, game)}"
         )
     else:
         under = (
-            f"{format_team_side_label(defending_setup)} manages to "
+            f"{format_team_side_label(defending_setup, game)} manages to "
             "avoid a goal! (phew)"
         )
         headline = Headline("Missed attempt!", defending_setup.side, under)
@@ -1460,7 +1461,7 @@ def score_attempt_step(
                     attack_total,
                 ),
                 (
-                    format_team_side_label(defending_setup),
+                    format_team_side_label(defending_setup, game),
                     defense_roll,
                     defense_detail,
                     defense_total,
@@ -1747,7 +1748,7 @@ def shootout_test_step(
     # `MatchState.finish_shootout_test`.
     match.finish_shootout_test()
 
-    running = f"Extreme shootout: {engine.shootout_running_score(match)}"
+    running = f"Extreme shootout: {engine.shootout_running_score(match, game)}"
     return ContestDice(dice, tuple(ignites)), StepResult(
         # One block, so the checks go out in the shot's own message
         # rather than one each ahead of it.

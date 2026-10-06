@@ -359,7 +359,7 @@ class TimeOutFlowTests(unittest.IsolatedAsyncioTestCase):
         # opens behind it with no heading of its own -- see
         # `d12ball.flow.windows.begin_time_out`.
         self.assertNotIn("heading", kwargs)
-        self.assertIn("call a time out", kwargs["lead_in"])
+        self.assertIn("calls a time out", kwargs["lead_in"])
         # The side that gave it up coaches first.
         self.assertEqual(
             cog.begin_substitution_window.call_args.kwargs["side"], TeamSide.HOME,

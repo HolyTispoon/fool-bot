@@ -47,8 +47,9 @@ from d12ball.formatting import (
     challenger_prompt_ask,
     format_player_with_team,
     format_team_side_label,
+    format_team_coach,
 )
-from d12ball.game import COIN_FACE_WORDS, D12BallGame, team_display_name
+from d12ball.game import COIN_FACE_WORDS, D12BallGame
 from d12ball.special_abilities import GLOMPEX_JOIN_COST
 from d12ball.prompts import (
     SCORE_ATTEMPT_ASK,
@@ -396,13 +397,13 @@ def announce_uncontested_maneuver(
     defense_setup = match.setup_for_side(match.defending_side())
 
     if match.eligible_challengers():
-        reason = "have sent nobody in to challenge"
+        reason = "has sent nobody in to challenge"
     else:
-        reason = "have nobody left to challenge"
+        reason = "has nobody left to challenge"
 
     return StepResult(
         narration=[
-            f"**Unchallenged!** {format_team_side_label(defense_setup)} "
+            f"**Unchallenged!** {format_team_side_label(defense_setup, game)} "
             f"{reason} "
             f"{engine.format_player_label(match, handler)}, "
             "so whichever maneuver the offense picks succeeds."
@@ -554,11 +555,11 @@ def challenger_choice_prompt(
         engine.defending_player_number(game, match),
         mention=True,
     )
-    handler_team = match.team_for_player(handler.player_id)
+    handler_side = match.setup_for_side(match.side_for_player(handler.player_id))
     return PendingPrompt(
         PromptKind.MANEUVER_CHALLENGE,
         f"{engine.format_player_label(match, handler)} will "
-        f"maneuver for {team_display_name(handler_team)}.\n\n"
+        f"maneuver for {format_team_coach(handler_side, game)}.\n\n"
         f"{defender_mention}, {challenger_prompt_ask(match)}",
     )
 
@@ -1367,7 +1368,7 @@ def start_turn(
     # built, so its time-out button already reads the possession.
     if match.begin_last_possession():
         holder = format_team_side_label(
-            match.setup_for_side(match.ball.possession)
+            match.setup_for_side(match.ball.possession), game
         )
         narration.append(
             f"{holder} has **last possession**: their next turnover "
