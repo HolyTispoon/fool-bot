@@ -218,6 +218,27 @@ Two things follow from that:
   reason: its own turn has already been reset, so the prompt a cleared turn
   puts up would be asking a side to act with no handler chosen.
   `offensive_choice` refuses in all the same states for the same reasons.
+- **`force` loads a save whose ball handler is stranded; nothing else
+  does.** `MatchState.validate` refuses a turn whose handler is no longer
+  on the ball for the side in possession (`turn_handler_stranded`), so
+  such a save fails every load -- every command in the channel, `resume`
+  included, used to die on it as an unhandled error. It got there through
+  `/d12ball ball move` after a mis-resolved Low Pass (2026-10-05): the
+  command moved the ball off the receiver and saved the position as it
+  was. So `resume` loads with `check_turn=False`, `reset_turn` clears the
+  very thing the check is about, and any other command that cannot load
+  the game says why and points at `force` (`defer_and_get_match`).
+  The check itself stays on every other load: a stranded handler reached
+  any other way is a bug to see, not to step over.
+- **A hand edit never saves a stranded handler.** `/d12ball ball move`,
+  `ball possession`, `meeple move`, `coach` and `ref` save through
+  `GameService.save_hand_edit`: where the edit left the turn's handler
+  off the ball, the turn is thrown away and the offense asked again, as
+  `force` does, and the confirmation says so; where `force` itself would
+  refuse (a time out, halftime, ...), the edit is refused and nothing is
+  written. Clearing rather than refusing, because the edit is somebody
+  correcting the position, and the turn that was open was a turn over the
+  position they are correcting.
 - **`/d12ball offensive_choice`'s refusals all point at resume.** "A score
   attempt is already in progress" was the symptom that started this:
   `pending_action` stays `"shoot"` for the whole post-goal sequence, since only

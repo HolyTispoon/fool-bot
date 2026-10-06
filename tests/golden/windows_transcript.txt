@@ -539,9 +539,9 @@ Every fielded player clears 1 exhaustion:
 🟣 Emberdash [PM] clears an extra exhaustion token (now 0).
 --- message
 <@111>, Orange (Home): choose one fielded player to clear an extra exhaustion token.
-=== press 48: HalftimeExtraTokenView -> 'Acidel [SK] (0 exhaustion)'
+=== press 48: HalftimeExtraTokenView -> 'Flickerwing [WG] (4 exhaustion)'
 --- message
-🟠 Acidel [SK] had no exhaustion to clear.
+🟠 Flickerwing [WG] clears an extra exhaustion token (now 3).
 --- message
 # Coaching Choice
 **Purple (Visiting) are done.**
@@ -682,7 +682,7 @@ Ball is now in space 5, Purple (Visiting) has possession.
 === press 62: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
 --- message
 Flickerwing has moved 1 space.
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 5 total).
+🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 4 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -702,7 +702,7 @@ You chose **Pressure**.
 🟠 Flickerwing [WG]: defense skill 2
 
 🟣 Gurgoth [DD] exhausts 1 😮‍💨 (now 1 total).
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 6 total).
+🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 5 total).
 --- message
 Either player can roll:
 === press 64: SkillTestView -> 'Roll the skill test'
@@ -710,10 +710,10 @@ Either player can roll:
 ## **High Pass** wins the skill test!
 Time has advanced 2, now at 21.
 --- message
-<@111>, 🟠 Flickerwing [WG] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
+<@111>, 🟠 Flickerwing [WG] is exhausted and owes an injury test: a d12 that has to beat their 5 exhaustion tokens.
 === press 65: InjuryTestView -> 'Roll the injury test'
 --- message
-🟠 Flickerwing [WG] is exhausted and rolls an injury test: 11 beats their 6 exhaustion tokens.
+🟠 Flickerwing [WG] is exhausted and rolls an injury test: 11 beats their 5 exhaustion tokens.
 🟠 Flickerwing [WG] is **safe**.
 --- message
 **High Pass:** the ball moves 3 spaces forward.
@@ -1057,7 +1057,7 @@ versus
 Either player can roll:
 === press 95: ShootoutTestView -> 'Roll the skill test'
 --- message
-🟠 Flickerwing [WG] rolls an injury test before the shot: 12 beats their 6 exhaustion tokens.
+🟠 Flickerwing [WG] rolls an injury test before the shot: 12 beats their 5 exhaustion tokens.
 🟠 Flickerwing [WG] is **safe**.
 🟣 Gurgoth [DD] rolls an injury test before the shot: 1 does not beat their 1 exhaustion tokens.
 🟣 Gurgoth [DD] is **injured**.
