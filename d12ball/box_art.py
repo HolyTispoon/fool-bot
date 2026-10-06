@@ -51,6 +51,7 @@ from d12ball.boards import (
     FieldGeometry,
     Sheet,
     draw_fitted,
+    field_sheet,
     print_font,
     render_field_board,
 )
@@ -1816,9 +1817,8 @@ def board_photo(
     and where each space sits is `FieldGeometry`'s, so a layout change
     upstream moves the meeples with it.
 
-    Cropped to the strip and the bands around it: the board is
-    portrait and most of its length is the two zone-assignment card
-    rows, which say nothing in a picture an inch and a half tall.
+    Cropped to the strip and the bands around it, inside the board's
+    printed margin.
     """
     rules = rules or load_basic_ruleset()
     catalog = catalog or load_player_catalog()
@@ -1826,7 +1826,7 @@ def board_photo(
     layout = rules.board_layouts[board_size]
 
     printed = render_field_board(rules, board_size=board_size)
-    sheet = Sheet(printed.width, printed.height, background=PAPER)
+    sheet = field_sheet(printed.width, printed.height, background=PAPER)
     sheet.image.paste(printed, (0, 0))
     geometry = FieldGeometry.for_sheet(sheet, layout)
 
@@ -1852,10 +1852,7 @@ def board_photo(
     strip_height = geometry.strip_bottom - geometry.strip_top
 
     # Cut to the board itself: the title, the arrows, the strip and
-    # the range bracket. The two zone-assignment rows are most of this
-    # sheet's length and the visiting coach's is printed upside down
-    # for them, which is right on the table and is a mistake in a
-    # picture, so the crop stops inside both of them.
+    # the range bracket.
     pad = strip_height * 0.12
     # `strip_only` drops the title and the arrows as well, for a panel
     # that is much wider than it is tall: what is left is the row of
@@ -1864,9 +1861,9 @@ def board_photo(
     return sheet.image.crop(
         (
             0,
-            round(max(geometry.visiting_zone_bottom, top - pad)),
+            round(max(0, top - pad)),
             printed.width,
-            round(min(geometry.home_zone_top, geometry.range_bottom + pad)),
+            round(min(printed.height, geometry.range_bottom + pad)),
         )
     )
 
