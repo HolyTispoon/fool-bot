@@ -28,7 +28,7 @@ because of what this file has to reach.
   `SafeView.may_act_for` would refuse half the presses. `D12BallGame`
   refuses two coaches on one id outright, so "two humans" is not
   available to a script at all.
-- **Standard mode on board 7 in 2-2-2**, the standard deal. The advanced
+- **Training mode on board 7 in 2-2-2**, the standard deal. The advanced
   modules are the advanced golden's ground, and every press spent on a
   gambit or a Mind Pull offer here is a press not spent getting to
   minute 30. This game plays both halves out, so it is deliberately the
@@ -41,14 +41,15 @@ because of what this file has to reach.
   The recorded run is 2-2 and the shootout settles it 4-3 in sudden
   death.
 
-**The AI side's halftime substitution is pinned here**, which the seed
-before this one could not manage: Dinky substitutes only to get an
-injured player off, so a script cannot make it swap anybody, and
-whether one of its players is hurt at the break is the dice's to
-decide. On seed 337 one is -- Gurgoth comes on for the injured Glompex
-in Purple's halftime window -- so both sides' halftime windows run
-here *and* both move a player. The old seed covered Dinky's
-substitution routine only in a time out it called itself.
+**The AI side's halftime substitution is pinned here**, which the first
+two seeds could not manage: Dinky substitutes only to get an injured
+player off, so a script cannot make it swap anybody, and whether one of
+its players is hurt at the break is the dice's to decide. On seed 337
+one is -- a Purple player is injured before the break and replaced in
+Purple's halftime window -- so both sides' halftime windows run here
+*and* both move a player, and `test_the_ai_side_substitutes_at_halftime`
+asserts it. Those first seeds covered Dinky's substitution routine only
+in a time out it called itself.
 
 **The press rule is the script**, and it has four rules on top of the
 advanced golden's two ("never press Back", "leave a coaching hub by
@@ -60,7 +61,8 @@ Done"), each one there to reach a window:
   taken early in each half, which is what makes this file the
   regression test for a new play's window as well: every restart
   Orange makes after press 2 offers them a Coaching Choice they had
-  a spent time out at the time of, and the first is at press 16.
+  a spent time out at the time of; the first `CoachingOfferView` in
+  the transcript is one.
 - **A halftime window makes one substitution**, read off the match
   rather than counted in the script: a hub whose side is on a halftime
   coaching stage with nothing yet in `pending_coaching_swaps` goes to
@@ -102,6 +104,7 @@ from save_patches import (
 )
 
 from d12ball.components import MatchState
+from d12ball.formatting import side_display_name
 from d12ball.game import Formation, GameMode, GameStatus, Team
 
 # The fixtures are the tutorial suite's, the same way the advanced
@@ -195,8 +198,8 @@ def build_windows_cog():
 
 def build_windows_game():
     """
-    A solo standard game -- see the module docstring for why it is not two
-    humans and not advanced.
+    A solo training game -- see the module docstring for why it is not two
+    humans and plays no ability.
     """
     return build_game(
         tutorial=False,
@@ -362,6 +365,51 @@ def views_pressed(transcript: str) -> set[str]:
     return set(re.findall(r"press \d+: (\w+)", transcript))
 
 
+#: The views a halftime window is answered on. A press on anything else
+#: is the second half kicking off, and the end of both windows.
+HALFTIME_VIEWS = frozenset({
+    "HalftimeExtraTokenView",
+    "CoachingHubView",
+    "CoachingOfferView",
+    "CoachingSubstitutionOutView",
+    "CoachingSubstitutionInView",
+})
+
+
+def ai_halftime_substitution(transcript: str) -> bool:
+    """
+    Whether Dinky's halftime window closed with a player coming on.
+
+    Read off the window's own closing message -- "<side> is done." and
+    the swaps listed under it -- between the halftime heading and the
+    first press that is not part of a halftime window. There is no
+    substitution event to read it off, and the human's window closes
+    with the same message, so the AI side's label is what picks the
+    right one; it is the fixture's visiting team, as the window names
+    it, rather than spelt here.
+    """
+    # The window names its side the long way -- the team's mark, the
+    # coach, the end -- so the AI side's line is the one that closes on
+    # the visiting end.
+    visiting = build_windows_match().visiting
+    ai_done_end = f"({side_display_name(visiting.side)}) is done.**"
+    lines = transcript.split("\n")
+    if "# Halftime" not in lines:
+        return False
+    in_ai_window = False
+    for line in lines[lines.index("# Halftime"):]:
+        press = re.match(r"=== press \d+: (\w+)", line)
+        if press and press.group(1) not in HALFTIME_VIEWS:
+            return False
+        if line.startswith("**") and line.endswith(ai_done_end):
+            in_ai_window = True
+        elif line.startswith("---"):
+            in_ai_window = False
+        elif in_ai_window and " came on for " in line:
+            return True
+    return False
+
+
 class WindowsGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
     """One whole game, recorded and compared."""
 
@@ -504,6 +552,22 @@ class WindowsGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
         cannot arrange -- and what `ShootoutPickPromptView` exists for.
         """
         self.assertIn("ShootoutPickPromptView", views_pressed(self.transcript))
+
+    async def test_the_ai_side_substitutes_at_halftime(self) -> None:
+        """
+        The third thing the seed is kept for, and the one no script can
+        reach: Dinky substitutes only to get an injured player off, so
+        a Purple player hurt before the break is the dice's to arrange.
+        Asserted like the level score and the sudden death, so a
+        re-pick that lost it says so rather than quietly recording a
+        halftime where only one bench moves.
+        """
+        self.assertTrue(
+            ai_halftime_substitution(self.transcript),
+            "the recorded run no longer has Dinky substituting at "
+            "halftime -- pick a seed on which one of its players is "
+            "injured at the break and regenerate.",
+        )
 
 
 class WindowsGoldenDeterminismTests(unittest.TestCase):

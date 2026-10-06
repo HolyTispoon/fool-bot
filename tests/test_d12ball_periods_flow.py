@@ -106,6 +106,9 @@ class EndPeriodTests(PeriodFixture):
         """
         self.match.scoreboard.time = 19
         self.match.scoreboard.last_possession = True
+        # Somebody still tired after the automatic recovery, so the
+        # visitors are asked for their extra token rather than passed.
+        self.match.exhaustion[self.match.visiting.field_players[0]] = 2
 
         result = end_period(self.engine, self.game, self.match)
 
@@ -337,6 +340,7 @@ class HalftimeFlowTests(PeriodFixture):
         self,
     ) -> None:
         self.match.pending_halftime_stage = "extra_token_home"
+        self.match.exhaustion[self.match.home.field_players[0]] = 1
 
         result = begin_halftime_extra_token(
             self.engine, self.game, self.match, TeamSide.HOME,
@@ -357,6 +361,8 @@ class HalftimeFlowTests(PeriodFixture):
         low, high = self.match.visiting.field_players[:2]
         self.match.exhaustion[low] = 1
         self.match.exhaustion[high] = 4
+        # Home is asked next only while somebody there has a token.
+        self.match.exhaustion[self.match.home.field_players[0]] = 1
 
         result = begin_halftime_extra_token(
             self.engine, solo, self.match, TeamSide.VISITING,
@@ -383,6 +389,37 @@ class HalftimeFlowTests(PeriodFixture):
         self.match.pending_halftime_stage = "extra_token_home"
         for player_id in self.match.home.field_players:
             self.match.injured.add(player_id)
+
+        result = begin_halftime_extra_token(
+            self.engine, self.game, self.match, TeamSide.HOME,
+        )
+
+        self.assertEqual(result.narration, [])
+        self.assertNotEqual(
+            self.match.pending_halftime_stage, "extra_token_home",
+        )
+
+    def test_only_a_player_with_a_token_is_offered(self) -> None:
+        """
+        Picking a player with nothing to clear would do nothing, so
+        they are not a choice.
+        """
+        self.match.pending_halftime_stage = "extra_token_home"
+        tired, *fresh = self.match.home.field_players
+        self.match.exhaustion[tired] = 2
+
+        result = begin_halftime_extra_token(
+            self.engine, self.game, self.match, TeamSide.HOME,
+        )
+        options = pending_prompt(self.engine, self.game, self.match).options
+
+        self.assertEqual(result.next.kind, PromptKind.HALFTIME_EXTRA_TOKEN)
+        self.assertEqual(options.player_ids, (tired,))
+
+    def test_a_side_with_nobody_tired_is_passed_over_in_silence(
+        self,
+    ) -> None:
+        self.match.pending_halftime_stage = "extra_token_home"
 
         result = begin_halftime_extra_token(
             self.engine, self.game, self.match, TeamSide.HOME,
@@ -866,6 +903,9 @@ class WindowStateSurvivesASaveTests(PeriodFixture):
         self.assert_survives(PromptKind.COACHING_HUB)
 
     def test_halftime_s_extra_token(self) -> None:
+        # Still tired after the automatic recovery, so the visitors
+        # are asked.
+        self.match.exhaustion[self.match.visiting.field_players[0]] = 2
         begin_halftime(self.engine, self.game, self.match)
         self.assert_survives(PromptKind.HALFTIME_EXTRA_TOKEN)
 

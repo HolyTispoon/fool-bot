@@ -999,17 +999,53 @@ class GameService:
         separately because it is not part of a turn.
         """
         game = self.game(game_id)
-        match = self.load(game)
+        # Loaded without the stranded-handler check: the turn it would
+        # refuse is the one about to be thrown away, and a save left
+        # that way (a hand edit before `save_hand_edit`) has no other
+        # way back.
+        match = self.engine.load_match_state(game, check_turn=False)
         refusal = self.engine.turn_reset_refusal(match)
         if refusal is not None:
             return GameResult(refusal=refusal, match=match)
+        return self._clear_turn(game, match, board_changed=True)
+
+    def save_hand_edit(
+        self, game: D12BallGame, match: MatchState,
+    ) -> Optional[GameResult]:
+        """
+        Save a position an admin command edited by hand -- the ball or
+        a meeple moved, possession handed over, a card moved -- and
+        `None` where that is all it was.
+
+        **A hand edit may strand the turn's ball handler**: the ball
+        moved off them, or possession handed to the other side, with
+        the turn they were taking still open. That position fails
+        `MatchState.validate`, so saving it would leave a game nothing
+        can load. Instead the turn is thrown away and the offense asked
+        again, as `reset_turn` does, and the result is that prompt for
+        the frontend to put up. Where the turn may not be cleared
+        (`RulesEngine.turn_reset_refusal`) the edit is refused and
+        nothing is written.
+        """
+        if not match.turn_handler_stranded():
+            self.persist(game, match)
+            return None
+        refusal = self.engine.turn_reset_refusal(match)
+        if refusal is not None:
+            return GameResult(refusal=refusal, match=match)
+        # The command announces the edit with the board itself.
+        return self._clear_turn(game, match, board_changed=False)
+
+    def _clear_turn(
+        self, game: D12BallGame, match: MatchState, *, board_changed: bool,
+    ) -> GameResult:
         match.reset_maneuver()
         match.close_coaching_window()
         return self.run(
             game,
             match,
             StepResult(
-                board_changed=True,
+                board_changed=board_changed,
                 next=FollowOn(FollowOnStep.SEND_TURN_PROMPT),
             ),
         )

@@ -1859,12 +1859,7 @@ def _pending(
             # is passed over in silence, which is the stage's own
             # step. An AI side is asked like a coach and answers
             # through the service (`AIStrategy.choose`).
-            eligible = [
-                player_id
-                for player_id in match.setup_for_side(side).field_players
-                if player_id not in match.injured
-            ]
-            if not eligible:
+            if not halftime_token_candidates(match, side):
                 return FollowOn(FollowOnStep.ADVANCE_HALFTIME_STAGE)
             return PendingPrompt(
                 PromptKind.HALFTIME_EXTRA_TOKEN,
@@ -2581,17 +2576,33 @@ def _ball_recovery_options(
 
 
 
+def halftime_token_candidates(
+    match: MatchState,
+    side: TeamSide,
+) -> tuple[str, ...]:
+    """
+    Whom `side`'s coach may pick to clear the extra token at halftime
+    (Law 15.5.1): their fielded players still carrying one. A player
+    with nothing left to clear is not a choice -- picking them would
+    do nothing -- and an injured player never carries exhaustion.
+    `pending` and `begin_halftime_extra_token` ask this to decide
+    whether the side is asked at all, and the prompt's options are it.
+    """
+    return tuple(
+        player_id
+        for player_id in match.setup_for_side(side).field_players
+        if player_id not in match.injured
+        and match.exhaustion.get(player_id, 0) > 0
+    )
+
+
 def _halftime_token_options(
     engine: "RulesEngine",
     game: D12BallGame,
     match: MatchState,
     prompt: PendingPrompt,
 ) -> PlayerOptions:
-    return PlayerOptions(tuple(
-        player_id
-        for player_id in match.setup_for_side(prompt.side).field_players
-        if player_id not in match.injured
-    ))
+    return PlayerOptions(halftime_token_candidates(match, prompt.side))
 
 
 def _set_up_attempt_options(

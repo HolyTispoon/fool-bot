@@ -262,6 +262,9 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         match.scoreboard.time = 19
         match.scoreboard.last_possession = True
+        # Somebody still tired after the automatic recovery, so the
+        # visitors are asked for their extra token rather than passed.
+        match.exhaustion[match.visiting.field_players[0]] = 2
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 

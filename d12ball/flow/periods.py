@@ -72,6 +72,7 @@ from d12ball.game import D12BallGame
 from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
+    halftime_token_candidates,
     shootout_order_prompt,
     shootout_pick_prompt,
 )
@@ -444,18 +445,13 @@ def begin_halftime_extra_token(
     exhaustion token, on top of the automatic recovery every
     fielded player already got in `begin_halftime`.
 
-    **A side with nobody eligible is passed over in silence**, the way
-    the full-time window skips a side with an empty bench: a menu with
-    no button on it is not a question.
+    Only a player still carrying a token is offered
+    (`halftime_token_candidates`). **A side with nobody to offer is
+    passed over in silence**, the way the full-time window skips a side
+    with an empty bench: a menu with no button on it is not a question.
     """
     setup = match.setup_for_side(side)
-    eligible = [
-        player_id
-        for player_id in setup.field_players
-        if player_id not in match.injured
-    ]
-
-    if not eligible:
+    if not halftime_token_candidates(match, side):
         engine.next_halftime_stage(match)
         return advance_halftime_stage(engine, game, match)
 
@@ -484,14 +480,12 @@ def halftime_extra_token_step(
     coach and for the AI alike (`AIStrategy.choose`, through the
     service).
 
-    **A player with no tokens to lose is not refused**, because picking
-    them is a legal answer to the question asked: every fielded player
-    who is not injured is on the menu, and what a coach gets for
-    picking the fresh one is a sentence saying so.
+    Only a player still carrying a token is offered, and the driver
+    refuses anybody else, so the pick always clears one.
     """
     player = engine.get_player_definition(player_id)
     threshold = engine.exhaustion_threshold(game, player_id)
-    removed = match.recover_exhaustion(player_id, 1, threshold)
+    match.recover_exhaustion(player_id, 1, threshold)
     engine.next_halftime_stage(match)
 
     remaining = match.exhaustion.get(player_id, 0)
@@ -504,10 +498,7 @@ def halftime_extra_token_step(
     result.narration.insert(
         0,
         f"{engine.format_player_label(match, player)} clears "
-        f"an extra {noun} token (now {remaining})."
-        if removed
-        else f"{engine.format_player_label(match, player)} "
-        f"had no {noun} to clear.",
+        f"an extra {noun} token (now {remaining}).",
     )
     result.board_changed = True
     return result

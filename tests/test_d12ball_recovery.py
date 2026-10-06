@@ -157,6 +157,7 @@ class PendingTurnViewTests(unittest.TestCase):
     def test_halftime_beats_the_missing_ball_handler(self) -> None:
         cog, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
+        match.exhaustion[match.visiting.field_players[0]] = 1
 
         view, _ = cog.pending_turn_view("g1", match)
 
@@ -607,6 +608,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         # puts it back rather than re-driving the stage over it.
         cog, game, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
+        match.exhaustion[match.visiting.field_players[0]] = 1
         interaction = build_interaction()
 
         with suppressed_cog_saves(), self.owed(
@@ -762,6 +764,47 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         cog.present.assert_not_awaited()
         self.assertTrue(cog.engine.load_match_state(game).pending_time_out)
 
+    async def test_force_recovers_a_handler_stranded_off_the_ball(
+        self,
+    ) -> None:
+        """
+        A save whose ball handler is off the ball fails its own check,
+        so nothing in the channel loads it -- `resume force` is the
+        way back, and leaves the ball where it was put.
+        """
+        cog, game, match = self.build()
+        stranded = match.active_player_id
+        zone, space_index = strand_handler(match)
+        game.match_state = match.to_dict()
+        with self.assertRaises(ValueError):
+            cog.engine.load_match_state(game)
+
+        await self.run_resume(cog, build_interaction(), force=True)
+
+        resumed = cog.engine.load_match_state(game)
+        self.assertNotEqual(resumed.active_player_id, stranded)
+        self.assertFalse(resumed.turn_handler_stranded())
+        self.assertEqual(
+            (resumed.ball.zone, resumed.ball.space_index),
+            (zone, space_index),
+        )
+        _, _, result = cog.present.await_args.args
+        self.assertIs(result.prompt.kind, PromptKind.PLAYER_ACTION)
+
+    async def test_a_stranded_handler_points_a_plain_command_at_force(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        strand_handler(match)
+        game.match_state = match.to_dict()
+        interaction = build_interaction()
+
+        self.assertIsNone(await cog.defer_and_get_match(interaction))
+
+        message, _ = interaction.followup.send.await_args
+        self.assertIn("does not load", message[0])
+        self.assertIn("force:true", message[0])
+
     async def test_a_state_that_will_not_load_says_so(self) -> None:
         cog, _, _ = self.build()
         cog.resume_game.side_effect = ValueError("nope")
@@ -772,6 +815,116 @@ class ResumeCommandTests(unittest.IsolatedAsyncioTestCase):
         message, _ = interaction.followup.send.await_args
         self.assertIn("could not resume", message[0])
         self.assertIn("force:true", message[0])
+
+
+def strand_handler(match: MatchState) -> tuple[Zone, int]:
+    """Move the ball, as `/d12ball ball move` does, to an occupied
+    space the turn's ball handler is not on; returns the space."""
+    for zone, spaces in match.board.spaces.items():
+        for space_index, occupants in enumerate(spaces):
+            if occupants and match.active_player_id not in occupants:
+                match.move_ball(zone, space_index)
+                return zone, space_index
+    raise AssertionError("No occupied space without the handler.")
+
+
+class HandEditTests(unittest.IsolatedAsyncioTestCase):
+    """
+    The admin commands that edit the position by hand save through
+    `GameService.save_hand_edit`. An edit that leaves the turn's ball
+    handler off the ball used to be saved as it was, and the save then
+    failed its own check on every load -- the game could not be
+    resumed or edited back. See "Recovering a stuck game" in
+    docs/design/recovery.md.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.catalog = load_player_catalog()
+        cls.rules = load_basic_ruleset()
+
+    def build(self):
+        cog = build_cog()
+        game = build_game()
+        cog.games[game.game_id] = game
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=7,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        match.active_player_id = match.eligible_ball_handlers()[0]
+        game.match_state = match.to_dict()
+        cog.announce_board_update = mock.AsyncMock()
+        cog.present = mock.AsyncMock()
+        return cog, game, match
+
+    def space_without(self, match: MatchState) -> str:
+        copy = MatchState.from_dict(match.to_dict(), self.rules)
+        zone, space_index = strand_handler(copy)
+        return f"{zone.value}:{space_index}"
+
+    async def ball_move(self, cog, destination: str, interaction=None):
+        with suppressed_cog_saves():
+            await D12Ball.ball_move.callback(
+                cog, interaction or build_interaction(), destination,
+            )
+
+    async def test_moving_the_ball_off_the_handler_clears_the_turn(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        handler = match.active_player_id
+        destination = self.space_without(match)
+
+        await self.ball_move(cog, destination)
+
+        moved = cog.engine.load_match_state(game)
+        self.assertNotEqual(moved.active_player_id, handler)
+        self.assertFalse(moved.turn_handler_stranded())
+        self.assertEqual(
+            f"{moved.ball.zone.value}:{moved.ball.space_index}", destination,
+        )
+        message = cog.announce_board_update.await_args.args[2]
+        self.assertIn("the turn is cleared", message)
+        _, _, result = cog.present.await_args.args
+        self.assertIs(result.prompt.kind, PromptKind.PLAYER_ACTION)
+
+    async def test_an_edit_that_keeps_the_handler_keeps_the_turn(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        handler = match.active_player_id
+        destination = (
+            f"{match.ball.zone.value}:{match.ball.space_index}"
+        )
+
+        await self.ball_move(cog, destination)
+
+        self.assertEqual(
+            cog.engine.load_match_state(game).active_player_id, handler,
+        )
+        message = cog.announce_board_update.await_args.args[2]
+        self.assertNotIn("the turn is cleared", message)
+        cog.present.assert_not_awaited()
+
+    async def test_an_edit_that_may_not_clear_the_turn_is_not_saved(
+        self,
+    ) -> None:
+        cog, game, match = self.build()
+        match.pending_time_out = True
+        game.match_state = match.to_dict()
+        saved = game.match_state
+        interaction = build_interaction()
+
+        await self.ball_move(cog, self.space_without(match), interaction)
+
+        self.assertEqual(game.match_state, saved)
+        cog.announce_board_update.assert_not_awaited()
+        message, _ = interaction.followup.send.await_args
+        self.assertIn("was not saved", message[0])
 
 
 class AbandonGameTests(unittest.IsolatedAsyncioTestCase):

@@ -38,7 +38,7 @@ transcript if it is the same every time. `GOLDEN_SEED` is chosen so the
 run scores, because that is the path the script is built to reach; a
 seed that missed would pin the unusual branch as the reference.
 
-**What it does not cover.** This golden is one *standard*-mode solo game on
+**What it does not cover.** This golden is one *training*-mode solo game on
 board 7, so it watches no advanced maneuver, no species ability, no
 halftime, no shootout and no time out. Phase 4 added the second one this
 asked for -- `tests/test_golden_advanced.py`, an advanced game in 2-3-1
@@ -68,6 +68,8 @@ from save_patches import (
     suppressed_cog_saves,
     suppressed_full_image_links,
 )
+
+from d12ball.game import GameMode
 
 # The fixtures are the tutorial suite's, deliberately: one home for
 # "how you stand a cog up with Discord mocked". What is not shared is
@@ -120,7 +122,11 @@ async def record_playthrough(seed: int = GOLDEN_SEED) -> tuple[str, dict]:
     # docs/architecture-migration.md), so that is what the seed fixes;
     # nothing here touches the module `random`, and nothing leaks.
     cog.engine.rng.seed(seed)
-    game = build_game(tutorial_step=None)
+    # A tutorial is a training game (`D12BallGame.pin_tutorial`), and
+    # the record says so here as it does on a real one. The engine
+    # plays a tutorial as training whatever its mode says, so the
+    # transcript is the same either way; the label is for the reader.
+    game = build_game(tutorial_step=None, mode=GameMode.TRAINING)
     game.match_state = build_match().to_dict()
     cog.games["g1"] = game
 

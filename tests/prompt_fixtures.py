@@ -222,6 +222,8 @@ def full_time_stage_with_no_window() -> PromptFixture:
 def halftime_extra_token() -> PromptFixture:
     match = build_match()
     match.pending_halftime_stage = "extra_token_visiting"
+    # Only a player still carrying a token is offered.
+    match.exhaustion[match.visiting.field_players[0]] = 2
     return PromptFixture(
         build_game(),
         match,
@@ -235,6 +237,8 @@ def halftime_extra_token_for_the_ai() -> PromptFixture:
     # service answers it.
     match = build_match()
     match.pending_halftime_stage = "extra_token_visiting"
+    # Only a player still carrying a token is offered.
+    match.exhaustion[match.visiting.field_players[0]] = 2
     return PromptFixture(
         build_game(player_2_id=None),
         match,

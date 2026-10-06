@@ -848,18 +848,18 @@ class ShootoutDeclarationTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Roll the skill test", self.labels(view))
         self.assertIn("Your Order", self.labels(view))
 
-        # Home declares: the reply names the visiting coach, and the
-        # prompt is left as it is.
+        # Home declares: the prompt is redrawn without home's
+        # Overdrive, Roll still off it, and what follows names the
+        # visiting coach.
         home = match.shootout_shooter(TeamSide.HOME)
         first = build_interaction(111)
         first.data = {"custom_id": f"d12ball:overdrive:g1:{home}"}
         with suppressed_cog_saves():
             await view.declare_overdrive(first)
-        first.response.edit_message.assert_not_awaited()
-        self.assertIn(
-            "<@222> decides on Overdrive next",
-            first.response.send_message.await_args.args[0],
-        )
+        first.response.send_message.assert_not_awaited()
+        redrawn = first.response.edit_message.await_args.kwargs["view"]
+        self.assertNotIn("Roll the skill test", self.labels(redrawn))
+        self.assertIn("<@222> decides on Overdrive next", sent_texts(first)[0])
 
         # Visiting passes: nobody is left to decide, so Roll goes up on
         # the prompt itself and the pass is said after it.

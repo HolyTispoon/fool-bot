@@ -249,6 +249,8 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         low, high = match.visiting.field_players[:2]
         match.exhaustion[low] = 1
         match.exhaustion[high] = 4
+        # Home is asked next only while somebody there has a token.
+        match.exhaustion[match.home.field_players[0]] = 1
 
         with suppressed_cog_saves():
             await begin_halftime_extra_token(cog, 
@@ -269,6 +271,7 @@ class HalftimeExtraTokenTests(unittest.IsolatedAsyncioTestCase):
         game = build_human_game()
         match = self.build_match()
         match.pending_halftime_stage = "extra_token_home"
+        match.exhaustion[match.home.field_players[0]] = 1
         cog.games[game.game_id] = game
         game.match_state = match.to_dict()
 

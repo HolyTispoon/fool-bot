@@ -40,6 +40,7 @@ from cogs.d12ball_helpers import (
     may_act_in_game as user_may_act_in_game,
     player_with_role,
     send_error_fallback,
+    send_new_prompt,
 )
 
 
@@ -437,6 +438,7 @@ class SafeView(discord.ui.View):
         game: D12BallGame,
         match: MatchState,
         options,
+        roll: Optional[discord.ui.Button] = None,
     ) -> None:
         """
         Put an Overdrive button on this roll prompt for every Cyborg
@@ -458,10 +460,22 @@ class SafeView(discord.ui.View):
         drains, and who may Boost instead (Gearclaw, Law 21).
 
         The button is **not** built for a Cyborg who has already
-        declared -- "once per roll" -- so a message that has been
+        declared -- "once per roll" -- nor for a side whose coach has
+        passed (`overdrive_candidates`), so a message that has been
         clicked comes back with one fewer button, which is also how a
-        coach can see the declaration took.
+        coach can see the declaration took (`answer_declaration` puts
+        it back up after every press).
+
+        **The colours say whose press is owed** (the author,
+        2026-10-05): the deciding coach's Pass is red, and `roll`, the
+        prompt's own Roll, is grey and disabled until nobody is left to
+        decide -- the driver refuses it until then anyway
+        (`refuse_roll_while_deciding`); this only stops it being
+        offered.
         """
+        if roll is not None and options.undecided_sides:
+            roll.style = discord.ButtonStyle.secondary
+            roll.disabled = True
         for player_id in options.boost_player_ids:
             player = self.cog.engine.get_player_definition(player_id)
             button = discord.ui.Button(
@@ -494,8 +508,9 @@ class SafeView(discord.ui.View):
             button.callback = self.declare_overdrive
             self.add_item(button)
         # The explicit no, one per coach still to decide. Both are up
-        # from the start, so the message never has to be redrawn; the
-        # defender's is refused until the attacker has decided.
+        # from the start; the defender's is grey and refused until the
+        # attacker has decided, and turns red when the message is
+        # redrawn after that.
         for side in options.undecided_sides:
             button = discord.ui.Button(
                 label=(
@@ -504,7 +519,11 @@ class SafeView(discord.ui.View):
                         game, self.cog.engine.side_player_number(game, side),
                     )
                 )[:80],
-                style=discord.ButtonStyle.secondary,
+                style=(
+                    discord.ButtonStyle.danger
+                    if side is options.deciding_side
+                    else discord.ButtonStyle.secondary
+                ),
                 custom_id=(
                     f"d12ball:overdrive_pass:{self.game_id}:{side.value}"
                 ),
@@ -613,13 +632,39 @@ class SafeView(discord.ui.View):
         self, interaction: discord.Interaction, result,
     ) -> None:
         """
-        Say what an Overdrive, a Boost or a pass did: one reply, which
-        names the next coach to decide where there is one -- the one
-        request a press costs, and the prompt is never redrawn. A roll
-        view whose Roll waits off the message until everybody has
-        decided puts it up here instead (`ShootoutTestView`).
+        Say what an Overdrive, a Boost or a pass did, and redraw the
+        roll it was pressed on.
+
+        **The prompt is rebuilt on this same message** (the author,
+        2026-10-05): the press came from its buttons, so
+        `response.edit_message` swaps them for the view the position
+        now asks for -- the declared or passed side's buttons gone, the
+        next coach's Pass red, and Roll live once nobody is left to
+        decide -- through the interaction callback, which is not the
+        channel's edit bucket (docs/design/rate-limits.md). What was
+        declared goes out after it, naming the next coach to decide
+        where there is one, as every answer does.
         """
-        await interaction.response.send_message(result.answer[0])
+        game = self.cog.games.get(self.game_id)
+        waiting = (
+            None if game is None
+            else pending_prompt(self.cog.engine, game, result.match)
+        )
+        if waiting is None or waiting.options is None:
+            await interaction.response.send_message(result.answer[0])
+            return
+        await interaction.response.edit_message(
+            view=self.redrawn(result.match, waiting),
+        )
+        await send_new_prompt(interaction, result.answer[0])
+
+    def redrawn(self, match: MatchState, prompt) -> discord.ui.View:
+        """
+        This roll's view rebuilt for `prompt`, the position after a
+        declaration. A view holding something the prompt does not --
+        the score attempt's composition message -- carries it over.
+        """
+        return self.cog.view_for_prompt(self.game_id, match, prompt)
 
 
 # How long a helper's Confirm/Cancel stays in place of the prompt's own

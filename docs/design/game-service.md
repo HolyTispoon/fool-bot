@@ -25,7 +25,11 @@ the step the bot itself owes, or hands back the prompt, and says in
 words what it was waiting on; `reset_turn` is the recovery command's
 `force`, throwing a turn away and re-asking the offense, refused
 where the position is not a turn (`RulesEngine.turn_reset_refusal`).
-All five reduce to `run`, which is the loop and the save.
+All five reduce to `run`, which is the loop and the save. A sixth,
+`save_hand_edit`, is the admin commands' save of a position edited by
+hand: it persists, unless the edit stranded the turn's ball handler, in
+which case it clears the turn the way `reset_turn` does -- see
+[recovery.md](recovery.md).
 
 **The save moved out of the views and out of the dispatcher.** Before
 this, `cog.persist(` was spelled 28 times in the views and 16 times in
