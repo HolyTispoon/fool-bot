@@ -118,10 +118,12 @@ class ShootingRangeGeometryTests(unittest.TestCase):
 
     def test_each_side_may_shoot_only_from_beyond_the_middle(self) -> None:
         # Home attacks the high indices, the visitors the low ones, and
-        # the true middle space is in nobody's range.
+        # the middle is in nobody's range: the true middle space of an
+        # odd board, and both of board 10's middle spaces (Law 2.3).
         expected = {
             7: ([4, 5, 6], [0, 1, 2]),
             9: ([5, 6, 7, 8], [0, 1, 2, 3]),
+            10: ([6, 7, 8, 9], [0, 1, 2, 3]),
         }
         for board_size, (home, visiting) in expected.items():
             match = self.build_match(board_size)
@@ -149,9 +151,9 @@ class ShootingRangeGeometryTests(unittest.TestCase):
                 )
 
     def test_no_restart_begins_in_shooting_range(self) -> None:
-        # The kickoff space is the middle space, which is in nobody's
-        # range.
-        for board_size in (7, 9):
+        # The kickoff space is in the middle, which is in nobody's
+        # range -- on board 10 each side's own of its two middle spaces.
+        for board_size in (7, 9, 10):
             match = self.build_match(board_size)
             for side in TeamSide:
                 with self.subTest(board_size=board_size, side=side):
@@ -183,7 +185,7 @@ class ShootingRangeGeometryTests(unittest.TestCase):
         # closest to the opponent's goal, which the range rule always
         # allows -- so the turn prompt always offers it the shot there.
         strategy = DinkyAI(self.catalog, load_maneuver_catalog())
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             match = self.build_match(board_size)
             for side in TeamSide:
                 with self.subTest(board_size=board_size, side=side):

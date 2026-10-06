@@ -84,7 +84,7 @@ from d12ball.components import (
     load_player_catalog,
     load_species_abilities,
 )
-from d12ball.game import COLOR_TEAMS, Formation, Team
+from d12ball.game import COLOR_TEAMS, PLAYTEST_BOARD_SIZES, Formation, Team
 from d12ball.render import (
     MEEPLE_CODE_CENTER,
     MEEPLE_CODE_WIDTH,
@@ -343,7 +343,10 @@ class BoxFacts:
             maneuvers=len(every),
             basic_maneuvers=len(basic),
             gambits=len(every) - len(basic),
-            board_sizes=tuple(sorted(rules.board_layouts)),
+            board_sizes=tuple(
+                size for size in sorted(rules.board_layouts)
+                if size not in PLAYTEST_BOARD_SIZES
+            ),
             formations=len(rules.formations),
         )
 

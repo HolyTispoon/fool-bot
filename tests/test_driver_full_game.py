@@ -357,6 +357,33 @@ class DriverFullGameTests(unittest.TestCase):
         self.assertEqual(first[2], second[2])
 
 
+class DriverTenSpaceBoardTests(unittest.TestCase):
+    """
+    The playtest board (2026-10-06), whole games through the driver:
+    the two kickoff spaces, the two-space middle in neither range, and
+    the three-deep zones a 3-2-1 deals into, with every save reloaded
+    on the way as above.
+    """
+
+    def test_whole_games_finish_on_board_ten(self) -> None:
+        for seed in (SEED, SEED + 1, SEED + 2):
+            with self.subTest(seed=seed):
+                game = build_game()
+                game.board_size = 10
+                match = MatchState.standard(
+                    catalog=CATALOG,
+                    ruleset=RULESET,
+                    board_size=10,
+                    home_team=Team.TELEKINETICS,
+                    visiting_team=Team.FIRE_DEMONS,
+                    home_formation=Formation.THREE_TWO_ONE,
+                )
+                game, match, _ = play(seed, game, match)
+                self.assertTrue(game.is_finished)
+                self.assertEqual(match.board.layout.board_size, 10)
+                self.assertGreaterEqual(match.scoreboard.time, 30)
+
+
 def build_tutorial_game() -> D12BallGame:
     """The tutorial suite's game: a person against Dinky, on the rails,
     in training mode -- what `pin_tutorial` makes of a real one."""

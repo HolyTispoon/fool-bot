@@ -33,7 +33,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.formatting import is_total_modifier
+from d12ball.formatting import OUTER_ZONE_WORD_BY_BOARD_SIZE, is_total_modifier
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
 from d12ball.space_numbering import flat_space_number
 
@@ -193,13 +193,14 @@ ZONE_COLORS = {
 def zone_labels(board_size: int) -> dict[Zone, str]:
     """
     "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 7-space board;
-    "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
-    board, the only one where the three areas (H/M/V) are all equal --
-    see "The field" in the living rules and the 2026-08-24 entry in the
-    rules log. Not the same thing as FONT_GOAL_ZONE below, which labels
-    the actual goal beyond the edge of the board, not one of these three.
+    "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9- and 10-space
+    boards -- the text's own word, `OUTER_ZONE_WORD_BY_BOARD_SIZE`,
+    upper-cased, so an image and a sentence cannot name a zone
+    differently (see "The field" in the living rules). Not the same
+    thing as FONT_GOAL_ZONE below, which labels the actual goal beyond
+    the edge of the board, not one of these three.
     """
-    outer = "THIRD" if board_size == 9 else "ZONE"
+    outer = OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size].upper()
     return {
         Zone.HOME_ZONE: f"HOME {outer}",
         Zone.MIDFIELD: "MIDFIELD",
@@ -1785,9 +1786,9 @@ def shooting_range_bands(match: MatchState) -> list[tuple[int, int, int]]:
     """
     The board's spaces cut into runs that share a shooting range side:
     `(side, first_index, last_index)`, left to right -- 1 for home,
-    -1 for the visitors, 0 for the space in neither's, which only ever
-    exists on an odd-sized board (see "Field, direction, and shooting
-    range" in the living rules). The same reading `boards.py`'s printed
+    -1 for the visitors, 0 for the middle in neither's -- one space on
+    an odd-sized board, two on board 10 (see "Shooting range" in the
+    living rules). The same reading `boards.py`'s printed
     bracket makes off `is_in_shooting_range`, so the two brackets
     cannot disagree about where the line falls.
     """

@@ -44,12 +44,13 @@ printed anywhere here.
 **Zones keep their real names**, on the field and on the zone board
 where a card's zone is assigned. The areas are labelled HOME ZONE /
 MIDFIELD / VISITORS ZONE exactly as the bot's coaching image labels
-them -- HOME THIRD / VISITORS THIRD on the 9-space board, the only one
-where the three areas (H/M/V) are all equal (see "The field" in the
-living rules, and the 2026-08-24 entry in the rules log). See "Working
-on the board image" in docs/design/board-image.md for the same decision
-taken there, and "The zone board" in docs/design/printed-boards.md for
-why each coach's runs in their own order.
+them -- HOME THIRD / VISITORS THIRD on the 9- and 10-space boards,
+whose outer zones are three spaces deep (see "The field" in the living
+rules, and the 2026-08-24 and 2026-10-06 entries in the rules log). See
+"Working on the board image" in docs/design/board-image.md for the same
+decision taken there, and "The zone board" in
+docs/design/printed-boards.md for why each coach's runs in their own
+order.
 """
 from dataclasses import dataclass
 from typing import Optional, Sequence
@@ -963,9 +964,10 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
     """
     Which spaces are kickoff spaces, and whose.
 
-    Every board's midfield has a true middle, so both sides kick off
-    from it and the two land on one mark. It is still a map rather
-    than a space because the rule is asked per side --
+    On a board whose midfield has a true middle both sides kick off
+    from it and the two land on one mark; board 10's has two, one a
+    side. It is a map rather than a space because the rule is asked
+    per side --
     `kickoff_space_index` is that rule; this only places its answer on
     the whole board.
     """
@@ -1303,10 +1305,12 @@ def draw_shooting_ranges(
                 width=sheet.u(1.6),
                 dash=sheet.u(9),
             )
+            # Board 10's middle is two spaces, one each side's.
+            said = "the kickoff spaces" if last > first else "the kickoff space"
             sheet.text(
                 ((left + right) / 2, (top + bottom) / 2),
-                "the kickoff space",
-                sheet.fitted_font("the kickoff space", (right - left) * 0.92, 15),
+                said,
+                sheet.fitted_font(said, (right - left) * 0.92, 15),
                 MUTED,
                 anchor="mm",
             )
@@ -2622,8 +2626,9 @@ def render_zone_board(
     field board's length. `render_zone_board_sheet` is the page both
     coaches' are cut from.
 
-    It is per board size because the 9-space board's outer zones are
-    thirds (see `zone_labels`), and per side because the order is.
+    It is per board size because the 9- and 10-space boards' outer
+    zones are thirds (see `zone_labels`), and per side because the order
+    is.
     """
     width, height = team_board_pixels(paper)
     sheet = Sheet(width, height)

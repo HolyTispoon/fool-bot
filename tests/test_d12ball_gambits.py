@@ -1265,7 +1265,7 @@ class EveryMatchupResolvesTests(
         catalog = load_maneuver_catalog()
         for offense in catalog.offense:
             for defense in catalog.defense:
-                for board_size in (7, 9):
+                for board_size in (7, 9, 10):
                     with self.subTest(
                         offense=offense.key,
                         defense=defense.key,

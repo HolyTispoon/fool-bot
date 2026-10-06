@@ -65,18 +65,19 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 2.1 The field
 
-**2.1.1** The field is five zones, left to right: the **Home Goal**, the **Home Zone**, **midfield**, the **Visitors Zone** and the **Visitors Goal**. The three in the middle are a row of spaces, and a game is played on a board of 7 or 9 of them.
+**2.1.1** The field is five zones, left to right: the **Home Goal**, the **Home Zone**, **midfield**, the **Visitors Zone** and the **Visitors Goal**. The three in the middle are a row of spaces, and a game is played on a board of 7, 9 or 10 of them. The 10-space board is a **playtest board**: it is being tried out, and may change or be withdrawn.
 
 | Board | Home Goal | Home Zone | Midfield | Visitors Zone | Visitors Goal |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 7 (default) | -- | 1-2 | 3-5 | 6-7 | -- |
+| 7 | -- | 1-2 | 3-5 | 6-7 | -- |
 | 9 | -- | 1-3 | 4-6 | 7-9 | -- |
+| 10 (playtest) | -- | 1-3 | 4-7 | 8-10 | -- |
 
-**2.1.2** On the 9-space board, the only one where the three zones with spaces are equal, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on that board, and together they are the two **outer zones**.
+**2.1.2** On the 9- and 10-space boards, whose outer zones are three spaces deep, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on those boards, and together they are the two **outer zones**.
 
 **2.1.3** A space is named by its number, counted from the home end: on board 7, spaces 1 and 2 are the Home Zone, 3 to 5 midfield and 6 and 7 the Visitors Zone.
 
-**2.1.4** The Home Goal and the Visitors Goal are the two **goal zones**, one beyond each end of the row: the Home Goal before space 1 and the Visitors Goal after the last space, 7 or 9. A goal zone has no spaces, and no meeple is ever placed in one or moved into one.
+**2.1.4** The Home Goal and the Visitors Goal are the two **goal zones**, one beyond each end of the row: the Home Goal before space 1 and the Visitors Goal after the last space, 7, 9 or 10. A goal zone has no spaces, and no meeple is ever placed in one or moved into one.
 
 **2.1.5** **Only the ball reaches a goal zone.** A ball sent further than the spaces left in front of it **reaches the goal zone** at that end, and comes to rest on the last space before it. That space is the end of the row, and the goal zone is what a rule names when the ball would have gone beyond it.
 
@@ -96,14 +97,15 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | --- | --- | --- | --- |
 | 7 | 1, 2, 3 | 4 | 5, 6, 7 |
 | 9 | 1, 2, 3, 4 | 5 | 6, 7, 8, 9 |
+| 10 (playtest) | 1, 2, 3, 4 | 5, 6 | 7, 8, 9, 10 |
 
-**2.3.2** Both boards have an odd number of spaces, so both have a true middle space, and that space is in neither team's range.
+**2.3.2** Boards 7 and 9 have an odd number of spaces, so each has a true middle space, and that space is in neither team's range. Board 10 has an even number, and both its middle spaces, 5 and 6, are in neither team's range.
 
-*Note.* The middle space is also the kickoff space, so no restart ever begins in range.
+*Note.* The kickoff spaces are in the middle, so no restart ever begins in range.
 
 ### 2.4 The kickoff space
 
-**2.4.1** The **kickoff space** is the middle space of midfield, and both teams kick off from it.
+**2.4.1** The **kickoff space** is the middle space of midfield, and on boards 7 and 9 both teams kick off from it. Board 10's midfield has two middle spaces, and each team kicks off from the one nearer the goal it defends: home from space 5 and the visitors from space 6.
 
 **2.4.2** Every arrangement a coach settles has to cover their own kickoff space -- see [finishing a Coaching Choice](#148-finishing-a-coaching-choice) (14.8).
 
@@ -176,7 +178,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 3.1 Winning the toss
 
-**3.1.1** Choose a 7- or 9-space board.
+**3.1.1** Choose a 7-, 9- or 10-space board. A standard or advanced game is recommended the 9- or 10-space board.
 
 **3.1.2** One coach flips the coin: a fortune face wins them the toss and a doom face hands it to their opponent.
 
@@ -188,7 +190,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **3.2.1** Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in the outer zone before their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the outer zone before the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-**3.2.2** An outer zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on board 9, whose zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9, and the visitors deal the mirror of it.
+**3.2.2** An outer zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on boards 9 and 10, whose outer zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9 on board 9 and to 1, 3, 4, 5, 8 and 10 on board 10, and the visitors deal the mirror of it.
 
 *Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing from a side's own end reaches that space on every board.
 
@@ -734,7 +736,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | 3-2-1 | 3 | 2 | 1 | 9 |
 | 1-2-3 | 1 | 2 | 3 | 9 |
 
-**14.7.2** A formation is read from a coach's own goal forward. 3-2-1 and 1-2-3 are played on the nine-space board alone; the other three are played on every board. No shape either board plays is deeper than the zone it fills, so a formation change deals one card a space -- but a shape that did would be dealt anyway, stacking.
+**14.7.2** A formation is read from a coach's own goal forward. 3-2-1 and 1-2-3 are played on the 9- and 10-space boards alone; the other three are played on every board. No shape any board plays is deeper than the zone it fills, so a formation change deals one card a space -- but a shape that did would be dealt anyway, stacking.
 
 **14.7.3** A formation change re-deals the whole side. The six on the field are ordered by defensive skill, highest first, and dealt from the coach's own end outward: one to each space of a zone, and then any surplus onto that zone's stack space.
 
@@ -744,7 +746,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 14.8 Finishing a Coaching Choice
 
-**14.8.1** **Every arrangement covers its own side's kickoff space**, in every Coaching Choice and either half, and a coach may not finish while theirs is empty. Both sides kick off from the one space, and each owes it its own coverage. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning.
+**14.8.1** **Every arrangement covers its own side's kickoff space**, in every Coaching Choice and either half, and a coach may not finish while theirs is empty. On boards 7 and 9 both sides kick off from the one space, and each owes it its own coverage; on board 10 each side covers its own. The standard deal and all five formations already satisfy it, so it only ever bites on a coach who has emptied the space with space positioning.
 
 *Note.* That is what lets a restart kick off without anybody being moved back and charged for it.
 

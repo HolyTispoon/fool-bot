@@ -529,6 +529,11 @@ class EndOfTurnRenderTests(unittest.IsolatedAsyncioTestCase):
             game_number=1,
             home_player_number=1,
             visiting_player_number=2,
+            # The narration names each side's coach off the record.
+            test_game=False,
+            ai_holds=lambda number: False,
+            player_1_name=None,
+            player_2_name=None,
             mode=GameMode.TRAINING,
             advanced_maneuvers=True,
             species_abilities=True,

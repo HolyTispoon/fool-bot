@@ -67,9 +67,10 @@ from d12ball.formatting import (
     format_player_with_team,
     format_team_side_label,
     space_label,
+    score_side_label,
 )
 from d12ball import tokens
-from d12ball.game import D12BallGame, team_display_name
+from d12ball.game import D12BallGame
 from d12ball.special_abilities import (
     INFERNO_BALL_SPEED,
     PULSAR_CHARGE_UP,
@@ -643,6 +644,7 @@ def steal_result_text(
     name: str,
     challenger_id: str,
     actual_distance: int,
+    game: Optional[D12BallGame] = None,
 ) -> tuple[str, Headline]:
     """The turnover, and which way the thief carried it -- and its
     `Headline`, for the side that took the ball."""
@@ -659,7 +661,7 @@ def steal_result_text(
     )
     under = (
         f"{challenger_label} steals the ball. "
-        f"{format_team_side_label(new_possession)} now has possession, "
+        f"{format_team_side_label(new_possession, game)} now has possession, "
         f"{travel}."
     )
     headline = Headline(TURNOVER_HEADING, match.ball.possession, under)
@@ -670,6 +672,7 @@ def steal_step(
     engine: RulesEngine,
     match: MatchState,
     key: str,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     Play a won Steal -- or an Intercept, which is the same card with
@@ -683,9 +686,10 @@ def steal_step(
     where a defender was sent, so `match.challenger_id` is always the
     player who plays it.
 
-    It reads nothing off the game record -- the exhaustion a run back
-    charges is `begin_run_back`'s, and the cost this card can collect
-    is an engine question -- so it takes no `game`.
+    It reads nothing off the game record to decide anything -- the
+    exhaustion a run back charges is `begin_run_back`'s, and the cost
+    this card can collect is an engine question -- and takes `game`
+    only to name the side that took the ball by its coach.
     """
     new_possession_side = match.defending_side()
     challenger_id = match.challenger_id
@@ -698,7 +702,7 @@ def steal_step(
         match, challenger_id, new_possession_side, direction,
     )
     content, headline = steal_result_text(
-        engine, match, key, name, challenger_id, actual_distance,
+        engine, match, key, name, challenger_id, actual_distance, game,
     )
 
     # Both endings below have moved a meeple and the ball with it, so
@@ -849,6 +853,7 @@ def apply_pressure_turnover(
     match: MatchState,
     key: str,
     defense_side: TeamSide,
+    game: Optional[D12BallGame] = None,
 ) -> tuple[str, bool, bool]:
     """
     Whether the pressure also took the ball, and what to say about
@@ -879,8 +884,8 @@ def apply_pressure_turnover(
         content += (
             "\n\n# Turnover!\n"
             f"**{engine.maneuver_name('dribble_burst')}** was beaten -- "
-            f"{format_team_side_label(match.setup_for_side(defense_side))} "
-            "take the ball, and it keeps the speed the burst put into "
+            f"{format_team_side_label(match.setup_for_side(defense_side), game)} "
+            "takes the ball, and it keeps the speed the burst put into "
             f"it ({match.ball.speed})."
         )
 
@@ -895,7 +900,7 @@ def apply_pressure_turnover(
             "\n\n# Turnover!\n"
             f"{engine.format_player_label(match, defender)} "
             "steals the ball (Defender ability)! "
-            f"{format_team_side_label(match.setup_for_side(defense_side))} "
+            f"{format_team_side_label(match.setup_for_side(defense_side), game)} "
             "now has possession."
         )
 
@@ -1008,7 +1013,7 @@ def pressure_step(
         )
 
     turnover_text, burst_cost, stolen = apply_pressure_turnover(
-        engine, match, key, defense_side,
+        engine, match, key, defense_side, game,
     )
     content += turnover_text
 
@@ -1063,6 +1068,7 @@ def apply_own_goal_outcome(
     distance_moved: int,
     safe: bool,
     exhaustion_text: str,
+    game: Optional[D12BallGame] = None,
 ) -> str:
     """
     Settle the own-goal roll and word it. Both outcomes restart play,
@@ -1106,9 +1112,9 @@ def apply_own_goal_outcome(
         f"{engine.format_player_label(match, offense_player)} "
         "puts it in their own net on "
         f"**{format_goal_time(match.goals[-1])}**.\n"
-        f"{team_display_name(match.home.team)} {match.scoreboard.home_score}:"
+        f"{score_side_label(match.home, game)} {match.scoreboard.home_score}:"
         f"{match.scoreboard.visiting_score} "
-        f"{team_display_name(match.visiting.team)}\n\n"
+        f"{score_side_label(match.visiting, game)}\n\n"
         f"{exhaustion_text}"
     )
 
@@ -1262,7 +1268,7 @@ def own_goal_roll_step(
 
     verdict = apply_own_goal_outcome(
         engine, match, offense_player, distance_moved, safe,
-        exhaustion_text,
+        exhaustion_text, game,
     )
 
     return (
@@ -1535,7 +1541,10 @@ def throw_high_pass(
     return reaches_goal_zone, actual_distance, content
 
 
-def send_ball_out_of_play(match: MatchState) -> str:
+def send_ball_out_of_play(
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> str:
     """
     The ball went dead: the other team gains possession, the speed
     resets, nobody is carrying it, and the side that gained it owes a
@@ -1555,7 +1564,7 @@ def send_ball_out_of_play(match: MatchState) -> str:
     match.clear_ball_carrier()
     match.pending_ball_recovery = True
     return format_team_side_label(
-        match.setup_for_side(match.ball.possession),
+        match.setup_for_side(match.ball.possession), game,
     )
 
 
@@ -1784,7 +1793,7 @@ def high_pass_step(
         # elsewhere on the field -- which stays an ordinary loose
         # ball below.
         if actual_distance == 0:
-            gaining = send_ball_out_of_play(match)
+            gaining = send_ball_out_of_play(match, game)
             return StepResult(
                 narration=[
                     content,
@@ -1977,7 +1986,7 @@ def setup_pass_step(
             # own 0-space case -- nowhere to throw it and nobody to
             # throw it to -- so it goes out rather than settling
             # under the passer's own feet.
-            return setup_pass_out_step(engine, match)
+            return setup_pass_out_step(engine, match, game)
 
         # **A pass that lands on nobody is still a pass**
         # (2026-08-25). The card is a set-up, but missing the
@@ -2036,7 +2045,9 @@ def setup_pass_step(
 
 
 def setup_pass_out_step(
-    engine: RulesEngine, match: MatchState,
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
 ) -> StepResult:
     """
     **Cross never reaches the goal zone**, so the only way it runs
@@ -2056,7 +2067,7 @@ def setup_pass_out_step(
     rather than a branch of the pass.
     """
     match.pending_effect_continuation = None
-    gaining = send_ball_out_of_play(match)
+    gaining = send_ball_out_of_play(match, game)
     return StepResult(
         narration=[
             f"**{engine.maneuver_name('setup_pass')}:** "
@@ -2472,7 +2483,9 @@ def offer_setup_pass_distance(
     distances = engine.setup_pass_distances(match)
 
     if not distances:
-        return _with_lead_in(setup_pass_out_step(engine, match), lead_in)
+        return _with_lead_in(
+            setup_pass_out_step(engine, match, game), lead_in,
+        )
 
     return StepResult(
         narration=[lead_in] if lead_in else [],
@@ -2557,9 +2570,11 @@ EFFECT_OFFERS = {
     "clear": lambda engine, game, match: deflection_step(
         engine, match, "clear",
     ),
-    "steal": lambda engine, game, match: steal_step(engine, match, "steal"),
+    "steal": lambda engine, game, match: steal_step(
+        engine, match, "steal", game,
+    ),
     "intercept": lambda engine, game, match: steal_step(
-        engine, match, "intercept",
+        engine, match, "intercept", game,
     ),
     "pressure": lambda engine, game, match: pressure_step(
         engine, match, "pressure", game,

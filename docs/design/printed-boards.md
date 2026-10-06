@@ -130,25 +130,30 @@ The field board comes out twice: whole, and as two letter halves. See
 - **The geometry a board asserts is read off the same code the bot enforces.**
   `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
   time and `kickoff_marks` reads `kickoff_space_index`, rather than either
-  restating where the middle of the board is. Both boards' midfields have a
-  middle, so both print one kickoff mark for the two sides -- `kickoff_marks`
-  is still a map rather than a space, because the rule is asked per side and a
-  board without a middle would answer it twice. It is also what leaves the
+  restating where the middle of the board is. Boards 7 and 9 have a midfield
+  with a middle, so each prints one kickoff mark for the two sides --
+  `kickoff_marks` is a map rather than a space because the rule is asked per
+  side, and board 10's four-space midfield answers it twice (home space 5,
+  the visitors space 6). It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
-- **Every field size is rendered by default.** A print run wants the 7- and
-  9-space boards; `--board-size` narrows it to one. The sizes come from
-  `rules.board_layouts`, so a fourth layout added upstream is printed without
-  the script being touched. **Each comes out two ways** -- whole on the
-  tabloid sheet, and as its own two letter halves; see "Printing a board on
-  small sheets". So do the zone boards, which are per size too.
+- **Every field size but a playtest board is rendered by default.** A print
+  run wants the 7- and 9-space boards; `--board-size` narrows it to one. The
+  sizes come from `rules.board_layouts`, so a layout added upstream is printed
+  without the script being touched -- unless it is in `PLAYTEST_BOARD_SIZES`
+  (`d12ball/game.py`), which is board 10 since 2026-10-06: it is played on the
+  bot and the web app while the author tries it out, and is printed only when
+  asked for by name (`--board-size 10`), so the kit and the box carry the
+  boards the game keeps. **Each comes out two ways** -- whole on the tabloid
+  sheet, and as its own two letter halves; see "Printing a board on small
+  sheets". So do the zone boards, which are per size too.
 - **Zones keep their real names on the zone board**, as on the field -- see
   "The zone board". A coach's own goal is the Home Goal for one of them and
   the Visitors Goal for the other, and the field board is read by both, so
   the areas read HOME ZONE / MIDFIELD
   / VISITORS ZONE exactly as the bot's coaching image does -- HOME THIRD /
-  VISITORS THIRD on the 9-space board, the only one where the three areas
-  (H/M/V) are all equal (see "The field" in the living rules, and the
-  2026-08-24 entry in the rules log; not to be confused with `FONT_GOAL_ZONE`,
+  VISITORS THIRD on the 9- and 10-space boards, whose outer zones are three
+  spaces deep (see "The field" in the living rules, and the 2026-08-24 and
+  2026-10-06 entries in the rules log; not to be confused with `FONT_GOAL_ZONE`,
   which labels the goal zone beyond the edge of the board). The team board's
   own formation strip is relative -- a shape is read from a coach's own goal --
   and no longer says so on the board: the author took "read from your own
@@ -564,8 +569,8 @@ zones went to each coach's own side of the table.
 - **Per side and per board size.** The two coaches sit opposite each other,
   and each reads the field from their own end, so a coach's own zone is on
   their left: home's board runs HOME ZONE, MIDFIELD, VISITORS ZONE and the
-  visitors' the other way round (`zone_order`). The 9-space board's outer
-  zones are thirds (`zone_labels`), so each size has its own pair. Both
+  visitors' the other way round (`zone_order`). The 9- and 10-space boards'
+  outer zones are thirds (`zone_labels`), so each size has its own pair. Both
   print upright -- each is a board of its own, picked up and laid at its
   coach's seat -- where the visiting row on the old field board was rotated
   180 degrees cell by cell to read upright across the table.

@@ -452,7 +452,7 @@ def shootout_pick() -> PromptFixture:
     for _ in range(6):
         fixture.match.finish_shootout_test()
     fixture.ask = (
-        f"{ENGINE.shootout_heading(fixture.match)}\n{{coach:1}} and {{coach:2}}: "
+        f"{ENGINE.shootout_heading(fixture.match, fixture.game)}\n{{coach:1}} and {{coach:2}}: "
         "choose who goes out next, from the players who have not shot "
         "yet this round. Nobody else sees it until the reveal."
     )

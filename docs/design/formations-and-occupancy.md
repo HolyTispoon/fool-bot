@@ -25,9 +25,9 @@ refusal, so a shape offered in one place cannot be refused in another.
 **A formation is named by its counts**, which `load_basic_ruleset` checks; that
 is what lets the printed team board list the names and nothing else.
 
-**No shape either board plays stacks.** Three in midfield fits board 7 and
-board 9 one card a space, and board 9's own two shapes put three in a
-three-space outer zone. The six-space board, whose midfield had two spaces, was
+**No shape any board plays stacks.** Three in midfield fits every board's
+midfield one card a space, and the two three-deep shapes (3-2-1, 1-2-3) are
+played only on boards 9 and 10, whose outer zones are three spaces deep. The six-space board, whose midfield had two spaces, was
 the one that made 2-3-1 and 1-3-2 overfill a zone, and it went on 2026-09-22.
 So the occupancy machinery below is now exercised by `/coach` alone -- a stack
 is an arrangement a coach builds with space positioning, not one a deal hands
@@ -35,11 +35,12 @@ them. `formation_stack_space` stays because the stacking rule is the re-deal's
 and a future shape or board would need it.
 
 **The deal spreads an outer zone's pair and packs midfield**, which is
-`setup_space_order` and only ever visible on board 9 -- the one board whose
-zones are deeper than 2-2-2 fills them. An outer zone's two cards take its two
-end spaces and midfield clumps toward that side's own goal, so home deals
-spaces 1, 3, 4, 5, 7 and 9 (see "Setup" in the living rules, and the
-2026-08-12 entry in the rules log). The clumped half is not an oversight: the
+`setup_space_order` and only ever visible on boards 9 and 10 -- the boards
+whose zones are deeper than 2-2-2 fills them. An outer zone's two cards take its
+two end spaces and midfield clumps toward that side's own goal, so home deals
+spaces 1, 3, 4, 5, 7 and 9 on board 9 and 1, 3, 4, 5, 8 and 10 on board 10 (see
+"Setup" in the living rules, and the 2026-08-12 and 2026-10-06 entries in the
+rules log). The clumped half is not an oversight: the
 kickoff space is in midfield and **every** arrangement has to cover its own
 side's (2026-08-16, and before that only the side kicking off), so spreading
 two cards over a three-space midfield would empty the middle and hold the coach

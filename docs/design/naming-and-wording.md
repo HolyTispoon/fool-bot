@@ -274,7 +274,7 @@ name, never a rule, and nothing saved changed.
   "space 1-space 2".
 - **The zone is still spelled out beside it** wherever it was before
   ("**space 4** (Midfield)"), and the zones keep their names: the Home Zone,
-  midfield and the Visitors Zone (Thirds on board 9). The goal zones beyond
+  midfield and the Visitors Zone (Thirds on boards 9 and 10). The goal zones beyond
   each end hold no spaces and never shift a number.
 - **A test may still spell a space `M2`** through `tests/space_codes.py`'s
   `code`, because the letter form says which zone without counting and is the
@@ -299,3 +299,36 @@ Goal were already named with, so a side and the end it plays to read alike.
   attacks the Visitors Goal and the visiting team attacks the Home Goal"
   (2.2.1) is English, and a change to the Charter's words is a rules change
   in its own commit, not a rename here.
+
+## Naming a side's coach: the long way and the short way
+
+**A side is named by its coach, behind its team's mark, two ways** (the
+author, 2026-10-05):
+
+- **The long way -- "🟣 perrytom (Home)"**: `format_team_side_label(setup,
+  game)`, the mark, the coach and the end. Every sentence that said
+  "Purple (Home)" says this now: possession, turnovers, the kickoff, a
+  Coaching Choice's Done, the time out, last possession, the goal log's
+  columns, the roster's heading. The score lines are two of them
+  (`score_side_label`): the GOAL! line, the own goal's, the final score, the
+  shootout's running score and `/d12ball stats`' heading. The coin toss's
+  result reads the same way off the record, before there is a match
+  (`format_player_with_team_and_side`). A question that opens on whose it
+  is addresses the coach in it (`mention=True`, "🟣 @perrytom (Home): choose
+  one fielded player...") rather than mentioning them and naming them again.
+- **The short way -- "🟣 perrytom"**: `format_team_coach(setup, game)` and,
+  off the record, `format_player_with_team`; no end. It is the winner ("🟣
+  perrytom wins!"), whom a handler maneuvers for, the shootout's column in
+  the goal log, the referee commands' replies, and every line that already
+  named a coach this way ("🟣 @perrytom chose **Pressure**.").
+
+Both take the record, since the coach is the record's: with no `game`, or
+before the coin has seated anybody, they fall back to the team's name --
+"Purple (Home)", "Purple" -- which is also what the plain-text surfaces keep,
+where a mark cannot be drawn: an autocomplete's choices, and the web page's
+statistics heading. **A sentence no frontend renders a token in** -- a
+refusal, and the time out's confirmation, which a view puts up as it is --
+takes the long way without its mark (`mark=False`, "perrytom (Home)"),
+since a view never renders a token. A coach is one person, so every verb
+after one is singular: "perrytom (Home) **is** done", "**calls** a time
+out", "**sends** nobody".

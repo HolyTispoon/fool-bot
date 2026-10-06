@@ -799,7 +799,7 @@ class TimeOutFlowTests(PeriodFixture):
         # rather than the window's heading, so an AI caller's is
         # posted too (step 7 of docs/architecture-migration.md).
         self.assertNotIn("heading", result.next.kwargs)
-        self.assertIn("call a time out", result.narration[0])
+        self.assertIn("calls a time out", result.narration[0])
 
     def test_it_is_logged_as_its_own_kind_of_event(self) -> None:
         """

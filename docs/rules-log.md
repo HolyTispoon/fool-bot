@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-04.
+**As of:** 2026-10-06.
 
 ## Where the rules come from
 
@@ -154,6 +154,40 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-06 -- author, a 10-space playtest board; standard and advanced are recommended 9 or 10
+
+**A rule changed.** A game may be played on a **10-space board**, offered as a playtest board
+on the bot and the web app: *"I want to test a 10 space board"* (the author). On 2026-10-05
+the author had asked that standard mode be recommended the 9-space board as advanced mode
+already was, and that both start on it; with board 10 the recommendation reads *"9 or 10"*.
+
+What the author settled, asked on 2026-10-06:
+
+- **The zones are 3-4-3** (2.1.1): the Home Zone is spaces 1-3, midfield 4-7, the Visitors
+  Zone 8-10. **Its outer zones are the Home Third and the Visitors Third**, as on board 9
+  (2.1.2): *"the 10 space board should refer to the home zone as 'home third' just like it
+  does on the 9 space board"* (the author). The name now follows the outer zones' depth --
+  three spaces on both boards -- rather than the three zones being equal, which board 10's
+  are not.
+- **Each side kicks off from the middle space of midfield nearer its own goal** (2.4.1):
+  *"first half home team would start in space 5 and on the second half visitors would kick
+  off in 6"*. The conceding side restarts from its own after a goal, as on every board.
+  Board 10 is the first board since the six-space one whose two sides cover different
+  kickoff spaces (14.8.1).
+- **Shooting range is 1-4 for the visitors and 7-10 for home** (2.3.1). Board 10 has no
+  middle space, so its two middle spaces, 5 and 6, are in neither range -- which keeps every
+  kickoff space out of range on every board (the note under 2.3.2). The alternative, an
+  even 5-5 split, would have put each side's kickoff space in the other's range.
+- **3-2-1 and 1-2-3 are played on board 10 too** (14.7.2): its outer zones are three deep,
+  the depth that lets board 9 take them without stacking. The standard deal on board 10 is
+  home on 1, 3, 4, 5, 8 and 10 and the visitors on the mirror of it (3.2.2), and it and all
+  five formations cover each side's own kickoff space.
+- **It is in the Charter, marked playtest** (2.1.1), and printed nowhere yet: no field board,
+  no print-and-play sheet and no rulebook figure, until the author keeps it.
+- **The recommendation** (3.1.1): a standard or advanced game is recommended board 9 or 10,
+  and the bot and the web app start one on board 9. Board 7 was the Charter's "(default)"
+  until now; a training game still starts on it, and the tutorial is still played on it.
 
 ### 2026-10-04 -- author, a shot from midfield adds half the ball speed modifier
 

@@ -53,7 +53,7 @@ is declared where Dinky has an injured player to get off and passed
 otherwise ("**🟣 Dinky AI passed.**"), the hub gets a `substitute` per
 injured player its allowance covers, a `reposition` onto the kickoff space
 where `CoachingHubOptions.finish_refusal` says it must, and then `done`,
-which says what a coach's Done says ("**Purple (Visitors) are done.** ...").
+which says what a coach's Done says ("**🟣 perrytom (Visitors) is done.** ...").
 Until step 7 it was a routine, `run_ai_substitution_window`, that ran the
 whole window inside `open_substitution_window` and worded it its own way.
 
@@ -224,10 +224,11 @@ with a minute rather than handed out by the play.
   - **The standard deal and all five formations already satisfy it** -- a
     midfield packed from a side's own end always reaches that side's kickoff
     space, on every board -- so this costs a coach nothing until they use
-    space positioning to empty it deliberately. Both sides kick off from the
-    one middle space, and each owes it its own coverage: the question is
-    asked per side because the coverage is the arrangement's, not because
-    the spaces differ.
+    space positioning to empty it deliberately. On boards 7 and 9 both sides
+    kick off from the one middle space, and each owes it its own coverage;
+    on board 10, the playtest board, midfield has two middle spaces and each
+    side covers its own (home space 5, the visitors space 6). The question is
+    asked per side because the coverage is the arrangement's.
   - **`pending_kickoff_fill` survives as a fallback, not as a rule.** A game
     saved before this landed can hold an arrangement that leaves the space
     empty, and both developers run the bot against their own saves.

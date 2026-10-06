@@ -82,7 +82,9 @@ from d12ball.components import (  # noqa: E402
     load_maneuver_catalog,
     load_player_catalog,
 )
-from d12ball.game import COLOR_TEAMS  # noqa: E402
+from d12ball.game import (  # noqa: E402
+    COLOR_TEAMS, PLAYTEST_BOARD_SIZES, VALID_BOARD_SIZES,
+)
 
 
 def save(image: Image.Image, path: Path, pdf: bool) -> None:
@@ -116,10 +118,10 @@ def main() -> None:
     parser.add_argument(
         "--board-size",
         type=int,
-        choices=(7, 9),
+        choices=sorted(VALID_BOARD_SIZES),
         help=(
             "Render only this field board. Every size the ruleset "
-            "defines is written otherwise."
+            "defines but a playtest board is written otherwise."
         ),
     )
     parser.add_argument(
@@ -182,7 +184,12 @@ def main() -> None:
     sizes = (
         (args.board_size,)
         if args.board_size
-        else tuple(sorted(rules.board_layouts))
+        # A playtest board is rendered only when asked for by name: the
+        # kit carries the boards the game keeps.
+        else tuple(
+            size for size in sorted(rules.board_layouts)
+            if size not in PLAYTEST_BOARD_SIZES
+        )
     )
     for board_size in sizes:
         board = render_field_board(

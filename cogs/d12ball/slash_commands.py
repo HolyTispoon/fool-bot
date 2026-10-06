@@ -22,7 +22,6 @@ from d12ball.game import (
     D12BallGame,
     GameMode,
     GameStatus,
-    team_display_name,
 )
 from d12ball import stats, tutorial
 from d12ball.flow import gates
@@ -53,6 +52,7 @@ from cogs.d12ball_helpers import (
     filter_choices,
     format_ai_name,
     format_team_side_label,
+    score_side_label,
     get_or_create_category,
     may_act_for_coach,
     may_act_in_game,
@@ -60,6 +60,7 @@ from cogs.d12ball_helpers import (
     resolve_adjustable_value,
     space_choices,
     space_label,
+    format_team_coach,
 )
 from cogs.d12ball_views import (
     HubRolesView,
@@ -193,23 +194,27 @@ class CommandsMixin:
         game: D12BallGame,
         match: MatchState,
     ) -> str:
-        """The one-line "which game is this" a per-game report opens with."""
+        """The one-line "which game is this" a per-game report opens with,
+        each side the long way (`score_side_label`), drawn for Discord."""
         status = stats.game_standing(game)
         board = match.scoreboard
-        return (
+        return self.render_text(
             f"**PBD{game.game_number}** -- "
-            f"{team_display_name(match.home.team)} "
+            f"{score_side_label(match.home, game)} "
             f"{board.home_score}:{board.visiting_score} "
-            f"{team_display_name(match.visiting.team)} "
+            f"{score_side_label(match.visiting, game)} "
             f"({status}, {board.period.value.replace('_', ' ')} "
-            f"minute {board.time:02d})"
+            f"minute {board.time:02d})",
+            game,
         )
 
     @staticmethod
     def stats_thread_name(heading: str) -> str:
         """A thread name off the report's first heading line, markdown
-        stripped and cut to Discord's 100 characters."""
-        first = re.sub(r"[*_`~#]", "", heading.splitlines()[0]).strip()
+        and custom emoji stripped -- a thread's name shows neither -- and
+        cut to Discord's 100 characters."""
+        first = re.sub(r"<a?:\w+:\d+>\s*", "", heading.splitlines()[0])
+        first = re.sub(r"[*_`~#]", "", first).strip()
         return first[:100] or "D12 Ball stats"
 
     async def open_stats_thread(
@@ -1674,7 +1679,9 @@ class CommandsMixin:
         # ten attachments to a message.
         for setup in setups:
             await interaction.followup.send(
-                f"**{format_team_side_label(setup)}**",
+                self.render_text(
+                    f"**{format_team_side_label(setup, game)}**", game,
+                ),
                 files=await self.build_team_reference_files(game, setup.team),
             )
 
@@ -2445,11 +2452,14 @@ class CommandsMixin:
 
         if dest_side != card_side:
             team_label = format_team_side_label(
-                match.setup_for_side(card_side),
+                match.setup_for_side(card_side), game,
             )
             await interaction.followup.send(
-                f"{player.name} plays for {team_label}; move them to "
-                f"one of {team_label}'s zones or benches instead.",
+                self.render_text(
+                    f"{player.name} plays for {team_label}; move them to "
+                    f"one of {team_label}'s zones or benches instead.",
+                    game,
+                ),
                 ephemeral=True,
             )
             return
@@ -2608,13 +2618,17 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        possession_team = match.setup_for_side(match.ball.possession).team
+        possession = match.setup_for_side(match.ball.possession)
         await self.commit_hand_edit(
             interaction,
             game,
             match,
-            f"The ball moved to {space_label(zone, space_index, match.board)}. "
-            f"{team_display_name(possession_team)} has possession.",
+            self.render_text(
+                f"The ball moved to "
+                f"{space_label(zone, space_index, match.board)}. "
+                f"{format_team_coach(possession, game)} has possession.",
+                game,
+            ),
         )
 
     @ball_move.autocomplete("destination")
@@ -2655,8 +2669,11 @@ class CommandsMixin:
             interaction,
             game,
             match,
-            f"{team_display_name(match.setup_for_side(side).team)} now has "
-            "possession.",
+            self.render_text(
+                f"{format_team_coach(match.setup_for_side(side), game)} "
+                "now has possession.",
+                game,
+            ),
             snapshot=False,
         )
 
@@ -2771,11 +2788,14 @@ class CommandsMixin:
 
         self.service.persist(game, match)
 
-        team_name = team_display_name(match.setup_for_side(side).team)
+        team_name = format_team_coach(match.setup_for_side(side), game)
         await interaction.followup.send(
-            f"{team_name}'s score is now {new_value} "
-            f"({match.scoreboard.home_score}:"
-            f"{match.scoreboard.visiting_score})."
+            self.render_text(
+                f"{team_name}'s score is now {new_value} "
+                f"({match.scoreboard.home_score}:"
+                f"{match.scoreboard.visiting_score}).",
+                game,
+            )
         )
         await self.refresh_match_image(interaction, game)
 
