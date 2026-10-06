@@ -32,7 +32,8 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, D12BallGame, GameMode, Team, team_display_name,
+    AIOpponent, D12BallGame, GameMode, NINE_SPACE_BOARD_MODES, Team,
+    team_display_name,
 )
 
 
@@ -872,6 +873,25 @@ def contestant_detail(
     ]
 
 
+TOTAL_MODIFIER_PREFIX = "Total modifier "
+
+
+def total_modifier_line(value: int) -> str:
+    """
+    The dice image's last line on a side that adds two modifiers or
+    more -- "Total modifier +5" -- which the image draws in bold
+    (`render.draw_skill_test_die`). Signed, since a burn or a High
+    Pass into the goal zone can take a side below zero.
+    """
+    return f"{TOTAL_MODIFIER_PREFIX}{value:+d}"
+
+
+def is_total_modifier(line: str) -> bool:
+    """Whether a dice line is a side's total modifier rather than one of
+    the things added up in it."""
+    return line.startswith(TOTAL_MODIFIER_PREFIX)
+
+
 #: What each mode is called, in the order each adds to the one before
 #: it (2026-09-25; "The three modes" in docs/living-rules.md). Every
 #: frontend's mode row is built from this, so the Discord settings, the
@@ -881,6 +901,23 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
     GameMode.STANDARD: "Standard",
     GameMode.ADVANCED: "Advanced",
 }
+
+
+def board_size_recommendation(game: D12BallGame) -> Optional[str]:
+    """
+    The note recommending the nine-space board, read off the mode
+    alone -- shown on whichever board the game is on, since it is what
+    tells a coach why picking the mode moved the board -- or `None`
+    for a mode it is not recommended for (`NINE_SPACE_BOARD_MODES`).
+    The Discord setup screens and the web table both show it.
+    """
+    mode = GameMode(game.mode)
+    if mode not in NINE_SPACE_BOARD_MODES:
+        return None
+    return (
+        f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
+        "mode on a board size of 9."
+    )
 
 
 # What each mode is, in the author's words (2026-09-27) -- the pitch a

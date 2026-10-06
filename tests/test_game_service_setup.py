@@ -288,6 +288,37 @@ class LobbyTests(SetupHarness):
 
 
 class ConfigureTests(SetupHarness):
+    def test_a_new_game_starts_on_its_modes_board(self) -> None:
+        # Standard and Advanced start on the nine-space board, Training
+        # on seven (the author, 2026-10-05); a rematch's own board, passed
+        # in, is kept; and the tutorial is pinned to seven whatever.
+        self.assertEqual(self.open_lobby().board_size, 9)
+        for mode, board_size in (
+            (GameMode.STANDARD, 9),
+            (GameMode.ADVANCED, 9),
+            (GameMode.TRAINING, 7),
+        ):
+            game = self.service.create_game(
+                player_1_id=CREATOR, player_1_name="One", mode=mode,
+            )
+            self.assertEqual(game.board_size, board_size)
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", board_size=7,
+        )
+        self.assertEqual(game.board_size, 7)
+        game = self.service.create_game(
+            player_1_id=CREATOR, player_1_name="One", tutorial=True,
+        )
+        self.assertEqual((game.mode, game.board_size), (GameMode.TRAINING, 7))
+
+    def test_picking_standard_moves_the_board_to_nine(self) -> None:
+        game = self.open_lobby()
+        self.service.configure(game.game_id, "board", "7")
+        self.service.configure(game.game_id, "mode", GameMode.TRAINING.value)
+        self.assertEqual(game.board_size, 7)
+        self.service.configure(game.game_id, "mode", GameMode.STANDARD.value)
+        self.assertEqual(game.board_size, 9)
+
     def test_every_setting_from_its_wire_value(self) -> None:
         game = self.open_lobby()
 
@@ -308,7 +339,7 @@ class ConfigureTests(SetupHarness):
         self.assertIsNone(game.game_name)
         self.service.configure(game.game_id, "mode", GameMode.STANDARD)
         self.assertEqual(game.mode, GameMode.STANDARD)
-        self.service.configure(game.game_id, "mode", "training")
+        self.service.configure(game.game_id, "mode", GameMode.TRAINING.value)
         self.assertEqual(game.mode, GameMode.TRAINING)
         # The per-module toggles went with the three modes (2026-09-25).
         with self.assertRaises(ValueError):

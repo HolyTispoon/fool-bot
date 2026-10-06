@@ -248,7 +248,7 @@ class ShotRollTests(unittest.IsolatedAsyncioTestCase):
         _, _, _, detail, total, _, _ = await self.roll(cog, game, [12, 1])
 
         self.assertEqual(total, 1 + 10)
-        self.assertIn("Total defensive skill +10", detail)
+        self.assertIn("Total modifier +10", detail)
 
     async def test_a_halved_defender_says_what_it_was_halved_from(
         self,

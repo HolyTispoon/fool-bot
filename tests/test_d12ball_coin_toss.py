@@ -1739,8 +1739,10 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
     """
     Picking Advanced defaults the board to 9 -- the extra maneuvers
     need the room -- and the setup message keeps recommending 9 even
-    after a coach picks 6 or 7 back, since the recommendation is a
-    read of the mode alone. See "select_mode" in cogs/d12ball_views.py.
+    after a coach picks 7 back, since the recommendation is a read of
+    the mode alone. Standard is recommended 9 too (the author,
+    2026-10-05); Training is not. See "select_mode" in
+    cogs/d12ball_views/setup.py.
     """
 
     def build_interaction(self, user_id: int) -> SimpleNamespace:
@@ -1783,8 +1785,19 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
             build_setup_message(game),
         )
 
-    def test_basic_mode_carries_no_recommendation(self) -> None:
+    def test_standard_mode_recommends_nine_on_any_board(self) -> None:
         game = build_game()
+        game.mode = GameMode.STANDARD
+        for board_size in (7, 9):
+            game.board_size = board_size
+            self.assertIn(
+                "recommended to play standard mode on a board size of 9",
+                build_setup_message(game),
+            )
+
+    def test_training_mode_carries_no_recommendation(self) -> None:
+        game = build_game()
+        game.mode = GameMode.TRAINING
         self.assertNotIn("recommended", build_setup_message(game))
 
 

@@ -379,6 +379,40 @@ defenders has none, and packs to its own content.
   and advanced, both images (64 renders, 29 distinct), byte-identical
   before and after.
 
+- **Each group is headed by its coach and side, behind the team's
+  emoji** -- "(O) perrytom (Home)", "(P) Glorbo (Visitors)" (the
+  author, 2026-10-04 and -05: first "the username of the coach with the
+  team name", then "home/visitors and inside team symbol", then
+  ":team_emoji: PlayerName (Home/Visitors) to be consistent with other
+  views"). The emoji in front of a coach is how the bot's messages name
+  one (`format_player_with_team`); the side in brackets is how
+  `format_team_side_label` names a team's ("Purple (Home)"), with the
+  word the zones use, "Visitors". The emoji says which team; the words
+  say who is playing it and from which end.
+  - **The brief gives it.** `dice_brief.challenge_side` takes the
+    player's `side`, and the two briefs pass it for each group's lead
+    alone: it fills `ChallengeSide.side_label`
+    (`formatting.side_display_name`, the word the Home Zone and the
+    Visitors Zone are named with), `team`, and `coach`
+    (`dice_brief.side_coach`, which is `formatting.coach_name`).
+    `team_line` is the words and `team_mark` the emoji, which is
+    `render.team_emoji` -- the bot's uploaded team emoji, the one
+    loader the player cards' header corner reads too (moved there from
+    `player_cards.py`; all 144 card renders byte-identical before and
+    after).
+  - **The coach is the record's name**, which is Discord's
+    `display_name` wherever a seat is taken (the server nickname, else
+    the global display name, else the username), the AI's name for the
+    AI, and "Player 1" in a test game. It is plain text, never a
+    mention, which an image cannot carry. **It is cut to
+    `CHALLENGE_COACH_MAX_CHARS`, twelve, with an ellipsis after** (the
+    author, 2026-10-04): a 32-character name widened its group and so
+    shrank everything else when Discord scaled the image to the message.
+  - **Without a side the line is the team's name, as before**, and a
+    side with nobody seated yet is the side's word alone. The web page reads the
+    same brief and ignores all three fields: its window sits under a
+    top bar that already says who is in each seat.
+
 ### The special ability on a matchup
 
 **In an advanced game, each player's special ability is drawn under
