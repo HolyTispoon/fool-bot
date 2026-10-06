@@ -262,6 +262,9 @@ class LastPossessionTests(unittest.IsolatedAsyncioTestCase):
         match = self.build_match()
         match.scoreboard.time = 19
         match.scoreboard.last_possession = True
+        # Somebody still tired after the automatic recovery, so the
+        # visitors are asked for their extra token rather than passed.
+        match.exhaustion[match.visiting.field_players[0]] = 2
         game.match_state = match.to_dict()
         cog.games[game.game_id] = game
 
@@ -577,7 +580,7 @@ class GoalLogTests(unittest.TestCase):
         self.assertIn("Extreme shootout", log)
         # The shootout scorer is under the shootout heading and not in
         # the visiting side's own column, which is otherwise empty.
-        self.assertIn("Purple (Visiting)** -- none", log)
+        self.assertIn("Purple (Visitors)** -- none", log)
         self.assertIn(f"Purple: {self.name(shooter)}", log)
         # A shootout goal has no minute worth printing, so it is not
         # stamped with whatever the clock stopped on.

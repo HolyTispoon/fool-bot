@@ -4,7 +4,7 @@ word for word against a file in `tests/golden/`.
 
 The twin of `tests/test_golden_transcript.py`, and it exists because
 that one's own docstring asked for it: the tutorial golden is one
-*standard*-mode solo game on board 7, so it watches no gambit, no species
+*training*-mode solo game on board 7, so it watches no gambit, no species
 ability, no Mind Pull, no injury test, no own goal and no stacked run
 back. Phase 4 of `docs/design/model-discord-split.md` moves the spine of a turn
 -- the arrival gates, the run-back cascade, the injury tests, the own
@@ -49,8 +49,9 @@ the run needs a rule that is deterministic *and* makes progress:
 - Otherwise the press **rotates**: `live[step % len(live)]`. Always
   taking the first enabled button is deterministic too, and it plays Low
   Pass and Deflect for the whole game -- the first card of each hand --
-  so ten of the twelve maneuvers, every gambit and most of the spine
-  never run. Rotating is what gets all twelve played.
+  so the script never declares a gambit or plays a gambit card, and the
+  only other cards that run are whatever Dinky picks. Rotating is what
+  gets all twelve played.
 
 `ADVANCED_SEED` was picked by sweeping seeds and scoring the run on how
 much of the spine it reaches; see `test_the_recorded_run_still_covers_the_spine`,
@@ -438,8 +439,9 @@ class AdvancedGoldenTranscriptTests(unittest.IsolatedAsyncioTestCase):
 
         This is what the rotating press rule buys, and it is the reason
         the rule is not "take the first enabled button": the hand is
-        ordered, so first-always plays two cards and the golden would
-        cover a tenth of `d12ball/flow/effects.py`.
+        ordered, so first-always plays two cards itself and never a
+        gambit card, and the rest of `d12ball/flow/effects.py` would be
+        covered only where Dinky happened to pick it.
         """
         for card in (
             "Low Pass", "Pinpoint", "High Pass", "Cross",

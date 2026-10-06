@@ -5585,12 +5585,23 @@ class MatchState:
             f"settled {home}-{visiting} on the extreme shootout)"
         )
 
-    def validate(self, catalog: PlayerCatalog, *, saved: bool = False) -> None:
+    def validate(
+        self,
+        catalog: PlayerCatalog,
+        *,
+        saved: bool = False,
+        check_turn: bool = True,
+    ) -> None:
         """
         `saved` is a match read back from a save rather than one just
         dealt: its sides are checked against themselves, not against
         today's rosters (`TeamSetup.validate_saved`), so a game outlives
         a roster change. Everything below holds either way.
+
+        `check_turn=False` leaves out `turn_handler_stranded`, for the
+        one reader that is about to throw the turn away anyway
+        (`GameService.reset_turn`): a save whose handler was stranded
+        must still be recoverable, or nothing in the channel loads it.
         """
         for setup in (self.home, self.visiting):
             if saved:
@@ -5628,6 +5639,21 @@ class MatchState:
         ):
             raise ValueError("The ball is in an invalid board space.")
 
+        if check_turn and self.turn_handler_stranded():
+            raise ValueError(
+                "The active player must share the ball's space and "
+                "belong to the team in possession."
+            )
+
+    def turn_handler_stranded(self) -> bool:
+        """
+        Whether the turn's ball handler is somebody who can no longer
+        take it: not on the ball's space, or not on the side in
+        possession, at a point in the turn where nothing has moved the
+        ball away from them on purpose. `validate` refuses such a
+        position; a hand edit that would leave one clears the turn
+        instead (`GameService.save_hand_edit`).
+        """
         # Once both sides have picked a maneuver, its effect is free to
         # move the ball away from active_player_id (a pass), flip
         # possession without moving the challenger (Steal Intercept),
@@ -5650,7 +5676,7 @@ class MatchState:
                 and self.defense_maneuver is not None
             )
         )
-        if (
+        return (
             self.active_player_id is not None
             and self.active_player_id not in self.eligible_ball_handlers()
             and not maneuver_effect_in_progress
@@ -5660,11 +5686,7 @@ class MatchState:
             # winning side places someone there, which happens after
             # the run back -- see recover_out_of_bounds_ball.
             and not self.pending_ball_recovery
-        ):
-            raise ValueError(
-                "The active player must share the ball's space and "
-                "belong to the team in possession."
-            )
+        )
 
     def to_dict(self) -> dict:
         """

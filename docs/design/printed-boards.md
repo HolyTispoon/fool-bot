@@ -150,10 +150,10 @@ sheet and a rows sheet. See below.
   team** (the author, 2026-09-28) -- on their own, five times; on the two-up
   pages, three, since a coloured page carries two teams. The standard board is in ink and names no
   team -- it said "TEAM" in the corner, which named nothing -- and each colour
-  team's is in its `TEAM_COLORS` hex with its name. The species teams get no
-  board of their own: the print game has no cards for them, and each shares
-  its colour team's hex, so their board would be the colour team's with a
-  different word in the corner. There is no flag for it; every run writes all
+  team's is in its `TEAM_COLORS` hex with its emoji in the corner. The species
+  teams get no board of their own: the print game has no cards for them, and
+  each shares its colour team's hex, so their board would be the colour team's
+  with a different emoji in the corner. There is no flag for it; every run writes all
   five, and so the print-and-play kit carries them.
 - **The formation strip lists the shapes and nothing else, and groups the ones
   only some boards play.** One team board is printed for every field size, so
@@ -436,11 +436,17 @@ and each point is a fault the board it replaced actually had.
   title's.** Sharing one line is what put "players who have yet to play"
   hard against the next cell's title, and a caption squeezed into what a
   title leaves has no width of its own to be legible in.
-- **The header is the title, the team's name and the roster's counts.** The
+- **The header is the title, the team's emoji and the roster's counts.** The
   roster line is the nine cards by role and nothing else; "six of your 9 on
   the field, three on the bench" in front of it went (the author,
-  2026-09-28). The standard board has nothing in the corner -- see "The team
-  board comes out five times" above.
+  2026-09-28). **The team is its emoji, not its name** (the author,
+  2026-10-04): the ringed letter the bot puts beside a team in Discord and the
+  player cards carry in their header's corner (`player_cards.team_emoji`), so
+  the board and the cards laid on it are marked the same way. It stands as
+  tall as the header's two lines, and the roster line is fitted to what it
+  leaves. It replaced the team's name in capitals, which is why the board has
+  five type sizes rather than six. The standard board has nothing in the
+  corner -- see "The team board comes out five times" above.
 - **The maneuvers cell is the back of the maneuver card, pasted.** It was
   titled HEAD COACH until the author renamed it MANEUVERS (2026-09-28), which
   is what is in it. It is

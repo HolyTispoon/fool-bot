@@ -131,6 +131,27 @@ class GameStorageTests(unittest.TestCase):
             ],
         )
 
+    def test_a_game_no_room_touched_is_written_without_ai_seats(self) -> None:
+        """
+        The record goes to disk through `D12BallGame.to_dict`, which
+        leaves `ai_seats` out while it is None -- only a web room sets
+        it -- so a Discord game's save is written as it was before the
+        field, and a room's carries the key. Asserted on the file,
+        not on `to_dict()`: `save_games` wrote `asdict` until
+        2026-10-05, and nothing read the file to notice.
+        """
+        room = build_game("room")
+        room.ai_seats = [2]
+        self.save({"g1": build_game(), "room": room})
+
+        written = json.loads(self.games_file.read_text(encoding="utf-8"))
+        self.assertNotIn("ai_seats", written["g1"])
+        self.assertEqual(written["room"]["ai_seats"], [2])
+
+        loaded = self.load()
+        self.assertIsNone(loaded["g1"].ai_seats)
+        self.assertEqual(loaded["room"].ai_seats, [2])
+
     def test_a_game_with_no_channel_round_trips(self) -> None:
         """A game the web frontend creates is played nowhere on
         Discord, and the record says so with three `None`s."""

@@ -1914,6 +1914,46 @@ class CommandsMixin:
             return
         await self.present(interaction, game, result)
 
+    async def commit_hand_edit(
+        self,
+        interaction: discord.Interaction,
+        game: D12BallGame,
+        match: MatchState,
+        message: str,
+        *,
+        snapshot: bool = True,
+    ) -> None:
+        """
+        Save a position a command edited by hand and confirm it:
+        `message` with the board attached (`announce_board_update`),
+        or as plain text and a board refresh where `snapshot` is off.
+
+        The save is `GameService.save_hand_edit`'s. Where the edit
+        left the turn's ball handler off the ball, it cleared the turn,
+        and the offense's choice it hands back goes up after the
+        confirmation; where the turn may not be cleared, nothing was
+        written and the edit is refused.
+        """
+        result = self.service.save_hand_edit(game, match)
+        if result is not None and result.refused:
+            await interaction.followup.send(
+                f"{result.refusal} The change was not saved.",
+                ephemeral=True,
+            )
+            return
+        if result is not None:
+            message += (
+                " The player whose turn it was no longer has the ball, "
+                "so the turn is cleared and the offense chooses again."
+            )
+        if snapshot:
+            await self.announce_board_update(interaction, game, message)
+        else:
+            await interaction.followup.send(message)
+            await self.refresh_match_image(interaction, game)
+        if result is not None:
+            await self.present(interaction, game, self.rendered(game, result))
+
     def may_administer_game(
         self,
         interaction: discord.Interaction,
@@ -2039,7 +2079,10 @@ class CommandsMixin:
         genuinely inconsistent -- it clears the turn and asks the
         offense to choose again.
         """
-        result = await self.defer_and_get_match(interaction)
+        # Loaded without the stranded-handler check, so `force` can
+        # still clear a turn whose handler is off the ball -- the one
+        # position nothing else in the channel will load.
+        result = await self.defer_and_get_match(interaction, check_turn=False)
         if result is None:
             return
         game, match = result
@@ -2288,12 +2331,11 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.service.persist(game, match)
-
         player = self.engine.get_player_definition(player_card)
-        await self.announce_board_update(
+        await self.commit_hand_edit(
             interaction,
             game,
+            match,
             f"{self.player_label(match, player)} moved to "
             f"{destination_display_name(destination, match.board.layout.board_size)}.",
         )
@@ -2418,11 +2460,10 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.service.persist(game, match)
-
-        await self.announce_board_update(
+        await self.commit_hand_edit(
             interaction,
             game,
+            match,
             f"{self.player_label(match, player)} moved to "
             f"{destination_display_name(dest_target, match.board.layout.board_size)}.",
         )
@@ -2503,12 +2544,11 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.service.persist(game, match)
-
         player = self.engine.get_player_definition(meeple)
-        await self.announce_board_update(
+        await self.commit_hand_edit(
             interaction,
             game,
+            match,
             f"{self.player_label(match, player)} moved to "
             f"{space_label(zone, space_index, match.board)}.",
         )
@@ -2568,12 +2608,11 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.service.persist(game, match)
-
         possession_team = match.setup_for_side(match.ball.possession).team
-        await self.announce_board_update(
+        await self.commit_hand_edit(
             interaction,
             game,
+            match,
             f"The ball moved to {space_label(zone, space_index, match.board)}. "
             f"{team_display_name(possession_team)} has possession.",
         )
@@ -2612,13 +2651,14 @@ class CommandsMixin:
             await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        self.service.persist(game, match)
-
-        await interaction.followup.send(
+        await self.commit_hand_edit(
+            interaction,
+            game,
+            match,
             f"{team_display_name(match.setup_for_side(side).team)} now has "
-            "possession."
+            "possession.",
+            snapshot=False,
         )
-        await self.refresh_match_image(interaction, game)
 
     @ball_possession.autocomplete("team")
     async def ball_possession_team_autocomplete(

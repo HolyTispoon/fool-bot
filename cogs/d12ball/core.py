@@ -865,6 +865,8 @@ class CoreMixin:
     def match_for_channel(
         self,
         channel_id: int,
+        *,
+        check_turn: bool = True,
     ) -> tuple[Optional[D12BallGame], Optional[MatchState]]:
         """
         `(game, match)` for the game running in `channel_id`, or
@@ -873,24 +875,43 @@ class CoreMixin:
         callback open with. Autocomplete has no interaction to reply
         through the way a command does, which is why this doesn't
         reply and each caller answers an empty list itself.
+        `check_turn` is `RulesEngine.load_match_state`'s.
         """
         game = self.game_for_channel(channel_id)
         if game is None or game.match_state is None:
             return None, None
-        return game, self.engine.load_match_state(game)
+        return game, self.engine.load_match_state(game, check_turn=check_turn)
 
     async def defer_and_get_match(
         self,
         interaction: discord.Interaction,
+        *,
+        check_turn: bool = True,
     ) -> Optional[tuple[D12BallGame, MatchState]]:
         """
         Defer the interaction and load the game/match tied to the
         current channel, replying with an ephemeral error and
-        returning None when there isn't one to work with.
+        returning None when there isn't one to work with -- including
+        a saved match that no longer loads, which says why rather than
+        failing the command unhandled. `check_turn` is
+        `RulesEngine.load_match_state`'s, off for `/d12ball resume`
+        alone.
         """
         await interaction.response.defer()
 
-        game, match = self.match_for_channel(interaction.channel_id)
+        try:
+            game, match = self.match_for_channel(
+                interaction.channel_id, check_turn=check_turn,
+            )
+        except ValueError as error:
+            await interaction.followup.send(
+                f"This game's saved position does not load: {error}\n"
+                "If it is the turn that no longer hangs together, "
+                "`/d12ball resume force:true` clears it and starts the "
+                "offensive choice over.",
+                ephemeral=True,
+            )
+            return None
         if game is None:
             await interaction.followup.send(
                 "There is no D12 Ball match in progress in this channel.",

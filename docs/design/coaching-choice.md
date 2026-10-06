@@ -53,7 +53,7 @@ is declared where Dinky has an injured player to get off and passed
 otherwise ("**🟣 Dinky AI passed.**"), the hub gets a `substitute` per
 injured player its allowance covers, a `reposition` onto the kickoff space
 where `CoachingHubOptions.finish_refusal` says it must, and then `done`,
-which says what a coach's Done says ("**Purple (Visiting) are done.** ...").
+which says what a coach's Done says ("**Purple (Visitors) are done.** ...").
 Until step 7 it was a routine, `run_ai_substitution_window`, that ran the
 whole window inside `open_substitution_window` and worded it its own way.
 
@@ -200,7 +200,11 @@ with a minute rather than handed out by the play.
 - **A full-time window with nothing in it is skipped, silently.** Its only
   action is the substitution, so a side with an empty `substitution_pool` would
   get a Done button with extra steps. Halftime's extra-token stage skips the
-  same way for the same reason. Every other occasion has three more actions to
+  same way for the same reason: it offers only the fielded players still
+  carrying a token (`halftime_token_candidates`, read by `pending`, the stage
+  and the prompt's options alike), since picking a fresh one would clear
+  nothing, and a side with nobody tired is not asked (the author,
+  2026-10-05). Every other occasion has three more actions to
   fall back on, so none of them skips. It is a genuinely rare state -- see
   "Who may come on is one question, not six" above.
 - **The kickoff space is the only thing that can hold a coach in the flow, and

@@ -49,6 +49,7 @@ which one it was.
 """
 
 import ast
+import discord
 import unittest
 from functools import partial
 from pathlib import Path
@@ -1218,12 +1219,42 @@ class OverdriveBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
         match = self.cog.engine.load_match_state(self.game)
         self.assertEqual(match.overdrive_passed, [])
 
+    @staticmethod
+    def button(view, label: str):
+        return next(
+            item for item in view.children
+            if getattr(item, "label", "").startswith(label)
+        )
+
+    def test_the_deciding_coach_s_pass_is_red_and_roll_waits_grey(
+        self,
+    ) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        roll = self.button(view, "Roll the skill test")
+        self.assertTrue(roll.disabled)
+        self.assertIs(roll.style, discord.ButtonStyle.secondary)
+        self.assertIs(
+            self.button(view, "Pass on Overdrive").style,
+            discord.ButtonStyle.danger,
+        )
+
     async def test_a_pass_frees_the_die_for_either_coach(self) -> None:
         view = SkillTestView(self.cog, self.game.game_id)
         interaction = self.press(111, "d12ball:overdrive_pass:g1:home")
+        # The redraw answers the click, so what was said follows it.
+        interaction.response.is_done = lambda: True
         with suppressed_cog_saves():
             await view.pass_on_overdrive(interaction)
-        said = interaction.response.send_message.await_args.args[0]
+        interaction.response.send_message.assert_not_awaited()
+        redrawn = interaction.response.edit_message.await_args.kwargs["view"]
+        labels = [getattr(item, "label", "") for item in redrawn.children]
+        self.assertFalse(any(
+            label.startswith(("Pass on", "⚡ Overdrive")) for label in labels
+        ))
+        roll = self.button(redrawn, "Roll the skill test")
+        self.assertFalse(roll.disabled)
+        self.assertIs(roll.style, discord.ButtonStyle.primary)
+        said = followup_messages(interaction)[0]
         self.assertIn("<@111> passes on Overdrive.", said)
         self.assertIn("Either player can roll.", said)
 

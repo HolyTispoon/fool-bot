@@ -128,9 +128,9 @@ Time has advanced 1, now at 02.
 --- narration
 **Deflect:** the ball moves 1 space back. Ball speed is now 2.
 
-The ball comes down to a space where Purple (Visiting) has a player, so they get the ball.
+The ball comes down to a space where Purple (Visitors) has a player, so they get the ball.
 The ball is at **space 5** (Midfield). # Turnover!
-{team:purple} Glompex {role:midfielder:purple} picks up the ball. Purple (Visiting) now has possession.
+{team:purple} Glompex {role:midfielder:purple} picks up the ball. Purple (Visitors) now has possession.
 
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
@@ -143,7 +143,7 @@ Space 4 (2 away) or space 5 (1 away).
 {team:orange} Sizzifizik {role:playmaker:orange} runs back to space 4.
 {team:orange} Sizzifizik {role:playmaker:orange} exhausts 2 {condition:exhaust}{condition:exhaust} (now 3 total).
 --- prompt TUTORIAL_CONTINUE
-Ball is now in space 5, Purple (Visiting) has possession.
+Ball is now in space 5, Purple (Visitors) has possession.
 
 ## 3. Your turn to defend
 Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and exhausted 1 per space to do it.
@@ -187,7 +187,7 @@ Defending, your hand is the other half of the cycle:
 ## **Pressure** wins!
 Time has advanced 1, now at 03. **Pressure:** {team:purple} Glompex {role:midfielder:purple} and the ball go back 1 space. {team:orange} Sizzifizik {role:playmaker:orange} moves forward.
 
-Ball is now in space 6, Purple (Visiting) has possession.
+Ball is now in space 6, Purple (Visitors) has possession.
 
 ## 4. Winning the ball back
 Pressure drove them backwards: their handler and the ball went back a space to **space 6**, and your challenger moved up onto them. Dinky still has it -- but they have lost ground, and you are standing on the ball.
@@ -320,7 +320,7 @@ Both teams reset to the positions their coaches last set:
 --- prompt TUTORIAL_CONTINUE
 The ball speed goes down to **1**.
 
-Ball is now in space 4, Purple (Visiting) has possession.
+Ball is now in space 4, Purple (Visitors) has possession.
 
 # That's the tutorial
 The rails are off -- every button is live from here, and Dinky is playing for real.

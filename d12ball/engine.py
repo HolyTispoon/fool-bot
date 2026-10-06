@@ -2152,7 +2152,7 @@ class RulesEngine:
     ) -> MatchState:
         if not game.home_and_visiting_selected:
             raise ValueError(
-                "Home and visiting teams must be selected first."
+                "Home and Visitors must be assigned first."
             )
         if game.player_1_team is None or game.player_2_team is None:
             raise ValueError("Both teams must be selected first.")
@@ -2179,14 +2179,24 @@ class RulesEngine:
         game.match_state = match.to_dict()
         return match
 
-    def load_match_state(self, game: D12BallGame) -> MatchState:
+    def load_match_state(
+        self,
+        game: D12BallGame,
+        *,
+        check_turn: bool = True,
+    ) -> MatchState:
+        """
+        The game's saved match, checked against itself. `check_turn`
+        is `MatchState.validate`'s: off only for a reader about to
+        clear the turn (`GameService.reset_turn`).
+        """
         if game.match_state is None:
             raise ValueError("This game does not have initialized match state.")
         match = MatchState.from_dict(
             game.match_state,
             self.basic_ruleset,
         )
-        match.validate(self.player_catalog, saved=True)
+        match.validate(self.player_catalog, saved=True, check_turn=check_turn)
         return match
 
     def side_for_user(

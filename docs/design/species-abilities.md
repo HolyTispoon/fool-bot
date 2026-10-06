@@ -503,8 +503,8 @@ Mind Pull die, which cannot ignite today.
 - **On the dice message, at every site including a tie.** The ignite
   happened to the die a coach is looking at and before the verdict they
   are about to read, and the verdict is still its own message after it.
-  On a tie the sentence goes ahead of the roll-again question on that
-  same message.
+  On a tie it stays there too, and the roll-again question follows as
+  its own message, as any verdict does.
 - **The sentence is above the dice**, unlike every result in the game.
   It is not a verdict the picture is about to reveal -- it says what the
   second die added, never who won -- so it may stand where a result may
@@ -790,6 +790,15 @@ seventh gets it in one line.
 - **Every roll site clears it**, win, lose or tie. A tie that is re-rolled is a
   fresh roll and has to be Overdriven again, which the rules say outright and
   which falls out of consuming rather than being special-cased.
+- **On Discord a tie's re-roll is a new message, below the declaration.** The
+  declaration's answer is a reply under the prompt it was pressed on, and the
+  Roll turns that prompt into the dice. The tie and its roll-again buttons used
+  to be written into the same message, which left the reply sitting under the
+  re-roll's buttons -- read as an Overdrive declared for the re-roll, when it
+  was spent on the roll that tied (the author, 2026-10-05). So the tie is
+  posted after the dice like every other verdict (`SkillTestView.roll`,
+  `LooseBallSkillTestView.roll`): the dice, then the declaration, then the
+  re-roll. One request more per tie, which is rare.
 - **The declaration is the Cyborg's own coach's, unlike the roll.** Either
   coach may throw a die (see "Every roll is a coach's" in [maneuvers.md](maneuvers.md)); nobody else may spend
   another coach's tokens. The button carries the player in its custom_id for
@@ -821,19 +830,29 @@ seventh gets it in one line.
     until then. A pass or a declaration that hands on says so, addressing the
     next coach ("<coach> decides on Overdrive next", or "Either player can
     roll."), which is how the defender is pinged.
-  - **Both coaches' Pass buttons are on the message from the start**, and the
-    defender's is refused until the attacker has decided, so a hand-on never
-    has to redraw the prompt: the declaration's reply is the one request a
-    press costs, as before.
+  - **Every press redraws the roll's message, and the colours say whose
+    press is owed** (the author, 2026-10-05: *"the button for 'pass on
+    overdrive' should be red so long as it's the one needed and score attempt
+    should be grayed out"*). Both coaches' Pass buttons are on the message
+    from the start; the deciding coach's is red, the defender's grey and
+    refused until the attacker has decided, and Roll is grey and disabled
+    while `undecided_sides` is not empty (`SafeView.add_overdrive_buttons`,
+    handed each view's Roll). A declaration or a pass rebuilds the view off
+    the position through `interaction.response.edit_message` -- the
+    interaction callback, not the channel's edit bucket -- so the side that
+    decided loses its Pass and its Overdrive and Boost buttons (a passed
+    side's are closed by `_may_drain_before_roll`), the next coach's Pass
+    turns red, and Roll comes back live in its own colour once nobody is
+    left; what was declared follows as its own message
+    (`SafeView.answer_declaration`). That is one request more a press than
+    the plain reply it replaced, and the score attempt's view carries its
+    composition message over the rebuild (`ScoreAttemptView.redrawn`) so
+    Back still deletes it. The score attempt's Roll is green.
   - **The shootout is the one roll on Discord whose Roll is not on the
     message while a coach decides** (the author, 2026-10-02: "shootouts need
     to ask for overdrive and boost before letting either player roll").
     `ShootoutTestView` leaves it off while `undecided_sides` is not empty,
-    and the press that settles the last decision swaps it on through
-    `interaction.response.edit_message` -- the interaction callback, not the
-    channel's edit bucket -- with its line as a follow-up
-    (`ShootoutTestView.answer_declaration`). Every other roll keeps Roll up
-    and refused; asking the same of them is one override each.
+    and the redraw after the last decision puts it on.
   - `MatchState.overdrive_passed` holds the sides that have passed -- a saved
     field, since passing and rolling are separate clicks with a save between
     them, absent from an older save as nobody having passed -- and a side in

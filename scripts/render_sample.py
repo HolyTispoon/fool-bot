@@ -141,7 +141,7 @@ def main() -> None:
         "--visiting",
         default="teal",
         choices=[team.value for team in Team],
-        help="Visiting team for a fresh match (default: teal).",
+        help="Visitors team for a fresh match (default: teal).",
     )
     parser.add_argument(
         "--home-formation",
@@ -153,7 +153,7 @@ def main() -> None:
         "--visiting-formation",
         default=Formation.TWO_TWO_TWO.value,
         choices=[formation.value for formation in Formation],
-        help="Visiting formation for a fresh match (default: 2-2-2).",
+        help="Visitors formation for a fresh match (default: 2-2-2).",
     )
     parser.add_argument(
         "--board-size",

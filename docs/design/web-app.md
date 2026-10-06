@@ -914,11 +914,21 @@ two shapes, by which way it is held:
   board at the desktop's size, as it did.
 - **Upright, the move is a bottom sheet**: the Move tab's pane, edged
   in the state tag's colour, over the rest of the screen, with the
-  tabs along its foot. It opens on the question -- the tag, the ask,
-  what is lit -- and the box's own controls; the outcome and the
-  reveal of what just happened come after them there, where on a
-  wide screen they come first, because in half a phone's height the
-  outcome at full size pushed the question out of sight. Every thing
+  tabs along its foot. It opens on what just happened -- the tag and
+  the outcome, as on every other screen -- and then the question: the
+  ask, what is lit, and the box's own controls. The outcome there is
+  drawn smaller than on a wide screen, so it no longer pushes the
+  question out of sight; it once came after the question for that
+  reason, which read backwards -- a goal that brought halftime was
+  announced under the halftime choice it led to (the author,
+  2026-10-05). The two cards turned over come with the outcome, above
+  the question, as on a wide screen -- but drawn there without the
+  field diagram the pick showed, only the rank, the name, the time and
+  the effect: they are up through every prompt of a maneuver, the
+  rolls included, and at full size the pair alone filled the sheet and
+  pushed the Roll button off it, while the diagram is what a coach
+  chooses by, not what a roll is read against (the author,
+  2026-10-06). The hover card still has the rest. Every thing
   lit on the field is on the sheet as a row of the choices ("The lit
   line becomes the choices", below), at the desktop's size, so nothing
   needs zooming to answer; a time out that may be called is one of

@@ -56,7 +56,7 @@ Time has advanced 1, now at 01.
 --- message
 **Steal:**
 # Turnover!
-🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then falls back 1 space toward their own goal with the ball.
+🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 7: FlyView -> 'Stay'
@@ -71,7 +71,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 5, Fire Demons (Visiting) has possession.
+Ball is now in space 5, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -121,7 +121,7 @@ Time has advanced 1, now at 02.
 --- message
 **Pressure:** 🔥 Sizzifizik [PM] and the ball go back 1 space. 🔮 Zenith [WG] moves forward.
 
-Ball is now in space 6, Fire Demons (Visiting) has possession.
+Ball is now in space 6, Fire Demons (Visitors) has possession.
 --- message
 🔥 Sizzifizik [PM] will maneuver for Fire Demons.
 
@@ -154,7 +154,7 @@ Time has advanced 1, now at 03.
 --- message
 🔥 Hellguard [FB] picks up the ball.
 --- message
-Ball is now in space 7, Fire Demons (Visiting) has possession.
+Ball is now in space 7, Fire Demons (Visitors) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -183,7 +183,7 @@ Time has advanced 1, now at 04.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
 
-Ball is now in space 6, Fire Demons (Visiting) has possession.
+Ball is now in space 6, Fire Demons (Visitors) has possession.
 --- message
 🔥 Sizzifizik [PM] will maneuver for Fire Demons.
 
@@ -209,7 +209,7 @@ Time has advanced 1, now at 05.
 --- message
 **Low Pass:** the ball goes to a teammate in the same space, and 🔥 Sizzifizik [PM] moves a space forward. Ball speed is now 5.
 
-Ball is now in space 6, Fire Demons (Visiting) has possession.
+Ball is now in space 6, Fire Demons (Visitors) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for Fire Demons.
 
@@ -242,7 +242,7 @@ Ball speed is now **7**.
 --- message
 🔮 Noxar [SK] declines to Mind Pull.
 --- message
-Ball is now in space 5, Fire Demons (Visiting) has possession.
+Ball is now in space 5, Fire Demons (Visitors) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for Fire Demons.
 
@@ -320,7 +320,7 @@ Time has advanced 1, now at 07.
 --- message
 **Pinpoint:** the ball moves 3 spaces forward. Ball speed is now 10.
 
-Ball is now in space 2, Fire Demons (Visiting) has possession.
+Ball is now in space 2, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -354,7 +354,7 @@ Either player can roll:
 --- message
 🔥 Scorchit [MF] wins the ball! 🔥 Dinky AI has possession.
 --- message
-Ball is now in space 3, Fire Demons (Visiting) has possession.
+Ball is now in space 3, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI declares a gambit and hands the coin to 🔮 Player 1, who flips it: 🪙 Doom.
 --- message
@@ -393,7 +393,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 37: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Flickerwing [WG] scores for Fire Demons (Visiting) on **10**!
+🔥 Flickerwing [WG] scores for Fire Demons (Visitors) on **10**!
 Telekinetics 0:1 Fire Demons
 
 🔥 Flickerwing [WG] exhausts 1 😮‍💨 (now 1 total).
@@ -455,7 +455,7 @@ Time has advanced 1, now at 12.
 **Pressure:** 🔮 Quillon [PM] and the ball go back 1 space. 🔥 Sizzifizik [PM] moves forward.
 
 # Turnover!
-**Burst** was beaten -- Fire Demons (Visiting) take the ball, and it keeps the speed the burst put into it (1).
+**Burst** was beaten -- Fire Demons (Visitors) take the ball, and it keeps the speed the burst put into it (1).
 
 <@111> 🔮 Zenith [WG] may **Fly** before the run back: to any space on the field, at a token a space, and then they do not run back.
 === press 43: FlyView -> 'Space 1 (4 away)'
@@ -480,7 +480,7 @@ Space 4 (1 away) or space 5 (2 away).
 --- message
 Ball speed is now **4**.
 --- message
-Ball is now in space 3, Fire Demons (Visiting) has possession.
+Ball is now in space 3, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -541,7 +541,7 @@ Out of shooting range. Maneuver, or take a time out:
 === press 50: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 1 at speed 1, with you in possession.
 === press 51: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Telekinetics (Home) call a time out
@@ -557,7 +557,7 @@ Your side is back on the arrangement you last set.
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Fire Demons (Visiting) are done.**
+**Fire Demons (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now in space 1, Telekinetics (Home) has possession.
@@ -633,7 +633,7 @@ Time has advanced 1, now at 17.
 --- message
 **Intercept:**
 # Turnover!
-🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visiting) now has possession, then carries it 1 space forward, toward the goal they now attack.
+🔥 Sizzifizik [PM] steals the ball. Fire Demons (Visitors) now has possession, then carries it 1 space forward, toward the goal they now attack.
 
 **Pinpoint** was beaten -- the defense gets an unopposed Low Pass once everyone is back in position.
 
@@ -659,7 +659,7 @@ Every fielded player clears 1 exhaustion:
 🔮 Zenith [WG] clears an extra exhaustion token (now 6).
 --- message
 # Coaching Choice
-**Fire Demons (Visiting) are done.**
+**Fire Demons (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 ## Halftime
@@ -705,7 +705,7 @@ Ball speed is now **5**.
 🔮 Dravox [DD] exhausts 1 😮‍💨 (now 1 total).
 🔮 Dravox [DD] fails to Mind Pull
 --- message
-Ball is now in space 2, Fire Demons (Visiting) has possession.
+Ball is now in space 2, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message
@@ -748,7 +748,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 67: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🔥 Brightburn [SK] scores for Fire Demons (Visiting) on **18**!
+🔥 Brightburn [SK] scores for Fire Demons (Visitors) on **18**!
 Telekinetics 0:2 Fire Demons
 
 🔥 Brightburn [SK] exhausts 1 😮‍💨 (now 1 total).
@@ -846,7 +846,7 @@ Out of shooting range. Maneuver, or take a time out:
 === press 76: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visiting) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Fire Demons (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 2 at speed 1, with you in possession.
 === press 77: TimeOutConfirmView -> 'Take the time out'
 --- message
 # Telekinetics (Home) call a time out
@@ -862,7 +862,7 @@ Your side is back on the arrangement you last set.
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Fire Demons (Visiting) are done.**
+**Fire Demons (Visitors) are done.**
 No substitutions, and no change of shape.
 --- message
 Ball is now in space 2, Telekinetics (Home) has possession.
@@ -920,7 +920,7 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 84: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
-Fire Demons (Visiting) manages to avoid a goal! (phew)
+Fire Demons (Visitors) manages to avoid a goal! (phew)
 
 🔮 Zenith [WG] exhausts 1 😮‍💨 (now 7 total).
 
@@ -931,7 +931,7 @@ Time has advanced 1, now at 25.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 7, Fire Demons (Visiting) has possession.
+Ball is now in space 7, Fire Demons (Visitors) has possession.
 --- message
 🔥 Hellguard [FB] will maneuver for Fire Demons.
 
@@ -985,7 +985,7 @@ Telekinetics 1:2 Fire Demons
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Fire Demons (Visiting) has possession.
+Ball is now in space 4, Fire Demons (Visitors) has possession.
 --- message
 🔥 Dinky AI has picked their maneuver.
 --- message

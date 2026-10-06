@@ -264,3 +264,23 @@ name, never a rule, and nothing saved changed.
 - **A test may still spell a space `M2`** through `tests/space_codes.py`'s
   `code`, because the letter form says which zone without counting and is the
   same on both boards; what it checks is the bot's name for that space.
+
+## Naming a side
+
+**A side is "Home" or "Visitors", never "Visiting"** (the author,
+2026-10-05: "make it visitors everywhere"). `formatting.side_display_name`
+is the one spelling, and everything a coach reads asks it: a team's side
+label ("Purple (Visitors)", `format_team_side_label`), the coin toss's
+**Home:** / **Visitors:** lines and its two buttons, "chose **Visitors**",
+the web room's choice, the statistics' "Visitors wins", and the printed
+board's kickoff label. It is the word the Visitors Zone and the Visitors
+Goal were already named with, so a side and the end it plays to read alike.
+
+- **The word is display alone.** `TeamSide.VISITING` and
+  `HomeChoice.VISITING` still save `"visiting"`, and keys such as
+  `visiting_player_number` keep their names: the save format is the
+  contract, and a half-finished game outlives the commit.
+- **Prose about the rules is not a label.** The Charter's "the home team
+  attacks the Visitors Goal and the visiting team attacks the Home Goal"
+  (2.2.1) is English, and a change to the Charter's words is a rules change
+  in its own commit, not a rename here.

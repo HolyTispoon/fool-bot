@@ -418,9 +418,10 @@ class D12BallGame:
     # `player_2_id` is None, as it always has. With a list, a seat with
     # no id is the AI's if it is listed and **empty** if it is not --
     # the third state the old reading has no way to say, and the reason
-    # this field exists. Left out of `to_dict` while None, so a save
-    # that never had a room is written exactly as it was, and a checkout
-    # older than the field still reads every Discord save.
+    # this field exists. Left out of `to_dict`, which `save_games`
+    # writes the record through, while None, so a save that never had a
+    # room is written exactly as it was, and a checkout older than the
+    # field still reads every Discord save.
     ai_seats: Optional[list[int]] = None
 
     def __post_init__(self) -> None:
@@ -1282,7 +1283,7 @@ class D12BallGame:
             )
 
         if self.home_and_visiting_selected:
-            raise RuleRefusal("Home and visiting teams are already assigned.")
+            raise RuleRefusal("Home and Visitors are already assigned.")
 
         choice = HomeChoice(choice)
         rail = self.home_choice_rail(player_number)
