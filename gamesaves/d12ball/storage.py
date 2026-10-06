@@ -1,6 +1,6 @@
 import json
 import logging
-from dataclasses import asdict, dataclass, fields
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Optional
 from d12ball.game import TEAM_PAIRS, D12BallGame, Team
@@ -428,8 +428,13 @@ def save_games(
 
         return
 
+    # Through the record's own `to_dict`, not `asdict`: what the record
+    # leaves out of its save (`ai_seats` while None -- see the field)
+    # has to be left out of the file, or the comment on the field is a
+    # promise this function does not keep. It was `asdict` until
+    # 2026-10-05, so a save made before then carries the key as null.
     serialized_games = {
-        game_id: asdict(game)
+        game_id: game.to_dict()
         for game_id, game in games.items()
     }
 
