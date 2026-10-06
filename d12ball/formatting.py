@@ -32,7 +32,8 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, D12BallGame, GameMode, LARGE_BOARD_MODES, Team,
+    AIOpponent, BOARD_SIZE_MODES, D12BallGame, GameMode,
+    RECOMMENDED_BOARD_SIZES, Team,
     team_display_name,
 )
 
@@ -908,19 +909,29 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
 
 def board_size_recommendation(game: D12BallGame) -> Optional[str]:
     """
-    The note recommending the large boards, read off the mode alone --
-    shown on whichever board the game is on, since it is what tells a
-    coach why picking the mode moved the board -- or `None` for a mode
-    they are not recommended for (`LARGE_BOARD_MODES`).
-    The Discord setup screens and the web table both show it.
+    The note recommending a board, or `None` where there is nothing to
+    recommend. The mode's own boards (`RECOMMENDED_BOARD_SIZES`) are
+    named on whichever board the game is on, since the note is what
+    tells a coach why picking the mode moved the board; a board picked
+    that is recommended for another mode alone (`BOARD_SIZE_MODES`)
+    adds which. The Discord setup screens and the web table both show
+    it.
     """
     mode = GameMode(game.mode)
-    if mode not in LARGE_BOARD_MODES:
-        return None
-    return (
-        f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
-        "mode on a board size of 9 or 10."
-    )
+    notes = []
+    sizes = RECOMMENDED_BOARD_SIZES.get(mode)
+    if sizes:
+        notes.append(
+            f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
+            f"mode on a board size of {' or '.join(map(str, sizes))}."
+        )
+    board_mode = BOARD_SIZE_MODES.get(game.board_size)
+    if board_mode is not None and board_mode != mode:
+        notes.append(
+            f"Board size {game.board_size} is recommended for "
+            f"{GAME_MODE_NAMES[board_mode].lower()} mode."
+        )
+    return " ".join(notes) or None
 
 
 # What each mode is, in the author's words (2026-09-27) -- the pitch a

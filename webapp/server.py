@@ -2318,9 +2318,9 @@ class WebApp:
                 for size in sorted(VALID_BOARD_SIZES)
             ],
         )
-        # The nine-space board's recommendation under the row, read off
-        # the mode (`board_size_recommendation`, the sentence the
-        # Discord setup screens show), whichever board is picked.
+        # The board's recommendation under the row, read off the mode
+        # and the board picked (`board_size_recommendation`, the
+        # sentence the Discord setup screens show).
         board["definition"] = board_size_recommendation(game)
         settings = [mode, board]
         if game.is_solo_game:

@@ -240,9 +240,24 @@ VALID_BOARD_SIZES = {7, 9, 10}
 #: until the author keeps one (2026-10-06).
 PLAYTEST_BOARD_SIZES = frozenset({10})
 
-#: The boards Standard and Advanced are recommended (the author,
-#: 2026-10-05 and 2026-10-06).
+#: The large boards: a game in a mode they are recommended for that is
+#: moved off board 7 lands on 9 (`LARGE_BOARD_MODES`), and one already
+#: on either stays there.
 LARGE_BOARD_SIZES = frozenset({9, 10})
+
+#: The boards each mode is recommended (the author, 2026-10-06; 3.1.1
+#: in docs/living-rules.md): Standard the 9-space board, Advanced 9 or
+#: 10. Training is recommended none -- it keeps the 7-space board the
+#: tutorial is written for.
+RECOMMENDED_BOARD_SIZES: dict[GameMode, tuple[int, ...]] = {
+    GameMode.STANDARD: (9,),
+    GameMode.ADVANCED: (9, 10),
+}
+
+#: The boards recommended for one mode alone, which say so when they
+#: are picked in another: board 10 is for Advanced (the author,
+#: 2026-10-06).
+BOARD_SIZE_MODES: dict[int, GameMode] = {10: GameMode.ADVANCED}
 
 #: The modes the large boards are recommended for: a game in either
 #: starts on board 9, and picking either moves a 7-space board to 9 --
@@ -935,8 +950,8 @@ class D12BallGame:
         `mode`, `board` and `ai` are open for the whole of setup;
         `test`, `tutorial` and `name` only in the lobby, since each is
         settled by Start Game. Standard and Advanced are recommended
-        board 9 or 10 (`LARGE_BOARD_MODES`), so picking either moves a
-        7-space board to 9 -- a coach may still pick 7 afterwards.
+        the large boards (`RECOMMENDED_BOARD_SIZES`), so picking either
+        moves a 7-space board to 9 -- a coach may still pick 7 afterwards.
         Picking Training leaves the board where it is.
         """
         if setting not in GAME_SETTINGS:

@@ -155,6 +155,21 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-06 -- author, standard is recommended board 9, and board 10 advanced alone
+
+**A rule changed.** The recommendation (3.1.1) the entry below settled as *"9 or 10"* for
+both modes is split by mode, asked of the author: *"for standard, recommend board size 9"*,
+*"for advanced recommend 9 or 10"*, and *"when someone clicks 10 add a recommendation to
+play advanced mode"*.
+
+- **A standard game is recommended board 9; an advanced game board 9 or 10.** Training is
+  still recommended no board.
+- **Board 10 is recommended for advanced games alone**: picked in training or standard, the
+  setup screens on the bot and the web table say so beside the mode's own recommendation.
+- **Nothing a game starts on changed**: standard and advanced still start on board 9,
+  picking either still moves a 7-space board to 9, and a standard game a coach has put on
+  board 10 stays there -- the note is advice, not a refusal.
+
 ### 2026-10-06 -- author, a 10-space playtest board; standard and advanced are recommended 9 or 10
 
 **A rule changed.** A game may be played on a **10-space board**, offered as a playtest board
