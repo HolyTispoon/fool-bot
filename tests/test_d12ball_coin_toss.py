@@ -1738,10 +1738,12 @@ class EmojiFetchCountTests(unittest.IsolatedAsyncioTestCase):
 class AdvancedModeBoardSizeTests(unittest.TestCase):
     """
     Picking Advanced defaults the board to 9 -- the extra maneuvers
-    need the room -- and the setup message keeps recommending 9 even
-    after a coach picks 7 back, since the recommendation is a read of
-    the mode alone. Standard is recommended 9 too (the author,
-    2026-10-05); Training is not. See "select_mode" in
+    need the room -- and the setup message keeps recommending its
+    boards even after a coach picks 7 back, since the mode's
+    recommendation is a read of the mode alone. Standard is recommended
+    9 and Advanced 9 or 10; board 10 picked in any other mode
+    recommends Advanced (the author, 2026-10-06); Training is
+    recommended no board. See "select_mode" in
     cogs/d12ball_views/setup.py.
     """
 
@@ -1762,7 +1764,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
 
         self.assertEqual(game.board_size, 9)
         self.assertIn(
-            "recommended to play advanced mode on a board size of 9",
+            "recommended to play advanced mode on a board size of 9 or 10.",
             build_setup_message(game),
         )
 
@@ -1781,7 +1783,7 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
 
         self.assertEqual(game.board_size, 7)
         self.assertIn(
-            "recommended to play advanced mode on a board size of 9",
+            "recommended to play advanced mode on a board size of 9 or 10.",
             build_setup_message(game),
         )
 
@@ -1791,15 +1793,28 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
         for board_size in (7, 9, 10):
             game.board_size = board_size
             self.assertIn(
-                "recommended to play standard mode on a board size of 9 or 10",
+                "recommended to play standard mode on a board size of 9.",
                 build_setup_message(game),
             )
+
+    def test_board_ten_recommends_advanced_mode(self) -> None:
+        game = build_game()
+        game.board_size = 10
+        for mode in (GameMode.TRAINING, GameMode.STANDARD):
+            game.mode = mode
+            self.assertIn(
+                "Board size 10 is recommended for advanced mode.",
+                build_setup_message(game),
+            )
+        game.mode = GameMode.ADVANCED
+        self.assertNotIn("Board size 10", build_setup_message(game))
 
     def test_training_mode_carries_no_recommendation(self) -> None:
         game = build_game()
         game.mode = GameMode.TRAINING
-        self.assertNotIn("recommended", build_setup_message(game))
-
+        for board_size in (7, 9):
+            game.board_size = board_size
+            self.assertNotIn("recommended", build_setup_message(game))
 
 if __name__ == "__main__":
     unittest.main()
