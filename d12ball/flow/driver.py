@@ -1736,7 +1736,7 @@ def _answer_setup_pass_choice(
                 f"This {engine.maneuver_name('setup_pass')} still has "
                 "somewhere to go."
             )
-        return effects.setup_pass_out_step(engine, match)
+        return effects.setup_pass_out_step(engine, match, game)
     if distance not in distances:
         _refuse(
             "That distance is not on offer any more -- 0 spaces needs "

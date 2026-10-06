@@ -344,7 +344,7 @@ def burst_cost_text(match: MatchState, speed: int) -> str:
         "\n\n# Turnover!\n"
         "**Burst** was beaten -- "
         f"{defense_label(match)} "
-        "take the ball, and it keeps the speed the burst put into "
+        "takes the ball, and it keeps the speed the burst put into "
         f"it ({speed})."
     )
 

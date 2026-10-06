@@ -31,7 +31,7 @@ from d12ball.components import (
 from d12ball.engine import RulesEngine
 from d12ball.formatting import format_team_side_label
 from d12ball.game import (
-    D12BallGame, GameMode, GameStatus, Team, team_display_name,
+    D12BallGame, GameMode, GameStatus, Team,
 )
 from d12ball.rules_doc import DISCORD_MESSAGE_LIMIT
 from space_codes import code
@@ -245,8 +245,8 @@ class RosterSubstitutionsTests(unittest.TestCase):
         self.assertEqual(match.half_substitutions_left(TeamSide.HOME), 2)
 
     def test_nothing_once_the_halves_are_over(self) -> None:
-        heading = f"**{format_team_side_label(self.build_match().home)}**"
         match = self.build_match()
+        heading = self.heading_unit(build_game(), match, match.home).split("\n")[0]
         match.pending_full_time_stage = "coaching_home"
         self.assertEqual(self.heading_unit(build_game(), match, match.home), heading)
 
@@ -315,6 +315,12 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         cls.catalog = load_player_catalog()
         cls.rules = load_basic_ruleset()
 
+    @staticmethod
+    def heading(cog: D12Ball, game: D12BallGame, setup) -> str:
+        """A roster's heading as Discord shows it: the side the long
+        way, its team's mark drawn."""
+        return cog.render_text(f"**{format_team_side_label(setup, game)}**", game)
+
     def build_open_window(self) -> tuple[D12Ball, D12BallGame, MatchState]:
         cog = build_cog()
         match = MatchState.standard(
@@ -360,10 +366,8 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message.assert_awaited_once()
         content, keywords = interaction.response.send_message.await_args
         self.assertTrue(keywords["ephemeral"])
-        self.assertIn(team_display_name(match.home.team), content[0])
-        self.assertNotIn(
-            team_display_name(match.visiting.team), content[0],
-        )
+        self.assertIn(self.heading(cog, game, match.home), content[0])
+        self.assertNotIn(self.heading(cog, game, match.visiting), content[0])
 
     async def test_a_test_game_s_two_rosters_are_sent_a_message_each(
         self,
@@ -391,13 +395,11 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         messages = [first[0]] + [call.args[0] for call in rest]
         for message in messages:
             self.assertLessEqual(len(message), DISCORD_MESSAGE_LIMIT)
-        self.assertIn(team_display_name(match.home.team), messages[0])
-        self.assertNotIn(team_display_name(match.visiting.team), messages[0])
+        self.assertIn(self.heading(cog, game, match.home), messages[0])
+        self.assertNotIn(self.heading(cog, game, match.visiting), messages[0])
         self.assertTrue(
             any(
-                message.startswith(
-                    f"**{team_display_name(match.visiting.team)}"
-                )
+                message.startswith(self.heading(cog, game, match.visiting))
                 for message in messages
             )
         )
@@ -415,7 +417,7 @@ class CoachingRosterButtonTests(unittest.IsolatedAsyncioTestCase):
         await view.show_roster(interaction)
 
         content, _ = interaction.response.send_message.await_args
-        self.assertIn(team_display_name(match.visiting.team), content[0])
+        self.assertIn(self.heading(cog, game, match.visiting), content[0])
 
 
 class SpecialAbilityRosterTests(unittest.TestCase):

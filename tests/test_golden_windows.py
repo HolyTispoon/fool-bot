@@ -104,7 +104,7 @@ from save_patches import (
 )
 
 from d12ball.components import MatchState
-from d12ball.formatting import format_team_side_label
+from d12ball.formatting import side_display_name
 from d12ball.game import Formation, GameMode, GameStatus, Team
 
 # The fixtures are the tutorial suite's, the same way the advanced
@@ -380,7 +380,7 @@ def ai_halftime_substitution(transcript: str) -> bool:
     """
     Whether Dinky's halftime window closed with a player coming on.
 
-    Read off the window's own closing message -- "<side> are done." and
+    Read off the window's own closing message -- "<side> is done." and
     the swaps listed under it -- between the halftime heading and the
     first press that is not part of a halftime window. There is no
     substitution event to read it off, and the human's window closes
@@ -388,7 +388,11 @@ def ai_halftime_substitution(transcript: str) -> bool:
     right one; it is the fixture's visiting team, as the window names
     it, rather than spelt here.
     """
-    ai_done = f"**{format_team_side_label(build_windows_match().visiting)} are done.**"
+    # The window names its side the long way -- the team's mark, the
+    # coach, the end -- so the AI side's line is the one that closes on
+    # the visiting end.
+    visiting = build_windows_match().visiting
+    ai_done_end = f"({side_display_name(visiting.side)}) is done.**"
     lines = transcript.split("\n")
     if "# Halftime" not in lines:
         return False
@@ -397,7 +401,7 @@ def ai_halftime_substitution(transcript: str) -> bool:
         press = re.match(r"=== press \d+: (\w+)", line)
         if press and press.group(1) not in HALFTIME_VIEWS:
             return False
-        if line == ai_done:
+        if line.startswith("**") and line.endswith(ai_done_end):
             in_ai_window = True
         elif line.startswith("---"):
             in_ai_window = False
