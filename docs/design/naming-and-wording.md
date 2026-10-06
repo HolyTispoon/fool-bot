@@ -224,6 +224,21 @@ produced them.
   carries the fact -- and "free" left a coach to work out what was free about
   it. **Callers join on the parts that are there** (`"\n".join(filter(None,
   ...))`) rather than interpolating, or the empty string shows as a blank line.
+- **Two modifiers or more are summed** (the author, 2026-10-05). A side of a
+  contested roll's dice image that adds two or more numbers -- a skill and
+  the ball speed modifier, a burn, a Midfielder's +3, a shot's defenders --
+  ends on one more line, "Total modifier +5", drawn in bold (2026-10-06), so
+  a coach reads the side's whole modifier rather than adding it up; one
+  modifier is its own total and gets none. "Total modifier" and not "total
+  offensive skill", because a burn or the ball speed modifier is not skill
+  (the author, 2026-10-06). `with_total_modifier` in `d12ball/flow/rolls.py`
+  writes it for all four contested rolls, counting the lines that add a
+  number and taking the value from the side's total less its face, so it
+  cannot disagree with the total drawn under it; `formatting.
+  total_modifier_line` is its one spelling and `is_total_modifier` the one
+  reading, which the renderer asks to pick the bold face and `roll_working`
+  asks to leave the line out of the written-out arithmetic, where it would
+  read as one more addend.
 
 The subject is spelled out for a related reason: "It comes down on an empty
 space" followed a sentence about a maneuver, so the pronoun read as the
@@ -264,3 +279,23 @@ name, never a rule, and nothing saved changed.
 - **A test may still spell a space `M2`** through `tests/space_codes.py`'s
   `code`, because the letter form says which zone without counting and is the
   same on both boards; what it checks is the bot's name for that space.
+
+## Naming a side
+
+**A side is "Home" or "Visitors", never "Visiting"** (the author,
+2026-10-05: "make it visitors everywhere"). `formatting.side_display_name`
+is the one spelling, and everything a coach reads asks it: a team's side
+label ("Purple (Visitors)", `format_team_side_label`), the coin toss's
+**Home:** / **Visitors:** lines and its two buttons, "chose **Visitors**",
+the web room's choice, the statistics' "Visitors wins", and the printed
+board's kickoff label. It is the word the Visitors Zone and the Visitors
+Goal were already named with, so a side and the end it plays to read alike.
+
+- **The word is display alone.** `TeamSide.VISITING` and
+  `HomeChoice.VISITING` still save `"visiting"`, and keys such as
+  `visiting_player_number` keep their names: the save format is the
+  contract, and a half-finished game outlives the commit.
+- **Prose about the rules is not a label.** The Charter's "the home team
+  attacks the Visitors Goal and the visiting team attacks the Home Goal"
+  (2.2.1) is English, and a change to the Charter's words is a rules change
+  in its own commit, not a rename here.

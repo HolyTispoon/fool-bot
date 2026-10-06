@@ -136,8 +136,20 @@ def zone_display_name(zone: Zone, board_size: int) -> str:
     """
     if zone is Zone.MIDFIELD:
         return "Midfield"
-    side = "Home" if zone is Zone.HOME_ZONE else "Visitors"
-    return f"{side} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
+    side = TeamSide.HOME if zone is Zone.HOME_ZONE else TeamSide.VISITING
+    return f"{side_display_name(side)} {OUTER_ZONE_WORD_BY_BOARD_SIZE[board_size]}"
+
+
+def side_display_name(side: str) -> str:
+    """
+    A side named by the end it plays from: "Home" or "Visitors", the
+    word the Home Zone and the Visitors Zone are named with, and the
+    one spelling of a side in anything a coach reads (the author,
+    2026-10-05: "make it visitors everywhere"). It takes a `TeamSide`
+    or a `HomeChoice` -- both save "visiting", which stays the saved
+    value: the word is display alone.
+    """
+    return "Home" if str(getattr(side, "value", side)) == "home" else "Visitors"
 
 
 def destination_display_name(destination: str, board_size: int) -> str:
@@ -147,7 +159,7 @@ def destination_display_name(destination: str, board_size: int) -> str:
 
 
 def format_team_side_label(setup) -> str:
-    return f"{team_display_name(setup.team)} ({setup.side.value.title()})"
+    return f"{team_display_name(setup.team)} ({side_display_name(setup.side)})"
 
 
 def space_label(zone: Zone, space_index: int, board=None) -> str:
@@ -749,6 +761,25 @@ def contestant_detail(
         if injured
         else f"{skill_word} skill +{skill}",
     ]
+
+
+TOTAL_MODIFIER_PREFIX = "Total modifier "
+
+
+def total_modifier_line(value: int) -> str:
+    """
+    The dice image's last line on a side that adds two modifiers or
+    more -- "Total modifier +5" -- which the image draws in bold
+    (`render.draw_skill_test_die`). Signed, since a burn or a High
+    Pass into the goal zone can take a side below zero.
+    """
+    return f"{TOTAL_MODIFIER_PREFIX}{value:+d}"
+
+
+def is_total_modifier(line: str) -> bool:
+    """Whether a dice line is a side's total modifier rather than one of
+    the things added up in it."""
+    return line.startswith(TOTAL_MODIFIER_PREFIX)
 
 
 #: What each mode is called, in the order each adds to the one before

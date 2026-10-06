@@ -79,6 +79,7 @@ from d12ball.components import (
     kickoff_space_index,
     period_last_minute,
 )
+from d12ball.formatting import side_display_name
 from d12ball.game import Team
 from d12ball.player_cards import team_emoji
 from d12ball.render import (
@@ -1093,7 +1094,7 @@ def draw_kickoff_marks(
         label = (
             "KICKOFF"
             if len(sides) == 2
-            else f"{sides[0].value.upper()} KICKOFF"
+            else f"{side_display_name(sides[0]).upper()} KICKOFF"
         )
         sheet.text(
             (center_x, center_y + radius + sheet.u(10)),

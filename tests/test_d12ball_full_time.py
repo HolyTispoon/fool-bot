@@ -580,7 +580,7 @@ class GoalLogTests(unittest.TestCase):
         self.assertIn("Extreme shootout", log)
         # The shootout scorer is under the shootout heading and not in
         # the visiting side's own column, which is otherwise empty.
-        self.assertIn("Purple (Visiting)** -- none", log)
+        self.assertIn("Purple (Visitors)** -- none", log)
         self.assertIn(f"Purple: {self.name(shooter)}", log)
         # A shootout goal has no minute worth printing, so it is not
         # stamped with whatever the clock stopped on.

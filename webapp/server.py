@@ -68,6 +68,7 @@ from d12ball.formatting import (
     configure_warning,
     describe_game_mode,
     format_player_with_team_name,
+    side_display_name,
 )
 from d12ball.game import (
     COLOR_TEAMS,
@@ -2391,7 +2392,7 @@ class WebApp:
                 "choices": [
                     {
                         "value": choice.value,
-                        "label": choice.value.title(),
+                        "label": side_display_name(choice),
                         "open": rail is None or choice == rail,
                         # Which end of the miniature field the choice
                         # is: the goal that side defends on the board.

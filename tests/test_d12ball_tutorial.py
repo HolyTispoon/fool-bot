@@ -896,7 +896,7 @@ class TutorialRailTests(unittest.TestCase):
         labels = self.labels(HomeAwaySelectionView(cog, "g1"))
 
         self.assertFalse(labels["Home"])
-        self.assertTrue(labels["Visiting"])
+        self.assertTrue(labels["Visitors"])
 
     def test_an_ordinary_game_may_still_choose_either(self) -> None:
         cog = build_cog()

@@ -1183,7 +1183,7 @@ def format_overview(report: OverviewReport) -> list[str]:
         lines += [
             _rule(),
             f"{'Home wins':<34}{report.home_wins:>10}",
-            f"{'Visiting wins':<34}{report.visiting_wins:>10}",
+            f"{'Visitors wins':<34}{report.visiting_wins:>10}",
             f"{'Settled by a shootout':<34}{report.shootouts:>10}",
         ]
     return _ruled(lines)

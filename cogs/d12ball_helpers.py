@@ -1048,7 +1048,7 @@ def build_setup_message(
     if game.coin_flipped:
         text += (
             "The coin has been flipped. See the result and the "
-            "Home/Visiting selection below."
+            "Home/Visitors selection below."
         )
     elif game.teams_selected:
         text += (
@@ -1387,7 +1387,7 @@ def format_coin_emoji(
 
 def build_home_choice_message(game: D12BallGame) -> str:
     """
-    The coin toss's result and the Home-or-Visiting question, with
+    The coin toss's result and the Home-or-Visitors question, with
     the coaches as tokens: the caller renders it
     (`D12Ball.render_text`) before it is sent.
     """
@@ -1421,7 +1421,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         )
 
         if game.is_solo_game and game.coin_winner_player_number == 2:
-            ai_side = "Home" if game.home_player_number == 2 else "Visiting"
+            ai_side = "Home" if game.home_player_number == 2 else "Visitors"
             text += (
                 f"\n\n{format_ai_name(game.ai_opponent)} has chosen to "
                 f"play as **{ai_side}**."
@@ -1429,7 +1429,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
 
         text += (
             f"\n\n**Home:** {home_player}\n"
-            f"**Visiting:** {visiting_player}"
+            f"**Visitors:** {visiting_player}"
         )
     else:
         winner_mention = format_player_with_team(
@@ -1437,7 +1437,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
         )
         text += (
             f"\n\n{winner_mention}, choose whether you want to play "
-            "as Home or Visiting."
+            "as Home or Visitors."
         )
 
     return text

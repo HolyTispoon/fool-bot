@@ -53,7 +53,7 @@ is declared where Dinky has an injured player to get off and passed
 otherwise ("**🟣 Dinky AI passed.**"), the hub gets a `substitute` per
 injured player its allowance covers, a `reposition` onto the kickoff space
 where `CoachingHubOptions.finish_refusal` says it must, and then `done`,
-which says what a coach's Done says ("**Purple (Visiting) are done.** ...").
+which says what a coach's Done says ("**Purple (Visitors) are done.** ...").
 Until step 7 it was a routine, `run_ai_substitution_window`, that ran the
 whole window inside `open_substitution_window` and worded it its own way.
 
