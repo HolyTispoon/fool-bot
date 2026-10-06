@@ -762,6 +762,25 @@ def contestant_detail(
     ]
 
 
+TOTAL_MODIFIER_PREFIX = "Total modifier "
+
+
+def total_modifier_line(value: int) -> str:
+    """
+    The dice image's last line on a side that adds two modifiers or
+    more -- "Total modifier +5" -- which the image draws in bold
+    (`render.draw_skill_test_die`). Signed, since a burn or a High
+    Pass into the goal zone can take a side below zero.
+    """
+    return f"{TOTAL_MODIFIER_PREFIX}{value:+d}"
+
+
+def is_total_modifier(line: str) -> bool:
+    """Whether a dice line is a side's total modifier rather than one of
+    the things added up in it."""
+    return line.startswith(TOTAL_MODIFIER_PREFIX)
+
+
 #: What each mode is called, in the order each adds to the one before
 #: it (2026-09-25; "The three modes" in docs/living-rules.md). Every
 #: frontend's mode row is built from this, so the Discord settings, the
