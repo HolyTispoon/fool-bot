@@ -4,27 +4,35 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 
 ## The printed boards
 
-`d12ball/boards.py` draws the three boards the tabletop game is played on --
-the **field board**, the **jumbotron board** and a coach's **team board** --
-print-ready at 300dpi. The boards carry no tests -- nothing printed does
-(the author, 2026-09-23) -- so a change to one is checked by rendering it
-and looking. **Only the field board is tabloid (11 x 17)**, and it
-is portrait; the jumbotron is a letter sheet portrait (`JUMBOTRON_PAPER`) and
-the team board half a letter sheet (`TEAM_BOARD_PAPER`). See `PAPERS` and
-`DEFAULT_PAPER` for why tabloid rather than A3 is the big size a home or
-copy-shop printer actually stocks, and "The jumbotron's own paper" for why
-only one board still needs it.
+`d12ball/boards.py` draws the boards the tabletop game is played on -- the
+**field board**, the **jumbotron board**, and a coach's **team board** and
+**zone board** -- print-ready at 300dpi. The boards carry no tests -- nothing
+printed does (the author, 2026-09-23) -- so a change to one is checked by
+rendering it and looking. **Only the field board is tabloid (11 x 17)**, and
+it is landscape; the jumbotron is a letter sheet landscape (`JUMBOTRON_PAPER`)
+and the team and zone boards half a letter sheet each (`TEAM_BOARD_PAPER`).
+See `PAPERS` and `DEFAULT_PAPER` for why tabloid rather than A3 is the big
+size a home or copy-shop printer actually stocks, and "The jumbotron's own
+paper" for why only one board still needs it.
+
+**The table is 17 x 22in** (the author, 2026-10-05): the field board across
+the middle, and along each long side a coach's **strip** -- their zone board
+on their left and their team board on their right, the two half-letter
+boards end to end, seventeen inches together, the field's own length. It
+replaced a portrait field board that carried both coaches' zone rows above
+and below an eleven-inch strip; the author wanted a wider field. See "The
+zone board".
 
 ```bash
 python3 scripts/render_boards.py                     # every field size, into d12ball/print/boards/
 python3 scripts/render_boards.py --bleed --pdf
 python3 scripts/render_boards.py --board-size 9        # just the one field
-python3 scripts/render_boards.py --no-halves           # tabloid sheets only
+python3 scripts/render_boards.py --no-halves           # no letter halves of the field
 python3 scripts/render_boards.py --jumbotron-paper a4  # its own sheet size
 ```
 
-The field board comes out five times: whole, as two halves, and as a field
-sheet and a rows sheet. See below.
+The field board comes out twice: whole, and as two letter halves. See
+"Printing a board on small sheets".
 
 - **They follow `cards.py`, not `render.py`.** The palette is the maneuver
   cards' -- dark ink on a light face -- because a print goes on paper and the
@@ -43,9 +51,9 @@ sheet and a rows sheet. See below.
   guides on the zone rows, and the box's grey vanished into the home zone's blue
   tint.
 - **The jumbotron is a letter sheet of its own, landscape**, and the team
-  board half a letter one: the field board is the only board still drawn on
-  tabloid, because its spaces are the only thing on any of them that cannot
-  be made smaller. See "The jumbotron's own paper".
+  and zone boards half a letter one each: the field board is the only board
+  still drawn on tabloid, because its spaces are the only thing on any of
+  them that cannot be made smaller. See "The jumbotron's own paper".
 - **The clock and the score are the jumbotron's, not the field's.** They were
   bands under the field, where sixteen minutes across a sheet that was already
   carrying the field left a cell an inch wide -- too small to stand a token in,
@@ -130,13 +138,13 @@ sheet and a rows sheet. See below.
 - **Every field size is rendered by default.** A print run wants the 7- and
   9-space boards; `--board-size` narrows it to one. The sizes come from
   `rules.board_layouts`, so a fourth layout added upstream is printed without
-  the script being touched. **Each comes out three ways** -- whole on the
-  tabloid sheet, as its own two letter halves, and as a letter field sheet
-  with a letter sheet of rows; see "Printing a board on small sheets".
-- **Zones keep their real names on the field board's own assignment rows**,
-  not the team board any more -- see "The zone-assignment rows". A coach's own
-  goal is the Home Goal for one of them and the Visitors Goal for the other,
-  and the field board is read by both, so the areas read HOME ZONE / MIDFIELD
+  the script being touched. **Each comes out two ways** -- whole on the
+  tabloid sheet, and as its own two letter halves; see "Printing a board on
+  small sheets". So do the zone boards, which are per size too.
+- **Zones keep their real names on the zone board**, as on the field -- see
+  "The zone board". A coach's own goal is the Home Goal for one of them and
+  the Visitors Goal for the other, and the field board is read by both, so
+  the areas read HOME ZONE / MIDFIELD
   / VISITORS ZONE exactly as the bot's coaching image does -- HOME THIRD /
   VISITORS THIRD on the 9-space board, the only one where the three areas
   (H/M/V) are all equal (see "The field" in the living rules, and the
@@ -325,37 +333,18 @@ halves (above).
 ## Printing a board on small sheets
 
 `render_field_board_halves` writes the field board a second way: two letter
-sheets, `field-board-7-top.png` and `field-board-7-bottom.png`, which taped
-along the cut are the tabloid board. `render_field_board_pieces` writes it a
-third way (the author, 2026-09-28): `field-board-7-field.png`, the field
-whole on one letter sheet landscape, and `field-board-7-rows.png`, the two
-zone-assignment rows on another, cut apart on its dashed line and taped
-above and below the field. So a print run comes out with two ledger-size
-field boards and eight letter sheets, and a house with a letter printer and
-no tabloid one can still put the real board on the table -- with the field in
-one piece, if it takes the second way. `--no-halves` leaves both out. The
-print-and-play kit's README says how to print and tape each.
+sheets, portrait, `field-board-7-left.png` and `field-board-7-right.png`,
+which taped along the cut are the tabloid board. So a print run comes out
+with two ledger-size field boards and four letter sheets of halves, and a
+house with a letter printer and no tabloid one can still put the real board
+on the table. `--no-halves` leaves them out. The print-and-play kit's README
+says how to print and tape them.
 
-- **The field sheet and the rows are a cut of the finished board too, on its
-  quarters.** The halves put their seam across the strip, a little under half
-  way down a space, because only the middle of the sheet cuts into two
-  letter sheets. The pieces cut at a quarter and three quarters instead: the
-  middle half is a letter sheet on its own, and the two outer quarters
-  together are a second. For that to cut nothing, `FieldGeometry.for_sheet`
-  lays the board out on its quarters: each zone row in an outer quarter, and
-  the header, arrows, strip, goals and shooting ranges in the middle two.
-  Each band keeps `FIELD_EDGE_INCHES` clear of the edges that become a
-  sheet's edge, because a home printer cannot print there.
-  - **A row is a card and its label, and it only just fits.** A quarter of
-    tabloid is 4.25in; a row is `FIELD_EDGE_INCHES` (0.25) outside, the
-    card's 3.5, and a `ZONE_LABEL_INCHES` (0.36) label band -- 4.11in. The
-    label band is what was trimmed for it (it was about 0.6in), with the
-    zone name and caption centred on one line. A3's quarter is 4.13in, which
-    still holds it. A bigger label, a bigger margin, or a paper with a shorter
-    quarter will push a row past the cut, and the crop is silent -- look at
-    the rows sheet after changing any of them.
-  - **The rows sheet carries a dashed cut line on its seam**, like the team
-    board's two-up page; the field sheet needs none, being a whole sheet.
+There used to be a third way -- the field whole on a letter sheet and the two
+zone rows on another, cut at the portrait board's quarters
+(`render_field_board_pieces`). It went with the zone rows (the author,
+2026-10-05): with them off the board there is nothing to cut at a quarter,
+and the field alone is a ledger sheet, which two letter sheets halve exactly.
 
 - **A half is a cut of the finished picture, never a second layout.**
   `halve_sheet` crops the rendered board in two and that is the whole of it.
@@ -367,8 +356,8 @@ print-and-play kit's README says how to print and tape each.
   pictures that are supposed to be one should be one by construction, not by
   hoping two renders agree.
 - **Half a tabloid sheet is exactly a letter sheet, turned the other way**,
-  and that is the only reason any of this works: 11 x 17 halves into 11 x 8.5,
-  which is letter landscape to the pixel at 300dpi, so nothing is scaled and
+  and that is the only reason any of this works: 17 x 11 halves into 8.5 x 11,
+  which is letter portrait to the pixel at 300dpi, so nothing is scaled and
   the printed board is the size it says it is. `HALF_PAPERS` is that pairing
   as data -- tabloid into letter, A3 into A4 by the same ISO property -- and
   a new pairing is checked in pixels rather than in inches, because the
@@ -379,17 +368,14 @@ print-and-play kit's README says how to print and tape each.
 - **Where the cut lands is not a choice, so the layout is what to check.**
   Both halves have to fit the paper below, and only the exact middle gives two
   that do -- so the seam falls wherever the board's bands happen to put it,
-  which on the field board is across the strip, a little under half way down
-  a space. Nothing is moved to dodge it, because moving it would change the
-  board the tabloid sheet prints. What to check instead, after any change to
-  the field board's bands, is that the middle of the sheet still lands
-  somewhere a seam is harmless -- never across the header, a zone-assignment
-  row or the strip's own labels.
-  The strip is the safe place because it is tints and outlines -- its zone
-  names and space numbers are all hung from its top, which is what
-  `FieldGeometry.strip_label_bottom` measures. That measurement moved onto the
-  geometry from inside `draw_field_strip` for this: a band measured twice is
-  the fault the team board's footer records below.
+  which on the landscape field board is down the middle of it: through the
+  title's note, the gap between the two attack arrows, the MIDFIELD label,
+  the middle space and its kickoff mark, and the kickoff bracket. Nothing is
+  moved to dodge it, because moving it would change the board the tabloid
+  sheet prints. Unlike the portrait board's seam, which ran across the
+  strip under its labels, this one crosses words; taped edge to edge they
+  read whole, and the halves are the fallback for a house with no tabloid
+  printer, not the board.
 - **The board is halved before any bleed, and each half is bled on its own.**
   A half is a sheet a shop trims like any other, and trimming into the margin
   takes it back off the seam, so the two still butt together. Bleeding the
@@ -428,10 +414,8 @@ and each point is a fault the board it replaced actually had.
 - **A line that cannot be legible is dropped, not shrunk.**
   `fitted_print_font` answers with `None` below its floor and
   `draw_fitted` is for lines that have to be drawn whatever happens; a
-  caption uses the first and is left off when it will not fit. It is the
-  same call the field board's zone cells make (see "The zone-assignment
-  rows"), and for the same reason: a caption nobody can read is a worse
-  failure than one left off.
+  caption uses the first and is left off when it will not fit, because a
+  caption nobody can read is a worse failure than one left off.
 - **A cell's caption is a second line, not the right-hand end of the
   title's.** Sharing one line is what put "players who have yet to play"
   hard against the next cell's title, and a caption squeezed into what a
@@ -537,70 +521,80 @@ into without widening the board itself.
   rather than a raw canvas) at a different resolution (300dpi rather than the
   bot's fixed 2200px), so the geometry and the font-fit are worked out fresh
   rather than shared. `FieldGeometry` narrows the strip itself to
-  `strip_left`/`strip_right`, reserving `end_zone_width` plus a gap on each
+  `strip_left`/`strip_right`, reserving a space's width plus `GOAL_GAP` on each
   side for it; `left`/`right` stay the full content width for the header, the
   direction arrows and the shooting-range bracket, which read the wide pair
   same as the bot's own jumbotron and team boards span its goal zones. **It is
   drawn in ink, not a team's colour** -- the field board is a template for the
   tabletop game with no match to read a team from, unlike the bot's own board,
   which always has one.
-  - **`END_ZONE_INCHES` is a trade against the spaces.** The strip divides
-    an 11in width, so every inch a goal zone takes is an inch a space cannot
-    have. The author asked for more room for the goal zones (2026-09-28), and it
-    went from a third of an inch to 0.45in, paid for mostly by the margin:
-    the board now runs to `FIELD_EDGE_INCHES` of the sheet's edge, the least
-    a home printer leaves, rather than 0.31in. A 9-space board's space is
-    1.05in wide and a 7-space board's 1.35in. Don't grow the goal zones
-    further without checking that a space is still big enough to stand
-    meeples on -- a width floor of 1.0in, not the 1.5in a landscape sheet
-    could promise.
+  - **A goal zone is a space wide** (the author, 2026-10-05), which was
+    half of why the board went landscape. It was a sliver beside the strip
+    -- a third of an inch, then 0.45in when the author asked for more room
+    for the goals (2026-09-28) -- and the strip divided what it left. Now
+    `FieldGeometry.for_sheet` divides the width by the spaces *and* the two
+    goals, so a goal is exactly as wide as a space: 1.81in on the 7-space
+    board and 1.48in on the 9-space one, each 7.67in tall (the portrait
+    board's spaces were 1.35 and 1.05in wide). `GOAL_GAP` is the only thing
+    between a goal and the strip's outline. "GOAL" is fitted to the zone,
+    so it grew with it.
 
-## The zone-assignment rows
+## The zone board
 
-A card row for each zone -- HOME ZONE, MIDFIELD, VISITORS ZONE (HOME THIRD /
-VISITORS THIRD on the 9-space board) -- above the strip for the visiting
-coach and below it for home, on the field board itself
-rather than on the team board, which used to carry them. `draw_zone_assignment_rows`
-and `draw_zone_assignment_cell` in `boards.py` draw them; `FieldGeometry`'s
-`visiting_zone_top`/`_bottom` and `home_zone_top`/`_bottom` are where.
+A coach's **zone board** is where their fielded cards are assigned to a zone
+(Law 2.8): a cell per zone, tinted the field's own colour for that zone, each
+guided for three cards. It is half a letter sheet, the team board's own size,
+and the two are a coach's strip: laid end to end along their side of the
+field, **zone board on the coach's left and team board on their right**,
+seventeen inches together, the field's own length (the author, 2026-10-05).
+`render_zone_board` is one; `render_zone_board_sheet` is the letter page both
+coaches' are cut from, home over the visitors, with the team board's own
+dashed cut line on its seam. Printed with the team board's two-up page, a
+match is two letter sheets cut across the middle.
 
-- **That is the whole reason the field board is portrait (11 x 17) rather than
-  landscape.** A zone row needs a real 3.5in card's worth of height, twice
-  over (once for each coach), which the sheet's 17in length holds without
-  crowding the strip; the strip's own spaces pay for it instead, coming out
-  just over an inch wide on the 9-space board rather than the 1.5in two meeples
-  side by side would ask for on a landscape sheet. The author's own call,
-  made knowing that cost -- see `FieldGeometry`'s own docstring.
-- **The visiting row is rotated 180 degrees cell by cell, not the row
-  reordered.** The two coaches sit on opposite sides of the table, so a row
-  that reads upright to home reads upside down to visiting -- rotating each
-  cell the other 180 degrees turns it upright *for them* without touching
-  which column is which: HOME ZONE (or THIRD) is still the leftmost cell in
-  both rows, directly under and over the strip's own Home column, so a coach
-  reading either row left to right reads the same zone order the strip does.
-  `draw_zone_assignment_cell` draws the whole cell upright on its own small
-  canvas and rotates the finished picture when it is the visiting row, rather
-  than working out where flipped text and flipped dashes land by hand.
-- **The dashed guides inside a row are a visual cue, not a slot count.** This
-  is a staging area a coach fans any number of cards across before assigning
-  them to numbered spaces, not a fixed set of areas the way the strip's own
-  spaces are -- `CARDS_PER_AREA` (three) is borrowed from the team board's own
-  areas for the guide only, and nothing here enforces it.
-- **The caption is dropped rather than shrunk past legibility.** "cards
-  assigned to this zone" fits next to MIDFIELD's own width; HOME ZONE/THIRD
-  and VISITORS ZONE/THIRD are narrower, and `draw_zone_assignment_cell` measures whether
-  it fits before drawing it rather than shrinking the font until it does --
-  a caption nobody can read is a worse failure than one left off.
-- **The header was rebuilt to stack rather than sit side by side**, in the
-  same change: `draw_field_header`'s title on the left and its note on the
-  right used to overlap in the middle on anything narrower than the old
-  landscape sheet, which the portrait sheet always is. Both are wrapped to
-  the sheet's own content width and stacked in one left-aligned column now,
-  which cannot overlap regardless of paper size or how long the wording runs.
-  **The header has one note now**, the two periods and who kicks off each.
-  "The clock, the score and the token supplies are kept on the jumbotron
-  board" came off (the author, 2026-09-28), and so did "shoot only from here"
-  under each shooting-range bracket, whose label already names it. The header
-  band and the bracket band are measured from what is in them
-  (`FIELD_NOTE_TOP`, `FIELD_NOTE_LEADING`), and the strip got the height
-  they gave up.
+It replaced the **zone-assignment rows**, a card row per zone above the strip
+for the visiting coach and below it for home, on the field board itself. Those
+are what made the field board portrait: two 3.5in card rows wanted the 17in
+length, and the strip paid for it in width -- a 9-space board's spaces came
+out just over an inch wide. With the rows off the board, the strip has the
+17in instead (a 9-space space is 1.48in wide, a 7-space one 1.81in, with
+each goal zone as wide again -- see "Goal zones"), and the
+zones went to each coach's own side of the table.
+
+- **Per side and per board size.** The two coaches sit opposite each other,
+  and each reads the field from their own end, so a coach's own zone is on
+  their left: home's board runs HOME ZONE, MIDFIELD, VISITORS ZONE and the
+  visitors' the other way round (`zone_order`). The 9-space board's outer
+  zones are thirds (`zone_labels`), so each size has its own pair. Both
+  print upright -- each is a board of its own, picked up and laid at its
+  coach's seat -- where the visiting row on the old field board was rotated
+  180 degrees cell by cell to read upright across the table.
+- **A zone is a card wide, and its three cards cascade down it.** Three
+  cells across 8.5in leave each one 2.6in, a poker card and a hair, so the
+  guide is three real-size cards each `ZONE_CASCADE` (a tenth) of a card's
+  height below the one behind it -- the top of each card, its name, shows.
+  The board's chrome is cut to pay for that height: a one-line header (the
+  title, where the board goes, whose it is) and a one-line label per cell,
+  no caption and no footer. `zone_slot_inches` reports the guide and the CLI
+  says whether it is still a whole card; a longer label or a bigger margin
+  will shrink it, and nothing else will tell you.
+- **The dashed guides are a cue, not a slot count.** `CARDS_PER_AREA`
+  (three) is what a zone holds under the widest formation, and nothing here
+  enforces it; a coach may stack more.
+- **The team board's reminder points at it**: "A card's zone is assigned on
+  the zone board beside this one."
+- **The field header stacks rather than sitting side by side.**
+  `draw_field_header`'s title on the left and its note on the right used to
+  overlap in the middle on the portrait sheet; both are stacked in one
+  left-aligned column, which cannot overlap regardless of paper size or how
+  long the wording runs. **The header has one note**, the two periods and
+  who kicks off each. "The clock, the score and the token supplies are kept
+  on the jumbotron board" came off (the author, 2026-09-28), and so did
+  "shoot only from here" under each shooting-range bracket, whose label
+  already names it. The header band and the bracket band are measured from
+  what is in them (`FIELD_NOTE_TOP`, `FIELD_NOTE_LEADING`), and the strip
+  got the height they gave up.
+- **The field board's type is sized off its short side** (`field_sheet`),
+  so turning the sheet landscape left every word the size it printed at on
+  the portrait board rather than half again as big; `Sheet`'s unit is a
+  thousandth of whatever `unit_width` names, the width by default.

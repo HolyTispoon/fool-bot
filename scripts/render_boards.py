@@ -2,7 +2,8 @@
 """Render the three boards of the physical game.
 
 Print-ready at 300dpi. The field board is tabloid (11 x 17) by
-default -- a home or copy-shop printer's own size, where A3 is not.
+default, landscape -- a home or copy-shop printer's own size, where A3
+is not.
 **The jumbotron is a letter sheet, landscape**, and the team board is
 half a letter sheet, two coaches to a page: both have a paper of their
 own, because letter is the size a printer in the house actually has in
@@ -28,18 +29,18 @@ teams**, Teal over Orange (`team-board-2up-teal-orange.png`) and
 Purple over Slime (`team-board-2up-purple-slime.png`), so one board of
 each is two sheets; the standard page is the standard board twice.
 
-A field board also comes out on **letter, two ways**, for a house
-with a letter printer and no tabloid one -- each is that same board at
-the same size once taped:
+**Each coach has a zone board** beside their team board: the three
+zones their cards are assigned to, half a letter sheet, laid on the
+coach's left with the team board on their right, the two seventeen
+inches together along that coach's side of the field. It is per field
+size and per side (`zone-board-7-home.png`, `zone-board-7-visitors.png`),
+and both coaches' are one page, cut across (`zone-board-7-2up.png`).
 
-- its top and bottom halves (`field-board-7-top.png`,
-  `field-board-7-bottom.png`), taped along the cut, which runs across
-  the field;
-- the field whole on one sheet (`field-board-7-field.png`) and the two
-  zone-assignment rows on another (`field-board-7-rows.png`), cut
-  apart on the dashed line and taped above and below the field.
-
---no-halves leaves both out.
+A field board also comes out on **letter**, for a house with a letter
+printer and no tabloid one: its left and right halves
+(`field-board-7-left.png`, `field-board-7-right.png`), taped along the
+cut, which runs down the middle of the field, are that same board at
+the same size. --no-halves leaves them out.
 
 The layout lives in `d12ball/boards.py`. Everything on either board is
 read from the same data the bot plays from, so re-running this is how a
@@ -68,12 +69,15 @@ from d12ball.boards import (  # noqa: E402
     half_paper,
     render_field_board,
     render_field_board_halves,
-    render_field_board_pieces,
     render_jumbotron_board,
     render_team_board,
     render_team_board_sheet,
+    render_zone_board,
+    render_zone_board_sheet,
+    zone_slot_inches,
 )
 from d12ball.components import (  # noqa: E402
+    TeamSide,
     load_basic_ruleset,
     load_maneuver_catalog,
     load_player_catalog,
@@ -153,9 +157,8 @@ def main() -> None:
         dest="halves",
         action="store_false",
         help=(
-            "Skip the small-paper files each field board is also "
-            "written as -- the two halves, and the field and rows "
-            "sheets. Both are the same board cut up, for a printer "
+            "Skip the two letter halves each field board is also "
+            "written as -- the same board cut in two, for a printer "
             "that does not take the whole sheet."
         ),
     )
@@ -186,6 +189,24 @@ def main() -> None:
             rules, board_size, paper=args.paper, bleed=args.bleed
         )
         save(board, args.out / f"field-board-{board_size}.png", args.pdf)
+        # The two zone boards for this size, and the page both are cut
+        # from.
+        for side in TeamSide:
+            name = "home" if side == TeamSide.HOME else "visitors"
+            save(
+                render_zone_board(
+                    board_size, side, paper=args.team_paper, bleed=args.bleed
+                ),
+                args.out / f"zone-board-{board_size}-{name}.png",
+                args.pdf,
+            )
+        save(
+            render_zone_board_sheet(
+                board_size, paper=args.team_paper, bleed=args.bleed
+            ),
+            args.out / f"zone-board-{board_size}-2up.png",
+            args.pdf,
+        )
         if not args.halves:
             continue
         # The same board, cut in two -- not a second layout for the
@@ -194,21 +215,9 @@ def main() -> None:
         halves = render_field_board_halves(
             rules, board_size, paper=args.paper, bleed=args.bleed
         )
-        for name, half in zip(("top", "bottom"), halves):
+        for name, half in zip(("left", "right"), halves):
             save(
                 half,
-                args.out / f"field-board-{board_size}-{name}.png",
-                args.pdf,
-            )
-        # And cut the other way: the field whole on one sheet, the two
-        # zone rows on another -- the same board again, with no seam
-        # across the field.
-        pieces = render_field_board_pieces(
-            rules, board_size, paper=args.paper, bleed=args.bleed
-        )
-        for name, piece in zip(("field", "rows"), pieces):
-            save(
-                piece,
                 args.out / f"field-board-{board_size}-{name}.png",
                 args.pdf,
             )
@@ -256,7 +265,7 @@ def main() -> None:
     if args.halves:
         halved = half_paper(args.paper)
         size = (
-            f"{halved} sheets, landscape"
+            f"{halved} sheets, portrait"
             if halved
             else f"half a {args.paper} sheet, which is no paper size of "
             "its own"
@@ -264,11 +273,6 @@ def main() -> None:
         print(
             f"field board halves are {size}  -- tape the two along the "
             "cut for the whole board"
-        )
-        print(
-            f"field board field and rows sheets are {size}  -- cut the "
-            "rows sheet on its dashed line, tape the visiting row along "
-            "the field's top edge and the home row along its bottom"
         )
 
     slot = card_slot_inches(args.team_paper)
@@ -279,6 +283,16 @@ def main() -> None:
             if slot[0] >= CARD_INCHES[0]
             else "  -- smaller than a poker card, so a bench stacks on "
             "the area rather than inside the guide"
+        )
+    )
+    zone_slot = zone_slot_inches(args.team_paper)
+    print(
+        f"zone board card guides are {zone_slot[0]:.2f} x "
+        f"{zone_slot[1]:.2f} in"
+        + (
+            ""
+            if zone_slot[0] >= CARD_INCHES[0] - 0.005
+            else "  -- smaller than a poker card"
         )
     )
     cells = cell_inches(args.jumbotron_paper)

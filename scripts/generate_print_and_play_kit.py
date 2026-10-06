@@ -148,15 +148,15 @@ short edge**. The cards need no cutting.
   `playtest-cards-back-sheet.png` print as a pair, like the reference
   cards; the cards are landscape, turned on the page.
 - **boards/** -- the field board at every size the ruleset defines
-  (7 and 9 spaces), each also cut up two ways for a letter printer --
-  a `-top` and `-bottom` half, or a `-field` sheet and a `-rows`
-  sheet (see below); the jumbotron board (clock, score, token
-  supplies);
-  and the team board (the bench, the back bench, the maneuvers, the
-  formation strip -- one sheet holds two boards, cut in half), as the
-  standard board and in each colour team's colour; the coloured sheets
-  pair Teal with Orange and Purple with Slime, so one board of each
-  team is two sheets.
+  (7 and 9 spaces), each also cut in two for a letter printer (a
+  `-left` and a `-right` half, see below); the jumbotron board (clock,
+  score, token supplies); each coach's zone board (where their cards
+  are assigned to a zone -- per field size, home's and the visitors',
+  one sheet holding both, cut in half); and the team board (the bench,
+  the back bench, the maneuvers, the formation strip -- one sheet holds
+  two boards, cut in half), as the standard board and in each colour
+  team's colour; the coloured sheets pair Teal with Orange and Purple
+  with Slime, so one board of each team is two sheets.
 
 ## Paper and cutting
 
@@ -164,34 +164,32 @@ Cards are poker size (2.5 x 3.5in) at 300dpi, and every board is
 300dpi too.
 
 **Only the field board wants a big sheet.** It is {paper}
-({paper_size}) -- see `PAPERS` / `DEFAULT_PAPER` in
+({paper_size}), landscape -- see `PAPERS` / `DEFAULT_PAPER` in
 `d12ball/boards.py` -- because its spaces have to be wide enough to
 stand two sides' meeples on, and shrinking it to letter would take
-that away. If you have no printer that size, print it on two letter
-sheets instead, either of two ways. Both tape up into that same board,
-at exactly the size the big sheet prints, and both print **at 100%
-(actual size), landscape** -- never "fit to page", which shrinks the
-spaces.
-
-- **The field and the rows** -- the field in one piece:
-  1. Print `field-board-<n>-field.png` and `field-board-<n>-rows.png`.
-     The first is the whole field -- the goals, the spaces and the
-     shooting ranges -- along the sheet's long side. The second is
-     the two zone-assignment rows, one above the other.
-  2. Cut the rows sheet in half on its dashed line.
-  3. Lay the field sheet down, the title at the top left. Tape the
-     rows sheet's top half (its writing upside down) along the field
-     sheet's **top** edge -- it faces the visiting coach across the
-     table -- and its bottom half along the field sheet's **bottom**
-     edge, facing the home coach. Each row's zones line up
-     over the field's own: home on the left, visitors on the right.
-- **The two halves** -- `field-board-<n>-top.png` and
-  `field-board-<n>-bottom.png`, taped along the cut. Simpler, but the
-  seam runs across the middle of the field.
+that away. If you have no printer that size, print
+`field-board-<n>-left.png` and `field-board-<n>-right.png` on two
+letter sheets, portrait, **at 100% (actual size)** -- never "fit to
+page", which shrinks the spaces -- and tape them side by side along
+the cut, which runs down the middle of the field.
 
 **Everything else is letter** ({letter_size}), the size a printer in
-the house has in it: the jumbotron on one sheet, landscape, and the
-team board two coaches to a page.
+the house has in it: the jumbotron on one sheet, landscape, and each
+coach's two boards -- the zone board and the team board -- half a
+sheet each.
+
+**Laying out the table.** The field board goes across the middle,
+home's goal on home's left. Each coach then makes a strip along their
+own side of it:
+
+1. Print `zone-board-<n>-2up.png` (home's zone board over the
+   visitors') and a team board page -- `team-board-2up.png`, or the
+   coloured page carrying your teams.
+2. Cut each page in half across the middle, on its dashed line.
+3. Each coach lays their zone board on their **left** and their team
+   board on their **right**, end to end along their side of the field.
+   The two are 17in together, the field's own length, so the whole
+   table is 17 x 22in.
 
 Cut cards on the rounded outline printed on each one; a print-sheet's
 cells are sized so dividing the sheet into an even grid cuts every
