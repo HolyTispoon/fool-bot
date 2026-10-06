@@ -322,6 +322,10 @@ author, 2026-10-05):
   the goal log, the referee commands' replies, and every line that already
   named a coach this way ("🟣 @perrytom chose **Pressure**.").
 
+The images follow the same two ways -- which one where is the table in
+"A coach on an image" in [board-image.md](board-image.md) -- with the coach's
+name cut to twelve characters (`cut_coach_name`).
+
 Both take the record, since the coach is the record's: with no `game`, or
 before the coin has seated anybody, they fall back to the team's name --
 "Purple (Home)", "Purple" -- which is also what the plain-text surfaces keep,

@@ -16,7 +16,7 @@ import asyncio
 import discord
 
 from d12ball.components import MatchState
-from d12ball.game import D12BallGame, team_display_name
+from d12ball.game import D12BallGame
 from d12ball.render import (
     TEAM_COLORS,
     render_dice_with_ignitions,
@@ -75,7 +75,7 @@ class ManeuverEffectsMixin:
                 render_mind_pull_die(
                     roll.roll,
                     TEAM_COLORS[player_team],
-                    team_display_name(player_team),
+                    self.dice_side_labels(game, match)[player_team],
                     player.name,
                     roll.pulled,
                     roll.target_label,
@@ -84,6 +84,7 @@ class ManeuverEffectsMixin:
             ),
             "mind_pull_die.png",
             (roll.player_id, roll.ignite),
+            game=game,
         )
         await interaction.edit_original_response(
             content=ignition,

@@ -603,9 +603,13 @@ class ShootoutTestView(ShootoutView):
         # other roll site.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            partial(render_contest_dice, dice.contestants),
+            partial(
+                render_contest_dice, dice.contestants,
+                labels=self.cog.dice_side_labels(game, match),
+            ),
             "shootout_dice.png",
             *dice.ignites,
+            game=game,
         )
 
         # Result under the dice, not above them, for the reason
