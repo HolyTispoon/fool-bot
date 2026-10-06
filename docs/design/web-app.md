@@ -921,8 +921,14 @@ two shapes, by which way it is held:
   question out of sight; it once came after the question for that
   reason, which read backwards -- a goal that brought halftime was
   announced under the halftime choice it led to (the author,
-  2026-10-05). The reveal of the two cards still follows the question,
-  because it stays up through every prompt of a maneuver. Every thing
+  2026-10-05). The two cards turned over come with the outcome, above
+  the question, as on a wide screen -- but drawn there without the
+  field diagram the pick showed, only the rank, the name, the time and
+  the effect: they are up through every prompt of a maneuver, the
+  rolls included, and at full size the pair alone filled the sheet and
+  pushed the Roll button off it, while the diagram is what a coach
+  chooses by, not what a roll is read against (the author,
+  2026-10-06). The hover card still has the rest. Every thing
   lit on the field is on the sheet as a row of the choices ("The lit
   line becomes the choices", below), at the desktop's size, so nothing
   needs zooming to answer; a time out that may be called is one of

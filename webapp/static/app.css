@@ -1859,18 +1859,20 @@ button.goal { display: block; }
 
 /* The phone's sheet held upright, and a tablet's column on its side:
    the box opens on what just happened -- its tag and the outcome, at
-   the column's smaller size -- then the question: the ask and what is
-   lit, then the box's own controls. The reveal of the two cards follows
-   them, since it stays up through every prompt of a maneuver. */
+   the column's smaller size -- and the two cards turned over, then the
+   question: the ask and what is lit, then the box's own controls. The
+   cards are up through every prompt of a maneuver, so here they are
+   drawn without the field diagram the pick showed: the name, the time
+   and the effect are what a roll is read against. */
 @media (max-width: 960px) and (orientation: portrait),
   (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
   .qbox-main > * { order: 5; }
   .qbox-main > :first-child { order: 0; }
   .qbox-main > #refusal { order: 1; }
   .qbox-main > .outcome-row { order: 2; }
+  .qbox-main > #reveal { order: 2; }
   .qbox-main > #ask { order: 3; }
   .qbox-main > #lit { order: 4; }
-  .qbox-main > #reveal { order: 9; }
   .qbox-main > #rematch-note { order: 10; }
   .outcome { padding: 10px 12px; }
   .rolled .die { width: 52px; height: 52px; }
@@ -1878,10 +1880,14 @@ button.goal { display: block; }
   .outcome-detail { font-size: 14px; }
   .outcome-working { font-size: 13px; }
   .reveal-card { width: 96px; }
-  .reveal:has(.pill) { flex-direction: column; align-items: stretch; gap: 8px; }
-  .reveal-card.pill { width: 100%; }
+  .reveal:has(.pill) { flex-direction: column; align-items: stretch; gap: 4px; }
+  .reveal-card.pill { width: 100%; border-radius: 14px; }
   .reveal:has(.pill) .reveal-between { text-align: center; }
-  .reveal-between { font-size: 22px; }
+  .reveal-between { font-size: 18px; line-height: 1.1; }
+  .reveal .pill-diagram { display: none; }
+  .reveal .pill-face { padding: 6px 10px 8px; gap: 4px; }
+  .reveal .pill-name { font-size: 15px; }
+  .reveal .pill-effect { font-size: 12.5px; line-height: 1.35; }
 }
 
 /* On its side: the desktop field whole, the score and the clock in the
