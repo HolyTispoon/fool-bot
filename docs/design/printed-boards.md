@@ -122,15 +122,20 @@ sheet and a rows sheet. See below.
 - **The geometry a board asserts is read off the same code the bot enforces.**
   `shooting_range_bands` walks `BoardState.is_in_shooting_range` a space at a
   time and `kickoff_marks` reads `kickoff_space_index`, rather than either
-  restating where the middle of the board is. Both boards' midfields have a
-  middle, so both print one kickoff mark for the two sides -- `kickoff_marks`
-  is still a map rather than a space, because the rule is asked per side and a
-  board without a middle would answer it twice. It is also what leaves the
+  restating where the middle of the board is. Boards 7 and 9 have a midfield
+  with a middle, so each prints one kickoff mark for the two sides --
+  `kickoff_marks` is a map rather than a space because the rule is asked per
+  side, and board 10's four-space midfield answers it twice (home space 5,
+  the visitors space 6). It is also what leaves the
   bracket under the field agreeing with the living rules' own table.
-- **Every field size is rendered by default.** A print run wants the 7- and
-  9-space boards; `--board-size` narrows it to one. The sizes come from
-  `rules.board_layouts`, so a fourth layout added upstream is printed without
-  the script being touched. **Each comes out three ways** -- whole on the
+- **Every field size but a playtest board is rendered by default.** A print
+  run wants the 7- and 9-space boards; `--board-size` narrows it to one. The
+  sizes come from `rules.board_layouts`, so a layout added upstream is printed
+  without the script being touched -- unless it is in `PLAYTEST_BOARD_SIZES`
+  (`d12ball/game.py`), which is board 10 since 2026-10-06: it is played on the
+  bot and the web app while the author tries it out, and is printed only when
+  asked for by name (`--board-size 10`), so the kit and the box carry the
+  boards the game keeps. **Each comes out three ways** -- whole on the
   tabloid sheet, as its own two letter halves, and as a letter field sheet
   with a letter sheet of rows; see "Printing a board on small sheets".
 - **Zones keep their real names on the field board's own assignment rows**,

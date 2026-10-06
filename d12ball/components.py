@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional
 # model, because the record refuses too (a coin flipped twice, a lobby
 # nobody may join) and this module imports from it; it is still
 # imported from here everywhere else.
-from d12ball.game import CoinFace, Formation, RuleRefusal, Team, team_display_name  # noqa: F401
+from d12ball.game import CoinFace, Formation, RuleRefusal, Team, VALID_BOARD_SIZES, team_display_name  # noqa: F401
 from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 
 
@@ -26,7 +26,7 @@ SPECIES_FILE = DATA_FOLDER / "species.json"
 class Zone(str, Enum):
     """
     The three zones of the field that hold spaces, left to right: the
-    Home Zone (the Home Third on board 9), midfield and the Visitors
+    Home Zone (the Home Third on boards 9 and 10), midfield and the Visitors
     Zone (the Visitors Third). **The values are the old names** --
     `home_goal` and `visitors_goal`, from before the goal zones beyond
     each end were named (Law 2.1) -- and they stay, because every saved
@@ -663,17 +663,20 @@ class BoardState:
         may shoot from.
 
         Shooting range is not a board zone: it is measured from the
-        middle of the board and cuts across midfield. A board with an
-        odd number of spaces has a true middle space, which is the
-        kickoff space, and it is in neither side's range -- comparing
-        doubled indices against the last index is what leaves it out
-        of both. Home attacks from low indices to high, the visitors
-        the other way.
+        middle of the board and cuts across midfield. The middle is in
+        neither side's range -- one space on a board with an odd number
+        of spaces, the kickoff space both sides share, and the two
+        middle spaces on board 10, each side's own kickoff space (Law
+        2.3). A space is in home's range when it is more than half the
+        board from home's end, which leaves out the one middle space of
+        an odd board and both of an even one; the visitors' range is the
+        mirror of it. Home attacks from low indices to high, the
+        visitors the other way.
         """
-        last_index = self.layout.board_size - 1
-        if TeamSide(side) == TeamSide.HOME:
-            return 2 * index > last_index
-        return 2 * index < last_index
+        board_size = self.layout.board_size
+        if TeamSide(side) == TeamSide.VISITING:
+            index = board_size - 1 - index
+        return 2 * index > board_size
 
 
 @dataclass(frozen=True)
@@ -1543,10 +1546,10 @@ def kickoff_space_index(midfield_spaces: int, kicking_side: TeamSide) -> int:
     the kicking team's own goal. Home attacks from low indices to high,
     so a kicking home team is biased low and a kicking visiting team is
     biased high; the two formulas agree on the true middle when the
-    zone is odd-sized, which every board in the ruleset now is, so
-    both sides kick off from one space. It stays written per side
-    because the rule is stated per side -- every arrangement covers its
-    *own* kickoff space -- not because the two answers still differ.
+    zone is odd-sized, as on boards 7 and 9, so both sides kick off
+    from one space there. Board 10's four-space midfield is the even
+    one: home kicks off from space 5 and the visitors from space 6
+    (Law 2.4), and every arrangement covers its *own* kickoff space.
     """
     kicking_side = TeamSide(kicking_side)
     if kicking_side == TeamSide.HOME:
@@ -5269,11 +5272,12 @@ class MatchState:
     def kickoff_space_for(self, side: TeamSide) -> int:
         """
         The midfield space `side` would kick off from, whether or not
-        anything is being kicked off right now. Every board's midfield
-        has a middle, so both sides kick off from the same space -- see
-        "The kickoff space" in docs/living-rules.md. It is still asked
-        per side, because the coverage each arrangement owes is its own
-        side's.
+        anything is being kicked off right now. Boards 7 and 9 have a
+        midfield with a middle, so both sides kick off from the same
+        space there; board 10's has two, and each side kicks off from
+        the one nearer its own goal -- see "The kickoff space" in
+        docs/living-rules.md. Asked per side, because the coverage each
+        arrangement owes is its own side's.
 
         Read off the rule rather than off the ball, because every
         arrangement has to cover this space and arrangements are set in
@@ -5968,8 +5972,11 @@ def load_basic_ruleset(
         )
         for board_size, zone_counts in data["board_layouts"].items()
     }
-    if set(layouts) != {7, 9}:
-        raise ValueError("Basic rules must define board sizes 7 and 9.")
+    if set(layouts) != VALID_BOARD_SIZES:
+        raise ValueError(
+            "Basic rules must define exactly the board sizes "
+            f"{sorted(VALID_BOARD_SIZES)}."
+        )
 
     formations: dict[Formation, FormationShape] = {}
     for name, entry in data["formations"].items():

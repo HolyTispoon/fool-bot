@@ -10,6 +10,11 @@
       "home_goal": 3,
       "midfield": 3,
       "visitors_goal": 3
+    },
+    "10": {
+      "home_goal": 3,
+      "midfield": 4,
+      "visitors_goal": 3
     }
   },
   "formations": {
@@ -33,7 +38,8 @@
       "midfield": 2,
       "opponent_goal": 1,
       "board_sizes": [
-        9
+        9,
+        10
       ]
     },
     "1-2-3": {
@@ -41,7 +47,8 @@
       "midfield": 2,
       "opponent_goal": 3,
       "board_sizes": [
-        9
+        9,
+        10
       ]
     }
   },

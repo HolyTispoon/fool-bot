@@ -767,10 +767,16 @@ class HalftimeEngineTests(unittest.TestCase):
 
         self.assertFalse(match.kickoff_space_occupied_by(TeamSide.VISITING))
 
-    def test_both_sides_kick_off_from_the_one_middle_space(self) -> None:
-        # Every midfield has a middle, so the two sides share a kickoff
-        # space -- and each still owes it its own coverage.
-        for board_size in sorted(self.rules.board_layouts):
+    def test_each_side_kicks_off_from_the_middle_nearest_its_goal(
+        self,
+    ) -> None:
+        # Boards 7 and 9 have a middle space, so the two sides share a
+        # kickoff space; board 10's middle is two spaces, and home kicks
+        # off from space 5, the visitors from space 6 (Law 2.4). The
+        # standard deal covers each side's own either way.
+        expected = {7: (4, 4), 9: (5, 5), 10: (5, 6)}
+        self.assertEqual(set(expected), set(self.rules.board_layouts))
+        for board_size, spaces in expected.items():
             with self.subTest(board_size=board_size):
                 match = MatchState.standard(
                     catalog=self.catalog,
@@ -781,8 +787,20 @@ class HalftimeEngineTests(unittest.TestCase):
                 )
 
                 self.assertEqual(
-                    match.kickoff_space_for(TeamSide.HOME),
-                    match.kickoff_space_for(TeamSide.VISITING),
+                    tuple(
+                        match.board.flat_index(
+                            Zone.MIDFIELD, match.kickoff_space_for(side),
+                        ) + 1
+                        for side in (TeamSide.HOME, TeamSide.VISITING)
+                    ),
+                    spaces,
+                )
+                # Home kicks off the first half from its own.
+                self.assertEqual(
+                    match.board.flat_index(
+                        match.ball.zone, match.ball.space_index,
+                    ) + 1,
+                    spaces[0],
                 )
                 self.assertTrue(
                     match.kickoff_space_occupied_by(TeamSide.HOME)

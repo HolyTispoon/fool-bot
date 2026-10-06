@@ -13,10 +13,13 @@ whole rule, over `BoardState.is_in_shooting_range`.
   either. It is measured from the middle of the board and cuts across midfield,
   so it is the far part of midfield plus the outer zone before the goal a team
   attacks -- three spaces of seven on the standard board, which is why "half"
-  was the wrong word for it. On an odd-sized board (7 and 9) the middle space
-  is in *nobody's* range, which is why the geometry compares doubled indices
-  against the last index rather than dividing. That space is also the kickoff
-  space, so no restart ever begins in range.
+  was the wrong word for it. The middle of the board is in *nobody's* range:
+  the one middle space of an odd-sized board (7 and 9), and both middle spaces
+  of board 10, the playtest board (the author, 2026-10-06). That is why the
+  geometry asks whether a space is more than half the board from a side's own
+  end, doubling the index rather than dividing the board. The middle is also
+  where the kickoff spaces are -- one on boards 7 and 9, each side's own on
+  board 10 -- so no restart ever begins in range.
 - **A set-up's shot obeys it too.** A scoring opportunity sends a player into an
   ordinary score attempt, so what it buys is the shot out of turn, not a shot
   from anywhere. Only the 2-space High Pass's set-up still checks it --
@@ -52,7 +55,8 @@ whole rule, over `BoardState.is_in_shooting_range`.
   live), and the 2-space High Pass's set-up asks `can_attempt_score`.
 - **The board image draws where range begins**, in `draw_shooting_range_band`
   -- a labelled bracket under the field, one for each side's range and (on
-  board 7 and 9) a third over the space in nobody's. It used to be a dashed
+  every board) a third over the middle in nobody's -- one space, or board 10's
+  two. It used to be a dashed
   line drawn straight through the spaces, which marked the same edge but said
   nothing about what it meant; the labelled bracket is the same marking
   `boards.py`'s printed field board already carried (`draw_shooting_ranges`),

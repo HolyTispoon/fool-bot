@@ -4369,10 +4369,10 @@ class RulesEngine:
         somebody back and paying for it. A window that positions
         nothing (full time) has no arrangement to hold to it.
 
-        Both sides kick off from the same midfield space, so both have
-        to cover it; this still asks each side about its own, because
-        the coverage belongs to the arrangement rather than to the
-        space.
+        Both sides kick off from the same midfield space on boards 7
+        and 9, and from one each on board 10; each side is asked about
+        its own, because the coverage belongs to the arrangement rather
+        than to the space.
         """
         side = TeamSide(side)
         occasion = match.coaching_occasion

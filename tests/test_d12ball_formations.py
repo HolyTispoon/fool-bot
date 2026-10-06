@@ -385,7 +385,7 @@ class BoardScopedFormationTests(unittest.TestCase):
         self.assertIn("1-2-3", str(refusal.exception))
         self.assertIn("9-space", str(refusal.exception))
         # The three every board plays are never refused.
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             self.rules.formation_shape(Formation.TWO_THREE_ONE, board_size)
 
     def test_a_match_cannot_be_dealt_a_shape_its_board_refuses(self) -> None:

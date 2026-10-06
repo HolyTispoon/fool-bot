@@ -197,8 +197,10 @@ The page shows **the board as the web app draws it**, not the printed board
 and not the bot's PNG -- the author's call on the canvas. `landing/capture.py`
 takes it: it stages a web game through `GameService` in a temporary directory
 (two coaches seated, Purple picked by the first and the Cyborgs by the
-second, Purple at home whoever wins the coin, the match dealt and begun, so
-it is the kickoff), runs `webapp.server.serve` over that directory alone on
+second, Purple at home whoever wins the coin, a standard game on the
+9-space board -- named, not left to the service's defaults, so the picture
+does not move with them (the author, 2026-10-06) -- the match dealt and
+begun, so it is the kickoff), runs `webapp.server.serve` over that directory alone on
 a spare local port -- every file the app would keep under `data/` named
 there instead -- opens `/room/<id>` in a headless Chrome as an observer (both
 seats are held, so the visitor takes neither), waits for the board's SVG, and

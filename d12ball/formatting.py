@@ -32,7 +32,7 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, D12BallGame, GameMode, NINE_SPACE_BOARD_MODES, Team,
+    AIOpponent, D12BallGame, GameMode, LARGE_BOARD_MODES, Team,
     team_display_name,
 )
 
@@ -48,13 +48,16 @@ ROLE_INITIALS = {
 
 BENCH_DESTINATIONS = ("bench", "back_bench")
 
-# The 9-space board is the only one whose three areas (H/M/V) are equal, which
-# is what earns its outer two the more literal "Third" -- see "The field" in
-# the living rules and the 2026-08-24 entry in the rules log. Midfield's name
-# never changes, so it carries no entry here.
+# The outer two areas are "Thirds" on the boards whose outer zones are three
+# spaces deep: board 9, whose three areas (H/M/V) are equal, which first
+# earned the more literal word (the 2026-08-24 entry in the rules log), and
+# board 10, which keeps it (the author, 2026-10-06) -- see "The field" in the
+# living rules. Midfield's name never changes, so it carries no entry here.
+# The board images read this table too (`render.zone_labels`).
 OUTER_ZONE_WORD_BY_BOARD_SIZE = {
     7: "Zone",
     9: "Third",
+    10: "Third",
 }
 
 AI_OPPONENT_NAMES = {
@@ -131,7 +134,7 @@ def zone_display_name(zone: Zone, board_size: int) -> str:
     """
     "Home Zone", "Midfield", "Visitors Third" -- whichever a board's own
     size calls the outer two areas. See the module-level comment on
-    OUTER_ZONE_WORD_BY_BOARD_SIZE for why the 9-space board differs.
+    OUTER_ZONE_WORD_BY_BOARD_SIZE for why boards 9 and 10 differ.
     """
     if zone is Zone.MIDFIELD:
         return "Midfield"
@@ -905,18 +908,18 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
 
 def board_size_recommendation(game: D12BallGame) -> Optional[str]:
     """
-    The note recommending the nine-space board, read off the mode
-    alone -- shown on whichever board the game is on, since it is what
-    tells a coach why picking the mode moved the board -- or `None`
-    for a mode it is not recommended for (`NINE_SPACE_BOARD_MODES`).
+    The note recommending the large boards, read off the mode alone --
+    shown on whichever board the game is on, since it is what tells a
+    coach why picking the mode moved the board -- or `None` for a mode
+    they are not recommended for (`LARGE_BOARD_MODES`).
     The Discord setup screens and the web table both show it.
     """
     mode = GameMode(game.mode)
-    if mode not in NINE_SPACE_BOARD_MODES:
+    if mode not in LARGE_BOARD_MODES:
         return None
     return (
         f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
-        "mode on a board size of 9."
+        "mode on a board size of 9 or 10."
     )
 
 

@@ -41,9 +41,9 @@ that too. A coach's own goal is the Home Goal for one of them and the
 Visitors Goal for the other, and the same field board is read by both,
 so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
-on the 9-space board, the only one where the three areas (H/M/V) are
-all equal (see "The field" in the living rules, and the 2026-08-24
-entry in the rules log). See "Working on the board image" in docs/design/board-image.md
+on the 9- and 10-space boards, whose outer zones are three spaces deep
+(see "The field" in the living rules, and the 2026-08-24 and 2026-10-06
+entries in the rules log). See "Working on the board image" in docs/design/board-image.md
 for the same decision taken there, and "The zone-assignment rows" below
 for why they moved off the team board.
 """
@@ -1045,9 +1045,10 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
     """
     Which spaces are kickoff spaces, and whose.
 
-    Every board's midfield has a true middle, so both sides kick off
-    from it and the two land on one mark. It is still a map rather
-    than a space because the rule is asked per side --
+    On a board whose midfield has a true middle both sides kick off
+    from it and the two land on one mark; board 10's has two, one a
+    side. It is a map rather than a space because the rule is asked
+    per side --
     `kickoff_space_index` is that rule; this only places its answer on
     the whole board.
     """
@@ -1497,10 +1498,12 @@ def draw_shooting_ranges(
                 width=sheet.u(1.6),
                 dash=sheet.u(9),
             )
+            # Board 10's middle is two spaces, one each side's.
+            said = "the kickoff spaces" if last > first else "the kickoff space"
             sheet.text(
                 ((left + right) / 2, (top + bottom) / 2),
-                "the kickoff space",
-                sheet.fitted_font("the kickoff space", (right - left) * 0.92, 15),
+                said,
+                sheet.fitted_font(said, (right - left) * 0.92, 15),
                 MUTED,
                 anchor="mm",
             )

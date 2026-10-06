@@ -100,13 +100,17 @@ def find_chrome() -> str | None:
 
 def stage_game(folder: Path) -> str:
     """Save one web game at kickoff into `folder/games.json`, and return
-    its id. Two coaches hold the seats, so the page's visitor watches."""
+    its id. Two coaches hold the seats, so the page's visitor watches.
+    It is a standard game on the 9-space board, named rather than left
+    to the service's defaults so the page's picture does not move with
+    them (the author, 2026-10-06)."""
     from webapp.server import build_service
 
     service = build_service(folder / "games.json")
     game = service.create_game(
         player_1_id=1, player_1_name="Home",
         player_2_id=2, player_2_name="Visitors",
+        board_size=9,
     )
     service.pick_team(game.game_id, 1, HOME_TEAM)
     service.pick_team(game.game_id, 2, VISITING_TEAM)

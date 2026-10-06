@@ -600,7 +600,8 @@ def _band_label(side: int) -> str:
     What a band says. A side's band is where that side shoots *from*,
     so home's sits on the visitors' half and points at the goal it
     attacks; the space in neither side's range is the kickoff space,
-    the one true middle of an odd board (`is_in_shooting_range`).
+    the one true middle of an odd board, or board 10's two middle
+    spaces, each side's own kickoff space (`is_in_shooting_range`).
     """
     if side == 1:
         return "HOME SHOOTS FROM HERE \u25b6"
