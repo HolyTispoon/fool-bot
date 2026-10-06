@@ -14,7 +14,7 @@ from d12ball.components import (
 )
 from d12ball.flow.driver import Action
 from d12ball.game import D12BallGame
-from d12ball.prompts import PromptKind, pending_prompt
+from d12ball.prompts import PromptKind
 from cogs.d12ball_helpers import send_new_prompt
 
 from d12ball.dice_brief import render_contest_dice
@@ -505,8 +505,9 @@ class ShootoutTestView(ShootoutView):
         # the shootout asks for them first and only then offers the
         # die. The driver refuses Roll until then anyway
         # (`refuse_roll_while_deciding`); this keeps it from being
-        # offered. The press that settles the last decision puts it up
-        # (`answer_declaration`), and a restart rebuilds this view off
+        # offered. Every press redraws this view
+        # (`SafeView.answer_declaration`), so the one that settles the
+        # last decision puts it up, and a restart rebuilds this view off
         # the position, so it comes back with Roll or without it.
         game, match = self.load_match()
         options = self.prompt_options(game, match, PromptKind.SHOOTOUT_TEST)
@@ -534,41 +535,6 @@ class ShootoutTestView(ShootoutView):
             self.add_overdrive_buttons(
                 game, match, options,
             )
-
-    async def answer_declaration(
-        self, interaction: discord.Interaction, result,
-    ) -> None:
-        """
-        A declaration or a pass on this prompt, and -- once nobody is
-        left to decide -- the Roll it was waiting for.
-
-        **Roll goes onto this same message**: the press came from its
-        buttons, so `response.edit_message` swaps them for a rebuilt
-        view (Roll, Your Order, and whatever is still open) through the
-        interaction callback, which is not the channel's edit bucket
-        (docs/design/rate-limits.md), and `turn_message_id` still names
-        the message a restart re-arms. What was declared goes out
-        after it, as every answer does. While a coach is still to
-        decide, the reply that names them is the whole of it, as on
-        every other roll.
-        """
-        game = self.cog.games.get(self.game_id)
-        waiting = (
-            None if game is None
-            else pending_prompt(self.cog.engine, game, result.match)
-        )
-        if (
-            waiting is None
-            or waiting.kind is not PromptKind.SHOOTOUT_TEST
-            or waiting.options is None
-            or waiting.options.undecided_sides
-        ):
-            await super().answer_declaration(interaction, result)
-            return
-        await interaction.response.edit_message(
-            view=ShootoutTestView(self.cog, self.game_id),
-        )
-        await send_new_prompt(interaction, result.answer[0])
 
     async def review(self, interaction: discord.Interaction) -> None:
         """

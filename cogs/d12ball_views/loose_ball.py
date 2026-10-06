@@ -329,7 +329,7 @@ class LooseBallSkillTestView(SafeView):
         )
         if options is not None:
             self.add_overdrive_buttons(
-                game, match, options,
+                game, match, options, roll=button,
             )
 
     async def roll(self, interaction: discord.Interaction) -> None:
