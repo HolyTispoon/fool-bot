@@ -165,8 +165,11 @@ already was, and that both start on it; with board 10 the recommendation reads *
 What the author settled, asked on 2026-10-06:
 
 - **The zones are 3-4-3** (2.1.1): the Home Zone is spaces 1-3, midfield 4-7, the Visitors
-  Zone 8-10. The outer zones are not equal to midfield, so they keep the name *Zone*; the
-  Thirds are still board 9's alone (2.1.2).
+  Zone 8-10. **Its outer zones are the Home Third and the Visitors Third**, as on board 9
+  (2.1.2): *"the 10 space board should refer to the home zone as 'home third' just like it
+  does on the 9 space board"* (the author). The name now follows the outer zones' depth --
+  three spaces on both boards -- rather than the three zones being equal, which board 10's
+  are not.
 - **Each side kicks off from the middle space of midfield nearer its own goal** (2.4.1):
   *"first half home team would start in space 5 and on the second half visitors would kick
   off in 6"*. The conceding side restarts from its own after a goal, as on every board.

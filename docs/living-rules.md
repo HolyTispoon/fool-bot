@@ -73,7 +73,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | 9 | -- | 1-3 | 4-6 | 7-9 | -- |
 | 10 (playtest) | -- | 1-3 | 4-7 | 8-10 | -- |
 
-**2.1.2** On the 9-space board, the only one where the three zones with spaces are equal, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on that board, and together they are the two **outer zones**.
+**2.1.2** On the 9- and 10-space boards, whose outer zones are three spaces deep, the Home Zone and the Visitors Zone are called the **Home Third** and the **Visitors Third**. Everything this Charter says of the Home Zone and the Visitors Zone it says of the two Thirds on those boards, and together they are the two **outer zones**.
 
 **2.1.3** A space is named by its number, counted from the home end: on board 7, spaces 1 and 2 are the Home Zone, 3 to 5 midfield and 6 and 7 the Visitors Zone.
 
