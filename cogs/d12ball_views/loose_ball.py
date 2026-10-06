@@ -365,9 +365,13 @@ class LooseBallSkillTestView(SafeView):
         # said above it -- see `dice_file_with_ignitions`.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            partial(render_contest_dice, dice.contestants),
+            partial(
+                render_contest_dice, dice.contestants,
+                labels=self.cog.dice_side_labels(game, match),
+            ),
             "loose_ball_dice.png",
             *dice.ignites,
+            game=game,
         )
 
         # The result follows the dice in its own message, the way every

@@ -45,7 +45,7 @@ from cogs.d12ball_helpers import (
     PBD_ARCHIVE_CATEGORY_NAME,
     add_full_image_button,
     board_image_filename,
-    format_player_with_team_name,
+    format_team_coach,
     format_team_side_label,
     get_or_create_category,
     pin_board_message,
@@ -162,7 +162,7 @@ class PresentationMixin:
         draws the same one.
         """
         shooter, defenders, location = score_attempt_brief(
-            self.engine, match, game,
+            self.engine, match, game, marked=True,
         )
         return discord.File(
             await asyncio.to_thread(
@@ -171,12 +171,30 @@ class PresentationMixin:
             filename="score_attempt.png",
         )
 
+    def dice_side_labels(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+    ) -> dict[Team, str]:
+        """
+        Each side's team as a dice image names it under its die: the
+        short way, "{team:purple} perrytom", the coach cut as every
+        image cuts one -- the mark a token the renderer draws
+        (`render.draw_marked_text`). Keyed on the team, since that is
+        what a die carries; the two sides never field the same one.
+        """
+        return {
+            setup.team: format_team_coach(setup, game, cut=True)
+            for setup in (match.home, match.visiting)
+        }
+
     async def dice_file_with_ignitions(
         self,
         match: MatchState,
         render: Callable[[list[tuple[int, IgnitionDie]]], io.BytesIO],
         filename: str,
         *rolls: tuple[Optional[str], IgnitedRoll],
+        game: Optional[D12BallGame] = None,
     ) -> tuple[discord.File, Optional[str]]:
         """
         A roll's dice image with the second die of every roll in it
@@ -220,6 +238,7 @@ class PresentationMixin:
         """
         sentences = []
         ignitions = []
+        labels = {} if game is None else self.dice_side_labels(game, match)
         for index, (player_id, ignite) in enumerate(rolls):
             if player_id is None or not ignite.ignited:
                 continue
@@ -230,7 +249,7 @@ class PresentationMixin:
                 ignite.second,
                 ignite.face,
                 TEAM_COLORS[team],
-                team_display_name(team),
+                labels.get(team) or team_display_name(team),
                 player.name,
                 ignite.blaze,
                 ignite.modifier,
@@ -592,10 +611,15 @@ class PresentationMixin:
             match = MatchState.from_dict(snapshot, self.engine.basic_ruleset)
         else:
             match = self.engine.load_match_state(game)
-        home_player = format_player_with_team_name(game, game.home_player_number)
-        visiting_player = format_player_with_team_name(
-            game, game.visiting_player_number,
-        )
+        # Each coach the long way in the title and the short way over
+        # their score and bench, cut as every image cuts a name; the
+        # marks are drawn by the renderer (`draw_marked_text`).
+        home_player = format_team_side_label(match.home, game, cut=True)
+        visiting_player = format_team_side_label(match.visiting, game, cut=True)
+        coaches = {
+            setup.side: format_team_coach(setup, game, cut=True)
+            for setup in (match.home, match.visiting)
+        }
         period = (
             "First Half"
             if match.scoreboard.period.value == "first_half"
@@ -613,6 +637,7 @@ class PresentationMixin:
             species_icons=self.engine.species_abilities_apply(game),
             cyborg_ids=self.engine.cyborg_condition_ids(game, match),
             card_skills=self.engine.card_skills(game, match),
+            coaches=coaches,
         )
         return image.getvalue()
 

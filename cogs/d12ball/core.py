@@ -36,7 +36,6 @@ from d12ball.game import (
     D12BallGame,
     GameStatus,
     Team,
-    team_display_name,
 )
 from d12ball.cards import (
     maneuver_hand_combinations,
@@ -1215,7 +1214,7 @@ class CoreMixin:
                 render_injury_test_die,
                 roll.roll,
                 TEAM_COLORS[player_team],
-                team_display_name(player_team),
+                self.dice_side_labels(game, match)[player_team],
                 player.name,
                 roll.safe,
                 bool(roll.overdrive),

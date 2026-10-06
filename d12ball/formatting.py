@@ -156,6 +156,22 @@ def destination_display_name(destination: str, board_size: int) -> str:
     return zone_display_name(Zone(destination), board_size)
 
 
+#: How many characters of a coach's name an image draws before cutting
+#: it with an ellipsis (the author, 2026-10-04: "cut user names at 12
+#: characters"). Discord scales an image down to the message's width,
+#: so one long name would shrink everything else on it.
+IMAGE_COACH_NAME_CHARS = 12
+
+
+def cut_coach_name(name: str) -> str:
+    """A coach's name as an image draws it: whole up to
+    `IMAGE_COACH_NAME_CHARS`, cut with an ellipsis after that."""
+    name = name.strip()
+    if len(name) <= IMAGE_COACH_NAME_CHARS:
+        return name
+    return name[:IMAGE_COACH_NAME_CHARS].rstrip() + "…"
+
+
 def side_coach_number(
     game: Optional[D12BallGame],
     side: TeamSide,
@@ -177,6 +193,7 @@ def format_team_side_label(
     game: Optional[D12BallGame] = None,
     mention: bool = False,
     mark: bool = True,
+    cut: bool = False,
 ) -> str:
     """
     **A side named the long way**: its team's mark, its coach and its
@@ -195,13 +212,16 @@ def format_team_side_label(
     `mark=False` leaves the team's mark off and keeps the coach and the
     end -- "perrytom (Home)" -- for a sentence no frontend renders a
     token in: a refusal, and the time out's confirmation, which a view
-    puts up as it is.
+    puts up as it is. `cut` is for an image: the coach's name cut to
+    `IMAGE_COACH_NAME_CHARS`.
     """
     side = side_display_name(setup.side)
     number = side_coach_number(game, setup.side)
     if number is None:
         return f"{team_display_name(setup.team)} ({side})"
     coach = format_player(game, number, mention=mention)
+    if cut and not mention:
+        coach = cut_coach_name(coach)
     if not mark:
         return f"{coach} ({side})"
     return f"{tokens.team(setup.team)} {coach} ({side})"
@@ -210,14 +230,19 @@ def format_team_side_label(
 def format_team_coach(
     setup,
     game: Optional[D12BallGame] = None,
+    cut: bool = False,
 ) -> str:
     """**A side named the short way**: its team's mark and its coach,
     with no end -- "{team:purple} perrytom" -- or the team's name where
-    nobody holds the side yet. The long way is `format_team_side_label`."""
+    nobody holds the side yet. The long way is `format_team_side_label`;
+    `cut` is its own."""
     number = side_coach_number(game, setup.side)
     if number is None:
         return team_display_name(setup.team)
-    return f"{tokens.team(setup.team)} {format_player(game, number)}"
+    coach = format_player(game, number)
+    if cut:
+        coach = cut_coach_name(coach)
+    return f"{tokens.team(setup.team)} {coach}"
 
 
 def space_label(zone: Zone, space_index: int, board=None) -> str:
@@ -515,12 +540,10 @@ def format_player_with_team_name(
 ) -> str:
     """
     "Dinky AI (Fire Demons)" -- a coach named with their team spelled
-    out in words, for the one place a team emoji can't stand in for
-    it: the board image's title, which Pillow draws as literal
-    characters rather than resolving Discord's custom-emoji markup
-    (see `render_match_png`). Every other surface names a team with
-    its emoji, through `format_player_with_team`; this is the title's
-    own fallback, not a second way to name a coach in a message.
+    out in words, for a title that cannot draw a team's mark: the web
+    room's own. The bot's board title draws the mark
+    (`render.draw_marked_text`) and names each coach the long way, so
+    this is not a second way to name a coach in a message.
     """
     player = format_player(game, player_number)
     team = (
