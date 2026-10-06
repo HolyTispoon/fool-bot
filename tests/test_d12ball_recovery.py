@@ -157,6 +157,7 @@ class PendingTurnViewTests(unittest.TestCase):
     def test_halftime_beats_the_missing_ball_handler(self) -> None:
         cog, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
+        match.exhaustion[match.visiting.field_players[0]] = 1
 
         view, _ = cog.pending_turn_view("g1", match)
 
@@ -607,6 +608,7 @@ class ResumeDispatchTests(unittest.IsolatedAsyncioTestCase):
         # puts it back rather than re-driving the stage over it.
         cog, game, match = self.build()
         match.pending_halftime_stage = "extra_token_visiting"
+        match.exhaustion[match.visiting.field_players[0]] = 1
         interaction = build_interaction()
 
         with suppressed_cog_saves(), self.owed(
