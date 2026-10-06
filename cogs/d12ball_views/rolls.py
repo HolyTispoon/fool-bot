@@ -95,6 +95,17 @@ class SkillTestView(SafeView):
             *dice.ignites,
         )
 
+        # Result after the dice, not above them: a message's
+        # attachments render below its content, so the winner announced
+        # in this message would be read before the roll that decided
+        # it. What an ignite added is not a verdict, so it may stand
+        # above the dice.
+        await interaction.edit_original_response(
+            content=ignition,
+            attachments=[dice_file],
+            view=None,
+        )
+
         following = result.prompt
         # **A tie is the step handing back this same question**, worded
         # by what happened -- the two tokens are charged and the test
@@ -107,16 +118,18 @@ class SkillTestView(SafeView):
             and following is not None
             and following.kind is PromptKind.SKILL_TEST
         ):
-            # A tie: the same question again, worded by what happened.
-            # It keeps its text on *this* message rather than posting
-            # it below the dice, because this message also carries the
-            # roll-again button. The service saved the two tokens
-            # charged before anything here was drawn. An ignite is
-            # still shown on a tie -- it is what made these two totals
-            # equal -- and its sentence goes ahead of the question.
-            await interaction.edit_original_response(
-                content="\n\n".join(filter(None, (ignition, following.ask))),
-                attachments=[dice_file],
+            # A tie: the same question again, worded by what happened,
+            # **as a new message below the dice** with the roll-again
+            # buttons on it, the way every other result follows its
+            # roll. It used to be written into this message, buttons
+            # and all, which left an Overdrive declared on the tied
+            # roll -- a reply to this message, posted when it was still
+            # the prompt -- sitting under the re-roll's buttons, read
+            # as if declared for the re-roll. The service saved the two
+            # tokens charged before anything here was drawn.
+            await send_new_prompt(
+                interaction,
+                following.ask,
                 view=self.cog.view_for_prompt(
                     self.game_id, result.match, following,
                 ),
@@ -124,17 +137,6 @@ class SkillTestView(SafeView):
             await self.cog.refresh_match_image(interaction, game)
             return
 
-        # Result after the dice, not above them: a message's
-        # attachments render below its content, so the winner announced
-        # in this message would be read before the roll that decided
-        # it. The tie above keeps its text here instead, because that
-        # message also carries the roll-again button. What an ignite
-        # added is not a verdict, so it may stand above the dice.
-        await interaction.edit_original_response(
-            content=ignition,
-            attachments=[dice_file],
-            view=None,
-        )
         await send_new_prompt(interaction, result.answer[0])
         await self.cog.refresh_match_image(interaction, game)
 
