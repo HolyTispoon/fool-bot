@@ -274,7 +274,7 @@ name, never a rule, and nothing saved changed.
   "space 1-space 2".
 - **The zone is still spelled out beside it** wherever it was before
   ("**space 4** (Midfield)"), and the zones keep their names: the Home Zone,
-  midfield and the Visitors Zone (Thirds on board 9). The goal zones beyond
+  midfield and the Visitors Zone (Thirds on boards 9 and 10). The goal zones beyond
   each end hold no spaces and never shift a number.
 - **A test may still spell a space `M2`** through `tests/space_codes.py`'s
   `code`, because the letter form says which zone without counting and is the

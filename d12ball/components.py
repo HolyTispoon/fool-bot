@@ -26,7 +26,7 @@ SPECIES_FILE = DATA_FOLDER / "species.json"
 class Zone(str, Enum):
     """
     The three zones of the field that hold spaces, left to right: the
-    Home Zone (the Home Third on board 9), midfield and the Visitors
+    Home Zone (the Home Third on boards 9 and 10), midfield and the Visitors
     Zone (the Visitors Third). **The values are the old names** --
     `home_goal` and `visitors_goal`, from before the goal zones beyond
     each end were named (Law 2.1) -- and they stay, because every saved

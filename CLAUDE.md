@@ -141,7 +141,7 @@ These hold everywhere. Each has its reasoning in the design doc named beside it.
 - **A player is never named without their role.** `player_with_role` in a button or autocomplete (plain `Hellguard [FB]`), `D12Ball.player_label` / `player_id_label` in a message (team emoji in front, role badge where uploaded). The brackets are the only spelling; a button label is cut to 80 characters.
 - Say what the position is, never what it is not; don't answer a question nobody asked; a move that costs nothing says nothing (`describe_exhaustion_gain` returns `""`, so callers join on `filter(None, ...)`).
 - **A side is "Home" or "Visitors", never "Visiting"**: `formatting.side_display_name` is the only spelling. The saved value stays `"visiting"`.
-- **A space is "space 4" in text, never a bare "4"**, and never `H1`/`M2`/`V1`: `formatting.space_label` is the only spelling. The zones with spaces are the Home Zone and the Visitors Zone (Thirds on board 9); the Home Goal and the Visitors Goal are only the goal zones beyond the ends, and a ball sent past the last space **reaches the goal zone** -- never "overshoots".
+- **A space is "space 4" in text, never a bare "4"**, and never `H1`/`M2`/`V1`: `formatting.space_label` is the only spelling. The zones with spaces are the Home Zone and the Visitors Zone (Thirds on boards 9 and 10); the Home Goal and the Visitors Goal are only the goal zones beyond the ends, and a ball sent past the last space **reaches the goal zone** -- never "overshoots".
 
 **Tests** -- [testing.md](docs/design/testing.md)
 - **A test names a player by role** (`tests/roster.py`: `fielded`, `benched`, `roles`), never by id or name -- the roster is data the author revises.

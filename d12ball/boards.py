@@ -41,9 +41,9 @@ that too. A coach's own goal is the Home Goal for one of them and the
 Visitors Goal for the other, and the same field board is read by both,
 so the areas are labelled HOME ZONE / MIDFIELD / VISITORS ZONE exactly
 as the bot's coaching image labels them -- HOME THIRD / VISITORS THIRD
-on the 9-space board, the only one where the three areas (H/M/V) are
-all equal (see "The field" in the living rules, and the 2026-08-24
-entry in the rules log). See "Working on the board image" in docs/design/board-image.md
+on the 9- and 10-space boards, whose outer zones are three spaces deep
+(see "The field" in the living rules, and the 2026-08-24 and 2026-10-06
+entries in the rules log). See "Working on the board image" in docs/design/board-image.md
 for the same decision taken there, and "The zone-assignment rows" below
 for why they moved off the team board.
 """

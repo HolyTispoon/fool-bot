@@ -48,14 +48,16 @@ ROLE_INITIALS = {
 
 BENCH_DESTINATIONS = ("bench", "back_bench")
 
-# The 9-space board is the only one whose three areas (H/M/V) are equal, which
-# is what earns its outer two the more literal "Third" -- see "The field" in
-# the living rules and the 2026-08-24 entry in the rules log. Midfield's name
-# never changes, so it carries no entry here.
+# The outer two areas are "Thirds" on the boards whose outer zones are three
+# spaces deep: board 9, whose three areas (H/M/V) are equal, which first
+# earned the more literal word (the 2026-08-24 entry in the rules log), and
+# board 10, which keeps it (the author, 2026-10-06) -- see "The field" in the
+# living rules. Midfield's name never changes, so it carries no entry here.
+# The board images read this table too (`render.zone_labels`).
 OUTER_ZONE_WORD_BY_BOARD_SIZE = {
     7: "Zone",
     9: "Third",
-    10: "Zone",
+    10: "Third",
 }
 
 AI_OPPONENT_NAMES = {
@@ -132,7 +134,7 @@ def zone_display_name(zone: Zone, board_size: int) -> str:
     """
     "Home Zone", "Midfield", "Visitors Third" -- whichever a board's own
     size calls the outer two areas. See the module-level comment on
-    OUTER_ZONE_WORD_BY_BOARD_SIZE for why the 9-space board differs.
+    OUTER_ZONE_WORD_BY_BOARD_SIZE for why boards 9 and 10 differ.
     """
     if zone is Zone.MIDFIELD:
         return "Midfield"

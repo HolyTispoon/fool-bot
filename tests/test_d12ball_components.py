@@ -276,6 +276,24 @@ class D12BallComponentTests(unittest.TestCase):
                 skills,
             )
 
+    def test_the_outer_zones_are_thirds_on_boards_nine_and_ten(self) -> None:
+        # The text and the board images read the one table, so they
+        # name a zone alike (the author, 2026-10-06, for board 10).
+        from d12ball.formatting import zone_display_name
+        from d12ball.render import zone_labels
+        expected = {7: "Zone", 9: "Third", 10: "Third"}
+        self.assertEqual(set(expected), set(self.rules.board_layouts))
+        for board_size, word in expected.items():
+            with self.subTest(board_size=board_size):
+                self.assertEqual(
+                    zone_display_name(Zone.HOME_ZONE, board_size),
+                    f"Home {word}",
+                )
+                self.assertEqual(
+                    zone_labels(board_size)[Zone.VISITORS_ZONE],
+                    f"VISITORS {word.upper()}",
+                )
+
     def test_board_layouts_match_confirmed_zone_sizes(self) -> None:
         expected = {
             7: (2, 3, 2),
