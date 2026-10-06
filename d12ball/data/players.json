@@ -20,7 +20,7 @@
       "offense": 3,
       "defense": 4,
       "ability": "Add +3 to skill tests for steal and low pass.",
-      "ability_short": "+3 for skill tests"
+      "ability_short": "+3 for low pass and steal"
     },
     "playmaker": {
       "offense": 4,
