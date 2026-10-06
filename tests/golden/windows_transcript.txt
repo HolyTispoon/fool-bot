@@ -7,25 +7,25 @@ Out of shooting range. Maneuver, or take a time out:
 === press 1: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
 === press 2: TimeOutConfirmView -> 'Take the time out'
 --- message
-# Orange (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 4. Time has advanced 1, now at 01.
+# 🟠 Player 1 (Home) calls a time out
+Both coaches get a Coaching Choice. The ball stays with 🟠 Player 1 (Home) on space 4. Time has advanced 1, now at 01.
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 === press 3: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visitors) are done.**
+**🟣 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 4, Orange (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -61,7 +61,7 @@ Chose **2 spaces**.
 --- message
 Ball speed is now **2**.
 --- message
-Ball is now in space 6, Orange (Home) has possession.
+Ball is now in space 6, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -76,8 +76,8 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 9: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟠 Sizzifizik [PM] scores for Orange (Home) on **02**!
-Orange 1:0 Purple
+🟠 Sizzifizik [PM] scores for 🟠 Player 1 (Home) on **02**!
+🟠 Player 1 (Home) 1:0 🟣 Dinky AI (Visitors)
 
 Time has advanced 1, now at 03.
 --- message
@@ -86,7 +86,7 @@ Time has advanced 1, now at 03.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Purple (Visitors) has possession.
+Ball is now in space 4, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -105,9 +105,9 @@ Time has advanced 1, now at 04.
 --- message
 🟣 Glompex [MF] picks up the ball.
 --- message
-Ball is now in space 5, Purple (Visitors) has possession.
+Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
 --- message
-🟣 Glompex [MF] will maneuver for Purple.
+🟣 Glompex [MF] will maneuver for 🟣 Dinky AI.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 11: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
@@ -143,7 +143,7 @@ Time has advanced 1, now at 05.
 --- message
 **Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Flickerwing [WG] moves forward.
 
-Ball is now in space 6, Purple (Visitors) has possession.
+Ball is now in space 6, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -162,7 +162,7 @@ Time has advanced 1, now at 06.
 --- message
 **Steal:**
 # Turnover!
-🟠 Flickerwing [WG] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+🟠 Flickerwing [WG] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
@@ -175,7 +175,7 @@ Players return to an open space in their assigned zone and exhaust 1 for every s
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now in space 5, Orange (Home) has possession.
+Ball is now in space 5, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -190,8 +190,8 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 17: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟠 Flickerwing [WG] scores for Orange (Home) on **06**!
-Orange 2:0 Purple
+🟠 Flickerwing [WG] scores for 🟠 Player 1 (Home) on **06**!
+🟠 Player 1 (Home) 2:0 🟣 Dinky AI (Visitors)
 
 Time has advanced 1, now at 07.
 --- message
@@ -200,7 +200,7 @@ Time has advanced 1, now at 07.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Purple (Visitors) has possession.
+Ball is now in space 4, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -248,7 +248,7 @@ Either player can roll:
 --- message
 🟣 Tachyon [SK] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now in space 1, Purple (Visitors) has possession.
+Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has chosen to shoot to score with 🟣 Tachyon [SK].
 --- message
@@ -256,22 +256,22 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 22: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟣 Tachyon [SK] scores for Purple (Visitors) on **09**!
-Orange 2:1 Purple
+🟣 Tachyon [SK] scores for 🟣 Dinky AI (Visitors) on **09**!
+🟠 Player 1 (Home) 2:1 🟣 Dinky AI (Visitors)
 
 Time has advanced 1, now at 10.
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Coach?
 === press 23: CoachingOfferView -> 'Coach'
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 === press 24: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
@@ -279,7 +279,7 @@ No substitutions, and no change of shape.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Orange (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -305,7 +305,7 @@ Time has advanced 1, now at 11.
 --- message
 **Pressure:** 🟠 Sizzifizik [PM] and the ball go back 1 space. 🟣 Emberdash [PM] moves forward.
 
-Ball is now in space 3, Orange (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -336,7 +336,7 @@ Time has advanced 1, now at 12.
 --- message
 **Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
 
-Ball is now in space 2, Orange (Home) has possession.
+Ball is now in space 2, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -370,7 +370,7 @@ Time has advanced 1, now at 13.
 --- message
 **Low Pass:** the ball moves 1 space forward. Ball speed is now 3.
 
-Ball is now in space 3, Orange (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -401,7 +401,7 @@ Time has advanced 1, now at 14.
 --- message
 Ball speed is now **6**.
 --- message
-Ball is now in space 4, Orange (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -448,17 +448,17 @@ Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has
 --- message
 **Steal:**
 # Turnover!
-🟣 Glompex [MF] steals the ball. Purple (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
+🟣 Glompex [MF] steals the ball. 🟣 Dinky AI (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
 
 The ball speed goes down to **1**.
 --- message
 Ball speed is now **5**.
 --- message
-Ball is now in space 5, Purple (Visitors) has possession.
+Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
 --- message
-Purple (Visitors) has **last possession**: their next turnover ends the period.
+🟣 Dinky AI (Visitors) has **last possession**: their next turnover ends the period.
 --- message
-🟣 Glompex [MF] will maneuver for Purple.
+🟣 Glompex [MF] will maneuver for 🟣 Dinky AI.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 41: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
@@ -538,40 +538,40 @@ Every fielded player clears 1 exhaustion:
 --- message
 🟣 Emberdash [PM] clears an extra exhaustion token (now 0).
 --- message
-<@111>, Orange (Home): choose one fielded player to clear an extra exhaustion token.
+🟠 <@111> (Home): choose one fielded player to clear an extra exhaustion token.
 === press 48: HalftimeExtraTokenView -> 'Acidel [SK] (0 exhaustion)'
 --- message
 🟠 Acidel [SK] had no exhaustion to clear.
 --- message
 # Coaching Choice
-**Purple (Visitors) are done.**
+**🟣 Dinky AI (Visitors) is done.**
 🟣 Gurgoth [DD] came on for 🟣 Glompex [MF].
 --- message
 ## Halftime
-Orange (Home) set up for the second half.
+🟠 Player 1 (Home) sets up for the second half.
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Your side is back on the arrangement you last set.
 === press 49: CoachingHubView -> 'Substitution (2 left at halftime)'
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Who comes off?
 === press 50: CoachingSubstitutionOutView -> 'Blazebulk [DD] - Home Zone'
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Who comes on for 🟠 Blazebulk [DD]? They take their zone and their space exactly.
 === press 51: CoachingSubstitutionInView -> 'Noxar [SK]'
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 1 substitution left.
+**🟠 <@111> (Home)** -- 1 substitution left.
 🟠 Noxar [SK] comes on for 🟠 Blazebulk [DD].
 1 substitution left.
 === press 52: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 🟠 Noxar [SK] came on for 🟠 Blazebulk [DD].
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -591,7 +591,7 @@ Time has advanced 1, now at 16.
 --- message
 **Steal:**
 # Turnover!
-🟠 Sizzifizik [PM] steals the ball. Orange (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+🟠 Sizzifizik [PM] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
 # Players run back!
 Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
@@ -608,7 +608,7 @@ Space 4 (1 away) or space 5 (2 away).
 --- message
 Ball speed is now **3**.
 --- message
-Ball is now in space 3, Orange (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -618,26 +618,26 @@ Out of shooting range. Maneuver, or take a time out:
 === press 56: PlayerActionView -> 'Time out'
 --- message
 # Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Purple (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 3 at speed 1, with you in possession.
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 3 at speed 1, with you in possession.
 === press 57: TimeOutConfirmView -> 'Take the time out'
 --- message
-# Orange (Home) call a time out
-Both coaches get a Coaching Choice. The ball stays with Orange (Home) on space 3. Time has advanced 1, now at 17.
+# 🟠 Player 1 (Home) calls a time out
+Both coaches get a Coaching Choice. The ball stays with 🟠 Player 1 (Home) on space 3. Time has advanced 1, now at 17.
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Your side is back on the arrangement you last set.
 === press 58: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visitors) are done.**
+**🟣 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
-Ball is now in space 3, Orange (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -670,13 +670,13 @@ Time has advanced 2, now at 19.
 Chose **2 spaces**.
 --- message
 # Turnover!
-🟣 Gurgoth [DD] picks up the ball. Purple (Visitors) now has possession.
+🟣 Gurgoth [DD] picks up the ball. 🟣 Dinky AI (Visitors) now has possession.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 5, Purple (Visitors) has possession.
+Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
 --- message
-🟣 Gurgoth [DD] will maneuver for Purple.
+🟣 Gurgoth [DD] will maneuver for 🟣 Dinky AI.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
 === press 62: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
@@ -728,7 +728,7 @@ Either player can roll:
 --- message
 🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
-Ball is now in space 2, Purple (Visitors) has possession.
+Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -764,14 +764,14 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 69: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
-Orange (Home) manages to avoid a goal! (phew)
+🟠 Player 1 (Home) manages to avoid a goal! (phew)
 
 🟣 Tachyon [SK] exhausts 1 😮‍💨 (now 1 total).
 
 Time has advanced 1, now at 23.
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Coach?
 === press 70: CoachingOfferView -> 'Pass'
 --- message
@@ -780,7 +780,7 @@ Coach?
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 1, Orange (Home) has possession.
+Ball is now in space 1, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -811,7 +811,7 @@ Chose **2 spaces**.
 --- message
 **High Pass:** the ball moves 2 spaces forward.
 
-Ball is now in space 3, Orange (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -850,7 +850,7 @@ Either player can roll:
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 2, Purple (Visitors) has possession.
+Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
@@ -875,8 +875,8 @@ Either player can roll. Both sides roll one d12; the attacker scores on a total 
 === press 78: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟣 Tachyon [SK] scores for Purple (Visitors) on **28**!
-Orange 2:2 Purple
+🟣 Tachyon [SK] scores for 🟣 Dinky AI (Visitors) on **28**!
+🟠 Player 1 (Home) 2:2 🟣 Dinky AI (Visitors)
 
 🟣 Tachyon [SK] exhausts 1 😮‍💨 (now 2 total).
 🟣 Tachyon [SK] is now *exhausted* 🥵
@@ -884,16 +884,16 @@ Orange 2:2 Purple
 Time has advanced 1, now at 29.
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 Coach?
 === press 79: CoachingOfferView -> 'Coach'
 --- message
 # Coaching Choice
-<@111>, **Orange (Home)** -- 2 substitutions left.
+**🟠 <@111> (Home)** -- 2 substitutions left.
 === press 80: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
@@ -901,7 +901,7 @@ No substitutions, and no change of shape.
 --- message
 The ball speed goes down to **1**.
 --- message
-Ball is now in space 4, Orange (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -943,9 +943,9 @@ Time has advanced 1, now at 30. The clock has reached 30: **last possession** is
 --- message
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
 
-Ball is now in space 6, Orange (Home) has possession.
+Ball is now in space 6, 🟠 Player 1 (Home) has possession.
 --- message
-Orange (Home) has **last possession**: their next turnover ends the period.
+🟠 Player 1 (Home) has **last possession**: their next turnover ends the period.
 --- message
 🟠 <@111>, it is your turn.
 
@@ -972,26 +972,26 @@ Time has advanced 1, now at 31.
 **Pressure:** 🟠 Flickerwing [WG] and the ball go back 1 space. 🟣 Dravox [DD] moves forward.
 
 # Turnover!
-🟣 Dravox [DD] steals the ball (Defender ability)! Purple (Visitors) now has possession.
+🟣 Dravox [DD] steals the ball (Defender ability)! 🟣 Dinky AI (Visitors) now has possession.
 
 **Full time!** The ball turns over at 31 under last possession -- the game ends.
 
-**Final score:** Orange 2:2 Purple
+**Final score:** 🟠 Player 1 (Home) 2:2 🟣 Dinky AI (Visitors)
 
 # It's a tie! The game goes to the extreme shootout.
 --- message
 ## Before the shootout
-Orange (Home) may make **one substitution** -- the last change either side gets. Nothing else is offered: the shootout is played by whoever is on the field, and not by where they are standing.
+🟠 Player 1 (Home) may make **one substitution** -- the last change either side gets. Nothing else is offered: the shootout is played by whoever is on the field, and not by where they are standing.
 # Coaching Choice
-<@111>, **Orange (Home)** -- 1 substitution left.
+**🟠 <@111> (Home)** -- 1 substitution left.
 === press 87: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
-**Orange (Home) are done.**
+**🟠 Player 1 (Home) is done.**
 No substitutions, and no change of shape.
 --- message
 # Coaching Choice
-**Purple (Visitors) are done.**
+**🟣 Dinky AI (Visitors) is done.**
 No substitutions, and no change of shape.
 --- message
 # Extreme shootout
@@ -999,7 +999,7 @@ The scores are level, so the game is settled on the extreme shootout.
 
 Each coach secretly puts their **six field players** in the order they will shoot. Both sides then reveal their top card together. Each of the two first rolls an **injury check** against the tokens they carry, Exhausted or not, unless already injured; then they roll a **skill test**, each adding their offensive skill -- an injured player adds none and rolls the bare d12. The winner scores a goal; a tie scores for nobody. Six skill tests is a **round**, and a level round goes to sudden death.
 --- message
-Purple (Visitors) has set their shooting order.
+🟣 Dinky AI (Visitors) has set their shooting order.
 --- message
 ### Extreme shootout
 <@111>: set the order your six players shoot in. Nobody else sees it.
@@ -1046,10 +1046,10 @@ Keep going -- click the next player to shoot.
 5. 🟠 Goopkeeper [FB]
 6. 🟠 Sizzifizik [PM]
 --- message
-Orange (Home) has set their shooting order.
+🟠 Player 1 (Home) has set their shooting order.
 --- message
 ### Extreme shootout — skill test 1 of 6
-Orange 0 — 0 Purple
+🟠 Player 1 (Home) 0 — 0 🟣 Dinky AI (Visitors)
 🟠 Flickerwing [WG]
 versus
 🟣 Gurgoth [DD]
@@ -1062,10 +1062,10 @@ Either player can roll:
 🟣 Gurgoth [DD] rolls an injury test before the shot: 1 does not beat their 1 exhaustion tokens.
 🟣 Gurgoth [DD] is **injured**.
 # 🟠 Flickerwing [WG] scores!
-Extreme shootout: Orange 1 — 0 Purple
+Extreme shootout: 🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 2 of 6
-Orange 1 — 0 Purple
+🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
 🟠 Acidel [SK]
 versus
 🟣 Tachyon [SK]
@@ -1078,10 +1078,10 @@ Either player can roll:
 🟣 Tachyon [SK] rolls an injury test before the shot: 3 beats their 2 exhaustion tokens.
 🟣 Tachyon [SK] is **safe**.
 # 🟣 Tachyon [SK] scores!
-Extreme shootout: Orange 1 — 1 Purple
+Extreme shootout: 🟠 Player 1 (Home) 1 — 1 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 3 of 6
-Orange 1 — 1 Purple
+🟠 Player 1 (Home) 1 — 1 🟣 Dinky AI (Visitors)
 🟠 Spectra [MF]
 versus
 🟣 Emberdash [PM]
@@ -1094,10 +1094,10 @@ Either player can roll:
 🟣 Emberdash [PM] rolls an injury test before the shot: 8 beats their 3 exhaustion tokens.
 🟣 Emberdash [PM] is **safe**.
 # 🟣 Emberdash [PM] scores!
-Extreme shootout: Orange 1 — 2 Purple
+Extreme shootout: 🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 4 of 6
-Orange 1 — 2 Purple
+🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
 🟠 Noxar [SK]
 versus
 🟣 Dravox [DD]
@@ -1110,10 +1110,10 @@ Either player can roll:
 🟣 Dravox [DD] rolls an injury test before the shot: 3 beats their 0 exhaustion tokens.
 🟣 Dravox [DD] is **safe**.
 # 🟠 Noxar [SK] scores!
-Extreme shootout: Orange 2 — 2 Purple
+Extreme shootout: 🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 5 of 6
-Orange 2 — 2 Purple
+🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
 🟠 Goopkeeper [FB]
 versus
 🟣 Quantor [WG]
@@ -1126,10 +1126,10 @@ Either player can roll:
 🟣 Quantor [WG] rolls an injury test before the shot: 5 beats their 1 exhaustion tokens.
 🟣 Quantor [WG] is **safe**.
 # 🟣 Quantor [WG] scores!
-Extreme shootout: Orange 2 — 3 Purple
+Extreme shootout: 🟠 Player 1 (Home) 2 — 3 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 6 of 6
-Orange 2 — 3 Purple
+🟠 Player 1 (Home) 2 — 3 🟣 Dinky AI (Visitors)
 🟠 Sizzifizik [PM]
 versus
 🟣 Hellguard [FB]
@@ -1142,12 +1142,12 @@ Either player can roll:
 🟣 Hellguard [FB] rolls an injury test before the shot: 12 beats their 0 exhaustion tokens.
 🟣 Hellguard [FB] is **safe**.
 # 🟠 Sizzifizik [PM] scores!
-Extreme shootout: Orange 3 — 3 Purple
+Extreme shootout: 🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 --- message
-Purple (Visitors) has chosen their shooter.
+🟣 Dinky AI (Visitors) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
-Orange 3 — 3 Purple
+🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 <@111>: choose who goes out next, from the players who have not shot yet this round. Nobody else sees it until the reveal.
 === press 101: ShootoutPickPromptView -> 'Choose Your Shooter'
 --- message
@@ -1156,10 +1156,10 @@ Choose who goes out next. Everyone who has not shot yet this round is eligible.
 --- message
 You send out 🟠 Acidel [SK].
 --- message
-Orange (Home) has chosen their shooter.
+🟠 Player 1 (Home) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
-Orange 3 — 3 Purple
+🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 🟠 Acidel [SK]
 versus
 🟣 Hellguard [FB]
@@ -1172,27 +1172,27 @@ Either player can roll:
 🟣 Hellguard [FB] rolls an injury test before the shot: 10 beats their 0 exhaustion tokens.
 🟣 Hellguard [FB] is **safe**.
 # 🟠 Acidel [SK] scores!
-Extreme shootout: Orange 4 — 3 Purple
+Extreme shootout: 🟠 Player 1 (Home) 4 — 3 🟣 Dinky AI (Visitors)
 --- message
 **The extreme shootout is settled, 4-3.**
 
-**Final score:** Orange 6:5 Purple
+**Final score:** 🟠 Player 1 (Home) 6:5 🟣 Dinky AI (Visitors)
 (2:2 at full time, settled 4-3 on the extreme shootout)
 **Winning goal:** Acidel [SK], in the extreme shootout.
 
-# Orange wins!
+# 🟠 Player 1 wins!
 Congratulations, <@111>!
 
 ## Goals
 
-**🟠 Orange (Home)**
+**🟠 Player 1 (Home)**
 `02`  Sizzifizik [PM]
 `06`  Flickerwing [WG]
 
-**🟣 Purple (Visitors)**
+**🟣 Dinky AI (Visitors)**
 `09`  Tachyon [SK]
 `28`  Tachyon [SK]
 
 **Extreme shootout**
-🟠 Orange: Flickerwing [WG], Noxar [SK], Sizzifizik [PM], Acidel [SK]
-🟣 Purple: Tachyon [SK], Emberdash [PM], Quantor [WG]
+🟠 Player 1: Flickerwing [WG], Noxar [SK], Sizzifizik [PM], Acidel [SK]
+🟣 Dinky AI: Tachyon [SK], Emberdash [PM], Quantor [WG]

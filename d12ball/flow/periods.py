@@ -65,7 +65,6 @@ from d12ball.formatting import (
     build_goal_log,
     final_score_line,
     full_time_heading,
-    format_player,
     format_team_side_label,
     winning_goal_line,
 )
@@ -178,26 +177,30 @@ def end_period(
         result = begin_full_time_coaching(engine, game, match)
         result.narration.insert(0, whistle)
         result.headlines = (
-            *result.headlines, full_time_headline(engine, match),
+            *result.headlines, full_time_headline(engine, match, game),
         )
         result.board_changed = True
         return result
 
     game.finish_game()
     return StepResult(
-        narration=[f"{whistle}\n\n{goal_log(engine, match)}"],
-        headlines=(full_time_headline(engine, match),),
+        narration=[f"{whistle}\n\n{goal_log(engine, match, game)}"],
+        headlines=(full_time_headline(engine, match, game),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )
 
 
-def full_time_headline(engine: RulesEngine, match: MatchState) -> Headline:
+def full_time_headline(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> Headline:
     """The result's `Headline`: `build_full_time_summary`'s heading,
     whose it is, and the final score it opens with -- with who scored
     the winner under it, the line the summary says there too."""
-    text, side = full_time_heading(match)
+    text, side = full_time_heading(match, game)
     winning = winning_goal_line(match, engine.player_catalog)
-    under = final_score_line(match)
+    under = final_score_line(match, game)
     return Headline(text, side, f"{under}\n{winning}" if winning else under)
 
 
@@ -206,7 +209,11 @@ def full_time_headline(engine: RulesEngine, match: MatchState) -> Headline:
 HALFTIME_HEADING = "Halftime"
 
 
-def goal_log(engine: RulesEngine, match: MatchState) -> str:
+def goal_log(
+    engine: RulesEngine,
+    match: MatchState,
+    game: Optional[D12BallGame] = None,
+) -> str:
     """
     The scoresheet, with this engine's roster behind it.
 
@@ -214,7 +221,7 @@ def goal_log(engine: RulesEngine, match: MatchState) -> str:
     callers of `announce_game_over` rather than inside it, because
     that function is handed a string and has no match.
     """
-    return build_goal_log(match, engine.player_catalog)
+    return build_goal_log(match, engine.player_catalog, game)
 
 
 # -- Setup, before the kickoff ---------------------------------------
@@ -273,8 +280,8 @@ def advance_setup_stage(
                     "occasion": CoachingOccasion.SETUP,
                     "heading": (
                         f"## Before kickoff\n"
-                        f"{format_team_side_label(setup)} "
-                        "set their line-up. Substitutions are unlimited "
+                        f"{format_team_side_label(setup, game)} "
+                        "sets their line-up. Substitutions are unlimited "
                         "here and anyone taken off goes back to the bench "
                         "-- the game has not started, so nothing is used "
                         "up."
@@ -319,10 +326,10 @@ def finish_setup_coaching(
     kicking_off = match.setup_for_side(match.ball.possession)
     caption = (
         "**The teams are dealt.** The game kicks off with "
-        f"{format_team_side_label(kicking_off)} in possession."
+        f"{format_team_side_label(kicking_off, game)} in possession."
         if game.tutorial
         else "**Both coaches are set.** The game kicks off with "
-        f"{format_team_side_label(kicking_off)} in possession."
+        f"{format_team_side_label(kicking_off, game)} in possession."
     )
     if game.tutorial:
         game.tutorial_step = tutorial.FIRST_STEP
@@ -452,13 +459,10 @@ def begin_halftime_extra_token(
         engine.next_halftime_stage(match)
         return advance_halftime_stage(engine, game, match)
 
-    mention = format_player(
-        game, engine.side_player_number(game, side), mention=True,
-    )
     return StepResult(
         next=PendingPrompt(
             PromptKind.HALFTIME_EXTRA_TOKEN,
-            f"{mention}, {format_team_side_label(setup)}: choose one "
+            f"{format_team_side_label(setup, game, mention=True)}: choose one "
             "fielded player to clear an extra exhaustion token.",
             side=side,
         ),
@@ -538,7 +542,7 @@ def begin_halftime_substitutions(
                 "side": side,
                 "occasion": CoachingOccasion.HALFTIME,
                 "heading": (
-                    f"## Halftime\n{format_team_side_label(setup)} set up "
+                    f"## Halftime\n{format_team_side_label(setup, game)} sets up "
                     "for the second half."
                 ),
             },
@@ -565,7 +569,7 @@ def finish_halftime(
     return StepResult(
         narration=[
             "**Halftime is over.** The second half kicks off with "
-            f"{format_team_side_label(match.visiting)} in possession."
+            f"{format_team_side_label(match.visiting, game)} in possession."
         ],
         board_changed=True,
         new_play=True,
@@ -660,7 +664,7 @@ def advance_full_time_stage(
                     "occasion": CoachingOccasion.FULL_TIME,
                     "heading": (
                         "## Before the shootout\n"
-                        f"{format_team_side_label(setup)} "
+                        f"{format_team_side_label(setup, game)} "
                         "may make **one substitution** -- the last change "
                         "either side gets. Nothing else is offered: the "
                         "shootout is played by whoever is on the field, "
@@ -815,7 +819,7 @@ def shootout_order_step(
         return StepResult(narration=narration)
 
     narration.append(
-        f"{format_team_side_label(match.setup_for_side(side))} "
+        f"{format_team_side_label(match.setup_for_side(side), game)} "
         "has set their shooting order."
     )
     if not match.shootout_orders_complete:
@@ -873,7 +877,7 @@ def shootout_pick_step(
     player = engine.get_player_definition(player_id)
     narration = [
         f"You send out {engine.format_player_label(match, player)}.",
-        f"{format_team_side_label(match.setup_for_side(side))} "
+        f"{format_team_side_label(match.setup_for_side(side), game)} "
         "has chosen their shooter.",
     ]
     if not match.shootout_shooters_complete:
@@ -913,7 +917,7 @@ def reveal_shootout_test(
     return StepResult(
         next=PendingPrompt(
             PromptKind.SHOOTOUT_TEST,
-            f"{engine.shootout_heading(match)}\n"
+            f"{engine.shootout_heading(match, game)}\n"
             f"{lines[0]}\nversus\n{lines[1]}\n\nEither player can roll:",
         ),
     )
@@ -987,8 +991,8 @@ def continue_shootout(
             f"**The extreme shootout is settled, {home}-{visiting}.**"
             "\n\n"
             f"{build_full_time_summary(game, match, engine.player_catalog)}"
-            f"\n\n{goal_log(engine, match)}"
+            f"\n\n{goal_log(engine, match, game)}"
         ],
-        headlines=(full_time_headline(engine, match),),
+        headlines=(full_time_headline(engine, match, game),),
         next=FollowOn(FollowOnStep.ANNOUNCE_GAME_OVER),
     )

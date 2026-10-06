@@ -333,8 +333,14 @@ class FullTimeSummaryTests(unittest.TestCase):
             build_game(), self.build_match(3, 1),
         )
 
-        self.assertIn("Final score:** Orange 3:1 Purple", summary)
-        self.assertIn("# Orange wins!", summary)
+        # Each side the long way, the winner the short way: the
+        # coach behind their team's mark.
+        self.assertIn(
+            "Final score:** {team:orange} One (Home) 3:1 "
+            "{team:purple} Two (Visitors)",
+            summary,
+        )
+        self.assertIn("# {team:orange} One wins!", summary)
         self.assertIn("{coach:1}", summary)
         self.assertNotIn("{coach:2}", summary)
 
@@ -343,7 +349,7 @@ class FullTimeSummaryTests(unittest.TestCase):
             build_game(), self.build_match(1, 2),
         )
 
-        self.assertIn("# Purple wins!", summary)
+        self.assertIn("# {team:purple} Two wins!", summary)
         self.assertIn("{coach:2}", summary)
 
     def test_the_ai_can_win_it(self) -> None:
@@ -355,7 +361,7 @@ class FullTimeSummaryTests(unittest.TestCase):
 
         summary = build_full_time_summary(game, self.build_match(0, 1))
 
-        self.assertIn("# Purple wins!", summary)
+        self.assertIn("# {team:purple} Dinky AI wins!", summary)
         # Addressed by the same token as a coach; Discord draws the
         # AI's name for it.
         self.assertIn("{coach:2}", summary)
@@ -383,10 +389,14 @@ class FullTimeSummaryTests(unittest.TestCase):
 
         summary = build_full_time_summary(build_game(), match)
 
-        self.assertIn("Final score:** Orange 6:5 Purple", summary)
+        self.assertIn(
+            "Final score:** {team:orange} One (Home) 6:5 "
+            "{team:purple} Two (Visitors)",
+            summary,
+        )
         self.assertIn("2:2 at full time", summary)
         self.assertIn("settled 4-3 on the extreme shootout", summary)
-        self.assertIn("# Orange wins!", summary)
+        self.assertIn("# {team:orange} One wins!", summary)
 
 
 class WinningGoalTests(FullTimeSummaryTests):
@@ -430,7 +440,7 @@ class WinningGoalTests(FullTimeSummaryTests):
         summary = build_full_time_summary(build_game(), match, self.catalog)
         self.assertIn(line, summary)
         # Under the final score, above the heading.
-        self.assertLess(summary.index(line), summary.index("# Orange wins!"))
+        self.assertLess(summary.index(line), summary.index("# {team:orange} One wins!"))
 
     def test_an_own_goal_winner_is_named_as_the_log_names_it(self) -> None:
         from d12ball.formatting import winning_goal_line
@@ -660,7 +670,7 @@ class EndPeriodFullTimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game.rematch_message_id, 999)
         announcement = sent_texts(interaction)[0]
         self.assertIn("Full time!", announcement)
-        self.assertIn("# Orange wins!", announcement)
+        self.assertIn("One wins!", announcement)
         view = interaction.followup.send.await_args.kwargs["view"]
         self.assertIsInstance(view, RematchView)
         self.assertEqual(

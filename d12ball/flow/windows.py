@@ -406,7 +406,7 @@ def finish_coaching_step(
     close it yet -- a half-made substitution -- and it is raised here
     so it arrives as a refusal like every other.
     """
-    refusal = engine.coaching_finish_refusal(match, side)
+    refusal = engine.coaching_finish_refusal(match, side, game)
     if refusal is not None:
         raise RuleRefusal(refusal, law="finishing-a-coaching-choice")
 
@@ -417,7 +417,7 @@ def finish_coaching_step(
             "\n".join(
                 [
                     "# Coaching Choice",
-                    f"**{format_team_side_label(setup)} are done.**",
+                    f"**{format_team_side_label(setup, game)} is done.**",
                     *(changes or ["No substitutions, and no change of shape."]),
                 ]
             )
@@ -734,7 +734,7 @@ def begin_time_out(
     )
 
     side = match.call_time_out()
-    label = format_team_side_label(match.setup_for_side(side))
+    label = format_team_side_label(match.setup_for_side(side), game)
     # After `call_time_out`, whose `reset_maneuver` would clear the
     # flag this sets.
     clock = charge_clock(match, TIME_OUT_CLOCK_COST)
@@ -747,7 +747,7 @@ def begin_time_out(
     # caller has no menu to carry it on.
     return StepResult(
         narration=[
-            f"# {label} call a time out\n"
+            f"# {label} calls a time out\n"
             "Both coaches get a Coaching Choice. The ball stays "
             f"with {label} on "
             f"{ball_space_label(match)}. {clock}"

@@ -1041,7 +1041,7 @@ def shootout_pick_prompt(
     ]
     return PendingPrompt(
         PromptKind.SHOOTOUT_PICK,
-        f"{engine.shootout_heading(match)}\n"
+        f"{engine.shootout_heading(match, game)}\n"
         f"{engine.shootout_mentions(game, match, owing)}: choose who "
         "goes out next, from the players who have not shot yet "
         "this round. Nobody else sees it until the reveal.",
@@ -2856,7 +2856,7 @@ def _coaching_hub_options(
         incoming_ids=pool,
         swaps=tuple(swaps),
         repositions=tuple(repositions),
-        finish_refusal=engine.coaching_finish_refusal(match, side),
+        finish_refusal=engine.coaching_finish_refusal(match, side, game),
         allowance=engine.substitution_allowance_label(match),
     )
 

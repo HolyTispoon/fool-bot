@@ -608,7 +608,7 @@ def finish_maneuver_resolution(
     narration.append(
         f"{prefix}Ball is now in "
         f"{ball_space_label(match)}, "
-        f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+        f"{format_team_side_label(match.setup_for_side(match.ball.possession), game)} "
         f"has possession.{clock}"
     )
     return StepResult(
@@ -852,7 +852,7 @@ def begin_loose_ball(
     engine.auto_resolve_loose_ball_picks(game, match)
 
     if headline is None:
-        headline = engine.build_loose_ball_headline(match)
+        headline = engine.build_loose_ball_headline(match, game)
     prefix = f"{lead_in}\n\n" if lead_in else ""
     if is_high_pass:
         # A High Pass is not a loose ball: the ball is on a player
@@ -1085,8 +1085,8 @@ def send_loose_ball_out_of_bounds(
     return StepResult(
         narration=[
             f"**Out of bounds!** {reason} -- "
-            f"{format_team_side_label(match.setup_for_side(winning_side))} "
-            "take over.\n\n# Turnover!\nOnce everyone has run back, "
+            f"{format_team_side_label(match.setup_for_side(winning_side), game)} "
+            "takes over.\n\n# Turnover!\nOnce everyone has run back, "
             "they place a player on the ball."
         ],
         board_changed=True,
@@ -1157,7 +1157,7 @@ def resolve_unopposed_loose_ball(
         content = (
             "# Turnover!\n"
             f"{headline} "
-            f"{format_team_side_label(match.setup_for_side(match.ball.possession))} "
+            f"{format_team_side_label(match.setup_for_side(match.ball.possession), game)} "
             "now has possession."
         )
     else:
@@ -1455,7 +1455,7 @@ def decline_loose_ball_contest(
         engine,
         game,
         match,
-        f"{format_team_side_label(match.setup_for_side(side))} send "
+        f"{format_team_side_label(match.setup_for_side(side), game)} sends "
         f"nobody after the {contest_noun(match)}.",
     )
 

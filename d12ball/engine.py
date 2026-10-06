@@ -91,12 +91,14 @@ from d12ball.formatting import (
     ball_space_label,
     contest_noun,
     destination_display_name,
-    format_player,
     format_player_with_team,
     format_team_side_label,
+    score_side_label,
     player_with_role,
     space_label,
     travel_space_phrase,
+    side_coach_number,
+    side_display_name,
 )
 from d12ball.game import (
     COIN_FACE_WORDS,
@@ -3516,7 +3518,11 @@ class RulesEngine:
             return "defense"
         return None
 
-    def build_loose_ball_headline(self, match: MatchState) -> str:
+    def build_loose_ball_headline(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
         """
         How the ball's arrival is announced, read off the position
         rather than off what made it. Three positions, three different
@@ -3560,7 +3566,7 @@ class RulesEngine:
         taking = offense if offense_there else defense
         return (
             "The ball comes down to a space where "
-            f"{format_team_side_label(taking)} has a player, so they get "
+            f"{format_team_side_label(taking, game)} has a player, so they get "
             "the ball."
         )
 
@@ -4035,20 +4041,29 @@ class RulesEngine:
             else None
         )
 
-    def shootout_running_score(self, match: MatchState) -> str:
+    def shootout_running_score(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
         """
         The shootout's own score, which is not the scoreboard's: the
         goals are on that too, but 6:5 says nothing about how many of
-        the six have gone.
+        the six have gone. Each side the long way where a coach holds
+        it (`score_side_label`).
         """
         home = match.shootout_goals_for(TeamSide.HOME)
         visiting = match.shootout_goals_for(TeamSide.VISITING)
         return (
-            f"{team_display_name(match.home.team)} {home} — {visiting} "
-            f"{team_display_name(match.visiting.team)}"
+            f"{score_side_label(match.home, game)} {home} — {visiting} "
+            f"{score_side_label(match.visiting, game)}"
         )
 
-    def shootout_heading(self, match: MatchState) -> str:
+    def shootout_heading(
+        self,
+        match: MatchState,
+        game: Optional[D12BallGame] = None,
+    ) -> str:
         """
         Where the shootout has got to, above the test it is asking
         for. **Only ever a question, never an answer**: the test
@@ -4065,7 +4080,7 @@ class RulesEngine:
 
         return (
             f"### Extreme shootout — {where}\n"
-            f"{self.shootout_running_score(match)}"
+            f"{self.shootout_running_score(match, game)}"
         )
 
     def exhaustion_threshold(
@@ -4239,7 +4254,7 @@ class RulesEngine:
         setup = match.setup_for_side(side)
         board_size = match.board.layout.board_size
         lines = [
-            f"**{format_team_side_label(setup)} switch to "
+            f"**{format_team_side_label(setup, game)} switches to "
             f"{formation.value}.** Best defenders furthest back; "
             "rearranging costs no exhaustion."
         ]
@@ -4282,11 +4297,8 @@ class RulesEngine:
         """
         side = TeamSide(side)
         setup = match.setup_for_side(side)
-        mention = format_player(
-            game, self.side_player_number(game, side), mention=True,
-        )
         header = (
-            f"{mention}, **{format_team_side_label(setup)}** -- "
+            f"**{format_team_side_label(setup, game, mention=True)}** -- "
             f"{self.substitution_allowance_label(match)}."
         )
         return "\n".join(
@@ -4330,6 +4342,7 @@ class RulesEngine:
         self,
         match: MatchState,
         side: TeamSide,
+        game: Optional[D12BallGame] = None,
     ) -> Optional[str]:
         """
         Why this side may not finish yet, or None. The only thing that
@@ -4360,9 +4373,17 @@ class RulesEngine:
         kickoff_space = space_label(
             Zone.MIDFIELD, match.kickoff_space_for(side), match.board,
         )
+        # The coach and their end, as the long way names a side but
+        # without the team's mark: a refusal reaches a coach as plain
+        # text, which no frontend renders a token in.
+        who = (
+            format_team_side_label(match.setup_for_side(side), game, mark=False)
+            if side_coach_number(game, side) is not None
+            else side_display_name(side)
+        )
         return (
             "Every arrangement has to cover its own kickoff space, so "
-            f"{side.value} need a player on "
+            f"{who} needs a player on "
             f"{kickoff_space} "
             "before finishing."
         )
@@ -4447,8 +4468,10 @@ class RulesEngine:
         this message could not: possession does not move now, and that
         is the whole of what changed on 2026-09-16.
         """
+        # No team mark: the view puts this up as it is (see
+        # `format_team_side_label`'s `mark`).
         other = format_team_side_label(
-            match.setup_for_side(match.defending_side())
+            match.setup_for_side(match.defending_side()), game, mark=False,
         )
         where = ball_space_label(match)
         return "\n".join([

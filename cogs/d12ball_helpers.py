@@ -52,6 +52,7 @@ from d12ball.formatting import (
     format_goal_time,
     format_player,
     format_player_with_team,
+    format_player_with_team_and_side,
     format_player_with_team_name,
     format_team_side_label,
     player_with_role,
@@ -59,6 +60,10 @@ from d12ball.formatting import (
     space_label,
     travel_space_label,
     travel_space_phrase,
+    format_team_coach,
+    score_side_label,
+    side_coach_number,
+    side_display_name,
 )
 from d12ball.game import (
     AIOpponent,
@@ -1418,8 +1423,10 @@ def build_home_choice_message(game: D12BallGame) -> str:
         )
 
     if game.home_and_visiting_selected:
-        home_player = format_player_with_team(game, game.home_player_number)
-        visiting_player = format_player_with_team(
+        home_player = format_player_with_team_and_side(
+            game, game.home_player_number,
+        )
+        visiting_player = format_player_with_team_and_side(
             game, game.visiting_player_number,
         )
 
@@ -1430,10 +1437,7 @@ def build_home_choice_message(game: D12BallGame) -> str:
                 f"play as **{ai_side}**."
             )
 
-        text += (
-            f"\n\n**Home:** {home_player}\n"
-            f"**Visitors:** {visiting_player}"
-        )
+        text += f"\n\n{home_player}\n{visiting_player}"
     else:
         winner_mention = format_player_with_team(
             game, game.coin_winner_player_number, mention=True,

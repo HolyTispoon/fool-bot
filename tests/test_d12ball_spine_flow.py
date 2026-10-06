@@ -404,8 +404,8 @@ class LooseBallAnswerTests(SpineFixture):
         self.assertEqual(
             result.narration,
             [
-                f"{format_team_side_label(self.match.setup_for_side(side))} "
-                f"send nobody after the {contest_noun(self.match)}.",
+                f"{format_team_side_label(self.match.setup_for_side(side), self.game)} "
+                f"sends nobody after the {contest_noun(self.match)}.",
             ],
         )
         self.assertEqual(result.next.kind, PromptKind.LOOSE_BALL_PICK)

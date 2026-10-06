@@ -466,7 +466,7 @@ class ShootoutFlowTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(game.is_finished)
         self.assertFalse(match.pending_shootout)
-        self.assertIn("# Orange wins!", sent_texts(interaction)[0])
+        self.assertIn("One wins!", sent_texts(interaction)[0])
 
     async def test_the_ai_orders_its_own_six(self) -> None:
         cog = build_cog()
@@ -1074,7 +1074,7 @@ class ShootoutRollTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(reloaded.pending_shootout)
         final = sent_texts(interaction)[-1]
         self.assertIn("extreme shootout is settled, 4-2", final)
-        self.assertIn("# Orange wins!", final)
+        self.assertIn("One wins!", final)
         self.assertEqual(game.rematch_message_id, 999)
 
     async def test_a_level_sixth_test_goes_to_sudden_death(self) -> None:
