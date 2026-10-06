@@ -63,6 +63,7 @@ from d12ball.formatting import (
     AI_OPPONENT_NAMES,
     GAME_MODE_NAMES,
     SETTING_DEFINITIONS,
+    board_size_recommendation,
     coach_name,
     configure_warning,
     describe_game_mode,
@@ -2309,16 +2310,18 @@ class WebApp:
                 game, GameMode(choice["value"]),
             )
         mode["definition"] = describe_game_mode(game)
-        settings = [
-            mode,
-            setting(
-                "board", "Board", str(game.board_size),
-                [
-                    (str(size), f"{size} spaces")
-                    for size in sorted(VALID_BOARD_SIZES)
-                ],
-            ),
-        ]
+        board = setting(
+            "board", "Board", str(game.board_size),
+            [
+                (str(size), f"{size} spaces")
+                for size in sorted(VALID_BOARD_SIZES)
+            ],
+        )
+        # The nine-space board's recommendation under the row, read off
+        # the mode (`board_size_recommendation`, the sentence the
+        # Discord setup screens show), whichever board is picked.
+        board["definition"] = board_size_recommendation(game)
+        settings = [mode, board]
         if game.is_solo_game:
             # The AI's row where the AI holds a seat, as the Discord
             # settings block draws it only for a solo game.
