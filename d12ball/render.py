@@ -33,7 +33,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.formatting import is_total_modifier
+from d12ball.formatting import cut_coach_name, is_total_modifier
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
 from d12ball.space_numbering import flat_space_number
 
@@ -2662,15 +2662,17 @@ def draw_skill_test_die(
         font=FONT_DICE_VALUE,
         text_color=high_contrast_ink(color),
     )
-    label_width = draw.textlength(label, font=FONT_SMALL)
-    draw.text(
+    label_width = marked_length(draw, label, FONT_SMALL)
+    draw_marked_text(
+        canvas,
+        draw,
         (
             center_x - label_width / 2,
             center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_LABEL_GAP,
         ),
         label,
-        font=FONT_SMALL,
-        fill="#ffffff",
+        FONT_SMALL,
+        "#ffffff",
     )
 
     detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
@@ -2873,7 +2875,7 @@ def measure_verdict_columns(
     )
     die_column = max(
         *die_extents,
-        *(measure.textlength(label, font=FONT_SMALL) for label in die_labels),
+        *(marked_length(measure, label, FONT_SMALL) for label in die_labels),
     )
     portrait_column = max(
         portrait_width,
@@ -2898,6 +2900,7 @@ def draw_title_across(
 
 
 def draw_verdict_die(
+    canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     row: VerdictRow,
     radius: int,
@@ -2922,7 +2925,9 @@ def draw_verdict_die(
     )
     y = row.label_y
     for text, fill in labels:
-        draw_centered_text(draw, row.die_center_x, y, text, FONT_SMALL, fill)
+        draw_centered_marked_text(
+            canvas, draw, row.die_center_x, y, text, FONT_SMALL, fill,
+        )
         y += 22
 
 
@@ -3050,7 +3055,7 @@ def render_injury_test_die(
             ),
         )
     draw_verdict_die(
-        draw, row, INJURY_TEST_DIE_RADIUS, color, value,
+        canvas, draw, row, INJURY_TEST_DIE_RADIUS, color, value,
         [(team_label, "#c7ced6")],
     )
     draw_verdict_portrait(canvas, draw, row, player_name)
@@ -3190,7 +3195,7 @@ def render_mind_pull_die(
         MIND_PULL_RING_GAP, MIND_PULL_RING_WIDTH,
     )
     draw_verdict_die(
-        draw, row, MIND_PULL_DIE_RADIUS, color, value,
+        canvas, draw, row, MIND_PULL_DIE_RADIUS, color, value,
         [(team_label, "#c7ced6"), (target_label, MIND_PULL_AURA_COLOR)],
     )
     draw_verdict_portrait(canvas, draw, row, player_name)
@@ -3384,7 +3389,7 @@ def render_volatile_die(
         VOLATILE_RING_GAP, VOLATILE_RING_WIDTH,
     )
     draw_verdict_die(
-        draw, row, VOLATILE_DIE_RADIUS, color, second,
+        canvas, draw, row, VOLATILE_DIE_RADIUS, color, second,
         [(team_label, "#c7ced6"), (trigger_label, VOLATILE_AURA_COLOR)],
     )
     draw_verdict_portrait(canvas, draw, row, player_name)
@@ -3793,14 +3798,6 @@ CHALLENGE_ABILITY_LINE_HEIGHT = 23
 CHALLENGE_TEXT_PADDING = 14
 CHALLENGE_BOTTOM_PADDING = 16
 CHALLENGE_VERSUS_TEXT = "vs"
-# A coach's name on a group's team line is cut to this many characters,
-# with an ellipsis after (the author, 2026-10-04), so a long Discord
-# display name does not widen the whole image (`ChallengeSide.team_line`).
-CHALLENGE_COACH_MAX_CHARS = 12
-# The team's emoji drawn in front of a group's team line, a little
-# taller than the line's capitals, and the room between it and the words.
-CHALLENGE_TEAM_MARK_SIZE = 26
-CHALLENGE_TEAM_MARK_GAP = 7
 CHALLENGE_VERSUS_COLOR = "#8b96a2"
 CHALLENGE_NAME_COLOR = "#ffffff"
 CHALLENGE_SKILL_COLOR = "#c7ced6"
@@ -3927,7 +3924,7 @@ class ChallengeSide:
     `side`): which end the side plays from ("Home", "Visitors"), the
     team whose emoji is drawn in front of it (`team_emoji`), and who
     coaches it as the record names them (`formatting.coach_name`), cut
-    to `CHALLENGE_COACH_MAX_CHARS` -- "(O) perrytom (Home)" (the author,
+    as every image cuts one (`formatting.cut_coach_name`) -- "(O) perrytom (Home)" (the author,
     2026-10-05). Without a `side_label` the line is the team's name, as
     it was; see `team_line`.
     """
@@ -3952,36 +3949,20 @@ class ChallengeSide:
 
     @property
     def team_line(self) -> str:
-        """The words of the group's first line where the brief names a
-        side: the coach, cut to `CHALLENGE_COACH_MAX_CHARS` with an
-        ellipsis after, and the side in brackets -- "perrytom (Home)",
-        the team's emoji in front of it being `team_mark`'s. The side
-        alone where nobody coaches it yet, and the team's name where
-        the brief names no side."""
+        """The group's first line where the brief names a side: the
+        team's mark, the coach, cut as every image cuts one
+        (`formatting.cut_coach_name`), and the side in brackets --
+        "{team:purple} perrytom (Home)", the long way a message names
+        it, the mark drawn by `draw_marked_text`. The side alone (still
+        behind the mark) where nobody coaches it yet, and the team's
+        name where the brief names no side."""
         if not self.side_label:
             return self.team_label
+        mark = "" if self.team is None else f"{{team:{Team(self.team).value}}} "
         coach = self.coach.strip()
         if not coach:
-            return self.side_label
-        if len(coach) > CHALLENGE_COACH_MAX_CHARS:
-            coach = coach[:CHALLENGE_COACH_MAX_CHARS].rstrip() + "…"
-        return f"{coach} ({self.side_label})"
-
-    @property
-    def team_mark(self) -> Optional[Image.Image]:
-        """The team's emoji drawn in front of `team_line`, at
-        `CHALLENGE_TEAM_MARK_SIZE` -- only where the line names the
-        side rather than the team, since then the emoji is what says
-        which team it is."""
-        if not self.side_label or self.team is None:
-            return None
-        emoji = team_emoji(self.team)
-        if emoji is None:
-            return None
-        return emoji.resize(
-            (CHALLENGE_TEAM_MARK_SIZE, CHALLENGE_TEAM_MARK_SIZE),
-            Image.Resampling.LANCZOS,
-        )
+            return f"{mark}{self.side_label}"
+        return f"{mark}{cut_coach_name(coach)} ({self.side_label})"
 
     @property
     def value(self) -> int:
@@ -4370,15 +4351,9 @@ def matchup_group_width(
     if not sides and note:
         texts = [(note, FONT_CHALLENGE_BODY)]
     text_width = max(
-        (measure.textlength(text, font=font) for text, font in texts),
+        (marked_length(measure, text, font) for text, font in texts),
         default=0,
     )
-    if sides and sides[0].team_mark is not None:
-        text_width = max(
-            text_width,
-            measure.textlength(sides[0].team_line, font=FONT_CHALLENGE_BODY)
-            + CHALLENGE_TEAM_MARK_SIZE + CHALLENGE_TEAM_MARK_GAP,
-        )
     # The sum is the one line that must not wrap: a total broken
     # over two lines, with the number stranded on the second, is
     # unreadable however wide the alternative makes the image. So
@@ -4427,7 +4402,10 @@ def matchup_group_lines(
         )
     lines = []
     for text, color, font, line_height in group_text_lines(sides, ability):
-        if not text:
+        # An empty line, and the team line, are kept whole: a mark's
+        # token measures as letters to `wrap_text`, and the line is a
+        # name and a word.
+        if not text or TEAM_TOKEN.search(text):
             lines.append((text, color, font, line_height))
             continue
         for piece in wrap_text(
@@ -4515,6 +4493,7 @@ def matchup_layout(
 
 
 def draw_matchup_heading(
+    canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     layout: MatchupLayout,
     title: str,
@@ -4524,9 +4503,9 @@ def draw_matchup_heading(
     draw_centered_text(
         draw, layout.width / 2, CHALLENGE_TITLE_TOP, title, FONT_CHALLENGE_TITLE, "#ffffff",
     )
-    draw_centered_text(
-        draw, layout.width / 2, CHALLENGE_LOCATION_TOP, location, FONT_CHALLENGE_BODY,
-        CHALLENGE_SKILL_COLOR,
+    draw_centered_marked_text(
+        canvas, draw, layout.width / 2, CHALLENGE_LOCATION_TOP, location,
+        FONT_CHALLENGE_BODY, CHALLENGE_SKILL_COLOR,
     )
     draw_centered_text(
         draw,
@@ -4583,37 +4562,9 @@ def draw_matchup_group(
     draw_contribution_bands(draw, placed, layout.portrait_top - CHALLENGE_BAND_GAP)
 
     y = layout.text_top
-    mark = sides[0].team_mark if sides else None
-    for index, (text, color, font, line_height) in enumerate(lines):
-        if index == 0 and mark is not None:
-            draw_marked_text(canvas, draw, center_x, y, text, font, color, mark)
-        else:
-            draw_centered_text(draw, center_x, y, text, font, color)
+    for text, color, font, line_height in lines:
+        draw_centered_marked_text(canvas, draw, center_x, y, text, font, color)
         y += line_height
-
-
-def draw_marked_text(
-    canvas: Image.Image,
-    draw: ImageDraw.ImageDraw,
-    center_x: float,
-    y: float,
-    text: str,
-    font: ImageFont.ImageFont,
-    fill: str,
-    mark: Image.Image,
-) -> None:
-    """A line centred with `mark` in front of it, the mark's middle on
-    the middle of the line's ink."""
-    width = draw.textlength(text, font=font)
-    left = center_x - (mark.width + CHALLENGE_TEAM_MARK_GAP + width) / 2
-    top, bottom = draw.textbbox((0, y), text, font=font)[1::2]
-    canvas.alpha_composite(
-        mark, (round(left), round((top + bottom) / 2 - mark.height / 2)),
-    )
-    draw.text(
-        (left + mark.width + CHALLENGE_TEAM_MARK_GAP, y), text,
-        font=font, fill=fill,
-    )
 
 
 def matchup_note_blocks(
@@ -4753,7 +4704,7 @@ def render_matchup(
     draw = ImageDraw.Draw(canvas)
     draw_matchup_notes(draw, note_blocks, layout.height)
 
-    draw_matchup_heading(draw, layout, title, location)
+    draw_matchup_heading(canvas, draw, layout, title, location)
     draw_matchup_group(
         canvas, draw, layout, 0, layout.attacking_width,
         attacking, layout.attacking_lines,
@@ -4940,6 +4891,116 @@ def png_bytes(image: Image.Image) -> BytesIO:
     image.convert("RGB").save(output, format="PNG")
     output.seek(0)
     return output
+
+
+#: A team's mark in a line of text: the token the model writes it with
+#: (`d12ball.tokens.team`), which an image draws as the team's emoji
+#: (`team_emoji`) rather than as letters -- the third way a token is
+#: drawn, beside Discord's and the web page's.
+TEAM_TOKEN = re.compile(r"\{team:([a-z_]+)\}")
+#: The mark's height, as a share of the font's size: as tall as the
+#: line's capitals and a little over, as the challenge's team line set it.
+MARKED_TEXT_MARK_SCALE = 1.15
+
+
+def marked_runs(text: str) -> list:
+    """`text` cut into its words and its team marks, in order: a `str`
+    for words, a `Team` for each `{team:...}` token."""
+    runs: list = []
+    position = 0
+    for found in TEAM_TOKEN.finditer(text):
+        if found.start() > position:
+            runs.append(text[position:found.start()])
+        try:
+            runs.append(Team(found.group(1)))
+        except ValueError:
+            runs.append(found.group(0))
+        position = found.end()
+    if position < len(text):
+        runs.append(text[position:])
+    return runs
+
+
+def marked_text_mark_size(font: ImageFont.ImageFont) -> int:
+    return round(getattr(font, "size", 20) * MARKED_TEXT_MARK_SCALE)
+
+
+def marked_length(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+) -> float:
+    """How wide `text` draws, a team mark counting as the mark --
+    `draw.textlength` itself for text that carries none."""
+    if not TEAM_TOKEN.search(text):
+        return draw.textlength(text, font=font)
+    size = marked_text_mark_size(font)
+    return sum(
+        size if isinstance(run, Team) else draw.textlength(run, font=font)
+        for run in marked_runs(text)
+    )
+
+
+_SIZED_TEAM_EMOJI: dict[tuple[Team, int], Optional[Image.Image]] = {}
+
+
+def sized_team_emoji(team: Team, size: int) -> Optional[Image.Image]:
+    if (team, size) not in _SIZED_TEAM_EMOJI:
+        emoji = team_emoji(team)
+        _SIZED_TEAM_EMOJI[(team, size)] = (
+            None if emoji is None
+            else emoji.resize((size, size), Image.Resampling.LANCZOS)
+        )
+    return _SIZED_TEAM_EMOJI[(team, size)]
+
+
+def draw_marked_text(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    """
+    `text` from `xy`, each `{team:...}` token in it drawn as that team's
+    emoji, centred on the line's capitals -- "{team:purple} perrytom
+    (Home)" as a coach is named in a message, on an image. Text with no
+    token in it is drawn exactly as `draw.text` draws it, so an image
+    that names no coach is the same image it was.
+    """
+    if not TEAM_TOKEN.search(text):
+        draw.text(xy, text, font=font, fill=fill)
+        return
+    x, y = xy
+    size = marked_text_mark_size(font)
+    top, bottom = draw.textbbox((0, y), "H", font=font)[1::2]
+    for run in marked_runs(text):
+        if isinstance(run, Team):
+            mark = sized_team_emoji(run, size)
+            if mark is not None:
+                canvas.alpha_composite(
+                    mark, (round(x), round((top + bottom) / 2 - size / 2)),
+                )
+            x += size
+            continue
+        draw.text((x, y), run, font=font, fill=fill)
+        x += draw.textlength(run, font=font)
+
+
+def draw_centered_marked_text(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    y: float,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    """`draw_marked_text`, centred on `center_x` as `draw_centered_text`
+    centres a line."""
+    width = marked_length(draw, text, font)
+    draw_marked_text(canvas, draw, (center_x - width / 2, y), text, font, fill)
 
 
 def draw_centered_text(
@@ -5341,9 +5402,16 @@ def render_maneuver_reference_image(
 
 
 def draw_jumbotron(
+    canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     match: MatchState,
+    coaches: Mapping[TeamSide, str] = {},
 ) -> None:
+    """
+    The scoreboard over the field: each side above its score, named the
+    short way where `coaches` names it ("{team:purple} perrytom", the
+    author, 2026-10-05) and by its team's name where it does not.
+    """
     draw.rounded_rectangle(
         (
             JUMBOTRON_LEFT,
@@ -5372,19 +5440,22 @@ def draw_jumbotron(
     match_center = (match_left + match_right) / 2
     home_center = match_center - 320
     visiting_center = match_center + 320
-    draw_centered_text(
+    draw_centered_marked_text(
+        canvas,
         draw,
         home_center,
         JUMBOTRON_TOP + 20,
-        team_display_name(match.home.team),
+        coaches.get(TeamSide.HOME) or team_display_name(match.home.team),
         FONT_HEADING,
         TEAM_COLORS[match.home.team],
     )
-    draw_centered_text(
+    draw_centered_marked_text(
+        canvas,
         draw,
         visiting_center,
         JUMBOTRON_TOP + 20,
-        team_display_name(match.visiting.team),
+        coaches.get(TeamSide.VISITING)
+        or team_display_name(match.visiting.team),
         FONT_HEADING,
         TEAM_COLORS[match.visiting.team],
     )
@@ -5438,7 +5509,11 @@ def draw_team_board(
     injured: set[str] = frozenset(),
     cyborg_ids: frozenset[str] = frozenset(),
     card_skills: Mapping[str, tuple[int, int]] = {},
+    name: Optional[str] = None,
 ) -> None:
+    """One side's bench and back bench under the field, headed by `name`
+    -- the side the short way, "{team:purple} perrytom" -- or by its
+    team's name where none is given."""
     color = TEAM_COLORS[setup.team]
     draw.rounded_rectangle(
         (x, y, x + width, TEAM_BOARD_BOTTOM),
@@ -5447,12 +5522,14 @@ def draw_team_board(
         outline=color,
         width=5,
     )
-    name = team_display_name(setup.team)
-    draw.text(
+    name = name or team_display_name(setup.team)
+    draw_marked_text(
+        canvas,
+        draw,
         (x + 22, y + 16),
         name,
-        font=FONT_HEADING,
-        fill=color,
+        FONT_HEADING,
+        color,
     )
 
     # A name's own width decides where the bench starts -- "Purple" and
@@ -5460,7 +5537,7 @@ def draw_team_board(
     # offset put the longer species names underneath "BENCH" instead of
     # beside it. TEAM_BOARD_BENCH_MIN_X is what a short name already
     # left in place, so nothing shifts for the common case.
-    name_width = draw.textlength(name, font=FONT_HEADING)
+    name_width = marked_length(draw, name, FONT_HEADING)
     bench_x = x + max(
         TEAM_BOARD_BENCH_MIN_X,
         round(name_width) + 22 + TEAM_BOARD_NAME_GAP,
@@ -5623,7 +5700,9 @@ def render_coaching_image(
         "#111820",
     )
     draw = ImageDraw.Draw(canvas)
-    draw.text((COACHING_BOARD_LEFT, 16), title, font=FONT_HEADING, fill="#ffffff")
+    draw_marked_text(
+        canvas, draw, (COACHING_BOARD_LEFT, 16), title, FONT_HEADING, "#ffffff",
+    )
     draw_coaching_clock(draw, match)
 
     bounds = zone_bounds_between(
@@ -5840,7 +5919,15 @@ def render_match_image(
     species_icons: bool = False,
     cyborg_ids: frozenset[str] = frozenset(),
     card_skills: Mapping[str, tuple[int, int]] = {},
+    coaches: Mapping[TeamSide, str] = {},
 ) -> BytesIO:
+    """
+    The board. `title` may carry team marks (`draw_marked_text`) -- the
+    bot's names each coach the long way, "{team:purple} perrytom (Home)"
+    -- and `coaches` names each side the short way over its score and
+    its bench (the author, 2026-10-05); with neither, every side is its
+    team's name, as it always was.
+    """
     players = player_index(catalog)
     canvas = Image.new(
         "RGBA",
@@ -5859,15 +5946,17 @@ def render_match_image(
             f"{team_display_name(match.home.team)} vs "
             f"{team_display_name(match.visiting.team)}, {period}"
         )
-    title_width = draw.textlength(title, font=FONT_TITLE)
-    draw.text(
+    title_width = marked_length(draw, title, FONT_TITLE)
+    draw_marked_text(
+        canvas,
+        draw,
         ((IMAGE_WIDTH - title_width) / 2, 18),
         title,
-        font=FONT_TITLE,
-        fill="#ffffff",
+        FONT_TITLE,
+        "#ffffff",
     )
 
-    draw_jumbotron(draw, match)
+    draw_jumbotron(canvas, draw, match, coaches)
     bounds = zone_bounds(match)
     draw_assignment_cards(
         canvas,
@@ -5915,6 +6004,7 @@ def render_match_image(
         match.injured,
         cyborg_ids=cyborg_ids,
         card_skills=card_skills,
+        name=coaches.get(TeamSide.HOME),
     )
     draw_team_board(
         canvas,
@@ -5930,6 +6020,7 @@ def render_match_image(
         match.injured,
         cyborg_ids=cyborg_ids,
         card_skills=card_skills,
+        name=coaches.get(TeamSide.VISITING),
     )
 
     # BILINEAR here, not LANCZOS: this is a pure 1.5x upscale of an

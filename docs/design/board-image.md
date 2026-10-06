@@ -395,23 +395,60 @@ defenders has none, and packs to its own content.
     (`formatting.side_display_name`, the word the Home Zone and the
     Visitors Zone are named with), `team`, and `coach`
     (`dice_brief.side_coach`, which is `formatting.coach_name`).
-    `team_line` is the words and `team_mark` the emoji, which is
-    `render.team_emoji` -- the bot's uploaded team emoji, the one
-    loader the player cards' header corner reads too (moved there from
-    `player_cards.py`; all 144 card renders byte-identical before and
-    after).
+    `team_line` is the line with the team's mark as a token,
+    "{team:purple} perrytom (Home)", drawn as every image now draws a
+    coach -- see "A coach on an image" below.
   - **The coach is the record's name**, which is Discord's
     `display_name` wherever a seat is taken (the server nickname, else
     the global display name, else the username), the AI's name for the
     AI, and "Player 1" in a test game. It is plain text, never a
-    mention, which an image cannot carry. **It is cut to
-    `CHALLENGE_COACH_MAX_CHARS`, twelve, with an ellipsis after** (the
-    author, 2026-10-04): a 32-character name widened its group and so
-    shrank everything else when Discord scaled the image to the message.
+    mention, which an image cannot carry.
   - **Without a side the line is the team's name, as before**, and a
     side with nobody seated yet is the side's word alone. The web page reads the
     same brief and ignores all three fields: its window sits under a
     top bar that already says who is in each seat.
+
+## A coach on an image
+
+**Every image the bot posts names a side by its coach, the long way or
+the short way, as its messages do** (the author, 2026-10-05; the two ways
+are in [naming-and-wording.md](naming-and-wording.md)):
+
+| Image | Where | Way |
+| --- | --- | --- |
+| The board | its title | long: "PBD12 - (P) perrytom (Home) vs. (T) Glorbo (Visitors), First Half" |
+| The board | the jumbotron, over each score; each bench box | short: "(P) perrytom" |
+| The coaching image | its title | long, with the shape after it |
+| The challenge and the shot | each group's first line | long |
+| The shot | its caption | long: "Space 4 → (T) Glorbo (Visitors) goal" |
+| The dice -- a contest's, the injury test's, Mind Pull's, the ignition die | under each die | short |
+
+- **The mark is the model's token, drawn by the renderer.** A label
+  reaches `render.py` as the same text a message carries --
+  "{team:purple} perrytom (Home)", from `format_team_side_label` and
+  `format_team_coach` -- and `draw_marked_text` / `marked_length` draw
+  each `{team:...}` in it as the team's emoji (`render.team_emoji`, the
+  one loader, which the player cards' corner reads too), sized to the
+  font (`MARKED_TEXT_MARK_SCALE`) and centred on the capitals. It is the
+  third way a token is drawn, beside Discord's and the web page's, and
+  the reason the challenge's team line stopped carrying an image of its
+  own.
+- **A coach's name is cut on every image** to
+  `formatting.IMAGE_COACH_NAME_CHARS`, twelve, with an ellipsis after
+  (`cut_coach_name`; the labels' `cut=True`) (the author, 2026-10-04): a
+  32-character name widened what it sat in, and Discord scales the image
+  down to the message's width.
+- **Text with no token is drawn exactly as before** -- `draw_marked_text`
+  hands it straight to `draw.text` -- so an image that names no coach is
+  byte-identical. Verified by SHA-256 over the board (both sizes, a
+  colour and a species pair, with and without a title) and the four dice
+  images, before and after.
+- **The cog supplies the labels**, off the record: `render_match_png`'s
+  title and `coaches`, `coaching_title(match, side, game)`,
+  `dice_side_labels` for every die (passed to `render_contest_dice` and
+  `dice_file_with_ignitions`), and `score_attempt_brief(..., marked=True)`
+  for the shot's caption -- which the web page's window shows as plain
+  text, so the brief keeps the team's name unless asked.
 
 ### The special ability on a matchup
 

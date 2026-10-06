@@ -4285,12 +4285,15 @@ class RulesEngine:
         self,
         match: MatchState,
         side: TeamSide,
+        game: Optional[D12BallGame] = None,
     ) -> str:
-        """The line drawn across the top of a coach's own half-field."""
+        """The line drawn across the top of a coach's own half-field:
+        the side the long way, its coach cut as an image cuts one, its
+        mark drawn by the renderer (`render.draw_marked_text`)."""
         setup = match.setup_for_side(side)
         formation = self.current_formation(match, side)
         shape = f" - {formation.value}" if formation else ""
-        return f"{format_team_side_label(setup)}{shape}"
+        return f"{format_team_side_label(setup, game, cut=True)}{shape}"
 
     def coaching_prompt(
         self,

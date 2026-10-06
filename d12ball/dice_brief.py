@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence
 
 from d12ball.bearings import BEARINGS, Bearing, special_reminder
 from d12ball.components import MatchState, PlayerRole, TeamSide
@@ -63,6 +63,7 @@ def render_contest_dice(
         tuple[int, Team, list[str], int, bool, list[tuple[str, int]]]
     ],
     ignitions: Sequence[tuple[int, IgnitionDie]] = (),
+    labels: Mapping[Team, str] = {},
 ) -> BytesIO:
     """
     The dice image behind every two-sided roll in the game -- a skill
@@ -78,13 +79,18 @@ def render_contest_dice(
     `ignitions` is the ignites drawn beside the dice, each keyed on its
     side's index in `contestants` -- the Discord frontend's alone for
     now; see "The ignition die" in docs/design/species-abilities.md.
+
+    `labels` names each team's side under its die -- the short way,
+    "{team:purple} perrytom", its mark drawn by the renderer (the
+    author, 2026-10-05) -- and a team it does not name is its team's
+    name, as it always was.
     """
     return render_skill_test_dice(
         [
             (
                 roll,
                 TEAM_COLORS[team],
-                team_display_name(team),
+                labels.get(team) or team_display_name(team),
                 detail,
                 total,
                 overdriven,
@@ -333,6 +339,7 @@ def score_attempt_brief(
     match: MatchState,
     game: Optional[D12BallGame] = None,
     ability_note: bool = True,
+    marked: bool = False,
 ) -> tuple[list[ChallengeSide], list[ChallengeSide], str]:
     """
     What the shot is made of, as `render_score_attempt` takes it: the
@@ -363,6 +370,12 @@ def score_attempt_brief(
     the clear shot where the modifier already says it, and a
     defender's without Goopkeeper's block unless it is what puts them
     on the ball.
+    
+    `marked` names the goal's side the long way, its coach cut and its
+    team's mark a token -- "→ {team:teal} Glorbo (Visitors) goal" (the
+    author, 2026-10-05) -- for the bot's image, which draws the mark
+    (`render.draw_marked_text`). Without it the caption is the team's,
+    as the web page's window shows it as plain text.
     """
     shooter = engine.get_player_definition(match.active_player_id)
     speed_modifier = match.shot_speed_modifier()
@@ -429,7 +442,7 @@ def score_attempt_brief(
         ],
         capitalized(
             f"{ball_space_label(match)}"
-            f" → {format_team_side_label(defending_setup)} goal"
+            f" → {format_team_side_label(defending_setup, game if marked else None, cut=True)} goal"
         ),
     )
 
