@@ -224,6 +224,21 @@ produced them.
   carries the fact -- and "free" left a coach to work out what was free about
   it. **Callers join on the parts that are there** (`"\n".join(filter(None,
   ...))`) rather than interpolating, or the empty string shows as a blank line.
+- **Two modifiers or more are summed** (the author, 2026-10-05). A side of a
+  contested roll's dice image that adds two or more numbers -- a skill and
+  the ball speed modifier, a burn, a Midfielder's +3, a shot's defenders --
+  ends on one more line, "Total modifier +5", drawn in bold (2026-10-06), so
+  a coach reads the side's whole modifier rather than adding it up; one
+  modifier is its own total and gets none. "Total modifier" and not "total
+  offensive skill", because a burn or the ball speed modifier is not skill
+  (the author, 2026-10-06). `with_total_modifier` in `d12ball/flow/rolls.py`
+  writes it for all four contested rolls, counting the lines that add a
+  number and taking the value from the side's total less its face, so it
+  cannot disagree with the total drawn under it; `formatting.
+  total_modifier_line` is its one spelling and `is_total_modifier` the one
+  reading, which the renderer asks to pick the bold face and `roll_working`
+  asks to leave the line out of the written-out arithmetic, where it would
+  read as one more addend.
 
 The subject is spelled out for a related reason: "It comes down on an empty
 space" followed a sentence about a maneuver, so the pronoun read as the

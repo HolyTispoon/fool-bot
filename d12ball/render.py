@@ -33,7 +33,7 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.formatting import cut_coach_name
+from d12ball.formatting import cut_coach_name, is_total_modifier
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
 from d12ball.space_numbering import flat_space_number
 
@@ -314,6 +314,7 @@ FONT_TITLE = load_font(50, bold=True)
 FONT_HEADING = load_font(40, bold=True)
 FONT_BODY = load_font(32)
 FONT_SMALL = load_font(19)
+FONT_SMALL_BOLD = load_font(19, bold=True)
 FONT_MEEPLE = load_font(27, bold=True)
 # The goal zone's own "GOAL" watermark -- see the constants above.
 FONT_GOAL_ZONE = load_goal_zone_font(95)
@@ -2676,11 +2677,14 @@ def draw_skill_test_die(
 
     detail_y = center_y + SKILL_TEST_DIE_RADIUS + SKILL_TEST_DETAIL_TOP_GAP
     for line in skill_test_detail_lines(detail_lines):
-        line_width = draw.textlength(line, font=FONT_SMALL)
+        # A side's total modifier is the one line a coach reads the
+        # rest for, so it is the one in bold (the author, 2026-10-06).
+        font = FONT_SMALL_BOLD if is_total_modifier(line) else FONT_SMALL
+        line_width = draw.textlength(line, font=font)
         draw.text(
             (center_x - line_width / 2, detail_y),
             line,
-            font=FONT_SMALL,
+            font=font,
             fill="#c7ced6",
         )
         detail_y += SKILL_TEST_DETAIL_LINE_HEIGHT
