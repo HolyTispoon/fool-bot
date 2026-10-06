@@ -1044,9 +1044,10 @@ def kickoff_marks(layout: BoardLayout) -> dict[int, list[TeamSide]]:
     """
     Which spaces are kickoff spaces, and whose.
 
-    Every board's midfield has a true middle, so both sides kick off
-    from it and the two land on one mark. It is still a map rather
-    than a space because the rule is asked per side --
+    On a board whose midfield has a true middle both sides kick off
+    from it and the two land on one mark; board 10's has two, one a
+    side. It is a map rather than a space because the rule is asked
+    per side --
     `kickoff_space_index` is that rule; this only places its answer on
     the whole board.
     """
@@ -1496,10 +1497,12 @@ def draw_shooting_ranges(
                 width=sheet.u(1.6),
                 dash=sheet.u(9),
             )
+            # Board 10's middle is two spaces, one each side's.
+            said = "the kickoff spaces" if last > first else "the kickoff space"
             sheet.text(
                 ((left + right) / 2, (top + bottom) / 2),
-                "the kickoff space",
-                sheet.fitted_font("the kickoff space", (right - left) * 0.92, 15),
+                said,
+                sheet.fitted_font(said, (right - left) * 0.92, 15),
                 MUTED,
                 anchor="mm",
             )

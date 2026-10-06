@@ -318,6 +318,11 @@ class ConfigureTests(SetupHarness):
         self.assertEqual(game.board_size, 7)
         self.service.configure(game.game_id, "mode", GameMode.STANDARD.value)
         self.assertEqual(game.board_size, 9)
+        # The playtest board is a large board too, so picking a mode
+        # it is recommended for leaves it there (2026-10-06).
+        self.service.configure(game.game_id, "board", "10")
+        self.service.configure(game.game_id, "mode", GameMode.ADVANCED.value)
+        self.assertEqual(game.board_size, 10)
 
     def test_every_setting_from_its_wire_value(self) -> None:
         game = self.open_lobby()

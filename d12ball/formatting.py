@@ -32,7 +32,7 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, D12BallGame, GameMode, NINE_SPACE_BOARD_MODES, Team,
+    AIOpponent, D12BallGame, GameMode, LARGE_BOARD_MODES, Team,
     team_display_name,
 )
 
@@ -55,6 +55,7 @@ BENCH_DESTINATIONS = ("bench", "back_bench")
 OUTER_ZONE_WORD_BY_BOARD_SIZE = {
     7: "Zone",
     9: "Third",
+    10: "Zone",
 }
 
 AI_OPPONENT_NAMES = {
@@ -763,18 +764,18 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
 
 def board_size_recommendation(game: D12BallGame) -> Optional[str]:
     """
-    The note recommending the nine-space board, read off the mode
-    alone -- shown on whichever board the game is on, since it is what
-    tells a coach why picking the mode moved the board -- or `None`
-    for a mode it is not recommended for (`NINE_SPACE_BOARD_MODES`).
+    The note recommending the large boards, read off the mode alone --
+    shown on whichever board the game is on, since it is what tells a
+    coach why picking the mode moved the board -- or `None` for a mode
+    they are not recommended for (`LARGE_BOARD_MODES`).
     The Discord setup screens and the web table both show it.
     """
     mode = GameMode(game.mode)
-    if mode not in NINE_SPACE_BOARD_MODES:
+    if mode not in LARGE_BOARD_MODES:
         return None
     return (
         f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
-        "mode on a board size of 9."
+        "mode on a board size of 9 or 10."
     )
 
 

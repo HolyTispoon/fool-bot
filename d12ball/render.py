@@ -191,8 +191,8 @@ ZONE_COLORS = {
 }
 def zone_labels(board_size: int) -> dict[Zone, str]:
     """
-    "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 7-space board;
-    "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
+    "HOME ZONE" / "MIDFIELD" / "VISITORS ZONE" on the 7- and 10-space
+    boards; "HOME THIRD" / "MIDFIELD" / "VISITORS THIRD" on the 9-space
     board, the only one where the three areas (H/M/V) are all equal --
     see "The field" in the living rules and the 2026-08-24 entry in the
     rules log. Not the same thing as FONT_GOAL_ZONE below, which labels
@@ -1760,9 +1760,9 @@ def shooting_range_bands(match: MatchState) -> list[tuple[int, int, int]]:
     """
     The board's spaces cut into runs that share a shooting range side:
     `(side, first_index, last_index)`, left to right -- 1 for home,
-    -1 for the visitors, 0 for the space in neither's, which only ever
-    exists on an odd-sized board (see "Field, direction, and shooting
-    range" in the living rules). The same reading `boards.py`'s printed
+    -1 for the visitors, 0 for the middle in neither's -- one space on
+    an odd-sized board, two on board 10 (see "Shooting range" in the
+    living rules). The same reading `boards.py`'s printed
     bracket makes off `is_in_shooting_range`, so the two brackets
     cannot disagree about where the line falls.
     """

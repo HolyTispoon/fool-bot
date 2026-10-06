@@ -280,6 +280,7 @@ class D12BallComponentTests(unittest.TestCase):
         expected = {
             7: (2, 3, 2),
             9: (3, 3, 3),
+            10: (3, 4, 3),
         }
 
         for board_size, zone_counts in expected.items():
@@ -1388,7 +1389,7 @@ class D12BallComponentTests(unittest.TestCase):
         # own 3-2-1 and 1-2-3. So every shape the board plays is asked,
         # of every zone it fills with three.
         row = 3 * CARD_SIZE[0] + 2 * COACHING_CARD_GAP
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             for formation in self.rules.formations_for_board(board_size):
                 match = MatchState.standard(
                     catalog=self.catalog,
@@ -1951,7 +1952,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         modifier in full from the outer zone before the goal -- a Third
         on board 9 -- and half of it, rounded down, from midfield.
         """
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             match = self.build_match(board_size)
             match.ball.speed = 7
             with self.subTest(board_size=board_size, zone="midfield"):
@@ -2065,7 +2066,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
         same run of spaces, from every space of every board size and for
         either team in possession.
         """
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             match = self.build_match(board_size)
             for zone in Zone:
                 for space_index in range(len(match.board.spaces[zone])):
@@ -2147,7 +2148,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     def test_own_goal_restart_space_is_closest_to_that_side_own_goal(
         self,
     ) -> None:
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             match = self.build_match(board_size)
 
             self.assertEqual(
@@ -2414,7 +2415,7 @@ class D12BallScoreAttemptTests(unittest.TestCase):
     def test_a_standard_match_kicks_off_from_the_middle_of_midfield(
         self,
     ) -> None:
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             with self.subTest(board_size=board_size):
                 match = self.build_match(board_size)
                 self.assertEqual(match.ball.zone, Zone.MIDFIELD)

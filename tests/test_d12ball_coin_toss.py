@@ -1788,10 +1788,10 @@ class AdvancedModeBoardSizeTests(unittest.TestCase):
     def test_standard_mode_recommends_nine_on_any_board(self) -> None:
         game = build_game()
         game.mode = GameMode.STANDARD
-        for board_size in (7, 9):
+        for board_size in (7, 9, 10):
             game.board_size = board_size
             self.assertIn(
-                "recommended to play standard mode on a board size of 9",
+                "recommended to play standard mode on a board size of 9 or 10",
                 build_setup_message(game),
             )
 
