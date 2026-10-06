@@ -234,6 +234,17 @@ def coin_face_name(coin: str, face: CoinFace | str) -> str:
 #: game down with it.
 VALID_BOARD_SIZES = {7, 9}
 
+#: The modes the nine-space board is recommended for (the author,
+#: 2026-10-05): a game in either starts on it, and picking either moves
+#: the board to it -- a coach may still pick 7 afterwards. Training
+#: keeps the 7-space board the tutorial is written for.
+NINE_SPACE_BOARD_MODES = frozenset({GameMode.STANDARD, GameMode.ADVANCED})
+
+
+def default_board_size(mode: GameMode) -> int:
+    """The board a new game in `mode` starts on."""
+    return 9 if GameMode(mode) in NINE_SPACE_BOARD_MODES else 7
+
 #: What `D12BallGame.configure` may be asked to set. The lobby and the
 #: setup settings block each offer a subset; the record refuses the
 #: rest by its state (a game past its lobby has no Test game toggle),
@@ -912,10 +923,10 @@ class D12BallGame:
 
         `mode`, `board` and `ai` are open for the whole of setup;
         `test`, `tutorial` and `name` only in the lobby, since each is
-        settled by Start Game. Advanced mode's
-        extra maneuvers want the room a nine-space board gives them,
-        so picking it defaults the board to 9 -- a coach may still
-        pick 6 or 7 afterwards.
+        settled by Start Game. Standard and Advanced are recommended
+        the nine-space board (`NINE_SPACE_BOARD_MODES`), so picking
+        either moves the board to 9 -- a coach may still pick 7
+        afterwards. Picking Training leaves the board where it is.
         """
         if setting not in GAME_SETTINGS:
             raise ValueError(f"Unknown game setting {setting!r}.")
@@ -955,7 +966,7 @@ class D12BallGame:
                     "off to change the mode."
                 )
             self.mode = GameMode(value)
-            if self.mode == GameMode.ADVANCED:
+            if self.mode in NINE_SPACE_BOARD_MODES:
                 self.board_size = 9
         elif setting == "board":
             if self.tutorial:

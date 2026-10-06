@@ -75,6 +75,7 @@ from d12ball.game import (
     GameStatus,
     HomeChoice,
     Team,
+    default_board_size,
 )
 from d12ball.prompts import (
     PendingPrompt,
@@ -440,7 +441,7 @@ class GameService:
         test_game: bool = False,
         tutorial: bool = False,
         mode: GameMode = GameMode.STANDARD,
-        board_size: int = 7,
+        board_size: Optional[int] = None,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
         ai_seats: Optional[list[int]] = None,
@@ -453,7 +454,8 @@ class GameService:
         else with no second player is a solo game against Dinky unless
         another AI was asked for. The settings arguments exist for the
         rematch, which carries the finished game's configuration over;
-        a fresh game takes the defaults and settles them in setup. The
+        a fresh game takes the defaults and settles them in setup --
+        its board the one its mode starts on (`default_board_size`). The
         Discord ids are the frontend's to pass or leave out: a game
         the web app creates has none. `ai_seats` is a web room's: `[]`
         says outright that no seat is the AI's, so an empty seat reads
@@ -493,7 +495,7 @@ class GameService:
         test_game: bool = False,
         tutorial: bool = False,
         mode: GameMode = GameMode.STANDARD,
-        board_size: int = 7,
+        board_size: Optional[int] = None,
         ai_opponent: Optional[AIOpponent] = None,
         game_name: Optional[str] = None,
         ai_seats: Optional[list[int]] = None,
@@ -515,7 +517,9 @@ class GameService:
             game_name=game_name,
             mode=mode,
             status=GameStatus.SETUP,
-            board_size=board_size,
+            board_size=(
+                default_board_size(mode) if board_size is None else board_size
+            ),
             ai_opponent=(
                 None
                 if in_lobby or player_2_id is not None

@@ -32,7 +32,8 @@ from d12ball.components import (
 from d12ball import tokens
 from d12ball.space_numbering import flat_space_number
 from d12ball.game import (
-    AIOpponent, D12BallGame, GameMode, Team, team_display_name,
+    AIOpponent, D12BallGame, GameMode, NINE_SPACE_BOARD_MODES, Team,
+    team_display_name,
 )
 
 
@@ -770,6 +771,23 @@ GAME_MODE_NAMES: dict[GameMode, str] = {
     GameMode.STANDARD: "Standard",
     GameMode.ADVANCED: "Advanced",
 }
+
+
+def board_size_recommendation(game: D12BallGame) -> Optional[str]:
+    """
+    The note recommending the nine-space board, read off the mode
+    alone -- shown on whichever board the game is on, since it is what
+    tells a coach why picking the mode moved the board -- or `None`
+    for a mode it is not recommended for (`NINE_SPACE_BOARD_MODES`).
+    The Discord setup screens and the web table both show it.
+    """
+    mode = GameMode(game.mode)
+    if mode not in NINE_SPACE_BOARD_MODES:
+        return None
+    return (
+        f"It is recommended to play {GAME_MODE_NAMES[mode].lower()} "
+        "mode on a board size of 9."
+    )
 
 
 # What each mode is, in the author's words (2026-09-27) -- the pitch a

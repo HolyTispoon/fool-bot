@@ -44,6 +44,7 @@ from d12ball.formatting import (
     contest_noun,
     GAME_MODE_NAMES,
     SETTING_DEFINITIONS,
+    board_size_recommendation,
     describe_game_mode,
     contestant_detail,
     destination_display_name,
@@ -1040,11 +1041,9 @@ def build_setup_message(
         f"Board size: {game.board_size}\n\n"
     )
 
-    if game.mode == GameMode.ADVANCED:
-        text += (
-            "It is recommended to play advanced mode on a board size "
-            "of 9.\n\n"
-        )
+    recommendation = board_size_recommendation(game)
+    if recommendation:
+        text += f"{recommendation}\n\n"
 
     if game.coin_flipped:
         text += (
@@ -1295,14 +1294,12 @@ def build_lobby_message(
         f"Board size: **{game.board_size}** spaces\n"
     )
 
-    if game.mode == GameMode.ADVANCED:
-        # Shown the whole time Advanced is on, not only once the board is
-        # off 9 -- picking Advanced defaults the board to 9, and this note
-        # is what tells a coach why it moved.
-        text += (
-            "\n_It is recommended to play advanced mode on a board size "
-            "of 9._\n"
-        )
+    # Shown the whole time the mode is on, not only once the board is
+    # off 9 -- picking Standard or Advanced moves the board to 9, and
+    # this note is what tells a coach why it moved.
+    recommendation = board_size_recommendation(game)
+    if recommendation:
+        text += f"\n_{recommendation}_\n"
 
     return text
 

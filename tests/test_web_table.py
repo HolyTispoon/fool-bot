@@ -29,7 +29,8 @@ from pathlib import Path
 from aiohttp.test_utils import TestClient, TestServer
 
 from d12ball.formatting import (
-    GAME_MODE_NAMES, SETTING_DEFINITIONS, describe_game_mode,
+    GAME_MODE_NAMES, SETTING_DEFINITIONS, board_size_recommendation,
+    describe_game_mode,
 )
 from d12ball.game import (
     GAME_COINS, GameMode, GameStatus, Team, coin_face_name, paired_team,
@@ -566,7 +567,9 @@ class RedesignedTableTests(TableHarness):
         self.assertEqual(lobby["game"]["topic"], "Creator vs. Second")
         [card] = (await self.rooms(CREATOR))["mine"]["lobby"]
         self.assertTrue(card["your_move"])
-        self.assertEqual((card["mode"], card["board_size"]), ("Standard", 7))
+        # A new room is Standard, which starts on the nine-space board
+        # (the author, 2026-10-05).
+        self.assertEqual((card["mode"], card["board_size"]), ("Standard", 9))
         self.assertIsNone(card["clock"])
 
         # A setting says what it is in the model's words, and why a
@@ -586,6 +589,12 @@ class RedesignedTableTests(TableHarness):
         self.assertEqual(
             settings["mode"]["definition"], describe_game_mode(game),
         )
+        # The board row carries the nine-space recommendation, the
+        # sentence the Discord setup screens show.
+        self.assertEqual(
+            settings["board"]["definition"], board_size_recommendation(game),
+        )
+        self.assertIn("standard mode", settings["board"]["definition"])
         # Each mode pill carries the definition of the mode it would pick.
         self.assertEqual(
             {one["label"]: one["definition"] for one in settings["mode"]["choices"]},
@@ -663,7 +672,7 @@ class RedesignedTableTests(TableHarness):
             {choice["value"]: choice["end"] for choice in sides["choices"]},
             {"home": "left", "visiting": "right"},
         )
-        self.assertEqual(sides["board_size"], 7)
+        self.assertEqual(sides["board_size"], 9)
         winner_id = CREATOR if winner == 1 else SECOND
         before = await self.state(room, winner_id)
         self.assertEqual(before["room"]["role"], "coach")
