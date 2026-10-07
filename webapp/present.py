@@ -74,6 +74,8 @@ from d12ball.formatting import (
     player_with_role,
     role_brackets,
     space_label,
+    summed_modifier_line,
+    total_modifier_line,
     travel_space_label,
 )
 from d12ball.game import (
@@ -2678,6 +2680,11 @@ def _situation_side(
         ],
         "skill": skill,
         "modifiers": list(sides[0].modifiers) if lead and sides else [],
+        "total": (
+            total_modifier_line(sides[0].total_modifier)
+            if lead and sides and sides[0].total_modifier is not None
+            else None
+        ),
         "ability": (
             sides[0].ability
             if with_ability and lead and sides and sides[0].ability
@@ -2729,12 +2736,15 @@ def _roller(
     line: str,
     modifiers: Sequence[str] = (),
     bearing: Bearing = Bearing(),
+    total: Optional[str] = None,
 ) -> dict:
     """
     The one side of a roll nobody rolls against -- an injury check, an
     own-goal roll, a Mind Pull: who rolls, the line that says what they
     bring to it, and anything declared on it (an Overdrive, a Boost,
     Zorch's speed), in the shape `_situation_side` hands a matchup's.
+    `total` is their sum where they are two numbers or more
+    (`formatting.summed_modifier_line`), drawn bold under them.
     """
     team = match.team_for_player(player_id)
     return {
@@ -2747,6 +2757,7 @@ def _roller(
         ],
         "skill": line,
         "modifiers": list(modifiers),
+        "total": total,
         "ability": None,
         "bands": [],
         "empty": None,
@@ -2817,6 +2828,7 @@ def _injury_situation(
                 engine, game, match, player_id,
                 f"Carries {carried} {token_noun} {tokens_word}",
                 modifiers, BEARINGS["injury"],
+                summed_modifier_line(modifiers, added),
             ),
         ],
         "roll": _roll(
@@ -2850,17 +2862,19 @@ def _own_goal_situation(
     )
     added, modifiers = _declared(engine, game, match, player_id)
     against = Team(match.setup_for_side(match.defending_side()).team)
+    skill_line = f"{skill_name} skill {skill:+d}"
     return {
         "title": "Own goal risk",
         "where": _where(match, match.ball.zone, match.ball.space_index),
         "sides": [
             _roller(
                 engine, game, match, player_id,
-                f"{skill_name} skill {skill:+d}", modifiers,
+                skill_line, modifiers,
                 # Umbrik adds his defensive skill here (Law 21).
                 replace(BEARINGS["own_goal"], skill=(
                     "defense" if skill_name == "Defensive" else "offense"
                 )),
+                summed_modifier_line([skill_line, *modifiers], skill + added),
             ),
         ],
         "roll": _roll(

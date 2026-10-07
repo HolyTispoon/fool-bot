@@ -1902,8 +1902,11 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   a whole skill, outlined for a halved or passed one, ringed in slime
   for an Ooze Merging -- and for a
   wall the band key under the faces in the PNG's own labels, and the
-  contributions added up. A roll nobody contests carries no value, and
-  no badge.
+  contributions added up. Where a lone side's skill and modifiers are
+  two numbers or more -- a shooter with the ball speed, an own-goal roll
+  with an Overdrive -- their sum is the side's `total`, bold under the
+  modifiers, as the PNG and the dice image say it. A roll nobody
+  contests carries no value, and no badge.
 - **Deliberately not the field strip or the coach's half-field**
   (2026-09-26, the author): coaches can see the field, since the
   page's board is beside the prompt. The cog draws both because a

@@ -33,7 +33,11 @@ from d12ball.components import (
     TeamSide,
     Zone,
 )
-from d12ball.formatting import OUTER_ZONE_WORD_BY_BOARD_SIZE, is_total_modifier
+from d12ball.formatting import (
+    OUTER_ZONE_WORD_BY_BOARD_SIZE,
+    is_total_modifier,
+    total_modifier_line,
+)
 from d12ball.game import TEAM_PAIRS, Team, team_display_name
 from d12ball.space_numbering import flat_space_number
 
@@ -3923,6 +3927,14 @@ class ChallengeSide:
     a wall's included, since it is the one thing a coach cannot read
     off the role badge.
 
+    `total_modifier` is the lead's whole addition where it is made of
+    two numbers or more -- the skill (or the merge's sum) and this
+    attempt's modifiers -- drawn bold under the modifiers as the dice
+    image draws it after the roll ("Total modifier +10",
+    `formatting.total_modifier_line`); `None` where one number is the
+    whole of it, and on every player but a group's lead. The brief
+    adds it, since only it holds the modifiers as numbers.
+
     `side_label`, `team` and `coach` are the group's heading, which the
     two briefs give a group's lead (`dice_brief.challenge_side`'s
     `side`): which end the side plays from ("Home", "Visitors"), the
@@ -3941,6 +3953,7 @@ class ChallengeSide:
     skill: int
     ability: str
     modifiers: tuple[str, ...] = ()
+    total_modifier: Optional[int] = None
     contribution: Optional[int] = None
     halved: bool = False
     passed: bool = False
@@ -4079,6 +4092,10 @@ def group_text_lines(
     in place of the lone skill line: the Oozes are part of the side,
     and their badges say what each one brings.
 
+    Where the lead's skill and this attempt's modifiers are two
+    numbers or more, their sum closes the numbers, bold like a wall's
+    (`ChallengeSide.total_modifier`; the author, 2026-10-06).
+
     Last, each special ability that bears on the roll
     (`ChallengeSide.special`), under a label line -- "Special ability",
     the web page's word for it (the author, 2026-09-28) -- that names
@@ -4139,6 +4156,15 @@ def group_text_lines(
             )
             for modifier in sides[0].modifiers
         )
+        if sides[0].total_modifier is not None:
+            sized.append(
+                (
+                    total_modifier_line(sides[0].total_modifier),
+                    CHALLENGE_TOTAL_COLOR,
+                    FONT_CHALLENGE_TOTAL,
+                    CHALLENGE_TOTAL_LINE_HEIGHT,
+                ),
+            )
     else:
         skills = " + ".join(str(side.value) for side in sides)
         total = sum(side.value for side in sides)
