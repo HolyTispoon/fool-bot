@@ -599,6 +599,10 @@ img { display: block; }
 .reveal-card.won { border-color: var(--gold); box-shadow: 0 0 16px rgba(240, 178, 50, 0.35); }
 .reveal-card img { display: block; width: 100%; height: auto; }
 .reveal-card.pill { width: 290px; }
+/* Two pills side by side are as tall as each other, the word between
+   them in the middle. */
+.reveal:has(.pill) { align-items: stretch; }
+.reveal:has(.pill) .reveal-between { align-self: center; }
 .reveal-between {
   font-family: "Goal", "Board", sans-serif;
   font-size: 30px;
@@ -851,7 +855,11 @@ select {
 .hand-card.pill:hover:not(:disabled) { transform: translateY(-3px); }
 
 /* The pill: the rank in the card's colour, the name and the time it
-   charges, the card's own diagram, and its effect. */
+   charges, the card's own diagram, its effect, and what the printed
+   card says along its foot and under its effect -- what it beats, ties
+   and loses to, and the abilities that name it. All of it on the pill,
+   with no hover (the author, 2026-10-07), so the diagram is kept small
+   and the words have the room. */
 .hand-card.pill,
 .reveal-card.pill {
   border-radius: 22px;
@@ -880,8 +888,7 @@ select {
   letter-spacing: 0.04em;
 }
 .pill-name { font-size: 18px; font-weight: 700; color: var(--strong); }
-.pill-face .tier-tag,
-.pill-peek .tier-tag {
+.pill-face .tier-tag {
   flex-shrink: 0;
   padding: 0 4px;
   border-radius: 3px;
@@ -894,46 +901,31 @@ select {
 }
 .pill-time { margin-left: auto; flex-shrink: 0; font-size: 11px; color: var(--muted); }
 .pill-body { display: flex; flex-direction: column; gap: 8px; }
-.pill-diagram { display: block; width: 100%; height: auto; border-radius: 10px; }
+.pill-face .pill-diagram { display: block; width: 68%; height: auto; border-radius: 8px; }
+.pill-effect { font-size: 13.5px; line-height: 1.4; white-space: pre-line; }
+/* The card's foot: what it beats, ties and loses to. The References'
+   cards draw the same rows (`.ref-maneuver .pill-matchups`). */
+.pill-matchups { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 13px; line-height: 1.35; }
+.pill-matchups dt,
+.pill-said { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
+.pill-matchups dd,
+.pill-names { margin: 0; color: var(--strong); font-weight: 600; }
+.pill-abilities { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.4; }
+.pill-ability b { color: var(--strong); }
+.pill-ability .quiet { color: var(--muted); }
 /* A pill a column wide (the phone's, the tablet's): the diagram beside
    the effect rather than over it, so a hand of six is not several
-   screens tall; the hover card has the rest. */
+   screens tall. */
 @media (max-width: 960px),
   (min-width: 961px) and (max-width: 1400px) and (orientation: landscape) and (any-pointer: coarse) {
   .pill-body { flex-direction: row; align-items: flex-start; gap: 10px; }
-  .pill .pill-diagram { width: 42%; flex-shrink: 0; border-radius: 6px; }
+  .pill-face .pill-diagram { width: 34%; flex-shrink: 0; border-radius: 6px; }
   .pill-effect { font-size: 13px; }
   .pill-face { padding: 8px 12px 10px; gap: 6px; }
   .pill-name { font-size: 16px; }
+  .pill-matchups { font-size: 12.5px; }
+  .pill-abilities { font-size: 12px; padding-top: 6px; }
 }
-.pill-effect { font-size: 13.5px; line-height: 1.4; white-space: pre-line; }
-
-/* What a pill says on hover: what it beats, ties and loses to, and the
-   abilities that name it, in the peek beside it. */
-.peek.info { width: min(330px, calc(100vw - 16px)); }
-.pill-peek {
-  background: var(--deep);
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--card);
-  border-radius: 12px;
-  padding: 10px 14px 12px;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--text);
-  cursor: default;
-}
-.peek.pinned .pill-peek { box-shadow: 0 0 0 2px var(--gold); }
-.pill-peek-title { font-size: 16px; font-weight: 700; color: var(--strong); margin-bottom: 8px; }
-.pill-matchups { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
-.pill-matchups dt { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
-.pill-matchups dd { margin: 0; color: var(--strong); font-weight: 600; }
-.pill-abilities { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
-.pill-peek-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-.pill-ability { margin: 0 0 6px; }
-.pill-ability:last-child { margin-bottom: 0; }
-.pill-ability-who { display: block; }
-.pill-ability b { color: var(--strong); }
-.pill-ability .quiet { color: var(--muted); }
 
 /* The card laid face down: ringed in gold, and dead, since the same
    card twice is refused; the others may still replace it. A card a

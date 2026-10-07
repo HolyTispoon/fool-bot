@@ -1313,11 +1313,14 @@ chooser, or puts a refusal away.
   `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
   the effect in the sheet's words, never cut down. Each is the answer as
   it was in step 4. On a desktop three sit in a row with the diagram over
-  the effect; on the phone and the tablet a pill is a column wide and
-  the diagram sits beside the effect, so a hand of six is not several
-  screens tall. **Hovered** (held, on a touch screen), the pill says what
-  the printed card says along its foot and under its effect, which the
-  pill leaves out: what it beats, ties and loses to
+  the effect, at two thirds of the pill's width; on the phone and the
+  tablet a pill is a column wide and the diagram sits beside the effect
+  at a third of it, so a hand of six is not several screens tall.
+  **The pill also says, on its face and with no hover, what the printed
+  card says along its foot and under its effect** (the author,
+  2026-10-07; until then a hover card held these, and the diagram was
+  the pill's full width, which left the words too little room): what it
+  beats, ties and loses to
   (`cards.matchup_rank_groups`, the card's own reading of rank, over the
   tiers the game plays), and the abilities that name it -- the role rows
   the card prints (`cards.role_abilities`), then, in a game playing the

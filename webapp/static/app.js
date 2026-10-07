@@ -2385,14 +2385,17 @@ function handCard(control) {
     pill ? pillFace(pill) : h("img", { src: maneuverUrl(key, side), alt: control.label }),
     control.card.picked ? h("span", { class: "hand-card-chip" }, control.chip) : null,
   );
-  hoverCard(button, pill ? () => pillPeek(pill) : maneuverUrl(key, side, "full"));
+  if (!pill) hoverCard(button, maneuverUrl(key, side, "full"));
   return button;
 }
 
 /* A maneuver as a pill rather than the printed card
    (`present.maneuver_pill`, the author, 2026-10-01): the rank in the
    card's colour, the name, the time it charges, the card's own diagram
-   and its effect in the sheet's words. */
+   and its effect in the sheet's words, and what the printed card says
+   along its foot and under its effect -- what it beats, ties and loses
+   to, and the abilities that name it. All of it on the pill, with no
+   hover (the author, 2026-10-07). */
 function pillFace(pill) {
   return h(
     "span",
@@ -2405,30 +2408,17 @@ function pillFace(pill) {
     h("span", { class: "pill-body" },
       h("img", { class: "pill-diagram", src: pill.diagram, alt: "" }),
       h("span", { class: "pill-effect" }, pill.effect)),
-  );
-}
-
-/* What a pill says on hover, which the printed card says along its
-   foot and under its effect: what it beats, ties and loses to, and the
-   abilities that name it. */
-function pillPeek(pill) {
-  return h(
-    "div",
-    { class: "pill-peek", style: `--card: ${pill.colour}` },
-    h("div", { class: "pill-peek-title" },
-      h("span", { class: "pill-rank" }, pill.rank), " ", pill.name),
-    h("dl", { class: "pill-matchups" },
+    h("span", { class: "pill-matchups" },
       pill.matchups.flatMap((one) => [
-        h("dt", {}, one.said),
-        h("dd", {}, one.names.join(" / ")),
+        h("span", { class: "pill-said" }, one.said),
+        h("span", { class: "pill-names" }, one.names.join(" / ")),
       ])),
     pill.abilities.length
-      ? h("div", { class: "pill-abilities" },
-        h("div", { class: "pill-peek-label" }, "Abilities"),
-        pill.abilities.map((one) => h("p", { class: "pill-ability" },
-          h("span", { class: "pill-ability-who" },
-            h("b", {}, one.who), one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null),
-          one.text)))
+      ? h("span", { class: "pill-abilities" },
+        pill.abilities.map((one) => h("span", { class: "pill-ability" },
+          h("b", {}, one.who),
+          one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null,
+          " ", one.text)))
       : null,
   );
 }
@@ -2784,7 +2774,7 @@ function drawReveal(state) {
       { class: `reveal-card${one.pill ? " pill" : ""}${reveal.winner === one.side ? " won" : ""}` },
       one.pill ? pillFace(one.pill) : h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
     );
-    hoverCard(node, one.pill ? () => pillPeek(one.pill) : maneuverUrl(one.key, one.side, "full"));
+    if (!one.pill) hoverCard(node, maneuverUrl(one.key, one.side, "full"));
     return node;
   };
   const [toSecond, toFirst] = stacked ? ["▼", "▲"] : ["▶", "◀"];
@@ -3419,8 +3409,6 @@ let peekHide = null;
 let peekFor = null;
 let heldOpen = false;
 
-/* `url` is the picture's, or a function drawing what to show instead
-   (a pill's matchups, `pillPeek`). */
 function hoverCard(node, url, { when = () => true } = {}) {
   node.addEventListener("mouseenter", () => {
     if (!finePointer() || el("peek").classList.contains("pinned") || !when()) return;
@@ -3468,17 +3456,8 @@ function showPeek(url, anchor, { pinned = false } = {}) {
   clearTimeout(peekHide);
   const peek = el("peek");
   const image = peek.firstElementChild;
-  const info = peek.querySelector(".peek-info");
-  const drawn = typeof url === "function";
-  image.hidden = drawn;
-  info.hidden = !drawn;
-  peek.classList.toggle("info", drawn);
-  if (drawn) {
-    info.replaceChildren(url());
-  } else if (image.getAttribute("src") !== url) {
-    image.src = url;
-  }
-  peekFor = !drawn && url.includes("/card/")
+  if (image.getAttribute("src") !== url) image.src = url;
+  peekFor = url.includes("/card/")
     ? { url, cardId: decodeURIComponent(url.split("/card/")[1].split(".png")[0]) }
     : null;
   peek.classList.toggle("pinned", pinned);
@@ -3491,9 +3470,8 @@ function showPeek(url, anchor, { pinned = false } = {}) {
 function placePeek(anchor) {
   const peek = el("peek");
   const box = anchor.getBoundingClientRect();
-  const drawn = peek.classList.contains("info");
-  const width = drawn ? peek.offsetWidth : Math.min(260, window.innerWidth - 16);
-  const height = drawn ? peek.offsetHeight : width * (364 / 260);
+  const width = Math.min(260, window.innerWidth - 16);
+  const height = width * (364 / 260);
   let x = box.right + 12;
   if (x + width > window.innerWidth - 8) x = box.left - width - 12;
   x = Math.max(8, Math.min(x, window.innerWidth - width - 8));

@@ -4110,7 +4110,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
 
     def test_no_player_s_ability_is_listed_twice(self) -> None:
         """A card fielded on both sides is one person
-        (`catalog_player_id`): a pill's hover lists their ability once,
+        (`catalog_player_id`): a pill lists their ability once,
         under both teams, never once a side (the author, 2026-10-01)."""
         from d12ball.components import MatchState, catalog_player_id
 

@@ -389,10 +389,9 @@ class ReferenceTests(Harness):
                     self.assertEqual(row["tier_word"], "advanced")
 
     def test_each_maneuver_carries_its_whole_card(self) -> None:
-        """The References hold everything the printed card says, since
-        the hand's pill leaves its foot and ability rows to a hover
-        (the author, 2026-10-01): the rank, what it beats, ties and
-        loses to -- the catalog's own reading -- and its role rows."""
+        """The References hold everything the printed card says (the
+        author, 2026-10-01): the rank, what it beats, ties and loses
+        to -- the catalog's own reading -- and its role rows."""
         from d12ball.cards import role_abilities
 
         catalog = ENGINE.maneuver_catalog

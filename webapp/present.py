@@ -1840,9 +1840,9 @@ def maneuver_pill(
     References are drawn from too), over the tiers this game plays, in
     the card's colour. `None` for a key the data no longer carries.
 
-    The pill shows the rank, name, time, diagram and effect; its hover
-    shows the card's foot (`matchups`) and its ability rows, and after
-    those, in a game playing the special abilities (Law 21), each player
+    The pill shows the rank, name, time, diagram and effect, and under
+    them -- on its face, with no hover (the author, 2026-10-07) -- the
+    card's foot (`matchups`) and its ability rows, and after those, in a game playing the special abilities (Law 21), each player
     on the field whose sentence names this card (`_names_card`) --
     **once**, however many sides field them: a card fielded on both is
     the same person (`catalog_player_id`), named with both teams.

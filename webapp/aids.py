@@ -661,8 +661,8 @@ def maneuver_rows(
     """
     The maneuvers as two tables, the offense's and then the defense's,
     each row the whole of a printed card (`maneuver_card`), so the
-    References carry every detail the hand's pill leaves to its hover
-    and the card face itself (the author, 2026-10-01). The rows are in
+    References carry every detail of the card face itself (the author,
+    2026-10-01). The rows are in
     the catalog's order -- by rank, a rank's gambit under its basic card
     -- and hold only the tiers asked for; the matchups name the opposing
     cards of those tiers too, because rank alone decides who wins.
