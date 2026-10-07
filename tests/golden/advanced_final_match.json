@@ -920,6 +920,7 @@
   "loose_ball_offense_player": null,
   "maneuver_uncontested": false,
   "merge_joined": [],
+  "merged_this_test": [],
   "offense_maneuver": "dribble_advance",
   "overdrive_passed": [],
   "pending_action": null,

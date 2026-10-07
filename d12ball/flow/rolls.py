@@ -302,6 +302,54 @@ def pay_contest_tie(
 # -- The maneuver skill test -------------------------------------------
 
 
+def _note_mergers(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    rolling: tuple[Optional[str], Optional[str]],
+) -> None:
+    """
+    Remember who Merged into this roll, before the roll spends the
+    declarations: **a merging Ooze owes the injury check** when the
+    test resolves (Law 15.3.1), and a tie's re-roll may be Merged by
+    someone else, so the list runs across every roll of the test.
+    """
+    if match.ball.possession is None:
+        return
+    for side, skill in (
+        (match.ball.possession, "offense"),
+        (match.defending_side(), "defense"),
+    ):
+        for player_id, _ in engine.merge_contributions(
+            game, match, side, rolling, skill,
+        ):
+            if player_id not in match.merged_this_test:
+                match.merged_this_test.append(player_id)
+
+
+def _owing_checks(
+    engine: RulesEngine,
+    match: MatchState,
+    rollers: tuple[PlayerDefinition, PlayerDefinition],
+) -> list[PlayerDefinition]:
+    """
+    Who owes an injury check as a skill test or contest resolves
+    (Law 15.3.1): the two who rolled and everyone who Merged into it,
+    those Exhausted -- the rollers first. Spends the Merge list.
+    """
+    owing = [
+        player for player in rollers if player.player_id in match.exhausted
+    ]
+    rolled = {player.player_id for player in rollers}
+    owing += [
+        engine.get_player_definition(player_id)
+        for player_id in match.merged_this_test
+        if player_id in match.exhausted and player_id not in rolled
+    ]
+    match.merged_this_test = []
+    return owing
+
+
 def score_skill_test(
     engine: RulesEngine,
     game: D12BallGame,
@@ -526,6 +574,10 @@ def skill_test_step(
     # Who Overdrove this roll, read before it is spent: Synapse's win on
     # an Overdriven roll decides a tier (Law 21), below.
     overdriven = set(match.pending_overdrive)
+    _note_mergers(
+        engine, game, match,
+        (offense_player.player_id, defense_player.player_id),
+    )
     # Spent, win, lose or tie: a tie that is re-rolled is a fresh roll
     # and has to be Overdriven again.
     match.consume_overdrive()
@@ -650,11 +702,9 @@ def skill_test_step(
     # resolves.
     clock = charge_maneuver_clock(engine, match, winner_key)
 
-    exhausted_participants = [
-        player
-        for player in (offense_player, defense_player)
-        if player.player_id in match.exhausted
-    ]
+    exhausted_participants = _owing_checks(
+        engine, match, (offense_player, defense_player),
+    )
 
     # The effect is on the far side of the injury tests now that each
     # of those is a click of its own, so it is handed over as the
@@ -891,11 +941,9 @@ def settle_loose_ball_winner(
     )
     winner_player = offense_player if outcome == "offense" else defense_player
 
-    exhausted_participants = [
-        player
-        for player in (offense_player, defense_player)
-        if player.player_id in match.exhausted
-    ]
+    exhausted_participants = _owing_checks(
+        engine, match, (offense_player, defense_player),
+    )
     distance_moved = match.pending_loose_ball_distance
     is_high_pass = match.pending_loose_ball_is_high_pass
     # Read with the rest of the position, before anything below clears
@@ -1042,6 +1090,10 @@ def loose_ball_test_step(
             (offense_player.player_id, offense_ignite),
             (defense_player.player_id, defense_ignite),
         ),
+    )
+    _note_mergers(
+        engine, game, match,
+        (offense_player.player_id, defense_player.player_id),
     )
     match.consume_overdrive()
 

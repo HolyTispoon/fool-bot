@@ -944,9 +944,15 @@ different player, so it is built on Overdrive's pieces rather than beside them:
   side has decided on this roll"; Merge reads it as Overdrive does, and the
   button and the sentences name what is open (`name_declarations`: "Pass on
   Merge", "decides on Overdrive and Merge"). The saved field keeps its name.
-- **A Merging Ooze owes no injury check for that test**: it is not one of
-  the two rolling, and the check is the participants' (Law 15.3.1). The
-  token counts toward the next check they roll in.
+- **A Merging Ooze owes the injury check as the two rolling do** (Law
+  15.3.1, the author, 2026-10-07). `rolls._note_mergers` writes who
+  Merged into each roll -- `merge_contributions`, read before the roll
+  spends the declarations -- onto `MatchState.merged_this_test`, which
+  runs across a tie's re-rolls because a Merge into the roll that tied
+  paid its token into the same test; `_owing_checks` adds the Exhausted
+  among them behind the two rollers when the test or contest resolves,
+  and spends the list. A score attempt owes no check, so it notes
+  nobody. Saved, since a tie's re-roll is a click away.
 - **Dinky declares before the die** (the author, 2026-10-07: *"dinky should
   always merge unless injured"*, and *"also overdrive/boost unless it gives
   the cyborg enough drain to become drained"*). An AI side is in

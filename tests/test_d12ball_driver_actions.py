@@ -1985,6 +1985,66 @@ class MergeDeclarationTests(ApplyFixture):
             pending_prompt(ENGINE, fixture.game, match),
         ))
 
+    def roll_with_the_home_ooze_merged(self, fixture, dice):
+        """Merge the home Ooze, pass the visitors, roll `dice`."""
+        self.act(fixture, "merge", player_id=self.home_ooze)
+        self.act(fixture, "pass", side=TeamSide.VISITING.value)
+        with mock.patch("random.Random.randint", side_effect=dice):
+            return self.act(fixture, "roll")
+
+    def test_an_exhausted_merging_ooze_owes_the_injury_check(self) -> None:
+        """
+        *"yes, a merging ooze owe an injury test"* (the author,
+        2026-10-07; Law 15.3.1): when the test resolves, an Exhausted
+        Ooze who Merged into it is checked as the two rolling are.
+        """
+        fixture = self.ooze_skill_test()
+        match = fixture.match
+        # One token short: the Merge's own token makes them Exhausted.
+        match.exhaustion[self.home_ooze] = ENGINE.exhaustion_threshold(
+            fixture.game, self.home_ooze,
+        )
+        rolled = self.roll_with_the_home_ooze_merged(fixture, [9, 2])
+        self.assertNotIsInstance(rolled, driver.Refusal)
+        self.assertIn(self.home_ooze, match.exhausted)
+        self.assertIn(self.home_ooze, match.pending_injury_tests)
+        self.assertEqual(match.merged_this_test, [])
+
+    def test_a_merging_ooze_who_is_not_exhausted_owes_none(self) -> None:
+        fixture = self.ooze_skill_test()
+        match = fixture.match
+        match.exhaustion[self.home_ooze] = 0
+        self.roll_with_the_home_ooze_merged(fixture, [9, 2])
+        self.assertNotIn(self.home_ooze, match.pending_injury_tests)
+        self.assertEqual(match.merged_this_test, [])
+
+    def test_a_merge_on_a_tied_roll_is_still_owed_at_the_end(self) -> None:
+        """Tokens a re-roll charged count (Law 15.3.2), and so does a
+        Merge into the roll that tied."""
+        fixture = self.ooze_skill_test()
+        match = fixture.match
+        match.exhaustion[self.home_ooze] = ENGINE.exhaustion_threshold(
+            fixture.game, self.home_ooze,
+        )
+        offense = ENGINE.skills(fixture.game, match.active_player_id).offense
+        defense = ENGINE.skills(fixture.game, match.challenger_id).defense
+        merged = ENGINE.merge_value(fixture.game, self.home_ooze, "offense")
+        # A tie: the defence's die makes up the difference exactly.
+        tie_offense = 3
+        tie_defense = tie_offense + offense + merged - defense
+        self.assertTrue(1 <= tie_defense <= 12, "the fixture cannot tie")
+        self.roll_with_the_home_ooze_merged(
+            fixture, [tie_offense, tie_defense],
+        )
+        self.assertEqual(match.merged_this_test, [self.home_ooze])
+        self.assertEqual(match.pending_injury_tests, [])
+        # The re-roll: both coaches pass, and it resolves.
+        self.act(fixture, "pass", side=TeamSide.HOME.value)
+        self.act(fixture, "pass", side=TeamSide.VISITING.value)
+        with mock.patch("random.Random.randint", side_effect=[12, 1]):
+            self.act(fixture, "roll")
+        self.assertIn(self.home_ooze, match.pending_injury_tests)
+
     def test_a_glompex_who_joined_merges_free_and_unasked(self) -> None:
         """His join's token paid for the Merge (Law 21.6.1)."""
         fixture = self.ooze_skill_test()

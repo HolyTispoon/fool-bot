@@ -1814,6 +1814,10 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     # save, which reads as nobody -- Merge was free and undeclared then.
     SavedField("pending_merge", factory=list, write=list, read=list),
     SavedField("merge_joined", factory=list, write=list, read=list),
+    # Who Merged into any roll of the skill test or contest at hand,
+    # owing its injury check (Law 15.3.1). Absent from an older save,
+    # which reads as nobody -- a Merge owed no check then.
+    SavedField("merged_this_test", factory=list, write=list, read=list),
     # Mind Pull. The path is a list of [zone, index] pairs, so the
     # copies are deep enough to matter: a shallow list() would hand a
     # restored match the same inner lists the saved dict holds.
@@ -2136,6 +2140,11 @@ class MatchState:
     # onto the ball this maneuver, and so Merges into every roll of it
     # unasked and free. Cleared with the maneuver (`reset_maneuver`).
     merge_joined: list[str] = field(default_factory=list)
+    # **A merging Ooze owes the injury check** (Law 15.3.1, the author,
+    # 2026-10-07): everyone who Merged into any roll of the skill test
+    # or contest at hand -- a tie's re-rolls included, since tokens a
+    # re-roll charged count -- read when it resolves and cleared there.
+    merged_this_test: list[str] = field(default_factory=list)
     # **Mind Pull.** Three fields, and all three exist because a pull
     # is a *choice with a roll* that has to happen before the ball
     # settles -- see "Mind Pull (Telekinetic)" in docs/living-rules.md.
@@ -4131,6 +4140,7 @@ class MatchState:
         self.pending_boost = []
         self.pending_merge = []
         self.merge_joined = []
+        self.merged_this_test = []
         self.overdrive_passed = []
         self.last_ball_path = []
         self.last_ball_movers = []

@@ -2717,9 +2717,11 @@ class MergeTests(unittest.TestCase):
         saved = self.match.to_dict()
         saved.pop("pending_merge")
         saved.pop("merge_joined")
+        saved.pop("merged_this_test")
         restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
         self.assertEqual(restored.pending_merge, [])
         self.assertEqual(restored.merge_joined, [])
+        self.assertEqual(restored.merged_this_test, [])
 
 
 class SpreadableTests(unittest.TestCase):
