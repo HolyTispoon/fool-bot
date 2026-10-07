@@ -1733,6 +1733,39 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 (roller,) = got["sides"]
                 self.assertEqual(roller["skill"], f"{word} skill {skill:+d}")
 
+    def test_a_skill_test_says_why_it_is_rolled(self) -> None:
+        # The challenge's two sides, under the model's sentence saying
+        # why the cards did not settle it -- a tie, or a would-be
+        # winner who is injured -- so the roll is never asked bare.
+        from d12ball.flow.turn import skill_test_cause
+
+        def injured_winner(match):
+            match.offense_maneuver = "high_pass"
+            match.defense_maneuver = "steal"
+            match.injured.add(match.active_player_id)
+
+        for stage, words in (
+            (lambda match: None, "ties with"),
+            (injured_winner, "would win, but"),
+        ):
+            with self.subTest(words):
+                fixture, got = self.situation_in(
+                    "skill test", GameMode.STANDARD, stage,
+                )
+                self.assertEqual(got["title"], present.SKILL_TEST_TITLE)
+                self.assertEqual(
+                    [self.names(side) for side in got["sides"]],
+                    [
+                        [fixture.match.active_player_id],
+                        [fixture.match.challenger_id],
+                    ],
+                )
+                cause = skill_test_cause(ENGINE, fixture.game, fixture.match)
+                self.assertIn(words, cause)
+                self.assertEqual(
+                    got["cause"], render_text(fixture.game, cause),
+                )
+
     def situation_in(self, name: str, mode, stage=lambda match: None):
         from d12ball.prompts import pending
         from webapp.present import situation
@@ -2238,7 +2271,7 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
         # the board beside the prompt is the field.
         for name in (
             "low pass", "run back, where", "coaching hub", "coaching offer",
-            "kickoff", "skill test",
+            "kickoff",
         ):
             with self.subTest(name):
                 ENGINE.rng.seed(11)

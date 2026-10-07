@@ -1914,6 +1914,18 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   contest, Slitheron's among them. A contest Slitheron skips has no
   prompt, so it has no window: the model's line says why there was no
   roll.
+- **A maneuver's skill test has a situation** (`SKILL_TEST`): the
+  challenge's two sides, as the maneuver pick drew them -- a
+  maneuver's skill test pays an injured player every modifier, so
+  nothing on them changes -- titled SKILL TEST, with **why it is
+  rolled** under the title: the model's `turn.skill_test_cause`, the
+  same sentence the reveal ends on (a tie on the cards, a would-be
+  winner who is injured, or Scorchit's forced test), rendered as the
+  log renders it. Without it the roll was asked bare -- "Either player
+  can roll:" under two cards, one of which beat the other -- and the
+  why was only in the log above (the author, 2026-10-07). The
+  sentence is read off the cards and the position, so a re-roll after
+  tied dice still says it.
 - **Zytheris's scoring opportunity has a situation** where it is his
   special ability that offered it (`SET_UP_ATTEMPT` with a shooter who
   holds it): the shooter, with the ability named. Any other set-up is
