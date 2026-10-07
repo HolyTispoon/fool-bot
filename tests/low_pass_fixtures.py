@@ -88,6 +88,10 @@ class LowPassFixture:
     receiver_id: Optional[str] = None
     key: str = "low_pass"
     free: bool = False
+    #: What the coach answers when asked whether the passer moves 1
+    #: space forward (Law 6.5.3) -- a Low Pass asks wherever there is a
+    #: space in front of the passer, a Pinpoint never does.
+    advance: bool = False
 
     #: The narration, as one string: what the old cog built inline and
     #: handed the next step as its `lead_in`.
@@ -103,6 +107,8 @@ class LowPassFixture:
     carrier_id: Optional[str] = None
     ball_space: Optional[tuple[Zone, int]] = None
     ball_speed: int = 0
+    #: Where the passer ends up, where the case is about that.
+    passer_space: Optional[tuple[Zone, int]] = None
 
 
 @dataclass(frozen=True)
@@ -235,9 +241,11 @@ def backward_pass() -> LowPassFixture:
 
 def shared_space() -> LowPassFixture:
     """
-    A pass of 0 crosses a shared space, so the ball does not travel and
-    the passer steps forward instead (2026-08-07). It is the one branch
-    whose wording names a player, which is why the label is built.
+    A pass of 0 crosses a shared space, so the ball does not travel.
+    The passer may step forward after any Low Pass (Law 6.5.3, the
+    author 2026-10-07), and here their coach says yes -- the step is
+    its own sentence, after the pass's. It names a player, which is
+    why the label is built.
     """
     match = build_match()
     handler = take_the_ball(match)
@@ -249,15 +257,17 @@ def shared_space() -> LowPassFixture:
         match=match,
         distance=0,
         receiver_id=receiver,
+        advance=True,
         narration=(
             "**Low Pass:** the ball goes to a teammate in the same "
-            f"space, and {label(match, handler)} moves a space forward. "
-            "Ball speed is now 2."
+            "space. Ball speed is now 2. "
+            f"{label(match, handler)} moves a space forward."
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
         ball_space=(Zone.MIDFIELD, 1),
         ball_speed=2,
+        passer_space=(Zone.MIDFIELD, 2),
     )
 
 
@@ -505,11 +515,9 @@ def skilled_pass_backward() -> LowPassFixture:
 
 def skilled_pass_across_a_shared_space() -> LowPassFixture:
     """
-    A Pinpoint of 0 is a Low Pass of 0 -- the ball does not
-    travel, the passer steps forward, and only the banner and the
-    bonus tell the two apart. The branch that words the pass by what
-    the *passer* did is shared, so it is worth holding both cards to
-    it.
+    A Pinpoint of 0 crosses a shared space as a Low Pass of 0 does,
+    and **its passer never moves** (Law 19.5.3, the author
+    2026-10-07): nobody is asked, and the passer stays on the ball.
     """
     match = build_match()
     handler = take_the_ball(match)
@@ -522,15 +530,16 @@ def skilled_pass_across_a_shared_space() -> LowPassFixture:
         distance=0,
         receiver_id=receiver,
         key="skilled_pass",
+        advance=True,
         narration=(
             "**Pinpoint:** the ball goes to a teammate in the same "
-            f"space, and {label(match, handler)} moves a space forward. "
-            "Ball speed is now 4."
+            "space. Ball speed is now 4."
         ),
         follow_on_kwargs={"distance_moved": 1},
         carrier_id=receiver,
         ball_space=(Zone.MIDFIELD, 1),
         ball_speed=4,
+        passer_space=(Zone.MIDFIELD, 1),
     )
 
 
@@ -736,9 +745,8 @@ def free_pass_across_a_shared_space() -> LowPassFixture:
     """
     The unopposed pass **Pinpoint's cost** hands the defense,
     played across a shared space: it charges no time (the
-    clock was spent on the steal that produced it) and still steps the
-    passer forward, because that step is what a pass of 0 buys rather
-    than a part of the maneuver being paid for.
+    clock was spent on the steal that produced it) and is a Low Pass
+    all the same, so its passer may still step forward (Law 6.5.3).
     """
     match = build_match()
     passer = fielded(match, PlayerRole.MIDFIELDER, TeamSide.VISITING)
@@ -759,15 +767,17 @@ def free_pass_across_a_shared_space() -> LowPassFixture:
         distance=0,
         receiver_id=receiver,
         free=True,
+        advance=True,
         narration=(
             "**Low Pass:** the ball goes to a teammate in the same "
-            f"space, and {label(match, passer)} moves a space forward. "
-            "Ball speed is now 5."
+            "space. Ball speed is now 5. "
+            f"{label(match, passer)} moves a space forward."
         ),
         follow_on_kwargs={"distance_moved": 0},
         carrier_id=receiver,
         ball_space=(Zone.MIDFIELD, 2),
         ball_speed=5,
+        passer_space=(Zone.MIDFIELD, 1),
     )
 
 

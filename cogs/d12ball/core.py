@@ -128,6 +128,7 @@ from cogs.d12ball_views import (
     RunBackChoiceView,
     RunBackPlayerChoiceView,
     ScoreAttemptView,
+    PasserAdvanceView,
     SetUpAttemptChoiceView,
     ShooterChoiceView,
     SetupPassChoiceView,
@@ -160,6 +161,9 @@ FIELD_PROMPT_KINDS = frozenset({
     PromptKind.RUN_BACK_PLAYER,
     # Zenith's Fly picks a space anywhere on the field (Law 21).
     PromptKind.FLY,
+    # Whether a Low Pass's passer steps forward is a question about
+    # where they would stand, asked once the ball has gone (Law 6.5.3).
+    PromptKind.PASSER_ADVANCE,
 })
 
 
@@ -402,6 +406,7 @@ PARAMETERISED_PROMPT_KINDS = frozenset({
     PromptKind.RUN_BACK_PLAYER,
     PromptKind.LOOSE_BALL_PICK,
     PromptKind.LOW_PASS_CHOICE,
+    PromptKind.PASSER_ADVANCE,
     PromptKind.SPEED_DELTA_CHOICE,
     PromptKind.SET_UP_ATTEMPT,
     PromptKind.SHOOTER_CHOICE,
@@ -1392,6 +1397,8 @@ class CoreMixin:
             )
         if kind is PromptKind.LOW_PASS_CHOICE:
             return LowPassChoiceView(self, game_id)
+        if kind is PromptKind.PASSER_ADVANCE:
+            return PasserAdvanceView(self, game_id, prompt.player_id)
         if kind is PromptKind.SPEED_DELTA_CHOICE:
             return SpeedDeltaChoiceView(self, game_id, prompt.player_id)
         if kind is PromptKind.SET_UP_ATTEMPT:

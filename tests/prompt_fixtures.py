@@ -793,6 +793,29 @@ def low_pass_choice() -> PromptFixture:
     return fixture
 
 
+def passer_advance() -> PromptFixture:
+    """
+    A Low Pass played and its passer not yet moved or kept (Law 6.5.3).
+    The pass is still the live maneuver, so without
+    `MatchState.pending_passer_advance` a restart would offer the pass
+    a second time.
+    """
+    fixture = _settled("low_pass", "pressure")
+    passer = fixture.match.active_player_id
+    fixture.match.pending_passer_advance = {
+        "passer_id": passer,
+        "then": "pass",
+        "receiver_id": None,
+        "free": False,
+    }
+    fixture.ask = (
+        f"{label(fixture.match, passer)} may move a space forward, or "
+        "stay where they are:"
+    )
+    fixture.params = {"player_id": passer}
+    return fixture
+
+
 def skilled_pass_choice() -> PromptFixture:
     fixture = _settled("skilled_pass", "pressure")
     fixture.params = {"maneuver_key": "skilled_pass", "free": False}
@@ -1087,6 +1110,8 @@ CASES: tuple[PromptCase, ...] = (
     PromptCase("skill test", "SKILL_TEST", "SkillTestView", skill_test),
     PromptCase("low pass", "LOW_PASS_CHOICE", "LowPassChoiceView",
                low_pass_choice),
+    PromptCase("passer advance", "PASSER_ADVANCE", "PasserAdvanceView",
+               passer_advance),
     PromptCase("skilled pass", "LOW_PASS_CHOICE", "LowPassChoiceView",
                skilled_pass_choice),
     PromptCase("free low pass", "LOW_PASS_CHOICE", "LowPassChoiceView",

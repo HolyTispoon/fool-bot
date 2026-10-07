@@ -145,6 +145,9 @@ class PromptKind(Enum):
 
     # The effect a settled maneuver owes
     LOW_PASS_CHOICE = "low_pass_choice"
+    # Whether a Low Pass's passer moves 1 space forward once the ball
+    # has gone (Law 6.5.3, 6.5.5).
+    PASSER_ADVANCE = "passer_advance"
     HIGH_PASS_CHOICE = "high_pass_choice"
     SETUP_PASS_CHOICE = "setup_pass_choice"
     SPEED_DELTA_CHOICE = "speed_delta_choice"
@@ -1217,6 +1220,30 @@ def scoring_opportunity_prompt(
     return None
 
 
+def passer_advance_prompt(
+    engine: "RulesEngine",
+    game: Optional[D12BallGame],
+    match: MatchState,
+) -> Optional[PendingPrompt]:
+    """
+    Whether a Low Pass's passer moves 1 space forward (Law 6.5.3), read
+    off `MatchState.pending_passer_advance`, which holds the question
+    from the moment the ball goes until the coach answers. Shared by
+    the live offer (`d12ball.flow.effects.offer_passer_advance`) and a
+    restart, so the two word it the same.
+    """
+    outstanding = match.pending_passer_advance
+    if not outstanding:
+        return None
+    passer = engine.get_player_definition(outstanding["passer_id"])
+    return PendingPrompt(
+        PromptKind.PASSER_ADVANCE,
+        f"{engine.format_player_label(match, passer)} may move a space "
+        "forward, or stay where they are:",
+        player_id=passer.player_id,
+    )
+
+
 def shooter_mention(
     engine: "RulesEngine",
     game: D12BallGame,
@@ -1988,6 +2015,15 @@ def _pending(
             "Either player can roll for the own goal.",
         )
 
+    passer_advance = passer_advance_prompt(engine, game, match)
+    if passer_advance is not None:
+        # For the scoring opportunity's reason below: the pass that
+        # asked it is still the live maneuver, and the effect branch
+        # would offer to play it a second time. Ahead of the scoring
+        # opportunity because it comes first -- the set-up is offered
+        # once the passer has moved or stayed.
+        return passer_advance
+
     scoring_opportunity = scoring_opportunity_prompt(engine, game, match)
     if scoring_opportunity is not None:
         # After the interrupts and ahead of everything a maneuver
@@ -2353,6 +2389,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     },
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
+    PromptKind.PASSER_ADVANCE: ("advance", "stay"),
     PromptKind.SMOOTH: ("take", "decline"),
     PromptKind.MIND_PULL: ("take", "decline"),
     PromptKind.FLY: ("fly", "decline"),
@@ -3009,6 +3046,7 @@ OPTIONS = {
     PromptKind.MANEUVER_ACTION: _maneuver_options,
     PromptKind.SKILL_TEST: _roll_options,
     PromptKind.LOW_PASS_CHOICE: _low_pass_options,
+    PromptKind.PASSER_ADVANCE: _decision_options,
     PromptKind.HIGH_PASS_CHOICE: _high_pass_options,
     PromptKind.SETUP_PASS_CHOICE: _setup_pass_options,
     PromptKind.SPEED_DELTA_CHOICE: _speed_options,

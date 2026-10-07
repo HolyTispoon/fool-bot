@@ -24,6 +24,7 @@ from cogs.d12ball_views import (
     CoachingHubView,
     LowPassChoiceView,
     LowPassReceiverView,
+    PasserAdvanceView,
 )
 from d12ball.components import (
     CoachingOccasion,
@@ -1095,13 +1096,18 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_chosen_receiver_takes_the_winger_s_set_up(
         self,
     ) -> None:
-        cog, game, _, others = self.build()
+        cog, game, match, others = self.build()
         chosen = others[-1]
 
         with suppressed_cog_saves():
             await LowPassReceiverView(cog, game.game_id, 0).choose(
                 build_interaction(), chosen,
             )
+            # The passer may step forward first (Law 6.5.3); the set-up
+            # is offered once they have moved or stayed.
+            await PasserAdvanceView(
+                cog, game.game_id, match.active_player_id,
+            ).stay(build_interaction())
 
         self.assertEqual(
             cog.offer_scoring_attempt_choice.await_args.kwargs["shooter_id"],
@@ -1111,11 +1117,14 @@ class LowPassIntoAStackTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_single_teammate_is_passed_to_without_a_prompt(
         self,
     ) -> None:
-        cog, game, _, others = self.build(extras=0)
+        cog, game, match, others = self.build(extras=0)
         interaction = build_interaction()
 
         with suppressed_cog_saves():
             await LowPassChoiceView(cog, game.game_id).choose(interaction, 0)
+            await PasserAdvanceView(
+                cog, game.game_id, match.active_player_id,
+            ).stay(build_interaction())
 
         self.assertIsNone(
             interaction.response.edit_message.call_args.kwargs["view"]

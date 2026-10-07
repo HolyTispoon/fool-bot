@@ -110,6 +110,7 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
                 receiver_id=fixture.receiver_id,
                 key=fixture.key,
                 free=fixture.free,
+                advance=fixture.advance,
             )
 
         step = (
@@ -144,6 +145,11 @@ class LowPassRecordingTests(unittest.IsolatedAsyncioTestCase):
             (match.ball.zone, match.ball.space_index), fixture.ball_space,
         )
         self.assertEqual(match.ball.speed, fixture.ball_speed)
+        if fixture.passer_space is not None:
+            self.assertEqual(
+                match.board.meeple_position(match.active_player_id),
+                fixture.passer_space,
+            )
 
     async def test_a_free_pass_spends_its_continuation(self) -> None:
         """

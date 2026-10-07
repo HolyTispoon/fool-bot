@@ -364,6 +364,11 @@ class DinkyAI(AIStrategy):
         letting the maneuver resolve normally."""
         return Action(prompt.kind, options.railed or "take")
 
+    def _advance(self, prompt, game, match, side, options) -> Action:
+        """Always move a Low Pass's passer forward: it costs nothing,
+        and a step nearer the goal is a step nearer a shot."""
+        return Action(prompt.kind, options.railed or "advance")
+
     def _shooter(self, prompt, game, match, side, options) -> Action:
         """The candidate with the higher offensive skill."""
         return Action(
@@ -750,6 +755,7 @@ class DinkyAI(AIStrategy):
         PromptKind.MANEUVER_CHALLENGE: _challenger,
         PromptKind.MANEUVER_ACTION: _maneuver_pick,
         PromptKind.LOW_PASS_CHOICE: _low_pass,
+        PromptKind.PASSER_ADVANCE: _advance,
         PromptKind.HIGH_PASS_CHOICE: _longest_reaching_pass,
         PromptKind.SETUP_PASS_CHOICE: _longest_reaching_pass,
         PromptKind.DOUBLE_TEAM_PARTNER: _double_team_partner,
