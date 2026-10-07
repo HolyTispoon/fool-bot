@@ -1175,6 +1175,16 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
   return box;
 }
 
+/* The word on a condition's badge: the emoji's own word is too small
+   to read at the badge's size, so the tag says it short beside it, in
+   the emoji's colour (the author, 2026-10-07). */
+const CONDITION_TAGS = {
+  injured: "INJ",
+  damaged: "DMG",
+  exhausted: "EXH",
+  drained: "DRN",
+};
+
 /* A piece's badges, over it wherever it stands (a fan on a space, the
    sideline): the exhaustion token and its count off the bottom right,
    the condition off the bottom left -- the emoji `board.py` names --
@@ -1198,11 +1208,12 @@ function badges(piece, x, y, W, H, { ballAtFoot = false } = {}) {
     over.push(h(
       "span",
       {
-        class: "badge condition",
-        style: `left: ${x - 8}px; top: ${ballAtFoot ? y - 4 : y + H - 14}px`,
+        class: `badge condition ${piece.condition}`,
+        style: `left: ${x - W * 0.3}px; top: ${ballAtFoot ? y - 4 : y + H - 14}px`,
         title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
       },
-      h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),
+      h("img", { src: `/emoji/${piece.condition}.png`, alt: "" }),
+      CONDITION_TAGS[piece.condition],
     ));
   }
   return over;

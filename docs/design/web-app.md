@@ -1659,6 +1659,12 @@ space has two lanes, the visitors' above and home's below.
   except on a visiting holder, whose ball is at that corner and hid
   an injured carrier's badge entirely (the author, 2026-10-07): there
   the condition moves to the top left, the one corner no piece uses.
+  The condition is a tag like the token count: its emoji and the word
+  short -- INJ, DMG, EXH, DRN (`CONDITION_TAGS` in `app.js`) -- in the
+  emoji's colour, because the emoji's own word cannot be read at a
+  badge's size (the author, 2026-10-07). On the phone's narrow field
+  the tag is the word alone, pushed further over the edge, so it does
+  not cover the piece's role.
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
   off a home holder's top right, a visiting holder's bottom left, or
