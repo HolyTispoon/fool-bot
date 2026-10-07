@@ -1171,7 +1171,8 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   a meeple, with its cost. The words are the control's chip, or its
   `said` where the field's chip is cut short: the goal's chip on the
   field is "score!" and its row says "shoot to score" (the author,
-  2026-09-29). A thing whose picture says what it is (the
+  2026-09-29). A meeple or a space wears no chip on the field, so for
+  them the row is the one place it is said (below). A thing whose picture says what it is (the
   ball, a goal, a tile, `present.PICTURED`) is not named again beside
   it; a player and a space are. The row presses the same control the
   thing on the field does, so either may be clicked. This replaced a
@@ -1249,16 +1250,21 @@ coloured button would be a second signal. A button's colour was the
 frontend's (principle 8) and so is its absence: nothing in the model
 changed for it.
 
+The chip in this table is the control's: what the question box's row
+says beside the thing's picture, and what the field draws beside the
+ball, a goal, the ✕ and a tile. A meeple or a space wears none on the
+field (below).
+
 | Kind (option shape) | What lights, and its chip | The rest |
 | --- | --- | --- |
-| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "shoots", "double teams"; the halftime token's pick has no chip (below) | -- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "shoots", "double teams"; the halftime token's pick has none, its row only the name (below) | -- |
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
-| `high_pass_choice`, `setup_pass_choice`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
+| `high_pass_choice`, `setup_pass_choice`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second row for the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
 | `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
-| the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each of the viewer's own meeples that may declare Overdrive (with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
+| the six rolls (`RollOptions`) | the large die in the box; each of the viewer's own meeples that may declare Overdrive (a ⚡ chip with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
@@ -1268,19 +1274,33 @@ changed for it.
 | `tutorial_continue` | the note: anywhere on it | -- |
 | `game_over` | the REMATCH mark, which posts to the room's own route | -- |
 
+**No pill on a meeple or a space** (the author, 2026-10-07). A gold
+pill under each lit name ran into the next space's pieces, a crowded
+space stacked one under every name and pushed its fan up the space, and
+a space's pill wrapped to three or four lines in a narrow space. What
+choosing the thing does -- the verb, the distance, the receiver, the
+cost -- is its row in the question box, beside its picture, and its
+title on a hover; the field lights it and says nothing more. Where two
+answers share one meeple or space (Overdrive and Boost, a pass and a
+run onto one space), clicking it on the field sends the first and the
+box has a row for each. The ball, a goal, the ✕, a tile and the sideline
+keep theirs:
+none of them is crowded, and the ball's and a goal's are hidden on the
+phone already. **A meeple in a row wears its badges**, its token count
+and its condition, as it does on the field: the count is what a coach
+weighs a pick by.
+
 **A meeple that may be chosen stands forward of the rest**: raised a
 little on its space (`LIFT`, `LIFT_NARROW` in `app.js`) with its badges
 and the ball, and drawn in front of every other piece and name, as
 well as lit gold (the author, 2026-10-07). **The halftime token's pick
-has no chip**: a pill under each name ran into the next space's pieces,
-and the question already says what picking one does, so the lit meeple
-and its own token badge are the whole of it, on the field and in the
-box (the author, 2026-10-07). A meeple control with no chip says
-nothing, on the field as a pick-up does.
+has no chip at all**: the question already says what picking one does,
+so its row in the box is the name and the meeple's own token badge
+(the author, 2026-10-07).
 
 **A pickup's price is the prompt's.** The run back, the walk-in and Fly
-charge a token a space, so their chips carry the token and the count.
-The ball's recovery chip carries how far each candidate is and what the
+charge a token a space, so their rows carry the token and the count.
+The ball's recovery row carries how far each candidate is and what the
 pickup would charge them, off `PlayerOptions.costs` -- every pickup
 charges a token a space, a time out's included, since the author's
 2026-09-26 change (the time-out pickup was free until then, which is
@@ -1635,10 +1655,11 @@ space has two lanes, the visitors' above and home's below.
   pins it, clicking a pinned card or the meeple opens it full size,
   and Esc or a click elsewhere puts it away. The benches are the
   sideline under the field (step 6, above).
-- **A lit piece or goal**: a gold outline, a gold name and a chip
-  saying what clicking means, with any cost as the token image and a
-  count; a goal's gold ring; a space dashed in gold with its chip at
-  its foot; the ball ringed in gold. What lights them is the prompt's
+- **A lit piece or goal**: a gold outline and a gold name, the piece
+  raised and in front of the rest; a goal's gold ring and its chip; a
+  space dashed in gold; the ball ringed in gold with its chip. What
+  clicking a piece or a space means is its row in the question box
+  ("No pill on a meeple or a space", above). What lights them is the prompt's
   (above, "The answer is the thing on the board"); clicking a piece
   that is not lit still opens its card.
 

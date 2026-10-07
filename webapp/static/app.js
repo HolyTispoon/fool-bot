@@ -949,10 +949,8 @@ function press(control) {
    one meeple, a pass and a run onto it on one space). */
 function chips(all, { buttons } = {}) {
   /* A thing to pick up with no chip of its own (a player in the
-     Coaching Choice), or a meeple with none (the halftime token's
-     pick, where the question says it), is lit and says nothing. */
-  const controls = all.filter((control) => control.chip
-    || (control.type !== "pick" && !(control.place && control.place.at === "player")));
+     Coaching Choice) is lit and says nothing. */
+  const controls = all.filter((control) => control.type !== "pick" || control.chip);
   if (buttons === undefined) buttons = controls.length > 1;
   return controls.map((control) => {
     const content = chip(control);
@@ -1076,7 +1074,9 @@ function space(one, layout, narrow = false) {
       "data-place": `space:${one.zone}:${one.index}`,
       title: on ? controls.map((c) => c.label).join(" · ") : null,
       /* A lit space is answered by clicking anywhere on it that is not
-         a piece of its own (a meeple opens its card). */
+         a piece of its own (a meeple opens its card). It wears no chip:
+         what choosing it does is its row in the question box, and its
+         title on a hover (the author, 2026-10-07). */
       onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
     h("span", { class: "space-code" }, one.code),
@@ -1084,7 +1084,6 @@ function space(one, layout, narrow = false) {
     h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks, narrow)),
     h("div", { class: "lane home" }, fanOf(one, "home", layout, marks, narrow)),
     loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, narrow ? 22 : 36, { lit: true })) : null,
-    on ? h("span", { class: "space-chips" }, chips(controls)) : null,
   );
 }
 
@@ -1097,7 +1096,9 @@ const LIFT_NARROW = 5;
    them, back to front, with each name on its own line under the fan
    (the front piece's first) and every badge and the ball drawn over
    the whole of it. `marks` is what a prompt lights: a piece's id to
-   the chip saying what clicking it means. */
+   the controls clicking it answers. A lit piece wears no chip: what
+   choosing it does is its row in the question box, and its title on
+   a hover (the author, 2026-10-07). */
 function fanOf(one, side, layout, marks = {}, narrow = false) {
   /* Held upright, the narrow fan at the phone's own steps, and no
      names under it: the sheet names whatever is lit, and a hold on a
@@ -1165,15 +1166,6 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
       piece.name,
     ));
     line += 24;
-    const said = lit ? chips(marks[id]) : [];
-    if (said.length) {
-      over.push(h(
-        "span",
-        { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
-        said,
-      ));
-      line += 32;
-    }
   }
   box.append(...over);
   box.style.height = `${line}px`;
@@ -1471,11 +1463,11 @@ function benchBox(board, title, said, entries, layout) {
 }
 
 /* One benched meeple: the piece, its badges over it as on the field,
-   its name under it, and -- lit -- what clicking it means. */
+   and its name under it -- gold where it is lit, with no chip, as on
+   the field. */
 function benchPiece(m, layout) {
   const marks = (lit && lit.player[m.id]) || null;
   const on = Boolean(marks && marks.length);
-  const said = on ? chips(marks) : [];
   const g = layout.meeple;
   const W = g.width;
   const H = (W * g.box[3]) / g.box[2];
@@ -1486,7 +1478,6 @@ function benchPiece(m, layout) {
     { class: "bench-piece" },
     body,
     h("span", { class: `bench-name${on || (picked && picked.key === `player:${m.id}`) ? " lit" : ""}` }, m.name),
-    said.length ? h("span", { class: "bench-chip-line" }, said) : null,
   );
 }
 
@@ -1516,7 +1507,7 @@ function watchFit(box) {
    space it stands on. Measured in layout pixels, before the stage's
    scale, so it is the same on every screen. */
 function clampNames(root) {
-  for (const name of root.querySelectorAll(".fan-name, .fan-chip-line")) {
+  for (const name of root.querySelectorAll(".fan-name")) {
     name.style.setProperty("--nudge", "0px");
     const fan = name.offsetParent;
     const space = name.closest(".space");
