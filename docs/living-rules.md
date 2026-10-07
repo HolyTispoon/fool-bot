@@ -190,9 +190,9 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **3.2.1** Both sides are dealt into **2-2-2** by role: the Fullback and one Defender in the outer zone before their own goal, the Midfielder and one Playmaker in midfield, the Winger and one Striker in the outer zone before the goal they attack. The remaining Defender, Playmaker and Striker start on the bench.
 
-**3.2.2** An outer zone's two cards take the two ends of the zone, and midfield packs from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on boards 9 and 10, whose outer zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9 on board 9 and to 1, 3, 4, 5, 8 and 10 on board 10, and the visitors deal the mirror of it.
+**3.2.2** An outer zone's two cards take the two ends of the zone. Midfield's two take the middle of midfield, side by side, nearer that side's own end where the middle is a single space, and are dealt from that side's own end outward. On board 7 that comes out the same as filling each zone in order. It is only visible on boards 9 and 10, whose outer zones are three spaces deep: home deals to spaces 1, 3, 4, 5, 7 and 9 on board 9 and to 1, 3, 5, 6, 8 and 10 on board 10, and the visitors deal the mirror of it. On board 10 both sides' Midfielder and Playmaker stand on spaces 5 and 6, each side's Midfielder on its own kickoff space.
 
-*Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing from a side's own end reaches that space on every board.
+*Note.* Midfield packs rather than spreads because the kickoff space is in it. Every arrangement has to cover its own side's kickoff space, and packing the middle of midfield reaches that space on every board.
 
 ### 3.3 Setup coaching
 
