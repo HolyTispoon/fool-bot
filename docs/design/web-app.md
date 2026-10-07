@@ -1312,8 +1312,10 @@ chooser, or puts a refusal away.
   places the panel by, so the two cannot drift; served by
   `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
   the effect in the sheet's words, never cut down. Each is the answer as
-  it was in step 4. On a desktop a pill is 230px wide, three in a row,
-  the diagram over the effect (the author, 2026-10-07: until then the
+  it was in step 4. An advanced card's tier tag sits under its name, so
+  the name and the time keep the first line (the author, 2026-10-07). On
+  a desktop a pill is 230px wide, three in a row, the diagram over the
+  effect (the author, 2026-10-07: until then the
   row stretched them to 250px and up, which was too large); on the phone
   and the tablet a pill is a column wide and the diagram sits beside the
   effect at a third of it, so a hand of six is not several screens tall.

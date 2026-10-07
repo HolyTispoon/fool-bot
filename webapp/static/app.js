@@ -2400,11 +2400,13 @@ function handCard(control) {
    maneuver's effect, and nothing else -- no player's ability (the
    author, 2026-10-07). */
 function pillFace(pill, { brief = false } = {}) {
+  /* The tier's tag goes under the name, so the name and the time keep
+     the line (the author, 2026-10-07). */
   const head = h("span", { class: "pill-head" },
     h("span", { class: "pill-rank" }, pill.rank),
     h("span", { class: "pill-name" }, pill.name),
-    brief || !pill.tier_word ? null : h("span", { class: "tier-tag" }, pill.tier_word),
-    brief ? null : h("span", { class: "pill-time" }, pill.time));
+    brief ? null : h("span", { class: "pill-time" }, pill.time),
+    brief || !pill.tier_word ? null : h("span", { class: "tier-tag" }, pill.tier_word));
   const abilities = pill.abilities.length
     ? h("span", { class: "pill-abilities" },
       pill.abilities.map((one) => h("span", { class: "pill-ability" },
