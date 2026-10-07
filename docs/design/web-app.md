@@ -2014,14 +2014,27 @@ headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 math ... the model should write this with greater detail").
 `Headline.working`, set by the skill test, the loose ball, the shot,
 the own-goal roll, the shootout test, the Mind Pull and the injury
-test, is each side as who rolled,
-the face, every addend and the total, then how the two totals are read
-("**16** beats **10**."; "**13** is lower than **15**: the attack does
-not score."; "**13** is 7 or more: safe."). `rolls.roll_working` and
-`contest_working` build it from the same detail lines the dice picture
-is drawn with, so the words and the picture cannot disagree; the
-own-goal roll's is its own breakdown line, which the narration already
-said. It is on the headline and not in the narration: the bot posts the
+test, is **a column per side, a line per addend**: who rolled the face,
+each thing added to it, then the total ("= **16**"). It was one
+paragraph until 2026-10-07, both sides run together with a sentence
+comparing the totals after them, and the author found it "impossible
+to read ... the offense and defense should be presented side by side
+like they do on the discord" -- the dice picture's own arrangement. So
+the model hands back the lines and the page sets the columns side by
+side, on the phone too (two narrow columns read better than one long
+run). `Headline.reading` is how a **lone** roll is read against its
+target ("**13** is 7 or more: safe."; "**4** is under 11: the pull
+fails."), since its target is nowhere in its column; a contest has
+none -- its two totals stand side by side and the headline already
+says who won, so "16 is higher than 14: the attack scores" was the
+outcome said a third time (the author: "this last line is not
+needed"). `rolls.roll_working` and `contest_working` build the columns
+from the same detail lines the dice picture is drawn with, so the words
+and the picture cannot disagree; the own-goal roll's column is its own
+breakdown line's pieces, which the narration already said. A journal
+written before the columns holds the working as one string, which the
+server shows as one column of one line (`server._columns`) rather than
+dropping the outcome a restart finds up. It is on the headline and not in the narration: the bot posts the
 dice picture that already says it, so no line moves and neither does a
 golden. The shot's defenders are listed without the picture's running
 total, which written out would read as one more addend.
@@ -2034,7 +2047,7 @@ canvas joins them -- joining is presentation, the words are the
 model's -- in the colour of the first that is a side's, with the first
 line under one and the first working. The page sets them in the
 outcome block -- the headline 46px in the display face, the line under
-it 17px, the working under that at 15px. The dice were beside them at
+it 17px, the working's columns under that at 15px. The dice were beside them at
 180px, the bot's picture with its words on it (the author: "make the
 die larger"); since 2026-09-29 they are bare dice, the page's own, in
 the same place ("The dice"). The canvas's "HALFTIME · 1 : 1" is

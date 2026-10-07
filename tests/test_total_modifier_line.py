@@ -41,10 +41,16 @@ class TotalModifierLineTests(unittest.TestCase):
                  "Total modifier +6"],
                 10,
             )],
-            "verdict",
         )
-        self.assertNotIn("Total", working)
-        self.assertIn("+3 Midfielder ability = **10**", working)
+        self.assertEqual(
+            working,
+            ((
+                "Name rolled **4**",
+                "Defensive skill +3",
+                "+3 Midfielder ability",
+                "= **10**",
+            ),),
+        )
 
 
 if __name__ == "__main__":

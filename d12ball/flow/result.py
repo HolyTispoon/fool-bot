@@ -291,7 +291,21 @@ class Headline:
     picture large enough to read (the author, on step 3's PR: "the
     arithmetic needs explanation, it's not enough to just show the
     math"). It is said here and not in the narration, where the bot
-    already posts the dice picture that says it.
+    already posts the dice picture that says it. **It is one column
+    per side, one line per addend** -- who rolled the face, each thing
+    added to it, the total -- so a frontend sets the attack and the
+    defence side by side, as the dice picture does, rather than
+    running them together as a paragraph (the author, 2026-10-07:
+    "this is impossible to read ... the offense and defense should be
+    presented side by side like they do on the discord"). The model
+    words every line; how the columns are laid out is the frontend's.
+
+    `reading` is how a lone roll is read against its target -- "**9**
+    is 11 or more: the pull lands" -- since the target is nowhere in
+    its one column. A contest has none: its two totals stand side by
+    side and the headline says which won, so "16 is higher than 14"
+    said it a third time (the author, 2026-10-07: "this last line is
+    not needed").
 
     It changes no line: the narration is exactly what it was, which is
     why the goldens do not move.
@@ -300,7 +314,8 @@ class Headline:
     text: str
     side: Optional["TeamSide"] = None
     under: str = ""
-    working: str = ""
+    working: tuple[tuple[str, ...], ...] = ()
+    reading: str = ""
 
     def to_dict(self) -> dict:
         """The headline as JSON -- `d12ball.wire`."""
@@ -308,7 +323,8 @@ class Headline:
             "text": self.text,
             "side": None if self.side is None else self.side.value,
             "under": self.under,
-            "working": self.working,
+            "working": [list(column) for column in self.working],
+            "reading": self.reading,
         }
 
 

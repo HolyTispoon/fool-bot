@@ -471,7 +471,8 @@ def roll_injury_check(
         verdict,
         match.side_for_player(player_id),
         reading,
-        roll_working([(player_label, roll, modifiers, check)], read_as),
+        roll_working([(player_label, roll, modifiers, check)]),
+        read_as,
     )
 
     if ignite.ignited:

@@ -161,12 +161,11 @@ class ContestDice:
 
 def roll_working(
     sides: list[tuple[str, int, list[str], int]],
-    verdict: str,
-) -> str:
+) -> tuple[tuple[str, ...], ...]:
     """
-    A roll's arithmetic written out, for a `Headline`: each side as
-    who rolled, the face, everything added to it and the total, then
-    how the two totals are read against each other.
+    A roll's arithmetic written out, for a `Headline`: a column per
+    side, each who rolled the face, then everything added to it a line
+    apiece, then the total.
 
     `sides` is `(who, roll, added, total)`, and `added` is the lines
     the dice picture is drawn with -- "Offensive skill +4", "+3
@@ -175,15 +174,14 @@ def roll_working(
     (`with_total_modifier`) is left out: it is not an addend, and written
     out beside the addends it would read as one.
     """
-    written = " ".join(
-        f"{who} rolled **{roll}**"
-        + "".join(
-            f", {line}" for line in added if not is_total_modifier(line)
+    return tuple(
+        (
+            f"{who} rolled **{roll}**",
+            *(line for line in added if not is_total_modifier(line)),
+            f"= **{total}**",
         )
-        + f" = **{total}**."
         for who, roll, added, total in sides
     )
-    return f"{written} {verdict}"
 
 
 def contest_working(
@@ -191,8 +189,7 @@ def contest_working(
     match: MatchState,
     players: tuple[PlayerDefinition, ...],
     contestants: list[Contestant],
-    verdict: str,
-) -> str:
+) -> tuple[tuple[str, ...], ...]:
     """`roll_working` over a contest whose sides are each one player,
     named on the first of their detail lines (`contestant_detail`)."""
     return roll_working(
@@ -202,7 +199,6 @@ def contest_working(
                 players, contestants,
             )
         ],
-        verdict,
     )
 
 
@@ -684,14 +680,12 @@ def skill_test_step(
         0,
         f"## {wins}{volatile_note}" + (f"\n{clock}" if clock else ""),
     )
-    high, low = sorted((offense_total, defense_total), reverse=True)
     result.headlines = (Headline(
         wins,
         match.ball.possession if outcome == "offense"
         else match.defending_side(),
         working=contest_working(
             engine, match, (offense_player, defense_player), contestants,
-            f"**{high}** beats **{low}**.",
         ),
     ), *result.headlines)
     result.board_changed = True
@@ -1086,10 +1080,8 @@ def loose_ball_test_step(
         engine, game, match, offense_player, defense_player,
         offense_total, defense_total,
     )
-    high, low = sorted((offense_total, defense_total), reverse=True)
     working = contest_working(
         engine, match, (offense_player, defense_player), contestants,
-        f"**{high}** beats **{low}**.",
     )
     headlines = tuple(
         replace(one, working=working) if one.under else one
@@ -1467,16 +1459,6 @@ def score_attempt_step(
                     defense_total,
                 ),
             ],
-            (
-                f"**{attack_total}** is higher than "
-                f"**{defense_total}**: the attack scores."
-                if scored else
-                f"**{attack_total}** ties **{defense_total}**: a tie is "
-                "a miss."
-                if attack_total == defense_total else
-                f"**{attack_total}** is lower than **{defense_total}**: "
-                "the attack does not score."
-            ),
         ),
     )
 
@@ -1737,11 +1719,6 @@ def shootout_test_step(
     winner, outcome, heading = settle_shootout_test(
         engine, match, totals, players,
     )
-    home_total, visiting_total = (
-        totals[TeamSide.HOME], totals[TeamSide.VISITING],
-    )
-    high, low = sorted((home_total, visiting_total), reverse=True)
-
     # The goal and the retirement go out in one save, so a restart
     # between this roll and what follows it can never re-roll a test
     # that has already been paid for -- see
@@ -1769,8 +1746,6 @@ def shootout_test_step(
                     match,
                     (players[TeamSide.HOME], players[TeamSide.VISITING]),
                     dice,
-                    f"**{high}** beats **{low}**." if high != low
-                    else f"**{high}** and **{low}** are level.",
                 ),
             ),
             *(check.headline for check in checks if not check.safe),

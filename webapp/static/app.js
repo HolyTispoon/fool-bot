@@ -1746,11 +1746,35 @@ function drawHeadline(state) {
   const outcome = state.outcome;
   headline.hidden = !outcome;
   under.hidden = !(outcome && outcome.under);
-  working.hidden = !(outcome && outcome.working);
+  const columns = (outcome && outcome.working) || [];
+  working.hidden = !columns.length;
   if (outcome) {
     headline.innerHTML = outcome.headline;
     under.innerHTML = outcome.under || "";
-    working.innerHTML = outcome.working || "";
+    /* A column per side, side by side as the dice picture sets them,
+       a line per addend; and under them, for a lone roll, how it is
+       read against its target. Every line is the server's HTML. */
+    const sides = columns.map((lines) => {
+      const side = document.createElement("div");
+      side.className = "working-side";
+      side.replaceChildren(...lines.map((line) => {
+        const one = document.createElement("div");
+        one.innerHTML = line;
+        return one;
+      }));
+      return side;
+    });
+    const row = document.createElement("div");
+    row.className = "working-sides";
+    row.replaceChildren(...sides);
+    const parts = [row];
+    if (outcome.reading) {
+      const reading = document.createElement("div");
+      reading.className = "working-reading";
+      reading.innerHTML = outcome.reading;
+      parts.push(reading);
+    }
+    working.replaceChildren(...parts);
     el("outcome").style.setProperty("--outcome", outcome.colour || "var(--gold)");
   }
   drawOutcome();

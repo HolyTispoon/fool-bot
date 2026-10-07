@@ -556,8 +556,14 @@ img { display: block; }
 }
 .outcome-headline strong, .outcome-headline em { color: inherit; font-weight: inherit; font-style: inherit; }
 .outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); white-space: pre-line; }
-/* The roll's arithmetic, written out by the model (`Headline.working`). */
+/* The roll's arithmetic, written out by the model (`Headline.working`):
+   a column per side, the attack and the defence side by side as the
+   dice picture sets them, a line per addend, the total last. */
 .outcome-working { font-size: 15px; line-height: 1.4; color: var(--text); }
+.working-sides { display: flex; gap: 28px; }
+.working-side { flex: 1 1 0; min-width: 0; }
+.working-side > :last-child { margin-top: 2px; }
+.working-reading { margin-top: 6px; }
 
 /* The outcome and, at full time, the numbers beside it. */
 .outcome-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px; }

@@ -1256,13 +1256,20 @@ def own_goal_roll_step(
     headline = Headline(
         OWN_GOAL_AVOIDED if safe else OWN_GOAL,
         match.ball.possession if safe else match.defending_side(),
-        working=(
-            f"{arithmetic}. "
-            + (
-                f"**{total}** is {OWN_GOAL_SAFE_TOTAL} or more: safe."
-                if safe
-                else f"**{total}** is under {OWN_GOAL_SAFE_TOTAL}: an own goal."
-            )
+        # The breakdown's own pieces, a line apiece (`roll_working`).
+        working=((
+            f"{engine.format_player_label(match, offense_player)} "
+            f"rolls at an advantage: higher of {rolls[0]}/{rolls[1]} "
+            f"is **{taken}**",
+            f"+ {offense_skill} ({skill_name.lower()} skill)",
+            *overdrive_details,
+            *((speed_line,) if speed else ()),
+            f"= **{total}**",
+        ),),
+        reading=(
+            f"**{total}** is {OWN_GOAL_SAFE_TOTAL} or more: safe."
+            if safe
+            else f"**{total}** is under {OWN_GOAL_SAFE_TOTAL}: an own goal."
         ),
     )
 

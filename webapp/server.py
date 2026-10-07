@@ -2096,8 +2096,9 @@ class WebApp:
         up: the model's own words rendered at this door, one after the
         other with a dot between them as the canvas joins them ("STEAL
         · TURNOVER"), in the colour of the first that is a side's, with
-        the first line under one and the first arithmetic. Joining is
-        presentation; the page words none of it.
+        the first line under one and the first arithmetic -- a column
+        per side, each line rendered, for the page to set side by side.
+        Joining is presentation; the page words none of it.
         """
         headlines = journal.showing_outcomes
         if not headlines or match is None:
@@ -2116,7 +2117,11 @@ class WebApp:
                 render_text(game, one["text"]) for one in headlines
             ),
             "under": render_text(game, first("under")),
-            "working": render_text(game, first("working")),
+            "working": [
+                [render_text(game, line) for line in column]
+                for column in _columns(first("working"))
+            ],
+            "reading": render_text(game, first("reading")),
             "colour": (
                 None if side is None
                 else side_colour(match, TeamSide(side))
@@ -2641,6 +2646,16 @@ def seat_label(game: D12BallGame, number: int) -> str:
     if game.visiting_player_number == number:
         return "Visitors Team Coach"
     return f"Coach {number}"
+
+
+def _columns(working) -> list:
+    """A headline's working as columns. The journal keeps the outcome
+    up across a restart, and one written before the working was a
+    column per side holds it as one paragraph: that is one column of
+    one line."""
+    if isinstance(working, str):
+        return [[working]] if working else []
+    return working
 
 
 def _period(match: MatchState) -> str:
