@@ -389,10 +389,9 @@ class ReferenceTests(Harness):
                     self.assertEqual(row["tier_word"], "advanced")
 
     def test_each_maneuver_carries_its_whole_card(self) -> None:
-        """The References hold everything the printed card says, since
-        the hand's pill leaves its foot and ability rows to a hover
-        (the author, 2026-10-01): the rank, what it beats, ties and
-        loses to -- the catalog's own reading -- and its role rows."""
+        """The References hold everything the printed card says (the
+        author, 2026-10-01): the rank, what it beats, ties and loses
+        to -- the catalog's own reading -- and its role rows."""
         from d12ball.cards import role_abilities
 
         catalog = ENGINE.maneuver_catalog
@@ -425,6 +424,13 @@ class ReferenceTests(Harness):
                             if table["side"] == "defense" and said != "Ties":
                                 said = "Loses to" if said == "Beats" else "Beats"
                             self.assertEqual(winner, outcomes[said])
+                            # The opposing rank, as the card's foot
+                            # prints it: every name in the column is
+                            # a card of that rank.
+                            self.assertEqual(
+                                one["rank"],
+                                f"{opposing[0].upper()}{other.rank}",
+                            )
                     self.assertEqual(
                         [(one["who"].upper(), one["text"]) for one in row["abilities"]],
                         role_abilities(ENGINE.player_catalog, card),

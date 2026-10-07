@@ -1346,14 +1346,24 @@ chooser, or puts a refusal away.
   places the panel by, so the two cannot drift; served by
   `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
   the effect in the sheet's words, never cut down. Each is the answer as
-  it was in step 4. On a desktop three sit in a row with the diagram over
-  the effect; on the phone and the tablet a pill is a column wide and
-  the diagram sits beside the effect, so a hand of six is not several
-  screens tall. **Hovered** (held, on a touch screen), the pill says what
-  the printed card says along its foot and under its effect, which the
-  pill leaves out: what it beats, ties and loses to
+  it was in step 4. An advanced card's tier tag sits under its name, so
+  the name and the time keep the first line, and names the basic card of
+  its rank -- "advanced Low Pass" on Pinpoint, the catalog's `counterpart`
+  (the author, 2026-10-07). On
+  a desktop a pill is 230px wide, three in a row, the diagram over the
+  effect (the author, 2026-10-07: until then the
+  row stretched them to 250px and up, which was too large); on the phone
+  and the tablet a pill is a column wide and the diagram sits beside the
+  effect at a third of it, so a hand of six is not several screens tall.
+  **The pill also says, on its face and with no hover, what the printed
+  card says along its foot and under its effect** (the author,
+  2026-10-07; until then a hover card held these): what it beats, ties
+  and loses to, **in one row of three columns as the card's foot prints
+  it** -- BEATS, TIES, LOSES TO, each over the opposing rank (`D1`, in the
+  opposing side's colour, the matchup's `rank` and `colour`) and the
+  names of that rank's cards the game plays
   (`cards.matchup_rank_groups`, the card's own reading of rank, over the
-  tiers the game plays), and the abilities that name it -- the role rows
+  tiers the game plays) -- and the abilities that name it -- the role rows
   the card prints (`cards.role_abilities`), then, in a game playing the
   special abilities, each player on the field whose sentence names the
   card (`_names_card`: the name with its last word in any form, a
@@ -1445,7 +1455,9 @@ chooser, or puts a refusal away.
   face up in the question box -- public once turned over, for a coach
   and an observer alike -- with what the cards said between them,
   `RulesEngine.cards_outcome`: TIE, or BEATS pointing at the card beaten,
-  its winner ringed, each as its pill; on the phone and the tablet the
+  its winner ringed, each as its pill **cut down to the rank, the name
+  and the maneuver's effect, and nothing else** (the author,
+  2026-10-07) -- no time, diagram, foot, or player's ability; on the phone and the tablet the
   two stack and BEATS points up or down. What the maneuver came to -- an injury's forfeit,
   a forced test, the roll -- is the outcome banner's, the model's own
   headline, and the die under it is step 4's. An unchallenged card is
