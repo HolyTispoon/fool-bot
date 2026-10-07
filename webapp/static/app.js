@@ -1836,7 +1836,10 @@ function inkOn(hex) {
 
 /* One side of the situation: the portraits (a badge on each with what
    that player adds) beside the team, who they are, the skill
-   they bring, and on one muted line the modifiers and the ability. */
+   they bring, and on one muted line the modifiers and the ability --
+   or, where the skill and the modifiers are two numbers or more, the
+   modifiers, their sum in bold (the server's `total`, as the dice
+   image says it), and the ability on its own line under it. */
 function situationSide(side) {
   const wall = side.players.length > 1;
   /* Every face in a matchup wears what it adds, as the PNG's does, in
@@ -1844,10 +1847,13 @@ function situationSide(side) {
      contests (value null) wears none. An Ooze Merging is ringed in the
      band's own green. */
   const mergeBand = side.bands.find((band) => band.merge);
-  const notes = [
-    ...side.modifiers.map((modifier) => h("span", {}, modifier)),
-    side.ability ? h("span", { class: "situation-ability" }, side.ability) : null,
-  ].filter(Boolean);
+  const modifiers = side.modifiers.map((modifier) => h("span", {}, modifier));
+  const ability = side.ability
+    ? h("span", { class: "situation-ability" }, side.ability) : null;
+  const mutedLine = (notes) => notes.length
+    ? h("div", { class: "situation-notes" },
+      notes.flatMap((note, i) => (i ? [" · ", note] : [note])))
+    : null;
   return h("div", { class: wall ? "situation-side wall" : "situation-side", style: `--side: ${side.colour}` },
     side.players.length
       ? h("div", { class: wall ? "situation-portraits wall" : "situation-portraits" },
@@ -1885,10 +1891,13 @@ function situationSide(side) {
             }),
             band.text)))
         : null,
-      notes.length
-        ? h("div", { class: "situation-notes" },
-          notes.flatMap((note, i) => (i ? [" · ", note] : [note])))
-        : null,
+      side.total
+        ? [
+          mutedLine(modifiers),
+          h("div", { class: "situation-skill" }, side.total),
+          mutedLine([ability].filter(Boolean)),
+        ]
+        : mutedLine([...modifiers, ability].filter(Boolean)),
       side.players.flatMap((player) => player.abilities.map((ability) =>
         situationAbility(ability, wall ? player.short : null))),
     ),

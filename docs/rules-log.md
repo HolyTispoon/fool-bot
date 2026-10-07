@@ -188,6 +188,26 @@ ooze"*, and answered what the sheet leaves open the same day.
   author: *"oozes can't merge into injury tests"*), nor an own-goal roll or a shootout test,
   which are not fought out on the ball's space.
 
+### 2026-10-07 -- author, board 10's midfield pair is dealt to spaces 5 and 6
+
+**A rule changed.** The standard deal on board 10 (3.2.2), which the 2026-10-06 entry below
+settled as home on 1, 3, 4, 5, 8 and 10, moves midfield to the middle: *"for 10 space board,
+the standard set up of players should place the 2 players that are in the midfield in spaces 5
+and 6"* (the author). Asked which of the two stands on a side's own kickoff space -- and so
+holds the ball at kickoff -- the author answered *the Midfielder*.
+
+- **Home deals to 1, 3, 5, 6, 8 and 10 on board 10**, the Midfielder on 5 and the Playmaker on
+  6; **the visitors deal the mirror of it**, the Midfielder on 6 and the Playmaker on 5. Both
+  sides' midfield pairs share spaces 5 and 6, and each side's Midfielder is on its own kickoff
+  space (2.4.1).
+- **On board 10 the Midfielder kicks off with the ball**; on boards 7 and 9 it is still the
+  Playmaker, whose deal puts them on the one kickoff space.
+- **Boards 7 and 9 are unchanged.** Their three-space midfield has a single middle space, so
+  the pair stays packed against the side's own end -- spaces 4 and 5 for home on board 9 --
+  which is what *"nearer that side's own end"* in 3.2.2 now says.
+- **Nothing a formation change deals changed**: this is the standard deal alone (14.7), and
+  every formation still covers each side's own kickoff space.
+
 ### 2026-10-06 -- author, standard is recommended board 9, and board 10 advanced alone
 
 **A rule changed.** The recommendation (3.1.1) the entry below settled as *"9 or 10"* for

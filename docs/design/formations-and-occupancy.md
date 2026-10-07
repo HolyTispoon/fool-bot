@@ -37,10 +37,18 @@ and a future shape or board would need it.
 **The deal spreads an outer zone's pair and packs midfield**, which is
 `setup_space_order` and only ever visible on boards 9 and 10 -- the boards
 whose zones are deeper than 2-2-2 fills them. An outer zone's two cards take its
-two end spaces and midfield clumps toward that side's own goal, so home deals
-spaces 1, 3, 4, 5, 7 and 9 on board 9 and 1, 3, 4, 5, 8 and 10 on board 10 (see
-"Setup" in the living rules, and the 2026-08-12 and 2026-10-06 entries in the
-rules log). The clumped half is not an oversight: the
+two end spaces and midfield packs into its own middle, leaning toward that
+side's own goal where it cannot be centred, so home deals spaces 1, 3, 4, 5, 7
+and 9 on board 9 and 1, 3, 5, 6, 8 and 10 on board 10 (see "The standard deal"
+in the living rules, and the 2026-08-12, 2026-10-06 and 2026-10-07 entries in
+the rules log). On board 10 both sides' pairs share spaces 5 and 6, and because
+each side deals from its own end, its first card -- the Midfielder -- lands on
+its own kickoff space and holds the ball when that side kicks off; on boards 7
+and 9 it is the Playmaker. The author chose the Midfielder (2026-10-07). Keeping
+the Playmaker there would have meant dealing the pair from the far end, and
+then the card rows under the board (`draw_assignment_cards`) would read in the
+opposite order to the meeples above them. The clumped half is
+not an oversight: the
 kickoff space is in midfield and **every** arrangement has to cover its own
 side's (2026-08-16, and before that only the side kicking off), so spreading
 two cards over a three-space midfield would empty the middle and hold the coach
