@@ -177,9 +177,10 @@ ooze"*, and answered what the sheet leaves open the same day.
   that's what the card says. So there's no extra cost for merge there."* Glompex who stepped
   onto the ball Merges into every roll of that maneuver free and unasked; a Glompex who was
   already standing there Merges as any Ooze does, for 1.
-- **The token brings no injury check for that test**, since a Merging Ooze is not one of the
-  players rolling (15.3); it counts toward the next check they roll in. Not asked -- the
-  injury check's own wording (Law 15.3.1, "every Exhausted participant").
+- **A Merging Ooze owes the injury check as the two rolling do** (15.3.1, 20.5.2; the author,
+  asked: *"yes, a merging ooze owe an injury test"*). An Exhausted Ooze who Merged into any roll
+  of a skill test or contest rolls one when it resolves; a score attempt still causes none. It
+  was first read the other way, from 15.3.1's "every Exhausted participant".
 - **Dinky always Merges**, and now Overdrives and Boosts too, unless it would leave the
   Cyborg Drained (the author, later the same day: *"dinky should always merge unless injured
   ... dinky should also overdrive/boost unless it gives the cyborg enough drain to become

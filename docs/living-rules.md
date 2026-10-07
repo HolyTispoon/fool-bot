@@ -783,7 +783,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 15.3 The injury check
 
-**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
+**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant -- the two who rolled, and anyone who [Merged](#205-slimey-ooze) (20.5) into it -- rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
 **15.3.2** Tokens added for that very test count, including the ones a re-roll charged.
 
@@ -1193,7 +1193,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Pass contest](#104-the-high-pass-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling may **exhaust 1** to add to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Each such Ooze is its coach's own choice, and each that Merges pays -- two of them add twice and exhaust 1 each. An [injured](#154-playing-injured) (15.4) Ooze cannot Merge.
 
-**20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. An Ooze who Merges is not one of the players rolling, so the token never brings them an [injury check](#153-the-injury-check) (15.3) for that test -- it counts toward the next one they roll in.
+**20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
 
 **20.5.3** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots may exhaust 1 to add their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
 
