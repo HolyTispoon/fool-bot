@@ -288,7 +288,6 @@ AI_ANSWER_CARRY: Mapping[PromptKind, CarryFrom] = {
     PromptKind.RUN_BACK_PLAYER: 0,
     PromptKind.RUN_BACK_SPACE: 0,
     PromptKind.LOW_PASS_CHOICE: 0,
-    PromptKind.PASSER_ADVANCE: 0,
     PromptKind.HIGH_PASS_CHOICE: 0,
     PromptKind.SETUP_PASS_CHOICE: 0,
     PromptKind.DOUBLE_TEAM_PARTNER: 0,

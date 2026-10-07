@@ -670,16 +670,15 @@ class PasserAdvanceView(SafeView):
         self.add_item(stay_button)
 
     async def advance(self, interaction: discord.Interaction) -> None:
-        await self._answer(interaction, "advance", "Moved forward.")
+        await self._answer(interaction, "advance")
 
     async def stay(self, interaction: discord.Interaction) -> None:
-        await self._answer(interaction, "stay", "Stayed.")
+        await self._answer(interaction, "stay")
 
     async def _answer(
         self,
         interaction: discord.Interaction,
         choice: str,
-        answered: str,
     ) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
@@ -694,11 +693,18 @@ class PasserAdvanceView(SafeView):
 
         result = await self.apply(
             interaction, game, Action(PromptKind.PASSER_ADVANCE, choice),
-            carry_from=0,
         )
         if result is None:
             return
-        await interaction.response.edit_message(content=answered, view=None)
+        # The prompt shares its message with the pass's own line, so
+        # the buttons go and the words stay -- the speed choice's
+        # shape. The step forward is its own line, posted at once, so
+        # it reads before anything the move leads to (a Mind Pull on
+        # the pass, the loose ball); staying says nothing at all.
+        await interaction.response.edit_message(view=None)
+        lines = " ".join(result.answer)
+        if lines:
+            await send_new_prompt(interaction, lines)
         await self.cog.present(interaction, game, result)
 
 

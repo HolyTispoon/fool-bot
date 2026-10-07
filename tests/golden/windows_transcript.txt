@@ -743,7 +743,7 @@ Time has advanced 1, now at 24.
 **Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
 --- message
 🟣 Emberdash [PM] moves a space forward.
-
+--- message
 Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -806,8 +806,6 @@ Time has advanced 1, now at 26.
 
 <@111> 🟠 Spectra [MF] may move a space forward, or stay where they are:
 === press 66: PasserAdvanceView -> 'Spectra [MF] stays'
---- message
-Stayed.
 --- message
 Ball is now in space 2, 🟠 Player 1 (Home) has possession.
 --- message
