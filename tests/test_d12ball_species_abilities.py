@@ -1350,6 +1350,67 @@ class MergeBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Either player can roll.", said)
 
 
+class DinkyMergesOnDiscordTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Dinky always Merges (the author, 2026-10-07), and on Discord what
+    it declared follows the coach's own press in one message, while
+    the roll stays on the message the press came from.
+    """
+
+    async def test_dinky_s_merge_follows_the_coach_s_pass(self) -> None:
+        cog = build_ignition_cog()
+        game = build_game(
+            player_1_team=Team.OOZES, player_2_team=Team.OOZES,
+            player_2_id=None,
+        )
+        cog.games[game.game_id] = game
+        match = build_match(cog.engine, game)
+        human = TeamSide.HOME if game.home_player_number == 1 else (
+            TeamSide.VISITING
+        )
+        dinky = TeamSide.VISITING if human is TeamSide.HOME else TeamSide.HOME
+        offense, human_ooze = match.setup_for_side(human).field_players[:2]
+        challenger, dinky_ooze = match.setup_for_side(dinky).field_players[:2]
+        zone, space_index = match.board.meeple_position(offense)
+        match.ball.possession = human
+        match.set_ball_space(zone, space_index)
+        for player_id in list(match.board.spaces[zone][space_index]):
+            if player_id != offense:
+                match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
+        for player_id in (challenger, human_ooze, dinky_ooze):
+            match.board.place_meeple(player_id, zone, space_index)
+        match.active_player_id = offense
+        match.challenger_id = challenger
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        game.match_state = match.to_dict()
+        self.assertEqual(
+            pending_prompt(cog.engine, game, match).options.undecided_sides,
+            (human, dinky),
+        )
+
+        view = SkillTestView(cog, game.game_id)
+        interaction = build_ignition_interaction()
+        interaction.user = SimpleNamespace(id=111, display_name="")
+        interaction.data = {
+            "custom_id": f"d12ball:overdrive_pass:g1:{human.value}",
+        }
+        interaction.response.is_done = lambda: True
+        with suppressed_cog_saves():
+            await view.pass_on_overdrive(interaction)
+        said = followup_messages(interaction)
+        self.assertIn("passes on Merge", said[0])
+        self.assertIn("**Merge**", said[1])
+        redrawn = interaction.response.edit_message.await_args.kwargs["view"]
+        self.assertFalse(
+            OverdriveBeforeTheDieTests.button(
+                redrawn, "Roll the skill test",
+            ).disabled,
+        )
+        match = cog.engine.load_match_state(game)
+        self.assertEqual(match.pending_merge, [dinky_ooze])
+
+
 class DamagedWordingTests(unittest.TestCase):
     """
     "A Cyborg who fails an injury check is Damaged, not Injured ...

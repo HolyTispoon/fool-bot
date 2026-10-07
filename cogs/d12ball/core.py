@@ -47,6 +47,7 @@ from d12ball.flow import driver
 from d12ball.flow.turn import injured_word_and_emoji
 from d12ball.prompts import (
     OPTIONS,
+    ROLL_KINDS,
     SCORE_ATTEMPT_ASK,
     PendingPrompt,
     PromptKind,
@@ -297,6 +298,10 @@ AI_ANSWER_CARRY: Mapping[PromptKind, CarryFrom] = {
     PromptKind.MIND_PULL: lambda answered: (
         1 if answered.detail is None or not answered.detail.pulled else 0
     ),
+    # Dinky's declarations before the die -- a Merge, an Overdrive, a
+    # Boost, a pass -- open the roll's own message rather than each
+    # being one: they are what the roll is about to add.
+    **{kind: 0 for kind in ROLL_KINDS},
 }
 
 

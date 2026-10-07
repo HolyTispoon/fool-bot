@@ -491,3 +491,7 @@ class ScoreAttemptView(SafeView):
             content=prompt.ask,
             view=self.cog.view_for_prompt(self.game_id, result.match, prompt),
         )
+        # What was declared on the shot is called off with it, tokens
+        # and all: said once, after the prompt it went back to.
+        if result.answer:
+            await send_new_prompt(interaction, " ".join(result.answer))

@@ -2713,19 +2713,31 @@ class MatchState:
         `start_set_up_shot`/`begin_shot_action` just committed to,
         rather than being withheld for one of them.
 
-        **Not once anyone has declared before the die**: an Overdrive,
-        a Boost or a Merge has spent its tokens on this roll, so the
-        shot is no longer a choice nothing has followed -- and walking
-        it back would leave the paid declaration waiting for the next
-        roll, which would take it free.
+        A declaration already made on the shot -- a Merge, an Overdrive,
+        a Boost -- does not hold it: walking the shot back calls them
+        off and gives their tokens back (`rolls.retract_shot_step`).
         """
-        return self.pending_action == "shoot" and not self.declared_before_roll()
+        return self.pending_action == "shoot"
 
-    def declared_before_roll(self) -> bool:
-        """Whether anybody has paid for a declaration on the roll at hand."""
-        return bool(
-            self.pending_overdrive or self.pending_boost or self.pending_merge
+    def refund_exhaustion(
+        self, player_id: str, amount: int, threshold: int,
+    ) -> int:
+        """
+        Give back tokens a declaration that was called off had charged
+        -- `recover_exhaustion`, re-testing Exhausted, and taken off the
+        open turn's own tally too, which `add_exhaustion` wrote them
+        onto: tokens handed back were never what the turn cost.
+        """
+        removed = self.recover_exhaustion(player_id, amount, threshold)
+        turn = self.current_turn_event()
+        charged = (
+            turn.details.get("exhaustion") if turn is not None else None
         )
+        if removed and charged and player_id in charged:
+            charged[player_id] -= removed
+            if charged[player_id] <= 0:
+                del charged[player_id]
+        return removed
 
     def retract_pending_shot(self) -> None:
         """

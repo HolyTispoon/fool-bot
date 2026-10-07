@@ -561,11 +561,12 @@ def ai_action(
     a strategy that names a card not in its hand is refused rather
     than written into the match. `asked_sides` is the one reading of
     whose question a prompt is; the AI answers the first of its sides
-    the prompt is still waiting on. A roll is nobody's question --
-    and never the AI's even where it waits on a coach's Overdrive,
-    since the AI declares none -- so the AI never rolls (CLAUDE.md,
-    "Nothing rolls dice on its own"), and a two-sided prompt is
-    answered one side at a time.
+    the prompt is still waiting on. A roll is nobody's question
+    except while a side's declaration before the die is open -- the
+    AI's too, which Merges and Overdrives -- and then it is the
+    declaration that is asked, never the die: the AI never rolls
+    (CLAUDE.md, "Nothing rolls dice on its own"), and a two-sided
+    prompt is answered one side at a time.
 
     `GameService.run` is what loops on this; a driver-level caller
     with no service (`tests/test_driver_full_game.py`) asks it the

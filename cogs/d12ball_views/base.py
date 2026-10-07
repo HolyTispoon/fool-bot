@@ -655,7 +655,8 @@ class SafeView(discord.ui.View):
         self, interaction: discord.Interaction, result,
     ) -> None:
         """
-        Say what an Overdrive, a Boost or a pass did, and redraw the
+        Say what an Overdrive, a Boost, a Merge or a pass did -- and what
+        the AI then declared, where it decides next -- and redraw the
         roll it was pressed on.
 
         **The prompt is rebuilt on this same message** (the author,
@@ -680,6 +681,16 @@ class SafeView(discord.ui.View):
             view=self.redrawn(result.match, waiting),
         )
         await send_new_prompt(interaction, result.answer[0])
+        # Dinky deciding next, in the same run: what it declared, in one
+        # message after the press it followed -- the roll stays on this
+        # message, so nothing else of the result is put up again.
+        said = [
+            line
+            for group in result.groups
+            for line in group.lines
+        ] + list(result.narration)
+        if said:
+            await send_new_prompt(interaction, " ".join(said))
 
     def redrawn(self, match: MatchState, prompt) -> discord.ui.View:
         """

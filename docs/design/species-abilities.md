@@ -809,8 +809,9 @@ seventh gets it in one line.
   2026-10-02: *"the player with the cyborg needs to decide if they're using the
   ability before the dice are rolled"*). Blind before the die was not enough
   when the other coach could press Roll first. `RollOptions.undecided_sides`
-  is the reading: the sides with an Overdrive or a Boost still on offer for
-  this roll, never an AI side (the AI declares nothing), and its first,
+  is the reading: the sides with an Overdrive, a Boost or a Merge still on
+  offer for this roll -- an AI side's too since 2026-10-07, which Dinky
+  answers (see "Slimey" below) -- and its first,
   `deciding_side`, is who decides now. It is what `asked_sides` returns for a
   roll, so the Discord ask pings that coach and the web page puts the question
   to them alone, and `_whose_roll` rewrites the ask's "Either player can roll"
@@ -946,21 +947,31 @@ different player, so it is built on Overdrive's pieces rather than beside them:
 - **A Merging Ooze owes no injury check for that test**: it is not one of
   the two rolling, and the check is the participants' (Law 15.3.1). The
   token counts toward the next check they roll in.
-- **The AI declares nothing**, as it never Overdrives: `undecided_sides`
-  leaves an AI side out, and `merge_offers` leaves its Oozes out too (a
-  button for them would be one no coach owns), so an AI's Oozes never Merge. Teaching the AI to
-  declare would make a roll the AI's question, which `asked_sides` says it
-  never is -- a change of its own, not this one's.
+- **Dinky declares before the die** (the author, 2026-10-07: *"dinky should
+  always merge unless injured"*, and *"also overdrive/boost unless it gives
+  the cyborg enough drain to become drained"*). An AI side is in
+  `undecided_sides` like a coach's, so `asked_sides` hands the roll to it
+  while it decides and `GameService.run` answers for it -- the declaration,
+  never the die (`DinkyAI._before_the_die`). One declaration an answer:
+  Overdrive first, then Boost, each only while it fits in
+  `RollOptions.drain_room` (the engine's threshold less what the Cyborg
+  carries, so the AI never re-reads the Drained line), then every Merge,
+  then a pass. On Discord its lines open the roll's message
+  (`AI_ANSWER_CARRY`), and after a coach's own press they follow it in one
+  message (`SafeView.answer_declaration`).
 - **Glompex's join pays for his Merge** (Law 21.6.1, the author: *"spend 1
   to move & merge ... no extra cost for merge there"*). `join_the_ball_step`
   puts him in `MatchState.merge_joined`, which Merges him into every roll of
   that maneuver unasked and is cleared with it (`reset_maneuver`). A Glompex
   already standing on the ball Merges as any Ooze does, for 1.
 
-- **A shot somebody has paid on stands.** `may_cancel_pending_shot` is
-  false once any declaration is paid (`declared_before_roll`), because
-  Back used to leave a paid Overdrive -- and now a Merge -- waiting for
-  the next roll, which then took it free.
+- **Back calls the shot's declarations off** (the author, 2026-10-07: *"it
+  would cancel the merge/overdrive"*). `retract_shot_step` gives every
+  Merge, Overdrive and Boost on it its tokens back
+  (`MatchState.refund_exhaustion`, which takes them off the turn's own
+  tally too), spends the declarations, and says so in a line. Back used
+  to leave a paid Overdrive waiting for the next roll, which then took it
+  free.
 
 **Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
 twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines

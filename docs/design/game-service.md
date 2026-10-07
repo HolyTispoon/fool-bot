@@ -125,7 +125,11 @@ prompt is, the third reader over the chain beside `pending_prompt`
 and `owed_step` -- and if it is, puts the strategy's `Action` through
 `driver.answer` exactly as a click goes, then carries on. A roll is
 nobody's question, so the loop stops there and the AI never rolls
-(CLAUDE.md, "Nothing rolls dice on its own"). A strategy whose answer
+(CLAUDE.md, "Nothing rolls dice on its own") -- except that while the
+AI's side still has a declaration open on it (a Merge, an Overdrive, a
+Boost), the roll is the AI's question and it answers the declaration,
+one an answer, before the loop stops on the die (2026-10-07; see
+"Slimey" in [species-abilities.md](species-abilities.md)). A strategy whose answer
 is refused is a bug and raises: the prompt offered what it offered,
 and `AIStrategy.choose` read the offer. `MAX_AI_ANSWERS` is the guard
 against a strategy that answers without moving the position, since

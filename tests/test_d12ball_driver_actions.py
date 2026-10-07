@@ -28,6 +28,7 @@ the reason the check is in the model rather than in each view.
 from __future__ import annotations
 
 import unittest
+from typing import Optional
 from unittest import mock
 
 from d12ball import tutorial
@@ -859,21 +860,75 @@ class DieWaitsOnOverdriveTests(ApplyFixture):
                 "decides on Overdrive next", passed.result.narration[0],
             )
 
-    def test_the_ai_never_holds_the_die(self) -> None:
+    def ai_cyborg_skill_test(self, *, drained_but: Optional[int] = None):
         """
-        The AI declares nothing, so its Cyborgs leave the roll to the
-        other coach alone -- and the AI is never asked a roll.
+        The two-Cyborg skill test with player 2 the AI, the human
+        deciding first passed -- so the roll waits on Dinky. With
+        `drained_but`, the AI's Cyborg carries that many tokens short
+        of Drained.
         """
         fixture = self.cyborg_skill_test()
         fixture.game.player_2_id = None
-        human = TeamSide.HOME if fixture.game.home_player_number == 1 else (
-            TeamSide.VISITING
+        ai_side = next(
+            side for side in (TeamSide.HOME, TeamSide.VISITING)
+            if ENGINE.side_is_ai(fixture.game, side)
         )
-        self.assertEqual(self.options(fixture).undecided_sides, (human,))
-        prompt = pending_prompt(ENGINE, fixture.game, fixture.match)
-        self.assertIsNone(
-            driver.ai_action(ENGINE, fixture.game, fixture.match, prompt),
+        match = fixture.match
+        ai_roller = next(
+            player_id
+            for player_id in (match.active_player_id, match.challenger_id)
+            if match.side_for_player(player_id) == ai_side
         )
+        if drained_but is not None:
+            match.exhaustion[ai_roller] = (
+                ENGINE.exhaustion_threshold(fixture.game, ai_roller)
+                - drained_but
+            )
+        self.assertIn(ai_side, self.options(fixture).undecided_sides)
+        human = next(
+            side for side in self.options(fixture).undecided_sides
+            if side != ai_side
+        )
+        if self.options(fixture).deciding_side == human:
+            self.act(fixture, "pass", side=human.value)
+        return fixture, ai_side, ai_roller
+
+    def dinky(self, fixture):
+        return driver.ai_action(
+            ENGINE, fixture.game, fixture.match,
+            pending_prompt(ENGINE, fixture.game, fixture.match),
+        )
+
+    def test_dinky_overdrives_while_it_stays_out_of_drained(self) -> None:
+        """
+        *"dinky should also overdrive/boost unless it gives the cyborg
+        enough drain to become drained"* (the author, 2026-10-07).
+        """
+        fixture, _, roller = self.ai_cyborg_skill_test()
+        action = self.dinky(fixture)
+        self.assertEqual(
+            (action.choice, action.arguments),
+            ("overdrive", {"player_id": roller}),
+        )
+        self.assertNotIsInstance(
+            driver.apply(ENGINE, fixture.game, fixture.match, action),
+            driver.Refusal,
+        )
+        self.assertNotIn(roller, fixture.match.exhausted)
+
+    def test_dinky_passes_where_the_overdrive_would_drain(self) -> None:
+        # One token more and the Cyborg is Drained: no Overdrive (3, or
+        # Voltus's 2) and no Boost (1) leaves them out of it.
+        fixture, ai_side, _ = self.ai_cyborg_skill_test(drained_but=0)
+        action = self.dinky(fixture)
+        self.assertEqual(
+            (action.choice, action.arguments), ("pass", {"side": ai_side.value}),
+        )
+        self.assertNotIsInstance(
+            driver.apply(ENGINE, fixture.game, fixture.match, action),
+            driver.Refusal,
+        )
+        self.assertEqual(self.options(fixture).undecided_sides, ())
 
     def test_with_nothing_to_declare_either_coach_may_roll(self) -> None:
         fixture = self.cyborg_skill_test()
@@ -1435,25 +1490,30 @@ class ButtonRuleTests(ApplyFixture):
         )
         self.assertIn("shot stands", refusal.reason)
 
-    def test_a_shot_somebody_has_paid_on_is_never_walked_back(self) -> None:
+    def test_back_calls_off_what_was_declared_on_the_shot(self) -> None:
         """
-        A declaration before the die spends its tokens on this roll, so
-        the shot stands: walking it back would leave the paid Merge or
-        Overdrive waiting for the next roll, which would take it free.
+        Walking a shot back calls off its declarations and gives their
+        tokens back (the author, 2026-10-07): left in place, a paid
+        Merge or Overdrive would ride onto the next roll free.
         """
         fixture = _case("score attempt")
         match = fixture.match
-        self.assertTrue(
-            pending_prompt(ENGINE, fixture.game, match).options.back,
+        teammate = next(
+            player_id
+            for player_id in match.setup_for_side(match.ball.possession)
+            .field_players
+            if player_id != match.active_player_id
         )
-        match.pending_merge.append(match.active_player_id)
-        self.assertFalse(
-            pending_prompt(ENGINE, fixture.game, match).options.back,
+        before = match.exhaustion.get(teammate, 0)
+        match.declare_merge(teammate)
+        run = driver.apply(
+            ENGINE, fixture.game, match,
+            driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
         )
-        refusal = _refused(
-            fixture, driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
-        )
-        self.assertIn("so it stands", refusal.reason)
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertEqual(match.pending_merge, [])
+        self.assertEqual(match.exhaustion.get(teammate, 0), before)
+        self.assertIn("Merge is called off", run.result.narration[0])
 
     def test_declining_a_challenge_a_defender_on_the_ball_owes_is_refused(
         self,
@@ -1638,15 +1698,16 @@ class AIAnswerTests(ApplyFixture):
                 reached.add(prompt.kind)
         # Every question Dinky can be asked was asked of it at least
         # once, on some fixture: a kind missing here is a branch of
-        # `DinkyAI.choose` nothing is watching.
-        self.assertEqual(reached, set(DinkyAI.ANSWERS))
+        # `DinkyAI.choose` nothing is watching. The rolls' one branch,
+        # the declarations before the die, is asked on species fixtures
+        # of its own (`DinkyBeforeTheDieTests`, `MergeDeclarationTests`).
+        self.assertEqual(reached, set(DinkyAI.ANSWERS) - driver.ROLL_KINDS)
 
-    def test_dinky_is_never_asked_a_roll(self) -> None:
+    def test_dinky_never_throws_the_die(self) -> None:
         """
         Every roll waits behind a button either coach may press
-        (CLAUDE.md, "Nothing rolls dice on its own"): a roll prompt is
-        nobody's question, so the service never answers one for the
-        AI, on either side of the board.
+        (CLAUDE.md, "Nothing rolls dice on its own"): the AI is asked
+        a roll only for what it declares before the die, never the die.
         """
         for case in CASES:
             if not case.asked or PromptKind[case.kind] not in driver.ROLL_KINDS:
@@ -1656,8 +1717,11 @@ class AIAnswerTests(ApplyFixture):
                     fixture = case.build()
                     game = self._solo(fixture, ai_number)
                     prompt = pending_prompt(ENGINE, game, fixture.match)
-                    self.assertIsNone(
-                        driver.ai_action(ENGINE, game, fixture.match, prompt),
+                    action = driver.ai_action(
+                        ENGINE, game, fixture.match, prompt,
+                    )
+                    self.assertNotEqual(
+                        getattr(action, "choice", None), "roll",
                     )
 
     def test_the_kinds_nobody_owns_are_the_rolls_and_the_two_with_no_side(
@@ -1668,8 +1732,12 @@ class AIAnswerTests(ApplyFixture):
             driver.ROLL_KINDS
             | {PromptKind.TUTORIAL_CONTINUE, PromptKind.GAME_OVER},
         )
+        # A roll is asked of Dinky for its declarations alone, and
+        # never the injury check, which nobody declares on.
         self.assertEqual(
-            set(DinkyAI.ANSWERS), set(PromptKind) - NOBODYS_QUESTIONS,
+            set(DinkyAI.ANSWERS),
+            set(PromptKind) - NOBODYS_QUESTIONS
+            | (driver.ROLL_KINDS - {PromptKind.INJURY_TEST}),
         )
 
 
@@ -1878,19 +1946,38 @@ class MergeDeclarationTests(ApplyFixture):
         self.assertEqual(refusal.law, "slimey-ooze")
         self.assertEqual(fixture.match.to_dict(), before)
 
-    def test_an_ai_side_is_never_waited_on(self) -> None:
-        """The AI declares nothing before a roll, Merge as Overdrive."""
+    def test_dinky_always_merges(self) -> None:
+        """
+        *"dinky should always merge unless injured"* (the author,
+        2026-10-07): the roll waits on the AI's side like a coach's,
+        and Dinky's answer is a Merge, then nothing left to decide.
+        """
         fixture = self.ooze_skill_test(ai_visitors=True)
+        match = fixture.match
         ai_side = next(
             side for side in (TeamSide.HOME, TeamSide.VISITING)
             if ENGINE.side_is_ai(fixture.game, side)
         )
-        self.assertNotIn(ai_side, self.options(fixture).undecided_sides)
-        self.assertFalse(any(
-            fixture.match.side_for_player(player_id) == ai_side
-            for player_id in self.options(fixture).merge_player_ids
+        ai_ooze = (
+            self.visiting_ooze if ai_side is TeamSide.VISITING
+            else self.home_ooze
+        )
+        self.assertIn(ai_side, self.options(fixture).undecided_sides)
+        # The human attacker decides first.
+        self.act(fixture, "pass", side=TeamSide.HOME.value)
+        prompt = pending_prompt(ENGINE, fixture.game, match)
+        action = driver.ai_action(ENGINE, fixture.game, match, prompt)
+        self.assertEqual(
+            (action.choice, action.arguments),
+            ("merge", {"player_id": ai_ooze}),
+        )
+        merged = driver.apply(ENGINE, fixture.game, match, action)
+        self.assertNotIsInstance(merged, driver.Refusal)
+        self.assertEqual(self.options(fixture).undecided_sides, ())
+        self.assertIsNone(driver.ai_action(
+            ENGINE, fixture.game, match,
+            pending_prompt(ENGINE, fixture.game, match),
         ))
-        self.assertEqual(len(self.options(fixture).undecided_sides), 1)
 
     def test_a_glompex_who_joined_merges_free_and_unasked(self) -> None:
         """His join's token paid for the Merge (Law 21.6.1)."""

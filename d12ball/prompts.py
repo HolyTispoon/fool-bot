@@ -626,10 +626,10 @@ class RollOptions:
     # or Voltus's 2 -- so a button's label is the prompt's number and
     # not a second reading of the rule.
     overdrive_costs: tuple[tuple[str, int], ...] = ()
-    # The sides still to decide on this roll: those with an Overdrive
-    # or a Boost still open, whose coach has neither taken every one
-    # nor passed -- attacker first, in the rollers' order. Never an AI
-    # side, which declares nothing, so the AI is never asked a roll.
+    # The sides still to decide on this roll: those with an Overdrive,
+    # a Boost or a Merge still open, whose coach has neither taken
+    # every one nor passed -- attacker first, in the rollers' order. An
+    # AI side among them is asked the declaration, never the die.
     # Empty is the roll either coach may press.
     undecided_sides: tuple[TeamSide, ...] = ()
     # **Merge** (Law 20.5): the Oozes -- and a Double Team's partner --
@@ -638,6 +638,11 @@ class RollOptions:
     # button says it without a second reading of the rule. Each is
     # its own declaration: the author's "a choice for every ooze".
     merge_offers: tuple[tuple[str, int], ...] = ()
+    # How many more tokens each Cyborg offered an Overdrive or a Boost
+    # may take before they are Drained, `(player_id, room)` -- the
+    # engine's threshold less what they carry, so the AI can keep a
+    # Cyborg out of Drained without a second reading of the line.
+    drain_room: tuple[tuple[str, int], ...] = ()
     # What each undecided side still has open, `(side, keys)` in
     # `undecided_sides`' order, the keys as `CHOICES` spells them --
     # Overdrive, Boost or both -- so the hold names what it waits on.
@@ -663,6 +668,9 @@ class RollOptions:
     def merge_value(self, player_id: str) -> int:
         return dict(self.merge_offers).get(player_id, 0)
 
+    def room_to_drain(self, player_id: str) -> int:
+        return dict(self.drain_room).get(player_id, 0)
+
     def overdrive_cost(self, player_id: str) -> int:
         return dict(self.overdrive_costs).get(
             player_id, OVERDRIVE_DRAIN_COST,
@@ -675,6 +683,9 @@ class RollOptions:
             "boost_player_ids": list(self.boost_player_ids),
             "merge_offers": {
                 player_id: value for player_id, value in self.merge_offers
+            },
+            "drain_room": {
+                player_id: room for player_id, room in self.drain_room
             },
             "overdrive_costs": {
                 player_id: cost for player_id, cost in self.overdrive_costs
@@ -1644,8 +1655,9 @@ def asked_sides(
     """
     kind = prompt.kind
     if kind in ROLL_KINDS and prompt.options is not None:
-        # A roll is nobody's question until a coach has an Overdrive
-        # or a Boost to decide on first: then it is theirs.
+        # A roll is nobody's question until a coach -- or the AI -- has
+        # an Overdrive, a Boost or a Merge to decide on first: then the
+        # declaration is theirs, and the die still nobody's.
         deciding = prompt.options.deciding_side
         return () if deciding is None else (deciding,)
     if kind in NOBODYS_QUESTIONS:
@@ -1678,9 +1690,9 @@ def asked_sides(
 
 #: The prompts nobody in particular is asked, and so never the AI:
 #: either coach may press the roll, and the other two have no side at
-#: all. A roll is a coach's question only while their Cyborg's
-#: declaration is open (`RollOptions.deciding_side`), which is never
-#: an AI side's.
+#: all. A roll is a side's question only while its declaration is
+#: open (`RollOptions.deciding_side`) -- the AI's too, which declares
+#: and never rolls.
 NOBODYS_QUESTIONS = frozenset({
     PromptKind.TUTORIAL_CONTINUE,
     PromptKind.GAME_OVER,
@@ -2404,12 +2416,7 @@ def _declarations(
     rollers = overdrive_rollers(match, prompt)
     overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
     boosts = tuple(engine.boost_candidates(game, match, rollers))
-    # An AI side declares nothing (`undecided_sides`), so its Oozes are
-    # offered to nobody: a button for them would be one no coach owns.
-    sides = tuple(
-        (side, skill) for side, skill in merge_sides(match, prompt)
-        if not engine.side_is_ai(game, side)
-    )
+    sides = merge_sides(match, prompt)
     merge_offers = tuple(
         (player_id, engine.merge_value(game, player_id, skill))
         for side, skill in sides
@@ -2435,6 +2442,14 @@ def _declarations(
         "overdrive_player_ids": overdrives,
         "boost_player_ids": boosts,
         "merge_offers": merge_offers,
+        "drain_room": tuple(
+            (
+                player_id,
+                engine.exhaustion_threshold(game, player_id)
+                - match.exhaustion.get(player_id, 0),
+            )
+            for player_id in dict.fromkeys(overdrives + boosts)
+        ),
         "overdrive_costs": tuple(
             (player_id, engine.overdrive_cost(game, player_id))
             for player_id in overdrives
@@ -2470,13 +2485,14 @@ def undecided_sides(
     (`OVERDRIVE_ROLLERS`). Overdrive is declared *before* the die is
     thrown (Law 20.3.5), so each coach decides in turn, and the
     defender decides knowing what the attacker did (the author,
-    2026-10-02). **An AI side is never one**: it declares nothing,
-    and a roll is never the AI's question.
+    2026-10-02). **An AI side is one too** (the author, 2026-10-07):
+    Dinky Merges and Overdrives, so the roll is its question while it
+    decides -- the declaration, never the die (`DinkyAI._before_the_die`).
     """
     sides = []
     for player_id in player_ids:
         side = match.side_for_player(player_id)
-        if side not in sides and not engine.side_is_ai(game, side):
+        if side not in sides:
             sides.append(side)
     return tuple(sides)
 

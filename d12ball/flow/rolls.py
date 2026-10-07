@@ -1530,10 +1530,6 @@ def retract_shot_step(
     prompt: the position is the turn's own again, worded by
     `RulesEngine.build_turn_prompt` as it was the first time.
     """
-    if match.pending_action == "shoot" and match.declared_before_roll():
-        raise RuleRefusal(
-            "Tokens have been spent on this shot, so it stands.",
-        )
     if not match.may_cancel_pending_shot():
         raise RuleRefusal("This score attempt is no longer active.")
     if engine.side_is_ai(game, match.ball.possession):
@@ -1548,9 +1544,16 @@ def retract_shot_step(
             "coach's own shot can be walked back."
         )
 
+    # **What was declared on the shot is called off with it** (the
+    # author, 2026-10-07): a Merge, an Overdrive or a Boost paid for
+    # this roll, which is not going to be rolled -- left in place, it
+    # would ride onto the next roll free.
+    called_off = _call_off_declarations(engine, game, match)
+
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
         return StepResult(
+            narration=called_off,
             next=PendingPrompt(
                 PromptKind.PLAYER_ACTION, engine.build_turn_prompt(game, match),
             ),
@@ -1573,7 +1576,61 @@ def retract_shot_step(
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
-    return StepResult(next=scoring_opportunity_prompt(engine, game, match))
+    return StepResult(
+        narration=called_off,
+        next=scoring_opportunity_prompt(engine, game, match),
+    )
+
+
+def _call_off_declarations(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> list[str]:
+    """
+    Undo every declaration made on the roll at hand, tokens and all,
+    and say so -- a line per player whose tokens came back, nothing
+    where nobody had declared.
+    """
+    refunds: dict[str, int] = {}
+    for player_id in match.pending_overdrive:
+        refunds[player_id] = (
+            refunds.get(player_id, 0) + engine.overdrive_cost(game, player_id)
+        )
+    for player_id in match.pending_boost:
+        refunds[player_id] = refunds.get(player_id, 0) + BOOST_DRAIN_COST
+    for player_id in match.pending_merge:
+        refunds[player_id] = (
+            refunds.get(player_id, 0) + MERGE_EXHAUSTION_COST
+        )
+    named = {
+        player_id: [
+            name for name, held in (
+                ("Overdrive", match.pending_overdrive),
+                ("Boost", match.pending_boost),
+                ("Merge", match.pending_merge),
+            )
+            if player_id in held
+        ]
+        for player_id in refunds
+    }
+    match.consume_overdrive()
+    lines = []
+    for player_id, amount in refunds.items():
+        removed = match.refund_exhaustion(
+            player_id, amount, engine.exhaustion_threshold(game, player_id),
+        )
+        if not removed:
+            continue
+        _, mark = engine.token_word_and_mark(game, player_id)
+        player = engine.get_player_definition(player_id)
+        lines.append(
+            f"{engine.format_player_label(match, player)}'s "
+            f"{' and '.join(named[player_id])} is called off: they clear "
+            f"{removed} {mark * removed} "
+            f"(now {match.exhaustion.get(player_id, 0)} total)."
+        )
+    return lines
 
 
 # -- The shootout test -------------------------------------------------
