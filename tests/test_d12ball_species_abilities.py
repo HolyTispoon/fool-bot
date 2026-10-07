@@ -65,6 +65,8 @@ from cogs.d12ball_views import (
     SkillTestView,
     SmoothView,
 )
+from d12ball.dice_brief import drawn_line
+from d12ball.formatting import player_with_role
 from d12ball.ai import build_ai_strategies
 from d12ball.components import (
     CYBORG_DRAINED_AT,
@@ -2553,6 +2555,17 @@ class MergeTests(unittest.TestCase):
             contributors,
             [(self.engine.get_player_definition(bystander).name,
               self.offense_of(bystander))],
+        )
+        # Named as every message names a player, the number after the
+        # name as every other such line has it -- "Gloopus [MF] +3
+        # (Merge)" on the picture (the author, 2026-10-07).
+        (line,) = lines
+        self.assertTrue(line.startswith("{team:"), line)
+        self.assertIn("{role:", line)
+        self.assertEqual(
+            drawn_line(line),
+            f"{player_with_role(self.engine.get_player_definition(bystander))}"
+            f" +{self.offense_of(bystander)} (Merge)",
         )
 
     def test_the_roller_does_not_add_to_themselves(self):

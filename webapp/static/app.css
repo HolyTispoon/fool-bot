@@ -338,8 +338,6 @@ img { display: block; }
   text-overflow: ellipsis;
 }
 .bench-name.lit { color: var(--gold); }
-.bench-chip-line { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
-.bench-chip-line .chip { white-space: normal; text-align: center; line-height: 1.15; }
 .bench-empty { color: var(--muted); font-size: 12px; padding: 2px 8px; }
 
 /* -- The prompt ------------------------------------------------------------ */
@@ -556,8 +554,14 @@ img { display: block; }
 }
 .outcome-headline strong, .outcome-headline em { color: inherit; font-weight: inherit; font-style: inherit; }
 .outcome-detail { font-size: 17px; font-weight: 700; color: var(--strong); white-space: pre-line; }
-/* The roll's arithmetic, written out by the model (`Headline.working`). */
+/* The roll's arithmetic, written out by the model (`Headline.working`):
+   a column per side, the attack and the defence side by side as the
+   dice picture sets them, a line per addend, the total last. */
 .outcome-working { font-size: 15px; line-height: 1.4; color: var(--text); }
+.working-sides { display: flex; gap: 28px; }
+.working-side { flex: 0 1 auto; min-width: 0; }
+.working-side > :last-child { margin-top: 2px; }
+.working-reading { margin-top: 6px; }
 
 /* The outcome and, at full time, the numbers beside it. */
 .outcome-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px; }
@@ -754,6 +758,7 @@ img { display: block; }
 .choice:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .choice-picture { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 50px; }
 .choice-meeple { cursor: inherit; }
+.choice-body { position: relative; display: inline-flex; }
 .choice-thing {
   min-width: 44px;
   height: 44px;
@@ -1403,27 +1408,13 @@ button.goal { display: block; }
      edge instead, above them by its own z-index. */
 }
 .space.tinted { background: color-mix(in srgb, var(--tint) 12%, var(--panel)); }
-/* A space that is the answer: dashed gold, faintly lit, its chip at
-   the foot. */
+/* A space that is the answer: dashed gold and faintly lit, with no
+   chip -- what choosing it does is its row in the question box. */
 .space.lit {
   border: 2px dashed var(--gold);
   box-shadow: inset 0 0 0 999px rgba(240, 178, 50, 0.10);
   cursor: pointer;
-  /* Room at the foot for the chip, under the names. */
-  padding-bottom: 84px;
 }
-.space-chips {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 6px;
-  z-index: 70;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-.space-chips .chip { max-width: 100%; white-space: normal; text-align: center; line-height: 1.15; }
 .space-code {
   position: absolute;
   top: 6px;
@@ -1451,7 +1442,7 @@ button.goal { display: block; }
    over the lot, and the names one to a line underneath. */
 .fan { position: relative; display: block; flex: none; }
 .fan-piece { position: absolute; }
-.fan-name, .fan-chip-line {
+.fan-name {
   position: absolute;
   transform: translateX(calc(-50% + var(--nudge, 0px)));
   white-space: nowrap;
@@ -1477,7 +1468,6 @@ button.goal { display: block; }
 .chip-cost { display: inline-flex; align-items: center; gap: 3px; }
 .chip-button { font: inherit; padding: 0; border: 0; background: none; cursor: pointer; }
 .chip-button:hover .chip { filter: brightness(1.1); }
-.fan-chip-line { display: inline-flex; gap: 4px; }
 .chip-cost img { width: 14px; height: 14px; }
 /* On the field, which is scaled down with it, a chip is drawn larger. */
 .stage .chip { border-radius: 7px; padding: 3px 9px; font-size: 18px; }
@@ -1834,7 +1824,7 @@ button.goal { display: block; }
   .stage.narrow .goal { flex: 0 0 18px; border-width: 1.5px; border-radius: 6px; }
   .stage.narrow .goal-word { font-size: 15px; gap: 7px; }
   .stage.narrow .goal-chips, .stage.narrow .out-chip,
-  .stage.narrow .space-chips, .stage.narrow .ball-chips { display: none; }
+  .stage.narrow .ball-chips { display: none; }
   .stage.narrow .out-mark { font-size: 16px; }
   .stage.narrow .out-mark::before { width: 24px; height: 24px; top: -4px; }
   .stage.narrow .space {
@@ -1844,7 +1834,7 @@ button.goal { display: block; }
     border-width: 1.5px;
     border-radius: 6px;
   }
-  .stage.narrow .space.lit { padding-bottom: 2px; border-width: 1.5px; }
+  .stage.narrow .space.lit { border-width: 1.5px; }
   .stage.narrow .space-code { top: 2px; left: 4px; font-size: 9px; }
   .stage.narrow .kickoff-ring { width: 26px; height: 26px; border-width: 1.5px; }
   .stage.narrow .lane { min-height: 0; flex: 1 1 0; }

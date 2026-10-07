@@ -1698,10 +1698,8 @@ def attempt_mind_pull_step(
             fails,
             match.ball.possession,
             reaches,
-            roll_working(
-                [(player_label, roll, added, total)],
-                f"**{total}** is under {minimum}: the pull fails.",
-            ),
+            roll_working([(player_label, roll, added, total)]),
+            f"**{total}** is under {minimum}: the pull fails.",
         ), *result.headlines)
         return numbers, result
 
@@ -1724,10 +1722,8 @@ def attempt_mind_pull_step(
             pulls,
             match.ball.possession,
             under,
-            roll_working(
-                [(player_label, roll, added, total)],
-                f"**{total}** is {minimum} or more: the pull lands.",
-            ),
+            roll_working([(player_label, roll, added, total)]),
+            f"**{total}** is {minimum} or more: the pull lands.",
         ),),
         board_changed=True,
         next=FollowOn(

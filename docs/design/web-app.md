@@ -1171,7 +1171,8 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   a meeple, with its cost. The words are the control's chip, or its
   `said` where the field's chip is cut short: the goal's chip on the
   field is "score!" and its row says "shoot to score" (the author,
-  2026-09-29). A thing whose picture says what it is (the
+  2026-09-29). A meeple or a space wears no chip on the field, so for
+  them the row is the one place it is said (below). A thing whose picture says what it is (the
   ball, a goal, a tile, `present.PICTURED`) is not named again beside
   it; a player and a space are. The row presses the same control the
   thing on the field does, so either may be clicked. This replaced a
@@ -1183,6 +1184,9 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   `control` it presses, by group and index -- so it cannot name a
   thing that is not lit and an observer gets none. A thing the box
   draws as a control of its own (a meeple off the field) has no row.
+  A meeple in a row wears its badges as it does on the field -- its
+  token count and its condition -- since the count is what a coach
+  weighs a pick by (the author, 2026-10-07).
   A Coaching Choice's hub lists no players: every one is lit to pick
   up and the hub is answered on the field (the author, 2026-09-26 and
   2026-09-28). Muted under the rows, a railed choice with the
@@ -1246,16 +1250,21 @@ coloured button would be a second signal. A button's colour was the
 frontend's (principle 8) and so is its absence: nothing in the model
 changed for it.
 
+The chip in this table is the control's: what the question box's row
+says beside the thing's picture, and what the field draws beside the
+ball, a goal, the ✕ and a tile. A meeple or a space wears none on the
+field (below).
+
 | Kind (option shape) | What lights, and its chip | The rest |
 | --- | --- | --- |
-| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots", "double teams" | -- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "shoots", "double teams"; the halftime token's pick has none, its row only the name (below) | -- |
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
-| `high_pass_choice`, `setup_pass_choice`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second chip on the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
+| `high_pass_choice`, `setup_pass_choice`, `dribble_advance_choice`, `dribble_burst_choice` (`DistanceOptions`) | the space each distance lands on (`landings`), with who stands there to take a pass, a burst's cost, or how far; Quantor's run a second row for the same space | a pass with nowhere to go is the ✕ on the far goal zone, clicked or with the ball dragged onto it |
 | `low_pass_choice` (`LowPassOptions`) | each receiver's meeple -- or, where teammates share the landing space, the space, which asks "who receives it?" in the box | -- |
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
-| the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each of the viewer's own meeples that may declare Overdrive (with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
+| the six rolls (`RollOptions`) | the large die in the box; each of the viewer's own meeples that may declare Overdrive (a ⚡ chip with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
 | `passer_advance` | the passer's meeple (the prompt's `player_id`), for moving a space forward (Law 6.5.3) | Stay is neutral |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
@@ -1266,9 +1275,33 @@ changed for it.
 | `tutorial_continue` | the note: anywhere on it | -- |
 | `game_over` | the REMATCH mark, which posts to the room's own route | -- |
 
+**No pill on a meeple or a space** (the author, 2026-10-07). A gold
+pill under each lit name ran into the next space's pieces, a crowded
+space stacked one under every name and pushed its fan up the space, and
+a space's pill wrapped to three or four lines in a narrow space. What
+choosing the thing does -- the verb, the distance, the receiver, the
+cost -- is its row in the question box, beside its picture, and its
+title on a hover; the field lights it and says nothing more. Where two
+answers share one meeple or space (Overdrive and Boost, a pass and a
+run onto one space), clicking it on the field sends the first and the
+box has a row for each. The ball, a goal, the ✕, a tile and the sideline
+keep theirs:
+none of them is crowded, and the ball's and a goal's are hidden on the
+phone already. **A meeple in a row wears its badges**, its token count
+and its condition, as it does on the field: the count is what a coach
+weighs a pick by.
+
+**A meeple that may be chosen stands forward of the rest**: raised a
+little on its space (`LIFT`, `LIFT_NARROW` in `app.js`) with its badges
+and the ball, and drawn in front of every other piece and name, as
+well as lit gold (the author, 2026-10-07). **The halftime token's pick
+has no chip at all**: the question already says what picking one does,
+so its row in the box is the name and the meeple's own token badge
+(the author, 2026-10-07).
+
 **A pickup's price is the prompt's.** The run back, the walk-in and Fly
-charge a token a space, so their chips carry the token and the count.
-The ball's recovery chip carries how far each candidate is and what the
+charge a token a space, so their rows carry the token and the count.
+The ball's recovery row carries how far each candidate is and what the
 pickup would charge them, off `PlayerOptions.costs` -- every pickup
 charges a token a space, a time out's included, since the author's
 2026-09-26 change (the time-out pickup was free until then, which is
@@ -1623,10 +1656,11 @@ space has two lanes, the visitors' above and home's below.
   pins it, clicking a pinned card or the meeple opens it full size,
   and Esc or a click elsewhere puts it away. The benches are the
   sideline under the field (step 6, above).
-- **A lit piece or goal**: a gold outline, a gold name and a chip
-  saying what clicking means, with any cost as the token image and a
-  count; a goal's gold ring; a space dashed in gold with its chip at
-  its foot; the ball ringed in gold. What lights them is the prompt's
+- **A lit piece or goal**: a gold outline and a gold name, the piece
+  raised and in front of the rest; a goal's gold ring and its chip; a
+  space dashed in gold; the ball ringed in gold with its chip. What
+  clicking a piece or a space means is its row in the question box
+  ("No pill on a meeple or a space", above). What lights them is the prompt's
   (above, "The answer is the thing on the board"); clicking a piece
   that is not lit still opens its card.
 
@@ -2018,17 +2052,37 @@ headline alike (`TURNOVER_HEADING`, `HALFTIME_HEADING`,
 math ... the model should write this with greater detail").
 `Headline.working`, set by the skill test, the loose ball, the shot,
 the own-goal roll, the shootout test, the Mind Pull and the injury
-test, is each side as who rolled,
-the face, every addend and the total, then how the two totals are read
-("**16** beats **10**."; "**13** is lower than **15**: the attack does
-not score."; "**13** is 7 or more: safe."). `rolls.roll_working` and
-`contest_working` build it from the same detail lines the dice picture
-is drawn with, so the words and the picture cannot disagree; the
-own-goal roll's is its own breakdown line, which the narration already
-said. It is on the headline and not in the narration: the bot posts the
+test, is **a column per side, a line per addend**: who rolled the face,
+each thing added to it, then the total ("= **16**"). It was one
+paragraph until 2026-10-07, both sides run together with a sentence
+comparing the totals after them, and the author found it "impossible
+to read ... the offense and defense should be presented side by side
+like they do on the discord" -- the dice picture's own arrangement. So
+the model hands back the lines and the page sets the columns side by
+side, on the phone too (two narrow columns read better than one long
+run). `Headline.reading` is how a **lone** roll is read against its
+target ("**13** is 7 or more: safe."; "**4** is under 11: the pull
+fails."), since its target is nowhere in its column; a contest has
+none -- its two totals stand side by side and the headline already
+says who won, so "16 is higher than 14: the attack scores" was the
+outcome said a third time (the author: "this last line is not
+needed"). `rolls.roll_working` and `contest_working` build the columns
+from the same detail lines the dice picture is drawn with, so the words
+and the picture cannot disagree; the own-goal roll's column is its own
+breakdown line's pieces, which the narration already said. A journal
+written before the columns holds the working as one string, which the
+server shows as one column of one line (`server._columns`) rather than
+dropping the outcome a restart finds up. It is on the headline and not in the narration: the bot posts the
 dice picture that already says it, so no line moves and neither does a
 golden. The shot's defenders are listed without the picture's running
-total, which written out would read as one more addend.
+total, which written out would read as one more addend. A line that
+names a player -- a defender in the wall, an Ooze adding by Merge --
+names them the way the shooter is, with the team mark and the role
+badge as tokens, and what they add after the name ("Gloopus [MF] +3
+(Merge)"; it was "+3 Gloopus (Merge)", with no role). The picture draws
+the same line with the tokens as text (`dice_brief.drawn_line`; see
+"Tokens" in [model-discord-split.md](model-discord-split.md)), so the
+two cannot disagree about a number (the author, 2026-10-07).
 
 **On the page** the journal keeps every headline of the latest result
 as `showing_outcomes` (in its file, as `showing_roll` is), up until a
@@ -2038,7 +2092,7 @@ canvas joins them -- joining is presentation, the words are the
 model's -- in the colour of the first that is a side's, with the first
 line under one and the first working. The page sets them in the
 outcome block -- the headline 46px in the display face, the line under
-it 17px, the working under that at 15px. The dice were beside them at
+it 17px, the working's columns under that at 15px. The dice were beside them at
 180px, the bot's picture with its words on it (the author: "make the
 die larger"); since 2026-09-29 they are bare dice, the page's own, in
 the same place ("The dice"). The canvas's "HALFTIME · 1 : 1" is

@@ -667,7 +667,9 @@ class OverdriveTests(ApplyFixture):
         # The shot heads the outcome, and the check is one only where it
         # injured somebody: home's damage, and not visiting's safe roll.
         shot, damage = run.result.headlines
-        self.assertIn("Overdrive", shot.working)
+        self.assertTrue(
+            any("Overdrive" in line for column in shot.working for line in column),
+        )
         self.assertEqual(damage.side, TeamSide.HOME)
         self.assertIn("damaged", damage.text)
 

@@ -2,11 +2,12 @@
 (`with_total_modifier`), and the written-out arithmetic leaves that sum out.
 The score attempt's matchup image sums the shooter's the same way before
 the roll (`score_attempt_brief`), and a lone roll on the web page does
-(`summed_modifier_line`)."""
+(`summed_modifier_line`). The dice picture draws a line's tokens as text
+(`drawn_line`)."""
 
 import unittest
 
-from d12ball.dice_brief import score_attempt_brief
+from d12ball.dice_brief import drawn_line, score_attempt_brief
 from d12ball.flow.rolls import roll_working, with_total_modifier
 from d12ball.formatting import summed_modifier_line
 from prompt_fixtures import ENGINE, score_attempt
@@ -22,6 +23,16 @@ class TotalModifierLineTests(unittest.TestCase):
         ]
         with_total_modifier(detail, 7, 12)
         self.assertEqual(detail[-1], "Total modifier +5")
+
+    def test_a_player_named_with_their_badge_is_counted(self):
+        # What an Ooze adds by Merge, after their name and badge.
+        detail = [
+            "Name [PM]",
+            "Offensive skill +4",
+            "{team:slime} Ooze {role:midfielder:slime} +3 (Merge)",
+        ]
+        with_total_modifier(detail, 5, 12)
+        self.assertEqual(detail[-1], "Total modifier +7")
 
     def test_one_modifier_is_its_own_total(self):
         detail = ["Name [PM]", "Offensive skill +4"]
@@ -47,11 +58,16 @@ class TotalModifierLineTests(unittest.TestCase):
                  "Total modifier +6"],
                 10,
             )],
-            "verdict",
         )
-        self.assertNotIn("Total", working)
-        self.assertIn("+3 Midfielder ability = **10**", working)
-
+        self.assertEqual(
+            working,
+            ((
+                "Name rolled **4**",
+                "Defensive skill +3",
+                "+3 Midfielder ability",
+                "= **10**",
+            ),),
+        )
 
     def test_a_lone_roll_sums_two_lines_or_more(self):
         self.assertEqual(
@@ -60,6 +76,18 @@ class TotalModifierLineTests(unittest.TestCase):
         )
         self.assertIsNone(summed_modifier_line(["Offensive skill +4"], 4))
         self.assertIsNone(summed_modifier_line(["+2 Overdrive"], 2))
+
+
+class DrawnLineTests(unittest.TestCase):
+    def test_a_named_player_is_drawn_with_brackets(self):
+        self.assertEqual(
+            drawn_line("{team:slime} Ooze {role:midfielder:slime} +3 (Merge)"),
+            "Ooze [MF] +3 (Merge)",
+        )
+
+    def test_a_line_with_no_token_is_drawn_as_it_is(self):
+        for line in ("+1 ball speed modifier", "Total modifier  +5", ""):
+            self.assertEqual(drawn_line(line), line)
 
 
 class ScoreAttemptTotalTests(unittest.TestCase):

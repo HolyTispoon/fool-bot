@@ -1071,15 +1071,45 @@ class OutcomeBannerTests(unittest.TestCase):
         self.assertEqual(written["text"], "Missed attempt!")
         self.assertEqual(written["side"], defending.value)
         self.assertTrue(written["under"])
-        # The arithmetic is written out, from the numbers rolled.
-        self.assertIn("rolled **1**", written["working"])
-        self.assertIn("rolled **12**", written["working"])
-        self.assertTrue(
-            written["working"].endswith("the attack does not score."),
+        # The arithmetic is written out, from the numbers rolled: the
+        # attack and the defence a column each, side by side, a line per
+        # addend and the total last -- and nothing comparing the two
+        # totals, which stand beside each other (the author, 2026-10-07).
+        attack, defence = written["working"]
+        self.assertTrue(attack[0].endswith("rolled **1**"), attack)
+        self.assertTrue(defence[0].endswith("rolled **12**"), defence)
+        self.assertTrue(attack[-1].startswith("= **"), attack)
+        self.assertTrue(defence[-1].startswith("= **"), defence)
+        # Every defender in the way is named as the shooter is, with
+        # their team's mark and role badge, never the picture's plain
+        # "[DD]" (the author, 2026-10-07).
+        wall = defence[1:-1]
+        self.assertTrue(wall)
+        for line in wall:
+            self.assertTrue(line.startswith("{team:"), line)
+            self.assertIn("{role:", line)
+            self.assertNotIn("[", line)
+        self.assertEqual(written["reading"], "")
+        outcome = web._state(game, Viewer(None))["outcome"]
+        self.assertEqual(
+            outcome["working"],
+            [
+                [render_text(game, line) for line in column]
+                for column in written["working"]
+            ],
         )
+        self.assertEqual(outcome["reading"], "")
+
+    def test_an_outcome_from_before_the_columns_still_shows(self) -> None:
+        """The journal keeps an outcome up across a restart; one
+        written while the working was a paragraph shows as one line."""
+        web, game = self.open("score attempt")
+        web.journal(game.game_id).showing_outcomes = [
+            {"text": "GOAL!", "side": None, "under": "", "working": "A **9**."},
+        ]
         self.assertEqual(
             web._state(game, Viewer(None))["outcome"]["working"],
-            render_text(game, written["working"]),
+            [[render_text(game, "A **9**.")]],
         )
 
     def test_a_skill_test_writes_its_arithmetic_out(self) -> None:
@@ -1094,12 +1124,16 @@ class OutcomeBannerTests(unittest.TestCase):
 
         written = self.assert_the_narration_s_own(web, game)
         self.assertTrue(written["text"].endswith("wins the skill test!"))
-        working = written["working"]
-        self.assertIn("rolled **9**", working)
-        self.assertIn("rolled **2**", working)
-        self.assertIn("Offensive skill +", working)
-        self.assertIn("Defensive skill +", working)
-        self.assertIn(" beats ", working)
+        offence, defence = written["working"]
+        self.assertTrue(offence[0].endswith("rolled **9**"), offence)
+        self.assertTrue(defence[0].endswith("rolled **2**"), defence)
+        self.assertTrue(
+            any(line.startswith("Offensive skill +") for line in offence),
+        )
+        self.assertTrue(
+            any(line.startswith("Defensive skill +") for line in defence),
+        )
+        self.assertEqual(written["reading"], "")
 
     def test_a_steal_is_headed_by_its_own_line(self) -> None:
         web, game = self.open("maneuver picks")
@@ -1169,11 +1203,17 @@ class OutcomeBannerTests(unittest.TestCase):
                     for one in web.journal(game.game_id).showing_outcomes
                     if one["working"]
                 )
+                lines = [line for column in working for line in column]
                 for said in rolled:
-                    self.assertIn(said, working)
+                    self.assertTrue(
+                        any(said in line for line in lines), working,
+                    )
                 self.assertEqual(
                     web._state(game, Viewer(None))["outcome"]["working"],
-                    render_text(game, working),
+                    [
+                        [render_text(game, line) for line in column]
+                        for column in working
+                    ],
                 )
 
     def test_a_mind_pull_is_headed_by_its_own_line(self) -> None:
@@ -1215,8 +1255,9 @@ class OutcomeBannerTests(unittest.TestCase):
 
                 written = self.assert_the_narration_s_own(web, game)
                 self.assertTrue(written["text"].endswith(heading), written)
-                self.assertTrue(written["working"].endswith(verdict), written)
-                self.assertIn("rolled **", written["working"])
+                self.assertEqual(written["reading"], verdict)
+                (column,) = written["working"]
+                self.assertIn("rolled **", column[0])
                 match = web.service.load(game)
                 self.assertEqual(
                     written["side"],
@@ -1258,9 +1299,10 @@ class OutcomeBannerTests(unittest.TestCase):
                 written = self.assert_the_narration_s_own(web, game)
                 self.assertTrue(written["text"].endswith(heading), written)
                 self.assertIn("rolls an injury test:", written["under"])
-                self.assertIn(f"rolled **{face}** = **{face}**.",
-                              written["working"])
-                self.assertTrue(written["working"].endswith(verdict), written)
+                (column,) = written["working"]
+                self.assertTrue(column[0].endswith(f"rolled **{face}**"))
+                self.assertEqual(column[-1], f"= **{face}**")
+                self.assertEqual(written["reading"], verdict)
                 match = web.service.load(game)
                 self.assertEqual(
                     written["side"], match.side_for_player(hurt).value,
