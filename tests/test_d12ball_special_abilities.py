@@ -38,6 +38,7 @@ from d12ball.components import (
     duplicate_card_id,
 )
 from d12ball.dice_brief import (
+    drawn_line,
     maneuver_challenge_brief,
     maneuver_challenge_notes,
     score_attempt_brief,
@@ -1301,14 +1302,15 @@ class ShotDefenseTests(unittest.TestCase):
                     )
                 with mock.patch.dict(SPECIAL_ABILITIES, abilities):
                     wall = self.defending()
-                    (_, defence), _, _, _, _ = score_score_attempt(
+                    (_, defence), _, _, _ = score_score_attempt(
                         ENGINE, self.game, self.match,
                         ENGINE.get_player_definition(self.shooter),
                         self.match.home, self.match.visiting,
                     )
                 self.assertTrue(wall[self.beyond].as_on_ball)
                 self.assertFalse(wall[self.on_ball].as_on_ball)
-                lines = defence[2]
+                # As the picture draws them (`drawn_line`).
+                lines = [drawn_line(line) for line in defence[2]]
                 beyond = player_with_role(
                     ENGINE.get_player_definition(self.beyond),
                 )
@@ -1360,14 +1362,17 @@ class ShotDefenseTests(unittest.TestCase):
 
     def test_the_dice_list_the_passed_at_nothing(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-            (attack, defence), _, defense_total, _, _ = score_score_attempt(
+            (attack, defence), _, defense_total, _ = score_score_attempt(
                 ENGINE, self.game, self.match,
                 ENGINE.get_player_definition(self.shooter),
                 self.match.home, self.match.visiting,
             )
         self.assertIn(self.sheet_sentence(), attack[2])
         beyond = player_with_role(ENGINE.get_player_definition(self.beyond))
-        self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
+        self.assertIn(
+            f"{beyond} +0{SHOT_PASSED_NOTE}",
+            [drawn_line(line) for line in defence[2]],
+        )
         on_ball = ENGINE.skills(self.game, self.on_ball).defense
         self.assertEqual(defense_total, defence[0] + on_ball)
 

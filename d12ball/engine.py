@@ -1366,12 +1366,22 @@ class RulesEngine:
         total = 0
         lines: list[str] = []
         contributors: list[tuple[str, int]] = []
+        # Named with the side's mark and the role badge, the number
+        # after the name as every other line naming a player has it --
+        # "Gloopus [MF] +3 (Merge)" on the dice picture, which draws the
+        # tokens as text (`dice_brief.drawn_line`); it was "+3 Gloopus
+        # (Merge)", with no role at all (the author, 2026-10-07).
+        team = match.setup_for_side(side).team
         for player_id, value in self.merge_contributions(
             game, match, side, rolling, skill,
         ):
             player = self.get_player_definition(player_id)
             total += value
-            lines.append(f"+{value} {player.name} (Merge)")
+            lines.append(
+                f"{tokens.team(team)} "
+                f"{player_with_role(player, badge=True, team=team)} "
+                f"+{value} (Merge)"
+            )
             contributors.append((player.name, value))
         return total, lines, contributors
 

@@ -1,8 +1,10 @@
 """A contested roll's side sums its modifiers once there are two or more
-(`with_total_modifier`), and the written-out arithmetic leaves that sum out."""
+(`with_total_modifier`), the written-out arithmetic leaves that sum out,
+and the dice picture draws a line's tokens as text (`drawn_line`)."""
 
 import unittest
 
+from d12ball.dice_brief import drawn_line
 from d12ball.flow.rolls import roll_working, with_total_modifier
 
 
@@ -16,6 +18,16 @@ class TotalModifierLineTests(unittest.TestCase):
         ]
         with_total_modifier(detail, 7, 12)
         self.assertEqual(detail[-1], "Total modifier +5")
+
+    def test_a_player_named_with_their_badge_is_counted(self):
+        # What an Ooze adds by Merge, after their name and badge.
+        detail = [
+            "Name [PM]",
+            "Offensive skill +4",
+            "{team:slime} Ooze {role:midfielder:slime} +3 (Merge)",
+        ]
+        with_total_modifier(detail, 5, 12)
+        self.assertEqual(detail[-1], "Total modifier +7")
 
     def test_one_modifier_is_its_own_total(self):
         detail = ["Name [PM]", "Offensive skill +4"]
@@ -51,6 +63,18 @@ class TotalModifierLineTests(unittest.TestCase):
                 "= **10**",
             ),),
         )
+
+
+class DrawnLineTests(unittest.TestCase):
+    def test_a_named_player_is_drawn_with_brackets(self):
+        self.assertEqual(
+            drawn_line("{team:slime} Ooze {role:midfielder:slime} +3 (Merge)"),
+            "Ooze [MF] +3 (Merge)",
+        )
+
+    def test_a_line_with_no_token_is_drawn_as_it_is(self):
+        for line in ("+1 ball speed modifier", "Total modifier  +5", ""):
+            self.assertEqual(drawn_line(line), line)
 
 
 if __name__ == "__main__":

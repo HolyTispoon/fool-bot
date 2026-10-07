@@ -2037,13 +2037,14 @@ server shows as one column of one line (`server._columns`) rather than
 dropping the outcome a restart finds up. It is on the headline and not in the narration: the bot posts the
 dice picture that already says it, so no line moves and neither does a
 golden. The shot's defenders are listed without the picture's running
-total, which written out would read as one more addend, and named the
-way the shooter beside them is -- team mark and role badge as tokens,
-the mark the defending side's, since the wall is always theirs -- where
-the picture, drawn on an image that
-cannot draw a badge, names them plain ("Dravox [DD]"). Both come from
-`rolls.shot_wall_lines`, which takes the naming and nothing else, so
-the two walls cannot disagree about a number (the author, 2026-10-07).
+total, which written out would read as one more addend. A line that
+names a player -- a defender in the wall, an Ooze adding by Merge --
+names them the way the shooter is, with the team mark and the role
+badge as tokens, and what they add after the name ("Gloopus [MF] +3
+(Merge)"; it was "+3 Gloopus (Merge)", with no role). The picture draws
+the same line with the tokens as text (`dice_brief.drawn_line`; see
+"Tokens" in [model-discord-split.md](model-discord-split.md)), so the
+two cannot disagree about a number (the author, 2026-10-07).
 
 **On the page** the journal keeps every headline of the latest result
 as `showing_outcomes` (in its file, as `showing_roll` is), up until a
