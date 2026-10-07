@@ -282,7 +282,8 @@ class ResultWireTests(unittest.TestCase):
             group.to_dict()["headlines"],
             [{
                 "text": "GOAL!", "side": "home",
-                "under": "{team:orange} scores.", "working": "",
+                "under": "{team:orange} scores.", "working": [],
+                "reading": "",
             }],
         )
         self.assertEqual(Narration(("Said.",)).to_dict()["headlines"], [])

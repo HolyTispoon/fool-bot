@@ -1285,6 +1285,18 @@ round: the voice was right, and it was speaking Discord (finding 6 of
   before. The four dicts are the cog's, read-only class defaults
   until `cog_load` replaces them, so a cog a test builds without
   `__init__` reads "nothing fetched" and cannot mutate a shared dict.
+- **A picture renders its own tokens, as text.** The dice picture's
+  detail lines are words as well as a drawing: the web page writes the
+  same lines out under its headline (`Headline.working`), so a line
+  that names a player -- a defender in the shot's wall, an Ooze adding
+  by Merge -- names them with the team's mark and the role badge, as
+  every message does. The picture cannot draw a badge, so
+  `dice_brief.drawn_line` is its resolver at its own door: the mark
+  left off and the badge as `[FB]` (`role_brackets`), "Dravox [DD]
+  +3 (half of 5)". A line with no token is drawn byte for byte as it
+  was. One line for both, rather than a plain copy for the picture and
+  a badged one for the page, so the two cannot come to disagree about
+  a number (the author, 2026-10-07).
 - **A coach is a player number, not a side.** Decision 4 wrote
   `{coach:home}`; the coin decides which side is whose, and the setup
   messages name a coach before it has been flipped, so the number is

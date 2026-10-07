@@ -34,12 +34,14 @@ from typing import TYPE_CHECKING, Optional, Sequence
 
 from d12ball.bearings import BEARINGS, Bearing, special_reminder
 from d12ball.components import MatchState, PlayerRole, TeamSide
+from d12ball import tokens
 from d12ball.formatting import (
     ball_space_label,
     capitalized,
     coach_name,
     format_team_side_label,
     player_with_role,
+    role_brackets,
     role_initials,
     side_display_name,
 )
@@ -85,7 +87,7 @@ def render_contest_dice(
                 roll,
                 TEAM_COLORS[team],
                 team_display_name(team),
-                detail,
+                [drawn_line(line) for line in detail],
                 total,
                 overdriven,
                 merge,
@@ -94,6 +96,30 @@ def render_contest_dice(
         ],
         ignitions,
     )
+
+
+def drawn_line(line: str) -> str:
+    """
+    A detail line as the dice picture draws it. A line that names a
+    player -- a defender in the shot's wall, an Ooze adding by Merge --
+    names them as every message does, with the team's mark and the
+    role badge as tokens (`d12ball/tokens.py`), because the same line
+    is the working the web page writes under its headline. A picture
+    cannot draw a badge, so here the mark is left off and the badge is
+    its text form, "Dravox [DD]" -- what `player_with_role` writes. A
+    line with no token in it is drawn exactly as it always was.
+    """
+    if not tokens.find(line):
+        return line
+
+    def plain(kind: str, arguments: tuple[str, ...]) -> Optional[str]:
+        if kind == "team":
+            return ""
+        if kind == "role":
+            return role_brackets(PlayerRole(arguments[0]))
+        return None
+
+    return " ".join(tokens.render(line, plain).split())
 
 
 def challenge_side(

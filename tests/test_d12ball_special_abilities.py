@@ -38,6 +38,7 @@ from d12ball.components import (
     duplicate_card_id,
 )
 from d12ball.dice_brief import (
+    drawn_line,
     maneuver_challenge_brief,
     maneuver_challenge_notes,
     score_attempt_brief,
@@ -1309,7 +1310,8 @@ class ShotDefenseTests(unittest.TestCase):
                     )
                 self.assertTrue(wall[self.beyond].as_on_ball)
                 self.assertFalse(wall[self.on_ball].as_on_ball)
-                lines = defence[2]
+                # As the picture draws them (`drawn_line`).
+                lines = [drawn_line(line) for line in defence[2]]
                 beyond = player_with_role(
                     ENGINE.get_player_definition(self.beyond),
                 )
@@ -1368,7 +1370,10 @@ class ShotDefenseTests(unittest.TestCase):
             )
         self.assertIn(self.sheet_sentence(), attack[2])
         beyond = player_with_role(ENGINE.get_player_definition(self.beyond))
-        self.assertIn(f"{beyond} +0{SHOT_PASSED_NOTE}", defence[2])
+        self.assertIn(
+            f"{beyond} +0{SHOT_PASSED_NOTE}",
+            [drawn_line(line) for line in defence[2]],
+        )
         on_ball = ENGINE.skills(self.game, self.on_ball).defense
         self.assertEqual(defense_total, defence[0] + on_ball)
 

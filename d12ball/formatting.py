@@ -892,10 +892,12 @@ def total_modifier_line(value: int) -> str:
 
 
 # A line that adds a number: "+3 Midfielder ability", "-1 Volatile burn
-# (1)", or the skill line itself, "Offensive skill +5". A note --
-# "Injured — no skill modifier", a special ability's sentence -- adds
-# nothing and is not counted.
-_ADDEND = re.compile(r"(?:^| skill )([+-]\d+)")
+# (1)", the skill line itself, "Offensive skill +5", or a player named
+# with their badge and what they add, "{team:slime} Gloopus
+# {role:midfielder:slime} +3 (Merge)". A note -- "Injured — no skill
+# modifier", a special ability's sentence -- adds nothing and is not
+# counted.
+_ADDEND = re.compile(r"(?:^| skill |\} )([+-]\d+)")
 
 
 def modifier_addends(lines: Sequence[str]) -> list[int]:
