@@ -949,8 +949,10 @@ function press(control) {
    one meeple, a pass and a run onto it on one space). */
 function chips(all, { buttons } = {}) {
   /* A thing to pick up with no chip of its own (a player in the
-     Coaching Choice) is lit and says nothing. */
-  const controls = all.filter((control) => control.type !== "pick" || control.chip);
+     Coaching Choice), or a meeple with none (the halftime token's
+     pick, where the question says it), is lit and says nothing. */
+  const controls = all.filter((control) => control.chip
+    || (control.type !== "pick" && !(control.place && control.place.at === "player")));
   if (buttons === undefined) buttons = controls.length > 1;
   return controls.map((control) => {
     const content = chip(control);
@@ -1086,6 +1088,11 @@ function space(one, layout, narrow = false) {
   );
 }
 
+/* How far a piece that may be chosen is raised over the rest, on the
+   field and on the phone's narrow one. */
+const LIFT = 12;
+const LIFT_NARROW = 5;
+
 /* One team's meeples on a space, overlapped where `board.py` placed
    them, back to front, with each name on its own line under the fan
    (the front piece's first) and every badge and the ball drawn over
@@ -1104,18 +1111,22 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
   const box = h("span", { class: "fan", style: `width: ${drawn.width}px` });
   const over = [];
   drawn.pieces.forEach((piece, index) => {
+    /* A piece that may be chosen stands a little forward of the rest:
+       raised, with its badges and the ball, and in front of every
+       other piece and name (the author, 2026-10-07). */
     const lit = piece.id in marks;
+    const y = lit ? piece.y - (narrow ? LIFT_NARROW : LIFT) : piece.y;
     box.append(
       h(
         "span",
         {
-          class: "fan-piece",
-          style: `left: ${piece.x}px; top: ${piece.y}px; z-index: ${index + 1}`,
+          class: `fan-piece${lit ? " lit" : ""}`,
+          style: `left: ${piece.x}px; top: ${y}px; z-index: ${lit ? 45 : index + 1}`,
         },
         meeple(piece, layout, { controls: marks[piece.id], narrow }),
       ),
     );
-    over.push(...badges(piece, piece.x, piece.y, W, H));
+    over.push(...badges(piece, piece.x, y, W, H));
     if (one.ball && one.ball.holder === piece.id) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
@@ -1125,11 +1136,11 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
       const size = narrow ? 16 : 30;
       const place = narrow
         ? side === "home"
-          ? `left: ${piece.x + W - size}px; top: ${piece.y - size * 0.5}px`
-          : `left: ${piece.x}px; top: ${piece.y + H - size}px`
+          ? `left: ${piece.x + W - size}px; top: ${y - size * 0.5}px`
+          : `left: ${piece.x}px; top: ${y + H - size}px`
         : side === "home"
-          ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
-          : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
+          ? `left: ${piece.x + W * 0.66}px; top: ${y - 22}px`
+          : `left: ${piece.x - 18}px; top: ${y + H - 30}px`;
       over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, size, { lit: true })));
     }
   });
@@ -1147,7 +1158,10 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
     const held = Boolean(picked && picked.key === `player:${id}`);
     over.push(h(
       "span",
-      { class: `fan-name${lit || held ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
+      {
+        class: `fan-name${lit || held ? " lit" : ""}`,
+        style: `left: ${piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
+      },
       piece.name,
     ));
     line += 24;
@@ -2079,10 +2093,18 @@ function choicePicture(place, layout) {
     if (!m) return null;
     const g = layout.meeple;
     const [, , width, height] = g.box;
+    const H = (g.width * height) / width;
+    /* Wearing its badges as it does on the field: the token count is
+       what a coach weighs a pick by (the author, 2026-10-07). */
     return h(
       "span",
-      { class: "meeple choice-meeple", style: `width: ${g.width}px; height: ${(g.width * height) / width}px; color: ${m.ink}` },
-      meepleArt(m, layout, { g }),
+      { class: "choice-body" },
+      h(
+        "span",
+        { class: "meeple choice-meeple", style: `width: ${g.width}px; height: ${H}px; color: ${m.ink}` },
+        meepleArt(m, layout, { g }),
+      ),
+      ...badges(m, 0, 0, g.width, H),
     );
   }
   if (place.at === "space") {

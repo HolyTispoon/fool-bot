@@ -1141,7 +1141,6 @@ PLAYER_CHIPS: Mapping[PromptKind, str] = {
     PromptKind.BALL_HANDLER_SELECTION: "handles",
     PromptKind.RUN_BACK_PLAYER: "runs back",
     PromptKind.BALL_RECOVERY: "picks it up",
-    PromptKind.HALFTIME_EXTRA_TOKEN: "clears one more",
     PromptKind.SHOOTER_CHOICE: "shoots",
     PromptKind.SHOOTOUT_PICK: "shoots",
     PromptKind.DOUBLE_TEAM_PARTNER: "double teams",
@@ -1224,6 +1223,12 @@ def _double_team_partner(asked: Asked) -> list:
 
 
 def _halftime_token(asked: Asked) -> list:
+    """
+    Whose extra token is cleared: each lit where they stand, with no
+    chip -- the question says what picking one does, and the meeple
+    wears its own token count, on the field and beside it in the
+    question box (the author, 2026-10-07).
+    """
     return [
         section(
             None,
@@ -1232,7 +1237,6 @@ def _halftime_token(asked: Asked) -> list:
                     asked.label(player_id),
                     asked.kind,
                     place=on_player(player_id),
-                    chip=PLAYER_CHIPS[asked.kind],
                     player=player_id,
                     player_id=player_id,
                     side=asked.prompt["side"],

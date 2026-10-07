@@ -1183,6 +1183,9 @@ field, in the canvas's shape: a state tag, the outcome, the ask at
   `control` it presses, by group and index -- so it cannot name a
   thing that is not lit and an observer gets none. A thing the box
   draws as a control of its own (a meeple off the field) has no row.
+  A meeple in a row wears its badges as it does on the field -- its
+  token count and its condition -- since the count is what a coach
+  weighs a pick by (the author, 2026-10-07).
   A Coaching Choice's hub lists no players: every one is lit to pick
   up and the hub is answered on the field (the author, 2026-09-26 and
   2026-09-28). Muted under the rows, a railed choice with the
@@ -1248,7 +1251,7 @@ changed for it.
 
 | Kind (option shape) | What lights, and its chip | The rest |
 | --- | --- | --- |
-| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "clears one more", "shoots", "double teams" | -- |
+| `ball_handler_selection`, `run_back_player`, `ball_recovery`, `halftime_extra_token`, `shooter_choice`, `shootout_pick`, `double_team_partner` (`PlayerOptions`, `ShootoutOptions`) | each candidate's meeple -- "handles", "runs back", "picks it up · 2 spaces away", "shoots", "double teams"; the halftime token's pick has no chip (below) | -- |
 | `maneuver_challenge`, `loose_ball_pick` (`SendOptions`) | each candidate's meeple with its walk-in, a token a space ("on the ball" for a defender already there) | sending nobody is the ball itself -- "let it through" / "send nobody" -- only when `may_decline` |
 | `player_action` (`TurnOptions`) | the ball for the maneuver, the goal the side attacks for the shot, the side's time-out tile -- each only where offered, dark where railed | the lit line says why the others are dark |
 | `run_back_space` (`SpaceOptions`), `fly` (`FlyOptions`) | each space, with its price | Fly's Stay is neutral |
@@ -1264,6 +1267,16 @@ changed for it.
 | `shootout_order` | -- | neutral until step 7 |
 | `tutorial_continue` | the note: anywhere on it | -- |
 | `game_over` | the REMATCH mark, which posts to the room's own route | -- |
+
+**A meeple that may be chosen stands forward of the rest**: raised a
+little on its space (`LIFT`, `LIFT_NARROW` in `app.js`) with its badges
+and the ball, and drawn in front of every other piece and name, as
+well as lit gold (the author, 2026-10-07). **The halftime token's pick
+has no chip**: a pill under each name ran into the next space's pieces,
+and the question already says what picking one does, so the lit meeple
+and its own token badge are the whole of it, on the field and in the
+box (the author, 2026-10-07). A meeple control with no chip says
+nothing, on the field as a pick-up does.
 
 **A pickup's price is the prompt's.** The run back, the walk-in and Fly
 charge a token a space, so their chips carry the token and the count.
