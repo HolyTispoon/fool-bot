@@ -4,7 +4,7 @@ Every change the rules have made, with its date; what is still unanswered; and w
 answer came from. **The rules themselves are in [living-rules.md](living-rules.md)** -- this
 file never states a rule, it only records how one got there.
 
-**As of:** 2026-10-06.
+**As of:** 2026-10-07.
 
 ## Where the rules come from
 
@@ -154,6 +154,34 @@ advanced golden), and nobody has yet played it at a table.
 
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
+
+### 2026-10-07 -- sheet and author, Merge costs 1 exhaust, declared per Ooze before the roll
+
+**A rule changed.** A fresh pull of the `spec_abilities` tab rewrote Slimey: *"Merge: an Ooze on
+the ball's space may exhaust 1 to add their skill to a teammate's in skill tests and
+contests."* The author: *"Merge now cost 1 exhaust ... it needs to be a choice for every
+ooze"*, and answered what the sheet leaves open the same day.
+
+- **Every Merge is a choice, and costs 1** (20.5.1). Each Ooze on the ball who is not rolling
+  is its coach's own choice; two that Merge exhaust 1 each. It used to be free and automatic.
+- **Declared before the die, blind, as Overdrive is** (20.5.2) -- chosen over declaring once
+  per test and over declaring after the dice. The attacking coach decides first, a tie's
+  re-roll is a fresh roll and is paid for again, and an Ooze who cannot pay (an injured one)
+  cannot Merge (15.4.2).
+- **The skill is still the side's** -- offensive on the attack, defensive on the defence --
+  read over the sheet's *"a teammate's"*, which says whose total it joins, not which skill.
+- **Score attempts cost the same** (20.5.3): an Ooze adding to a teammate's shot exhausts 1.
+- **A Double Team's partner pays too** (19.10.5): *"double team merge should cost 1
+  exahust"*. An Ooze partner Merges once and pays once.
+- **Glompex's join pays for his Merge** (21.6.1): *"Glomplex's spend 1 to move & merge,
+  that's what the card says. So there's no extra cost for merge there."* Glompex who stepped
+  onto the ball Merges into every roll of that maneuver free and unasked; a Glompex who was
+  already standing there Merges as any Ooze does, for 1.
+- **The token brings no injury check for that test**, since a Merging Ooze is not one of the
+  players rolling (15.3); it counts toward the next check they roll in. Not asked -- the
+  injury check's own wording (Law 15.3.1, "every Exhausted participant").
+- **The AI declares nothing before a roll**, as it never Overdrives, so an AI side's Oozes
+  and Double Team partner no longer Merge. A property of the bot, not a rule.
 
 ### 2026-10-06 -- author, standard is recommended board 9, and board 10 advanced alone
 

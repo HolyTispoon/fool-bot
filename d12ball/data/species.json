@@ -19,8 +19,8 @@
     },
     "ooze": {
       "name": "Slimey",
-      "ability": "Merge: an Ooze on the ball's space who isn't one of the two players rolling adds their skill to their own side in skill tests and contests — oSkill attacking, dSkill defending. Every such Ooze adds.\nSpreadable: Ooze counts as 0 toward its space's occupancy, and is never made to run back in order to break up a stack.",
-      "ability_short": "A non-rolling Ooze on the ball adds oSkill (attack) or dSkill (defence) to tests & contests. Ooze counts as 0 toward space occupancy."
+      "ability": "Merge: an Ooze on the ball's space may exhaust 1 to add their skill to a teammate's in skill tests and contests. \nSpreadable: Ooze counts as 0 toward its space's occupancy, and is never made to run back in order to break up a stack.",
+      "ability_short": "When on the ball, may exhaust 1 to add skill to tests & contests. Ooze counts as 0 toward space occupancy."
     }
   }
 }
