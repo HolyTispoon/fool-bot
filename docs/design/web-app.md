@@ -1418,9 +1418,8 @@ chooser, or puts a refusal away.
   and an observer alike -- with what the cards said between them,
   `RulesEngine.cards_outcome`: TIE, or BEATS pointing at the card beaten,
   its winner ringed, each as its pill **cut down to the rank, the name
-  and the abilities that name it, and nothing else** (the author,
-  2026-10-07) -- the cards are played, so what they do is the outcome's
-  to say, not the pill's; on the phone and the tablet the
+  and the maneuver's effect, and nothing else** (the author,
+  2026-10-07) -- no time, diagram, foot, or player's ability; on the phone and the tablet the
   two stack and BEATS points up or down. What the maneuver came to -- an injury's forfeit,
   a forced test, the roll -- is the outcome banner's, the model's own
   headline, and the die under it is step 4's. An unchallenged card is

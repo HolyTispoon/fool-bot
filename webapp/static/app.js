@@ -2397,8 +2397,8 @@ function handCard(control) {
    to, in one row of three as the card prints it, and the abilities
    that name it. All of it on the pill, with no hover (the author,
    2026-10-07). `brief` is the reveal's: the rank, the name and the
-   abilities, and nothing else (the author, 2026-10-07) -- the cards are
-   already played, so what they do is the outcome's to say. */
+   maneuver's effect, and nothing else -- no player's ability (the
+   author, 2026-10-07). */
 function pillFace(pill, { brief = false } = {}) {
   const head = h("span", { class: "pill-head" },
     h("span", { class: "pill-rank" }, pill.rank),
@@ -2412,7 +2412,10 @@ function pillFace(pill, { brief = false } = {}) {
         one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null,
         " ", one.text)))
     : null;
-  if (brief) return h("span", { class: "pill-face brief", style: `--card: ${pill.colour}` }, head, abilities);
+  if (brief) {
+    return h("span", { class: "pill-face brief", style: `--card: ${pill.colour}` },
+      head, h("span", { class: "pill-effect" }, pill.effect));
+  }
   return h(
     "span",
     { class: "pill-face", style: `--card: ${pill.colour}` },
