@@ -2394,32 +2394,38 @@ function handCard(control) {
    card's colour, the name, the time it charges, the card's own diagram
    and its effect in the sheet's words, and what the printed card says
    along its foot and under its effect -- what it beats, ties and loses
-   to, and the abilities that name it. All of it on the pill, with no
-   hover (the author, 2026-10-07). */
-function pillFace(pill) {
+   to, in one row of three as the card prints it, and the abilities
+   that name it. All of it on the pill, with no hover (the author,
+   2026-10-07). `brief` is the reveal's: the rank, the name and the
+   abilities, and nothing else (the author, 2026-10-07) -- the cards are
+   already played, so what they do is the outcome's to say. */
+function pillFace(pill, { brief = false } = {}) {
+  const head = h("span", { class: "pill-head" },
+    h("span", { class: "pill-rank" }, pill.rank),
+    h("span", { class: "pill-name" }, pill.name),
+    brief || !pill.tier_word ? null : h("span", { class: "tier-tag" }, pill.tier_word),
+    brief ? null : h("span", { class: "pill-time" }, pill.time));
+  const abilities = pill.abilities.length
+    ? h("span", { class: "pill-abilities" },
+      pill.abilities.map((one) => h("span", { class: "pill-ability" },
+        h("b", {}, one.who),
+        one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null,
+        " ", one.text)))
+    : null;
+  if (brief) return h("span", { class: "pill-face brief", style: `--card: ${pill.colour}` }, head, abilities);
   return h(
     "span",
     { class: "pill-face", style: `--card: ${pill.colour}` },
-    h("span", { class: "pill-head" },
-      h("span", { class: "pill-rank" }, pill.rank),
-      h("span", { class: "pill-name" }, pill.name),
-      pill.tier_word ? h("span", { class: "tier-tag" }, pill.tier_word) : null,
-      h("span", { class: "pill-time" }, pill.time)),
+    head,
     h("span", { class: "pill-body" },
       h("img", { class: "pill-diagram", src: pill.diagram, alt: "" }),
       h("span", { class: "pill-effect" }, pill.effect)),
-    h("span", { class: "pill-matchups" },
-      pill.matchups.flatMap((one) => [
+    h("span", { class: "pill-foot" },
+      pill.matchups.map((one) => h("span", { class: "pill-foot-col" },
         h("span", { class: "pill-said" }, one.said),
-        h("span", { class: "pill-names" }, one.names.join(" / ")),
-      ])),
-    pill.abilities.length
-      ? h("span", { class: "pill-abilities" },
-        pill.abilities.map((one) => h("span", { class: "pill-ability" },
-          h("b", {}, one.who),
-          one.team ? h("span", { class: "quiet" }, ` · ${one.team}`) : null,
-          " ", one.text)))
-      : null,
+        h("span", { class: "pill-foot-rank", style: `color: ${one.colour}` }, one.rank),
+        one.names.map((name) => h("span", { class: "pill-names" }, name))))),
+    abilities,
   );
 }
 
@@ -2772,7 +2778,7 @@ function drawReveal(state) {
     const node = h(
       "figure",
       { class: `reveal-card${one.pill ? " pill" : ""}${reveal.winner === one.side ? " won" : ""}` },
-      one.pill ? pillFace(one.pill) : h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
+      one.pill ? pillFace(one.pill, { brief: true }) : h("img", { src: maneuverUrl(one.key, one.side), alt: one.name }),
     );
     if (!one.pill) hoverCard(node, maneuverUrl(one.key, one.side, "full"));
     return node;

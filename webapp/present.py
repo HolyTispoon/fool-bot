@@ -1842,8 +1842,9 @@ def maneuver_pill(
 
     The pill shows the rank, name, time, diagram and effect, and under
     them -- on its face, with no hover (the author, 2026-10-07) -- the
-    card's foot (`matchups`) and its ability rows, and after those, in a game playing the special abilities (Law 21), each player
-    on the field whose sentence names this card (`_names_card`) --
+    card's foot (`matchups`) and its ability rows, and after those, in
+    a game playing the special abilities (Law 21), each player on the
+    field whose sentence names this card (`_names_card`) --
     **once**, however many sides field them: a card fielded on both is
     the same person (`catalog_player_id`), named with both teams.
     Wording alone: nothing here decides a rule.

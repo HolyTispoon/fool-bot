@@ -595,7 +595,9 @@ def maneuver_card(
 
     - **`matchups`**: the opposing cards it beats, ties and loses to,
       by rank (`cards.matchup_rank_groups`, the card's own reading:
-      rank alone decides), holding only the tiers asked for;
+      rank alone decides), holding only the tiers asked for -- each
+      with the opposing rank as the card's foot prints it (`D1`) and
+      the opposing side's colour it prints that in;
     - **`abilities`**: the role rows the card prints under its effect
       (`cards.role_abilities`: every role whose ability names the card,
       and the notes placed there by hand; none on a gambit), the card's
@@ -626,9 +628,11 @@ def maneuver_card(
         "matchups": [
             {
                 "said": said,
+                "rank": f"{'D' if is_offense else 'O'}{rank}",
+                "colour": CARD_COLOURS[not is_offense, False],
                 "names": [one.name for one in pair if one.tier in tiers],
             }
-            for said, (_, pair) in zip(MATCHUP_WORDS, groups)
+            for said, (rank, pair) in zip(MATCHUP_WORDS, groups)
         ],
         "abilities": [
             {"who": who.capitalize(), "text": text}

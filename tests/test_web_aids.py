@@ -424,6 +424,13 @@ class ReferenceTests(Harness):
                             if table["side"] == "defense" and said != "Ties":
                                 said = "Loses to" if said == "Beats" else "Beats"
                             self.assertEqual(winner, outcomes[said])
+                            # The opposing rank, as the card's foot
+                            # prints it: every name in the column is
+                            # a card of that rank.
+                            self.assertEqual(
+                                one["rank"],
+                                f"{opposing[0].upper()}{other.rank}",
+                            )
                     self.assertEqual(
                         [(one["who"].upper(), one["text"]) for one in row["abilities"]],
                         role_abilities(ENGINE.player_catalog, card),
