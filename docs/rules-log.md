@@ -180,8 +180,13 @@ ooze"*, and answered what the sheet leaves open the same day.
 - **The token brings no injury check for that test**, since a Merging Ooze is not one of the
   players rolling (15.3); it counts toward the next check they roll in. Not asked -- the
   injury check's own wording (Law 15.3.1, "every Exhausted participant").
-- **The AI declares nothing before a roll**, as it never Overdrives, so an AI side's Oozes
-  and Double Team partner no longer Merge. A property of the bot, not a rule.
+- **Dinky always Merges**, and now Overdrives and Boosts too, unless it would leave the
+  Cyborg Drained (the author, later the same day: *"dinky should always merge unless injured
+  ... dinky should also overdrive/boost unless it gives the cyborg enough drain to become
+  drained"*). A property of the bot, not a rule.
+- **Oozes Merge into skill tests, contests and shots alone** -- never an injury check (the
+  author: *"oozes can't merge into injury tests"*), nor an own-goal roll or a shootout test,
+  which are not fought out on the ball's space.
 
 ### 2026-10-06 -- author, standard is recommended board 9, and board 10 advanced alone
 
