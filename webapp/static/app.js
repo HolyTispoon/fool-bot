@@ -1127,8 +1127,11 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
         meeple(piece, layout, { controls: marks[piece.id], narrow }),
       ),
     );
-    over.push(...badges(piece, piece.x, y, W, H));
-    if (one.ball && one.ball.holder === piece.id) {
+    const holds = Boolean(one.ball && one.ball.holder === piece.id);
+    /* A visiting holder's ball is at its foot, where the condition
+       would go, so the condition moves up to the top left. */
+    over.push(...badges(piece, piece.x, y, W, H, { ballAtFoot: holds && side !== "home" }));
+    if (holds) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
          by the foot. */
@@ -1174,8 +1177,10 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
 
 /* A piece's badges, over it wherever it stands (a fan on a space, the
    sideline): the exhaustion token and its count off the bottom right,
-   the condition off the bottom left -- the emoji `board.py` names. */
-function badges(piece, x, y, W, H) {
+   the condition off the bottom left -- the emoji `board.py` names --
+   or off the top left when the ball is at the piece's foot, which
+   would cover it. */
+function badges(piece, x, y, W, H, { ballAtFoot = false } = {}) {
   const over = [];
   if (piece.exhaustion) {
     over.push(h(
@@ -1194,7 +1199,7 @@ function badges(piece, x, y, W, H) {
       "span",
       {
         class: "badge condition",
-        style: `left: ${x - 8}px; top: ${y + H - 14}px`,
+        style: `left: ${x - 8}px; top: ${ballAtFoot ? y - 4 : y + H - 14}px`,
         title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
       },
       h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),

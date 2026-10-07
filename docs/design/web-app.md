@@ -1655,7 +1655,10 @@ space has two lanes, the visitors' above and home's below.
   piece, which is a picture and decides nothing.
 - **The badges are the bot's emoji**: the exhaustion token with its
   count (the drain token on a Cyborg) off the bottom right of a piece,
-  the condition off the bottom left, all drawn over the whole fan.
+  the condition off the bottom left, all drawn over the whole fan --
+  except on a visiting holder, whose ball is at that corner and hid
+  an injured carrier's badge entirely (the author, 2026-10-07): there
+  the condition moves to the top left, the one corner no piece uses.
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
   off a home holder's top right, a visiting holder's bottom left, or
