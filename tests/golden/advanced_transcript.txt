@@ -168,6 +168,10 @@ Ball is now in space 7, 🔥 Dinky AI (Visitors) has possession.
 ## **Low Pass** succeeds!
 Time has advanced 1, now at 04.
 --- message
+**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
+--- message
+🔥 Hellguard [FB] moves a space forward.
+--- message
 <@111> The ball crossed 🔮 Noxar [SK], who may 🔮 Mind Pull it (exhaust 1).
 === press 16: MindPullView -> 'Pass'
 --- message
@@ -181,8 +185,6 @@ Time has advanced 1, now at 04.
 🔮 Zenith [WG] is now *exhausted* 🥵
 🔮 Zenith [WG] fails to Mind Pull
 --- message
-**Low Pass:** the ball moves 1 space forward. Ball speed is now 4.
-
 Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Sizzifizik [PM] will maneuver for 🔥 Dinky AI.
@@ -207,8 +209,10 @@ You chose **Pressure**.
 ## **Low Pass** wins!
 Time has advanced 1, now at 05.
 --- message
-**Low Pass:** the ball goes to a teammate in the same space, and 🔥 Sizzifizik [PM] moves a space forward. Ball speed is now 5.
-
+**Low Pass:** the ball goes to a teammate in the same space. Ball speed is now 5.
+--- message
+🔥 Sizzifizik [PM] moves a space forward.
+--- message
 Ball is now in space 6, 🔥 Dinky AI (Visitors) has possession.
 --- message
 🔥 Blazebulk [DD] will maneuver for 🔥 Dinky AI.

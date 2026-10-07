@@ -1865,6 +1865,11 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
         "pending_scoring_opportunity",
         write=lambda value: dict(value) if value is not None else None,
     ),
+    # A dict or None, copied on the way out like the one above.
+    SavedField(
+        "pending_passer_advance",
+        write=lambda value: dict(value) if value is not None else None,
+    ),
     SavedField("pending_shot_is_set_up", default=False),
     SavedField("pending_shot_setup_cost", default=0),
     SavedField("clock_charged", default=False),
@@ -2262,6 +2267,16 @@ class MatchState:
     # None -- no scoring opportunity outstanding, which is what such a
     # save means.
     pending_scoring_opportunity: Optional[dict] = None
+    # A won Low Pass's passer may move 1 space forward once the ball
+    # has gone (Law 6.5.3, the author 2026-10-07), and their coach is
+    # asked. What is saved is the question: the passer, and what the
+    # pass does once it is answered -- `"then": "pass"` for a pass
+    # that reached somebody (`free` and `receiver_id` carried for the
+    # tail `low_pass_step` would have run), `"then": "loose"` for one
+    # that reached nobody and rolled. Read by `passer_advance_prompt`;
+    # absent from every save written before it, which reads as None --
+    # nothing outstanding, which is what such a save means.
+    pending_passer_advance: Optional[dict] = None
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
@@ -4075,6 +4090,7 @@ class MatchState:
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_scoring_opportunity = None
+        self.pending_passer_advance = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
         self.clock_charged = False

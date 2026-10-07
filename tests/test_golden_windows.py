@@ -159,7 +159,16 @@ FINAL_MATCH_FILE = GOLDEN_DIR / "windows_final_match.json"
 #: sweep over 0-399 found five seeds that still do all three; 337 is
 #: the shortest, at 2-2 and 4-3, and its shootout injures a shooter on
 #: the check.
-WINDOWS_SEED = 337
+#:
+#: **It was 337 until a Low Pass's passer could choose to step forward
+#: and a pass to nobody rolled 2** (docs/rules-log.md, 2026-10-07): a
+#: new question in every Low Pass moves every game after the first
+#: one, and 337's stopped being level. No seed in 0-399 still did all
+#: three -- eighteen were level and went to sudden death, none had
+#: Dinky substituting at halftime -- so the sweep went on to 400-2399
+#: and checked the time outs as well; 412 is the first and the
+#: shortest of the four it found before it was stopped.
+WINDOWS_SEED = 412
 
 #: A whole game, both halves, and a shootout -- so the budget is an
 #: order of magnitude past the advanced golden's. It is a backstop

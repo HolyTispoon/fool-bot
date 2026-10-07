@@ -28,7 +28,12 @@ from unittest import mock
 from cogs.d12ball_views import LowPassChoiceView
 from d12ball.components import MatchState
 from d12ball.flow import FollowOn, FollowOnStep, StepResult
-from d12ball.flow.effects import low_pass_step
+from d12ball.flow.effects import (
+    answer_passer_advance,
+    low_pass_step,
+    offer_low_pass,
+)
+from d12ball.game import GameMode
 from d12ball.prompts import PendingPrompt, PromptKind, pending_prompt
 
 from low_pass_fixtures import (
@@ -37,13 +42,20 @@ from low_pass_fixtures import (
     LOW_PASS_CASES,
     RULESET,
     SCORING_CHOICE,
+    build_game,
+    build_match,
+    label,
+    stand_at,
+    take_the_ball,
 )
+from d12ball.components import PlayerRole
+from roster import fielded
 from prompt_fixtures import CASES as PROMPT_CASES
 from prompt_fixtures import ENGINE as PROMPT_ENGINE
 from flow_stubs import chain_records_at
 from save_patches import suppressed_cog_saves
 from test_d12ball_low_pass_recording import build_cog
-from cog_steps import apply_low_pass
+from cog_steps import answered_passer_advance, apply_low_pass
 
 
 class LowPassStepTests(unittest.TestCase):
@@ -57,13 +69,18 @@ class LowPassStepTests(unittest.TestCase):
         for case in LOW_PASS_CASES:
             with self.subTest(case=case.name):
                 fixture = case.build()
-                result = low_pass_step(
+                result = answered_passer_advance(
                     ENGINE,
                     fixture.match,
-                    fixture.distance,
-                    receiver_id=fixture.receiver_id,
-                    key=fixture.key,
-                    free=fixture.free,
+                    low_pass_step(
+                        ENGINE,
+                        fixture.match,
+                        fixture.distance,
+                        receiver_id=fixture.receiver_id,
+                        key=fixture.key,
+                        free=fixture.free,
+                    ),
+                    fixture.advance,
                 )
 
                 # The cog joins the lines on a single space, which is
@@ -91,6 +108,13 @@ class LowPassStepTests(unittest.TestCase):
                     fixture.ball_space,
                 )
                 self.assertEqual(match.ball.speed, fixture.ball_speed)
+                if fixture.passer_space is not None:
+                    self.assertEqual(
+                        match.board.meeple_position(
+                            match.active_player_id,
+                        ),
+                        fixture.passer_space,
+                    )
 
     def test_the_two_follow_on_steps_are_the_ones_low_pass_can_name(
         self,
@@ -373,3 +397,124 @@ class LowPassRestartTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PasserAdvanceTests(unittest.TestCase):
+    """
+    A Low Pass's passer may move 1 space forward once the ball has gone
+    (Law 6.5.3, the author 2026-10-07): asked, saved, and answered
+    through the same step whether the pass reached anybody or not.
+    """
+
+    def setUp(self) -> None:
+        self.match = build_match()
+        self.handler = take_the_ball(self.match)
+        self.game = build_game()
+
+    def flat(self, player_id: str) -> int:
+        return self.match.board.flat_index(
+            *self.match.board.meeple_position(player_id),
+        )
+
+    def ball_flat(self) -> int:
+        return self.match.board.flat_index(
+            self.match.ball.zone, self.match.ball.space_index,
+        )
+
+    def nobody_in_reach(self) -> None:
+        for player_id in self.match.home.field_players:
+            if player_id != self.handler:
+                self.match.board.remove_meeple(player_id)
+
+    def test_a_low_pass_asks_and_a_restart_asks_the_same(self) -> None:
+        receiver = fielded(self.match, PlayerRole.MIDFIELDER)
+        stand_at(self.match, receiver, 1)
+        result = low_pass_step(
+            ENGINE, self.match, 1, receiver_id=receiver, game=self.game,
+        )
+        self.assertIsInstance(result.next, PendingPrompt)
+        self.assertIs(result.next.kind, PromptKind.PASSER_ADVANCE)
+        self.assertEqual(result.next.player_id, self.handler)
+        # The pass is still the live maneuver; the saved question is
+        # what a restart reads, rather than the pass a second time.
+        restored = MatchState.from_dict(self.match.to_dict(), RULESET)
+        prompt = pending_prompt(ENGINE, self.game, restored)
+        self.assertIs(prompt.kind, PromptKind.PASSER_ADVANCE)
+        self.assertEqual(prompt.ask, result.next.ask)
+
+    def test_moving_steps_the_passer_forward_and_finishes(self) -> None:
+        receiver = fielded(self.match, PlayerRole.MIDFIELDER)
+        stand_at(self.match, receiver, 1)
+        before = self.flat(self.handler)
+        low_pass_step(
+            ENGINE, self.match, 1, receiver_id=receiver, game=self.game,
+        )
+        result = answer_passer_advance(ENGINE, self.game, self.match, True)
+        self.assertEqual(self.flat(self.handler), before + 1)
+        self.assertEqual(
+            result.narration, [f"{label(self.match, self.handler)} moves a space forward."],
+        )
+        self.assertEqual(result.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION)
+        self.assertIsNone(self.match.pending_passer_advance)
+
+    def test_staying_says_nothing(self) -> None:
+        receiver = fielded(self.match, PlayerRole.MIDFIELDER)
+        stand_at(self.match, receiver, 1)
+        before = self.flat(self.handler)
+        low_pass_step(
+            ENGINE, self.match, 1, receiver_id=receiver, game=self.game,
+        )
+        result = answer_passer_advance(ENGINE, self.game, self.match, False)
+        self.assertEqual(self.flat(self.handler), before)
+        self.assertEqual(result.narration, [])
+        self.assertFalse(result.board_changed)
+
+    def test_a_pinpoint_s_passer_is_never_asked(self) -> None:
+        receiver = fielded(self.match, PlayerRole.MIDFIELDER)
+        stand_at(self.match, receiver, 1)
+        before = self.flat(self.handler)
+        result = low_pass_step(
+            ENGINE, self.match, 1, receiver_id=receiver,
+            key="skilled_pass", game=build_game(mode=GameMode.ADVANCED),
+        )
+        self.assertIsInstance(result.next, FollowOn)
+        self.assertEqual(self.flat(self.handler), before)
+        self.assertIsNone(self.match.pending_passer_advance)
+
+    def test_no_question_with_no_space_in_front(self) -> None:
+        last = self.match.board.position_at_flat_index(
+            self.match.board.layout.board_size - 1,
+        )
+        self.match.move_meeple(self.handler, *last)
+        self.match.set_ball_space(*last)
+        receiver = fielded(self.match, PlayerRole.MIDFIELDER)
+        stand_at(self.match, receiver, -1)
+        result = low_pass_step(
+            ENGINE, self.match, -1, receiver_id=receiver, game=self.game,
+        )
+        self.assertIsInstance(result.next, FollowOn)
+
+    def test_a_low_pass_to_nobody_rolls_two_and_still_asks(self) -> None:
+        self.nobody_in_reach()
+        start = self.ball_flat()
+        result = offer_low_pass(ENGINE, self.game, self.match)
+        self.assertEqual(self.ball_flat(), start + 2)
+        self.assertIn("rolls 2 spaces forward", result.narration[0])
+        self.assertIs(result.next.kind, PromptKind.PASSER_ADVANCE)
+        answered = answer_passer_advance(
+            ENGINE, self.game, self.match, True,
+        )
+        self.assertEqual(answered.next.step, FollowOnStep.BEGIN_LOOSE_BALL)
+
+    def test_a_pinpoint_to_nobody_rolls_three(self) -> None:
+        self.match = build_match(board_size=9)
+        self.handler = take_the_ball(self.match)
+        self.nobody_in_reach()
+        start = self.ball_flat()
+        result = offer_low_pass(
+            ENGINE, build_game(mode=GameMode.ADVANCED), self.match,
+            key="skilled_pass",
+        )
+        self.assertEqual(self.ball_flat(), start + 3)
+        self.assertIn("no teammate within three spaces", result.narration[0])
+        self.assertEqual(result.next.step, FollowOnStep.BEGIN_LOOSE_BALL)

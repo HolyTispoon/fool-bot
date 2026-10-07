@@ -1055,6 +1055,7 @@ DECISION_YES: Mapping[PromptKind, tuple[str, str]] = {
     PromptKind.FORCE_TEST: ("player", "force a skill test"),
     PromptKind.SET_UP_ATTEMPT: ("goal+player", "shoot"),
     PromptKind.COACHING_OFFER: ("bench", "coach"),
+    PromptKind.PASSER_ADVANCE: ("player", "move forward"),
 }
 
 
@@ -1080,7 +1081,7 @@ def _decision(
             choice, choice.replace("_", " ").title()
         )
         place, also, chip = None, (), ""
-        if yes is not None and choice != "decline":
+        if yes is not None and choice not in ("decline", "stay"):
             what, chip = yes
             if what == "goal+player":
                 place = on_goal(asked.attacking_goal())
@@ -1119,6 +1120,19 @@ def _smooth(asked: Asked) -> list:
         "decline": (
             f"{asked.label(keeper_id)} keeps the ball" if keeper_id else ""
         ),
+    })
+
+
+def _passer_advance(asked: Asked) -> list:
+    """
+    Whether a Low Pass's passer steps a space forward (Law 6.5.3): the
+    yes lights the passer, and both answers name them, as the Discord
+    buttons do.
+    """
+    passer = asked.label(asked.prompt["player_id"])
+    return _decision(asked, {
+        "advance": f"{passer} moves forward",
+        "stay": f"{passer} stays",
     })
 
 
@@ -2472,6 +2486,7 @@ CONTROLS: Mapping[PromptKind, Callable[[Asked], list]] = {
     PromptKind.FORCE_TEST: _force_test,
     PromptKind.FLY: _fly,
     PromptKind.SET_UP_ATTEMPT: _decision,
+    PromptKind.PASSER_ADVANCE: _passer_advance,
     PromptKind.COACHING_OFFER: _decision,
     PromptKind.BALL_HANDLER_SELECTION: _players,
     PromptKind.RUN_BACK_PLAYER: _players,

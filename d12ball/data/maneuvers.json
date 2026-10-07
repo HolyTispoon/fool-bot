@@ -12,7 +12,7 @@
           1,
           2
         ],
-        "effect": "Ball to the nearest teammate ahead or behind, max 2 spaces; or to one sharing its space, and the passer moves forward 1. Ball speed +1.",
+        "effect": "Ball to the nearest teammate ahead or behind up to 2 spaces, passer may move forward 1. Ball speed +1.",
         "time": "1",
         "defeats_rank": 3
       },
@@ -24,7 +24,7 @@
         "die_values": [
           2
         ],
-        "effect": "Successful gambit: ball to any teammate up to 3 spaces away. Ball speed +3. \nFailed gambit: after stealing, the defender may Low Pass unopposed.",
+        "effect": "Successful gambit: ball to a teammate up to 3 spaces away. Ball speed +3. \nFailed gambit: after stealing, the defender may Low Pass unopposed.",
         "time": "1",
         "defeats_rank": 3
       },

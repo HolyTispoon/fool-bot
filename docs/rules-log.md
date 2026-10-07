@@ -155,6 +155,31 @@ advanced golden), and nobody has yet played it at a table.
 Newest first. Each entry says where the change came from: a pull from the sheet or Notion, or
 the author directly.
 
+### 2026-10-07 (later) -- sheet and author, a Low Pass's passer may move; a teammate on the ball is behind it
+
+A fresh pull of the `maneuvers` tab rewrote the Low Pass: *"Ball to the nearest teammate ahead
+or behind up to 2 spaces, passer may move forward 1. Ball speed +1."* It used to read *"...; or
+to one sharing its space, and the passer moves forward 1."* Pinpoint's *"ball to any teammate"*
+became *"ball to a teammate"* in the same edit. The author answered what the card leaves open
+the same day.
+
+- **A teammate on the ball's own space is the nearest one behind it** (6.5.2): *"a teammate on
+  the ball is considered the closest 'behind' the ball"*. Asked whether the same-space pass was
+  gone, the author said it is still allowed; it is now one of two destinations rather than a
+  third, and a teammate there blocks every teammate further back.
+- **After any Low Pass the passer may move 1 space forward** (6.5.3), the coach's choice. It used
+  to be automatic, and only on a pass to a teammate sharing the passer's space.
+- **A Low Pass with no legal destination rolls the ball 2 spaces forward**, not 1 (6.5.5):
+  *"a low pass with no teammates forward or backwards up to 2 spaces should roll the ball forward
+  2. Passer may move. If there's an opposing player, they get it. If not, it's loose."* Where it
+  lands is settled by 10.1 as before.
+- **A Pinpoint's passer never moves** (19.5.3): *"The language change on pinpoint isn't a rule
+  change, just a different phrasing. Pinpoint can send the ball to any teammates up to 3 spaces
+  and the passer never moves."* 19.5.3 no longer says everything else is a Low Pass's.
+- **A Pinpoint with no teammate within 3 spaces rolls the ball 3 spaces forward** (19.5.3). It
+  used to roll 1, as a Low Pass's did; asked whether it now rolls 2 with the Low Pass, 1 as
+  before, or 3, the author chose 3.
+
 ### 2026-10-07 -- author, board 10's midfield pair is dealt to spaces 5 and 6
 
 **A rule changed.** The standard deal on board 10 (3.2.2), which the 2026-10-06 entry below

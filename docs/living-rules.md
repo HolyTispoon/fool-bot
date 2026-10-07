@@ -344,13 +344,13 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **6.5.1** **Rank O1. Costs 1 time. Beats Pressure, loses to Steal.**
 
-**6.5.2** The ball goes to a teammate, and there are at most three destinations to choose between: the nearest teammate up to 2 spaces ahead of the ball, the nearest teammate up to 2 spaces behind it, and a teammate standing on the ball's own space. A nearer teammate blocks a farther one in the same direction, so the choice is between directions rather than distances. Where several teammates are standing on the destination, the passer chooses which of them receives it.
+**6.5.2** The ball goes to a teammate, and there are at most two destinations to choose between: the nearest teammate up to 2 spaces ahead of the ball, and the nearest teammate up to 2 spaces behind it. **A teammate standing on the ball's own space counts as the nearest behind it**, so they block every teammate further back. A nearer teammate blocks a farther one in the same direction, so the choice is between directions rather than distances. Where several teammates are standing on the destination, the passer chooses which of them receives it.
 
-**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves -- and a pass across a shared space also sends the passer 1 space forward if there is a space in front of them to move into.
+**6.5.3** A pass has to reach a different player -- the handler cannot pass to themselves. **Once the ball has gone, the passer may move 1 space forward**, if there is a space in front of them to move into; their coach chooses, and moving costs nothing.
 
 **6.5.4** Ball speed rises by 1, to a maximum of 12. The ball is left with the receiver.
 
-**6.5.5** With no legal destination at all, the maneuver still resolves: the ball rolls 1 space forward, its speed still rises, and it settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1).
+**6.5.5** With no legal destination at all, the maneuver still resolves: the ball rolls **2 spaces** forward, its speed still rises, the passer may still move 1 space forward, and the ball settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1) -- an opponent standing there simply has it, and an empty space leaves it loose.
 
 **6.5.6** *Winger:* a completed Low Pass may offer its receiver a [scoring opportunity](#8-scoring-opportunities) (8), at any of the three distances, if the ball is in shooting range.
 
@@ -1015,7 +1015,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.5.2** A Low Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
 
-**19.5.3** Ball speed rises by **3**, to a maximum of 12. Everything else is a Low Pass's: the pass has to reach a different player, a pass across a shared space also sends the passer 1 space forward, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8).
+**19.5.3** Ball speed rises by **3**, to a maximum of 12. As with a Low Pass, the pass has to reach a different player, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8). **Unlike a Low Pass, the passer never moves**, and with no teammate within 3 spaces to receive it the ball rolls **3 spaces** forward, its speed still rises, and it settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1).
 
 **19.5.4** *Midfielder:* adds 3 to the skill test for their own Pinpoint, as for a Low Pass.
 

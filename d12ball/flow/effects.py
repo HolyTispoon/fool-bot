@@ -47,6 +47,7 @@ from d12ball.components import (
     PlayerDefinition,
     PlayerRole,
     SETUP_PASS_CLOCK_COST,
+    SKILLED_PASS_REACH,
     SPECIES_TELEKINETIC,
     TeamSide,
 )
@@ -83,8 +84,15 @@ from d12ball.prompts import (
     PendingPrompt,
     PromptKind,
     double_team_partner_prompt,
+    passer_advance_prompt,
     speed_choice_ask,
 )
+
+
+#: How far a Low Pass with nobody to receive it rolls the ball (Law
+#: 6.5.5, the author 2026-10-07). A Pinpoint's rolls its reach,
+#: `SKILLED_PASS_REACH`.
+LOW_PASS_NOBODY_ROLL = 2
 
 
 def send_low_pass(
@@ -94,24 +102,16 @@ def send_low_pass(
     distance: int,
     key: str,
     receiver_id: Optional[str],
-) -> tuple[int, int]:
+) -> int:
     """
     Move the ball, step its speed up, and hand it to whoever the
-    pass was aimed at. Returns how far the ball went and how far
-    the passer advanced.
+    pass was aimed at. Returns how far the ball went. The passer
+    stays where they are: whether they move is their coach's to say,
+    afterwards (`offer_passer_advance`).
     """
     actual_distance = match.move_ball_relative(offense_side, distance)
     match.ball.speed = min(
         12, match.ball.speed + engine.pass_speed_bonus(key)
-    )
-    # A pass across a shared space sends the passer a space forward
-    # (2026-08-07) -- the ball hasn't gone anywhere, so this is what
-    # the maneuver buys. Clamped at the last space, since no meeple
-    # ever moves into a goal zone (Law 2.1.4).
-    passer_advance = (
-        match.move_player_relative(match.active_player_id, offense_side, 1)
-        if distance == 0
-        else 0
     )
     # The pass was aimed at somebody, and it is the same somebody a
     # Winger's set-up would hand the shot to -- so they receive it
@@ -120,7 +120,7 @@ def send_low_pass(
     # instead of completing; nobody carries a loose ball.
     match.set_ball_carrier(receiver_id)
 
-    return actual_distance, passer_advance
+    return actual_distance
 
 
 def low_pass_movement_note(
@@ -129,24 +129,16 @@ def low_pass_movement_note(
     handler: PlayerDefinition,
     distance: int,
     actual_distance: int,
-    passer_advance: int,
 ) -> str:
     """
     What the ball did, worded. A pass of 0 crosses a shared space
-    and so is described by what the *passer* did instead.
+    and so goes nowhere a distance could say.
     """
     if distance != 0:
         direction = "forward" if distance > 0 else "backward"
         space_word = "space" if actual_distance == 1 else "spaces"
         return f"moves {actual_distance} {space_word} {direction}"
-
-    movement_note = "goes to a teammate in the same space"
-    if passer_advance:
-        movement_note += (
-            f", and {engine.format_player_label(match, handler)} "
-            "moves a space forward"
-        )
-    return movement_note
+    return "goes to a teammate in the same space"
 
 
 def pay_double_team_cost(
@@ -314,13 +306,13 @@ def low_pass_step(
         double_team_partner = engine.double_team_partner(match)
         engine.record_double_team_partner(match, double_team_partner)
 
-    actual_distance, passer_advance = send_low_pass(
+    actual_distance = send_low_pass(
         engine, match, offense_side, distance, key, receiver_id,
     )
 
     content = (
         f"**{name}:** the ball "
-        f"{low_pass_movement_note(engine, match, handler, distance, actual_distance, passer_advance)}. "
+        f"{low_pass_movement_note(engine, match, handler, distance, actual_distance)}. "
         f"Ball speed is now {match.ball.speed}."
     )
 
@@ -335,6 +327,41 @@ def low_pass_step(
     # spent on the steal that produced it.
     distance_moved = 0 if free else 1
 
+    # **The passer may move 1 space forward** once the ball has gone
+    # (Law 6.5.3, the author 2026-10-07) -- a Low Pass's, never a
+    # Pinpoint's. Asked before the tail below, which is what the
+    # answer runs.
+    advance = offer_passer_advance(
+        engine, game, match, key,
+        {"then": "pass", "receiver_id": receiver_id, "free": free},
+    )
+    if advance is not None:
+        return StepResult(
+            narration=[content], board_changed=True, next=advance,
+        )
+    lines, follow_on = low_pass_tail(
+        engine, match, receiver_id, distance_moved, game,
+    )
+    return StepResult(
+        narration=[content, *lines], board_changed=True, next=follow_on,
+    )
+
+
+def low_pass_tail(
+    engine: RulesEngine,
+    match: MatchState,
+    receiver_id: Optional[str],
+    distance_moved: int,
+    game: Optional[D12BallGame] = None,
+) -> tuple[list[str], FollowOn]:
+    """
+    What a completed pass leads to once the ball is with its receiver
+    and the passer has moved or stayed: a Winger's or Zytheris's
+    set-up where the ball is in range, and otherwise the end of the
+    maneuver. The lines are what it adds to the pass's own.
+    """
+    offense_side = match.ball.possession
+    handler = engine.get_player_definition(match.active_player_id)
     # Both branches below have moved the ball, so `board_changed` is
     # True either way -- which is exactly where `refresh_match_image`
     # sat in the cog. The flag is carried rather than assumed because
@@ -359,13 +386,9 @@ def low_pass_step(
     if not (
         handler.role == PlayerRole.WINGER or zytheris
     ) or not match.can_attempt_score(offense_side):
-        return StepResult(
-            narration=[content],
-            board_changed=True,
-            next=FollowOn(
-                FollowOnStep.FINISH_MANEUVER_RESOLUTION,
-                {"distance_moved": distance_moved},
-            ),
+        return [], FollowOn(
+            FollowOnStep.FINISH_MANEUVER_RESOLUTION,
+            {"distance_moved": distance_moved},
         )
 
     if receiver_id is None:
@@ -373,22 +396,87 @@ def low_pass_step(
         # choice; fall back to whoever is on the ball's space.
         receiver_id = match.eligible_ball_handlers()[0]
     receiver = engine.get_player_definition(receiver_id)
-    return StepResult(
-        narration=[
-            content,
-            (
-                f"{engine.format_player_label(match, handler)}'s Winger "
-                "ability can turn this into a scoring opportunity!"
-                if handler.role == PlayerRole.WINGER
-                else f"{engine.format_player_label(match, receiver)}'s "
-                "special ability can turn this into a scoring opportunity!"
-            ),
-        ],
-        board_changed=True,
-        next=FollowOn(
-            FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
-            {"shooter_id": receiver_id, "distance_moved": distance_moved},
+    return [
+        (
+            f"{engine.format_player_label(match, handler)}'s Winger "
+            "ability can turn this into a scoring opportunity!"
+            if handler.role == PlayerRole.WINGER
+            else f"{engine.format_player_label(match, receiver)}'s "
+            "special ability can turn this into a scoring opportunity!"
         ),
+    ], FollowOn(
+        FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
+        {"shooter_id": receiver_id, "distance_moved": distance_moved},
+    )
+
+
+def offer_passer_advance(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    key: str,
+    then: dict,
+) -> Optional[PendingPrompt]:
+    """
+    Ask whether a Low Pass's passer moves 1 space forward (Law 6.5.3,
+    6.5.5), recording the question and what the pass does once it is
+    answered (`MatchState.pending_passer_advance`); `None` where there
+    is nothing to ask -- a Pinpoint, whose passer never moves (Law
+    19.5.3), or a passer on the last space before the goal zone, with
+    no space in front of them to move into.
+    """
+    if key == "skilled_pass":
+        return None
+    passer_id = match.active_player_id
+    position = match.board.meeple_position(passer_id)
+    if position is None or match.relative_move_destination(
+        passer_id, match.ball.possession, 1,
+    ) == position:
+        return None
+    match.pending_passer_advance = {"passer_id": passer_id, **then}
+    return passer_advance_prompt(engine, game, match)
+
+
+def answer_passer_advance(
+    engine: RulesEngine,
+    game: Optional[D12BallGame],
+    match: MatchState,
+    advance: bool,
+) -> StepResult:
+    """
+    The passer moves 1 space forward or stays, and the pass goes on
+    to what it was owed: the tail of a completed pass, or the landing
+    of one that reached nobody. Staying says nothing -- a move that is
+    not made is not news.
+    """
+    pending = match.pending_passer_advance or {}
+    match.pending_passer_advance = None
+    passer_id = pending.get("passer_id", match.active_player_id)
+    lines: list[str] = []
+    if advance:
+        offense_side = match.ball.possession
+        if match.move_player_relative(passer_id, offense_side, 1):
+            passer = engine.get_player_definition(passer_id)
+            lines.append(
+                f"{engine.format_player_label(match, passer)} moves a "
+                "space forward."
+            )
+    if pending.get("then") == "loose":
+        return StepResult(
+            narration=lines,
+            board_changed=bool(lines),
+            next=FollowOn(
+                FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
+            ),
+        )
+    tail, follow_on = low_pass_tail(
+        engine, match, pending.get("receiver_id"),
+        0 if pending.get("free") else 1, game,
+    )
+    return StepResult(
+        narration=[*lines, *tail],
+        board_changed=bool(lines),
+        next=follow_on,
     )
 
 
@@ -2291,9 +2379,12 @@ def offer_low_pass(
     charges no further clock and cannot be a Pinpoint.
 
     A handler with no teammate in reach has won the maneuver and has
-    nowhere to put the ball: it goes a space forward and is loose, and
-    its speed still rises (2026-08-07) -- the maneuver's speed bonus
-    doesn't depend on the pass finding anyone. No headline of its own
+    nowhere to put the ball: it rolls forward -- 2 spaces for a Low
+    Pass, 3 for a Pinpoint (the author, 2026-10-07; Law 6.5.5,
+    19.5.3) -- and settles where it lands, and its speed still rises
+    (2026-08-07): the maneuver's speed bonus doesn't depend on the
+    pass finding anyone. A Low Pass's passer may still move, and is
+    asked before the ball settles. No headline of its own
     for that loose ball: the ball may well roll onto somebody, so what
     to call it is a question about the space it stopped on rather than
     about the pass that failed.
@@ -2303,30 +2394,40 @@ def offer_low_pass(
 
     if not candidates:
         offense_side = match.ball.possession
-        actual_distance = match.move_ball_relative(offense_side, 1)
+        roll = (
+            SKILLED_PASS_REACH if key == "skilled_pass"
+            else LOW_PASS_NOBODY_ROLL
+        )
+        actual_distance = match.move_ball_relative(offense_side, roll)
         match.ball.speed = min(
             BALL_SPEED_MAX, match.ball.speed + engine.pass_speed_bonus(key),
         )
         movement_note = (
-            "the ball rolls a space forward"
-            if actual_distance
-            else "the ball stays where it is"
+            "the ball stays where it is"
+            if not actual_distance
+            else "the ball rolls a space forward"
+            if actual_distance == 1
+            else f"the ball rolls {actual_distance} spaces forward"
         )
         prefix = f"{lead_in}\n\n" if lead_in else ""
+        content = (
+            f"{prefix}**{name}:** there is "
+            + (
+                "no teammate within three spaces to receive it"
+                if key == "skilled_pass"
+                else "no teammate within two spaces to receive it"
+            )
+            + ", and a pass can't be played to the passer -- "
+            f"{movement_note}. "
+            f"Ball speed is now {match.ball.speed}."
+        )
+        advance = offer_passer_advance(
+            engine, game, match, key, {"then": "loose"},
+        )
         return StepResult(
-            narration=[
-                f"{prefix}**{name}:** there is "
-                + (
-                    "nobody on the field to receive it"
-                    if key == "skilled_pass"
-                    else "no teammate within two spaces to receive it"
-                )
-                + ", and a pass can't be played to the passer -- "
-                f"{movement_note}. "
-                f"Ball speed is now {match.ball.speed}."
-            ],
+            narration=[content],
             board_changed=True,
-            next=FollowOn(
+            next=advance if advance is not None else FollowOn(
                 FollowOnStep.BEGIN_LOOSE_BALL, {"distance_moved": 1},
             ),
         )
