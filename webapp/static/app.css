@@ -892,8 +892,9 @@ select {
 }
 .pill-name { font-size: 16px; font-weight: 700; color: var(--strong); }
 .pill-face .tier-tag {
-  grid-column: 2;
+  grid-column: 2 / -1;
   justify-self: start;
+  white-space: nowrap;
   padding: 0 4px;
   border-radius: 3px;
   font-size: 9px;

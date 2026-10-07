@@ -1313,7 +1313,9 @@ chooser, or puts a refusal away.
   `pictures.maneuver_diagram_png`) rather than drawn a second time -- and
   the effect in the sheet's words, never cut down. Each is the answer as
   it was in step 4. An advanced card's tier tag sits under its name, so
-  the name and the time keep the first line (the author, 2026-10-07). On
+  the name and the time keep the first line, and names the basic card of
+  its rank -- "advanced Low Pass" on Pinpoint, the catalog's `counterpart`
+  (the author, 2026-10-07). On
   a desktop a pill is 230px wide, three in a row, the diagram over the
   effect (the author, 2026-10-07: until then the
   row stretched them to 250px and up, which was too large); on the phone

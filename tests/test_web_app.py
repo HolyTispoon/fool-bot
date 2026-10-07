@@ -4028,6 +4028,12 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(pill["name"], maneuver.name)
             self.assertEqual(pill["rank"], f"O{maneuver.rank}")
             self.assertEqual(pill["effect"], maneuver.effect)
+            # An advanced card's tag names its rank's basic card.
+            self.assertEqual(
+                pill["tier_word"],
+                f"advanced {catalog.counterpart(maneuver).name}"
+                if maneuver.is_gambit else None,
+            )
             self.assertEqual(
                 [one["said"] for one in pill["matchups"]], list(outcomes),
             )

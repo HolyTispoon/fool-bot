@@ -1856,7 +1856,14 @@ def maneuver_pill(
         engine.maneuver_catalog, engine.player_catalog, maneuver, side,
         aids.game_tiers(engine, game),
     )
-    card["tier_word"] = card["tier_word"] if maneuver.is_gambit else None
+    # An advanced card's tag names the basic card of its rank --
+    # "advanced Low Pass" on Pinpoint (the author, 2026-10-07), the
+    # catalog's own pairing (`counterpart`). Wording alone.
+    card["tier_word"] = (
+        f"{card['tier_word']} "
+        f"{engine.maneuver_catalog.counterpart(maneuver).name}"
+        if maneuver.is_gambit else None
+    )
     if match is not None and engine.special_abilities_apply(game):
         named: dict[str, dict] = {}
         for setup in (match.home, match.visiting):
