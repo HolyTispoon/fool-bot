@@ -17,6 +17,7 @@ from unittest import mock
 
 from cogs.d12ball import D12Ball
 from cogs.d12ball_helpers import space_label
+from roster import fielded
 from space_codes import code, codes
 from cogs.d12ball_views import (
     CoachingFormationView,
@@ -244,6 +245,14 @@ class FormationShapeTests(unittest.TestCase):
         self.assertEqual(
             setup_space_order(TeamSide.HOME, Zone.MIDFIELD, 3, 2), [0, 1],
         )
+        # Board 10's four-space midfield centres its pair on the two
+        # middle spaces, still dealt from that side's own end.
+        self.assertEqual(
+            setup_space_order(TeamSide.HOME, Zone.MIDFIELD, 4, 2), [1, 2],
+        )
+        self.assertEqual(
+            setup_space_order(TeamSide.VISITING, Zone.MIDFIELD, 4, 2), [2, 1],
+        )
         # A zone no deeper than it is full is packed either way, which
         # is every outer zone on boards 6 and 7.
         self.assertEqual(
@@ -314,6 +323,64 @@ class FormationShapeTests(unittest.TestCase):
         )
         # Home kick off, so somebody of theirs is on the kickoff space.
         self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
+
+    def test_board_10_deals_both_midfield_pairs_onto_spaces_5_and_6(
+        self,
+    ) -> None:
+        """
+        The author's board-10 deal (2026-10-07 in the rules log): the
+        outer zones spread as on board 9, and each side's midfield pair
+        takes the two middle spaces, its Midfielder on its own kickoff
+        space -- home's 5, the visitors' 6.
+        """
+        match = MatchState.standard(
+            catalog=self.catalog,
+            ruleset=self.rules,
+            board_size=10,
+            home_team=Team.ORANGE,
+            visiting_team=Team.PURPLE,
+        )
+        roles = (
+            PlayerRole.FULLBACK,
+            PlayerRole.DEFENDER,
+            PlayerRole.MIDFIELDER,
+            PlayerRole.PLAYMAKER,
+            PlayerRole.WINGER,
+            PlayerRole.STRIKER,
+        )
+
+        def spaces_of(side: TeamSide) -> list[str]:
+            setup = match.setup_for_side(side)
+            return [
+                space_label(
+                    *match.board.meeple_position(
+                        next(
+                            candidate for candidate in setup.field_players
+                            if self.catalog.player_by_id(candidate).role
+                            == role
+                        )
+                    ),
+                    match.board,
+                )
+                for role in roles
+            ]
+
+        self.assertEqual(
+            spaces_of(TeamSide.HOME),
+            [f"space {n}" for n in (1, 3, 5, 6, 8, 10)],
+        )
+        self.assertEqual(
+            spaces_of(TeamSide.VISITING),
+            [f"space {n}" for n in (10, 8, 6, 5, 3, 1)],
+        )
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.HOME))
+        self.assertTrue(match.kickoff_space_occupied_by(TeamSide.VISITING))
+        # Home kick off, and the card on their kickoff space is the
+        # Midfielder's, so it is the Midfielder who has the ball.
+        self.assertEqual(
+            match.eligible_ball_handlers(),
+            [fielded(match, PlayerRole.MIDFIELDER)],
+        )
 
     def test_no_shape_either_board_plays_deals_a_stack(self) -> None:
         # Since the six-space board went (2026-09-22 in the rules log)

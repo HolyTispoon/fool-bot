@@ -44,7 +44,6 @@ is a rule rather than an accident:
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, replace
 from typing import Optional
 
@@ -84,6 +83,7 @@ from d12ball.formatting import (
     is_total_modifier,
     player_with_role,
     score_side_label,
+    summed_modifier_line,
     total_modifier_line,
 )
 from d12ball.game import D12BallGame, Team
@@ -206,12 +206,6 @@ def contest_working(
     )
 
 
-# A dice line that adds a number: "+3 Midfielder ability", "-1 Volatile
-# burn (1)", or the skill line itself, "Offensive skill +5". A note --
-# "Injured — no skill modifier", a special ability's sentence -- adds
-# nothing and is not counted.
-_ADDEND = re.compile(r"(?:^| skill )([+-]\d+)")
-
 def with_total_modifier(
     detail: list[str],
     roll: int,
@@ -230,13 +224,9 @@ def with_total_modifier(
     the line cannot disagree with the total drawn under it whatever
     the lines above it say; the lines are only counted.
     """
-    addends = [
-        int(match.group(1))
-        for line in detail[1:]
-        if (match := _ADDEND.search(line)) and int(match.group(1))
-    ]
-    if len(addends) > 1:
-        detail.append(total_modifier_line(total - roll))
+    line = summed_modifier_line(detail[1:], total - roll)
+    if line is not None:
+        detail.append(line)
 
 
 def _with_extras(
