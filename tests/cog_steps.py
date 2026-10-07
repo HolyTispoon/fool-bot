@@ -47,6 +47,7 @@ from d12ball.flow.arrivals import (  # noqa: F401
     offer_scoring_attempt_choice as flow_offer_scoring_attempt_choice,
 )
 from d12ball.flow.effects import (  # noqa: F401
+    answer_passer_advance,
     deflection_step,
     dribble_advance_step,
     dribble_burst_step,
@@ -188,13 +189,26 @@ async def resolve_skilled_pass(cog, interaction: discord.Interaction, game: D12B
     await resolve_low_pass(cog, interaction, game, match, key='skilled_pass')
 
 
-async def resolve_low_pass(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, key: str='low_pass', free: bool=False) -> None:
-    await cog.dispatch_step_result(interaction, game, match, offer_low_pass(cog.engine, game, match, key=key, free=free))
+def answered_passer_advance(engine, match: MatchState, result: StepResult, advance: bool=False, game=None) -> StepResult:
+    """`result` with a Low Pass's passer-advance question answered, if
+    it asked one (Law 6.5.3): its lines and the answer's together, and
+    the answer's next step -- so a test about what a pass says and does
+    next reads past a question the rule now puts in the middle."""
+    from d12ball.prompts import PendingPrompt, PromptKind
+    if not (isinstance(result.next, PendingPrompt) and result.next.kind is PromptKind.PASSER_ADVANCE):
+        return result
+    answer = answer_passer_advance(engine, game, match, advance)
+    return StepResult(narration=[*result.narration, *answer.narration], board_changed=result.board_changed or answer.board_changed, next=answer.next)
 
 
-async def apply_low_pass(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, distance: int, receiver_id: Optional[str]=None, key: str='low_pass', free: bool=False) -> None:
+async def resolve_low_pass(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, key: str='low_pass', free: bool=False, advance: bool=False) -> None:
+    result = offer_low_pass(cog.engine, game, match, key=key, free=free)
+    await cog.dispatch_step_result(interaction, game, match, answered_passer_advance(cog.engine, match, result, advance))
+
+
+async def apply_low_pass(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState, distance: int, receiver_id: Optional[str]=None, key: str='low_pass', free: bool=False, advance: bool=False) -> None:
     result = low_pass_step(cog.engine, match, distance, receiver_id=receiver_id, key=key, free=free)
-    await cog.dispatch_step_result(interaction, game, match, result)
+    await cog.dispatch_step_result(interaction, game, match, answered_passer_advance(cog.engine, match, result, advance))
 
 
 async def resolve_dribble_advance(cog, interaction: discord.Interaction, game: D12BallGame, match: MatchState) -> None:

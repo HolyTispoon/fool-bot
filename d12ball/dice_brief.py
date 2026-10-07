@@ -384,6 +384,10 @@ def score_attempt_brief(
     chip), so the ability is said once. Who they are is
     `RulesEngine.intervening_defenders`, the reading the roll adds.
 
+    Where the attack adds two numbers or more, the shooter carries
+    their sum as `total_modifier`, which the image draws bold under the
+    modifiers -- the number the shot's dice will add.
+
     Each side carries the special abilities that bear on the shot
     (`ChallengeSide.special`, off `BEARINGS`), the shooter's without
     the clear shot where the modifier already says it, and a
@@ -402,8 +406,12 @@ def score_attempt_brief(
             + (", halved from midfield" if match.shot_speed_halved() else "")
             + ")"
         )
-    if match.pending_shot_is_set_up and shooter.role == PlayerRole.STRIKER:
-        modifiers.append("+3 Striker ability")
+    striker = (
+        3 if match.pending_shot_is_set_up
+        and shooter.role == PlayerRole.STRIKER else 0
+    )
+    if striker:
+        modifiers.append(f"{striker:+d} Striker ability")
     clear_shot = engine.clear_shot_note(game, shooter.player_id, defenders)
     shooter_bearing = BEARINGS["shot_attack"]
     if clear_shot and ability_note:
@@ -411,23 +419,38 @@ def score_attempt_brief(
         # Said once: the modifier already is the sentence.
         shooter_bearing = _without(shooter_bearing, SpecialAbility.CLEAR_SHOT)
 
+    attack = [
+        challenge_side(
+            engine,
+            shooter.player_id,
+            match.team_for_player(shooter.player_id),
+            attacking=True,
+            game=game,
+            modifiers=tuple(modifiers),
+            bearing=shooter_bearing,
+            side=match.ball.possession,
+        ),
+        *merging_sides(
+            engine, match, match.ball.possession, (shooter.player_id,),
+            "offense", game,
+        ),
+    ]
+    # Every number the attack adds before the dice -- the skill, each
+    # Ooze's merge, the ball speed, the Striker's +3 -- summed in bold
+    # where there are two or more (the author, 2026-10-06), as the dice
+    # image sums them after the roll. Zero adds nothing and is not one.
+    addends = [
+        value
+        for value in (
+            *(side.value for side in attack), speed_modifier, striker,
+        )
+        if value
+    ]
+    if len(addends) > 1:
+        attack[0] = replace(attack[0], total_modifier=sum(addends))
+
     return (
-        [
-            challenge_side(
-                engine,
-                shooter.player_id,
-                match.team_for_player(shooter.player_id),
-                attacking=True,
-                game=game,
-                modifiers=tuple(modifiers),
-                bearing=shooter_bearing,
-                side=match.ball.possession,
-            ),
-            *merging_sides(
-                engine, match, match.ball.possession, (shooter.player_id,),
-                "offense", game,
-            ),
-        ],
+        attack,
         [
             challenge_side(
                 engine,

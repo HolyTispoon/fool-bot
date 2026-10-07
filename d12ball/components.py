@@ -1572,16 +1572,22 @@ def setup_space_order(
     end, and any in between are spaced evenly. A zone no deeper than
     it is full comes out exactly as packing it would -- which is every
     outer zone on board 7 -- so this is only ever visible on
-    board 9, where the three-space zones would otherwise bunch each
-    pair against one edge and leave the third space empty. There it
-    puts the home Defender on space 3 and the home Striker on space 9.
+    boards 9 and 10, where the three-space zones would otherwise bunch
+    each pair against one edge and leave the third space empty. On
+    board 9 it puts the home Defender on space 3 and the home Striker
+    on space 9.
 
-    **Midfield is packed outward from that side's own end instead**,
-    because the kickoff space is in it: the side kicking off has to
-    have somebody standing on that space, and spreading two cards
-    across a three-space midfield would leave the middle one -- the
-    kickoff space -- empty and hold the coach in the
-    setup window until they moved somebody onto it.
+    **Midfield is packed into its middle instead**, from that side's
+    own end outward, because the kickoff space is in it: every side
+    has to have somebody standing on its own kickoff space, and
+    spreading two cards across a three-space midfield would leave the
+    middle one -- the kickoff space -- empty and hold the coach in the
+    setup window until they moved somebody onto it. Where the pack
+    cannot be centred -- a pair in board 9's three spaces -- it leans
+    toward that side's own end, spaces 4 and 5 for home. Board 10's
+    four-space midfield centres its pair on spaces 5 and 6 for both
+    sides, and dealing from the own end puts each side's first card,
+    the Midfielder, on its own kickoff space (Law 3.2.2).
 
     Either way a surplus goes round the zone again, so every space is
     taken before any space takes a second player. That satisfies the
@@ -1602,6 +1608,9 @@ def setup_space_order(
     if zone != Zone.MIDFIELD and 1 < player_count <= zone_spaces:
         step = (zone_spaces - 1) / (player_count - 1)
         order = [order[round(index * step)] for index in range(player_count)]
+    elif zone == Zone.MIDFIELD and player_count < zone_spaces:
+        start = (zone_spaces - player_count) // 2
+        order = order[start:start + player_count]
     return [order[index % len(order)] for index in range(player_count)]
 
 
@@ -1854,6 +1863,11 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     # it is a dict or None, and the read side has never copied one.
     SavedField(
         "pending_scoring_opportunity",
+        write=lambda value: dict(value) if value is not None else None,
+    ),
+    # A dict or None, copied on the way out like the one above.
+    SavedField(
+        "pending_passer_advance",
         write=lambda value: dict(value) if value is not None else None,
     ),
     SavedField("pending_shot_is_set_up", default=False),
@@ -2253,6 +2267,16 @@ class MatchState:
     # None -- no scoring opportunity outstanding, which is what such a
     # save means.
     pending_scoring_opportunity: Optional[dict] = None
+    # A won Low Pass's passer may move 1 space forward once the ball
+    # has gone (Law 6.5.3, the author 2026-10-07), and their coach is
+    # asked. What is saved is the question: the passer, and what the
+    # pass does once it is answered -- `"then": "pass"` for a pass
+    # that reached somebody (`free` and `receiver_id` carried for the
+    # tail `low_pass_step` would have run), `"then": "loose"` for one
+    # that reached nobody and rolled. Read by `passer_advance_prompt`;
+    # absent from every save written before it, which reads as None --
+    # nothing outstanding, which is what such a save means.
+    pending_passer_advance: Optional[dict] = None
     pending_shot_is_set_up: bool = False
     # The base clock cost of the maneuver that offered a pending set-up
     # shot -- 0 for an ordinary shot, otherwise the maneuver's own flat
@@ -4066,6 +4090,7 @@ class MatchState:
         self.pending_effect_continuation = None
         self.pending_kickoff_fill = False
         self.pending_scoring_opportunity = None
+        self.pending_passer_advance = None
         self.pending_shot_is_set_up = False
         self.pending_shot_setup_cost = 0
         self.clock_charged = False

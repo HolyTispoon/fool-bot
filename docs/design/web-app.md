@@ -1257,6 +1257,7 @@ changed for it.
 | `speed_delta_choice` (`SpeedOptions`) | a row of d12 faces in the box | -- |
 | the six rolls (`RollOptions`) | the large die in the box; a ⚡ chip on each of the viewer's own meeples that may declare Overdrive (with its drain) or Boost first -- never the other coach's, whose declarations are theirs | a score attempt's Back is neutral |
 | `mind_pull`, `smooth`, `join_the_ball`, `force_test` | the meeple the prompt names, for the yes | the no is neutral, worded from the option ("Stay", "Let it stand", "X keeps the ball") |
+| `passer_advance` | the passer's meeple (the prompt's `player_id`), for moving a space forward (Law 6.5.3) | Stay is neutral |
 | `set_up_attempt` | the goal and the player who may take the shot (the prompt's `player_id`), both for the shot (the author, 2026-09-26) | the decline is neutral |
 | `coaching_offer` | the sideline of the side it is put to, for Coach (the author, 2026-09-26) -- its meeples still show their cards | Pass is neutral |
 | `maneuver_action` (`ManeuverOptions`) | this coach's own hand as pills (`present.maneuver_pill`), the gambits a row under the basic three; the declaration on the game's coin beside who holds it | a gambit the side does not hold is dimmed and never offered; the other hand is a back ("The hand, the reveal and full time", below) |
@@ -1902,8 +1903,11 @@ PNG is drawn from -- `dice_brief.maneuver_challenge_brief` and
   a whole skill, outlined for a halved or passed one, ringed in slime
   for an Ooze Merging -- and for a
   wall the band key under the faces in the PNG's own labels, and the
-  contributions added up. A roll nobody contests carries no value, and
-  no badge.
+  contributions added up. Where a lone side's skill and modifiers are
+  two numbers or more -- a shooter with the ball speed, an own-goal roll
+  with an Overdrive -- their sum is the side's `total`, bold under the
+  modifiers, as the PNG and the dice image say it. A roll nobody
+  contests carries no value, and no badge.
 - **Deliberately not the field strip or the coach's half-field**
   (2026-09-26, the author): coaches can see the field, since the
   page's board is beside the prompt. The cog draws both because a

@@ -349,6 +349,15 @@ defenders has none, and packs to its own content.
   number stranded on the second is unreadable however narrow it makes the
   image, so `group_width` floors on it. The maximum caps the *names*, which
   can wrap.
+- **Two numbers or more are summed, in bold.** A wall's contributions and
+  a merge add up into one line; so does a lone shooter's skill with this
+  attempt's modifiers -- the ball speed, the Striker's +3 -- as "Total
+  modifier +10" under them (`ChallengeSide.total_modifier`, which the
+  brief fills because only it holds the modifiers as numbers). It is the
+  line the dice image draws after the roll, and the counting rule is
+  `formatting.summed_modifier_line`'s: one number is its own total and
+  says nothing more (the author, 2026-10-06: "any time there's more than
+  one modifier there should be a modifier sum in bold").
 - **A matchup has its own fonts** (`FONT_CHALLENGE_TITLE`, `_BODY`,
   `_ABILITY`, `_TOTAL`) rather than borrowing `FONT_SMALL` and
   `FONT_DICE_TOTAL`, which size the board and the dice and are not on this

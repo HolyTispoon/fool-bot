@@ -655,6 +655,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.TUTORIAL_CONTINUE: "There is no note to continue from.",
     PromptKind.DOUBLE_TEAM_PARTNER: "That partner has already been chosen.",
     PromptKind.LOW_PASS_CHOICE: "That maneuver has already resolved.",
+    PromptKind.PASSER_ADVANCE: "The passer has already moved or stayed.",
     PromptKind.HIGH_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.SETUP_PASS_CHOICE: "That maneuver has already resolved.",
     PromptKind.SPEED_DELTA_CHOICE: "That maneuver has already resolved.",
@@ -868,6 +869,20 @@ def _answer_set_up_attempt(
         match,
         shooter_id=prompt.player_id,
         maneuver_cost=prompt.distance_moved,
+    )
+
+
+def _answer_passer_advance(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    choice: str,
+) -> StepResult:
+    """Move a Low Pass's passer 1 space forward, or leave them (Law
+    6.5.3), and carry on with what the pass was owed."""
+    return effects.answer_passer_advance(
+        engine, game, match, advance=choice == "advance",
     )
 
 
@@ -1858,6 +1873,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., Any]] = {
     PromptKind.BALL_RECOVERY: _answer_ball_recovery,
     PromptKind.LOOSE_BALL_PICK: _answer_loose_ball_pick,
     PromptKind.SET_UP_ATTEMPT: _answer_set_up_attempt,
+    PromptKind.PASSER_ADVANCE: _answer_passer_advance,
     PromptKind.SHOOTER_CHOICE: _answer_shooter_choice,
     PromptKind.SMOOTH: _answer_smooth,
     PromptKind.OWN_GOAL_ROLL: _answer_own_goal_roll,

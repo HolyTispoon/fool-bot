@@ -18,7 +18,8 @@ renders the token once, at its door -- step 9 of
 docs/architecture-migration.md.
 """
 
-from typing import Optional
+import re
+from typing import Optional, Sequence
 
 from d12ball.components import (
     GoalRecord,
@@ -888,6 +889,41 @@ def total_modifier_line(value: int) -> str:
     Pass into the goal zone can take a side below zero.
     """
     return f"{TOTAL_MODIFIER_PREFIX}{value:+d}"
+
+
+# A line that adds a number: "+3 Midfielder ability", "-1 Volatile burn
+# (1)", the skill line itself, "Offensive skill +5", or a player named
+# with their badge and what they add, "{team:slime} Gloopus
+# {role:midfielder:slime} +3 (Merge)". A note -- "Injured — no skill
+# modifier", a special ability's sentence -- adds nothing and is not
+# counted.
+_ADDEND = re.compile(r"(?:^| skill |\} )([+-]\d+)")
+
+
+def modifier_addends(lines: Sequence[str]) -> list[int]:
+    """
+    The numbers a side's lines add, one per line that adds one and is
+    not zero -- what decides whether the side is shown a total
+    modifier (two or more). Only counted: the total itself is always
+    the caller's own sum, so the line cannot disagree with the roll
+    whatever the wording above it says.
+    """
+    return [
+        int(match.group(1))
+        for line in lines
+        if (match := _ADDEND.search(line)) and int(match.group(1))
+    ]
+
+
+def summed_modifier_line(lines: Sequence[str], value: int) -> Optional[str]:
+    """`total_modifier_line(value)` where `lines` add two numbers or
+    more, `None` where they add one or none: one modifier is its own
+    total and says nothing more (the author, 2026-10-05; 2026-10-06,
+    "any time there's more than one modifier there should be a
+    modifier sum in bold")."""
+    if len(modifier_addends(lines)) > 1:
+        return total_modifier_line(value)
+    return None
 
 
 def is_total_modifier(line: str) -> bool:
