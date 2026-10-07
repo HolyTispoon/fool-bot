@@ -201,7 +201,7 @@ def skill_test_cause(
     return (
         f"**{would_be_winner}** would win, but "
         f"{engine.format_player_label(match, injured_player)} is "
-        f"**{word}** {emoji} -- "
+        f"**{word}** {emoji} — "
         "a skill test decides it instead!"
     )
 
