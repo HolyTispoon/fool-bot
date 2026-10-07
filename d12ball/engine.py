@@ -2839,24 +2839,28 @@ class RulesEngine:
         match: MatchState,
     ) -> list[tuple[int, str]]:
         """
-        A Low Pass has at most three destinations, as (distance,
+        A Low Pass has at most two destinations, as (distance,
         receiver) pairs ordered back-to-front for display: the nearest
-        teammate ahead of the ball within 2 spaces, the nearest one
-        behind it within 2, and a teammate sharing the ball's own
-        space. The ball can only be passed to a space someone is
-        already standing on.
+        teammate behind the ball within 2 spaces, and the nearest one
+        ahead of it within 2. The ball can only be passed to a space
+        someone is already standing on.
 
         **Nearest, not any.** A teammate 2 spaces ahead is no longer a
         destination when another one stands 1 space ahead -- each
         direction offers only the closest, so the choice is between
         directions rather than between distances (2026-08-07).
 
+        **A teammate on the ball's own space is the nearest behind
+        it** (the author, 2026-10-07; Law 6.5.2), so they block every
+        teammate further back. It used to be a third destination of
+        its own.
+
         **A pass has to reach a different player.** The ball handler
         can't pass to themselves to hold the ball, so distance 0 is a
         candidate only when a *second* offensive player is standing on
         the ball's space, and the receiver named for it is that other
         player. A handler with nobody within two spaces has no legal
-        Low Pass at all -- see resolve_low_pass, which is where that
+        Low Pass at all -- see `offer_low_pass`, which is where that
         case is handled rather than here.
 
         The receiver named here is only the *first* teammate on that
@@ -2874,7 +2878,7 @@ class RulesEngine:
         candidates: list[tuple[int, str]] = []
         # Each run stops at its first hit: the nearest teammate is the
         # only one that direction offers.
-        for distances in ((-1, -2), (0,), (1, 2)):
+        for distances in ((0, -1, -2), (1, 2)):
             for distance in distances:
                 receivers = self.low_pass_receivers(match, distance)
                 if receivers:

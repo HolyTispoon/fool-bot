@@ -3349,9 +3349,18 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         match.active_player_id = handler
 
         cog = self.build_cog()
+        # The teammate on the ball's space is the nearest one behind
+        # it (Law 6.5.2, the author 2026-10-07), so the one 2 back is
+        # no destination while they stand there.
         self.assertEqual(
             cog.engine.low_pass_candidates(match),
-            [(-2, behind), (0, here), (2, ahead)],
+            [(0, here), (2, ahead)],
+        )
+        # Off the ball's space and out of reach, they block nobody.
+        match.move_meeple(here, Zone.HOME_ZONE, 0)
+        self.assertEqual(
+            cog.engine.low_pass_candidates(match),
+            [(-2, behind), (2, ahead)],
         )
 
     def test_low_pass_candidates_only_reach_the_nearest_each_way(
@@ -3597,10 +3606,10 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
             (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 1),
         )
         self.assertEqual(match.ball.speed, 2)
-        # 2026-08-07: passing across a shared space is what sends the
-        # passer forward -- the receiver stays on the ball.
+        # The passer was asked whether to step forward (Law 6.5.3) and
+        # stayed; the receiver stays on the ball either way.
         self.assertEqual(
-            match.board.meeple_position(handler), (Zone.MIDFIELD, 2),
+            match.board.meeple_position(handler), (Zone.MIDFIELD, 1),
         )
         self.assertEqual(
             match.board.meeple_position(sharing), (Zone.MIDFIELD, 1),
@@ -3610,13 +3619,12 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             "goes to a teammate in the same space", kwargs["lead_in"],
         )
-        self.assertIn("moves a space forward", kwargs["lead_in"])
+        self.assertNotIn("moves a space forward", kwargs["lead_in"])
 
     async def test_apply_low_pass_leaves_the_passer_where_a_real_pass_lands(
         self,
     ) -> None:
-        # Only the shared-space pass moves the passer: the ball itself
-        # travelling is what the other distances buy.
+        # A passer whose coach says stay stays, wherever the pass went.
         cog = self.build_cog()
         match = self.build_match()
         self.clear_board(match)
@@ -3714,9 +3722,9 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         # Winning Low Pass with no teammate in reach is not a licence
-        # to keep the ball by passing to yourself: the ball rolls a
-        # space forward and is loose (2026-08-07), and still picks up
-        # the maneuver's +1 speed on the way.
+        # to keep the ball by passing to yourself: the ball rolls 2
+        # spaces forward (Law 6.5.5, the author 2026-10-07) and is
+        # loose, and still picks up the maneuver's +1 speed on the way.
         cog = self.build_cog()
         cog.engine.side_controlled_by_ai = mock.Mock(return_value=False)
         match = self.build_match()
@@ -3738,7 +3746,8 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         # No prompt, and no view to answer it with.
         interaction.followup.send.assert_not_awaited()
         self.assertEqual(
-            (match.ball.zone, match.ball.space_index), (Zone.MIDFIELD, 2),
+            (match.ball.zone, match.ball.space_index),
+            (Zone.VISITORS_ZONE, 0),
         )
         self.assertEqual(match.ball.speed, 5)
         cog.finish_maneuver_resolution.assert_not_awaited()
@@ -3746,7 +3755,7 @@ class D12BallLowHighPassTests(unittest.IsolatedAsyncioTestCase):
         _, kwargs = cog.begin_loose_ball.await_args
         self.assertEqual(kwargs["distance_moved"], 1)
         self.assertIn("no teammate within two spaces", kwargs["lead_in"])
-        self.assertIn("rolls a space forward", kwargs["lead_in"])
+        self.assertIn("rolls 2 spaces forward", kwargs["lead_in"])
 
     async def test_a_low_pass_with_nowhere_to_roll_is_loose_where_it_is(
         self,

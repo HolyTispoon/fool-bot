@@ -639,6 +639,69 @@ class HighPassChoiceView(SafeView):
         await self.cog.present(interaction, game, result)
 
 
+class PasserAdvanceView(SafeView):
+    """
+    Whether a Low Pass's passer moves 1 space forward once the ball has
+    gone, or stays (Law 6.5.3). The passer is the prompt's, read back
+    off `MatchState.pending_passer_advance` by the driver; the view
+    holds it only to name them on the buttons.
+    """
+
+    def __init__(self, cog: "D12Ball", game_id: str, passer_id: str):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+        passer = cog.engine.get_player_definition(passer_id)
+
+        advance_button = discord.ui.Button(
+            label=f"{player_with_role(passer)} moves forward"[:80],
+            style=discord.ButtonStyle.primary,
+            custom_id=f"d12ball:passer_advance:{game_id}:advance",
+        )
+        advance_button.callback = self.advance
+        self.add_item(advance_button)
+
+        stay_button = discord.ui.Button(
+            label=f"{player_with_role(passer)} stays"[:80],
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"d12ball:passer_advance:{game_id}:stay",
+        )
+        stay_button.callback = self.stay
+        self.add_item(stay_button)
+
+    async def advance(self, interaction: discord.Interaction) -> None:
+        await self._answer(interaction, "advance", "Moved forward.")
+
+    async def stay(self, interaction: discord.Interaction) -> None:
+        await self._answer(interaction, "stay", "Stayed.")
+
+    async def _answer(
+        self,
+        interaction: discord.Interaction,
+        choice: str,
+        answered: str,
+    ) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+
+        if not self.may_act_for_possession(interaction, game, match):
+            await interaction.response.send_message(
+                "Only the player resolving this effect can choose.",
+                ephemeral=True,
+            )
+            return
+
+        result = await self.apply(
+            interaction, game, Action(PromptKind.PASSER_ADVANCE, choice),
+            carry_from=0,
+        )
+        if result is None:
+            return
+        await interaction.response.edit_message(content=answered, view=None)
+        await self.cog.present(interaction, game, result)
+
+
 class SetUpAttemptChoiceView(SafeView):
     """
     Whether to take an offered scoring-opportunity shot -- a High

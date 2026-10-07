@@ -250,6 +250,34 @@ behind survives as the condition for **answering** a gambit.
     Phase 6 moved that write into `dispatch_step_result`, once per run
     of the driver's loop. See "The model and the Discord layer" in
     CLAUDE.md and [model-discord-split.md](model-discord-split.md).
+  - **The passer's step forward is a question, and a saved one**
+    (the author, 2026-10-07; Law 6.5.3). It used to be automatic and
+    only on a pass across a shared space, so `send_low_pass` did it.
+    Now any Low Pass's passer *may* move 1 space forward, so
+    `low_pass_step` puts `PromptKind.PASSER_ADVANCE` once the ball has
+    gone, and `answer_passer_advance` moves them or not and runs the
+    tail the step would have run (`low_pass_tail`: the Winger's or
+    Zytheris's set-up, or the end of the maneuver). A pass that
+    reached nobody asks too, before the ball's landing is settled --
+    the passer stepping forward can change who is nearest to a loose
+    ball, so the order is the rule's, not the frontend's.
+    - **`MatchState.pending_passer_advance` holds the question**, for
+      `pending_scoring_opportunity`'s reason: the pass is still the
+      live maneuver while it is asked, so without the field a restart
+      would offer the pass a second time. It holds the passer and
+      what the pass does once answered (`"then"`: `"pass"` or
+      `"loose"`), never the answer. Absent from older saves, which
+      read as None.
+    - **A Pinpoint never asks**: its passer never moves (Law 19.5.3),
+      which is the one place the two cards' shared path splits on
+      `key` for something other than reach and speed. Neither does a
+      passer on the last space before the goal zone, who has nowhere
+      to step.
+    - **Dinky always moves.** It costs nothing and is a step nearer
+      the goal; `DinkyAI._advance`.
+    - **With nobody to receive it the ball rolls 2, or a Pinpoint's
+      3** (`LOW_PASS_NOBODY_ROLL`, `SKILLED_PASS_REACH`). It used to be
+      1 for both.
   - **Both dribbles followed it (rank O2).**
     `dribble_advance_step` and `dribble_burst_step` are beside it,
     with `pay_clear_cost` moved down as a free function -- its only

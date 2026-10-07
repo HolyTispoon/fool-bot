@@ -44,111 +44,48 @@ You chose **Dribble**.
 🟠 Player 1 has picked their maneuver.
 --- message
 🟠 Player 1 chose **Dribble**.
-🟣 Dinky AI chose **Deflect**.
+🟣 Dinky AI chose **Steal**.
 
-## **Dribble** wins!
+**Dribble** ties with **Steal** — skill test!
+
+🟠 Sizzifizik [PM]: offense skill 4
+🟣 Emberdash [PM]: defense skill 3
+
+🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 1 total).
+🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 6: SkillTestView -> 'Roll the skill test'
+--- message
+## **Steal** wins the skill test!
 Time has advanced 1, now at 02.
 --- message
-🟠 <@111>, choose your Dribble distance (Playmaker ability):
-=== press 6: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
---- message
-Chose **2 spaces**.
---- message
-**Dribble:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+**Steal:**
+# Turnover!
+🟣 Emberdash [PM] steals the ball. 🟣 Dinky AI (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
 
-<@111>, manipulate the ball's speed (up to 4):
-=== press 7: SpeedDeltaChoiceView -> '2 (+1)'
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
 --- message
-Ball speed is now **2**.
+🟣 Glompex [MF] runs back to space 3.
+🟣 Glompex [MF] exhausts 2 😮‍💨😮‍💨 (now 2 total).
 --- message
-Ball is now in space 6, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Sizzifizik [PM], who takes this turn.
-
-Choose an action:
-=== press 8: PlayerActionView -> 'Shoot to score'
---- message
-🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
---- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 9: ScoreAttemptView -> 'Roll the score attempt'
---- message
-# GOAL!
-🟠 Sizzifizik [PM] scores for 🟠 Player 1 (Home) on **02**!
-🟠 Player 1 (Home) 1:0 🟣 Dinky AI (Visitors)
-
-Time has advanced 1, now at 03.
---- message
-# Coaching Choice
-**🟣 Dinky AI passed.**
---- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 4, 🟣 Dinky AI (Visitors) has possession.
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 10: ManeuverActionPromptView -> 'Deflect'
---- message
-You chose **Deflect**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **High Pass**.
-🟠 Player 1 chose **Deflect**.
-
-## **Deflect** wins!
-Time has advanced 1, now at 04.
---- message
-🟣 Glompex [MF] picks up the ball.
+Ball speed is now **4**.
 --- message
 Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
 --- message
-🟣 Glompex [MF] will maneuver for 🟣 Dinky AI.
+🟣 Emberdash [PM] will maneuver for 🟣 Dinky AI.
 
 🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 11: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
+=== press 7: ManeuverChallengeView -> 'Sizzifizik [PM] (1)'
 --- message
-Flickerwing has moved 1 space.
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 1 total).
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 12: ManeuverActionPromptView -> 'Pressure'
---- message
-You chose **Pressure**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **High Pass**.
-🟠 Player 1 chose **Pressure**.
-
-**High Pass** ties with **Pressure** — skill test!
-
-🟣 Glompex [MF]: offense skill 3
-🟠 Flickerwing [WG]: defense skill 2
-
-🟣 Glompex [MF] exhausts 1 😮‍💨 (now 1 total).
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 2 total).
---- message
-Either player can roll:
-=== press 13: SkillTestView -> 'Roll the skill test'
---- message
-## **Pressure** wins the skill test!
-Time has advanced 1, now at 05.
---- message
-**Pressure:** 🟣 Glompex [MF] and the ball go back 1 space. 🟠 Flickerwing [WG] moves forward.
-
-Ball is now in space 6, 🟣 Dinky AI (Visitors) has possession.
+Sizzifizik has moved 1 space.
+🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 2 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 14: ManeuverActionPromptView -> 'Steal'
+=== press 8: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
 --- message
@@ -158,40 +95,123 @@ You chose **Steal**.
 🟠 Player 1 chose **Steal**.
 
 ## **Steal** wins!
-Time has advanced 1, now at 06.
+Time has advanced 1, now at 03.
 --- message
 **Steal:**
 # Turnover!
-🟠 Flickerwing [WG] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
+🟠 Sizzifizik [PM] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+The ball speed goes down to **1**.
 --- message
-🟣 Glompex [MF] runs back to space 3.
-🟣 Glompex [MF] exhausts 3 😮‍💨😮‍💨😮‍💨 (now 4 total).
+<@111>, manipulate the ball's speed (up to 3):
+=== press 9: SpeedDeltaChoiceView -> '1 (no change)'
 --- message
-<@111>, manipulate the ball's speed (up to 2):
-=== press 15: SpeedDeltaChoiceView -> '3 (+2)'
+Ball speed is now **1**.
 --- message
-Ball speed is now **3**.
---- message
-Ball is now in space 5, 🟠 Player 1 (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
-The ball was left with Flickerwing [WG], who takes this turn.
+The ball was left with Sizzifizik [PM], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 10: PlayerActionView -> 'Maneuver'
+--- message
+Glompex has moved 1 space.
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 3 total).
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 11: ManeuverActionPromptView -> 'Dribble'
+--- message
+You chose **Dribble**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Dribble**.
+🟣 Dinky AI chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 04.
+--- message
+🟠 <@111>, choose your Dribble distance (Playmaker ability):
+=== press 12: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
+--- message
+Chose **2 spaces**.
+--- message
+**Dribble:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
+
+<@111>, manipulate the ball's speed (up to 4):
+=== press 13: SpeedDeltaChoiceView -> '3 (+2)'
+--- message
+Ball speed is now **3**.
+--- message
+Ball is now in space 6, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Sizzifizik [PM], who takes this turn.
 
 Choose an action:
-=== press 16: PlayerActionView -> 'Shoot to score'
+=== press 14: PlayerActionView -> 'Shoot to score'
 --- message
-🟠 Player 1 has chosen to shoot to score with 🟠 Flickerwing [WG].
+🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 17: ScoreAttemptView -> 'Roll the score attempt'
+=== press 15: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# Missed attempt!
+🟣 Dinky AI (Visitors) manages to avoid a goal! (phew)
+
+Time has advanced 1, now at 05.
+--- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 7, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 16: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Low Pass**.
+🟠 Player 1 chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🟣 Hellguard [FB]: offense skill 1
+🟠 Acidel [SK]: defense skill 1
+
+🟣 Hellguard [FB] exhausts 1 😮‍💨 (now 1 total).
+🟠 Acidel [SK] exhausts 1 😮‍💨 (now 1 total).
+--- message
+Either player can roll:
+=== press 17: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+Time has advanced 1, now at 06.
+--- message
+**Deflect:** the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
+--- message
+🟠 Acidel [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 18: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟠 Flickerwing [WG] scores for 🟠 Player 1 (Home) on **06**!
-🟠 Player 1 (Home) 2:0 🟣 Dinky AI (Visitors)
+🟠 Acidel [SK] scores for 🟠 Player 1 (Home) on **06**!
+🟠 Player 1 (Home) 1:0 🟣 Dinky AI (Visitors)
+
+🟠 Acidel [SK] exhausts 1 😮‍💨 (now 2 total).
+🟠 Acidel [SK] is now *exhausted* 🥵
 
 Time has advanced 1, now at 07.
 --- message
@@ -205,7 +225,34 @@ Ball is now in space 4, 🟣 Dinky AI (Visitors) has possession.
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 18: ManeuverActionPromptView -> 'Pressure'
+=== press 19: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **High Pass**.
+🟠 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+Time has advanced 1, now at 08.
+--- message
+🟣 Glompex [MF] picks up the ball.
+--- message
+Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Glompex [MF] will maneuver for 🟣 Dinky AI.
+
+🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 20: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
+--- message
+Flickerwing has moved 1 space.
+🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 1 total).
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 21: ManeuverActionPromptView -> 'Pressure'
 --- message
 You chose **Pressure**.
 --- message
@@ -216,25 +263,296 @@ You chose **Pressure**.
 
 **High Pass** ties with **Pressure** — skill test!
 
-🟣 Emberdash [PM]: offense skill 4
-🟠 Sizzifizik [PM]: defense skill 3
+🟣 Glompex [MF]: offense skill 3
+🟠 Flickerwing [WG]: defense skill 2
 
-🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 1 total).
-🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 1 total).
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 4 total).
+🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 2 total).
 --- message
 Either player can roll:
-=== press 19: SkillTestView -> 'Roll the skill test'
---- message
-## **It's a tie (8-8)!**
-The skill test must be rolled again.
-🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 2 total).
-🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 2 total).
-
-Roll again:
-=== press 20: SkillTestView -> 'Roll the skill test'
+=== press 22: SkillTestView -> 'Roll the skill test'
 --- message
 ## **High Pass** wins the skill test!
-Time has advanced 2, now at 09.
+Time has advanced 2, now at 10.
+--- message
+**High Pass:** the ball moves 3 spaces forward.
+
+**High Pass:** the receiving player must win a skill test to keep possession.
+--- message
+🟠 Blazebulk [DD] (defense skill 5) challenges 🟣 Quantor [WG] (offense skill 5) for the high pass -- the receiver must win this skill test to keep possession!
+
+
+Either player can roll:
+=== press 23: LooseBallSkillTestView -> 'Roll for the high pass'
+--- message
+🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
+--- message
+Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 24: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Dribble**.
+🟠 Player 1 chose **Pressure**.
+
+## **Pressure** wins!
+Time has advanced 1, now at 11.
+--- message
+**Pressure:** 🟣 Quantor [WG] and the ball go back 1 space. 🟠 Blazebulk [DD] moves forward.
+
+# Turnover!
+🟠 Blazebulk [DD] steals the ball (Defender ability)! 🟠 Player 1 (Home) now has possession.
+
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+--- message
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Blazebulk [DD], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 25: PlayerActionView -> 'Maneuver'
+--- message
+Emberdash has moved 1 space.
+🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 2 total).
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 26: ManeuverActionPromptView -> 'Dribble'
+--- message
+You chose **Dribble**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Dribble**.
+🟣 Dinky AI chose **Steal**.
+
+**Dribble** ties with **Steal** — skill test!
+
+🟠 Blazebulk [DD]: offense skill 2
+🟣 Emberdash [PM]: defense skill 3
+
+🟠 Blazebulk [DD] exhausts 1 😮‍💨 (now 1 total).
+🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 27: SkillTestView -> 'Roll the skill test'
+--- message
+## **Dribble** wins the skill test!
+Time has advanced 1, now at 12.
+--- message
+**Dribble:** 🟠 Blazebulk [DD] and the ball move forward 1 space.
+
+<@111>, manipulate the ball's speed (up to 2):
+=== press 28: SpeedDeltaChoiceView -> '1 (no change)'
+--- message
+Ball speed is now **1**.
+--- message
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Blazebulk [DD], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 29: PlayerActionView -> 'Maneuver'
+--- message
+Glompex has moved 1 space.
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 5 total).
+🟣 Glompex [MF] is now *exhausted* 🥵
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 30: ManeuverActionPromptView -> 'High Pass'
+--- message
+You chose **High Pass**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **High Pass**.
+🟣 Dinky AI chose **Pressure**.
+
+**High Pass** ties with **Pressure** — skill test!
+
+🟠 Blazebulk [DD]: offense skill 2
+🟣 Glompex [MF]: defense skill 4
+
+🟠 Blazebulk [DD] exhausts 1 😮‍💨 (now 2 total).
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 6 total).
+--- message
+Either player can roll:
+=== press 31: SkillTestView -> 'Roll the skill test'
+--- message
+## **Pressure** wins the skill test!
+Time has advanced 1, now at 13.
+--- message
+Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
+=== press 32: InjuryTestView -> 'Roll the injury test'
+--- message
+🟣 Glompex [MF] is exhausted and rolls an injury test: 7 beats their 6 exhaustion tokens.
+🟣 Glompex [MF] is **safe**.
+--- message
+**Pressure:** 🟠 Blazebulk [DD] and the ball go back 1 space. 🟣 Glompex [MF] moves forward.
+
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Blazebulk [DD], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 33: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 34: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Low Pass**.
+🟣 Dinky AI chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🟠 Blazebulk [DD]: offense skill 2
+🟣 Glompex [MF]: defense skill 4
+
+🟠 Blazebulk [DD] exhausts 1 😮‍💨 (now 3 total).
+🟣 Glompex [MF] exhausts 1 😮‍💨 (now 7 total).
+--- message
+Either player can roll:
+=== press 35: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+Time has advanced 1, now at 14.
+--- message
+Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has to beat their 7 exhaustion tokens.
+=== press 36: InjuryTestView -> 'Roll the injury test'
+--- message
+🟣 Glompex [MF] is exhausted and rolls an injury test: 4 does not beat their 7 exhaustion tokens.
+🟣 Glompex [MF] is **injured**.
+--- message
+# Turnover!
+🟣 Quantor [WG] picks up the ball. 🟣 Dinky AI (Visitors) now has possession.
+--- message
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+--- message
+🟣 Glompex [MF] runs back to space 4.
+🟣 Glompex [MF] is injured 🤕 and does not exhaust.
+--- message
+Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 37: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Dribble**.
+🟠 Player 1 chose **Deflect**.
+
+## **Dribble** wins!
+Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
+--- message
+**Dribble:** 🟣 Quantor [WG] and the ball move forward 1 space.
+--- message
+Ball speed is now **6**.
+--- message
+Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI (Visitors) has **last possession**: their next turnover ends the period.
+--- message
+🟣 Dinky AI has chosen to shoot to score with 🟣 Quantor [WG].
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 38: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🟣 Quantor [WG] scores for 🟣 Dinky AI (Visitors) on **15 (FH)**!
+🟠 Player 1 (Home) 1:1 🟣 Dinky AI (Visitors)
+
+Time has advanced 1, now at 16.
+--- message
+**End of the first half!** The ball turns over at 16 under last possession -- the period ends. The second half starts at 15.
+--- message
+# Halftime
+Every fielded player clears 1 exhaustion:
+🟠 Blazebulk [DD] clears 1 exhaustion (now 3).
+🟠 Sizzifizik [PM] clears 1 exhaustion (now 1).
+🟠 Flickerwing [WG] clears 1 exhaustion (now 2).
+🟠 Acidel [SK] clears 1 exhaustion (now 1).
+🟣 Quantor [WG] clears 1 exhaustion (now 0).
+🟣 Emberdash [PM] clears 1 exhaustion (now 2).
+🟣 Hellguard [FB] clears 1 exhaustion (now 0).
+--- message
+🟣 Emberdash [PM] clears an extra exhaustion token (now 1).
+--- message
+🟠 <@111> (Home): choose one fielded player to clear an extra exhaustion token.
+=== press 39: HalftimeExtraTokenView -> 'Flickerwing [WG] (2 exhaustion)'
+--- message
+🟠 Flickerwing [WG] clears an extra exhaustion token (now 1).
+--- message
+# Coaching Choice
+**🟣 Dinky AI (Visitors) is done.**
+🟣 Gurgoth [DD] came on for 🟣 Glompex [MF].
+--- message
+## Halftime
+🟠 Player 1 (Home) sets up for the second half.
+# Coaching Choice
+**🟠 <@111> (Home)** -- 2 substitutions left.
+=== press 40: CoachingHubView -> 'Substitution (2 left at halftime)'
+--- message
+# Coaching Choice
+**🟠 <@111> (Home)** -- 2 substitutions left.
+Who comes off?
+=== press 41: CoachingSubstitutionOutView -> 'Flickerwing [WG] - Visitors Zone'
+--- message
+# Coaching Choice
+**🟠 <@111> (Home)** -- 2 substitutions left.
+Who comes on for 🟠 Flickerwing [WG]? They take their zone and their space exactly.
+=== press 42: CoachingSubstitutionInView -> 'Noxar [SK]'
+--- message
+# Coaching Choice
+**🟠 <@111> (Home)** -- 1 substitution left.
+🟠 Noxar [SK] comes on for 🟠 Flickerwing [WG].
+1 substitution left.
+=== press 43: CoachingHubView -> 'Done coaching'
+--- message
+# Coaching Choice
+**🟠 Player 1 (Home) is done.**
+🟠 Noxar [SK] came on for 🟠 Flickerwing [WG].
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 44: ManeuverActionPromptView -> 'Steal'
+--- message
+You chose **Steal**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **High Pass**.
+🟠 Player 1 chose **Steal**.
+
+## **High Pass** wins!
+Time has advanced 2, now at 17.
 --- message
 **High Pass:** the ball moves 3 spaces forward.
 
@@ -244,7 +562,7 @@ Time has advanced 2, now at 09.
 
 
 Either player can roll:
-=== press 21: LooseBallSkillTestView -> 'Roll for the high pass'
+=== press 45: LooseBallSkillTestView -> 'Roll for the high pass'
 --- message
 🟣 Tachyon [SK] keeps possession after the high pass! 🟣 Dinky AI has possession.
 --- message
@@ -253,22 +571,22 @@ Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 🟣 Dinky AI has chosen to shoot to score with 🟣 Tachyon [SK].
 --- message
 Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 22: ScoreAttemptView -> 'Roll the score attempt'
+=== press 46: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
-🟣 Tachyon [SK] scores for 🟣 Dinky AI (Visitors) on **09**!
-🟠 Player 1 (Home) 2:1 🟣 Dinky AI (Visitors)
+🟣 Tachyon [SK] scores for 🟣 Dinky AI (Visitors) on **17**!
+🟠 Player 1 (Home) 1:2 🟣 Dinky AI (Visitors)
 
-Time has advanced 1, now at 10.
+Time has advanced 1, now at 18.
 --- message
 # Coaching Choice
 **🟠 <@111> (Home)** -- 2 substitutions left.
 Coach?
-=== press 23: CoachingOfferView -> 'Coach'
+=== press 47: CoachingOfferView -> 'Coach'
 --- message
 # Coaching Choice
 **🟠 <@111> (Home)** -- 2 substitutions left.
-=== press 24: CoachingHubView -> 'Done coaching'
+=== press 48: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **🟠 Player 1 (Home) is done.**
@@ -285,104 +603,41 @@ Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 
 Sizzifizik [PM] will be handling the ball.
 
-Out of shooting range, and no time out available. Maneuver:
-=== press 25: PlayerActionView -> 'Maneuver'
+Out of shooting range. Maneuver, or take a time out:
+=== press 49: PlayerActionView -> 'Time out'
 --- message
-🟣 Dinky AI has picked their maneuver.
+# Take a time out?
+You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 4 at speed 1, with you in possession.
+=== press 50: TimeOutConfirmView -> 'Take the time out'
 --- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 26: ManeuverActionPromptView -> 'Dribble'
+# 🟠 Player 1 (Home) calls a time out
+Both coaches get a Coaching Choice. The ball stays with 🟠 Player 1 (Home) on space 4. Time has advanced 1, now at 19.
 --- message
-You chose **Dribble**.
+# Coaching Choice
+**🟠 <@111> (Home)** -- 2 substitutions left.
+=== press 51: CoachingHubView -> 'Done coaching'
 --- message
-🟠 Player 1 has picked their maneuver.
+# Coaching Choice
+**🟠 Player 1 (Home) is done.**
+No substitutions, and no change of shape.
 --- message
-🟠 Player 1 chose **Dribble**.
-🟣 Dinky AI chose **Pressure**.
-
-## **Pressure** wins!
-Time has advanced 1, now at 11.
+# Coaching Choice
+**🟣 Dinky AI (Visitors) is done.**
+No substitutions, and no change of shape.
 --- message
-**Pressure:** 🟠 Sizzifizik [PM] and the ball go back 1 space. 🟣 Emberdash [PM] moves forward.
-
-Ball is now in space 3, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Sizzifizik [PM], who takes this turn.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 27: PlayerActionView -> 'Maneuver'
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 28: ManeuverActionPromptView -> 'Low Pass'
---- message
-You chose **Low Pass**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **Low Pass**.
-🟣 Dinky AI chose **Pressure**.
-
-## **Low Pass** wins!
-Time has advanced 1, now at 12.
---- message
-🟠 <@111>, choose your Low Pass:
-=== press 29: LowPassChoiceView -> 'Blazebulk [DD] -- space 2'
---- message
-**🟠 Coach** chose to pass the ball to 🟠 Blazebulk [DD] at space 2.
---- message
-**Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
-
-Ball is now in space 2, 🟠 Player 1 (Home) has possession.
+Ball is now in space 4, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
-The ball was left with Blazebulk [DD], who takes this turn.
+Sizzifizik [PM] will be handling the ball.
 
 Out of shooting range, and no time out available. Maneuver:
-=== press 30: PlayerActionView -> 'Maneuver'
+=== press 52: PlayerActionView -> 'Maneuver'
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 31: ManeuverActionPromptView -> 'Low Pass'
---- message
-You chose **Low Pass**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **Low Pass**.
-🟣 Dinky AI chose **Pressure**.
-
-## **Low Pass** wins!
-Time has advanced 1, now at 13.
---- message
-🟠 <@111>, choose your Low Pass:
-=== press 32: LowPassChoiceView -> '2 players -- space 3'
---- message
-**🟠 Coach** is passing to space 3. Which player receives it?
-=== press 33: LowPassReceiverView -> 'Spectra [MF]'
---- message
-**🟠 Coach** chose to pass the ball to 🟠 Spectra [MF] at space 3.
---- message
-**Low Pass:** the ball moves 1 space forward. Ball speed is now 3.
-
-Ball is now in space 3, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Spectra [MF], who takes this turn.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 34: PlayerActionView -> 'Maneuver'
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 35: ManeuverActionPromptView -> 'Dribble'
+=== press 53: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
 --- message
@@ -392,32 +647,181 @@ You chose **Dribble**.
 🟣 Dinky AI chose **Deflect**.
 
 ## **Dribble** wins!
-Time has advanced 1, now at 14.
+Time has advanced 1, now at 20.
 --- message
-**Dribble:** 🟠 Spectra [MF] and the ball move forward 1 space.
+🟠 <@111>, choose your Dribble distance (Playmaker ability):
+=== press 54: DribbleAdvanceChoiceView -> 'Advance 2 spaces (space 6)'
+--- message
+Chose **2 spaces**.
+--- message
+**Dribble:** 🟠 Sizzifizik [PM] and the ball move forward 2 spaces (Playmaker ability).
 
-<@111>, manipulate the ball's speed (up to 3):
-=== press 36: SpeedDeltaChoiceView -> '6 (+3)'
+<@111>, manipulate the ball's speed (up to 4):
+=== press 55: SpeedDeltaChoiceView -> '5 (+4)'
 --- message
-Ball speed is now **6**.
+Ball speed is now **5**.
 --- message
-Ball is now in space 4, 🟠 Player 1 (Home) has possession.
+Ball is now in space 6, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Sizzifizik [PM], who takes this turn.
+
+Choose an action:
+=== press 56: PlayerActionView -> 'Shoot to score'
+--- message
+🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 57: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# Missed attempt!
+🟣 Dinky AI (Visitors) manages to avoid a goal! (phew)
+
+Time has advanced 1, now at 21.
+--- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 7, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 58: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **High Pass**.
+🟠 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+Time has advanced 1, now at 22.
+--- message
+**Deflect:** the ball moves 0 spaces back. Ball speed is now 1. The ball reaches the goal zone -- a scoring opportunity!
+--- message
+🟠 Acidel [SK] takes the shot off the set-up.
+--- message
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+=== press 59: ScoreAttemptView -> 'Roll the score attempt'
+--- message
+# GOAL!
+🟠 Acidel [SK] scores for 🟠 Player 1 (Home) on **22**!
+🟠 Player 1 (Home) 2:2 🟣 Dinky AI (Visitors)
+
+🟠 Acidel [SK] exhausts 1 😮‍💨 (now 2 total).
+🟠 Acidel [SK] is now *exhausted* 🥵
+
+Time has advanced 1, now at 23.
+--- message
+# Coaching Choice
+**🟣 Dinky AI passed.**
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 4, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 60: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Low Pass**.
+🟠 Player 1 chose **Pressure**.
+
+## **Low Pass** wins!
+Time has advanced 1, now at 24.
+--- message
+**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
+--- message
+🟣 Emberdash [PM] moves a space forward.
+
+Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 61: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **High Pass**.
+🟠 Player 1 chose **Deflect**.
+
+## **Deflect** wins!
+Time has advanced 1, now at 25.
+--- message
+🟣 Emberdash [PM] (offense skill 4) and 🟠 Spectra [MF] (defense skill 4) both contest the ball -- skill test!
+
+
+Either player can roll:
+=== press 62: LooseBallSkillTestView -> 'Roll for the ball'
+--- message
+# Turnover!
+
+🟠 Spectra [MF] wins the ball! 🟠 <@111> has possession.
+--- message
+The ball speed goes down to **1**.
+--- message
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
 The ball was left with Spectra [MF], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
-=== press 37: PlayerActionView -> 'Maneuver'
---- message
-Glompex has moved 1 space.
-🟣 Glompex [MF] exhausts 1 😮‍💨 (now 5 total).
-🟣 Glompex [MF] is now *exhausted* 🥵
+=== press 63: PlayerActionView -> 'Maneuver'
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 38: ManeuverActionPromptView -> 'Dribble'
+=== press 64: ManeuverActionPromptView -> 'Low Pass'
+--- message
+You chose **Low Pass**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟠 Player 1 chose **Low Pass**.
+🟣 Dinky AI chose **Pressure**.
+
+## **Low Pass** wins!
+Time has advanced 1, now at 26.
+--- message
+🟠 <@111>, choose your Low Pass:
+=== press 65: LowPassChoiceView -> 'Blazebulk [DD] -- space 2'
+--- message
+**🟠 Coach** chose to pass the ball to 🟠 Blazebulk [DD] at space 2.
+--- message
+**Low Pass:** the ball moves 1 space backward. Ball speed is now 2.
+
+<@111> 🟠 Spectra [MF] may move a space forward, or stay where they are:
+=== press 66: PasserAdvanceView -> 'Spectra [MF] stays'
+--- message
+Stayed.
+--- message
+Ball is now in space 2, 🟠 Player 1 (Home) has possession.
+--- message
+🟠 <@111>, it is your turn.
+
+The ball was left with Blazebulk [DD], who takes this turn.
+
+Out of shooting range, and no time out available. Maneuver:
+=== press 67: PlayerActionView -> 'Maneuver'
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
+=== press 68: ManeuverActionPromptView -> 'Dribble'
 --- message
 You chose **Dribble**.
 --- message
@@ -428,363 +832,30 @@ You chose **Dribble**.
 
 **Dribble** ties with **Steal** — skill test!
 
-🟠 Spectra [MF]: offense skill 3
-🟣 Glompex [MF]: defense skill 4
+🟠 Blazebulk [DD]: offense skill 2
+🟣 Quantor [WG]: defense skill 2
 
-🟠 Spectra [MF] exhausts 1 😮‍💨 (now 1 total).
-🟣 Glompex [MF] exhausts 1 😮‍💨 (now 6 total).
---- message
-Either player can roll:
-=== press 39: SkillTestView -> 'Roll the skill test'
---- message
-## **Steal** wins the skill test!
-Time has advanced 1, now at 15. The clock has reached 15: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
---- message
-Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has to beat their 6 exhaustion tokens.
-=== press 40: InjuryTestView -> 'Roll the injury test'
---- message
-🟣 Glompex [MF] is exhausted and rolls an injury test: 9 beats their 6 exhaustion tokens.
-🟣 Glompex [MF] is **safe**.
---- message
-**Steal:**
-# Turnover!
-🟣 Glompex [MF] steals the ball. 🟣 Dinky AI (Visitors) now has possession, then falls back 1 space toward their own goal with the ball.
-
-The ball speed goes down to **1**.
---- message
-Ball speed is now **5**.
---- message
-Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
---- message
-🟣 Dinky AI (Visitors) has **last possession**: their next turnover ends the period.
---- message
-🟣 Glompex [MF] will maneuver for 🟣 Dinky AI.
-
-🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 41: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
---- message
-Flickerwing has moved 1 space.
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 3 total).
-🟠 Flickerwing [WG] is now *exhausted* 🥵
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 42: ManeuverActionPromptView -> 'Pressure'
---- message
-You chose **Pressure**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **High Pass**.
-🟠 Player 1 chose **Pressure**.
-
-**High Pass** ties with **Pressure** — skill test!
-
-🟣 Glompex [MF]: offense skill 3
-🟠 Flickerwing [WG]: defense skill 2
-
-🟣 Glompex [MF] exhausts 1 😮‍💨 (now 7 total).
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 4 total).
---- message
-Either player can roll:
-=== press 43: SkillTestView -> 'Roll the skill test'
---- message
-## **It's a tie (11-11)!**
-The skill test must be rolled again.
-🟣 Glompex [MF] exhausts 1 😮‍💨 (now 8 total).
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 5 total).
-
-Roll again:
-=== press 44: SkillTestView -> 'Roll the skill test'
---- message
-## **High Pass** wins the skill test!
-Time has advanced 2, now at 17.
---- message
-Dinky AI, 🟣 Glompex [MF] is exhausted and owes an injury test: a d12 that has to beat their 8 exhaustion tokens.
-=== press 45: InjuryTestView -> 'Roll the injury test'
---- message
-🟣 Glompex [MF] is exhausted and rolls an injury test: 5 does not beat their 8 exhaustion tokens.
-🟣 Glompex [MF] is **injured**.
---- message
-<@111>, 🟠 Flickerwing [WG] is exhausted and owes an injury test: a d12 that has to beat their 5 exhaustion tokens.
-=== press 46: InjuryTestView -> 'Roll the injury test'
---- message
-🟠 Flickerwing [WG] is exhausted and rolls an injury test: 8 beats their 5 exhaustion tokens.
-🟠 Flickerwing [WG] is **safe**.
---- message
-**High Pass:** the ball moves 3 spaces forward.
-
-**High Pass:** the receiving player must win a skill test to keep possession.
---- message
-🟠 Blazebulk [DD] (defense skill 5) challenges 🟣 Quantor [WG] (offense skill 5) for the high pass -- the receiver must win this skill test to keep possession!
-
-
-Either player can roll:
-=== press 47: LooseBallSkillTestView -> 'Roll for the high pass'
---- message
-# Turnover!
-
-🟠 Blazebulk [DD] wins possession off the high pass! 🟠 <@111> has possession.
---- message
-**End of the first half!** The ball turns over at 17 under last possession -- the period ends. The second half starts at 15.
---- message
-# Halftime
-Every fielded player clears 1 exhaustion:
-🟠 Spectra [MF] clears 1 exhaustion (now 0).
-🟠 Sizzifizik [PM] clears 1 exhaustion (now 1).
-🟠 Flickerwing [WG] clears 1 exhaustion (now 4).
-🟣 Emberdash [PM] clears 1 exhaustion (now 1).
---- message
-🟣 Emberdash [PM] clears an extra exhaustion token (now 0).
---- message
-🟠 <@111> (Home): choose one fielded player to clear an extra exhaustion token.
-=== press 48: HalftimeExtraTokenView -> 'Flickerwing [WG] (4 exhaustion)'
---- message
-🟠 Flickerwing [WG] clears an extra exhaustion token (now 3).
---- message
-# Coaching Choice
-**🟣 Dinky AI (Visitors) is done.**
-🟣 Gurgoth [DD] came on for 🟣 Glompex [MF].
---- message
-## Halftime
-🟠 Player 1 (Home) sets up for the second half.
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Your side is back on the arrangement you last set.
-=== press 49: CoachingHubView -> 'Substitution (2 left at halftime)'
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Who comes off?
-=== press 50: CoachingSubstitutionOutView -> 'Blazebulk [DD] - Home Zone'
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Who comes on for 🟠 Blazebulk [DD]? They take their zone and their space exactly.
-=== press 51: CoachingSubstitutionInView -> 'Noxar [SK]'
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 1 substitution left.
-🟠 Noxar [SK] comes on for 🟠 Blazebulk [DD].
-1 substitution left.
-=== press 52: CoachingHubView -> 'Done coaching'
---- message
-# Coaching Choice
-**🟠 Player 1 (Home) is done.**
-🟠 Noxar [SK] came on for 🟠 Blazebulk [DD].
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 53: ManeuverActionPromptView -> 'Steal'
---- message
-You chose **Steal**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **Low Pass**.
-🟠 Player 1 chose **Steal**.
-
-## **Steal** wins!
-Time has advanced 1, now at 16.
---- message
-**Steal:**
-# Turnover!
-🟠 Sizzifizik [PM] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
-
-# Players run back!
-Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
---- message
-<@111>, choose where 🟠 Spectra [MF] runs back to:
-Space 4 (1 away) or space 5 (2 away).
-=== press 54: RunBackChoiceView -> 'Space 5 (2 away)'
---- message
-🟠 Spectra [MF] runs back to space 5.
-🟠 Spectra [MF] exhausts 2 😮‍💨😮‍💨 (now 2 total).
---- message
-<@111>, manipulate the ball's speed (up to 3):
-=== press 55: SpeedDeltaChoiceView -> '3 (+2)'
---- message
-Ball speed is now **3**.
---- message
-Ball is now in space 3, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Sizzifizik [PM], who takes this turn.
-
-Out of shooting range. Maneuver, or take a time out:
-=== press 56: PlayerActionView -> 'Time out'
---- message
-# Take a time out?
-You may take a time out once per half. If you do, play will stop and you'll be able to substitute players or change formation/assignment. Then, Dinky AI (Visitors) would be allowed to do the same. A time out is a new play: it takes 1 minute, both teams go back to the positions their coaches set, and play resumes with the ball at space 3 at speed 1, with you in possession.
-=== press 57: TimeOutConfirmView -> 'Take the time out'
---- message
-# 🟠 Player 1 (Home) calls a time out
-Both coaches get a Coaching Choice. The ball stays with 🟠 Player 1 (Home) on space 3. Time has advanced 1, now at 17.
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Your side is back on the arrangement you last set.
-=== press 58: CoachingHubView -> 'Done coaching'
---- message
-# Coaching Choice
-**🟠 Player 1 (Home) is done.**
-No substitutions, and no change of shape.
---- message
-# Coaching Choice
-**🟣 Dinky AI (Visitors) is done.**
-No substitutions, and no change of shape.
---- message
-Ball is now in space 3, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-Spectra [MF] will be handling the ball.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 59: PlayerActionView -> 'Maneuver'
---- message
-Emberdash has moved 1 space.
-🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 1 total).
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 60: ManeuverActionPromptView -> 'High Pass'
---- message
-You chose **High Pass**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **High Pass**.
-🟣 Dinky AI chose **Steal**.
-
-## **High Pass** wins!
-Time has advanced 2, now at 19.
---- message
-🟠 <@111>, choose your High Pass distance:
-=== press 61: HighPassChoiceView -> '2 spaces (space 5, no teammate)'
---- message
-Chose **2 spaces**.
---- message
-# Turnover!
-🟣 Gurgoth [DD] picks up the ball. 🟣 Dinky AI (Visitors) now has possession.
---- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
---- message
-🟣 Gurgoth [DD] will maneuver for 🟣 Dinky AI.
-
-🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
-=== press 62: ManeuverChallengeView -> 'Flickerwing [WG] (1)'
---- message
-Flickerwing has moved 1 space.
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 4 total).
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 63: ManeuverActionPromptView -> 'Pressure'
---- message
-You chose **Pressure**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **High Pass**.
-🟠 Player 1 chose **Pressure**.
-
-**High Pass** ties with **Pressure** — skill test!
-
-🟣 Gurgoth [DD]: offense skill 2
-🟠 Flickerwing [WG]: defense skill 2
-
-🟣 Gurgoth [DD] exhausts 1 😮‍💨 (now 1 total).
-🟠 Flickerwing [WG] exhausts 1 😮‍💨 (now 5 total).
---- message
-Either player can roll:
-=== press 64: SkillTestView -> 'Roll the skill test'
---- message
-## **High Pass** wins the skill test!
-Time has advanced 2, now at 21.
---- message
-<@111>, 🟠 Flickerwing [WG] is exhausted and owes an injury test: a d12 that has to beat their 5 exhaustion tokens.
-=== press 65: InjuryTestView -> 'Roll the injury test'
---- message
-🟠 Flickerwing [WG] is exhausted and rolls an injury test: 11 beats their 5 exhaustion tokens.
-🟠 Flickerwing [WG] is **safe**.
---- message
-**High Pass:** the ball moves 3 spaces forward.
-
-**High Pass:** the receiving player must win a skill test to keep possession.
---- message
-🟠 Noxar [SK] (defense skill 1) challenges 🟣 Quantor [WG] (offense skill 5) for the high pass -- the receiver must win this skill test to keep possession!
-
-
-Either player can roll:
-=== press 66: LooseBallSkillTestView -> 'Roll for the high pass'
---- message
-🟣 Quantor [WG] keeps possession after the high pass! 🟣 Dinky AI has possession.
---- message
-Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 67: ManeuverActionPromptView -> 'Deflect'
---- message
-You chose **Deflect**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟣 Dinky AI chose **Low Pass**.
-🟠 Player 1 chose **Deflect**.
-
-**Low Pass** ties with **Deflect** — skill test!
-
-🟣 Quantor [WG]: offense skill 5
-🟠 Noxar [SK]: defense skill 1
-
+🟠 Blazebulk [DD] exhausts 1 😮‍💨 (now 4 total).
 🟣 Quantor [WG] exhausts 1 😮‍💨 (now 1 total).
-🟠 Noxar [SK] exhausts 1 😮‍💨 (now 1 total).
 --- message
 Either player can roll:
-=== press 68: SkillTestView -> 'Roll the skill test'
+=== press 69: SkillTestView -> 'Roll the skill test'
 --- message
-## **Low Pass** wins the skill test!
-Time has advanced 1, now at 22.
+## **Dribble** wins the skill test!
+Time has advanced 1, now at 27.
 --- message
-**Low Pass:** the ball moves 1 space forward. Ball speed is now 2. 🟣 Quantor [WG]'s Winger ability can turn this into a scoring opportunity!
---- message
-🟣 Tachyon [SK] takes the shot off the set-up.
---- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 69: ScoreAttemptView -> 'Roll the score attempt'
---- message
-# Missed attempt!
-🟠 Player 1 (Home) manages to avoid a goal! (phew)
+**Dribble:** 🟠 Blazebulk [DD] and the ball move forward 1 space.
 
-🟣 Tachyon [SK] exhausts 1 😮‍💨 (now 1 total).
-
-Time has advanced 1, now at 23.
+<@111>, manipulate the ball's speed (up to 2):
+=== press 70: SpeedDeltaChoiceView -> '2 (no change)'
 --- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Coach?
-=== press 70: CoachingOfferView -> 'Pass'
+Ball speed is now **2**.
 --- message
-# Coaching Choice
-**🟠 Player 1 passed.**
---- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 1, 🟠 Player 1 (Home) has possession.
+Ball is now in space 3, 🟠 Player 1 (Home) has possession.
 --- message
 🟠 <@111>, it is your turn.
 
-Goopkeeper [FB] will be handling the ball.
+The ball was left with Blazebulk [DD], who takes this turn.
 
 Out of shooting range, and no time out available. Maneuver:
 === press 71: PlayerActionView -> 'Maneuver'
@@ -802,179 +873,184 @@ You chose **High Pass**.
 🟣 Dinky AI chose **Steal**.
 
 ## **High Pass** wins!
-Time has advanced 2, now at 25.
+Time has advanced 2, now at 29.
 --- message
 🟠 <@111>, choose your High Pass distance:
-=== press 73: HighPassChoiceView -> '2 spaces (space 3, Spectra [MF])'
+=== press 73: HighPassChoiceView -> '2 spaces (space 5, no teammate)'
 --- message
 Chose **2 spaces**.
 --- message
-**High Pass:** the ball moves 2 spaces forward.
-
-Ball is now in space 3, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Spectra [MF], who takes this turn.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 74: PlayerActionView -> 'Maneuver'
---- message
-Emberdash has moved 1 space.
-🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 2 total).
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 75: ManeuverActionPromptView -> 'High Pass'
---- message
-You chose **High Pass**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **High Pass**.
-🟣 Dinky AI chose **Deflect**.
-
-## **Deflect** wins!
-Time has advanced 1, now at 26.
---- message
-🟠 Noxar [SK] (offense skill 6) and 🟣 Quantor [WG] (defense skill 2) both contest the ball -- skill test!
-
-
-Either player can roll:
-=== press 76: LooseBallSkillTestView -> 'Roll for the ball'
---- message
 # Turnover!
+🟣 Gurgoth [DD] picks up the ball. 🟣 Dinky AI (Visitors) now has possession.
+--- message
+# Players run back!
+Players return to an open space in their assigned zone and exhaust 1 for every space traveled. The ball speed goes down to **1**.
+--- message
+Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Gurgoth [DD] will maneuver for 🟣 Dinky AI.
 
-🟣 Quantor [WG] wins the ball! 🟣 Dinky AI has possession.
+🟠 <@111>, choose which player will move to challenge the maneuver, or send nobody and let it through.
+=== press 74: ManeuverChallengeView -> 'Noxar [SK] (1)'
 --- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 2, 🟣 Dinky AI (Visitors) has possession.
+Noxar has moved 1 space.
+🟠 Noxar [SK] exhausts 1 😮‍💨 (now 1 total).
 --- message
 🟣 Dinky AI has picked their maneuver.
 --- message
 🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
-=== press 77: ManeuverActionPromptView -> 'Steal'
+=== press 75: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Dribble**.
+🟠 Player 1 chose **Pressure**.
+
+## **Pressure** wins!
+Time has advanced 1, now at 30. The clock has reached 30: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
+--- message
+**Pressure:** 🟣 Gurgoth [DD] and the ball go back 1 space. 🟠 Noxar [SK] moves forward.
+
+Ball is now in space 6, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI (Visitors) has **last possession**: their next turnover ends the period.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 76: ManeuverActionPromptView -> 'Deflect'
+--- message
+You chose **Deflect**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **Low Pass**.
+🟠 Player 1 chose **Deflect**.
+
+**Low Pass** ties with **Deflect** — skill test!
+
+🟣 Gurgoth [DD]: offense skill 2
+🟠 Noxar [SK]: defense skill 1
+
+🟣 Gurgoth [DD] exhausts 1 😮‍💨 (now 1 total).
+🟠 Noxar [SK] exhausts 1 😮‍💨 (now 2 total).
+🟠 Noxar [SK] is now *exhausted* 🥵
+--- message
+Either player can roll:
+=== press 77: SkillTestView -> 'Roll the skill test'
+--- message
+## **Deflect** wins the skill test!
+Time has advanced 1, now at 31.
+--- message
+<@111>, 🟠 Noxar [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
+=== press 78: InjuryTestView -> 'Roll the injury test'
+--- message
+🟠 Noxar [SK] is exhausted and rolls an injury test: 11 beats their 2 exhaustion tokens.
+🟠 Noxar [SK] is **safe**.
+--- message
+🟣 Hellguard [FB] (offense skill 1) and 🟠 Acidel [SK] (defense skill 1) both contest the ball -- skill test!
+
+
+Either player can roll:
+=== press 79: LooseBallSkillTestView -> 'Roll for the ball'
+--- message
+🟣 Hellguard [FB] wins the ball! 🟣 Dinky AI has possession.
+--- message
+<@111>, 🟠 Acidel [SK] is exhausted and owes an injury test: a d12 that has to beat their 2 exhaustion tokens.
+=== press 80: InjuryTestView -> 'Roll the injury test'
+--- message
+🟠 Acidel [SK] is exhausted and rolls an injury test: 6 beats their 2 exhaustion tokens.
+🟠 Acidel [SK] is **safe**.
+--- message
+Ball is now in space 7, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 81: ManeuverActionPromptView -> 'Pressure'
+--- message
+You chose **Pressure**.
+--- message
+🟠 Player 1 has picked their maneuver.
+--- message
+🟣 Dinky AI chose **High Pass**.
+🟠 Player 1 chose **Pressure**.
+
+**High Pass** ties with **Pressure** — skill test!
+
+🟣 Hellguard [FB]: offense skill 1
+🟠 Acidel [SK]: defense skill 1
+
+🟣 Hellguard [FB] exhausts 1 😮‍💨 (now 1 total).
+🟠 Acidel [SK] exhausts 1 😮‍💨 (now 3 total).
+--- message
+Either player can roll:
+=== press 82: SkillTestView -> 'Roll the skill test'
+--- message
+## **High Pass** wins the skill test!
+Time has advanced 2, now at 33.
+--- message
+<@111>, 🟠 Acidel [SK] is exhausted and owes an injury test: a d12 that has to beat their 3 exhaustion tokens.
+=== press 83: InjuryTestView -> 'Roll the injury test'
+--- message
+🟠 Acidel [SK] is exhausted and rolls an injury test: 7 beats their 3 exhaustion tokens.
+🟠 Acidel [SK] is **safe**.
+--- message
+**High Pass:** the ball moves 4 spaces forward (Fullback ability).
+
+**High Pass:** the receiving player must win a skill test to keep possession.
+--- message
+🟠 Spectra [MF] (defense skill 4) challenges 🟣 Emberdash [PM] (offense skill 4) for the high pass -- the receiver must win this skill test to keep possession!
+
+
+Either player can roll:
+=== press 84: LooseBallSkillTestView -> 'Roll for the high pass'
+--- message
+## **It's a tie (7-7)!**
+The skill test must be rolled again.
+🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 2 total).
+🟠 Spectra [MF] exhausts 1 😮‍💨 (now 1 total).
+
+Roll again:
+=== press 85: LooseBallSkillTestView -> 'Roll for the high pass'
+--- message
+🟣 Emberdash [PM] keeps possession after the high pass! 🟣 Dinky AI has possession.
+--- message
+Ball is now in space 3, 🟣 Dinky AI (Visitors) has possession.
+--- message
+🟣 Dinky AI has picked their maneuver.
+--- message
+🟠 <@111>, choose a maneuver from the green row -- only you can see what you picked.
+=== press 86: ManeuverActionPromptView -> 'Steal'
 --- message
 You chose **Steal**.
 --- message
 🟠 Player 1 has picked their maneuver.
 --- message
-🟣 Dinky AI chose **High Pass**.
+🟣 Dinky AI chose **Dribble**.
 🟠 Player 1 chose **Steal**.
 
-## **High Pass** wins!
-Time has advanced 2, now at 28.
---- message
-**High Pass:** the ball moves 1 space forward. The ball reaches the goal zone -- a scoring opportunity! The ball comes in too fast to settle -- the ball speed modifier counts **against** what follows (-1).
---- message
-🟣 Tachyon [SK] takes the shot off the set-up.
---- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
-=== press 78: ScoreAttemptView -> 'Roll the score attempt'
---- message
-# GOAL!
-🟣 Tachyon [SK] scores for 🟣 Dinky AI (Visitors) on **28**!
-🟠 Player 1 (Home) 2:2 🟣 Dinky AI (Visitors)
+**Dribble** ties with **Steal** — skill test!
 
-🟣 Tachyon [SK] exhausts 1 😮‍💨 (now 2 total).
-🟣 Tachyon [SK] is now *exhausted* 🥵
+🟣 Emberdash [PM]: offense skill 4
+🟠 Spectra [MF]: defense skill 4
 
-Time has advanced 1, now at 29.
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-Coach?
-=== press 79: CoachingOfferView -> 'Coach'
---- message
-# Coaching Choice
-**🟠 <@111> (Home)** -- 2 substitutions left.
-=== press 80: CoachingHubView -> 'Done coaching'
---- message
-# Coaching Choice
-**🟠 Player 1 (Home) is done.**
-No substitutions, and no change of shape.
---- message
-# Coaching Choice
-**🟣 Dinky AI passed.**
---- message
-The ball speed goes down to **1**.
---- message
-Ball is now in space 4, 🟠 Player 1 (Home) has possession.
---- message
-🟠 <@111>, it is your turn.
-
-Sizzifizik [PM] will be handling the ball.
-
-Out of shooting range, and no time out available. Maneuver:
-=== press 81: PlayerActionView -> 'Maneuver'
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 82: ManeuverActionPromptView -> 'Low Pass'
---- message
-You chose **Low Pass**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **Low Pass**.
-🟣 Dinky AI chose **Deflect**.
-
-**Low Pass** ties with **Deflect** — skill test!
-
-🟠 Sizzifizik [PM]: offense skill 4
-🟣 Emberdash [PM]: defense skill 3
-
-🟠 Sizzifizik [PM] exhausts 1 😮‍💨 (now 2 total).
 🟣 Emberdash [PM] exhausts 1 😮‍💨 (now 3 total).
+🟠 Spectra [MF] exhausts 1 😮‍💨 (now 2 total).
 --- message
 Either player can roll:
-=== press 83: SkillTestView -> 'Roll the skill test'
+=== press 87: SkillTestView -> 'Roll the skill test'
 --- message
-## **Low Pass** wins the skill test!
-Time has advanced 1, now at 30. The clock has reached 30: **last possession** is declared. Whoever has the ball once this play resolves has it, and their next turnover ends the period. The clock keeps running.
+## **Steal** wins the skill test!
+Time has advanced 1, now at 34.
 --- message
-🟠 <@111>, choose your Low Pass:
-=== press 84: LowPassChoiceView -> 'Flickerwing [WG] -- space 6'
---- message
-**🟠 Coach** chose to pass the ball to 🟠 Flickerwing [WG] at space 6.
---- message
-**Low Pass:** the ball moves 2 spaces forward. Ball speed is now 2.
-
-Ball is now in space 6, 🟠 Player 1 (Home) has possession.
---- message
-🟠 Player 1 (Home) has **last possession**: their next turnover ends the period.
---- message
-🟠 <@111>, it is your turn.
-
-The ball was left with Flickerwing [WG], who takes this turn.
-
-Choose an action:
-=== press 85: PlayerActionView -> 'Maneuver'
---- message
-🟣 Dinky AI has picked their maneuver.
---- message
-🟠 <@111>, choose a maneuver from the red row -- only you can see what you picked.
-=== press 86: ManeuverActionPromptView -> 'Dribble'
---- message
-You chose **Dribble**.
---- message
-🟠 Player 1 has picked their maneuver.
---- message
-🟠 Player 1 chose **Dribble**.
-🟣 Dinky AI chose **Pressure**.
-
-## **Pressure** wins!
-Time has advanced 1, now at 31.
---- message
-**Pressure:** 🟠 Flickerwing [WG] and the ball go back 1 space. 🟣 Dravox [DD] moves forward.
-
+**Steal:**
 # Turnover!
-🟣 Dravox [DD] steals the ball (Defender ability)! 🟣 Dinky AI (Visitors) now has possession.
+🟠 Spectra [MF] steals the ball. 🟠 Player 1 (Home) now has possession, then falls back 1 space toward their own goal with the ball.
 
-**Full time!** The ball turns over at 31 under last possession -- the game ends.
+**Full time!** The ball turns over at 34 under last possession -- the game ends.
 
 **Final score:** 🟠 Player 1 (Home) 2:2 🟣 Dinky AI (Visitors)
 
@@ -984,7 +1060,7 @@ Time has advanced 1, now at 31.
 🟠 Player 1 (Home) may make **one substitution** -- the last change either side gets. Nothing else is offered: the shootout is played by whoever is on the field, and not by where they are standing.
 # Coaching Choice
 **🟠 <@111> (Home)** -- 1 substitution left.
-=== press 87: CoachingHubView -> 'Done coaching'
+=== press 88: CoachingHubView -> 'Done coaching'
 --- message
 # Coaching Choice
 **🟠 Player 1 (Home) is done.**
@@ -1003,145 +1079,145 @@ Each coach secretly puts their **six field players** in the order they will shoo
 --- message
 ### Extreme shootout
 <@111>: set the order your six players shoot in. Nobody else sees it.
-=== press 88: ShootoutOrderPromptView -> 'Set Your Shooting Order'
+=== press 89: ShootoutOrderPromptView -> 'Set Your Shooting Order'
 --- message
 Click your six players in the order they shoot. Only you can see this.
-=== press 89: ShootoutOrderSelectView -> 'Flickerwing [WG] +5'
---- message
-Keep going -- click the next player to shoot.
-1. 🟠 Flickerwing [WG]
 === press 90: ShootoutOrderSelectView -> 'Acidel [SK] +6'
 --- message
 Keep going -- click the next player to shoot.
-1. 🟠 Flickerwing [WG]
-2. 🟠 Acidel [SK]
-=== press 91: ShootoutOrderSelectView -> 'Spectra [MF] +3'
+1. 🟠 Acidel [SK]
+=== press 91: ShootoutOrderSelectView -> 'Goopkeeper [FB] +1'
 --- message
 Keep going -- click the next player to shoot.
-1. 🟠 Flickerwing [WG]
-2. 🟠 Acidel [SK]
-3. 🟠 Spectra [MF]
+1. 🟠 Acidel [SK]
+2. 🟠 Goopkeeper [FB]
 === press 92: ShootoutOrderSelectView -> 'Noxar [SK] +6'
 --- message
 Keep going -- click the next player to shoot.
-1. 🟠 Flickerwing [WG]
-2. 🟠 Acidel [SK]
-3. 🟠 Spectra [MF]
-4. 🟠 Noxar [SK]
-=== press 93: ShootoutOrderSelectView -> 'Goopkeeper [FB] +1'
+1. 🟠 Acidel [SK]
+2. 🟠 Goopkeeper [FB]
+3. 🟠 Noxar [SK]
+=== press 93: ShootoutOrderSelectView -> 'Sizzifizik [PM] +4'
 --- message
 Keep going -- click the next player to shoot.
-1. 🟠 Flickerwing [WG]
-2. 🟠 Acidel [SK]
-3. 🟠 Spectra [MF]
-4. 🟠 Noxar [SK]
-5. 🟠 Goopkeeper [FB]
-=== press 94: ShootoutOrderSelectView -> 'Sizzifizik [PM] +4'
+1. 🟠 Acidel [SK]
+2. 🟠 Goopkeeper [FB]
+3. 🟠 Noxar [SK]
+4. 🟠 Sizzifizik [PM]
+=== press 94: ShootoutOrderSelectView -> 'Spectra [MF] +3'
+--- message
+Keep going -- click the next player to shoot.
+1. 🟠 Acidel [SK]
+2. 🟠 Goopkeeper [FB]
+3. 🟠 Noxar [SK]
+4. 🟠 Sizzifizik [PM]
+5. 🟠 Spectra [MF]
+=== press 95: ShootoutOrderSelectView -> 'Blazebulk [DD] +2'
 --- message
 **Your shooting order is set.** You may look at it, but not reorder it.
-1. 🟠 Flickerwing [WG]
-2. 🟠 Acidel [SK]
-3. 🟠 Spectra [MF]
-4. 🟠 Noxar [SK]
-5. 🟠 Goopkeeper [FB]
-6. 🟠 Sizzifizik [PM]
+1. 🟠 Acidel [SK]
+2. 🟠 Goopkeeper [FB]
+3. 🟠 Noxar [SK]
+4. 🟠 Sizzifizik [PM]
+5. 🟠 Spectra [MF]
+6. 🟠 Blazebulk [DD]
 --- message
 🟠 Player 1 (Home) has set their shooting order.
 --- message
 ### Extreme shootout — skill test 1 of 6
 🟠 Player 1 (Home) 0 — 0 🟣 Dinky AI (Visitors)
-🟠 Flickerwing [WG]
-versus
-🟣 Gurgoth [DD]
-
-Either player can roll:
-=== press 95: ShootoutTestView -> 'Roll the skill test'
---- message
-🟠 Flickerwing [WG] rolls an injury test before the shot: 12 beats their 5 exhaustion tokens.
-🟠 Flickerwing [WG] is **safe**.
-🟣 Gurgoth [DD] rolls an injury test before the shot: 1 does not beat their 1 exhaustion tokens.
-🟣 Gurgoth [DD] is **injured**.
-# 🟠 Flickerwing [WG] scores!
-Extreme shootout: 🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
---- message
-### Extreme shootout — skill test 2 of 6
-🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
 🟠 Acidel [SK]
 versus
-🟣 Tachyon [SK]
+🟣 Emberdash [PM]
 
 Either player can roll:
 === press 96: ShootoutTestView -> 'Roll the skill test'
 --- message
-🟠 Acidel [SK] rolls an injury test before the shot: 7 beats their 0 exhaustion tokens.
+🟠 Acidel [SK] rolls an injury test before the shot: 5 beats their 3 exhaustion tokens.
 🟠 Acidel [SK] is **safe**.
-🟣 Tachyon [SK] rolls an injury test before the shot: 3 beats their 2 exhaustion tokens.
+🟣 Emberdash [PM] rolls an injury test before the shot: 8 beats their 3 exhaustion tokens.
+🟣 Emberdash [PM] is **safe**.
+# 🟠 Acidel [SK] scores!
+Extreme shootout: 🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
+--- message
+### Extreme shootout — skill test 2 of 6
+🟠 Player 1 (Home) 1 — 0 🟣 Dinky AI (Visitors)
+🟠 Goopkeeper [FB]
+versus
+🟣 Tachyon [SK]
+
+Either player can roll:
+=== press 97: ShootoutTestView -> 'Roll the skill test'
+--- message
+🟠 Goopkeeper [FB] rolls an injury test before the shot: 1 beats their 0 exhaustion tokens.
+🟠 Goopkeeper [FB] is **safe**.
+🟣 Tachyon [SK] rolls an injury test before the shot: 6 beats their 0 exhaustion tokens.
 🟣 Tachyon [SK] is **safe**.
 # 🟣 Tachyon [SK] scores!
 Extreme shootout: 🟠 Player 1 (Home) 1 — 1 🟣 Dinky AI (Visitors)
 --- message
 ### Extreme shootout — skill test 3 of 6
 🟠 Player 1 (Home) 1 — 1 🟣 Dinky AI (Visitors)
-🟠 Spectra [MF]
-versus
-🟣 Emberdash [PM]
-
-Either player can roll:
-=== press 97: ShootoutTestView -> 'Roll the skill test'
---- message
-🟠 Spectra [MF] rolls an injury test before the shot: 8 beats their 2 exhaustion tokens.
-🟠 Spectra [MF] is **safe**.
-🟣 Emberdash [PM] rolls an injury test before the shot: 8 beats their 3 exhaustion tokens.
-🟣 Emberdash [PM] is **safe**.
-# 🟣 Emberdash [PM] scores!
-Extreme shootout: 🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
---- message
-### Extreme shootout — skill test 4 of 6
-🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
 🟠 Noxar [SK]
-versus
-🟣 Dravox [DD]
-
-Either player can roll:
-=== press 98: ShootoutTestView -> 'Roll the skill test'
---- message
-🟠 Noxar [SK] rolls an injury test before the shot: 3 beats their 1 exhaustion tokens.
-🟠 Noxar [SK] is **safe**.
-🟣 Dravox [DD] rolls an injury test before the shot: 3 beats their 0 exhaustion tokens.
-🟣 Dravox [DD] is **safe**.
-# 🟠 Noxar [SK] scores!
-Extreme shootout: 🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
---- message
-### Extreme shootout — skill test 5 of 6
-🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
-🟠 Goopkeeper [FB]
 versus
 🟣 Quantor [WG]
 
 Either player can roll:
-=== press 99: ShootoutTestView -> 'Roll the skill test'
+=== press 98: ShootoutTestView -> 'Roll the skill test'
 --- message
-🟠 Goopkeeper [FB] rolls an injury test before the shot: 2 beats their 0 exhaustion tokens.
-🟠 Goopkeeper [FB] is **safe**.
-🟣 Quantor [WG] rolls an injury test before the shot: 5 beats their 1 exhaustion tokens.
+🟠 Noxar [SK] rolls an injury test before the shot: 8 beats their 2 exhaustion tokens.
+🟠 Noxar [SK] is **safe**.
+🟣 Quantor [WG] rolls an injury test before the shot: 8 beats their 1 exhaustion tokens.
 🟣 Quantor [WG] is **safe**.
 # 🟣 Quantor [WG] scores!
-Extreme shootout: 🟠 Player 1 (Home) 2 — 3 🟣 Dinky AI (Visitors)
+Extreme shootout: 🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
 --- message
-### Extreme shootout — skill test 6 of 6
-🟠 Player 1 (Home) 2 — 3 🟣 Dinky AI (Visitors)
+### Extreme shootout — skill test 4 of 6
+🟠 Player 1 (Home) 1 — 2 🟣 Dinky AI (Visitors)
 🟠 Sizzifizik [PM]
 versus
 🟣 Hellguard [FB]
 
 Either player can roll:
-=== press 100: ShootoutTestView -> 'Roll the skill test'
+=== press 99: ShootoutTestView -> 'Roll the skill test'
 --- message
-🟠 Sizzifizik [PM] rolls an injury test before the shot: 7 beats their 2 exhaustion tokens.
+🟠 Sizzifizik [PM] rolls an injury test before the shot: 7 beats their 1 exhaustion tokens.
 🟠 Sizzifizik [PM] is **safe**.
-🟣 Hellguard [FB] rolls an injury test before the shot: 12 beats their 0 exhaustion tokens.
+🟣 Hellguard [FB] rolls an injury test before the shot: 6 beats their 1 exhaustion tokens.
 🟣 Hellguard [FB] is **safe**.
 # 🟠 Sizzifizik [PM] scores!
+Extreme shootout: 🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
+--- message
+### Extreme shootout — skill test 5 of 6
+🟠 Player 1 (Home) 2 — 2 🟣 Dinky AI (Visitors)
+🟠 Spectra [MF]
+versus
+🟣 Dravox [DD]
+
+Either player can roll:
+=== press 100: ShootoutTestView -> 'Roll the skill test'
+--- message
+🟠 Spectra [MF] rolls an injury test before the shot: 9 beats their 2 exhaustion tokens.
+🟠 Spectra [MF] is **safe**.
+🟣 Dravox [DD] rolls an injury test before the shot: 11 beats their 0 exhaustion tokens.
+🟣 Dravox [DD] is **safe**.
+# 🟠 Spectra [MF] scores!
+Extreme shootout: 🟠 Player 1 (Home) 3 — 2 🟣 Dinky AI (Visitors)
+--- message
+### Extreme shootout — skill test 6 of 6
+🟠 Player 1 (Home) 3 — 2 🟣 Dinky AI (Visitors)
+🟠 Blazebulk [DD]
+versus
+🟣 Gurgoth [DD]
+
+Either player can roll:
+=== press 101: ShootoutTestView -> 'Roll the skill test'
+--- message
+🟠 Blazebulk [DD] rolls an injury test before the shot: 2 does not beat their 5 exhaustion tokens.
+🟠 Blazebulk [DD] is **injured**.
+🟣 Gurgoth [DD] rolls an injury test before the shot: 4 beats their 1 exhaustion tokens.
+🟣 Gurgoth [DD] is **safe**.
+# 🟣 Gurgoth [DD] scores!
 Extreme shootout: 🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 --- message
 🟣 Dinky AI (Visitors) has chosen their shooter.
@@ -1149,36 +1225,36 @@ Extreme shootout: 🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 ### Extreme shootout — sudden death, round 2
 🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
 <@111>: choose who goes out next, from the players who have not shot yet this round. Nobody else sees it until the reveal.
-=== press 101: ShootoutPickPromptView -> 'Choose Your Shooter'
+=== press 102: ShootoutPickPromptView -> 'Choose Your Shooter'
 --- message
 Choose who goes out next. Everyone who has not shot yet this round is eligible.
-=== press 102: ShootoutPickSelectView -> 'Acidel [SK] +6'
+=== press 103: ShootoutPickSelectView -> 'Goopkeeper [FB] +1'
 --- message
-You send out 🟠 Acidel [SK].
+You send out 🟠 Goopkeeper [FB].
 --- message
 🟠 Player 1 (Home) has chosen their shooter.
 --- message
 ### Extreme shootout — sudden death, round 2
 🟠 Player 1 (Home) 3 — 3 🟣 Dinky AI (Visitors)
-🟠 Acidel [SK]
+🟠 Goopkeeper [FB]
 versus
-🟣 Hellguard [FB]
+🟣 Quantor [WG]
 
 Either player can roll:
-=== press 103: ShootoutTestView -> 'Roll the skill test'
+=== press 104: ShootoutTestView -> 'Roll the skill test'
 --- message
-🟠 Acidel [SK] rolls an injury test before the shot: 4 beats their 0 exhaustion tokens.
-🟠 Acidel [SK] is **safe**.
-🟣 Hellguard [FB] rolls an injury test before the shot: 10 beats their 0 exhaustion tokens.
-🟣 Hellguard [FB] is **safe**.
-# 🟠 Acidel [SK] scores!
+🟠 Goopkeeper [FB] rolls an injury test before the shot: 8 beats their 0 exhaustion tokens.
+🟠 Goopkeeper [FB] is **safe**.
+🟣 Quantor [WG] rolls an injury test before the shot: 9 beats their 1 exhaustion tokens.
+🟣 Quantor [WG] is **safe**.
+# 🟠 Goopkeeper [FB] scores!
 Extreme shootout: 🟠 Player 1 (Home) 4 — 3 🟣 Dinky AI (Visitors)
 --- message
 **The extreme shootout is settled, 4-3.**
 
 **Final score:** 🟠 Player 1 (Home) 6:5 🟣 Dinky AI (Visitors)
 (2:2 at full time, settled 4-3 on the extreme shootout)
-**Winning goal:** Acidel [SK], in the extreme shootout.
+**Winning goal:** Goopkeeper [FB], in the extreme shootout.
 
 # 🟠 Player 1 wins!
 Congratulations, <@111>!
@@ -1186,13 +1262,13 @@ Congratulations, <@111>!
 ## Goals
 
 **🟠 Player 1 (Home)**
-`02`  Sizzifizik [PM]
-`06`  Flickerwing [WG]
+`06`  Acidel [SK]
+`22`  Acidel [SK]
 
 **🟣 Dinky AI (Visitors)**
-`09`  Tachyon [SK]
-`28`  Tachyon [SK]
+`15 (FH)`  Quantor [WG]
+`17`  Tachyon [SK]
 
 **Extreme shootout**
-🟠 Player 1: Flickerwing [WG], Noxar [SK], Sizzifizik [PM], Acidel [SK]
-🟣 Dinky AI: Tachyon [SK], Emberdash [PM], Quantor [WG]
+🟠 Player 1: Acidel [SK], Sizzifizik [PM], Spectra [MF], Goopkeeper [FB]
+🟣 Dinky AI: Tachyon [SK], Quantor [WG], Gurgoth [DD]

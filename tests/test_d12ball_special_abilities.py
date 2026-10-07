@@ -44,6 +44,7 @@ from d12ball.dice_brief import (
 )
 from d12ball.engine import IgnitedRoll
 from d12ball.flow.effects import (
+    answer_passer_advance,
     ball_comes_to,
     high_pass_step,
     low_pass_step,
@@ -1633,15 +1634,28 @@ class LongPassTests(unittest.TestCase):
         )
         self.assertEqual(result.next.kwargs["shooter_id"], receiver)
 
+    def passed(self, distance: int):
+        """A Low Pass played, and its passer kept where they are when
+        asked (Law 6.5.3): what the pass leads to after that."""
+        result = low_pass_step(ENGINE, self.match, distance, game=self.game)
+        if (
+            isinstance(result.next, PendingPrompt)
+            and result.next.kind is PromptKind.PASSER_ADVANCE
+        ):
+            result = answer_passer_advance(
+                ENGINE, self.game, self.match, advance=False,
+            )
+        return result
+
     def test_zytheris_shoots_off_a_low_pass(self) -> None:
         _, receiver = self.pass_from(3, 4)
-        plain = low_pass_step(ENGINE, self.match, 1, game=self.game)
+        plain = self.passed(1)
         self.assertIs(
             plain.next.step, FollowOnStep.FINISH_MANEUVER_RESOLUTION,
         )
         self.pass_from(3, 4)
         with holding(receiver, SpecialAbility.SHOOTS_OFF_ANY_PASS):
-            result = low_pass_step(ENGINE, self.match, 1, game=self.game)
+            result = self.passed(1)
         self.assertIs(
             result.next.step, FollowOnStep.OFFER_SCORING_ATTEMPT_CHOICE,
         )

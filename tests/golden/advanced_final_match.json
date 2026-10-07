@@ -959,6 +959,7 @@
   "pending_overdrive": [],
   "pending_own_goal": false,
   "pending_own_goal_distance": 1,
+  "pending_passer_advance": null,
   "pending_recovery_from_time_out": false,
   "pending_run_back": false,
   "pending_run_back_charge_up": false,
