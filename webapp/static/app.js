@@ -1074,7 +1074,9 @@ function space(one, layout, narrow = false) {
       "data-place": `space:${one.zone}:${one.index}`,
       title: on ? controls.map((c) => c.label).join(" · ") : null,
       /* A lit space is answered by clicking anywhere on it that is not
-         a piece of its own (a meeple opens its card). */
+         a piece of its own (a meeple opens its card). It wears no chip:
+         what choosing it does is its row in the question box, and its
+         title on a hover (the author, 2026-10-07). */
       onclick: on ? (event) => { event.stopPropagation(); press(controls[0]); } : null,
     },
     h("span", { class: "space-code" }, one.code),
@@ -1082,15 +1084,21 @@ function space(one, layout, narrow = false) {
     h("div", { class: "lane visiting" }, fanOf(one, "visiting", layout, marks, narrow)),
     h("div", { class: "lane home" }, fanOf(one, "home", layout, marks, narrow)),
     loose ? h("span", { class: "loose-ball" }, ball(one.ball.speed, narrow ? 22 : 36, { lit: true })) : null,
-    on ? h("span", { class: "space-chips" }, chips(controls)) : null,
   );
 }
+
+/* How far a piece that may be chosen is raised over the rest, on the
+   field and on the phone's narrow one. */
+const LIFT = 12;
+const LIFT_NARROW = 5;
 
 /* One team's meeples on a space, overlapped where `board.py` placed
    them, back to front, with each name on its own line under the fan
    (the front piece's first) and every badge and the ball drawn over
    the whole of it. `marks` is what a prompt lights: a piece's id to
-   the chip saying what clicking it means. */
+   the controls clicking it answers. A lit piece wears no chip: what
+   choosing it does is its row in the question box, and its title on
+   a hover (the author, 2026-10-07). */
 function fanOf(one, side, layout, marks = {}, narrow = false) {
   /* Held upright, the narrow fan at the phone's own steps, and no
      names under it: the sheet names whatever is lit, and a hold on a
@@ -1104,18 +1112,22 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
   const box = h("span", { class: "fan", style: `width: ${drawn.width}px` });
   const over = [];
   drawn.pieces.forEach((piece, index) => {
+    /* A piece that may be chosen stands a little forward of the rest:
+       raised, with its badges and the ball, and in front of every
+       other piece and name (the author, 2026-10-07). */
     const lit = piece.id in marks;
+    const y = lit ? piece.y - (narrow ? LIFT_NARROW : LIFT) : piece.y;
     box.append(
       h(
         "span",
         {
-          class: "fan-piece",
-          style: `left: ${piece.x}px; top: ${piece.y}px; z-index: ${index + 1}`,
+          class: `fan-piece${lit ? " lit" : ""}`,
+          style: `left: ${piece.x}px; top: ${y}px; z-index: ${lit ? 45 : index + 1}`,
         },
         meeple(piece, layout, { controls: marks[piece.id], narrow }),
       ),
     );
-    over.push(...badges(piece, piece.x, piece.y, W, H));
+    over.push(...badges(piece, piece.x, y, W, H));
     if (one.ball && one.ball.holder === piece.id) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
@@ -1125,11 +1137,11 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
       const size = narrow ? 16 : 30;
       const place = narrow
         ? side === "home"
-          ? `left: ${piece.x + W - size}px; top: ${piece.y - size * 0.5}px`
-          : `left: ${piece.x}px; top: ${piece.y + H - size}px`
+          ? `left: ${piece.x + W - size}px; top: ${y - size * 0.5}px`
+          : `left: ${piece.x}px; top: ${y + H - size}px`
         : side === "home"
-          ? `left: ${piece.x + W * 0.66}px; top: ${piece.y - 22}px`
-          : `left: ${piece.x - 18}px; top: ${piece.y + H - 30}px`;
+          ? `left: ${piece.x + W * 0.66}px; top: ${y - 22}px`
+          : `left: ${piece.x - 18}px; top: ${y + H - 30}px`;
       over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, size, { lit: true })));
     }
   });
@@ -1147,19 +1159,13 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
     const held = Boolean(picked && picked.key === `player:${id}`);
     over.push(h(
       "span",
-      { class: `fan-name${lit || held ? " lit" : ""}`, style: `left: ${piece.x + W / 2}px; top: ${line}px` },
+      {
+        class: `fan-name${lit || held ? " lit" : ""}`,
+        style: `left: ${piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
+      },
       piece.name,
     ));
     line += 24;
-    const said = lit ? chips(marks[id]) : [];
-    if (said.length) {
-      over.push(h(
-        "span",
-        { class: "fan-chip-line", style: `left: ${piece.x + W / 2}px; top: ${line}px` },
-        said,
-      ));
-      line += 32;
-    }
   }
   box.append(...over);
   box.style.height = `${line}px`;
@@ -1457,11 +1463,11 @@ function benchBox(board, title, said, entries, layout) {
 }
 
 /* One benched meeple: the piece, its badges over it as on the field,
-   its name under it, and -- lit -- what clicking it means. */
+   and its name under it -- gold where it is lit, with no chip, as on
+   the field. */
 function benchPiece(m, layout) {
   const marks = (lit && lit.player[m.id]) || null;
   const on = Boolean(marks && marks.length);
-  const said = on ? chips(marks) : [];
   const g = layout.meeple;
   const W = g.width;
   const H = (W * g.box[3]) / g.box[2];
@@ -1472,7 +1478,6 @@ function benchPiece(m, layout) {
     { class: "bench-piece" },
     body,
     h("span", { class: `bench-name${on || (picked && picked.key === `player:${m.id}`) ? " lit" : ""}` }, m.name),
-    said.length ? h("span", { class: "bench-chip-line" }, said) : null,
   );
 }
 
@@ -1502,7 +1507,7 @@ function watchFit(box) {
    space it stands on. Measured in layout pixels, before the stage's
    scale, so it is the same on every screen. */
 function clampNames(root) {
-  for (const name of root.querySelectorAll(".fan-name, .fan-chip-line")) {
+  for (const name of root.querySelectorAll(".fan-name")) {
     name.style.setProperty("--nudge", "0px");
     const fan = name.offsetParent;
     const space = name.closest(".space");
@@ -2088,10 +2093,18 @@ function choicePicture(place, layout) {
     if (!m) return null;
     const g = layout.meeple;
     const [, , width, height] = g.box;
+    const H = (g.width * height) / width;
+    /* Wearing its badges as it does on the field: the token count is
+       what a coach weighs a pick by (the author, 2026-10-07). */
     return h(
       "span",
-      { class: "meeple choice-meeple", style: `width: ${g.width}px; height: ${(g.width * height) / width}px; color: ${m.ink}` },
-      meepleArt(m, layout, { g }),
+      { class: "choice-body" },
+      h(
+        "span",
+        { class: "meeple choice-meeple", style: `width: ${g.width}px; height: ${H}px; color: ${m.ink}` },
+        meepleArt(m, layout, { g }),
+      ),
+      ...badges(m, 0, 0, g.width, H),
     );
   }
   if (place.at === "space") {
