@@ -919,6 +919,7 @@
   "loose_ball_offense_declined": false,
   "loose_ball_offense_player": null,
   "maneuver_uncontested": false,
+  "merge_joined": [],
   "offense_maneuver": "dribble_advance",
   "overdrive_passed": [],
   "pending_action": null,
@@ -947,6 +948,7 @@
   "pending_loose_ball_distance": 1,
   "pending_loose_ball_is_high_pass": false,
   "pending_loose_ball_on_empty_space": true,
+  "pending_merge": [],
   "pending_mind_pull": [
     "dravox_defender"
   ],

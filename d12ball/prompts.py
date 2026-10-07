@@ -610,9 +610,9 @@ class RollOptions:
     off (`back_railed`).
 
     **Except while a coach still has a declaration open**
-    (`undecided_sides`): Overdrive and Boost are declared before the
-    die is thrown (Law 20.3.5), so the roll waits on the coaches whose
-    Cyborgs may still declare -- the attacker first, then the
+    (`undecided_sides`): Overdrive, Boost and Merge are declared before
+    the die is thrown (Law 20.3.5, 20.5.2), so the roll waits on the
+    coaches whose Cyborgs or Oozes may still declare -- the attacker first, then the
     defender (the author, 2026-10-02) -- and each either declares or
     passes. Roll is refused until nobody is left to decide.
     """
@@ -632,6 +632,12 @@ class RollOptions:
     # side, which declares nothing, so the AI is never asked a roll.
     # Empty is the roll either coach may press.
     undecided_sides: tuple[TeamSide, ...] = ()
+    # **Merge** (Law 20.5): the Oozes -- and a Double Team's partner --
+    # on the ball and not rolling who may still exhaust 1 to add their
+    # skill, `(player_id, value)` with what each would add, so a
+    # button says it without a second reading of the rule. Each is
+    # its own declaration: the author's "a choice for every ooze".
+    merge_offers: tuple[tuple[str, int], ...] = ()
     # What each undecided side still has open, `(side, keys)` in
     # `undecided_sides`' order, the keys as `CHOICES` spells them --
     # Overdrive, Boost or both -- so the hold names what it waits on.
@@ -650,6 +656,13 @@ class RollOptions:
         side = self.deciding_side if side is None else side
         return name_declarations(dict(self.open_declarations).get(side, ()))
 
+    @property
+    def merge_player_ids(self) -> tuple[str, ...]:
+        return tuple(player_id for player_id, _ in self.merge_offers)
+
+    def merge_value(self, player_id: str) -> int:
+        return dict(self.merge_offers).get(player_id, 0)
+
     def overdrive_cost(self, player_id: str) -> int:
         return dict(self.overdrive_costs).get(
             player_id, OVERDRIVE_DRAIN_COST,
@@ -660,6 +673,9 @@ class RollOptions:
             "shape": "roll",
             "overdrive_player_ids": list(self.overdrive_player_ids),
             "boost_player_ids": list(self.boost_player_ids),
+            "merge_offers": {
+                player_id: value for player_id, value in self.merge_offers
+            },
             "overdrive_costs": {
                 player_id: cost for player_id, cost in self.overdrive_costs
             },
@@ -678,17 +694,24 @@ class RollOptions:
 
 #: A declaration before the die, by its `CHOICES` key, as a sentence
 #: names it -- in the order a roll offers them.
-DECLARATION_NAMES = {"overdrive": "Overdrive", "boost": "Boost"}
+DECLARATION_NAMES = {
+    "overdrive": "Overdrive", "boost": "Boost", "merge": "Merge",
+}
 
 
 def name_declarations(keys: Sequence[str]) -> str:
     """
-    The declarations `keys` open, named: "Overdrive", "Boost" or
-    "Overdrive and Boost". Overdrive where there are none, which is
-    what the hold was called before Boost joined it.
+    The declarations `keys` open, named: "Overdrive", "Merge",
+    "Overdrive and Boost", "Overdrive, Boost and Merge". Overdrive where
+    there are none, which is what the hold was called before Boost and
+    Merge joined it.
     """
     names = [name for key, name in DECLARATION_NAMES.items() if key in keys]
-    return " and ".join(names) or DECLARATION_NAMES["overdrive"]
+    if not names:
+        return DECLARATION_NAMES["overdrive"]
+    if len(names) == 1:
+        return names[0]
+    return ", ".join(names[:-1]) + " and " + names[-1]
 
 
 @dataclass(frozen=True)
@@ -2244,6 +2267,43 @@ OVERDRIVE_ROLLERS = {
 }
 
 
+#: The rolls a **Merge** is declared on (Law 20.5), and the sides that
+#: may, attacker first, each with the skill it adds: a maneuver's skill
+#: test and a contest for the ball (the High Pass contest among them)
+#: both sides, a score attempt the attack alone (Law 20.5.3). Each
+#: side's rollers are struck out of it by `OVERDRIVE_ROLLERS`. Never an
+#: own-goal roll, a shootout test or an injury check: nothing there is
+#: fought out on the ball's space by two.
+def _both_sides(match: MatchState) -> tuple[tuple[TeamSide, str], ...]:
+    if match.ball.possession is None:
+        return ()
+    return (
+        (match.ball.possession, "offense"),
+        (match.defending_side(), "defense"),
+    )
+
+
+def _attack_alone(match: MatchState) -> tuple[tuple[TeamSide, str], ...]:
+    if match.ball.possession is None:
+        return ()
+    return ((match.ball.possession, "offense"),)
+
+
+MERGE_SIDES = {
+    PromptKind.SKILL_TEST: _both_sides,
+    PromptKind.LOOSE_BALL_SKILL_TEST: _both_sides,
+    PromptKind.SCORE_ATTEMPT: _attack_alone,
+}
+
+
+def merge_sides(
+    match: MatchState, prompt: PendingPrompt,
+) -> tuple[tuple[TeamSide, str], ...]:
+    """The sides that may Merge into this prompt's roll, attack first."""
+    sides = MERGE_SIDES.get(prompt.kind)
+    return sides(match) if sides else ()
+
+
 #: The six prompts a roll is asked on: the five an Overdrive can be
 #: declared on, and the injury check, which nobody declares on.
 ROLL_KINDS = frozenset(OVERDRIVE_ROLLERS) | {PromptKind.INJURY_TEST}
@@ -2273,6 +2333,12 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
         kind: ("roll", "overdrive", "boost", "pass")
         for kind in ROLL_KINDS
     },
+    # **A Merge is declared on the three rolls fought out on the ball's
+    # space** (Law 20.5, `MERGE_SIDES`), beside Overdrive.
+    **{
+        kind: ("roll", "overdrive", "boost", "merge", "pass")
+        for kind in MERGE_SIDES
+    },
     PromptKind.LOOSE_BALL_PICK: ("send", "decline"),
     PromptKind.SET_UP_ATTEMPT: ("take", "decline"),
     PromptKind.SMOOTH: ("take", "decline"),
@@ -2289,7 +2355,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
         "formation", "substitute", "swap", "reposition", "done",
     ),
     PromptKind.SCORE_ATTEMPT: (
-        "roll", "back", "overdrive", "boost", "pass",
+        "roll", "back", "overdrive", "boost", "merge", "pass",
     ),
 }
 
@@ -2332,22 +2398,43 @@ def _declarations(
 ) -> dict:
     """
     The declarations a roll prompt offers before its die: Overdrive,
-    with what each drains, and Gearclaw's Boost -- and the sides still
-    to decide on them, attacker first.
+    with what each drains, Gearclaw's Boost and every Merge -- and the
+    sides still to decide on them, attacker first.
     """
     rollers = overdrive_rollers(match, prompt)
     overdrives = tuple(engine.overdrive_candidates(game, match, rollers))
     boosts = tuple(engine.boost_candidates(game, match, rollers))
-    undecided = undecided_sides(
-        engine, game, match,
+    # An AI side declares nothing (`undecided_sides`), so its Oozes are
+    # offered to nobody: a button for them would be one no coach owns.
+    sides = tuple(
+        (side, skill) for side, skill in merge_sides(match, prompt)
+        if not engine.side_is_ai(game, side)
+    )
+    merge_offers = tuple(
+        (player_id, engine.merge_value(game, player_id, skill))
+        for side, skill in sides
+        for player_id in engine.merge_candidates(
+            game, match, side, rollers, skill,
+        )
+    )
+    merges = tuple(player_id for player_id, _ in merge_offers)
+    # Attacker first: a side is ordered by its roller in
+    # `OVERDRIVE_ROLLERS`, which lists the attacker's first, and
+    # `MERGE_SIDES` lists the attack before the defence too.
+    order = [match.side_for_player(player_id) for player_id in rollers]
+    order += [side for side, _ in sides]
+    deciders = sorted(
         [
             player_id for player_id in rollers
             if player_id in overdrives or player_id in boosts
-        ],
+        ] + list(merges),
+        key=lambda player_id: order.index(match.side_for_player(player_id)),
     )
+    undecided = undecided_sides(engine, game, match, deciders)
     return {
         "overdrive_player_ids": overdrives,
         "boost_player_ids": boosts,
+        "merge_offers": merge_offers,
         "overdrive_costs": tuple(
             (player_id, engine.overdrive_cost(game, player_id))
             for player_id in overdrives
@@ -2357,6 +2444,7 @@ def _declarations(
             (side, tuple(
                 key for key, offered in (
                     ("overdrive", overdrives), ("boost", boosts),
+                    ("merge", merges),
                 )
                 if any(
                     match.side_for_player(player_id) == side
@@ -2376,7 +2464,7 @@ def undecided_sides(
 ) -> tuple[TeamSide, ...]:
     """
     The sides a roll waits on: those of the players who may still
-    declare Overdrive or Boost on it, **in the rollers' order**, which
+    declare Overdrive, Boost or a Merge on it, **in the rollers' order**, which
     puts the attacker first -- the skill test's ball handler before
     the challenger, the loose ball's offense before its defense
     (`OVERDRIVE_ROLLERS`). Overdrive is declared *before* the die is

@@ -79,6 +79,7 @@ from d12ball.components import (
     SPECIES_OOZE,
     SPECIES_TELEKINETIC,
     MatchState,
+    RuleRefusal,
     TeamSide,
     Zone,
     duplicate_card_id,
@@ -1269,6 +1270,86 @@ class OverdriveBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
         interaction.edit_original_response.assert_awaited()
 
 
+class MergeBeforeTheDieTests(unittest.IsolatedAsyncioTestCase):
+    """
+    Merge costs 1 and is each Ooze's own choice, declared before the
+    die (Law 20.5.2): a Merge button per Ooze on the ball who is not
+    rolling, the Ooze's coach's alone, and Roll waits until they have
+    Merged or passed.
+    """
+
+    def setUp(self) -> None:
+        self.cog = build_ignition_cog()
+        self.game = build_game(
+            player_1_team=Team.OOZES, player_2_team=Team.FIRE_DEMONS,
+        )
+        self.cog.games[self.game.game_id] = self.game
+        match = build_match(self.cog.engine, self.game)
+        offense, self.ooze = [
+            player_id for player_id in match.home.field_players
+            if self.cog.engine.species_of(player_id) == SPECIES_OOZE
+        ][:2]
+        zone, space_index = match.board.meeple_position(offense)
+        match.ball.possession = TeamSide.HOME
+        match.set_ball_space(zone, space_index)
+        for player_id in list(match.board.spaces[zone][space_index]):
+            if player_id != offense:
+                match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
+        match.active_player_id = offense
+        challenger = fielded_of_species(
+            match, SPECIES_FIRE_DEMON, TeamSide.VISITING,
+        )
+        match.board.place_meeple(challenger, zone, space_index)
+        match.board.place_meeple(self.ooze, zone, space_index)
+        match.challenger_id = challenger
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        self.game.match_state = match.to_dict()
+
+    press = OverdriveBeforeTheDieTests.press
+    button = staticmethod(OverdriveBeforeTheDieTests.button)
+
+    def test_the_ooze_has_a_merge_and_roll_waits(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        custom_ids = [item.custom_id for item in view.children]
+        self.assertIn(f"d12ball:merge:g1:{self.ooze}", custom_ids)
+        self.assertIn("d12ball:overdrive_pass:g1:home", custom_ids)
+        self.assertTrue(self.button(view, "Roll the skill test").disabled)
+        self.assertIn(
+            "(exhaust 1, +", self.button(view, "Merge:").label,
+        )
+        self.assertTrue(
+            self.button(view, "Pass on Merge").label.startswith(
+                "Pass on Merge:",
+            ),
+        )
+
+    async def test_only_that_coach_may_merge(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        interaction = self.press(222, f"d12ball:merge:g1:{self.ooze}")
+        with suppressed_cog_saves():
+            await view.declare_merge(interaction)
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"],
+        )
+        match = self.cog.engine.load_match_state(self.game)
+        self.assertEqual(match.pending_merge, [])
+
+    async def test_a_merge_redraws_the_roll_without_it(self) -> None:
+        view = SkillTestView(self.cog, self.game.game_id)
+        interaction = self.press(111, f"d12ball:merge:g1:{self.ooze}")
+        interaction.response.is_done = lambda: True
+        with suppressed_cog_saves():
+            await view.declare_merge(interaction)
+        redrawn = interaction.response.edit_message.await_args.kwargs["view"]
+        labels = [getattr(item, "label", "") for item in redrawn.children]
+        self.assertFalse(any(label.startswith("Merge:") for label in labels))
+        self.assertFalse(self.button(redrawn, "Roll the skill test").disabled)
+        said = followup_messages(interaction)[0]
+        self.assertIn("**Merge**", said)
+        self.assertIn("Either player can roll.", said)
+
+
 class DamagedWordingTests(unittest.TestCase):
     """
     "A Cyborg who fails an injury check is Damaged, not Injured ...
@@ -2347,8 +2428,10 @@ class TurnHandlerNarrowingTests(unittest.TestCase):
 class MergeTests(unittest.TestCase):
     """
     "An Ooze standing there who is **not** one of the two players
-    rolling adds to their own side's total ... Every such Ooze adds --
-    two of them add twice. An injured Ooze adds nothing."
+    rolling may exhaust 1 to add to their own side's total ... two of
+    them add twice and exhaust 1 each. An injured Ooze cannot Merge."
+    Who adds is who declared (`MatchState.pending_merge`); the
+    declaration itself is driven in test_d12ball_driver_actions.
     """
 
     def setUp(self) -> None:
@@ -2386,6 +2469,10 @@ class MergeTests(unittest.TestCase):
             player_id, self.match.ball.zone, self.match.ball.space_index,
         )
 
+    def merge(self, *player_ids: str) -> None:
+        for player_id in player_ids:
+            self.match.declare_merge(player_id)
+
     def offense_of(self, player_id: str) -> int:
         return self.engine.player_catalog.effective_profile(
             self.engine.get_player_definition(player_id),
@@ -2395,6 +2482,7 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
+        self.merge(bystander)
         bonus, lines, contributors = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
@@ -2420,6 +2508,7 @@ class MergeTests(unittest.TestCase):
         roller, first, second = field_players(self.match)[:3]
         for player_id in (roller, first, second):
             self.stand_on_the_ball(player_id)
+        self.merge(first, second)
         bonus, lines, contributors = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
@@ -2433,6 +2522,7 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
+        self.merge(bystander)
         self.match.mark_injured(bystander)
         bonus, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
@@ -2443,6 +2533,7 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
+        self.merge(bystander)
         attacking, _, _ = self.engine.merge_bonus(
             self.game, self.match, self.side, (roller,), "offense",
         )
@@ -2467,6 +2558,7 @@ class MergeTests(unittest.TestCase):
         roller, bystander = field_players(self.match)[:2]
         self.stand_on_the_ball(roller)
         self.stand_on_the_ball(bystander)
+        self.merge(bystander)
         training = build_game(player_1_team=Team.OOZES, mode=GameMode.TRAINING)
         bonus, lines, contributors = self.engine.merge_bonus(
             training, self.match, self.side, (roller,), "offense",
@@ -2492,6 +2584,68 @@ class MergeTests(unittest.TestCase):
             game, match, side, (roller,), "offense",
         )
         self.assertEqual(bonus, 0)
+
+
+    def test_an_undeclared_ooze_adds_nothing_but_is_offered(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        bonus, _, _ = self.engine.merge_bonus(
+            self.game, self.match, self.side, (roller,), "offense",
+        )
+        self.assertEqual(bonus, 0)
+        self.assertEqual(
+            self.engine.merge_candidates(
+                self.game, self.match, self.side, (roller,), "offense",
+            ),
+            [bystander],
+        )
+
+    def test_a_merge_exhausts_1_once_per_roll(self):
+        bystander = field_players(self.match)[1]
+        before = self.match.exhaustion.get(bystander, 0)
+        self.merge(bystander)
+        self.assertEqual(self.match.exhaustion[bystander], before + 1)
+        with self.assertRaises(RuleRefusal):
+            self.merge(bystander)
+        self.match.consume_overdrive()
+        self.assertEqual(self.match.pending_merge, [])
+
+    def test_an_injured_ooze_cannot_merge(self):
+        bystander = field_players(self.match)[1]
+        self.match.mark_injured(bystander)
+        with self.assertRaises(RuleRefusal):
+            self.merge(bystander)
+
+    def test_a_side_that_passed_is_offered_nothing(self):
+        roller, bystander = field_players(self.match)[:2]
+        self.stand_on_the_ball(roller)
+        self.stand_on_the_ball(bystander)
+        self.match.pass_on_overdrive(self.side)
+        self.assertEqual(
+            self.engine.merge_candidates(
+                self.game, self.match, self.side, (roller,), "offense",
+            ),
+            [],
+        )
+
+    def test_a_merge_survives_a_save(self):
+        bystander = field_players(self.match)[1]
+        self.merge(bystander)
+        self.match.merge_joined.append(bystander)
+        restored = MatchState.from_dict(
+            self.match.to_dict(), self.engine.basic_ruleset,
+        )
+        self.assertEqual(restored.pending_merge, [bystander])
+        self.assertEqual(restored.merge_joined, [bystander])
+
+    def test_an_older_save_has_merged_nobody(self):
+        saved = self.match.to_dict()
+        saved.pop("pending_merge")
+        saved.pop("merge_joined")
+        restored = MatchState.from_dict(saved, self.engine.basic_ruleset)
+        self.assertEqual(restored.pending_merge, [])
+        self.assertEqual(restored.merge_joined, [])
 
 
 class SpreadableTests(unittest.TestCase):

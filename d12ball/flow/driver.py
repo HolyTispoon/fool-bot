@@ -89,6 +89,7 @@ from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.game import D12BallGame, Formation
 from d12ball.prompts import (
     CHOICES,
+    MERGE_SIDES,
     ROLL_KINDS,
     Action,
     PendingPrompt,
@@ -1523,6 +1524,10 @@ def _answer_skill_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
+    if choice == "merge":
+        return rolls.declare_merge_step(
+            engine, game, match, prompt, player_id,
+        )
     if choice == "pass":
         return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
     rolls.refuse_roll_while_deciding(engine, game, prompt)
@@ -1544,6 +1549,10 @@ def _answer_loose_ball_skill_test(
         return _declared_overdrive(engine, game, match, prompt, player_id)
     if choice == "boost":
         return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
+    if choice == "merge":
+        return rolls.declare_merge_step(
             engine, game, match, prompt, player_id,
         )
     if choice == "pass":
@@ -1582,6 +1591,10 @@ def _answer_score_attempt(
         return _declared_overdrive(engine, game, match, prompt, player_id)
     if choice == "boost":
         return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
+    if choice == "merge":
+        return rolls.declare_merge_step(
             engine, game, match, prompt, player_id,
         )
     if choice == "pass":
@@ -1925,6 +1938,17 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
             "pass": ("side",),
         }
         for kind in ROLL_KINDS
+    },
+    # A Merge is a player's too (Law 20.5), on the rolls it is
+    # declared on.
+    **{
+        kind: {
+            "overdrive": ("player_id",),
+            "boost": ("player_id",),
+            "merge": ("player_id",),
+            "pass": ("side",),
+        }
+        for kind in MERGE_SIDES
     },
 }
 

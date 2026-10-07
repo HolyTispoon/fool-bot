@@ -52,6 +52,7 @@ from d12ball.components import (
     EVENT_SHOT,
     EVENT_SKILL_TEST,
     MatchState,
+    MERGE_EXHAUSTION_COST,
     OVERDRIVE_BONUS,
     PlayerDefinition,
     PlayerRole,
@@ -1529,6 +1530,10 @@ def retract_shot_step(
     prompt: the position is the turn's own again, worded by
     `RulesEngine.build_turn_prompt` as it was the first time.
     """
+    if match.pending_action == "shoot" and match.declared_before_roll():
+        raise RuleRefusal(
+            "Tokens have been spent on this shot, so it stands.",
+        )
     if not match.may_cancel_pending_shot():
         raise RuleRefusal("This score attempt is no longer active.")
     if engine.side_is_ai(game, match.ball.possession):
@@ -1872,12 +1877,24 @@ def refuse_roll_while_deciding(
     """
     side = prompt.options.deciding_side if prompt.options else None
     if side is not None:
-        raise RuleRefusal(
+        _refuse_while_deciding(
             f"The die waits on "
             f"{address_coach(engine.side_player_number(game, side))}, "
             f"who decides on {prompt.options.declarations_named()} first.",
-            law="lithium-powered-cyborg",
+            prompt.options,
         )
+
+
+def _refuse_while_deciding(message: str, options) -> None:
+    """
+    Refuse with the Law a hold on the die cites: Slimey's where a Merge
+    is all the deciding side has open, Lithium Powered's otherwise --
+    Overdrive is where declaring before the die was written down first.
+    """
+    keys = dict(options.open_declarations).get(options.deciding_side, ())
+    if keys == ("merge",):
+        raise RuleRefusal(message, law="slimey-ooze")
+    raise RuleRefusal(message, law="lithium-powered-cyborg")
 
 
 def _refuse_out_of_turn(
@@ -1893,10 +1910,10 @@ def _refuse_out_of_turn(
     """
     deciding = prompt.options.deciding_side if prompt.options else None
     if deciding is not None and deciding != side:
-        raise RuleRefusal(
+        _refuse_while_deciding(
             f"{address_coach(engine.side_player_number(game, deciding))} "
             f"decides on {prompt.options.declarations_named()} first.",
-            law="lithium-powered-cyborg",
+            prompt.options,
         )
 
 
@@ -1946,7 +1963,7 @@ def pass_on_overdrive_step(
     )
     if passing is None:
         raise RuleRefusal(
-            "There is no Overdrive to pass on.",
+            "There is nothing left to pass on.",
             law="lithium-powered-cyborg",
         )
     _refuse_out_of_turn(engine, game, prompt, passing)
@@ -1992,6 +2009,50 @@ def declare_boost_step(
             f"⚡ **Boost** — "
             f"{engine.format_player_label(match, player)} drains "
             f"{BOOST_DRAIN_COST} for +{BOOST_BONUS} on this roll.",
+            _hand_on(engine, game, match, prompt),
+        )))],
+        next=prompt,
+    )
+
+
+def declare_merge_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    player_id: str,
+) -> StepResult:
+    """
+    An Ooze -- or a Double Team's partner -- exhausts 1 to add their
+    skill to the roll that is about to happen (**Merge**, Law 20.5).
+
+    `declare_overdrive_step`'s shape: declared before the die, it
+    answers the roll's prompt without settling it and comes back on
+    the same roll. Re-asked against the prompt's own `merge_offers`
+    rather than trusted, because a prompt can sit in a channel long
+    after the roll it was built for -- and those offers are already
+    `RulesEngine.merge_candidates`' answer for this roll, so an Ooze
+    off the ball, rolling, injured or already Merged is refused here.
+    """
+    current = with_options(engine, game, match, prompt).options
+    if current is None or player_id not in current.merge_player_ids:
+        raise RuleRefusal(
+            "That player cannot Merge into this roll.", law="slimey-ooze",
+        )
+    _refuse_out_of_turn(
+        engine, game, prompt, match.side_for_player(player_id),
+    )
+
+    value = current.merge_value(player_id)
+    match.declare_merge(player_id)
+    player = engine.get_player_definition(player_id)
+    return StepResult(
+        narration=[" ".join(filter(None, (
+            f"**Merge** — {engine.format_player_label(match, player)} "
+            f"adds +{value} to this roll.",
+            engine.describe_exhaustion_gain(
+                game, match, player_id, MERGE_EXHAUSTION_COST,
+            ),
             _hand_on(engine, game, match, prompt),
         )))],
         next=prompt,

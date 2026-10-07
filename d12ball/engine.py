@@ -1354,8 +1354,9 @@ class RulesEngine:
         **defensive** skill on the defending side". A score attempt
         asks for the attack alone, and passes "offense".
 
-        **Every such Ooze adds** -- "two of them add twice" -- so this
-        is a sum rather than a pick. An **injured** Ooze adds nothing,
+        **Every such Ooze that Merged adds** -- "two of them add twice"
+        -- so this is a sum rather than a pick; who Merged is
+        `merge_contributions`' reading, since each pays 1 (Law 20.5). An **injured** Ooze adds nothing,
         which is the ordinary rule about an injured player's skill
         modifier applying here rather than an exception to it.
 
@@ -1388,6 +1389,80 @@ class RulesEngine:
         -- or Double Team partner -- that adds: the one answer to who Merges, for a caller that
         names them rather than totals them -- the Discord caption over
         a challenge image, which names a player with their role.
+
+        **Only who has paid** (Law 20.5): a Merge costs 1 and is
+        declared before the die (`MatchState.pending_merge`), so of
+        everyone who *may* Merge (`_merge_values`) this is those who
+        did -- and a Glompex who joined the ball this maneuver, whose
+        join paid for it (Law 21.6.1).
+        """
+        return [
+            (player_id, value)
+            for player_id, value in self._merge_values(
+                game, match, side, rolling, skill,
+            )
+            if player_id in match.pending_merge
+            or player_id in match.merge_joined
+        ]
+
+    def merge_candidates(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        rolling: Collection[Optional[str]],
+        skill: str,
+    ) -> list[str]:
+        """
+        Who of `side` may still declare a **Merge** on the roll at hand
+        (Law 20.5.2): everyone who would add something by it, less
+        those who already have, a Glompex whose join paid for it, and
+        every one of a side whose coach has passed on this roll
+        (`MatchState.overdrive_passed`, which closes all of a side's
+        declarations, Overdrive's and Merge's alike).
+        """
+        if (
+            match.overdrive_passed
+            and TeamSide(side).value in match.overdrive_passed
+        ):
+            return []
+        return [
+            player_id
+            for player_id, _ in self._merge_values(
+                game, match, side, rolling, skill,
+            )
+            if player_id not in match.pending_merge
+            and player_id not in match.merge_joined
+        ]
+
+    def merge_value(
+        self, game: D12BallGame, player_id: str, skill: str,
+    ) -> int:
+        """What one Merge adds: the side's skill, and Viscor's 3 more."""
+        value = self.skills(game, player_id).of(skill)
+        # Viscor adds 3 more whenever they Merge (Law 21).
+        if self.has_special_ability(
+            game, player_id, SpecialAbility.MERGES_HARDER,
+        ):
+            value += VISCOR_MERGE_BONUS
+        return value
+
+    def _merge_values(
+        self,
+        game: D12BallGame,
+        match: MatchState,
+        side: TeamSide,
+        rolling: Collection[Optional[str]],
+        skill: str,
+    ) -> list[tuple[str, int]]:
+        """
+        Everyone of `side` who *may* Merge into this roll, and what each
+        would add: the Oozes on the ball who are not rolling, and a
+        Double Team's partner -- whether or not they have paid. The one
+        reading both the offer (`merge_candidates`) and the sum
+        (`merge_contributions`) narrow, so the two cannot disagree on
+        who stands where. Anyone who would add nothing is left out:
+        nobody pays a token for +0.
         """
         species = self.species_abilities_apply(game)
         # **A Double Team's partner gains Merge** for the next maneuver
@@ -1403,7 +1478,7 @@ class RulesEngine:
             return []
 
         contesting = {player_id for player_id in rolling if player_id}
-        contributions: list[tuple[str, int]] = []
+        values: list[tuple[str, int]] = []
         for player_id in match.contest_occupants(side):
             if player_id in contesting or player_id in match.injured:
                 continue
@@ -1412,15 +1487,10 @@ class RulesEngine:
                 and self.has_species_ability(game, player_id, SPECIES_OOZE)
             ):
                 continue
-            value = self.skills(game, player_id).of(skill)
-            # Viscor adds 3 more whenever they Merge (Law 21).
-            if self.has_special_ability(
-                game, player_id, SpecialAbility.MERGES_HARDER,
-            ):
-                value += VISCOR_MERGE_BONUS
+            value = self.merge_value(game, player_id, skill)
             if value:
-                contributions.append((player_id, value))
-        return contributions
+                values.append((player_id, value))
+        return values
 
     def spread_exempt_ids(
         self, game: D12BallGame, match: MatchState, side: TeamSide,

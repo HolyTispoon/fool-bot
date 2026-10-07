@@ -58,6 +58,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from d12ball import stats, tokens
 from d12ball.components import (
     MANEUVER_TIER_GAMBIT,
+    MERGE_EXHAUSTION_COST,
     SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     MatchState,
@@ -950,7 +951,8 @@ def _roll(asked: Asked) -> list:
     The die, lit in the question box; the walk-back of a score attempt
     as the neutral control; and before the die, a ⚡ on each of this
     viewer's meeples that may declare Overdrive or Boost, with what the
-    Overdrive drains.
+    Overdrive drains, and a Merge on each of their Oozes that may
+    exhaust 1 into the roll (Law 20.5).
     """
     options = asked.options
     # While a coach's Overdrive or Boost is open the die waits on them
@@ -1020,6 +1022,21 @@ def _roll(asked: Asked) -> list:
             player_id=player_id,
         )
         for player_id in own(options["boost_player_ids"])
+    ] + [
+        # Merge (Law 20.5): each Ooze on the ball -- or Double Team
+        # partner -- who may exhaust 1 into this roll, its own choice.
+        button(
+            f"Merge: {asked.label(player_id)} (+{value})",
+            asked.kind,
+            "merge",
+            place=on_player(player_id),
+            chip=f"Merge +{value}",
+            cost={"emoji": "exhaust", "count": MERGE_EXHAUSTION_COST},
+            player=player_id,
+            player_id=player_id,
+        )
+        for player_id, value in options.get("merge_offers", {}).items()
+        if asked.match.side_for_player(player_id) in mine
     ] + [
         # The explicit no, for the side deciding now if it is this
         # viewer's: every Overdrive and Boost of theirs closed.

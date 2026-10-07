@@ -2250,8 +2250,8 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
     def test_the_partner_merges_on_the_ball(self) -> None:
         """
         Merge as an Ooze has it (Law 20.5): on the ball's space and not
-        rolling, the partner adds their defensive skill to the defense;
-        off it, nothing.
+        rolling, the partner may pay 1 to add their defensive skill to
+        the defense, and is offered it; off it, nothing.
         """
         cog, game, match = self.build("dribble_advance", "pressure")
         partner = next(
@@ -2264,6 +2264,13 @@ class DoubleTeamTests(GambitHarness, unittest.IsolatedAsyncioTestCase):
         skill = cog.engine.skills(game, partner).defense
 
         match.move_meeple(partner, match.ball.zone, match.ball.space_index)
+        self.assertIn(
+            partner,
+            cog.engine.merge_candidates(
+                game, match, defense, rolling, "defense",
+            ),
+        )
+        match.declare_merge(partner)
         self.assertIn(
             (partner, skill),
             cog.engine.merge_contributions(

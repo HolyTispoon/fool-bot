@@ -36,6 +36,7 @@ from d12ball.components import (
     MatchState,
     RuleRefusal,
     TeamSide,
+    Zone,
     catalog_player_id,
 )
 from d12ball.game import Formation, GameMode, Team
@@ -1022,6 +1023,19 @@ def _wrong_boost(fixture: PromptFixture) -> dict:
     }
 
 
+def _wrong_merge(fixture: PromptFixture) -> dict:
+    """A player who may not Merge into this roll: not an Ooze on the ball."""
+    match = fixture.match
+    if match.active_player_id is None:
+        match.active_player_id = match.home.field_players[0]
+    options = _prompt(fixture).options
+    return {
+        "player_id": _not_offered(
+            options.merge_player_ids, match.home.team_board.bench,
+        ),
+    }
+
+
 def _railed_tutorial(fixture: PromptFixture, key: str, wanted: str) -> None:
     """Put the fixture's game on the beat that rails `key` to `wanted`."""
     beat = next(
@@ -1267,15 +1281,18 @@ REFUSED_ACTIONS = {
     (PromptKind.SKILL_TEST, "roll"): None,
     (PromptKind.SKILL_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.SKILL_TEST, "boost"): _wrong_boost,
+    (PromptKind.SKILL_TEST, "merge"): _wrong_merge,
     (PromptKind.SKILL_TEST, "pass"): _wrong_pass,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "roll"): None,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "overdrive"): _wrong_overdrive,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "boost"): _wrong_boost,
+    (PromptKind.LOOSE_BALL_SKILL_TEST, "merge"): _wrong_merge,
     (PromptKind.LOOSE_BALL_SKILL_TEST, "pass"): _wrong_pass,
     (PromptKind.SCORE_ATTEMPT, "roll"): None,
     (PromptKind.SCORE_ATTEMPT, "back"): _ai_side_s_shot,
     (PromptKind.SCORE_ATTEMPT, "overdrive"): _wrong_overdrive,
     (PromptKind.SCORE_ATTEMPT, "boost"): _wrong_boost,
+    (PromptKind.SCORE_ATTEMPT, "merge"): _wrong_merge,
     (PromptKind.SCORE_ATTEMPT, "pass"): _wrong_pass,
     (PromptKind.SHOOTOUT_TEST, "roll"): None,
     (PromptKind.SHOOTOUT_TEST, "overdrive"): _wrong_overdrive,
@@ -1417,6 +1434,26 @@ class ButtonRuleTests(ApplyFixture):
             fixture, driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
         )
         self.assertIn("shot stands", refusal.reason)
+
+    def test_a_shot_somebody_has_paid_on_is_never_walked_back(self) -> None:
+        """
+        A declaration before the die spends its tokens on this roll, so
+        the shot stands: walking it back would leave the paid Merge or
+        Overdrive waiting for the next roll, which would take it free.
+        """
+        fixture = _case("score attempt")
+        match = fixture.match
+        self.assertTrue(
+            pending_prompt(ENGINE, fixture.game, match).options.back,
+        )
+        match.pending_merge.append(match.active_player_id)
+        self.assertFalse(
+            pending_prompt(ENGINE, fixture.game, match).options.back,
+        )
+        refusal = _refused(
+            fixture, driver.Action(PromptKind.SCORE_ATTEMPT, "back"),
+        )
+        self.assertIn("so it stands", refusal.reason)
 
     def test_declining_a_challenge_a_defender_on_the_ball_owes_is_refused(
         self,
@@ -1696,6 +1733,182 @@ class PromptAgreementTests(ApplyFixture):
                     pending_prompt(ENGINE, fixture.game, fixture.match),
                 )
                 self.assertIsInstance(run, driver.DriverRun)
+
+
+class MergeDeclarationTests(ApplyFixture):
+    """
+    **Merge costs 1 and is each Ooze's own choice** (Law 20.5, the
+    sheet and the author, 2026-10-07), declared before the die as
+    Overdrive is: the roll waits on the coach with an Ooze still to
+    decide, the attacker first, and only who paid adds.
+    """
+
+    def ooze_skill_test(self, *, ai_visitors: bool = False):
+        """
+        A skill test between two Ooze sides, standard mode (species
+        abilities, no special ones), with one more Ooze of each side
+        standing on the ball beside the two rolling.
+        """
+        game = build_game(
+            player_1_team=Team.OOZES,
+            player_2_team=Team.OOZES,
+            mode=GameMode.STANDARD,
+            **({"player_2_id": None} if ai_visitors else {}),
+        )
+        match = MatchState.standard(
+            catalog=CATALOG,
+            ruleset=RULESET,
+            board_size=7,
+            home_team=Team.OOZES,
+            visiting_team=Team.OOZES,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        challenge(match)
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        ball = (match.ball.zone, match.ball.space_index)
+        rollers = {match.active_player_id, match.challenger_id}
+        for player_id in list(match.board.spaces[ball[0]][ball[1]]):
+            if player_id not in rollers:
+                match.board.place_meeple(player_id, Zone.HOME_ZONE, 0)
+        for player_id in rollers:
+            match.board.place_meeple(player_id, *ball)
+        self.home_ooze = next(
+            player_id for player_id in match.home.field_players
+            if player_id not in rollers
+        )
+        self.visiting_ooze = next(
+            player_id for player_id in match.visiting.field_players
+            if player_id not in rollers
+        )
+        for player_id in (self.home_ooze, self.visiting_ooze):
+            match.board.place_meeple(player_id, *ball)
+        return PromptFixture(game, match, "")
+
+    def act(self, fixture, choice, **arguments):
+        return driver.apply(
+            ENGINE,
+            fixture.game,
+            fixture.match,
+            driver.Action(PromptKind.SKILL_TEST, choice, arguments),
+        )
+
+    def options(self, fixture):
+        return pending_prompt(ENGINE, fixture.game, fixture.match).options
+
+    def test_every_ooze_on_the_ball_is_offered_and_the_die_waits(self) -> None:
+        fixture = self.ooze_skill_test()
+        options = self.options(fixture)
+        self.assertEqual(
+            set(options.merge_player_ids),
+            {self.home_ooze, self.visiting_ooze},
+        )
+        self.assertEqual(
+            options.undecided_sides, (TeamSide.HOME, TeamSide.VISITING),
+        )
+        self.assertEqual(options.declarations_named(), "Merge")
+        before = fixture.match.to_dict()
+        refusal = self.act(fixture, "roll")
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertIn("decides on Merge first", refusal.reason)
+        self.assertEqual(refusal.law, "slimey-ooze")
+        self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_an_undeclared_ooze_adds_nothing(self) -> None:
+        fixture = self.ooze_skill_test()
+        for side in (TeamSide.HOME, TeamSide.VISITING):
+            self.act(fixture, "pass", side=side.value)
+        self.assertEqual(
+            ENGINE.merge_contributions(
+                fixture.game, fixture.match, TeamSide.HOME,
+                (fixture.match.active_player_id,), "offense",
+            ),
+            [],
+        )
+
+    def test_a_merge_costs_1_and_only_who_paid_adds(self) -> None:
+        fixture = self.ooze_skill_test()
+        match = fixture.match
+        home_before = match.exhaustion.get(self.home_ooze, 0)
+        visiting_before = match.exhaustion.get(self.visiting_ooze, 0)
+
+        merged = self.act(fixture, "merge", player_id=self.home_ooze)
+        self.assertNotIsInstance(merged, driver.Refusal)
+        self.assertEqual(merged.result.next.kind, PromptKind.SKILL_TEST)
+        self.assertIn("**Merge**", merged.result.narration[0])
+        self.assertIn("decides on Merge next", merged.result.narration[0])
+        self.assertEqual(
+            match.exhaustion.get(self.home_ooze, 0), home_before + 1,
+        )
+        self.assertEqual(match.pending_merge, [self.home_ooze])
+        self.assertNotIn(
+            self.home_ooze, self.options(fixture).merge_player_ids,
+        )
+        # Twice on one roll is refused.
+        again = self.act(fixture, "merge", player_id=self.home_ooze)
+        self.assertIsInstance(again, driver.Refusal)
+
+        self.act(fixture, "pass", side=TeamSide.VISITING.value)
+        with mock.patch("random.Random.randint", side_effect=[7, 2]):
+            rolled = self.act(fixture, "roll")
+        self.assertNotIsInstance(rolled, driver.Refusal)
+        offense, defense = rolled.detail.contestants[:2]
+        self.assertEqual(len(offense[5]), 1)
+        self.assertEqual(defense[5], [])
+        self.assertEqual(
+            match.exhaustion.get(self.visiting_ooze, 0), visiting_before,
+        )
+        # Spent by the roll: a re-roll is Merged afresh.
+        self.assertEqual(match.pending_merge, [])
+
+    def test_the_defender_may_not_merge_before_the_attacker(self) -> None:
+        fixture = self.ooze_skill_test()
+        before = fixture.match.to_dict()
+        refusal = self.act(fixture, "merge", player_id=self.visiting_ooze)
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_a_player_not_on_offer_is_refused(self) -> None:
+        fixture = self.ooze_skill_test()
+        before = fixture.match.to_dict()
+        refusal = self.act(
+            fixture, "merge", player_id=fixture.match.active_player_id,
+        )
+        self.assertIsInstance(refusal, driver.Refusal)
+        self.assertEqual(refusal.law, "slimey-ooze")
+        self.assertEqual(fixture.match.to_dict(), before)
+
+    def test_an_ai_side_is_never_waited_on(self) -> None:
+        """The AI declares nothing before a roll, Merge as Overdrive."""
+        fixture = self.ooze_skill_test(ai_visitors=True)
+        ai_side = next(
+            side for side in (TeamSide.HOME, TeamSide.VISITING)
+            if ENGINE.side_is_ai(fixture.game, side)
+        )
+        self.assertNotIn(ai_side, self.options(fixture).undecided_sides)
+        self.assertFalse(any(
+            fixture.match.side_for_player(player_id) == ai_side
+            for player_id in self.options(fixture).merge_player_ids
+        ))
+        self.assertEqual(len(self.options(fixture).undecided_sides), 1)
+
+    def test_a_glompex_who_joined_merges_free_and_unasked(self) -> None:
+        """His join's token paid for the Merge (Law 21.6.1)."""
+        fixture = self.ooze_skill_test()
+        match = fixture.match
+        match.merge_joined.append(self.home_ooze)
+        self.assertNotIn(
+            self.home_ooze, self.options(fixture).merge_player_ids,
+        )
+        self.assertEqual(
+            [player_id for player_id, _ in ENGINE.merge_contributions(
+                fixture.game, match, TeamSide.HOME,
+                (match.active_player_id, match.challenger_id), "offense",
+            )],
+            [self.home_ooze],
+        )
+        match.reset_maneuver()
+        self.assertEqual(match.merge_joined, [])
 
 
 if __name__ == "__main__":  # pragma: no cover

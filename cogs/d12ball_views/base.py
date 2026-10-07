@@ -11,6 +11,7 @@ import discord
 from typing import Awaitable, Callable, Optional
 
 from d12ball.components import (
+    MERGE_EXHAUSTION_COST,
     OVERDRIVE_BONUS,
     MatchState,
     RuleRefusal,
@@ -507,6 +508,22 @@ class SafeView(discord.ui.View):
             )
             button.callback = self.declare_overdrive
             self.add_item(button)
+        # **Merge** (Law 20.5): a button per Ooze -- or Double Team
+        # partner -- who may still exhaust 1 into this roll, each its
+        # own choice, theirs alone as a declaration is.
+        for player_id in options.merge_player_ids:
+            player = self.cog.engine.get_player_definition(player_id)
+            button = discord.ui.Button(
+                label=(
+                    f"Merge: {player_with_role(player)} "
+                    f"(exhaust {MERGE_EXHAUSTION_COST}, "
+                    f"+{options.merge_value(player_id)})"
+                )[:80],
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"d12ball:merge:{self.game_id}:{player_id}",
+            )
+            button.callback = self.declare_merge
+            self.add_item(button)
         # The explicit no, one per coach still to decide. Both are up
         # from the start; the defender's is grey and refused until the
         # attacker has decided, and turns red when the message is
@@ -554,7 +571,7 @@ class SafeView(discord.ui.View):
             self.cog.engine.side_controller_id(game, TeamSide(side)),
         ):
             await interaction.response.send_message(
-                "Only that side's coach can pass on Overdrive for it.",
+                "Only that side's coach can pass for it.",
                 ephemeral=True,
             )
             return
@@ -574,6 +591,12 @@ class SafeView(discord.ui.View):
     ) -> None:
         """Gearclaw's Boost (Law 21), answered as an Overdrive is."""
         await self.declare_before_roll(interaction, "boost")
+
+    async def declare_merge(
+        self, interaction: discord.Interaction,
+    ) -> None:
+        """An Ooze's Merge (Law 20.5), answered as an Overdrive is."""
+        await self.declare_before_roll(interaction, "merge")
 
     async def declare_before_roll(
         self, interaction: discord.Interaction, choice: str,

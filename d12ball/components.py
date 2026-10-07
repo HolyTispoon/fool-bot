@@ -285,6 +285,9 @@ SPECIES_ORDER: tuple[str, ...] = (
 CYBORG_DRAINED_AT = 7
 OVERDRIVE_DRAIN_COST = 3
 OVERDRIVE_BONUS = 5
+# Merge's price (Law 20.5, the sheet and the author, 2026-10-07): 1
+# token each Ooze that adds its skill to a roll, and each re-roll.
+MERGE_EXHAUSTION_COST = 1
 
 # Mind Pull's two numbers: what trying costs, and the faces that land
 # it. Both the author's -- the steal number stayed at 1-2 when the
@@ -1797,6 +1800,11 @@ MATCH_SAVED_FIELDS: tuple[SavedField, ...] = (
     SavedField(
         "overdrive_passed", factory=list, write=list, read=list,
     ),
+    # Who has Merged on the roll at hand, and the Glompex who joined
+    # the ball this maneuver (Law 20.5, 21.6.1). Absent from an older
+    # save, which reads as nobody -- Merge was free and undeclared then.
+    SavedField("pending_merge", factory=list, write=list, read=list),
+    SavedField("merge_joined", factory=list, write=list, read=list),
     # Mind Pull. The path is a list of [zone, index] pairs, so the
     # copies are deep enough to matter: a shallow list() would hand a
     # restored match the same inner lists the saved dict holds.
@@ -2104,6 +2112,16 @@ class MatchState:
     # them -- and spent with it (`consume_overdrive`), so a tie's
     # re-roll is decided afresh.
     overdrive_passed: list[str] = field(default_factory=list)
+    # **Merge** (Law 20.5): the Oozes -- and a Double Team's partner --
+    # who have exhausted 1 to add their skill to the roll at hand.
+    # Overdrive's shape: declared before the die, persisted for the
+    # same reason, and spent by the roll that reads it
+    # (`consume_overdrive`), so a tie's re-roll is Merged afresh.
+    pending_merge: list[str] = field(default_factory=list)
+    # **Glompex's join paid for his Merge** (Law 21.6.1): who stepped
+    # onto the ball this maneuver, and so Merges into every roll of it
+    # unasked and free. Cleared with the maneuver (`reset_maneuver`).
+    merge_joined: list[str] = field(default_factory=list)
     # **Mind Pull.** Three fields, and all three exist because a pull
     # is a *choice with a roll* that has to happen before the ball
     # settles -- see "Mind Pull (Telekinetic)" in docs/living-rules.md.
@@ -2694,8 +2712,20 @@ class MatchState:
         score" button is -- so Back undoes whichever of the two
         `start_set_up_shot`/`begin_shot_action` just committed to,
         rather than being withheld for one of them.
+
+        **Not once anyone has declared before the die**: an Overdrive,
+        a Boost or a Merge has spent its tokens on this roll, so the
+        shot is no longer a choice nothing has followed -- and walking
+        it back would leave the paid declaration waiting for the next
+        roll, which would take it free.
         """
-        return self.pending_action == "shoot"
+        return self.pending_action == "shoot" and not self.declared_before_roll()
+
+    def declared_before_roll(self) -> bool:
+        """Whether anybody has paid for a declaration on the roll at hand."""
+        return bool(
+            self.pending_overdrive or self.pending_boost or self.pending_merge
+        )
 
     def retract_pending_shot(self) -> None:
         """
@@ -3607,6 +3637,26 @@ class MatchState:
         self.mark_exhausted_if_needed(player_id, threshold)
         self.pending_boost.append(player_id)
 
+    def declare_merge(self, player_id: str) -> None:
+        """
+        **Merge** (Law 20.5): exhaust 1 so this Ooze's skill joins
+        their side's total on the next roll. Once per roll, like
+        Overdrive, and refused to an injured player, who cannot pay.
+        The Exhausted re-test is the caller's, through
+        `RulesEngine.describe_exhaustion_gain`, which says it too.
+        """
+        if player_id in self.pending_merge:
+            raise RuleRefusal(
+                "That Merge has already been declared.",
+                law="slimey-ooze",
+            )
+        if player_id in self.injured:
+            raise RuleRefusal(
+                "An injured player cannot Merge.", law="slimey-ooze",
+            )
+        self.add_exhaustion(player_id, MERGE_EXHAUSTION_COST)
+        self.pending_merge.append(player_id)
+
     def overdrive_modifier(self, player_id: str) -> int:
         """
         What a declared Overdrive, and Gearclaw's Boost, add to this
@@ -3630,6 +3680,7 @@ class MatchState:
         """
         self.pending_overdrive = []
         self.pending_boost = []
+        self.pending_merge = []
         self.overdrive_passed = []
 
     def pass_on_overdrive(self, side: TeamSide) -> None:
@@ -4042,6 +4093,8 @@ class MatchState:
         self.skill_test_winner = None
         self.pending_overdrive = []
         self.pending_boost = []
+        self.pending_merge = []
+        self.merge_joined = []
         self.overdrive_passed = []
         self.last_ball_path = []
         self.last_ball_movers = []
