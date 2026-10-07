@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from typing import Optional
+from typing import Callable, Optional, Sequence
 
 from d12ball.components import (
     EVENT_SHOT,
@@ -59,8 +59,10 @@ from d12ball.components import (
     SHOT_AS_ON_BALL_NOTE,
     SHOT_PASSED_NOTE,
     SPECIES_CYBORG,
+    ShotDefender,
     TeamSide,
 )
+from d12ball import tokens
 from d12ball.engine import RulesEngine
 from d12ball.wire import jsonable
 from d12ball.flow import injuries
@@ -1140,10 +1142,12 @@ def score_score_attempt(
     shooter: PlayerDefinition,
     attacking_setup,
     defending_setup,
-) -> tuple[list[Contestant], int, int, object]:
+) -> tuple[list[Contestant], int, int, object, list[ShotDefender]]:
     """
     Roll the shot and price the wall in front of it, as the two sides
-    the dice image draws plus the totals the verdict is read off.
+    the dice image draws plus the totals the verdict is read off, and
+    the wall itself, for the working to name it its own way
+    (`shot_wall_lines`).
 
     Everything that built the two totals is drawn on the dice image,
     which is why no message that posts one repeats it in text.
@@ -1227,19 +1231,9 @@ def score_score_attempt(
         attack_detail.append(clear_shot)
     with_total_modifier(attack_detail, attack_roll, attack_total)
 
-    if defenders:
-        defense_detail = [
-            f"{player_with_role(defender.player)} "
-            f"+{defender.value}"
-            + (f" (half of {defender.defense})" if defender.halved else "")
-            + (SHOT_PASSED_NOTE if defender.passed else "")
-            + (SHOT_AS_ON_BALL_NOTE if defender.as_on_ball else "")
-            for defender in defenders
-        ]
-        if len(defenders) > 1:
-            defense_detail.append(total_modifier_line(defense_skill_total))
-    else:
-        defense_detail = ["No one in the way"]
+    defense_detail = shot_wall_lines(defenders, player_with_role)
+    if len(defenders) > 1:
+        defense_detail.append(total_modifier_line(defense_skill_total))
 
     return (
         [
@@ -1263,7 +1257,36 @@ def score_score_attempt(
         attack_total,
         defense_total,
         attack_ignite,
+        defenders,
     )
+
+
+def shot_wall_lines(
+    defenders: Sequence[ShotDefender],
+    name: Callable[[PlayerDefinition], str],
+) -> list[str]:
+    """
+    The defence's side of a shot, a line per defender in the way: who,
+    what they add and why it is that much.
+
+    `name` is how a player is named, because the two places a wall is
+    written name them two ways: the dice picture in plain text
+    (`player_with_role`, "Dravox [DD]"), since it is drawn on an image
+    that cannot draw a badge, and the working under the web page's
+    headline with the team mark and the badge as tokens, as the
+    shooter beside them is named (`format_player_label`) (the
+    author, 2026-10-07). One function, so the two cannot disagree about
+    anything but the name.
+    """
+    if not defenders:
+        return ["No one in the way"]
+    return [
+        f"{name(defender.player)} +{defender.value}"
+        + (f" (half of {defender.defense})" if defender.halved else "")
+        + (SHOT_PASSED_NOTE if defender.passed else "")
+        + (SHOT_AS_ON_BALL_NOTE if defender.as_on_ball else "")
+        for defender in defenders
+    ]
 
 
 def settle_score_attempt(
@@ -1396,6 +1419,7 @@ def score_attempt_step(
         attack_total,
         defense_total,
         attack_ignite,
+        defenders,
     ) = score_score_attempt(
         engine, game, match, shooter, attacking_setup, defending_setup,
     )
@@ -1440,7 +1464,7 @@ def score_attempt_step(
         scored,
     )
     (attack_roll, _, attack_detail, _, _, _), (
-        defense_roll, _, defense_detail, _, _, _,
+        defense_roll, _, _, _, _, _,
     ) = contestants
     headline = replace(
         headline,
@@ -1455,7 +1479,19 @@ def score_attempt_step(
                 (
                     format_team_side_label(defending_setup, game),
                     defense_roll,
-                    defense_detail,
+                    # The picture's wall, but each defender named with
+                    # their mark and badge, as the shooter is -- in the
+                    # defending side's team, which the wall always is.
+                    shot_wall_lines(
+                        defenders,
+                        lambda player: (
+                            f"{tokens.team(defending_setup.team)} "
+                            + player_with_role(
+                                player, badge=True,
+                                team=defending_setup.team,
+                            )
+                        ),
+                    ),
                     defense_total,
                 ),
             ],

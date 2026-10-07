@@ -1032,6 +1032,15 @@ class OutcomeBannerTests(unittest.TestCase):
         self.assertTrue(defence[0].endswith("rolled **12**"), defence)
         self.assertTrue(attack[-1].startswith("= **"), attack)
         self.assertTrue(defence[-1].startswith("= **"), defence)
+        # Every defender in the way is named as the shooter is, with
+        # their team's mark and role badge, never the picture's plain
+        # "[DD]" (the author, 2026-10-07).
+        wall = defence[1:-1]
+        self.assertTrue(wall)
+        for line in wall:
+            self.assertTrue(line.startswith("{team:"), line)
+            self.assertIn("{role:", line)
+            self.assertNotIn("[", line)
         self.assertEqual(written["reading"], "")
         outcome = web._state(game, Viewer(None))["outcome"]
         self.assertEqual(

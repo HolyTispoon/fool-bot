@@ -1301,7 +1301,7 @@ class ShotDefenseTests(unittest.TestCase):
                     )
                 with mock.patch.dict(SPECIAL_ABILITIES, abilities):
                     wall = self.defending()
-                    (_, defence), _, _, _ = score_score_attempt(
+                    (_, defence), _, _, _, _ = score_score_attempt(
                         ENGINE, self.game, self.match,
                         ENGINE.get_player_definition(self.shooter),
                         self.match.home, self.match.visiting,
@@ -1360,7 +1360,7 @@ class ShotDefenseTests(unittest.TestCase):
 
     def test_the_dice_list_the_passed_at_nothing(self) -> None:
         with holding(self.shooter, SpecialAbility.CLEAR_SHOT):
-            (attack, defence), _, defense_total, _ = score_score_attempt(
+            (attack, defence), _, defense_total, _, _ = score_score_attempt(
                 ENGINE, self.game, self.match,
                 ENGINE.get_player_definition(self.shooter),
                 self.match.home, self.match.visiting,
