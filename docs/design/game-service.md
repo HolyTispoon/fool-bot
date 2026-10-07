@@ -125,7 +125,11 @@ prompt is, the third reader over the chain beside `pending_prompt`
 and `owed_step` -- and if it is, puts the strategy's `Action` through
 `driver.answer` exactly as a click goes, then carries on. A roll is
 nobody's question, so the loop stops there and the AI never rolls
-(CLAUDE.md, "Nothing rolls dice on its own"). A strategy whose answer
+(CLAUDE.md, "Nothing rolls dice on its own") -- except that while the
+AI's side still has a declaration open on it (a Merge, an Overdrive, a
+Boost), the roll is the AI's question and it answers the declaration,
+one an answer, before the loop stops on the die (2026-10-07; see
+"Slimey" in [species-abilities.md](species-abilities.md)). A strategy whose answer
 is refused is a bug and raises: the prompt offered what it offered,
 and `AIStrategy.choose` read the offer. `MAX_AI_ANSWERS` is the guard
 against a strategy that answers without moving the position, since
@@ -410,7 +414,12 @@ author, 2026-09-30). That replaced a caption (2026-09-28) that named
 each Ooze under an image that drew only the two -- the image carries
 none now. Who Merges is `RulesEngine.merge_contributions`, the
 reading `merge_bonus` totals, asked as the skill test asks it, so the
-picture's sum is the dice's. This is the frontend's placement of its
+picture's sum is the dice's. Since a Merge costs a token and is declared
+before the die (2026-10-07), that reading is who has *paid*: the
+challenge image, drawn before anyone could declare, carries a Glompex
+whose join paid for it and nobody else, and an Ooze who Merges appears
+on the dice -- and on the web page's situation, which redraws on the
+next poll. This is the frontend's placement of its
 own picture: nothing in the model's flow changed, and the web app
 draws the same brief in its own situation.
 `tests/test_d12ball_join_the_ball_image.py` covers a coach's

@@ -89,6 +89,7 @@ from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.game import D12BallGame, Formation
 from d12ball.prompts import (
     CHOICES,
+    MERGE_SIDES,
     ROLL_KINDS,
     Action,
     PendingPrompt,
@@ -560,11 +561,12 @@ def ai_action(
     a strategy that names a card not in its hand is refused rather
     than written into the match. `asked_sides` is the one reading of
     whose question a prompt is; the AI answers the first of its sides
-    the prompt is still waiting on. A roll is nobody's question --
-    and never the AI's even where it waits on a coach's Overdrive,
-    since the AI declares none -- so the AI never rolls (CLAUDE.md,
-    "Nothing rolls dice on its own"), and a two-sided prompt is
-    answered one side at a time.
+    the prompt is still waiting on. A roll is nobody's question
+    except while a side's declaration before the die is open -- the
+    AI's too, which Merges and Overdrives -- and then it is the
+    declaration that is asked, never the die: the AI never rolls
+    (CLAUDE.md, "Nothing rolls dice on its own"), and a two-sided
+    prompt is answered one side at a time.
 
     `GameService.run` is what loops on this; a driver-level caller
     with no service (`tests/test_driver_full_game.py`) asks it the
@@ -1538,6 +1540,10 @@ def _answer_skill_test(
         return rolls.declare_boost_step(
             engine, game, match, prompt, player_id,
         )
+    if choice == "merge":
+        return rolls.declare_merge_step(
+            engine, game, match, prompt, player_id,
+        )
     if choice == "pass":
         return rolls.pass_on_overdrive_step(engine, game, match, prompt, side)
     rolls.refuse_roll_while_deciding(engine, game, prompt)
@@ -1559,6 +1565,10 @@ def _answer_loose_ball_skill_test(
         return _declared_overdrive(engine, game, match, prompt, player_id)
     if choice == "boost":
         return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
+    if choice == "merge":
+        return rolls.declare_merge_step(
             engine, game, match, prompt, player_id,
         )
     if choice == "pass":
@@ -1597,6 +1607,10 @@ def _answer_score_attempt(
         return _declared_overdrive(engine, game, match, prompt, player_id)
     if choice == "boost":
         return rolls.declare_boost_step(
+            engine, game, match, prompt, player_id,
+        )
+    if choice == "merge":
+        return rolls.declare_merge_step(
             engine, game, match, prompt, player_id,
         )
     if choice == "pass":
@@ -1941,6 +1955,17 @@ REQUIRED_ARGUMENTS: Mapping[PromptKind, Mapping[str, tuple[str, ...]]] = {
             "pass": ("side",),
         }
         for kind in ROLL_KINDS
+    },
+    # A Merge is a player's too (Law 20.5), on the rolls it is
+    # declared on.
+    **{
+        kind: {
+            "overdrive": ("player_id",),
+            "boost": ("player_id",),
+            "merge": ("player_id",),
+            "pass": ("side",),
+        }
+        for kind in MERGE_SIDES
     },
 }
 

@@ -1097,6 +1097,10 @@ def join_the_ball_step(
     label = engine.format_player_label(match, player)
     if join:
         match.move_meeple(player_id, match.ball.zone, match.ball.space_index)
+        # The token pays for the move and the Merge both (Law 21.6.1):
+        # Glompex Merges into every roll of this maneuver, unasked.
+        if player_id not in match.merge_joined:
+            match.merge_joined.append(player_id)
         line = "\n".join(filter(None, [
             f"{label} steps onto the ball's space to Merge.",
             engine.apply_exhaustion(

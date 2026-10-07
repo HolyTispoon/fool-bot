@@ -624,8 +624,10 @@ declare, the roll waits on that coach until they declare or pass -- the
 attacker's first, then the defender's -- and only then may either coach
 press Roll. See
 [species-abilities.md](species-abilities.md), "Overdrive is the only thing in
-the game declared before a roll". An AI side declares nothing and holds no
-die, so a solo game against an AI Cyborg rolls exactly as before.
+the game declared before a roll". The same holds for an Ooze's Merge, and
+for an AI side (the author, 2026-10-07): Dinky is asked its declarations
+and answers them -- Merge always, Overdrive and Boost while they keep the
+Cyborg out of Drained -- but never throws the die.
 
 **A shot is walked back only by the coach who chose it, and never for an
 AI side.** "Back" on the score attempt is an answer to that prompt

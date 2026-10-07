@@ -896,6 +896,54 @@ class QuestionBoxTests(unittest.TestCase):
                     Action(PromptKind.SKILL_TEST, "pass", {"side": side.value}),
                 )
 
+    def test_each_of_a_coach_s_oozes_on_the_ball_is_a_merge(self) -> None:
+        """
+        Merge costs 1 and is each Ooze's own choice (Law 20.5): the
+        attacking coach is shown a Merge per Ooze of theirs on the ball,
+        lit on its meeple, with what it adds and the token it costs.
+        """
+        game = build_game(
+            player_1_team=Team.OOZES,
+            player_2_team=Team.OOZES,
+            mode=GameMode.STANDARD,
+        )
+        match = MatchState.standard(
+            catalog=CATALOG,
+            ruleset=RULESET,
+            board_size=7,
+            home_team=Team.OOZES,
+            visiting_team=Team.OOZES,
+            home_formation=Formation.TWO_TWO_TWO,
+        )
+        challenge(match)
+        match.offense_maneuver = "low_pass"
+        match.defense_maneuver = "deflect"
+        attacker = match.side_for_player(match.active_player_id)
+        ooze = next(
+            player_id
+            for player_id in match.setup_for_side(attacker).field_players
+            if player_id != match.active_player_id
+        )
+        match.move_meeple(ooze, match.ball.zone, match.ball.space_index)
+        prompt = pending_prompt(ENGINE, game, match)
+        merges = [
+            control
+            for group in controls_for(
+                ENGINE, game, match, prompt,
+                Viewer(ENGINE.side_player_number(game, attacker)),
+            )
+            for control in group["controls"]
+            if control["action"]["choice"] == "merge"
+        ]
+        self.assertEqual(
+            [control["action"]["arguments"]["player_id"] for control in merges],
+            [ooze],
+        )
+        self.assertEqual(merges[0]["cost"], {"emoji": "exhaust", "count": 1})
+        self.assertIn(
+            f"+{prompt.options.merge_value(ooze)}", merges[0]["label"],
+        )
+
 
 class OutcomeBannerTests(unittest.TestCase):
     """
@@ -1796,8 +1844,8 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual("In a skill test" in text, skill_test)
 
     def test_an_ooze_merging_is_drawn_in_the_side(self) -> None:
-        # An Ooze of each side stood on the ball, neither rolling: each
-        # is part of the side they Merge into (the author, 2026-09-30),
+        # An Ooze of each side stood on the ball, neither rolling, and
+        # Merged: each is part of the side they Merge into (the author, 2026-09-30),
         # after its player, with what `merge_contributions` says they
         # add -- the dice's number -- and the side's skill added up.
         from d12ball.components import SPECIES_OOZE
@@ -1814,6 +1862,9 @@ class SituationTests(unittest.IsolatedAsyncioTestCase):
                 match.move_meeple(
                     ooze, match.ball.zone, match.ball.space_index,
                 )
+                # Merge costs 1 and is declared (Law 20.5): only who
+                # paid is drawn in.
+                match.declare_merge(ooze)
 
         fixture, got = self.situation_in(
             "maneuver picks", GameMode.STANDARD, oozes_on_the_ball,

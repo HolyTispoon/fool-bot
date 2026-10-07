@@ -769,6 +769,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | Running back | 1 per space travelled |
 | An own-goal roll | 1 to the player rolling |
 | Taking a scoring opportunity | 1 to the shooter, after the roll |
+| [Merging](#205-slimey-ooze) (20.5) into a roll, and every re-roll of it | 1 to each player who Merges |
 
 **15.1.2** Nothing else costs anything. An ordinary score attempt, a maneuver won outright, a reset, a Coaching Choice and a shootout test are all free.
 
@@ -782,7 +783,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 15.3 The injury check
 
-**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
+**15.3.1** When a skill test resolves -- a maneuver's, a contest for the ball, or a High Pass contest's -- every Exhausted participant -- the two who rolled, and anyone who [Merged](#205-slimey-ooze) (20.5) into it -- rolls one d12. A roll **higher** than the tokens they are currently carrying is safe, and anything else injures them.
 
 **15.3.2** Tokens added for that very test count, including the ones a re-roll charged.
 
@@ -798,7 +799,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 - **a.** in a maneuver, against a healthy opponent, a tie loses outright with nothing rolled, and a maneuver they would have won outright goes to a skill test they have to win instead;
 - **b.** in a contest for the ball or a High Pass contest, they add no skill modifier at all: their offensive or defensive skill comes off the roll, and only that. Ball speed and role abilities still apply.
-- **c.** they may use no ability that would exhaust or drain them -- a Cyborg's [Overdrive](#203-lithium-powered-cyborg) (20.3), a Telekinetic's [Mind Pull](#204-mind-pull-telekinetic) (20.4), or any [special ability](#21-special-abilities) (21) with a token cost. They can add no tokens, so the cost is not waived: the ability is not theirs to use.
+- **c.** they may use no ability that would exhaust or drain them -- a Cyborg's [Overdrive](#203-lithium-powered-cyborg) (20.3), a Telekinetic's [Mind Pull](#204-mind-pull-telekinetic) (20.4), an Ooze's [Merge](#205-slimey-ooze) (20.5), or any [special ability](#21-special-abilities) (21) with a token cost. They can add no tokens, so the cost is not waived: the ability is not theirs to use.
 
 **15.4.3** Nothing else is withheld. The forced skill test above is rolled with their skill in full, and a score attempt is untouched -- an injured Striker still adds 3 off a set-up.
 
@@ -942,7 +943,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | Nothing else costs tokens ([Law 15](#151-gaining-tokens) (15.1)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#204-mind-pull-telekinetic) (20.4), [Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A ball at rest is settled by whoever stands there ([Law 10](#101-where-the-ball-comes-to-rest) (10.1)) | A Telekinetic may pull or take a moving ball before it settles ([Mind Pull](#204-mind-pull-telekinetic) (20.4)) | Species |
-| A skill test is rolled by two players ([Law 6](#64-the-skill-test) (6.4)) | An Ooze on the space who is not rolling adds to their side ([Slimey](#205-slimey-ooze) (20.5)) | Species |
+| A skill test is rolled by two players ([Law 6](#64-the-skill-test) (6.4)) | An Ooze on the space who is not rolling may exhaust 1 to add to their side ([Slimey](#205-slimey-ooze) (20.5)) | Species |
 | Coverage counts every meeple ([Law 2](#25-occupancy) (2.5)) | An Ooze counts as 0 ([Slimey](#205-slimey-ooze) (20.5)) | Species |
 
 ## 19. Advanced maneuvers and gambits
@@ -1097,7 +1098,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.10.4** Possession does not change and the ball is left with the handler. Where the push reaches the handler's own goal zone -- the handler on the last space before it -- it risks an [own goal](#11-own-goal) (11) as a Pressure does. A Defender's steal applies as it does on a won Pressure.
 
-**19.10.5** **The partner Merges through the defending side's next maneuver**, as an Ooze does ([Slimey](#205-slimey-ooze) (20.5)): standing on the ball's space and not one of the two rolling, they add their defensive skill to that maneuver's skill test and to any contest for the ball it leads to. It ends with that maneuver, before the offense chooses its next action, and sooner at a [new play](#125-resetting-after-a-new-play) (12.5) or when the partner's side takes the ball. A partner who is an Ooze Merges once, not twice, and an [injured](#154-playing-injured) (15.4) partner adds nothing.
+**19.10.5** **The partner may Merge through the defending side's next maneuver**, as an Ooze does ([Slimey](#205-slimey-ooze) (20.5)) and at an Ooze's price: standing on the ball's space and not one of the two rolling, they may exhaust 1 on each roll of that maneuver's skill test, and of any contest for the ball it leads to, to add their defensive skill to it. It ends with that maneuver, before the offense chooses its next action, and sooner at a [new play](#125-resetting-after-a-new-play) (12.5) or when the partner's side takes the ball. A partner who is an Ooze Merges once, not twice, and pays once, and an [injured](#154-playing-injured) (15.4) partner cannot Merge.
 
 **19.10.6** *Failed gambit:* the challenger and the partner -- found as above, before the ball moves -- each move 1 space forward, away from their own goal. Neither exhausts for it.
 
@@ -1190,13 +1191,15 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 20.5 Slimey (Ooze)
 
-**20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Pass contest](#104-the-high-pass-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling adds to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Every such Ooze adds -- two of them add twice. An [injured](#154-playing-injured) (15.4) Ooze adds nothing.
+**20.5.1** **Merge.** In a [maneuver skill test](#64-the-skill-test) (6.4), a [contest for the ball](#101-where-the-ball-comes-to-rest) (10.1) or a [High Pass contest](#104-the-high-pass-contest) (10.4) fought out on the ball's space, an Ooze standing there who is **not** one of the two players rolling may **exhaust 1** to add to their own side's total: their **offensive** skill on the attacking side, their **defensive** skill on the defending side. Each such Ooze is its coach's own choice, and each that Merges pays -- two of them add twice and exhaust 1 each. An [injured](#154-playing-injured) (15.4) Ooze cannot Merge.
 
-**20.5.2** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots adds their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
+**20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
 
-**20.5.3** **Spreadable.** Every Ooze counts as 0 toward its own zone's [occupancy](#25-occupancy) (2.5), always -- nothing for a coach to declare. It still has exactly one meeple on exactly one real space; the rule is a coverage exemption only, not a second body on the board, so nothing about a challenge, where the ball can be sent, or a genuine run back off the space changes.
+**20.5.3** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots may exhaust 1 to add their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
 
-**20.5.4** The one place it reaches further is a stack: an Ooze sharing a space with a teammate assigned to the same zone is never made to break that stack up to cover another space in the zone, and neither is the teammate.
+**20.5.4** **Spreadable.** Every Ooze counts as 0 toward its own zone's [occupancy](#25-occupancy) (2.5), always -- nothing for a coach to declare. It still has exactly one meeple on exactly one real space; the rule is a coverage exemption only, not a second body on the board, so nothing about a challenge, where the ball can be sent, or a genuine run back off the space changes.
+
+**20.5.5** The one place it reaches further is a stack: an Ooze sharing a space with a teammate assigned to the same zone is never made to break that stack up to cover another space in the zone, and neither is the teammate.
 
 ## 21. Special abilities
 
@@ -1274,7 +1277,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 ### 21.6 Oozes
 
-**21.6.1** **Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may exhaust 1 to move onto the ball's space, where [Merge](#205-slimey-ooze) (20.5) counts them. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
+**21.6.1** **Glompex joins the ball.** Once a maneuver's challenger is in place and before either coach chooses a card, Glompex -- standing on a space next to the ball's, and not one of the two players -- may exhaust 1 to move onto the ball's space and [Merge](#205-slimey-ooze) (20.5). That token pays for both: Glompex Merges into every roll of that maneuver, and of any contest for the ball it leads to, without exhausting again or being asked. It is offered only against a challenge, since an unchallenged maneuver rolls nothing.
 
 **21.6.2** **Goopkeeper blocks in full.** In a [score attempt](#5-score-attempt) (5), Goopkeeper standing anywhere between the ball and the goal counts as on the ball, and adds their full defensive skill rather than half. Behind the ball they add nothing, like anyone else.
 
@@ -1309,7 +1312,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's advanced maneuver), and a burn that loses upgrades the opponent's. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it; never on a damage test, and never while Damaged. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball is brought to a teammate on your space -- take it over from them, free. |
-| Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space adds their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- and their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
+| Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space may exhaust 1, declared before the roll, to add their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- or their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 ## Appendix B. Glossary
 

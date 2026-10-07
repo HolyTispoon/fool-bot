@@ -366,7 +366,7 @@ def score_attempt_brief(
     every defender between them and the goal. The attack is a list:
     the shooter, then any Ooze on the ball Merging into the attack --
     the attack alone, since the wall already counts a defending one
-    (Law 20.5.2; `merging_sides`).
+    (Law 20.5.3; `merging_sides`).
 
     The two modifiers are listed on the shooter rather than folded
     into their skill, because both are conditions of this attempt

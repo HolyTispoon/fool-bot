@@ -51,6 +51,7 @@ from d12ball.components import (
     EVENT_SHOT,
     EVENT_SKILL_TEST,
     MatchState,
+    MERGE_EXHAUSTION_COST,
     OVERDRIVE_BONUS,
     PlayerDefinition,
     PlayerRole,
@@ -301,6 +302,54 @@ def pay_contest_tie(
 # -- The maneuver skill test -------------------------------------------
 
 
+def _note_mergers(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    rolling: tuple[Optional[str], Optional[str]],
+) -> None:
+    """
+    Remember who Merged into this roll, before the roll spends the
+    declarations: **a merging Ooze owes the injury check** when the
+    test resolves (Law 15.3.1), and a tie's re-roll may be Merged by
+    someone else, so the list runs across every roll of the test.
+    """
+    if match.ball.possession is None:
+        return
+    for side, skill in (
+        (match.ball.possession, "offense"),
+        (match.defending_side(), "defense"),
+    ):
+        for player_id, _ in engine.merge_contributions(
+            game, match, side, rolling, skill,
+        ):
+            if player_id not in match.merged_this_test:
+                match.merged_this_test.append(player_id)
+
+
+def _owing_checks(
+    engine: RulesEngine,
+    match: MatchState,
+    rollers: tuple[PlayerDefinition, PlayerDefinition],
+) -> list[PlayerDefinition]:
+    """
+    Who owes an injury check as a skill test or contest resolves
+    (Law 15.3.1): the two who rolled and everyone who Merged into it,
+    those Exhausted -- the rollers first. Spends the Merge list.
+    """
+    owing = [
+        player for player in rollers if player.player_id in match.exhausted
+    ]
+    rolled = {player.player_id for player in rollers}
+    owing += [
+        engine.get_player_definition(player_id)
+        for player_id in match.merged_this_test
+        if player_id in match.exhausted and player_id not in rolled
+    ]
+    match.merged_this_test = []
+    return owing
+
+
 def score_skill_test(
     engine: RulesEngine,
     game: D12BallGame,
@@ -525,6 +574,10 @@ def skill_test_step(
     # Who Overdrove this roll, read before it is spent: Synapse's win on
     # an Overdriven roll decides a tier (Law 21), below.
     overdriven = set(match.pending_overdrive)
+    _note_mergers(
+        engine, game, match,
+        (offense_player.player_id, defense_player.player_id),
+    )
     # Spent, win, lose or tie: a tie that is re-rolled is a fresh roll
     # and has to be Overdriven again.
     match.consume_overdrive()
@@ -649,11 +702,9 @@ def skill_test_step(
     # resolves.
     clock = charge_maneuver_clock(engine, match, winner_key)
 
-    exhausted_participants = [
-        player
-        for player in (offense_player, defense_player)
-        if player.player_id in match.exhausted
-    ]
+    exhausted_participants = _owing_checks(
+        engine, match, (offense_player, defense_player),
+    )
 
     # The effect is on the far side of the injury tests now that each
     # of those is a click of its own, so it is handed over as the
@@ -890,11 +941,9 @@ def settle_loose_ball_winner(
     )
     winner_player = offense_player if outcome == "offense" else defense_player
 
-    exhausted_participants = [
-        player
-        for player in (offense_player, defense_player)
-        if player.player_id in match.exhausted
-    ]
+    exhausted_participants = _owing_checks(
+        engine, match, (offense_player, defense_player),
+    )
     distance_moved = match.pending_loose_ball_distance
     is_high_pass = match.pending_loose_ball_is_high_pass
     # Read with the rest of the position, before anything below clears
@@ -1041,6 +1090,10 @@ def loose_ball_test_step(
             (offense_player.player_id, offense_ignite),
             (defense_player.player_id, defense_ignite),
         ),
+    )
+    _note_mergers(
+        engine, game, match,
+        (offense_player.player_id, defense_player.player_id),
     )
     match.consume_overdrive()
 
@@ -1535,9 +1588,16 @@ def retract_shot_step(
             "coach's own shot can be walked back."
         )
 
+    # **What was declared on the shot is called off with it** (the
+    # author, 2026-10-07): a Merge, an Overdrive or a Boost paid for
+    # this roll, which is not going to be rolled -- left in place, it
+    # would ride onto the next roll free.
+    called_off = _call_off_declarations(engine, game, match)
+
     if not match.pending_shot_is_set_up:
         match.retract_pending_shot()
         return StepResult(
+            narration=called_off,
             next=PendingPrompt(
                 PromptKind.PLAYER_ACTION, engine.build_turn_prompt(game, match),
             ),
@@ -1560,7 +1620,61 @@ def retract_shot_step(
         "distance_moved": distance_moved,
         "contest_on_decline": contest_on_decline,
     }
-    return StepResult(next=scoring_opportunity_prompt(engine, game, match))
+    return StepResult(
+        narration=called_off,
+        next=scoring_opportunity_prompt(engine, game, match),
+    )
+
+
+def _call_off_declarations(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> list[str]:
+    """
+    Undo every declaration made on the roll at hand, tokens and all,
+    and say so -- a line per player whose tokens came back, nothing
+    where nobody had declared.
+    """
+    refunds: dict[str, int] = {}
+    for player_id in match.pending_overdrive:
+        refunds[player_id] = (
+            refunds.get(player_id, 0) + engine.overdrive_cost(game, player_id)
+        )
+    for player_id in match.pending_boost:
+        refunds[player_id] = refunds.get(player_id, 0) + BOOST_DRAIN_COST
+    for player_id in match.pending_merge:
+        refunds[player_id] = (
+            refunds.get(player_id, 0) + MERGE_EXHAUSTION_COST
+        )
+    named = {
+        player_id: [
+            name for name, held in (
+                ("Overdrive", match.pending_overdrive),
+                ("Boost", match.pending_boost),
+                ("Merge", match.pending_merge),
+            )
+            if player_id in held
+        ]
+        for player_id in refunds
+    }
+    match.consume_overdrive()
+    lines = []
+    for player_id, amount in refunds.items():
+        removed = match.refund_exhaustion(
+            player_id, amount, engine.exhaustion_threshold(game, player_id),
+        )
+        if not removed:
+            continue
+        _, mark = engine.token_word_and_mark(game, player_id)
+        player = engine.get_player_definition(player_id)
+        lines.append(
+            f"{engine.format_player_label(match, player)}'s "
+            f"{' and '.join(named[player_id])} is called off: they clear "
+            f"{removed} {mark * removed} "
+            f"(now {match.exhaustion.get(player_id, 0)} total)."
+        )
+    return lines
 
 
 # -- The shootout test -------------------------------------------------
@@ -1857,12 +1971,24 @@ def refuse_roll_while_deciding(
     """
     side = prompt.options.deciding_side if prompt.options else None
     if side is not None:
-        raise RuleRefusal(
+        _refuse_while_deciding(
             f"The die waits on "
             f"{address_coach(engine.side_player_number(game, side))}, "
             f"who decides on {prompt.options.declarations_named()} first.",
-            law="lithium-powered-cyborg",
+            prompt.options,
         )
+
+
+def _refuse_while_deciding(message: str, options) -> None:
+    """
+    Refuse with the Law a hold on the die cites: Slimey's where a Merge
+    is all the deciding side has open, Lithium Powered's otherwise --
+    Overdrive is where declaring before the die was written down first.
+    """
+    keys = dict(options.open_declarations).get(options.deciding_side, ())
+    if keys == ("merge",):
+        raise RuleRefusal(message, law="slimey-ooze")
+    raise RuleRefusal(message, law="lithium-powered-cyborg")
 
 
 def _refuse_out_of_turn(
@@ -1878,10 +2004,10 @@ def _refuse_out_of_turn(
     """
     deciding = prompt.options.deciding_side if prompt.options else None
     if deciding is not None and deciding != side:
-        raise RuleRefusal(
+        _refuse_while_deciding(
             f"{address_coach(engine.side_player_number(game, deciding))} "
             f"decides on {prompt.options.declarations_named()} first.",
-            law="lithium-powered-cyborg",
+            prompt.options,
         )
 
 
@@ -1931,7 +2057,7 @@ def pass_on_overdrive_step(
     )
     if passing is None:
         raise RuleRefusal(
-            "There is no Overdrive to pass on.",
+            "There is nothing left to pass on.",
             law="lithium-powered-cyborg",
         )
     _refuse_out_of_turn(engine, game, prompt, passing)
@@ -1977,6 +2103,50 @@ def declare_boost_step(
             f"⚡ **Boost** — "
             f"{engine.format_player_label(match, player)} drains "
             f"{BOOST_DRAIN_COST} for +{BOOST_BONUS} on this roll.",
+            _hand_on(engine, game, match, prompt),
+        )))],
+        next=prompt,
+    )
+
+
+def declare_merge_step(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+    player_id: str,
+) -> StepResult:
+    """
+    An Ooze -- or a Double Team's partner -- exhausts 1 to add their
+    skill to the roll that is about to happen (**Merge**, Law 20.5).
+
+    `declare_overdrive_step`'s shape: declared before the die, it
+    answers the roll's prompt without settling it and comes back on
+    the same roll. Re-asked against the prompt's own `merge_offers`
+    rather than trusted, because a prompt can sit in a channel long
+    after the roll it was built for -- and those offers are already
+    `RulesEngine.merge_candidates`' answer for this roll, so an Ooze
+    off the ball, rolling, injured or already Merged is refused here.
+    """
+    current = with_options(engine, game, match, prompt).options
+    if current is None or player_id not in current.merge_player_ids:
+        raise RuleRefusal(
+            "That player cannot Merge into this roll.", law="slimey-ooze",
+        )
+    _refuse_out_of_turn(
+        engine, game, prompt, match.side_for_player(player_id),
+    )
+
+    value = current.merge_value(player_id)
+    match.declare_merge(player_id)
+    player = engine.get_player_definition(player_id)
+    return StepResult(
+        narration=[" ".join(filter(None, (
+            f"**Merge** — {engine.format_player_label(match, player)} "
+            f"adds +{value} to this roll.",
+            engine.describe_exhaustion_gain(
+                game, match, player_id, MERGE_EXHAUSTION_COST,
+            ),
             _hand_on(engine, game, match, prompt),
         )))],
         next=prompt,

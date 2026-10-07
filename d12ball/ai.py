@@ -20,8 +20,9 @@ per kind, with their reasoning kept beside them.
 
 **The AI never rolls.** Every roll waits behind a button either coach
 may press (CLAUDE.md, "Nothing rolls dice on its own"); a roll prompt
-is nobody's question (`d12ball.prompts.asked_sides`), so `choose` is
-never asked one.
+is nobody's question (`d12ball.prompts.asked_sides`) -- except while
+a side still decides on a declaration before the die, and then the
+AI is asked that and answers it (`_before_the_die`), never the die.
 
 **A rail wins.** Where the tutorial's script fixes a choice the
 prompt's options say which (`railed`), and the adapter refuses anything
@@ -42,6 +43,7 @@ from .components import (
     Zone,
 )
 from .formatting import format_ai_name
+from .special_abilities import BOOST_DRAIN_COST
 from .game import AIOpponent, HomeChoice, Team
 from .prompts import (
     Action,
@@ -703,10 +705,51 @@ class DinkyAI(AIStrategy):
             self.player_catalog.player_by_id(player_id).role
         ].offense
 
+    # -- Before the die --------------------------------------------------
+
+    def _before_the_die(self, prompt, game, match, side, options) -> Action:
+        """
+        **Dinky declares before the die** (the author, 2026-10-07):
+        *"dinky should always merge unless injured"* and *"also
+        overdrive/boost unless it gives the cyborg enough drain to
+        become drained"*. One declaration an answer, Overdrive first
+        as the bigger bonus, then Boost, then each Merge; the prompt
+        comes back after each, and once nothing it wants is left, a
+        pass closes the rest. An injured player is never offered
+        either, so "unless injured" is the offer's. The die stays
+        either coach's: this is asked only while Dinky's side is the
+        one deciding (`RollOptions.deciding_side`).
+        """
+        def mine(player_ids):
+            return [
+                player_id for player_id in player_ids
+                if match.side_for_player(player_id) == side
+            ]
+
+        for player_id in mine(options.overdrive_player_ids):
+            if options.overdrive_cost(player_id) <= options.room_to_drain(
+                player_id,
+            ):
+                return Action(
+                    prompt.kind, "overdrive", {"player_id": player_id},
+                )
+        for player_id in mine(options.boost_player_ids):
+            if BOOST_DRAIN_COST <= options.room_to_drain(player_id):
+                return Action(prompt.kind, "boost", {"player_id": player_id})
+        for player_id in mine(options.merge_player_ids):
+            return Action(prompt.kind, "merge", {"player_id": player_id})
+        return Action(prompt.kind, "pass", {"side": side.value})
+
     #: One branch per kind Dinky can be asked. A kind with no row is
-    #: one the AI is never asked (a roll, the tutorial's Continue, the
-    #: finished game), and `choose` raises on it rather than guessing.
+    #: one the AI is never asked (the tutorial's Continue, the finished
+    #: game), and `choose` raises on it rather than guessing. A roll is
+    #: asked only for its declarations, never its die.
     ANSWERS = {
+        PromptKind.SKILL_TEST: _before_the_die,
+        PromptKind.LOOSE_BALL_SKILL_TEST: _before_the_die,
+        PromptKind.SCORE_ATTEMPT: _before_the_die,
+        PromptKind.OWN_GOAL_ROLL: _before_the_die,
+        PromptKind.SHOOTOUT_TEST: _before_the_die,
         PromptKind.BALL_HANDLER_SELECTION: _ball_handler,
         PromptKind.PLAYER_ACTION: _turn_action,
         PromptKind.MANEUVER_CHALLENGE: _challenger,

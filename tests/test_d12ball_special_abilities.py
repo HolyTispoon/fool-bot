@@ -1487,6 +1487,7 @@ class ViscorTests(unittest.TestCase):
         side = match.ball.possession
         ooze = fielded_of_species(match, SPECIES_OOZE, side)
         match.move_meeple(ooze, match.ball.zone, match.ball.space_index)
+        match.declare_merge(ooze)
         plain, _, _ = ENGINE.merge_bonus(game, match, side, (), "offense")
         with holding(ooze, SpecialAbility.MERGES_HARDER):
             harder, lines, _ = ENGINE.merge_bonus(

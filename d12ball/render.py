@@ -4820,7 +4820,7 @@ def render_score_attempt(
     """
     The shooter, and everyone between them and the goal as one group.
     `shooter` is the shooter and any Ooze on the ball Merging into the
-    attack (Law 20.5.2), drawn as a maneuver's side draws them.
+    attack (Law 20.5.3), drawn as a maneuver's side draws them.
 
     The defenders carry a `contribution` apiece, so the group is drawn
     with a badge on each portrait and a band label over each run of

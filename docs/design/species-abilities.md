@@ -774,8 +774,9 @@ words both).
   still says drain tokens, because "drains 1" there would read as the
   opposite of what happened.
 
-**Overdrive is the only thing in the game declared before a roll**, which is
-what it cost to build. Every roll already sits behind a button, so the
+**Overdrive was the first thing in the game declared before a roll**, which is
+what it cost to build -- and Merge rides on the same machinery since it began
+to cost a token (see "Slimey" below). Every roll already sits behind a button, so the
 declaration is a **second button on that same prompt** rather
 than a step of its own -- `SafeView.add_overdrive_buttons` builds it and
 `SafeView.declare_overdrive` answers it, shared by all six roll prompts so a
@@ -808,8 +809,9 @@ seventh gets it in one line.
   2026-10-02: *"the player with the cyborg needs to decide if they're using the
   ability before the dice are rolled"*). Blind before the die was not enough
   when the other coach could press Roll first. `RollOptions.undecided_sides`
-  is the reading: the sides with an Overdrive or a Boost still on offer for
-  this roll, never an AI side (the AI declares nothing), and its first,
+  is the reading: the sides with an Overdrive, a Boost or a Merge still on
+  offer for this roll -- an AI side's too since 2026-10-07, which Dinky
+  answers (see "Slimey" below) -- and its first,
   `deciding_side`, is who decides now. It is what `asked_sides` returns for a
   roll, so the Discord ask pings that coach and the web page puts the question
   to them alone, and `_whose_roll` rewrites the ask's "Either player can roll"
@@ -918,6 +920,65 @@ people, and **not** who was displaced.
 
 ### Slimey
 
+**Merge costs 1 and is each Ooze's own choice, declared before the die**
+(Law 20.5, the sheet and the author, 2026-10-07: *"it needs to be a choice
+for every ooze"*). It is Overdrive's declaration with a different price and a
+different player, so it is built on Overdrive's pieces rather than beside them:
+
+- **`MatchState.pending_merge`** is who paid, persisted for the reason
+  `pending_overdrive` is, and spent with it by `consume_overdrive` -- so a
+  tie's re-roll is Merged afresh, for another token.
+- **`RulesEngine._merge_values` is the one reading of who *may* Merge**,
+  and both halves narrow it: `merge_candidates` (not yet paid, not a passed
+  side) is the offer, `merge_contributions` (paid, or a Glompex who joined)
+  the sum. Two readings of who stands on the ball would let the buttons
+  offer an Ooze the roll then leaves out. Anyone who would add 0 is not
+  offered: nobody pays a token for +0.
+- **The offer rides on `RollOptions.merge_offers`**, `(player_id, value)`,
+  so a button says what a Merge adds without re-reading the rule, and on
+  `undecided_sides` like an Overdrive: the roll waits on that coach, the
+  attacker first. Which rolls take one is `prompts.MERGE_SIDES` -- the skill
+  test and the contest on both sides, the score attempt on the attack alone
+  -- and the `merge` choice is in `CHOICES` for those three kinds only.
+- **Pass closes Merge with the rest.** `overdrive_passed` already meant "this
+  side has decided on this roll"; Merge reads it as Overdrive does, and the
+  button and the sentences name what is open (`name_declarations`: "Pass on
+  Merge", "decides on Overdrive and Merge"). The saved field keeps its name.
+- **A Merging Ooze owes the injury check as the two rolling do** (Law
+  15.3.1, the author, 2026-10-07). `rolls._note_mergers` writes who
+  Merged into each roll -- `merge_contributions`, read before the roll
+  spends the declarations -- onto `MatchState.merged_this_test`, which
+  runs across a tie's re-rolls because a Merge into the roll that tied
+  paid its token into the same test; `_owing_checks` adds the Exhausted
+  among them behind the two rollers when the test or contest resolves,
+  and spends the list. A score attempt owes no check, so it notes
+  nobody. Saved, since a tie's re-roll is a click away.
+- **Dinky declares before the die** (the author, 2026-10-07: *"dinky should
+  always merge unless injured"*, and *"also overdrive/boost unless it gives
+  the cyborg enough drain to become drained"*). An AI side is in
+  `undecided_sides` like a coach's, so `asked_sides` hands the roll to it
+  while it decides and `GameService.run` answers for it -- the declaration,
+  never the die (`DinkyAI._before_the_die`). One declaration an answer:
+  Overdrive first, then Boost, each only while it fits in
+  `RollOptions.drain_room` (the engine's threshold less what the Cyborg
+  carries, so the AI never re-reads the Drained line), then every Merge,
+  then a pass. On Discord its lines open the roll's message
+  (`AI_ANSWER_CARRY`), and after a coach's own press they follow it in one
+  message (`SafeView.answer_declaration`).
+- **Glompex's join pays for his Merge** (Law 21.6.1, the author: *"spend 1
+  to move & merge ... no extra cost for merge there"*). `join_the_ball_step`
+  puts him in `MatchState.merge_joined`, which Merges him into every roll of
+  that maneuver unasked and is cleared with it (`reset_maneuver`). A Glompex
+  already standing on the ball Merges as any Ooze does, for 1.
+
+- **Back calls the shot's declarations off** (the author, 2026-10-07: *"it
+  would cancel the merge/overdrive"*). `retract_shot_step` gives every
+  Merge, Overdrive and Boost on it its tokens back
+  (`MatchState.refund_exhaustion`, which takes them off the turn's own
+  tally too), spends the declarations, and says so in a line. Back used
+  to leave a paid Overdrive waiting for the next roll, which then took it
+  free.
+
 **Merge is a sum, not a pick.** "Every such Ooze adds -- two of them add
 twice", so `RulesEngine.merge_bonus` totals them and returns the detail lines
 with it. Who adds what is `merge_contributions`, `(player_id, value)` apiece,
@@ -927,8 +988,9 @@ Ooze Merging into a side into the challenge and shot images as part of that
 side (the author, 2026-09-30; [game-service.md](game-service.md)).
 
 **A Double Team's partner Merges too** (Law 19.10.5, 2026-10-03): "that
-ability has effectively become merge". So the partner, named in
-`pending_double_team`, is one more answer in `merge_contributions` -- on the
+ability has effectively become merge" -- and pays for it as an Ooze does
+(2026-10-07). So the partner, named in
+`pending_double_team`, is one more answer in `_merge_values` -- on the
 defending side only, whatever their species, and in a game with the species
 abilities off as well, since the Merge is the card's. An Ooze partner is in
 both readings and Merges once; an injured one adds nothing, as an injured
