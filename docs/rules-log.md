@@ -176,6 +176,9 @@ the same day.
 - **A Pinpoint's passer never moves** (19.5.3): *"The language change on pinpoint isn't a rule
   change, just a different phrasing. Pinpoint can send the ball to any teammates up to 3 spaces
   and the passer never moves."* 19.5.3 no longer says everything else is a Low Pass's.
+- **A Pinpoint with no teammate within 3 spaces rolls the ball 3 spaces forward** (19.5.3). It
+  used to roll 1, as a Low Pass's did; asked whether it now rolls 2 with the Low Pass, 1 as
+  before, or 3, the author chose 3.
 
 ### 2026-10-06 -- author, standard is recommended board 9, and board 10 advanced alone
 

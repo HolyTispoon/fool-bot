@@ -1015,7 +1015,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.5.2** A Low Pass with the nearest-teammate rule taken off and a space more reach. The ball goes to **any** teammate up to **3 spaces** away, ahead or behind; a nearer teammate blocks nobody. Where several are standing on the destination, the passer chooses which of them receives it.
 
-**19.5.3** Ball speed rises by **3**, to a maximum of 12. As with a Low Pass, the pass has to reach a different player, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8). **Unlike a Low Pass, the passer never moves.**
+**19.5.3** Ball speed rises by **3**, to a maximum of 12. As with a Low Pass, the pass has to reach a different player, and a Winger may offer their receiver a [scoring opportunity](#8-scoring-opportunities) (8). **Unlike a Low Pass, the passer never moves**, and with no teammate within 3 spaces to receive it the ball rolls **3 spaces** forward, its speed still rises, and it settles [where it lands](#101-where-the-ball-comes-to-rest) (10.1).
 
 **19.5.4** *Midfielder:* adds 3 to the skill test for their own Pinpoint, as for a Low Pass.
 
