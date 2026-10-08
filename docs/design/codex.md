@@ -480,8 +480,9 @@ else the bot shows is ephemeral.
   chits and *arrived* when it came this turn. A strip along each mat's
   top names the player, the spec and the hero, and counts the gold, the
   hand, the codex and the base; the active player's strip is lit.
-  Composed at the mat's own size and scaled by `BOARD_SCALE` (0.6),
-  about 2 MB.
+  Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
+  saved as WebP at quality 85 (`BOARD_QUALITY`), about 220 KB; the
+  hand and the codex pictures stay PNG.
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
@@ -504,10 +505,12 @@ else the bot shows is ephemeral.
   they have into the box they are moving to while the new one loads --
   the slice of board seen mid-swap. The bot sends one edit and cannot
   send less; the one thing in its hands is how long the new picture
-  takes to arrive, which is its size (about 2 MB as PNG at
-  `BOARD_SCALE`; measured 2026-10-08, the same board is about 340 KB as
-  JPEG at quality 85 and 220 KB as WebP), a trade of the card text's
-  crispness the author has not been asked to make.
+  takes to arrive, which is its size. As PNG the board was about 2 MB;
+  measured 2026-10-08, the same board is about 340 KB as JPEG at
+  quality 85 and 220 KB as WebP, and at 1:1 the three are hard to tell
+  apart, so the board is WebP (the author, 2026-10-08) -- the smallest
+  of the three, and Discord shows it natively. That shortens the moment
+  rather than removes it.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons

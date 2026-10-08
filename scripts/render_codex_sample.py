@@ -77,7 +77,7 @@ def write(path: Path, data: bytes) -> None:
 def render_all(engine: RulesEngine, match: MatchState, names: dict, out: Path, stem: str,
                layouts=BOARD_LAYOUTS) -> None:
     for layout in layouts:
-        write(out / f"{stem}-board-{layout}.png", render_board(match, layout, names, engine.catalog))
+        write(out / f"{stem}-board-{layout}.webp", render_board(match, layout, names, engine.catalog))
 
 
 def main() -> None:

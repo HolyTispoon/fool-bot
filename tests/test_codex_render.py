@@ -1,6 +1,7 @@
 """
-The Codex pictures render: a PNG of the expected size for the opening
-position in both layouts, a hand and a codex view -- and nothing about
+The Codex pictures render: a picture of the expected size for the
+opening position in both layouts (the board is WebP), a hand and a
+codex view (PNG) -- and nothing about
 how they look, which is for the eye (`scripts/render_codex_sample.py`;
 docs/design/codex.md, "The board on Discord").
 """
@@ -12,6 +13,11 @@ from PIL import Image
 
 from codex import render
 from codex.engine import RulesEngine
+
+
+def near(pixel: tuple, fill: tuple) -> bool:
+    """Within the board's lossy encoding of a flat fill."""
+    return all(abs(a - b) <= 4 for a, b in zip(pixel, fill))
 
 
 def size(png: bytes) -> tuple[int, int]:
@@ -28,7 +34,7 @@ class RenderTests(unittest.TestCase):
     def test_the_opening_board_stacked(self) -> None:
         side = (render.MAT_SIZE[0], render.MAT_SIZE[1] + render.STRIP_HEIGHT)
         png = render.render_board(self.match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
-        self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png), (round(side[0] * render.BOARD_SCALE),
                                      round((side[1] * 2 + 16) * render.BOARD_SCALE)))
 
@@ -44,8 +50,8 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(render.stacked_seats(match), (2 if active == 1 else 1, active))
             png = render.render_board(match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
             with Image.open(io.BytesIO(png)) as picture:
-                self.assertEqual(picture.getpixel(upper_strip), render.STRIP_FILL)
-                self.assertEqual(picture.getpixel(lower_strip), render.ACTIVE_FILL)
+                self.assertTrue(near(picture.getpixel(upper_strip), render.STRIP_FILL))
+                self.assertTrue(near(picture.getpixel(lower_strip), render.ACTIVE_FILL))
 
     def test_the_far_mat_is_turned_round(self) -> None:
         """A turned side is the upright one's mat rotated under the same

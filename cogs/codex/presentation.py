@@ -28,7 +28,9 @@ LOGGER = logging.getLogger(__name__)
 
 class PresentationMixin:
     async def render_match_png(self, game: CodexGame, match=None) -> bytes:
-        """The board as PNG bytes, drawn off the event loop."""
+        """The board as WebP bytes (`render.BOARD_QUALITY`), drawn off
+        the event loop. The name is the gate's: `BoardRefresher` looks
+        this and `match_file_from_png` up on the cog by D12 Ball's names."""
         if match is None:
             match = self.service.load(game)
         return await asyncio.to_thread(
@@ -38,7 +40,7 @@ class PresentationMixin:
     def match_file_from_png(self, game: CodexGame, png: bytes) -> discord.File:
         return discord.File(
             io.BytesIO(png),
-            filename=f"{BOARD_IMAGE_FILENAME_PREFIX}{game.game_number}-board.png",
+            filename=f"{BOARD_IMAGE_FILENAME_PREFIX}{game.game_number}-board.webp",
         )
 
     async def refresh_match_image(self, game: CodexGame, png: Optional[bytes] = None) -> None:

@@ -1352,7 +1352,8 @@ the service, the refusals, one save per call); tests/test_codex_cog_lobby.py
 driving the cog with the fakes tests/cog_steps.py uses, from /codex
 lobby to the opening board, asserting the sends and that the hand
 response is ephemeral and is the clicker's; tests/test_codex_render.py
-asserts a PNG of the expected size for the opening position and nothing
+asserts a picture of the expected size for the opening position (the
+board WebP since 2026-10-08, the hand and codex PNG) and nothing
 about its look. On startup the cog re-arms the persistent views the
 way CoreMixin.restore_saved_views does -- every open lobby's LobbyView,
 every playing game's TableView -- and logs ERROR for a game that owes

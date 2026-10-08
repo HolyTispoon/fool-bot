@@ -60,6 +60,15 @@ STRIP_HEIGHT = 92
 #: to read a card's name on a phone through the full-image link, small
 #: enough to upload quickly on every edit.
 BOARD_SCALE = 0.6
+#: The board's WebP quality. The board is a photograph of a mat with
+#: card art on it, which PNG spends about 2 MB on and WebP at 85 about
+#: 220 KB, the two hard to tell apart at 1:1 (measured 2026-10-08, with
+#: JPEG at 85 at about 340 KB between them); the author chose WebP. What
+#: the smaller file buys is a shorter wait on every edit -- above all
+#: the swap between the two layouts, where the client re-lays the
+#: message out while the new picture loads. The hand and the codex
+#: pictures stay PNG.
+BOARD_QUALITY = 85
 
 Box = tuple[int, int, int, int]
 
@@ -426,6 +435,13 @@ def _png(picture: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def _webp(picture: Image.Image) -> bytes:
+    """The board's encoding -- see `BOARD_QUALITY`."""
+    buffer = io.BytesIO()
+    picture.convert("RGB").save(buffer, format="WEBP", quality=BOARD_QUALITY)
+    return buffer.getvalue()
+
+
 def stacked_seats(match: MatchState) -> tuple[int, int]:
     """
     The stacked board's two seats as (far, near). The table is looked
@@ -446,7 +462,7 @@ def render_board(match: MatchState, layout: str = "stacked",
                  names: Optional[Mapping[int, str]] = None,
                  cards: Optional[CardCatalog] = None) -> bytes:
     """
-    The whole table as PNG bytes: both mats, stacked -- seen from the
+    The whole table as WebP bytes: both mats, stacked -- seen from the
     active player's side, the other player's mat above theirs and
     turned round to face them -- or side by side, the first player's on
     the left, as `layout` says. `names` is what each seat's strip calls
@@ -473,7 +489,7 @@ def render_board(match: MatchState, layout: str = "stacked",
     scaled = board.resize(
         (round(board.width * BOARD_SCALE), round(board.height * BOARD_SCALE)), Image.LANCZOS,
     )
-    return _png(scaled)
+    return _webp(scaled)
 
 
 #: A card in a hand or a codex picture, in pixels.
