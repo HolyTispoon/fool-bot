@@ -38,7 +38,14 @@ import sys
 import unittest
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
-MODEL_ROOTS = (PROJECT_ROOT / "d12ball", PROJECT_ROOT / "gamesaves" / "d12ball")
+# `codex/` is the Codex bot's model, held to the same two halves from its
+# first commit (docs/design/codex.md); `gamesaves/codex/` joins it when
+# step 2 of docs/codex-bot.md creates it.
+MODEL_ROOTS = (
+    PROJECT_ROOT / "d12ball",
+    PROJECT_ROOT / "gamesaves" / "d12ball",
+    PROJECT_ROOT / "codex",
+)
 
 # Run the import check in a fresh interpreter with `discord` refused by a
 # meta_path finder, which is what makes it a real import rather than a
@@ -106,6 +113,11 @@ GAME_MODULES = (
     "d12ball.rules_doc",
     "d12ball.tokens",
     "d12ball.tutorial",
+    # The Codex bot's model: Pillow is `codex/render.py`'s alone.
+    "codex.cards",
+    "codex.formatting",
+    "codex.rulings",
+    "codex.tokens",
 )
 
 DRAWING_PROBE = """

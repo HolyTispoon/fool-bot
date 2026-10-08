@@ -11,8 +11,9 @@ end of the exercise.
 
 **The fence runs both ways** (docs/web-app-next.md, step 1): the two
 are separate systems that share the model and nothing at runtime, so
-nothing under `cogs/`, and not `foolbot.py`, imports `webapp` -- the
-bot must start with the `webapp/` directory deleted. And the web app
+nothing under `cogs/`, and none of `foolbot.py`, `codexbot.py` and
+`gamebot.py`, imports `webapp` -- the bot must start with the
+`webapp/` directory deleted. And the web app
 never names the bot's games file: `storage`'s default is the bot's, so
 the web app passes its own, `WEB_GAMES_FILE`, every time.
 
@@ -30,7 +31,12 @@ import unittest
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEB_ROOT = PROJECT_ROOT / "webapp"
-BOT_SOURCES = (PROJECT_ROOT / "foolbot.py", *(PROJECT_ROOT / "cogs").rglob("*.py"))
+BOT_SOURCES = (
+    PROJECT_ROOT / "foolbot.py",
+    PROJECT_ROOT / "codexbot.py",
+    PROJECT_ROOT / "gamebot.py",
+    *(PROJECT_ROOT / "cogs").rglob("*.py"),
+)
 
 #: What a frontend may not have of another frontend. `aiohttp` is this
 #: one's own business, and `d12ball`, `gamesaves` and `gamelocks` are

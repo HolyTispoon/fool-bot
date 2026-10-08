@@ -38,6 +38,11 @@ data/d12ball_web_names.json
 data/d12ball_web_names.tmp
 data/webapp.pid
 data/d12ball_web_secret
+data/codex_bot_state.json
+data/codex_bot_state.tmp
+data/codexbot.pid
+data/codexbot.stdout.log
+data/codexbot.stderr.log
 *.log
 
 # The landing pages, built by scripts/build_landing.py

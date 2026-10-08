@@ -21,10 +21,11 @@ way that outage announces itself.
 """
 
 import logging
-import os
 from typing import Optional
 
 import discord
+
+from botlog import settings
 
 
 DEFAULT_LOG_CHANNEL_NAME = "logs"
@@ -68,7 +69,7 @@ def mirror_enabled() -> bool:
     for the same reason: the mirror is what this switch exists to hold
     back.
     """
-    raw = os.environ.get("FOOLBOT_LOG_MIRROR", "").strip().upper()
+    raw = settings.env("LOG_MIRROR").strip().upper()
 
     return raw in MIRROR_ENABLED_VALUES
 
@@ -82,7 +83,7 @@ def log_channel_level() -> Optional[int]:
     is what None means to the caller. An unrecognised name falls back to
     ERROR rather than switching the feature off by accident.
     """
-    raw = os.environ.get("FOOLBOT_LOG_CHANNEL_LEVEL", "ERROR")
+    raw = settings.env("LOG_CHANNEL_LEVEL", "ERROR")
     raw = raw.strip().upper()
 
     if raw in ("", "OFF", "NONE", "DISABLED"):
@@ -96,8 +97,8 @@ def log_channel_level() -> Optional[int]:
 
 
 def log_channel_name() -> str:
-    return os.environ.get(
-        "FOOLBOT_LOG_CHANNEL_NAME",
+    return settings.env(
+        "LOG_CHANNEL_NAME",
         DEFAULT_LOG_CHANNEL_NAME,
     ).strip() or DEFAULT_LOG_CHANNEL_NAME
 
@@ -132,7 +133,7 @@ def log_target_guild(client: discord.Client) -> Optional[discord.Guild]:
     One channel, not one per server. The log is about the bot process,
     and the people reading it are the two of us.
     """
-    raw = os.environ.get("FOOLBOT_LOG_GUILD_ID", "").strip()
+    raw = settings.env("LOG_GUILD_ID").strip()
 
     if raw.isdigit():
         guild = client.get_guild(int(raw))
@@ -222,7 +223,7 @@ def _configured_channel(
     channel the bot can post in. Anything else falls through to the
     by-name search, after saying why.
     """
-    raw = os.environ.get("FOOLBOT_LOG_CHANNEL_ID", "").strip()
+    raw = settings.env("LOG_CHANNEL_ID").strip()
 
     if not raw.isdigit():
         return None

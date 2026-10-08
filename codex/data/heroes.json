@@ -1,0 +1,726 @@
+{
+  "note": "Regenerated whole by scripts/import_codex_cards.py from the source below; never edited by hand.",
+  "source": "https://raw.githubusercontent.com/rgdelato/codex-cards-gatsby/10f8952c2258e3ed16d6654d05043e7e55e574ec/raw_data/",
+  "heroes": [
+    {
+      "slug": "argagarg_garg",
+      "name": "Argagarg Garg",
+      "color": "Green",
+      "spec": "Growth",
+      "subtype": "Water Shaman",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "Arrives: Summon a 0/1 green Wisp token."
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 1,
+          "hp": 4,
+          "text": [
+            "{exhaust} {arrow} Give a unit +1 ATK/+1 armor this turn. {target}"
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 1,
+          "hp": 5,
+          "text": [
+            "Max Level: Summon a 3/3 blue Water Elemental token with anti-air."
+          ]
+        }
+      ],
+      "sirlins_filename": "0005_growth_hero.jpg"
+    },
+    {
+      "slug": "bigby_hayes",
+      "name": "Bigby Hayes",
+      "color": "Blue",
+      "spec": "Law",
+      "subtype": "Iron-Fisted Judge",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Stash (You may keep a card during the draw/discard step. If you do, draw one card less.)"
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "{exhaust} {arrow} Sideline a tech 0 or I patroller. (Move it out of the patrol zone.) {target}"
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "{exhaust} {arrow} Draw a card."
+          ]
+        }
+      ],
+      "sirlins_filename": "0006_law_hero.jpg"
+    },
+    {
+      "slug": "calamandra_moss",
+      "name": "Calamandra Moss",
+      "color": "Green",
+      "spec": "Feral",
+      "subtype": "Tiger Magus",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Discard two cards {arrow} Calamandra gets stealth this turn."
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Your units get resist 1 (Opponents must pay {gold:1} each time they would {target} them with a spell or ability.)"
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "{gold:4}, {exhaust} {arrow} Search your codex for a tiger unit and put it into play."
+          ]
+        }
+      ],
+      "sirlins_filename": "0004_feral_hero.jpg"
+    },
+    {
+      "slug": "captain_zane",
+      "name": "Captain Zane",
+      "color": "Red",
+      "spec": "Anarchy",
+      "subtype": "Blood Guard Anarchist",
+      "cost": 2,
+      "max_level": 6,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 2,
+          "text": [
+            "Haste (Can attack and play {exhaust} abilities the turn he arrives.)"
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 3,
+          "hp": 3,
+          "text": [
+            "Whenever Zane kills a scavenger, get {gold:1}.",
+            "Whenever Zane kills a technician, draw a card."
+          ]
+        },
+        {
+          "min_level": 6,
+          "atk": 4,
+          "hp": 4,
+          "text": [
+            "Max level: Shove a patroller to an empty slot in its patrol zone, then deal 1 damage to it. {target}"
+          ]
+        }
+      ],
+      "sirlins_filename": "0000_anarchy_hero.jpg"
+    },
+    {
+      "slug": "drakk_ramhorn",
+      "name": "Drakk Ramhorn",
+      "color": "Red",
+      "spec": "Blood",
+      "subtype": "War Drummer",
+      "cost": 2,
+      "max_level": 6,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "Dies: Deal 1 damage to each opponent's base. {target}"
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Your units get Frenzy 1 (+1 ATK on your turn.)"
+          ]
+        },
+        {
+          "min_level": 6,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "The first unit that arrives from your hand each turn gets haste."
+          ]
+        }
+      ],
+      "sirlins_filename": "0001_blood_hero.jpg"
+    },
+    {
+      "slug": "garth_torken",
+      "name": "Garth Torken",
+      "color": "Black",
+      "spec": "Necromancy",
+      "subtype": "Dark Anatomist",
+      "cost": 2,
+      "max_level": 7,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "{gold:1} {arrow} Summon a 1/1 black Skeleton token. Once-per-turn."
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "Sacrifice a Skeleton {arrow} Draw a card."
+          ]
+        },
+        {
+          "min_level": 7,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Max Level: You may put a tech I or II unit that costs {gold:5} or less from your discard pile into play if you meet the tech reqs for it."
+          ]
+        }
+      ],
+      "sirlins_filename": "0011_necromancy_hero.jpg"
+    },
+    {
+      "slug": "garus_rook",
+      "name": "Garus Rook",
+      "color": "White",
+      "spec": "Strength",
+      "subtype": "Stone Golem",
+      "cost": 2,
+      "max_level": 8,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 4,
+          "text": []
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 5,
+          "text": [
+            "Unstoppable by patrol zones with only one patroller."
+          ]
+        },
+        {
+          "min_level": 8,
+          "atk": 4,
+          "hp": 6,
+          "text": [
+            "Two Lives (If this would die, heal all damage on it and put a crumbling rune on it instead. While it has a crumbling rune, it can really die.)"
+          ]
+        }
+      ],
+      "sirlins_filename": "0017_strength_hero.jpg"
+    },
+    {
+      "slug": "general_onimaru",
+      "name": "General Onimaru",
+      "color": "Blue",
+      "spec": "Peace",
+      "subtype": "Wartime Strategist",
+      "cost": 2,
+      "max_level": 8,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Frenzy 1 (Gets +1 ATK on your turn.)"
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Readiness (Doesn't exhaust to attack, but can only attack once per turn.)"
+          ]
+        },
+        {
+          "min_level": 8,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "Max Level: Summon three 1/1 blue soldier tokens with sparkshot."
+          ]
+        }
+      ],
+      "sirlins_filename": "0007_peace_hero.jpg"
+    },
+    {
+      "slug": "grave_stormborne",
+      "name": "Grave Stormborne",
+      "color": "White",
+      "spec": "Discipline",
+      "subtype": "Wind Warrior",
+      "cost": 2,
+      "max_level": 7,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Sparkshot (When attacking a patroller, deals 1 damage to an adjacent patroller.)"
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Readiness (Doesn't exhaust to attack, but can only attack once per turn.)"
+          ]
+        },
+        {
+          "min_level": 7,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "Max Level: Put a sword rune on this.",
+            "{exhaust}, Remove a sword rune {arrow} Destroy a unit or hero. {target}"
+          ]
+        }
+      ],
+      "sirlins_filename": "0015_discipline_hero.jpg"
+    },
+    {
+      "slug": "jaina_stormborne",
+      "name": "Jaina Stormborne",
+      "color": "Red",
+      "spec": "Fire",
+      "subtype": "Phoenix Archer",
+      "cost": 2,
+      "max_level": 7,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Sparkshot (When attacking a patroller, deals 1 damage to an adjacent patroller.)"
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 3,
+          "hp": 3,
+          "text": [
+            "{exhaust} {arrow} Deal 1 damage to a patrolling unit or building. {target}"
+          ]
+        },
+        {
+          "min_level": 7,
+          "atk": 4,
+          "hp": 3,
+          "text": [
+            "{exhaust} {arrow} Deal 3 damage to a unit or building. {target}"
+          ]
+        }
+      ],
+      "sirlins_filename": "0002_fire_hero.jpg"
+    },
+    {
+      "slug": "master_midori",
+      "name": "Master Midori",
+      "color": "Green",
+      "spec": "Balance",
+      "subtype": "Mentor Dragon",
+      "cost": 2,
+      "max_level": 8,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": []
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Your units with no abilities get +1/+1."
+          ]
+        },
+        {
+          "min_level": 8,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "During your turn: Flying"
+          ]
+        }
+      ],
+      "sirlins_filename": "0003_balance_hero.jpg"
+    },
+    {
+      "slug": "max_geiger",
+      "name": "Max Geiger",
+      "color": "Purple",
+      "spec": "Present",
+      "subtype": "Vortoss Emissary",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Sparkshot (When attacking a patroller, deals 1 damage to an adjacent patroller.)"
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "{exhaust}, Discard a card {arrow} Draw a card."
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Max Level: You may trash a friendly unit then return it to play. {target}"
+          ]
+        }
+      ],
+      "sirlins_filename": "0013_present_hero.jpg"
+    },
+    {
+      "slug": "orpal_gloor",
+      "name": "Orpal Gloor",
+      "color": "Black",
+      "spec": "Disease",
+      "subtype": "Plague Lord",
+      "cost": 2,
+      "max_level": 6,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "Deals damage to units and heroes in the form of -1/-1 runes."
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "Sacrifice a non-Demon unit {arrow} Put a -1/-1 rune on a unit. {target}",
+            "Once-per-turn."
+          ]
+        },
+        {
+          "min_level": 6,
+          "atk": 2,
+          "hp": 5,
+          "text": [
+            "The first time a unit with a -1/-1 rune dies each turn, the active player puts a -1/-1 rune on two units friendly to the dead unit. {target}"
+          ]
+        }
+      ],
+      "sirlins_filename": "0010_disease_hero.jpg"
+    },
+    {
+      "slug": "prynn_pasternaak",
+      "name": "Prynn Pasternaak",
+      "color": "Purple",
+      "spec": "Past",
+      "subtype": "Templar Historian",
+      "cost": 2,
+      "max_level": 7,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "Fading 4",
+            "Attacks: Put a time rune on this."
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "Dies from fading: Opponents skip their next draw/discard step (they keep their hand cards)."
+          ]
+        },
+        {
+          "min_level": 7,
+          "atk": 3,
+          "hp": 5,
+          "text": [
+            "Remove two time runes {arrow} Trash a unit. {target}",
+            "Leaves: Return all cards to play that Pasternaak trashed."
+          ]
+        }
+      ],
+      "sirlins_filename": "0012_past_hero.jpg"
+    },
+    {
+      "slug": "river_montoya",
+      "name": "River Montoya",
+      "color": "Neutral",
+      "spec": "Finesse",
+      "subtype": "Dancing Fencer",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": []
+        },
+        {
+          "min_level": 3,
+          "atk": 2,
+          "hp": 4,
+          "text": [
+            "{exhaust} {arrow} Sideline a tech 0 or tech I patroller. (Move it out of the patrol zone.) {target}"
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Your tech 0 units cost {gold:1} less to play."
+          ]
+        }
+      ],
+      "sirlins_filename": "0021_finesse_hero.jpg"
+    },
+    {
+      "slug": "setsuki_hiruki",
+      "name": "Setsuki Hiruki",
+      "color": "White",
+      "spec": "Ninjutsu",
+      "subtype": "Fox's Den Student",
+      "cost": 2,
+      "max_level": 6,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "While Setsuki isn't patrolling, opponents must pay {gold:1} each time they would attack her."
+          ]
+        },
+        {
+          "min_level": 4,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Attacks: Swift strike this turn. (Deals combat damage before units and heroes without swift strike.)"
+          ]
+        },
+        {
+          "min_level": 6,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Upkeep: Draw 2 cards."
+          ]
+        }
+      ],
+      "sirlins_filename": "0016_ninjutsu_hero.jpg"
+    },
+    {
+      "slug": "sirus_quince",
+      "name": "Sirus Quince",
+      "color": "Blue",
+      "spec": "Truth",
+      "subtype": "Flagstone Chief Magistrate",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 1,
+          "hp": 3,
+          "text": [
+            "Arrives: Summon a 0/1 blue Mirror Illusion token.",
+            "{gold:2} {arrow} Summon another (limit: 2)."
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 1,
+          "hp": 4,
+          "text": [
+            "{gold:2} {arrow} One of your Mirror Illusions becomes a copy of another tech 0, I, or II unit. It's still an Illusion. Trash it at end of turn."
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 1,
+          "hp": 5,
+          "text": [
+            "Whenever a non-token unit of yours arrives, you may make one of your Mirrors an Illusion copy of it. Trash that token when Quince or its original leaves."
+          ]
+        }
+      ],
+      "sirlins_filename": "0008_truth_hero.jpg"
+    },
+    {
+      "slug": "troq_bashar",
+      "name": "Troq Bashar",
+      "color": "Neutral",
+      "spec": "Bashing",
+      "subtype": "Renegade Beast",
+      "cost": 2,
+      "max_level": 8,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": []
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Attacks: Deal 1 damage to that opponent's base. {target}"
+          ]
+        },
+        {
+          "min_level": 8,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "Readiness (Doesn't exhaust to attack, but can only attack once per turn.)"
+          ]
+        }
+      ],
+      "sirlins_filename": "0020_bashing_hero.jpg"
+    },
+    {
+      "slug": "vandy_anadrose",
+      "name": "Vandy Anadrose",
+      "color": "Black",
+      "spec": "Demonology",
+      "subtype": "Queen of Demons",
+      "cost": 2,
+      "max_level": 5,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "Sparkshot (When attacking a patroller, deals 1 damage to an adjacent patroller.)"
+          ]
+        },
+        {
+          "min_level": 3,
+          "atk": 3,
+          "hp": 4,
+          "text": [
+            "Resist 1",
+            "{gold:1}, {exhaust}, Discard a card {arrow} Fetch a Demonology spell from your codex, reveal it, then put it in your hand."
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 4,
+          "hp": 5,
+          "text": [
+            "Max Level: Give +2/+2 to one friendly and one opposing tech 0 or I unit. They lose +2/+2 and die at your next upkeep."
+          ]
+        }
+      ],
+      "sirlins_filename": "0009_demonology_hero.jpg"
+    },
+    {
+      "slug": "vir_garbarean",
+      "name": "Vir Garbarean",
+      "color": "Purple",
+      "spec": "Future",
+      "subtype": "Inventive Engineer",
+      "cost": 2,
+      "max_level": 7,
+      "bands": [
+        {
+          "min_level": 1,
+          "atk": 2,
+          "hp": 3,
+          "text": [
+            "{gold:0} {arrow} Look at the top card of your draw pile.",
+            "{gold:1} {arrow} Exchange the top card of your draw pile with a card from your hand."
+          ]
+        },
+        {
+          "min_level": 5,
+          "atk": 3,
+          "hp": 3,
+          "text": [
+            "{exhaust} {arrow} Play the top card of your draw pile. (You still pay for it and must meet the reqs for it.)"
+          ]
+        },
+        {
+          "min_level": 7,
+          "atk": 3,
+          "hp": 5,
+          "text": [
+            "Max Level: Summon a 6/7 purple Mech token with forecast 2 that's untargetable. (It will arrive in two turns.)"
+          ]
+        }
+      ],
+      "sirlins_filename": "0014_future_hero.jpg"
+    }
+  ]
+}

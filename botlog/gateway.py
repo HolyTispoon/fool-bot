@@ -140,8 +140,11 @@ class GatewayReconnectFilter(logging.Filter):
         escalation_interval: float = ESCALATION_INTERVAL_SECONDS,
         run_reset_after: float = RUN_RESET_AFTER_SECONDS,
         clock: Callable[[], float] = time.monotonic,
+        bot_name: str = "",
     ) -> None:
         super().__init__()
+        # Said in the recovery line, since two bots post to one channel.
+        self._bot_name = bot_name
         self._escalate_after = escalate_after
         self._escalation_interval = escalation_interval
         self._run_reset_after = run_reset_after
@@ -223,8 +226,9 @@ class GatewayReconnectFilter(logging.Filter):
         if not escalated:
             return None
 
+        who = f" ({self._bot_name})" if self._bot_name else ""
         return (
-            "**Back on Discord's gateway**, after "
+            f"**Back on Discord's gateway**{who}, after "
             f"{describe_duration(outage)} and "
             f"{describe_attempts(attempts)}."
         )

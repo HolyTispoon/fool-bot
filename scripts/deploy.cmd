@@ -1,8 +1,9 @@
 @echo off
 rem Update and restart everything: deploy.cmd [-Branch name] [-SkipPull]
 rem Stop everything and start nothing: deploy.cmd -StopOnly
-rem Runs update_main_bot, run_web_app and run_tunnel, in that order --
-rem see "Running the web app" in docs/design/collaboration.md. Stops at
+rem Runs update_main_bot, run_codex_bot, run_web_app and run_tunnel, in
+rem that order -- see "Running the web app" in
+rem docs/design/collaboration.md. Stops at
 rem the first that fails, so the web app is never restarted onto a
 rem half-updated tree.
 rem Runs scripts\deploy.ps1 with -ExecutionPolicy Bypass, so Windows
