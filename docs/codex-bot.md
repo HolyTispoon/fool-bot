@@ -184,9 +184,11 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   clicked, gone when they dismiss it, never stored by the bot. Because
   an ephemeral message disappears -- dismissed, or lost with the
   client's session -- the one public message carries the buttons that
-  summon it again: the active player's **Panel**, the control panel
-  with the cards in their hand pictured, the other player's **My
-  hand** and **Tech**, and either player's **Codex** -- their own
+  summon it again: **My hand**, one button that answers by who
+  clicked it -- for the active player the control panel, the cards in
+  their hand pictured with the actions under them; for the other
+  player their hand pictured and nothing to press -- the other
+  player's **Tech**, and either player's **Codex** -- their own
   codex pictured, through a menu that shows everything, or one tech
   level, or (in the full game) one spec, since a codex is too many
   cards for one picture (the author, 2026-10-08). The bot's #logs mirror
@@ -378,7 +380,7 @@ and the step's prompt is rewritten rather than argued with.
    player's hand (the author, 2026-10-08), so playing from it is
    looking at the cards, not at their names. **What it costs:** an
    ephemeral message dies with the client session and cannot be found
-   again by the bot, so every entry point -- **Panel** on the turn
+   again by the bot, so every entry point -- **My hand** on the turn
    message, `/codex hand`, `/codex resume` -- creates a fresh one rather
    than editing an old one; and hidden zones have to be kept out of
    every log line and the
@@ -510,9 +512,12 @@ and the step's prompt is rewritten rather than argued with.
     both seats are taken. Start creates `codex-<n>` under a **Codex
     Games** category, shuffles, deals, picks the first player at random
     (UMR p. 3) with the rule's 4 and 5 workers, and posts the first
-    turn's message, which carries the game's buttons: **Panel** for the
-    active player, **My hand** and **Tech** for the other, **Codex**
-    and **Concede** for either. The slash commands kept beside it: `hand`, `board`,
+    turn's message, which carries the game's buttons: **My hand** for
+    either seated player -- the control panel when the active player
+    presses it, the hand alone when the other does: one button,
+    different answers by who clicked (the author, 2026-10-08) --
+    **Tech** for the other player, **Codex** and **Concede** for
+    either. The slash commands kept beside it: `hand`, `board`,
     `card`, `rules`, `games`, `concede`, `resume`, and the admin
     `abandon` and `reset_channels`. **The hub.**
     The author would have fool-bot's hub carry a button that starts a
@@ -645,7 +650,7 @@ starting.
 | 1 | The second bot stands up, and knows the cards | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | 2 | A whole game through the driver, with no frontend | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
-| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **Panel**; an undo to the start of the turn puts the board, the turn message and the panel back |
+| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
@@ -1201,8 +1206,9 @@ commits: the service and storage; the cog, views and lobby; the board.
    Spells, and in the standard game one of the player's specs -- the
    picture re-rendered in place on each choice; the author,
    2026-10-08: "a lot of cards", so a menu rather than one picture)
-   and, from step 4, Panel for the active player and Tech for the
-   other, and from step 7 Concede. The turn's last edit drops the
+   and, from step 4, My hand answering the active player with the
+   control panel instead, and Tech for the other, and from step 7
+   Concede. The turn's last edit drops the
    view, so only the current turn's message has buttons. What a
    codex still holds is the engine's answer (codex_remaining(match,
    player), grouped by the view's filter); the view computes nothing.
@@ -1312,10 +1318,12 @@ the undos and resume.
    whose turn it is, and the lines the owed steps said at the turn's
    start (the gold gained, the hero's rune, the teched cards to the
    discard), the model's lines with their tokens rendered at the door;
-   its attachment the board; its buttons TurnMessageView's -- Panel,
-   which only the active player may press, My hand and Tech, which
-   only the other player may press, Codex for either seated player,
-   and Concede from step 7. It is
+   its attachment the board; its buttons TurnMessageView's -- My hand
+   for either seated player, answering the active player with the
+   control panel and the other with their hand alone (one button,
+   different answers by who clicked: the author, 2026-10-08), Tech,
+   which only the other player may press, Codex for either, and
+   Concede from step 7. It is
    pinned and the previous turn's message unpinned, the rollover
    post_new_play_board does for D12 Ball. After every action it is
    edited, through the gate, with the new lines and the re-rendered
@@ -1351,7 +1359,7 @@ the undos and resume.
    "nothing is patrolling") -- in the same panel, with Cancel back to
    the actions. The panel is the view for MAIN_ACTION and
    CHOOSE_DEFENDER in view_for_prompt; render_prompt gives neither a
-   picture. Panel on the turn message creates the panel afresh for the
+   picture. My hand on the turn message creates the panel afresh for the
    active player (ephemeral), and so does /codex resume for them; the
    cog never looks for an old panel.
 
@@ -1374,7 +1382,7 @@ the undos and resume.
    mind, each save replacing the last; and TechConfirmView for
    TECH_CONFIRM -- the picks pictured by render_hand, Confirm and
    Change, Change reopening the picker -- shown to the player when
-   their turn would begin, from Panel or as the follow-up to the
+   their turn would begin, from My hand or as the follow-up to the
    opponent's Lock when they are present, and the ready phase runs on
    Confirm (the author, 2026-10-08). The choice is never shown or
    counted publicly beyond "has teched".
@@ -1407,7 +1415,7 @@ the undos and resume.
    undo to the start of the turn leaves the turn message, the board and
    the panel showing the restored position; the previous-turn undo
    waits for the opponent's button. tests/test_codex_resume.py: a match
-   saved mid-turn resumes to the same prompt from Panel and from /codex
+   saved mid-turn resumes to the same prompt from My hand and from /codex
    resume.
 
 Record in docs/design/codex.md: the panel (one ephemeral message edited
@@ -1418,7 +1426,7 @@ Measure the requests per click with the fakes and write the number in
 the PR.
 
 Done when: two people finish a game on the vanilla engine; a bot
-restart mid-turn resumes from Panel; both undos work; the tests
+restart mid-turn resumes from My hand; both undos work; the tests
 above pass.
 
 Stop: a whole game played by the author and the other developer on the
