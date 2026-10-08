@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from codex import effects, tokens
+from codex import effects, history, tokens
 from codex.components import HERO, MatchState
 from codex.engine import parse_target, target_key
 from codex.flow import board
@@ -46,19 +46,44 @@ EFFECT = "effect"
 
 
 def frame(effect: str, seat: int, by: str, *, source: Optional[str] = None,
-          spell: Optional[str] = None) -> dict:
+          spell: Optional[str] = None, cancel_from: Optional[int] = None) -> dict:
     """
     A frame for `effect`, controlled by `seat`: `by` is its source as the
     narration names it (`{card:spark}`, `{hero:river_montoya}`),
     `source` the ref of the card in play it comes from (an arrives or
     attacks trigger's, an ability's), and `spell` the spell card being
     cast, which goes where it goes once its text is done.
+
+    `cancel_from` is set for a spell or an ability action -- what a player
+    chose to do, and so may take back while its targets are asked (the
+    author, 2026-10-08) -- as the journal's length when it was played:
+    the cancel replays the turn up to there (`cancel`). A trigger has
+    none; it is not a choice, and must resolve.
     """
     return {
         "kind": EFFECT, "effect": effect, "seat": seat, "by": by,
         "source": source, "spell": spell, "part": 0, "taken": [],
         "flagbearer": False, "partners": [],
+        "cancel_from": cancel_from, "drew": False,
     }
+
+
+def cancellable(match: MatchState) -> bool:
+    """
+    Whether the effect asking now may be taken back: a spell or an
+    ability, while the turn's snapshot it would go back to is there, and
+    before it has drawn its caster a card -- a card seen cannot be
+    unseen, so Appel Stomp's draw closes the door, as a draw does to
+    every undo (docs/design/codex.md, "Undo's groundwork").
+    """
+    if not match.resolving:
+        return False
+    top = match.resolving[0]
+    return (
+        top.get("kind") == EFFECT and top.get("cancel_from") is not None
+        and not top.get("drew") and history.latest_snapshot(match) is not None
+        and match.combat is None
+    )
 
 
 def current_part(match: MatchState):
@@ -100,7 +125,7 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if top["part"] >= len(parts):
             match.resolving.pop(0)
             _finish(engine, match, top, result)
-            board.settle(engine, match, result)
+            board.settle(engine, match, result, cause=top["seat"])
             continue
         part = parts[top["part"]]
         if part.choose is None:
@@ -167,6 +192,39 @@ def choose_target(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return carry_on(engine, game, match, result)
 
 
+def cancel(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
+    """
+    Take back the spell or ability asking now: the turn replayed from its
+    snapshot up to the action that played it (`history.replay`), so
+    everything it did comes back -- the gold, the card to its place in the
+    hand, the exhausted card readied, a part that resolved unasked, a
+    resist paid. A tech choice the other player saved meanwhile is theirs
+    and is kept: it is replayed after.
+    """
+    if not cancellable(match):
+        raise RuleRefusal("This can't be taken back now.")
+    top = match.resolving[0]
+    by, seat = top["by"], top["seat"]
+    played = top["cancel_from"]
+    later = [
+        entry for entry in match.journal[played + 1:]
+        if entry["action"]["kind"] == "tech_choice"
+    ]
+    kept = [*match.journal[:played], *later]
+    rebuilt = history.replay(
+        engine, game, history.latest_snapshot(match), kept, history=match.turn_snapshots,
+    )
+    # Nothing is written to the event log: it would be the one trace of
+    # the cast the replay has taken away, and a later replay of the turn
+    # could not write it again.
+    match.__dict__.update(rebuilt.__dict__)
+    result = StepResult(
+        narration=[f"{tokens.player(seat)} takes back {by}."], board_changed=True,
+    )
+    result.next = pending(engine, game, match)
+    return result
+
+
 def appel_stomp_top(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                     top_of_deck: bool) -> StepResult:
     """Appel Stomp on top of its owner's draw pile, or into the discard
@@ -216,7 +274,7 @@ def _do(engine: "RulesEngine", match: MatchState, top: dict, part,
         target: Optional[tuple[int, str]], result: StepResult) -> None:
     DOES[part.does](engine, match, top, part, target, result)
     top["part"] += 1
-    board.settle(engine, match, result)
+    board.settle(engine, match, result, cause=top["seat"])
 
 
 def _thing(match: MatchState, target: tuple[int, str]) -> str:
@@ -275,7 +333,7 @@ def _minus_rune(engine, match, top, part, target, result) -> None:
 
 
 def _destroy(engine, match, top, part, target, result) -> None:
-    board.destroy(engine, match, [target], result, by=top["by"])
+    board.destroy(engine, match, [target], result, by=top["by"], cause=top["seat"])
 
 
 def _weaken(engine, match, top, part, target, result) -> None:
@@ -318,6 +376,7 @@ def _partner(engine, match, top, part, target, result) -> None:
 
 def _draw(engine, match, top, part, target, result) -> None:
     seat = top["seat"]
+    top["drew"] = True
     drawn = draw_cards(engine, match, seat, part.amount or 1, result)
     if drawn:
         result.narration.append(f"{tokens.player(seat)} draws a card.")

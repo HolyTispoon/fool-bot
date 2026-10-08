@@ -607,6 +607,11 @@ class RulesEngine:
         effect = effects.EFFECTS.get(slug)
         if effect is None or not effect.parts:
             return True
+        if effect.whole:
+            # Every part, each a different target of the one filter:
+            # Two Step's two partners.
+            first = effect.parts[0]
+            return len(self.target_rows(match, seat, first, gold=gold)) >= len(effect.parts)
         for part in effect.parts:
             if part.choose is None:
                 return True
@@ -1153,6 +1158,15 @@ class RulesEngine:
         found.append("base")
         return found
 
+    @staticmethod
+    def _under_construction(player: PlayerState, ref: str) -> bool:
+        if ref == "add_on":
+            return player.add_on is not None and player.add_on.under_construction
+        if ref in TECH_BUILDINGS:
+            building = player.buildings[ref]
+            return building is not None and building.under_construction
+        return False
+
     def _units_of(self, match: MatchState, seat: int) -> list[CardInstance]:
         return [card for card in match.player(seat).play if self.catalog.cards[card.slug].is_unit]
 
@@ -1187,7 +1201,12 @@ class RulesEngine:
                     found += [(side, card.ref) for card in units if not card.plus_runes]
                     if hero and not player.hero.plus_runes:
                         found.append((side, HERO))
-            elif choose in ("building", "other_building"):
+            elif choose == "building":
+                # A building being constructed can't be dealt damage the
+                # turn it was started (UMR p. 8, and p. 9 for add-ons).
+                found += [(side, ref) for ref in self._buildings_of(match, side)
+                          if not self._under_construction(player, ref)]
+            elif choose == "other_building":
                 found += [(side, ref) for ref in self._buildings_of(match, side)]
             elif choose == "unit":
                 found += [(side, card.ref) for card in units]

@@ -91,14 +91,22 @@ class Part:
 
 @dataclass(frozen=True)
 class Effect:
-    """A spell's, a trigger's or an ability's text, as its parts."""
+    """
+    A spell's, a trigger's or an ability's text, as its parts. `whole`
+    marks one that is played only where every part can resolve -- Two
+    Step, whose two partners are one effect: "Sacrifice this spell if
+    either partner leaves play" has no meaning for a Two Step with one
+    (UMR p. 22, the Card FAQ; the author, 2026-10-08) -- where every other
+    effect does as much as it can.
+    """
 
     key: str
     parts: tuple[Part, ...]
+    whole: bool = False
 
 
-def _effect(key: str, *parts: Part) -> Effect:
-    return Effect(key, parts)
+def _effect(key: str, *parts: Part, whole: bool = False) -> Effect:
+    return Effect(key, parts, whole)
 
 
 EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
@@ -130,11 +138,13 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # turn." No {target}: every one of them.
     _effect("discord", Part("discord", None, 0, targeted=False)),
     # "Two of your units become dance partners if they aren't partnered
-    # already. While you control both, they each get +2/+2."
+    # already. While you control both, they each get +2/+2." Two of them,
+    # or it is not played (`Effect.whole`).
     _effect(
         "two_step",
         Part("partner", "own_unpartnered", 0, "choose a dance partner"),
         Part("partner", "own_unpartnered", 0, "choose the second dance partner"),
+        whole=True,
     ),
     # "Sideline a patroller (move it out of the patrol zone), draw a
     # card, then you may put Appel Stomp on top of your draw pile."

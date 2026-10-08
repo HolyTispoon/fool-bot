@@ -242,12 +242,15 @@ class TargetOptions:
     says: str
     targets: tuple[TargetRow, ...]
     forced: bool = False
+    #: Whether `cancel` is offered: a spell or ability, before it has
+    #: drawn a card (`codex.flow.resolve.cancellable`).
+    cancellable: bool = False
 
     def to_dict(self) -> dict:
         return jsonable({
             "seat": self.seat, "effect": self.effect, "source": self.source,
             "part": self.part, "says": self.says, "targets": self.targets,
-            "forced": self.forced,
+            "forced": self.forced, "cancellable": self.cancellable,
         })
 
 
@@ -350,7 +353,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.OBLITERATE_CHOICE: ("",),
     PromptKind.SPARKSHOT_TARGET: ("",),
     PromptKind.OVERPOWER_TARGET: ("",),
-    PromptKind.TARGET: ("",),
+    PromptKind.TARGET: ("", "cancel"),
     PromptKind.APPEL_STOMP_TOP: ("top", "discard"),
     PromptKind.UPKEEP_ORDER: ("",),
     PromptKind.GAME_OVER: (),
@@ -437,14 +440,14 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
 
 
 def _target_options(engine, game, match, prompt) -> TargetOptions:
-    from codex.flow.resolve import rows_for
+    from codex.flow.resolve import cancellable, rows_for
 
     top = match.resolving[0]
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     rows = rows_for(engine, match, top)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
-        any(row.flagbearer for row in rows),
+        any(row.flagbearer for row in rows), cancellable(match),
     )
 
 

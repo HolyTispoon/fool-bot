@@ -238,11 +238,16 @@ def _destroy_hero(match: MatchState, seat: int, result: StepResult, by: str = ""
 
 
 def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int, str]],
-            result: StepResult, by: str = "") -> None:
+            result: StepResult, by: str = "", cause: Optional[int] = None) -> None:
     """
     Destroy each of these units and heroes -- a unit face-down to its
     owner's discard pile, a hero to the command zone -- and give the
-    kill's two levels to the opposing hero in play (UMR p. 7).
+    kill's two levels to the opposing hero in play: "When you destroy an
+    opponent's hero, one of your heroes immediately gains 2 levels" (UMR
+    p. 10). `cause` is the seat whose effect destroyed them, where an
+    effect did; a hero its own controller's effect destroyed (Wither on
+    your own River) gives nobody levels. Combat passes none: there each
+    side's hero falls to the other side.
     """
     things = list(things)
     heroes = []
@@ -256,6 +261,8 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
         if card is not None:
             _destroy_unit(engine, match, seat, card, result, by)
     for seat in heroes:
+        if cause == seat:
+            continue
         victor = match.opponent(seat).hero
         if not victor.in_play:
             continue
@@ -325,7 +332,8 @@ def _lethal(engine: "RulesEngine", match: MatchState, body) -> bool:
     return hp <= 0 or body.damage >= hp
 
 
-def settle(engine: "RulesEngine", match: MatchState, result: StepResult) -> None:
+def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
+           cause: Optional[int] = None) -> None:
     """
     Everything the position now requires, until nothing more does: a
     unit or hero at 0 HP or with damage equal to its HP is destroyed --
@@ -336,6 +344,8 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult) -> None
     spell"), and Two Step is sacrificed once either partner has left play
     or its controller's control ("If you lose one, sacrifice Two Step").
     A grant that ended -- Grounded Guide gone -- can kill this way too.
+    `cause` is the seat whose effect led here, for a hero's kill levels
+    (`destroy`).
     """
     while True:
         dead = []
@@ -346,7 +356,7 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult) -> None
             if player.hero.in_play and _lethal(engine, match, player.hero):
                 dead.append((player.seat, HERO))
         if dead:
-            destroy(engine, match, dead, result)
+            destroy(engine, match, dead, result, cause=cause)
             continue
         gone = _sacrifice_due(engine, match)
         if gone is None:

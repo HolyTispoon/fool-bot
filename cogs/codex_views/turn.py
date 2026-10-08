@@ -466,9 +466,16 @@ class TurnPanelView(PanelView):
             ],
             self.target,
         )
+        if options.cancellable:
+            self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=1)
 
     async def target(self, interaction: discord.Interaction, key: str) -> None:
         await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))
+
+    async def cancel_cast(self, interaction: discord.Interaction) -> None:
+        """Take the spell or ability back, as the model offers it: its
+        gold, its card, its exhaust, and anything it already did."""
+        await self.act(interaction, Action(PromptKind.TARGET, "cancel"))
 
     def build_appel(self, options) -> None:
         self.button("On top of my draw pile", discord.ButtonStyle.primary, self.appel_top, row=0)

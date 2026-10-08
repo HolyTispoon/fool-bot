@@ -168,7 +168,9 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
         )
         if slug in effects.EFFECTS:
-            resolve.push(match, resolve.frame(slug, seat, tokens.card(slug), spell=slug))
+            resolve.push(match, resolve.frame(
+                slug, seat, tokens.card(slug), spell=slug, cancel_from=len(match.journal),
+            ))
         else:
             # A spell the table has no row for -- one in `UNIMPLEMENTED`,
             # said to be by its line -- is paid and discarded.
@@ -217,7 +219,9 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             by = tokens.card(body.slug)
         result.narration.append(f"{tokens.player(seat)} exhausts {by}.")
     match.record_event("ability", effect=effect, source=source)
-    resolve.push(match, resolve.frame(effect, seat, by, source=source))
+    resolve.push(match, resolve.frame(
+        effect, seat, by, source=source, cancel_from=len(match.journal),
+    ))
     return resolve.carry_on(engine, game, match, result)
 
 

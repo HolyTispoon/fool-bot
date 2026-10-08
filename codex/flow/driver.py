@@ -305,6 +305,8 @@ def _answer_overpower(engine, game, match, prompt, choice, *, target=None) -> St
 
 
 def _answer_target(engine, game, match, prompt, choice, *, target=None) -> StepResult:
+    if choice == "cancel":
+        return resolve.cancel(engine, game, match)
     return resolve.choose_target(engine, game, match, _required(target, "target"))
 
 
@@ -448,6 +450,10 @@ def apply(
         )
     finally:
         engine.replaying = []
-    if history.latest_snapshot(match) is marker:
+    # A cancel is not recorded: it put the journal back to before the
+    # cast it took back (`codex.flow.resolve.cancel`), and a replay of it
+    # would have nothing to cancel.
+    cancelled = action.kind is PromptKind.TARGET and action.choice == "cancel"
+    if history.latest_snapshot(match) is marker and not cancelled:
         history.record(match, action, run.drawn)
     return run
