@@ -117,25 +117,58 @@ its source.
   the bot speaking only in its own words, and a private home for the
   prose.
 
-**The art comes in the same run, and is not in the tree yet.** The
-import fetches each card's and hero's picture by its `sirlins_filename`
-from `codexcards-assets.surge.sh` into `codex/images/cards/<slug>.jpg`
-(330 by 450), and cuts the Screentop module's sheets (@GRAG/Codex,
-whose spec one GraphQL query to `api.screentop.gg` returns) into
-`codex/images/board/`. The session that wrote step 1 could reach the
-card data but neither image host, so it committed the data alone; and a
-sheet's cells are pinned in `BOARD_SHEETS` only after somebody has
-looked at the sheet, so until then the import saves each unpinned sheet
-whole under `board/sheets/` and reports it rather than guessing a grid.
-`tests/test_codex_cards.py`'s art tests skip, saying why, until
-`codex/images/cards/` exists. `/codex card` answers without a picture
-until then.
+**The art comes in the same run, and the author ran it** (2026-10-08,
+on the Mac). The session that wrote step 1 could reach the card data
+but neither image host, so the author imports the art where both
+answer, and commits it; a session finishes the rest from what was
+committed. Two sources:
+
+- **The cards' own pictures**: each card's and hero's, by its
+  `sirlins_filename`, from `codexcards-assets.surge.sh` into
+  `codex/images/cards/<slug>.jpg`, 330 by 450 -- all 330 the host has.
+  `.gitignore`'s old, unanchored `cards/` (for print output that used
+  to land in a folder of that name) matched this folder too, and
+  `git add` skips an ignored file without a word, so the first commit of
+  the art carried none of the pictures; a negation for
+  `codex/images/cards/` beside it is what lets them in.
+- **The Screentop module's sheets** (@GRAG/Codex, whose spec one
+  GraphQL query to `api.screentop.gg` returns with every sheet's URL):
+  the playmat whole as `codex/images/board/playmat.png`, and seven
+  sheets kept whole under `codex/images/board/sheets/` as the source
+  their pieces are cut from. **The cells are pinned in `BOARD_SHEETS`**,
+  each from one look at the sheet: a grid per sheet, and each piece's
+  index -- or its index and a quarter turn, for the tiles and spec
+  cards the sheet stores on their side, so they read upright as the
+  playmat prints them. `--cut-only` cuts them again from the committed
+  sheets with no network, so a change to a pin is made and checked
+  anywhere.
+
+What is under `codex/images/board/`, and what each is named by:
+
+| Folder | What | Named by |
+| --- | --- | --- |
+| `playmat.png` | One player's mat: the hero slots, the five patrol slots with their bonuses, the add-on slot, the base and the Tech I to III places, the workers, the discard and the draw | -- |
+| `buildings/` | The base and the three tech buildings as tiles, the four add-ons as cards | the building's slug |
+| `tokens/` | All 22 tokens' faces, two printed under another name: "Ghost" is `daigo_stormborne`, "Elemental" `water_elemental` | the token's slug |
+| `specs/` | The twenty spec cards | the spec, as a slug |
+| `backs/` | `card`, `hero`, `token` | -- |
+| `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
+| `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
+| `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), and a blue `swirl` and an orange `house` nobody has said the module's use of, named for what they show | what it shows |
+
+Left uncut: the twelve maps, a variant the basic game does not play, and
+the sheets' label cells, which the playmat prints. `Card.picture` is a
+card's own art wherever there is one -- the database's picture, or a
+token's or a building's face -- so `/codex card dancer` and `/codex card
+tower` answer with theirs; the worker card alone has none.
 
 **The emoji are drawn here and uploaded by hand.** Application emoji
 belong to one application and there is no upload code, so
 `scripts/render_codex_emoji.py` draws `gold`, `exhaust` and `target`
-into `codex/images/emoji/` (the heroes' two faces once their art is
-imported), `codex.png` is the medallion cut from the module's card back,
+into `codex/images/emoji/`, and cuts `troq_bashar` and `river_montoya`
+from their cards' art at a square pinned per hero (`FACES`), since no
+one crop finds two faces drawn in two places; `codex.png` is the
+medallion cut from the module's card back,
 and the author uploads each to the Codex application under its file's
 name. `CodexTokens` picks each up by that name and shows a word until
 it is there.

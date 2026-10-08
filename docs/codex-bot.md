@@ -796,11 +796,11 @@ Hard rules for every step:
 `/codex card` and `/codex rules`, the runner and the design note --
 [design/codex.md](design/codex.md), "Its own process, its own token",
 "The cards are data", "The reference commands" and "Running it". **The
-art is still owed:** neither image host was reachable from the session
-that ran it, so `codex/images/cards/` and `codex/images/board/` are
-empty until `scripts/import_codex_cards.py` runs where they are, and the
-Screentop sheets' cells are pinned after a look at each ("The cards are
-data" says what the import does meanwhile).
+art followed** on the `codex-art` branch: neither image host was
+reachable from the session that ran the step, so the author ran
+`scripts/import_codex_cards.py` on the Mac on 2026-10-08, and a session
+pinned the Screentop sheets' cells from what that committed ("The cards
+are data" says what is where).
 
 The first thing anybody sees: a bot that answers `/codex card` with a
 card's text and Sirlin's rulings. It is also everything the later steps

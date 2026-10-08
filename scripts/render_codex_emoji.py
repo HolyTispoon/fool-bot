@@ -13,8 +13,7 @@ a transparent ground: `gold` (a gold coin -- the amount is written
 beside it), `exhaust` (the cards' ⤵, drawn, white on slate) and `target`
 (the cards' own ◎, the ring on red). `troq_bashar` and `river_montoya`,
 the two heroes' faces, are cut from their card art in
-codex/images/cards/ and are skipped, with a note, until that art is
-imported (`scripts/import_codex_cards.py`). `codex.png`, the medallion,
+codex/images/cards/ at the squares `FACES` pins. `codex.png`, the medallion,
 was cut by hand from the Screentop module's card back and is not this
 script's.
 
@@ -39,7 +38,13 @@ SUPERSAMPLE = 4
 GOLD, GOLD_DARK, GOLD_LIGHT = (232, 178, 46), (150, 98, 18), (255, 226, 130)
 SLATE, RED, WHITE = (52, 58, 70), (178, 34, 40), (255, 255, 255)
 
-HEROES = ("troq_bashar", "river_montoya")
+#: Each hero's face on its 330 by 450 card, as `(left, top, size)` of
+#: the square cut into a disc -- pinned after a look at each card, since
+#: no one crop finds two faces drawn in two places.
+FACES = {
+    "troq_bashar": (150, 5, 140),
+    "river_montoya": (95, 25, 130),
+}
 
 
 def canvas() -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
@@ -109,16 +114,13 @@ def target() -> Image.Image:
 
 
 def hero(slug: str) -> Image.Image | None:
-    """The hero's face: the top of its card's art, cropped square into a
-    disc."""
+    """The hero's face, cut from its card's art at `FACES` into a disc."""
     art = CARD_DIR / f"{slug}.jpg"
     if not art.is_file():
         return None
+    left, top, size = FACES[slug]
     with Image.open(art) as card:
-        width = card.width * 3 // 4
-        left = (card.width - width) // 2
-        top = card.height // 10
-        face = card.convert("RGBA").crop((left, top, left + width, top + width))
+        face = card.convert("RGBA").crop((left, top, left + size, top + size))
     face = face.resize((SIZE, SIZE), Image.LANCZOS)
     mask = Image.new("L", (SIZE * SUPERSAMPLE,) * 2, 0)
     ImageDraw.Draw(mask).ellipse((0, 0, SIZE * SUPERSAMPLE, SIZE * SUPERSAMPLE), fill=255)
@@ -131,7 +133,7 @@ def drawings() -> dict[str, Image.Image | None]:
         "gold": gold(),
         "exhaust": exhaust(),
         "target": target(),
-        **{slug: hero(slug) for slug in HEROES},
+        **{slug: hero(slug) for slug in FACES},
     }
 
 

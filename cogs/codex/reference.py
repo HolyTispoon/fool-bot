@@ -138,7 +138,7 @@ class ReferenceMixin:
         picture = catalog().by_slug(slug).picture
         if picture is not None and picture.is_file():
             await interaction.response.send_message(
-                text, file=discord.File(picture, filename=f"{slug}.jpg"),
+                text, file=discord.File(picture, filename=picture.name),
             )
         else:
             await interaction.response.send_message(text)
