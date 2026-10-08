@@ -576,7 +576,9 @@ control.
   (`Effect.whole`): "Sacrifice this spell if either partner leaves play or
   leaves your control" (UMR p. 22, the Card FAQ) speaks of a Two Step that
   has both (the author, 2026-10-08). It is the one effect that does not
-  "do as much as it can" (UMR p. 16).
+  "do as much as it can" (UMR p. 16): **a card's own entry in the Card
+  FAQ wins over a general rule** (the author, 2026-10-08), as a specific
+  rule does over a general one.
 - **Two readings the rulebook settles** (UMR v1.3, read card by card
   against the database on 2026-10-08): a building under construction
   can't be dealt damage the turn it was started (p. 8; p. 9 for
