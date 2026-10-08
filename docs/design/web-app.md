@@ -1653,18 +1653,17 @@ space has two lanes, the visitors' above and home's below.
   (`ball_carrier_id`, else `active_player_id`); a space where nobody
   is named keeps the board's order and draws the ball on its front
   piece, which is a picture and decides nothing.
-- **The badges are the bot's emoji**: the exhaustion token with its
+- **The badges are the bot's marks**: the exhaustion token with its
   count (the drain token on a Cyborg) off the bottom right of a piece,
-  the condition off the bottom left, all drawn over the whole fan --
-  except on a visiting holder, whose ball is at that corner and hid
-  an injured carrier's badge entirely (the author, 2026-10-07): there
-  the condition moves to the top left, the one corner no piece uses.
-  The condition is a tag like the token count: its emoji and the word
-  short -- INJ, DMG, EXH, DRN (`CONDITION_TAGS` in `app.js`) -- in the
-  emoji's colour, because the emoji's own word cannot be read at a
-  badge's size (the author, 2026-10-07). On the phone's narrow field
-  the tag is the word alone, pushed further over the edge, so it does
-  not cover the piece's role.
+  the condition off the bottom left, both down at its feet and drawn
+  over the whole fan. The condition is a tag the size of the token
+  count and squarer, its word short -- INJ, DMG, EXH, DRN
+  (`CONDITION_TAGS` in `app.js`) -- in the emoji's colour, because the
+  emoji's own word cannot be read at a badge's size (the author,
+  2026-10-07 and 2026-10-08). On a visiting holder the ball is at
+  that corner, and once hid an injured carrier's badge entirely: there
+  the tag sits between the ball and the count, and on the phone's
+  narrow field, where there is no room between them, on the ball.
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
   off a home holder's top right, a visiting holder's bottom left, or

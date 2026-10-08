@@ -1129,8 +1129,10 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
     );
     const holds = Boolean(one.ball && one.ball.holder === piece.id);
     /* A visiting holder's ball is at its foot, where the condition
-       would go, so the condition moves up to the top left. */
-    over.push(...badges(piece, piece.x, y, W, H, { ballAtFoot: holds && side !== "home" }));
+       would go, so the condition moves in between it and the count --
+       or, on the narrow field, where there is no room between them,
+       onto the ball. */
+    over.push(...badges(piece, piece.x, y, W, H, { ballAtFoot: holds && side !== "home", narrow }));
     if (holds) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, over the edge
@@ -1176,8 +1178,8 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
 }
 
 /* The word on a condition's badge: the emoji's own word is too small
-   to read at the badge's size, so the tag says it short beside it, in
-   the emoji's colour (the author, 2026-10-07). */
+   to read at a badge's size, so the tag says it short, in the emoji's
+   colour, the size of the token count (the author, 2026-10-08). */
 const CONDITION_TAGS = {
   injured: "INJ",
   damaged: "DMG",
@@ -1186,11 +1188,11 @@ const CONDITION_TAGS = {
 };
 
 /* A piece's badges, over it wherever it stands (a fan on a space, the
-   sideline): the exhaustion token and its count off the bottom right,
-   the condition off the bottom left -- the emoji `board.py` names --
-   or off the top left when the ball is at the piece's foot, which
-   would cover it. */
-function badges(piece, x, y, W, H, { ballAtFoot = false } = {}) {
+   sideline), both down at its feet: the exhaustion token and its count
+   off the bottom right, and the condition `board.py` names, as its
+   word, off the bottom left -- or between the two when the ball is at
+   the piece's foot, which would cover it. */
+function badges(piece, x, y, W, H, { ballAtFoot = false, narrow = false } = {}) {
   const over = [];
   if (piece.exhaustion) {
     over.push(h(
@@ -1209,10 +1211,11 @@ function badges(piece, x, y, W, H, { ballAtFoot = false } = {}) {
       "span",
       {
         class: `badge condition ${piece.condition}`,
-        style: `left: ${x - W * 0.3}px; top: ${ballAtFoot ? y - 4 : y + H - 14}px`,
+        style: ballAtFoot && narrow
+          ? `left: ${x}px; top: ${y + H - 28}px`
+          : `left: ${x + W * (ballAtFoot ? 0.24 : -0.1)}px; top: ${y + H * 0.68}px`,
         title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
       },
-      h("img", { src: `/emoji/${piece.condition}.png`, alt: "" }),
       CONDITION_TAGS[piece.condition],
     ));
   }

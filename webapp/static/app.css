@@ -1501,16 +1501,15 @@ button.goal { display: block; }
   line-height: 1;
   color: var(--gold);
 }
-/* The condition as a tag like the token count beside it: the emoji
-   and its word short, in the emoji's own colour -- damaged lifted from
-   the emoji's #b01848, which is too dark to read on the badge. */
+/* The condition as a tag the size of the token count beside it, and
+   squarer: its word short, in the emoji's own colour -- damaged lifted
+   from the emoji's #b01848, which is too dark to read on the badge. */
 .badge.condition {
-  gap: 1px;
-  border-radius: 10px;
-  padding: 1px 4px 1px 2px;
-  font-size: 12px;
+  border-radius: 4px;
+  padding: 1px 3px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 16px;
 }
 .badge.condition.injured { color: #ff3400; }
 .badge.condition.damaged { color: #e8457a; }
@@ -1864,16 +1863,7 @@ button.goal { display: block; }
   .stage.narrow .lane.visiting { padding-top: 0; }
   .stage.narrow .badge img { width: 9px; height: 9px; }
   .stage.narrow .badge.tokens { font-size: 8px; padding: 0 3px 0 1px; border-radius: 6px; }
-  /* The word alone on the narrow field, and further out over the
-     edge: otherwise the tag is as wide as the piece and covers its
-     role. */
-  .stage.narrow .badge.condition {
-    font-size: 8px;
-    padding: 0 3px;
-    border-radius: 6px;
-    transform: translateX(-35%);
-  }
-  .stage.narrow .badge.condition img { display: none; }
+  .stage.narrow .badge.condition { font-size: 7px; line-height: 9px; padding: 0 2px; border-radius: 2px; }
   .stage.narrow .band { height: 12px; font-size: 7px; letter-spacing: 0.5px; border-radius: 3px; }
   .stage.narrow .ball-button.lit { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(240, 178, 50, 0.55); }
   .stage.narrow .die.ringed { padding: 1px; }
