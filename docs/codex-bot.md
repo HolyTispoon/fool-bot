@@ -411,9 +411,11 @@ and the step's prompt is rewritten rather than argued with.
    a panel built from parts, so that less of the picture is anything
    but cards and nothing is drawn for a place the position does not
    use). Each side is a **panel**: cards at 200 by 273 (the art at
-   61%) in columns of 200 -- five in the basic game, seven in the
-   standard one, the count the game's and fixed when it starts so the
-   picture's width holds from turn to turn; a column of buildings on
+   61%) in square cells of 273, so that a card turned on its side lies
+   at full size too (the author, 2026-10-08) -- five columns in the
+   basic game, seven in the standard one, the count the game's and
+   fixed when it starts so the picture's width holds from turn to turn
+   (the author, 2026-10-08); a column of buildings on
    the left, the mat's left edge kept -- the add-on slot, Tech III, II
    and I as the module's tiles, greyed until built, the house chit on
    one under construction or destroyed, and the base with a heart drawn
@@ -426,7 +428,7 @@ and the step's prompt is rewritten rather than argued with.
    the hero is on it; the field after the plates in the same rows --
    the heroes first with their level chits, then the units, each with
    its damage and rune chits, an ARRIVED tag the turn it came, and on
-   its side at 73% with the exhaust glyph and the word when exhausted
+   its side at full size with the exhaust glyph when exhausted
    -- rows added as the position needs, so the panel's height follows
    it; and a nameplate along the outer edge with the player, the spec
    and hero, and GOLD, WORKERS, HAND, DECK, DISCARD and CODEX as a word
@@ -443,9 +445,8 @@ and the step's prompt is rewritten rather than argued with.
    between the two (the author, 2026-10-08); the layout is the game's,
    kept on the record, so everyone sees the same picture. Nothing is
    drawn that a piece or a card already shows, the base's HP apart.
-   What the canvas left open on 2026-10-08 -- which of three ways to
-   mark an exhausted card, and whether the ground is flat or the mat's
-   leather -- step 7's PR asks. After every action the
+   What the canvas left open on 2026-10-08 -- whether the ground is
+   flat or the mat's leather -- step 7's PR asks. After every action the
    message is edited with the new lines and the re-rendered board; when
    the turn
    ends it is edited a last time and stands, so the channel's history
@@ -1781,9 +1782,8 @@ docs/design/codex.md, "The board on Discord" and "The cards are data" (the art),
 docs/design/board-image.md. Decision 5 says what the board is; this
 step draws it, from the author's design canvas
 (https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f -- the plan board
-has the sizes, the states board every state, "Exhausted, three ways"
-the open choice). Three commits: the pieces; the panel; the layouts
-and the sample.
+has the sizes, the states board every state). Three commits: the
+pieces; the panel; the layouts and the sample.
 
 1. The pieces. scripts/import_codex_cards.py cuts five more pieces,
    from the playmat itself rather than a sheet: the patrol slots as
@@ -1798,11 +1798,15 @@ and the sample.
 2. The panel. codex/render.py draws one player as render_panel(...) at
    the pixels the canvas was drawn at, Roboto Slab for every word and
    number:
-   - cards 200 by 273 (the art at 61%); columns of 200 with 16 between
-     and 20 of padding; five columns in the basic game, seven in the
-     standard one (three plates and four cards in the first row) -- the
-     count is the game's, fixed when it starts, so the picture's width
-     holds from turn to turn; chits 50 to 62 wide (damage/, levels/,
+   - cards 200 by 273 (the art at 61%) in square cells of 273, a card
+     standing centred in its cell and an exhausted one lying in it at
+     full size (the author, 2026-10-08: A of the canvas's three ways);
+     columns of 273 with 16 between and 20 of padding, so the basic
+     panel is 1649 wide and the standard one 2227; five columns in the
+     basic game, seven in the standard one (three plates and four cards
+     in the first row) -- the count is the game's, fixed when it
+     starts, so the picture's width holds from turn to turn (the
+     author, 2026-10-08); chits 50 to 62 wide (damage/, levels/,
      time_runes/, chits/plus_rune.png, chits/house.png);
    - a column of buildings on the left, 160 wide, the mat's left edge
      kept, top to bottom: the add-on slot (a dashed outline, or the
@@ -1814,24 +1818,21 @@ and the sample.
      drawn over its printed one carrying the HP it has now (the tile
      prints 20; the heart is drawn because the number changes);
    - the patrol zone across the top of the grid on the mat's blue
-     (#244990): the five slot cuts in order, each bonus strip under
-     its slot; a patroller's card covers its slot, chits and all, the
-     bonus still under it;
-   - the command zone as a rounded plate per hero (one, or three): a
-     dark plate (#3a2a1c, a 2-pixel #8a6a3a edge) labelled COMMAND
-     ZONE, the hero's card lying on it in full at 170 by 232 with its
-     time-rune chit while off the field, the plate empty while the hero
-     is on the field;
+     (#244990): the five slot cuts in order, each centred in its
+     column, each bonus strip under its slot; a patroller's card covers
+     its slot, chits and all, the bonus still under it;
+   - the command zone as a rounded plate per hero (one, or three),
+     filling its cell: a dark plate (#3a2a1c, a 2-pixel #8a6a3a edge)
+     labelled COMMAND ZONE, the hero's card lying on it in full at 184
+     by 251 with its time-rune chit while off the field, the plate
+     empty while the hero is on the field;
    - the field after the plates in the same rows: the heroes first,
      then the units, each its card -- a level chit top left (a hero), a
      damage chit over the stats, a rune chit top right, an ARRIVED tag
-     the turn it came -- and, exhausted, turned on its side at 73% in
-     the lower part of its cell with the exhaust glyph and the word
-     EXHAUSTED in the height it leaves free; rows of the column count,
-     added as the position needs, so the panel's height follows it.
-     Draw this; the author may choose another of the canvas's three
-     ways (square cells at full size; upright, dimmed, with a band) on
-     this step's PR, and the choice is one function;
+     the turn it came -- and, exhausted, turned on its side at full
+     size, lying across its square cell, with the exhaust glyph on the
+     cell's top corner; rows of the column count, added as the
+     position needs, so the panel's height follows it;
    - a nameplate along the panel's outer edge, 56 tall: the player, the
      spec and hero, then GOLD (the gold emoji's picture), WORKERS, HAND,
      DECK, DISCARD and CODEX as a word and a count each; the active
