@@ -411,8 +411,10 @@ and the step's prompt is rewritten rather than argued with.
    pictures across the mat's open middle, each carrying its damage and
    rune chits, turned sideways when exhausted and marked when it
    arrived this turn; the gold, hand and codex counts in a strip. The
-   two mats are **stacked**, the second player's above the first's, or
-   **side by side**, and a button on the turn message swaps the game
+   two mats are **stacked** -- the table seen from the active player's
+   side, their mat below and the other player's above it, turned round
+   to face them (the author, 2026-10-08) -- or **side by side**, and a
+   button on the turn message swaps the game
    between the two (the author, 2026-10-08); the layout is the game's,
    kept on the record, so everyone sees the same picture. Nothing is
    drawn that the module or a card already shows. After every action the
@@ -1298,9 +1300,11 @@ commits: the service and storage; the cog, views and lobby; the board.
 
 3. codex/render.py and cogs/codex_boards.py. The board is the game's
    own art (decision 5): each side is the Screentop playmat from
-   codex/images/board/, the second player's above the first player's,
-   the two mats stacked or side by side as the game's board_layout
-   says, with the position laid on each where the mat has a place for
+   codex/images/board/, the two mats stacked -- seen from the active
+   player's side, the other player's mat above theirs and turned to
+   face them (the author, 2026-10-08) -- or side by side as the game's
+   board_layout says, with the position laid on each where the mat has
+   a place for
    it --
    the hero as its card in the first hero slot with its level chit, or
    the slot empty while it is in the command zone, its summoning runes
@@ -1348,7 +1352,8 @@ the service, the refusals, one save per call); tests/test_codex_cog_lobby.py
 driving the cog with the fakes tests/cog_steps.py uses, from /codex
 lobby to the opening board, asserting the sends and that the hand
 response is ephemeral and is the clicker's; tests/test_codex_render.py
-asserts a PNG of the expected size for the opening position and nothing
+asserts a picture of the expected size for the opening position (the
+board WebP since 2026-10-08, the hand and codex PNG) and nothing
 about its look. On startup the cog re-arms the persistent views the
 way CoreMixin.restore_saved_views does -- every open lobby's LobbyView,
 every playing game's TableView -- and logs ERROR for a game that owes

@@ -486,13 +486,37 @@ else the bot shows is ephemeral.
   chits and *arrived* when it came this turn. A strip along each mat's
   top names the player, the spec and the hero, and counts the gold, the
   hand, the codex and the base; the active player's strip is lit.
-  Composed at the mat's own size and scaled by `BOARD_SCALE` (0.6),
-  about 2 MB.
+  Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
+  saved as WebP at quality 85 (`BOARD_QUALITY`), about 220 KB; the
+  hand and the codex pictures stay PNG.
 - **The layout is the game's**, on the record (`board_layout`, not the
-  match's, so an undo does not take it back): stacked, the second
-  player's mat above the first's as across a table, or side by side,
-  the first player's on the left. **Swap view** flips it for everyone
-  and the board goes up through the gate.
+  match's, so an undo does not take it back): stacked, or side by side
+  with the first player's mat on the left. **Swap view** flips it for
+  everyone and the board goes up through the gate.
+- **Stacked is the table seen from the active player's side** (the
+  author, 2026-10-08): their mat at the bottom, the other player's
+  above it and turned round to face them, so the two patrol zones face
+  each other across the gap as they do across a table, and the picture
+  turns with the turn (`stacked_seats`, the one reading of which seat
+  is near). The far mat is turned whole -- its cards, chits and counts
+  read upside down, as the far side of a table does -- but the strip
+  above it is the bot's words, not the mat's, and stays the right way
+  up: a name and four counts nobody should have to turn a phone for.
+  A finished game is seen from where it was left. Side by side turns
+  neither mat: two mats read left to right are a desk, not a table.
+- **Swapping the view changes the message's shape**, and what the
+  reader sees in between is the client's. A stacked board is tall and
+  a side-by-side one wide, so the one edit that replaces the picture
+  also re-lays the message out, and Discord's apps draw the picture
+  they have into the box they are moving to while the new one loads --
+  the slice of board seen mid-swap. The bot sends one edit and cannot
+  send less; the one thing in its hands is how long the new picture
+  takes to arrive, which is its size. As PNG the board was about 2 MB;
+  measured 2026-10-08, the same board is about 340 KB as JPEG at
+  quality 85 and 220 KB as WebP, and at 1:1 the three are hard to tell
+  apart, so the board is WebP (the author, 2026-10-08) -- the smallest
+  of the three, and Discord shows it natively. That shortens the moment
+  rather than removes it.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons
