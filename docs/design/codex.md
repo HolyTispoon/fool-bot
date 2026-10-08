@@ -330,8 +330,9 @@ Every line is in the model's voice with tokens -- `{player:1}`,
 `{card:iron_man}`, `{hero:troq_bashar}`, `{gold:3}` -- and is public.
 So a draw is a count ("discards 3 and draws 5"), a reshuffle is said
 without the order, a hire never names the card trashed, and a tech
-choice is "has chosen their tech" and, when confirmed, a count of cards
-into the discard. `test_nothing_hidden_is_said` in the full-game test
+choice says nothing while it is made -- it is announced only in its
+owner's ready phase, as a count of cards into the discard (the author,
+2026-10-08: the other player has no reason to hear that it was picked). `test_nothing_hidden_is_said` in the full-game test
 checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
@@ -634,8 +635,10 @@ The Lock that ends a turn closes the panel ("your turn is over") and
 sends the tech picker as an ephemeral follow-up to the same click.
 **Tech** on the turn message reopens it -- for the player whose turn it
 is not, alone -- all through the opponent's turn; each **Save tech**
-replaces the last and the turn message hears "has chosen their tech"
-or "has changed their tech", never the cards. The menu has a line per
+replaces the last, privately: **nothing is said in the channel** -- not
+the cards, and not that a choice was made. The choice is announced in
+its owner's ready phase alone, as "puts 2 tech cards into their discard
+pile" (the author, 2026-10-08). The menu has a line per
 copy left in the codex, so two copies of one card can be picked.
 
 From the third turn on the new turn opens on its player's confirmation:
@@ -673,7 +676,9 @@ since the board carries the position.
   after a restart that lost the turn's lines. The model used to open
   each turn with a narration line of its own as well ("**Turn 7** --
   perrytom's turn."), which under the heading said it twice; that line
-  is gone. **The turn's end is narration**: "**End of turn 7.**", the
+  is gone. **The turn's end is narration**: "**End of turn 7** --
+  perrytom (Bashing).", naming the player and their deck as the
+  heading does (the author, 2026-10-08), the
   last line of `begin_tech`, so the model's own transcript still reads
   turn by turn and the turn's message stands with its close; the event
   log's `turn_ended` records which turn. The cog closes a turn's message
@@ -710,7 +715,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | --- | --- | --- |
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message's edit through the gate | 1: the panel's edit |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, Undo's menu) | **0** | 1 |
-| Save tech | **1**: the turn message hears "has chosen their tech" | 1 |
+| Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **4**: the old message's last edit, the new one's post, its pin, the old one's unpin | 2: the panel closed, the tech picker sent |
 | The attack that destroys a base | **2**: the last edit and the winner's line with the board | 1 |
 | Undo to the start of the turn | **1** | 1 |

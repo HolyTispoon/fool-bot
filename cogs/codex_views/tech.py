@@ -14,8 +14,9 @@ choice's owner** and built from the prompt's options alone:
   (`render_hand`), **Confirm** and **Change**. The ready phase runs on
   Confirm; Change reopens the picker.
 
-What was picked is never said publicly: the turn message hears "has
-chosen their tech", and a count when the cards reach the discard pile.
+Nothing about a tech choice is said publicly while it is made -- not
+the cards, not that one was made; the owner's ready phase says how many
+cards went into the discard pile (the author, 2026-10-08).
 """
 
 from __future__ import annotations

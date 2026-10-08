@@ -257,9 +257,13 @@ class TurnEndTests(TurnTestCase):
         self.assertIsInstance(picker, TechChoiceView)
         values = [option.value for option in picker.select.options[:2]]
         picked = await self.table.choose(picker, "Choose", *values)
+        mark = len(self.table.game_channel.requests)
         saved = await self.table.press(picked.view(), "Save tech")
         self.assertNothingWentWrong(saved)
         self.assertIsNotNone(self.table.match.player(picker.seat).tech_choice)
+        # Saved privately and said nowhere: a tech choice is announced in
+        # its owner's ready phase alone (the author, 2026-10-08).
+        self.assertEqual(channel_requests(self.table, mark), [])
         # The active player's panel, opened before, still acts.
         played = await self.table.choose(active_panel, "Play a card", playable(active_panel)[0])
         self.assertNothingWentWrong(played)
@@ -279,7 +283,8 @@ class WholeGameTests(TurnTestCase):
         playable card, build the next tech building, attack the first
         legal defender, lock an empty patrol, tech the first two -- to a
         destroyed base. **Every click is held to the budget**: one
-        channel request at most, four at the turn's end (the old
+        channel request at most, none for a tech choice, four at the
+        turn's end (the old
         message's last edit, the new one's post, pin and unpin), two at
         the game's end (the last edit and the winner's line). The
         panel's pictures are stood in for; drawing them is not the
@@ -310,7 +315,7 @@ class WholeGameTests(TurnTestCase):
                         if isinstance(picker, TechChoiceView) and match.winner is None:
                             mark = len(table.game_channel.requests)
                             await self.policy(picker)
-                            self.assertLessEqual(len(channel_requests(table, mark)), budget["click"])
+                            self.assertEqual(channel_requests(table, mark), [])
                         break
                     view = call.view()
         self.assertIsNotNone(table.match.winner)

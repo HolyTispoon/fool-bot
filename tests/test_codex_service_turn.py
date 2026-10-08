@@ -102,6 +102,32 @@ class TurnHeadingTests(unittest.TestCase):
         self.assertFalse(any("**Turn " in line for line in result.lines))
 
 
+class TechChoiceSaysNothingTests(unittest.TestCase):
+    def test_a_tech_choice_is_said_only_in_its_owners_ready_phase(self) -> None:
+        """Picking (or changing) a tech choice during the other player's
+        turn says nothing; the owner's ready phase says how many cards
+        went into the discard (the author, 2026-10-08)."""
+        svc, _, game = started()
+        owner = svc.load(game).active
+        end_turn(svc, game.game_id)
+        match = svc.load(game)
+        picks = [slug for slug, copies in svc.engine.codex_counts(match.player(owner)) if copies][:2]
+        for _ in range(2):
+            saved = svc.apply_action(game.game_id, Action(
+                PromptKind.TECH_CHOICE, "", {"player": owner, "picks": picks},
+            ))
+            self.assertIsNone(saved.refusal)
+            self.assertEqual(saved.lines, ())
+            self.assertFalse(saved.board_changed)
+        result = end_turn(svc, game.game_id)
+        confirmed = svc.apply_action(game.game_id, Action(
+            PromptKind.TECH_CONFIRM, "confirm", {"player": owner},
+        ))
+        self.assertTrue(any("puts 2 tech cards into their discard pile" in line
+                            for line in confirmed.lines))
+        self.assertFalse(any("tech" in line for line in result.lines))
+
+
 class TurnEndGroupTests(unittest.TestCase):
     def test_the_end_of_the_turn_is_its_own_group_with_its_own_position(self) -> None:
         svc, _, game = started()
@@ -109,9 +135,12 @@ class TurnEndGroupTests(unittest.TestCase):
         result = end_turn(svc, game.game_id)
         (closing,) = [group for group in result.groups if group.step is FollowOnStep.BEGIN_TECH]
         self.assertTrue(any("draws" in line for line in closing.lines))
-        # The model says the turn is over, as the group's last words; the
-        # event log says which turn it was.
-        self.assertTrue(closing.lines[-1].endswith("**End of turn 1.**"))
+        # The model says the turn is over, as the group's last words,
+        # naming the player and their deck; the event log says which turn.
+        deck = svc.load(game).player(ending).spec.title()
+        self.assertTrue(closing.lines[-1].endswith(
+            f"**End of turn 1** -- {{player:{ending}}} ({deck})."
+        ))
         ended = [event for event in result.match.events if event["kind"] == "turn_ended"]
         self.assertEqual(ended[-1]["turn"], 1)
         self.assertIsNotNone(closing.board)

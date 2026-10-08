@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
 
-from codex import history, tokens
+from codex import history
 from codex.components import MatchState
 from codex.flow import actions, combat, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -245,7 +245,9 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
     """
     The picks, replacing any made before (decision 8). Checked against
     the prompt's own options: the bounds, and the copies the codex still
-    holds. Said as a count -- what was picked is the owner's secret.
+    holds. **Nothing is said**: what was picked is the owner's secret,
+    and that they picked is announced in their own ready phase, as the
+    count of cards `begin_turn` puts into the discard.
     """
     options = prompt.options
     picks = list(picks or ())
@@ -261,13 +263,11 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
             raise RuleRefusal("Your codex has no more copies of that card.", cite="UMR p. 5")
         left[slug] -= 1
     owner = match.player(prompt.asked_player)
-    first_time = owner.tech_choice is None
     owner.tech_choice = picks
-    verb = "has chosen" if first_time else "has changed"
-    return StepResult(
-        narration=[f"{tokens.player(prompt.asked_player)} {verb} their tech."],
-        next=pending(engine, game, match),
-    )
+    # Said nothing: a tech choice is announced only in its owner's ready
+    # phase, as the count of cards into the discard (the author,
+    # 2026-10-08) -- not while the other player's turn is going on.
+    return StepResult(next=pending(engine, game, match))
 
 
 def _answer_tech_confirm(engine, game, match, prompt, choice, *, player=None) -> StepResult:
