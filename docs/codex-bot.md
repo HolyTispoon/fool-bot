@@ -773,7 +773,12 @@ Four commits, in this order.
    target, the two heroes -- into codex/images/emoji/ with a script
    under scripts/, list them for the author in the PR, and let the
    resolver pick each up by name once it is uploaded, the way
-   cogs/d12ball_helpers.py's loaders fall back. Every token is rendered
+   cogs/d12ball_helpers.py's loaders fall back. One is there already:
+   codex/images/emoji/codex.png, the Codex plaque cut from the
+   publisher's banner on 2026-10-07 (128 px, transparent outside the
+   plate), the bot's own mark -- the {codex} token the lobby and the
+   turn message open with; the author uploads it to the application
+   by hand like the rest. Every token is rendered
    at the cog's door, never in the model.
 
    scripts/run_codex_bot.ps1 and run_codex_bot.cmd, modelled line for
