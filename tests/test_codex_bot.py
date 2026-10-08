@@ -46,29 +46,61 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
         await bot.close()
 
-    async def test_a_card_is_answered_with_its_picture_when_there_is_one(self) -> None:
+    def card_lookup(self) -> tuple[gamebot.GameBot, Codex, mock.Mock]:
         bot = codex_bot()
         cog = Codex(bot)
         cog.tokens.refresh = mock.AsyncMock()
         interaction = mock.Mock()
         interaction.response.send_message = mock.AsyncMock()
+        interaction.followup.send = mock.AsyncMock()
+        return bot, cog, interaction
+
+    async def test_a_card_is_answered_with_its_picture_alone(self) -> None:
+        bot, cog, interaction = self.card_lookup()
         await cog.card.callback(cog, interaction, "trojan duck")
-        (text,), kwargs = interaction.response.send_message.call_args
-        self.assertTrue(text.startswith("**Trojan Duck**"))
-        picture = catalog().by_slug("trojan_duck").picture
-        self.assertEqual("file" in kwargs, picture.is_file())
+        args, kwargs = interaction.response.send_message.call_args
+        self.assertEqual(args, ())
+        self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
+        interaction.followup.send.assert_not_called()
+        await bot.close()
+
+    async def test_the_text_and_the_rulings_go_under_the_picture(self) -> None:
+        bot, cog, interaction = self.card_lookup()
+        await cog.card.callback(cog, interaction, "trojan duck", text=True, rulings=True)
+        args, kwargs = interaction.response.send_message.call_args
+        self.assertEqual(args, ())
+        self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
+        (words,), _ = interaction.followup.send.call_args
+        self.assertTrue(words.startswith("**Trojan Duck**"))
+        self.assertIn("**Rulings** (", words)
+        self.assertTrue(words.endswith("<http://codexcarddb.com/card/trojan_duck>"))
+        await bot.close()
+
+    async def test_the_rulings_alone_go_under_the_picture(self) -> None:
+        bot, cog, interaction = self.card_lookup()
+        await cog.card.callback(cog, interaction, "trojan duck", rulings=True)
+        (words,), _ = interaction.followup.send.call_args
+        self.assertTrue(words.startswith("**Rulings** ("))
+        self.assertNotIn("Cost 7", words)
         await bot.close()
 
     async def test_a_token_is_answered_with_its_face(self) -> None:
-        bot = codex_bot()
-        cog = Codex(bot)
-        cog.tokens.refresh = mock.AsyncMock()
-        interaction = mock.Mock()
-        interaction.response.send_message = mock.AsyncMock()
+        bot, cog, interaction = self.card_lookup()
         await cog.card.callback(cog, interaction, "dancer")
-        (text,), kwargs = interaction.response.send_message.call_args
-        self.assertTrue(text.startswith("**Dancer**"))
+        args, kwargs = interaction.response.send_message.call_args
+        self.assertEqual(args, ())
         self.assertEqual(kwargs["file"].filename, "dancer.png")
+        interaction.followup.send.assert_not_called()
+        await bot.close()
+
+    async def test_a_card_with_no_picture_is_its_text(self) -> None:
+        bot, cog, interaction = self.card_lookup()
+        self.assertIsNone(catalog().by_slug("worker_x4").picture)
+        await cog.card.callback(cog, interaction, "worker_x4")
+        (words,), kwargs = interaction.response.send_message.call_args
+        self.assertTrue(words.startswith("**Worker x4**"))
+        self.assertNotIn("file", kwargs)
+        interaction.followup.send.assert_not_called()
         await bot.close()
 
     async def test_an_unknown_card_is_refused_privately(self) -> None:
@@ -92,14 +124,25 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
 
 class CodexReferenceTests(unittest.TestCase):
     def test_the_card_answer(self) -> None:
-        answer = card_answer("trojan_duck")
+        answer = card_answer("trojan_duck", text=True, rulings=True)
         self.assertIn("Cost 7 · 8/9", answer)
         self.assertIn("Tech III", answer)
         self.assertIn("*Sirlin, 2016-03-19*", answer)
         self.assertTrue(answer.endswith("<http://codexcarddb.com/card/trojan_duck>"))
 
+    def test_the_answer_is_what_was_asked_for(self) -> None:
+        self.assertIsNone(card_answer("trojan_duck", text=False, rulings=False))
+        text = card_answer("trojan_duck", text=True, rulings=False)
+        self.assertTrue(text.startswith("**Trojan Duck**"))
+        self.assertNotIn("Rulings", text)
+        self.assertTrue(text.endswith("<http://codexcarddb.com/card/trojan_duck>"))
+        rulings = card_answer("trojan_duck", text=False, rulings=True)
+        self.assertTrue(rulings.startswith("**Rulings** ("))
+        self.assertNotIn("Cost 7", rulings)
+        self.assertTrue(rulings.endswith("<http://codexcarddb.com/card/trojan_duck>"))
+
     def test_a_hero_answer_carries_its_three_bands(self) -> None:
-        answer = card_answer("river_montoya")
+        answer = card_answer("river_montoya", text=True, rulings=False)
         for band in ("**Level 1+** 2/3", "**Level 3+** 2/4", "**Level 5+** 3/4"):
             self.assertIn(band, answer)
 
@@ -113,7 +156,8 @@ class CodexReferenceTests(unittest.TestCase):
         long_emoji = lambda text: text.replace("{", "<:emoji_named_long:123456789012345678>{")  # noqa: E731
         everything = catalog()
         for slug in [*everything.cards, *everything.heroes]:
-            self.assertLessEqual(len(card_answer(slug, long_emoji)), MESSAGE_LIMIT, slug)
+            answer = card_answer(slug, long_emoji, text=True, rulings=True)
+            self.assertLessEqual(len(answer), MESSAGE_LIMIT, slug)
         for entry in keywords():
             self.assertLessEqual(len(keyword_answer(entry.slug, long_emoji)), MESSAGE_LIMIT, entry.slug)
 

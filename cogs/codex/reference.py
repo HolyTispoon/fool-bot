@@ -1,9 +1,10 @@
 """
-`/codex card` and `/codex rules`: a card's picture, its text and
-Sirlin's rulings on it, and a keyword's rulings -- the official rules of
-the game, read from the imported data (docs/codex-bot.md, decision 12).
-No rulebook text is bundled, nothing here is an embed, and both answers
-link the card database.
+`/codex card` and `/codex rules`: a card's picture -- with its text and
+Sirlin's rulings on it under the picture, each only when asked for --
+and a keyword's rulings, the official rules of the game, read from the
+imported data (docs/codex-bot.md, decision 12). No rulebook text is
+bundled, nothing here is an embed, and both answers link the card
+database.
 """
 
 from __future__ import annotations
@@ -100,11 +101,28 @@ def fit(
     return "\n".join(lines)[:MESSAGE_LIMIT]
 
 
-def card_answer(slug: str, render: Callable[[str], str] = unrendered) -> str:
-    """`/codex card`'s text, its tokens rendered by `render`."""
-    card = catalog().by_slug(slug)
-    head = [f"**{card.name}**", type_line(card), numbers_line(card), *text_lines(card)]
-    return fit(head, rulings_for(slug), f"<{card_url(slug)}>", render)
+def card_text(card: Card | Hero) -> list[str]:
+    """The card as words: its name, type line, numbers and printed text."""
+    return [f"**{card.name}**", type_line(card), numbers_line(card), *text_lines(card)]
+
+
+def card_answer(
+    slug: str,
+    render: Callable[[str], str] = unrendered,
+    *,
+    text: bool,
+    rulings: bool,
+) -> str | None:
+    """
+    `/codex card`'s words, its tokens rendered by `render`: the card as
+    text where `text` asks for it, Sirlin's rulings where `rulings` does,
+    and the database's page under whichever is there. None where neither
+    is asked -- the picture alone is the answer.
+    """
+    if not text and not rulings:
+        return None
+    head = card_text(catalog().by_slug(slug)) if text else []
+    return fit(head, rulings_for(slug) if rulings else (), f"<{card_url(slug)}>", render)
 
 
 def keyword_answer(
@@ -123,9 +141,22 @@ def keyword_answer(
 
 
 class ReferenceMixin:
-    @app_commands.command(name="card", description="Show a Codex card, its text and Sirlin's rulings on it.")
-    @app_commands.describe(name="The card's name")
-    async def card(self, interaction: discord.Interaction, name: str) -> None:
+    @app_commands.command(
+        name="card",
+        description="Show a Codex card's picture; its text and Sirlin's rulings on request.",
+    )
+    @app_commands.describe(
+        name="The card's name",
+        text="Add the card's text under the picture",
+        rulings="Add Sirlin's rulings on the card under the picture",
+    )
+    async def card(
+        self,
+        interaction: discord.Interaction,
+        name: str,
+        text: bool = False,
+        rulings: bool = False,
+    ) -> None:
         slug = catalog().find(name)
         if slug is None:
             await interaction.response.send_message(
@@ -133,15 +164,26 @@ class ReferenceMixin:
                 ephemeral=True,
             )
             return
-        await self.tokens.refresh()
-        text = card_answer(slug, self.tokens.render)
         picture = catalog().by_slug(slug).picture
-        if picture is not None and picture.is_file():
-            await interaction.response.send_message(
-                text, file=discord.File(picture, filename=picture.name),
-            )
-        else:
-            await interaction.response.send_message(text)
+        if picture is not None and not picture.is_file():
+            picture = None
+        await self.tokens.refresh()
+        # The picture is the answer, and the words go under it. Discord
+        # draws a message's text above its attachment, so they are a
+        # follow-up to the picture's response -- a second message that
+        # sits straight beneath it. A card with no picture (the worker) is
+        # answered with its text whether or not that was asked for.
+        words = card_answer(
+            slug, self.tokens.render, text=text or picture is None, rulings=rulings,
+        )
+        if picture is None:
+            await interaction.response.send_message(words)
+            return
+        await interaction.response.send_message(
+            file=discord.File(picture, filename=picture.name),
+        )
+        if words:
+            await interaction.followup.send(words)
 
     @card.autocomplete("name")
     async def card_autocomplete(

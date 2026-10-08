@@ -479,11 +479,20 @@ commit, so a test says exactly the card it means.
 ## The reference commands
 
 `/codex card <name>` answers in the channel with the card's picture
-attached, and under it, as plain text -- nothing in this bot is an
-embed (the author, 2026-10-07) -- the name, the type line, the cost and
-numbers (a hero's three bands), the text, Sirlin's rulings with their
-authors and dates, and the database's page. `/codex rules <keyword>`
-answers with a keyword's rulings as the official rules they are.
+and nothing else (the author, 2026-10-08): the card already shows its
+name, its cost, its numbers and its text. Two options, both off unless
+asked for, add words **under** the picture -- `text:True` the name, the
+type line, the cost and numbers (a hero's three bands) and the printed
+text; `rulings:True` Sirlin's rulings with their authors and dates --
+and the database's page under whichever is there, as plain text:
+nothing in this bot is an embed (the author, 2026-10-07). Discord draws
+a message's text above its attachment, so the words are a follow-up to
+the picture's response, a second message that sits straight beneath it
+(the author asked for the rulings below the picture, not above). A card
+with no picture -- the worker -- is answered with its text whether or
+not that was asked for, since a lookup that shows nothing answers
+nothing. `/codex rules <keyword>` answers with a keyword's rulings as
+the official rules they are.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
 rulings that do not fit and leaving them to the link, measured after
