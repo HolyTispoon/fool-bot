@@ -75,6 +75,9 @@ class DiscordBatching(Batching):
 PROMPT_VIEWS = {
     PromptKind.MAIN_ACTION: TurnPanelView,
     PromptKind.CHOOSE_DEFENDER: TurnPanelView,
+    PromptKind.OBLITERATE_CHOICE: TurnPanelView,
+    PromptKind.SPARKSHOT_TARGET: TurnPanelView,
+    PromptKind.OVERPOWER_TARGET: TurnPanelView,
     PromptKind.PATROL: PatrolView,
     PromptKind.TECH_CHOICE: TechChoiceView,
     PromptKind.TECH_CONFIRM: TechConfirmView,

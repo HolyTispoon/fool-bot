@@ -32,6 +32,16 @@ from gamesaves.codex.service import GameResult
 LOGGER = logging.getLogger(__name__)
 
 PANEL_NOTE = "*Only you can see this.*"
+
+#: The prompts whose panel is pictured with the asked player's hand: the
+#: main phase, and the questions asked inside an attack, which are the
+#: same panel going on.
+PANEL_HAND_KINDS = (
+    PromptKind.CHOOSE_DEFENDER,
+    PromptKind.OBLITERATE_CHOICE,
+    PromptKind.SPARKSHOT_TARGET,
+    PromptKind.OVERPOWER_TARGET,
+)
 NOTHING_ASKED = "Nothing is asked of you now."
 STEP_OWED = (
     "The game has a step of its own to run before anybody is asked anything: "
@@ -105,7 +115,7 @@ class TurnsMixin:
             extra.append(caption())
         if prompt.kind is PromptKind.MAIN_ACTION:
             files = [await hand_file(self.engine, match, prompt.asked_player, prompt.options.hand)]
-        elif prompt.kind is PromptKind.CHOOSE_DEFENDER:
+        elif prompt.kind in PANEL_HAND_KINDS:
             files = [await hand_file(self.engine, match, prompt.asked_player)]
         else:
             picture = await self.render_prompt(game, prompt)

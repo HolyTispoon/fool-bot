@@ -337,6 +337,14 @@ class WholeGameTests(TurnTestCase):
         options = view.prompt.options
         if view.prompt.kind is PromptKind.CHOOSE_DEFENDER:
             return await table.choose(view, "", options.defenders[0])
+        # The three questions an attack asks inside itself: the panel's
+        # one menu, whichever it is.
+        if view.prompt.kind is PromptKind.OBLITERATE_CHOICE:
+            return await table.choose(view, "", options.units[0])
+        if view.prompt.kind is PromptKind.SPARKSHOT_TARGET:
+            return await table.choose(view, "", options.patrollers[0])
+        if view.prompt.kind is PromptKind.OVERPOWER_TARGET:
+            return await table.choose(view, "", options.targets[0])
         if options.hero.action == "summon" and not options.hero.why_not:
             return await table.press(view, "Summon")
         cards = [row for row in options.playable if row.allowed]
