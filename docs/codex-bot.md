@@ -205,12 +205,16 @@ ever keeps is a shootout order. Codex is a hidden-information game.
 
 ### What the three outside sources give
 
-- **The rulebook** (`Codex_UMR_v13w.pdf`, 24 pages): the rules, a
-  glossary of every keyword, and a card FAQ -- Dean Ray Johnson's
-  compilation of Sirlin Games' manual and Chris Franka's rulings
-  document, under fair use. Its rules become code; its words are not
-  ours to bundle. The page numbers above are the only thing the plan
-  takes from it verbatim.
+- **The rulebook** (`Codex_UMR_v13w.pdf`, 24 pages, at
+  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true):
+  the rules, a glossary of every keyword, and a card FAQ (pp. 19-22) --
+  Dean Ray Johnson's compilation of Sirlin Games' manual and Chris
+  Franka's rulings document, under fair use. The author prefers it to
+  the official rulebooks (https://sirlingames.com/rulebooks), with which
+  it should agree on every matter (2026-10-08). Its rules become code;
+  its words are not ours to bundle. The page numbers above are the only
+  thing the plan takes from it verbatim, and every card is read against
+  it as well as the database.
 - **The card database** (`codexcarddb.com`, source at
   `github.com/rgdelato/codex-cards-gatsby`): every card's text, type,
   cost, stats and tech level, each hero's three bands, and Sirlin's
@@ -750,6 +754,15 @@ Hard rules for every step:
   rulebook's text and a ruling differ the ruling governs. A rules
   question is answered from the rulings first and taken to the author
   only when they are silent.
+- Read every card you implement against the card database AND the
+  rulebook -- its rules, its glossary and its Card FAQ (pp. 19-22) --
+  not the database alone. The rulebook to read is the Unofficial
+  Manual Rewrite v1.3, which the author prefers:
+  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true
+  (cited as "UMR p. n"). The official rulebooks are at
+  https://sirlingames.com/rulebooks; the two should agree on every
+  matter, and a disagreement is a question for the author. Neither is
+  committed to this repository: fetch it, read it, cite its pages.
 - Card art wherever a card exists: the board's tiles, the panel's hand
   and /codex card show the cards' own pictures from codex/images/cards/;
   nothing is redrawn that a card already shows, and drawn tiles are

@@ -115,6 +115,14 @@ its source.
   model writes tokens and the cog renders them at its door
   (`cogs.codex_helpers.CodexTokens`), as D12 Ball's do; nothing else in
   the text is reworded. `{codex}` is the bot's own mark.
+- **The rulebook is the Unofficial Manual Rewrite v1.3**
+  (https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true),
+  which the author prefers to the official rulebooks
+  (https://sirlingames.com/rulebooks) and which should agree with them on
+  every matter (2026-10-08). Its pages are cited as `UMR p. n`, its Card
+  FAQ is pp. 19-22, and every card is read against it as well as the
+  database -- step 6's were, on 2026-10-08. It is not committed: its
+  words are Sirlin Games' and the rewrite's.
 - **The rulings are the official rules of the game** (the author,
   2026-10-08). `codex/rulings.py` reads them -- `rulings_for(slug)` for a
   card's, `keyword_rulings(keyword)` for the `General` group's -- each
@@ -506,11 +514,21 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   before the damage (`TRIGGERS` among combat's stages), once, and where
   one destroyed the defender the attacker chooses again, as after
   obliterate. Troq's 1 to the base can end the game before the damage.
-- **No cast is taken back.** A spell is paid and its card leaves the
-  hand when it is played; there is no Cancel on its target as there is
-  on an attacker's defender, since the first part may already have
-  resolved by the time a later one asks. Undo to the start of the turn
-  is the way back.
+- **A spell or an ability may be taken back while it asks a target**
+  (the author, 2026-10-08): `TARGET`'s `cancel`, offered where
+  `TargetOptions.cancellable` says. A cancel does not unpick the cast by
+  hand -- a part may already have resolved unasked, a resist been paid,
+  a card destroyed -- it **replays the turn** from its snapshot up to
+  the action that played it (`history.replay`, the frame's
+  `cancel_from`), so everything comes back exactly: the gold, the card to
+  its place in the hand, the exhausted card readied. A tech choice the
+  other player saved meanwhile is replayed after, since it is theirs.
+  Neither the cancel nor what it took back stays in the journal or the
+  event log, so a later replay of the turn is still byte for byte. Two
+  things are not cancelled: a trigger, which is no choice and must
+  resolve; and a cast that has drawn its caster a card (Appel Stomp),
+  since a card seen cannot be unseen -- the reason an undo deals the
+  same cards.
 
 **What happens to a card is `codex.flow.board`'s, whoever did it**, so a
 unit The Boot destroys dies exactly as one destroyed in combat does -- to
@@ -547,15 +565,26 @@ control.
 - **Tokens** are units with no card behind them: summoned into play,
   trashed when they leave it, never in a hand, a deck or a discard pile.
   Harmony's Dancer is limited to three -- **counted across both faces**,
-  Dancers and Angry Dancers, since an Angry Dancer is the same token
-  flipped (a reading the rulings leave open, put to the author) -- and
+  Dancers and Angry Dancers: "the same card but flipped" (the author,
+  2026-10-08) -- and
   "stop the music" flips each Dancer its player controls by changing its
   slug to the Angry Dancer's (`flipped` set), its runes and damage kept and
   nothing arriving (the Dancer ruling).
 - **Two Step's partners are its `attached`**, chosen as two `TARGET`
   parts among its controller's units not already partnered (Two Step's
-  ruling). A Two Step that found one partner holds it and gives nothing;
-  one that found none stays in play doing nothing.
+  ruling). **It is played only with two partners to choose**
+  (`Effect.whole`): "Sacrifice this spell if either partner leaves play or
+  leaves your control" (UMR p. 22, the Card FAQ) speaks of a Two Step that
+  has both (the author, 2026-10-08). It is the one effect that does not
+  "do as much as it can" (UMR p. 16).
+- **Two readings the rulebook settles** (UMR v1.3, read card by card
+  against the database on 2026-10-08): a building under construction
+  can't be dealt damage the turn it was started (p. 8; p. 9 for
+  add-ons), so it is not offered to Wrecking Ball, Brick Thief's damage,
+  Trojan Duck or Maestro's ability; and a hero's kill gives two levels
+  only "when you destroy an *opponent's* hero" (p. 10) -- a hero killed by
+  its own controller's spell gives nobody levels (`board.destroy`'s
+  `cause`).
 - **The upkeep order is asked only where it changes something**: healing
   and Star-Crossed Starlet's damage both due, so healing her first or
   after decides whether she survives (Starlet's ruling). `begin_turn`
