@@ -385,8 +385,12 @@ and the step's prompt is rewritten rather than argued with.
    name. All 310 cards and 20 heroes come in at once, so a later spec is
    code, not data. No card art is bundled; `/codex card` links the
    database's page. **What it costs:** the texts and rulings are Sirlin
-   Games' words, reproduced as the fan database reproduces them; whether
-   that is fine for a private playtest bot is question 1.
+   Games' words, reproduced in a public repository as the fan database
+   reproduces them. The author took that on 2026-10-07 (question 1);
+   the alternatives weighed and set aside were the facts alone in the
+   tree with the prose fetched per checkout, the bot speaking only in
+   its own words with the rulings as cited paraphrases, and a private
+   home for the prose.
 
 7. **A card's rules are code keyed by its slug: keywords as a closed
    table, unique text as one handler per card, and every ruling a
@@ -452,10 +456,13 @@ Each step's PR carries a `## Questions to the author` section; these
 are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one.
 
-1. **Card text and rulings bundled as data in this repository** -- the
+1. ~~**Card text and rulings bundled as data in this repository** -- the
    fan database reproduces them openly, and a bot cannot play without
    the text. Built as yes. If no, the import stays and the data moves
-   out of the tree into `data/` on each checkout, fetched at startup.
+   out of the tree into `data/` on each checkout, fetched at startup.~~
+   Answered by the author on 2026-10-07: yes, everything goes in the
+   tree -- the texts and the rulings beside the facts, as decision 6
+   has it.
 2. **A rendered board image, or Discord embeds?** Built as the image
    (decision 5). Embeds are a smaller first step and a worse board.
 3. **No undo at all?** Built as none (decision 11). The alternative
