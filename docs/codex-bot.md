@@ -402,27 +402,50 @@ and the step's prompt is rewritten rather than argued with.
    2026-10-07). When a turn begins the cog posts the turn's message:
    its text "Turn 7 -- perrytom (Bashing)" and the lines the turn has
    said so far, its attachment the board `codex/render.py` draws with
-   Pillow in `asyncio.to_thread`. **The board is the game's own art**
-   (the author, 2026-10-08: card art wherever possible, and the board
-   art from screentop.gg): each side is the Screentop module's playmat
-   -- the hero slots, the five labelled patrol slots with their bonuses
-   printed, the add-on slot, the base, the Tech I, II and III places,
-   the workers area, the draw and discard piles -- with the game laid
-   on it where the mat has a place for it: the hero as its own card
-   with its level chit, patrollers in their slots, the built tech
-   buildings and add-on as the module's tiles with their damage, the
-   draw pile as the card back with its count, the discard and the
-   workers as counts, and the play zone's units as the cards' own
-   pictures across the mat's open middle, each carrying its damage and
-   rune chits, turned sideways when exhausted and marked when it
-   arrived this turn; the gold, hand and codex counts in a strip. The
-   two mats are **stacked** -- the table seen from the active player's
-   side, their mat below and the other player's above it, turned round
-   to face them (the author, 2026-10-08) -- or **side by side**, and a
+   Pillow in `asyncio.to_thread`. **The board is the game's own art,
+   drawn element by element** (the author, 2026-10-08: card art
+   wherever possible, the pieces from screentop.gg, and no playmat --
+   step 3 laid the position on the module's mat, and the author's
+   review of the design canvas,
+   https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f, replaced it with
+   a panel built from parts, so that less of the picture is anything
+   but cards and nothing is drawn for a place the position does not
+   use). Each side is a **panel**: cards at 200 by 273 (the art at
+   61%) in columns of 200 -- five in the basic game, seven in the
+   standard one, the count the game's and fixed when it starts so the
+   picture's width holds from turn to turn; a column of buildings on
+   the left, the mat's left edge kept -- the add-on slot, Tech III, II
+   and I as the module's tiles, greyed until built, the house chit on
+   one under construction or destroyed, and the base with a heart drawn
+   over its tile carrying the HP it has now; the patrol zone across the
+   top of the grid on the mat's blue, its five slots the mat's own
+   pictures cut from the playmat with their bonuses printed under them,
+   a patroller's card covering its slot; the command zone as a rounded
+   plate per hero, the hero's card lying on it in full with its
+   summoning-rune chit while off the field and the plate empty while
+   the hero is on it; the field after the plates in the same rows --
+   the heroes first with their level chits, then the units, each with
+   its damage and rune chits, an ARRIVED tag the turn it came, and on
+   its side at 73% with the exhaust glyph and the word when exhausted
+   -- rows added as the position needs, so the panel's height follows
+   it; and a nameplate along the outer edge with the player, the spec
+   and hero, and GOLD, WORKERS, HAND, DECK, DISCARD and CODEX as a word
+   and a count each, the active player's carrying a gold rule and
+   "<Hero>'s turn <n>". Nothing of the playmat is drawn but the five
+   patrol cuts; the draw, discard and workers are counts, since a box
+   printed for a pile says nothing a number does not. The two panels
+   are **stacked**, the default -- the table seen from the active
+   player's side, their panel below and the other player's above it,
+   turned round whole to face them so the two patrol zones meet, its
+   nameplate alone kept the right way up (the author, 2026-10-08) --
+   or **side by side**, neither turned, and a
    button on the turn message swaps the game
    between the two (the author, 2026-10-08); the layout is the game's,
    kept on the record, so everyone sees the same picture. Nothing is
-   drawn that the module or a card already shows. After every action the
+   drawn that a piece or a card already shows, the base's HP apart.
+   What the canvas left open on 2026-10-08 -- which of three ways to
+   mark an exhausted card, and whether the ground is flat or the mat's
+   leather -- step 7's PR asks. After every action the
    message is edited with the new lines and the re-rendered board; when
    the turn
    ends it is edited a last time and stands, so the channel's history
@@ -646,8 +669,8 @@ answer says what it builds until it has one.
 9. ~~**Which specs after Bashing and Finesse?**~~ Answered by the
    author on 2026-10-08: all six colours, two at a time -- red and
    green first, then purple and black, then white and blue. The data
-   for all twenty specs comes in at step 1; the colours are steps 9 to
-   12, after the basic game.
+   for all twenty specs comes in at step 1; the colours are steps 10 to
+   13, after the basic game.
 
 ## The steps
 
@@ -667,12 +690,13 @@ starting.
 | ~~4~~ | ~~The turn on Discord, and the two undos~~ -- landed; what it settled is in docs/design/codex.md, "The turn on Discord" | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | ~~5~~ | ~~The keywords~~ -- landed; what it settled is in docs/design/codex.md, "The keywords" and "Which choices an attack asks, and which it does not" | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | ~~6~~ | ~~Triggers, spells and the ongoing spells~~ -- landed; what it settled is in docs/design/codex.md, "Targeting and the effects" | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
-| 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
-| 8 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 7 remains byte-identical in two places |
-| 9 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
-| 10 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
-| 11 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
-| 12 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
+| 7 | The board drawn element by element | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
+| 8 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
+| 9 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
+| 10 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
+| 11 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
+| 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
+| 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
 | -- | Later, and not now | -- | |
 
 ### Claiming a step
@@ -706,7 +730,7 @@ every emoji to upload to the Codex application, any Discord-side
 setup; "Nothing to do on the live host" when that is true) and what can
 be tested in the server now, command by command, with what should
 happen and what is not expected to work yet. A step whose section has
-no prompt (9 to 12, until the author writes them) stops the routine
+no prompt (10 to 13, until the author writes them) stops the routine
 with a report, never a guess. A PR it opened that is closed without
 merging is a rejected step: it does not open it again, and a human
 claims the step to redo it.
@@ -1736,7 +1760,115 @@ Stop: a whole Bashing-against-Finesse game on the test server with the
 author on one side, and nothing refused that the rulebook allows.
 ```
 
-### 7. Finishing a game: concede, abandon, rematch, the golden
+### 7. The board drawn element by element
+
+Decision 5 as the author's review of the design canvas left it on
+2026-10-08: the playmat step 3 laid the position on goes, and each side
+becomes a panel built from the module's pieces and the cards' own art,
+so that less of the picture is anything but cards and nothing is drawn
+for a place the position does not use. Step 6 landed before this was
+decided, which is why it is step 7 and not part of step 3: everything
+step 3 built around the picture -- the turn message, the gate, the
+WebP, the scale, the two layouts and the swap, `stacked_seats` -- stays;
+what changes is the drawing. The canvas,
+https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f, is the sketch this
+step draws from: its plan board carries every number below, its states
+board every state, its "Stacked, facing" board what the bot posts.
+
+```text
+Step 7 of docs/codex-bot.md. Steps 1 to 6 have landed. Also read
+docs/design/codex.md, "The board on Discord" and "The cards are data" (the art), and
+docs/design/board-image.md. Decision 5 says what the board is; this
+step draws it, from the author's design canvas
+(https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f -- the plan board
+has the sizes, the states board every state, "Exhausted, three ways"
+the open choice). Three commits: the pieces; the panel; the layouts
+and the sample.
+
+1. The pieces. scripts/import_codex_cards.py cuts five more pieces,
+   from the playmat itself rather than a sheet: the patrol slots as
+   the mat prints them, each 200 by 273 at y 38 and x 688, 917, 1143,
+   1371 and 1597 (squad_leader, elite, scavenger, technician, lookout),
+   and under each its bonus strip, 200 by 41 at y 311, into
+   codex/images/board/patrol_slots/<slot>.png and <slot>_bonus.png,
+   with the boxes pinned beside BOARD_SHEETS and --cut-only re-cutting
+   them. The white-on-blue icons under patrol/ stay. The house chit
+   (chits/house.png) is the construction mark (UMR p. 8), and the mark
+   on a destroyed building.
+2. The panel. codex/render.py draws one player as render_panel(...) at
+   the pixels the canvas was drawn at, Roboto Slab for every word and
+   number:
+   - cards 200 by 273 (the art at 61%); columns of 200 with 16 between
+     and 20 of padding; five columns in the basic game, seven in the
+     standard one (three plates and four cards in the first row) -- the
+     count is the game's, fixed when it starts, so the picture's width
+     holds from turn to turn; chits 50 to 62 wide (damage/, levels/,
+     time_runes/, chits/plus_rune.png, chits/house.png);
+   - a column of buildings on the left, 160 wide, the mat's left edge
+     kept, top to bottom: the add-on slot (a dashed outline, or the
+     add-on's card at 82 by 114), Tech III, II and I as the module's
+     tiles at 160 by 114 -- greyed (grayscale, half opacity) until
+     built, in colour once built, the house chit on a top corner while
+     under construction, dark with the house chit when destroyed, a
+     damage chit on a damaged one -- and the base tile with a heart
+     drawn over its printed one carrying the HP it has now (the tile
+     prints 20; the heart is drawn because the number changes);
+   - the patrol zone across the top of the grid on the mat's blue
+     (#244990): the five slot cuts in order, each bonus strip under
+     its slot; a patroller's card covers its slot, chits and all, the
+     bonus still under it;
+   - the command zone as a rounded plate per hero (one, or three): a
+     dark plate (#3a2a1c, a 2-pixel #8a6a3a edge) labelled COMMAND
+     ZONE, the hero's card lying on it in full at 170 by 232 with its
+     time-rune chit while off the field, the plate empty while the hero
+     is on the field;
+   - the field after the plates in the same rows: the heroes first,
+     then the units, each its card -- a level chit top left (a hero), a
+     damage chit over the stats, a rune chit top right, an ARRIVED tag
+     the turn it came -- and, exhausted, turned on its side at 73% in
+     the lower part of its cell with the exhaust glyph and the word
+     EXHAUSTED in the height it leaves free; rows of the column count,
+     added as the position needs, so the panel's height follows it.
+     Draw this; the author may choose another of the canvas's three
+     ways (square cells at full size; upright, dimmed, with a band) on
+     this step's PR, and the choice is one function;
+   - a nameplate along the panel's outer edge, 56 tall: the player, the
+     spec and hero, then GOLD (the gold emoji's picture), WORKERS, HAND,
+     DECK, DISCARD and CODEX as a word and a count each; the active
+     player's nameplate carries a gold rule and "<Hero>'s turn <n>" in
+     a gold pill.
+   Nothing of the playmat is drawn beyond the five cuts; playmat.png
+   stays as the reference the layout was taken from. The ground is flat
+   (#231a14 on #15100c) unless the author answers the canvas's question
+   with the mat's leather, tiled from a plain patch of it.
+3. The layouts and the sample. render_board(match, layout) composes
+   two panels: stacked, the default -- the active player's below, the
+   other player's above it turned round whole so the two patrol zones
+   face each other, its nameplate alone kept the right way up
+   (stacked_seats as it is), a 36-pixel divider between them reading
+   "<Hero>'s turn <n>" -- or side by side, the first player's on the
+   left, a vertical divider between, neither turned. The interface,
+   BOARD_SCALE, the WebP, the gate and Swap view are untouched; the
+   picture's size changes with the position, which the gate already
+   allows for. scripts/render_codex_sample.py renders the opening
+   position, a mid-game position and every state on the canvas's states
+   board, in both layouts; put the pictures in the PR beside the
+   canvas's boards they should match.
+
+Record in docs/design/codex.md: rewrite "The board on Discord" to what
+is drawn and why the mat went, keeping what stays (the message, the
+gate, the WebP, the layouts, the turn's view), and add the five cuts
+to "The cards are data" beside the other cuts. No save field changes; a test of how the board looks is
+not added (the author's rule for everything printed).
+
+Done when: the board is two panels in either layout at the sizes
+above; the suite is green; the sample pictures match the canvas.
+
+Stop: a mid-game board on the test server, stacked, looked at beside
+the canvas's "Stacked, facing" board.
+```
+
+### 8. Finishing a game: concede, abandon, rematch, the golden
 
 What a game needs after its last turn, and the safety net under
 everything before it. No statistics and no archive export for this bot
@@ -1744,7 +1876,7 @@ everything before it. No statistics and no archive export for this bot
 way and nothing is written from it.
 
 ```text
-Step 7 of docs/codex-bot.md. Steps 1 to 6 have landed. Also read
+Step 8 of docs/codex-bot.md. Steps 1 to 7 have landed. Also read
 docs/design/recovery.md and tests/test_golden_service.py (the golden
 you copy). Two commits: the ending; the golden.
 
@@ -1784,16 +1916,16 @@ aside; the golden pins a game; the suite is green.
 Stop: a game finished on the test server, its rematch opened.
 ```
 
-### 8. The look back: what turned out identical moves to one home
+### 9. The look back: what turned out identical moves to one home
 
 Decision 2's second half. With two games running, the generic and the
 particular can finally be told apart by diffing them.
 
 ```text
-Step 8 of docs/codex-bot.md. Steps 1 to 7 have landed. Also read
+Step 9 of docs/codex-bot.md. Steps 1 to 8 have landed. Also read
 docs/design/cog-structure.md and docs/design/game-service.md.
 
-Diff, pair by pair, what steps 1 to 7 copied: codex/flow/result.py
+Diff, pair by pair, what steps 1 to 8 copied: codex/flow/result.py
 against d12ball/flow/result.py, codex/flow/driver.py against
 d12ball/flow/driver.py, codex/tokens.py against d12ball/tokens.py,
 codex/wire.py against d12ball/wire.py, gamesaves/codex/storage.py and
@@ -1823,7 +1955,7 @@ suites are green, and both bots run.
 Stop: the PR's list of pairs, read by the author.
 ```
 
-### 9 to 12. After the basic game
+### 10 to 13. After the basic game
 
 The author's order, given on 2026-10-08: all six colours, two at a
 time -- red and green first, then purple and black, then white and
@@ -1833,26 +1965,26 @@ and the heroes' hall, the spec chosen at Tech II and the tech lab, the
 starting deck's colour, the multicolour penalties (UMR p. 4, 6, 8, 9)
 -- and the Codex button's menu gains a view per spec of the player's
 three, since a seventy-two card codex is three binders (the author,
-2026-10-08). Step 9 builds those rules over the red and green data
+2026-10-08). Step 10 builds those rules over the red and green data
 with every card
 still played for its numbers, so the standard game is playable before
-a single red or green effect exists; step 10 gives red and green their
+a single red or green effect exists; step 11 gives red and green their
 effects and rulings, the way steps 5 and 6 did for the neutral set,
 and lands on Calamandra against Jaina, the Core Set's own first game
-(UMR p. 3); steps 11 and 12 repeat step 10 for the other two pairs.
-Their prompts are written when step 8 lands, in the shape of steps 5
-and 6, from the design note as it stands then. Nothing in steps 1 to 8
+(UMR p. 3); steps 12 and 13 repeat step 11 for the other two pairs.
+Their prompts are written when step 9 lands, in the shape of steps 5
+and 6, from the design note as it stands then. Nothing in steps 1 to 9
 builds any of it, and everything in them is written so that it fits.
 
 ## What is not in these prompts, on purpose
 
-- **The standard game and the six colours, in steps 1 to 8.** They
-  are steps 9 to 12, in the order the author gave on 2026-10-08 --
+- **The standard game and the six colours, in steps 1 to 9.** They
+  are steps 10 to 13, in the order the author gave on 2026-10-08 --
   the standard game's rules first, then red and green, purple and
-  black, white and blue -- with prompts written when step 8 lands.
-  Everything in steps 1 to 8 is written so that they fit: the seats by
+  black, white and blue -- with prompts written when step 9 lands.
+  Everything in steps 1 to 9 is written so that they fit: the seats by
   spec, the add-on as data, the hero as a list later, every colour's
-  data and art imported at step 1. Nothing in steps 1 to 8 builds them.
+  data and art imported at step 1. Nothing in steps 1 to 9 builds them.
 - **An AI opponent.** Decision 13. The first one worth writing is a
   random legal player for the tests, not an opponent.
 - **Maps, free-for-all and two-headed dragon.** Deluxe variants and

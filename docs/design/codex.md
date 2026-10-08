@@ -299,7 +299,7 @@ snapshot it led to already holds its effects.
 plays its text, and `tests/test_codex_effects.py` says where each one's
 text lives -- a keyword the engine reads, or a row of the tables in
 `codex.effects` ("Targeting and the effects", below). The table's job
-is done until the next spec (step 9) brings cards the engine has not
+is done until the next spec (step 10) brings cards the engine has not
 met; a card with text nothing plays fails that test until it is
 handled or listed. What follows is how it got there.
 
