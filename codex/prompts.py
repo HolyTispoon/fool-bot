@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from codex import tokens
 from codex.components import PATROL_SLOTS, MatchState
-from codex.engine import BuildOption, HeroOption, HireOption, PlayableCard
+from codex.engine import BuildOption, DetectOption, HeroOption, HireOption, PlayableCard
 from codex.flow.result import FollowOn, FollowOnStep
 from codex.wire import jsonable
 
@@ -60,6 +60,15 @@ class PromptKind(Enum):
     #: The start of a turn: the picks shown to their owner, confirmed or
     #: changed, before the ready phase runs.
     TECH_CONFIRM = "tech_confirm"
+    #: Obliterate X, before combat: which of the defending player's
+    #: equally low-tech units it takes (UMR p. 17) -- asked only on a tie.
+    OBLITERATE_CHOICE = "obliterate_choice"
+    #: Sparkshot: which patroller beside the one attacked takes its 1
+    #: damage (UMR p. 18) -- asked only where both neighbours are filled.
+    SPARKSHOT_TARGET = "sparkshot_target"
+    #: Overpower: where the excess over the patroller attacked goes
+    #: (UMR p. 17) -- asked only where more than one thing could take it.
+    OVERPOWER_TARGET = "overpower_target"
     #: A base is destroyed (UMR p. 2).
     GAME_OVER = "game_over"
 
@@ -77,6 +86,8 @@ class MainActionOptions:
     buildings: tuple[BuildOption, ...]
     attackers: tuple[str, ...]
     end_main: bool = True
+    #: The tower's detection on its owner's own turn (UMR p. 9).
+    detect: DetectOption = DetectOption()
     #: The hand card by card in its order, duplicates kept, each with
     #: its cost and why it may not be played (`hand_rows`): what the
     #: panel's picture numbers, and what a hire may trash.
@@ -86,7 +97,7 @@ class MainActionOptions:
         return jsonable({
             "hire": self.hire, "hero": self.hero, "playable": self.playable,
             "buildings": self.buildings, "attackers": self.attackers,
-            "end_main": self.end_main, "hand": self.hand,
+            "end_main": self.end_main, "detect": self.detect, "hand": self.hand,
         })
 
 
@@ -146,6 +157,54 @@ class TechConfirmOptions:
 
 
 @dataclass(frozen=True)
+class ObliterateOptions:
+    """The defending player's equally low-tech units, and how many
+    obliterate has left to take."""
+
+    attacker: str
+    units: tuple[str, ...]
+    left: int = 1
+
+    def to_dict(self) -> dict:
+        return {"attacker": self.attacker, "units": list(self.units), "left": self.left}
+
+
+@dataclass(frozen=True)
+class SparkshotOptions:
+    """The two neighbours, how many instances of sparkshot are still to
+    place (each asked on its own), and where the placed ones went."""
+
+    attacker: str
+    defender: str
+    patrollers: tuple[str, ...]
+    left: int = 1
+    placed: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict:
+        return {
+            "attacker": self.attacker, "defender": self.defender,
+            "patrollers": list(self.patrollers), "left": self.left,
+            "placed": list(self.placed),
+        }
+
+
+@dataclass(frozen=True)
+class OverpowerOptions:
+    """Where the excess may go, and how much it is."""
+
+    attacker: str
+    defender: str
+    excess: int
+    targets: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "attacker": self.attacker, "defender": self.defender,
+            "excess": self.excess, "targets": list(self.targets),
+        }
+
+
+@dataclass(frozen=True)
 class GameOverOptions:
     winner: int
 
@@ -155,7 +214,8 @@ class GameOverOptions:
 
 PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
-    TechConfirmOptions, GameOverOptions,
+    TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
+    GameOverOptions,
 ]
 
 
@@ -213,12 +273,15 @@ class Action:
 #: The answers each kind offers. A kind with one answer offers "".
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MAIN_ACTION: (
-        "hire", "summon", "level", "play", "build", "attack", "end_main",
+        "hire", "summon", "level", "play", "build", "attack", "detect", "end_main",
     ),
     PromptKind.CHOOSE_DEFENDER: ("", "cancel"),
     PromptKind.PATROL: ("",),
     PromptKind.TECH_CHOICE: ("",),
     PromptKind.TECH_CONFIRM: ("confirm", "change"),
+    PromptKind.OBLITERATE_CHOICE: ("",),
+    PromptKind.SPARKSHOT_TARGET: ("",),
+    PromptKind.OVERPOWER_TARGET: ("",),
     PromptKind.GAME_OVER: (),
 }
 
@@ -238,8 +301,32 @@ def _tech_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, choose your tech: the cards go to your discard pile when your next turn begins."
 
 
+def _obliterate_ask(seat: int) -> str:
+    return (
+        f"{tokens.player(seat)}, obliterate takes their lowest-tech units: "
+        "choose which one goes."
+    )
+
+
+def _sparkshot_ask(seat: int) -> str:
+    return f"{tokens.player(seat)}, choose which patroller sparkshot hits."
+
+
+def _overpower_ask(seat: int) -> str:
+    return f"{tokens.player(seat)}, choose where overpower's excess goes."
+
+
 def _confirm_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, your turn: confirm your tech choice, or change it."
+
+
+#: The stage an attack waits at, as the prompt that asks it
+#: (`codex.flow.combat`). A stage with nothing to choose never waits.
+COMBAT_PROMPTS = {
+    "obliterate": (PromptKind.OBLITERATE_CHOICE, _obliterate_ask),
+    "sparkshot": (PromptKind.SPARKSHOT_TARGET, _sparkshot_ask),
+    "overpower": (PromptKind.OVERPOWER_TARGET, _overpower_ask),
+}
 
 
 # -- The options -------------------------------------------------------------
@@ -249,7 +336,33 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
     legal = engine.legal_actions(match)
     return MainActionOptions(
         legal.hire, legal.hero, legal.playable, legal.buildings, legal.attackers,
-        legal.end_main, engine.hand_rows(match, match.active),
+        legal.end_main, legal.detect, engine.hand_rows(match, match.active),
+    )
+
+
+def _obliterate_options(engine, game, match, prompt) -> ObliterateOptions:
+    state = match.combat
+    return ObliterateOptions(
+        state["attacker"], engine.obliterate_candidates(match), state["obliterate"],
+    )
+
+
+def _sparkshot_options(engine, game, match, prompt) -> SparkshotOptions:
+    state = match.combat
+    placed = tuple(state["sparks"])
+    return SparkshotOptions(
+        state["attacker"], state["defender"],
+        engine.sparkshot_candidates(match, state["attacker"], state["defender"]),
+        engine.sparkshot_count(match, state["attacker"]) - len(placed), placed,
+    )
+
+
+def _overpower_options(engine, game, match, prompt) -> OverpowerOptions:
+    state = match.combat
+    return OverpowerOptions(
+        state["attacker"], state["defender"],
+        engine.overpower_excess(match, state["attacker"], state["defender"]),
+        engine.overpower_candidates(match, state["attacker"], state["defender"]),
     )
 
 
@@ -288,6 +401,9 @@ OPTIONS = {
     PromptKind.PATROL: _patrol_options,
     PromptKind.TECH_CHOICE: _tech_options,
     PromptKind.TECH_CONFIRM: _confirm_options,
+    PromptKind.OBLITERATE_CHOICE: _obliterate_options,
+    PromptKind.SPARKSHOT_TARGET: _sparkshot_options,
+    PromptKind.OVERPOWER_TARGET: _overpower_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -330,6 +446,9 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             return tech_prompt(seat, match)
         return FollowOn(FollowOnStep.BEGIN_TURN)
     if match.phase == "main":
+        if match.combat is not None and match.combat["stage"] in COMBAT_PROMPTS:
+            kind, ask = COMBAT_PROMPTS[match.combat["stage"]]
+            return PendingPrompt(kind, ask(seat), seat)
         if match.attacking is not None:
             return PendingPrompt(
                 PromptKind.CHOOSE_DEFENDER,

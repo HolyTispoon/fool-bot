@@ -27,10 +27,11 @@ from dataclasses import dataclass
 from random import Random  # the one Random; nothing reads the module's functions
 from typing import Iterable, Optional, Sequence
 
-from codex import effects
+from codex import effects, keywords
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
 from codex.components import (
     HERO,
+    AddOnState,
     PATROL_SLOTS,
     TECH_BUILDINGS,
     CardInstance,
@@ -82,6 +83,12 @@ SUMMONING_RUNES_ON_DEATH = 2
 LEVELS_FOR_A_KILL = 2
 #: What a destroyed tech building or add-on deals to its base (UMR p. 8).
 BUILDING_DESTROYED_DAMAGE = 2
+#: What the tower does on its owner's behalf (UMR p. 9): one damage to
+#: each attacker it can see, and one detection a turn.
+TOWER = "tower"
+TOWER_DAMAGE = 1
+#: Sparkshot's damage to a neighbouring patroller (UMR p. 18).
+SPARKSHOT_DAMAGE = 1
 #: The patrol slots' bonuses (UMR p. 10).
 SQUAD_LEADER_ARMOR = 1
 ELITE_ATK = 1
@@ -165,6 +172,26 @@ class BuildOption:
 
 
 @dataclass(frozen=True)
+class DetectOption:
+    """The tower's detection on its owner's own turn (UMR p. 9): one
+    opposing stealth or invisible card named for the rest of the turn,
+    once a turn."""
+
+    allowed: bool = False
+    candidates: tuple[str, ...] = ()
+    why_not: str = ""
+    #: Whether this player has a finished tower at all -- whether the
+    #: action is theirs to be offered, disabled or not.
+    tower: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "allowed": self.allowed, "candidates": list(self.candidates),
+            "why_not": self.why_not, "tower": self.tower,
+        }
+
+
+@dataclass(frozen=True)
 class LegalActions:
     hire: HireOption
     hero: HeroOption
@@ -172,6 +199,7 @@ class LegalActions:
     buildings: tuple[BuildOption, ...]
     attackers: tuple[str, ...]
     end_main: bool = True
+    detect: DetectOption = DetectOption()
 
 
 class RulesEngine:
@@ -262,21 +290,24 @@ class RulesEngine:
 
     def attack_value(self, match: MatchState, seat: int, ref: str) -> int:
         """
-        What `ref` on `seat`'s side deals in combat: its ATK, and the
-        elite's +1 while it patrols there (UMR p. 10). A building deals
-        nothing.
+        What `ref` on `seat`'s side deals in combat: its ATK, the elite's
+        +1 while it patrols there (UMR p. 10), and frenzy X on its
+        controller's own turn (UMR p. 16). A building deals nothing.
         """
         player = match.player(seat)
         if ref == HERO:
-            atk = self.hero_stats(player.hero)[0]
-            slot = player.hero.patrol_slot
+            body = player.hero
+            atk = self.hero_stats(body)[0]
         elif ref.startswith("unit:"):
-            card = player.instance(int(ref.split(":", 1)[1]))
-            atk = self.unit_stats(card)[0]
-            slot = card.patrol_slot
+            body = player.instance(int(ref.split(":", 1)[1]))
+            atk = self.unit_stats(body)[0]
         else:
             return 0
-        return atk + (ELITE_ATK if slot == "elite" else 0)
+        if body.patrol_slot == "elite":
+            atk += ELITE_ATK
+        if seat == match.active:
+            atk += self.keyword_x(body, "Frenzy")
+        return atk
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -424,17 +455,31 @@ class RulesEngine:
                                      self.why_not_playable(player, slug)))
         return tuple(rows)
 
+    def may_attack_with(self, body) -> bool:
+        """
+        Whether a unit or hero in play may attack: ready, and either not
+        fatigued from arriving this turn or hasted (UMR p. 10, 16), and
+        -- for readiness, which does not exhaust -- not having attacked
+        already this turn (UMR p. 17).
+        """
+        if body.exhausted:
+            return False
+        if body.arrived_this_turn and not self.has_keyword(body, "Haste"):
+            return False
+        if body.attacked_this_turn:
+            return False
+        return True
+
     def attackers(self, match: MatchState) -> tuple[str, ...]:
-        """The active player's units and hero that may attack: in play,
-        ready, and not fatigued from arriving this turn (UMR p. 10)."""
+        """The active player's units and hero that may attack
+        (`may_attack_with`)."""
         player = match.active_player
         found = [
             card.ref for card in player.play
-            if self.catalog.cards[card.slug].is_unit
-            and not card.exhausted and not card.arrived_this_turn
+            if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card)
         ]
         hero = player.hero
-        if hero.in_play and not hero.exhausted and not hero.arrived_this_turn:
+        if hero.in_play and self.may_attack_with(hero):
             found.append(HERO)
         return tuple(found)
 
@@ -449,46 +494,435 @@ class RulesEngine:
                 for building in (*TECH_BUILDINGS, *ADD_ONS)
             ),
             attackers=self.attackers(match),
+            detect=self.detect_option(match),
         )
+
+    # -- The keywords -----------------------------------------------------------
+    #
+    # The closed table of decision 7 (`codex.keywords`), read here and
+    # nowhere else: a keyword is a question this engine answers about a
+    # position, and the flow and the frontend ask it. The rules are UMR
+    # p. 14, 16-18, with Sirlin's rulings governing (docs/design/codex.md,
+    # "The keywords").
+
+    def body(self, match: MatchState, seat: int, ref: str):
+        """
+        The unit or hero `ref` names on `seat`'s side -- `None` for a
+        building, the base and the add-on, which have no keywords of
+        their own (the tower's are the add-on's, read where it acts).
+        """
+        player = match.player(seat)
+        if ref == HERO:
+            return player.hero if player.hero.in_play else None
+        instance_id = unit_ref(ref)
+        if instance_id is None:
+            return None
+        return player.instance(instance_id)
+
+    def has_keyword(self, body, keyword: str) -> bool:
+        """Whether a thing in play has `keyword` -- the one reading, over
+        `codex.keywords`."""
+        return body is not None and keywords.has_keyword(body, keyword)
+
+    def keyword_x(self, body, keyword: str) -> int:
+        return 0 if body is None else keywords.keyword_x(body, keyword)
+
+    def has(self, match: MatchState, seat: int, ref: str, keyword: str) -> bool:
+        """Whether what `ref` names on `seat`'s side has `keyword`."""
+        return self.has_keyword(self.body(match, seat, ref), keyword)
+
+    def resist_cost(self, match: MatchState, seat: int, ref: str) -> int:
+        """
+        What an opponent pays to target what `ref` names on `seat`'s side
+        (UMR p. 18): its resist, the lookout's 1 among it, and it stacks.
+        The payment itself is step 6's targeting.
+        """
+        return self.keyword_x(self.body(match, seat, ref), "Resist")
+
+    def healing(self, player: PlayerState) -> int:
+        """How much damage this player's upkeep heals off each of their
+        units and heroes (UMR p. 17): every healing X they control,
+        each healing once."""
+        total = sum(self.keyword_x(card, "Healing") for card in player.play)
+        if player.hero.in_play:
+            total += self.keyword_x(player.hero, "Healing")
+        return total
+
+    # -- The tower ------------------------------------------------------------
+
+    def tower(self, player: PlayerState) -> Optional[AddOnState]:
+        """This player's tower, finished and standing, or `None`
+        (UMR p. 9)."""
+        add_on = player.add_on
+        if add_on is not None and add_on.slug == TOWER and add_on.active:
+            return add_on
+        return None
+
+    def hidden(self, match: MatchState, seat: int, ref: str) -> str:
+        """`"invisible"`, `"stealth"` or `""` -- how what `ref` names on
+        `seat`'s side is hidden (UMR p. 17, 18)."""
+        body = self.body(match, seat, ref)
+        if self.has_keyword(body, "Invisible"):
+            return "invisible"
+        if self.has_keyword(body, "Stealth"):
+            return "stealth"
+        return ""
+
+    def detected_by(self, match: MatchState, watcher: int, ref: str) -> bool:
+        """
+        Whether `watcher`'s detector sees what `ref` names: their tower
+        has detected that card this turn, and a detection lasts the rest
+        of the turn (Sirlin, 2016-03-14).
+
+        A tower whose detection is still unspent already sees the
+        opponent's attackers, because "on an opponent's turn, your tower
+        uses its detect ability the first time it can" (Sirlin,
+        2016-03-14) -- so a hidden attacker cannot sneak past a tower that
+        has not detected yet, and the attack spends the detection
+        (`tower_detects`). On its owner's own turn a tower sees only what
+        it has detected, which is the `detect` action's to name.
+        """
+        tower = self.tower(match.player(watcher))
+        if tower is None:
+            return False
+        if tower.detected == ref:
+            return True
+        return tower.detected is None and watcher != match.active
+
+    def tower_detects(self, match: MatchState, attacker: str) -> bool:
+        """
+        Whether the defending tower uses its detection on this attacker:
+        the attacker is hidden and the tower has not detected anything
+        this turn. "On an opponent's turn, your tower uses its detect
+        ability the first time it can" (Sirlin, 2016-03-14) -- so it
+        fires even on an attacker that is also unstoppable, which it then
+        damages without stopping (Sirlin, 2016-03-19).
+        """
+        other = 2 if match.active == 1 else 1
+        tower = self.tower(match.player(other))
+        if tower is None or tower.detected is not None:
+            return False
+        return bool(self.hidden(match, match.active, attacker))
+
+    def tower_sees(self, match: MatchState, attacker: str) -> bool:
+        """Whether the defending tower can see this attacker, and so
+        deals its damage to it (UMR p. 9): anything not hidden, and a
+        hidden thing it detected this turn."""
+        other = 2 if match.active == 1 else 1
+        if self.tower(match.player(other)) is None:
+            return False
+        if not self.hidden(match, match.active, attacker):
+            return True
+        return self.detected_by(match, other, attacker)
+
+    def detect_option(self, match: MatchState) -> DetectOption:
+        """
+        The tower's detection as an action on its owner's own turn
+        (UMR p. 9): one opposing stealth or invisible card, named for the
+        rest of the turn, once a turn.
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        tower = self.tower(match.active_player)
+        if tower is None:
+            return DetectOption(why_not="you have no finished tower")
+        if tower.detected is not None:
+            return DetectOption(why_not="your tower has detected this turn", tower=True)
+        candidates = []
+        for ref in self._things_in_play(match, other):
+            if self.hidden(match, other, ref) and not self.detected_by(match, seat, ref):
+                candidates.append(ref)
+        if not candidates:
+            return DetectOption(why_not="nothing of theirs is hidden", tower=True)
+        return DetectOption(True, tuple(candidates), tower=True)
 
     # -- Combat ---------------------------------------------------------------
 
+    def _things_in_play(self, match: MatchState, seat: int) -> tuple[str, ...]:
+        """The units and the hero on `seat`'s side, as refs."""
+        player = match.player(seat)
+        found = [card.ref for card in player.play if self.catalog.cards[card.slug].is_unit]
+        if player.hero.in_play:
+            found.append(HERO)
+        return tuple(found)
+
+    def _standing(self, match: MatchState, seat: int) -> tuple[str, ...]:
+        """Everything on `seat`'s side with HP: the units and hero in
+        play, the tech buildings and add-on standing, and the base."""
+        player = match.player(seat)
+        found = list(self._things_in_play(match, seat))
+        found.extend(
+            name for name in TECH_BUILDINGS
+            if player.buildings[name] is not None and not player.buildings[name].destroyed
+        )
+        if player.add_on is not None:
+            found.append("add_on")
+        found.append("base")
+        return tuple(found)
+
+    def may_be_attacked(self, match: MatchState, attacker: str, target: str) -> bool:
+        """
+        Whether the active player's `attacker` may attack `target` on the
+        other side: a building always; a flier only by a flier or an
+        anti-air attacker (UMR p. 16); an invisible card not patrolling
+        only by somebody with a detector (UMR p. 17).
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        body = self.body(match, other, target)
+        if body is None:
+            return True
+        if (
+            self.has_keyword(body, "Invisible")
+            and body.patrol_slot is None
+            and not self.detected_by(match, seat, target)
+        ):
+            return False
+        if self.has_keyword(body, "Flying"):
+            hitting = self.body(match, seat, attacker)
+            if not (self.has_keyword(hitting, "Flying") or self.has_keyword(hitting, "Anti-air")):
+                return False
+        return True
+
+    def ignores_patrollers(self, match: MatchState, attacker: str) -> str:
+        """
+        Why this attacker may ignore the patrol zone altogether, or `""`:
+        `"unstoppable"` (UMR p. 18), or `"stealth"` / `"invisible"` while
+        no detector of theirs sees it -- "sneaking past" (Sirlin,
+        2016-03-14). Flying is not here: a flier is stopped by a flying
+        patroller.
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        body = self.body(match, seat, attacker)
+        if body is None:
+            return ""
+        if self.has_keyword(body, "Unstoppable"):
+            return "unstoppable"
+        hidden = self.hidden(match, seat, attacker)
+        if hidden and not self.detected_by(match, other, attacker):
+            return hidden
+        return ""
+
+    def blocking_patrollers(self, match: MatchState, attacker: str) -> dict[str, str]:
+        """
+        Slot to patroller, for the patrollers that stop this attacker: a
+        flier is stopped by flying patrollers alone, a ground attacker by
+        ground ones alone -- "you only stop an attacker if it's on the
+        same level as you" (Sirlin, 2016-03-14) -- and nothing stops one
+        that sneaks past or is unstoppable. An anti-air ground patroller
+        may attack a flier but is not forced to, so it stops none.
+        """
+        if self.ignores_patrollers(match, attacker):
+            return {}
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        flying = self.has(match, seat, attacker, "Flying")
+        blocking = {}
+        for slot, ref in match.player(other).patrollers().items():
+            if self.has(match, other, ref, "Flying") != flying:
+                continue
+            if not self.may_be_attacked(match, attacker, ref):
+                continue
+            blocking[slot] = ref
+        return blocking
+
     def legal_defenders(self, match: MatchState, attacker: str) -> tuple[str, ...]:
-        """
-        Who `attacker` may take, in the three priorities (UMR p. 10): the
-        squad leader alone while there is one; otherwise any patroller;
-        otherwise anything with HP -- the units and hero in play, the tech
-        buildings and add-on standing, and the base. Flying, stealth and
-        the rest change this in step 5.
-        """
+        """Who `attacker` may take, in the three priorities (UMR p. 10),
+        as the keywords change them (`defender_rows`)."""
         return tuple(ref for ref, _ in self.defender_rows(match, attacker))
 
     def defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
         """
-        `legal_defenders`, each with why it is legal -- "squad leader",
-        "patroller", or "nothing is patrolling" -- the priority that
-        makes it so (UMR p. 10), for a frontend to say beside it.
+        `legal_defenders`, each with why it is legal -- the priority that
+        makes it so (UMR p. 10), for a frontend to say beside it: the
+        squad leader alone while one stops this attacker, then any
+        patroller that stops it, then anything of theirs with HP it can
+        attack, with why the patrol zone does not hold it.
         """
-        defending = match.opponent(match.active)
-        leader = defending.patroller("squad_leader")
-        if leader is not None:
-            return ((leader, "squad leader"),)
-        patrollers = defending.patrollers()
-        if patrollers:
+        other = 2 if match.active == 1 else 1
+        blocking = self.blocking_patrollers(match, attacker)
+        if blocking:
+            leader = blocking.get("squad_leader")
+            if leader is not None:
+                return ((leader, "squad leader"),)
             return tuple(
-                (patrollers[slot], "patroller") for slot in PATROL_SLOTS if slot in patrollers
+                (blocking[slot], "patroller") for slot in PATROL_SLOTS if slot in blocking
             )
-        found = [card.ref for card in defending.play if self.catalog.cards[card.slug].is_unit]
-        if defending.hero.in_play:
-            found.append(HERO)
-        found.extend(
-            name for name in TECH_BUILDINGS
-            if defending.buildings[name] is not None and not defending.buildings[name].destroyed
+        why = self._open_why(match, attacker)
+        return tuple(
+            (ref, why) for ref in self._standing(match, other)
+            if self.may_be_attacked(match, attacker, ref)
         )
-        if defending.add_on is not None:
-            found.append("add_on")
-        found.append("base")
-        return tuple((ref, "nothing is patrolling") for ref in found)
+
+    def _open_why(self, match: MatchState, attacker: str) -> str:
+        """Why nothing in the patrol zone holds this attacker."""
+        other = 2 if match.active == 1 else 1
+        if not match.player(other).patrollers():
+            return "nothing is patrolling"
+        sneaking = self.ignores_patrollers(match, attacker)
+        if sneaking == "unstoppable":
+            return "it is unstoppable"
+        if sneaking:
+            return "it sneaks past the patrol zone"
+        if self.has(match, match.active, attacker, "Flying"):
+            return "it flies over the patrol zone"
+        return "no patroller can stop it"
+
+    def flown_over(self, match: MatchState, attacker: str, defender: str) -> tuple[str, ...]:
+        """
+        The patrollers this flier flew over to reach `defender`, each of
+        which deals its combat damage to it if it has anti-air (Sirlin,
+        2016-03-14). A flier flies over the ground patrollers it had to
+        get past: every one of them when it attacks something that is not
+        patrolling, and the squad leader alone when it attacks another
+        patroller -- the patrollers of its own priority were never in its
+        way. Nothing is flown over where the attacker could ignore the
+        patrol zone without flying: "no fly over happened there".
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        if not self.has(match, seat, attacker, "Flying"):
+            return ()
+        if self.ignores_patrollers(match, attacker):
+            return ()
+        patrollers = match.player(other).patrollers()
+        slot_of = {ref: slot for slot, ref in patrollers.items()}
+        taken = slot_of.get(defender)
+        over = []
+        for slot, ref in patrollers.items():
+            if ref == defender or self.has(match, other, ref, "Flying"):
+                continue
+            if taken is not None and slot != "squad_leader":
+                continue
+            over.append(ref)
+        return tuple(over)
+
+    def damage_back(self, match: MatchState, attacker: str, defender: str) -> int:
+        """
+        What the defender deals back (UMR p. 11): its ATK -- nothing for a
+        building, and nothing at all to a flier from a ground defender
+        without anti-air, which "cannot even attack a flier" (Sirlin,
+        2016-03-14).
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        body = self.body(match, other, defender)
+        if body is None:
+            return 0
+        if self.has(match, seat, attacker, "Flying") and not (
+            self.has_keyword(body, "Flying") or self.has_keyword(body, "Anti-air")
+        ):
+            return 0
+        return self.attack_value(match, other, defender)
+
+    def patrol_slot_of(self, match: MatchState, seat: int, ref: str) -> Optional[str]:
+        body = self.body(match, seat, ref)
+        return None if body is None else body.patrol_slot
+
+    def sparkshot_count(self, match: MatchState, attacker: str) -> int:
+        """How many instances of sparkshot this attacker has: each deals 1,
+        and they stack (Sirlin, 2016-09-16)."""
+        return self.keyword_x(self.body(match, match.active, attacker), "Sparkshot")
+
+    def sparkshot_candidates(self, match: MatchState, attacker: str,
+                             defender: str) -> tuple[str, ...]:
+        """
+        The patrollers a sparkshot attacker's 1 damage may go to: the
+        filled slots one over from the slot it attacked, and no further
+        -- "It can't hit something two slots away even if it's the
+        closest patroller" (Sirlin, 2016-03-11). A flier among them is
+        included, anti-air or not (Sirlin, 2016-03-14).
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        if not self.has(match, seat, attacker, "Sparkshot"):
+            return ()
+        slot = self.patrol_slot_of(match, other, defender)
+        if slot is None:
+            return ()
+        patrollers = match.player(other).patrollers()
+        index = PATROL_SLOTS.index(slot)
+        found = []
+        for step in (-1, 1):
+            beside = index + step
+            if 0 <= beside < len(PATROL_SLOTS):
+                ref = patrollers.get(PATROL_SLOTS[beside])
+                if ref is not None:
+                    found.append(ref)
+        return tuple(found)
+
+    def overpower_excess(self, match: MatchState, attacker: str, defender: str) -> int:
+        """
+        The combat damage beyond what destroys the patroller attacked --
+        its remaining HP and its armor (the author, 2026-10-08: "if the
+        overpowering attacker destroys a patroller with armor, the excess
+        damage goes to anything else it could attack") -- counted whether
+        it dies or not (Sirlin, 2016-03-14), and only against a
+        patroller, since "overpower does nothing when you attack a
+        non-patroller".
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        if not self.has(match, seat, attacker, "Overpower"):
+            return 0
+        if self.patrol_slot_of(match, other, defender) is None:
+            return 0
+        body = self.body(match, other, defender)
+        if body is None:
+            return 0
+        hp = (self.unit_stats(body)[1] if isinstance(body, CardInstance)
+              else self.hero_stats(body)[1])
+        needed = max(0, hp - body.damage) + body.armor
+        return max(0, self.attack_value(match, seat, attacker) - needed)
+
+    def overpower_candidates(self, match: MatchState, attacker: str,
+                             defender: str) -> tuple[str, ...]:
+        """
+        Where overpower's excess may go: one other thing this attacker
+        could have attacked, the other patrollers it could have taken
+        first and anything of theirs with HP only where there are none
+        (Sirlin, 2016-09-13). It never cascades past one (Sirlin,
+        2016-03-14).
+        """
+        seat = match.active
+        other = 2 if seat == 1 else 1
+        if not self.overpower_excess(match, attacker, defender):
+            return ()
+        patrollers = [
+            ref for slot, ref in match.player(other).patrollers().items()
+            if ref != defender and self.may_be_attacked(match, attacker, ref)
+        ]
+        if patrollers:
+            return tuple(patrollers)
+        return tuple(
+            ref for ref in self._standing(match, other)
+            if ref != defender and self.may_be_attacked(match, attacker, ref)
+        )
+
+    def obliterate_count(self, match: MatchState, attacker: str) -> int:
+        """Obliterate's X on this attacker (UMR p. 17)."""
+        return self.keyword_x(self.body(match, match.active, attacker), "Obliterate")
+
+    def obliterate_candidates(self, match: MatchState) -> tuple[str, ...]:
+        """
+        The defending player's lowest-tech units -- what obliterate
+        destroys, the attacker choosing between equals (UMR p. 17).
+        Obliterate never targets, so resist and invisibility do not help
+        against it (Sirlin, 2016-03-14), and heroes are not units.
+        """
+        other = 2 if match.active == 1 else 1
+        units = [
+            card for card in match.player(other).play
+            if self.catalog.cards[card.slug].is_unit
+        ]
+        if not units:
+            return ()
+        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
+        return tuple(
+            card.ref for card in units
+            if (self.catalog.cards[card.slug].tech_level or 0) == lowest
+        )
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready

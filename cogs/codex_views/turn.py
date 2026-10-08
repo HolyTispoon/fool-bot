@@ -3,7 +3,9 @@
 decision 4; docs/design/codex.md, "The panel"): **one ephemeral message
 edited in place by its own interactions**, the cards in the hand
 pictured above it, the main phase's actions under it. The view for
-`MAIN_ACTION` and `CHOOSE_DEFENDER`.
+`MAIN_ACTION` and `CHOOSE_DEFENDER`, and for the three choices an attack
+asks inside itself -- obliterate's tie, sparkshot's neighbour and
+overpower's excess -- each a menu of what the prompt offers.
 
 Every control is built from the prompt's options and nothing else --
 `MainActionOptions` for the actions, `DefenderOptions` for the defender
@@ -127,8 +129,16 @@ class TurnPanelView(PanelView):
         options = prompt.options
         if prompt.kind is PromptKind.CHOOSE_DEFENDER:
             self.build_defenders(options)
+        elif prompt.kind is PromptKind.OBLITERATE_CHOICE:
+            self.build_obliterate(options)
+        elif prompt.kind is PromptKind.SPARKSHOT_TARGET:
+            self.build_sparkshot(options)
+        elif prompt.kind is PromptKind.OVERPOWER_TARGET:
+            self.build_overpower(options)
         elif mode == "hire":
             self.build_hire(options)
+        elif mode == "detect":
+            self.build_detect(options)
         elif mode == "undo":
             self.build_undo(undo_targets or {})
         else:
@@ -169,6 +179,15 @@ class TurnPanelView(PanelView):
                         None, row=0, disabled=True)
         self.button("Undo...", discord.ButtonStyle.secondary, self.open_undo, row=0)
         self.button("End main phase", discord.ButtonStyle.danger, self.end_main, row=0)
+        detect = options.detect
+        if detect.tower:
+            # Only a player with a finished tower is offered its
+            # detection at all; the engine says whether it may be used.
+            self.button(
+                "Detect..." if detect.allowed else _cut(f"Detect: {detect.why_not}", 80),
+                discord.ButtonStyle.secondary, self.open_detect, row=0,
+                disabled=not detect.allowed,
+            )
 
         numbers = hand_numbers(options)
         playable = [row for row in options.playable if row.allowed][:SELECT_LIMIT]
@@ -280,6 +299,32 @@ class TurnPanelView(PanelView):
     async def hire(self, interaction: discord.Interaction, slug: str) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "hire", {"slug": slug}))
 
+    # -- The tower's detection ---------------------------------------------
+
+    async def open_detect(self, interaction: discord.Interaction) -> None:
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        await self.show(interaction, TurnPanelView(
+            self.cog, self.game_id, self.prompt, self.match, mode="detect",
+        ))
+
+    def build_detect(self, options) -> None:
+        """What the tower may detect, as the engine offers it (UMR p. 9)."""
+        other = 2 if self.seat == 1 else 1
+        self.menu(
+            "Detect with your tower...", "Nothing of theirs is hidden", 0,
+            [
+                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
+                for ref in options.detect.candidates[:SELECT_LIMIT]
+            ],
+            self.detect,
+        )
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
+
+    async def detect(self, interaction: discord.Interaction, ref: str) -> None:
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "detect", {"card": ref}))
+
     async def back(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
         if game is None:
@@ -307,6 +352,56 @@ class TurnPanelView(PanelView):
 
     async def cancel_attack(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.CHOOSE_DEFENDER, "cancel"))
+
+    # -- The choices inside an attack ----------------------------------------
+
+    def build_obliterate(self, options) -> None:
+        """Which of the equally low-tech units obliterate takes."""
+        other = 2 if self.seat == 1 else 1
+        self.menu(
+            f"Obliterate {options.left}: which unit goes?", "Nothing to obliterate", 0,
+            [
+                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
+                for ref in options.units[:SELECT_LIMIT]
+            ],
+            self.obliterate,
+        )
+
+    async def obliterate(self, interaction: discord.Interaction, ref: str) -> None:
+        await self.act(interaction, Action(PromptKind.OBLITERATE_CHOICE, "", {"unit": ref}))
+
+    def build_sparkshot(self, options) -> None:
+        """Which patroller beside the one attacked takes sparkshot's 1."""
+        other = 2 if self.seat == 1 else 1
+        placeholder = "Sparkshot hits..."
+        if options.left > 1 or options.placed:
+            placeholder = f"Sparkshot hits... ({options.left} of its damage left to place)"
+        self.menu(
+            placeholder, "No patroller is beside it", 0,
+            [
+                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
+                for ref in options.patrollers[:SELECT_LIMIT]
+            ],
+            self.sparkshot,
+        )
+
+    async def sparkshot(self, interaction: discord.Interaction, ref: str) -> None:
+        await self.act(interaction, Action(PromptKind.SPARKSHOT_TARGET, "", {"patroller": ref}))
+
+    def build_overpower(self, options) -> None:
+        """Where overpower's excess goes."""
+        other = 2 if self.seat == 1 else 1
+        self.menu(
+            f"Overpower carries {options.excess} over to...", "Nothing can take it", 0,
+            [
+                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
+                for ref in options.targets[:SELECT_LIMIT]
+            ],
+            self.overpower,
+        )
+
+    async def overpower(self, interaction: discord.Interaction, ref: str) -> None:
+        await self.act(interaction, Action(PromptKind.OVERPOWER_TARGET, "", {"target": ref}))
 
     # -- Undo ----------------------------------------------------------------
 

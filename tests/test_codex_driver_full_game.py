@@ -79,6 +79,12 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
                                        "picks": _tech_picks(engine, options)})
     if kind is PromptKind.TECH_CONFIRM:
         return Action(kind, "confirm", {"player": prompt.asked_player})
+    if kind is PromptKind.OBLITERATE_CHOICE:
+        return Action(kind, arguments={"unit": options.units[0]})
+    if kind is PromptKind.SPARKSHOT_TARGET:
+        return Action(kind, arguments={"patroller": options.patrollers[0]})
+    if kind is PromptKind.OVERPOWER_TARGET:
+        return Action(kind, arguments={"target": options.targets[0]})
     if kind is PromptKind.CHOOSE_DEFENDER:
         defender = "base" if "base" in options.defenders else options.defenders[0]
         return Action(kind, arguments={"defender": defender})

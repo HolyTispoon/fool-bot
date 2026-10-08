@@ -263,8 +263,8 @@ class CombatTests(unittest.TestCase):
 
 
 class PatrolSlotTests(unittest.TestCase):
-    def test_the_squad_leaders_armour(self) -> None:
-        """Armour 1, used up by the first damage of the turn and set again
+    def test_the_squad_leaders_armor(self) -> None:
+        """Armor 1, used up by the first damage of the turn and set again
         when a turn begins (UMR p. 10)."""
         engine, game, match = main_phase()
         leader = put(match, 2, "regularsized_rhinoceros", patrol="squad_leader")

@@ -21,7 +21,9 @@ the game's channel, the board, and each player's hand shown to them
 alone. Step 4 put the whole turn there -- the panel, the turn message
 rolled over at the turn's end, the tech choice during the opponent's
 turn, the two undos and the resume -- so two people can finish a game
-on the vanilla engine. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+on the vanilla engine. Step 5 gave the engine the combat keywords, so
+every card whose text is a keyword plays in full and the tower is worth
+building. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -202,11 +204,12 @@ on the other player's turn, a dozen actions in one turn, and undo.
 
 | Kind | Asked of | What it asks |
 | --- | --- | --- |
-| `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played |
+| `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, detect with the tower (step 5), or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played |
 | `CHOOSE_DEFENDER` | the active player | which of `legal_defenders` the declared attacker takes, or `cancel` to take the attacker back; asked after the attacker, so a misclick costs nothing (decision 11) |
 | `PATROL` | the active player | slot to unit or hero, any left empty; ends the main phase (UMR p. 10) |
 | `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
 | `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
+| `OBLITERATE_CHOICE`, `SPARKSHOT_TARGET`, `OVERPOWER_TARGET` | the active player | the three choices inside an attack, each asked only where there is something to choose ("The keywords", below) |
 | `GAME_OVER` | nobody | a base is destroyed (UMR p. 2); answering it is refused until step 7's rematch |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
@@ -272,8 +275,18 @@ snapshot it led to already holds its effects.
 
 ### The vanilla engine and `UNIMPLEMENTED`
 
-The engine plays every card of the set for its cost and its numbers
-(decision 7). `codex.effects.UNIMPLEMENTED` lists every card whose text
+The engine played every card of the set for its cost and its numbers in
+step 2 (decision 7); step 5 took the keywords out of
+`UNIMPLEMENTED` -- Timely Messenger, Helpful Turtle, Fruit Ninja,
+Revolver Ocelot, Eggship, Harvest Reaper, Backstabber, Cloud Sprite,
+Leaping Lizard and the tower play in full, since their whole text is a
+keyword (or, for the tower, its detection and its damage). A card with a
+keyword *and* something else stays: Brick Thief has its resist and owes
+its arrives trigger, Sneaky Pig has its haste and owes its stealth,
+Trojan Duck obliterates and owes its 4 to a building. The Angry Dancer's
+unstoppable is played, and it stays in the set beside the Dancer it is
+flipped from, which nothing can make until step 6. What follows describes
+step 2's engine. `codex.effects.UNIMPLEMENTED` lists every card whose text
 it does not honour -- in step 2, every card of the basic set with any:
 36 slugs, the two heroes' bands, the two tokens and the two add-ons
 among them -- written out rather than computed, so the commit that
@@ -303,6 +316,118 @@ base at 0. Each is in `tests/test_codex_rules.py` with its page.
   the base; and the first player chooses tech at the end of their first
   turn like every other turn.
 
+### The keywords
+
+Step 5 made `codex/keywords.py` the table the engine reads (worksheet
+decision 7): `body_keywords(body)` is every keyword a thing in play has
+and `has_keyword` / `keyword_x` the two questions over it, and
+`RulesEngine` asks them wherever a keyword changes an answer. **Nothing
+else reads a card's text to decide a rule**, and nothing in `cogs/`
+knows a keyword at all -- the panel's menus are the prompts' options, as
+always.
+
+- **A keyword comes from three places**: the card's printed text (read
+  where a line *opens* with a keyword, so Sneaky Pig's "Arrives: Gets
+  stealth this turn" is an effect and not a keyword), a hero's bands up
+  to the level it has reached (`hero_keywords`: Troq has readiness from
+  8, not before), and **the patrol slot** -- the lookout grants resist 1,
+  which is the one slot bonus that is a keyword rather than arithmetic.
+  Step 6's granted abilities (Nimble Fencer's haste, Blademaster's swift
+  strike, Maestro's exhaust) come in through the same function.
+- **What stacks is a table** (`keywords.STACKING`, UMR p. 16 with
+  Sirlin's rulings on each): frenzy, resist and sparkshot stack, so Brick
+  Thief in the lookout slot is resist 2; anti-air and overpower do not,
+  so two instances read as one. Healing is each card's own ability rather
+  than a stacking keyword -- two Helpful Turtles heal twice because each
+  heals once. Sparkshot stacks in the engine as the ruling says, though
+  nothing in the basic set has it twice (the author, 2026-10-08: "build
+  it according to the rules"): each instance deals its 1 to a neighbour,
+  so two go to one patroller or one to each, `sparkshot_count` saying how
+  many.
+- **Who may be attacked, and who may be ignored.** `may_be_attacked`
+  answers the first -- a flier only by a flier or an anti-air attacker, an
+  invisible card only while patrolling or detected -- and
+  `blocking_patrollers` the second: a patroller stops an attacker only
+  on its own level ("you only stop an attacker if it's on the *same*
+  level as you"), so a ground patroller never stops a flier and a flying
+  patroller never stops a ground attacker, anti-air or not, since anti-air
+  *may* shoot up but is never forced to. `ignores_patrollers` is the
+  third answer -- unstoppable, or stealth and invisible while no detector
+  sees it -- and `defender_rows` says which of the three it was, so the
+  panel's menu can say why a defender is legal ("it flies over the patrol
+  zone", "it sneaks past the patrol zone", "it is unstoppable").
+- **A flier flew over the patrollers it had to get past**
+  (`flown_over`), and each of those with anti-air deals its ATK to it:
+  every ground patroller when it attacks something not patrolling, and the
+  squad leader alone when it attacks another patroller, since patrollers
+  of its own priority were never in its way (Sirlin, 2016-03-14). Where
+  the attacker could have ignored the patrol zone without flying, no fly
+  over happened and nothing shoots.
+- **The tower is a detector and a gun** (UMR p. 9). On an opponent's turn
+  it detects the first hidden attacker *the moment it attacks*, so
+  `detected_by` reads an unspent detection as already seeing the
+  attacker -- which is why a stealth attacker cannot sneak past a fresh
+  tower -- and `declare_attack` spends it. It then deals 1 damage to
+  every attacker it can see, which is anything not hidden and the one
+  hidden thing it detected, whatever that attacker is attacking, and
+  simultaneously with the rest of the combat damage, swift strike
+  included. On its owner's own turn the detection is an action instead
+  (`detect`, offered in `MainActionOptions.detect`), naming one hidden
+  card of the opponent's for the rest of the turn. Both are once a turn,
+  and `begin_turn` makes it new again.
+- **The damage lands in two batches** (`codex.flow.combat._resolve`):
+  swift strike's first, then everything else, with deaths taken between
+  them, so a card destroyed by swift strike deals nothing back and two
+  swift strikers are simultaneous. The tower's damage joins the first
+  batch there is, which is what "simultaneously as the swift strike"
+  means. Sparkshot's 1 and overpower's excess ride with the attacker's own
+  damage. **Overpower's excess is what is left once the patroller is
+  destroyed** -- its remaining HP *and* its armor -- so the patroller takes
+  exactly what destroys it and the rest goes on (the author, 2026-10-08:
+  "if the overpowering attacker destroys a patroller with armor, the
+  excess damage goes to anything else it could attack"); Reaper's 6 into
+  a 1/2 squad leader with armor 1 destroys it with 3 and carries 3; a building's damage is applied after the lines are said, since
+  buildings deal nothing back and kill nobody.
+- **Readiness does not exhaust, and attacks once a turn**, which is why
+  `CardInstance` and `HeroState` gained `attacked_this_turn` (cleared when
+  a turn begins, on both sides); `may_attack_with` is the one reading of
+  whether something may attack, haste's "no arrival fatigue" among it.
+  Frenzy X is in `attack_value`, on its controller's turn alone, and
+  healing X in the upkeep.
+
+### Which choices an attack asks, and which it does not
+
+**An attack is one action with choices inside it.** Three of the keywords
+ask something, and each is asked only where there is something to
+choose -- one adjacent patroller is no question. So the attack stands
+half-resolved on `MatchState.combat` (the attacker, the defender, what
+has been chosen and the stage it waits at), `pending` reads that stage as
+`OBLITERATE_CHOICE`, `SPARKSHOT_TARGET` or `OVERPOWER_TARGET`, and the
+answer carries the attack on from exactly there. The journal records the
+whole attack as the one action it is, which is why a stop may not cut it
+in two (`GameService`, above).
+
+| Asked | When | What |
+| --- | --- | --- |
+| `OBLITERATE_CHOICE` | two or more of the defending player's units are equally the lowest tech | which one obliterate takes, once per point of X, and a new defender (`CHOOSE_DEFENDER` again) where obliterate took the first |
+| `SPARKSHOT_TARGET` | both slots beside the one attacked are filled | which neighbour takes the 1 damage -- once per instance of sparkshot, so a stacked one may put both on one neighbour or one on each |
+| `OVERPOWER_TARGET` | more than one thing could take the excess | where it goes -- the other patrollers it could have attacked, or anything of theirs with HP where there are none |
+
+Not asked: whether to use flying, stealth, invisibility or unstoppable
+(they widen what may be attacked, and the choice is the defender); which
+anti-air patrollers shoot (every one flown over); whether the tower
+detects on the defender's turn (it does, the first time it can); the
+order of the damage (swift strike's is the rule, not a choice). The
+attack preview the step's prompt set aside -- what would happen if this
+attacker took that defender -- is **not built**: the board shows the
+position.
+
+**Once an attack has begun it cannot be taken back.** **Cancel** on the
+defender menu is still there for a misclick on the attacker, since
+nothing has happened then; after the defender is chosen, obliterate may
+have destroyed something and the tower may have spent its detection, so
+`cancel_attack` refuses while `MatchState.combat` stands.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -320,9 +445,15 @@ match as its saved dict, as D12 Ball's record does; its file,
 `data/codex_games.json`, is step 3's.
 
 - **Two fields beyond the worksheet's list** were needed: each card
-  and hero carries `armor` (what is left of the squad leader's armour
+  and hero carries `armor` (what is left of the squad leader's armor
   this turn, set when a turn begins), the hero its `patrol_slot`, and
   the match `attacking`. Each is in its table with its fallback.
+- **Step 5 added four**, each with its fallback, since the save format is
+  the contract: `attacked_this_turn` on a card and a hero (readiness
+  attacks once a turn), `detected` on the add-on (what the tower has
+  detected this turn), and `combat` on the match -- the attack standing
+  half-resolved while a choice inside it is asked, so a restart between
+  two clicks asks the same question.
 
 ### What the narration may say
 

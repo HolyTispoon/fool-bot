@@ -123,7 +123,15 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     hero.arrived_this_turn = False
     hero.patrol_slot = None
     player.hired_this_turn = False
-    # Armour refreshes at the start of every turn (UMR p. 10); only the
+    # Readiness attacks once a turn and a tower detects once a turn
+    # (UMR p. 9, 17), so both are new each turn, on both sides.
+    for side in match.players:
+        for card in side.play:
+            card.attacked_this_turn = False
+        side.hero.attacked_this_turn = False
+        if side.add_on is not None:
+            side.add_on.detected = None
+    # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
         for card in side.play:
@@ -147,6 +155,23 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     else:
         collected += f": {tokens.gold(player.gold)}."
     result.narration.append(collected)
+    healing = engine.healing(player)
+    if healing:
+        # Healing X, at its controller's upkeep (UMR p. 17): damage
+        # chits come off, and nothing else changes.
+        healed = 0
+        bodies = [card for card in player.play]
+        if hero.in_play:
+            bodies.append(hero)
+        for body in bodies:
+            taken = min(body.damage, healing)
+            body.damage -= taken
+            healed += taken
+        if healed:
+            result.narration.append(
+                f"{tokens.player(seat)} heals {healing} damage from each of their "
+                "units and heroes."
+            )
     if not hero.in_play and hero.summoning_runes:
         hero.summoning_runes -= 1
         result.narration.append(
