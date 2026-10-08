@@ -20,6 +20,7 @@ from typing import Optional
 DATA_DIR = Path(__file__).resolve().parent / "data"
 IMAGE_DIR = Path(__file__).resolve().parent / "images"
 CARD_IMAGE_DIR = IMAGE_DIR / "cards"
+BOARD_IMAGE_DIR = IMAGE_DIR / "board"
 
 KIND_CARD = "card"
 KIND_TOKEN = "token"
@@ -59,8 +60,19 @@ class Card:
 
     @property
     def picture(self) -> Optional[Path]:
-        """The card's own art, where the database has one."""
-        return CARD_IMAGE_DIR / f"{self.slug}.jpg" if self.sirlins_filename else None
+        """
+        The card's own art: the database's picture of a card, or the
+        Screentop module's face of a token or a building -- both imported
+        by scripts/import_codex_cards.py. None for the worker card, which
+        has neither.
+        """
+        if self.sirlins_filename:
+            return CARD_IMAGE_DIR / f"{self.slug}.jpg"
+        if self.kind == KIND_TOKEN:
+            return BOARD_IMAGE_DIR / "tokens" / f"{self.slug}.png"
+        if self.kind == KIND_BUILDING:
+            return BOARD_IMAGE_DIR / "buildings" / f"{self.slug}.png"
+        return None
 
 
 @dataclass(frozen=True)

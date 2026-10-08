@@ -56,6 +56,18 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("file" in kwargs, picture.is_file())
         await bot.close()
 
+    async def test_a_token_is_answered_with_its_face(self) -> None:
+        bot = codex_bot()
+        cog = Codex(bot)
+        cog.tokens.refresh = mock.AsyncMock()
+        interaction = mock.Mock()
+        interaction.response.send_message = mock.AsyncMock()
+        await cog.card.callback(cog, interaction, "dancer")
+        (text,), kwargs = interaction.response.send_message.call_args
+        self.assertTrue(text.startswith("**Dancer**"))
+        self.assertEqual(kwargs["file"].filename, "dancer.png")
+        await bot.close()
+
     async def test_an_unknown_card_is_refused_privately(self) -> None:
         bot = codex_bot()
         cog = Codex(bot)
