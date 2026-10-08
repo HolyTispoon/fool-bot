@@ -1669,7 +1669,9 @@ space has two lanes, the visitors' above and home's below.
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
   off a home holder's top right, a visiting holder's bottom left (low
-  by the foot, the author, 2026-10-08), or
+  by the foot and off its edge, the phone's narrow field included --
+  the author, 2026-10-08, who moved that holder's name right of the
+  ball, and down clear of it where the space is too narrow for that), or
   larger at the centre of an empty space.
 - **A space clips**: nothing on it -- a name, a badge, a fan -- leaves
   it, and a name is nudged to stay inside before the clip has to cut it.

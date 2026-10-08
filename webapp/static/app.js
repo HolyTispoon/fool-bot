@@ -1133,20 +1133,22 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
        count: the two right-aligned between the ball and the piece's
        right edge. */
     const foot = holds && side !== "home"
-      ? { from: piece.x + (narrow ? 17 : 14), to: piece.x + W + (narrow ? 4 : 8) }
+      ? { from: piece.x + (narrow ? 7 : 14), to: piece.x + W + (narrow ? 4 : 8) }
       : null;
     over.push(...badges(piece, piece.x, y, W, H, { foot }));
     if (holds) {
       /* Off the top right of a home holder, almost touching the
          shoulder; off the bottom left of a visiting one, low by the
          foot and over the edge (the author, 2026-10-08). */
-      /* Narrow, the space has no room beside the piece: the ball sits
-         on its shoulder, inside the space, rather than off it. */
+      /* Narrow, the space has no room beside a home piece: the ball
+         sits on its shoulder, inside the space, rather than off it. A
+         visiting one's is off its foot as on the field (the author,
+         2026-10-08). */
       const size = narrow ? 16 : 30;
       const place = narrow
         ? side === "home"
           ? `left: ${piece.x + W - size}px; top: ${y - size * 0.5}px`
-          : `left: ${piece.x}px; top: ${y + H - size * 0.6}px`
+          : `left: ${piece.x - size * 0.6}px; top: ${y + H - size * 0.6}px`
         : side === "home"
           ? `left: ${piece.x + W * 0.66}px; top: ${y - 22}px`
           : `left: ${piece.x - 18}px; top: ${y + H - 20}px`;
@@ -1158,18 +1160,24 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
     box.style.height = `${tall}px`;
     return box;
   }
-  /* Names front first, each centred under its own piece. */
+  /* Names front first, each centred under its own piece -- but a
+     visiting holder's starts past its ball, low by the foot, which
+     would cover the first letters (the author, 2026-10-08), and a
+     little lower, clear of it, for a name too long for the space to
+     let it start that far right. */
   let line = tall + 4;
   const byId = Object.fromEntries(drawn.pieces.map((p) => [p.id, p]));
   for (const id of drawn.names) {
     const piece = byId[id];
     const lit = id in marks;
     const held = Boolean(picked && picked.key === `player:${id}`);
+    const pastBall = side !== "home" && one.ball && one.ball.holder === id;
+    if (pastBall) line += 8;
     over.push(h(
       "span",
       {
-        class: `fan-name${lit || held ? " lit" : ""}`,
-        style: `left: ${piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
+        class: `fan-name${lit || held ? " lit" : ""}${pastBall ? " past-ball" : ""}`,
+        style: `left: ${pastBall ? piece.x + 14 : piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
       },
       piece.name,
     ));
@@ -1530,17 +1538,19 @@ function watchFit(box) {
   fit(box);
 }
 
-/* A name is centred under its own piece and kept inside its space,
-   which clips whatever is left over: nothing on the field leaves the
-   space it stands on. Measured in layout pixels, before the stage's
-   scale, so it is the same on every screen. */
+/* A name is centred under its own piece (or starts past the ball, on
+   a visiting holder) and kept inside its space, which clips whatever
+   is left over: nothing on the field leaves the space it stands on.
+   Measured in layout pixels, before the stage's scale, so it is the
+   same on every screen. */
 function clampNames(root) {
   for (const name of root.querySelectorAll(".fan-name")) {
     name.style.setProperty("--nudge", "0px");
     const fan = name.offsetParent;
     const space = name.closest(".space");
     if (!fan || !space || !name.offsetWidth) continue;
-    const left = fan.offsetLeft + name.offsetLeft - name.offsetWidth / 2;
+    const centred = !name.classList.contains("past-ball");
+    const left = fan.offsetLeft + name.offsetLeft - (centred ? name.offsetWidth / 2 : 0);
     const least = 4;
     const most = space.clientWidth - 4 - name.offsetWidth;
     const nudge = Math.max(least, Math.min(left, most)) - left;
