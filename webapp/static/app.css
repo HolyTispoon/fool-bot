@@ -406,6 +406,12 @@ img { display: block; }
   color: var(--strong);
 }
 .situation-where { font-family: "Board", serif; font-size: 13px; color: var(--muted); }
+.situation-cause {
+  margin: -2px 0 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text);
+}
 .situation-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

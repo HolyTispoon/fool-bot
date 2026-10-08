@@ -10,7 +10,7 @@ a human's pick and `play_ai_turn`'s pass through it, which is why
 
 **Four of the five functions here are wording**, and that is the point
 rather than an accident: `maneuver_winner_text` and
-`skill_test_headline` are the four ways a maneuver can land, worded,
+`skill_test_headline` (over `skill_test_cause`) are the four ways a maneuver can land, worded,
 and the wording rules are rules (principle 5). Who *won* is
 `settled_maneuver_winner`'s alone to say and always was; what moved is
 only the sentence about it.
@@ -146,40 +146,63 @@ def skill_test_headline(
     game: D12BallGame,
     match: MatchState,
     reveal: str,
-    outcome: str,
-    offense_name: str,
-    defense_name: str,
 ) -> str:
     """
-    Why a maneuver the cards did not settle is going to a skill test:
-    the two ranked the same, or the one that would have won is owed to
-    an injured player.
+    The reveal of a maneuver the cards did not settle, and why it is
+    going to a skill test (`skill_test_cause`).
     """
+    return f"{reveal}\n\n{skill_test_cause(engine, game, match)}\n\n"
+
+
+def skill_test_cause(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+) -> str:
+    """
+    Why a maneuver the cards did not settle is going to a skill test,
+    as one sentence: the two ranked the same, the one that would have
+    won is owed to an injured player, or the player whose card lost
+    forced it (Scorchit, Law 21). Read off the cards and the position
+    in the order `settled_maneuver_winner` reads them, so it stays true
+    for as long as the test is owed -- the reveal says it once, and the
+    web page's skill test says it beside the roll, re-rolls included.
+    """
+    offense_name = engine.maneuver_name(match.offense_maneuver)
+    defense_name = engine.maneuver_name(match.defense_maneuver)
+    outcome = engine.maneuver_catalog.resolve(
+        match.offense_maneuver, match.defense_maneuver,
+    )
     if outcome == "tie":
         # An ordinary tie -- both or neither participant is injured.
         return (
-            f"{reveal}\n\n"
             f"**{offense_name}** ties with **{defense_name}** — skill "
-            "test!\n\n"
+            "test!"
         )
 
     would_be_winner = offense_name if outcome == "offense" else defense_name
-
-    # An injured player's maneuver never wins outright -- they still
-    # have to win a skill test to make it stick.
-    injured_player_id = (
+    winner_id = (
         match.active_player_id
         if outcome == "offense"
         else match.challenger_id
     )
-    injured_player = engine.get_player_definition(injured_player_id)
-    word, emoji = injured_word_and_emoji(engine, game, injured_player_id)
+    if winner_id not in match.injured and match.forced_test_player:
+        forcer = engine.get_player_definition(match.forced_test_player)
+        return (
+            f"**{would_be_winner}** would win on the cards, but "
+            f"{engine.format_player_label(match, forcer)} forces a skill "
+            "test!"
+        )
+
+    # An injured player's maneuver never wins outright -- they still
+    # have to win a skill test to make it stick.
+    injured_player = engine.get_player_definition(winner_id)
+    word, emoji = injured_word_and_emoji(engine, game, winner_id)
     return (
-        f"{reveal}\n\n"
         f"**{would_be_winner}** would win, but "
         f"{engine.format_player_label(match, injured_player)} is "
-        f"**{word}** {emoji} -- "
-        "a skill test decides it instead!\n\n"
+        f"**{word}** {emoji} — "
+        "a skill test decides it instead!"
     )
 
 
@@ -306,13 +329,7 @@ def resolve_maneuver(
             FollowOnStep.BEGIN_MANEUVER_SKILL_TEST,
             {
                 "headline": skill_test_headline(
-                    engine,
-                    game,
-                    match,
-                    reveal,
-                    outcome,
-                    offense_name,
-                    defense_name,
+                    engine, game, match, reveal,
                 )
             },
         ),

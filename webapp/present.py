@@ -105,6 +105,7 @@ from d12ball.dice_brief import (
     score_attempt_brief,
 )
 from d12ball.flow.effects import OWN_GOAL_SAFE_TOTAL
+from d12ball.flow.turn import skill_test_cause
 from d12ball.special_abilities import SpecialAbility
 from d12ball.player_cards import species_ability, species_ability_reminder
 from d12ball.render import (
@@ -3076,6 +3077,35 @@ def _challenge_situation(
     }
 
 
+#: The skill test's heading, in the capitals the challenge's own
+#: (`render.CHALLENGE_TITLE`) and the injury check's are set in.
+SKILL_TEST_TITLE = "SKILL TEST"
+
+
+def _skill_test_situation(
+    engine: RulesEngine,
+    game: D12BallGame,
+    match: MatchState,
+    prompt: PendingPrompt,
+) -> Optional[dict]:
+    """
+    A maneuver the cards did not settle, at its roll: the same two
+    sides the challenge drew -- a maneuver's skill test pays an injured
+    player every modifier, so nothing on them changes -- under the
+    model's sentence saying why it is rolled (`skill_test_cause`: a
+    tie, an injured would-be winner, or a forced test). The reveal says
+    it once in the log; this is what the roll is asked beside.
+    """
+    challenge = _challenge_situation(engine, game, match, prompt)
+    if challenge is None:
+        return None
+    return {
+        **challenge,
+        "title": SKILL_TEST_TITLE,
+        "cause": render_text(game, skill_test_cause(engine, game, match)),
+    }
+
+
 def _shot_situation(
     engine: RulesEngine,
     game: D12BallGame,
@@ -3263,6 +3293,7 @@ SITUATIONS: Mapping[
     PromptKind.SCORE_ATTEMPT: _shot_situation,
     PromptKind.MANEUVER_ACTION: _challenge_situation,
     PromptKind.GAMBIT_ANSWER: _challenge_situation,
+    PromptKind.SKILL_TEST: _skill_test_situation,
     PromptKind.JOIN_THE_BALL: _join_situation,
     PromptKind.LOOSE_BALL_SKILL_TEST: _contest_situation,
     PromptKind.SET_UP_ATTEMPT: _set_up_situation,

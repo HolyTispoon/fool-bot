@@ -1809,6 +1809,11 @@ function drawSituation(prompt) {
     h("div", { class: "situation-head" },
       h("span", { class: "situation-title" }, situation.title),
       h("span", { class: "situation-where" }, situation.where)),
+    /* Why this is being rolled -- a skill test's tie, injury or forced
+       test -- in the model's own sentence, rendered by the server. */
+    situation.cause
+      ? h("div", { class: "situation-cause", html: situation.cause })
+      : null,
     second
       ? h("div", { class: "situation-row" },
         situationSide(first),
