@@ -227,6 +227,10 @@ scripts, or the one that runs them all in order:
 
 (The same lines work in `cmd.exe`, without the comments.)
 
+[`scripts/README.md`](../../scripts/README.md) is the same list as a
+short reference for whoever is at the machine, without the reasons; a
+new option goes in both.
+
 `deploy.ps1`/`deploy.cmd` call the three scripts above in order and add
 no logic of their own -- no new process matching, no new pid file. It
 takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
