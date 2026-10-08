@@ -1070,11 +1070,12 @@ def build_hub_message(
     setup_hub` posts it (or edits the existing one) behind a
     `NewGameHubView`: a welcome, then one titled block per game -- name,
     button, and the game's own description. The D12 Ball description is
-    the author's own copy; keep it verbatim. The Codex line is a
-    placeholder until the author words it (step 3 of docs/codex-bot.md):
-    it carries the command mention, since the Codex bot is another
-    application and has no button here. `codex_emoji` is fool-bot's own
-    upload of the medallion (`CODEX_HUB_EMOJI_NAME`).
+    the author's own copy; keep it verbatim. The Codex description is a
+    general one of the game, as the author asked (2026-10-08): nothing
+    about which decks the bot plays, and no command, since the hub's
+    **Codex** button answers with that (`codex_lobby_prompt`).
+    `codex_emoji` is fool-bot's own upload of the medallion
+    (`CODEX_HUB_EMOJI_NAME`).
     """
     d12 = f"{d12_emoji} " if d12_emoji else ""
     codex = f"{codex_emoji} " if codex_emoji else ""
@@ -1090,9 +1091,11 @@ def build_hub_message(
         "manipulating the ball and outwitting the other team on their way "
         "to score epic goals.\n\n"
         f"### {codex}Codex\n\n"
-        "Sirlin Games' Codex: Card-Time Strategy, Bashing against Finesse, "
-        f"played with the Codex bot: {codex_lobby_mention()} opens a lobby "
-        "in the channel you type it in."
+        "Codex is Sirlin Games' card game with the shape of a real-time "
+        "strategy game: hire workers for gold, build tech buildings to "
+        "unlock stronger units and spells, and add cards from your codex "
+        "to your deck as you play. Send your heroes and units at the other "
+        "base, patrol to defend your own, and win by destroying theirs."
     )
 
 

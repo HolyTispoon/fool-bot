@@ -436,11 +436,14 @@ fifty-channel cap is D12 Ball's.
   across applications, a command mention (decision 10): `codexbot.py`
   writes its top-level command ids to `data/codex_command_ids.json`
   after each sync -- or, on a start that skipped the sync, once from a
-  fetch when the file is missing -- and `build_hub_message` reads it for
-  `</codex lobby:ID>`, falling back to the command's name in plain text.
-  It is the one file read across the line, and fool-bot only reads it.
-  The line's wording is the author's to give; until then it is a
-  placeholder.
+  fetch when the file is missing -- and `codex_lobby_mention` reads it
+  for `</codex lobby:ID>`, falling back to the command's name in plain
+  text. It is the one file read across the line, and fool-bot only
+  reads it. The mention is the button's reply, below, and not in the
+  message: the hub's Codex block is a general description of the game,
+  as the D12 Ball block is, and names neither the decks the bot plays
+  nor a command (the author, 2026-10-08 -- the button is how you learn
+  the command). `build_hub_message` reads nothing for it.
   Its heading carries the Codex medallion as **fool-bot's own**
   application emoji, `codex` (`CODEX_HUB_EMOJI_NAME`), uploaded from
   `codex/images/emoji/codex.png`: the Codex bot's upload belongs to the
