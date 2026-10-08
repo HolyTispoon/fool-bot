@@ -70,6 +70,10 @@ class CodexGame:
     message_id: Optional[int] = field(default=None, kw_only=True)
     #: The current turn's public message, which step 3 posts and edits.
     turn_message_id: Optional[int] = field(default=None, kw_only=True)
+    #: The turn message before it, standing as that turn's summary: what
+    #: an undo to the start of the previous turn edits back and pins
+    #: again. `None` in a save older than step 4, and after that undo.
+    previous_turn_message_id: Optional[int] = field(default=None, kw_only=True)
 
     player_1_id: Optional[int] = None
     player_2_id: Optional[int] = None

@@ -4,8 +4,8 @@
 The opening position of Bashing against Finesse in both layouts, a
 staged position from the middle of a game (units in play, exhausted and
 just arrived, patrollers, damage, a building under construction, the
-tower, the hero levelled), the first player's hand, and their codex
-through every view:
+tower, the hero levelled), the first player's hand, their codex through
+every view, and the tech picker's codex with two picks marked:
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
 
@@ -124,6 +124,14 @@ def main() -> None:
         write(args.out / f"codex-{view}.png", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
         ))
+    # The tech picker (`TechChoiceView`): the whole codex, the picks
+    # framed and counted -- here two copies of one card.
+    rows = engine.codex_counts(middle.player(1))
+    picks = {"revolver_ocelot": 2}
+    write(args.out / "tech-picker.png", render_codex(
+        [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
+        [picks.get(slug, 0) for slug, _ in rows],
+    ))
 
 
 if __name__ == "__main__":

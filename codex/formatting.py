@@ -48,3 +48,45 @@ def card_label(card: Card | Hero) -> str:
     if card.atk is not None and card.hp is not None:
         return f"{label} {card.atk}/{card.hp}"
     return label
+
+
+#: The patrol slots in words, as a line or a menu names them.
+SLOT_NAMES = {
+    "squad_leader": "squad leader",
+    "elite": "elite",
+    "scavenger": "scavenger",
+    "technician": "technician",
+    "lookout": "lookout",
+}
+
+
+def slot_name(slot: str) -> str:
+    return SLOT_NAMES.get(slot, slot.replace("_", " "))
+
+
+def ref_label(engine, match, seat: int, ref: str) -> str:
+    """
+    What `ref` names on `seat`'s side, in plain words for a button or a
+    menu: "Iron Man 3/4", "Troq Bashar 2/3", "Tech II", "Tower", "base".
+    A unit's or hero's numbers are the engine's, with its damage after
+    them where it has any. A name, never a rule.
+    """
+    from codex.components import HERO
+    from codex.engine import building_name, unit_ref
+
+    player = match.player(seat)
+    if ref == HERO:
+        atk, hp = engine.hero_stats(player.hero)
+        label = f"{catalog().name(player.hero.slug)} {atk}/{hp}"
+        damage = player.hero.damage
+    else:
+        instance_id = unit_ref(ref)
+        card = player.instance(instance_id) if instance_id is not None else None
+        if card is None:
+            if ref == "add_on" and player.add_on is not None:
+                return catalog().name(player.add_on.slug)
+            return building_name(ref)
+        atk, hp = engine.unit_stats(card)
+        label = f"{catalog().name(card.slug)} {atk}/{hp}"
+        damage = card.damage
+    return f"{label}, {damage} damage" if damage else label

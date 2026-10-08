@@ -461,13 +461,23 @@ class RulesEngine:
         buildings and add-on standing, and the base. Flying, stealth and
         the rest change this in step 5.
         """
+        return tuple(ref for ref, _ in self.defender_rows(match, attacker))
+
+    def defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
+        """
+        `legal_defenders`, each with why it is legal -- "squad leader",
+        "patroller", or "nothing is patrolling" -- the priority that
+        makes it so (UMR p. 10), for a frontend to say beside it.
+        """
         defending = match.opponent(match.active)
         leader = defending.patroller("squad_leader")
         if leader is not None:
-            return (leader,)
+            return ((leader, "squad leader"),)
         patrollers = defending.patrollers()
         if patrollers:
-            return tuple(patrollers[slot] for slot in PATROL_SLOTS if slot in patrollers)
+            return tuple(
+                (patrollers[slot], "patroller") for slot in PATROL_SLOTS if slot in patrollers
+            )
         found = [card.ref for card in defending.play if self.catalog.cards[card.slug].is_unit]
         if defending.hero.in_play:
             found.append(HERO)
@@ -478,7 +488,7 @@ class RulesEngine:
         if defending.add_on is not None:
             found.append("add_on")
         found.append("base")
-        return tuple(found)
+        return tuple((ref, "nothing is patrolling") for ref in found)
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready

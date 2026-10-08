@@ -65,6 +65,10 @@ class NarrationGroup:
     step: Optional[FollowOnStep] = None
     arguments: Mapping[str, Any] = field(default_factory=dict)
     headlines: tuple[Headline, ...] = ()
+    #: The position where the group closed (`history.position`), for a step the
+    #: frontend named in `draw_after`; `None` everywhere else. Never on
+    #: the wire: a save holds every hand.
+    board: Optional[dict] = None
 
     def to_dict(self) -> dict:
         return {
@@ -100,15 +104,24 @@ def advance(
     *,
     stop_after: Iterable[FollowOnStep] = (),
     own_message: Iterable[FollowOnStep] = (),
+    draw_after: Iterable[FollowOnStep] = (),
 ) -> DriverRun:
     """
     Run the chain `result` starts until only somebody's answer can carry
     on. The narration is carried into each next step as its lead-in;
     `own_message` closes a group after a step instead, and `stop_after`
     stops the run after one -- both the frontend's to name.
+
+    `draw_after` closes a group after a step too, and hands the group
+    the position as it stood there, without stopping: Codex's answer to
+    "a picture of a position is a stop" where an action may not be
+    stopped part-way (`apply`). The Discord frontend names the end of
+    the turn, so the turn's last board is the turn's and not the next
+    one's ready phase (docs/design/codex.md, "The turn message").
     """
     stops = frozenset(stop_after)
-    alone = frozenset(own_message)
+    drawn_after = frozenset(draw_after)
+    alone = frozenset(own_message) | drawn_after
     groups: list[NarrationGroup] = []
     narration = list(result.narration)
     headlines = result.headlines
@@ -135,7 +148,10 @@ def advance(
             stopped_on = step
             break
         if step.step in alone:
-            groups.append(NarrationGroup(tuple(narration), step.step, step.kwargs, headlines))
+            board = history.position(match) if step.step in drawn_after else None
+            groups.append(NarrationGroup(
+                tuple(narration), step.step, step.kwargs, headlines, board=board,
+            ))
             narration = []
             headlines = ()
 
@@ -358,14 +374,16 @@ def apply(
     outcomes: Optional[Sequence[Sequence[str]]] = None,
     *,
     own_message: Iterable[FollowOnStep] = (),
+    draw_after: Iterable[FollowOnStep] = (),
 ) -> Union[DriverRun, Refusal]:
     """
     `answer` plus `advance`: a whole action in one call, and the one
     door the journal is written at. `outcomes` are recorded shuffle
     orders to hand back instead of drawing -- a replay's
     (`codex.history.replay`). `own_message` is `advance`'s, the
-    frontend's batching; there is no `stop_after`, since a stop would
-    cut what the journal records as one action in two.
+    frontend's batching, and `draw_after` with it; there is no
+    `stop_after`, since a stop would cut what the journal records as
+    one action in two.
     """
     engine.replaying = [list(order) for order in (outcomes or ())]
     marker = history.latest_snapshot(match)
@@ -373,7 +391,10 @@ def apply(
         answered = answer(engine, game, match, action)
         if isinstance(answered, Refusal):
             return answered
-        run = advance(engine, game, match, answered.result, own_message=own_message)
+        run = advance(
+            engine, game, match, answered.result,
+            own_message=own_message, draw_after=draw_after,
+        )
     finally:
         engine.replaying = []
     if history.latest_snapshot(match) is marker:

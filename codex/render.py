@@ -488,12 +488,15 @@ def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
 
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
-                 cards: Optional[CardCatalog] = None) -> bytes:
+                 cards: Optional[CardCatalog] = None,
+                 picked: Optional[Sequence[int]] = None) -> bytes:
     """
     A codex view as PNG bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
-    upload limit.
+    upload limit. `picked`, where given, is how many copies of each the
+    tech choice has taken so far: such a card is framed in gold with
+    the count on a pill over its art -- the tech picker's picture.
     """
     cards = cards or load_catalog()
     count = max(1, len(cards_in_codex))
@@ -519,5 +522,10 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
         badge.ellipse((x0, y0, x0 + size, y0 + size), fill=INK, outline=SHADOW, width=3)
         badge.text((x0 + size // 2, y0 + size // 2), f"x{counts[index]}", font=font(26),
                    fill=SHADOW, anchor="mm")
+        taken = picked[index] if picked is not None else 0
+        if taken:
+            badge.rectangle((0, 0, CODEX_CARD[0] - 1, CODEX_CARD[1] - 1), outline=GOLD, width=8)
+            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), f"picked {taken}", 26,
+                 ACTIVE_FILL, anchor="mm")
         canvas.alpha_composite(picture, (left, top))
     return _png(canvas)

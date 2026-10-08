@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable, Mapping, Optional, Union
 
+from codex import history
 from codex.components import MatchState
 from codex.engine import RulesEngine
 from codex.flow import driver
@@ -72,6 +73,9 @@ class Batching:
 
     stop_after: frozenset = frozenset()
     own_message: frozenset = frozenset()
+    #: Close a group after these steps with the position as it stood
+    #: there (`driver.advance`'s `draw_after`), without stopping.
+    draw_after: frozenset = frozenset()
 
     def at_stop(
         self,
@@ -335,7 +339,8 @@ class GameService:
         game = self.game(game_id)
         match = self.load(game)
         applied = driver.apply(
-            self.engine, game, match, action, own_message=self.batching.own_message,
+            self.engine, game, match, action,
+            own_message=self.batching.own_message, draw_after=self.batching.draw_after,
         )
         if isinstance(applied, driver.Refusal):
             return GameResult(
@@ -348,8 +353,8 @@ class GameService:
         following = applied.result.next
         result = GameResult(
             groups=tuple(
-                Narration(group.narration, group.step, arguments=group.arguments,
-                          headlines=group.headlines)
+                Narration(group.narration, group.step, board=group.board,
+                          arguments=group.arguments, headlines=group.headlines)
                 for group in applied.groups
             ),
             narration=tuple(applied.result.narration),
@@ -384,6 +389,42 @@ class GameService:
         self.announce(game, result)
         return "a choice, put back up", result
 
+    # -- The two undos ----------------------------------------------------
+
+    def undo_targets(self, game_id: str) -> dict[str, int]:
+        """The undos open on this game's position, each with the turn it
+        goes back to (`history.undo_targets`) -- the one reading a
+        frontend builds its Undo choices from."""
+        return history.undo_targets(self.load(self.game(game_id)))
+
+    def undo_to_turn_start(self, game_id: str) -> GameResult:
+        """Put the match back to the start of this turn's main phase,
+        save once, and return what it is waiting on now. Refused with
+        `RuleRefusal` where there is no such start. Who may ask is the
+        frontend's: the active player, with nobody's consent."""
+        return self._undo(game_id, history.undo_to_turn_start)
+
+    def undo_to_previous_turn(self, game_id: str) -> GameResult:
+        """Put the match back to the start of the previous turn's main
+        phase, unwinding the opponent's turn too -- so a frontend has
+        the opponent (or a helper) agree before it calls this."""
+        return self._undo(game_id, history.undo_to_previous_turn)
+
+    def _undo(self, game_id: str, undo: Callable[[MatchState], MatchState]) -> GameResult:
+        game = self.game(game_id)
+        match = self.load(game)
+        undo(match)
+        self.persist(game, match)
+        result = GameResult(
+            narration=(history.UNDONE,),
+            prompt=self.waiting_on(game, match),
+            standing=self.standing(game, match),
+            board_changed=True,
+            match=match,
+        )
+        self.announce(game, result)
+        return result
+
     # -- The loop --------------------------------------------------------
 
     def run(self, game: CodexGame, match: MatchState, result: StepResult) -> GameResult:
@@ -404,10 +445,11 @@ class GameService:
                 self.engine, game, match, result,
                 stop_after=batching.stop_after,
                 own_message=batching.own_message,
+                draw_after=batching.draw_after,
             )
             groups.extend(
-                Narration(group.narration, group.step, arguments=group.arguments,
-                          headlines=group.headlines)
+                Narration(group.narration, group.step, board=group.board,
+                          arguments=group.arguments, headlines=group.headlines)
                 for group in ran.groups
             )
             board_changed = board_changed or ran.board_changed
