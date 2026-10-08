@@ -59,11 +59,12 @@ class SlashCommandsMixin:
         if game is None:
             await send_ephemeral(interaction, NO_GAME_HERE)
             return
-        seat = game.seat_of(interaction.user.id)
+        match = self.service.load(game)
+        seat = game.seat_for(interaction.user.id, match.active)
         if seat is None:
             await send_ephemeral(interaction, NOT_YOUR_TABLE)
             return
-        await self.send_hand(interaction, game, self.service.load(game), seat)
+        await self.send_hand(interaction, game, match, seat)
 
     @app_commands.command(name="resume", description="Put this channel's Codex table back up: the board and its buttons.")
     async def resume(self, interaction: discord.Interaction) -> None:
@@ -101,7 +102,7 @@ class SlashCommandsMixin:
                 self.note_turn_head(game, match)
             await self.post_turn_message(interaction.channel, game, match)
             await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
-            seat = game.seat_of(interaction.user.id)
+            seat = game.seat_for(interaction.user.id, match.active)
             if seat is not None and match.winner is None:
                 if seat == match.active and self.prompt_for(game, match, seat) is not None:
                     await self.show_panel(interaction, game, match, seat, edit=False)

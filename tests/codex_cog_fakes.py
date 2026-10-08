@@ -89,6 +89,11 @@ class FakeChannel:
         self.deleted: set[int] = set()
         self.ids = itertools.count(1000)
 
+    async def edit(self, **kwargs):
+        """The channel itself renamed and locked at Start
+        (`lock_game_channel`): a request of the channel's own."""
+        self.log("channel.edit", self.id, kwargs)
+
     def log(self, kind: str, message_id: int, kwargs: dict) -> None:
         self.requests.append((kind, message_id, kwargs))
 
@@ -217,12 +222,14 @@ class Table:
         self.bot = mock.MagicMock()
         self.lobby_channel = FakeChannel(LOBBY_CHANNEL)
         self.game_channel = FakeChannel(GAME_CHANNEL)
+        self.game_channel.guild = None  # set below, once the guild is
         channels = {LOBBY_CHANNEL: self.lobby_channel, GAME_CHANNEL: self.game_channel}
         self.bot.get_channel.side_effect = channels.get
         self.guild = mock.MagicMock(id=GUILD)
         self.guild.categories = []
         self.guild.create_category = mock.AsyncMock(return_value=mock.MagicMock())
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.game_channel)
+        self.game_channel.guild = self.guild
         self.basher, self.fencer = user(101, "basher"), user(202, "fencer")
         self.said: list[str] = []
         self.build({}, seed)
@@ -268,13 +275,14 @@ class Table:
         return FakeInteraction(who, channel or self.game_channel, self.guild)
 
     async def started(self):
-        """The real lobby, two seats, Start: the opening position."""
+        """The real lobby -- opened in the game's own channel -- two seats,
+        Start: the opening position."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
         for who, action in ((self.basher, "bashing"), (self.fencer, "finesse"), (self.fencer, "start")):
-            click = self.interaction(who, self.lobby_channel)
+            click = self.interaction(who)
             await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
         self.game = game
         return game

@@ -80,7 +80,9 @@ class PanelView(SafeView):
         game, match = await self.require_match(interaction)
         if game is None:
             return None, None
-        if game.seat_of(interaction.user.id) != self.seat:
+        # `seats_of`, so the one person holding both seats of a test game
+        # acts from either side's panel.
+        if self.seat not in game.seats_of(interaction.user.id):
             await send_ephemeral(interaction, NOT_YOUR_PANEL)
             return None, None
         return game, match
@@ -374,7 +376,10 @@ class UndoConfirmView(SafeView):
         game, match = await self.require_match(interaction)
         if game is None:
             return
-        seat = game.seat_of(interaction.user.id)
+        seats = game.seats_of(interaction.user.id)
+        # The opponent's seat first: in a test game one person holds both,
+        # and agrees with themselves.
+        seat = self.opponent if self.opponent in seats else (seats[0] if seats else None)
         if seat == self.asker:
             await send_ephemeral(interaction, "Your opponent has to agree to this: it undoes their turn too.")
             return
@@ -392,11 +397,12 @@ class UndoConfirmView(SafeView):
         game, _ = await self.require_match(interaction)
         if game is None:
             return
-        if game.seat_of(interaction.user.id) is None:
+        seats = game.seats_of(interaction.user.id)
+        if not seats:
             await send_ephemeral(interaction, "Only the players can refuse this.")
             return
         self.stop()
-        name = game.seat_name(game.seat_of(interaction.user.id)) or "A player"
+        name = game.seat_name(seats[0]) or "A player"
         await interaction.response.edit_message(
             content=f"The undo to the start of the previous turn was refused by {name}.", view=None,
         )

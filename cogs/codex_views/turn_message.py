@@ -68,7 +68,7 @@ class TurnMessageView(SafeView):
         game, match = await self.require_match(interaction)
         if game is None:
             return None, None, None
-        seat = game.seat_of(interaction.user.id)
+        seat = game.seat_for(interaction.user.id, match.active)
         if seat is None:
             await send_ephemeral(interaction, NOT_YOUR_TABLE)
             return None, None, None
@@ -89,6 +89,9 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
+        # In a test game the one person holds both seats: Tech is the
+        # side whose turn it is not.
+        seat = next((held for held in game.seats_of(interaction.user.id) if held != match.active), seat)
         if seat == match.active:
             await send_ephemeral(
                 interaction,
@@ -105,7 +108,7 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        view = CodexBrowser(self.cog, game.game_id, seat)
+        view = CodexBrowser(self.cog, game.game_id, seat, side=side_label(game, match, seat))
         await interaction.response.send_message(
             view.caption("everything"), file=await view.picture(match, "everything"),
             view=view, ephemeral=True,
@@ -131,12 +134,20 @@ class TurnMessageView(SafeView):
         await self.cog.refresh_match_image(game)
 
 
-def hand_caption(match, seat: int) -> str:
+def side_label(game, match, seat: int) -> str:
+    """" (Bashing)" -- which side a picture is of, said only in a test
+    game, where one person holds both and the turn decides which."""
+    if not game.test_game:
+        return ""
+    return f" ({match.player(seat).spec.title()})"
+
+
+def hand_caption(match, seat: int, side: str = "") -> str:
     """What the hand picture is sent with: its count and the discard
     pile's contents, which is its owner's to know (UMR p. 5)."""
     player = match.player(seat)
     count = len(player.hand)
-    lines = [f"Your hand: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."]
+    lines = [f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."]
     if player.discard:
         counted = Counter(player.discard)
         listed = ", ".join(
@@ -170,11 +181,12 @@ class CodexBrowser(SafeView):
     **Codex** on the turn message makes a fresh one.
     """
 
-    def __init__(self, cog, game_id: str, seat: int) -> None:
+    def __init__(self, cog, game_id: str, seat: int, side: str = "") -> None:
         super().__init__(timeout=900)
         self.cog = cog
         self.game_id = game_id
         self.seat = seat
+        self.side = side
         game = cog.games.get(game_id)
         match = cog.service.load(game)
         views = cog.engine.codex_views(match.player(seat))
@@ -190,7 +202,7 @@ class CodexBrowser(SafeView):
         self.add_item(select)
 
     def caption(self, view: str) -> str:
-        return f"Your codex: {CODEX_VIEW_LABELS.get(view, view)}. Only you can see this."
+        return f"Your codex{self.side}: {CODEX_VIEW_LABELS.get(view, view)}. Only you can see this."
 
     async def picture(self, match, view: str) -> discord.File:
         rows = self.cog.engine.codex_remaining(match, self.seat, view)

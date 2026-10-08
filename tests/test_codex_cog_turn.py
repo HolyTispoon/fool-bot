@@ -151,7 +151,9 @@ class PanelTests(TurnTestCase):
         """Every line the channel is sent or edited to is the header, the
         cog's caption, or a line of the model's narration -- which is
         public (docs/design/codex.md, "What the narration may say"):
-        nothing of a hand, a hire's card or a tech choice."""
+        nothing of a hand, a hire's card or a tech choice. The lobby, in
+        the same channel since the game is played where it was opened,
+        is the lobby's own text."""
         _, view = await self.table.panel()
         view = (await self.table.choose(view, "Play a card", playable(view)[0])).view()
         view = (await self.table.press(view, "Hire worker")).view()
@@ -163,7 +165,10 @@ class PanelTests(TurnTestCase):
         values = [option.value for option in picker.select.options[:2]]
         await self.table.choose(picker, "Choose", *values)
         rendered = {self.table.cog.render_text(line, self.game) for line in self.table.said}
-        for text in self.table.game_channel.public_texts():
+        lobby = self.game.message_id
+        texts = [kwargs["content"] for kind, message_id, kwargs in self.table.game_channel.requests
+                 if kind in ("send", "edit") and kwargs.get("content") and message_id != lobby]
+        for text in texts:
             for line in text.split("\n"):
                 with self.subTest(line=line):
                     self.assertTrue(
@@ -330,6 +335,37 @@ class WholeGameTests(TurnTestCase):
         if options.attackers:
             return await table.choose(view, "Attack with", options.attackers[0])
         return await table.press(view, "End main phase")
+
+
+class TestGameTests(unittest.IsolatedAsyncioTestCase):
+    async def test_one_person_plays_both_sides_from_the_panel(self) -> None:
+        """A test game seats one person in both seats: the panel is the
+        active side's either way, across the turn's end, and Tech is the
+        other side's."""
+        from cogs.codex_views import LobbyView
+
+        table = Table()
+        self.addCleanup(table.close)
+        call = table.interaction(table.basher, table.lobby_channel)
+        await table.cog.lobby.callback(table.cog, call, test_game=True)
+        (game,) = table.cog.games.values()
+        table.game = game
+        lobby = LobbyView(table.cog, game.game_id)
+        for action in ("bashing", "finesse", "start"):
+            click = table.interaction(table.basher)
+            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        table.fencer = table.basher
+        for _ in range(2):
+            seat = table.match.active
+            _, view = await table.panel(table.basher)
+            self.assertEqual(view.seat, seat)
+            ended = await table.press((await table.press(view, "End main phase", who=table.basher)).view(),
+                                      "Lock patrol", who=table.basher)
+            self.assertIsInstance(ended.answers[-1][2]["view"], TechChoiceView)
+            self.assertNotEqual(table.match.active, seat)
+        tech = await table.turn_button("tech", table.basher)
+        self.assertIsInstance(tech.view(), TechChoiceView)
+        self.assertNotEqual(tech.view().seat, table.match.active)
 
 
 class GameOverTests(TurnTestCase):

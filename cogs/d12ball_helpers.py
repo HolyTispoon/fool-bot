@@ -974,6 +974,10 @@ def build_setup_message(
 # swallowed the darker die. Everything degrades to the other name, then
 # to no emoji, when an upload is missing.
 D12_EMOJI_NAME = "d12dice"
+# The Codex medallion beside the hub's Codex heading -- fool-bot's own
+# upload of `codex/images/emoji/codex.png`, since an application emoji
+# belongs to one application and the Codex bot's is not fool-bot's.
+CODEX_HUB_EMOJI_NAME = "codex"
 D12_BUTTON_EMOJI_NAME = "d12dicecream"
 
 
@@ -1043,7 +1047,10 @@ def codex_lobby_mention(path: Optional[Path] = None) -> str:
     return "`/codex lobby`"
 
 
-def build_hub_message(d12_emoji: Optional[str] = None) -> str:
+def build_hub_message(
+    d12_emoji: Optional[str] = None,
+    codex_emoji: Optional[str] = None,
+) -> str:
     """
     The single message the game-creation hub channel carries. `/d12ball
     setup_hub` posts it (or edits the existing one) behind a
@@ -1052,9 +1059,11 @@ def build_hub_message(d12_emoji: Optional[str] = None) -> str:
     the author's own copy; keep it verbatim. The Codex line is a
     placeholder until the author words it (step 3 of docs/codex-bot.md):
     it carries the command mention, since the Codex bot is another
-    application and has no button here.
+    application and has no button here. `codex_emoji` is fool-bot's own
+    upload of the medallion (`CODEX_HUB_EMOJI_NAME`).
     """
     d12 = f"{d12_emoji} " if d12_emoji else ""
+    codex = f"{codex_emoji} " if codex_emoji else ""
     return (
         "## Prophetic Fools Games\n\n"
         "Hello! This is the game-creation channel of the Prophetic Fools "
@@ -1066,7 +1075,7 @@ def build_hub_message(d12_emoji: Optional[str] = None) -> str:
         "fantasy creatures compete by maneuvering around the field, "
         "manipulating the ball and outwitting the other team on their way "
         "to score epic goals.\n\n"
-        "### Codex\n\n"
+        f"### {codex}Codex\n\n"
         "Sirlin Games' Codex: Card-Time Strategy, Bashing against Finesse, "
         f"played with the Codex bot: {codex_lobby_mention()} opens a lobby "
         "in the channel you type it in."

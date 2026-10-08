@@ -30,6 +30,7 @@ from cogs.codex_views.turn_message import (
     TurnMessageView,
     hand_caption,
     hand_file,
+    side_label,
     swap_label,
 )
 
@@ -56,5 +57,6 @@ __all__ = [
     "next_empty",
     "picks_listed",
     "send_ephemeral",
+    "side_label",
     "swap_label",
 ]
