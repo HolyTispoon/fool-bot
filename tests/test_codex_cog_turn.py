@@ -206,7 +206,15 @@ class TurnEndTests(TurnTestCase):
         self.assertIn("draws", last_edit["content"])
         self.assertIn("**Turn 1**", last_edit["content"])
         self.assertIsInstance(self.table.game_channel.views[new], TurnMessageView)
-        self.assertIn("**Turn 2**", self.table.game_channel.texts[new])
+        # The model's heading, rendered: the turn, its player as a
+        # mention -- which the post pings -- and their deck.
+        match = self.table.match
+        player_id = self.game.player_1_id if match.active == 1 else self.game.player_2_id
+        heading = f"**Turn 2** -- <@{player_id}> ({match.active_player.spec.title()})"
+        self.assertTrue(self.table.game_channel.texts[new].startswith(heading + "\n"))
+        self.assertEqual(self.table.game_channel.texts[new].count("**Turn 2**"), 1)
+        mentioned = self.table.game_channel.since(mark)[1][2]["allowed_mentions"].users
+        self.assertEqual([user.id for user in mentioned], [player_id])
         self.assertEqual(self.game.previous_turn_message_id, old)
         self.assertEqual(self.table.game_channel.pinned, {new})
 

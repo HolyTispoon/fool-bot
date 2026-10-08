@@ -103,7 +103,9 @@ its source.
   -- `trojan_duck`, and `regularsized_rhinoceros` for
   "Regular-sized Rhinoceros", which is the database's page address.
 - **The glyphs become tokens** the way `codex/tokens.py` reads them: ⤵
-  `{exhaust}`, ◎ `{target}`, ① ② ... `{gold:n}`, → `{arrow}`. The
+  `{exhaust}`, ◎ `{target}`, ① ② ... `{gold:n}`, → `{arrow}`; the
+  narration's own are `{player:n}` (a seat's name), `{to:n}` (a seat
+  addressed -- a mention on Discord), `{card:slug}` and `{hero:slug}`. The
   model writes tokens and the cog renders them at its door
   (`cogs.codex_helpers.CodexTokens`), as D12 Ball's do; nothing else in
   the text is reworded. `{codex}` is the bot's own mark.
@@ -650,8 +652,9 @@ point them at My hand instead.
 ### The turn message, and the two-message gate
 
 Each turn's message is posted when the turn begins: its text
-"**Turn 7** -- @perrytom (Bashing)" -- whose turn as a mention, which the
-post pings and no edit does -- then the turn's lines, the model's with
+"**Turn 7** -- @perrytom (Bashing)" -- the model's heading, whose turn
+as a mention, which the post pings and no edit does -- then the turn's
+lines, the model's with
 their tokens rendered at the door; the board as its picture; and
 **My hand**, **Tech**, **Codex**, **Swap view**. It is pinned and the
 previous one unpinned. After each action it is edited through the gate
@@ -659,6 +662,23 @@ with the new lines and the re-rendered board. The text stays under
 2000 characters: past that the earliest lines fold into "*and n more*",
 since the board carries the position.
 
+- **The heading is the model's, and it is not narration** (the author,
+  2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
+  `codex.formatting.turn_heading(match)`: the turn, its player
+  *addressed* -- `{to:n}`, a token the cog draws as a mention and plain
+  text as the name -- and their deck, `deck_name(player.specs)`, one
+  spec in the basic game and "Anarchy/Blood/Fire" for the standard
+  game's three. The cog puts it at the head of every turn message and
+  never folds it, so it reads even while the turn waits on its tech, and
+  after a restart that lost the turn's lines. The model used to open
+  each turn with a narration line of its own as well ("**Turn 7** --
+  perrytom's turn."), which under the heading said it twice; that line
+  is gone. **The turn's end is narration**: "**End of turn 7.**", the
+  last line of `begin_tech`, so the model's own transcript still reads
+  turn by turn and the turn's message stands with its close; the event
+  log's `turn_ended` records which turn. The cog closes a turn's message
+  on that step (`split_at_turn_end`, the group `BEGIN_TECH` closes),
+  never by comparing turn numbers of its own.
 - **The end of a turn is a joint the frontend names.** An action is
   never stopped part-way (the journal records it whole), so a picture
   of the position where the turn ended cannot be a stop. Instead

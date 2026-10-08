@@ -130,7 +130,10 @@ class StartTests(unittest.TestCase):
         self.assertEqual(match.player(match.first).workers, 4)
         self.assertEqual(match.player(match.first).gold, 4)
         self.assertTrue(result.board_changed)
-        self.assertTrue(any("Turn 1" in line for line in result.lines))
+        # No line opens the turn -- the frontend heads it -- so the
+        # upkeep's is the first said.
+        self.assertTrue(any("collects" in line for line in result.lines))
+        self.assertFalse(any("Turn 1" in line for line in result.lines))
 
     def test_the_lines_name_no_card_in_a_hand(self) -> None:
         """The start's lines are public: nothing in a hand is named."""

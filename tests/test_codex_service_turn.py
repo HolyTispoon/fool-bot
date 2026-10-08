@@ -77,6 +77,31 @@ class PromptReadingTests(unittest.TestCase):
         )
 
 
+class TurnHeadingTests(unittest.TestCase):
+    def test_the_heading_is_the_turn_its_player_addressed_and_their_deck(self) -> None:
+        from codex.formatting import turn_heading
+
+        svc, _, game = started()
+        match = svc.load(game)
+        seat = match.active
+        deck = match.player(seat).spec.title()
+        self.assertEqual(turn_heading(match), f"**Turn 1** -- {{to:{seat}}} ({deck})")
+
+    def test_a_deck_of_several_specs_is_named_by_all_of_them(self) -> None:
+        """The standard game's multicolour deck: "spec1/spec2/spec3"
+        (the author, 2026-10-08)."""
+        from codex.formatting import deck_name
+
+        self.assertEqual(deck_name(("bashing",)), "Bashing")
+        self.assertEqual(deck_name(("anarchy", "blood", "fire")), "Anarchy/Blood/Fire")
+
+    def test_no_line_of_the_models_opens_a_turn(self) -> None:
+        """The heading is not narration, so it is never said twice."""
+        svc, _, game = started()
+        result = end_turn(svc, game.game_id)
+        self.assertFalse(any("**Turn " in line for line in result.lines))
+
+
 class TurnEndGroupTests(unittest.TestCase):
     def test_the_end_of_the_turn_is_its_own_group_with_its_own_position(self) -> None:
         svc, _, game = started()
@@ -84,6 +109,11 @@ class TurnEndGroupTests(unittest.TestCase):
         result = end_turn(svc, game.game_id)
         (closing,) = [group for group in result.groups if group.step is FollowOnStep.BEGIN_TECH]
         self.assertTrue(any("draws" in line for line in closing.lines))
+        # The model says the turn is over, as the group's last words; the
+        # event log says which turn it was.
+        self.assertTrue(closing.lines[-1].endswith("**End of turn 1.**"))
+        ended = [event for event in result.match.events if event["kind"] == "turn_ended"]
+        self.assertEqual(ended[-1]["turn"], 1)
         self.assertIsNotNone(closing.board)
         self.assertNotIn("turn_snapshots", closing.board)
         # The second turn began in the same action; what it said is

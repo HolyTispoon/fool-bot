@@ -93,7 +93,7 @@ class SlashCommandsMixin:
                 return
             match = result.match
             _, _, opening, ended = split_at_turn_end(result)
-            if ended or match.turn != before.turn:
+            if ended:
                 self.turn_lines[game.game_id] = opening
             else:
                 self.note_lines(game, result)

@@ -19,7 +19,7 @@ PLAIN_WORDS = {
 def plain_token(kind: str, arguments: tuple[str, ...]) -> str:
     if kind == "gold":
         return f"({arguments[0]})"
-    if kind == "player":
+    if kind in ("player", "to"):
         return f"Player {arguments[0]}"
     if kind in ("card", "hero"):
         try:
@@ -90,3 +90,28 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
         label = f"{catalog().name(card.slug)} {atk}/{hp}"
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
+
+
+def deck_name(specs) -> str:
+    """
+    A deck by its specs: "Bashing" in the basic game, where a deck is
+    one spec, and "Anarchy/Blood/Fire" for the standard game's three
+    (the author, 2026-10-08).
+    """
+    return "/".join(spec.replace("_", " ").title() for spec in specs)
+
+
+def turn_heading(match) -> str:
+    """
+    **The turn's heading, in the model's words**: "**Turn 7** --
+    {to:1} (Bashing)" -- the turn, whose it is, addressed, and their deck.
+    A frontend heads each turn with it (the Discord turn message's first
+    line, a mention that the post pings); it is not narration, so it is
+    never said twice and a restart that lost the turn's lines still has
+    it (docs/design/codex.md, "The turn message").
+    """
+    seat = match.active
+    return (
+        f"**Turn {match.turn}** -- {tokens.addressed(seat)} "
+        f"({deck_name(match.player(seat).specs)})"
+    )

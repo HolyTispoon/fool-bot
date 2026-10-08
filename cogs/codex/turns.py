@@ -180,16 +180,20 @@ class TurnsMixin:
         """
         **The whole of the Discord side of a result.** What it said joins
         the turn's lines and the board and the lines are written once
-        through the gate -- or, where the turn ended (`before` is the
-        turn and phase the click found), the turn's message stands with
+        through the gate -- or, where the model's end-of-turn step ran,
+        the turn's message stands with
         its last lines and board and the next turn's goes up; or, where
         a base fell, the game's last line. Hidden information never
         reaches here: a result's lines are public (docs/design/codex.md,
         "What the narration may say"), and its prompts go to their asked
-        player through the panel.
+        player through the panel. `before` is the turn and phase the click
+        found, which says whether the turn's main phase has just opened.
         """
         match = result.match
-        if match is not None and before is not None and match.turn != before[0]:
+        # The turn ended where the model's own end-of-turn step closed a
+        # group (`split_at_turn_end`), not where the cog sees the turn
+        # number move.
+        if match is not None and split_at_turn_end(result)[3]:
             await self.roll_over(game, result)
             return
         self.note_lines(game, result)
@@ -236,6 +240,7 @@ class TurnsMixin:
         ended = MatchState.from_dict(board) if board is not None else MatchState.from_dict(match.to_dict())
         # The standing picture lights the player whose turn it was: the
         # position is the one the turn handed over on.
+        # The heading is the turn that ended, too.
         ended.active = 2 if match.active == 1 else 1
         ended.turn = match.turn - 1
         if game.turn_message_id is not None:

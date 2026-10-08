@@ -28,6 +28,7 @@ from discord.ext import commands
 from codex.engine import RulesEngine
 from codex.flow.driver import MODEL_STEPS  # noqa: F401 -- the package-shape ratchet reads it
 from codex.flow.result import FollowOnStep
+from codex.formatting import turn_heading
 from codex.game import CodexGame, GameStatus
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt
 from codex.render import render_codex, render_hand
@@ -244,12 +245,10 @@ class CoreMixin:
     # -- The turn message's text ----------------------------------------------
 
     def turn_header(self, game: CodexGame, match) -> str:
-        """"**Turn 7** -- @perrytom (Bashing)": whose turn, as a mention,
-        which the turn message's post pings once."""
-        seat = match.active
-        player_id = game.player_1_id if seat == 1 else game.player_2_id
-        who = f"<@{player_id}>" if player_id else (game.seat_name(seat) or f"Player {seat}")
-        return f"**Turn {match.turn}** -- {who} ({match.player(seat).spec.title()})"
+        """The turn's heading -- the model's (`codex.formatting.turn_heading`),
+        "**Turn 7** -- @perrytom (Bashing)" -- rendered at the door: the
+        mention the turn message's post pings once."""
+        return self.render_text(turn_heading(match), game)
 
     def turn_footer(self, game: CodexGame, match) -> Optional[str]:
         """The caption under the lines while the turn waits on its
