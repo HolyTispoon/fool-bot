@@ -3,9 +3,12 @@
 decision 4; docs/design/codex.md, "The panel"): **one ephemeral message
 edited in place by its own interactions**, the cards in the hand
 pictured above it, the main phase's actions under it. The view for
-`MAIN_ACTION` and `CHOOSE_DEFENDER`, and for the three choices an attack
+`MAIN_ACTION` and `CHOOSE_DEFENDER`, for the three choices an attack
 asks inside itself -- obliterate's tie, sparkshot's neighbour and
-overpower's excess -- each a menu of what the prompt offers.
+overpower's excess -- and for the questions an effect asks as it
+resolves: a target (`TARGET`), Appel Stomp's place (`APPEL_STOMP_TOP`)
+and the upkeep's order (`UPKEEP_ORDER`), each a menu of what the prompt
+offers.
 
 Every control is built from the prompt's options and nothing else --
 `MainActionOptions` for the actions, `DefenderOptions` for the defender
@@ -24,7 +27,7 @@ from __future__ import annotations
 
 import discord
 
-from codex import history
+from codex import effects, history
 from codex.engine import TECH_BUILDINGS, building_name
 from codex.formatting import ref_label
 from codex.prompts import Action, PromptKind
@@ -135,6 +138,12 @@ class TurnPanelView(PanelView):
             self.build_sparkshot(options)
         elif prompt.kind is PromptKind.OVERPOWER_TARGET:
             self.build_overpower(options)
+        elif prompt.kind is PromptKind.TARGET:
+            self.build_target(options)
+        elif prompt.kind is PromptKind.APPEL_STOMP_TOP:
+            self.build_appel(options)
+        elif prompt.kind is PromptKind.UPKEEP_ORDER:
+            self.build_upkeep(options)
         elif mode == "hire":
             self.build_hire(options)
         elif mode == "detect":
@@ -154,29 +163,44 @@ class TurnPanelView(PanelView):
         )
         hero = options.hero
         name = card_name(hero.slug)
+        levels = hero.action == "level" and not hero.why_not and hero.max_levels
         if hero.action == "summon":
             self.button(
                 _cut(f"Summon {name} ({hero.cost} gold)" if not hero.why_not
                      else f"Summon: {hero.why_not}", 80),
                 discord.ButtonStyle.primary, self.summon, row=0, disabled=bool(hero.why_not),
             )
-        elif hero.action == "level" and not hero.why_not and hero.max_levels:
-            select = discord.ui.Select(
-                placeholder=f"Level up {name}...", row=4,
-                options=[
-                    discord.SelectOption(
-                        label=f"Level up {count} ({count * hero.cost} gold)", value=str(count),
-                    )
-                    for count in range(1, min(hero.max_levels, SELECT_LIMIT) + 1)
-                ],
-            )
-            select.callback = self.level
-            self.level_select = select
-            self.add_item(select)
-        else:
+        elif not levels:
             why = hero.why_not or "nothing to do"
             self.button(_cut(f"{name}: {why}", 80), discord.ButtonStyle.secondary,
                         None, row=0, disabled=True)
+        # The hero's levels and the abilities share the last row: a
+        # message has five, and the other four are taken.
+        choices = []
+        if levels:
+            choices += [
+                discord.SelectOption(
+                    label=f"Level up {name} {count} ({count * hero.cost} gold)",
+                    value=f"level:{count}",
+                )
+                for count in range(1, hero.max_levels + 1)
+            ]
+        choices += [
+            discord.SelectOption(label=_cut(self.ability_label(ability), 100),
+                                 value=f"ability:{ability.effect}:{ability.source}")
+            for ability in options.abilities if ability.allowed
+        ]
+        if choices:
+            usable = any(choice.value.startswith("ability:") for choice in choices)
+            placeholder = (
+                "Level up or use an ability..." if levels and usable
+                else "Use an ability..." if usable else f"Level up {name}..."
+            )
+            select = discord.ui.Select(placeholder=placeholder, row=4,
+                                       options=choices[:SELECT_LIMIT])
+            select.callback = self.level
+            self.level_select = select
+            self.add_item(select)
         self.button("Undo...", discord.ButtonStyle.secondary, self.open_undo, row=0)
         self.button("End main phase", discord.ButtonStyle.danger, self.end_main, row=0)
         detect = options.detect
@@ -251,10 +275,24 @@ class TurnPanelView(PanelView):
     async def summon(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "summon"))
 
+    def ability_label(self, ability) -> str:
+        """An ability in the menu: what offers it and what it does, in the
+        card's own words (`codex.effects.EFFECTS`)."""
+        if ability.effect == "stop_the_music":
+            return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
+        says = effects.EFFECTS[ability.effect].parts[0].says
+        return f"{self.label(ability.source)}: exhaust to {says}"
+
     async def level(self, interaction: discord.Interaction) -> None:
-        await self.act(interaction, Action(
-            PromptKind.MAIN_ACTION, "level", {"levels": int(self.level_select.values[0])},
-        ))
+        """The last row's menu: a number of levels, or an ability."""
+        kind, _, rest = self.level_select.values[0].partition(":")
+        if kind == "ability":
+            effect, _, source = rest.partition(":")
+            await self.act(interaction, Action(
+                PromptKind.MAIN_ACTION, "ability", {"ability": effect, "source": source},
+            ))
+            return
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "level", {"levels": int(rest)}))
 
     async def play(self, interaction: discord.Interaction, slug: str) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", {"slug": slug}))
@@ -402,6 +440,62 @@ class TurnPanelView(PanelView):
 
     async def overpower(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.OVERPOWER_TARGET, "", {"target": ref}))
+
+    # -- The questions an effect asks -----------------------------------------
+
+    def target_label(self, row) -> str:
+        """A target in the menu: whose, what, and what it costs -- its
+        resist -- or why it is forced (the flagbearer)."""
+        whose = "Your" if row.seat == self.seat else "Their"
+        label = f"{whose} {self.label(row.ref, row.seat)}"
+        if row.resist:
+            label += f" -- resist: pay {row.resist} gold"
+        if row.flagbearer:
+            label += " -- flagbearer"
+        return label
+
+    def build_target(self, options) -> None:
+        """What the part being resolved may choose, as the engine offers
+        it: the flagbearers alone where the rule forces one."""
+        self.menu(
+            _cut(f"{options.says[:1].upper()}{options.says[1:]}...", 150),
+            "Nothing can be chosen", 0,
+            [
+                discord.SelectOption(label=_cut(self.target_label(row), 100), value=row.key)
+                for row in options.targets[:SELECT_LIMIT]
+            ],
+            self.target,
+        )
+
+    async def target(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))
+
+    def build_appel(self, options) -> None:
+        self.button("On top of my draw pile", discord.ButtonStyle.primary, self.appel_top, row=0)
+        self.button("Into my discard pile", discord.ButtonStyle.secondary, self.appel_discard, row=0)
+
+    async def appel_top(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.APPEL_STOMP_TOP, "top"))
+
+    async def appel_discard(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.APPEL_STOMP_TOP, "discard"))
+
+    UPKEEP_LABELS = {
+        "healing": "Heal first",
+        "starlet": "Star-Crossed Starlet takes her damage first",
+    }
+
+    def build_upkeep(self, options) -> None:
+        for effect in options.effects:
+            self.button(
+                self.UPKEEP_LABELS.get(effect, effect), discord.ButtonStyle.primary,
+                self._upkeep(effect), row=0,
+            )
+
+    def _upkeep(self, effect: str):
+        async def run(interaction: discord.Interaction) -> None:
+            await self.act(interaction, Action(PromptKind.UPKEEP_ORDER, "", {"first": effect}))
+        return run
 
     # -- Undo ----------------------------------------------------------------
 

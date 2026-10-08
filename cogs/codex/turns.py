@@ -34,13 +34,15 @@ LOGGER = logging.getLogger(__name__)
 PANEL_NOTE = "*Only you can see this.*"
 
 #: The prompts whose panel is pictured with the asked player's hand: the
-#: main phase, and the questions asked inside an attack, which are the
-#: same panel going on.
+#: main phase, and the questions asked inside an attack or an effect,
+#: which are the same panel going on.
 PANEL_HAND_KINDS = (
     PromptKind.CHOOSE_DEFENDER,
     PromptKind.OBLITERATE_CHOICE,
     PromptKind.SPARKSHOT_TARGET,
     PromptKind.OVERPOWER_TARGET,
+    PromptKind.TARGET,
+    PromptKind.APPEL_STOMP_TOP,
 )
 NOTHING_ASKED = "Nothing is asked of you now."
 STEP_OWED = (
