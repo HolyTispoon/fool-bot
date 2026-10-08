@@ -411,8 +411,8 @@ person playing both hands, so nothing more is needed; the tech choice
 on the other side's turn is step 4's to word.
 
 **Start turns that channel into the game's**, in one edit: renamed
-`codex-<n>-<p1>-vs-<p2>` (capped at 100 characters) and closed to
-everybody's messages but the players'. The service deals and runs the
+`codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
+left as the lobby's. The service deals and runs the
 first turn's ready phase and upkeep in one save, the lobby is edited
 once to say the game has started, its buttons gone, and the first
 turn's message goes up under it, pinned. The categories are the Codex
@@ -420,12 +420,12 @@ bot's own -- **Codex Games** and **Codex Archive** -- not PBD's, whose
 names `/debug`'s reset and the pin rollover match and whose
 fifty-channel cap is D12 Ball's.
 
-- **Anyone in the server may read the channel; the two players and the
-  bot may write in it** (question 8 of the worksheet, the author,
-  2026-10-08: the hands are ephemeral, so a watcher sees the table and
-  nothing more). The step's prompt also said "the permissions D12
-  Ball's channels get", which hide a started game from `@everyone`; the
-  author's later answer was taken, and the PR asks.
+- **Anyone in the server may read the channel and talk in it**, from
+  the lobby to the end (question 8 of the worksheet, and the author on
+  2026-10-08: watchers may post). The hands are ephemeral, so a watcher
+  sees the table and nothing more. Unlike D12 Ball's, whose started
+  games are hidden from `@everyone`, nothing changes the channel's
+  permissions at Start.
 - **fool-bot's hub points at the lobby** the one way Discord allows
   across applications, a command mention (decision 10): `codexbot.py`
   writes its top-level command ids to `data/codex_command_ids.json`
@@ -440,11 +440,17 @@ fifty-channel cap is D12 Ball's.
   `codex/images/emoji/codex.png`: the Codex bot's upload belongs to the
   Codex application and fool-bot cannot use it. `/d12ball setup_hub`
   fetches it, so an upload takes without a restart.
-- **There is no button that fills in `/codex lobby`.** Discord gives a
-  bot no way to put text in somebody's message box: a button's click
-  goes only to the application that posted it, a link button only
-  opens a URL, and no URL prefills the composer. The command mention
-  is the one thing that does, and the hub carries it.
+- **The hub's Codex button answers with the command, privately.**
+  `NewGameHubView` carries **Codex** beside **D12 Ball** (custom id
+  `d12ball:hub:codex`, the medallion as its emoji). It cannot open a
+  Codex lobby itself: Discord delivers a click only to the application
+  that posted the button. And no bot can type into somebody's message
+  box -- a link button only opens a URL, and no URL prefills the
+  composer. So the button answers ephemerally with
+  `codex_lobby_prompt()`: the `</codex lobby:ID>` mention, which puts
+  the command in the clicker's box when clicked, one Enter from a lobby
+  (the author asked for the button, 2026-10-08). A hub posted before
+  it gains the button at the next `/d12ball setup_hub`.
 
 ## Who may act, shared
 

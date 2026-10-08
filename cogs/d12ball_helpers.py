@@ -1047,6 +1047,20 @@ def codex_lobby_mention(path: Optional[Path] = None) -> str:
     return "`/codex lobby`"
 
 
+def codex_lobby_prompt(path: Optional[Path] = None) -> str:
+    """
+    What the hub's **Codex** button answers, privately: the command to
+    send. Clicking the mention puts `/codex lobby` in the clicker's
+    message box, one Enter from a lobby -- the nearest Discord comes to a
+    button that types it for them.
+    """
+    return (
+        f"Click {codex_lobby_mention(path)}, then press Enter: the Codex bot "
+        "opens a lobby in a channel of its own. Add `test_game: True` to "
+        "play both sides yourself."
+    )
+
+
 def build_hub_message(
     d12_emoji: Optional[str] = None,
     codex_emoji: Optional[str] = None,
