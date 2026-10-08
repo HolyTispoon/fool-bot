@@ -294,9 +294,9 @@ What the repository does not give: anything for hidden information
 D12 Ball turn is a few prompts and a roll; a Codex turn is a dozen
 clicks by one player), any emoji for a second application (application
 emoji belong to one application and are uploaded by hand in the
-Developer Portal; there is no upload code), and the second application
-itself, which the author creates -- a live one and a test one, as
-D12 Ball has.
+Developer Portal; there is no upload code), and the application
+itself, which the author created on 2026-10-07 -- one, with no test
+application beside it (2026-10-08).
 
 ## The decisions
 
@@ -313,9 +313,11 @@ and the step's prompt is rewritten rather than argued with.
    fool-bot at runtime.** `codexbot.py` beside `foolbot.py`, reading
    `CODEX_DISCORD_TOKEN` from the same `.env`; its games in
    `data/codex_games.json`, its bot state in `data/codex_bot_state.json`,
-   its own pid and log files; a second application in the Developer
-   Portal, and a test application beside it as D12 Ball has. One bot per
-   token is already the rule ([collaboration.md](design/collaboration.md)):
+   its own pid and log files; one application in the Developer Portal,
+   the live one, and no test application beside it (the author,
+   2026-10-08) -- so one Codex bot runs at a time, and a session
+   testing from the Mac stops the live host's first, or runs before the
+   live host runs one at all. One bot per token is already the rule ([collaboration.md](design/collaboration.md)):
    `update_main_bot.ps1` matches `foolbot\.py`, so it neither stops nor
    counts the Codex bot, the way the web app "is not a foolbot to it"
    (so the entry point's name must not contain `foolbot.py`);
@@ -409,8 +411,11 @@ and the step's prompt is rewritten rather than argued with.
    pictures across the mat's open middle, each carrying its damage and
    rune chits, turned sideways when exhausted and marked when it
    arrived this turn; the gold, hand and codex counts in a strip. The
-   second player's mat sits above the first player's. Nothing is drawn
-   that the module or a card already shows. After every action the
+   two mats are **stacked**, the second player's above the first's, or
+   **side by side**, and a button on the turn message swaps the game
+   between the two (the author, 2026-10-08); the layout is the game's,
+   kept on the record, so everyone sees the same picture. Nothing is
+   drawn that the module or a card already shows. After every action the
    message is edited with the new lines and the re-rendered board; when
    the turn
    ends it is edited a last time and stands, so the channel's history
@@ -516,8 +521,8 @@ and the step's prompt is rewritten rather than argued with.
     either seated player -- the control panel when the active player
     presses it, the hand alone when the other does: one button,
     different answers by who clicked (the author, 2026-10-08) --
-    **Tech** for the other player, **Codex** and **Concede** for
-    either. The slash commands kept beside it: `hand`, `board`,
+    **Tech** for the other player, **Codex**, **Swap view** and
+    **Concede** for either. The slash commands kept beside it: `hand`, `board`,
     `card`, `rules`, `games`, `concede`, `resume`, and the admin
     `abandon` and `reset_channels`. **The hub.**
     The author would have fool-bot's hub carry a button that starts a
@@ -910,8 +915,8 @@ Four commits, in this order.
    "Its own process, its own token" (decision 1 of the worksheet, with
    the matcher argument); "The cards are data" (decision 6, the pinned
    commit, the slug, the glyph tokens, where the copyright question
-   stands); "Running it" (the Mac command, the K:\ runner, the Developer
-   Portal applications the author creates). CLAUDE.md: its first
+   stands); "Running it" (the Mac command, the K:\ runner, the one Developer
+   Portal application, and why there is no test one). CLAUDE.md: its first
    paragraph says the repository runs two bots and names this one; "##
    Running it" gains python3 codexbot.py; "Where things live" gains rows
    for codexbot.py, codex/, cogs/codex/, cogs/codex_helpers.py,
@@ -923,9 +928,10 @@ Four commits, in this order.
    separate (every file it writes, its restart), and that the
    author creates its applications.
 
-Verify by hand and say so in the PR: python3 codexbot.py starts with a
-test token and answers /codex card trojan duck and /codex rules
-overpower in the test server; python3 foolbot.py still starts and
+Verify by hand and say so in the PR: python3 codexbot.py starts with
+the application's token -- the one token there is, so nothing else
+runs the Codex bot meanwhile -- and answers /codex card trojan duck and
+/codex rules overpower in the server; python3 foolbot.py still starts and
 /d12ball still syncs; on the live host deploy.cmd leaves both bots
 running (the author does this one; the PR says it is owed).
 
@@ -1205,8 +1211,12 @@ commits: the service and storage; the cog, views and lobby; the board.
    that chooses the view -- Everything, Tech I, Tech II, Tech III,
    Spells, and in the standard game one of the player's specs -- the
    picture re-rendered in place on each choice; the author,
-   2026-10-08: "a lot of cards", so a menu rather than one picture)
-   and, from step 4, My hand answering the active player with the
+   2026-10-08: "a lot of cards", so a menu rather than one picture),
+   Swap view (either seated player: flips the game's board between
+   stacked and side by side -- board_layout on the record, through
+   service.set_board_layout, saved as a record change -- and sends the
+   board through the gate; the label names the layout it would switch
+   to) and, from step 4, My hand answering the active player with the
    control panel instead, and Tech for the other, and from step 7
    Concede. The turn's last edit drops the
    view, so only the current turn's message has buttons. What a
@@ -1234,7 +1244,9 @@ commits: the service and storage; the cog, views and lobby; the board.
 3. codex/render.py and cogs/codex_boards.py. The board is the game's
    own art (decision 5): each side is the Screentop playmat from
    codex/images/board/, the second player's above the first player's,
-   with the position laid on it where the mat has a place for it --
+   the two mats stacked or side by side as the game's board_layout
+   says, with the position laid on each where the mat has a place for
+   it --
    the hero as its card in the first hero slot with its level chit, or
    the slot empty while it is in the command zone, its summoning runes
    as chits; the patrollers as their cards in the five labelled slots;
@@ -1257,9 +1269,10 @@ commits: the service and storage; the cog, views and lobby; the board.
    how many remain, a card with none left shown faint, sized so that
    Everything -- twelve cards in the basic game, thirty-six in the
    standard one -- stays under Discord's upload limit and readable.
-   scripts/render_codex_sample.py renders the opening position, a hand
-   and a codex view, and --game <id> a saved one; look at the images
-   and put them in the PR.
+   render_board(match, layout) draws both layouts.
+   scripts/render_codex_sample.py renders the opening position in
+   both, a hand and a codex view, and --game <id> a saved one; look at
+   the images and put them in the PR.
    cogs/d12ball_boards.py's BoardRefresher takes, as parameters, the
    two things it reaches into D12 Ball for today: the view it keeps on
    the board message (HomeAwaySelectionView, once
@@ -1322,8 +1335,8 @@ the undos and resume.
    for either seated player, answering the active player with the
    control panel and the other with their hand alone (one button,
    different answers by who clicked: the author, 2026-10-08), Tech,
-   which only the other player may press, Codex for either, and
-   Concede from step 7. It is
+   which only the other player may press, Codex and Swap view for
+   either, and Concede from step 7. It is
    pinned and the previous turn's message unpinned, the rollover
    post_new_play_board does for D12 Ball. After every action it is
    edited, through the gate, with the new lines and the re-rendered
