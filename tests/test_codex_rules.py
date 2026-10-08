@@ -34,8 +34,7 @@ def to_their_turn(engine, game, match):
     """End seat 1's turn and begin seat 2's -- seat 2 owes no tech on
     its first turn, so its main phase follows at once."""
     driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
-    driver.apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))
-    return match
+    return driver.apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))
 
 
 class DrawTests(unittest.TestCase):
@@ -81,8 +80,10 @@ class EconomyTests(unittest.TestCase):
         player = match.player(2)
         player.gold = GOLD_CAP - 2
         player.workers = 5
-        to_their_turn(engine, game, match)
+        run = to_their_turn(engine, game, match)
         self.assertEqual(match.player(2).gold, GOLD_CAP)
+        said = " ".join(run.result.narration)
+        self.assertIn("collects {gold:2} from 5 workers and hits the gold cap: {gold:20}.", said)
 
     def test_a_worker_is_hired_once_a_turn_and_its_card_is_gone(self) -> None:
         """A gold and a card from the hand, trashed unseen, once a turn

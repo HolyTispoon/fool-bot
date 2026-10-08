@@ -132,10 +132,17 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Upkeep.
     match.enter_phase("upkeep")
     gained = gain_gold(match, seat, player.workers)
-    result.narration.append(
+    collected = (
         f"{tokens.player(seat)} collects {tokens.gold(gained)} from "
-        f"{_plural(player.workers, 'worker')}: {tokens.gold(player.gold)}."
+        f"{_plural(player.workers, 'worker')}"
     )
+    if gained < player.workers:
+        # Said where it bites, so a short income is not read as a slip
+        # (the author, 2026-10-08).
+        collected += f" and hits the gold cap: {tokens.gold(player.gold)}."
+    else:
+        collected += f": {tokens.gold(player.gold)}."
+    result.narration.append(collected)
     if not hero.in_play and hero.summoning_runes:
         hero.summoning_runes -= 1
         result.narration.append(
