@@ -1010,7 +1010,13 @@ class AttackChoiceTests(KeywordCase):
         self.assertIs(asked.kind, PromptKind.CHOOSE_DEFENDER,
                       "obliterate took the defender, so another is chosen")
         combat.declare_attack(engine, game, match, duck, "base")
-        self.assertEqual(match.player(2).base_hp, 12)
+        # Its attacks trigger, before the damage (step 6): 4 to a building,
+        # either side's, so it is asked.
+        asked = pending_prompt(engine, game, match)
+        self.assertIs(asked.kind, PromptKind.TARGET)
+        from codex.flow import resolve
+        resolve.choose_target(engine, game, match, "2:base")
+        self.assertEqual(match.player(2).base_hp, 20 - 4 - 8)
         self.assertIsNone(match.combat)
 
     def test_sparkshot_asks_only_between_two_neighbours(self) -> None:

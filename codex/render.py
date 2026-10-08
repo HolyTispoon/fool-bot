@@ -212,7 +212,8 @@ def damage_chits(canvas: Image.Image, damage: int, at: tuple[int, int], size: in
     lay_chits(canvas, chit_stack(damage, "damage", 9), at, size)
 
 
-def rune_chits(canvas: Image.Image, card: CardInstance, at: tuple[int, int], size: int) -> None:
+def rune_chits(canvas: Image.Image, card, at: tuple[int, int], size: int) -> None:
+    """A unit's or a hero's +1/+1 and -1/-1 runes, as the module's chits."""
     chits = [board_piece("chits", "plus_rune.png")] * card.plus_runes
     chits += [board_piece("chits", "minus_rune.png")] * card.minus_runes
     lay_chits(canvas, chits, at, size)
@@ -221,15 +222,27 @@ def rune_chits(canvas: Image.Image, card: CardInstance, at: tuple[int, int], siz
 # -- One side --------------------------------------------------------------
 
 
-def card_tile(card: CardInstance, cards: CardCatalog, size: tuple[int, int]) -> Image.Image:
+def partner_ids(player: PlayerState) -> set[int]:
+    """The ids Two Step has partnered on this side: each carries the
+    module's Two Step chit."""
+    return {
+        partner for card in player.play if card.slug == "two_step" for partner in card.attached
+    }
+
+
+def card_tile(card: CardInstance, cards: CardCatalog, size: tuple[int, int],
+              partnered: bool = False) -> Image.Image:
     """A card in play as it lies: its own art, its damage and rune chits,
-    the arrival mark, turned sideways when exhausted."""
+    Two Step's chit on a dance partner, the arrival mark, turned sideways
+    when exhausted."""
     picture = fitted(card_picture(card.slug, cards), size)
     chit = max(28, picture.width // 3)
     if card.damage:
         damage_chits(picture, card.damage, (picture.width - chit - 4, 4), chit)
     if card.plus_runes or card.minus_runes:
         rune_chits(picture, card, (4, picture.height - chit - 4), chit)
+    if partnered:
+        lay_chits(picture, [board_piece("chits", "two_step.png")], (4, 4), chit)
     if card.arrived_this_turn:
         pill(ImageDraw.Draw(picture), (picture.width // 2, picture.height * 2 // 5),
              "arrived", max(14, picture.width // 9), MARK_FILL, anchor="mm")
@@ -254,6 +267,8 @@ def hero_tile(player: PlayerState, cards: CardCatalog, size: tuple[int, int]) ->
     lay_chits(picture, [level], (picture.width - chit - 4, picture.height - chit - 4), chit)
     if hero.damage:
         damage_chits(picture, hero.damage, (picture.width - chit - 4, 4), chit)
+    if hero.plus_runes or hero.minus_runes:
+        rune_chits(picture, hero, (4, picture.height - chit - 4), chit)
     if hero.arrived_this_turn:
         pill(ImageDraw.Draw(picture), (picture.width // 2, picture.height * 2 // 5),
              "arrived", max(14, picture.width // 9), MARK_FILL, anchor="mm")
@@ -331,8 +346,9 @@ def draw_play_zone(canvas: Image.Image, player: PlayerState, cards: CardCatalog)
     tiles: list[Callable[[tuple[int, int]], Image.Image]] = []
     if hero.in_play and hero.patrol_slot is None:
         tiles.append(partial(hero_tile, player, cards))
-    tiles += [partial(card_tile, card, cards) for card in player.play
-              if card.patrol_slot is None]
+    partners = partner_ids(player)
+    tiles += [partial(card_tile, card, cards, partnered=card.id in partners)
+              for card in player.play if card.patrol_slot is None]
     if not tiles:
         return
     width, height = box_size(PLAY_BOX)
@@ -393,7 +409,9 @@ def render_mat(match: MatchState, seat: int, cards: CardCatalog,
         if ref == "hero":
             tile = hero_tile(player, cards, box_size(box, 4))
         else:
-            tile = card_tile(match.instance(int(ref.split(":", 1)[1])), cards, box_size(box, 4))
+            instance_id = int(ref.split(":", 1)[1])
+            tile = card_tile(match.instance(instance_id), cards, box_size(box, 4),
+                             partnered=instance_id in partner_ids(player))
         paste_centred(mat, tile, box)
 
     draw_buildings(mat, player, building_hp)

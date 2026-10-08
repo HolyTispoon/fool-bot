@@ -129,6 +129,13 @@ class HeroState:
     #: It has attacked this turn -- what readiness's once a turn reads
     #: (UMR p. 17).
     attacked_this_turn: bool = False
+    #: Runes a spell put on it (Bloom's +1/+1, Wither's -1/-1), which
+    #: cancel each other (UMR p. 13) and go when it leaves play.
+    plus_runes: int = 0
+    minus_runes: int = 0
+    #: This-turn effects, each `{kind, amount, until}` -- Intimidate's
+    #: -4 ATK -- as a card's.
+    modifiers: list[dict] = field(default_factory=list)
 
     @property
     def in_play(self) -> bool:
@@ -147,6 +154,9 @@ HERO_SAVED_FIELDS = (
     SavedField("patrol_slot"),
     SavedField("armor", default=0),
     SavedField("attacked_this_turn", default=False),
+    SavedField("plus_runes", default=0),
+    SavedField("minus_runes", default=0),
+    SavedField("modifiers", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 
@@ -212,11 +222,16 @@ class CardInstance:
     exhausted: bool = False
     arrived_this_turn: bool = True
     patrol_slot: Optional[str] = None
-    #: This-turn effects, each `{kind, amount, until}`; empty until step 6.
+    #: This-turn effects, each `{kind, amount, until}`: an ATK or HP
+    #: change (Intimidate, Discord) or a keyword for the turn (Sneaky
+    #: Pig's stealth, `{kind: "keyword", keyword}`), removed at the end
+    #: of the turn.
     modifiers: list[dict] = field(default_factory=list)
-    #: The ids attached to this; empty until step 6.
+    #: The ids attached to this: an ongoing spell's -- Two Step's two
+    #: dance partners.
     attached: list[int] = field(default_factory=list)
-    #: A token's flip (the Dancer); False until step 6.
+    #: A token flipped to its other face -- a Dancer become an Angry
+    #: Dancer, whose slug it then carries.
     flipped: bool = False
     #: What is left of the squad leader's armor this turn.
     armor: int = 0
@@ -408,6 +423,11 @@ class MatchState:
     #: (`codex.flow.combat`): `{defender, stage, obliterated, sparks,
     #: overpower, overpower_settled}`. `None` between attacks.
     combat: Optional[dict] = None
+    #: The effects under way, oldest first, while one asks a choice
+    #: (`codex.flow.resolve`): each a frame -- a spell's or an
+    #: ability's parts with the part it stands at, Appel Stomp's
+    #: question, the upkeep's order. Empty between actions.
+    resolving: list[dict] = field(default_factory=list)
     #: The last three turn-start positions as dicts, oldest first.
     turn_snapshots: list[dict] = field(default_factory=list)
     #: The actions applied since this turn began, each with the random
@@ -519,7 +539,7 @@ class MatchState:
             for slug in player.tech_choice or ():
                 known(slug, f"{where}'s tech choice")
             hero = player.hero
-            for name in ("level", "damage", "summoning_runes", "armor"):
+            for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes"):
                 if getattr(hero, name) < 0:
                     fail(f"{where}'s hero has {name} below zero")
             if hero.zone not in ("command", "play"):
@@ -565,6 +585,7 @@ MATCH_SAVED_FIELDS = (
     SavedField("next_instance_id", default=1),
     SavedField("attacking"),
     SavedField("combat", write=_copy_optional_combat, read=_copy_optional_combat),
+    SavedField("resolving", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("journal", factory=list, write=_deep_copy, read=_deep_copy),
 )

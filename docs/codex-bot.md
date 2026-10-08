@@ -205,12 +205,16 @@ ever keeps is a shootout order. Codex is a hidden-information game.
 
 ### What the three outside sources give
 
-- **The rulebook** (`Codex_UMR_v13w.pdf`, 24 pages): the rules, a
-  glossary of every keyword, and a card FAQ -- Dean Ray Johnson's
-  compilation of Sirlin Games' manual and Chris Franka's rulings
-  document, under fair use. Its rules become code; its words are not
-  ours to bundle. The page numbers above are the only thing the plan
-  takes from it verbatim.
+- **The rulebook** (`Codex_UMR_v13w.pdf`, 24 pages, at
+  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true):
+  the rules, a glossary of every keyword, and a card FAQ (pp. 19-22) --
+  Dean Ray Johnson's compilation of Sirlin Games' manual and Chris
+  Franka's rulings document, under fair use. The author prefers it to
+  the official rulebooks (https://sirlingames.com/rulebooks), with which
+  it should agree on every matter (2026-10-08). Its rules become code;
+  its words are not ours to bundle. The page numbers above are the only
+  thing the plan takes from it verbatim, and every card is read against
+  it as well as the database.
 - **The card database** (`codexcarddb.com`, source at
   `github.com/rgdelato/codex-cards-gatsby`): every card's text, type,
   cost, stats and tech level, each hero's three bands, and Sirlin's
@@ -659,7 +663,7 @@ starting.
 | ~~3~~ | ~~The lobby, the channel and the board~~ -- landed; what it settled is in docs/design/codex.md, "The service and its file", "The lobby and the channel", "Who may act, shared", "The board on Discord" and "Hidden information on Discord" | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
 | ~~4~~ | ~~The turn on Discord, and the two undos~~ -- landed; what it settled is in docs/design/codex.md, "The turn on Discord" | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | ~~5~~ | ~~The keywords~~ -- landed; what it settled is in docs/design/codex.md, "The keywords" and "Which choices an attack asks, and which it does not" | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
-| 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
+| ~~6~~ | ~~Triggers, spells and the ongoing spells~~ -- landed; what it settled is in docs/design/codex.md, "Targeting and the effects" | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | 8 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 7 remains byte-identical in two places |
 | 9 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
@@ -750,6 +754,15 @@ Hard rules for every step:
   rulebook's text and a ruling differ the ruling governs. A rules
   question is answered from the rulings first and taken to the author
   only when they are silent.
+- Read every card you implement against the card database AND the
+  rulebook -- its rules, its glossary and its Card FAQ (pp. 19-22) --
+  not the database alone. The rulebook to read is the Unofficial
+  Manual Rewrite v1.3, which the author prefers:
+  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true
+  (cited as "UMR p. n"). The official rulebooks are at
+  https://sirlingames.com/rulebooks; the two should agree on every
+  matter, and a disagreement is a question for the author. Neither is
+  committed to this repository: fetch it, read it, cite its pages.
 - Card art wherever a card exists: the board's tiles, the panel's hand
   and /codex card show the cards' own pictures from codex/images/cards/;
   nothing is redrawn that a card already shows, and drawn tiles are
@@ -1604,6 +1617,14 @@ tower's damage line in the channel.
 ```
 
 ### 6. Triggers, spells and the ongoing spells
+
+**Landed.** Every card of the basic set plays its text and
+`UNIMPLEMENTED` is empty; docs/design/codex.md, "Targeting and the
+effects", says how -- the effect stack and the one reading of what a part
+may target, resist and the flagbearer, the abilities, the attacks
+triggers inside an attack, `settle`, the grants and costs, the tokens,
+channeling and Two Step, and the upkeep's order -- and "The saved fields"
+what it added to the save.
 
 Everything with text that is not a keyword: the thirteen spells, the
 arrives and attacks triggers, the heroes' bands, the granted abilities,

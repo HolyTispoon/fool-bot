@@ -323,18 +323,20 @@ class PatrolSlotTests(unittest.TestCase):
 
 class CardTests(unittest.TestCase):
     def test_a_spell_needs_a_hero_and_goes_to_the_discard(self) -> None:
-        """A spell needs a hero in play (UMR p. 7); in this step it is paid
-        and discarded and does nothing, since its text is unimplemented."""
+        """A spell needs a hero in play (UMR p. 7); it is paid, does what
+        it says, and goes to the discard pile. Since step 6 it plays its
+        text, so nothing says it is not played."""
         engine, game, match = main_phase()
         player = match.player(1)
         hand(match, 1, "spark")
         player.gold = 5
+        put(match, 2, "older_brother", patrol="elite")
         self.assertIn("hero", engine.why_not_playable(player, "spark"))
         hero_in_play(match, 1)
         result = actions.play_card(engine, game, match, "spark")
         self.assertEqual(player.discard[-1], "spark")
         self.assertEqual(player.gold, 4)
-        self.assertIn(actions.NOT_PLAYED_YET, result.narration[0])
+        self.assertNotIn(actions.NOT_PLAYED_YET, " ".join(result.narration))
 
     def test_an_ultimate_needs_the_hero_at_maximum_level_since_the_turn_began(self) -> None:
         engine, game, match = main_phase()

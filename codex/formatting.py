@@ -86,7 +86,7 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
             if ref == "add_on" and player.add_on is not None:
                 return catalog().name(player.add_on.slug)
             return building_name(ref)
-        atk, hp = engine.unit_stats(card)
+        atk, hp = engine.unit_stats(card, match)
         label = f"{catalog().name(card.slug)} {atk}/{hp}"
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
