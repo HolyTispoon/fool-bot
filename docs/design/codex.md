@@ -121,8 +121,10 @@ its source.
   (https://sirlingames.com/rulebooks) and which should agree with them on
   every matter (2026-10-08). Its pages are cited as `UMR p. n`, its Card
   FAQ is pp. 19-22, and every card is read against it as well as the
-  database -- step 6's were, on 2026-10-08. It is not committed: its
-  words are Sirlin Games' and the rewrite's.
+  database -- step 6's were, on 2026-10-08. It is committed at
+  `docs/codex/Codex_UMR_v13w.pdf` (the author, 2026-10-08), the copy
+  every `UMR p. n` cites, so a session with no network reads the same
+  page; the bot quotes none of it.
 - **The rulings are the official rules of the game** (the author,
   2026-10-08). `codex/rulings.py` reads them -- `rulings_for(slug)` for a
   card's, `keyword_rulings(keyword)` for the `General` group's -- each
@@ -175,7 +177,7 @@ What is under `codex/images/board/`, and what each is named by:
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
 | `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
-| `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), and a blue `swirl` and an orange `house` nobody has said the module's use of, named for what they show | what it shows |
+| `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), a blue `swirl` nobody has said the module's use of, and the orange `house`, the module's mark on a building under construction or destroyed (the author, 2026-10-08), both named for what they show | what it shows |
 
 Left uncut: the twelve maps, a variant the basic game does not play;
 the sheets' label cells, which the playmat prints; and the neutral
@@ -297,7 +299,7 @@ snapshot it led to already holds its effects.
 plays its text, and `tests/test_codex_effects.py` says where each one's
 text lives -- a keyword the engine reads, or a row of the tables in
 `codex.effects` ("Targeting and the effects", below). The table's job
-is done until the next spec (step 9) brings cards the engine has not
+is done until the next spec (step 10) brings cards the engine has not
 met; a card with text nothing plays fails that test until it is
 handled or listed. What follows is how it got there.
 
@@ -682,8 +684,9 @@ with a keyword's rulings as the official rules they are.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
 rulings that do not fit and leaving them to the link, measured after
-the tokens are rendered. No rulebook text is bundled and
-`docs/living-rules.md` is not touched (worksheet decision 12).
+the tokens are rendered. The bot serves no rulebook text and
+`docs/living-rules.md` is not touched (worksheet decision 12); the
+rulebook's PDF under `docs/codex/` is for the developers to read.
 
 ## The service and its file
 

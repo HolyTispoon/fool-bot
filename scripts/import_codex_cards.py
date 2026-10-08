@@ -207,9 +207,10 @@ BOARD_SHEETS: dict[str, tuple[tuple[int, int] | None, dict[str, int | tuple[int,
     }),
     # Time runes 1 to 6, on purple; 665 a cell.
     "Time Runes": ((3, 2), {f"time_runes/{n}": n - 1 for n in range(1, 7)}),
-    # Single counters, about 119 a cell. Nobody has said what the module
-    # uses the blue swirl and the orange house for, so each is named for
-    # what it shows; the +2/+2 is Two Step's, two dancers on it.
+    # Single counters, about 119 a cell. The orange house marks a building
+    # under construction or destroyed (the author, 2026-10-08); nobody has
+    # said what the module uses the blue swirl for. Each is named for what
+    # it shows; the +2/+2 is Two Step's, two dancers on it.
     "Chits": ((3, 3), {
         "chits/swirl": 0,
         "chits/damage_1": 1,
