@@ -4,10 +4,13 @@ left, so a card can leave it only in the commit that gives it a handler
 (docs/codex-bot.md, decision 7) -- and the keyword table beside it is
 read off the texts.
 
-**Step 5 shrank it to the triggers, the spells and the grants.** Every
-card whose text is keywords alone plays in full now, and so does the
-tower, whose detection and damage are the board's rather than a
-keyword's; what is left is step 6's.
+**Step 5 shrank it to the triggers, the spells and the grants, and step
+6 emptied it**: every card of the basic set with text now plays it --
+its keywords through `codex.keywords`, its spells, triggers and
+abilities through `codex.effects.EFFECTS` and `TEXT`, its static text
+through the engine's grants and costs. `test_every_card_with_text_is_handled`
+says where each one's text lives, so a card the next spec brings with
+text the engine has not met fails here until it is handled or listed.
 """
 
 from __future__ import annotations
@@ -17,18 +20,9 @@ import unittest
 from codex import effects, keywords
 from codex.cards import Hero, catalog
 from codex.engine import RulesEngine
+from codex.flow import resolve
 
-#: What step 5 leaves: the cards whose text is a trigger, a spell, a
-#: static grant, an upkeep effect or a hero's band.
-STEP_5_UNIMPLEMENTED = frozenset({
-    "brick_thief", "granfalloon_flagbearer", "spark", "bloom", "wither",
-    "wrecking_ball", "the_boot", "intimidate", "final_smash",
-    "hired_stomper", "sneaky_pig", "trojan_duck",
-    "harmony", "discord", "two_step", "appel_stomp", "nimble_fencer",
-    "starcrossed_starlet", "grounded_guide", "maestro", "blademaster",
-    "troq_bashar", "river_montoya",
-    "dancer", "angry_dancer", "surplus",
-})
+from codex_positions import begin, new_game
 
 #: The cards step 5 took out of it, each with the keyword that is the
 #: whole of its text -- and the tower, whose text is its own.
@@ -53,16 +47,68 @@ def _has_text(slug: str) -> bool:
     return bool(card.text)
 
 
-class UnimplementedTests(unittest.TestCase):
-    def test_the_set_is_pinned(self) -> None:
-        self.assertEqual(effects.UNIMPLEMENTED, STEP_5_UNIMPLEMENTED)
+#: Where each card's text that is not a keyword lives, from step 6: the
+#: tables of `codex.effects` the engine and the flow read.
+def _handled(slug: str) -> list[str]:
+    found = []
+    if slug in effects.TEXT or any(
+        isinstance(key, tuple) and key[0] == slug for key in effects.TEXT
+    ):
+        found.append("TEXT")
+    for name in (
+        "GRANTS_VIRTUOSO_HASTE", "GRANTS_SWIFT_STRIKE", "GUIDES", "MAESTROS",
+        "ATK_PER_DAMAGE", "UPKEEP_SELF_DAMAGE", "UPKEEP_DRAW", "CHANNELING",
+    ):
+        if slug in getattr(effects, name):
+            found.append(name)
+    if any(key[0] == slug for key in effects.TECH_0_DISCOUNT):
+        found.append("TECH_0_DISCOUNT")
+    card = catalog().by_slug(slug)
+    if effects.FLAGBEARER in (getattr(card, "subtype", None) or ""):
+        found.append("FLAGBEARER")
+    if slug == effects.DANCER:
+        found.append("stop_the_music")
+    return found
 
-    def test_nothing_with_text_is_played_silently(self) -> None:
-        """Every card of the basic set that has text is either in the set
-        or has a handler: the two together are exactly the cards with
-        text, so nothing is ignored without saying so."""
-        with_text = {slug for slug in effects.BASIC_SET if _has_text(slug)}
-        self.assertEqual(with_text, effects.UNIMPLEMENTED | set(STEP_5_PLAYED))
+
+class UnimplementedTests(unittest.TestCase):
+    def test_the_set_is_empty(self) -> None:
+        """Step 6 leaves nothing in it: the basic game is the basic game."""
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
+
+    def test_every_card_with_text_is_handled(self) -> None:
+        """Every card of the basic set with text plays it: each line is a
+        keyword the engine reads, or the card is in one of the tables a
+        handler reads. Nothing is ignored, silently or otherwise."""
+        for slug in sorted(effects.BASIC_SET):
+            if not _has_text(slug):
+                continue
+            with self.subTest(card=slug):
+                card = catalog().by_slug(slug)
+                lines = (
+                    [line for band in card.bands for line in band.text]
+                    if isinstance(card, Hero) else list(card.text)
+                )
+                if slug in STEP_5_PLAYED or all(keywords.read_keywords([line]) for line in lines):
+                    continue
+                self.assertTrue(_handled(slug), f"{slug} has text nothing plays")
+
+    def test_every_part_is_carried_out(self) -> None:
+        """Each `Part.does` the table uses is a handler in
+        `codex.flow.resolve.DOES`, and each `Part.choose` a filter the
+        engine answers."""
+        engine = RulesEngine()
+        _, game, match = new_game()
+        begin(engine, game, match)
+        for effect in effects.EFFECTS.values():
+            for part in effect.parts:
+                with self.subTest(effect=effect.key, does=part.does):
+                    self.assertIn(part.does, resolve.DOES)
+                    if part.choose is not None:
+                        engine.target_candidates(match, 1, part.choose)
+        for rows in effects.TEXT.values():
+            for _, effect in rows:
+                self.assertIn(effect, effects.EFFECTS)
 
     def test_what_step_5_took_out_is_keywords_alone(self) -> None:
         """A card left the set when its whole text became code: for nine
@@ -92,7 +138,7 @@ class UnimplementedTests(unittest.TestCase):
         for slug in ("tenderfoot", "older_brother", "iron_man", "regularsized_rhinoceros"):
             self.assertNotIn(slug, effects.UNIMPLEMENTED)
             self.assertTrue(engine.is_vanilla(slug))
-        self.assertTrue(engine.is_vanilla("trojan_duck"))
+        self.assertFalse(engine.is_vanilla("trojan_duck"))
 
 
 class KeywordTests(unittest.TestCase):

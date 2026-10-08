@@ -24,7 +24,7 @@ from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.prompts import PromptKind
 from codex_cog_fakes import Table
-from codex_positions import put
+from codex_positions import hero_in_play, put
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     PatrolView,
@@ -345,6 +345,13 @@ class WholeGameTests(TurnTestCase):
             return await table.choose(view, "", options.patrollers[0])
         if view.prompt.kind is PromptKind.OVERPOWER_TARGET:
             return await table.choose(view, "", options.targets[0])
+        # The questions an effect asks as it resolves (step 6).
+        if view.prompt.kind is PromptKind.TARGET:
+            return await table.choose(view, "", options.targets[0].key)
+        if view.prompt.kind is PromptKind.APPEL_STOMP_TOP:
+            return await table.press(view, "Into my discard pile")
+        if view.prompt.kind is PromptKind.UPKEEP_ORDER:
+            return await table.press(view, "Heal first")
         if options.hero.action == "summon" and not options.hero.why_not:
             return await table.press(view, "Summon")
         cards = [row for row in options.playable if row.allowed]
@@ -356,6 +363,70 @@ class WholeGameTests(TurnTestCase):
         if options.attackers:
             return await table.choose(view, "Attack with", options.attackers[0])
         return await table.press(view, "End main phase")
+
+
+class EffectPanelTests(TurnTestCase):
+    """The questions an effect asks, in the same panel (step 6): a
+    target as a menu, Appel Stomp's place and the upkeep's order as
+    buttons, and the abilities in the last row beside the hero's
+    levels."""
+
+    def stage(self):
+        match = self.table.match
+        seat = match.active
+        return match, seat, 2 if seat == 1 else 1
+
+    async def test_a_target_is_a_menu_in_the_panel(self) -> None:
+        match, seat, other = self.stage()
+        hero_in_play(match, seat)
+        first = put(match, other, "older_brother", patrol="elite")
+        put(match, other, "iron_man", patrol="squad_leader")
+        match.player(seat).hand = ["spark"]
+        match.player(seat).gold = 1
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.choose(view, "Play a card", "spark")
+        self.assertNothingWentWrong(call)
+        asking = call.view()
+        self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.choose(asking, "Deal 1 damage to a patroller", f"{other}:{first.ref}")
+        self.assertNothingWentWrong(call)
+        self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(self.table.match.player(other).instance(first.id).damage, 1)
+        self.assertEqual(channel_requests(self.table, mark), [("edit", self.game.turn_message_id)])
+
+    async def test_an_ability_is_in_the_last_row(self) -> None:
+        match, seat, _ = self.stage()
+        song = put(match, seat, "harmony")
+        put(match, seat, "dancer")
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.choose(view, "Use an ability", f"ability:stop_the_music:{song.ref}")
+        self.assertNothingWentWrong(call)
+        slugs = [card.slug for card in self.table.match.player(seat).play]
+        self.assertEqual(slugs, ["angry_dancer"])
+
+    async def test_appel_stomp_and_the_upkeep_are_buttons(self) -> None:
+        match, seat, _ = self.stage()
+        match.resolving = [{"kind": "appel_top", "seat": seat}]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, "On top of my draw pile")
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).deck[-1], "appel_stomp")
+
+        match = self.table.match
+        put(match, seat, "helpful_turtle")
+        put(match, seat, "starcrossed_starlet", damage=1)
+        match.enter_phase("upkeep")
+        match.resolving = [{"kind": "upkeep_order", "seat": seat}]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertIs(view.prompt.kind, PromptKind.UPKEEP_ORDER)
+        call = await self.table.press(view, "Heal first")
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.phase, "main")
 
 
 class TestGameTests(unittest.IsolatedAsyncioTestCase):

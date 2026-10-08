@@ -9,10 +9,13 @@ builds its buttons, hand it to `driver.apply`, save, reload, and go
 again; where the bot owes a step, run it as the service's resume will.
 Both players are one policy, deliberately simple -- it hires when it
 can until it has ten workers (beyond which a worker buys nothing in the
-basic game), builds the next tech building when it can, plays the cheapest
-playable unit, summons and levels the hero, attacks with everything
-that has a legal defender (the base where it may) and patrols
-everything ready, and techs the lowest-tech units first.
+basic game) -- never with a spell, which it keeps for its hero -- builds
+the next tech building when it can, summons the hero, plays the cheapest
+playable card -- a unit before a spell of the same cost, and since step
+6 the spells do what they say -- levels the hero, attacks with
+everything that has a legal defender (the base where it may) and
+patrols everything ready, and techs the lowest-tech units first. A question an effect asks takes the first
+thing offered, which is the opponent's where there is one.
 
 **Every position round-trips** through `to_dict`/`from_dict` and
 `validate` before the next action is built, which is the restart
@@ -88,6 +91,12 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     if kind is PromptKind.CHOOSE_DEFENDER:
         defender = "base" if "base" in options.defenders else options.defenders[0]
         return Action(kind, arguments={"defender": defender})
+    if kind is PromptKind.TARGET:
+        return Action(kind, arguments={"target": options.targets[0].key})
+    if kind is PromptKind.APPEL_STOMP_TOP:
+        return Action(kind, "discard")
+    if kind is PromptKind.UPKEEP_ORDER:
+        return Action(kind, arguments={"first": options.effects[0]})
     if kind is PromptKind.PATROL:
         assignment = dict(zip(PATROL_SLOTS, options.candidates))
         return Action(kind, arguments={"assignment": assignment})
@@ -95,20 +104,23 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     player = match.active_player
     if options.hire.allowed and player.workers < 10:
         playable = {row.slug for row in options.playable if row.allowed}
-        spare = [slug for slug in player.hand if slug not in playable] or player.hand
+        # A spell is kept for the hero to cast; anything else not
+        # playable is what a worker is hired with.
+        spare = ([slug for slug in player.hand if slug not in playable
+                  and not engine.catalog.cards[slug].is_spell]
+                 or [slug for slug in player.hand if slug not in playable] or player.hand)
         return Action(kind, "hire", {"slug": spare[-1]})
     for row in options.buildings:
         if row.building.startswith("tech") and row.allowed:
             return Action(kind, "build", {"building": row.building})
-    units = sorted(
-        (row for row in options.playable
-         if row.allowed and engine.catalog.cards[row.slug].is_unit),
-        key=lambda row: (row.cost, row.slug),
-    )
-    if units:
-        return Action(kind, "play", {"slug": units[0].slug})
     if options.hero.action == "summon" and not options.hero.why_not:
         return Action(kind, "summon")
+    cards = sorted(
+        (row for row in options.playable if row.allowed),
+        key=lambda row: (row.cost, not engine.catalog.cards[row.slug].is_unit, row.slug),
+    )
+    if cards:
+        return Action(kind, "play", {"slug": cards[0].slug})
     if options.hero.action == "level" and not options.hero.why_not:
         return Action(kind, "level", {"levels": options.hero.max_levels})
     if options.attackers:
@@ -211,6 +223,10 @@ class CodexFullGameTests(unittest.TestCase):
         for kind in ("hired", "built", "played", "summoned", "attacked",
                      "patrolled", "destroyed", "turn_ended"):
             self.assertIn(kind, kinds)
+        # Step 6: the policy casts spells, and they do what they say.
+        cast = {event["slug"] for event in self.match.events
+                if event["kind"] == "played" and self.engine.catalog.cards[event["slug"]].is_spell}
+        self.assertTrue(cast, "no spell was cast")
 
     def test_two_runs_on_one_seed_agree(self) -> None:
         _, _, again, transcript = play()

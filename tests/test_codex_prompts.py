@@ -110,6 +110,44 @@ def tech_confirm():
     return engine, game, match
 
 
+def target():
+    """Spark, with a patroller on each side: which one it hits."""
+    engine, game, match = _main()
+    from codex_positions import hand, hero_in_play
+    hero_in_play(match, 1)
+    put(match, 1, "older_brother", patrol="elite")
+    put(match, 2, "tenderfoot", patrol="elite")
+    hand(match, 1, "spark")
+    match.player(1).gold = 5
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "spark"}))
+    return engine, game, match
+
+
+def appel_stomp_top():
+    """Appel Stomp has sidelined its patroller and drawn: where it goes.
+    Finesse (seat 2) goes first, River at her maximum level."""
+    engine, game, match = new_game(first=2)
+    begin(engine, game, match)
+    from codex_positions import hand, hero_in_play
+    hero_in_play(match, 2, level=5)
+    match.player(2).hero.max_level_since_turn_began = True
+    put(match, 1, "tenderfoot", patrol="elite")
+    hand(match, 2, "appel_stomp")
+    match.player(2).gold = 5
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "appel_stomp"}))
+    return engine, game, match
+
+
+def upkeep_order():
+    """Seat 2's upkeep with a Helpful Turtle and a Star-Crossed Starlet:
+    the order changes what she is left with, so it is asked."""
+    engine, game, match = _main()
+    put(match, 2, "helpful_turtle")
+    put(match, 2, "starcrossed_starlet", damage=1)
+    _end_turn(engine, game, match)
+    return engine, game, match
+
+
 def game_over():
     engine, game, match = _main()
     match.winner = 2
@@ -125,6 +163,9 @@ PROMPT_FIXTURES = {
     PromptKind.OBLITERATE_CHOICE: obliterate_choice,
     PromptKind.SPARKSHOT_TARGET: sparkshot_target,
     PromptKind.OVERPOWER_TARGET: overpower_target,
+    PromptKind.TARGET: target,
+    PromptKind.APPEL_STOMP_TOP: appel_stomp_top,
+    PromptKind.UPKEEP_ORDER: upkeep_order,
     PromptKind.GAME_OVER: game_over,
 }
 

@@ -51,6 +51,7 @@ class HistoryTests(unittest.TestCase):
 
     def play_turn_3(self) -> None:
         engine, game, match = self.engine, self.game, self.match
+        self.targets = 0
         player = match.player(1)
         apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": player.hand[0]})
         apply(engine, game, match, PromptKind.TECH_CHOICE,
@@ -60,6 +61,12 @@ class HistoryTests(unittest.TestCase):
             key=lambda row: row.cost,
         )
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": cheapest.slug})
+        # A card whose arrives trigger asks a target (step 6) is answered
+        # in its own action, journalled like any other.
+        while (asked := pending_prompt(engine, game, match)).kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET,
+                  arguments={"target": asked.options.targets[0].key})
+            self.targets += 1
         apply(engine, game, match, PromptKind.TECH_CHOICE,
               arguments={"player": 2, "picks": ["maestro", "cloud_sprite"]})
 
@@ -76,7 +83,7 @@ class HistoryTests(unittest.TestCase):
         end_turn(self.engine, self.game, self.match)
         self.assertEqual(self.match.active, 2)
         journal = self.match.journal
-        self.assertEqual(len(journal), 6)
+        self.assertEqual(len(journal), 6 + self.targets)
         self.assertTrue(any(entry["outcomes"] for entry in journal),
                         "the draw should have reshuffled")
         original = json.dumps(self.match.to_dict(), sort_keys=True)
