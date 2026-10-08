@@ -399,6 +399,17 @@ spends nothing from the channel's edit bucket. Start is either seated
 player's, or a game helper's -- the lobby asks no confirmation, as
 D12 Ball's does not.
 
+**A test game seats one person on both sides** (`/codex lobby
+test_game:True`, the author, 2026-10-08), as D12 Ball's test games do.
+The record's rules are what change: `take_seat` sits a person already
+seated down on the other side too rather than moving them, `leave`
+frees both seats, and `seats_of` reads both. A click acts for
+`seat_for(user, active)` -- the seat whose turn it is, where the clicker
+holds it -- so **My hand**, **Codex** and `/codex hand` show the side
+that is playing, and their captions name it. Nothing is hidden from one
+person playing both hands, so nothing more is needed; the tech choice
+on the other side's turn is step 4's to word.
+
 **Start turns that channel into the game's**, in one edit: renamed
 `codex-<n>-<p1>-vs-<p2>` (capped at 100 characters) and closed to
 everybody's messages but the players'. The service deals and runs the

@@ -36,21 +36,26 @@ class LobbyMixin:
         else:
             waiting = "Take a seat to play."
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- the basic game, Bashing against Finesse.")
+        if game.test_game:
+            head += " A **test game**: one person may take both seats and play both sides."
         return "\n".join([head.strip(), *rows, waiting])
 
     @app_commands.command(name="lobby", description="Open a Codex lobby in a channel of its own: two seats, then Start.")
-    async def lobby(self, interaction: discord.Interaction) -> None:
+    @app_commands.describe(test_game="A test game: you may take both seats and play both sides")
+    async def lobby(self, interaction: discord.Interaction, test_game: bool = False) -> None:
         """
         Open the game's channel, `codex-<n>` under Codex Games, and post
         the lobby in it: the game is played where its lobby was, as D12
         Ball's are. The person who asked is told where, privately.
+        `test_game` lets one person take both seats and play both sides,
+        as D12 Ball's test games do.
         """
         if interaction.guild is None:
             await send_ephemeral(interaction, "A Codex game is played in a server's channel.")
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         await self.tokens.refresh()
-        game = self.service.create_game(guild_id=interaction.guild.id)
+        game = self.service.create_game(guild_id=interaction.guild.id, test_game=test_game)
         try:
             channel = await self.create_game_channel(interaction.guild, game)
         except ValueError as error:

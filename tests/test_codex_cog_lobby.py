@@ -271,6 +271,38 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["file"].filename, "codex-everything.png")
 
 
+class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_one_person_plays_both_sides_and_sees_the_active_sides_hand(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            call = interaction(table.basher, guild=table.guild)
+            await table.cog.lobby.callback(table.cog, call, test_game=True)
+            (game,) = table.cog.games.values()
+            lobby = LobbyView(table.cog, game.game_id)
+            await table.click(lobby, "bashing", table.basher)
+            await table.click(lobby, "finesse", table.basher)
+            await table.click(lobby, "start", table.basher)
+            hand = await table.click(TurnMessageView(table.cog, game.game_id), "hand", table.basher)
+
+        self.assertTrue(game.test_game)
+        self.assertIs(game.status, GameStatus.PLAYING)
+        self.assertEqual(table.game_channel.edit.call_args.kwargs["name"], "codex-1-basher-vs-basher")
+        match = table.cog.service.load(game)
+        side = match.player(match.active).spec.title()
+        (caption,), kwargs = hand.response.send_message.call_args
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertIn(f"Your hand ({side})", caption)
+
+    async def test_the_lobby_says_it_is_a_test_game(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            await table.cog.lobby.callback(
+                table.cog, interaction(table.basher, guild=table.guild), test_game=True,
+            )
+        (text,), _ = table.game_channel.send.call_args
+        self.assertIn("test game", text)
+
+
 class SwapViewTests(unittest.IsolatedAsyncioTestCase):
     async def test_swap_view_flips_the_layout_and_writes_through_the_gate(self) -> None:
         with suppressed_cog_saves():

@@ -21,7 +21,7 @@ from cogs.codex_helpers import (
     channel_name,
     codex_games_category,
 )
-from cogs.codex_views import TurnMessageView, hand_caption, hand_file
+from cogs.codex_views import TurnMessageView, hand_caption, hand_file, side_label
 
 LOGGER = logging.getLogger(__name__)
 
@@ -166,6 +166,7 @@ class PresentationMixin:
         """A player's hand pictured and their discard listed, **ephemeral
         to them alone** -- the first hidden thing the bot shows."""
         await interaction.response.send_message(
-            hand_caption(match, seat), file=await hand_file(self.engine, match, seat),
+            hand_caption(match, seat, side_label(game, match, seat)),
+            file=await hand_file(self.engine, match, seat),
             ephemeral=True,
         )
