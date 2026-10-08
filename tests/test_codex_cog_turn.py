@@ -396,6 +396,24 @@ class EffectPanelTests(TurnTestCase):
         self.assertEqual(self.table.match.player(other).instance(first.id).damage, 1)
         self.assertEqual(channel_requests(self.table, mark), [("edit", self.game.turn_message_id)])
 
+    async def test_a_spell_is_cancelled_from_its_target_menu(self) -> None:
+        match, seat, other = self.stage()
+        hero_in_play(match, seat)
+        put(match, other, "older_brother", patrol="elite")
+        put(match, other, "iron_man", patrol="squad_leader")
+        match.player(seat).hand = ["spark"]
+        match.player(seat).gold = 1
+        match.turn_snapshots[-1] = history.position(match)
+        match.journal = []
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        asking = (await self.table.choose(view, "Play a card", "spark")).view()
+        call = await self.table.press(asking, "Cancel")
+        self.assertNothingWentWrong(call)
+        self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(self.table.match.player(seat).hand, ["spark"])
+        self.assertEqual(self.table.match.player(seat).gold, 1)
+
     async def test_an_ability_is_in_the_last_row(self) -> None:
         match, seat, _ = self.stage()
         song = put(match, seat, "harmony")

@@ -485,5 +485,164 @@ class UpkeepTests(unittest.TestCase):
         self.assertEqual(match.turn_snapshots[-1]["phase"], "main")
 
 
+def staged(match) -> None:
+    """The hand-staged position as the turn's start: a cancel replays
+    the turn from its snapshot, which staging by hand would bypass."""
+    from codex import history
+
+    match.turn_snapshots[-1] = history.position(match)
+    match.journal = []
+
+
+class CancelTests(unittest.TestCase):
+    """A spell or an ability may be taken back while it asks a target
+    (the author, 2026-10-08): the turn is replayed to just before it."""
+
+    def test_a_spell_is_taken_back_at_its_first_target(self) -> None:
+        engine, game, match = bashing()
+        hero_in_play(match, 1)
+        put(match, 2, "older_brother", patrol="elite")
+        put(match, 2, "iron_man", patrol="squad_leader")
+        hand(match, 1, "iron_man", "spark", "older_brother")
+        match.player(1).gold = 4
+        staged(match)
+        before = match.to_dict()
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        options = asked(engine, game, match).options
+        self.assertTrue(options.cancellable)
+        run = apply(engine, game, match, PromptKind.TARGET, "cancel")
+        self.assertIn("takes back {card:spark}", " ".join(run.result.narration))
+        after = match.to_dict()
+        for key in ("players", "resolving", "journal"):
+            self.assertEqual(after[key], before[key], key)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+
+    def test_a_part_that_resolved_unasked_comes_back(self) -> None:
+        """Final Smash's first part took the one tech 0 unit without
+        asking; cancelling at the second part puts it back."""
+        engine, game, match = bashing()
+        ultimate_ready(match, 1)
+        foot = put(match, 2, "tenderfoot")
+        put(match, 2, "nimble_fencer")
+        put(match, 2, "starcrossed_starlet")
+        hand(match, 1, "final_smash")
+        match.player(1).gold = 6
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="final_smash")
+        self.assertIsNone(match.player(2).instance(foot.id))
+        self.assertEqual(asked(engine, game, match).options.part, 1)
+        apply(engine, game, match, PromptKind.TARGET, "cancel")
+        self.assertEqual(match.player(2).instance(foot.id).slug, "tenderfoot")
+        self.assertNotIn("tenderfoot", match.player(2).discard)
+        self.assertEqual(match.player(1).hand, ["final_smash"])
+        self.assertEqual(match.player(1).gold, 6)
+
+    def test_an_ability_is_taken_back_and_its_card_readied(self) -> None:
+        engine, game, match = finesse()
+        put(match, 2, "maestro")
+        foot = put(match, 2, "tenderfoot")
+        built(match, 1, "tech1")
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+              ability="maestro", source=foot.ref)
+        self.assertTrue(foot.exhausted)
+        apply(engine, game, match, PromptKind.TARGET, "cancel")
+        foot = match.player(2).instance(foot.id)
+        self.assertFalse(foot.exhausted)
+
+    def test_a_trigger_is_not_taken_back(self) -> None:
+        engine, game, match = bashing()
+        hand(match, 1, "brick_thief")
+        built(match, 2, "tech1")
+        match.player(1).gold = 5
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
+        self.assertFalse(asked(engine, game, match).options.cancellable)
+        refused(engine, game, match, PromptKind.TARGET, "cancel")
+
+    def test_the_other_players_tech_choice_survives_a_cancel(self) -> None:
+        engine, game, match = bashing()
+        hero_in_play(match, 1)
+        put(match, 2, "older_brother", patrol="elite")
+        put(match, 2, "iron_man", patrol="squad_leader")
+        hand(match, 1, "spark")
+        match.player(1).gold = 1
+        match.player(2).tech_owed = True
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        apply(engine, game, match, PromptKind.TECH_CHOICE,
+              player=2, picks=["maestro", "cloud_sprite"])
+        apply(engine, game, match, PromptKind.TARGET, "cancel")
+        self.assertEqual(match.player(2).tech_choice, ["maestro", "cloud_sprite"])
+        self.assertEqual(match.player(1).hand, ["spark"])
+
+    def test_a_turn_with_a_cancel_replays_byte_for_byte(self) -> None:
+        import json
+        from codex import history
+        from codex.engine import RulesEngine
+
+        engine, game, match = bashing()
+        hero_in_play(match, 1)
+        put(match, 2, "older_brother", patrol="elite")
+        put(match, 2, "iron_man", patrol="squad_leader")
+        hand(match, 1, "spark")
+        match.player(1).gold = 1
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        apply(engine, game, match, PromptKind.TARGET, "cancel")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        options = asked(engine, game, match).options
+        apply(engine, game, match, PromptKind.TARGET, target=options.targets[0].key)
+        self.assertEqual(len(match.journal), 2, "the cancel and what it took back are gone")
+        replayed = history.replay(RulesEngine(seed=3), game, match.turn_snapshots[-1],
+                                  match.journal, history=match.turn_snapshots)
+        self.assertEqual(json.dumps(replayed.to_dict(), sort_keys=True),
+                         json.dumps(match.to_dict(), sort_keys=True))
+
+
+class TwoStepNeedsTwoTests(unittest.TestCase):
+    def test_two_step_is_not_played_with_one_unit(self) -> None:
+        """"Sacrifice this spell if either partner leaves play or leaves
+        your control" (UMR p. 22, the Card FAQ): Two Step partners two
+        units, or it is not played (the author, 2026-10-08)."""
+        engine, game, match = finesse()
+        hero_in_play(match, 2)
+        put(match, 2, "tenderfoot")
+        hand(match, 2, "two_step")
+        match.player(2).gold = 5
+        self.assertIn("nothing it could target", why(engine, match, "two_step"))
+        put(match, 2, "older_brother")
+        self.assertEqual(why(engine, match, "two_step"), "")
+
+
+class RulebookTests(unittest.TestCase):
+    def test_a_building_under_construction_cannot_be_damaged(self) -> None:
+        """"You can't ... deal damage to a tech building on the turn that
+        you constructed it" (UMR p. 8)."""
+        engine, game, match = bashing()
+        hero_in_play(match, 1)
+        built(match, 1, "tech1", finished=False)
+        hand(match, 1, "wrecking_ball")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="wrecking_ball")
+        offered = {row.key for row in asked(engine, game, match).options.targets}
+        self.assertEqual(offered, {"2:base", "1:base"})
+
+    def test_your_own_hero_killed_by_your_spell_gives_no_levels(self) -> None:
+        """"When you destroy an opponent's hero, one of your heroes
+        immediately gains 2 levels" (UMR p. 10): an opponent's hero."""
+        engine, game, match = bashing()
+        hero_in_play(match, 1, damage=2)
+        hero_in_play(match, 2)
+        cast(engine, game, match, "wither", "1:hero")
+        self.assertFalse(match.player(1).hero.in_play)
+        self.assertEqual(match.player(2).hero.level, 1)
+
+    def test_an_opponents_hero_killed_by_your_spell_gives_you_levels(self) -> None:
+        engine, game, match = bashing()
+        hero_in_play(match, 1)
+        hero_in_play(match, 2, damage=2)
+        cast(engine, game, match, "wither", "2:hero")
+        self.assertEqual(match.player(1).hero.level, 3)
+
 if __name__ == "__main__":
     unittest.main()
