@@ -5,7 +5,7 @@ Plain-text formatting over the cards, with nothing that touches Discord.
 from __future__ import annotations
 
 from codex import tokens
-from codex.cards import Card, Hero
+from codex.cards import Card, Hero, catalog
 
 #: How a token reads where nothing draws it.
 PLAIN_WORDS = {
@@ -19,6 +19,13 @@ PLAIN_WORDS = {
 def plain_token(kind: str, arguments: tuple[str, ...]) -> str:
     if kind == "gold":
         return f"({arguments[0]})"
+    if kind == "player":
+        return f"Player {arguments[0]}"
+    if kind in ("card", "hero"):
+        try:
+            return catalog().name(arguments[0])
+        except KeyError:
+            return arguments[0]
     return PLAIN_WORDS[kind]
 
 

@@ -6,7 +6,10 @@ Codex's cards print a few things as glyphs rather than words -- the
 exhaust arrow, the target ring, a gold cost in a circle, the arrow
 between an ability's cost and its effect -- and the bot's own mark opens
 its lobby and its turn message. The model writes each as a token,
-`{exhaust}`, `{target}`, `{gold:2}`, `{arrow}`, `{codex}`, and a
+`{exhaust}`, `{target}`, `{gold:2}`, `{arrow}`, `{codex}`, and its
+narration names a seat, a card and a hero the same way --
+`{player:1}`, `{card:iron_man}`, `{hero:troq_bashar}` -- so nothing in
+the model holds a name a frontend would draw differently. A
 frontend renders every one once, at its door: an application emoji on
 Discord (`cogs.codex_helpers.CodexTokens`), a word in plain text
 (`codex.formatting.plain_text`). The shape is D12 Ball's
@@ -18,8 +21,9 @@ card texts' tokens.
 import re
 from typing import Callable, Optional
 
-#: The kinds a token may be. `gold` alone takes an argument, the amount.
-KINDS = ("exhaust", "target", "gold", "arrow", "codex")
+#: The kinds a token may be. `gold` takes the amount, `player` the seat,
+#: `card` and `hero` the slug.
+KINDS = ("exhaust", "target", "gold", "arrow", "codex", "player", "card", "hero")
 
 TOKEN_PATTERN = re.compile(r"\{(" + "|".join(KINDS) + r")((?::[a-z0-9_]+)*)\}")
 
@@ -49,6 +53,23 @@ def arrow() -> str:
 def codex() -> str:
     """The bot's own mark, the medallion off the back of every card."""
     return "{codex}"
+
+
+def player(seat: int) -> str:
+    """A seat, 1 or 2 -- whoever sits there, as the frontend names them."""
+    if seat not in (1, 2):
+        raise ValueError(f"not a seat: {seat!r}")
+    return f"{{player:{seat}}}"
+
+
+def card(slug: str) -> str:
+    """A card by its slug; the frontend asks the catalog for the name."""
+    return f"{{card:{slug}}}"
+
+
+def hero(slug: str) -> str:
+    """A hero by its slug."""
+    return f"{{hero:{slug}}}"
 
 
 def _arguments(found: re.Match) -> tuple[str, ...]:
