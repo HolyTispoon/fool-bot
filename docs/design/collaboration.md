@@ -82,9 +82,11 @@ writer per game (see "Discord's rate limits" in [rate-limits.md](rate-limits.md)
   the warning and the pid file are the redirector's, and every match is still
   stopped. The web app script never had the false count only because its
   match is the venv path alone, which the interpreter does not carry.
-- **The web app is not a foolbot to it.** `python3 -m webapp` is its own
-  process with no token, so the updater's match on `foolbot.py` neither stops
-  nor counts it; it is restarted on its own.
+- **The web app is not a foolbot to it, and neither is the Codex bot.**
+  `python3 -m webapp` is its own process with no token, and `codexbot.py` is
+  its own process with its own token, so the updater's match on `foolbot.py`
+  neither stops nor counts either; each is restarted on its own (see "The
+  Codex bot" below).
 - **Read a 10062 as this first.** It is raised out of a command's first line,
   before anything of ours has run, so it can never be a bug in that command --
   see `defer_or_report` in `cogs/debug.py`, which says so in #logs rather than
@@ -213,16 +215,18 @@ scripts, or the one that runs them all in order:
 ```powershell
 .\scripts\update_main_bot.cmd          # pull, install, restart the bot
 .\scripts\update_main_bot.cmd -StopOnly
+.\scripts\run_codex_bot.cmd            # restart the Codex bot on the same tree
+.\scripts\run_codex_bot.cmd -StopOnly
 .\scripts\run_web_app.cmd              # restart the web app on the same tree
 .\scripts\run_web_app.cmd -StopOnly
 .\scripts\run_tunnel.cmd               # restart the tunnel's connector
 .\scripts\run_tunnel.cmd -StopOnly
 
-.\scripts\deploy.cmd                   # all three, in that order
-.\scripts\deploy.cmd -StopOnly         # stop all three, in the reverse order
+.\scripts\deploy.cmd                   # all four, in that order
+.\scripts\deploy.cmd -StopOnly         # stop all four, in the reverse order
 
 .\scripts\show_logs.cmd                # the last 40 lines of each one's logs
-.\scripts\show_logs.cmd bot -Follow    # or webapp, tunnel; -Tail n
+.\scripts\show_logs.cmd bot -Follow    # or codex, webapp, tunnel; -Tail n
 ```
 
 (The same lines work in `cmd.exe`, without the comments.)
@@ -231,7 +235,7 @@ scripts, or the one that runs them all in order:
 short reference for whoever is at the machine, without the reasons; a
 new option goes in both.
 
-`deploy.ps1`/`deploy.cmd` call the three scripts above in order and add
+`deploy.ps1`/`deploy.cmd` call the four scripts above in order and add
 no logic of their own -- no new process matching, no new pid file. It
 takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
 them through. `$ErrorActionPreference = 'Stop'` means a failed
@@ -411,3 +415,42 @@ cleared from the dashboard: `d12ball.com` -> Caching -> Configuration
 already holds a copy under the old `max-age` still needs a hard reload
 (Cmd/Ctrl+Shift+R; on a phone, clearing the site's data) until it
 expires.
+
+## The Codex bot
+
+The third process on the `K:\` checkout is a second Discord bot:
+`codexbot.py`, Sirlin Games' *Codex*, with its own token
+(`CODEX_DISCORD_TOKEN`) and its own application in the Developer Portal.
+What it is and why it is its own process is
+[codex.md](codex.md), "Its own process, its own token"; this is how it
+is run beside fool-bot.
+
+**What it shares with fool-bot**: the checkout, the `.venv`
+`update_main_bot.ps1` makes, the `.env` (its `CODEX_LOG_*` variables
+fall back to the `FOOLBOT_LOG_*` ones, so it mirrors into the same
+#logs channel and every notice there names its bot), and `data/` as a
+folder. **What is separate**: every file it writes --
+`data/codex_bot_state.json` (its command-tree fingerprint and the last
+build it announced, which in one shared file each bot would overwrite,
+re-syncing on every start), `data/codexbot.pid` and its two logs, and
+the games file a later step adds -- and its restart,
+`scripts/run_codex_bot.ps1` (`run_codex_bot.cmd`), modelled line for
+line on `run_web_app.ps1`: no pull and no install, every `codexbot.py`
+run by this checkout's venv python stopped, a refusal to start while
+any survives, a hidden start, and a failure if the process has exited
+after four seconds. A checkout with no `CODEX_DISCORD_TOKEN` starts no
+Codex bot, as one with no tunnel token starts no tunnel, so a deploy on
+the Mac or before the token is in `.env` goes on to the web app.
+`deploy.ps1` runs it straight after `update_main_bot.ps1`.
+
+**One application, one token, one Codex bot.** The author created the
+Codex application on 2026-10-07 and there is no test application beside
+it (2026-10-08), so a developer testing from the Mac stops the live
+host's Codex bot first (`run_codex_bot.cmd -StopOnly` there) or tests
+before the live host runs one at all -- two processes on one token are
+the 10062 failure above. The author creates the applications and
+invites them; nothing in this repository can.
+
+**Nothing in this section has been run on the `K:\` host.** It was
+written in a Linux sandbox with no PowerShell; `run_codex_bot.ps1` has
+not been executed anywhere. Correct this section from the first deploy.

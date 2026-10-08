@@ -652,7 +652,7 @@ starting.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
-| 1 | The second bot stands up, and knows the cards | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
+| ~~1~~ | ~~The second bot stands up, and knows the cards~~ -- landed; what it settled is in docs/design/codex.md, "Its own process, its own token" and "The cards are data" | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | 2 | A whole game through the driver, with no frontend | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
 | 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
@@ -791,6 +791,16 @@ Hard rules for every step:
 ```
 
 ### 1. The second bot stands up, and knows the cards
+
+**Landed** (2026-10-08, by the cloud routine): the bot, the card data,
+`/codex card` and `/codex rules`, the runner and the design note --
+[design/codex.md](design/codex.md), "Its own process, its own token",
+"The cards are data", "The reference commands" and "Running it". **The
+art is still owed:** neither image host was reachable from the session
+that ran it, so `codex/images/cards/` and `codex/images/board/` are
+empty until `scripts/import_codex_cards.py` runs where they are, and the
+Screentop sheets' cells are pinned after a look at each ("The cards are
+data" says what the import does meanwhile).
 
 The first thing anybody sees: a bot that answers `/codex card` with a
 card's text and Sirlin's rulings. It is also everything the later steps

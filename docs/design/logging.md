@@ -31,6 +31,21 @@ Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
 | `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice |
 | `FOOLBOT_HOST_NAME` | machine name | What the deploy notice calls this host |
 
+**Two bots read these.** The Codex bot (`codexbot.py`, see
+[codex.md](codex.md)) reads the same names under its own prefix,
+`CODEX_LOG_MIRROR` and so on, and each one it finds unset falls back to
+the `FOOLBOT_` value -- so one `.env` serves both bots and one #logs
+channel carries both, and a `CODEX_` variable is set only where the
+Codex bot should differ. The prefix, the bot's name and the state file
+its deploy notice remembers the last build in are `botlog/settings.py`,
+set once by `configure_logging(prefix, bot_name, state_file)`; fool-bot
+passes `FOOLBOT`, "fool-bot" and `data/bot_state.json`, the Codex bot
+`CODEX`, "Codex bot" and `data/codex_bot_state.json`. Each notice names
+its bot -- "**Codex bot restarted** on `host` -- now running ...",
+"**Back on Discord's gateway** (Codex bot), after ..." -- since both
+post to one channel. A process that never names itself keeps the old
+wording, "**Bot restarted**".
+
 Things to know before changing any of it:
 
 - **Posting to the channel is opt-in, per bot.** `FOOLBOT_LOG_MIRROR`

@@ -3,9 +3,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoPath,
 
-    # Whose logs: the bot, the web app, the tunnel, or all three.
+    # Whose logs: the bot, the Codex bot, the web app, the tunnel, or
+    # all four.
     [Parameter(Position = 0)]
-    [ValidateSet('all', 'bot', 'webapp', 'tunnel')]
+    [ValidateSet('all', 'bot', 'codex', 'webapp', 'tunnel')]
     [string]$Name = 'all',
 
     # How many of the last lines of each log to show.
@@ -18,7 +19,8 @@ param(
 )
 
 # Show the logs the deploy scripts write. update_main_bot.ps1,
-# run_web_app.ps1 and run_tunnel.ps1 each start their process hidden,
+# run_codex_bot.ps1, run_web_app.ps1 and run_tunnel.ps1 each start
+# their process hidden,
 # with its stdout and stderr redirected to data\<name>.stdout.log and
 # data\<name>.stderr.log, so this is the only window onto them. The
 # console logging goes to stderr; stdout is mostly empty. A restart
@@ -35,11 +37,12 @@ $ErrorActionPreference = 'Stop'
 $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
 $runtimeFolder = Join-Path $resolvedRepoPath 'data'
 
-# The file names are the three scripts' own; ProcessNames is what the
+# The file names are the four scripts' own; ProcessNames is what the
 # pid file's process must be called, so a pid Windows has since handed
 # to something else does not read as running.
 $processes = [ordered]@{
     bot    = @{ Label = 'Fool bot'; Prefix = 'foolbot-main'; ProcessNames = @('python', 'pythonw') }
+    codex  = @{ Label = 'Codex bot'; Prefix = 'codexbot'; ProcessNames = @('python', 'pythonw') }
     webapp = @{ Label = 'web app'; Prefix = 'webapp'; ProcessNames = @('python', 'pythonw') }
     tunnel = @{ Label = 'tunnel'; Prefix = 'tunnel'; ProcessNames = @('cloudflared') }
 }

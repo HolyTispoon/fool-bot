@@ -20,7 +20,8 @@ Four pieces, one per module:
 - deploy_notice.py is the other thing worth posting: which build is
   running, once per build.
 
-The five functions below are the seam foolbot.py calls, in this order:
+The five functions below are the seam foolbot.py and codexbot.py call,
+in this order:
 configure_logging() at import, install_mirror() right after, then
 start_mirror(), announce_gateway_recovery() and announce_startup() from
 on_ready, which is the first point at which the client knows what
@@ -42,6 +43,12 @@ from .env like DISCORD_TOKEN:
   FOOLBOT_LOG_GUILD_ID        which server hosts it (default: the first
                               server the bot is in)
   FOOLBOT_DEPLOY_NOTICE       "off" to stop announcing new builds
+
+configure_logging takes the prefix those names carry, the bot's name and
+the deploy notice's state file (botlog/settings.py): the Codex bot reads
+CODEX_LOG_MIRROR and the rest, each falling back to its FOOLBOT_ value
+when unset, and its notices say "Codex bot" -- see "Two bots read these"
+in docs/design/logging.md.
 """
 
 import asyncio
