@@ -36,7 +36,8 @@ The art comes in the same run, unless `--no-images`:
 
 - every card's and hero's picture, by its `sirlins_filename`, from the
   database's image host into `codex/images/cards/<slug>.jpg` (330 by
-  450; tokens, workers and buildings have none there);
+  450; tokens, workers and buildings have none there -- their faces
+  are the module's, below);
 - from the Screentop module @GRAG/Codex, whose spec one GraphQL query
   returns with every sheet's URL, each sheet in `BOARD_SHEETS`: the
   playmat whole as `codex/images/board/playmat.png`, every other sheet
@@ -186,6 +187,15 @@ BOARD_SHEETS: dict[str, tuple[tuple[int, int] | None, dict[str, int | tuple[int,
         "tokens/water_elemental": 31,
         "tokens/pirate": 32,
         "tokens/wisp": 33,
+    }),
+    # 375 by 525 a card: the neutral cards -- the starter deck, Bashing
+    # and Finesse, which the database pictures and the catalog takes from
+    # there, left uncut -- and the two worker cards, which it does not:
+    # x4 for the first player, x5 for the second, "Player 1" and
+    # "Player 2" printed under the count.
+    "Brown Card Sheet": ((6, 6), {
+        "workers/worker_x4": 11,
+        "workers/worker_x5": 12,
     }),
     # Damage 1 to 9, on red; 239 by 228 a cell.
     "Damage": ((3, 3), {f"damage/{n}": n - 1 for n in range(1, 10)}),

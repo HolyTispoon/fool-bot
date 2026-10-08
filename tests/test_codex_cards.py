@@ -12,7 +12,7 @@ import re
 import unittest
 
 from codex import tokens
-from codex.cards import DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, catalog
+from codex.cards import DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, KIND_WORKER, catalog
 from codex.formatting import card_label, plain_text
 from codex.rulings import keyword_rulings, keywords, rulings_for
 
@@ -207,11 +207,25 @@ class CodexCardArtTests(unittest.TestCase):
             with Image.open(card.picture) as picture:
                 self.assertEqual(picture.size, (330, 450), card.slug)
 
-    def test_every_token_and_building_has_its_face_and_nothing_else_is_there(self):
-        for kind, folder in ((KIND_TOKEN, "tokens"), (KIND_BUILDING, "buildings")):
+    def test_every_token_building_and_worker_has_its_face_and_nothing_else_is_there(self):
+        kinds = ((KIND_TOKEN, "tokens"), (KIND_BUILDING, "buildings"), (KIND_WORKER, "workers"))
+        for kind, folder in kinds:
             slugs = {card.slug for card in self.catalog.cards.values() if card.kind == kind}
             with self.subTest(folder):
                 self.assertEqual(pngs(folder), slugs)
+
+    def test_every_card_has_a_picture(self):
+        """The worker cards, which the database does not picture, came
+        off the module's neutral card sheet at the module's card size."""
+        from PIL import Image
+
+        for card in [*self.catalog.cards.values(), *self.catalog.heroes.values()]:
+            with self.subTest(card.slug):
+                self.assertIsNotNone(card.picture)
+                self.assertTrue(card.picture.is_file())
+        for slug in ("worker_x4", "worker_x5"):
+            with Image.open(self.catalog.by_slug(slug).picture) as face:
+                self.assertEqual(face.size, (375, 525), slug)
 
     def test_every_spec_has_its_card(self):
         specs = {
