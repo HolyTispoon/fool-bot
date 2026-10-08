@@ -253,9 +253,42 @@ def _why_not_attacker(engine, match: MatchState, attacker: str) -> str:
 
 
 def cancel_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
-    """Take back a declared attacker before its defender is chosen."""
+    """
+    Take back a declared attacker before its defender is chosen -- a
+    misclick on the attacker costs nothing (decision 11). Once the
+    attack itself has begun, it cannot be taken back: `MatchState.combat`
+    is how far it got (`codex.flow.combat`), and by then the defender has
+    been chosen, obliterate may have destroyed something and the tower
+    may have spent its detection.
+    """
+    if match.combat is not None:
+        raise RuleRefusal("This attack has begun: it cannot be taken back.", cite="UMR p. 10")
     match.attacking = None
     return StepResult(next=pending(engine, game, match))
+
+
+def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: str) -> StepResult:
+    """
+    The tower's detection, on its owner's own turn (UMR p. 9): one
+    opposing stealth or invisible card named, visible for the rest of the
+    turn (Sirlin, 2016-03-14) -- so it may be attacked and, from step 6,
+    targeted. Once a turn.
+    """
+    seat = match.active
+    other = 2 if seat == 1 else 1
+    option = engine.detect_option(match)
+    if not option.allowed:
+        raise RuleRefusal(f"Your tower can't detect: {option.why_not}.", cite="UMR p. 9")
+    if card not in option.candidates:
+        raise RuleRefusal("That is not one of their hidden cards.", cite="UMR p. 9")
+    body = engine.body(match, other, card)
+    engine.tower(match.active_player).detected = card
+    match.record_event("detected", card=card, by=seat)
+    named = tokens.hero(body.slug) if card == HERO else tokens.card(body.slug)
+    return _done(engine, game, match, [
+        f"{tokens.player(seat)}'s tower detects {tokens.player(other)}'s {named}: "
+        "it is visible for the rest of the turn."
+    ])
 
 
 def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:

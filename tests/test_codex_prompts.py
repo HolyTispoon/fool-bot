@@ -56,6 +56,44 @@ def choose_defender():
     return engine, game, match
 
 
+def obliterate_choice():
+    """Trojan Duck attacks into two equally low-tech units, so obliterate
+    asks which one it takes."""
+    engine, game, match = _main()
+    put(match, 1, "trojan_duck")
+    put(match, 2, "tenderfoot")
+    put(match, 2, "older_brother")
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "unit:1"}))
+    driver.apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, "", {"defender": "base"}))
+    return engine, game, match
+
+
+def sparkshot_target():
+    """Revolver Ocelot attacks a patroller with a patroller on either
+    side of it."""
+    engine, game, match = _main()
+    put(match, 1, "revolver_ocelot")
+    put(match, 2, "tenderfoot", patrol="elite")
+    put(match, 2, "iron_man", patrol="scavenger")
+    put(match, 2, "older_brother", patrol="technician")
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "unit:1"}))
+    driver.apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, "", {"defender": "unit:3"}))
+    return engine, game, match
+
+
+def overpower_target():
+    """Harvest Reaper's excess over the squad leader, with two other
+    patrollers that could have taken it."""
+    engine, game, match = _main()
+    put(match, 1, "harvest_reaper")
+    put(match, 2, "tenderfoot", patrol="squad_leader")
+    put(match, 2, "iron_man", patrol="elite")
+    put(match, 2, "older_brother", patrol="scavenger")
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "unit:1"}))
+    driver.apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, "", {"defender": "unit:2"}))
+    return engine, game, match
+
+
 def patrol():
     engine, game, match = _main()
     driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
@@ -84,6 +122,9 @@ PROMPT_FIXTURES = {
     PromptKind.PATROL: patrol,
     PromptKind.TECH_CHOICE: tech_choice,
     PromptKind.TECH_CONFIRM: tech_confirm,
+    PromptKind.OBLITERATE_CHOICE: obliterate_choice,
+    PromptKind.SPARKSHOT_TARGET: sparkshot_target,
+    PromptKind.OVERPOWER_TARGET: overpower_target,
     PromptKind.GAME_OVER: game_over,
 }
 

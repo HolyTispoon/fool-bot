@@ -98,6 +98,10 @@ def _copy_dicts(value: list) -> list:
     return [dict(item) for item in value]
 
 
+def _copy_optional_combat(value: Optional[dict]) -> Optional[dict]:
+    return None if value is None else copy.deepcopy(value)
+
+
 def _deep_copy(value: list) -> list:
     """A snapshot or a journal entry nests the whole position; a copy
     one level deep would leave the save and the live match sharing it."""
@@ -122,6 +126,9 @@ class HeroState:
     patrol_slot: Optional[str] = None
     #: What is left of the squad leader's armour this turn.
     armor: int = 0
+    #: It has attacked this turn -- what readiness's once a turn reads
+    #: (UMR p. 17).
+    attacked_this_turn: bool = False
 
     @property
     def in_play(self) -> bool:
@@ -139,6 +146,7 @@ HERO_SAVED_FIELDS = (
     SavedField("max_level_since_turn_began", default=False),
     SavedField("patrol_slot"),
     SavedField("armor", default=0),
+    SavedField("attacked_this_turn", default=False),
 )
 
 
@@ -171,12 +179,21 @@ class AddOnState:
     slug: str
     hp: int
     under_construction: bool = True
+    #: What this tower has detected this turn -- the `unit:<id>` or
+    #: `hero` ref -- or `None` while its once-a-turn detection is unused
+    #: (UMR p. 9). Emptied when each turn begins.
+    detected: Optional[str] = None
+
+    @property
+    def active(self) -> bool:
+        return not self.under_construction
 
 
 ADD_ON_SAVED_FIELDS = (
     SavedField("slug"),
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
+    SavedField("detected"),
 )
 
 
@@ -203,6 +220,8 @@ class CardInstance:
     flipped: bool = False
     #: What is left of the squad leader's armour this turn.
     armor: int = 0
+    #: It has attacked this turn -- what readiness's once a turn reads.
+    attacked_this_turn: bool = False
 
     @property
     def ref(self) -> str:
@@ -225,6 +244,7 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("attached", factory=list, write=_copy_list, read=_copy_list),
     SavedField("flipped", default=False),
     SavedField("armor", default=0),
+    SavedField("attacked_this_turn", default=False),
 )
 
 
@@ -383,6 +403,11 @@ class MatchState:
     #: The attacker the active player has declared, `unit:<id>` or
     #: `hero`, while the defender is asked (`CHOOSE_DEFENDER`).
     attacking: Optional[str] = None
+    #: The attack under way once its defender is chosen and before its
+    #: damage is dealt, while a choice it needs is asked
+    #: (`codex.flow.combat`): `{defender, stage, obliterated, sparks,
+    #: overpower, overpower_settled}`. `None` between attacks.
+    combat: Optional[dict] = None
     #: The last three turn-start positions as dicts, oldest first.
     turn_snapshots: list[dict] = field(default_factory=list)
     #: The actions applied since this turn began, each with the random
@@ -539,6 +564,7 @@ MATCH_SAVED_FIELDS = (
     SavedField("events", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("next_instance_id", default=1),
     SavedField("attacking"),
+    SavedField("combat", write=_copy_optional_combat, read=_copy_optional_combat),
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("journal", factory=list, write=_deep_copy, read=_deep_copy),
 )

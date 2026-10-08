@@ -202,6 +202,9 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.PATROL: "The patrollers have already been locked.",
     PromptKind.TECH_CHOICE: "That tech choice is no longer open.",
     PromptKind.TECH_CONFIRM: "That tech choice has already been confirmed.",
+    PromptKind.OBLITERATE_CHOICE: "That obliterate has already been settled.",
+    PromptKind.SPARKSHOT_TARGET: "That sparkshot has already been settled.",
+    PromptKind.OVERPOWER_TARGET: "That overpower has already been settled.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
 MOVED_ON = "That answers a question this match has moved on from."
@@ -215,7 +218,7 @@ STEP_OWED = (
 
 
 def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
-                 building=None, attacker=None) -> StepResult:
+                 building=None, attacker=None, card=None) -> StepResult:
     if choice == "hire":
         return actions.hire_worker(engine, game, match, _required(slug, "slug"))
     if choice == "summon":
@@ -228,6 +231,8 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
         return actions.construct(engine, game, match, _required(building, "building"))
     if choice == "attack":
         return actions.declare_attacker(engine, game, match, _required(attacker, "attacker"))
+    if choice == "detect":
+        return actions.detect(engine, game, match, _required(card, "card"))
     return actions.end_main(engine, game, match)
 
 
@@ -279,6 +284,18 @@ def _answer_tech_confirm(engine, game, match, prompt, choice, *, player=None) ->
     return StepResult(next=pending(engine, game, match))
 
 
+def _answer_obliterate(engine, game, match, prompt, choice, *, unit=None) -> StepResult:
+    return combat.choose_obliterate(engine, game, match, _required(unit, "unit"))
+
+
+def _answer_sparkshot(engine, game, match, prompt, choice, *, patroller=None) -> StepResult:
+    return combat.choose_sparkshot(engine, game, match, _required(patroller, "patroller"))
+
+
+def _answer_overpower(engine, game, match, prompt, choice, *, target=None) -> StepResult:
+    return combat.choose_overpower(engine, game, match, _required(target, "target"))
+
+
 def _answer_game_over(engine, game, match, prompt, choice) -> StepResult:
     raise RuleRefusal("The game is over.")
 
@@ -290,16 +307,22 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.PATROL: _answer_patrol,
     PromptKind.TECH_CHOICE: _answer_tech_choice,
     PromptKind.TECH_CONFIRM: _answer_tech_confirm,
+    PromptKind.OBLITERATE_CHOICE: _answer_obliterate,
+    PromptKind.SPARKSHOT_TARGET: _answer_sparkshot,
+    PromptKind.OVERPOWER_TARGET: _answer_overpower,
     PromptKind.GAME_OVER: _answer_game_over,
 }
 
 #: The arguments each kind's answer may take.
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
-    PromptKind.MAIN_ACTION: frozenset({"slug", "levels", "building", "attacker"}),
+    PromptKind.MAIN_ACTION: frozenset({"slug", "levels", "building", "attacker", "card"}),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender"}),
     PromptKind.PATROL: frozenset({"assignment"}),
     PromptKind.TECH_CHOICE: frozenset({"player", "picks"}),
     PromptKind.TECH_CONFIRM: frozenset({"player"}),
+    PromptKind.OBLITERATE_CHOICE: frozenset({"unit"}),
+    PromptKind.SPARKSHOT_TARGET: frozenset({"patroller"}),
+    PromptKind.OVERPOWER_TARGET: frozenset({"target"}),
     PromptKind.GAME_OVER: frozenset(),
 }
 
