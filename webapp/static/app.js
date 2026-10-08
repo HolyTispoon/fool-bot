@@ -1538,22 +1538,34 @@ function watchFit(box) {
   fit(box);
 }
 
+/* The smallest a name on the field is shrunk to, in the field's own
+   pixels (its size is 20): a long name is shrunk to fit its space as
+   far as this and no further, since spilling a little over the edge
+   reads better than a name too small to read (the author, 2026-10-08). */
+const NAME_FLOOR = 16;
+
 /* A name is centred under its own piece (or starts past the ball, on
-   a visiting holder) and kept inside its space, which clips whatever
-   is left over: nothing on the field leaves the space it stands on.
-   Measured in layout pixels, before the stage's scale, so it is the
-   same on every screen. */
+   a visiting holder) and kept inside its space -- shrunk to fit if it
+   is too wide, down to `NAME_FLOOR`, and past that centred on the
+   space so it spills over both edges alike. Measured in layout pixels,
+   before the stage's scale, so it is the same on every screen. */
 function clampNames(root) {
   for (const name of root.querySelectorAll(".fan-name")) {
     name.style.setProperty("--nudge", "0px");
+    name.style.fontSize = "";
     const fan = name.offsetParent;
     const space = name.closest(".space");
     if (!fan || !space || !name.offsetWidth) continue;
+    const room = space.clientWidth - 8;
+    if (name.offsetWidth > room) {
+      const size = parseFloat(getComputedStyle(name).fontSize);
+      name.style.fontSize = `${Math.max(NAME_FLOOR, size * room / name.offsetWidth)}px`;
+    }
     const centred = !name.classList.contains("past-ball");
     const left = fan.offsetLeft + name.offsetLeft - (centred ? name.offsetWidth / 2 : 0);
     const least = 4;
     const most = space.clientWidth - 4 - name.offsetWidth;
-    const nudge = Math.max(least, Math.min(left, most)) - left;
+    const nudge = (most < least ? (space.clientWidth - name.offsetWidth) / 2 : Math.max(least, Math.min(left, most))) - left;
     name.style.setProperty("--nudge", `${nudge}px`);
   }
 }
