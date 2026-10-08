@@ -23,7 +23,11 @@ rolled over at the turn's end, the tech choice during the opponent's
 turn, the two undos and the resume -- so two people can finish a game
 on the vanilla engine. Step 5 gave the engine the combat keywords, so
 every card whose text is a keyword plays in full and the tower is worth
-building. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+building. Step 6 gave it the rest: the spells, the arrives and attacks
+triggers, the heroes' bands, the abilities, the static grants and costs,
+the ongoing spells with their tokens and partners, and the upkeep's
+effects and their order -- so every card of the basic set does what it
+says and `UNIMPLEMENTED` is empty. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -204,12 +208,15 @@ on the other player's turn, a dozen actions in one turn, and undo.
 
 | Kind | Asked of | What it asks |
 | --- | --- | --- |
-| `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, detect with the tower (step 5), or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played |
+| `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, detect with the tower (step 5), use an ability (step 6), or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played, each ability with why it may not be used |
 | `CHOOSE_DEFENDER` | the active player | which of `legal_defenders` the declared attacker takes, or `cancel` to take the attacker back; asked after the attacker, so a misclick costs nothing (decision 11) |
 | `PATROL` | the active player | slot to unit or hero, any left empty; ends the main phase (UMR p. 10) |
 | `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
 | `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
 | `OBLITERATE_CHOICE`, `SPARKSHOT_TARGET`, `OVERPOWER_TARGET` | the active player | the three choices inside an attack, each asked only where there is something to choose ("The keywords", below) |
+| `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below) |
+| `APPEL_STOMP_TOP` | the active player | `top` or `discard`: where Appel Stomp goes once it has resolved |
+| `UPKEEP_ORDER` | the active player | which of healing and Star-Crossed Starlet's damage goes first, asked only where both are due |
 | `GAME_OVER` | nobody | a base is destroyed (UMR p. 2); answering it is refused until step 7's rematch |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
@@ -274,6 +281,14 @@ snapshot it led to already holds its effects.
   answer the other player gave during an undone turn goes with it.
 
 ### The vanilla engine and `UNIMPLEMENTED`
+
+**`UNIMPLEMENTED` is empty from step 6**: every card of the basic set
+plays its text, and `tests/test_codex_effects.py` says where each one's
+text lives -- a keyword the engine reads, or a row of the tables in
+`codex.effects` ("Targeting and the effects", below). The table's job
+is done until the next spec (step 9) brings cards the engine has not
+met; a card with text nothing plays fails that test until it is
+handled or listed. What follows is how it got there.
 
 The engine played every card of the set for its cost and its numbers in
 step 2 (decision 7); step 5 took the keywords out of
@@ -428,6 +443,134 @@ nothing has happened then; after the defender is chosen, obliterate may
 have destroyed something and the tower may have spent its detection, so
 `cancel_attack` refuses while `MatchState.combat` stands.
 
+### Targeting and the effects
+
+Step 6 is everything with text that is not a keyword. **The text is
+data, the handlers are the flow's**: `codex.effects.EFFECTS` holds each
+spell's, trigger's and ability's text as its parts, each part naming
+what it may choose (`Part.choose`, a filter the engine answers) and what
+it does (`Part.does`, a handler in `codex.flow.resolve.DOES`), beside
+the sentence it was built from; `TEXT` says which card has which and
+when -- `play`, `arrives`, `attacks`, `ability` -- a hero's keyed by the
+band that prints it and read the way its keywords are (Troq's attacks
+trigger from 5, River's ability from 3); and the static texts are a
+handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
+`GRANTS_SWIFT_STRIKE`, `TECH_0_DISCOUNT`, ...).
+
+- **An effect is a frame on `MatchState.resolving`**, worked part by
+  part until a part has a choice to ask or the stack is empty -- the
+  shape an attack's choices have on `MatchState.combat`, for the same
+  reason: the journal records the cast as one action, and a restart
+  between two clicks asks the same question. Frames run oldest first,
+  so a spell's frame goes in before the Dancer each Harmony owes for it
+  and Bloom has completely resolved before its Dancer exists (Harmony's
+  ruling). An effect's frame names what it is, who controls it, the card
+  it comes from and the spell being cast, which goes to the discard, into
+  play (an ongoing spell) or to Appel Stomp's question when its parts
+  are done.
+- **A target is chosen as its part resolves**, never all at once
+  (Final Smash's ruling), and **asked only where there is a choice**: a
+  part with one thing it could choose takes it, and a part with nothing
+  is skipped and said nothing about -- "do as much as you can". A spell
+  is playable when one of its parts can resolve, and refused with "it
+  has nothing it could target" when none can.
+- **A target is on either side of the table**, so an answer names it
+  `"<seat>:<ref>"` (`2:unit:7`, `1:base`) -- a hero and a building are not
+  unique by ref alone. Every effect may choose what its text allows,
+  your own things included: Wrecking Ball may hit your own base, Brick
+  Thief may repair an opponent's building, Hired Stomper may hit itself
+  ("mandatory, own units and itself included").
+- **`RulesEngine.target_rows` is the one reading of what may be
+  chosen**: the filter's candidates, less an opponent's invisible card
+  their tower has not detected (your own are always targetable, the
+  invisible ruling), each with the **resist** choosing it costs -- left
+  out where the player cannot pay it from what the spell left them, and
+  paid as it is chosen -- and, **where an opposing flagbearer is among
+  them and this cast has not yet targeted one, the flagbearers alone**.
+  The flagbearer is checked per part, against what this cast has
+  already taken (Final Smash's ruling, 2016-03-19), and one whose resist
+  cannot be paid forces nothing (the flagbearer ruling). Your own
+  flagbearer forces nothing. Only a part with the {target} symbol answers
+  to resist and the flagbearer; Discord, which has none, takes every one
+  of the opponent's tech 0 and I units.
+- **The abilities are actions** (`MAIN_ACTION`'s `ability`, offered in
+  `MainActionOptions.abilities` with why each may not be used): River's
+  sideline from level 3, Maestro's damage on each Virtuoso, and
+  Harmony's "stop the music". An exhaust is a cost, so it needs the card
+  held since the turn began or haste (Maestro's ruling; arrival
+  fatigue); a sacrifice is not, so Harmony may stop the music the turn
+  it arrives.
+- **Arrives and attacks triggers** go on the stack when the unit is
+  played and when it attacks. An attack resolves its attacker's
+  triggers after the defender is chosen -- and after obliterate -- and
+  before the damage (`TRIGGERS` among combat's stages), once, and where
+  one destroyed the defender the attacker chooses again, as after
+  obliterate. Troq's 1 to the base can end the game before the damage.
+- **No cast is taken back.** A spell is paid and its card leaves the
+  hand when it is played; there is no Cancel on its target as there is
+  on an attacker's defender, since the first part may already have
+  resolved by the time a later one asks. Undo to the start of the turn
+  is the way back.
+
+**What happens to a card is `codex.flow.board`'s, whoever did it**, so a
+unit The Boot destroys dies exactly as one destroyed in combat does -- to
+its owner's discard, with the scavenger's gold or the technician's card
+(The Boot's ruling) -- and a hero killed by Wither gives the kill's two
+levels as a combat kill does. **`settle` is the position's own
+consequences**, run after every part and after combat: a unit or hero at
+0 HP or with damage equal to its HP is destroyed, through armor (Discord's
+and Wither's rulings); a channeling spell whose controller has no hero of
+its spec is sacrificed, without Harmony's flip (Harmony's ruling); Two
+Step is sacrificed once a partner has left play or its controller's
+control.
+
+- **A grant is in effect exactly while its card is in play under its
+  controller** (Blademaster's ruling), so it is never stored: the engine
+  reads it off the position each time it is asked. `body_keywords(body,
+  match)` adds Blademaster's swift strike and Nimble Fencer's haste for
+  Virtuosos (herself included) to what a card prints, and
+  `unit_stats(card, match)` adds each Grounded Guide's +1 ATK or +2/+1
+  (stacking), Two Step's +2/+2 while both partners are held, and
+  Star-Crossed Starlet's +1 ATK per damage. **Both take the match**: a
+  caller that leaves it out gets the printed card. A grant that ends can
+  kill -- a Virtuoso holding damage on a Guide's +1 HP -- which `settle`
+  takes.
+- **A this-turn effect is a modifier** on the card or hero
+  (`{kind, amount, until}`): Intimidate's -4 ATK, Discord's -2/-1, and
+  Sneaky Pig's stealth as `{kind: "keyword"}`, all removed by the turn's
+  end on both sides. ATK is floored at 0 once everything is added, the
+  elite's +1 and frenzy included (Intimidate's ruling).
+- **The costs**: `effective_cost` gives a Maestro's controller their
+  Virtuosos for 0 and River at 5 her controller's tech 0 units for 1 less,
+  never below 0 (River's ruling) -- so Blademaster, a Virtuoso, is free
+  beside a Maestro.
+- **Tokens** are units with no card behind them: summoned into play,
+  trashed when they leave it, never in a hand, a deck or a discard pile.
+  Harmony's Dancer is limited to three -- **counted across both faces**,
+  Dancers and Angry Dancers, since an Angry Dancer is the same token
+  flipped (a reading the rulings leave open, put to the author) -- and
+  "stop the music" flips each Dancer its player controls by changing its
+  slug to the Angry Dancer's (`flipped` set), its runes and damage kept and
+  nothing arriving (the Dancer ruling).
+- **Two Step's partners are its `attached`**, chosen as two `TARGET`
+  parts among its controller's units not already partnered (Two Step's
+  ruling). A Two Step that found one partner holds it and gives nothing;
+  one that found none stays in play doing nothing.
+- **The upkeep order is asked only where it changes something**: healing
+  and Star-Crossed Starlet's damage both due, so healing her first or
+  after decides whether she survives (Starlet's ruling). `begin_turn`
+  then stops in the upkeep with an `UPKEEP_ORDER` frame on the stack, and
+  the answer runs the effects in that order and opens the main phase --
+  **the turn-start snapshot is taken there, after the upkeep**, so an undo
+  to the start of the turn never asks the order again. The surplus's card
+  is drawn first, since nothing it does is ordered against the others.
+
+Every line is the model's, with tokens: "{card:spark} deals 1 to
+{player:2}'s {card:iron_man}", "{player:1} pays {gold:1} for its resist",
+"{card:harmony} summons a {card:dancer} token for {player:2}". A card
+drawn is a count, never a name -- Appel Stomp's draw, the surplus's -- and
+a card returned to a hand is named, since it was in play.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -454,6 +597,15 @@ match as its saved dict, as D12 Ball's record does; its file,
   detected this turn), and `combat` on the match -- the attack standing
   half-resolved while a choice inside it is asked, so a restart between
   two clicks asks the same question.
+- **Step 6 added four more**, each with its fallback: `plus_runes`,
+  `minus_runes` and `modifiers` on the hero, since Bloom, Wither and
+  Intimidate take a hero as readily as a unit, and `resolving` on the
+  match -- the effects under way while a target, Appel Stomp's place or
+  the upkeep's order is asked. It also put to use the three fields step 2
+  laid down on a card: `modifiers`, `attached` (Two Step's partners) and
+  `flipped` (an Angry Dancer, whose `slug` the flip changes). The combat
+  dict gained a `triggered` key, read with a default, so an attack saved
+  by step 5 goes on as it would have.
 
 ### What the narration may say
 
@@ -756,6 +908,14 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   defender menu labels each defender with why it is legal -- "squad
   leader", "patroller", "nothing is patrolling" -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
+- **An effect's questions are the same panel going on** (step 6): a
+  `TARGET` is one menu of what the part may choose, each labelled with
+  whose it is, what it costs in resist and whether the flagbearer rule
+  forces it; Appel Stomp's place and the upkeep's order are buttons. The
+  abilities share the panel's last row with the hero's levels -- **Level
+  up or use an ability...** -- because a message has five rows and the
+  other four are taken; only an ability that may be used now is in the
+  menu. The panel's picture stays the hand.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard

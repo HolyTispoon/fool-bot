@@ -659,7 +659,7 @@ starting.
 | ~~3~~ | ~~The lobby, the channel and the board~~ -- landed; what it settled is in docs/design/codex.md, "The service and its file", "The lobby and the channel", "Who may act, shared", "The board on Discord" and "Hidden information on Discord" | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
 | ~~4~~ | ~~The turn on Discord, and the two undos~~ -- landed; what it settled is in docs/design/codex.md, "The turn on Discord" | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | ~~5~~ | ~~The keywords~~ -- landed; what it settled is in docs/design/codex.md, "The keywords" and "Which choices an attack asks, and which it does not" | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
-| 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
+| ~~6~~ | ~~Triggers, spells and the ongoing spells~~ -- landed; what it settled is in docs/design/codex.md, "Targeting and the effects" | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | 8 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 7 remains byte-identical in two places |
 | 9 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
@@ -1604,6 +1604,14 @@ tower's damage line in the channel.
 ```
 
 ### 6. Triggers, spells and the ongoing spells
+
+**Landed.** Every card of the basic set plays its text and
+`UNIMPLEMENTED` is empty; docs/design/codex.md, "Targeting and the
+effects", says how -- the effect stack and the one reading of what a part
+may target, resist and the flagbearer, the abilities, the attacks
+triggers inside an attack, `settle`, the grants and costs, the tokens,
+channeling and Two Step, and the upkeep's order -- and "The saved fields"
+what it added to the save.
 
 Everything with text that is not a keyword: the thirteen spells, the
 arrives and attacks triggers, the heroes' bands, the granted abilities,
