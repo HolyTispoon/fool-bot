@@ -257,9 +257,9 @@ need yet. Each has a shape worth copying and a few leaves worth sharing.
 | `gamesaves/d12ball/storage.py` | `gamesaves/codex/storage.py` | Copied: `load_games`/`save_games` over `data/codex_games.json`, never raising |
 | `cogs/d12ball/` (six mixins), `present`, `render_prompt`, `view_for_prompt` | `cogs/codex/` | Copied shape: the one presenter over a result, the one mapping from kind to view and to picture |
 | `cogs/d12ball_views/` (`SafeView.apply`, `may_act_for`) | `cogs/codex_views/` | Copied shape: a view builds from `options` and answers through the service; the gates read `is True` |
-| `cogs/d12ball_boards.py` (`BoardRefresher`) | the same class | Shared once two things it reaches for are parameters -- the view it keeps on the board message (D12 Ball's home-or-visitors view) and the predicate that says the full-image link may go up -- and once it budgets a channel's edits across two messages, the board and the turn message (step 4); everything else in it is a message and a bucket |
+| `cogs/d12ball_boards.py` (`BoardRefresher`) | the same class | Shared once two things it reaches for are parameters -- the view it keeps on the board message (D12 Ball's home-or-visitors view) and the predicate that says the full-image link may go up -- and once it can set the message's text beside its picture, which D12 Ball leaves alone; everything else in it is a message and a bucket |
 | `cogs/d12ball_helpers.py` | `cogs/game_auth.py` (new, shared) and `cogs/codex_helpers.py` | The authorisation predicates (`game_participant_ids`, `is_game_helper`, `may_act_for_coach`, `may_act_in_game`, `HelperConfirmationRequired`) read only the seat ids and are shared by moving them to a module of their own that `d12ball_helpers` re-exports; `send_new_prompt` the same way; the naming and the token resolver are copied shapes |
-| the hub and `LobbyView` | `LobbyView` in the calling channel | Copied idea, no hub message: a button is delivered only to the application that posted its message, so the Codex bot could not sit on D12 Ball's hub anyway, and one hub a bot is one more message to keep; the lobby lives where `/codex lobby` is called |
+| the hub and `LobbyView` | `LobbyView` in the calling channel, and a line on fool-bot's hub | Copied idea, no hub message of its own: a button is delivered only to the application that posted its message, so a button on D12 Ball's hub could not reach the Codex bot, but a command mention on it can (decision 10); the lobby lives where `/codex lobby` is called |
 | `tests/` | `tests/` | Flat, with no `__init__.py`, so helpers are imported by bare name: Codex's helpers carry a `codex_` prefix (`codex_positions`, `codex_flow_stubs`), and the stray-save guard in `tests/save_patches.py`, which walks all of `cogs/` and `gamesaves/`, lists the Codex modules that bind `save_games` |
 | `scripts/update_main_bot.ps1`, `run_web_app.ps1`, `deploy.ps1` | `scripts/run_codex_bot.ps1`, a slot in `deploy.ps1` | Copied from the web app's runner: no pull, no install, its own pid and logs |
 | `tests/test_model_purity.py`, the goldens, `tests/test_driver_full_game.py`, `tests/save_patches.py` | the same, for `codex/` | Copied ratchets; a game-staging helper by card slug instead of `tests/roster.py`'s by-role |
@@ -361,47 +361,42 @@ and the step's prompt is rewritten rather than argued with.
    the same views posted publicly with the hand select ephemeral; it is
    a change to `present`, not to the model.
 
-5. **Two messages a channel edits in place -- the board as an image and
-   the turn as an embed -- through one write gate.** The board message
-   is a rendered PNG, as D12 Ball's is: `codex/render.py` draws it with
+5. **One public message per turn, carrying the board as a rendered
+   image and the turn's lines as its text, edited after every action
+   through the write gate.** An image, not an embed (the author,
+   2026-10-07). When a turn begins the cog posts the turn's message:
+   its text "Turn 7 -- perrytom (Bashing)" and the lines the turn has
+   said so far, its attachment the board `codex/render.py` draws with
    Pillow in `asyncio.to_thread` -- each side's base and buildings, its
    hero with level and band, the five patrol slots by name, the play
    zone as tiles (name, cost, ATK/HP, damage, runes, exhausted, arrived
    this turn) and the counters: gold, workers, hand, deck, discard,
-   codex; text tiles, never card art. The turn message is one per turn,
-   posted when the turn begins and edited after every action until the
-   turn ends, so that when it is over it stands as the turn's summary
-   and the channel's history reads as the board and one message per
-   turn (the author, 2026-10-07). It is a Discord embed -- the
-   structured text card: the player's colour as its stripe, "Turn 7 --
-   perrytom (Bashing)" as its title, the actions so far as numbered
-   lines in its description, gold, workers and the counts in its
-   footer -- not a picture. **The difference between the two media**,
-   since the author asked: an embed is text, so it costs nothing to
-   build, edits instantly, can be copied, searched and read aloud by a
-   screen reader, and is crisp at any size; but it has no geometry --
-   at most 25 named fields of 1024 characters, inline fields three
-   across on a desktop and stacked on a phone, Markdown for emphasis,
-   6000 characters in all -- so five patrol slots with tiles in them,
-   an exhausted card turned sideways, two halves facing each other are
-   beyond it. An image has all the geometry and reads at a glance; but
-   every edit is a render in a thread and an upload of the whole
-   picture, its text is small on a phone and cannot be copied or
-   searched, and only an eye can test it. A board wants geometry and
-   changes at the gate's pace; a log wants text and changes with every
-   click. So the board is the image and the turn message the embed, and
-   both are rendered, edited and updated, which is what the author
-   asked for. **Rate limits:** two edited messages in one channel share
-   its five-in-five bucket, so both go through one write gate per
-   channel -- `BoardRefresher` generalised to a gate over a channel's
-   edited messages, the board with its PNG and the turn message with
-   its embed -- that budgets edits across them and coalesces a burst of
-   clicks into one trailing edit; a cascade of the bot's own steps is
-   one edit of each; there is no other public message per action. **What
-   it costs:** a renderer to write and look at, and a gate that knows
-   two messages instead of one. If the author comes to prefer an embed
-   for the board as well, it is a change to `codex/render.py`'s caller,
-   not to the model.
+   codex; text tiles, never card art. After every action the message is
+   edited with the new lines and the re-rendered board; when the turn
+   ends it is edited a last time and stands, so the channel's history
+   reads as one picture per turn with the actions that led to it -- the
+   shape of the forum post the spreadsheet generates, which is where
+   the author has played. The new turn's message is pinned and the old
+   one unpinned, the rollover D12 Ball's `post_new_play_board` already
+   does, so the pin is always the current position. **Why not an
+   embed**, since the author asked what the difference is: an embed is
+   Discord's structured text card -- a colour stripe, a title, up to 25
+   named fields of 1024 characters, a footer -- so it costs nothing to
+   build, edits instantly, can be copied, searched and read aloud, and
+   is crisp on a phone; but it has no geometry: five patrol slots with
+   tiles in them, an exhausted card turned sideways, two halves facing
+   each other are beyond it, and its inline columns stack on a phone. An
+   image has the geometry and reads at a glance; every edit is a render
+   in a thread and an upload of the whole picture, its text is small on
+   a phone, and only an eye can test it. The author chose the image, and
+   nothing in the bot is an embed. **Rate limits:** exactly one message
+   per channel is edited -- the current turn's -- as in D12 Ball,
+   through the same gate, which coalesces a burst of clicks into one
+   trailing edit and now sets the message's text beside its picture; a
+   cascade of the bot's own steps is one edit; there is no other public
+   message per action. **What it costs:** a render and an upload per
+   edit, which the gate's interval already paces, and a renderer to
+   write and look at.
 
 6. **The cards are data imported from the database's repository, never
    typed.** `scripts/import_codex_cards.py` fetches the ten `raw_data`
@@ -449,14 +444,32 @@ and the step's prompt is rewritten rather than argued with.
 
 10. **The lobby is the one slash command a game needs; everything after
     it is a button.** `/codex lobby` posts the lobby in the channel it
-    is called in -- no hub message -- with the two heroes as seats
-    (**Play Bashing**, **Play Finesse**), **Leave**, and **Start** for
-    either seated player once both seats are taken. Start creates
-    `codex-<n>` under a **Codex** category, shuffles, deals, picks the
-    first player at random (UMR p. 3) with the rule's 4 and 5 workers,
-    posts the board and the table message. The slash commands kept
+    is called in, with the two heroes as seats (**Play Bashing**, **Play
+    Finesse**), **Leave**, and **Start** for either seated player once
+    both seats are taken. Start creates `codex-<n>` under a **Codex
+    Games** category, shuffles, deals, picks the first player at random
+    (UMR p. 3) with the rule's 4 and 5 workers, and posts the first
+    turn's message and the table message. The slash commands kept
     beside it: `hand`, `board`, `card`, `rules`, `games`, `concede`,
-    `resume`, and the admin `abandon`.
+    `resume`, and the admin `abandon` and `reset_channels`. **The hub.**
+    The author would have fool-bot's hub carry a button that starts a
+    Codex lobby (2026-10-07). Discord delivers a component's
+    interaction only to the application that posted the message, and
+    has no way for one application to run another's command, so a
+    button on fool-bot's hub cannot reach the Codex bot. The nearest
+    thing Discord allows is a **command mention**: `</codex lobby:ID>`
+    in a message renders as a clickable chip that puts `/codex lobby`
+    into the clicker's composer, one keypress from sending, for any
+    application's command whose id is known. So fool-bot's hub message
+    gains a Codex line with that mention, and the Codex bot writes its
+    top-level command ids to `data/codex_command_ids.json` after each
+    sync for fool-bot to read when it renders the hub -- one shared,
+    read-only file across the line, as the statistics' read of the web
+    games is for D12 Ball -- falling back to the command's name in plain
+    text when the file is absent. A hub message of the Codex bot's own
+    is not built: it would need its own permission overwrite in the
+    locked hub channel and a second message to keep, for a chip that
+    does the same thing.
 
 11. **Undo, with its infrastructure in the model's first commit** (the
     author, 2026-10-07: "definitely need an undo"). Two undos are built
@@ -514,11 +527,11 @@ answer says what it builds until it has one.
    Answered by the author on 2026-10-07: yes, everything goes in the
    tree -- the texts and the rulings beside the facts, as decision 6
    has it.
-2. **The board as an image and the turn message as an embed, or
-   embeds for both?** The author wants both rendered, edited and
-   updated (2026-10-07); the difference between the two media is
-   written under decision 5, which builds the board as the image and
-   the turn message as the embed.
+2. ~~**A rendered board image, or Discord embeds?**~~ Answered by the
+   author on 2026-10-07: an image, not an embed. Decision 5 has the
+   difference between the two and the shape that follows -- one
+   message per turn, the board as its picture and the turn's lines as
+   its text.
 3. ~~**No undo at all?** Built as none. The alternative worth having is
    a helper's "back to the start of this main phase" when nothing
    hidden has been revealed since.~~ Answered by the author on
@@ -530,8 +543,12 @@ answer says what it builds until it has one.
    on 2026-10-07: the panel is fine, with a public message edited after
    each action that stands as the turn's summary once it is over
    (decisions 4 and 5).
-5. **A hub message per guild, as D12 Ball has, or the lobby where the
-   command is called?** Built as the latter (decision 10).
+5. ~~**A hub message per guild, as D12 Ball has, or the lobby where the
+   command is called?**~~ Answered by the author on 2026-10-07: the
+   lobby starts from `/codex lobby`, and fool-bot's hub points at it
+   the one way Discord allows across applications, a command mention
+   (decision 10). The wording of that hub line is the author's, asked
+   for on step 3's PR.
 6. ~~**Which channel mirrors the Codex bot's errors?**~~ Answered by
    the author on 2026-10-07: the same #logs channel. `botlog` reads
    `CODEX_LOG_*` for this bot, falling back to the `FOOLBOT_LOG_*`
@@ -626,11 +643,11 @@ Hard rules for every step:
   in the PR where you checked.
 - Every draw the game makes is engine.rng. A test seeds it.
 - Rate limits: the fix is always fewer requests, never slower ones.
-  Two messages are edited through the channel, the board and the turn
-  message, both through one write gate per channel; the active
-  player's panel is ephemeral and edited through its own interactions;
-  a cascade of the bot's own steps is one edit of each and nothing
-  more. Read docs/design/rate-limits.md before adding any send, edit
+  One message per channel is edited, the current turn's -- the board
+  with the turn's lines -- through the gate; the active player's panel
+  is ephemeral and edited through its own interactions; a cascade of
+  the bot's own steps is one edit and nothing more. Nothing is an
+  embed. Read docs/design/rate-limits.md before adding any send, edit
   or pin.
 - Nothing under d12ball/, gamesaves/d12ball/ or cogs/d12ball* changes
   unless the step names the file and says why. The D12 Ball save
@@ -1062,9 +1079,18 @@ commits: the service and storage; the cog, views and lobby; the board.
    (either seated player, once both seats are taken) runs
    service.start: the record goes to playing, engine.new_match deals,
    the channel codex-<n> is created under a "Codex" category (created
-   if missing) with the permissions D12 Ball's channels get, the board
+   if missing) with the permissions D12 Ball's channels get, the first
+   turn's message -- the opening board as its picture, "Turn 1 -- <the
+   first player>" and the lines begin_turn says for them as its text --
    is posted and pinned, the table message posted, and the lobby
-   message edited once to say where the game is. No hub message; the
+   message edited once to say where the game is. fool-bot's hub message
+   (build_hub_message in cogs/d12ball_helpers.py, the author's own
+   text) gains one Codex line, worded by the author on this PR,
+   carrying the command mention </codex lobby:ID> when
+   data/codex_command_ids.json names the id and the command's name in
+   plain text otherwise; codexbot.py writes that file after each
+   command sync. It is the one file read across the line, and fool-bot
+   only reads it. No hub message; the
    /codex lobby row in the worksheet's decision 10 is the reason.
 
 3. codex/render.py and cogs/codex_boards.py. The board: a landscape
@@ -1092,8 +1118,10 @@ commits: the service and storage; the cog, views and lobby; the board.
    instantiates the same class with no view and a predicate that is
    always true, and its boards come through cog.render_match_png and
    cog.match_file_from_png as D12 Ball's do, since the refresher looks
-   those up on the cog at call time. refresh_match_image is the one
-   forwarder.
+   those up on the cog at call time; a third parameter, the message's
+   text, lets the write set the turn's lines beside the picture (D12
+   Ball passes none), and an edit whose picture and text are both
+   unchanged is skipped. refresh_match_image is the one forwarder.
 
 Tests: tests/test_codex_game_service_setup.py (every lobby move through
 the service, the refusals, one save per call); tests/test_codex_cog_lobby.py
@@ -1133,25 +1161,23 @@ docs/design/rate-limits.md again. Four commits: the turn message and
 the gate; the panel and the actions; patrol, draw and the tech choice;
 the undos and resume.
 
-1. The turn message. When a turn begins the cog posts one public
-   message for it, an embed: the player's colour as its stripe, "Turn
-   <n> -- <player> (<spec>)" as its title, the turn's actions so far as
-   numbered lines in its description (the model's lines, tokens
-   rendered at the door), and gold, workers, hand, deck, discard and
-   codex counts in its footer; the lines the owed steps say at the
-   turn's start (the gold gained, the hero's rune, the teched cards to
-   the discard) are its first lines, and it mentions whose turn it is.
-   After every action the message is edited with the new lines; when
-   the turn ends it is edited a last time with the patrol locked and the
-   draw's count, and it stands. The channel's history is then the board
-   and one message per turn. cogs/d12ball_boards.py's gate becomes a
-   gate over a channel's edited messages -- the board with its PNG and
-   the turn message with its embed -- budgeting edits across both so
-   the channel's five-in-five bucket is never exceeded and a burst of
-   clicks coalesces into one trailing edit of each; D12 Ball passes one
-   message and its tests pass unchanged. A cascade of the bot's own
-   steps -- deaths, a building's 2 to the base, the game's end -- is one
-   edit of each. There is no other public message per action.
+1. The turn message. When a turn begins the cog posts the turn's
+   message: its text "Turn <n> -- <player> (<spec>)", a mention of
+   whose turn it is, and the lines the owed steps said at the turn's
+   start (the gold gained, the hero's rune, the teched cards to the
+   discard), the model's lines with their tokens rendered at the door;
+   its attachment the board. It is pinned and the previous turn's
+   message unpinned, the rollover post_new_play_board does for D12
+   Ball. After every action it is edited, through the gate, with the
+   new lines and the re-rendered board; when the turn ends it is edited
+   a last time with the patrol locked and the draw's count, and it
+   stands. The channel's history is then one picture per turn with the
+   actions that led to it. The text stays under Discord's 2000
+   characters: past that, the earliest lines fold into "and n more",
+   since the board carries the position. A cascade of the bot's own
+   steps -- deaths, a building's 2 to the base, the game's end -- is
+   one edit. There is no other public message per action, and no embed
+   anywhere.
 
 2. cogs/codex_views/turn.py: TurnPanelView, built from
    MainActionOptions and nothing else -- a row of buttons for Hire
@@ -1201,10 +1227,10 @@ the undos and resume.
    (a manage_channels helper may confirm instead, through
    HelperConfirmationRequired); on confirmation
    service.undo_to_previous_turn restores the older snapshot, the
-   previous turn's message is edited to say it was undone and the
-   current turn's message is deleted (the one deletion in the flow),
-   and the turn passes back with a fresh turn message and a panel for
-   its player. The cog decides nothing about what a snapshot holds or
+   previous turn's message is edited back to its first lines plus
+   "undone to the start of the turn" with the restored board and
+   pinned again, the current turn's message is deleted (the one
+   deletion in the flow), and that turn's player gets a fresh panel. The cog decides nothing about what a snapshot holds or
    which undos exist: history.undo_targets(match) says, and the Undo
    choices are built from it. GAME_OVER renders as a public line naming
    the winner and the final board, with a Rematch button for step 7
