@@ -179,9 +179,10 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   discard and their tech choice privately. On Discord that is the
   ephemeral interaction response: in the channel, seen by the one who
   clicked, gone when they dismiss it, never stored by the bot. The bot's
-  #logs mirror, its archive export and any state it prints must never
-  carry a hand or an unanswered tech choice; the event log holds card
-  identities and is written to disk after a game ends, as D12 Ball's is.
+  #logs mirror and any state it prints must never carry a hand or an
+  unanswered tech choice; the event log holds card identities and stays
+  in the save, since this bot writes no export (the author,
+  2026-10-07).
 - **The tech choice is a second thing a match waits on**, owed by the
   player whose turn just ended while the other player acts. D12 Ball's
   `pending` is one reading with one answer; Codex keeps the one reading
@@ -256,7 +257,7 @@ need yet. Each has a shape worth copying and a few leaves worth sharing.
 | `gamesaves/d12ball/storage.py` | `gamesaves/codex/storage.py` | Copied: `load_games`/`save_games` over `data/codex_games.json`, never raising |
 | `cogs/d12ball/` (six mixins), `present`, `render_prompt`, `view_for_prompt` | `cogs/codex/` | Copied shape: the one presenter over a result, the one mapping from kind to view and to picture |
 | `cogs/d12ball_views/` (`SafeView.apply`, `may_act_for`) | `cogs/codex_views/` | Copied shape: a view builds from `options` and answers through the service; the gates read `is True` |
-| `cogs/d12ball_boards.py` (`BoardRefresher`) | the same class | Shared once two things it reaches for are parameters: the view it keeps on the board message (D12 Ball's home-or-visitors view) and the predicate that says the full-image link may go up; everything else in it is a board message and a bucket |
+| `cogs/d12ball_boards.py` (`BoardRefresher`) | the same class | Shared once two things it reaches for are parameters -- the view it keeps on the board message (D12 Ball's home-or-visitors view) and the predicate that says the full-image link may go up -- and once it budgets a channel's edits across two messages, the board and the turn message (step 4); everything else in it is a message and a bucket |
 | `cogs/d12ball_helpers.py` | `cogs/game_auth.py` (new, shared) and `cogs/codex_helpers.py` | The authorisation predicates (`game_participant_ids`, `is_game_helper`, `may_act_for_coach`, `may_act_in_game`, `HelperConfirmationRequired`) read only the seat ids and are shared by moving them to a module of their own that `d12ball_helpers` re-exports; `send_new_prompt` the same way; the naming and the token resolver are copied shapes |
 | the hub and `LobbyView` | `LobbyView` in the calling channel | Copied idea, no hub message: a button is delivered only to the application that posted its message, so the Codex bot could not sit on D12 Ball's hub anyway, and one hub a bot is one more message to keep; the lobby lives where `/codex lobby` is called |
 | `tests/` | `tests/` | Flat, with no `__init__.py`, so helpers are imported by bare name: Codex's helpers carry a `codex_` prefix (`codex_positions`, `codex_flow_stubs`), and the stray-save guard in `tests/save_patches.py`, which walks all of `cogs/` and `gamesaves/`, lists the Codex modules that bind `save_games` |
@@ -346,9 +347,11 @@ and the step's prompt is rewritten rather than argued with.
    service's -- a public **My hand** button rebuilds the view. The active
    player's whole main phase is driven from **one ephemeral panel edited
    in place** by each click (a component interaction may edit the message
-   it sits on), so the public channel carries the board, the narration
-   and one small table message, and an observer sees what a spectator at
-   the table sees. **What it costs:** an ephemeral message dies with the
+   it sits on), so the public channel carries the board, the turn
+   message that is the turn's running summary (decision 5) and one
+   small table message, and an observer sees what a spectator at the
+   table sees -- and, once the turn is over, a summary of it, which the
+   author asked for on 2026-10-07. **What it costs:** an ephemeral message dies with the
    client session and cannot be found again by the bot, so every entry
    point -- **Take my turn** on the table message, `/codex hand`,
    `/codex resume` -- creates a fresh one rather than editing an old
@@ -358,21 +361,47 @@ and the step's prompt is rewritten rather than argued with.
    the same views posted publicly with the hand select ephemeral; it is
    a change to `present`, not to the model.
 
-5. **One board image per game, through a `BoardRefresher`, and the
-   narration as text, one message per action.** The same rate-limit
-   discipline as D12 Ball: the board message is the only edited message
-   in the channel; the gate coalesces the dozen actions of a Codex turn;
-   a cascade of the bot's own steps -- deaths, triggers, the draw, the
-   next upkeep -- is one message and one refresh. `codex/render.py` draws
-   it with Pillow in `asyncio.to_thread`: each side's base and
-   buildings, its hero with level and band, the five patrol slots by
-   name, the play zone as tiles -- name, cost, ATK/HP, damage, runes,
-   exhausted, arrived this turn -- and the counters: gold, workers, hand,
-   deck, discard, codex. Text tiles, never card art. An image because
-   the repository's whole rendering discipline exists and a tableau
-   reads at a glance where a wall of text does not. **What it costs:** a
-   renderer to write and look at; the author may prefer embeds
-   (question 2).
+5. **Two messages a channel edits in place -- the board as an image and
+   the turn as an embed -- through one write gate.** The board message
+   is a rendered PNG, as D12 Ball's is: `codex/render.py` draws it with
+   Pillow in `asyncio.to_thread` -- each side's base and buildings, its
+   hero with level and band, the five patrol slots by name, the play
+   zone as tiles (name, cost, ATK/HP, damage, runes, exhausted, arrived
+   this turn) and the counters: gold, workers, hand, deck, discard,
+   codex; text tiles, never card art. The turn message is one per turn,
+   posted when the turn begins and edited after every action until the
+   turn ends, so that when it is over it stands as the turn's summary
+   and the channel's history reads as the board and one message per
+   turn (the author, 2026-10-07). It is a Discord embed -- the
+   structured text card: the player's colour as its stripe, "Turn 7 --
+   perrytom (Bashing)" as its title, the actions so far as numbered
+   lines in its description, gold, workers and the counts in its
+   footer -- not a picture. **The difference between the two media**,
+   since the author asked: an embed is text, so it costs nothing to
+   build, edits instantly, can be copied, searched and read aloud by a
+   screen reader, and is crisp at any size; but it has no geometry --
+   at most 25 named fields of 1024 characters, inline fields three
+   across on a desktop and stacked on a phone, Markdown for emphasis,
+   6000 characters in all -- so five patrol slots with tiles in them,
+   an exhausted card turned sideways, two halves facing each other are
+   beyond it. An image has all the geometry and reads at a glance; but
+   every edit is a render in a thread and an upload of the whole
+   picture, its text is small on a phone and cannot be copied or
+   searched, and only an eye can test it. A board wants geometry and
+   changes at the gate's pace; a log wants text and changes with every
+   click. So the board is the image and the turn message the embed, and
+   both are rendered, edited and updated, which is what the author
+   asked for. **Rate limits:** two edited messages in one channel share
+   its five-in-five bucket, so both go through one write gate per
+   channel -- `BoardRefresher` generalised to a gate over a channel's
+   edited messages, the board with its PNG and the turn message with
+   its embed -- that budgets edits across them and coalesces a burst of
+   clicks into one trailing edit; a cascade of the bot's own steps is
+   one edit of each; there is no other public message per action. **What
+   it costs:** a renderer to write and look at, and a gate that knows
+   two messages instead of one. If the author comes to prefer an embed
+   for the board as well, it is a change to `codex/render.py`'s caller,
+   not to the model.
 
 6. **The cards are data imported from the database's repository, never
    typed.** `scripts/import_codex_cards.py` fetches the ten `raw_data`
@@ -429,12 +458,34 @@ and the step's prompt is rewritten rather than argued with.
     beside it: `hand`, `board`, `card`, `rules`, `games`, `concede`,
     `resume`, and the admin `abandon`.
 
-11. **No undo.** A misclick is a misclick, as at the table. What the
-    panel does against them is structural: the defender is asked after
-    the attacker, a card's cost is shown before it is chosen, and the
-    irreversible clicks -- **Lock patrol**, **Save tech** -- stand alone
-    in their row. An admin `abandon` exists from step 3; nothing rewinds
-    a turn (question 3).
+11. **Undo, with its infrastructure in the model's first commit** (the
+    author, 2026-10-07: "definitely need an undo"). Two undos are built
+    in these steps: **to the start of this turn**, the active player's
+    own, with nobody's consent asked; and **to the start of the
+    previous turn**, which unwinds the opponent's turn as well, so the
+    opponent confirms it with a button of their own, or a helper does.
+    What makes both cheap, and a finer one possible later, is laid down
+    in step 2: the match keeps a **snapshot of the position at every
+    turn start**, bounded to the last three, and a **journal of the
+    turn's actions**, each with the random outcomes it consumed (a
+    reshuffle's order), so that any point in a turn is a snapshot plus
+    a replay of the journal up to it, and the replay reproduces the
+    position byte for byte -- a test says so. `driver.apply` is the one
+    door, so it is where the journal is written; `begin_turn` is where
+    the snapshot is taken. Because a replay reuses the recorded
+    outcomes, an undo past a draw deals the same cards again: undo
+    cannot be used to redraw. Hidden information is in the save
+    already, so a snapshot exposes nothing new. The finer undo -- to
+    any action of a turn -- is a view and a service method over the
+    same journal, and it is on the list of what is not built yet.
+    **What it costs:** two saved fields from the first commit, a
+    shuffle that can take a recorded order back, and every frontend
+    surface -- the panel, the turn message, the board -- re-rendering
+    from the position after an undo rather than from what it last
+    showed. The panel still guards against the misclick structurally:
+    the defender is asked after the attacker, a card's cost is shown
+    before it is chosen, and **Lock patrol** and **Save tech** stand
+    alone in their row.
 
 12. **The rules reference is the imported rulings and a link.**
     `/codex rules <keyword>` answers from the `General` rulings; `/codex
@@ -463,23 +514,29 @@ answer says what it builds until it has one.
    Answered by the author on 2026-10-07: yes, everything goes in the
    tree -- the texts and the rulings beside the facts, as decision 6
    has it.
-2. **A rendered board image, or Discord embeds?** Built as the image
-   (decision 5). Embeds are a smaller first step and a worse board.
-3. **No undo at all?** Built as none (decision 11). The alternative
-   worth having is a helper's "back to the start of this main phase"
-   when nothing hidden has been revealed since; it is a day of work and
-   a new reading of the position's history, so it is not in these
-   prompts.
-4. **One ephemeral panel for the active player, or public prompts as
-   D12 Ball posts them?** Built as the panel (decision 4).
+2. **The board as an image and the turn message as an embed, or
+   embeds for both?** The author wants both rendered, edited and
+   updated (2026-10-07); the difference between the two media is
+   written under decision 5, which builds the board as the image and
+   the turn message as the embed.
+3. ~~**No undo at all?** Built as none. The alternative worth having is
+   a helper's "back to the start of this main phase" when nothing
+   hidden has been revealed since.~~ Answered by the author on
+   2026-10-07: definitely an undo -- to the start of this turn and to
+   the start of the previous turn in these steps, and the infrastructure
+   for a finer one from the first commit (decision 11).
+4. ~~**One ephemeral panel for the active player, or public prompts as
+   D12 Ball posts them?** Built as the panel.~~ Answered by the author
+   on 2026-10-07: the panel is fine, with a public message edited after
+   each action that stands as the turn's summary once it is over
+   (decisions 4 and 5).
 5. **A hub message per guild, as D12 Ball has, or the lobby where the
    command is called?** Built as the latter (decision 10).
-6. **Which channel mirrors the Codex bot's errors?** Built as the same
-   #logs channel: `botlog` reads `CODEX_LOG_*` for this bot, falling
-   back to the `FOOLBOT_LOG_*` values when a `CODEX_` one is unset, and
-   every notice it posts names the bot ("**Codex bot restarted**"), so
-   one channel carries both and the author can split them by setting
-   `CODEX_LOG_CHANNEL_ID`.
+6. ~~**Which channel mirrors the Codex bot's errors?**~~ Answered by
+   the author on 2026-10-07: the same #logs channel. `botlog` reads
+   `CODEX_LOG_*` for this bot, falling back to the `FOOLBOT_LOG_*`
+   values when a `CODEX_` one is unset, and every notice it posts names
+   the bot ("**Codex bot restarted**"), so one channel carries both.
 7. **Does the Codex bot carry `/roll`, the coins or the Tethys deck?**
    Built as no: one bot, one game; those stay fool-bot's.
 8. **May anyone in the server read a game's channel?** Built as yes,
@@ -504,10 +561,10 @@ starting.
 | 1 | The second bot stands up, and knows the cards | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | 2 | A whole game through the driver, with no frontend | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
-| 4 | The turn on Discord | large | two people finish a game on the vanilla engine, and a bot restart mid-turn resumes from **Take my turn** |
+| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **Take my turn**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
-| 7 | Finishing a game: concede, abandon, the archive, the statistics, the golden | medium | a finished game is archived and exported; a seeded whole game is pinned byte for byte |
+| 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | 8 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 7 remains byte-identical in two places |
 | -- | Later, and not now | -- | |
 
@@ -565,14 +622,16 @@ Hard rules for every step:
   in the same commit as the engine.
 - Nothing that is hidden -- a hand, a deck's order, a discard pile's
   contents, an unanswered tech choice, a hired worker's card -- is
-  written into a public message, a log line, the #logs mirror or an
-  archive of a game still being played. Say in the PR where you checked.
+  written into a public message, a log line or the #logs mirror. Say
+  in the PR where you checked.
 - Every draw the game makes is engine.rng. A test seeds it.
 - Rate limits: the fix is always fewer requests, never slower ones.
-  Only the board message is edited through the channel; the active
+  Two messages are edited through the channel, the board and the turn
+  message, both through one write gate per channel; the active
   player's panel is ephemeral and edited through its own interactions;
-  a cascade of the bot's own steps is one message and one refresh.
-  Read docs/design/rate-limits.md before adding any send, edit or pin.
+  a cascade of the bot's own steps is one edit of each and nothing
+  more. Read docs/design/rate-limits.md before adding any send, edit
+  or pin.
 - Nothing under d12ball/, gamesaves/d12ball/ or cogs/d12ball* changes
   unless the step names the file and says why. The D12 Ball save
   format, docs/living-rules.md and the six D12 Ball safety-net tests
@@ -776,8 +835,11 @@ prompts and flow; the tests.
    arrived_this_turn, patrol_slot (None or one of the five), modifiers
    (a list of {kind, amount, until} for this-turn effects, empty until
    step 6), attached (ids, empty until step 6), flipped (False until
-   step 6). MATCH_SAVED_FIELDS carries every field with a fallback from
-   this first commit; to_dict/from_dict round-trip; validate checks the
+   step 6). On the match, for decision 11: turn_snapshots (the last
+   three turn-start positions as dicts, oldest first) and journal (the
+   actions applied since the turn began, each with the random outcomes
+   it consumed). MATCH_SAVED_FIELDS carries every field with a fallback
+   from this first commit; to_dict/from_dict round-trip; validate checks the
    position against itself (ids unique, slugs in the catalog, a
    patroller per slot, counts non-negative). The save file is
    data/codex_games.json and the format is the contract from now on.
@@ -842,7 +904,18 @@ prompts and flow; the tests.
    in play, a building's 2 to the base, the construction rune lost --
    and the base at 0 ending the game), driver.py (MODEL_STEPS covering
    FollowOnStep exactly; advance; answer taking the pending prompt's
-   action or a standing prompt's; apply). Each step changes the match
+   action or a standing prompt's; apply, which also writes the
+   journal). codex/history.py, for decision 11: snapshot(match), called
+   by begin_turn, which also empties the journal and keeps only the
+   last three snapshots; record(match, action, outcomes), called by
+   driver.apply with the random outcomes the step consumed, which a
+   StepResult carries back in a `drawn` field (a reshuffle's order);
+   replay(engine, game, snapshot, actions), rebuilding a position from
+   a snapshot and a prefix of the journal; undo_targets(match), and
+   undo_to_turn_start(match) and undo_to_previous_turn(match) over
+   them. engine.shuffle(cards, recorded=None) draws from rng or takes a
+   recorded order back, and it is the only shuffle. Each step changes
+   the match
    and returns what happened, in the model's voice with tokens
    ({player:1}, {card:iron_man}, {gold:3}, {hero:troq_bashar}), and
    sends and saves nothing.
@@ -883,7 +956,13 @@ prompts and flow; the tests.
    tests/test_codex_driver_actions.py: driver.ANSWERS covers PromptKind
    exactly and MODEL_STEPS covers FollowOnStep exactly, as
    tests/test_d12ball_driver_actions.py and the package-shape test keep
-   true for D12 Ball. tests/test_codex_effects.py:
+   true for D12 Ball. tests/test_codex_history.py: after a seeded turn
+   of several actions with a reshuffle inside its draw, replaying the
+   journal from the turn-start snapshot reproduces to_dict byte for
+   byte; undo to the start of this turn and to the start of the
+   previous turn restore the exact earlier dicts and the prompts that
+   go with them; the journal is empty after begin_turn and the
+   snapshots are bounded to three. tests/test_codex_effects.py:
    UNIMPLEMENTED equals the exact set this step leaves (list it), so a
    card can only leave it with a handler. tests/codex_positions.py: the
    helper that stages a position by slug -- put(match, player, slug,
@@ -893,8 +972,9 @@ prompts and flow; the tests.
 
 Nothing in this step imports discord, renders anything, or saves to
 disk. Record in docs/design/codex.md: the prompt kinds and what each
-asks, the standing prompt (decision 8), the vanilla engine and
-UNIMPLEMENTED, the saved-fields table, and the by-slug test helper.
+asks, the standing prompt (decision 8), the snapshots and the journal
+(decision 11), the vanilla engine and UNIMPLEMENTED, the saved-fields
+table, and the by-slug test helper.
 
 Done when: the full-game test passes, UNIMPLEMENTED is pinned, and the
 purity ratchet covers the new packages.
@@ -1036,57 +1116,73 @@ the other cannot see.
 Stop: the opening board, in the PR and in the test server, looked at.
 ```
 
-### 4. The turn on Discord
+### 4. The turn on Discord, and the two undos
 
 The whole of a turn, on the vanilla engine, driven from the active
-player's ephemeral panel: the actions, the attack with its defender,
-the patrol lock, the automatic draw, the tech choice during the
-opponent's turn, and the resume path. After this step two people can
-finish a game.
+player's ephemeral panel: the turn message that is the turn's running
+summary, the actions, the attack with its defender, the patrol lock,
+the automatic draw, the tech choice during the opponent's turn, the two
+undos, and the resume path. After this step two people can finish a
+game.
 
 ```text
 Step 4 of docs/codex-bot.md. Steps 1 to 3 have landed. Also read
 docs/design/maneuver-prompt.md (why a prompt is never edited, and what
 this step does differently and why), docs/design/recovery.md and
-docs/design/rate-limits.md again. Three commits: the panel and the
-actions; patrol, draw and the tech choice; resume and the turn's
-narration.
+docs/design/rate-limits.md again. Four commits: the turn message and
+the gate; the panel and the actions; patrol, draw and the tech choice;
+the undos and resume.
 
-1. cogs/codex_views/turn.py: TurnPanelView, built from
+1. The turn message. When a turn begins the cog posts one public
+   message for it, an embed: the player's colour as its stripe, "Turn
+   <n> -- <player> (<spec>)" as its title, the turn's actions so far as
+   numbered lines in its description (the model's lines, tokens
+   rendered at the door), and gold, workers, hand, deck, discard and
+   codex counts in its footer; the lines the owed steps say at the
+   turn's start (the gold gained, the hero's rune, the teched cards to
+   the discard) are its first lines, and it mentions whose turn it is.
+   After every action the message is edited with the new lines; when
+   the turn ends it is edited a last time with the patrol locked and the
+   draw's count, and it stands. The channel's history is then the board
+   and one message per turn. cogs/d12ball_boards.py's gate becomes a
+   gate over a channel's edited messages -- the board with its PNG and
+   the turn message with its embed -- budgeting edits across both so
+   the channel's five-in-five bucket is never exceeded and a burst of
+   clicks coalesces into one trailing edit of each; D12 Ball passes one
+   message and its tests pass unchanged. A cascade of the bot's own
+   steps -- deaths, a building's 2 to the base, the game's end -- is one
+   edit of each. There is no other public message per action.
+
+2. cogs/codex_views/turn.py: TurnPanelView, built from
    MainActionOptions and nothing else -- a row of buttons for Hire
    worker (disabled with its reason as the label when the engine says
    why not), Summon hero or Level up (a select of how many levels, from
-   the affordable count), and End main phase; a select Play a card
-   listing each playable card as "name (cost) ATK/HP" and omitting the
-   rest; a select Build listing what may be built with its cost; a
-   select Attack with listing ready attackers. Each click answers
-   through SafeView.apply; the result's narration goes to the channel
-   as one public message (the model's lines, tokens rendered at the
-   door), the board goes through the refresher, and the panel is
-   edited in place (interaction.response.edit_message) with the new
-   options. A click by anybody but the active player is refused
-   ephemerally. CHOOSE_DEFENDER renders as a select of DefenderOptions
-   -- each legal defender labelled with why it is legal ("squad
-   leader", "patroller", "nothing is patrolling") -- in the same panel,
-   with Cancel back to the actions. The panel is the view for
-   MAIN_ACTION and CHOOSE_DEFENDER in view_for_prompt; render_prompt
-   gives neither a picture.
+   the affordable count), Undo (commit 4) and End main phase; a select
+   Play a card listing each playable card as "name (cost) ATK/HP" and
+   omitting the rest; a select Build listing what may be built with its
+   cost; a select Attack with listing ready attackers. Each click
+   answers through SafeView.apply; the result's lines go to the turn
+   message, the board goes through the gate, and the panel is edited
+   in place (interaction.response.edit_message) with the new options.
+   A click by anybody but the active player is refused ephemerally.
+   CHOOSE_DEFENDER renders as a select of DefenderOptions -- each legal
+   defender labelled with why it is legal ("squad leader", "patroller",
+   "nothing is patrolling") -- in the same panel, with Cancel back to
+   the actions. The panel is the view for MAIN_ACTION and
+   CHOOSE_DEFENDER in view_for_prompt; render_prompt gives neither a
+   picture. Take my turn on the table message creates the panel afresh
+   for the active player (ephemeral), and so does /codex resume for
+   them; the cog never looks for an old panel.
 
-   Take my turn on the table message creates the panel afresh for the
-   active player (ephemeral), and so does /codex resume for them; the
-   cog never looks for an old panel. When a turn begins, the cog posts
-   one public line naming whose turn it is (a mention) with the board
-   refreshed, and nothing else: the panel is theirs to open.
-
-2. cogs/codex_views/patrol.py: PatrolView for PATROL -- five selects,
+3. cogs/codex_views/patrol.py: PatrolView for PATROL -- five selects,
    one per slot, each listing the candidates not yet placed, a Clear,
    and Lock patrol alone in its row; locking answers with the
    assignment, and the driver runs the owed steps: draw_phase (the
-   count is public, the cards are not: the public line says "draws
+   count is public, the cards are not: the turn message says "draws
    four"), begin_tech (the tech choice is now owed), and the opponent's
    begin_turn -- unless the opponent still owes their own tech choice,
-   in which case the chain stops on it and the public line says the
-   turn waits on them. cogs/codex_views/tech.py: TechChoiceView for
+   in which case the chain stops on it and the new turn message says
+   the turn waits on them. cogs/codex_views/tech.py: TechChoiceView for
    TECH_CHOICE -- an ephemeral multi-select of the codex's cards with
    their remaining counts, min and max from TechOptions, Save tech
    alone in its row -- sent as an ephemeral follow-up to the Lock
@@ -1094,32 +1190,50 @@ narration.
    by its owner. The choice is never shown or counted publicly beyond
    "has teched".
 
-3. Narration and the turn's shape. begin_turn's lines (the gold
-   gained, the hero's rune, "the teched cards go to the discard") are
-   one public message with the board refresh; a cascade inside an
-   action (an attack's deaths, a building's 2 to the base, the game's
-   end) is one message. GAME_OVER renders as a public line naming the
-   winner and the final board, with a Rematch button for step 7 left
-   out for now. tests/test_codex_cog_turn.py drives a whole turn
+4. The undos and resume. Undo on the panel opens two choices. To the
+   start of my turn is the active player's alone:
+   service.undo_to_turn_start restores the turn's snapshot through
+   codex/history.py, the turn message is edited back to its first
+   lines plus "undone to the start of the turn", the board goes through
+   the gate, and the panel re-renders from the new prompt. To the start
+   of the previous turn unwinds the opponent's turn too, so it posts a
+   public confirmation the opponent answers with a button of their own
+   (a manage_channels helper may confirm instead, through
+   HelperConfirmationRequired); on confirmation
+   service.undo_to_previous_turn restores the older snapshot, the
+   previous turn's message is edited to say it was undone and the
+   current turn's message is deleted (the one deletion in the flow),
+   and the turn passes back with a fresh turn message and a panel for
+   its player. The cog decides nothing about what a snapshot holds or
+   which undos exist: history.undo_targets(match) says, and the Undo
+   choices are built from it. GAME_OVER renders as a public line naming
+   the winner and the final board, with a Rematch button for step 7
+   left out for now. tests/test_codex_cog_turn.py drives a whole turn
    through the cog with the fakes: each panel edit is an edit of the
-   ephemeral message, not a channel send; the public sends per action
-   are one; the hand never appears in a public send; the tech choice is
-   answerable while the other player's panel is open; a stale panel's
-   click is refused with the driver's words. tests/test_codex_resume.py:
-   a match saved mid-turn resumes to the same prompt from Take my turn
-   and from /codex resume.
+   ephemeral message, not a channel send; the public requests per
+   action are one edit of the turn message and at most one of the board
+   through the gate; the hand never appears in a public send or edit;
+   the tech choice is answerable while the other player's panel is
+   open; a stale panel's click is refused with the driver's words; an
+   undo to the start of the turn leaves the turn message, the board and
+   the panel showing the restored position; the previous-turn undo
+   waits for the opponent's button. tests/test_codex_resume.py: a match
+   saved mid-turn resumes to the same prompt from Take my turn and from
+   /codex resume.
 
 Record in docs/design/codex.md: the panel (one ephemeral message edited
-by its own interactions, and why that is not a channel edit), the
-request count per click and its bucket, the resume path, and what a
-public turn line carries. Measure the requests per click with the fakes
-and write the number in the PR.
+by its own interactions, and why that is not a channel edit), the turn
+message and the two-message gate, the request count per click and its
+bucket, the two undos and who may take each, and the resume path.
+Measure the requests per click with the fakes and write the number in
+the PR.
 
 Done when: two people finish a game on the vanilla engine; a bot
-restart mid-turn resumes from Take my turn; the tests above pass.
+restart mid-turn resumes from Take my turn; both undos work; the tests
+above pass.
 
 Stop: a whole game played by the author and the other developer on the
-test server, with the request counts in the PR.
+test server, with the request counts in the PR and one undo taken.
 ```
 
 ### 5. The keywords
@@ -1309,60 +1423,52 @@ Stop: a whole Bashing-against-Finesse game on the test server with the
 author on one side, and nothing refused that the rulebook allows.
 ```
 
-### 7. Finishing a game: concede, abandon, the archive, the statistics, the golden
+### 7. Finishing a game: concede, abandon, rematch, the golden
 
 What a game needs after its last turn, and the safety net under
-everything before it.
+everything before it. No statistics and no archive export for this bot
+(the author, 2026-10-07): a finished game's channel is moved out of the
+way and nothing is written from it.
 
 ```text
 Step 7 of docs/codex-bot.md. Steps 1 to 6 have landed. Also read
-docs/design/channels-and-archive.md, docs/design/recovery.md and
-tests/test_golden_service.py (the golden you copy). Three commits: the
-ending; the archive and the statistics; the golden.
+docs/design/recovery.md and tests/test_golden_service.py (the golden
+you copy). Two commits: the ending; the golden.
 
 1. Concede on the table message and /codex concede, the clicker's own
    side only, confirmed by a second click; the admin /codex abandon
    (manage_channels) through the service; GAME_OVER's Rematch -- a new
    lobby posted in the finished game's channel with the same two seats,
-   the heroes swapped unless both players press Keep heroes; the first
+   the heroes swapped unless both players press Keep heroes, the first
    player drawn again at random. A finished or abandoned game's channel
-   is archived the way D12 Ball's are (the archive category, the
-   permissions), and the startup sweep re-arms the table messages of
-   games still playing and nothing else.
-
-2. gamesaves/codex/archive_export.py writes a finished game's export
-   -- the record, the final position, the whole event log, every hand
-   as it was at the end -- after the game is over and never before,
-   into the folder CODEX_ARCHIVE_EXPORT_DIR names; /codex admin
-   export_archived_games and /codex admin reset_channels, an admin
-   subgroup gated as cogs/debug.py's group is (guild only,
-   manage_channels by default, Administrator re-checked for the
-   export) -- the Codex bot does not load cogs.debug, whose channel
-   matcher is D12 Ball's. codex/stats.py folds the event log into what
-   /codex stats reports --
-   turns, gold earned and spent, cards played by type, damage dealt by
-   source, the game's length -- and nothing in the game reads the
-   event log to decide a rule. Nothing hidden is in a message about a
-   game still being played: audit every logging call under cogs/codex*
-   and gamesaves/codex/ for a hand, a deck, a discard pile or a tech
+   is moved to the "Codex Archive" category and left as it is: no
+   export is written from it and no statistics are read from it; the
+   event log stays in the save. /codex admin reset_channels, for the
+   test server, under the gate cogs/debug.py's group has (guild only,
+   manage_channels by default): every non-archived Codex channel
+   deleted and its game dropped, after a confirmation word. The startup
+   sweep re-arms the table messages of games still playing and nothing
+   else. Nothing hidden is in a message about a game still being
+   played: audit every logging call under cogs/codex* and
+   gamesaves/codex/ for a hand, a deck, a discard pile or a tech
    choice, and write the finding in the PR.
 
-3. tests/test_codex_golden.py: a seeded whole game through GameService
+2. tests/test_codex_golden.py: a seeded whole game through GameService
    with its tokens intact, pinned byte for byte in tests/golden/,
    re-recorded with FOOLBOT_UPDATE_GOLDEN=1 as the D12 Ball goldens
    are, with the rule written in the file that a faithful change to
    rendering leaves it alone while a change to the model's wording
    re-records it and says so in the PR.
 
-Record in docs/design/codex.md: the ending, the archive, the export's
-contents and when it is written, the statistics' tables, and the
-golden's seed and what it does not cover. CLAUDE.md gains the archive
-export's row and the golden's name in the tests paragraph.
+Record in docs/design/codex.md: the ending, the rematch, what happens
+to a finished channel and why nothing is exported, and the golden's
+seed and what it does not cover. CLAUDE.md names the golden in its
+tests paragraph.
 
-Done when: a finished game is archived and exported; the golden pins a
-game; the suite is green.
+Done when: a finished game ends cleanly, offers a rematch and is moved
+aside; the golden pins a game; the suite is green.
 
-Stop: an exported game read by the author.
+Stop: a game finished on the test server, its rematch opened.
 ```
 
 ### 8. The look back: what turned out identical moves to one home
@@ -1421,8 +1527,16 @@ Stop: the PR's list of pairs, read by the author.
   seats, and nothing is built for more.
 - **A web page or a Godot client.** `codex/wire.py` exists from step 2
   so that one costs nothing here; no client is written.
+- **Statistics and an archive export.** The author, 2026-10-07: not
+  for this bot. The event log stays in the save, a finished channel is
+  moved to the Codex Archive category, and nothing is written from it
+  or read out of it.
 - **Card art.** Not ours; the database's page is linked instead.
-- **An undo.** Question 3.
+- **The finer undo, to any action of a turn.** Its infrastructure --
+  the turn-start snapshots and the journal with its recorded random
+  outcomes -- is in from step 2, and the two coarse undos are step 4;
+  the finer one is a view and a service method over the same journal,
+  later.
 - **A cloud routine for the series.** Eight steps; claim by hand.
 - **A test of how the board looks.** The author's rule for everything
   rendered: render it and look.
