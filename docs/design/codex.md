@@ -15,11 +15,12 @@ Step 1 stood it up: the entry point, the shared bot class, the card
 data and its import, `/codex card` and `/codex rules`, the runner.
 Step 2 wrote the model whole -- the state, the record, the engine, the
 prompts, the flow and the driver -- and a test that plays a game to a
-destroyed base through the driver alone; nothing on Discord plays it
-yet (step 3). The model's purity rules hold for `codex/` from its
-first commit (`tests/test_model_purity.py`): no `discord`, no
-`async def`, Pillow only in `codex/render.py`, which a later step
-writes.
+destroyed base through the driver alone. Step 3 put it on Discord as
+far as the opening position: the service and its file, `/codex lobby`,
+the game's channel, the board, and each player's hand shown to them
+alone. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+(`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
+only in `codex/render.py`.
 
 **Nothing hidden is ever written where another player can read it** --
 a hand, a deck's order, a discard pile's contents, an unanswered tech
@@ -352,6 +353,146 @@ rulings that do not fit and leaving them to the link, measured after
 the tokens are rendered. No rulebook text is bundled and
 `docs/living-rules.md` is not touched (worksheet decision 12).
 
+## The service and its file
+
+`gamesaves/codex/` is D12 Ball's two modules copied (decision 2):
+`storage.py` writes `data/codex_games.json` -- the temporary file
+renamed over the real one, never raising, the two per-file failure
+flags -- with no legacy migration, since the save format has been the
+contract from step 2; and `service.py` is `GameService`, whose lobby
+moves (`create_game`, `take_seat`, `leave`, `start`, `abandon`,
+`set_board_layout`) are each a thin door over a rule on `CodexGame`,
+saving once, and whose `apply_action`, `run` and `resume` each load,
+apply, save once and return a `GameResult`. Two things differ from
+D12 Ball's:
+
+- **An action goes through `driver.apply`, never `driver.answer`**,
+  because `apply` is where the journal is written. So the service may
+  not split an answer from what follows it (no `carry_from`), and an
+  action's run is never stopped part-way: a stop would cut what the
+  journal records as one action in two. `Batching.stop_after` is
+  honoured where the bot runs its own steps -- `start` and `resume` --
+  which are never journalled.
+- **The result carries the standing prompts** beside the pending one,
+  and its JSON carries neither: a prompt lists a hand or a codex, which
+  is its asked player's alone, and a result is everybody's.
+
+`load` does not make the `data/` folder (D12 Ball's does): building the
+cog loads the games, and a load that made the folder would make it
+wherever a test builds one. The first save makes it.
+
+## The lobby and the channel
+
+`/codex lobby` posts the lobby where it is called: a line per seat and
+**Play Bashing**, **Play Finesse**, **Leave**, **Start**, persistent
+(fixed custom ids carrying the game id), re-armed on startup. A seat
+taken or given up edits the lobby in place through the click's own
+response, which spends nothing from the channel's edit bucket. Start is
+either seated player's, or a game helper's -- the lobby asks no
+confirmation, as D12 Ball's does not.
+
+**Start makes the channel first**, so a refusal leaves the lobby as it
+was: `codex-<n>-<p1>-vs-<p2>`, capped at 100 characters, under **Codex
+Games**, created if missing. The categories are the Codex bot's own --
+**Codex Games** and **Codex Archive** -- not PBD's, whose names
+`/debug`'s reset and the pin rollover match and whose fifty-channel cap
+is D12 Ball's. Then the service deals and runs the first turn's ready
+phase and upkeep in one save, the first turn's message goes up in the
+new channel and is pinned, and the lobby is edited once to say where
+the game is.
+
+- **Anyone in the server may read the channel; the two players and the
+  bot may write in it** (question 8 of the worksheet, the author,
+  2026-10-08: the hands are ephemeral, so a watcher sees the table and
+  nothing more). The step's prompt also said "the permissions D12
+  Ball's channels get", which hide a started game from `@everyone`; the
+  author's later answer was taken, and the PR asks.
+- **fool-bot's hub points at the lobby** the one way Discord allows
+  across applications, a command mention (decision 10): `codexbot.py`
+  writes its top-level command ids to `data/codex_command_ids.json`
+  after each sync -- or, on a start that skipped the sync, once from a
+  fetch when the file is missing -- and `build_hub_message` reads it for
+  `</codex lobby:ID>`, falling back to the command's name in plain text.
+  It is the one file read across the line, and fool-bot only reads it.
+  The line's wording is the author's to give; until then it is a
+  placeholder.
+
+## Who may act, shared
+
+`cogs/game_auth.py` holds the gates both bots ask -- `game_participant_ids`,
+`is_game_helper`, `may_act_for_coach`, `may_act_in_game`, the helper's
+confirmation marker and exception -- and `send_new_prompt`, moved out of
+`cogs/d12ball_helpers.py`, which re-exports every name, so nothing else
+under `cogs/d12ball*` changed. They read the record's two seat ids,
+which `D12BallGame` and `CodexGame` spell alike ([permissions.md](permissions.md)).
+The Codex `SafeView` has no helper confirmation yet: in step 3 no button
+acts for a player but the lobby's, so its gates let the seated players
+alone through, and step 4 brings the confirmation with the panel.
+
+## The board on Discord
+
+**One public message per turn** (decision 5): the board as its picture,
+the turn's lines as its text, the game's buttons under it. Everything
+else the bot shows is ephemeral.
+
+- **The board is the module's playmat with the position laid on it**
+  (`codex/render.py`): the hero as its card in the first hero slot with
+  its level chit -- or the slot empty with a time-rune chit for its
+  summoning runes while it is in the command zone; patrollers in their
+  five slots; the Tech I to III tiles in their places, faint where
+  unbuilt, tagged *building* while under construction and *destroyed*
+  when they are, with damage chits; the base's damage on the mat's own
+  base, which the mat prints (the module's base tile was tried and
+  doubled the printed base); the add-on's card in its slot; the draw
+  pile as the card back with its count on a tag below the medallion;
+  the discard and the workers as counts; the play zone's other units as
+  their cards across the mat's middle, in a grid of square cells so a
+  card turned sideways (exhausted) fits too, each with damage and rune
+  chits and *arrived* when it came this turn. A strip along each mat's
+  top names the player, the spec and the hero, and counts the gold, the
+  hand, the codex and the base; the active player's strip is lit.
+  Composed at the mat's own size and scaled by `BOARD_SCALE` (0.6),
+  about 2 MB.
+- **The layout is the game's**, on the record (`board_layout`, not the
+  match's, so an undo does not take it back): stacked, the second
+  player's mat above the first's as across a table, or side by side,
+  the first player's on the left. **Swap view** flips it for everyone
+  and the board goes up through the gate.
+- **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
+  copied: what it reached into D12 Ball for is a parameter -- the view
+  kept on the message (`keep_view`; D12 Ball's home/visiting buttons
+  once inert, the Codex bot's `TurnMessageView`), when the full-image
+  link may go up (`links`; D12 Ball's once the sides are chosen, the
+  Codex bot's always), which message is the board (`message_of`; the
+  Codex record's `turn_message_id`), the message's text (`text_for`,
+  which D12 Ball does not pass) and the game's name in the log. Each
+  defaults to D12 Ball's, so its tests build it as they did. An edit
+  whose picture and text are both unchanged is skipped.
+- **The turn's lines are held in memory**, by game, in the model's
+  tokens, and rendered at the door (`CodexTokens`: `{player:n}` the
+  seat's name, `{card:slug}` and `{hero:slug}` in bold, the hero's emoji
+  where uploaded). After a restart the message's text stands as it was
+  until `/codex resume` re-posts the table; the gate leaves the text
+  alone (`text_for` answers `None`) where it has not seen the lines.
+
+## Hidden information on Discord: the ephemeral shape, as tried
+
+Decision 4's shape, tried for the first time in step 3: **My hand** on
+the turn message answers the clicker alone, ephemerally -- their hand
+pictured by `render_hand` (each card's own art, numbered, its cost after
+reductions on a coin, greyed where it may not be played, which is the
+engine's `hand_rows`) and their discard pile listed as text. **Codex**
+answers with their own codex pictured by `render_codex`, every card with
+a badge of the copies left and faint at none, under a menu -- Everything,
+Tech I, Tech II, Tech III, Spells -- that re-renders the picture in place
+(the engine's `codex_remaining`, by `codex_views`). A watcher who
+presses either is told the table is not theirs. Nothing is stored: each
+press makes a fresh ephemeral message, and `/codex hand` answers the
+same. Where it was checked that nothing hidden is public: the turn
+message's text is the narration alone (`test_the_turn_message_names_no_card_in_a_hand`),
+`GameResult.to_dict` writes no prompt, and no log line in the cog names
+a card.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:
@@ -360,6 +501,7 @@ On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:
 python3 codexbot.py
 python3 scripts/import_codex_cards.py      # re-import the cards and the art
 python3 scripts/render_codex_emoji.py --in-place
+python3 scripts/render_codex_sample.py --out /tmp/codex   # the board, a hand, a codex
 ```
 
 On the live host, `scripts\run_codex_bot.cmd` restarts it and

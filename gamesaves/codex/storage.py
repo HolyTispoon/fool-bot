@@ -47,8 +47,10 @@ def load_games(path: Optional[Path] = None) -> dict[str, CodexGame]:
 
     _load_unreadable.discard(path)
 
+    # No `mkdir` here, unlike D12 Ball's: a load that makes the folder
+    # would create data/ wherever a cog is built, a test's included, and
+    # `save_games` makes it on the first write anyway.
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
         file_exists = path.exists()
     except OSError as error:
         # An unreachable folder may still hold a file: assume it does,

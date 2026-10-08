@@ -131,6 +131,39 @@ async def sync_command_tree(
     if fingerprint is not None:
         botstate.write_key(COMMAND_FINGERPRINT_KEY, fingerprint, state_file)
 
+    return synced
+
+
+def read_command_ids(path: Path) -> dict[str, int]:
+    """
+    Another bot's top-level command ids, by name, as it wrote them after
+    its last sync -- `{}` where there is no file or it cannot be read.
+    fool-bot reads the Codex bot's, the one file read across the line,
+    to mention `</codex lobby:ID>` in its hub (docs/design/codex.md,
+    "fool-bot's hub points at the lobby").
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(name): int(value) for name, value in data.items()
+            if isinstance(value, (int, str)) and str(value).isdigit()}
+
+
+def write_command_ids(commands, path: Path) -> None:
+    """Write `commands`' ids by name to `path`; a failure is logged, never
+    raised -- the hub falls back to the command's name in plain text."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps({command.name: command.id for command in commands}, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as error:
+        LOGGER.warning("Could not write the command ids to %s: %s", path, error)
+
 
 class GameBot(commands.Bot):
     def __init__(
@@ -139,6 +172,7 @@ class GameBot(commands.Bot):
         state_file: Optional[Path],
         sync_variable: str,
         message_content: bool,
+        command_ids_file: Optional[Path] = None,
     ):
         intents = discord.Intents.default()
         # Privileged, off by default. Without it, message.content on a
@@ -159,6 +193,9 @@ class GameBot(commands.Bot):
         self.extensions_to_load = tuple(extensions)
         self.state_file = state_file
         self.sync_variable = sync_variable
+        #: Where this bot writes its top-level command ids after a sync,
+        #: for another bot to mention them; None writes nothing.
+        self.command_ids_file = command_ids_file
 
     async def setup_hook(self):
         for extension in self.extensions_to_load:
@@ -169,10 +206,29 @@ class GameBot(commands.Bot):
         await self.sync_commands_if_changed()
 
     async def sync_commands_if_changed(self) -> None:
-        await sync_command_tree(
+        synced = await sync_command_tree(
             self.tree,
             fingerprint=command_tree_fingerprint(self.tree),
             forced=command_sync_forced(self.sync_variable),
             state_file=self.state_file,
             sync_variable=self.sync_variable,
         )
+        await self.record_command_ids(synced)
+
+    async def record_command_ids(self, synced) -> None:
+        """
+        Write the command ids after a sync. A start that skipped the sync
+        writes them only when the file is missing, from one fetch of the
+        registered commands -- the ids do not change between syncs.
+        """
+        if self.command_ids_file is None:
+            return
+        if synced is None:
+            if self.command_ids_file.exists():
+                return
+            try:
+                synced = await self.tree.fetch_commands()
+            except discord.HTTPException as error:
+                LOGGER.warning("Could not fetch the command ids: %s", error)
+                return
+        write_command_ids(synced, self.command_ids_file)
