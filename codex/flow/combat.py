@@ -49,11 +49,16 @@ class _Fighter:
     card: Optional[CardInstance] = None
     hero: Optional[HeroState] = None
 
-    def named(self) -> str:
+    def named(self, whose: bool = True) -> str:
+        """The fighter in a line -- with its side named, since both
+        decks are the same ten starters and "Tenderfoot attacks
+        Tenderfoot" says nothing; `whose=False` for the attacker, whose
+        side the turn already names."""
+        owner = f"{tokens.player(self.seat)}'s " if whose else ""
         if self.card is not None:
-            return tokens.card(self.card.slug)
+            return f"{owner}{tokens.card(self.card.slug)}"
         if self.hero is not None:
-            return tokens.hero(self.hero.slug)
+            return f"{owner}{tokens.hero(self.hero.slug)}"
         return f"{tokens.player(self.seat)}'s {building_name(self.ref)}"
 
 
@@ -142,7 +147,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, fighter: _Fighter,
     if engine.catalog.cards[card.slug].kind != "token":
         match.player(card.owner).discard.append(card.slug)
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
-    line = f"{tokens.card(card.slug)} is destroyed."
+    line = f"{fighter.named()} is destroyed."
     if card.patrol_slot == "scavenger":
         gained = gain_gold(match, card.controller, SCAVENGER_GOLD)
         line += f" As scavenger, it gives {tokens.player(card.controller)} {tokens.gold(gained)}."
@@ -167,7 +172,7 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, fighter: _Fighter,
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
     match.record_event("hero_died", slug=hero.slug, owner=fighter.seat)
     result.narration.append(
-        f"{tokens.hero(hero.slug)} dies and returns to the command zone with "
+        f"{fighter.named()} dies and returns to the command zone with "
         f"{SUMMONING_RUNES_ON_DEATH} summoning runes."
     )
 
@@ -193,14 +198,14 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     dealt = engine.attack_value(match, seat, attacker)
     back = engine.attack_value(match, other, defender)
-    result.narration.append(f"{hitting.named()} attacks {taking.named()}.")
+    result.narration.append(f"{hitting.named(whose=False)} attacks {taking.named()}.")
     match.record_event("attacked", attacker=attacker, defender=defender)
 
     # Simultaneous: work out both before applying either (UMR p. 11).
     if taking.card is not None or taking.hero is not None:
         landed = _take(taking, dealt)
         returned = _take(hitting, back) if back else 0
-        said = f"{hitting.named()} deals {landed}"
+        said = f"{hitting.named(whose=False)} deals {landed}"
         if landed < dealt:
             said += f" (armour takes {dealt - landed})"
         said += f"; {taking.named()} deals {returned}." if back else "."
@@ -229,7 +234,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                     line += ", a new band, and healed." if reached else "."
                     result.narration.append(line)
     else:
-        result.narration.append(f"{hitting.named()} deals {dealt}.")
+        result.narration.append(f"{hitting.named(whose=False)} deals {dealt}.")
         _damage_building(match, other, defender, dealt, result)
 
     match.attacking = None
