@@ -39,12 +39,18 @@ import unittest
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # `codex/` is the Codex bot's model, held to the same two halves from its
-# first commit (docs/design/codex.md); `gamesaves/codex/` joins it when
-# step 2 of docs/codex-bot.md creates it.
-MODEL_ROOTS = (
-    PROJECT_ROOT / "d12ball",
-    PROJECT_ROOT / "gamesaves" / "d12ball",
-    PROJECT_ROOT / "codex",
+# first commit (docs/design/codex.md); `gamesaves/codex/`, its service
+# and storage, is held to them from the commit that creates it (step 3
+# of docs/codex-bot.md) -- named here already, and walked once it exists,
+# so that commit cannot forget to add it.
+MODEL_ROOTS = tuple(
+    root for root in (
+        PROJECT_ROOT / "d12ball",
+        PROJECT_ROOT / "gamesaves" / "d12ball",
+        PROJECT_ROOT / "codex",
+        PROJECT_ROOT / "gamesaves" / "codex",
+    )
+    if root.is_dir()
 )
 
 # Run the import check in a fresh interpreter with `discord` refused by a
@@ -115,9 +121,18 @@ GAME_MODULES = (
     "d12ball.tutorial",
     # The Codex bot's model: Pillow is `codex/render.py`'s alone.
     "codex.cards",
+    "codex.components",
+    "codex.effects",
+    "codex.engine",
+    "codex.flow.driver",
     "codex.formatting",
+    "codex.game",
+    "codex.history",
+    "codex.keywords",
+    "codex.prompts",
     "codex.rulings",
     "codex.tokens",
+    "codex.wire",
 )
 
 DRAWING_PROBE = """
