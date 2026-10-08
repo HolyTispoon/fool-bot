@@ -776,9 +776,9 @@ Four commits, in this order.
    cogs/d12ball_helpers.py's loaders fall back. One is there already:
    codex/images/emoji/codex.png, the medallion from the back of every
    card -- the gold ring, the six gems and the pyramid -- cut from the
-   Screentop module's "Card Backs" sheet (@GRAG/Codex, read through
-   api.screentop.gg as docs/design/tts-module.md's memory of the D12
-   Ball module describes) on 2026-10-07, 128 px with transparent
+   Screentop module's "Card Backs" sheet (@GRAG/Codex; the module's
+   spec, with every asset's URL, is public through a GraphQL query to
+   api.screentop.gg) on 2026-10-07, 128 px with transparent
    surroundings, the bot's own mark -- the {codex} token the lobby and
    the turn message open with; the author uploads it to the application
    by hand like the rest. Every token is rendered
