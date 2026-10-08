@@ -1511,6 +1511,18 @@ button.goal { display: block; }
   font-weight: 800;
   line-height: 16px;
 }
+/* A visiting holder's two badges, the count then the condition, in
+   one row ending at its right edge: its ball has the bottom left. Too
+   wide for the span (the phone's narrow field), the row runs on past
+   the edge rather than back under the ball. */
+.badge-row {
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  justify-content: safe flex-end;
+  gap: 2px;
+}
+.badge-row .badge { position: static; }
 .badge.condition.injured { color: #ff3400; }
 .badge.condition.damaged { color: #e8457a; }
 .badge.condition.exhausted { color: #ffb000; }

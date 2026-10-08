@@ -1662,11 +1662,14 @@ space has two lanes, the visitors' above and home's below.
   emoji's own word cannot be read at a badge's size (the author,
   2026-10-07 and 2026-10-08). On a visiting holder the ball is at
   that corner, and once hid an injured carrier's badge entirely: there
-  the tag sits between the ball and the count, and on the phone's
-  narrow field, where there is no room between them, on the ball.
+  the tag goes all the way to the right, after the count, the two in
+  one row ending at the piece's right edge -- on the phone's narrow
+  field, too wide for the span, running on past it rather than back
+  under the ball (the author, 2026-10-08).
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
-  off a home holder's top right, a visiting holder's bottom left, or
+  off a home holder's top right, a visiting holder's bottom left (low
+  by the foot, the author, 2026-10-08), or
   larger at the centre of an empty space.
 - **A space clips**: nothing on it -- a name, a badge, a fan -- leaves
   it, and a name is nudged to stay inside before the clip has to cut it.
