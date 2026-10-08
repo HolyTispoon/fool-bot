@@ -54,9 +54,10 @@ class GameStatus(str, Enum):
 #: The two specs of the basic game, which are the lobby's two seats.
 BASIC_SPECS = ("bashing", "finesse")
 
-#: How the board image lays the two mats out: the second player's above
-#: the first player's, or the two side by side -- the game's choice, so
-#: everyone sees the same picture (docs/codex-bot.md, decision 5).
+#: How the board image lays the two mats out: stacked, seen from the
+#: active player's side with the other player's mat turned to face
+#: them, or the two side by side -- the game's choice, so everyone sees
+#: the same picture (docs/codex-bot.md, decision 5).
 BOARD_LAYOUTS = ("stacked", "side_by_side")
 
 

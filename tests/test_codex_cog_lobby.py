@@ -176,12 +176,12 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
             game, start = await table.started()
 
         self.assertIs(game.status, GameStatus.PLAYING)
-        # The lobby's channel becomes the game's, in one edit: named for
-        # the players, and closed to everybody else's messages.
+        # The lobby's channel becomes the game's, renamed for the players;
+        # its permissions stand, so watchers may still talk in it.
         table.guild.create_text_channel.assert_awaited_once()
         edited = table.game_channel.edit.call_args.kwargs
         self.assertEqual(edited["name"], "codex-1-basher-vs-fencer")
-        self.assertFalse(edited["overwrites"][table.guild.default_role].send_messages)
+        self.assertNotIn("overwrites", edited)
         self.assertEqual(game.channel_id, GAME_CHANNEL)
 
         # The first turn's message, in the same channel: the board, the

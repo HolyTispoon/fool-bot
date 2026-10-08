@@ -414,8 +414,8 @@ person playing both hands, so nothing more is needed; the tech choice
 on the other side's turn is step 4's to word.
 
 **Start turns that channel into the game's**, in one edit: renamed
-`codex-<n>-<p1>-vs-<p2>` (capped at 100 characters) and closed to
-everybody's messages but the players'. The service deals and runs the
+`codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
+left as the lobby's. The service deals and runs the
 first turn's ready phase and upkeep in one save, the lobby is edited
 once to say the game has started, its buttons gone, and the first
 turn's message goes up under it, pinned. The categories are the Codex
@@ -423,12 +423,12 @@ bot's own -- **Codex Games** and **Codex Archive** -- not PBD's, whose
 names `/debug`'s reset and the pin rollover match and whose
 fifty-channel cap is D12 Ball's.
 
-- **Anyone in the server may read the channel; the two players and the
-  bot may write in it** (question 8 of the worksheet, the author,
-  2026-10-08: the hands are ephemeral, so a watcher sees the table and
-  nothing more). The step's prompt also said "the permissions D12
-  Ball's channels get", which hide a started game from `@everyone`; the
-  author's later answer was taken, and the PR asks.
+- **Anyone in the server may read the channel and talk in it**, from
+  the lobby to the end (question 8 of the worksheet, and the author on
+  2026-10-08: watchers may post). The hands are ephemeral, so a watcher
+  sees the table and nothing more. Unlike D12 Ball's, whose started
+  games are hidden from `@everyone`, nothing changes the channel's
+  permissions at Start.
 - **fool-bot's hub points at the lobby** the one way Discord allows
   across applications, a command mention (decision 10): `codexbot.py`
   writes its top-level command ids to `data/codex_command_ids.json`
@@ -443,11 +443,17 @@ fifty-channel cap is D12 Ball's.
   `codex/images/emoji/codex.png`: the Codex bot's upload belongs to the
   Codex application and fool-bot cannot use it. `/d12ball setup_hub`
   fetches it, so an upload takes without a restart.
-- **There is no button that fills in `/codex lobby`.** Discord gives a
-  bot no way to put text in somebody's message box: a button's click
-  goes only to the application that posted it, a link button only
-  opens a URL, and no URL prefills the composer. The command mention
-  is the one thing that does, and the hub carries it.
+- **The hub's Codex button answers with the command, privately.**
+  `NewGameHubView` carries **Codex** beside **D12 Ball** (custom id
+  `d12ball:hub:codex`, the medallion as its emoji). It cannot open a
+  Codex lobby itself: Discord delivers a click only to the application
+  that posted the button. And no bot can type into somebody's message
+  box -- a link button only opens a URL, and no URL prefills the
+  composer. So the button answers ephemerally with
+  `codex_lobby_prompt()`: the `</codex lobby:ID>` mention, which puts
+  the command in the clicker's box when clicked, one Enter from a lobby
+  (the author asked for the button, 2026-10-08). A hub posted before
+  it gains the button at the next `/d12ball setup_hub`.
 
 ## Who may act, shared
 
@@ -486,13 +492,37 @@ else the bot shows is ephemeral.
   chits and *arrived* when it came this turn. A strip along each mat's
   top names the player, the spec and the hero, and counts the gold, the
   hand, the codex and the base; the active player's strip is lit.
-  Composed at the mat's own size and scaled by `BOARD_SCALE` (0.6),
-  about 2 MB.
+  Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
+  saved as WebP at quality 85 (`BOARD_QUALITY`), about 220 KB; the
+  hand and the codex pictures stay PNG.
 - **The layout is the game's**, on the record (`board_layout`, not the
-  match's, so an undo does not take it back): stacked, the second
-  player's mat above the first's as across a table, or side by side,
-  the first player's on the left. **Swap view** flips it for everyone
-  and the board goes up through the gate.
+  match's, so an undo does not take it back): stacked, or side by side
+  with the first player's mat on the left. **Swap view** flips it for
+  everyone and the board goes up through the gate.
+- **Stacked is the table seen from the active player's side** (the
+  author, 2026-10-08): their mat at the bottom, the other player's
+  above it and turned round to face them, so the two patrol zones face
+  each other across the gap as they do across a table, and the picture
+  turns with the turn (`stacked_seats`, the one reading of which seat
+  is near). The far mat is turned whole -- its cards, chits and counts
+  read upside down, as the far side of a table does -- but the strip
+  above it is the bot's words, not the mat's, and stays the right way
+  up: a name and four counts nobody should have to turn a phone for.
+  A finished game is seen from where it was left. Side by side turns
+  neither mat: two mats read left to right are a desk, not a table.
+- **Swapping the view changes the message's shape**, and what the
+  reader sees in between is the client's. A stacked board is tall and
+  a side-by-side one wide, so the one edit that replaces the picture
+  also re-lays the message out, and Discord's apps draw the picture
+  they have into the box they are moving to while the new one loads --
+  the slice of board seen mid-swap. The bot sends one edit and cannot
+  send less; the one thing in its hands is how long the new picture
+  takes to arrive, which is its size. As PNG the board was about 2 MB;
+  measured 2026-10-08, the same board is about 340 KB as JPEG at
+  quality 85 and 220 KB as WebP, and at 1:1 the three are hard to tell
+  apart, so the board is WebP (the author, 2026-10-08) -- the smallest
+  of the three, and Discord shows it natively. That shortens the moment
+  rather than removes it.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons

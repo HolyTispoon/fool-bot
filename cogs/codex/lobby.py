@@ -78,8 +78,7 @@ class LobbyMixin:
     async def start_game(self, interaction: discord.Interaction, game: CodexGame) -> None:
         """
         Start, in the lobby's own channel: the service deals and runs the
-        first turn's start; the channel is renamed for the players and
-        closed to everybody else's messages; the lobby is edited once to
+        first turn's start; the channel is renamed for the players; the lobby is edited once to
         say the game has started, its buttons gone; and the first turn's
         message is posted and pinned under it. The click has been
         deferred, so every answer here is a followup.
@@ -95,7 +94,7 @@ class LobbyMixin:
         except RuleRefusal as refused:
             await interaction.followup.send(str(refused), ephemeral=True)
             return
-        await self.lock_game_channel(channel, game)
+        await self.name_game_channel(channel, game)
         if game.message_id is not None:
             try:
                 await channel.get_partial_message(game.message_id).edit(

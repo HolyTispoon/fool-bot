@@ -28,6 +28,7 @@ from d12ball.game import (
     VALID_BOARD_SIZES,
 )
 from cogs.d12ball_helpers import (
+    codex_lobby_prompt,
     AI_OPPONENT_NAMES,
     GAME_MODE_BUTTONS,
     HUB_ROLE_CUSTOM_ID_PREFIX,
@@ -56,11 +57,18 @@ def hub_button_emoji(cog: "D12Ball"):
 
 class NewGameHubView(SafeView):
     """
-    The persistent view on the hub channel's games message. One button
-    today -- "D12 Ball" -- with room for more games, so its custom_id
-    names no game and no guild: the interaction carries the guild, and
-    a lobby does not exist yet. The roles live on a message of their own
+    The persistent view on the hub channel's games message: a button per
+    game -- "D12 Ball", and "Codex" beside it -- whose custom_ids name no
+    game and no guild: the interaction carries the guild, and a lobby
+    does not exist yet. The roles live on a message of their own
     (`HubRolesView`), so a game added here never reflows the roles.
+
+    **Codex's button cannot open a Codex lobby**: Discord delivers a
+    click only to the application that posted the button, and the Codex
+    bot is another application. It answers privately with the command
+    mention, `</codex lobby:ID>`, which puts the command in the clicker's
+    message box when clicked (docs/design/codex.md, "fool-bot's hub points
+    at the lobby").
     """
 
     def __init__(self, cog: "D12Ball"):
@@ -76,8 +84,20 @@ class NewGameHubView(SafeView):
         button.callback = self.open_lobby
         self.add_item(button)
 
+        codex = discord.ui.Button(
+            label="Codex",
+            emoji=getattr(cog, "codex_emoji", None) or None,
+            style=discord.ButtonStyle.success,
+            custom_id="d12ball:hub:codex",
+        )
+        codex.callback = self.codex_lobby
+        self.add_item(codex)
+
     async def open_lobby(self, interaction: discord.Interaction) -> None:
         await self.cog.open_lobby(interaction)
+
+    async def codex_lobby(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(codex_lobby_prompt(), ephemeral=True)
 
 
 class HubRolesView(SafeView):

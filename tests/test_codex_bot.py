@@ -216,3 +216,38 @@ class CommandIdsTests(unittest.IsolatedAsyncioTestCase):
 
     def test_an_unreadable_file_reads_as_none(self) -> None:
         self.assertEqual(gamebot.read_command_ids(Path("/nonexistent/ids.json")), {})
+
+
+class HubCodexButtonTests(unittest.IsolatedAsyncioTestCase):
+    """fool-bot's hub carries a Codex button beside D12 Ball's. It cannot
+    open a Codex lobby -- the Codex bot is another application -- so it
+    answers privately with the command to send."""
+
+    async def test_the_button_answers_privately_with_the_command(self) -> None:
+        from cogs.d12ball_views import NewGameHubView
+
+        cog = mock.MagicMock()
+        cog.d12_button_emoji, cog.codex_emoji = None, None
+        view = NewGameHubView(cog)
+        self.assertEqual([item.label for item in view.children], ["D12 Ball", "Codex"])
+        codex = view.children[1]
+        self.assertEqual(codex.custom_id, "d12ball:hub:codex")
+        interaction = mock.Mock()
+        interaction.response.send_message = mock.AsyncMock()
+        await codex.callback(interaction)
+        (text,), kwargs = interaction.response.send_message.call_args
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertIn("/codex lobby", text)
+
+    def test_the_prompt_carries_the_mention_once_the_ids_are_written(self) -> None:
+        import tempfile
+
+        from cogs.d12ball_helpers import codex_lobby_prompt
+
+        command = mock.Mock(id=1234)
+        command.name = "codex"
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "codex_command_ids.json"
+            self.assertIn("`/codex lobby`", codex_lobby_prompt(path))
+            gamebot.write_command_ids([command], path)
+            self.assertIn("</codex lobby:1234>", codex_lobby_prompt(path))

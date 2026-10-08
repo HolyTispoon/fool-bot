@@ -4,8 +4,10 @@
 The opening position of Bashing against Finesse in both layouts, a
 staged position from the middle of a game (units in play, exhausted and
 just arrived, patrollers, damage, a building under construction, the
-tower, the hero levelled), the first player's hand, their codex through
-every view, and the tech picker's codex with two picks marked:
+tower, the hero levelled) -- stacked, from each seat in turn, since the
+stacked board is seen from the active player's side -- the first
+player's hand, their codex through every view, and the tech picker's
+codex with two picks marked:
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
 
@@ -76,7 +78,7 @@ def write(path: Path, data: bytes) -> None:
 def render_all(engine: RulesEngine, match: MatchState, names: dict, out: Path, stem: str,
                layouts=BOARD_LAYOUTS) -> None:
     for layout in layouts:
-        write(out / f"{stem}-board-{layout}.png", render_board(match, layout, names, engine.catalog))
+        write(out / f"{stem}-board-{layout}.webp", render_board(match, layout, names, engine.catalog))
 
 
 def main() -> None:
@@ -104,7 +106,12 @@ def main() -> None:
     names = {1: "perrytom", 2: "opponent"}
     opening = engine.new_match(("bashing", "finesse"), first=1)
     render_all(engine, opening, names, args.out, "opening")
-    render_all(engine, staged(engine), names, args.out, "midgame")
+    midgame = staged(engine)
+    render_all(engine, midgame, names, args.out, "midgame")
+    # The stacked board turns round with the turn: the same position
+    # from the other seat.
+    midgame.active = 2
+    render_all(engine, midgame, names, args.out, "midgame-seat-2", ("stacked",))
 
     rows = engine.hand_rows(opening, 1)
     write(args.out / "hand-opening.png", render_hand(

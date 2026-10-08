@@ -20,9 +20,13 @@ mat's top carries the player's name, spec and hero, gold, hand, codex
 and base. Nothing is drawn that the module or a card already shows: the
 words this module draws are numbers, names and the three marks.
 
-The two mats are stacked -- the second player's above the first's, as
-across a table -- or side by side, the first player's on the left, as
-the game's `board_layout` says.
+The two mats are stacked or side by side, as the game's `board_layout`
+says. Stacked is the table seen from the active player's side: their
+mat at the bottom, the other player's above it turned round to face
+them, as across a table, so the two patrol zones face each other -- and
+the picture turns with the turn. Side by side is the first player's on
+the left, neither mat turned. A mat's strip is the bot's words, not the
+mat's, so it stays the right way up above a turned mat.
 
 **Nothing here is tested for how it looks** (CLAUDE.md, "Nothing
 rendered is tested"): `scripts/render_codex_sample.py` draws the
@@ -56,6 +60,15 @@ STRIP_HEIGHT = 92
 #: to read a card's name on a phone through the full-image link, small
 #: enough to upload quickly on every edit.
 BOARD_SCALE = 0.6
+#: The board's WebP quality. The board is a photograph of a mat with
+#: card art on it, which PNG spends about 2 MB on and WebP at 85 about
+#: 220 KB, the two hard to tell apart at 1:1 (measured 2026-10-08, with
+#: JPEG at 85 at about 340 KB between them); the author chose WebP. What
+#: the smaller file buys is a shorter wait on every edit -- above all
+#: the swap between the two layouts, where the client re-lays the
+#: message out while the new picture loads. The hand and the codex
+#: pictures stay PNG.
+BOARD_QUALITY = 85
 
 Box = tuple[int, int, int, int]
 
@@ -335,13 +348,9 @@ def draw_strip(player: PlayerState, name: str, active: bool, hero_name: str,
     return strip
 
 
-def render_side(match: MatchState, seat: int, name: str,
-                cards: Optional[CardCatalog] = None,
-                building_hp: Optional[Mapping[str, int]] = None) -> Image.Image:
-    """One player's mat with their position laid on it, and the strip
-    above it."""
-    cards = cards or load_catalog()
-    building_hp = building_hp or default_building_hp(cards)
+def render_mat(match: MatchState, seat: int, cards: CardCatalog,
+               building_hp: Mapping[str, int]) -> Image.Image:
+    """One player's mat with their position laid on it, the right way up."""
     player = match.player(seat)
     mat = board_piece("playmat.png")
     draw = ImageDraw.Draw(mat)
@@ -379,9 +388,28 @@ def render_side(match: MatchState, seat: int, name: str,
     # as part of the back.
     pill(draw, ((DRAW_BOX[0] + DRAW_BOX[2]) // 2, DRAW_BOX[3] - 44), str(len(player.deck)),
          56, STRIP_FILL, anchor="mm")
+    return mat
 
+
+def render_side(match: MatchState, seat: int, name: str,
+                cards: Optional[CardCatalog] = None,
+                building_hp: Optional[Mapping[str, int]] = None, *,
+                turned: bool = False) -> Image.Image:
+    """
+    One player's mat with their position laid on it, and the strip
+    above it. `turned`, the mat is turned round to face the other way,
+    as the far side of a table does -- its cards, chits and counts
+    with it. The strip is the bot's words rather than the mat's, so it
+    stays the right way up, above the mat either way.
+    """
+    cards = cards or load_catalog()
+    building_hp = building_hp or default_building_hp(cards)
+    player = match.player(seat)
+    mat = render_mat(match, seat, cards, building_hp)
+    if turned:
+        mat = mat.rotate(180)
     side = Image.new("RGBA", (MAT_SIZE[0], MAT_SIZE[1] + STRIP_HEIGHT), STRIP_FILL)
-    hero_name = cards.heroes[hero.slug].name
+    hero_name = cards.heroes[player.hero.slug].name
     side.alpha_composite(draw_strip(player, name, match.active == seat and match.winner is None,
                                     hero_name, MAT_SIZE[0]), (0, 0))
     side.alpha_composite(mat, (0, STRIP_HEIGHT))
@@ -407,39 +435,61 @@ def _png(picture: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def _webp(picture: Image.Image) -> bytes:
+    """The board's encoding -- see `BOARD_QUALITY`."""
+    buffer = io.BytesIO()
+    picture.convert("RGB").save(buffer, format="WEBP", quality=BOARD_QUALITY)
+    return buffer.getvalue()
+
+
+def stacked_seats(match: MatchState) -> tuple[int, int]:
+    """
+    The stacked board's two seats as (far, near). The table is looked
+    at from the active player's side (the author, 2026-10-08): their
+    mat is the near one, at the bottom, and the other player's the far
+    one, above it and turned to face them. A game that is over is
+    looked at from where it was left.
+    """
+    near = match.active
+    return (2 if near == 1 else 1), near
+
+
+#: The space between the two mats.
+GAP = 16
+
+
 def render_board(match: MatchState, layout: str = "stacked",
                  names: Optional[Mapping[int, str]] = None,
                  cards: Optional[CardCatalog] = None) -> bytes:
     """
-    The whole table as PNG bytes: both mats, stacked (the second
-    player's above the first's) or side by side (the first player's on
-    the left), as `layout` says. `names` is what each seat's strip calls
+    The whole table as WebP bytes: both mats, stacked -- seen from the
+    active player's side, the other player's mat above theirs and
+    turned round to face them -- or side by side, the first player's on
+    the left, as `layout` says. `names` is what each seat's strip calls
     its player -- the frontend's to give, since a name is not the
     model's.
     """
     cards = cards or load_catalog()
     names = names or {}
     building_hp = default_building_hp(cards)
-    first = match.first
-    second = 2 if first == 1 else 1
-    sides = {
-        seat: render_side(match, seat, names.get(seat) or f"Player {seat}", cards, building_hp)
-        for seat in (1, 2)
-    }
-    width, height = sides[1].size
-    gap = 16
+    width, height = MAT_SIZE[0], MAT_SIZE[1] + STRIP_HEIGHT
     if layout == "side_by_side":
-        board = Image.new("RGBA", (width * 2 + gap, height), SHADOW)
-        board.alpha_composite(sides[first], (0, 0))
-        board.alpha_composite(sides[second], (width + gap, 0))
+        first = match.first
+        second = 2 if first == 1 else 1
+        board = Image.new("RGBA", (width * 2 + GAP, height), SHADOW)
+        placed = ((first, False, (0, 0)), (second, False, (width + GAP, 0)))
     else:
-        board = Image.new("RGBA", (width, height * 2 + gap), SHADOW)
-        board.alpha_composite(sides[second], (0, 0))
-        board.alpha_composite(sides[first], (0, height + gap))
+        far, near = stacked_seats(match)
+        board = Image.new("RGBA", (width, height * 2 + GAP), SHADOW)
+        placed = ((far, True, (0, 0)), (near, False, (0, height + GAP)))
+    for seat, turned, at in placed:
+        side = render_side(match, seat, names.get(seat) or f"Player {seat}", cards, building_hp,
+                           turned=turned)
+        board.alpha_composite(side, at)
     scaled = board.resize(
         (round(board.width * BOARD_SCALE), round(board.height * BOARD_SCALE)), Image.LANCZOS,
     )
-    return _png(scaled)
+    return _webp(scaled)
 
 
 #: A card in a hand or a codex picture, in pixels.
