@@ -10,12 +10,9 @@ one is a change to the game and fails here first.
 import json
 import re
 import unittest
-from pathlib import Path
 
 from codex import tokens
-from codex.cards import (
-    CARD_IMAGE_DIR, DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, catalog,
-)
+from codex.cards import DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, catalog
 from codex.formatting import card_label, plain_text
 from codex.rulings import keyword_rulings, keywords, rulings_for
 
@@ -171,33 +168,80 @@ class CodexCardDataTests(unittest.TestCase):
         self.assertEqual(self.catalog.name("regularsized_rhinoceros"), "Regular-sized Rhinoceros")
 
 
-#: The board's tiles and faces under codex/images/board/, by file name.
-BOARD_IMAGES = (
-    "playmat.png",
-    "back_card.png", "back_hero.png", "back_token.png",
-    "dancer.png", "angry_dancer.png", "mercenary.png",
-    "tile_base.png", "tile_tech_1.png", "tile_tech_2.png", "tile_tech_3.png",
-)
+BOARD_DIR = IMAGE_DIR / "board"
+
+#: The numbered chits, by folder: what a board counts with.
+NUMBERED_CHITS = {
+    "damage": [str(n) for n in range(1, 10)],
+    "levels": [*(str(n) for n in range(2, 9)), "max"],
+    "time_runes": [str(n) for n in range(1, 7)],
+}
 
 
-@unittest.skipUnless(
-    CARD_IMAGE_DIR.is_dir(),
-    "the card art is not imported yet: run scripts/import_codex_cards.py "
-    "where its two image hosts are reachable",
-)
+def pngs(folder: str) -> set[str]:
+    return {path.stem for path in (BOARD_DIR / folder).glob("*.png")}
+
+
 class CodexCardArtTests(unittest.TestCase):
-    def test_every_basic_card_and_hero_has_its_picture(self):
+    """
+    The art scripts/import_codex_cards.py brings in, in the tree since the
+    author imported it on 2026-10-08: the database's picture of every card
+    and hero, and the Screentop module's playmat and the pieces cut from
+    its sheets (docs/design/codex.md, "The cards are data").
+    """
+
+    def setUp(self):
+        self.catalog = catalog()
+
+    def test_every_card_and_hero_the_host_pictures_is_there_at_330_by_450(self):
         from PIL import Image
 
-        for slug in list(BASIC_SET) + list(BASIC_HEROES):
-            with self.subTest(slug):
-                with Image.open(CARD_IMAGE_DIR / f"{slug}.jpg") as picture:
-                    self.assertEqual(picture.size, (330, 450))
+        pictured = [
+            card for card in [*self.catalog.cards.values(), *self.catalog.heroes.values()]
+            if card.sirlins_filename
+        ]
+        self.assertEqual(len(pictured), 330)
+        missing = [card.slug for card in pictured if not card.picture.is_file()]
+        self.assertEqual(missing, [], "run scripts/import_codex_cards.py and commit codex/images/cards/")
+        for card in pictured:
+            with Image.open(card.picture) as picture:
+                self.assertEqual(picture.size, (330, 450), card.slug)
 
-    def test_the_board_art_is_there(self):
-        for name in BOARD_IMAGES:
-            with self.subTest(name):
-                self.assertTrue((IMAGE_DIR / "board" / name).is_file())
+    def test_every_token_and_building_has_its_face_and_nothing_else_is_there(self):
+        for kind, folder in ((KIND_TOKEN, "tokens"), (KIND_BUILDING, "buildings")):
+            slugs = {card.slug for card in self.catalog.cards.values() if card.kind == kind}
+            with self.subTest(folder):
+                self.assertEqual(pngs(folder), slugs)
+
+    def test_every_spec_has_its_card(self):
+        specs = {
+            re.sub(r"\W", "", card.spec.lower())
+            for card in self.catalog.cards.values() if card.spec
+        }
+        self.assertEqual(len(specs), 20)
+        self.assertEqual(pngs("specs"), specs)
+
+    def test_the_playmat_the_backs_and_the_patrol_slots(self):
+        self.assertTrue((BOARD_DIR / "playmat.png").is_file())
+        self.assertEqual(pngs("backs"), {"card", "hero", "token"})
+        self.assertEqual(
+            pngs("patrol"), {"squad_leader", "elite", "scavenger", "technician", "lookout"},
+        )
+
+    def test_the_numbered_chits(self):
+        for folder, names in NUMBERED_CHITS.items():
+            with self.subTest(folder):
+                self.assertEqual(pngs(folder), set(names))
+
+    def test_a_tile_reads_upright(self):
+        """The sheet stores the base and the tech buildings on their side;
+        the import turns them the way the playmat prints them."""
+        from PIL import Image
+
+        for slug in ("base", "tech_i_building", "tech_ii_building", "tech_iii_building"):
+            with self.subTest(slug):
+                with Image.open(self.catalog.building(slug).picture) as tile:
+                    self.assertGreater(tile.width, tile.height)
 
 
 class CodexEmojiTests(unittest.TestCase):

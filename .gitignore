@@ -13,6 +13,10 @@ d12ball/print/
 # ...and where it used to go, so an old checkout's copies stay untracked
 /print/
 cards/
+# ...which would also take the Codex card art, whose folder is named
+# cards/ too: imported by scripts/import_codex_cards.py and committed
+# (docs/design/codex.md, "The cards are data")
+!codex/images/cards/
 print-and-play/
 box/
 print-and-play.zip
