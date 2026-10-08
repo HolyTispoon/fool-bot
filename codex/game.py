@@ -54,6 +54,11 @@ class GameStatus(str, Enum):
 #: The two specs of the basic game, which are the lobby's two seats.
 BASIC_SPECS = ("bashing", "finesse")
 
+#: How the board image lays the two mats out: the second player's above
+#: the first player's, or the two side by side -- the game's choice, so
+#: everyone sees the same picture (docs/codex-bot.md, decision 5).
+BOARD_LAYOUTS = ("stacked", "side_by_side")
+
 
 @dataclass
 class CodexGame:
@@ -79,6 +84,10 @@ class CodexGame:
     status: GameStatus = GameStatus.LOBBY
     #: `MatchState.to_dict()`; `None` until Start.
     match_state: Optional[dict] = None
+    #: One of `BOARD_LAYOUTS`; the turn message's **Swap view** flips it.
+    #: A record field, not the match's: it is how the table is looked
+    #: at, and an undo does not take it back.
+    board_layout: str = "stacked"
 
     # -- Reading the seats -------------------------------------------
 
@@ -168,6 +177,22 @@ class CodexGame:
         self.match_state = match.to_dict()
         self.status = GameStatus.PLAYING
 
+    def set_board_layout(self, layout: str) -> None:
+        """Lay the board out `layout` -- refused for one there is not,
+        or once the game is over."""
+        if layout not in BOARD_LAYOUTS:
+            raise RuleRefusal(f"The board is laid out stacked or side by side, not {layout}.")
+        if self.status is not GameStatus.PLAYING:
+            raise RuleRefusal("Only a game being played has a board to lay out.")
+        self.board_layout = layout
+
+    def abandon(self) -> None:
+        """End a game nobody is going to finish. Refused for one already
+        over; the record stays, so its number stays taken."""
+        if self.status in (GameStatus.FINISHED, GameStatus.ABANDONED):
+            raise RuleRefusal("This game is already over.")
+        self.status = GameStatus.ABANDONED
+
     # -- Saving --------------------------------------------------------
 
     def to_dict(self) -> dict:
@@ -184,4 +209,6 @@ class CodexGame:
             int(seat): spec for seat, spec in (data.get("player_specs") or {}).items()
         }
         data["observer_ids"] = list(data.get("observer_ids") or [])
+        if data.get("board_layout") not in BOARD_LAYOUTS:
+            data["board_layout"] = "stacked"
         return cls(**data)

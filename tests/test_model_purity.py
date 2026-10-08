@@ -120,6 +120,8 @@ GAME_MODULES = (
     "d12ball.tokens",
     "d12ball.tutorial",
     # The Codex bot's model: Pillow is `codex/render.py`'s alone.
+    "gamesaves.codex.service",
+    "gamesaves.codex.storage",
     "codex.cards",
     "codex.components",
     "codex.effects",
