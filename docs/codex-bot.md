@@ -42,10 +42,12 @@ Rewrite v1.3 (`UMR p. n` is its page) and from the card texts.
   any order until the player locks patrollers. *Draw*: the hand is
   discarded face-down and the player draws that many plus two, to a
   maximum of five. *Tech*: two cards out of the codex -- or none, one or
-  two once the player has ten workers -- chosen secretly, due by the
-  start of the player's next turn, so the choice overlaps the opponent's
-  turn. A player may shuffle the discard pile into the empty deck once
-  per phase.
+  two once the player has ten workers -- chosen secretly: offered when
+  the turn ends, open to change all through the opponent's turn, and
+  confirmed by the player at the start of their next turn, so the
+  choice overlaps the opponent's turn and the ready phase is where it
+  is settled (the author, 2026-10-08). A player may shuffle the discard
+  pile into the empty deck once per phase.
 - **The actions of the main phase** (p. 6-11). Hire a worker, once a
   turn: a gold and a card from the hand, which is trashed unseen. Summon
   the hero for its cost, at level 1, with arrival fatigue; level it for a
@@ -178,11 +180,15 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   played is a card revealed -- and each player gets their hand, their
   discard and their tech choice privately. On Discord that is the
   ephemeral interaction response: in the channel, seen by the one who
-  clicked, gone when they dismiss it, never stored by the bot. The bot's
-  #logs mirror and any state it prints must never carry a hand or an
-  unanswered tech choice; the event log holds card identities and stays
-  in the save, since this bot writes no export (the author,
-  2026-10-07).
+  clicked, gone when they dismiss it, never stored by the bot. Because
+  an ephemeral message disappears -- dismissed, or lost with the
+  client's session -- the one public message carries the buttons that
+  summon it again: the active player's **Panel**, the control panel
+  with the cards in their hand pictured, and the other player's **My
+  hand** and **Tech** (the author, 2026-10-08). The bot's #logs mirror
+  and any state it prints must never carry a hand or an unanswered
+  tech choice; the event log holds card identities and stays in the
+  save, since this bot writes no export (the author, 2026-10-07).
 - **The tech choice is a second thing a match waits on**, owed by the
   player whose turn just ended while the other player acts. D12 Ball's
   `pending` is one reading with one answer; Codex keeps the one reading
@@ -207,12 +213,19 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   colour, `heroes.json`, `maps.json`, `rulings.json` (a `General` group
   of keyword rulings and a group per colour). On 2026-10-07 that is 310
   printed cards and 20 heroes across twenty specs, 26 rulings on the
-  basic set's 36 cards and some sixty on the keywords they use. A card's
-  page is `/card/<slug>`, the slug lowercase with underscores. The data
-  carries the glyphs as Unicode (`⤵` exhaust, `◎` target, `①` a gold),
-  which the import turns into tokens. The repository's `LICENSE` is the
-  Gatsby template's MIT; the card texts and rulings are Sirlin Games',
-  reproduced there as a fan reference.
+  basic set's 36 cards and some sixty on the keywords they use. **The
+  rulings are official rules of the game**, Sirlin's own, collected
+  there with their dates, and the plan treats them as such: where the
+  rulebook's text and a ruling differ, the ruling governs, and every
+  ruling on a card in play is implemented and pinned by a test (the
+  author, 2026-10-08). A card's page is `/card/<slug>`, the slug
+  lowercase with underscores, and its picture is at
+  `codexcards-assets.surge.sh/images/<sirlins_filename>`, 330 by 450,
+  for every card and hero; the tokens, the workers and the buildings
+  have no picture there. The data carries the glyphs as Unicode (`⤵`
+  exhaust, `◎` target, `①` a gold), which the import turns into tokens.
+  The repository's `LICENSE` is the Gatsby template's MIT; the card
+  texts, the rulings and the art are Sirlin Games'.
 - **The spreadsheet** ("Newest Codex Forum Game Template"): one
   player's bookkeeping for a play-by-forum game. A `State` tab -- hand,
   deck, discard, the tech choice, workers, the five patrol slots, the
@@ -228,9 +241,15 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   is in play, the buildings with their HP, hand, deck and discard
   *counts*, gold and workers. The board image below shows the same list.
 - **The Screentop table** (`screentop.gg/@GRAG/Codex`): two players,
-  thirty to sixty minutes, the components and no automation. It was not
-  opened for this plan; it is the layout reference -- the playmat's
-  zones in the rulebook's diagram (p. 3) -- and nothing more.
+  thirty to sixty minutes, the components and no automation. Its
+  module's spec is public through one GraphQL query to
+  `api.screentop.gg`, and with it the URL of every sheet it was built
+  from: the seven colour card sheets at 375 by 525 a card, the hero
+  sheet, the three card backs (card, hero, token), the token and map
+  cards, the playmat, the chits. That is where the bot's emoji came
+  from and where the token faces and the card backs come from (decision
+  6); the table itself was not opened for this plan, and its layout
+  settles nothing the rulebook's playmat diagram (p. 3) does not.
 
 ### What the repository gives, and what it does not
 
@@ -251,7 +270,7 @@ need yet. Each has a shape worth copying and a few leaves worth sharing.
 | `d12ball/special_abilities.py`, `has_special_ability` | `codex/keywords.py`, `codex/effects.py` | Copied idea: one table tying a catalog id to a rule, with the sheet sentence it was built from -- here the card's text and Sirlin's ruling |
 | `d12ball/data/` and the import scripts | `codex/data/` and `scripts/import_codex_cards.py` | Copied rule: regenerated whole, never edited by hand |
 | `d12ball/tokens.py`, `DiscordTokens` | `codex/tokens.py`, `CodexTokens` | Copied shape: the model marks, the cog draws, nothing in the model holds an emoji |
-| `d12ball/render.py` and `d12ball/fonts/` | `codex/render.py` | New drawing over the shared fonts: a tableau of text tiles, no card art |
+| `d12ball/render.py` and `d12ball/fonts/` | `codex/render.py` | New drawing over the shared fonts and the imported card art: the cards' own pictures as the board's tiles and the hand's picture in the panel; drawn tiles only for the base and the buildings |
 | `d12ball/wire.py` | `codex/wire.py` | Copied: `jsonable` and `to_dict`, one-way, so a web or Godot client later costs nothing here |
 | `gamesaves/d12ball/service.py` (`GameService`, `GameResult`, `Narration`, `Batching`) | `gamesaves/codex/service.py` | Copied shape: one door, one save, the result a frontend renders |
 | `gamesaves/d12ball/storage.py` | `gamesaves/codex/storage.py` | Copied: `load_games`/`save_games` over `data/codex_games.json`, never raising |
@@ -347,15 +366,18 @@ and the step's prompt is rewritten rather than argued with.
    service's -- a public **My hand** button rebuilds the view. The active
    player's whole main phase is driven from **one ephemeral panel edited
    in place** by each click (a component interaction may edit the message
-   it sits on), so the public channel carries the board, the turn
-   message that is the turn's running summary (decision 5) and one
-   small table message, and an observer sees what a spectator at the
+   it sits on), so the public channel carries one message per turn --
+   the board, the turn's lines and the game's buttons (decision 5) --
+   and nothing else, and an observer sees what a spectator at the
    table sees -- and, once the turn is over, a summary of it, which the
-   author asked for on 2026-10-07. **What it costs:** an ephemeral message dies with the
-   client session and cannot be found again by the bot, so every entry
-   point -- **Take my turn** on the table message, `/codex hand`,
-   `/codex resume` -- creates a fresh one rather than editing an old
-   one; and hidden zones have to be kept out of every log line and the
+   author asked for on 2026-10-07. The panel pictures the cards in the
+   player's hand (the author, 2026-10-08), so playing from it is
+   looking at the cards, not at their names. **What it costs:** an
+   ephemeral message dies with the client session and cannot be found
+   again by the bot, so every entry point -- **Panel** on the turn
+   message, `/codex hand`, `/codex resume` -- creates a fresh one rather
+   than editing an old one; and hidden zones have to be kept out of
+   every log line and the
    #logs mirror, which is a hard rule the design note states. **The
    fallback**, if the author prefers D12 Ball's shape of public prompts:
    the same views posted publicly with the hand select ephemeral; it is
@@ -367,12 +389,24 @@ and the step's prompt is rewritten rather than argued with.
    2026-10-07). When a turn begins the cog posts the turn's message:
    its text "Turn 7 -- perrytom (Bashing)" and the lines the turn has
    said so far, its attachment the board `codex/render.py` draws with
-   Pillow in `asyncio.to_thread` -- each side's base and buildings, its
-   hero with level and band, the five patrol slots by name, the play
-   zone as tiles (name, cost, ATK/HP, damage, runes, exhausted, arrived
-   this turn) and the counters: gold, workers, hand, deck, discard,
-   codex; text tiles, never card art. After every action the message is
-   edited with the new lines and the re-rendered board; when the turn
+   Pillow in `asyncio.to_thread`. **The board is the game's own art**
+   (the author, 2026-10-08: card art wherever possible, and the board
+   art from screentop.gg): each side is the Screentop module's playmat
+   -- the hero slots, the five labelled patrol slots with their bonuses
+   printed, the add-on slot, the base, the Tech I, II and III places,
+   the workers area, the draw and discard piles -- with the game laid
+   on it where the mat has a place for it: the hero as its own card
+   with its level chit, patrollers in their slots, the built tech
+   buildings and add-on as the module's tiles with their damage, the
+   draw pile as the card back with its count, the discard and the
+   workers as counts, and the play zone's units as the cards' own
+   pictures across the mat's open middle, each carrying its damage and
+   rune chits, turned sideways when exhausted and marked when it
+   arrived this turn; the gold, hand and codex counts in a strip. The
+   second player's mat sits above the first player's. Nothing is drawn
+   that the module or a card already shows. After every action the
+   message is edited with the new lines and the re-rendered board; when
+   the turn
    ends it is edited a last time and stands, so the channel's history
    reads as one picture per turn with the actions that led to it -- the
    shape of the forum post the spreadsheet generates, which is where
@@ -407,14 +441,27 @@ and the step's prompt is rewritten rather than argued with.
    import the only way. A card is keyed by its slug (`trojan_duck`) and
    never held or compared by name; the catalog is the way back to a
    name. All 310 cards and 20 heroes come in at once, so a later spec is
-   code, not data. No card art is bundled; `/codex card` links the
-   database's page. **What it costs:** the texts and rulings are Sirlin
-   Games' words, reproduced in a public repository as the fan database
-   reproduces them. The author took that on 2026-10-07 (question 1);
-   the alternatives weighed and set aside were the facts alone in the
-   tree with the prose fetched per checkout, the bot speaking only in
-   its own words with the rulings as cited paraphrases, and a private
-   home for the prose.
+   code, not data. **The art comes in with them** (the author,
+   2026-10-08: "definitely use card art wherever possible", and the
+   board art from screentop.gg): the same import fetches each card's
+   and hero's picture by its `sirlins_filename` from the database's
+   image host into `codex/images/cards/<slug>.jpg`, 330 by 450, and
+   from the Screentop module's public sheets, into `codex/images/board/`,
+   the playmat, the building and add-on tiles, the spec cards, the
+   patrol-slot icons, the damage, level and time-rune chits, the token
+   faces (Dancer, Angry Dancer, Mercenary) and the three card backs --
+   each sheet's URL read from the module's spec and each cell's index
+   pinned in the script after one look. Nothing is redrawn that the
+   module or a card already shows. `/codex card` answers with the
+   card's picture, its text and its rulings, and links the database's
+   page. **What it costs:** the texts, the rulings and the art are
+   Sirlin Games' words and pictures, reproduced in a public repository
+   as the fan database and the Screentop module reproduce them. The
+   author took that on 2026-10-07 (question 1); the alternatives
+   weighed and set aside were the facts alone in the tree with the
+   prose fetched per checkout, the bot speaking only in its own words
+   with the rulings as cited paraphrases, and a private home for the
+   prose.
 
 7. **A card's rules are code keyed by its slug: keywords as a closed
    table, unique text as one handler per card, and every ruling a
@@ -424,19 +471,29 @@ and the step's prompt is rewritten rather than argued with.
    the sentence it was built from, and `UNIMPLEMENTED`, the set of slugs
    the engine still plays for their numbers alone, which a test pins
    step by step until it is empty. Each of Sirlin's rulings on the set's
-   cards and keywords is a test named for the card, its docstring the
-   ruling. It is how `SPECIAL_ABILITIES` and `has_special_ability` work
-   for D12 Ball, and it is what keeps a bug and a decision apart when the
-   author is not the designer.
+   cards and keywords is an official rule and is treated as one (the
+   author, 2026-10-08): implemented, and pinned by a test named for the
+   card with the ruling as its docstring; where the rulebook's text and
+   a ruling differ, the ruling governs, and a rules question is answered
+   from the rulings before it is taken to the author. It is how
+   `SPECIAL_ABILITIES` and `has_special_ability` work for D12 Ball, and
+   it is what keeps a bug and a decision apart when the author is not
+   the designer.
 
-8. **The tech choice is a standing prompt beside `pending`.** `pending`
-   stays one reading with one answer, the active player's;
-   `standing_prompts(match)` lists what the other player may answer
-   meanwhile -- in this set only `TECH_CHOICE` -- and `driver.answer`
-   takes an action for either; the owner's next ready phase returns the
-   tech prompt as *the* pending prompt until it is answered. One chain,
-   two readers, because a second copy of "what is this match waiting
-   on" is the failure mode CLAUDE.md names.
+8. **The tech choice is a standing prompt beside `pending`, open to
+   change until the ready phase confirms it.** `pending` stays one
+   reading with one answer, the active player's; `standing_prompts(match)`
+   lists what the other player may answer meanwhile -- in this set only
+   `TECH_CHOICE`, offered ephemerally when their turn ends and
+   answerable again from the **Tech** button for as long as the
+   opponent's turn lasts, each answer replacing the last -- and
+   `driver.answer` takes an action for either. The owner's next turn
+   opens on `TECH_CONFIRM`, the pending prompt that shows them their
+   picks -- or the picker, if they never chose -- with **Confirm** and
+   **Change**; the ready phase runs only once it is answered, and the
+   confirmed cards go face-down to the discard then (the author,
+   2026-10-08). One chain, two readers, because a second copy of "what
+   is this match waiting on" is the failure mode CLAUDE.md names.
 
 9. **Every draw the game makes is `engine.rng`.** The shuffle, the
    opening hand and the first player are the only randomness in the
@@ -449,9 +506,11 @@ and the step's prompt is rewritten rather than argued with.
     both seats are taken. Start creates `codex-<n>` under a **Codex
     Games** category, shuffles, deals, picks the first player at random
     (UMR p. 3) with the rule's 4 and 5 workers, and posts the first
-    turn's message and the table message. The slash commands kept
-    beside it: `hand`, `board`, `card`, `rules`, `games`, `concede`,
-    `resume`, and the admin `abandon` and `reset_channels`. **The hub.**
+    turn's message, which carries the game's buttons: **Panel** for the
+    active player, **My hand** and **Tech** for the other, **Concede**
+    for either. The slash commands kept beside it: `hand`, `board`,
+    `card`, `rules`, `games`, `concede`, `resume`, and the admin
+    `abandon` and `reset_channels`. **The hub.**
     The author would have fool-bot's hub carry a button that starts a
     Codex lobby (2026-10-07). Discord delivers a component's
     interaction only to the application that posted the message, and
@@ -554,14 +613,18 @@ answer says what it builds until it has one.
    `CODEX_LOG_*` for this bot, falling back to the `FOOLBOT_LOG_*`
    values when a `CODEX_` one is unset, and every notice it posts names
    the bot ("**Codex bot restarted**"), so one channel carries both.
-7. **Does the Codex bot carry `/roll`, the coins or the Tethys deck?**
-   Built as no: one bot, one game; those stay fool-bot's.
-8. **May anyone in the server read a game's channel?** Built as yes,
-   as D12 Ball's channels are; the hands are ephemeral, so a watcher
-   sees the table and nothing more.
-9. **Which specs after Bashing and Finesse?** Not gating anything; the
-   data for all twenty come in at step 1 and each spec after these
-   two is a step of its own, later.
+7. ~~**Does the Codex bot carry `/roll`, the coins or the Tethys
+   deck?** Built as no.~~ Answered by the author on 2026-10-08: no;
+   one bot, one game; those stay fool-bot's.
+8. ~~**May anyone in the server read a game's channel?** Built as
+   yes.~~ Answered by the author on 2026-10-08: yes, as D12 Ball's
+   channels are; the hands are ephemeral, so a watcher sees the table
+   and nothing more.
+9. ~~**Which specs after Bashing and Finesse?**~~ Answered by the
+   author on 2026-10-08: all six colours, two at a time -- red and
+   green first, then purple and black, then white and blue. The data
+   for all twenty specs comes in at step 1; the colours are steps 9 to
+   12, after the basic game.
 
 ## The steps
 
@@ -578,11 +641,15 @@ starting.
 | 1 | The second bot stands up, and knows the cards | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | 2 | A whole game through the driver, with no frontend | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
-| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **Take my turn**; an undo to the start of the turn puts the board, the turn message and the panel back |
+| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **Panel**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | 8 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 7 remains byte-identical in two places |
+| 9 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
+| 10 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
+| 11 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
+| 12 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
 | -- | Later, and not now | -- | |
 
 ### Claiming a step
@@ -641,6 +708,16 @@ Hard rules for every step:
   contents, an unanswered tech choice, a hired worker's card -- is
   written into a public message, a log line or the #logs mirror. Say
   in the PR where you checked.
+- A ruling is a rule. Sirlin's rulings in codex/data/rulings.json are
+  official rules of the game: the engine does what a ruling says, a
+  test pins it with the ruling as its docstring, and where the
+  rulebook's text and a ruling differ the ruling governs. A rules
+  question is answered from the rulings first and taken to the author
+  only when they are silent.
+- Card art wherever a card exists: the board's tiles, the panel's hand
+  and /codex card show the cards' own pictures from codex/images/cards/;
+  nothing is redrawn that a card already shows, and drawn tiles are
+  for the base and the buildings alone.
 - Every draw the game makes is engine.rng. A test seeds it.
 - Rate limits: the fix is always fewer requests, never slower ones.
   One message per channel is edited, the current turn's -- the board
@@ -714,6 +791,25 @@ Four commits, in this order.
    hp, text}. Nothing else is reworded. Regenerated whole, never edited
    by hand -- say so in the file header as d12ball/data/ does.
 
+   The art, in the same run (decision 6): every card's and hero's
+   picture from http://codexcards-assets.surge.sh/images/<sirlins_filename>
+   into codex/images/cards/<slug>.jpg (330 by 450; the records without a
+   sirlins_filename -- tokens, workers, buildings -- have none there);
+   and from the Screentop module @GRAG/Codex, whose spec one GraphQL
+   query to https://api.screentop.gg/ returns
+   ({ user(name:"GRAG"){ game(name:"Codex"){ revision(name:"main"){ spec
+   } } } }, with every sheet's URL under spec.assets.entries), into
+   codex/images/board/: the playmat whole; from the "Mini Cards" sheet
+   (10 by 4) the Base, Tech I, II and III tiles, the four add-on cards,
+   the five patrol-slot icons and the twenty spec cards; the "Card
+   Backs" sheet's three backs; the Dancer, Angry Dancer and Mercenary
+   faces from the "Token and Map Cards" sheet; the "Damage", "Levels",
+   "Time Runes" and "Chits" sheets cut into their cells. Each cell's
+   index is pinned in the script after one look at the sheet, with the
+   sheet's name beside it, so a re-import is deterministic; --no-images
+   skips the lot. The images are committed like the data: regenerated
+   by the script, never edited by hand.
+
    codex/cards.py reads them: Card and Hero dataclasses, and CardCatalog
    with by_slug, by_spec(spec), starting_deck(color) (the ten, in the
    data's order), codex_for(spec) (two copies of each of the twelve),
@@ -729,7 +825,10 @@ Four commits, in this order.
    costs, stats and tech levels the worksheet's table gives; every
    ruling names a slug in the catalog or a General keyword; no text
    still contains ⤵ ◎ or a circled digit; starting_deck("neutral") is
-   ten cards and codex_for("bashing") is twenty-four.
+   ten cards and codex_for("bashing") is twenty-four; every card and
+   hero of the basic set has its picture under codex/images/cards/ at
+   330 by 450, and codex/images/board/ holds the playmat, the three
+   backs, the three token faces and the tiles the board draws.
 
 3. The bot. gamebot.py is new: GameBot(commands.Bot) moved out of
    foolbot.py and made to take what foolbot.py hard-codes -- the
@@ -760,11 +859,14 @@ Four commits, in this order.
    Codex -- one game per channel.") -- the description passed
    explicitly and under 100 characters, or tree.sync() fails inside
    setup_hook -- from one mixin for now, cogs/codex/reference.py:
-   /codex card <name> with autocomplete over the catalog, answering an
-   embed -- name and type line, cost, ATK/HP or the three bands, the
-   text with its tokens rendered, the rulings with author and date, and
-   a link to http://codexcarddb.com/card/<slug> -- and /codex rules
-   <keyword> with autocomplete over the General group.
+   /codex card <name> with autocomplete over the catalog, answering
+   with the card's picture attached and, as plain text under it, the
+   name and type line, cost, ATK/HP or the three bands, the text with
+   its tokens rendered, the rulings with author and date, and a link to
+   http://codexcarddb.com/card/<slug> -- no embed, as nothing in this
+   bot is -- and /codex rules <keyword> with autocomplete over the
+   General group, answering with the keyword's rulings as the official
+   rules they are.
    cogs/codex_helpers.py holds CodexTokens, the resolver from token to
    emoji or word, and nothing else yet. In this step every token
    renders as a word: application emoji belong to one application and
@@ -852,7 +954,9 @@ prompts and flow; the tests.
    level, damage, summoning_runes, arrived_this_turn, exhausted,
    max_level_since_turn_began), hand (slugs), deck (slugs, top last),
    discard (slugs), codex (a dict slug to count), tech_choice (None, or
-   the slugs chosen and not yet discarded), tech_owed (bool), buildings
+   the slugs picked and not yet discarded), tech_owed (bool),
+   tech_confirmed (bool, set by TECH_CONFIRM and cleared when the picks
+   reach the discard), buildings
    (tech1, tech2, tech3: each hp, under_construction, destroyed), add_on
    (slug, hp, under_construction, or None), play (a list of
    CardInstance), reshuffled_this_phase. CardInstance: id, slug,
@@ -899,17 +1003,23 @@ prompts and flow; the tests.
    effects.UNIMPLEMENTED.
 
    codex/prompts.py: PromptKind -- MAIN_ACTION, CHOOSE_DEFENDER,
-   PATROL, TECH_CHOICE, GAME_OVER (TARGET, UPKEEP_ORDER and the
-   combat choices come in steps 5 and 6) -- PendingPrompt, Action,
-   OPTIONS with one dataclass per kind built from the engine's
+   PATROL, TECH_CHOICE, TECH_CONFIRM, GAME_OVER (TARGET, UPKEEP_ORDER
+   and the combat choices come in steps 5 and 6) -- PendingPrompt,
+   Action, OPTIONS with one dataclass per kind built from the engine's
    answers (MainActionOptions, DefenderOptions, PatrolOptions with the
    candidates and the five slots, TechOptions with the codex's slugs,
-   their counts and the bounds, GameOverOptions), pending(engine, game,
-   match) returning the active player's PendingPrompt or the FollowOn
-   owed, and standing_prompts(engine, match) returning the TECH_CHOICE
-   the other player still owes, if any. asked_player on a prompt: the
-   active player for every kind but TECH_CHOICE, whose asked player is
-   its owner.
+   their counts, the bounds and the picks made so far, TechConfirmOptions
+   with the picks and the two answers confirm and change,
+   GameOverOptions), pending(engine, game, match) returning the active
+   player's PendingPrompt or the FollowOn owed, and
+   standing_prompts(engine, match) returning the TECH_CHOICE the other
+   player may still answer -- answerable again and again until their
+   turn begins, each answer replacing the picks (decision 8).
+   asked_player on a prompt: the active player for every kind but
+   TECH_CHOICE, whose asked player is its owner. A turn begins on
+   TECH_CONFIRM (or on TECH_CHOICE as the pending prompt, when nothing
+   was picked), and begin_turn runs only once the picks are confirmed;
+   the confirmed cards go to the discard in the ready phase.
 
    codex/flow/: result.py (StepResult, FollowOn, FollowOnStep,
    Headline, copied), turn.py (begin_turn: ready -- the tech choice
@@ -1076,12 +1186,15 @@ commits: the service and storage; the cog, views and lobby; the board.
    cogs/codex_views/lobby.py: LobbyView with Play Bashing, Play
    Finesse, Leave and Start, persistent (timeout None, fixed custom_ids
    carrying the game id), re-armed on startup by a sweep over open
-   lobbies. cogs/codex_views/table.py: TableView, the one persistent
-   public message in a game channel, with My hand (ephemeral to the
-   clicker: their hand with each card's label and cost, their discard
-   pile's contents, their codex's remaining counts; a non-seated clicker
-   is told the table is not theirs), Show board (re-posts the board
-   image) and, from step 4, Take my turn and Tech choice.
+   lobbies. cogs/codex_views/turn_message.py: TurnMessageView, the
+   buttons the current turn's public message carries, persistent and
+   re-armed on startup from turn_message_id: My hand (ephemeral to the
+   clicker: their hand pictured by render_hand, their discard pile's
+   contents and their codex's remaining counts as text; a non-seated
+   clicker is told the table is not theirs) and, from step 4, Panel
+   for the active player and Tech for the other, and from step 7
+   Concede. The turn's last edit drops the view, so only the current
+   turn's message has buttons.
 
    /codex lobby posts the lobby in the channel it is called in; Start
    (either seated player, once both seats are taken) runs
@@ -1090,7 +1203,7 @@ commits: the service and storage; the cog, views and lobby; the board.
    if missing) with the permissions D12 Ball's channels get, the first
    turn's message -- the opening board as its picture, "Turn 1 -- <the
    first player>" and the lines begin_turn says for them as its text --
-   is posted and pinned, the table message posted, and the lobby
+   is posted and pinned with its TurnMessageView, and the lobby
    message edited once to say where the game is. fool-bot's hub message
    (build_hub_message in cogs/d12ball_helpers.py, the author's own
    text) gains one Codex line, worded by the author on this PR,
@@ -1101,30 +1214,39 @@ commits: the service and storage; the cog, views and lobby; the board.
    only reads it. No hub message; the
    /codex lobby row in the worksheet's decision 10 is the reason.
 
-3. codex/render.py and cogs/codex_boards.py. The board: a landscape
-   image, the second player's half on top and the first player's below
-   (the first player reads the board as the table in front of them),
-   each half -- the player's name and gold, workers, hand, deck,
-   discard and codex counts in a header strip; the base as a bar with
-   its HP and the three tech buildings and the add-on slot beside it,
-   each with HP and a construction mark; the hero tile with level, band
-   stats, damage and summoning runes, or "in the command zone"; the
-   patrol zone as five labelled slots, each empty or holding a tile;
-   the play zone as a row of tiles. A tile: name, cost, ATK/HP as
-   printed and as modified, damage pips, rune counts, an exhausted
-   tile turned grey and sideways-marked, a fatigued tile marked. Roboto
-   Slab from d12ball/fonts/ by absolute path (the fonts are shared;
-   d12ball/fonts/ is not moved). Rendered in asyncio.to_thread.
-   scripts/render_codex_sample.py renders the opening position and
-   --game <id> a saved one; look at the image and put it in the PR.
+3. codex/render.py and cogs/codex_boards.py. The board is the game's
+   own art (decision 5): each side is the Screentop playmat from
+   codex/images/board/, the second player's above the first player's,
+   with the position laid on it where the mat has a place for it --
+   the hero as its card in the first hero slot with its level chit, or
+   the slot empty while it is in the command zone, its summoning runes
+   as chits; the patrollers as their cards in the five labelled slots;
+   the Base, Tech I, II and III tiles and the add-on card from the
+   module's sheet in their places, each with its damage chits and a
+   mark while under construction, the unbuilt ones faint; the draw pile
+   as the card back with its count, the discard as its count, the
+   workers as a count on the workers area; the play zone's other units
+   as their cards across the mat's open middle, each with its damage
+   and rune chits, turned sideways when exhausted and marked when it
+   arrived this turn; the player's name, gold, hand and codex counts in
+   a strip along the mat's top. Roboto Slab from d12ball/fonts/ by
+   absolute path for every number and name (the fonts are shared;
+   d12ball/fonts/ is not moved). Rendered in asyncio.to_thread. The
+   same module renders render_hand(cards, playable, costs): the hand's
+   cards as their own pictures in a row, numbered, greyed where not
+   playable, each with its cost after reductions -- the picture the
+   panel and My hand attach. scripts/render_codex_sample.py renders
+   the opening position and a hand, and --game <id> a saved one; look
+   at the images and put them in the PR.
    cogs/d12ball_boards.py's BoardRefresher takes, as parameters, the
    two things it reaches into D12 Ball for today: the view it keeps on
    the board message (HomeAwaySelectionView, once
    home_and_visiting_selected) and the predicate for when the
    full-image link may go up; D12 Ball passes both, its log text names
    the game from the cog, and its tests pass unchanged. The Codex cog
-   instantiates the same class with no view and a predicate that is
-   always true, and its boards come through cog.render_match_png and
+   instantiates the same class with TurnMessageView as the view it
+   keeps on the message and a predicate that is always true, and its
+   boards come through cog.render_match_png and
    cog.match_file_from_png as D12 Ball's do, since the refresher looks
    those up on the cog at call time; a third parameter, the message's
    text, lets the write set the turn's lines beside the picture (D12
@@ -1146,8 +1268,8 @@ shows, the channel and the categories, the shared authorisation
 module, and the two BoardRefresher parameters.
 
 Done when: two people, each with a test account, reach the opening
-position: the channel, the pinned board, the table message, a hand each
-the other cannot see.
+position: the channel, the first turn's message pinned with its
+buttons, a hand each pictured for its owner and unseen by the other.
 
 Stop: the opening board, in the PR and in the test server, looked at.
 ```
@@ -1174,12 +1296,14 @@ the undos and resume.
    whose turn it is, and the lines the owed steps said at the turn's
    start (the gold gained, the hero's rune, the teched cards to the
    discard), the model's lines with their tokens rendered at the door;
-   its attachment the board. It is pinned and the previous turn's
-   message unpinned, the rollover post_new_play_board does for D12
-   Ball. After every action it is edited, through the gate, with the
-   new lines and the re-rendered board; when the turn ends it is edited
-   a last time with the patrol locked and the draw's count, and it
-   stands. The channel's history is then one picture per turn with the
+   its attachment the board; its buttons TurnMessageView's -- Panel,
+   which only the active player may press, My hand and Tech, which
+   only the other player may press, and Concede from step 7. It is
+   pinned and the previous turn's message unpinned, the rollover
+   post_new_play_board does for D12 Ball. After every action it is
+   edited, through the gate, with the new lines and the re-rendered
+   board; when the turn ends it is edited a last time with the patrol
+   locked and the draw's count and without its buttons, and it stands. The channel's history is then one picture per turn with the
    actions that led to it. The text stays under Discord's 2000
    characters: past that, the earliest lines fold into "and n more",
    since the board carries the position. A cascade of the bot's own
@@ -1187,14 +1311,20 @@ the undos and resume.
    one edit. There is no other public message per action, and no embed
    anywhere.
 
-2. cogs/codex_views/turn.py: TurnPanelView, built from
-   MainActionOptions and nothing else -- a row of buttons for Hire
-   worker (disabled with its reason as the label when the engine says
-   why not), Summon hero or Level up (a select of how many levels, from
-   the affordable count), Undo (commit 4) and End main phase; a select
-   Play a card listing each playable card as "name (cost) ATK/HP" and
-   omitting the rest; a select Build listing what may be built with its
-   cost; a select Attack with listing ready attackers. Each click
+2. cogs/codex_views/turn.py: TurnPanelView, the control panel, built
+   from MainActionOptions and nothing else. Its picture is
+   render_hand's -- the cards in the hand as their own pictures,
+   numbered, greyed where not playable now, each with its cost after
+   reductions -- re-rendered with every edit of the panel, so the
+   player plays from the cards and not from their names (the author,
+   2026-10-08). Its controls: a row of buttons for Hire worker
+   (disabled with its reason as the label when the engine says why
+   not), Summon hero or Level up (a select of how many levels, from the
+   affordable count), Undo (commit 4) and End main phase; a select Play
+   a card listing each playable card by its number in the picture, its
+   name and its cost, and omitting the rest; a select Build listing
+   what may be built with its cost; a select Attack with listing ready
+   attackers. Each click
    answers through SafeView.apply; the result's lines go to the turn
    message, the board goes through the gate, and the panel is edited
    in place (interaction.response.edit_message) with the new options.
@@ -1204,9 +1334,9 @@ the undos and resume.
    "nothing is patrolling") -- in the same panel, with Cancel back to
    the actions. The panel is the view for MAIN_ACTION and
    CHOOSE_DEFENDER in view_for_prompt; render_prompt gives neither a
-   picture. Take my turn on the table message creates the panel afresh
-   for the active player (ephemeral), and so does /codex resume for
-   them; the cog never looks for an old panel.
+   picture. Panel on the turn message creates the panel afresh for the
+   active player (ephemeral), and so does /codex resume for them; the
+   cog never looks for an old panel.
 
 3. cogs/codex_views/patrol.py: PatrolView for PATROL -- five selects,
    one per slot, each listing the candidates not yet placed, a Clear,
@@ -1214,15 +1344,22 @@ the undos and resume.
    assignment, and the driver runs the owed steps: draw_phase (the
    count is public, the cards are not: the turn message says "draws
    four"), begin_tech (the tech choice is now owed), and the opponent's
-   begin_turn -- unless the opponent still owes their own tech choice,
-   in which case the chain stops on it and the new turn message says
-   the turn waits on them. cogs/codex_views/tech.py: TechChoiceView for
-   TECH_CHOICE -- an ephemeral multi-select of the codex's cards with
-   their remaining counts, min and max from TechOptions, Save tech
-   alone in its row -- sent as an ephemeral follow-up to the Lock
-   click, and reachable any time from Tech choice on the table message
-   by its owner. The choice is never shown or counted publicly beyond
-   "has teched".
+   turn opening on TECH_CONFIRM -- or on TECH_CHOICE, if they never
+   picked -- so the chain stops there, the new turn message says the
+   turn waits on them to confirm their tech, and begin_turn runs when
+   they have. cogs/codex_views/tech.py: TechChoiceView for TECH_CHOICE
+   -- an ephemeral multi-select of the codex's cards with their
+   remaining counts and the picks so far, min and max from TechOptions,
+   Save tech alone in its row -- sent as an ephemeral follow-up to the
+   Lock click, and reachable all through the opponent's turn from Tech
+   on the turn message, by its owner only, to tech or to change their
+   mind, each save replacing the last; and TechConfirmView for
+   TECH_CONFIRM -- the picks pictured by render_hand, Confirm and
+   Change, Change reopening the picker -- shown to the player when
+   their turn would begin, from Panel or as the follow-up to the
+   opponent's Lock when they are present, and the ready phase runs on
+   Confirm (the author, 2026-10-08). The choice is never shown or
+   counted publicly beyond "has teched".
 
 4. The undos and resume. Undo on the panel opens two choices. To the
    start of my turn is the active player's alone:
@@ -1252,8 +1389,8 @@ the undos and resume.
    undo to the start of the turn leaves the turn message, the board and
    the panel showing the restored position; the previous-turn undo
    waits for the opponent's button. tests/test_codex_resume.py: a match
-   saved mid-turn resumes to the same prompt from Take my turn and from
-   /codex resume.
+   saved mid-turn resumes to the same prompt from Panel and from /codex
+   resume.
 
 Record in docs/design/codex.md: the panel (one ephemeral message edited
 by its own interactions, and why that is not a channel edit), the turn
@@ -1263,7 +1400,7 @@ Measure the requests per click with the fakes and write the number in
 the PR.
 
 Done when: two people finish a game on the vanilla engine; a bot
-restart mid-turn resumes from Take my turn; both undos work; the tests
+restart mid-turn resumes from Panel; both undos work; the tests
 above pass.
 
 Stop: a whole game played by the author and the other developer on the
@@ -1469,7 +1606,7 @@ Step 7 of docs/codex-bot.md. Steps 1 to 6 have landed. Also read
 docs/design/recovery.md and tests/test_golden_service.py (the golden
 you copy). Two commits: the ending; the golden.
 
-1. Concede on the table message and /codex concede, the clicker's own
+1. Concede on the turn message and /codex concede, the clicker's own
    side only, confirmed by a second click; the admin /codex abandon
    (manage_channels) through the service; GAME_OVER's Rematch -- a new
    lobby posted in the finished game's channel with the same two seats,
@@ -1481,8 +1618,8 @@ you copy). Two commits: the ending; the golden.
    test server, under the gate cogs/debug.py's group has (guild only,
    manage_channels by default): every non-archived Codex channel
    deleted and its game dropped, after a confirmation word. The startup
-   sweep re-arms the table messages of games still playing and nothing
-   else. Nothing hidden is in a message about a game still being
+   sweep re-arms the current turn message's buttons for games still
+   playing and nothing else. Nothing hidden is in a message about a game still being
    played: audit every logging call under cogs/codex* and
    gamesaves/codex/ for a hand, a deck, a discard pile or a tech
    choice, and write the finding in the PR.
@@ -1544,16 +1681,33 @@ suites are green, and both bots run.
 Stop: the PR's list of pairs, read by the author.
 ```
 
+### 9 to 12. After the basic game
+
+The author's order, given on 2026-10-08: all six colours, two at a
+time -- red and green first, then purple and black, then white and
+blue. The standard game's rules come first because a colour is three
+heroes, and three heroes a side is the standard game: the hero limit
+and the heroes' hall, the spec chosen at Tech II and the tech lab, the
+starting deck's colour, the multicolour penalties (UMR p. 4, 6, 8, 9).
+Step 9 builds those rules over the red and green data with every card
+still played for its numbers, so the standard game is playable before
+a single red or green effect exists; step 10 gives red and green their
+effects and rulings, the way steps 5 and 6 did for the neutral set,
+and lands on Calamandra against Jaina, the Core Set's own first game
+(UMR p. 3); steps 11 and 12 repeat step 10 for the other two pairs.
+Their prompts are written when step 8 lands, in the shape of steps 5
+and 6, from the design note as it stands then. Nothing in steps 1 to 8
+builds any of it, and everything in them is written so that it fits.
+
 ## What is not in these prompts, on purpose
 
-- **The standard game.** Three heroes a side, the spec choice at
-  Tech II, the hero limit, the heroes' hall and the tech lab, the
-  multicolour penalties. Everything above is written so that it fits --
-  `seats` by spec, the add-on as data, `hero` as a list later -- and
-  none of it is built until the basic game has been played.
-- **The other eighteen specs.** Their data arrives at step 1; their
-  rules are code, a step per spec of about twelve handlers and their
-  rulings. Which first is question 9.
+- **The standard game and the six colours, in steps 1 to 8.** They
+  are steps 9 to 12, in the order the author gave on 2026-10-08 --
+  the standard game's rules first, then red and green, purple and
+  black, white and blue -- with prompts written when step 8 lands.
+  Everything in steps 1 to 8 is written so that they fit: the seats by
+  spec, the add-on as data, the hero as a list later, every colour's
+  data and art imported at step 1. Nothing in steps 1 to 8 builds them.
 - **An AI opponent.** Decision 13. The first one worth writing is a
   random legal player for the tests, not an opponent.
 - **Maps, free-for-all and two-headed dragon.** Deluxe variants and
@@ -1565,7 +1719,6 @@ Stop: the PR's list of pairs, read by the author.
   for this bot. The event log stays in the save, a finished channel is
   moved to the Codex Archive category, and nothing is written from it
   or read out of it.
-- **Card art.** Not ours; the database's page is linked instead.
 - **The finer undo, to any action of a turn.** Its infrastructure --
   the turn-start snapshots and the journal with its recorded random
   outcomes -- is in from step 2, and the two coarse undos are step 4;
