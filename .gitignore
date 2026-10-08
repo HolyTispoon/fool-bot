@@ -47,6 +47,10 @@ data/codex_bot_state.tmp
 data/codexbot.pid
 data/codexbot.stdout.log
 data/codexbot.stderr.log
+data/codex_games.json
+data/codex_games.tmp
+data/codex_command_ids.json
+data/tunnel.pid
 *.log
 
 # The landing pages, built by scripts/build_landing.py
