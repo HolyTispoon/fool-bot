@@ -7,15 +7,17 @@ Pillow -- **the one module under `codex/` that imports it**
 docs/design/codex.md, "The board on Discord"): each side is the
 Screentop module's playmat, `codex/images/board/playmat.png`, with the
 position laid on it where the mat has a place for it -- the hero as its
-own card in the first hero slot with its level chit, or the slot empty
-with its summoning runes while it is in the command zone; the patrollers
-as their cards in the five labelled slots; the base, Tech I, II and III
-tiles and the add-on card in their places, each with its damage chits
-and a mark while under construction, the unbuilt places faint; the draw
-pile as the card back with its count, the discard and the workers as
-counts; the play zone's other units as their cards across the mat's open
-middle, each with its damage and rune chits, turned sideways when
-exhausted and marked when it arrived this turn. A strip along each
+own card in the first hero slot while it is in the command zone, a
+time-rune chit on it for its summoning runes, since the slots are where
+the heroes off the board wait; the patrollers as their cards in the
+five labelled slots; the base, Tech I, II and III tiles and the add-on
+card in their places, each with its damage chits and a mark while under
+construction, the unbuilt places faint; the draw pile as the card back
+with its count, the discard and the workers as counts; the play zone's
+cards -- the hero once summoned, on the field like any other unit, with
+its level chit, and then the units -- across the mat's open middle,
+each with its damage and rune chits, turned sideways when exhausted and
+marked when it arrived this turn. A strip along each
 mat's top carries the player's name, spec and hero, gold, hand, codex
 and base. Nothing is drawn that the module or a card already shows: the
 words this module draws are numbers, names and the three marks.
@@ -38,9 +40,9 @@ and would block the heartbeat.
 from __future__ import annotations
 
 import io
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
-from typing import Mapping, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
@@ -237,6 +239,8 @@ def card_tile(card: CardInstance, cards: CardCatalog, size: tuple[int, int]) -> 
 
 
 def hero_tile(player: PlayerState, cards: CardCatalog, size: tuple[int, int]) -> Image.Image:
+    """The hero in play as it lies: its own art, its level chit, its
+    damage, the arrival mark, turned sideways when exhausted."""
     hero = player.hero
     picture = fitted(card_picture(hero.slug, cards), size)
     chit = max(32, picture.width // 3)
@@ -255,6 +259,20 @@ def hero_tile(player: PlayerState, cards: CardCatalog, size: tuple[int, int]) ->
              "arrived", max(14, picture.width // 9), MARK_FILL, anchor="mm")
     if hero.exhausted:
         picture = picture.rotate(90, expand=True)
+    return picture
+
+
+def command_zone_tile(player: PlayerState, cards: CardCatalog,
+                      size: tuple[int, int]) -> Image.Image:
+    """The hero waiting in the command zone: its own art in the hero
+    slot, and, while it may not be summoned, a time-rune chit for its
+    summoning runes on it, as the module lays one on the card."""
+    hero = player.hero
+    picture = fitted(card_picture(hero.slug, cards), size)
+    if hero.summoning_runes:
+        rune = fitted(board_piece("time_runes", f"{min(hero.summoning_runes, 6)}.png"),
+                      (picture.width // 2, picture.width // 2))
+        paste_centred(picture, rune, (0, 0, picture.width, picture.height))
     return picture
 
 
@@ -305,14 +323,20 @@ def draw_buildings(canvas: Image.Image, player: PlayerState, building_hp: Mappin
         damage_chits(canvas, damage, (left + 4, top + 4), 44)
 
 
-def draw_play_zone(canvas: Image.Image, cards_in_play: Sequence[CardInstance],
-                   cards: CardCatalog) -> None:
-    """The units that are not patrolling, in a grid across the mat's open
-    middle, each cell square so a card turned sideways fits it too."""
-    if not cards_in_play:
+def draw_play_zone(canvas: Image.Image, player: PlayerState, cards: CardCatalog) -> None:
+    """What is on the field and not patrolling -- the hero first, once
+    summoned, then the units -- in a grid across the mat's open middle,
+    each cell square so a card turned sideways fits it too."""
+    hero = player.hero
+    tiles: list[Callable[[tuple[int, int]], Image.Image]] = []
+    if hero.in_play and hero.patrol_slot is None:
+        tiles.append(partial(hero_tile, player, cards))
+    tiles += [partial(card_tile, card, cards) for card in player.play
+              if card.patrol_slot is None]
+    if not tiles:
         return
     width, height = box_size(PLAY_BOX)
-    count = len(cards_in_play)
+    count = len(tiles)
     cell = 0
     columns = 1
     for columns_tried in range(1, count + 1):
@@ -326,11 +350,11 @@ def draw_play_zone(canvas: Image.Image, cards_in_play: Sequence[CardInstance],
     rows = -(-count // columns)
     left0 = PLAY_BOX[0] + (width - columns * cell) // 2
     top0 = PLAY_BOX[1] + (height - rows * cell) // 2
-    for index, card in enumerate(cards_in_play):
+    for index, tile in enumerate(tiles):
         row, column = divmod(index, columns)
         box = (left0 + column * cell, top0 + row * cell,
                left0 + (column + 1) * cell, top0 + (row + 1) * cell)
-        paste_centred(canvas, card_tile(card, cards, size), box)
+        paste_centred(canvas, tile(size), box)
 
 
 def draw_strip(player: PlayerState, name: str, active: bool, hero_name: str,
@@ -355,13 +379,11 @@ def render_mat(match: MatchState, seat: int, cards: CardCatalog,
     mat = board_piece("playmat.png")
     draw = ImageDraw.Draw(mat)
 
-    hero = player.hero
-    slot_size = box_size(HERO_SLOTS[0], 4)
-    if hero.in_play and hero.patrol_slot is None:
-        paste_centred(mat, hero_tile(player, cards, slot_size), HERO_SLOTS[0])
-    elif not hero.in_play and hero.summoning_runes:
-        rune = fitted(board_piece("time_runes", f"{min(hero.summoning_runes, 6)}.png"), (120, 120))
-        paste_centred(mat, rune, HERO_SLOTS[0])
+    # The hero slots hold the heroes off the board; a summoned hero is
+    # on the field with the units (`draw_play_zone`) or patrolling.
+    if not player.hero.in_play:
+        tile = command_zone_tile(player, cards, box_size(HERO_SLOTS[0], 4))
+        paste_centred(mat, tile, HERO_SLOTS[0])
 
     for slot in PATROL_SLOTS:
         ref = player.patroller(slot)
@@ -375,7 +397,7 @@ def render_mat(match: MatchState, seat: int, cards: CardCatalog,
         paste_centred(mat, tile, box)
 
     draw_buildings(mat, player, building_hp)
-    draw_play_zone(mat, [card for card in player.play if card.patrol_slot is None], cards)
+    draw_play_zone(mat, player, cards)
 
     workers = (WORKERS_BOX[0] + WORKERS_BOX[2]) // 2, WORKERS_BOX[1] + 190
     text_centred(draw, workers, str(player.workers), 72)
