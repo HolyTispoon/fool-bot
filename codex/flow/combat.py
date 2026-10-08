@@ -30,8 +30,8 @@ from codex.engine import (
     unit_ref,
 )
 from codex.flow.actions import raise_level
-from codex.flow.result import Headline, StepResult
-from codex.flow.turn import draw_cards, gain_gold
+from codex.flow.result import StepResult
+from codex.flow.turn import damage_base, draw_cards, gain_gold
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -92,20 +92,6 @@ def _is_destroyed(engine: "RulesEngine", fighter: _Fighter) -> bool:
     hp = _hp(engine, fighter)
     body = fighter.card if fighter.card is not None else fighter.hero
     return hp <= 0 or body.damage >= hp
-
-
-def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
-                by: Optional[int] = None) -> None:
-    """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
-    (UMR p. 2)."""
-    player = match.player(seat)
-    player.base_hp = max(0, player.base_hp - amount)
-    if player.base_hp == 0 and match.winner is None:
-        match.winner = 2 if seat == 1 else 1
-        match.record_event("base_destroyed", loser=seat, winner=match.winner)
-        text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
-        result.narration.append(f"**{text}**")
-        result.headlines = (*result.headlines, Headline(text, seat=match.winner))
 
 
 def _damage_building(match: MatchState, seat: int, ref: str, amount: int,

@@ -257,11 +257,12 @@ damage, the patrol slots' bonuses (the lookout's resist waits on
 targeting, step 6), what each kind of card does when destroyed, and the
 base at 0. Each is in `tests/test_codex_rules.py` with its page.
 
-- **Two readings the rulebook leaves open are built the strict way**
-  and asked on the step's PR: a tech building needs the one below it
-  *finished* (so Tech I and Tech II are never built in one turn), and
-  an add-on is refused while the slot holds one rather than replacing
-  it.
+- **Three readings the rulebook left open, settled by the author on
+  2026-10-08**: a tech building needs the one below it *finished* (so
+  Tech I and Tech II are never built in one turn); a new add-on
+  replaces the one in the slot, which is destroyed and deals its 2 to
+  the base; and the first player chooses tech at the end of their first
+  turn like every other turn.
 
 ### The saved fields
 

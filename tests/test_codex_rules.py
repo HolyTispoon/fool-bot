@@ -197,12 +197,18 @@ class BuildingTests(unittest.TestCase):
         self.assertEqual(engine.build_option(other, "tech1").cost, 0)
 
     def test_an_add_on_takes_the_one_slot(self) -> None:
+        """A new add-on replaces the one in the slot, which is destroyed
+        and deals its 2 to the base (the author, 2026-10-08)."""
         engine, game, match = main_phase()
         player = match.player(1)
         player.gold = 10
         actions.construct(engine, game, match, "tower")
         self.assertEqual((player.add_on.slug, player.add_on.hp), ("tower", 4))
-        self.assertIn("slot", engine.build_option(player, "surplus").why_not)
+        self.assertIn("already built", engine.build_option(player, "tower").why_not)
+        result = actions.construct(engine, game, match, "surplus")
+        self.assertEqual(player.add_on.slug, "surplus")
+        self.assertEqual(player.base_hp, 18)
+        self.assertIn("replaces", " ".join(result.narration))
 
 
 class CombatTests(unittest.TestCase):

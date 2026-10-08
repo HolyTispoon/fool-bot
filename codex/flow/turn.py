@@ -13,12 +13,12 @@ worker's card is never named.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from codex import history, tokens
 from codex.components import MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
-from codex.flow.result import FollowOn, FollowOnStep, StepResult
+from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
 from codex.prompts import pending, tech_is_owed
 
@@ -63,6 +63,20 @@ def gain_gold(match: MatchState, seat: int, amount: int) -> int:
     before = player.gold
     player.gold = min(GOLD_CAP, player.gold + amount)
     return player.gold - before
+
+
+def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
+                by: Optional[int] = None) -> None:
+    """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
+    (UMR p. 2)."""
+    player = match.player(seat)
+    player.base_hp = max(0, player.base_hp - amount)
+    if player.base_hp == 0 and match.winner is None:
+        match.winner = 2 if seat == 1 else 1
+        match.record_event("base_destroyed", loser=seat, winner=match.winner)
+        text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
+        result.narration.append(f"**{text}**")
+        result.headlines = (*result.headlines, Headline(text, seat=match.winner))
 
 
 def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,

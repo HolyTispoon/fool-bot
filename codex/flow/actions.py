@@ -19,12 +19,14 @@ from codex.components import HERO, PATROL_SLOTS, AddOnState, BuildingState, Matc
 from codex.effects import UNIMPLEMENTED
 from codex.engine import (
     ADD_ONS,
+    BUILDING_DESTROYED_DAMAGE,
     HIRE_COST,
     LEVEL_COST,
     TECH_BUILDING_SLUGS,
     building_name,
 )
 from codex.flow.result import FollowOn, FollowOnStep, StepResult
+from codex.flow.turn import damage_base
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -170,7 +172,9 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
     A tech building -- Tech I for 1 at six workers, Tech II for 4 at
     eight, Tech III for 5 at ten, each on the one below, each rebuilt for
     0 once destroyed (UMR p. 8) -- or an add-on, the tower or the surplus
-    (UMR p. 9). Either is finished at the end of the turn.
+    (UMR p. 9). Either is finished at the end of the turn. A new add-on
+    replaces the one in the slot, which is destroyed and deals its 2 to
+    the base (the author, 2026-10-08).
     """
     seat = match.active
     player = match.active_player
@@ -189,14 +193,24 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         player.buildings[building] = BuildingState(hp=hp, under_construction=True)
         verb = "rebuilds" if rebuilt else "builds"
     else:
+        replaced = player.add_on
         player.add_on = AddOnState(slug=building, hp=hp, under_construction=True)
         verb = "builds"
     match.record_event("built", building=building, cost=option.cost)
-    return _done(engine, game, match, [
+    result = _done(engine, game, match, [
         f"{tokens.player(seat)} {verb} {_build_label(building)} for "
         f"{tokens.gold(option.cost)}; it is finished at the end of the turn."
         + (_vanilla_note(engine, building) if building in ADD_ONS else "")
     ])
+    if building in ADD_ONS and replaced is not None:
+        result.narration.append(
+            f"It replaces their {tokens.card(replaced.slug)}, which is destroyed "
+            f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
+        )
+        match.record_event("building_destroyed", owner=seat, building=replaced.slug)
+        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
+        result.next = pending(engine, game, match)
+    return result
 
 
 def _build_label(building: str) -> str:

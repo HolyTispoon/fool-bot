@@ -346,9 +346,12 @@ class RulesEngine:
             elif player.gold < cost:
                 why = "not enough gold"
             return BuildOption(building, cost, workers, why)
+        # A new add-on replaces the one in the slot, which deals its 2 to
+        # the base (UMR p. 9; the author, 2026-10-08) -- the same one again
+        # is no replacement.
         why = ""
-        if player.add_on is not None:
-            why = "the add-on slot is taken"
+        if player.add_on is not None and player.add_on.slug == building:
+            why = "it is already built"
         elif player.gold < cost:
             why = "not enough gold"
         return BuildOption(building, cost, 0, why)
