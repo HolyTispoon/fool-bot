@@ -141,7 +141,7 @@ committed. Two sources:
   `codex/images/cards/` beside it is what lets them in.
 - **The Screentop module's sheets** (@GRAG/Codex, whose spec one
   GraphQL query to `api.screentop.gg` returns with every sheet's URL):
-  the playmat whole as `codex/images/board/playmat.png`, and seven
+  the playmat whole as `codex/images/board/playmat.png`, and eight
   sheets kept whole under `codex/images/board/sheets/` as the source
   their pieces are cut from. **The cells are pinned in `BOARD_SHEETS`**,
   each from one look at the sheet: a grid per sheet, and each piece's
@@ -158,17 +158,20 @@ What is under `codex/images/board/`, and what each is named by:
 | `playmat.png` | One player's mat: the hero slots, the five patrol slots with their bonuses, the add-on slot, the base and the Tech I to III places, the workers, the discard and the draw | -- |
 | `buildings/` | The base and the three tech buildings as tiles, the four add-ons as cards | the building's slug |
 | `tokens/` | All 22 tokens' faces, two printed under another name: "Ghost" is `daigo_stormborne`, "Elemental" `water_elemental` | the token's slug |
+| `workers/` | The two worker cards' faces off the neutral card sheet -- x4, printed "Player 1", and x5, "Player 2" -- which the database does not picture (the author, 2026-10-08: the module has them) | the worker card's slug |
 | `specs/` | The twenty spec cards | the spec, as a slug |
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
 | `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
 | `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), and a blue `swirl` and an orange `house` nobody has said the module's use of, named for what they show | what it shows |
 
-Left uncut: the twelve maps, a variant the basic game does not play, and
-the sheets' label cells, which the playmat prints. `Card.picture` is a
-card's own art wherever there is one -- the database's picture, or a
-token's or a building's face -- so `/codex card dancer` and `/codex card
-tower` answer with theirs; the worker card alone has none.
+Left uncut: the twelve maps, a variant the basic game does not play;
+the sheets' label cells, which the playmat prints; and the neutral
+sheet's other 34 cards, which the database pictures. `Card.picture` is a
+card's own art, and every card has one -- the database's picture, or a
+token's, a building's or a worker card's face -- so `/codex card
+dancer`, `/codex card tower` and `/codex card worker x4` answer with
+theirs.
 
 **The emoji are drawn here and uploaded by hand.** Application emoji
 belong to one application and there is no upload code, so
@@ -488,11 +491,11 @@ and the database's page under whichever is there, as plain text:
 nothing in this bot is an embed (the author, 2026-10-07). Discord draws
 a message's text above its attachment, so the words are a follow-up to
 the picture's response, a second message that sits straight beneath it
-(the author asked for the rulings below the picture, not above). A card
-with no picture -- the worker -- is answered with its text whether or
-not that was asked for, since a lookup that shows nothing answers
-nothing. `/codex rules <keyword>` answers with a keyword's rulings as
-the official rules they are.
+(the author asked for the rulings below the picture, not above). Every
+card has a picture in the tree; one missing from a checkout is answered
+with the card's text whether or not that was asked for, since a lookup
+that shows nothing answers nothing. `/codex rules <keyword>` answers
+with a keyword's rulings as the official rules they are.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
 rulings that do not fit and leaving them to the link, measured after

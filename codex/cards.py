@@ -62,9 +62,11 @@ class Card:
     def picture(self) -> Optional[Path]:
         """
         The card's own art: the database's picture of a card, or the
-        Screentop module's face of a token or a building -- both imported
-        by scripts/import_codex_cards.py. None for the worker card, which
-        has neither.
+        Screentop module's face of a token, a building or a worker card
+        -- all imported by scripts/import_codex_cards.py. None for a
+        record neither pictures, which today's data has none of: the
+        worker cards, which the database does not picture, came off the
+        module's neutral card sheet.
         """
         if self.sirlins_filename:
             return CARD_IMAGE_DIR / f"{self.slug}.jpg"
@@ -72,6 +74,8 @@ class Card:
             return BOARD_IMAGE_DIR / "tokens" / f"{self.slug}.png"
         if self.kind == KIND_BUILDING:
             return BOARD_IMAGE_DIR / "buildings" / f"{self.slug}.png"
+        if self.kind == KIND_WORKER:
+            return BOARD_IMAGE_DIR / "workers" / f"{self.slug}.png"
         return None
 
 

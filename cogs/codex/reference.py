@@ -171,8 +171,9 @@ class ReferenceMixin:
         # The picture is the answer, and the words go under it. Discord
         # draws a message's text above its attachment, so they are a
         # follow-up to the picture's response -- a second message that
-        # sits straight beneath it. A card with no picture (the worker) is
-        # answered with its text whether or not that was asked for.
+        # sits straight beneath it. A card whose picture is not in the
+        # checkout is answered with its text whether or not that was
+        # asked for.
         words = card_answer(
             slug, self.tokens.render, text=text or picture is None, rulings=rulings,
         )

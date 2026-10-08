@@ -16,7 +16,7 @@ from botlog import settings
 from cogs.codex import Codex
 from cogs.codex.reference import MESSAGE_LIMIT, card_answer, keyword_answer
 from cogs.codex_helpers import CodexTokens
-from codex.cards import catalog
+from codex.cards import Card, catalog
 from codex.rulings import keywords
 
 
@@ -93,12 +93,22 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_not_called()
         await bot.close()
 
-    async def test_a_card_with_no_picture_is_its_text(self) -> None:
+    async def test_a_worker_card_is_its_face(self) -> None:
         bot, cog, interaction = self.card_lookup()
-        self.assertIsNone(catalog().by_slug("worker_x4").picture)
-        await cog.card.callback(cog, interaction, "worker_x4")
+        await cog.card.callback(cog, interaction, "worker_x5")
+        args, kwargs = interaction.response.send_message.call_args
+        self.assertEqual(args, ())
+        self.assertEqual(kwargs["file"].filename, "worker_x5.png")
+        interaction.followup.send.assert_not_called()
+        await bot.close()
+
+    async def test_a_card_whose_picture_is_missing_is_its_text(self) -> None:
+        bot, cog, interaction = self.card_lookup()
+        nowhere = mock.PropertyMock(return_value=Path("/nonexistent/trojan_duck.jpg"))
+        with mock.patch.object(Card, "picture", nowhere):
+            await cog.card.callback(cog, interaction, "trojan duck")
         (words,), kwargs = interaction.response.send_message.call_args
-        self.assertTrue(words.startswith("**Worker x4**"))
+        self.assertTrue(words.startswith("**Trojan Duck**"))
         self.assertNotIn("file", kwargs)
         interaction.followup.send.assert_not_called()
         await bot.close()
