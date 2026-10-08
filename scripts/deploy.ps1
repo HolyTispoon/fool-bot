@@ -5,7 +5,10 @@ param(
 
     [string]$Branch = 'main',
 
-    [switch]$SkipPull
+    [switch]$SkipPull,
+
+    # Stop all three and start nothing.
+    [switch]$StopOnly
 )
 
 # Deploy everything on this checkout, in the order "Running the web
@@ -27,6 +30,28 @@ $ErrorActionPreference = 'Stop'
 
 $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
 $scriptFolder = Join-Path $resolvedRepoPath 'scripts'
+
+# Stopping goes the other way round -- the tunnel first, so nobody
+# reaches a web app that is going away, and the bot last -- and tries
+# every one even when an earlier one fails: a stop that gives up half
+# way leaves the processes it never reached running, which is the one
+# thing it was asked not to do. Each script's -StopOnly does its own
+# matching; nothing is matched here.
+if ($StopOnly) {
+    $failures = @()
+    foreach ($script in @('run_tunnel.ps1', 'run_web_app.ps1', 'update_main_bot.ps1')) {
+        try {
+            & (Join-Path $scriptFolder $script) -RepoPath $resolvedRepoPath -StopOnly
+        } catch {
+            Write-Warning "$script -StopOnly failed: $_"
+            $failures += $script
+        }
+    }
+    if ($failures.Count -gt 0) {
+        throw "Could not stop everything ($($failures -join ', ') failed; see above)."
+    }
+    return
+}
 
 $updateArgs = @{
     RepoPath = $resolvedRepoPath

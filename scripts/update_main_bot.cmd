@@ -1,5 +1,5 @@
 @echo off
-rem Pull, install and restart the bot: update_main_bot.cmd [-Branch name] [-SkipPull]
+rem Pull, install and restart the bot: update_main_bot.cmd [-Branch name] [-SkipPull] [-StopOnly]
 rem Runs scripts\update_main_bot.ps1 with -ExecutionPolicy Bypass, so Windows
 rem does not refuse it for being unsigned (the checkout is on the
 rem Google Drive letter, which RemoteSigned treats as remote). It

@@ -5,7 +5,12 @@ param(
 
     [string]$Branch = 'main',
 
-    [switch]$SkipPull
+    [switch]$SkipPull,
+
+    # Stop it and start nothing -- the way to take the bot down on
+    # purpose, since it has no Ctrl+C once it is running hidden. No pull
+    # and no install either: there is nothing to start them for.
+    [switch]$StopOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,7 +47,7 @@ if (-not (Test-Path -LiteralPath $requirementsFile)) {
 
 Set-Location -LiteralPath $resolvedRepoPath
 
-if (-not $SkipPull) {
+if (-not $SkipPull -and -not $StopOnly) {
     $trackedChanges = & git status --porcelain --untracked-files=no
     if ($LASTEXITCODE -ne 0) {
         throw 'Could not inspect the main bot repository.'
@@ -71,7 +76,7 @@ if (-not $SkipPull) {
 }
 
 $venvPython = Join-Path $resolvedRepoPath '.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $venvPython)) {
+if (-not $StopOnly -and -not (Test-Path -LiteralPath $venvPython)) {
     $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
     if ($null -eq $pythonLauncher) {
         throw 'The virtual environment is missing and the py launcher was not found.'
@@ -83,9 +88,11 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     }
 }
 
-Write-Host 'Installing the current Python requirements...'
-Invoke-CheckedCommand -FailureMessage 'Could not install Python requirements.' -Command {
-    & $venvPython -m pip install --disable-pip-version-check -r $requirementsFile
+if (-not $StopOnly) {
+    Write-Host 'Installing the current Python requirements...'
+    Invoke-CheckedCommand -FailureMessage 'Could not install Python requirements.' -Command {
+        & $venvPython -m pip install --disable-pip-version-check -r $requirementsFile
+    }
 }
 
 $runtimeFolder = Join-Path $resolvedRepoPath 'data'
@@ -219,6 +226,13 @@ if ($survivingFoolBots.Count -gt 0) {
 }
 
 Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+
+# The logs stay, so what the bot said last can still be read after it.
+if ($StopOnly) {
+    Write-Host 'Fool bot stopped.'
+    return
+}
+
 Remove-Item -LiteralPath $stdoutLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $stderrLog -Force -ErrorAction SilentlyContinue
 
