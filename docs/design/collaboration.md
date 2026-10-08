@@ -212,12 +212,17 @@ scripts, or the one that runs them all in order:
 
 ```powershell
 .\scripts\update_main_bot.cmd          # pull, install, restart the bot
+.\scripts\update_main_bot.cmd -StopOnly
 .\scripts\run_web_app.cmd              # restart the web app on the same tree
 .\scripts\run_web_app.cmd -StopOnly
 .\scripts\run_tunnel.cmd               # restart the tunnel's connector
 .\scripts\run_tunnel.cmd -StopOnly
 
 .\scripts\deploy.cmd                   # all three, in that order
+.\scripts\deploy.cmd -StopOnly         # stop all three, in the reverse order
+
+.\scripts\show_logs.cmd                # the last 40 lines of each one's logs
+.\scripts\show_logs.cmd bot -Follow    # or webapp, tunnel; -Tail n
 ```
 
 (The same lines work in `cmd.exe`, without the comments.)
@@ -225,13 +230,31 @@ scripts, or the one that runs them all in order:
 `deploy.ps1`/`deploy.cmd` call the three scripts above in order and add
 no logic of their own -- no new process matching, no new pid file. It
 takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
-them through; the other two never need one here, since `-StopOnly` has
-no place in a deploy. `$ErrorActionPreference = 'Stop'` means a failed
+them through. `$ErrorActionPreference = 'Stop'` means a failed
 pull, install or bot start stops it before the web app is touched, so
 the web app is never restarted onto a tree the first half failed to
 update. The tunnel goes last: it serves nothing until the web app is
 up, and it is the one step a checkout may skip (see "Exposing the
 port").
+
+`-StopOnly` is each script's own stop and nothing else: the same
+matching as a restart, then no start -- the bot's skips the pull and
+the install too, having nothing to start them for. It exists because
+a process started hidden has no Ctrl+C. `deploy.cmd -StopOnly` runs
+the three the other way round, the tunnel first so nobody reaches a
+web app that is going away, and unlike a deploy it carries on past a
+failure: a stop that gives up half way leaves running exactly what it
+was asked to stop. A stop leaves the logs; only a start deletes them.
+
+`show_logs.cmd` is the window onto those logs, since a hidden process
+has no console: the last lines of each process's `data\<name>.stderr.log`
+(where the console logging goes) and `.stdout.log`, under a heading
+saying whether its pid file names a live process -- which is what the
+scripts started, not everything running, since a hand-started process
+writes no pid file and the tunnel writes its own only once connected.
+`-Follow` follows every log it showed, not one, so it polls rather
+than using `Get-Content -Wait`, and reads a log that a restart deleted
+from the top again; Ctrl+C there stops the viewer and nothing else.
 
 - **Run them through the `.cmd` launchers, never as `.\x.ps1`.** The
   checkout is on the Google Drive letter, and on that host the shell's
