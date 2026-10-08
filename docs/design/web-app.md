@@ -1653,15 +1653,35 @@ space has two lanes, the visitors' above and home's below.
   (`ball_carrier_id`, else `active_player_id`); a space where nobody
   is named keeps the board's order and draws the ball on its front
   piece, which is a picture and decides nothing.
-- **The badges are the bot's emoji**: the exhaustion token with its
+- **The badges are the bot's marks**: the exhaustion token with its
   count (the drain token on a Cyborg) off the bottom right of a piece,
-  the condition off the bottom left, all drawn over the whole fan.
+  the condition off the bottom left, both down at its feet and drawn
+  over the whole fan. The condition is a tag the size of the token
+  count and squarer, its word short -- INJ, DMG, EXH, DRN
+  (`CONDITION_TAGS` in `app.js`) -- in the emoji's colour, because the
+  emoji's own word cannot be read at a badge's size (the author,
+  2026-10-07 and 2026-10-08). On a visiting holder the ball is at
+  that corner, and once hid an injured carrier's badge entirely: there
+  the tag goes all the way to the right, after the count, the two in
+  one row ending at the piece's right edge -- on the phone's narrow
+  field, too wide for the span, running on past it rather than back
+  under the ball (the author, 2026-10-08).
   `board.py` names the emoji, making `draw_card`'s choice, so the page
   reads no flag to pick one. The ball is the d12 showing its speed:
-  off a home holder's top right, a visiting holder's bottom left, or
+  off a home holder's top right, a visiting holder's bottom left (low
+  by the foot and off its edge, the phone's narrow field included --
+  the author, 2026-10-08, who moved that holder's name right of the
+  ball, and down clear of it where the space is too narrow for that), or
   larger at the centre of an empty space.
-- **A space clips**: nothing on it -- a name, a badge, a fan -- leaves
-  it, and a name is nudged to stay inside before the clip has to cut it.
+- **A space holds its own**: a name is nudged to stay inside it, and a
+  name too wide for it is shrunk to fit -- but no smaller than 16px
+  against the usual 20 (`NAME_FLOOR` in `app.js`), and past that
+  centred so it spills over both edges alike, since a little over the
+  edge reads better than a name too small to read (the author,
+  2026-10-08). At 16px every name fits on the 9-space board; on the 10,
+  Goopkeeper and Kindlefinger spill by a pixel a side. Nothing clips:
+  `.space` is not `overflow: hidden`, so a badge may hang over its
+  edge.
 - **No cards on the field.** Hovering a meeple (or a bench card) shows
   its printed card beside it, `player_card_png` in the face the mode
   plays; a press and hold does it on a touch screen. Clicking the card

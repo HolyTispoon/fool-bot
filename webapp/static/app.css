@@ -1467,6 +1467,7 @@ button.goal { display: block; }
 /* Drawn on the 1200px field and scaled down with it, so larger than
    the page's own text to read at the scale a laptop shows it. */
 .fan-name { font-size: 20px; font-weight: 700; color: var(--strong); }
+.fan-name.past-ball { transform: translateX(var(--nudge, 0px)); }
 .fan-name.lit { color: var(--gold); }
 .chip {
   display: inline-flex;
@@ -1507,7 +1508,32 @@ button.goal { display: block; }
   line-height: 1;
   color: var(--gold);
 }
-.badge.condition { border-radius: 50%; padding: 2px; }
+/* The condition as a tag the size of the token count beside it, and
+   squarer: its word short, in the emoji's own colour -- damaged lifted
+   from the emoji's #b01848, which is too dark to read on the badge. */
+.badge.condition {
+  border-radius: 4px;
+  padding: 1px 3px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+}
+/* A visiting holder's two badges, the count then the condition, in
+   one row ending at its right edge: its ball has the bottom left. Too
+   wide for the span (the phone's narrow field), the row runs on past
+   the edge rather than back under the ball. */
+.badge-row {
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  justify-content: safe flex-end;
+  gap: 2px;
+}
+.badge-row .badge { position: static; }
+.badge.condition.injured { color: #ff3400; }
+.badge.condition.damaged { color: #e8457a; }
+.badge.condition.exhausted { color: #ffb000; }
+.badge.condition.drained { color: #00b8b8; }
 
 /* The ball: the d12 showing its speed on a dark ring, on its holder,
    or larger at the centre of the empty space it is loose on. */
@@ -1856,7 +1882,7 @@ button.goal { display: block; }
   .stage.narrow .lane.visiting { padding-top: 0; }
   .stage.narrow .badge img { width: 9px; height: 9px; }
   .stage.narrow .badge.tokens { font-size: 8px; padding: 0 3px 0 1px; border-radius: 6px; }
-  .stage.narrow .badge.condition { padding: 1px; }
+  .stage.narrow .badge.condition { font-size: 7px; line-height: 9px; padding: 0 2px; border-radius: 2px; }
   .stage.narrow .band { height: 12px; font-size: 7px; letter-spacing: 0.5px; border-radius: 3px; }
   .stage.narrow .ball-button.lit { box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(240, 178, 50, 0.55); }
   .stage.narrow .die.ringed { padding: 1px; }

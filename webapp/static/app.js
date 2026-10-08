@@ -1127,21 +1127,31 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
         meeple(piece, layout, { controls: marks[piece.id], narrow }),
       ),
     );
-    over.push(...badges(piece, piece.x, y, W, H));
-    if (one.ball && one.ball.holder === piece.id) {
+    const holds = Boolean(one.ball && one.ball.holder === piece.id);
+    /* A visiting holder's ball is at its foot, where the condition
+       would go, so the condition moves over to the right, after the
+       count: the two right-aligned between the ball and the piece's
+       right edge. */
+    const foot = holds && side !== "home"
+      ? { from: piece.x + (narrow ? 7 : 14), to: piece.x + W + (narrow ? 4 : 8) }
+      : null;
+    over.push(...badges(piece, piece.x, y, W, H, { foot }));
+    if (holds) {
       /* Off the top right of a home holder, almost touching the
-         shoulder; off the bottom left of a visiting one, over the edge
-         by the foot. */
-      /* Narrow, the space has no room beside the piece: the ball sits
-         on its shoulder, inside the space, rather than off it. */
+         shoulder; off the bottom left of a visiting one, low by the
+         foot and over the edge (the author, 2026-10-08). */
+      /* Narrow, the space has no room beside a home piece: the ball
+         sits on its shoulder, inside the space, rather than off it. A
+         visiting one's is off its foot as on the field (the author,
+         2026-10-08). */
       const size = narrow ? 16 : 30;
       const place = narrow
         ? side === "home"
           ? `left: ${piece.x + W - size}px; top: ${y - size * 0.5}px`
-          : `left: ${piece.x}px; top: ${y + H - size}px`
+          : `left: ${piece.x - size * 0.6}px; top: ${y + H - size * 0.6}px`
         : side === "home"
           ? `left: ${piece.x + W * 0.66}px; top: ${y - 22}px`
-          : `left: ${piece.x - 18}px; top: ${y + H - 30}px`;
+          : `left: ${piece.x - 18}px; top: ${y + H - 20}px`;
       over.push(h("span", { class: "held-ball", style: place }, ball(one.ball.speed, size, { lit: true })));
     }
   });
@@ -1150,18 +1160,24 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
     box.style.height = `${tall}px`;
     return box;
   }
-  /* Names front first, each centred under its own piece. */
+  /* Names front first, each centred under its own piece -- but a
+     visiting holder's starts past its ball, low by the foot, which
+     would cover the first letters (the author, 2026-10-08), and a
+     little lower, clear of it, for a name too long for the space to
+     let it start that far right. */
   let line = tall + 4;
   const byId = Object.fromEntries(drawn.pieces.map((p) => [p.id, p]));
   for (const id of drawn.names) {
     const piece = byId[id];
     const lit = id in marks;
     const held = Boolean(picked && picked.key === `player:${id}`);
+    const pastBall = side !== "home" && one.ball && one.ball.holder === id;
+    if (pastBall) line += 8;
     over.push(h(
       "span",
       {
-        class: `fan-name${lit || held ? " lit" : ""}`,
-        style: `left: ${piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
+        class: `fan-name${lit || held ? " lit" : ""}${pastBall ? " past-ball" : ""}`,
+        style: `left: ${pastBall ? piece.x + 14 : piece.x + W / 2}px; top: ${line}px${lit ? "; z-index: 46" : ""}`,
       },
       piece.name,
     ));
@@ -1172,17 +1188,31 @@ function fanOf(one, side, layout, marks = {}, narrow = false) {
   return box;
 }
 
+/* The word on a condition's badge: the emoji's own word is too small
+   to read at a badge's size, so the tag says it short, in the emoji's
+   colour, the size of the token count (the author, 2026-10-08). */
+const CONDITION_TAGS = {
+  injured: "INJ",
+  damaged: "DMG",
+  exhausted: "EXH",
+  drained: "DRN",
+};
+
 /* A piece's badges, over it wherever it stands (a fan on a space, the
-   sideline): the exhaustion token and its count off the bottom right,
-   the condition off the bottom left -- the emoji `board.py` names. */
-function badges(piece, x, y, W, H) {
+   sideline), both down at its feet: the exhaustion token and its count
+   off the bottom right, and the condition `board.py` names, as its
+   word, off the bottom left -- or, when the ball is at the piece's
+   foot and would cover it (`foot`, the span between the ball and the
+   piece's right edge), on the right after the count, the two in one
+   row. */
+function badges(piece, x, y, W, H, { foot = null } = {}) {
   const over = [];
   if (piece.exhaustion) {
     over.push(h(
       "span",
       {
         class: "badge tokens",
-        style: `left: ${x + W * 0.62}px; top: ${y + H * 0.68}px`,
+        style: foot ? "" : `left: ${x + W * 0.62}px; top: ${y + H * 0.68}px`,
         title: `${piece.exhaustion.count} ${piece.exhaustion.emoji === "exhaust" ? "exhaustion" : "drain"}`,
       },
       h("img", { src: `/emoji/${piece.exhaustion.emoji}.png`, alt: "" }),
@@ -1193,12 +1223,18 @@ function badges(piece, x, y, W, H) {
     over.push(h(
       "span",
       {
-        class: "badge condition",
-        style: `left: ${x - 8}px; top: ${y + H - 14}px`,
+        class: `badge condition ${piece.condition}`,
+        style: foot ? "" : `left: ${x - W * 0.1}px; top: ${y + H * 0.68}px`,
         title: piece.condition[0].toUpperCase() + piece.condition.slice(1),
       },
-      h("img", { src: `/emoji/${piece.condition}.png`, alt: piece.condition }),
+      CONDITION_TAGS[piece.condition],
     ));
+  }
+  if (foot && over.length) {
+    return [h("span", {
+      class: "badge-row",
+      style: `left: ${foot.from}px; width: ${foot.to - foot.from}px; top: ${y + H * 0.68}px`,
+    }, ...over)];
   }
   return over;
 }
@@ -1502,20 +1538,34 @@ function watchFit(box) {
   fit(box);
 }
 
-/* A name is centred under its own piece and kept inside its space,
-   which clips whatever is left over: nothing on the field leaves the
-   space it stands on. Measured in layout pixels, before the stage's
-   scale, so it is the same on every screen. */
+/* The smallest a name on the field is shrunk to, in the field's own
+   pixels (its size is 20): a long name is shrunk to fit its space as
+   far as this and no further, since spilling a little over the edge
+   reads better than a name too small to read (the author, 2026-10-08). */
+const NAME_FLOOR = 16;
+
+/* A name is centred under its own piece (or starts past the ball, on
+   a visiting holder) and kept inside its space -- shrunk to fit if it
+   is too wide, down to `NAME_FLOOR`, and past that centred on the
+   space so it spills over both edges alike. Measured in layout pixels,
+   before the stage's scale, so it is the same on every screen. */
 function clampNames(root) {
   for (const name of root.querySelectorAll(".fan-name")) {
     name.style.setProperty("--nudge", "0px");
+    name.style.fontSize = "";
     const fan = name.offsetParent;
     const space = name.closest(".space");
     if (!fan || !space || !name.offsetWidth) continue;
-    const left = fan.offsetLeft + name.offsetLeft - name.offsetWidth / 2;
+    const room = space.clientWidth - 8;
+    if (name.offsetWidth > room) {
+      const size = parseFloat(getComputedStyle(name).fontSize);
+      name.style.fontSize = `${Math.max(NAME_FLOOR, size * room / name.offsetWidth)}px`;
+    }
+    const centred = !name.classList.contains("past-ball");
+    const left = fan.offsetLeft + name.offsetLeft - (centred ? name.offsetWidth / 2 : 0);
     const least = 4;
     const most = space.clientWidth - 4 - name.offsetWidth;
-    const nudge = Math.max(least, Math.min(left, most)) - left;
+    const nudge = (most < least ? (space.clientWidth - name.offsetWidth) / 2 : Math.max(least, Math.min(left, most))) - left;
     name.style.setProperty("--nudge", `${nudge}px`);
   }
 }
