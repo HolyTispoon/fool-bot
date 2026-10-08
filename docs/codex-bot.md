@@ -774,10 +774,13 @@ Four commits, in this order.
    under scripts/, list them for the author in the PR, and let the
    resolver pick each up by name once it is uploaded, the way
    cogs/d12ball_helpers.py's loaders fall back. One is there already:
-   codex/images/emoji/codex.png, the Codex plaque cut from the
-   publisher's banner on 2026-10-07 (128 px, transparent outside the
-   plate), the bot's own mark -- the {codex} token the lobby and the
-   turn message open with; the author uploads it to the application
+   codex/images/emoji/codex.png, the medallion from the back of every
+   card -- the gold ring, the six gems and the pyramid -- cut from the
+   Screentop module's "Card Backs" sheet (@GRAG/Codex, read through
+   api.screentop.gg as docs/design/tts-module.md's memory of the D12
+   Ball module describes) on 2026-10-07, 128 px with transparent
+   surroundings, the bot's own mark -- the {codex} token the lobby and
+   the turn message open with; the author uploads it to the application
    by hand like the rest. Every token is rendered
    at the cog's door, never in the model.
 
