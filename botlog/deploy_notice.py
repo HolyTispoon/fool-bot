@@ -22,7 +22,6 @@ landed, so a failed post retries on the next start instead of being
 swallowed.
 """
 
-import os
 import re
 import socket
 import subprocess
@@ -31,6 +30,7 @@ from pathlib import Path
 from typing import Optional
 
 import botstate
+from botlog import settings
 
 
 # The repository the running code was imported from; botlog/ lives one
@@ -38,7 +38,10 @@ import botstate
 REPO_DIR = Path(__file__).resolve().parents[1]
 
 # The file botstate.py owns; named here too because the tests and the
-# functions below take it as an argument.
+# functions below take it as an argument. It is fool-bot's: a bot that
+# keeps its own (the Codex bot's data/codex_bot_state.json) names it to
+# botlog.configure_logging, and the two functions below read it from
+# botlog.settings when they are given none.
 STATE_FILE = botstate.STATE_FILE
 
 # The key in that file holding the sha of the build already announced.
@@ -113,7 +116,7 @@ def notices_enabled() -> bool:
     False when FOOLBOT_DEPLOY_NOTICE is set to an off-ish value, the
     same escape hatch FOOLBOT_LOG_CHANNEL_LEVEL has. On by default.
     """
-    raw = os.environ.get("FOOLBOT_DEPLOY_NOTICE", "").strip().lower()
+    raw = settings.env("DEPLOY_NOTICE").strip().lower()
 
     return raw not in ("0", "off", "no", "none", "false", "disabled")
 
@@ -193,7 +196,7 @@ def host_name() -> str:
     Empty string, never a raise, if the host cannot be named: the notice
     goes without it.
     """
-    override = os.environ.get("FOOLBOT_HOST_NAME", "").strip()
+    override = settings.env("HOST_NAME").strip()
 
     if override:
         return override
@@ -423,6 +426,7 @@ def deploy_message(
     changes: Optional[Changes],
     first_run: bool = False,
     host: str = "",
+    bot_name: str = "",
 ) -> str:
     """
     The posted text: what is running now, then what changed.
@@ -432,11 +436,14 @@ def deploy_message(
     rollback, a force-push). Both say so rather than implying an empty
     deploy. first_run is the no-previous-build case -- the very deploy
     that ships this feature -- where a change list would be the whole
-    history. host names the machine, and is left out when empty.
+    history. host names the machine, and is left out when empty;
+    bot_name names the bot that restarted ("Codex bot"), since two run
+    from one checkout and post to one channel, and "Bot" stands in when
+    it is empty.
     """
     where = _inline(host, MAX_HOST_LENGTH)
     lines = [
-        f"**Bot restarted**{f' on `{where}`' if where else ''} -- now "
+        f"**{bot_name or 'Bot'} restarted**{f' on `{where}`' if where else ''} -- now "
         f"running `{build.short}` {_clean(build.subject)}"
     ]
 
@@ -507,20 +514,21 @@ def notice_for(
 
     return build.sha, deploy_message(
         build, changes, first_run=previous is None, host=host_name(),
+        bot_name=settings.bot_name(),
     )
 
 
-def last_announced(state_file: Path = STATE_FILE) -> Optional[str]:
+def last_announced(state_file: Optional[Path] = None) -> Optional[str]:
     """
     The sha already announced, or None if this machine has never posted
     a notice. A missing or unreadable state file is a first run, not an
     error: the cost of being wrong is one extra notice.
     """
-    return botstate.read_key(LAST_SHA_KEY, state_file)
+    return botstate.read_key(LAST_SHA_KEY, state_file or settings.state_file())
 
 
-def mark_announced(sha: str, state_file: Path = STATE_FILE) -> None:
+def mark_announced(sha: str, state_file: Optional[Path] = None) -> None:
     """
     Record `sha` as announced, so the next restart on it says nothing.
     """
-    botstate.write_key(LAST_SHA_KEY, sha, state_file)
+    botstate.write_key(LAST_SHA_KEY, sha, state_file or settings.state_file())

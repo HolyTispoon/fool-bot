@@ -46,12 +46,12 @@ from .env like DISCORD_TOKEN:
 
 import asyncio
 import logging
-import os
+from pathlib import Path
 from typing import Optional
 
 import discord
 
-from botlog import deploy_notice, gateway
+from botlog import deploy_notice, gateway, settings
 from botlog.channel import (
     DEFAULT_LOG_CHANNEL_NAME,
     ensure_log_channel,
@@ -82,6 +82,7 @@ __all__ = [
     "log_target_guild",
     "mirror_enabled",
     "post_notice",
+    "settings",
     "start_mirror",
 ]
 
@@ -107,7 +108,7 @@ def console_level() -> int:
     The console threshold, from FOOLBOT_LOG_LEVEL (default INFO). An
     unrecognised name falls back to INFO rather than silencing the bot.
     """
-    raw = os.environ.get("FOOLBOT_LOG_LEVEL", "").strip().upper()
+    raw = settings.env("LOG_LEVEL").strip().upper()
 
     if not raw:
         return DEFAULT_CONSOLE_LEVEL
@@ -117,9 +118,19 @@ def console_level() -> int:
     return level if isinstance(level, int) else DEFAULT_CONSOLE_LEVEL
 
 
-def configure_logging() -> None:
+def configure_logging(
+    prefix: str = settings.DEFAULT_PREFIX,
+    bot_name: str = "",
+    state_file: Optional[Path] = None,
+) -> None:
     """
     Set up console logging for the whole process, once.
+
+    prefix, bot_name and state_file say which bot this process is
+    (botlog/settings.py): the variables it reads (`CODEX_LOG_LEVEL`,
+    falling back to `FOOLBOT_LOG_LEVEL`), the name its notices say, and
+    the file its deploy notice remembers the last build in. The defaults
+    are fool-bot's as it always was.
 
     discord.py normally does this itself inside bot.run, but only for
     its own logger, which would leave the bot's own log calls going
@@ -139,6 +150,7 @@ def configure_logging() -> None:
     if _console_handler is not None:
         return
 
+    settings.configure(prefix, bot_name, state_file)
     level = console_level()
     handler = logging.StreamHandler()
     discord.utils.setup_logging(handler=handler, level=level, root=True)
@@ -166,9 +178,10 @@ def install_mirror() -> Optional[DiscordLogChannelHandler]:
         # Console-only is the default, so say why: the alternative is a
         # developer reading the silence as the mirror being broken.
         LOGGER.info(
-            "Not posting to #%s from this bot: FOOLBOT_LOG_MIRROR is not "
+            "Not posting to #%s from this bot: %s is not "
             "set. Logging to the console only.",
             log_channel_name(),
+            settings.variable("LOG_MIRROR"),
         )
         return None
 
@@ -182,7 +195,7 @@ def install_mirror() -> Optional[DiscordLogChannelHandler]:
     # dropped connection is worth reading about, and the point of the
     # filter is that those records go there and stop there. See
     # botlog/gateway.py.
-    _gateway_filter = GatewayReconnectFilter()
+    _gateway_filter = GatewayReconnectFilter(bot_name=settings.bot_name())
     handler.addFilter(_gateway_filter)
     root = logging.getLogger()
     root.addHandler(handler)
@@ -305,7 +318,10 @@ async def announce_gateway_recovery(client: discord.Client) -> None:
     await post_notice(client, recovery)
 
 
-async def announce_startup(client: discord.Client) -> None:
+async def announce_startup(
+    client: discord.Client,
+    state_file: Optional[Path] = None,
+) -> None:
     """
     Post the "now running this build" notice, if this build has not been
     announced already. Silent on a restart of the same commit -- see
@@ -320,12 +336,15 @@ async def announce_startup(client: discord.Client) -> None:
     every reconnect for a message it is never going to send -- and
     leaves the sha unmarked, so the real bot still announces the build
     when it comes to it.
+
+    state_file is where the announced sha is kept; by default the one
+    configure_logging named, which is fool-bot's unless it named another.
     """
     if not mirror_enabled():
         return
 
     try:
-        previous = deploy_notice.last_announced()
+        previous = deploy_notice.last_announced(state_file)
         # git is a subprocess; keep it off the event loop.
         pending = await asyncio.to_thread(deploy_notice.notice_for, previous)
 
@@ -339,6 +358,6 @@ async def announce_startup(client: discord.Client) -> None:
             return
 
         await channel.send(message)
-        deploy_notice.mark_announced(sha)
+        deploy_notice.mark_announced(sha, state_file)
     except Exception:
         LOGGER.exception("Could not post the startup notice.")

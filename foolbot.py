@@ -1,159 +1,61 @@
-import hashlib
-import json
 import logging
 import os
 import random
-from typing import Optional
 from dotenv import load_dotenv
 import discord
-from discord import app_commands
-from discord.ext import commands
 
 import botlog
 import botstate
+import gamebot
+# Re-exported, as the names tests/test_command_sync.py patches on this
+# module; the class and the gate are gamebot.py's.
+from gamebot import COMMAND_FINGERPRINT_KEY, command_tree_fingerprint
 
 load_dotenv()
 
 # Before anything logs, and before the mirror is attached to the root
 # logger. See botlog/__init__.py for the environment variables involved.
-botlog.configure_logging()
+botlog.configure_logging(prefix="FOOLBOT", bot_name="fool-bot")
 LOGGER = logging.getLogger(__name__)
 log_mirror = botlog.install_mirror()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# The key in data/bot_state.json holding a digest of the command tree
-# last successfully registered with Discord, beside the deploy notice's
-# sha and local for the same reason.
-COMMAND_FINGERPRINT_KEY = "command_tree_fingerprint"
-
-def command_tree_fingerprint(
-    tree: app_commands.CommandTree,
-) -> Optional[str]:
-    """
-    A digest of exactly what `tree.sync()` would upload, or None when
-    that cannot be worked out -- in which case the caller should sync,
-    which is what it did unconditionally before this existed.
-
-    It hashes the payload rather than a list of command names because
-    the payload is what Discord actually stores: renaming a parameter
-    or editing a description changes it, and those are exactly the
-    changes that look like nothing has happened until someone notices
-    the old description still in the client.
-
-    `_get_all_commands` is private, and reproducing sync()'s payload is
-    the only way to be sure the digest covers everything it sends --
-    so anything at all going wrong here returns None and syncs, rather
-    than risking a fingerprint that matches while the commands differ.
-    A translator would rewrite the payload after this point, so its
-    presence is the same kind of "cannot tell": this bot sets none.
-    """
-    if tree.translator is not None:
-        return None
-
-    try:
-        payload = [
-            command.to_dict(tree)
-            for command in tree._get_all_commands(guild=None)
-        ]
-        encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
-    except Exception as error:
-        LOGGER.info(
-            "Could not fingerprint the command tree (%r); syncing it.",
-            error,
-        )
-        return None
-
-    return hashlib.sha256(encoded).hexdigest()
+EXTENSIONS = ("cogs.coins", "cogs.d12ball", "cogs.tethysdeck", "cogs.debug")
+COMMAND_SYNC_VARIABLE = "FOOLBOT_COMMAND_SYNC"
 
 
 def command_sync_forced() -> bool:
+    """True when FOOLBOT_COMMAND_SYNC asks for a sync regardless of the
+    fingerprint (gamebot.command_sync_forced)."""
+    return gamebot.command_sync_forced(COMMAND_SYNC_VARIABLE)
+
+
+class GameBot(gamebot.GameBot):
     """
-    True when FOOLBOT_COMMAND_SYNC asks for a sync regardless of the
-    fingerprint -- the way back in when Discord's copy and this
-    checkout's have drifted apart some other way, such as commands
-    edited from a second checkout or a sync that was recorded as done
-    and was not.
+    fool-bot: the four extensions, data/bot_state.json, and the
+    message-content intent, which a game channel's export needs to show
+    the players' chat.
     """
-    raw = os.environ.get("FOOLBOT_COMMAND_SYNC", "").strip().lower()
 
-    return raw in ("always", "force", "on", "1", "yes")
-
-
-class GameBot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.default()
-        # Privileged, off by default. Without it, message.content on a
-        # message the bot did not author is stripped to "" unless the
-        # message is a DM or mentions the bot -- so a game channel's
-        # export shows every bot post's text but every player chat line
-        # as blank, which is indistinguishable from the channel having
-        # said nothing there. Must also be toggled on for this
-        # application in the Discord Developer Portal (Bot -> Privileged
-        # Gateway Intents -> Message Content Intent), or the gateway
-        # rejects the connection.
-        intents.message_content = True
-
         super().__init__(
-            command_prefix=commands.when_mentioned,
-            intents=intents,
+            extensions=EXTENSIONS,
+            state_file=None,
+            sync_variable=COMMAND_SYNC_VARIABLE,
+            message_content=True,
         )
 
-    async def setup_hook(self):
-        LOGGER.info("Loading coins extension...")
-        await self.load_extension("cogs.coins")
-        LOGGER.info("Coins extension loaded.")
-
-        LOGGER.info("Loading D12 Ball extension...")
-        await self.load_extension("cogs.d12ball")
-        LOGGER.info("Extension loaded.")
-
-        LOGGER.info("Loading Tethys deck extension...")
-        await self.load_extension("cogs.tethysdeck")
-        LOGGER.info("Tethys deck extension loaded.")
-
-        LOGGER.info("Loading debug extension...")
-        await self.load_extension("cogs.debug")
-        LOGGER.info("Debug extension loaded.")
-
-        await self.sync_commands_if_changed()
-
     async def sync_commands_if_changed(self) -> None:
-        """
-        Register the global command tree with Discord, but only when it
-        differs from the one last registered from this checkout.
-
-        Registering global commands is among the more heavily rate
-        limited things a bot can do, and setup_hook runs on every
-        process start -- which across a day of testing is dozens of
-        starts, every one of them uploading a command list identical to
-        the last. Nothing about the commands had changed; the requests
-        were the whole cost.
-
-        The fingerprint is only written once the sync has actually
-        landed, the same way the deploy notice only records a sha once
-        the post has gone out: a sync that raised has not happened, and
-        the next start should try it again.
-        """
-        fingerprint = command_tree_fingerprint(self.tree)
-        forced = command_sync_forced()
-
-        if (
-            fingerprint is not None
-            and not forced
-            and fingerprint == botstate.read_key(COMMAND_FINGERPRINT_KEY)
-        ):
-            LOGGER.info(
-                "The command tree is unchanged since the last sync; not "
-                "syncing. Set FOOLBOT_COMMAND_SYNC=always to sync anyway.",
-            )
-            return
-
-        synced = await self.tree.sync()
-        LOGGER.info("Synced %d commands.", len(synced))
-
-        if fingerprint is not None:
-            botstate.write_key(COMMAND_FINGERPRINT_KEY, fingerprint)
+        # This module's names and botstate's default file, read at call
+        # time, so the sync gate's tests can stand each in.
+        await gamebot.sync_command_tree(
+            self.tree,
+            fingerprint=command_tree_fingerprint(self.tree),
+            forced=command_sync_forced(),
+            state_file=botstate.STATE_FILE,
+            sync_variable=COMMAND_SYNC_VARIABLE,
+        )
 
 bot = GameBot()
 

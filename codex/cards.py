@@ -164,6 +164,40 @@ class CardCatalog:
                 return hero
         raise KeyError(spec)
 
+    def search(self, query: str, limit: int = 25) -> list[str]:
+        """
+        The slugs whose name or slug holds `query`, case-insensitively:
+        an exact name or slug first, then names that start with it, then
+        the rest, each by name. Every card, token, building and hero is
+        searched -- what `/codex card` offers and looks up.
+        """
+        needle = query.strip().lower()
+        everything = [*self.cards.values(), *self.heroes.values()]
+        if not needle:
+            return sorted((card.slug for card in everything), key=self.name)[:limit]
+
+        def rank(card: Card | Hero) -> int | None:
+            name = card.name.lower()
+            if needle in (name, card.slug):
+                return 0
+            if name.startswith(needle):
+                return 1
+            if needle in name or needle.replace(" ", "_") in card.slug:
+                return 2
+            return None
+
+        ranked = [(rank(card), card.name, card.slug) for card in everything]
+        return [slug for order, _, slug in sorted(r for r in ranked if r[0] is not None)][:limit]
+
+    def find(self, query: str) -> Optional[str]:
+        """The one slug `query` means -- an exact name or slug, or the
+        only search result -- or None."""
+        found = self.search(query, limit=2)
+        if found and (len(found) == 1 or self.name(found[0]).lower() == query.strip().lower()
+                      or found[0] == query.strip().lower()):
+            return found[0]
+        return None
+
     def token(self, slug: str) -> Card:
         card = self.cards[slug]
         if card.kind != KIND_TOKEN:
