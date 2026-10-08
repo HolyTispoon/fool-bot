@@ -21,7 +21,7 @@ from cogs.codex_helpers import (
     channel_name,
     codex_games_category,
 )
-from cogs.codex_views import TurnMessageView, hand_caption, hand_file
+from cogs.codex_views import TurnMessageView, hand_caption, hand_file, side_label
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,13 +48,34 @@ class PresentationMixin:
             return
         await self.boards.refresh(channel, game, png)
 
+    def bot_access(self) -> discord.PermissionOverwrite:
+        """The bot's own place in a game's channel: it writes, pins, and
+        manages the channel, to rename it at Start and archive it later."""
+        return discord.PermissionOverwrite(
+            view_channel=True, send_messages=True, read_message_history=True,
+            manage_channels=True, manage_messages=True, attach_files=True,
+        )
+
+    def lobby_channel_overwrites(self, guild: discord.Guild,
+                                 bot_member: discord.Member) -> dict:
+        """
+        A lobby's channel is open to the whole server -- anyone can look
+        in, talk, and take a seat -- as D12 Ball's lobby channels are.
+        Start swaps these for `game_channel_overwrites`.
+        """
+        return {
+            guild.default_role: discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, read_message_history=True,
+            ),
+            bot_member: self.bot_access(),
+        }
+
     def game_channel_overwrites(self, guild: discord.Guild, game: CodexGame,
                                 bot_member: discord.Member) -> dict:
         """
         Anyone in the server may read a game's channel (the author,
         2026-10-08: the hands are ephemeral, so a watcher sees the table
-        and nothing more); the two players and the bot may write in it,
-        and the bot may manage it, to archive it later.
+        and nothing more); the two players and the bot may write in it.
         """
         def player() -> discord.PermissionOverwrite:
             return discord.PermissionOverwrite(
@@ -65,25 +86,26 @@ class PresentationMixin:
             guild.default_role: discord.PermissionOverwrite(
                 view_channel=True, send_messages=False, read_message_history=True,
             ),
-            bot_member: discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, read_message_history=True,
-                manage_channels=True, manage_messages=True, attach_files=True,
-            ),
+            bot_member: self.bot_access(),
         }
         for player_id in {game.player_1_id, game.player_2_id} - {None}:
             overwrites[discord.Object(id=player_id, type=discord.Member)] = player()
         return overwrites
 
     async def create_game_channel(self, guild: discord.Guild, game: CodexGame) -> discord.TextChannel:
-        """`codex-<n>-<p1>-vs-<p2>` under Codex Games. Every failure is a
-        `ValueError` carrying the sentence to show."""
+        """
+        The game's channel, made when the lobby opens: `codex-<n>` under
+        Codex Games, open to the server. The lobby is posted in it and
+        the game is played in it. Every failure is a `ValueError`
+        carrying the sentence to show.
+        """
         bot_member = guild.me
         try:
             category = await codex_games_category(guild)
             return await guild.create_text_channel(
                 name=channel_name(game),
                 category=category,
-                overwrites=self.game_channel_overwrites(guild, game, bot_member),
+                overwrites=self.lobby_channel_overwrites(guild, bot_member),
                 reason=f"Codex game {game.game_number}",
             )
         except discord.Forbidden:
@@ -92,6 +114,22 @@ class PresentationMixin:
             )
         except discord.HTTPException as error:
             raise ValueError(f"Discord could not create the channel: {error}")
+
+    async def lock_game_channel(self, channel: discord.TextChannel, game: CodexGame) -> None:
+        """
+        At Start, the lobby's channel becomes the game's in one edit: named
+        `codex-<n>-<p1>-vs-<p2>`, readable by the server and written in by
+        the two players. A failure is logged and the game goes on: it is
+        played in the channel either way.
+        """
+        try:
+            await channel.edit(
+                name=channel_name(game),
+                overwrites=self.game_channel_overwrites(channel.guild, game, channel.guild.me),
+                reason=f"Codex game {game.game_number} started",
+            )
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not set up the channel of Codex game %s: %s", game.game_id, error)
 
     async def post_turn_message(self, channel: discord.TextChannel, game: CodexGame) -> discord.Message:
         """
@@ -128,6 +166,7 @@ class PresentationMixin:
         """A player's hand pictured and their discard listed, **ephemeral
         to them alone** -- the first hidden thing the bot shows."""
         await interaction.response.send_message(
-            hand_caption(match, seat), file=await hand_file(self.engine, match, seat),
+            hand_caption(match, seat, side_label(game, match, seat)),
+            file=await hand_file(self.engine, match, seat),
             ephemeral=True,
         )

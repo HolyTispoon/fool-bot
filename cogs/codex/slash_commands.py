@@ -58,11 +58,12 @@ class SlashCommandsMixin:
         if game is None:
             await send_ephemeral(interaction, NO_GAME_HERE)
             return
-        seat = game.seat_of(interaction.user.id)
+        match = self.service.load(game)
+        seat = game.seat_for(interaction.user.id, match.active)
         if seat is None:
             await send_ephemeral(interaction, NOT_YOUR_TABLE)
             return
-        await self.send_hand(interaction, game, self.service.load(game), seat)
+        await self.send_hand(interaction, game, match, seat)
 
     @app_commands.command(name="resume", description="Put this channel's Codex table back up: the board and its buttons.")
     async def resume(self, interaction: discord.Interaction) -> None:

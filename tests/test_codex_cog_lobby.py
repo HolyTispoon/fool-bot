@@ -1,8 +1,8 @@
 """
 The Codex cog from `/codex lobby` to the opening board (docs/codex-bot.md,
-step 3), driven with Discord faked: the lobby posted, two seats taken,
-Start making the channel and posting the first turn's message pinned with
-its buttons, and **My hand** answered ephemerally with the clicker's own
+step 3), driven with Discord faked: the lobby posted in a channel of its
+own, two seats taken, Start setting that channel up for the game and
+posting the first turn's message pinned with its buttons, and **My hand** answered ephemerally with the clicker's own
 hand -- the first hidden thing the bot shows.
 
 Saves go through `suppressed_cog_saves`, which reaches the Codex service.
@@ -25,7 +25,7 @@ from cogs.codex import core as codex_core
 from cogs.codex_views import CodexBrowser, LobbyView, TurnMessageView
 from save_patches import suppressed_cog_saves
 
-GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20
+GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20  # typed in; the game's own
 LOBBY_MESSAGE, TURN_MESSAGE = 100, 555
 
 
@@ -55,19 +55,21 @@ def button(view: discord.ui.View, action: str) -> discord.ui.Button:
 
 
 class Table:
-    """The fakes one test plays through: a bot, a server, two channels."""
+    """The fakes one test plays through: a bot, a server, the channel the
+    command is typed in and the game's own."""
 
     def __init__(self) -> None:
         self.bot = mock.MagicMock()
-        self.lobby_channel = mock.MagicMock()
-        self.lobby_channel.get_partial_message.return_value.edit = mock.AsyncMock()
+        self.lobby_message = mock.MagicMock(id=LOBBY_MESSAGE)
         self.turn_message = mock.MagicMock(id=TURN_MESSAGE)
         self.turn_message.pin = mock.AsyncMock()
-        self.game_channel = mock.MagicMock(id=GAME_CHANNEL, mention=f"<#{GAME_CHANNEL}>")
-        self.game_channel.send = mock.AsyncMock(return_value=self.turn_message)
-        channels = {LOBBY_CHANNEL: self.lobby_channel, GAME_CHANNEL: self.game_channel}
-        self.bot.get_channel.side_effect = channels.get
         self.guild = mock.MagicMock(id=GUILD)
+        self.game_channel = mock.MagicMock(id=GAME_CHANNEL, mention=f"<#{GAME_CHANNEL}>")
+        self.game_channel.guild = self.guild
+        self.game_channel.send = mock.AsyncMock(side_effect=[self.lobby_message, self.turn_message])
+        self.game_channel.edit = mock.AsyncMock()
+        self.game_channel.get_partial_message.return_value.edit = mock.AsyncMock()
+        self.bot.get_channel.side_effect = {GAME_CHANNEL: self.game_channel}.get
         self.guild.categories = []
         self.guild.create_category = mock.AsyncMock(return_value=mock.MagicMock())
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.game_channel)
@@ -82,7 +84,7 @@ class Table:
         (game,) = self.cog.games.values()
         return game, call
 
-    async def click(self, view, action: str, who, channel_id: int = LOBBY_CHANNEL):
+    async def click(self, view, action: str, who, channel_id: int = GAME_CHANNEL):
         call = interaction(who, channel_id, guild=self.guild)
         await button(view, action).callback(call)
         return call
@@ -97,16 +99,34 @@ class Table:
 
 
 class LobbyTests(unittest.IsolatedAsyncioTestCase):
-    async def test_the_lobby_is_posted_where_the_command_is_called(self) -> None:
+    async def test_the_lobby_is_posted_in_a_channel_of_its_own(self) -> None:
         with suppressed_cog_saves():
             table = Table()
             game, call = await table.open_lobby()
-        (text,), kwargs = call.response.send_message.call_args
+        kwargs = table.guild.create_text_channel.call_args.kwargs
+        self.assertEqual(kwargs["name"], "codex-1")
+        self.assertEqual(table.guild.create_category.call_args.kwargs["name"], "Codex Games")
+        everyone = kwargs["overwrites"][table.guild.default_role]
+        self.assertTrue(everyone.view_channel)
+        self.assertTrue(everyone.send_messages)
+        (text,), sent = table.game_channel.send.call_args
         self.assertIn("Codex game 1", text)
-        self.assertIsInstance(kwargs["view"], LobbyView)
+        self.assertIsInstance(sent["view"], LobbyView)
         self.assertEqual(game.message_id, LOBBY_MESSAGE)
-        self.assertEqual(game.channel_id, LOBBY_CHANNEL)
+        self.assertEqual(game.channel_id, GAME_CHANNEL)
         self.assertIs(game.status, GameStatus.LOBBY)
+        # The person who asked is told where, privately.
+        self.assertIn(f"<#{GAME_CHANNEL}>", call.followup.send.call_args.args[0])
+        self.assertTrue(call.followup.send.call_args.kwargs["ephemeral"])
+
+    async def test_a_channel_that_cannot_be_made_opens_no_lobby(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            table.guild.create_text_channel.side_effect = discord.Forbidden(mock.MagicMock(status=403), "no")
+            call = interaction(table.basher, guild=table.guild)
+            await table.cog.lobby.callback(table.cog, call)
+        self.assertEqual(table.cog.games, {})
+        self.assertTrue(call.followup.send.call_args.kwargs["ephemeral"])
 
     async def test_taking_a_seat_edits_the_lobby_in_place(self) -> None:
         with suppressed_cog_saves():
@@ -134,7 +154,7 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
             await table.click(lobby, "bashing", table.basher)
             call = await table.click(lobby, "start", table.basher)
         self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
-        table.guild.create_text_channel.assert_not_awaited()
+        table.game_channel.edit.assert_not_awaited()
         self.assertIs(game.status, GameStatus.LOBBY)
 
     async def test_a_stranger_cannot_start(self) -> None:
@@ -156,16 +176,17 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
             game, start = await table.started()
 
         self.assertIs(game.status, GameStatus.PLAYING)
-        # The channel: codex-<n>-<p1>-vs-<p2>, under Codex Games.
-        kwargs = table.guild.create_text_channel.call_args.kwargs
-        self.assertEqual(kwargs["name"], "codex-1-basher-vs-fencer")
-        table.guild.create_category.assert_awaited_once()
-        self.assertEqual(table.guild.create_category.call_args.kwargs["name"], "Codex Games")
+        # The lobby's channel becomes the game's, in one edit: named for
+        # the players, and closed to everybody else's messages.
+        table.guild.create_text_channel.assert_awaited_once()
+        edited = table.game_channel.edit.call_args.kwargs
+        self.assertEqual(edited["name"], "codex-1-basher-vs-fencer")
+        self.assertFalse(edited["overwrites"][table.guild.default_role].send_messages)
         self.assertEqual(game.channel_id, GAME_CHANNEL)
 
-        # The first turn's message: the board, the turn's lines, the
-        # buttons; pinned.
-        table.game_channel.send.assert_awaited_once()
+        # The first turn's message, in the same channel: the board, the
+        # turn's lines, the buttons; pinned.
+        self.assertEqual(table.game_channel.send.await_count, 2)
         (text,), sent = table.game_channel.send.call_args
         first = game.player_1_name if table.cog.service.load(game).first == 1 else game.player_2_name
         self.assertIn("Turn 1", text)
@@ -176,10 +197,11 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
         table.turn_message.pin.assert_awaited_once()
         self.assertEqual(game.turn_message_id, TURN_MESSAGE)
 
-        # The lobby says where the game went, once.
-        edit = table.lobby_channel.get_partial_message.return_value.edit
+        # The lobby says the game has started, once, its buttons gone.
+        edit = table.game_channel.get_partial_message.return_value.edit
         edit.assert_awaited_once()
-        self.assertIn(f"<#{GAME_CHANNEL}>", edit.call_args.kwargs["content"])
+        self.assertIn("The game has started.", edit.call_args.kwargs["content"])
+        self.assertNotIn("Take a seat", edit.call_args.kwargs["content"])
         self.assertIsNone(edit.call_args.kwargs["view"])
         start.followup.send.assert_awaited()
 
@@ -247,6 +269,38 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(kwargs["view"], CodexBrowser)
         self.assertEqual(kwargs["view"].seat, 1)
         self.assertEqual(kwargs["file"].filename, "codex-everything.png")
+
+
+class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_one_person_plays_both_sides_and_sees_the_active_sides_hand(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            call = interaction(table.basher, guild=table.guild)
+            await table.cog.lobby.callback(table.cog, call, test_game=True)
+            (game,) = table.cog.games.values()
+            lobby = LobbyView(table.cog, game.game_id)
+            await table.click(lobby, "bashing", table.basher)
+            await table.click(lobby, "finesse", table.basher)
+            await table.click(lobby, "start", table.basher)
+            hand = await table.click(TurnMessageView(table.cog, game.game_id), "hand", table.basher)
+
+        self.assertTrue(game.test_game)
+        self.assertIs(game.status, GameStatus.PLAYING)
+        self.assertEqual(table.game_channel.edit.call_args.kwargs["name"], "codex-1-basher-vs-basher")
+        match = table.cog.service.load(game)
+        side = match.player(match.active).spec.title()
+        (caption,), kwargs = hand.response.send_message.call_args
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertIn(f"Your hand ({side})", caption)
+
+    async def test_the_lobby_says_it_is_a_test_game(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            await table.cog.lobby.callback(
+                table.cog, interaction(table.basher, guild=table.guild), test_game=True,
+            )
+        (text,), _ = table.game_channel.send.call_args
+        self.assertIn("test game", text)
 
 
 class SwapViewTests(unittest.IsolatedAsyncioTestCase):

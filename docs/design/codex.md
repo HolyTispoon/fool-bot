@@ -383,23 +383,42 @@ wherever a test builds one. The first save makes it.
 
 ## The lobby and the channel
 
-`/codex lobby` posts the lobby where it is called: a line per seat and
-**Play Bashing**, **Play Finesse**, **Leave**, **Start**, persistent
-(fixed custom ids carrying the game id), re-armed on startup. A seat
-taken or given up edits the lobby in place through the click's own
-response, which spends nothing from the channel's edit bucket. Start is
-either seated player's, or a game helper's -- the lobby asks no
-confirmation, as D12 Ball's does not.
+**`/codex lobby` opens the game's channel and posts the lobby in it**
+(the author, 2026-10-08, on trying step 3: the lobby belongs in the
+channel the game is played in). The worksheet's decision 10 had it
+posted where the command is typed; the author's later word governs.
+The channel is `codex-<n>` under **Codex Games**, created if missing,
+and open to the whole server -- anyone can look in, talk and take a
+seat -- as D12 Ball's lobby channels are; the person who typed the
+command is told where it is, privately. A channel that cannot be made
+opens no lobby. The lobby is a line per seat and **Play Bashing**,
+**Play Finesse**, **Leave**, **Start**, persistent (fixed custom ids
+carrying the game id), re-armed on startup. A seat taken or given up
+edits the lobby in place through the click's own response, which
+spends nothing from the channel's edit bucket. Start is either seated
+player's, or a game helper's -- the lobby asks no confirmation, as
+D12 Ball's does not.
 
-**Start makes the channel first**, so a refusal leaves the lobby as it
-was: `codex-<n>-<p1>-vs-<p2>`, capped at 100 characters, under **Codex
-Games**, created if missing. The categories are the Codex bot's own --
-**Codex Games** and **Codex Archive** -- not PBD's, whose names
-`/debug`'s reset and the pin rollover match and whose fifty-channel cap
-is D12 Ball's. Then the service deals and runs the first turn's ready
-phase and upkeep in one save, the first turn's message goes up in the
-new channel and is pinned, and the lobby is edited once to say where
-the game is.
+**A test game seats one person on both sides** (`/codex lobby
+test_game:True`, the author, 2026-10-08), as D12 Ball's test games do.
+The record's rules are what change: `take_seat` sits a person already
+seated down on the other side too rather than moving them, `leave`
+frees both seats, and `seats_of` reads both. A click acts for
+`seat_for(user, active)` -- the seat whose turn it is, where the clicker
+holds it -- so **My hand**, **Codex** and `/codex hand` show the side
+that is playing, and their captions name it. Nothing is hidden from one
+person playing both hands, so nothing more is needed; the tech choice
+on the other side's turn is step 4's to word.
+
+**Start turns that channel into the game's**, in one edit: renamed
+`codex-<n>-<p1>-vs-<p2>` (capped at 100 characters) and closed to
+everybody's messages but the players'. The service deals and runs the
+first turn's ready phase and upkeep in one save, the lobby is edited
+once to say the game has started, its buttons gone, and the first
+turn's message goes up under it, pinned. The categories are the Codex
+bot's own -- **Codex Games** and **Codex Archive** -- not PBD's, whose
+names `/debug`'s reset and the pin rollover match and whose
+fifty-channel cap is D12 Ball's.
 
 - **Anyone in the server may read the channel; the two players and the
   bot may write in it** (question 8 of the worksheet, the author,
@@ -416,6 +435,16 @@ the game is.
   It is the one file read across the line, and fool-bot only reads it.
   The line's wording is the author's to give; until then it is a
   placeholder.
+  Its heading carries the Codex medallion as **fool-bot's own**
+  application emoji, `codex` (`CODEX_HUB_EMOJI_NAME`), uploaded from
+  `codex/images/emoji/codex.png`: the Codex bot's upload belongs to the
+  Codex application and fool-bot cannot use it. `/d12ball setup_hub`
+  fetches it, so an upload takes without a restart.
+- **There is no button that fills in `/codex lobby`.** Discord gives a
+  bot no way to put text in somebody's message box: a button's click
+  goes only to the application that posted it, a link button only
+  opens a URL, and no URL prefills the composer. The command mention
+  is the one thing that does, and the hub carries it.
 
 ## Who may act, shared
 

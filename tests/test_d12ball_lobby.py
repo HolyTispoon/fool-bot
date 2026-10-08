@@ -772,6 +772,13 @@ class LobbyMessageTests(unittest.TestCase):
         self.assertNotIn("None", build_hub_message(None))
         self.assertNotIn("None", build_lobby_message(build_lobby_game(), None))
 
+    def test_codex_emoji_rides_the_codex_heading(self) -> None:
+        from cogs.d12ball_helpers import build_hub_message
+
+        emoji = "<:codex:123456789012345678>"
+        self.assertIn(f"### {emoji} Codex", build_hub_message(None, emoji))
+        self.assertIn("### Codex", build_hub_message(None, None))
+
     def test_hub_button_never_falls_back_to_the_blue_die(self) -> None:
         # The message-text d12 is uploaded but the cream cut is not: the
         # green button goes bare rather than carrying the blue die.

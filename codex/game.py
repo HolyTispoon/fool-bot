@@ -91,8 +91,18 @@ class CodexGame:
 
     # -- Reading the seats -------------------------------------------
 
+    def seats_of(self, user_id: Optional[int]) -> tuple[int, ...]:
+        """Every seat `user_id` holds: one, or both in a test game."""
+        if user_id is None:
+            return ()
+        return tuple(
+            seat for seat, held in ((1, self.player_1_id), (2, self.player_2_id))
+            if held == user_id
+        )
+
     def seat_of(self, user_id: Optional[int]) -> Optional[int]:
-        """The seat `user_id` holds, 1 or 2, or `None`."""
+        """The seat `user_id` holds, 1 or 2, or `None` -- the first of
+        the two where a test game seats one person in both (`seats_of`)."""
         if user_id is None:
             return None
         if user_id == self.player_1_id:
@@ -100,6 +110,16 @@ class CodexGame:
         if user_id == self.player_2_id:
             return 2
         return None
+
+    def seat_for(self, user_id: Optional[int], active: int) -> Optional[int]:
+        """
+        The seat a click of `user_id`'s acts for: their seat -- or, in a
+        test game where they hold both, the one whose turn it is.
+        """
+        seats = self.seats_of(user_id)
+        if active in seats:
+            return active
+        return seats[0] if seats else None
 
     def seat_name(self, seat: int) -> Optional[str]:
         return self.player_1_name if seat == 1 else self.player_2_name
@@ -113,8 +133,9 @@ class CodexGame:
     def take_seat(self, user_id: int, user_name: Optional[str], spec: str) -> int:
         """
         Sit down to play `spec`. A seated player choosing the other spec
-        moves to it while it is free. The first to sit holds seat 1.
-        Returns the seat taken.
+        moves to it while it is free -- except in a **test game**, where
+        they sit down on that side too, and play both. The first to sit
+        holds seat 1. Returns the seat taken.
         """
         self._require_lobby()
         spec = spec.lower()
@@ -128,7 +149,7 @@ class CodexGame:
             raise RuleRefusal("You are already playing that side.")
         if holder is not None:
             raise RuleRefusal("Somebody is already playing that side.")
-        if mine is not None:
+        if mine is not None and not self.test_game:
             self.player_specs[mine] = spec
             return mine
         if self.player_1_id is None:
@@ -147,16 +168,18 @@ class CodexGame:
         return seat
 
     def leave(self, user_id: int) -> None:
-        """Give up a seat in the lobby."""
+        """Give up a seat in the lobby -- both, in a test game where one
+        person holds the two."""
         self._require_lobby()
-        seat = self.seat_of(user_id)
-        if seat is None:
+        seats = self.seats_of(user_id)
+        if not seats:
             raise RuleRefusal("You are not seated in this lobby.")
-        if seat == 1:
-            self.player_1_id, self.player_1_name = None, None
-        else:
-            self.player_2_id, self.player_2_name = None, None
-        self.player_specs.pop(seat, None)
+        for seat in seats:
+            if seat == 1:
+                self.player_1_id, self.player_1_name = None, None
+            else:
+                self.player_2_id, self.player_2_name = None, None
+            self.player_specs.pop(seat, None)
 
     def may_start(self) -> bool:
         """Both seats taken, each with its spec, in a lobby."""

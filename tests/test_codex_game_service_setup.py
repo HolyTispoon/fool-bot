@@ -282,3 +282,45 @@ class StorageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGameTests(unittest.TestCase):
+    """A test game: one person takes both seats and plays both sides."""
+
+    def test_one_person_may_take_both_seats_and_start(self) -> None:
+        svc, saves = service()
+        game = svc.create_game(guild_id=1, test_game=True)
+        svc.take_seat(game.game_id, 101, "me", "bashing")
+        svc.take_seat(game.game_id, 101, "me", "finesse")
+        self.assertEqual((game.player_1_id, game.player_2_id), (101, 101))
+        self.assertEqual(game.player_specs, {1: "bashing", 2: "finesse"})
+        self.assertEqual(game.seats_of(101), (1, 2))
+        result = svc.start(game.game_id)
+        self.assertIs(result.prompt.kind, PromptKind.MAIN_ACTION)
+
+    def test_the_seat_a_click_acts_for_is_the_one_whose_turn_it_is(self) -> None:
+        svc, _ = service()
+        game = svc.create_game(guild_id=1, test_game=True)
+        svc.take_seat(game.game_id, 101, "me", "bashing")
+        svc.take_seat(game.game_id, 101, "me", "finesse")
+        self.assertEqual(game.seat_for(101, 2), 2)
+        self.assertEqual(game.seat_for(101, 1), 1)
+        self.assertIsNone(game.seat_for(999, 1))
+
+    def test_leaving_a_test_game_frees_both_seats(self) -> None:
+        svc, _ = service()
+        game = svc.create_game(guild_id=1, test_game=True)
+        svc.take_seat(game.game_id, 101, "me", "bashing")
+        svc.take_seat(game.game_id, 101, "me", "finesse")
+        svc.leave(game.game_id, 101)
+        self.assertEqual((game.player_1_id, game.player_2_id), (None, None))
+        self.assertEqual(game.player_specs, {})
+
+    def test_an_ordinary_game_moves_a_player_rather_than_seating_them_twice(self) -> None:
+        svc, _ = service()
+        game = svc.create_game(guild_id=1)
+        svc.take_seat(game.game_id, 101, "me", "bashing")
+        svc.take_seat(game.game_id, 101, "me", "finesse")
+        self.assertEqual((game.player_1_id, game.player_2_id), (101, None))
+        self.assertEqual(game.player_specs, {1: "finesse"})
+        self.assertFalse(game.may_start())
