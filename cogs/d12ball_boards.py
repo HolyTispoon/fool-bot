@@ -22,6 +22,14 @@ methods made them read as ordinary surface.
 `D12Ball.refresh_match_image` is the one forwarder left over it, the
 way in for every call site that puts a board up. See "Discord's rate limits" in
 docs/design/rate-limits.md for the measurements every decision here rests on.
+
+**The Codex bot writes its turn message through the same class**
+(docs/design/codex.md, "The board on Discord"). What the gate used to
+reach into D12 Ball for is a parameter, each defaulting to D12 Ball's:
+the view kept on the message (`keep_view`), whether the full-image link
+may go up (`links`), which message is the board (`message_of`), the
+message's text, set beside the picture (`text_for`, which D12 Ball does
+not pass), and the game's name in the log (`label`).
 """
 
 import asyncio
@@ -29,7 +37,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import aiohttp
 import discord
@@ -144,6 +152,24 @@ class BoardRefreshState:
     writes_refused: int = 0
 
 
+def d12ball_board_view(cog: "D12Ball", game: D12BallGame) -> Any:
+    """
+    The view D12 Ball keeps on its board message: the home/visiting
+    buttons, rebuilt inert, once the assignment is made. Before it the
+    message is still the team/coin prompt with live buttons and no link
+    to go stale, so it is left alone (`MISSING`).
+    """
+    if game.home_and_visiting_selected:
+        return HomeAwaySelectionView(cog=cog, game_id=game.game_id)
+    return discord.utils.MISSING
+
+
+def d12ball_board_links(game: D12BallGame) -> bool:
+    """Whether D12 Ball's board may carry its full-image link: once the
+    sides are chosen, the only state a board refresh runs in."""
+    return game.home_and_visiting_selected
+
+
 class BoardRefresher:
     """
     One game's board is written through one of these per cog.
@@ -152,11 +178,31 @@ class BoardRefresher:
     two of them -- `render_match_png` and `match_file_from_png` -- are
     read at call time and are mocked over in the tests after the
     refresher has been built.
+
+    The parameters are what the gate used to know about D12 Ball (see
+    the module docstring); every one defaults to D12 Ball's, so the
+    D12 Ball cog and its tests build it as they always have. `text_for`
+    is asked at write time, as the board is drawn then: `None` leaves
+    the message's text as it stands.
     """
 
-    def __init__(self, cog: "D12Ball") -> None:
+    def __init__(
+        self,
+        cog: "D12Ball",
+        *,
+        keep_view: Optional[Callable[[Any], Any]] = None,
+        links: Callable[[Any], bool] = d12ball_board_links,
+        message_of: Callable[[Any], Optional[int]] = lambda game: game.message_id,
+        text_for: Optional[Callable[[Any], Optional[str]]] = None,
+        label: str = "D12 Ball",
+    ) -> None:
         self.cog = cog
         self.states: dict[str, BoardRefreshState] = {}
+        self.keep_view = keep_view or (lambda game: d12ball_board_view(self.cog, game))
+        self.links = links
+        self.message_of = message_of
+        self.text_for = text_for
+        self.label = label
 
     def state(self, game_id: str) -> BoardRefreshState:
         """
@@ -223,7 +269,7 @@ class BoardRefresher:
         refresh happens now; a deferred one re-draws, because the
         board it was handed will be stale by the time it runs.
         """
-        if game.message_id is None:
+        if self.message_of(game) is None:
             return
 
         state = self.state(game.game_id)
@@ -341,7 +387,8 @@ class BoardRefresher:
                 # in a task surfaces as asyncio's own "never retrieved"
                 # record, naming neither the game nor this code.
                 LOGGER.error(
-                    "Could not refresh the board for D12 Ball game %s.",
+                    "Could not refresh the board for %s game %s.",
+                    self.label,
                     game.game_id,
                     exc_info=True,
                 )
@@ -398,8 +445,9 @@ class BoardRefresher:
         state.writes_refused += 1
 
         LOGGER.warning(
-            "Discord refused the board write for D12 Ball game %s "
+            "Discord refused the board write for %s game %s "
             "(%d in a row); next attempt in %.0fs.",
+            self.label,
             game.game_id,
             state.writes_refused,
             self.interval(game),
@@ -497,7 +545,8 @@ class BoardRefresher:
         429 says the next window is precisely what is too soon. See
         interval.
         """
-        if game.message_id is None:
+        message_id = self.message_of(game)
+        if message_id is None:
             return
 
         if png is None:
@@ -505,29 +554,29 @@ class BoardRefresher:
 
         state = self.state(game.game_id)
 
+        # The text set beside the picture, where the frontend sets one;
+        # an edit whose picture and text are both unchanged is skipped.
+        text = None if self.text_for is None else self.text_for(game)
         digest = hashlib.sha256(png).digest()
+        if text is not None:
+            digest = hashlib.sha256(digest + text.encode("utf-8")).digest()
         if state.png_digest == digest:
             if relink:
                 await self.settle_link(channel, game)
             return
 
         # Setting a view replaces the one already there, so the
-        # message's own home/visiting buttons get rebuilt with it.
-        # Those are inert once the assignment is made, which is the
-        # only state a board refresh runs in; before it, this message
-        # is still the team/coin prompt, its buttons are live, and it
-        # has no link on it to go stale -- so it is left alone.
-        strip_link = game.home_and_visiting_selected
-
+        # message's own buttons get rebuilt with it -- for D12 Ball the
+        # inert home/visiting buttons, once they are inert; before it,
+        # the message is still the team/coin prompt, its buttons are
+        # live, and it has no link on it to go stale, so it is left
+        # alone (`d12ball_board_view`).
         try:
-            board_message = channel.get_partial_message(game.message_id)
+            board_message = channel.get_partial_message(message_id)
             updated_message = await board_message.edit(
                 attachments=[self.cog.match_file_from_png(game, png)],
-                view=(
-                    HomeAwaySelectionView(cog=self.cog, game_id=game.game_id)
-                    if strip_link
-                    else discord.utils.MISSING
-                ),
+                view=self.keep_view(game),
+                **({} if text is None else {"content": text}),
             )
         except (
             discord.NotFound, discord.HTTPException, aiohttp.ClientError,
@@ -549,7 +598,7 @@ class BoardRefresher:
         # replaced, so it dies with it either way.
         state.link_owed = None
 
-        if not game.home_and_visiting_selected:
+        if not self.links(game):
             return
 
         button = build_full_image_button(updated_message)
@@ -579,14 +628,17 @@ class BoardRefresher:
         # stopped owing a link rather than owing one for ever.
         url, state.link_owed = state.link_owed, None
 
-        if url is None or game.message_id is None:
+        message_id = self.message_of(game)
+        if url is None or message_id is None:
             return
 
-        view = HomeAwaySelectionView(cog=self.cog, game_id=game.game_id)
+        view = self.keep_view(game)
+        if view is discord.utils.MISSING:
+            view = discord.ui.View(timeout=None)
         view.add_item(full_image_link_button(url))
 
         try:
-            await channel.get_partial_message(game.message_id).edit(view=view)
+            await channel.get_partial_message(message_id).edit(view=view)
         except (discord.NotFound, discord.HTTPException, aiohttp.ClientError):
             # As everywhere else the link is concerned: the board is
             # already up, and a missing link is worth less than
