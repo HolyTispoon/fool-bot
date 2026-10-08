@@ -93,23 +93,34 @@ class PresentationMixin:
         except discord.HTTPException as error:
             raise ValueError(f"Discord could not create the channel: {error}")
 
-    async def post_turn_message(self, channel: discord.TextChannel, game: CodexGame) -> discord.Message:
+    async def post_turn_message(self, channel: discord.TextChannel, game: CodexGame,
+                                match=None) -> discord.Message:
         """
-        Post the turn's message -- the board as its picture, the turn's
-        lines as its text, the game's buttons -- pin it, and unpin the
-        one it replaces: the rollover D12 Ball's board does, so the pin
-        is always the current position. The record's new
-        `turn_message_id` is saved through the service.
+        Post the turn's message -- the board as its picture, its text
+        "**Turn 7** -- @perrytom (Bashing)" and the turn's lines, the
+        game's buttons -- pin it, and unpin the one it replaces: the
+        rollover D12 Ball's board does, so the pin is always the current
+        position. The post pings the player whose turn it is, and only
+        them; the gate's edits ping nobody. The record's new
+        `turn_message_id`, and the one it replaces as
+        `previous_turn_message_id`, are saved through the service.
         """
-        png = await self.render_match_png(game)
+        if match is None:
+            match = self.service.load(game)
+        png = await self.render_match_png(game, match)
+        player_id = game.player_1_id if match.active == 1 else game.player_2_id
         message = await channel.send(
-            self.turn_text(game) or None,
+            self.turn_text(game, match),
             file=self.match_file_from_png(game, png),
             view=TurnMessageView(self, game.game_id),
-            allowed_mentions=discord.AllowedMentions.none(),
+            allowed_mentions=discord.AllowedMentions(
+                everyone=False, roles=False,
+                users=[discord.Object(id=player_id)] if player_id else False,
+            ),
         )
         old = game.turn_message_id
         game.turn_message_id = message.id
+        game.previous_turn_message_id = old
         self.boards.forget(game)
         self.service.save()
         try:

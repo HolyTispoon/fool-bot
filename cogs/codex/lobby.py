@@ -80,7 +80,9 @@ class LobbyMixin:
         game.channel_id = channel.id
         self.service.save()
         self.turn_lines[game.game_id] = list(result.lines)
-        await self.post_turn_message(channel, game)
+        if result.match is not None and result.match.phase == "main":
+            self.note_turn_head(game, result.match)
+        await self.post_turn_message(channel, game, result.match)
         await interaction.followup.send(f"The game is on: {channel.mention}", ephemeral=True)
 
         lobby_channel = self.bot.get_channel(lobby_channel_id) if lobby_channel_id else None

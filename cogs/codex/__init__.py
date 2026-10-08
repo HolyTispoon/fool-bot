@@ -3,9 +3,11 @@ The Codex bot's Discord frontend: every slash command under `/codex`.
 
 `Codex` is assembled from mixins, as `cogs/d12ball/` is
 (docs/design/cog-structure.md): `core` (lifecycle, lookups, the
-`service` property, `DiscordBatching`, `present`, `render_prompt`,
-`view_for_prompt`), `lobby` (`/codex lobby` and what Start does),
-`presentation` (the board, the channel, the turn message, a hand),
+`service` property, `DiscordBatching`, `render_prompt`,
+`view_for_prompt`, the turn message's text), `turns` (`present`, the
+panel, the turn's rollover, the finished game, the two undos), `lobby`
+(`/codex lobby` and what Start does), `presentation` (the board, the
+channel, the turn message, a hand),
 `slash_commands` (`/codex games`, `board`, `hand`, `resume`) and
 `reference` (`/codex card`, `/codex rules`). Nothing in it decides a
 rule: it asks `codex/` and renders the answer.
@@ -18,10 +20,12 @@ from cogs.codex.lobby import LobbyMixin
 from cogs.codex.presentation import PresentationMixin
 from cogs.codex.reference import ReferenceMixin
 from cogs.codex.slash_commands import SlashCommandsMixin
+from cogs.codex.turns import TurnsMixin
 
 
 class Codex(
     CoreMixin,
+    TurnsMixin,
     LobbyMixin,
     PresentationMixin,
     SlashCommandsMixin,

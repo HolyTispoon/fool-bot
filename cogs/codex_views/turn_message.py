@@ -1,15 +1,20 @@
 """
 The buttons on the current turn's public message (docs/codex-bot.md,
-decisions 4 and 5): **My hand**, **Codex** and **Swap view** --
-persistent, so a restart re-arms them from `turn_message_id`.
+decisions 4 and 5): **My hand**, **Tech**, **Codex** and **Swap view**
+-- persistent, so a restart re-arms them from `turn_message_id`.
 
 Hidden information is answered **ephemerally**, to the clicker alone and
-stored nowhere: My hand pictures the clicker's own hand and lists their
-discard pile; Codex pictures their own codex through a menu of views.
-What a hand may play and what a codex still holds are the engine's
-answers (`hand_rows`, `codex_remaining`); the views compute nothing.
-Step 4 makes My hand answer the active player with the control panel
-and adds Tech for the other; step 7 adds Concede.
+stored nowhere. **My hand** is one button with two answers by who
+clicked (the author, 2026-10-08): the active player gets the control
+panel for whatever the match asks them -- the actions, the defender,
+the patrol lock, the tech confirmation -- made afresh each time; the
+other player gets their hand pictured and their discard pile listed,
+with nothing to press. **Tech** is the other player's alone: their
+standing tech choice, open all through the opponent's turn. **Codex**
+pictures the clicker's own codex through a menu of views. What a hand
+may play and what a codex still holds are the engine's answers
+(`hand_rows`, `codex_remaining`); the views compute nothing. Step 7
+adds Concede.
 """
 
 import asyncio
@@ -49,6 +54,7 @@ class TurnMessageView(SafeView):
         layout = game.board_layout if game is not None else "stacked"
         for label, action, style in (
             ("My hand", "hand", discord.ButtonStyle.primary),
+            ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             (swap_label(layout), "swap", discord.ButtonStyle.secondary),
         ):
@@ -69,10 +75,31 @@ class TurnMessageView(SafeView):
         return game, match, seat
 
     async def hand(self, interaction: discord.Interaction) -> None:
+        """The panel for the active player, the hand for the other."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
+        if seat == match.active and match.winner is None:
+            await self.cog.show_panel(interaction, game, match, seat, edit=False)
+            return
         await self.cog.send_hand(interaction, game, match, seat)
+
+    async def tech(self, interaction: discord.Interaction) -> None:
+        """The other player's standing tech choice, to them alone."""
+        game, match, seat = await self._seat(interaction)
+        if seat is None:
+            return
+        if seat == match.active:
+            await send_ephemeral(
+                interaction,
+                "Tech is chosen at the end of your turn and changed during your "
+                "opponent's: it is not yours to press now.",
+            )
+            return
+        if self.cog.standing_for(game, match, seat) is None:
+            await send_ephemeral(interaction, "You have no tech choice open.")
+            return
+        await self.cog.show_panel(interaction, game, match, seat, edit=False, standing=True)
 
     async def codex(self, interaction: discord.Interaction) -> None:
         game, match, seat = await self._seat(interaction)
@@ -122,8 +149,11 @@ def hand_caption(match, seat: int) -> str:
     return "\n".join(lines)
 
 
-async def hand_file(engine, match, seat: int) -> discord.File:
-    rows = engine.hand_rows(match, seat)
+async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
+    """`seat`'s hand pictured: the rows given -- a prompt's
+    `MainActionOptions.hand` -- or the engine's `hand_rows`."""
+    if rows is None:
+        rows = engine.hand_rows(match, seat)
     png = await asyncio.to_thread(
         render_hand, [row.slug for row in rows], [row.allowed for row in rows],
         [row.cost for row in rows], engine.catalog,
