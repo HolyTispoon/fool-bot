@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from codex import history, tokens
+from codex import effects, history, tokens
 from codex.formatting import deck_name
 from codex.components import MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
@@ -155,30 +155,86 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     else:
         collected += f": {tokens.gold(player.gold)}."
     result.narration.append(collected)
-    healing = engine.healing(player)
-    if healing:
-        # Healing X, at its controller's upkeep (UMR p. 17): damage
-        # chits come off, and nothing else changes.
-        healed = 0
-        bodies = [card for card in player.play]
-        if hero.in_play:
-            bodies.append(hero)
-        for body in bodies:
-            taken = min(body.damage, healing)
-            body.damage -= taken
-            healed += taken
-        if healed:
-            result.narration.append(
-                f"{tokens.player(seat)} heals {healing} damage from each of their "
-                "units and heroes."
-            )
     if not hero.in_play and hero.summoning_runes:
         hero.summoning_runes -= 1
         result.narration.append(
             f"{tokens.hero(hero.slug)} loses a summoning rune "
             f"({hero.summoning_runes} left)."
         )
+    if engine.upkeep_order_matters(player):
+        # The active player orders their upkeep effects (Starlet's
+        # ruling): asked, and the main phase opens on the answer.
+        match.resolving.append({"kind": "upkeep_order", "seat": seat})
+        result.next = pending(engine, game, match)
+        return result
+    _upkeep_effects(engine, match, engine.upkeep_effects(player), result)
+    return _open_main(engine, game, match, result)
 
+
+def finish_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                  first: str) -> StepResult:
+    """The answer to `UPKEEP_ORDER`: the upkeep effects with `first`
+    before the other, then the main phase."""
+    seat = match.active
+    player = match.active_player
+    if not match.resolving or match.resolving[0].get("kind") != "upkeep_order":
+        raise RuleRefusal("The upkeep is not waiting on its order.")
+    due = engine.upkeep_effects(player)
+    if first not in due or first not in ("healing", "starlet"):
+        raise RuleRefusal("That is not one of the upkeep effects to order.", cite="starcrossed_starlet")
+    match.resolving.pop(0)
+    rest = [name for name in due if name not in ("healing", "starlet")]
+    second = "starlet" if first == "healing" else "healing"
+    result = StepResult(board_changed=True)
+    _upkeep_effects(engine, match, (*rest, first, second), result)
+    return _open_main(engine, game, match, result)
+
+
+def _upkeep_effects(engine: "RulesEngine", match: MatchState, order, result: StepResult) -> None:
+    """
+    The upkeep effects, in `order` (UMR p. 5): the surplus's card,
+    healing X -- damage chits off every friendly unit and hero, and
+    nothing else (UMR p. 17; the healing ruling) -- and each Star-Crossed
+    Starlet's 1 damage to herself, which can kill her.
+    """
+    from codex.flow import board
+
+    seat = match.active
+    player = match.active_player
+    hero = player.hero
+    for effect in order:
+        if effect == "draw":
+            if draw_cards(engine, match, seat, 1, result):
+                result.narration.append(
+                    f"{tokens.player(seat)} draws a card from their {tokens.card('surplus')}."
+                )
+        elif effect == "healing":
+            healing = engine.healing(player)
+            healed = 0
+            bodies = [card for card in player.play]
+            if hero.in_play:
+                bodies.append(hero)
+            for body in bodies:
+                taken = min(body.damage, healing)
+                body.damage -= taken
+                healed += taken
+            if healed:
+                result.narration.append(
+                    f"{tokens.player(seat)} heals {healing} damage from each of their "
+                    "units and heroes."
+                )
+        elif effect == "starlet":
+            for card in list(player.play):
+                if card.slug in effects.UPKEEP_SELF_DAMAGE:
+                    card.damage += 1
+                    result.narration.append(f"{tokens.card(card.slug)} takes 1 damage.")
+            board.settle(engine, match, result)
+
+
+def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+               result: StepResult) -> StepResult:
+    """The main phase opens: the turn-start snapshot is taken here, once
+    the upkeep is done."""
     match.enter_phase("main")
     match.record_event("turn_began")
     history.snapshot(match)
@@ -231,9 +287,11 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)} is finished."
         )
+    # This turn's effects end (Intimidate, Discord, Sneaky Pig's
+    # stealth), on both sides, heroes too.
     for side in match.players:
-        for card in side.play:
-            card.modifiers = [m for m in card.modifiers if m.get("until") != "end_of_turn"]
+        for body in (*side.play, side.hero):
+            body.modifiers = [m for m in body.modifiers if m.get("until") != "end_of_turn"]
     minimum, maximum = engine.tech_bounds(player)
     player.tech_owed = maximum > 0
     player.tech_choice = None

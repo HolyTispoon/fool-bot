@@ -70,6 +70,30 @@ def staged(engine: RulesEngine) -> MatchState:
     return match
 
 
+def staged_effects(engine: RulesEngine) -> MatchState:
+    """What step 6 puts on the table (docs/design/codex.md, "Targeting
+    and the effects"): Harmony in play with a Dancer and an Angry
+    Dancer, Two Step and its two partners, a hero with a +1/+1 rune and
+    a unit with a -1/-1."""
+    match = staged(engine)
+    one, two = match.player(1), match.player(2)
+    two.hero.summoning_runes = 0
+    two.hero.zone, two.hero.level = "play", 3
+    two.hero.plus_runes = 1
+    match.new_instance("harmony", 2)
+    match.new_instance("dancer", 2)
+    angry = match.new_instance("dancer", 2)
+    angry.slug, angry.flipped = "angry_dancer", True
+    turtle = next(card for card in two.play if card.slug == "helpful_turtle")
+    fencer = next(card for card in two.play if card.slug == "nimble_fencer")
+    step = match.new_instance("two_step", 2)
+    step.attached = [turtle.id, fencer.id]
+    brother = next(card for card in one.play if card.slug == "older_brother")
+    brother.minus_runes = 1
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -112,6 +136,7 @@ def main() -> None:
     # from the other seat.
     midgame.active = 2
     render_all(engine, midgame, names, args.out, "midgame-seat-2", ("stacked",))
+    render_all(engine, staged_effects(engine), names, args.out, "effects")
 
     rows = engine.hand_rows(opening, 1)
     write(args.out / "hand-opening.png", render_hand(

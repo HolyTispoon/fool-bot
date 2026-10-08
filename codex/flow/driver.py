@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 
 from codex import history
 from codex.components import MatchState
-from codex.flow import actions, combat, turn
+from codex.flow import actions, combat, resolve, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
 from codex.prompts import (
@@ -205,6 +205,9 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.OBLITERATE_CHOICE: "That obliterate has already been settled.",
     PromptKind.SPARKSHOT_TARGET: "That sparkshot has already been settled.",
     PromptKind.OVERPOWER_TARGET: "That overpower has already been settled.",
+    PromptKind.TARGET: "That target has already been chosen.",
+    PromptKind.APPEL_STOMP_TOP: "Appel Stomp has already gone where it goes.",
+    PromptKind.UPKEEP_ORDER: "That upkeep has already been done.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
 MOVED_ON = "That answers a question this match has moved on from."
@@ -218,7 +221,8 @@ STEP_OWED = (
 
 
 def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
-                 building=None, attacker=None, card=None) -> StepResult:
+                 building=None, attacker=None, card=None, ability=None,
+                 source=None) -> StepResult:
     if choice == "hire":
         return actions.hire_worker(engine, game, match, _required(slug, "slug"))
     if choice == "summon":
@@ -233,6 +237,10 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
         return actions.declare_attacker(engine, game, match, _required(attacker, "attacker"))
     if choice == "detect":
         return actions.detect(engine, game, match, _required(card, "card"))
+    if choice == "ability":
+        return actions.use_ability(
+            engine, game, match, _required(ability, "ability"), _required(source, "source"),
+        )
     return actions.end_main(engine, game, match)
 
 
@@ -296,6 +304,18 @@ def _answer_overpower(engine, game, match, prompt, choice, *, target=None) -> St
     return combat.choose_overpower(engine, game, match, _required(target, "target"))
 
 
+def _answer_target(engine, game, match, prompt, choice, *, target=None) -> StepResult:
+    return resolve.choose_target(engine, game, match, _required(target, "target"))
+
+
+def _answer_appel(engine, game, match, prompt, choice) -> StepResult:
+    return resolve.appel_stomp_top(engine, game, match, choice == "top")
+
+
+def _answer_upkeep_order(engine, game, match, prompt, choice, *, first=None) -> StepResult:
+    return turn.finish_upkeep(engine, game, match, _required(first, "first"))
+
+
 def _answer_game_over(engine, game, match, prompt, choice) -> StepResult:
     raise RuleRefusal("The game is over.")
 
@@ -310,12 +330,17 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.OBLITERATE_CHOICE: _answer_obliterate,
     PromptKind.SPARKSHOT_TARGET: _answer_sparkshot,
     PromptKind.OVERPOWER_TARGET: _answer_overpower,
+    PromptKind.TARGET: _answer_target,
+    PromptKind.APPEL_STOMP_TOP: _answer_appel,
+    PromptKind.UPKEEP_ORDER: _answer_upkeep_order,
     PromptKind.GAME_OVER: _answer_game_over,
 }
 
 #: The arguments each kind's answer may take.
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
-    PromptKind.MAIN_ACTION: frozenset({"slug", "levels", "building", "attacker", "card"}),
+    PromptKind.MAIN_ACTION: frozenset({
+        "slug", "levels", "building", "attacker", "card", "ability", "source",
+    }),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender"}),
     PromptKind.PATROL: frozenset({"assignment"}),
     PromptKind.TECH_CHOICE: frozenset({"player", "picks"}),
@@ -323,6 +348,9 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.OBLITERATE_CHOICE: frozenset({"unit"}),
     PromptKind.SPARKSHOT_TARGET: frozenset({"patroller"}),
     PromptKind.OVERPOWER_TARGET: frozenset({"target"}),
+    PromptKind.TARGET: frozenset({"target"}),
+    PromptKind.APPEL_STOMP_TOP: frozenset(),
+    PromptKind.UPKEEP_ORDER: frozenset({"first"}),
     PromptKind.GAME_OVER: frozenset(),
 }
 

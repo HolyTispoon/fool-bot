@@ -35,7 +35,16 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from codex import tokens
 from codex.components import PATROL_SLOTS, MatchState
-from codex.engine import BuildOption, DetectOption, HeroOption, HireOption, PlayableCard
+from codex import effects
+from codex.engine import (
+    AbilityOption,
+    BuildOption,
+    DetectOption,
+    HeroOption,
+    HireOption,
+    PlayableCard,
+    TargetRow,
+)
 from codex.flow.result import FollowOn, FollowOnStep
 from codex.wire import jsonable
 
@@ -69,6 +78,15 @@ class PromptKind(Enum):
     #: Overpower: where the excess over the patroller attacked goes
     #: (UMR p. 17) -- asked only where more than one thing could take it.
     OVERPOWER_TARGET = "overpower_target"
+    #: What a part of a spell, a trigger or an ability chooses -- asked
+    #: part by part as it resolves, and only where there is more than
+    #: one thing it could choose (`codex.flow.resolve`).
+    TARGET = "target"
+    #: Appel Stomp, resolved: on top of the draw pile, or the discard.
+    APPEL_STOMP_TOP = "appel_stomp_top"
+    #: The upkeep's order, where it changes what happens -- healing and
+    #: Star-Crossed Starlet's damage both due (Starlet's ruling).
+    UPKEEP_ORDER = "upkeep_order"
     #: A base is destroyed (UMR p. 2).
     GAME_OVER = "game_over"
 
@@ -92,12 +110,15 @@ class MainActionOptions:
     #: its cost and why it may not be played (`hand_rows`): what the
     #: panel's picture numbers, and what a hire may trash.
     hand: tuple[PlayableCard, ...] = ()
+    #: The ability actions the player's cards offer (`abilities`).
+    abilities: tuple[AbilityOption, ...] = ()
 
     def to_dict(self) -> dict:
         return jsonable({
             "hire": self.hire, "hero": self.hero, "playable": self.playable,
             "buildings": self.buildings, "attackers": self.attackers,
             "end_main": self.end_main, "detect": self.detect, "hand": self.hand,
+            "abilities": self.abilities,
         })
 
 
@@ -205,6 +226,52 @@ class OverpowerOptions:
 
 
 @dataclass(frozen=True)
+class TargetOptions:
+    """
+    What the part being resolved may choose: `effect` and `part` name it
+    (`codex.effects.EFFECTS`), `source` is the card or hero whose text it
+    is, `says` the part in words, and `targets` the rows -- each with the
+    resist choosing it costs, and, where the flagbearer rule narrowed
+    the list to the opposing flagbearers, `forced`.
+    """
+
+    seat: int
+    effect: str
+    source: str
+    part: int
+    says: str
+    targets: tuple[TargetRow, ...]
+    forced: bool = False
+
+    def to_dict(self) -> dict:
+        return jsonable({
+            "seat": self.seat, "effect": self.effect, "source": self.source,
+            "part": self.part, "says": self.says, "targets": self.targets,
+            "forced": self.forced,
+        })
+
+
+@dataclass(frozen=True)
+class AppelOptions:
+    seat: int
+    answers: tuple[str, ...] = ("top", "discard")
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "answers": list(self.answers)}
+
+
+@dataclass(frozen=True)
+class UpkeepOrderOptions:
+    """The upkeep effects whose order is the player's: which goes first."""
+
+    seat: int
+    effects: tuple[str, ...] = ("healing", "starlet")
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "effects": list(self.effects)}
+
+
+@dataclass(frozen=True)
 class GameOverOptions:
     winner: int
 
@@ -215,7 +282,7 @@ class GameOverOptions:
 PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
     TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
-    GameOverOptions,
+    TargetOptions, AppelOptions, UpkeepOrderOptions, GameOverOptions,
 ]
 
 
@@ -273,7 +340,8 @@ class Action:
 #: The answers each kind offers. A kind with one answer offers "".
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MAIN_ACTION: (
-        "hire", "summon", "level", "play", "build", "attack", "detect", "end_main",
+        "hire", "summon", "level", "play", "build", "attack", "detect", "ability",
+        "end_main",
     ),
     PromptKind.CHOOSE_DEFENDER: ("", "cancel"),
     PromptKind.PATROL: ("",),
@@ -282,6 +350,9 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.OBLITERATE_CHOICE: ("",),
     PromptKind.SPARKSHOT_TARGET: ("",),
     PromptKind.OVERPOWER_TARGET: ("",),
+    PromptKind.TARGET: ("",),
+    PromptKind.APPEL_STOMP_TOP: ("top", "discard"),
+    PromptKind.UPKEEP_ORDER: ("",),
     PromptKind.GAME_OVER: (),
 }
 
@@ -316,6 +387,30 @@ def _overpower_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, choose where overpower's excess goes."
 
 
+def _target_ask(engine, match: MatchState, top: dict) -> str:
+    part = effects.EFFECTS[top["effect"]].parts[top["part"]]
+    ask = f"{tokens.player(top['seat'])}, {top['by']}: {part.says}."
+    from codex.flow.resolve import rows_for
+
+    if any(row.flagbearer for row in rows_for(engine, match, top)):
+        ask += " Their flagbearer must be the target."
+    return ask
+
+
+def _appel_ask(seat: int) -> str:
+    return (
+        f"{tokens.player(seat)}, put {tokens.card(effects.APPEL_STOMP)} on top of your "
+        "draw pile, or into your discard pile?"
+    )
+
+
+def _upkeep_ask(seat: int) -> str:
+    return (
+        f"{tokens.player(seat)}, your upkeep: heal first, or "
+        f"{tokens.card('starcrossed_starlet')} takes her damage first?"
+    )
+
+
 def _confirm_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, your turn: confirm your tech choice, or change it."
 
@@ -337,7 +432,28 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
     return MainActionOptions(
         legal.hire, legal.hero, legal.playable, legal.buildings, legal.attackers,
         legal.end_main, legal.detect, engine.hand_rows(match, match.active),
+        legal.abilities,
     )
+
+
+def _target_options(engine, game, match, prompt) -> TargetOptions:
+    from codex.flow.resolve import rows_for
+
+    top = match.resolving[0]
+    part = effects.EFFECTS[top["effect"]].parts[top["part"]]
+    rows = rows_for(engine, match, top)
+    return TargetOptions(
+        top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
+        any(row.flagbearer for row in rows),
+    )
+
+
+def _appel_options(engine, game, match, prompt) -> AppelOptions:
+    return AppelOptions(prompt.asked_player)
+
+
+def _upkeep_options(engine, game, match, prompt) -> UpkeepOrderOptions:
+    return UpkeepOrderOptions(prompt.asked_player)
 
 
 def _obliterate_options(engine, game, match, prompt) -> ObliterateOptions:
@@ -404,6 +520,9 @@ OPTIONS = {
     PromptKind.OBLITERATE_CHOICE: _obliterate_options,
     PromptKind.SPARKSHOT_TARGET: _sparkshot_options,
     PromptKind.OVERPOWER_TARGET: _overpower_options,
+    PromptKind.TARGET: _target_options,
+    PromptKind.APPEL_STOMP_TOP: _appel_options,
+    PromptKind.UPKEEP_ORDER: _upkeep_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -441,6 +560,16 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             f"{tokens.player(match.winner)} wins: the opposing base is destroyed.",
         )
     seat = match.active
+    if match.resolving:
+        # An effect under way asks before anything else does: a target,
+        # Appel Stomp's place, the upkeep's order (`codex.flow.resolve`).
+        top = match.resolving[0]
+        kind = top.get("kind")
+        if kind == "appel_top":
+            return PendingPrompt(PromptKind.APPEL_STOMP_TOP, _appel_ask(top["seat"]), top["seat"])
+        if kind == "upkeep_order":
+            return PendingPrompt(PromptKind.UPKEEP_ORDER, _upkeep_ask(top["seat"]), top["seat"])
+        return PendingPrompt(PromptKind.TARGET, _target_ask(engine, match, top), top["seat"])
     if match.phase == "ready":
         if tech_is_owed(match, seat):
             return tech_prompt(seat, match)

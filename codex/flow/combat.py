@@ -17,6 +17,7 @@ neighbour, overpower's excess), what is destroyed before combat
 (obliterate) and in what order the damage lands (swift strike).
 
 **An attack is one action with choices inside it.** Obliterate's tie,
+the targets of the attacker's attacks triggers (`codex.flow.resolve`),
 sparkshot's two neighbours and overpower's excess are each asked only
 where there is something to choose, so the attack stands half-resolved
 on `MatchState.combat` -- the attacker, the defender, what has been
@@ -31,22 +32,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
-from codex import tokens
-from codex.components import HERO, TECH_BUILDINGS, CardInstance, HeroState, MatchState
-from codex.engine import (
-    BUILDING_DESTROYED_DAMAGE,
-    LEVELS_FOR_A_KILL,
-    SCAVENGER_GOLD,
-    SPARKSHOT_DAMAGE,
-    SUMMONING_RUNES_ON_DEATH,
-    TECHNICIAN_CARDS,
-    TOWER_DAMAGE,
-    building_name,
-    unit_ref,
-)
-from codex.flow.actions import raise_level
+from codex import effects, tokens
+from codex.components import HERO, CardInstance, HeroState, MatchState
+from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, building_name, unit_ref
+from codex.flow import board, resolve
 from codex.flow.result import StepResult
-from codex.flow.turn import damage_base, draw_cards, gain_gold
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -56,10 +46,14 @@ if TYPE_CHECKING:
 
 #: The stages an attack waits at, in the order it works through them:
 #: obliterate before combat, then a new defender where obliterate took
-#: the first, then sparkshot's neighbour and overpower's excess, then the
-#: damage. `MatchState.combat["stage"]` is one of these.
+#: the first, then the attacker's attacks triggers -- "after the defender
+#: is chosen and before damage", and a new defender again where one of
+#: them destroyed it -- then sparkshot's neighbour and overpower's
+#: excess, then the damage. `MatchState.combat["stage"]` is one of these.
 OBLITERATE = "obliterate"
 DEFENDER = "defender"
+TRIGGERS = "triggers"
+AFTER_TRIGGERS = "after_triggers"
 SPARKSHOT = "sparkshot"
 OVERPOWER = "overpower"
 RESOLVE = "resolve"
@@ -123,121 +117,19 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
 
 def _take(fighter: _Fighter, amount: int) -> int:
     """Combat damage onto a unit or hero, armor first; what landed."""
-    body = fighter.body
-    absorbed = min(body.armor, amount)
-    body.armor -= absorbed
-    landed = amount - absorbed
-    body.damage += landed
-    return landed
+    return board.take_damage(fighter.body, amount)
 
 
-def _hp(engine: "RulesEngine", fighter: _Fighter) -> int:
-    if fighter.card is not None:
-        return engine.unit_stats(fighter.card)[1]
-    return engine.hero_stats(fighter.hero)[1]
-
-
-def _is_destroyed(engine: "RulesEngine", fighter: _Fighter) -> bool:
-    hp = _hp(engine, fighter)
-    body = fighter.body
-    return hp <= 0 or body.damage >= hp
-
-
-def _damage_building(match: MatchState, seat: int, ref: str, amount: int,
-                     result: StepResult) -> None:
-    player = match.player(seat)
-    if ref == "base":
-        damage_base(match, seat, amount, result)
-        return
-    if ref in TECH_BUILDINGS:
-        building = player.buildings[ref]
-        building.hp = max(0, building.hp - amount)
-        if building.hp == 0:
-            building.destroyed = True
-            building.under_construction = False
-            result.narration.append(
-                f"{tokens.player(seat)}'s {building_name(ref)} building is destroyed, "
-                f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
-            )
-            match.record_event("building_destroyed", owner=seat, building=ref)
-            damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
-        return
-    add_on = player.add_on
-    add_on.hp = max(0, add_on.hp - amount)
-    if add_on.hp == 0:
-        player.add_on = None
-        result.narration.append(
-            f"{tokens.player(seat)}'s {tokens.card(add_on.slug)} is destroyed, "
-            f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
-        )
-        match.record_event("building_destroyed", owner=seat, building=add_on.slug)
-        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
-
-
-def _destroy_unit(engine: "RulesEngine", match: MatchState, fighter: _Fighter,
-                  result: StepResult) -> None:
-    card = fighter.card
-    controller = match.player(card.controller)
-    controller.play.remove(card)
-    if engine.catalog.cards[card.slug].kind != "token":
-        match.player(card.owner).discard.append(card.slug)
-    match.record_event("destroyed", slug=card.slug, owner=card.owner)
-    line = f"{fighter.named()} is destroyed."
-    if card.patrol_slot == "scavenger":
-        gained = gain_gold(match, card.controller, SCAVENGER_GOLD)
-        line += f" As scavenger, it gives {tokens.player(card.controller)} {tokens.gold(gained)}."
-    elif card.patrol_slot == "technician":
-        drawn = draw_cards(engine, match, card.controller, TECHNICIAN_CARDS, result)
-        if drawn:
-            line += f" As technician, it draws {tokens.player(card.controller)} a card."
-    result.narration.append(line)
-
-
-def _destroy_hero(engine: "RulesEngine", match: MatchState, fighter: _Fighter,
-                  result: StepResult) -> None:
-    hero = fighter.hero
-    hero.zone = "command"
-    hero.level = 1
-    hero.damage = 0
-    hero.exhausted = False
-    hero.arrived_this_turn = False
-    hero.attacked_this_turn = False
-    hero.patrol_slot = None
-    hero.armor = 0
-    hero.max_level_since_turn_began = False
-    hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
-    match.record_event("hero_died", slug=hero.slug, owner=fighter.seat)
-    result.narration.append(
-        f"{fighter.named()} dies and returns to the command zone with "
-        f"{SUMMONING_RUNES_ON_DEATH} summoning runes."
-    )
+def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -> bool:
+    hp = engine.body_stats(match, fighter.body)[1]
+    return hp <= 0 or fighter.body.damage >= hp
 
 
 def _destroy(engine: "RulesEngine", match: MatchState, fighters: list[_Fighter],
              result: StepResult) -> None:
     """Destroy each of these, and give the kill's two levels to the
-    opposing hero in play (UMR p. 7)."""
-    for fighter in fighters:
-        if fighter.card is not None:
-            _destroy_unit(engine, match, fighter, result)
-        else:
-            _destroy_hero(engine, match, fighter, result)
-    for fighter in fighters:
-        if fighter.hero is None:
-            continue
-        victor = match.opponent(fighter.seat).hero
-        if not victor.in_play:
-            continue
-        before = victor.level
-        reached = raise_level(engine, victor, LEVELS_FOR_A_KILL)
-        if victor.level > before:
-            gained = victor.level - before
-            line = (
-                f"{tokens.hero(victor.slug)} gains {gained} "
-                f"level{'' if gained == 1 else 's'} for the kill: level {victor.level}"
-            )
-            line += ", a new band, and healed." if reached else "."
-            result.narration.append(line)
+    opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`."""
+    board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result)
 
 
 # -- Declaring the attack ---------------------------------------------------
@@ -248,7 +140,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     """
     `attacker` takes `defender`, one of `engine.legal_defenders` -- then
     the attack works through its stages, asking only what it has to
-    (`_carry_on`).
+    (`carry_on`).
     """
     seat = match.active
     other = 2 if seat == 1 else 1
@@ -273,6 +165,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             "obliterated": [],
             "sparks": [],
             "overpower": None,
+            "triggered": False,
         }
         match.attacking = attacker
         hitting = _fighter(match, seat, attacker)
@@ -290,16 +183,16 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
             match.record_event("detected", card=attacker, by=other)
     else:
-        # The defender obliterate took, chosen again: the attack goes on
-        # from where it stood.
+        # The defender obliterate or a trigger took, chosen again: the
+        # attack goes on from where it stood -- its triggers, once.
         state["defender"] = defender
-        state["stage"] = SPARKSHOT
+        state["stage"] = SPARKSHOT if state.get("triggered", True) else TRIGGERS
         taking = _fighter(match, other, defender)
         # The author's wording, 2026-10-08: the card alone, since the
         # line before has just named whose defender it had to be.
         result.narration.append(f"They have chosen {taking.named(whose=False)}.")
         match.record_event("attacked", attacker=state["attacker"], defender=defender)
-    return _carry_on(engine, game, match, result)
+    return carry_on(engine, game, match, result)
 
 
 def cancel_attack_allowed(match: MatchState) -> bool:
@@ -322,7 +215,7 @@ def choose_obliterate(engine: "RulesEngine", game: "CodexGame", match: MatchStat
         )
     result = StepResult(board_changed=True)
     _obliterate_one(engine, match, unit, state, result)
-    return _carry_on(engine, game, match, result)
+    return carry_on(engine, game, match, result)
 
 
 def choose_sparkshot(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -336,7 +229,7 @@ def choose_sparkshot(engine: "RulesEngine", game: "CodexGame", match: MatchState
             cite="UMR p. 18",
         )
     state["sparks"] = [*state["sparks"], patroller]
-    return _carry_on(engine, game, match, StepResult(board_changed=True))
+    return carry_on(engine, game, match, StepResult(board_changed=True))
 
 
 def choose_overpower(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -350,7 +243,7 @@ def choose_overpower(engine: "RulesEngine", game: "CodexGame", match: MatchState
         )
     state["overpower"] = target
     state["stage"] = RESOLVE
-    return _carry_on(engine, game, match, StepResult(board_changed=True))
+    return carry_on(engine, game, match, StepResult(board_changed=True))
 
 
 def _in_combat(match: MatchState, stage: str) -> dict:
@@ -368,8 +261,8 @@ def _obliterate_one(engine: "RulesEngine", match: MatchState, unit: str,
     state["obliterate"] -= 1
 
 
-def _carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
-              result: StepResult) -> StepResult:
+def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+             result: StepResult) -> StepResult:
     """
     Work the attack through its stages until a choice has to be asked or
     the damage is dealt. A stage with one answer answers itself: one
@@ -383,7 +276,10 @@ def _carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         stage = state["stage"]
         if stage == OBLITERATE:
             if state["obliterate"] <= 0:
-                state["stage"] = DEFENDER if _defender_is_gone(match, state) else SPARKSHOT
+                if _defender_is_gone(match, state):
+                    state["stage"] = DEFENDER
+                else:
+                    state["stage"] = SPARKSHOT if state.get("triggered", True) else TRIGGERS
                 continue
             candidates = engine.obliterate_candidates(match)
             if not candidates:
@@ -406,6 +302,32 @@ def _carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
             result.next = pending(engine, game, match)
             return result
+        if stage == TRIGGERS:
+            # "Attacks:" -- each time it attacks, after the defender is
+            # chosen and before the damage (Brick Thief's and Trojan
+            # Duck's rulings: arrives *and* attacks, no choosing).
+            state["triggered"] = True
+            state["stage"] = AFTER_TRIGGERS
+            resolve.push(match, *_attack_frames(match, state["attacker"]))
+            if not resolve.run(engine, match, result):
+                result.next = pending(engine, game, match)
+                return result
+            continue
+        if stage == AFTER_TRIGGERS:
+            if match.winner is not None:
+                match.combat = None
+                match.attacking = None
+                result.next = pending(engine, game, match)
+                return result
+            if not board.still_there(match, seat, state["attacker"]):
+                # Nothing in the basic set does it, but an attacker its own
+                # trigger destroyed deals nothing.
+                match.combat = None
+                match.attacking = None
+                result.next = pending(engine, game, match)
+                return result
+            state["stage"] = DEFENDER if _defender_is_gone(match, state) else SPARKSHOT
+            continue
         if stage == SPARKSHOT:
             # Each instance of sparkshot deals its 1 to a neighbour, so
             # two may go to one patroller or one to each (Sirlin's
@@ -444,8 +366,29 @@ def _obliterate_line(engine: "RulesEngine", match: MatchState, state: dict) -> s
 
 def _defender_is_gone(match: MatchState, state: dict) -> bool:
     """Whether what the attack named is no longer there to be attacked --
-    obliterate having destroyed it."""
-    return state["defender"] in state["obliterated"]
+    obliterate, or an attacks trigger, having destroyed it."""
+    other = 2 if match.active == 1 else 1
+    return (
+        state["defender"] in state["obliterated"]
+        or not board.still_there(match, other, state["defender"])
+    )
+
+
+def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
+    """The attacker's attacks triggers, as frames to resolve: a unit's
+    printed ones, and a hero's from the bands it has reached (Troq at 5)."""
+    seat = match.active
+    player = match.player(seat)
+    if attacker == HERO:
+        hero = player.hero
+        found = effects.triggers(hero.slug, "attacks", hero.level)
+        by = tokens.hero(hero.slug)
+    else:
+        card = player.instance(unit_ref(attacker))
+        found = effects.triggers(card.slug, "attacks")
+        by = tokens.card(card.slug)
+    return [resolve.frame(effect, seat, by, source=attacker) for effect in found]
+
 
 
 # -- The damage ----------------------------------------------------------------
@@ -470,7 +413,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Readiness does not exhaust to attack, but attacks once a turn
     # (UMR p. 17).
     body = hitting.body
-    ready = engine.has_keyword(body, "Readiness")
+    ready = engine.has_keyword(body, "Readiness", match)
     body.attacked_this_turn = True
     if not ready:
         body.exhausted = True
@@ -478,8 +421,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     dealt = engine.attack_value(match, seat, attacker)
     back = engine.damage_back(match, attacker, defender)
     excess = engine.overpower_excess(match, attacker, defender) if state["overpower"] else 0
-    swift_attacker = engine.has_keyword(body, "Swift strike")
-    swift_defender = not taking.is_building and engine.has_keyword(taking.body, "Swift strike")
+    swift_attacker = engine.has_keyword(body, "Swift strike", match)
+    swift_defender = not taking.is_building and engine.has_keyword(taking.body, "Swift strike", match)
 
     hits: list[_Hit] = []
     mine = 0 if swift_attacker else 1
@@ -502,7 +445,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             continue
         patroller = _fighter(match, other, ref)
         hits.append(_Hit(
-            0 if engine.has_keyword(patroller.body, "Swift strike") else 1,
+            0 if engine.has_keyword(patroller.body, "Swift strike", match) else 1,
             patroller, hitting, engine.attack_value(match, other, ref), "antiair",
         ))
         overflown.append(hits[-1])
@@ -539,7 +482,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         for fighter in seen:
             if any(fighter.body is one.body for one in dead):
                 continue
-            if _is_destroyed(engine, fighter):
+            if _is_destroyed(engine, match, fighter):
                 dead.append(fighter)
 
     result.narration.append(_damage_line(hitting, taking, hits[0], defence, swift_attacker))
@@ -566,9 +509,12 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
-            _damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
+            board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
 
     _destroy(engine, match, dead, result)
+    # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
+    # with Harmony channeled on it, a dance partner lost.
+    board.settle(engine, match, result)
 
     match.attacking = None
     match.combat = None

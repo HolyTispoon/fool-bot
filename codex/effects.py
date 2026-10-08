@@ -1,6 +1,7 @@
 """
-What each card's text does -- and, until step 6, the list of the cards
-whose text the engine does not do yet.
+What each card's text does -- the table the engine reads -- and the
+list of the cards whose text the engine does not do yet, empty since
+step 6.
 
 **`UNIMPLEMENTED` is the vanilla engine's honesty** (docs/codex-bot.md,
 decision 7, and docs/design/codex.md, "The vanilla engine"). Every card
@@ -13,9 +14,23 @@ every card of the set with text: the starters but Tenderfoot and Older
 Brother, both specs but Iron Man and the Rhinoceros, the two heroes'
 bands, the two tokens and the two add-ons.
 
-The handlers -- arrives, attacks, upkeep, static and ability text, each
-beside the sentence it was built from -- come in steps 5 and 6.
+**Step 6 emptied it.** Every card of the basic set now does what it
+says: its keywords through `codex.keywords`, and the rest through the
+tables below -- `EFFECTS`, what a spell, a trigger or an ability does,
+part by part, each part naming what it may choose (`Part.choose`) and
+what it does to it (`Part.does`); `TEXT`, which card has which of them
+(a hero's by the band that prints it, read the way its keywords are);
+and the static grants and costs the engine asks about in
+`RulesEngine`. Each row is beside the sentence it was built from. The
+handlers that carry a part out are `codex.flow.resolve`'s: this module
+is data, imported by the engine, and decides nothing by itself
+(docs/design/codex.md, "Targeting and the effects").
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
 
 #: The basic set (UMR p. 3): the ten neutral starters, Bashing's and
 #: Finesse's twelve, the two heroes, the two tokens Harmony makes, the
@@ -45,28 +60,212 @@ BASIC_SET = STARTERS | BASHING | FINESSE | HEROES | TOKENS | ADD_ONS | BUILDINGS
 #: numbers alone. Written out rather than computed, so the commit that
 #: takes a card out of it is the commit that gives it a handler.
 #:
-#: **Step 5 took the keywords out of it**: every card whose text is only
-#: keywords plays in full now -- Timely Messenger, Helpful Turtle, Fruit
-#: Ninja, Revolver Ocelot, Eggship, Harvest Reaper, Backstabber, Cloud
-#: Sprite and Leaping Lizard, and the tower, which is detection and a
-#: damage rather than a keyword. What is left is the triggers, the
-#: spells, the static grants and the heroes' bands, which are step 6's;
-#: a card with a keyword *and* a trigger (Brick Thief's resist, Sneaky
-#: Pig's haste, Trojan Duck's obliterate) has the keyword now and stays
-#: here for the rest of its text.
-UNIMPLEMENTED = frozenset({
-    # The starters whose text is a trigger or a spell.
-    "brick_thief", "granfalloon_flagbearer", "spark", "bloom", "wither",
-    # Bashing's spells and triggers.
-    "wrecking_ball", "the_boot", "intimidate", "final_smash",
-    "hired_stomper", "sneaky_pig", "trojan_duck",
-    # Finesse's spells, the static grants and the upkeep.
-    "harmony", "discord", "two_step", "appel_stomp", "nimble_fencer",
-    "starcrossed_starlet", "grounded_guide", "maestro", "blademaster",
-    # The heroes' bands.
-    "troq_bashar", "river_montoya",
-    # The tokens Harmony makes, and the surplus's upkeep draw. The Angry
-    # Dancer's unstoppable is played; it stays here with the Dancer it is
-    # flipped from, which nothing can make until step 6.
-    "dancer", "angry_dancer", "surplus",
-})
+#: **Empty from step 6**: step 5 took the keywords out, and step 6 the
+#: triggers, the spells, the static grants, the heroes' bands, the
+#: tokens and the surplus. The table's job is done until the next spec
+#: (step 9) brings cards the engine has not met.
+UNIMPLEMENTED: frozenset = frozenset()
+
+
+# -- What a text does, part by part ------------------------------------------
+
+
+@dataclass(frozen=True)
+class Part:
+    """
+    One part of an effect, resolved in order. `choose` is what it may
+    choose -- a key `RulesEngine.target_candidates` answers -- or `None`
+    for a part that chooses nothing; `does` is what happens to it, a key
+    `codex.flow.resolve.DOES` carries out; `amount` its number; `says`
+    the part in words, for the question that asks it. A part with
+    `choose` is **targeted** ({target}) where the card prints the
+    symbol, which is what resist and the flagbearer answer to.
+    """
+
+    does: str
+    choose: Optional[str] = None
+    amount: int = 0
+    says: str = ""
+    targeted: bool = True
+
+
+@dataclass(frozen=True)
+class Effect:
+    """A spell's, a trigger's or an ability's text, as its parts."""
+
+    key: str
+    parts: tuple[Part, ...]
+
+
+def _effect(key: str, *parts: Part) -> Effect:
+    return Effect(key, parts)
+
+
+EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
+    # "Deal 1 damage to a patroller."
+    _effect("spark", Part("damage", "patroller", 1, "deal 1 damage to a patroller")),
+    # "Put a +1/+1 rune on a friendly unit or hero that doesn't have a
+    # +1/+1 rune."
+    _effect("bloom", Part("plus_rune", "friendly_unbloomed", 1,
+                          "put a +1/+1 rune on a friendly unit or hero without one")),
+    # "Put a -1/-1 rune on a unit or hero."
+    _effect("wither", Part("minus_rune", "unit_or_hero", 1,
+                           "put a -1/-1 rune on a unit or hero")),
+    # "Deal 2 damage to a building."
+    _effect("wrecking_ball", Part("damage", "building", 2, "deal 2 damage to a building")),
+    # "Destroy a tech 0 or tech I unit. (Heroes aren't units.)"
+    _effect("the_boot", Part("destroy", "unit_tech_0_1", 0, "destroy a tech 0 or tech I unit")),
+    # "Give a unit or hero -4 ATK this turn."
+    _effect("intimidate", Part("weaken", "unit_or_hero", 4, "give a unit or hero -4 ATK this turn")),
+    # "Destroy a tech 0 unit, return a tech I unit to its owner's hand,
+    # and gain control of a tech II unit." Three parts, each chosen as
+    # it resolves (Sirlin, 2016-03-19).
+    _effect(
+        "final_smash",
+        Part("destroy", "unit_tech_0", 0, "destroy a tech 0 unit"),
+        Part("return", "unit_tech_1", 0, "return a tech I unit to its owner's hand"),
+        Part("steal", "unit_tech_2", 0, "gain control of a tech II unit"),
+    ),
+    # "Give all of an opponent's tech 0 and I units -2/-1 until end of
+    # turn." No {target}: every one of them.
+    _effect("discord", Part("discord", None, 0, targeted=False)),
+    # "Two of your units become dance partners if they aren't partnered
+    # already. While you control both, they each get +2/+2."
+    _effect(
+        "two_step",
+        Part("partner", "own_unpartnered", 0, "choose a dance partner"),
+        Part("partner", "own_unpartnered", 0, "choose the second dance partner"),
+    ),
+    # "Sideline a patroller (move it out of the patrol zone), draw a
+    # card, then you may put Appel Stomp on top of your draw pile."
+    _effect(
+        "appel_stomp",
+        Part("sideline", "patroller", 0, "sideline a patroller"),
+        Part("draw", None, 1, targeted=False),
+    ),
+    # Harmony's text is what it does in play (`harmony_dancer`,
+    # `stop_the_music`); playing it does nothing else.
+    _effect("harmony"),
+    # "Arrives or attacks: Deal 1 damage to a building and repair 1
+    # damage from another building."
+    _effect(
+        "brick_thief",
+        Part("damage", "building", 1, "deal 1 damage to a building"),
+        Part("repair", "other_building", 1, "repair 1 damage from another building"),
+    ),
+    # "Arrives: Deal 3 damage to a unit. (Heroes aren't units.)"
+    _effect("hired_stomper", Part("damage", "unit", 3, "deal 3 damage to a unit")),
+    # "Arrives or attacks: Deal 4 damage to a building."
+    _effect("trojan_duck", Part("damage", "building", 4, "deal 4 damage to a building")),
+    # "Arrives: Gets stealth this turn."
+    _effect("sneaky_pig", Part("stealth", None, 0, targeted=False)),
+    # Troq at 5: "Attacks: Deal 1 damage to that opponent's base." Its
+    # {target} is the base, which has no resist and is no flagbearer, so
+    # nothing is asked (Sirlin, 2016-03-03: the base of whoever controls
+    # what he attacks).
+    _effect("troq_bashar", Part("base_damage", None, 1, targeted=False)),
+    # River at 3: "{exhaust} -> Sideline a tech 0 or tech I patroller."
+    _effect("river_montoya", Part("sideline", "patroller_tech_0_1", 0,
+                                  "sideline a tech 0 or tech I patroller")),
+    # What Maestro grants each Virtuoso: "{exhaust} -> Deal 2 damage to a
+    # building."
+    _effect("maestro", Part("damage", "building", 2, "deal 2 damage to a building")),
+    # Harmony, whenever its owner plays a spell: "summon a 0/1 neutral
+    # Dancer token (limit: 3)."
+    _effect("harmony_dancer", Part("dancer", None, 0, targeted=False)),
+    # "Sacrifice Harmony -> Stop the music." (Your Dancers will flip
+    # over!)
+    _effect("stop_the_music", Part("stop_music", None, 0, targeted=False)),
+)}
+
+
+#: When each text happens: `play` for a spell's own text, `arrives` and
+#: `attacks` for a unit's or hero's triggers, `ability` for an action it
+#: offers. A hero's rows are keyed `(slug, first level of the band)`,
+#: since a band's text is the hero's only from that level on -- read the
+#: way its keywords are (`hero_rows`).
+TEXT: dict = {
+    "spark": (("play", "spark"),),
+    "bloom": (("play", "bloom"),),
+    "wither": (("play", "wither"),),
+    "wrecking_ball": (("play", "wrecking_ball"),),
+    "the_boot": (("play", "the_boot"),),
+    "intimidate": (("play", "intimidate"),),
+    "final_smash": (("play", "final_smash"),),
+    "discord": (("play", "discord"),),
+    "two_step": (("play", "two_step"),),
+    "appel_stomp": (("play", "appel_stomp"),),
+    "harmony": (("play", "harmony"),),
+    "brick_thief": (("arrives", "brick_thief"), ("attacks", "brick_thief")),
+    "hired_stomper": (("arrives", "hired_stomper"),),
+    "trojan_duck": (("arrives", "trojan_duck"), ("attacks", "trojan_duck")),
+    "sneaky_pig": (("arrives", "sneaky_pig"),),
+    ("troq_bashar", 5): (("attacks", "troq_bashar"),),
+    ("river_montoya", 3): (("ability", "river_montoya"),),
+}
+
+
+def rows(slug: str, level: Optional[int] = None) -> tuple[tuple[str, str], ...]:
+    """
+    What `slug`'s text does, as `(when, effect)` rows: a card's own, or
+    a hero's from every band it has reached at `level`.
+    """
+    if level is None:
+        return TEXT.get(slug, ())
+    found = []
+    for key, entries in TEXT.items():
+        if isinstance(key, tuple) and key[0] == slug and key[1] <= level:
+            found.extend(entries)
+    return tuple(found)
+
+
+def triggers(slug: str, when: str, level: Optional[int] = None) -> tuple[str, ...]:
+    """The effects `slug` triggers `when` -- "arrives" or "attacks"."""
+    return tuple(effect for moment, effect in rows(slug, level) if moment == when)
+
+
+# -- The static texts the engine reads ---------------------------------------
+#
+# Each is asked of `RulesEngine` and answered there from the cards in
+# play; these say which card does what, so a later spec adds a row.
+
+#: "Your virtuosos have haste." -- Nimble Fencer, herself included
+#: (Sirlin, 2016-03-04).
+GRANTS_VIRTUOSO_HASTE = frozenset({"nimble_fencer"})
+#: "Your units and heroes have swift strike." -- Blademaster, while he
+#: is in play under your control (Sirlin, 2016-03-04).
+GRANTS_SWIFT_STRIKE = frozenset({"blademaster"})
+#: "Your other units get +1 ATK. Your Virtuosos get +2/+1, instead." --
+#: Grounded Guide, stacking (Sirlin, 2016-03-02).
+GUIDES = frozenset({"grounded_guide"})
+#: "Your virtuosos cost 0 to play and gain '{exhaust} -> Deal 2 damage to
+#: a building.'" -- Maestro.
+MAESTROS = frozenset({"maestro"})
+#: "This gets +1 ATK for each damage on her." -- Star-Crossed Starlet.
+ATK_PER_DAMAGE = frozenset({"starcrossed_starlet"})
+#: "Upkeep: This takes 1 damage." -- Star-Crossed Starlet.
+UPKEEP_SELF_DAMAGE = frozenset({"starcrossed_starlet"})
+#: "Upkeep: Draw a card." -- the surplus.
+UPKEEP_DRAW = frozenset({"surplus"})
+#: "Whenever an opponent plays a spell or ability that can {target} a
+#: flagbearer, it must {target} a flagbearer at least once." -- read off
+#: the subtype, as the rulings' "flagbearer" is.
+FLAGBEARER = "Flagbearer"
+#: The subtype Nimble Fencer, Grounded Guide and Maestro name.
+VIRTUOSO = "Virtuoso"
+#: River at 5: "Your tech 0 units cost 1 less to play." -- to 0 at the
+#: least (Sirlin, 2016-03-02).
+TECH_0_DISCOUNT = {("river_montoya", 5): 1}
+#: The ongoing spells with channeling, and the hero spec each needs.
+CHANNELING = {"harmony": "finesse", "two_step": "finesse"}
+#: Two Step's partners' bonus, while both are held.
+PARTNER_BONUS = (2, 2)
+#: Harmony's Dancers: the token, its flip, and the limit -- the
+#: `General` rulings' Limit X: a summon that would pass three stops at
+#: three.
+DANCER = "dancer"
+ANGRY_DANCER = "angry_dancer"
+DANCER_LIMIT = 3
+HARMONY = "harmony"
+TWO_STEP = "two_step"
+APPEL_STOMP = "appel_stomp"

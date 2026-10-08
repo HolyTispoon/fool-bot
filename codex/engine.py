@@ -10,10 +10,14 @@ draw is, how many a tech choice is. A rule is a question this answers
 and the cog asks (docs/codex-bot.md, decision 3); nothing in `cogs/`
 works any of these out for itself.
 
-**The engine is vanilla in this step** (decision 7): every card is
-played for its cost and its numbers, and the text of every card in
-`codex.effects.UNIMPLEMENTED` is ignored -- and said to be, by the flow,
-whenever such a card is played. `is_vanilla` is the question.
+**Every card does what it says since step 6** (decision 7): its
+keywords through `codex.keywords`, its triggers, spells and abilities
+through `codex.effects`' tables, and the static texts -- the grants,
+the cost reductions, the bonuses -- asked here, of the position, where
+a frontend and the flow both read them: `unit_stats` and
+`body_keywords` take the match, since what a card is depends on what
+else is in play. `codex.effects.UNIMPLEMENTED` is empty; `is_vanilla`
+still answers for a card with no text at all.
 
 The rules are the Unofficial Manual Rewrite v1.3's, cited by page
 (`UMR p. 8`), with Sirlin's rulings (`codex/data/rulings.json`)
@@ -192,6 +196,50 @@ class DetectOption:
 
 
 @dataclass(frozen=True)
+class AbilityOption:
+    """
+    An ability action a card in play offers its controller (UMR p. 7):
+    `effect` names it in `codex.effects.EFFECTS` -- River's sideline,
+    Maestro's granted damage, Harmony's "stop the music" -- `source` is
+    the card or hero offering it, and `why_not` why it may not be used
+    now ("" where it may).
+    """
+
+    effect: str
+    source: str
+    why_not: str = ""
+
+    @property
+    def allowed(self) -> bool:
+        return not self.why_not
+
+    def to_dict(self) -> dict:
+        return {"effect": self.effect, "source": self.source, "why_not": self.why_not}
+
+
+@dataclass(frozen=True)
+class TargetRow:
+    """
+    One thing an effect's part may choose: `key` is how an answer names
+    it (`"<seat>:<ref>"`, since a target may be on either side), what
+    choosing it costs in resist (UMR p. 18, paid when it is chosen), and
+    whether it is offered because the flagbearer rule forces it.
+    """
+
+    key: str
+    seat: int
+    ref: str
+    resist: int = 0
+    flagbearer: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key, "seat": self.seat, "ref": self.ref,
+            "resist": self.resist, "flagbearer": self.flagbearer,
+        }
+
+
+@dataclass(frozen=True)
 class LegalActions:
     hire: HireOption
     hero: HeroOption
@@ -200,6 +248,7 @@ class LegalActions:
     attackers: tuple[str, ...]
     end_main: bool = True
     detect: DetectOption = DetectOption()
+    abilities: tuple[AbilityOption, ...] = ()
 
 
 class RulesEngine:
@@ -266,48 +315,131 @@ class RulesEngine:
     def hero_band(self, hero: HeroState) -> HeroBand:
         return self.hero_card(hero).band(hero.level)
 
-    def hero_stats(self, hero: HeroState) -> tuple[int, int]:
-        """The hero's ATK and HP at its level's band."""
-        band = self.hero_band(hero)
-        return band.atk, band.hp
-
-    def unit_stats(self, card: CardInstance) -> tuple[int, int]:
-        """
-        A unit's ATK and HP: printed, then its runes -- a +1/+1 and a
-        -1/-1 cancel (UMR p. 13) -- then this turn's modifiers (none
-        until step 6). ATK is never below 0.
-        """
-        printed = self.catalog.cards[card.slug]
-        runes = card.plus_runes - card.minus_runes
-        atk = (printed.atk or 0) + runes
-        hp = (printed.hp or 0) + runes
-        for modifier in card.modifiers:
+    @staticmethod
+    def _changes(body) -> tuple[int, int]:
+        """What a body's runes -- a +1/+1 and a -1/-1 cancel (UMR p. 13)
+        -- and this turn's modifiers add to its ATK and HP."""
+        runes = body.plus_runes - body.minus_runes
+        atk = hp = runes
+        for modifier in body.modifiers:
             if modifier.get("kind") == "atk":
                 atk += modifier.get("amount", 0)
             elif modifier.get("kind") == "hp":
                 hp += modifier.get("amount", 0)
+        return atk, hp
+
+    def _hero_raw(self, hero: HeroState) -> tuple[int, int]:
+        band = self.hero_band(hero)
+        atk, hp = self._changes(hero)
+        return band.atk + atk, band.hp + hp
+
+    def hero_stats(self, hero: HeroState) -> tuple[int, int]:
+        """The hero's ATK and HP: its level's band, then its runes and
+        this turn's modifiers. ATK is never below 0 (Intimidate's
+        ruling)."""
+        atk, hp = self._hero_raw(hero)
         return max(atk, 0), hp
+
+    def _unit_raw(self, card: CardInstance, match: Optional[MatchState]) -> tuple[int, int]:
+        """
+        A unit's ATK and HP before the floor: printed, its runes and this
+        turn's modifiers, and -- given the match -- what other cards in
+        play give it: each Grounded Guide its controller has (+1 ATK, or
+        +2/+1 for a Virtuoso, stacking -- Sirlin, 2016-03-02), Two Step's
+        +2/+2 while its controller holds both partners, and Star-Crossed
+        Starlet's +1 ATK per damage on her.
+        """
+        printed = self.catalog.cards[card.slug]
+        changed_atk, changed_hp = self._changes(card)
+        atk = (printed.atk or 0) + changed_atk
+        hp = (printed.hp or 0) + changed_hp
+        if card.slug in effects.ATK_PER_DAMAGE:
+            atk += card.damage
+        if match is not None and printed.is_unit:
+            mine = match.player(card.controller).play
+            for other in mine:
+                if other.id == card.id or other.slug not in effects.GUIDES:
+                    continue
+                if self.is_virtuoso(card.slug):
+                    atk += 2
+                    hp += 1
+                else:
+                    atk += 1
+            if self.partnered(match, card, both_held=True):
+                atk += effects.PARTNER_BONUS[0]
+                hp += effects.PARTNER_BONUS[1]
+        return atk, hp
+
+    def unit_stats(self, card: CardInstance, match: Optional[MatchState] = None) -> tuple[int, int]:
+        """
+        A unit's ATK and HP as it stands (`_unit_raw`) -- pass the match,
+        or what other cards give it is left out. ATK is never below 0
+        ("0 is the lowest ATK a unit can have").
+        """
+        atk, hp = self._unit_raw(card, match)
+        return max(atk, 0), hp
+
+    def body_stats(self, match: MatchState, body) -> tuple[int, int]:
+        """A unit's or a hero's ATK and HP."""
+        if isinstance(body, CardInstance):
+            return self.unit_stats(body, match)
+        return self.hero_stats(body)
 
     def attack_value(self, match: MatchState, seat: int, ref: str) -> int:
         """
         What `ref` on `seat`'s side deals in combat: its ATK, the elite's
         +1 while it patrols there (UMR p. 10), and frenzy X on its
-        controller's own turn (UMR p. 16). A building deals nothing.
+        controller's own turn (UMR p. 16), floored at 0 once everything
+        is added. A building deals nothing.
         """
         player = match.player(seat)
         if ref == HERO:
             body = player.hero
-            atk = self.hero_stats(body)[0]
+            atk = self._hero_raw(body)[0]
         elif ref.startswith("unit:"):
             body = player.instance(int(ref.split(":", 1)[1]))
-            atk = self.unit_stats(body)[0]
+            atk = self._unit_raw(body, match)[0]
         else:
             return 0
         if body.patrol_slot == "elite":
             atk += ELITE_ATK
         if seat == match.active:
-            atk += self.keyword_x(body, "Frenzy")
-        return atk
+            atk += self.keyword_x(body, "Frenzy", match)
+        return max(atk, 0)
+
+    def is_virtuoso(self, slug: str) -> bool:
+        card = self.catalog.cards.get(slug)
+        return card is not None and effects.VIRTUOSO in (card.subtype or "")
+
+    def is_flagbearer(self, slug: str) -> bool:
+        card = self.catalog.cards.get(slug)
+        return card is not None and effects.FLAGBEARER in (card.subtype or "")
+
+    def seat_of(self, match: MatchState, body) -> Optional[int]:
+        """Who controls a unit or a hero in play."""
+        if isinstance(body, CardInstance):
+            return body.controller
+        for player in match.players:
+            if player.hero is body:
+                return player.seat
+        return None
+
+    def partnered(self, match: MatchState, card: CardInstance, *, both_held: bool = False):
+        """
+        The Two Step `card` is a dance partner of, or `None`; with
+        `both_held`, only while its controller holds both partners --
+        when the +2/+2 is given.
+        """
+        for spell in match.instances():
+            if spell.slug != effects.TWO_STEP or card.id not in spell.attached:
+                continue
+            if not both_held:
+                return spell
+            mine = match.player(spell.controller)
+            held = [mine.instance(i) for i in spell.attached]
+            if len(spell.attached) == 2 and all(found is not None for found in held):
+                return spell
+        return None
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -320,9 +452,27 @@ class RulesEngine:
         return not card.text
 
     def effective_cost(self, player: PlayerState, slug: str) -> int:
-        """What a card costs this player now: its printed cost, until
-        step 6 brings the reductions."""
-        return self.catalog.cards[slug].cost or 0
+        """
+        What a card costs this player now: its printed cost, then the
+        reductions they hold -- a Maestro makes their Virtuosos cost 0,
+        River at 5 their tech 0 units 1 less -- to 0 at the least ("You
+        can only reduce the gold cost of something to 0", Sirlin,
+        2016-03-02).
+        """
+        card = self.catalog.cards[slug]
+        cost = card.cost or 0
+        if not card.is_unit:
+            return cost
+        if self.is_virtuoso(slug) and any(
+            other.slug in effects.MAESTROS for other in player.play
+        ):
+            return 0
+        hero = player.hero
+        if hero.in_play and not (card.tech_level or 0):
+            for (hero_slug, level), amount in effects.TECH_0_DISCOUNT.items():
+                if hero.slug == hero_slug and hero.level >= level:
+                    cost -= amount
+        return max(cost, 0)
 
     def draw_count(self, discarded: int) -> int:
         """Two more than were discarded, to at most five (UMR p. 5)."""
@@ -420,8 +570,12 @@ class RulesEngine:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
         return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels)
 
-    def why_not_playable(self, player: PlayerState, slug: str) -> str:
-        """Why `player` may not play `slug` from their hand now, or ""."""
+    def why_not_playable(self, player: PlayerState, slug: str,
+                         match: Optional[MatchState] = None) -> str:
+        """Why `player` may not play `slug` from their hand now, or "".
+        Given the match, a spell with a {target} and nothing it could
+        target is not playable -- "do as much as you can" plays a spell
+        any of whose parts can resolve (Final Smash's ruling)."""
         card = self.catalog.cards[slug]
         cost = self.effective_cost(player, slug)
         if card.is_unit:
@@ -440,9 +594,27 @@ class RulesEngine:
             return "it is not a card that is played"
         if player.gold < cost:
             return "not enough gold"
+        if match is not None and card.is_spell and not self.spell_can_resolve(
+            match, player.seat, slug, player.gold - cost,
+        ):
+            return "it has nothing it could target"
         return ""
 
-    def playable(self, player: PlayerState) -> tuple[PlayableCard, ...]:
+    def spell_can_resolve(self, match: MatchState, seat: int, slug: str, gold: int) -> bool:
+        """Whether a spell has a part that can resolve: one choosing
+        nothing, or one with something it could choose, paying any
+        resist out of the gold left once the spell is paid for."""
+        effect = effects.EFFECTS.get(slug)
+        if effect is None or not effect.parts:
+            return True
+        for part in effect.parts:
+            if part.choose is None:
+                return True
+            if self.target_rows(match, seat, part, gold=gold):
+                return True
+        return False
+
+    def playable(self, player: PlayerState, match: Optional[MatchState] = None) -> tuple[PlayableCard, ...]:
         """Every card in the hand once, in the hand's order, with its cost
         and whether it may be played."""
         seen = []
@@ -452,10 +624,10 @@ class RulesEngine:
                 continue
             seen.append(slug)
             rows.append(PlayableCard(slug, self.effective_cost(player, slug),
-                                     self.why_not_playable(player, slug)))
+                                     self.why_not_playable(player, slug, match)))
         return tuple(rows)
 
-    def may_attack_with(self, body) -> bool:
+    def may_attack_with(self, body, match: Optional[MatchState] = None) -> bool:
         """
         Whether a unit or hero in play may attack: ready, and either not
         fatigued from arriving this turn or hasted (UMR p. 10, 16), and
@@ -464,7 +636,7 @@ class RulesEngine:
         """
         if body.exhausted:
             return False
-        if body.arrived_this_turn and not self.has_keyword(body, "Haste"):
+        if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return False
         if body.attacked_this_turn:
             return False
@@ -476,10 +648,10 @@ class RulesEngine:
         player = match.active_player
         found = [
             card.ref for card in player.play
-            if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card)
+            if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
         ]
         hero = player.hero
-        if hero.in_play and self.may_attack_with(hero):
+        if hero.in_play and self.may_attack_with(hero, match):
             found.append(HERO)
         return tuple(found)
 
@@ -488,13 +660,14 @@ class RulesEngine:
         return LegalActions(
             hire=self.hire_option(player),
             hero=self.hero_option(player),
-            playable=self.playable(player),
+            playable=self.playable(player, match),
             buildings=tuple(
                 self.build_option(player, building)
                 for building in (*TECH_BUILDINGS, *ADD_ONS)
             ),
             attackers=self.attackers(match),
             detect=self.detect_option(match),
+            abilities=self.abilities(match),
         )
 
     # -- The keywords -----------------------------------------------------------
@@ -519,25 +692,63 @@ class RulesEngine:
             return None
         return player.instance(instance_id)
 
-    def has_keyword(self, body, keyword: str) -> bool:
-        """Whether a thing in play has `keyword` -- the one reading, over
-        `codex.keywords`."""
-        return body is not None and keywords.has_keyword(body, keyword)
+    def body_keywords(self, body, match: Optional[MatchState] = None) -> tuple:
+        """
+        Every keyword a thing in play has -- **the one reading**: its
+        printed ones and its patrol slot's (`codex.keywords.body_keywords`),
+        a keyword it was given for the turn (Sneaky Pig's stealth, a
+        modifier), and -- given the match -- what another card its
+        controller has in play grants it, exactly while that card is
+        there under their control: Blademaster's swift strike to every
+        unit and hero, Nimble Fencer's haste to every Virtuoso, herself
+        included (Sirlin, 2016-03-04).
+        """
+        if body is None:
+            return ()
+        found = list(keywords.body_keywords(body, match))
+        for modifier in getattr(body, "modifiers", ()):
+            if modifier.get("kind") == "keyword":
+                found.append((modifier["keyword"], modifier.get("amount")))
+        if match is not None:
+            seat = self.seat_of(match, body)
+            if seat is not None:
+                mine = match.player(seat).play
+                if any(card.slug in effects.GRANTS_SWIFT_STRIKE for card in mine):
+                    found.append(("Swift strike", None))
+                if (
+                    isinstance(body, CardInstance) and self.is_virtuoso(body.slug)
+                    and any(card.slug in effects.GRANTS_VIRTUOSO_HASTE for card in mine)
+                ):
+                    found.append(("Haste", None))
+        return tuple(found)
 
-    def keyword_x(self, body, keyword: str) -> int:
-        return 0 if body is None else keywords.keyword_x(body, keyword)
+    def has_keyword(self, body, keyword: str, match: Optional[MatchState] = None) -> bool:
+        """Whether a thing in play has `keyword` (`body_keywords`)."""
+        return any(name == keyword for name, _ in self.body_keywords(body, match))
+
+    def keyword_x(self, body, keyword: str, match: Optional[MatchState] = None) -> int:
+        """`keyword`'s X on this thing: summed where it stacks and the
+        highest otherwise (`codex.keywords.STACKING`), 1 for a keyword
+        written without a number, 0 where it is missing."""
+        values = [
+            1 if x is None else x
+            for name, x in self.body_keywords(body, match) if name == keyword
+        ]
+        if not values:
+            return 0
+        return sum(values) if keyword in keywords.STACKING else max(values)
 
     def has(self, match: MatchState, seat: int, ref: str, keyword: str) -> bool:
         """Whether what `ref` names on `seat`'s side has `keyword`."""
-        return self.has_keyword(self.body(match, seat, ref), keyword)
+        return self.has_keyword(self.body(match, seat, ref), keyword, match)
 
     def resist_cost(self, match: MatchState, seat: int, ref: str) -> int:
         """
         What an opponent pays to target what `ref` names on `seat`'s side
         (UMR p. 18): its resist, the lookout's 1 among it, and it stacks.
-        The payment itself is step 6's targeting.
+        It is paid when the target is chosen (`target_rows`).
         """
-        return self.keyword_x(self.body(match, seat, ref), "Resist")
+        return self.keyword_x(self.body(match, seat, ref), "Resist", match)
 
     def healing(self, player: PlayerState) -> int:
         """How much damage this player's upkeep heals off each of their
@@ -562,9 +773,9 @@ class RulesEngine:
         """`"invisible"`, `"stealth"` or `""` -- how what `ref` names on
         `seat`'s side is hidden (UMR p. 17, 18)."""
         body = self.body(match, seat, ref)
-        if self.has_keyword(body, "Invisible"):
+        if self.has_keyword(body, "Invisible", match):
             return "invisible"
-        if self.has_keyword(body, "Stealth"):
+        if self.has_keyword(body, "Stealth", match):
             return "stealth"
         return ""
 
@@ -673,14 +884,15 @@ class RulesEngine:
         if body is None:
             return True
         if (
-            self.has_keyword(body, "Invisible")
+            self.has_keyword(body, "Invisible", match)
             and body.patrol_slot is None
             and not self.detected_by(match, seat, target)
         ):
             return False
-        if self.has_keyword(body, "Flying"):
+        if self.has_keyword(body, "Flying", match):
             hitting = self.body(match, seat, attacker)
-            if not (self.has_keyword(hitting, "Flying") or self.has_keyword(hitting, "Anti-air")):
+            if not (self.has_keyword(hitting, "Flying", match)
+                    or self.has_keyword(hitting, "Anti-air", match)):
                 return False
         return True
 
@@ -697,7 +909,7 @@ class RulesEngine:
         body = self.body(match, seat, attacker)
         if body is None:
             return ""
-        if self.has_keyword(body, "Unstoppable"):
+        if self.has_keyword(body, "Unstoppable", match):
             return "unstoppable"
         hidden = self.hidden(match, seat, attacker)
         if hidden and not self.detected_by(match, other, attacker):
@@ -811,7 +1023,7 @@ class RulesEngine:
         if body is None:
             return 0
         if self.has(match, seat, attacker, "Flying") and not (
-            self.has_keyword(body, "Flying") or self.has_keyword(body, "Anti-air")
+            self.has_keyword(body, "Flying", match) or self.has_keyword(body, "Anti-air", match)
         ):
             return 0
         return self.attack_value(match, other, defender)
@@ -823,7 +1035,7 @@ class RulesEngine:
     def sparkshot_count(self, match: MatchState, attacker: str) -> int:
         """How many instances of sparkshot this attacker has: each deals 1,
         and they stack (Sirlin, 2016-09-16)."""
-        return self.keyword_x(self.body(match, match.active, attacker), "Sparkshot")
+        return self.keyword_x(self.body(match, match.active, attacker), "Sparkshot", match)
 
     def sparkshot_candidates(self, match: MatchState, attacker: str,
                              defender: str) -> tuple[str, ...]:
@@ -871,8 +1083,7 @@ class RulesEngine:
         body = self.body(match, other, defender)
         if body is None:
             return 0
-        hp = (self.unit_stats(body)[1] if isinstance(body, CardInstance)
-              else self.hero_stats(body)[1])
+        hp = self.body_stats(match, body)[1]
         needed = max(0, hp - body.damage) + body.armor
         return max(0, self.attack_value(match, seat, attacker) - needed)
 
@@ -902,7 +1113,7 @@ class RulesEngine:
 
     def obliterate_count(self, match: MatchState, attacker: str) -> int:
         """Obliterate's X on this attacker (UMR p. 17)."""
-        return self.keyword_x(self.body(match, match.active, attacker), "Obliterate")
+        return self.keyword_x(self.body(match, match.active, attacker), "Obliterate", match)
 
     def obliterate_candidates(self, match: MatchState) -> tuple[str, ...]:
         """
@@ -923,6 +1134,210 @@ class RulesEngine:
             card.ref for card in units
             if (self.catalog.cards[card.slug].tech_level or 0) == lowest
         )
+
+    # -- Targeting ----------------------------------------------------------------
+    #
+    # What an effect's part may choose (`codex.effects.Part.choose`), from
+    # both sides of the table: a target is `(seat, ref)`, written
+    # `"<seat>:<ref>"` in an answer. Docs: docs/design/codex.md,
+    # "Targeting and the effects".
+
+    def _buildings_of(self, match: MatchState, seat: int) -> list[str]:
+        player = match.player(seat)
+        found = [
+            name for name in TECH_BUILDINGS
+            if player.buildings[name] is not None and not player.buildings[name].destroyed
+        ]
+        if player.add_on is not None:
+            found.append("add_on")
+        found.append("base")
+        return found
+
+    def _units_of(self, match: MatchState, seat: int) -> list[CardInstance]:
+        return [card for card in match.player(seat).play if self.catalog.cards[card.slug].is_unit]
+
+    def target_candidates(self, match: MatchState, seat: int, choose: str,
+                          taken: Sequence[str] = ()) -> list[tuple[int, str]]:
+        """
+        Everything `choose` names for an effect `seat` controls, the
+        opponent's side first: before resist, invisibility and the
+        flagbearer narrow it (`target_rows`). `taken` is what this cast
+        has already chosen, as keys, for a part that must choose another
+        (Brick Thief's repair, Two Step's second partner).
+        """
+        other = 2 if seat == 1 else 1
+        found: list[tuple[int, str]] = []
+        for side in (other, seat):
+            player = match.player(side)
+            units = self._units_of(match, side)
+            hero = [HERO] if player.hero.in_play else []
+
+            def tech(card: CardInstance) -> int:
+                return self.catalog.cards[card.slug].tech_level or 0
+
+            if choose == "patroller":
+                found += [(side, ref) for ref in player.patrollers().values()]
+            elif choose == "patroller_tech_0_1":
+                found += [(side, card.ref) for card in units
+                          if card.patrol_slot is not None and tech(card) <= 1]
+            elif choose == "unit_or_hero":
+                found += [(side, card.ref) for card in units] + [(side, ref) for ref in hero]
+            elif choose == "friendly_unbloomed":
+                if side == seat:
+                    found += [(side, card.ref) for card in units if not card.plus_runes]
+                    if hero and not player.hero.plus_runes:
+                        found.append((side, HERO))
+            elif choose in ("building", "other_building"):
+                found += [(side, ref) for ref in self._buildings_of(match, side)]
+            elif choose == "unit":
+                found += [(side, card.ref) for card in units]
+            elif choose == "unit_tech_0_1":
+                found += [(side, card.ref) for card in units if tech(card) <= 1]
+            elif choose.startswith("unit_tech_"):
+                level = int(choose.rsplit("_", 1)[1])
+                found += [(side, card.ref) for card in units if tech(card) == level]
+            elif choose == "own_unpartnered":
+                if side == seat:
+                    found += [(side, card.ref) for card in units
+                              if self.partnered(match, card) is None]
+            else:
+                raise ValueError(f"not a target filter: {choose!r}")
+        if choose in ("other_building", "own_unpartnered"):
+            found = [row for row in found if target_key(*row) not in taken]
+        return found
+
+    def targetable(self, match: MatchState, seat: int, side: int, ref: str) -> bool:
+        """
+        Whether `seat` may {target} what `ref` names on `side`'s side: an
+        opponent's invisible card only once their detector has seen it --
+        patrolling or not, for "untargetable" is the whole of invisible to
+        an opponent without one -- and your own invisible cards always
+        ("You can target your own invisible things", the invisible
+        ruling).
+        """
+        if side == seat:
+            return True
+        body = self.body(match, side, ref)
+        if body is None:
+            return True
+        if self.has_keyword(body, "Invisible", match):
+            return self.detected_by(match, seat, ref) and match.active == seat
+        return True
+
+    def target_rows(self, match: MatchState, seat: int, part, *, taken: Sequence[str] = (),
+                    gold: Optional[int] = None, flagbearer_done: bool = False) -> tuple[TargetRow, ...]:
+        """
+        What `part` of an effect `seat` controls may choose, as the
+        question offers it: what it names (`target_candidates`) that
+        `seat` may target, each with the resist an opponent's card
+        charges -- left out where `seat` cannot pay it, out of `gold`
+        (their gold by default) -- and, **where an opposing flagbearer
+        is among them and this cast has not targeted one yet, the
+        flagbearers alone**: "it must target a flagbearer at least once"
+        -- per part, as it resolves (Final Smash's ruling) -- and "if you
+        cannot target a flagbearer, then you don't have to" (the
+        flagbearer ruling), so one whose resist cannot be paid forces
+        nothing. A part that is not targeted takes none of this.
+        """
+        gold = match.player(seat).gold if gold is None else gold
+        rows: list[TargetRow] = []
+        for side, ref in self.target_candidates(match, seat, part.choose, taken):
+            if not part.targeted:
+                rows.append(TargetRow(target_key(side, ref), side, ref))
+                continue
+            if not self.targetable(match, seat, side, ref):
+                continue
+            resist = self.resist_cost(match, side, ref) if side != seat else 0
+            if resist > gold:
+                continue
+            body = self.body(match, side, ref)
+            flag = (
+                side != seat and isinstance(body, CardInstance)
+                and self.is_flagbearer(body.slug)
+            )
+            rows.append(TargetRow(target_key(side, ref), side, ref, resist, flag))
+        if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
+            return tuple(row for row in rows if row.flagbearer)
+        return tuple(TargetRow(row.key, row.seat, row.ref, row.resist, False) for row in rows)
+
+    # -- Abilities -------------------------------------------------------------------
+
+    def may_exhaust(self, body, match: MatchState) -> str:
+        """Why `body` may not exhaust to use an ability, or "": exhausted
+        already, or arrived this turn without haste -- "you can't exhaust
+        a unit as a cost to use its ability unless you controlled that
+        unit at the start of your turn or if it has haste" (Maestro's
+        ruling)."""
+        if body.exhausted:
+            return "it is exhausted"
+        if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
+            return "it arrived this turn"
+        return ""
+
+    def abilities(self, match: MatchState) -> tuple[AbilityOption, ...]:
+        """
+        The ability actions the active player's cards offer (UMR p. 7):
+        Harmony's "stop the music" (a sacrifice, so arrival fatigue does
+        not stop it), River's sideline from level 3, and the damage
+        Maestro gives each of their Virtuosos -- each with why it may not
+        be used now, a targeted one also when it has nothing to target.
+        """
+        seat = match.active
+        player = match.active_player
+        found: list[AbilityOption] = []
+        for card in player.play:
+            if card.slug == effects.HARMONY:
+                found.append(AbilityOption("stop_the_music", card.ref))
+        hero = player.hero
+        if hero.in_play:
+            for when, effect in effects.rows(hero.slug, hero.level):
+                if when == "ability":
+                    found.append(AbilityOption(
+                        effect, HERO, self._ability_why_not(match, seat, hero, effect),
+                    ))
+        if any(card.slug in effects.MAESTROS for card in player.play):
+            for card in player.play:
+                if self.catalog.cards[card.slug].is_unit and self.is_virtuoso(card.slug):
+                    found.append(AbilityOption(
+                        "maestro", card.ref, self._ability_why_not(match, seat, card, "maestro"),
+                    ))
+        return tuple(found)
+
+    def _ability_why_not(self, match: MatchState, seat: int, body, effect: str) -> str:
+        why = self.may_exhaust(body, match)
+        if why:
+            return why
+        part = effects.EFFECTS[effect].parts[0]
+        if part.choose is not None and not self.target_rows(match, seat, part):
+            return "there is nothing it could target"
+        return ""
+
+    # -- The upkeep -------------------------------------------------------------------
+
+    def upkeep_effects(self, player: PlayerState) -> tuple[str, ...]:
+        """
+        The upkeep effects this player has (UMR p. 5), in the order they
+        run unless the order is theirs to choose: the surplus's draw,
+        healing (Helpful Turtle), and Star-Crossed Starlet's damage to
+        herself.
+        """
+        found = []
+        add_on = player.add_on
+        if add_on is not None and add_on.active and add_on.slug in effects.UPKEEP_DRAW:
+            found.append("draw")
+        if self.healing(player):
+            found.append("healing")
+        if any(card.slug in effects.UPKEEP_SELF_DAMAGE for card in player.play):
+            found.append("starlet")
+        return tuple(found)
+
+    def upkeep_order_matters(self, player: PlayerState) -> bool:
+        """Whether the order is a question: healing and Starlet's damage
+        both due, so healing her first or after changes what she is left
+        with (Starlet's ruling: "you, as the active player, can choose the
+        order of your upkeep effects")."""
+        due = self.upkeep_effects(player)
+        return "healing" in due and "starlet" in due
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready
@@ -986,7 +1401,7 @@ class RulesEngine:
         mine = match.active == seat and match.phase == "main" and match.winner is None
         rows = []
         for slug in player.hand:
-            why = self.why_not_playable(player, slug) if mine else "it is not your main phase"
+            why = self.why_not_playable(player, slug, match) if mine else "it is not your main phase"
             rows.append(PlayableCard(slug, self.effective_cost(player, slug), why))
         return tuple(rows)
 
@@ -1003,6 +1418,19 @@ def building_name(building: str) -> str:
     if building in TECH_BUILDINGS:
         return _building_name(building)
     return {"add_on": "add-on", "base": "base"}.get(building, building)
+
+
+def target_key(seat: int, ref: str) -> str:
+    """How an answer names a target: `"2:unit:7"`, `"1:hero"`, `"2:base"`."""
+    return f"{seat}:{ref}"
+
+
+def parse_target(key: str) -> tuple[int, str]:
+    """A target key back into `(seat, ref)`; `ValueError` if it is not one."""
+    seat, _, ref = key.partition(":")
+    if seat not in ("1", "2") or not ref:
+        raise ValueError(f"not a target: {key!r}")
+    return int(seat), ref
 
 
 def unit_ref(ref: str) -> Optional[int]:

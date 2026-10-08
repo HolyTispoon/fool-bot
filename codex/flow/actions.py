@@ -6,15 +6,20 @@ the phase, and lock the patrollers.
 Each checks its own legality against the engine's answer -- the same
 answer the prompt's options were built from -- and refuses with
 `RuleRefusal`, citing the page, where the position says no. A card the
-engine plays for its numbers alone is said to be (`effects.UNIMPLEMENTED`):
-nothing is ignored silently.
+engine plays for its numbers alone is said to be (`effects.UNIMPLEMENTED`,
+empty since step 6): nothing is ignored silently.
+
+A card's text runs through `codex.flow.resolve`: a spell's when it is
+cast, a unit's arrives trigger when it is played, an ability's when it is
+used -- each a frame on the stack, asking a target only where there is a
+choice.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Optional
 
-from codex import tokens
+from codex import effects, tokens
 from codex.components import HERO, PATROL_SLOTS, AddOnState, BuildingState, MatchState
 from codex.effects import UNIMPLEMENTED
 from codex.formatting import SLOT_NAMES
@@ -26,6 +31,8 @@ from codex.engine import (
     TECH_BUILDING_SLUGS,
     building_name,
 )
+from codex.flow import board, resolve
+from codex.flow.board import raise_level
 from codex.flow.result import FollowOn, FollowOnStep, StepResult
 from codex.flow.turn import damage_base
 from codex.game import RuleRefusal
@@ -94,18 +101,6 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> 
     ])
 
 
-def raise_level(engine: "RulesEngine", hero, levels: int) -> bool:
-    """Up to `levels` levels for `hero`, to its maximum, healing it if it
-    reaches a new band (UMR p. 6). Returns whether it reached one."""
-    card = engine.hero_card(hero)
-    before = card.band(hero.level).min_level
-    hero.level = min(card.max_level, hero.level + levels)
-    reached = card.band(hero.level).min_level != before
-    if reached:
-        hero.damage = 0
-    return reached
-
-
 def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int) -> StepResult:
     """`levels` levels for the hero in play, a gold each (UMR p. 6)."""
     seat = match.active
@@ -138,15 +133,16 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
 def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str) -> StepResult:
     """
     A card from the hand for its cost (UMR p. 7): a unit into play with
-    arrival fatigue; a spell paid and put into the discard pile -- which,
-    in this step, is all a spell does, since every spell of the set is
-    in `UNIMPLEMENTED`.
+    arrival fatigue, its arrives triggers then resolving; a spell paid
+    and its text resolved part by part (`codex.flow.resolve`) -- then
+    into the discard pile, or into play for an ongoing spell -- and each
+    Harmony of the caster's summoning its Dancer after it.
     """
     seat = match.active
     player = match.active_player
     if slug not in player.hand:
         raise RuleRefusal("That card is not in your hand.")
-    why = engine.why_not_playable(player, slug)
+    why = engine.why_not_playable(player, slug, match)
     if why:
         raise RuleRefusal(f"You can't play {engine.name(slug)}: {why}.", cite="UMR p. 7")
     card = engine.catalog.cards[slug]
@@ -155,17 +151,74 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
     player.gold -= cost
     match.record_event("played", slug=slug, cost=cost)
     note = _vanilla_note(engine, slug)
+    result = StepResult(board_changed=True)
     if card.is_unit:
-        match.new_instance(slug, seat)
-        atk, hp = card.atk or 0, card.hp or 0
-        line = (
+        instance = match.new_instance(slug, seat)
+        atk, hp = engine.unit_stats(instance, match)
+        result.narration.append(
             f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
             f"{atk}/{hp}.{note}"
         )
+        resolve.push(match, *(
+            resolve.frame(effect, seat, tokens.card(slug), source=instance.ref)
+            for effect in effects.triggers(slug, "arrives")
+        ))
     else:
-        player.discard.append(slug)
-        line = f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
-    return _done(engine, game, match, [line])
+        result.narration.append(
+            f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
+        )
+        if slug in effects.EFFECTS:
+            resolve.push(match, resolve.frame(slug, seat, tokens.card(slug), spell=slug))
+        else:
+            # A spell the table has no row for -- one in `UNIMPLEMENTED`,
+            # said to be by its line -- is paid and discarded.
+            player.discard.append(slug)
+        # "Whenever you play a spell, summon a 0/1 neutral Dancer token" --
+        # each Harmony already in play, so never the Harmony being played
+        # (Sirlin, 2016-03-02), after the spell has resolved.
+        resolve.push(match, *(
+            resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+            for harmony in player.play if harmony.slug == effects.HARMONY
+        ))
+    return resolve.carry_on(engine, game, match, result)
+
+
+def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                effect: str, source: str) -> StepResult:
+    """
+    An ability action (UMR p. 7), one of those `RulesEngine.abilities`
+    offers: its cost paid -- the card exhausted, or Harmony sacrificed --
+    and its text resolved like a spell's.
+    """
+    seat = match.active
+    player = match.active_player
+    option = next(
+        (one for one in engine.abilities(match) if one.effect == effect and one.source == source),
+        None,
+    )
+    if option is None:
+        raise RuleRefusal("That card has no such ability to use now.", cite="UMR p. 7")
+    if not option.allowed:
+        raise RuleRefusal(f"You can't use that ability: {option.why_not}.", cite="UMR p. 7")
+    result = StepResult(board_changed=True)
+    body = engine.body(match, seat, source)
+    if effect == "stop_the_music":
+        harmony = player.instance(int(source.split(":", 1)[1]))
+        board.sacrifice(engine, match, harmony)
+        result.narration.append(
+            f"{tokens.player(seat)} sacrifices {tokens.card(effects.HARMONY)}: stop the music!"
+        )
+        by = tokens.card(effects.HARMONY)
+    else:
+        body.exhausted = True
+        if source == HERO:
+            by = tokens.hero(body.slug)
+        else:
+            by = tokens.card(body.slug)
+        result.narration.append(f"{tokens.player(seat)} exhausts {by}.")
+    match.record_event("ability", effect=effect, source=source)
+    resolve.push(match, resolve.frame(effect, seat, by, source=source))
+    return resolve.carry_on(engine, game, match, result)
 
 
 def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, building: str) -> StepResult:
