@@ -174,8 +174,9 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   **The discard pile** is face-down, so its owner knows it and the
   opponent knows its size. **The tech choice** is secret until the
   cards are drawn and played. **A hired worker's card** is trashed
-  unseen. The codex's remaining count is public, as a binder on the
-  table is.
+  unseen. **The codex's size** is public, as a binder on the table is;
+  **which cards are still in it** is its owner's, since the teched
+  cards are never shown (p. 5, "fog of war").
 - So the public channel gets the board and the narration -- a card
   played is a card revealed -- and each player gets their hand, their
   discard and their tech choice privately. On Discord that is the
@@ -184,8 +185,11 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   an ephemeral message disappears -- dismissed, or lost with the
   client's session -- the one public message carries the buttons that
   summon it again: the active player's **Panel**, the control panel
-  with the cards in their hand pictured, and the other player's **My
-  hand** and **Tech** (the author, 2026-10-08). The bot's #logs mirror
+  with the cards in their hand pictured, the other player's **My
+  hand** and **Tech**, and either player's **Codex** -- their own
+  codex pictured, through a menu that shows everything, or one tech
+  level, or (in the full game) one spec, since a codex is too many
+  cards for one picture (the author, 2026-10-08). The bot's #logs mirror
   and any state it prints must never carry a hand or an unanswered
   tech choice; the event log holds card identities and stays in the
   save, since this bot writes no export (the author, 2026-10-07).
@@ -507,8 +511,8 @@ and the step's prompt is rewritten rather than argued with.
     Games** category, shuffles, deals, picks the first player at random
     (UMR p. 3) with the rule's 4 and 5 workers, and posts the first
     turn's message, which carries the game's buttons: **Panel** for the
-    active player, **My hand** and **Tech** for the other, **Concede**
-    for either. The slash commands kept beside it: `hand`, `board`,
+    active player, **My hand** and **Tech** for the other, **Codex**
+    and **Concede** for either. The slash commands kept beside it: `hand`, `board`,
     `card`, `rules`, `games`, `concede`, `resume`, and the admin
     `abandon` and `reset_channels`. **The hub.**
     The author would have fool-bot's hub carry a button that starts a
@@ -1190,11 +1194,18 @@ commits: the service and storage; the cog, views and lobby; the board.
    buttons the current turn's public message carries, persistent and
    re-armed on startup from turn_message_id: My hand (ephemeral to the
    clicker: their hand pictured by render_hand, their discard pile's
-   contents and their codex's remaining counts as text; a non-seated
-   clicker is told the table is not theirs) and, from step 4, Panel
-   for the active player and Tech for the other, and from step 7
-   Concede. The turn's last edit drops the view, so only the current
-   turn's message has buttons.
+   contents as text; a non-seated clicker is told the table is not
+   theirs), Codex (ephemeral to the clicker, their own codex pictured
+   by render_codex with each card's remaining count, under a select
+   that chooses the view -- Everything, Tech I, Tech II, Tech III,
+   Spells, and in the standard game one of the player's specs -- the
+   picture re-rendered in place on each choice; the author,
+   2026-10-08: "a lot of cards", so a menu rather than one picture)
+   and, from step 4, Panel for the active player and Tech for the
+   other, and from step 7 Concede. The turn's last edit drops the
+   view, so only the current turn's message has buttons. What a
+   codex still holds is the engine's answer (codex_remaining(match,
+   player), grouped by the view's filter); the view computes nothing.
 
    /codex lobby posts the lobby in the channel it is called in; Start
    (either seated player, once both seats are taken) runs
@@ -1235,9 +1246,14 @@ commits: the service and storage; the cog, views and lobby; the board.
    same module renders render_hand(cards, playable, costs): the hand's
    cards as their own pictures in a row, numbered, greyed where not
    playable, each with its cost after reductions -- the picture the
-   panel and My hand attach. scripts/render_codex_sample.py renders
-   the opening position and a hand, and --game <id> a saved one; look
-   at the images and put them in the PR.
+   panel and My hand attach -- and render_codex(cards, counts): a grid
+   of the codex's cards as their own pictures, each with a badge of
+   how many remain, a card with none left shown faint, sized so that
+   Everything -- twelve cards in the basic game, thirty-six in the
+   standard one -- stays under Discord's upload limit and readable.
+   scripts/render_codex_sample.py renders the opening position, a hand
+   and a codex view, and --game <id> a saved one; look at the images
+   and put them in the PR.
    cogs/d12ball_boards.py's BoardRefresher takes, as parameters, the
    two things it reaches into D12 Ball for today: the view it keeps on
    the board message (HomeAwaySelectionView, once
@@ -1298,7 +1314,8 @@ the undos and resume.
    discard), the model's lines with their tokens rendered at the door;
    its attachment the board; its buttons TurnMessageView's -- Panel,
    which only the active player may press, My hand and Tech, which
-   only the other player may press, and Concede from step 7. It is
+   only the other player may press, Codex for either seated player,
+   and Concede from step 7. It is
    pinned and the previous turn's message unpinned, the rollover
    post_new_play_board does for D12 Ball. After every action it is
    edited, through the gate, with the new lines and the re-rendered
@@ -1348,9 +1365,10 @@ the undos and resume.
    picked -- so the chain stops there, the new turn message says the
    turn waits on them to confirm their tech, and begin_turn runs when
    they have. cogs/codex_views/tech.py: TechChoiceView for TECH_CHOICE
-   -- an ephemeral multi-select of the codex's cards with their
-   remaining counts and the picks so far, min and max from TechOptions,
-   Save tech alone in its row -- sent as an ephemeral follow-up to the
+   -- its picture render_codex's with the picks marked, under an
+   ephemeral multi-select of the codex's cards with their remaining
+   counts and the picks so far, min and max from TechOptions, Save
+   tech alone in its row -- sent as an ephemeral follow-up to the
    Lock click, and reachable all through the opponent's turn from Tech
    on the turn message, by its owner only, to tech or to change their
    mind, each save replacing the last; and TechConfirmView for
@@ -1688,8 +1706,11 @@ time -- red and green first, then purple and black, then white and
 blue. The standard game's rules come first because a colour is three
 heroes, and three heroes a side is the standard game: the hero limit
 and the heroes' hall, the spec chosen at Tech II and the tech lab, the
-starting deck's colour, the multicolour penalties (UMR p. 4, 6, 8, 9).
-Step 9 builds those rules over the red and green data with every card
+starting deck's colour, the multicolour penalties (UMR p. 4, 6, 8, 9)
+-- and the Codex button's menu gains a view per spec of the player's
+three, since a seventy-two card codex is three binders (the author,
+2026-10-08). Step 9 builds those rules over the red and green data
+with every card
 still played for its numbers, so the standard game is playable before
 a single red or green effect exists; step 10 gives red and green their
 effects and rulings, the way steps 5 and 6 did for the neutral set,
