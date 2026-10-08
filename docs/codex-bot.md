@@ -653,7 +653,7 @@ starting.
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
 | ~~1~~ | ~~The second bot stands up, and knows the cards~~ -- landed; what it settled is in docs/design/codex.md, "Its own process, its own token" and "The cards are data" | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
-| 2 | A whole game through the driver, with no frontend | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
+| ~~2~~ | ~~A whole game through the driver, with no frontend~~ -- landed; what it settled is in docs/design/codex.md, "The model, before a line of Discord" | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
 | 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
@@ -982,6 +982,13 @@ ruling under it.
 ```
 
 ### 2. A whole game through the driver, with no frontend
+
+**Landed.** The model is whole and a seeded game plays to a destroyed
+base through `driver.apply` with no frontend imported. What it settled
+-- the prompt kinds, the standing tech choice, the snapshots and the
+journal, the vanilla engine and `UNIMPLEMENTED`, the saved fields, what
+the narration may say, the by-slug test helper -- is in
+docs/design/codex.md, "The model, before a line of Discord".
 
 The model, whole, before a line of Discord: the state, the record, the
 engine's questions, the prompts, the turn's flow and the driver, with
