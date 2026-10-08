@@ -1306,14 +1306,16 @@ commits: the service and storage; the cog, views and lobby; the board.
    board_layout says, with the position laid on each where the mat has
    a place for
    it --
-   the hero as its card in the first hero slot with its level chit, or
-   the slot empty while it is in the command zone, its summoning runes
-   as chits; the patrollers as their cards in the five labelled slots;
+   the hero as its card in the first hero slot while it is in the
+   command zone, its summoning runes as a chit on it, and on the field
+   with the units once summoned (the author, 2026-10-08); the
+   patrollers as their cards in the five labelled slots;
    the Base, Tech I, II and III tiles and the add-on card from the
    module's sheet in their places, each with its damage chits and a
    mark while under construction, the unbuilt ones faint; the draw pile
    as the card back with its count, the discard as its count, the
-   workers as a count on the workers area; the play zone's other units
+   workers as a count on the workers area; the play zone's cards --
+   the hero with its level chit, then the units --
    as their cards across the mat's open middle, each with its damage
    and rune chits, turned sideways when exhausted and marked when it
    arrived this turn; the player's name, gold, hand and codex counts in

@@ -483,19 +483,25 @@ the turn's lines as its text, the game's buttons under it. Everything
 else the bot shows is ephemeral.
 
 - **The board is the module's playmat with the position laid on it**
-  (`codex/render.py`): the hero as its card in the first hero slot with
-  its level chit -- or the slot empty with a time-rune chit for its
-  summoning runes while it is in the command zone; patrollers in their
-  five slots; the Tech I to III tiles in their places, faint where
+  (`codex/render.py`): the hero as its card in the first hero slot
+  while it is in the command zone, a time-rune chit on the card for
+  its summoning runes; once summoned it is on the field like any other
+  unit, so it lies in the play zone with the units, first among them,
+  with its level chit -- or in its patrol slot (the author,
+  2026-10-08: the mat's hero slots are where the heroes off the board
+  wait, three of them for the standard game's three; the board used to
+  keep the hero in its slot while in play and leave the slot empty
+  while it was in the command zone, which read the wrong way round);
+  patrollers in their five slots; the Tech I to III tiles in their places, faint where
   unbuilt, tagged *building* while under construction and *destroyed*
   when they are, with damage chits; the base's damage on the mat's own
   base, which the mat prints (the module's base tile was tried and
   doubled the printed base); the add-on's card in its slot; the draw
   pile as the card back with its count on a tag below the medallion;
-  the discard and the workers as counts; the play zone's other units as
-  their cards across the mat's middle, in a grid of square cells so a
-  card turned sideways (exhausted) fits too, each with damage and rune
-  chits and *arrived* when it came this turn. A strip along each mat's
+  the discard and the workers as counts; the play zone's cards -- the
+  hero, then the units -- across the mat's middle, in a grid of square
+  cells so a card turned sideways (exhausted) fits too, each with
+  damage and rune chits and *arrived* when it came this turn. A strip along each mat's
   top names the player, the spec and the hero, and counts the gold, the
   hand, the codex and the base; the active player's strip is lit.
   Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
