@@ -295,7 +295,9 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         state["defender"] = defender
         state["stage"] = SPARKSHOT
         taking = _fighter(match, other, defender)
-        result.narration.append(f"It takes {taking.named()} instead.")
+        # The author's wording, 2026-10-08: the card alone, since the
+        # line before has just named whose defender it had to be.
+        result.narration.append(f"They have chosen {taking.named(whose=False)}.")
         match.record_event("attacked", attacker=state["attacker"], defender=defender)
     return _carry_on(engine, game, match, result)
 
@@ -400,7 +402,7 @@ def _carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Obliterate took what was attacked, so the attacker chooses
             # again (UMR p. 17).
             result.narration.append(
-                f"{tokens.player(seat)} chooses another defender."
+                f"{tokens.player(seat)} has to choose a different defender."
             )
             result.next = pending(engine, game, match)
             return result
