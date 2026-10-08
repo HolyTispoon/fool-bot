@@ -9,8 +9,12 @@ stays, for anyone who prefers the command; the lobby now covers everything it
 does bar naming specific opponents up front). Two pieces:
 
 - **The hub** is one locked channel per server carrying two persistent
-  messages: the **games message**, with a **D12 Ball** button
-  (`NewGameHubView`, in `cogs/d12ball_views/lobby.py`), and under it the
+  messages: the **games message**, with a **D12 Ball** button and a
+  **Codex** button beside it (`NewGameHubView`, in
+  `cogs/d12ball_views/lobby.py`; the Codex one answers privately with
+  the `/codex lobby` command mention, since the Codex bot is another
+  application -- see "The lobby and the channel" in [codex.md](codex.md)),
+  and under it the
   **roles message**, with a toggle button per role (`HubRolesView`, same
   module). An admin registers both by running `/d12ball setup_hub` **in the
   channel** -- the command sets `@everyone send_messages=False` (keeping the

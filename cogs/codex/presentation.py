@@ -56,12 +56,13 @@ class PresentationMixin:
             manage_channels=True, manage_messages=True, attach_files=True,
         )
 
-    def lobby_channel_overwrites(self, guild: discord.Guild,
-                                 bot_member: discord.Member) -> dict:
+    def channel_overwrites(self, guild: discord.Guild,
+                           bot_member: discord.Member) -> dict:
         """
-        A lobby's channel is open to the whole server -- anyone can look
-        in, talk, and take a seat -- as D12 Ball's lobby channels are.
-        Start swaps these for `game_channel_overwrites`.
+        A game's channel is open to the whole server, from the lobby to
+        the end: anyone may read it and talk in it (the author,
+        2026-10-08 -- the hands are ephemeral, so a watcher sees the
+        table and nothing more, and may say what they think of it).
         """
         return {
             guild.default_role: discord.PermissionOverwrite(
@@ -69,28 +70,6 @@ class PresentationMixin:
             ),
             bot_member: self.bot_access(),
         }
-
-    def game_channel_overwrites(self, guild: discord.Guild, game: CodexGame,
-                                bot_member: discord.Member) -> dict:
-        """
-        Anyone in the server may read a game's channel (the author,
-        2026-10-08: the hands are ephemeral, so a watcher sees the table
-        and nothing more); the two players and the bot may write in it.
-        """
-        def player() -> discord.PermissionOverwrite:
-            return discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, read_message_history=True,
-            )
-
-        overwrites: dict = {
-            guild.default_role: discord.PermissionOverwrite(
-                view_channel=True, send_messages=False, read_message_history=True,
-            ),
-            bot_member: self.bot_access(),
-        }
-        for player_id in {game.player_1_id, game.player_2_id} - {None}:
-            overwrites[discord.Object(id=player_id, type=discord.Member)] = player()
-        return overwrites
 
     async def create_game_channel(self, guild: discord.Guild, game: CodexGame) -> discord.TextChannel:
         """
@@ -105,7 +84,7 @@ class PresentationMixin:
             return await guild.create_text_channel(
                 name=channel_name(game),
                 category=category,
-                overwrites=self.lobby_channel_overwrites(guild, bot_member),
+                overwrites=self.channel_overwrites(guild, bot_member),
                 reason=f"Codex game {game.game_number}",
             )
         except discord.Forbidden:
@@ -115,21 +94,18 @@ class PresentationMixin:
         except discord.HTTPException as error:
             raise ValueError(f"Discord could not create the channel: {error}")
 
-    async def lock_game_channel(self, channel: discord.TextChannel, game: CodexGame) -> None:
+    async def name_game_channel(self, channel: discord.TextChannel, game: CodexGame) -> None:
         """
-        At Start, the lobby's channel becomes the game's in one edit: named
-        `codex-<n>-<p1>-vs-<p2>`, readable by the server and written in by
-        the two players. A failure is logged and the game goes on: it is
-        played in the channel either way.
+        At Start, the lobby's channel is renamed for its players,
+        `codex-<n>-<p1>-vs-<p2>`; its permissions stand. A failure is
+        logged and the game goes on in the channel either way.
         """
         try:
             await channel.edit(
-                name=channel_name(game),
-                overwrites=self.game_channel_overwrites(channel.guild, game, channel.guild.me),
-                reason=f"Codex game {game.game_number} started",
+                name=channel_name(game), reason=f"Codex game {game.game_number} started",
             )
         except discord.HTTPException as error:
-            LOGGER.warning("Could not set up the channel of Codex game %s: %s", game.game_id, error)
+            LOGGER.warning("Could not rename the channel of Codex game %s: %s", game.game_id, error)
 
     async def post_turn_message(self, channel: discord.TextChannel, game: CodexGame) -> discord.Message:
         """
