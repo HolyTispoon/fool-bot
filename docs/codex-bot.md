@@ -654,7 +654,7 @@ starting.
 | --- | --- | --- | --- |
 | ~~1~~ | ~~The second bot stands up, and knows the cards~~ -- landed; what it settled is in docs/design/codex.md, "Its own process, its own token" and "The cards are data" | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | ~~2~~ | ~~A whole game through the driver, with no frontend~~ -- landed; what it settled is in docs/design/codex.md, "The model, before a line of Discord" | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
-| 3 | The lobby, the channel and the board | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
+| ~~3~~ | ~~The lobby, the channel and the board~~ -- landed; what it settled is in docs/design/codex.md, "The service and its file", "The lobby and the channel", "Who may act, shared", "The board on Discord" and "Hidden information on Discord" | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
 | 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
@@ -1178,6 +1178,17 @@ read by the author for its wording.
 ```
 
 ### 3. The lobby, the channel and the board
+
+**Landed.** Two seats in a `/codex lobby`, Start, and the opening
+position in a channel of its own: the first turn's message pinned with
+the board, the turn's lines and **My hand**, **Codex** and **Swap view**,
+each hand shown to its owner alone. What it settled -- the service and
+its file, the lobby and the channel, the shared authorisation module,
+the board's layout and what it shows, the two `BoardRefresher`
+parameters and the three beside them, the ephemeral shape as tried --
+is in docs/design/codex.md, from "The service and its file" to "Hidden
+information on Discord". `cogs/codex_boards.py` was not needed: the
+Codex cog builds the shared `BoardRefresher` with its own parameters.
 
 The frontend up to the opening position: the service and its file, the
 lobby from `/codex lobby`, the channel, the board image and the table

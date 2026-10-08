@@ -75,6 +75,8 @@ ADD_ONS = ("tower", "surplus")
 #: fewer (UMR p. 5).
 TECH_PICKS = 2
 TECH_FREE_WORKERS = 10
+#: The views a codex is shown through (`RulesEngine.codex_views`).
+CODEX_VIEWS = ("everything", "tech1", "tech2", "tech3", "spells")
 #: What a hero's death costs and gives (UMR p. 7).
 SUMMONING_RUNES_ON_DEATH = 2
 LEVELS_FOR_A_KILL = 2
@@ -495,6 +497,54 @@ class RulesEngine:
         """The player's codex, as (slug, copies left), in the data's order."""
         order = list(dict.fromkeys(self.catalog.codex_for(player.spec)))
         return tuple((slug, player.codex.get(slug, 0)) for slug in order)
+
+    # -- What a player is shown of their own cards ------------------------
+
+    def codex_views(self, player: PlayerState) -> tuple[str, ...]:
+        """
+        The views a player's codex is shown through -- everything, a
+        tech level, or the spells (the author, 2026-10-08: "a lot of
+        cards", so a menu rather than one picture). The standard game
+        adds one per spec (step 9).
+        """
+        return CODEX_VIEWS
+
+    def codex_remaining(self, match: MatchState, seat: int,
+                        view: str = "everything") -> tuple[tuple[str, int], ...]:
+        """
+        What `seat`'s codex still holds -- (slug, copies left), every
+        card of it, in the data's order, a card with none left at 0 --
+        narrowed to `view` (`codex_views`). **Its owner's alone**: which
+        cards are still in a codex is fog of war (UMR p. 5).
+        """
+        if view not in CODEX_VIEWS:
+            raise ValueError(f"not a codex view: {view!r}")
+        rows = self.codex_counts(match.player(seat))
+        if view == "everything":
+            return rows
+
+        def shown(slug: str) -> bool:
+            card = self.catalog.cards[slug]
+            if view == "spells":
+                return card.is_spell
+            return card.is_unit and card.tech_level == int(view[-1])
+
+        return tuple(row for row in rows if shown(row[0]))
+
+    def hand_rows(self, match: MatchState, seat: int) -> tuple[PlayableCard, ...]:
+        """
+        `seat`'s hand, card by card in its order with duplicates kept,
+        each with its cost after reductions and why it may not be played
+        now -- "" where it may. Nothing is playable but in the active
+        player's main phase. **Its owner's alone.**
+        """
+        player = match.player(seat)
+        mine = match.active == seat and match.phase == "main" and match.winner is None
+        rows = []
+        for slug in player.hand:
+            why = self.why_not_playable(player, slug) if mine else "it is not your main phase"
+            rows.append(PlayableCard(slug, self.effective_cost(player, slug), why))
+        return tuple(rows)
 
     def name(self, slug: str) -> str:
         return self.catalog.name(slug)

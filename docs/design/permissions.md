@@ -7,7 +7,10 @@ Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules ar
 **The coach a button belongs to, or a game helper** -- and a game helper is
 anyone the server trusts with `manage_channels`. That is the whole rule, and
 it is answered in one place: `is_game_helper`, `may_act_for_coach` and
-`may_act_in_game` in `cogs/d12ball_helpers.py`, with `SafeView.may_act_in_game`
+`may_act_in_game` in `cogs/game_auth.py` (moved there from
+`cogs/d12ball_helpers.py`, which re-exports them, so the Codex bot's views
+ask the same three -- see "Who may act, shared" in [codex.md](codex.md)),
+with `SafeView.may_act_in_game`
 / `may_act_for` / `may_act_for_possession` / `may_act_for_defense` as the
 interaction-shaped front door every view uses.
 
@@ -102,7 +105,7 @@ there is now one.
     turning Tutorial on and pressing Start for somebody is what the gate was
     widened for, and nothing there is a move made for a coach. The slash
     commands (`resume`, `abandon_game`, `skip_tutorial`) read the free
-    functions in `cogs/d12ball_helpers.py`, which stay plain booleans, so
+    functions in `cogs/game_auth.py`, which stay plain booleans, so
     they ask nothing either -- they were `manage_channels`-gated before any
     of this.
   - **Not restart-safe, deliberately.** A restart re-arms the prompt's own

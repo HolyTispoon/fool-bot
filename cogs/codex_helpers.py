@@ -12,13 +12,26 @@ once it is there, the way `cogs/d12ball_helpers.py`'s loaders fall back.
 """
 
 import logging
-from typing import Optional
+import re
+from typing import TYPE_CHECKING, Optional
 
 from discord.ext import commands
 
 from codex import tokens
+from codex.cards import catalog
 from codex.formatting import plain_token
+from cogs.game_auth import (  # noqa: F401 -- the shared gates, for the Codex views
+    game_participant_ids,
+    is_game_helper,
+    may_act_for_coach,
+    may_act_in_game,
+    send_new_prompt,
+)
+from cogs.d12ball_helpers import get_or_create_category, slugify_channel_part
 from discord_emoji_cache import ensure_cached_emojis
+
+if TYPE_CHECKING:
+    from codex.game import CodexGame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +42,42 @@ EMOJI_NAMES = ("codex", "gold", "exhaust", "target", "troq_bashar", "river_monto
 
 #: The token kinds an emoji stands for; `arrow` stays a character.
 TOKEN_EMOJI = {"codex": "codex", "gold": "gold", "exhaust": "exhaust", "target": "target"}
+
+# -- Channels ----------------------------------------------------------------
+#
+# The Codex bot's own categories, not D12 Ball's: `/debug`'s reset and the
+# pin rollover match PBD's by name, and PBD's fifty-channel cap is D12
+# Ball's (docs/design/codex.md, "The channel").
+
+CODEX_GAMES_CATEGORY_NAME = "Codex Games"
+CODEX_ARCHIVE_CATEGORY_NAME = "Codex Archive"
+#: Discord's limit on a channel's name.
+CHANNEL_NAME_MAX_LENGTH = 100
+#: `codex-<n>`, then the players: the number is what identifies the game.
+CHANNEL_NAME_PATTERN = re.compile(r"^codex-(\d+)(?:-|$)")
+#: The board's file name begins with this, so the pin rollover knows the
+#: Codex bot's boards.
+BOARD_IMAGE_FILENAME_PREFIX = "codex-"
+
+
+def channel_name(game: "CodexGame") -> str:
+    """`codex-<n>-<p1>-vs-<p2>`, capped at Discord's 100 characters."""
+    prefix = f"codex-{game.game_number}"
+    suffix = "-vs-".join(
+        part for part in (
+            slugify_channel_part(game.player_1_name or ""),
+            slugify_channel_part(game.player_2_name or ""),
+        ) if part
+    )
+    if not suffix:
+        return prefix
+    return f"{prefix}-{suffix}"[:CHANNEL_NAME_MAX_LENGTH].rstrip("-")
+
+
+async def codex_games_category(guild):
+    return await get_or_create_category(
+        guild, CODEX_GAMES_CATEGORY_NAME, "Create the category for Codex games.",
+    )
 
 
 async def load_codex_emojis(bot: commands.Bot) -> dict[str, str]:
@@ -62,7 +111,22 @@ class CodexTokens:
             lambda: load_codex_emojis(self.bot),
         )
 
-    def resolve(self, kind: str, arguments: tuple[str, ...]) -> str:
+    def resolve(self, kind: str, arguments: tuple[str, ...],
+                game: "Optional[CodexGame]" = None) -> str:
+        """
+        One token as Discord shows it. `{player:n}` is the seat's name
+        on `game`'s record; `{card:slug}` the card's name in bold;
+        `{hero:slug}` the hero's emoji, where uploaded, before its name.
+        """
+        if kind == "player":
+            name = game.seat_name(int(arguments[0])) if game is not None else None
+            return name or plain_token(kind, arguments)
+        if kind == "card":
+            return f"**{plain_token(kind, arguments)}**"
+        if kind == "hero":
+            emoji = self.emojis.get(arguments[0])
+            name = f"**{plain_token(kind, arguments)}**"
+            return f"{emoji} {name}" if emoji else name
         emoji = self.emojis.get(TOKEN_EMOJI.get(kind, ""))
         if emoji is None:
             return plain_token(kind, arguments)
@@ -70,5 +134,11 @@ class CodexTokens:
             return f"{emoji}{arguments[0]}"
         return emoji
 
-    def render(self, text: str) -> str:
-        return tokens.render(text, self.resolve)
+    def render(self, text: str, game: "Optional[CodexGame]" = None) -> str:
+        """Every token in `text`, drawn once, at the cog's door."""
+        return tokens.render(text, lambda kind, arguments: self.resolve(kind, arguments, game))
+
+
+def card_name(slug: str) -> str:
+    """A card's name, for a list of the player's own cards."""
+    return catalog().name(slug)

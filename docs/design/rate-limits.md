@@ -15,6 +15,13 @@ same budget. So:
 
 **The gate itself lives in `cogs/d12ball_boards.py`.** Everything below
 describes `BoardRefresher` and the `BoardRefreshState` it keeps per game.
+The Codex bot writes its turn message through the same class, so the
+measurements here hold for both bots: what the gate used to know about
+D12 Ball -- the view kept on the message, when the full-image link may
+go up, which message is the board -- is a parameter, D12 Ball's by
+default, and a fourth sets the message's text beside the picture, an
+edit whose picture and text are both unchanged skipped (see "The board
+on Discord" in [codex.md](codex.md)).
 They were seven attributes and six methods on the cog, touched by nothing
 but each other, which made the one piece of this bot with measured timing
 invariants read as ordinary cog surface among 223 methods.

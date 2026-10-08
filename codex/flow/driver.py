@@ -356,12 +356,16 @@ def apply(
     match: MatchState,
     action: Action,
     outcomes: Optional[Sequence[Sequence[str]]] = None,
+    *,
+    own_message: Iterable[FollowOnStep] = (),
 ) -> Union[DriverRun, Refusal]:
     """
     `answer` plus `advance`: a whole action in one call, and the one
     door the journal is written at. `outcomes` are recorded shuffle
     orders to hand back instead of drawing -- a replay's
-    (`codex.history.replay`).
+    (`codex.history.replay`). `own_message` is `advance`'s, the
+    frontend's batching; there is no `stop_after`, since a stop would
+    cut what the journal records as one action in two.
     """
     engine.replaying = [list(order) for order in (outcomes or ())]
     marker = history.latest_snapshot(match)
@@ -369,7 +373,7 @@ def apply(
         answered = answer(engine, game, match, action)
         if isinstance(answered, Refusal):
             return answered
-        run = advance(engine, game, match, answered.result)
+        run = advance(engine, game, match, answered.result, own_message=own_message)
     finally:
         engine.replaying = []
     if history.latest_snapshot(match) is marker:

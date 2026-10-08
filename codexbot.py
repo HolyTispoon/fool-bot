@@ -17,6 +17,9 @@ import gamebot
 load_dotenv()
 
 STATE_FILE = botstate.REPO_DIR / "data" / "codex_bot_state.json"
+# The top-level command ids, written after each sync: fool-bot reads it
+# to mention </codex lobby:ID> in its hub (docs/design/codex.md).
+COMMAND_IDS_FILE = botstate.REPO_DIR / "data" / "codex_command_ids.json"
 
 # Each CODEX_LOG_* falls back to its FOOLBOT_LOG_* value, so one .env
 # and one #logs channel serve both bots (botlog/settings.py).
@@ -32,6 +35,7 @@ bot = gamebot.GameBot(
     sync_variable="CODEX_COMMAND_SYNC",
     # Slash commands and buttons only: no privileged intent to switch on.
     message_content=False,
+    command_ids_file=COMMAND_IDS_FILE,
 )
 
 

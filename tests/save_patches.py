@@ -47,6 +47,10 @@ SAVING_COG_MODULES = (
 # part 2), so every cog test that suppresses saves has to reach it.
 SAVING_SERVICE_MODULES = (
     "gamesaves.d12ball.service",
+    # The Codex bot's service: the one save per click there too
+    # (docs/design/codex.md). Its `save_games` writes
+    # data/codex_games.json.
+    "gamesaves.codex.service",
 )
 
 

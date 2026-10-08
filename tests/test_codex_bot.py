@@ -39,7 +39,10 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         group = bot.tree.get_command("codex")
         self.assertIsNotNone(group)
         self.assertLessEqual(len(group.description), 100)
-        self.assertEqual({command.name for command in group.commands}, {"card", "rules"})
+        self.assertEqual(
+            {command.name for command in group.commands},
+            {"card", "rules", "lobby", "games", "board", "hand", "resume"},
+        )
         self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
         await bot.close()
 
@@ -160,3 +163,56 @@ class BotlogNamesTheBotTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CommandIdsTests(unittest.IsolatedAsyncioTestCase):
+    """`data/codex_command_ids.json`: written by the Codex bot after a
+    sync, read by fool-bot's hub for `</codex lobby:ID>`."""
+
+    async def test_a_sync_writes_the_ids_and_the_hub_mentions_the_lobby(self) -> None:
+        import tempfile
+
+        from cogs.d12ball_helpers import codex_lobby_mention
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "codex_command_ids.json"
+            self.assertEqual(codex_lobby_mention(path), "`/codex lobby`")
+            bot = codex_bot()
+            bot.command_ids_file = path
+            group, other = mock.Mock(id=1234), mock.Mock(id=99)
+            group.name, other.name = "codex", "other"
+            await bot.record_command_ids([group, other])
+            self.assertEqual(gamebot.read_command_ids(path), {"codex": 1234, "other": 99})
+            await bot.close()
+
+    async def test_the_mention_carries_the_groups_id(self) -> None:
+        import tempfile
+
+        from cogs.d12ball_helpers import codex_lobby_mention
+
+        command = mock.Mock(id=1234)
+        command.name = "codex"
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "codex_command_ids.json"
+            gamebot.write_command_ids([command], path)
+            self.assertEqual(gamebot.read_command_ids(path), {"codex": 1234})
+            self.assertEqual(codex_lobby_mention(path), "</codex lobby:1234>")
+
+    async def test_a_skipped_sync_fetches_only_when_the_file_is_missing(self) -> None:
+        import tempfile
+
+        command = mock.Mock(id=7)
+        command.name = "codex"
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "codex_command_ids.json"
+            bot = codex_bot()
+            bot.command_ids_file = path
+            with mock.patch.object(bot.tree, "fetch_commands", mock.AsyncMock(return_value=[command])) as fetch:
+                await bot.record_command_ids(None)
+                await bot.record_command_ids(None)
+            fetch.assert_awaited_once()
+            self.assertEqual(gamebot.read_command_ids(path), {"codex": 7})
+            await bot.close()
+
+    def test_an_unreadable_file_reads_as_none(self) -> None:
+        self.assertEqual(gamebot.read_command_ids(Path("/nonexistent/ids.json")), {})

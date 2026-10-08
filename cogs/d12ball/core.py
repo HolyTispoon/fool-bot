@@ -143,7 +143,11 @@ from cogs.d12ball_views import (
     TeamSelectionView,
     TutorialContinueView,
 )
-from cogs.d12ball_boards import BoardRefresher
+from cogs.d12ball_boards import (
+    BoardRefresher,
+    d12ball_board_links,
+    d12ball_board_view,
+)
 
 
 #: Every prompt whose message carries **the field strip** -- the six
@@ -557,8 +561,14 @@ class CoreMixin:
             self.ai_strategies,
         )
         # The board message's write gate, and the seven maps of
-        # per-game state behind it. See cogs/d12ball_boards.py.
-        self.boards = BoardRefresher(self)
+        # per-game state behind it. See cogs/d12ball_boards.py: the view
+        # it keeps on the message and when the link may go up are
+        # D12 Ball's, passed here since the Codex bot passes its own.
+        self.boards = BoardRefresher(
+            self,
+            keep_view=lambda game: d12ball_board_view(self, game),
+            links=d12ball_board_links,
+        )
 
         self.restore_saved_views()
         self.log_live_games()
