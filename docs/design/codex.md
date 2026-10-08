@@ -12,8 +12,11 @@ worksheet whose steps it is; this note is what those steps settled, one
 section per decision as it lands.
 
 Step 1 stood it up: the entry point, the shared bot class, the card
-data and its import, `/codex card` and `/codex rules`, the runner. It
-plays nothing yet. The model's purity rules hold for `codex/` from its
+data and its import, `/codex card` and `/codex rules`, the runner.
+Step 2 wrote the model whole -- the state, the record, the engine, the
+prompts, the flow and the driver -- and a test that plays a game to a
+destroyed base through the driver alone; nothing on Discord plays it
+yet (step 3). The model's purity rules hold for `codex/` from its
 first commit (`tests/test_model_purity.py`): no `discord`, no
 `async def`, Pillow only in `codex/render.py`, which a later step
 writes.
@@ -24,7 +27,8 @@ choice, a hired worker's card: not into a public message, not into a
 log line, not into the #logs mirror. Codex is a hidden-information game
 and D12 Ball never was, so nothing in the shared code guards this for
 it; every step that touches a hidden zone says in its PR where it
-checked. In step 1 nothing hidden exists yet.
+checked. In step 1 nothing hidden existed yet; step 2's narration is
+checked below, in "What the narration may say".
 
 ## Its own process, its own token
 
@@ -135,6 +139,170 @@ imported), `codex.png` is the medallion cut from the module's card back,
 and the author uploads each to the Codex application under its file's
 name. `CodexTokens` picks each up by that name and shows a word until
 it is there.
+
+## The model, before a line of Discord
+
+Step 2 copied D12 Ball's shapes into `codex/` -- `MatchState` and its
+saved-fields table, the record, `RulesEngine`, `PendingPrompt` and
+`pending`, `StepResult` and `FollowOn`, the driver -- keeping the names,
+so whoever reads one bot reads the other (worksheet decision 2). What
+differs is what Codex asks that D12 Ball never did: a secret answered
+on the other player's turn, a dozen actions in one turn, and undo.
+
+- **The whole game runs through `codex.flow.driver.apply`.**
+  `tests/test_codex_driver_full_game.py` plays Bashing against Finesse
+  from the deal to a destroyed base under a simple policy, every
+  position round-tripping through `to_dict`, `from_dict` and
+  `validate`, and checks in a fresh interpreter that neither `discord`
+  nor anything under `cogs/` was imported. Run with `-v`, it prints the
+  game's narration in plain words: the transcript the author reads for
+  wording. Where the bot owes a step (the turn's start, the draw, the
+  end of the turn) the test runs it as the service's resume will.
+
+### The prompt kinds
+
+| Kind | Asked of | What it asks |
+| --- | --- | --- |
+| `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played |
+| `CHOOSE_DEFENDER` | the active player | which of `legal_defenders` the declared attacker takes, or `cancel` to take the attacker back; asked after the attacker, so a misclick costs nothing (decision 11) |
+| `PATROL` | the active player | slot to unit or hero, any left empty; ends the main phase (UMR p. 10) |
+| `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
+| `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
+| `GAME_OVER` | nobody | a base is destroyed (UMR p. 2); answering it is refused until step 7's rematch |
+
+The bot owes three steps, which `owed_step` names and a resume runs:
+`BEGIN_TURN` (the ready phase and the upkeep), `DRAW_PHASE` and
+`BEGIN_TECH` (the end of the turn). `driver.MODEL_STEPS` covers
+`FollowOnStep` and `driver.ANSWERS` covers `PromptKind`, exactly, which
+`tests/test_codex_driver_actions.py` holds.
+
+- **An attacker is a ref, not a card.** An action names a unit
+  `unit:<id>` and the hero `hero`, and a defender also `base`, `tech1`
+  to `tech3` or `add_on`. The declared attacker is saved
+  (`MatchState.attacking`) while the defender is asked, so a restart
+  between the two clicks asks the same question.
+
+### The standing prompt
+
+The tech choice is chosen secretly while the opponent plays (worksheet
+decision 8; the author, 2026-10-08). `pending` stays one reading with
+one answer, the active player's; `standing_prompts(engine, match)` lists
+what the other player may answer meanwhile -- `TECH_CHOICE`, from the
+moment their turn ends until their next one begins, each answer
+replacing the picks. Their turn opens on `TECH_CONFIRM` (or on
+`TECH_CHOICE` itself where they never picked), and `begin_turn` refuses
+to run until the picks are confirmed; the confirmed cards go face-down
+into the discard pile in the ready phase, and only then leave the
+codex.
+
+- **A tech action names its seat** (`arguments["player"]`), because
+  both players can have one open at once -- the player whose turn
+  begins confirms theirs while the one whose turn just ended picks.
+  `driver.answer` finds the open prompt of that kind and seat among the
+  pending one and the standing ones; authorising the clicker is the
+  frontend's, as always.
+- **What a tech prompt holds is its owner's**: their codex and their
+  picks. A frontend sends it to them alone.
+
+### Undo's groundwork: the snapshots and the journal
+
+Decision 11's two saved fields are in the first commit of the model.
+`begin_turn` ends by taking a **snapshot** -- the position as saved,
+without the snapshots and the journal themselves, at the start of the
+main phase, once the gold is collected -- keeping the last three, and
+emptying the **journal**. `driver.apply`, the one door every action
+goes through, records each applied action with the random outcomes it
+consumed: every shuffle's order, which a step hands back in
+`StepResult.drawn` and nobody else ever sees (it is left out of the
+wire). An action during which a turn began is not recorded, since the
+snapshot it led to already holds its effects.
+
+- **`engine.shuffle` is the only shuffle**, and takes a recorded order
+  back: `history.replay` rebuilds a point in a turn from its snapshot
+  and a prefix of the journal, handing each action's recorded orders to
+  the engine instead of drawing, so the replay is byte for byte
+  (`tests/test_codex_history.py` replays a turn whose draw reshuffles,
+  with an engine of another seed) and **an undo past a draw deals the
+  same cards**.
+- **The two undos are over the snapshots alone**:
+  `undo_to_turn_start` restores this turn's snapshot and
+  `undo_to_previous_turn` the one before, trimming the later ones.
+  `undo_targets` says which are open. Who may ask for which -- the
+  opponent's consent for the second -- is step 4's frontend. A tech
+  answer the other player gave during an undone turn goes with it.
+
+### The vanilla engine and `UNIMPLEMENTED`
+
+The engine plays every card of the set for its cost and its numbers
+(decision 7). `codex.effects.UNIMPLEMENTED` lists every card whose text
+it does not honour -- in step 2, every card of the basic set with any:
+36 slugs, the two heroes' bands, the two tokens and the two add-ons
+among them -- written out rather than computed, so the commit that
+takes a card out of it is the commit that gives it a handler.
+`tests/test_codex_effects.py` pins the set and checks it is exactly the
+set's cards with text. **Nothing is ignored silently**: the line that
+plays such a card ends "(its text is not played yet)".
+`codex.keywords` reads the keyword table off the texts -- a keyword is
+read where a line opens with one, so Sneaky Pig's "Arrives: Gets
+stealth this turn" is an effect and not a keyword -- present and inert
+until step 5.
+
+What the vanilla engine does play is the board's own rules: gold and
+its cap, the once-a-turn hire, the draw and the once-a-phase reshuffle,
+the hero's summon, levels, bands and the heal at a band, summoning
+runes and the kill's two levels, the tech buildings with their worker
+counts and their finish at the end of the turn, the rebuild for 0, the
+add-on slot, arrival fatigue, the three attack priorities, simultaneous
+damage, the patrol slots' bonuses (the lookout's resist waits on
+targeting, step 6), what each kind of card does when destroyed, and the
+base at 0. Each is in `tests/test_codex_rules.py` with its page.
+
+- **Two readings the rulebook leaves open are built the strict way**
+  and asked on the step's PR: a tech building needs the one below it
+  *finished* (so Tech I and Tech II are never built in one turn), and
+  an add-on is refused while the slot holds one rather than replacing
+  it.
+
+### The saved fields
+
+**The save format is the contract from step 2 on.** Every class saved
+inside a match -- `MatchState`, `PlayerState`, `HeroState`,
+`CardInstance`, `BuildingState`, `AddOnState` -- has a `SavedField`
+table (`codex.components.SAVED_FIELDS`) giving each field its fallback
+for a save older than it, and `tests/test_codex_components.py` fails on
+a field its table does not name, the guard `MATCH_SAVED_FIELDS` is for
+D12 Ball. Mutable fields are copied each way; the snapshots, the
+journal and the events are deep-copied, since each nests the position.
+`validate` checks a loaded match against itself -- ids unique, every
+slug a card, one patroller a slot, no count below zero -- and raises
+`ValueError`, a corrupt save rather than a rule. `CodexGame` holds the
+match as its saved dict, as D12 Ball's record does; its file,
+`data/codex_games.json`, is step 3's.
+
+- **Two fields beyond the worksheet's list** were needed: each card
+  and hero carries `armor` (what is left of the squad leader's armour
+  this turn, set when a turn begins), the hero its `patrol_slot`, and
+  the match `attacking`. Each is in its table with its fallback.
+
+### What the narration may say
+
+Every line is in the model's voice with tokens -- `{player:1}`,
+`{card:iron_man}`, `{hero:troq_bashar}`, `{gold:3}` -- and is public.
+So a draw is a count ("discards 3 and draws 5"), a reshuffle is said
+without the order, a hire never names the card trashed, and a tech
+choice is "has chosen their tech" and, when confirmed, a count of cards
+into the discard. `test_nothing_hidden_is_said` in the full-game test
+checks the hire and tech lines name no card. The event log holds card
+identities (a hire's card among them) and stays in the save, which the
+bot never exports (the author, 2026-10-07).
+
+### Naming by slug in the tests
+
+`tests/codex_positions.py` stages a position by card slug --
+`put(match, seat, "iron_man", patrol="elite", damage=1)`. D12 Ball's
+tests name a player by role because its roster is data the author
+revises; Codex's cards are fixed data imported whole at a pinned
+commit, so a test says exactly the card it means.
 
 ## The reference commands
 
