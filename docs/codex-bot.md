@@ -211,9 +211,10 @@ ever keeps is a shootout order. Codex is a hidden-information game.
   Dean Ray Johnson's compilation of Sirlin Games' manual and Chris
   Franka's rulings document, under fair use. The author prefers it to
   the official rulebooks (https://sirlingames.com/rulebooks), with which
-  it should agree on every matter (2026-10-08). Its rules become code;
-  its words are not ours to bundle. The page numbers above are the only
-  thing the plan takes from it verbatim, and every card is read against
+  it should agree on every matter (2026-10-08). Its rules become code.
+  The PDF is committed at `docs/codex/Codex_UMR_v13w.pdf` (the author,
+  2026-10-08: "make sure it's in the repo"), so a step reads it from the
+  tree and every `UMR p. n` is checkable offline; every card is read against
   it as well as the database.
 - **The card database** (`codexcarddb.com`, source at
   `github.com/rgdelato/codex-cards-gatsby`): every card's text, type,
@@ -582,9 +583,11 @@ and the step's prompt is rewritten rather than argued with.
 12. **The rules reference is the imported rulings and a link.**
     `/codex rules <keyword>` answers from the `General` rulings; `/codex
     card <name>` shows a card's text and its rulings; both link the
-    database. No rulebook text is bundled and `docs/living-rules.md` is
-    not touched: Codex's rules are not ours to keep, and nothing in the
-    bot wants a second copy of them. The bot words its refusals itself
+    database. The bot serves no rulebook text and `docs/living-rules.md`
+    is not touched: nothing in the bot wants a second copy of Codex's
+    rules. The rulebook's PDF is in the tree (`docs/codex/`) for the
+    developers to read, not for the bot to quote (the author,
+    2026-10-08). The bot words its refusals itself
     ("Iron Man can't attack: it arrived this turn"), citing the rulebook
     page the way D12 Ball cites a Law.
 
@@ -757,9 +760,10 @@ Hard rules for every step:
 - Read every card you implement against the card database AND the
   rulebook -- its rules, its glossary and its Card FAQ (pp. 19-22) --
   not the database alone. The rulebook to read is the Unofficial
-  Manual Rewrite v1.3, which the author prefers:
-  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true
-  (cited as "UMR p. n"). The official rulebooks are at
+  Manual Rewrite v1.3, which the author prefers, committed at
+  `docs/codex/Codex_UMR_v13w.pdf` (also at
+  https://gitlab.com/omniraptorr/codex-rules/-/raw/main/Codex_UMR_v13w.pdf?inline=true)
+  and cited as "UMR p. n". The official rulebooks are at
   https://sirlingames.com/rulebooks; the two should agree on every
   matter, and a disagreement is a question for the author. Neither is
   committed to this repository: fetch it, read it, cite its pages.
