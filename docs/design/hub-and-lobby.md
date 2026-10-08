@@ -49,8 +49,12 @@ does bar naming specific opponents up front). Two pieces:
     `setup_hub` is run again, which is what an admin does to get the second
     message anyway.
   `build_hub_message` is a welcome plus one titled block per game -- name,
-  button, and **the game's own description, which is the author's copy and kept
-  verbatim** (D12 Ball's came back in review as the one to use). The **only image
+  button, and **the game's own description**. D12 Ball's is **the author's copy,
+  kept verbatim** (it came back in review as the one to use); Codex's is a
+  general description of the game in the same register, with no command in it,
+  since the hub's **Codex** button answers with that, and nothing about which
+  decks the bot plays (the author, 2026-10-08; [codex.md](codex.md), "fool-bot's
+  hub points at the lobby"). The **only image
   that ever accompanies "D12 Ball"** is a d12, and there are **two cuts of it**,
   both uploaded through the Developer Portal: `d12dice` (light blue ink) rides
   `build_hub_message(...)` and the lobby heading -- message text on the channel

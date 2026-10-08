@@ -779,6 +779,19 @@ class LobbyMessageTests(unittest.TestCase):
         self.assertIn(f"### {emoji} Codex", build_hub_message(None, emoji))
         self.assertIn("### Codex", build_hub_message(None, None))
 
+    def test_codex_block_describes_the_game_and_names_no_command(self) -> None:
+        # The author, 2026-10-08: a general description of the game --
+        # not which decks the bot plays -- and no command, since the
+        # hub's Codex button answers with that (`codex_lobby_prompt`).
+        from cogs.d12ball_helpers import build_hub_message
+
+        text = build_hub_message(None, None)
+        codex_block = text.split("### Codex", 1)[1]
+        self.assertIn("Sirlin Games", codex_block)
+        self.assertNotIn("/codex", text)
+        self.assertNotIn("Bashing", text)
+        self.assertNotIn("Finesse", text)
+
     def test_hub_button_never_falls_back_to_the_blue_die(self) -> None:
         # The message-text d12 is uploaded but the cream cut is not: the
         # green button goes bare rather than carrying the blue die.
