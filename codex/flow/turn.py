@@ -131,7 +131,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         side.hero.attacked_this_turn = False
         if side.add_on is not None:
             side.add_on.detected = None
-    # Armour refreshes at the start of every turn (UMR p. 10); only the
+    # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
         for card in side.play:

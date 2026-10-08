@@ -171,14 +171,20 @@ class ObliterateOptions:
 
 @dataclass(frozen=True)
 class SparkshotOptions:
+    """The two neighbours, how many instances of sparkshot are still to
+    place (each asked on its own), and where the placed ones went."""
+
     attacker: str
     defender: str
     patrollers: tuple[str, ...]
+    left: int = 1
+    placed: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
             "attacker": self.attacker, "defender": self.defender,
-            "patrollers": list(self.patrollers),
+            "patrollers": list(self.patrollers), "left": self.left,
+            "placed": list(self.placed),
         }
 
 
@@ -343,9 +349,11 @@ def _obliterate_options(engine, game, match, prompt) -> ObliterateOptions:
 
 def _sparkshot_options(engine, game, match, prompt) -> SparkshotOptions:
     state = match.combat
+    placed = tuple(state["sparks"])
     return SparkshotOptions(
         state["attacker"], state["defender"],
         engine.sparkshot_candidates(match, state["attacker"], state["defender"]),
+        engine.sparkshot_count(match, state["attacker"]) - len(placed), placed,
     )
 
 

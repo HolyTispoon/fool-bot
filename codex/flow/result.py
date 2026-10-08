@@ -33,7 +33,7 @@ class FollowOnStep(Enum):
     """
 
     #: The ready phase and the upkeep (UMR p. 5): the confirmed tech
-    #: cards into the discard, everything readied, the armour set, the
+    #: cards into the discard, everything readied, the armor set, the
     #: gold collected, a summoning rune off the hero -- and the
     #: turn-start snapshot. Owed once the turn's tech choice is
     #: confirmed, or at once where none is owed.

@@ -72,10 +72,10 @@ Rewrite v1.3 (`UMR p. n` is its page) and from the card texts.
   goes face-down to the discard; a destroyed hero returns to the command
   zone with two summoning runes and one of the opponent's heroes in play
   gains two levels; a destroyed tech building or add-on deals 2 to its
-  base. The patrol slots (p. 10): squad leader armour 1, elite +1 ATK,
+  base. The patrol slots (p. 10): squad leader armor 1, elite +1 ATK,
   scavenger a gold when it dies, technician a card when it dies, lookout
   resist 1. Exhausted cards cannot patrol; cards with arrival fatigue
-  can. Armour refreshes at the start of each turn. Flying, anti-air,
+  can. Armor refreshes at the start of each turn. Flying, anti-air,
   stealth, invisible and unstoppable change who may be attacked and who
   may be ignored (p. 14, 16-18); the tower detects the first stealth or
   invisible attacker on an opponent's turn and any one card on its
@@ -154,7 +154,7 @@ ever ignored silently.
 - *The keywords* (step 5): flying and anti-air, stealth, invisible and
   unstoppable with the tower's detection, swift strike, sparkshot's
   adjacency, overpower's excess, obliterate before combat, readiness,
-  armour refreshing, frenzy, healing, resist, haste.
+  armor refreshing, frenzy, healing, resist, haste.
 - *The effects* (step 6): arrives and attacks triggers; targeting, the
   flagbearer and resist's cost; damage, destruction, runes and debuffs
   for a turn; return to hand and gain control; sideline; the ongoing
@@ -1084,7 +1084,7 @@ prompts and flow; the tests.
 
    codex/flow/: result.py (StepResult, FollowOn, FollowOnStep,
    Headline, copied), turn.py (begin_turn: ready -- the tech choice
-   into the discard, everything readies, armour and
+   into the discard, everything readies, armor and
    max_level_since_turn_began recorded -- then upkeep: gold per worker
    to the cap, a summoning rune off the hero; end_main; draw_phase: the
    hand to the discard face-down, draw_count drawn with the
@@ -1093,7 +1093,7 @@ prompts and flow; the tests.
    a unit or a spell -- a spell in this step is paid, discarded and
    does nothing, since it is in UNIMPLEMENTED -- construct, lock_patrol
    with the slot assignment), combat.py (declare_attack(attacker,
-   defender): exhaust, the elite's +1, armour, simultaneous damage,
+   defender): exhaust, the elite's +1, armor, simultaneous damage,
    deaths -- a unit to the owner's discard with the scavenger's gold or
    the technician's card to its controller, the hero to the command
    zone with two summoning runes and two levels to the opponent's hero
@@ -1144,7 +1144,7 @@ prompts and flow; the tests.
    levels, each tech building's cost and worker requirement and its
    completion at end of turn, the rebuild for 0, the 2 damage of a
    destroyed building, the three attack priorities, each patrol slot's
-   bonus, the squad leader's armour refreshing. tests/test_codex_prompts.py:
+   bonus, the squad leader's armor refreshing. tests/test_codex_prompts.py:
    a fixture per PromptKind and per owed step, asserting exactly one of
    pending_prompt and owed_step answers, and that standing_prompts
    carries the tech choice across the opponent's turn and that
@@ -1561,7 +1561,7 @@ views the choices need.
    first, a choice when more than one); obliterate 2 (the defending
    player's two lowest-tech units destroyed before combat, the
    attacker's choice on ties, and a new defender if the first is gone);
-   readiness (no exhaust on attack, one attack a turn); armour (the
+   readiness (no exhaust on attack, one attack a turn); armor (the
    squad leader's 1, refreshed at the start of each turn, damage
    prevented still dealt); frenzy (+X ATK on its controller's turn);
    healing X (at upkeep, each friendly unit and hero); resist X (an
@@ -1629,7 +1629,7 @@ tokens and the upkeep.
    resolve. Your own invisible cards are targetable. codex/effects.py
    gains the handlers: Spark, Bloom (only a friendly unit or hero
    without a +1/+1 rune), Wither (the runes cancel; 0 HP kills through
-   armour), Wrecking Ball, The Boot (a tech 0 or I unit; dies, so the
+   armor), Wrecking Ball, The Boot (a tech 0 or I unit; dies, so the
    patrol slot pays), Intimidate (-4 ATK this turn, floor 0), Discord
    (every opposing tech 0 and I unit, -2/-1 until end of turn, 0 HP
    kills), Final Smash (the three parts: destroy, return to its owner's

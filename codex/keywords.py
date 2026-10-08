@@ -79,7 +79,7 @@ def keywords(slug: str) -> tuple[tuple[str, Optional[int]], ...]:
 
 
 #: What a patrol slot grants whatever stands in it (UMR p. 10): the
-#: lookout's resist 1. The other four slots give armour, ATK, gold and a
+#: lookout's resist 1. The other four slots give armor, ATK, gold and a
 #: card, which are the board's arithmetic rather than keywords.
 PATROL_GRANTS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
     "lookout": (("Resist", 1),),

@@ -122,7 +122,7 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
 
 
 def _take(fighter: _Fighter, amount: int) -> int:
-    """Combat damage onto a unit or hero, armour first; what landed."""
+    """Combat damage onto a unit or hero, armor first; what landed."""
     body = fighter.body
     absorbed = min(body.armor, amount)
     body.armor -= absorbed
@@ -325,16 +325,15 @@ def choose_obliterate(engine: "RulesEngine", game: "CodexGame", match: MatchStat
 
 def choose_sparkshot(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                      patroller: str) -> StepResult:
-    """Which neighbour of the attacked slot sparkshot's 1 damage goes to
-    (UMR p. 18)."""
+    """Which neighbour of the attacked slot one instance of sparkshot's 1
+    damage goes to (UMR p. 18); asked again for each instance left."""
     state = _in_combat(match, SPARKSHOT)
     if patroller not in engine.sparkshot_candidates(match, state["attacker"], state["defender"]):
         raise RuleRefusal(
             "Sparkshot hits a patroller one slot over from the one attacked.",
             cite="UMR p. 18",
         )
-    state["sparks"] = [patroller]
-    state["stage"] = OVERPOWER
+    state["sparks"] = [*state["sparks"], patroller]
     return _carry_on(engine, game, match, StepResult(board_changed=True))
 
 
@@ -406,11 +405,17 @@ def _carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             result.next = pending(engine, game, match)
             return result
         if stage == SPARKSHOT:
+            # Each instance of sparkshot deals its 1 to a neighbour, so
+            # two may go to one patroller or one to each (Sirlin's
+            # sparkshot ruling 6): asked once per instance where both
+            # neighbours are filled, and placed without asking where one is.
             candidates = engine.sparkshot_candidates(match, state["attacker"], state["defender"])
-            if len(candidates) > 1:
+            count = engine.sparkshot_count(match, state["attacker"])
+            if len(candidates) > 1 and len(state["sparks"]) < count:
                 result.next = pending(engine, game, match)
                 return result
-            state["sparks"] = list(candidates[:1])
+            if len(candidates) == 1:
+                state["sparks"] = [candidates[0]] * count
             state["stage"] = OVERPOWER
             continue
         if stage == OVERPOWER:
@@ -476,9 +481,13 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     hits: list[_Hit] = []
     mine = 0 if swift_attacker else 1
-    hits.append(_Hit(mine, hitting, taking, dealt, "attack"))
-    for ref in state["sparks"]:
-        hits.append(_Hit(mine, hitting, _fighter(match, other, ref), SPARKSHOT_DAMAGE, "sparkshot"))
+    # Overpower's excess is what is left over once the patroller is
+    # destroyed -- its remaining HP and its armor -- so the patroller takes
+    # what destroys it and the rest goes on (the author, 2026-10-08).
+    hits.append(_Hit(mine, hitting, taking, dealt - excess, "attack"))
+    for ref in dict.fromkeys(state["sparks"]):
+        sparked = state["sparks"].count(ref) * SPARKSHOT_DAMAGE
+        hits.append(_Hit(mine, hitting, _fighter(match, other, ref), sparked, "sparkshot"))
     if state["overpower"] and excess:
         hits.append(_Hit(mine, hitting, _fighter(match, other, state["overpower"]), excess, "overpower"))
     defence: Optional[_Hit] = None
@@ -576,7 +585,7 @@ def _damage_line(hitting: _Fighter, taking: _Fighter, attack: _Hit,
         return said + (" with swift strike." if swift else ".")
     said = f"{hitting.named(whose=False)} deals {attack.landed}"
     if attack.landed < attack.amount:
-        said += f" (armour takes {attack.amount - attack.landed})"
+        said += f" (armor takes {attack.amount - attack.landed})"
     if swift:
         said += " with swift strike"
     if defence is None:

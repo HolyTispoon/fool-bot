@@ -339,8 +339,11 @@ always.
   Thief in the lookout slot is resist 2; anti-air and overpower do not,
   so two instances read as one. Healing is each card's own ability rather
   than a stacking keyword -- two Helpful Turtles heal twice because each
-  heals once. Nothing in the basic set can stack sparkshot, so the engine
-  deals its one damage and the ruling is pinned on the table.
+  heals once. Sparkshot stacks in the engine as the ruling says, though
+  nothing in the basic set has it twice (the author, 2026-10-08: "build
+  it according to the rules"): each instance deals its 1 to a neighbour,
+  so two go to one patroller or one to each, `sparkshot_count` saying how
+  many.
 - **Who may be attacked, and who may be ignored.** `may_be_attacked`
   answers the first -- a flier only by a flier or an anti-air attacker, an
   invisible card only while patrolling or detected -- and
@@ -378,7 +381,12 @@ always.
   swift strikers are simultaneous. The tower's damage joins the first
   batch there is, which is what "simultaneously as the swift strike"
   means. Sparkshot's 1 and overpower's excess ride with the attacker's own
-  damage; a building's damage is applied after the lines are said, since
+  damage. **Overpower's excess is what is left once the patroller is
+  destroyed** -- its remaining HP *and* its armor -- so the patroller takes
+  exactly what destroys it and the rest goes on (the author, 2026-10-08:
+  "if the overpowering attacker destroys a patroller with armor, the
+  excess damage goes to anything else it could attack"); Reaper's 6 into
+  a 1/2 squad leader with armor 1 destroys it with 3 and carries 3; a building's damage is applied after the lines are said, since
   buildings deal nothing back and kill nobody.
 - **Readiness does not exhaust, and attacks once a turn**, which is why
   `CardInstance` and `HeroState` gained `attacked_this_turn` (cleared when
@@ -402,7 +410,7 @@ in two (`GameService`, above).
 | Asked | When | What |
 | --- | --- | --- |
 | `OBLITERATE_CHOICE` | two or more of the defending player's units are equally the lowest tech | which one obliterate takes, once per point of X, and a new defender (`CHOOSE_DEFENDER` again) where obliterate took the first |
-| `SPARKSHOT_TARGET` | both slots beside the one attacked are filled | which neighbour takes the 1 damage |
+| `SPARKSHOT_TARGET` | both slots beside the one attacked are filled | which neighbour takes the 1 damage -- once per instance of sparkshot, so a stacked one may put both on one neighbour or one on each |
 | `OVERPOWER_TARGET` | more than one thing could take the excess | where it goes -- the other patrollers it could have attacked, or anything of theirs with HP where there are none |
 
 Not asked: whether to use flying, stealth, invisibility or unstoppable
@@ -437,7 +445,7 @@ match as its saved dict, as D12 Ball's record does; its file,
 `data/codex_games.json`, is step 3's.
 
 - **Two fields beyond the worksheet's list** were needed: each card
-  and hero carries `armor` (what is left of the squad leader's armour
+  and hero carries `armor` (what is left of the squad leader's armor
   this turn, set when a turn begins), the hero its `patrol_slot`, and
   the match `attacking`. Each is in its table with its fallback.
 - **Step 5 added four**, each with its fallback, since the save format is

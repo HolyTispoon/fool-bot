@@ -626,9 +626,39 @@ class SparkshotTests(KeywordCase):
         get to deal 2 damage to an adjacent patroller or 1 damage to each
         of 2 adjacent patrollers."""
         self.assertIn("Sparkshot", keywords.STACKING)
-        with printed(revolver_ocelot=(("Sparkshot", None), ("Sparkshot", None))):
-            card = CardInstance(1, "revolver_ocelot", 1, 1)
-            self.assertEqual(keywords.keyword_x(card, "Sparkshot"), 2)
+        twice = {"revolver_ocelot": (("Sparkshot", None), ("Sparkshot", None))}
+        with printed(**twice):
+            # Both to one neighbour.
+            engine, game, match, ocelot = self.staged()
+            left = put(match, 2, "iron_man", patrol="elite").ref
+            middle = put(match, 2, "tenderfoot", patrol="scavenger").ref
+            right = put(match, 2, "iron_man", patrol="technician").ref
+            self.assertEqual(engine.sparkshot_count(match, ocelot), 2)
+            self.attack(engine, game, match, ocelot, middle)
+            asked = pending_prompt(engine, game, match)
+            self.assertIs(asked.kind, PromptKind.SPARKSHOT_TARGET)
+            self.assertEqual(asked.options.left, 2)
+            combat.choose_sparkshot(engine, game, match, left)
+            asked = pending_prompt(engine, game, match)
+            self.assertIs(asked.kind, PromptKind.SPARKSHOT_TARGET)
+            self.assertEqual((asked.options.left, asked.options.placed), (1, (left,)))
+            combat.choose_sparkshot(engine, game, match, left)
+            self.assertEqual((self.damage(match, 2, left), self.damage(match, 2, right)), (2, 0))
+            # One to each.
+            engine, game, match, ocelot = self.staged()
+            left = put(match, 2, "iron_man", patrol="elite").ref
+            middle = put(match, 2, "tenderfoot", patrol="scavenger").ref
+            right = put(match, 2, "iron_man", patrol="technician").ref
+            self.attack(engine, game, match, ocelot, middle)
+            combat.choose_sparkshot(engine, game, match, left)
+            combat.choose_sparkshot(engine, game, match, right)
+            self.assertEqual((self.damage(match, 2, left), self.damage(match, 2, right)), (1, 1))
+            # With one neighbour, both go to it unasked.
+            engine, game, match, ocelot = self.staged()
+            leader = put(match, 2, "regularsized_rhinoceros", patrol="squad_leader").ref
+            beside = put(match, 2, "iron_man", patrol="elite").ref
+            self.attack(engine, game, match, ocelot, leader)
+            self.assertEqual(self.damage(match, 2, beside), 2)
 
 
 # -- Overpower (UMR p. 17) -----------------------------------------------------
@@ -665,6 +695,21 @@ class OverpowerTests(KeywordCase):
         leader = put(match, 2, "iron_man", patrol="squad_leader", damage=1).ref
         # 3/4 with a damage: three HP left, so three of the six carry over.
         self.assertEqual(engine.overpower_excess(match, reaper, leader), 3)
+
+    def test_overpower_2_with_armor(self) -> None:
+        """A patroller's armor is part of what destroys it, and the excess
+        is what is left after that (the author, 2026-10-08: "if the
+        overpowering attacker destroys a patroller with armor, the excess
+        damage goes to anything else it could attack")."""
+        engine, game, match, reaper = self.staged()
+        leader = put(match, 2, "tenderfoot", patrol="squad_leader")
+        leader.armor = 1
+        beside = put(match, 2, "regularsized_rhinoceros", patrol="elite").ref
+        # 1/2 behind armor 1 takes three of the six; three carry over.
+        self.assertEqual(engine.overpower_excess(match, reaper, leader.ref), 3)
+        self.attack(engine, game, match, reaper, leader.ref)
+        self.assertIn("tenderfoot", match.player(2).discard, "the squad leader is destroyed")
+        self.assertEqual(self.damage(match, 2, beside), 3)
 
     def test_overpower_3(self) -> None:
         """When determining what an overpower attacker "could have

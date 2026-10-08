@@ -124,7 +124,7 @@ class HeroState:
     max_level_since_turn_began: bool = False
     #: A hero may patrol (UMR p. 10).
     patrol_slot: Optional[str] = None
-    #: What is left of the squad leader's armour this turn.
+    #: What is left of the squad leader's armor this turn.
     armor: int = 0
     #: It has attacked this turn -- what readiness's once a turn reads
     #: (UMR p. 17).
@@ -218,7 +218,7 @@ class CardInstance:
     attached: list[int] = field(default_factory=list)
     #: A token's flip (the Dancer); False until step 6.
     flipped: bool = False
-    #: What is left of the squad leader's armour this turn.
+    #: What is left of the squad leader's armor this turn.
     armor: int = 0
     #: It has attacked this turn -- what readiness's once a turn reads.
     attacked_this_turn: bool = False

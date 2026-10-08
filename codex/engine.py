@@ -820,6 +820,11 @@ class RulesEngine:
         body = self.body(match, seat, ref)
         return None if body is None else body.patrol_slot
 
+    def sparkshot_count(self, match: MatchState, attacker: str) -> int:
+        """How many instances of sparkshot this attacker has: each deals 1,
+        and they stack (Sirlin, 2016-09-16)."""
+        return self.keyword_x(self.body(match, match.active, attacker), "Sparkshot")
+
     def sparkshot_candidates(self, match: MatchState, attacker: str,
                              defender: str) -> tuple[str, ...]:
         """
@@ -849,10 +854,13 @@ class RulesEngine:
 
     def overpower_excess(self, match: MatchState, attacker: str, defender: str) -> int:
         """
-        The combat damage beyond the remaining HP of what was attacked
-        (Sirlin, 2016-03-14) -- counted whether it dies or not, and only
-        against a patroller, since "overpower does nothing when you
-        attack a non-patroller".
+        The combat damage beyond what destroys the patroller attacked --
+        its remaining HP and its armor (the author, 2026-10-08: "if the
+        overpowering attacker destroys a patroller with armor, the excess
+        damage goes to anything else it could attack") -- counted whether
+        it dies or not (Sirlin, 2016-03-14), and only against a
+        patroller, since "overpower does nothing when you attack a
+        non-patroller".
         """
         seat = match.active
         other = 2 if seat == 1 else 1
@@ -865,10 +873,8 @@ class RulesEngine:
             return 0
         hp = (self.unit_stats(body)[1] if isinstance(body, CardInstance)
               else self.hero_stats(body)[1])
-        # The excess is counted against its remaining HP, whether it dies
-        # or not and whatever armour prevents (Sirlin, 2016-03-14).
-        left = max(0, hp - body.damage)
-        return max(0, self.attack_value(match, seat, attacker) - left)
+        needed = max(0, hp - body.damage) + body.armor
+        return max(0, self.attack_value(match, seat, attacker) - needed)
 
     def overpower_candidates(self, match: MatchState, attacker: str,
                              defender: str) -> tuple[str, ...]:

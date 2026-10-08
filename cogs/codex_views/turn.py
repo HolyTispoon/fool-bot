@@ -373,8 +373,11 @@ class TurnPanelView(PanelView):
     def build_sparkshot(self, options) -> None:
         """Which patroller beside the one attacked takes sparkshot's 1."""
         other = 2 if self.seat == 1 else 1
+        placeholder = "Sparkshot hits..."
+        if options.left > 1 or options.placed:
+            placeholder = f"Sparkshot hits... ({options.left} of its damage left to place)"
         self.menu(
-            "Sparkshot hits...", "No patroller is beside it", 0,
+            placeholder, "No patroller is beside it", 0,
             [
                 discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
                 for ref in options.patrollers[:SELECT_LIMIT]
