@@ -22,7 +22,7 @@ from cogs.codex import Codex
 # extension (test_codex_bot) drops `cogs.codex.*` from sys.modules, and a
 # patch by name would then reach a fresh copy the `Codex` here never reads.
 from cogs.codex import core as codex_core
-from cogs.codex_views import CodexBrowser, LobbyView, TurnMessageView
+from cogs.codex_views import CodexBrowser, LobbyView, TurnMessageView, TurnPanelView
 from save_patches import suppressed_cog_saves
 
 GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20  # typed in; the game's own
@@ -220,6 +220,8 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
 
 class HandTests(unittest.IsolatedAsyncioTestCase):
     async def test_my_hand_is_the_clickers_and_ephemeral(self) -> None:
+        """The active player's My hand is the panel; the other's, their
+        hand. Both ephemeral, both the clicker's own cards."""
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.started()
@@ -232,8 +234,14 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(seat=seat):
                 (caption,), kwargs = call.response.send_message.call_args
                 self.assertTrue(kwargs["ephemeral"])
-                self.assertEqual(kwargs["file"].filename, "codex-hand.png")
-                self.assertIn(f"{len(match.player(seat).hand)} cards", caption)
+                if seat == match.active:
+                    # One button, two answers (the author, 2026-10-08):
+                    # the active player's is the control panel.
+                    self.assertIsInstance(kwargs["view"], TurnPanelView)
+                    self.assertEqual(kwargs["files"][0].filename, "codex-hand.png")
+                else:
+                    self.assertEqual(kwargs["file"].filename, "codex-hand.png")
+                    self.assertIn(f"{len(match.player(seat).hand)} cards", caption)
 
     async def test_a_watcher_is_told_the_table_is_not_theirs(self) -> None:
         with suppressed_cog_saves():
@@ -288,10 +296,12 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(game.status, GameStatus.PLAYING)
         self.assertEqual(table.game_channel.edit.call_args.kwargs["name"], "codex-1-basher-vs-basher")
         match = table.cog.service.load(game)
-        side = match.player(match.active).spec.title()
         (caption,), kwargs = hand.response.send_message.call_args
         self.assertTrue(kwargs["ephemeral"])
-        self.assertIn(f"Your hand ({side})", caption)
+        # Since step 4 the active side's My hand is its panel, which the
+        # one person holding both seats may act from.
+        self.assertIsInstance(kwargs["view"], TurnPanelView)
+        self.assertEqual(kwargs["view"].seat, match.active)
 
     async def test_the_lobby_says_it_is_a_test_game(self) -> None:
         with suppressed_cog_saves():

@@ -45,6 +45,9 @@ _HISTORY_FIELDS = ("turn_snapshots", "journal")
 TURN_START = "turn_start"
 PREVIOUS_TURN = "previous_turn"
 
+#: What an undo says, on the turn message it takes back.
+UNDONE = "Undone to the start of the turn."
+
 
 def position(match: MatchState) -> dict:
     """The match as saved, without the snapshots and the journal."""

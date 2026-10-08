@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import history, tokens
+from codex.formatting import deck_name
 from codex.components import MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -92,8 +93,11 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         raise RuleRefusal(
             "The turn cannot begin until the tech choice is confirmed.", cite="UMR p. 5",
         )
+    # No line opens the turn: a frontend heads the turn with whose it is
+    # (the Discord turn message's "**Turn 7** -- @perrytom (Bashing)"),
+    # and a line of the model's saying it again was the same words twice
+    # (the author, 2026-10-08). The turn's end is the model's to say.
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
-    result.narration.append(f"**Turn {match.turn}** -- {tokens.player(seat)}'s turn.")
 
     # Ready.
     match.enter_phase("ready")
@@ -186,7 +190,9 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     The end of the turn: buildings under construction are finished, the
     turn's effects end, the player whose turn it was owes their tech
     choice -- offered now and open until their next turn begins -- and
-    the turn passes.
+    the turn passes, said in its own line: "**End of turn 3** --
+    perrytom (Bashing).", the player and their deck as the turn's
+    heading names them (`codex.formatting.turn_heading`).
     """
     seat = match.active
     player = match.active_player
@@ -207,6 +213,14 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     player.tech_owed = maximum > 0
     player.tech_choice = None
     player.tech_confirmed = False
+    # The model says the turn is over (the event log already records
+    # which, as every event does): a frontend closes the turn on this
+    # step (`FollowOnStep.BEGIN_TECH`), never by comparing turn numbers
+    # of its own.
+    result.narration.append(
+        f"**End of turn {match.turn}** -- {tokens.player(seat)} "
+        f"({deck_name(player.specs)})."
+    )
     match.record_event("turn_ended")
     match.attacking = None
     match.active = 2 if seat == 1 else 1

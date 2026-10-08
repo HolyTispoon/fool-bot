@@ -18,7 +18,10 @@ prompts, the flow and the driver -- and a test that plays a game to a
 destroyed base through the driver alone. Step 3 put it on Discord as
 far as the opening position: the service and its file, `/codex lobby`,
 the game's channel, the board, and each player's hand shown to them
-alone. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+alone. Step 4 put the whole turn there -- the panel, the turn message
+rolled over at the turn's end, the tech choice during the opponent's
+turn, the two undos and the resume -- so two people can finish a game
+on the vanilla engine. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -100,7 +103,9 @@ its source.
   -- `trojan_duck`, and `regularsized_rhinoceros` for
   "Regular-sized Rhinoceros", which is the database's page address.
 - **The glyphs become tokens** the way `codex/tokens.py` reads them: ⤵
-  `{exhaust}`, ◎ `{target}`, ① ② ... `{gold:n}`, → `{arrow}`. The
+  `{exhaust}`, ◎ `{target}`, ① ② ... `{gold:n}`, → `{arrow}`; the
+  narration's own are `{player:n}` (a seat's name), `{to:n}` (a seat
+  addressed -- a mention on Discord), `{card:slug}` and `{hero:slug}`. The
   model writes tokens and the cog renders them at its door
   (`cogs.codex_helpers.CodexTokens`), as D12 Ball's do; nothing else in
   the text is reworded. `{codex}` is the bot's own mark.
@@ -325,8 +330,9 @@ Every line is in the model's voice with tokens -- `{player:1}`,
 `{card:iron_man}`, `{hero:troq_bashar}`, `{gold:3}` -- and is public.
 So a draw is a count ("discards 3 and draws 5"), a reshuffle is said
 without the order, a hire never names the card trashed, and a tech
-choice is "has chosen their tech" and, when confirmed, a count of cards
-into the discard. `test_nothing_hidden_is_said` in the full-game test
+choice says nothing while it is made -- it is announced only in its
+owner's ready phase, as a count of cards into the discard (the author,
+2026-10-08: the other player has no reason to hear that it was picked). `test_nothing_hidden_is_said` in the full-game test
 checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
@@ -460,9 +466,12 @@ confirmation marker and exception -- and `send_new_prompt`, moved out of
 `cogs/d12ball_helpers.py`, which re-exports every name, so nothing else
 under `cogs/d12ball*` changed. They read the record's two seat ids,
 which `D12BallGame` and `CodexGame` spell alike ([permissions.md](permissions.md)).
-The Codex `SafeView` has no helper confirmation yet: in step 3 no button
-acts for a player but the lobby's, so its gates let the seated players
-alone through, and step 4 brings the confirmation with the panel.
+The Codex `SafeView` carries D12 Ball's helper confirmation since step
+4 -- Confirm/Cancel in place of the view's buttons, the confirming click
+marked on its `interaction.extras` -- and exactly one button asks for
+it: the opponent's **Agree** to an undo to the previous turn. The panel
+needs none, because it is ephemeral to the player who opened it: no
+one else can see it to press it.
 
 ## The board on Discord
 
@@ -550,7 +559,212 @@ press makes a fresh ephemeral message, and `/codex hand` answers the
 same. Where it was checked that nothing hidden is public: the turn
 message's text is the narration alone (`test_the_turn_message_names_no_card_in_a_hand`),
 `GameResult.to_dict` writes no prompt, and no log line in the cog names
+a card. Since step 4 My hand answers the active player with the panel
+instead (below), and step 4's checks are: every line the channel is
+sent or edited to through a turn -- a card played, a worker hired, the
+turn's end, a tech choice saved -- is the header, the cog's caption, or
+a line of the model's narration (`test_the_hand_never_reaches_the_channel`);
+the panel, the tech picker and the confirmation are ephemeral and sent
+to their asked player alone; the undo's public question names the
+players and nothing else; and the cog's new log lines name a game, never
 a card.
+
+## The turn on Discord
+
+Step 4 is the whole turn, driven from **one ephemeral panel** for the
+active player and summarised in **one public message per turn**.
+`tests/test_codex_cog_turn.py` drives it through the cog with Discord
+faked -- `tests/codex_cog_fakes.py` logs every request by route -- and
+plays a whole game through the panels to a destroyed base, every click
+held to the request budget below.
+
+### The panel
+
+**My hand** on the turn message is one button with two answers by who
+clicked (the author, 2026-10-08): the active player gets the panel for
+whatever the match asks them, the other player their hand pictured and
+nothing to press. The panel is the view for `MAIN_ACTION` and
+`CHOOSE_DEFENDER` (`TurnPanelView`), for `PATROL` (`PatrolView`), and
+for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
+`view_for_prompt`'s table, the only place a kind becomes a view.
+
+- **One ephemeral message, edited by its own interactions.** Each click
+  answers through the service and the panel is edited in place with
+  `interaction.response.edit_message`, built afresh from the new
+  prompt's options. That edit goes through **the interaction's own
+  webhook**, not the channel: it spends nothing from the channel's
+  ~five-in-five bucket the turn message lives in (rate-limits.md), and
+  it is the one thing an ephemeral message can be edited by -- the bot
+  cannot find an ephemeral message again, so every entry point (My hand,
+  **Tech**, `/codex resume`) makes a fresh one and the cog never looks
+  for an old panel.
+- **Its picture is the hand**, numbered, greyed where it may not be
+  played, each card's cost after reductions -- `render_hand` over
+  `MainActionOptions.hand`, a field the prompt grew for it so the
+  picture and the menu read one list. **Play a card** names each
+  playable card by its number in the picture. `render_prompt` gives the
+  main phase and the defender no picture of their own (the board on the
+  turn message is theirs); the tech picker's is the codex with the
+  picks framed in gold and counted (`render_codex`'s `picked`), the
+  confirmation's the picks as a hand.
+- **Built from the options and nothing else.** A control the engine
+  says no to is disabled with its reason as its label ("Hire: a worker
+  has been hired this turn"); a menu with nothing to offer is a disabled
+  menu saying why, so the panel keeps its shape. **Hire worker** opens
+  a menu of the hand's cards (the one hired with is trashed unseen);
+  **Undo** the choices `history.undo_targets` says are open. The
+  defender menu labels each defender with why it is legal -- "squad
+  leader", "patroller", "nothing is patrolling" -- which is the engine's
+  (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
+- **The patrol lock is two menus, not five.** A message carries five
+  rows of components; five slot menus would leave no row for **Lock
+  patrol**, which stands alone in its row as the misclick guard
+  (decision 11). So one menu picks the slot, each named with what holds
+  it, and the next what patrols it -- the candidates not placed
+  elsewhere, or nobody -- moving on to the next empty slot; **Clear**
+  empties all five. Nothing is applied until Lock.
+- **Who may click it**: the player it asks, alone -- anybody else is
+  refused ephemerally (`NOT_YOUR_PANEL`). A stale panel -- a second one
+  opened before the first moved the game on -- is refused with the
+  driver's own words (`STALE_CLICK`), since the driver checks every
+  action against what the match is waiting on.
+
+### The tech choice on Discord
+
+The Lock that ends a turn closes the panel ("your turn is over") and
+sends the tech picker as an ephemeral follow-up to the same click.
+**Tech** on the turn message reopens it -- for the player whose turn it
+is not, alone -- all through the opponent's turn; each **Save tech**
+replaces the last, privately: **nothing is said in the channel** -- not
+the cards, and not that a choice was made. The choice is announced in
+its owner's ready phase alone, as "puts 2 tech cards into their discard
+pile" (the author, 2026-10-08). The menu has a line per
+copy left in the codex, so two copies of one card can be picked.
+
+From the third turn on the new turn opens on its player's confirmation:
+the new turn message says it waits on them to confirm their tech (the
+cog's caption, `TECH_WAIT`, gone once the ready phase has run), and My
+hand is `TechConfirmView` -- the picks pictured, **Confirm** and
+**Change**. Confirm runs the ready phase and the upkeep, and the panel
+becomes the turn's actions in place. The prompt asked for the
+confirmation to be sent "as the follow-up to the opponent's Lock when
+they are present"; a follow-up reaches only the clicker, so it is not
+sent to the other player -- the turn message's mention and its caption
+point them at My hand instead.
+
+### The turn message, and the two-message gate
+
+Each turn's message is posted when the turn begins: its text
+"**Turn 7** -- @perrytom (Bashing)" -- the model's heading, whose turn
+as a mention, which the post pings and no edit does -- then the turn's
+lines, the model's with
+their tokens rendered at the door; the board as its picture; and
+**My hand**, **Tech**, **Codex**, **Swap view**. It is pinned and the
+previous one unpinned. After each action it is edited through the gate
+with the new lines and the re-rendered board. The text stays under
+2000 characters: past that the earliest lines fold into "*and n more*",
+since the board carries the position.
+
+- **The heading is the model's, and it is not narration** (the author,
+  2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
+  `codex.formatting.turn_heading(match)`: the turn, its player
+  *addressed* -- `{to:n}`, a token the cog draws as a mention and plain
+  text as the name -- and their deck, `deck_name(player.specs)`, one
+  spec in the basic game and "Anarchy/Blood/Fire" for the standard
+  game's three. The cog puts it at the head of every turn message and
+  never folds it, so it reads even while the turn waits on its tech, and
+  after a restart that lost the turn's lines. The model used to open
+  each turn with a narration line of its own as well ("**Turn 7** --
+  perrytom's turn."), which under the heading said it twice; that line
+  is gone. **The turn's end is narration**: "**End of turn 7** --
+  perrytom (Bashing).", naming the player and their deck as the
+  heading does (the author, 2026-10-08), the
+  last line of `begin_tech`, so the model's own transcript still reads
+  turn by turn and the turn's message stands with its close; the event
+  log's `turn_ended` records which turn. The cog closes a turn's message
+  on that step (`split_at_turn_end`, the group `BEGIN_TECH` closes),
+  never by comparing turn numbers of its own.
+- **The end of a turn is a joint the frontend names.** An action is
+  never stopped part-way (the journal records it whole), so a picture
+  of the position where the turn ended cannot be a stop. Instead
+  `driver.advance` takes `draw_after` -- the Discord batching names
+  `BEGIN_TECH` -- and closes a group there carrying the position as it
+  stood (`history.position`, no snapshots). The old message's last edit
+  is that group's lines and that board, **without its buttons**, and it
+  stands as the turn's summary; what the next turn's start said goes on
+  the next message. The standing picture lights the player whose turn
+  it was.
+- **Two messages, one gate.** The gate (`BoardRefresher`) only ever
+  writes the current turn's message (`message_of`). The old message's
+  last edit is written by the cog directly, under the gate's own lock
+  so no gate write lands on it after, and then the gate is forgotten,
+  so its next write is the new message's. The game's end is the same
+  last edit, then one public line -- the model's "wins" sentence --
+  with the final board, rendered once and uploaded twice.
+- **What the cog remembers**, in memory only: the turn's lines, and
+  each recent turn's *first lines* -- what its message said when its
+  main phase opened -- which is what an undo puts back. After a restart
+  neither is known: the gate leaves the message's text alone until the
+  turn ends or `/codex resume` re-posts the table.
+
+### The requests per click
+
+Measured with the fakes, and held on every click of the whole-game test:
+
+| Click | The channel's bucket | The interaction's webhook |
+| --- | --- | --- |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message's edit through the gate | 1: the panel's edit |
+| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, Undo's menu) | **0** | 1 |
+| Save tech | **0**: nothing is said until the owner's ready phase | 1 |
+| Lock patrol (the turn's end) | **4**: the old message's last edit, the new one's post, its pin, the old one's unpin | 2: the panel closed, the tech picker sent |
+| The attack that destroys a base | **2**: the last edit and the winner's line with the board | 1 |
+| Undo to the start of the turn | **1** | 1 |
+| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the old message's edit, its pin, the current one's delete | 2 on Agree: the question answered in place, the fresh panel |
+
+The gate's full-image link adds one settling edit after a burst of
+clicks, at most one per interval, as it does for D12 Ball (step 3 turned
+the link on for Codex); the fakes upload nothing it could link, so the
+table counts the board's own writes. A turn of a dozen clicks is about a
+dozen edits spread over the gate's six-second windows, which coalesces
+any that come faster into one trailing edit.
+
+### The two undos, and who may take each
+
+**Undo** on the panel offers what `history.undo_targets` says is open
+(`GameService.undo_targets`); the cog decides nothing about what a
+snapshot holds.
+
+- **To the start of my turn** is the active player's alone, with nobody's
+  consent: `GameService.undo_to_turn_start` restores the turn's snapshot
+  and saves once; the turn message goes back to its first lines and
+  "Undone to the start of the turn." (`history.UNDONE`), the board
+  through the gate, and the panel re-renders from the restored prompt.
+- **To the start of the previous turn** unwinds the opponent's turn
+  too, so it posts a public question naming them (`UndoConfirmView`):
+  **Agree** is the opponent's -- or a game helper's, behind the helper's
+  confirmation -- and never the asker's; **Refuse** is either player's.
+  The question holds the turn it was asked on and is refused once the
+  game has moved past it. On Agree, `undo_to_previous_turn` restores the
+  older snapshot; the previous turn's message
+  (`CodexGame.previous_turn_message_id`, a record field step 4 added,
+  `None` in an older save) is edited back to its first lines and the
+  undone line, with the restored board and its buttons, and pinned
+  again; the current turn's message is deleted -- the one deletion in
+  the flow -- and the opponent, now the active player, gets a fresh
+  panel. Where the previous message is not known (an older save, or a
+  second such undo in a row), a fresh turn message is posted instead.
+  Not persistent: after a restart the asker asks again.
+
+### The resume path
+
+A restart loses every panel -- they are ephemeral and live in the old
+process -- and nothing else: the question is the model's (`pending`).
+The turn message's buttons are re-armed from `turn_message_id`, so **My
+hand** after a restart asks the same question with the same options
+(`tests/test_codex_resume.py`, including a declared attacker waiting on
+its defender). `/codex resume` runs any step the bot owes, re-posts the
+turn message pinned, and hands the clicker their panel afresh -- the
+actions for the active player, the open tech picker for the other.
 
 ## Running it
 

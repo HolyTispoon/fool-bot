@@ -115,11 +115,18 @@ class CodexTokens:
                 game: "Optional[CodexGame]" = None) -> str:
         """
         One token as Discord shows it. `{player:n}` is the seat's name
-        on `game`'s record; `{card:slug}` the card's name in bold;
+        on `game`'s record; `{to:n}` the seat's player as a mention; `{card:slug}` the card's name in bold;
         `{hero:slug}` the hero's emoji, where uploaded, before its name.
         """
         if kind == "player":
             name = game.seat_name(int(arguments[0])) if game is not None else None
+            return name or plain_token(kind, arguments)
+        if kind == "to":
+            seat = int(arguments[0])
+            player_id = None if game is None else (game.player_1_id if seat == 1 else game.player_2_id)
+            if player_id:
+                return f"<@{player_id}>"
+            name = game.seat_name(seat) if game is not None else None
             return name or plain_token(kind, arguments)
         if kind == "card":
             return f"**{plain_token(kind, arguments)}**"

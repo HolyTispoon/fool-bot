@@ -319,6 +319,12 @@ class PlayerState:
     def instance(self, instance_id: int) -> Optional[CardInstance]:
         return next((card for card in self.play if card.id == instance_id), None)
 
+    @property
+    def specs(self) -> tuple[str, ...]:
+        """The deck's specs, in order: one in the basic game. The
+        standard game's three (step 9) widen this, not its callers."""
+        return (self.spec,)
+
 
 PLAYER_SAVED_FIELDS = (
     SavedField("seat"),

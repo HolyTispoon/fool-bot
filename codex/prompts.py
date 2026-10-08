@@ -77,12 +77,16 @@ class MainActionOptions:
     buildings: tuple[BuildOption, ...]
     attackers: tuple[str, ...]
     end_main: bool = True
+    #: The hand card by card in its order, duplicates kept, each with
+    #: its cost and why it may not be played (`hand_rows`): what the
+    #: panel's picture numbers, and what a hire may trash.
+    hand: tuple[PlayableCard, ...] = ()
 
     def to_dict(self) -> dict:
         return jsonable({
             "hire": self.hire, "hero": self.hero, "playable": self.playable,
             "buildings": self.buildings, "attackers": self.attackers,
-            "end_main": self.end_main,
+            "end_main": self.end_main, "hand": self.hand,
         })
 
 
@@ -90,9 +94,15 @@ class MainActionOptions:
 class DefenderOptions:
     attacker: str
     defenders: tuple[str, ...]
+    #: Why each of `defenders` is legal, in the same order: "squad
+    #: leader", "patroller", "nothing is patrolling" (`defender_rows`).
+    why: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"attacker": self.attacker, "defenders": list(self.defenders)}
+        return {
+            "attacker": self.attacker, "defenders": list(self.defenders),
+            "why": list(self.why),
+        }
 
 
 @dataclass(frozen=True)
@@ -239,12 +249,15 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
     legal = engine.legal_actions(match)
     return MainActionOptions(
         legal.hire, legal.hero, legal.playable, legal.buildings, legal.attackers,
-        legal.end_main,
+        legal.end_main, engine.hand_rows(match, match.active),
     )
 
 
 def _defender_options(engine, game, match, prompt) -> DefenderOptions:
-    return DefenderOptions(match.attacking, engine.legal_defenders(match, match.attacking))
+    rows = engine.defender_rows(match, match.attacking)
+    return DefenderOptions(
+        match.attacking, tuple(ref for ref, _ in rows), tuple(why for _, why in rows),
+    )
 
 
 def _patrol_options(engine, game, match, prompt) -> PatrolOptions:

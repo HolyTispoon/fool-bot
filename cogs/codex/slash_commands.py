@@ -14,6 +14,7 @@ import discord
 from discord import app_commands
 
 from codex.game import GameStatus, RuleRefusal
+from cogs.codex.turns import split_at_turn_end
 from cogs.codex_helpers import is_game_helper
 from cogs.codex_views import NOT_YOUR_TABLE, send_ephemeral
 
@@ -70,7 +71,10 @@ class SlashCommandsMixin:
         """
         Run any step the bot owes, then re-post the turn message -- the
         board, the turn's lines and the buttons -- pinned, the old one
-        unpinned. Either player's, or a game helper's.
+        unpinned; and put up, afresh and ephemerally, what the clicker is
+        asked: the panel for the active player, the tech picker for the
+        other while their choice is open. Either player's, or a game
+        helper's.
         """
         game = self.game_for_channel(interaction.channel_id)
         if game is None or game.status is not GameStatus.PLAYING:
@@ -82,11 +86,25 @@ class SlashCommandsMixin:
         await interaction.response.defer(ephemeral=True, thinking=True)
         async with self.locks.hold(game.game_id):
             try:
+                before = self.service.load(game)
                 found, result = self.service.resume(game.game_id)
             except RuleRefusal as refused:
                 await interaction.followup.send(str(refused), ephemeral=True)
                 return
-            self.note_lines(game, result)
-            self.turn_lines.setdefault(game.game_id, [])
-            await self.post_turn_message(interaction.channel, game)
-        await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
+            match = result.match
+            _, _, opening, ended = split_at_turn_end(result)
+            if ended:
+                self.turn_lines[game.game_id] = opening
+            else:
+                self.note_lines(game, result)
+                self.turn_lines.setdefault(game.game_id, [])
+            if match.phase == "main" and before.phase != "main":
+                self.note_turn_head(game, match)
+            await self.post_turn_message(interaction.channel, game, match)
+            await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
+            seat = game.seat_for(interaction.user.id, match.active)
+            if seat is not None and match.winner is None:
+                if seat == match.active and self.prompt_for(game, match, seat) is not None:
+                    await self.show_panel(interaction, game, match, seat, edit=False)
+                elif seat != match.active and self.standing_for(game, match, seat) is not None:
+                    await self.show_panel(interaction, game, match, seat, edit=False, standing=True)

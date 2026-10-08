@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Mapping, Optional
 from codex import tokens
 from codex.components import HERO, PATROL_SLOTS, AddOnState, BuildingState, MatchState
 from codex.effects import UNIMPLEMENTED
+from codex.formatting import SLOT_NAMES
 from codex.engine import (
     ADD_ONS,
     BUILDING_DESTROYED_DAMAGE,
@@ -304,12 +305,3 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.enter_phase("draw")
     return StepResult(narration=[said], board_changed=True, next=FollowOn(FollowOnStep.DRAW_PHASE))
 
-
-#: The slots as a line names them.
-SLOT_NAMES = {
-    "squad_leader": "squad leader",
-    "elite": "elite",
-    "scavenger": "scavenger",
-    "technician": "technician",
-    "lookout": "lookout",
-}

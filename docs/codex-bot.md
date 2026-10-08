@@ -657,7 +657,7 @@ starting.
 | ~~1~~ | ~~The second bot stands up, and knows the cards~~ -- landed; what it settled is in docs/design/codex.md, "Its own process, its own token" and "The cards are data" | medium | `/codex card trojan duck` answers in the test server, and both bots run on the live host after one `deploy.cmd` |
 | ~~2~~ | ~~A whole game through the driver, with no frontend~~ -- landed; what it settled is in docs/design/codex.md, "The model, before a line of Discord" | large | a test plays Bashing against Finesse to a destroyed base with nothing from `cogs/` or `discord` imported |
 | ~~3~~ | ~~The lobby, the channel and the board~~ -- landed; what it settled is in docs/design/codex.md, "The service and its file", "The lobby and the channel", "Who may act, shared", "The board on Discord" and "Hidden information on Discord" | medium | two people reach the opening position on Discord: a channel, a board, a hand each that the other cannot see |
-| 4 | The turn on Discord, and the two undos | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
+| ~~4~~ | ~~The turn on Discord, and the two undos~~ -- landed; what it settled is in docs/design/codex.md, "The turn on Discord" | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | 5 | The keywords | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | 6 | Triggers, spells and the ongoing spells | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | 7 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
@@ -1370,6 +1370,14 @@ Stop: the opening board, in the PR and in the test server, looked at.
 ```
 
 ### 4. The turn on Discord, and the two undos
+
+**Landed** (2026-10-08): docs/design/codex.md, "The turn on Discord",
+says what it settled -- the panel, one ephemeral message edited by its
+own interactions; the patrol lock as two menus, since five slot menus
+and a Lock row are six rows; the tech choice from the Lock's follow-up
+and **Tech**; the turn message's rollover through `draw_after`, and the
+gate writing only the current one; the requests per click; the two
+undos and who may take each; and the resume path.
 
 The whole of a turn, on the vanilla engine, driven from the active
 player's ephemeral panel: the turn message that is the turn's running

@@ -8,7 +8,9 @@ between an ability's cost and its effect -- and the bot's own mark opens
 its lobby and its turn message. The model writes each as a token,
 `{exhaust}`, `{target}`, `{gold:2}`, `{arrow}`, `{codex}`, and its
 narration names a seat, a card and a hero the same way --
-`{player:1}`, `{card:iron_man}`, `{hero:troq_bashar}` -- so nothing in
+`{player:1}`, `{card:iron_man}`, `{hero:troq_bashar}` -- and a seat
+*addressed*, `{to:1}`, the way a frontend calls on a player (a mention
+on Discord) -- so nothing in
 the model holds a name a frontend would draw differently. A
 frontend renders every one once, at its door: an application emoji on
 Discord (`cogs.codex_helpers.CodexTokens`), a word in plain text
@@ -21,9 +23,9 @@ card texts' tokens.
 import re
 from typing import Callable, Optional
 
-#: The kinds a token may be. `gold` takes the amount, `player` the seat,
-#: `card` and `hero` the slug.
-KINDS = ("exhaust", "target", "gold", "arrow", "codex", "player", "card", "hero")
+#: The kinds a token may be. `gold` takes the amount, `player` and `to`
+#: the seat, `card` and `hero` the slug.
+KINDS = ("exhaust", "target", "gold", "arrow", "codex", "player", "to", "card", "hero")
 
 TOKEN_PATTERN = re.compile(r"\{(" + "|".join(KINDS) + r")((?::[a-z0-9_]+)*)\}")
 
@@ -60,6 +62,18 @@ def player(seat: int) -> str:
     if seat not in (1, 2):
         raise ValueError(f"not a seat: {seat!r}")
     return f"{{player:{seat}}}"
+
+
+def addressed(seat: int) -> str:
+    """
+    A seat called on -- whoever sits there, as the frontend calls a
+    person: a mention on Discord, which pings them, and their name in
+    plain text. The model says *that* it addresses them; how is the
+    frontend's (docs/design/model-discord-split.md, "Tokens").
+    """
+    if seat not in (1, 2):
+        raise ValueError(f"not a seat: {seat!r}")
+    return f"{{to:{seat}}}"
 
 
 def card(slug: str) -> str:

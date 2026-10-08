@@ -103,5 +103,7 @@ class LobbyMixin:
             except discord.HTTPException:
                 pass
         self.turn_lines[game.game_id] = list(result.lines)
-        await self.post_turn_message(channel, game)
+        if result.match is not None and result.match.phase == "main":
+            self.note_turn_head(game, result.match)
+        await self.post_turn_message(channel, game, result.match)
         await interaction.followup.send("The game has started.", ephemeral=True)

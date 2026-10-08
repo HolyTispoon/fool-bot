@@ -1,20 +1,24 @@
 """
 The Codex cog's own machinery: its games and engine, the service and
 the locks, re-arming the persistent views on startup, the tokens drawn
-at the door, and `present` -- the one presenter over a `GameResult`
-(copied from `cogs/d12ball/core.py`'s shape; docs/codex-bot.md,
-decision 2).
+at the door, the turn message's text, `render_prompt` and
+`view_for_prompt` (copied from `cogs/d12ball/core.py`'s shape;
+docs/codex-bot.md, decision 2).
 
 **The turn message is the one public message per turn** (decision 5):
-`present` adds what a result said to the turn's lines and writes the
-board and the lines through the gate (`cogs.d12ball_boards.BoardRefresher`).
-A cascade of the bot's own steps is one result, so one write. Nothing
-here decides a rule.
+`present` (in `cogs/codex/turns.py`) adds what a result said to the
+turn's lines and writes the board and the lines through the gate
+(`cogs.d12ball_boards.BoardRefresher`). A cascade of the bot's own steps
+is one result, so one write. Nothing here decides a rule.
 """
 
 from __future__ import annotations
 
+import asyncio
+import io
 import logging
+from collections import Counter
+from dataclasses import dataclass
 from typing import Optional
 
 import discord
@@ -23,10 +27,22 @@ from discord.ext import commands
 
 from codex.engine import RulesEngine
 from codex.flow.driver import MODEL_STEPS  # noqa: F401 -- the package-shape ratchet reads it
+from codex.flow.result import FollowOnStep
+from codex.formatting import turn_heading
 from codex.game import CodexGame, GameStatus
-from codex.prompts import PendingPrompt, PromptKind, owed_step
+from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt
+from codex.render import render_codex, render_hand
 from cogs.codex_helpers import CodexTokens
-from cogs.codex_views import ERROR_RECOVERY_ADVICE, LobbyView, TurnMessageView, send_ephemeral
+from cogs.codex_views import (
+    ERROR_RECOVERY_ADVICE,
+    LobbyView,
+    PatrolView,
+    TechChoiceView,
+    TechConfirmView,
+    TurnMessageView,
+    TurnPanelView,
+    send_ephemeral,
+)
 from cogs.d12ball_boards import BoardRefresher
 from gamelocks import GameLocks
 from gamesaves.codex.service import Batching, GameResult, GameService
@@ -38,25 +54,36 @@ LOGGER = logging.getLogger(__name__)
 MESSAGE_LIMIT = 2000
 
 
+@dataclass(frozen=True)
 class DiscordBatching(Batching):
     """
-    The Codex frontend's batching: none. A turn is one message, edited,
-    so every line a run says joins the turn's lines and nothing is a
+    The Codex frontend's batching. A turn is one message, edited, so
+    every line a run says joins the turn's lines and nothing is a
     message of its own; the bot's own steps run through without a stop.
+    **The one joint is the end of the turn** (`draw_after`): the group
+    closing there carries the position as it stood, so the turn's
+    message stands with its own last board and lines, and what the next
+    turn's start said goes on the next turn's message.
     """
 
+    draw_after: frozenset = frozenset({FollowOnStep.BEGIN_TECH})
 
-#: The view each prompt kind is answered from on Discord. In step 3 a
-#: main-phase prompt is answered from the turn message's buttons; step 4
-#: brings the panel each kind opens.
+
+#: The view each prompt kind is answered from on Discord: the active
+#: player's panel, or the tech choice's owner's. A finished game has
+#: none -- its line and its final board are public.
 PROMPT_VIEWS = {
-    PromptKind.MAIN_ACTION: TurnMessageView,
-    PromptKind.CHOOSE_DEFENDER: TurnMessageView,
-    PromptKind.PATROL: TurnMessageView,
-    PromptKind.TECH_CHOICE: TurnMessageView,
-    PromptKind.TECH_CONFIRM: TurnMessageView,
-    PromptKind.GAME_OVER: TurnMessageView,
+    PromptKind.MAIN_ACTION: TurnPanelView,
+    PromptKind.CHOOSE_DEFENDER: TurnPanelView,
+    PromptKind.PATROL: PatrolView,
+    PromptKind.TECH_CHOICE: TechChoiceView,
+    PromptKind.TECH_CONFIRM: TechConfirmView,
+    PromptKind.GAME_OVER: None,
 }
+
+#: What the turn message says while the new turn waits on its player's
+#: tech confirmation -- the cog's caption, not the model's line.
+TECH_WAIT = "*The turn waits on {who} to confirm their tech: **My hand**.*"
 
 
 class CoreMixin:
@@ -69,6 +96,10 @@ class CoreMixin:
         #: the turn message's text. In memory: after a restart the text
         #: on the message stands until `/codex resume` re-posts it.
         self.turn_lines: dict[str, list[str]] = {}
+        #: Each recent turn's first lines -- what its message said when
+        #: its main phase opened -- by game id and turn: what an undo
+        #: puts back. In memory, the last three turns, as the snapshots.
+        self.turn_heads: dict[str, dict[int, list[str]]] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(
@@ -169,27 +200,88 @@ class CoreMixin:
             self.__dict__["_service"] = service
         return service
 
-    def view_for_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt]) -> discord.ui.View:
-        """The only place a `PromptKind` becomes a view."""
+    def view_for_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt],
+                        match) -> Optional[discord.ui.View]:
+        """**The only place a `PromptKind` becomes a view**: the panel the
+        prompt is answered from, shown to its asked player alone, or
+        `None` for a kind nobody answers (a finished game)."""
         if prompt is None:
-            return TurnMessageView(self, game.game_id)
-        return PROMPT_VIEWS[prompt.kind](self, game.game_id)
+            return None
+        view = PROMPT_VIEWS[prompt.kind]
+        return None if view is None else view(self, game.game_id, prompt, match)
 
-    async def render_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt]):
-        """A prompt's picture: in step 3 every kind rides on the board
-        the turn message already carries, so none has its own."""
+    async def render_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt],
+                            *, picks=None) -> Optional[discord.File]:
+        """
+        A prompt's own picture, off the event loop: the tech picker's
+        codex with the picks marked (`picks`, the picker's selection so
+        far, defaulting to the prompt's), and the confirmation's picks as
+        a hand. The main phase, the defender and the patrol lock have
+        none -- the board on the turn message is theirs, and the panel
+        pictures the hand (`hand_file`). Everything here is its asked
+        player's alone.
+        """
+        if prompt is None or prompt.options is None:
+            return None
+        cards = self.engine.catalog
+        if prompt.kind is PromptKind.TECH_CHOICE:
+            options = prompt.options
+            chosen = Counter(options.picks if picks is None else picks)
+            png = await asyncio.to_thread(
+                render_codex, [slug for slug, _ in options.codex],
+                [left for _, left in options.codex], cards,
+                [chosen.get(slug, 0) for slug, _ in options.codex],
+            )
+            return discord.File(io.BytesIO(png), filename="codex-tech.png")
+        if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:
+            picks = list(prompt.options.picks)
+            png = await asyncio.to_thread(
+                render_hand, picks, [True] * len(picks),
+                [cards.cards[slug].cost or 0 for slug in picks], cards,
+            )
+            return discord.File(io.BytesIO(png), filename="codex-tech.png")
         return None
 
-    # -- The presenter -------------------------------------------------------
+    # -- The turn message's text ----------------------------------------------
 
-    def turn_text(self, game: CodexGame) -> str:
-        """The turn message's text: the turn's lines, rendered, within
-        Discord's limit -- the oldest dropped first if they run over."""
-        lines = [self.render_text(line, game) for line in self.turn_lines.get(game.game_id, [])]
-        text = "\n".join(lines)
-        while len(text) > MESSAGE_LIMIT and len(lines) > 1:
-            lines.pop(0)
-            text = "\n".join(["...", *lines])
+    def turn_header(self, game: CodexGame, match) -> str:
+        """The turn's heading -- the model's (`codex.formatting.turn_heading`),
+        "**Turn 7** -- @perrytom (Bashing)" -- rendered at the door: the
+        mention the turn message's post pings once."""
+        return self.render_text(turn_heading(match), game)
+
+    def turn_footer(self, game: CodexGame, match) -> Optional[str]:
+        """The caption under the lines while the turn waits on its
+        player's tech: the cog's words over the model's prompt."""
+        prompt = pending_prompt(self.engine, game, match)
+        if prompt is None or prompt.kind not in (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE):
+            return None
+        player_id = game.player_1_id if prompt.asked_player == 1 else game.player_2_id
+        who = f"<@{player_id}>" if player_id else (game.seat_name(prompt.asked_player) or "its player")
+        return TECH_WAIT.format(who=who)
+
+    def turn_text(self, game: CodexGame, match=None, lines=None, footer: bool = True) -> str:
+        """
+        The turn message's text: the header, the turn's lines rendered,
+        and the caption a waiting turn carries -- within Discord's 2000
+        characters, **the earliest lines folding into "and n more"**
+        past that, since the board carries the position. `footer=False`
+        for a turn that has ended, which waits on nobody.
+        """
+        if match is None:
+            match = self.service.load(game)
+        if lines is None:
+            lines = self.turn_lines.get(game.game_id, [])
+        head = [self.turn_header(game, match)]
+        caption = self.turn_footer(game, match) if footer else None
+        tail = [caption] if caption else []
+        body = [self.render_text(line, game) for line in lines]
+        text = "\n".join([*head, *body, *tail])
+        folded = 0
+        while len(text) > MESSAGE_LIMIT and body:
+            body.pop(0)
+            folded += 1
+            text = "\n".join([*head, f"*and {folded} more*", *body, *tail])
         return text[:MESSAGE_LIMIT]
 
     def turn_text_or_none(self, game: CodexGame) -> Optional[str]:
@@ -203,15 +295,10 @@ class CoreMixin:
         if result.lines:
             self.turn_lines.setdefault(game.game_id, []).extend(result.lines)
 
-    async def present(self, game: CodexGame, result: GameResult) -> None:
-        """
-        **The whole of the Discord side of a result**: what it said joins
-        the turn's lines, and the board and the lines are written once
-        through the gate. Hidden information never reaches here: a
-        result's lines are public (docs/design/codex.md, "What the
-        narration may say"), and its prompts are sent to their asked
-        player by the entry point that asked.
-        """
-        self.note_lines(game, result)
-        if result.lines or result.board_changed:
-            await self.refresh_match_image(game)
+    def note_turn_head(self, game: CodexGame, match) -> None:
+        """Keep this turn's lines so far as its first lines -- called
+        when its main phase has just opened."""
+        heads = self.turn_heads.setdefault(game.game_id, {})
+        heads[match.turn] = list(self.turn_lines.get(game.game_id, []))
+        for turn in sorted(heads)[:-3]:
+            del heads[turn]
