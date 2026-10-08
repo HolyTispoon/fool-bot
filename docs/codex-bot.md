@@ -678,9 +678,29 @@ way the other series are claimed: an empty commit on `codex-step-<n>`
 pushed create-only, refused if the row is struck on `origin/main`, the
 branch exists, or an open PR is titled `Codex step <n>:`. A step lands by
 striking its row above (`| ~~n~~ | ~~title~~ -- landed; what it settled is
-in docs/design/codex.md | ... |`). No cloud routine is set up for this
-series unless the author asks; eight steps is a fortnight of sessions,
-not a pipeline.
+in docs/design/codex.md | ... |`).
+
+**The cloud routine** (the author, 2026-10-08): `trig_01FZvSJE78cUuHfbbNN97QPa`,
+"fool-bot: start the next Codex step", runs on Claude Opus 5.5 and fires
+on every pull request closed in this repository, with a run every eight
+hours as a fallback. Each run works through its gates -- the worksheet
+on `main`, the first unstruck row with a prompt written, nobody's claim
+on it and no `Codex step` PR open, the suite green on `main` -- then
+claims the step (by hand for step 1, since step 1 adds the series),
+runs the preamble and the step's prompt, strikes the row, and opens a
+PR titled `Codex step <n>: ...`. Most fires find nothing to do and exit
+in a minute. **Every PR it opens carries two sections for the author**
+besides the template's: `## Questions to the author` (`None.` when
+empty) and `## For the author`, in two parts -- what to do on the live
+host after merging (`deploy.cmd`, every new `.env` variable by name,
+every emoji to upload to the Codex application, any Discord-side
+setup; "Nothing to do on the live host" when that is true) and what can
+be tested in the server now, command by command, with what should
+happen and what is not expected to work yet. A step whose section has
+no prompt (9 to 12, until the author writes them) stops the routine
+with a report, never a guess. A PR it opened that is closed without
+merging is a rejected step: it does not open it again, and a human
+claims the step to redo it.
 
 ## Preamble
 
@@ -756,11 +776,18 @@ Hard rules for every step:
   d12ball's module keeps re-exporting the old name.
 - Run python3 -m unittest discover -s tests before the PR; a full run
   must not create data/. The PR is against the template, carries a
-  "## Questions to the author" section ("None." when empty), and
-  strikes this step's row in docs/codex-bot.md. When the step settles
-  something the worksheet only proposed, write it into
-  docs/design/codex.md with the reasoning, and add a row to CLAUDE.md's
-  tables only for a new module or a new hard rule.
+  "## Questions to the author" section ("None." when empty) and a
+  "## For the author" section in two parts -- what to do on the live
+  host after merging (deploy.cmd; every new .env variable by name and
+  what goes in it; every emoji PNG to upload to the Codex application
+  in the Developer Portal, by name; any Discord-side setup; or
+  "Nothing to do on the live host") and what can be tested in the
+  server now, command by command, each with what should happen, and
+  one line on what is not expected to work yet -- and strikes this
+  step's row in docs/codex-bot.md. When the step settles something the
+  worksheet only proposed, write it into docs/design/codex.md with the
+  reasoning, and add a row to CLAUDE.md's tables only for a new module
+  or a new hard rule.
 ```
 
 ### 1. The second bot stands up, and knows the cards
