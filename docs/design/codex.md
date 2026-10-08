@@ -161,8 +161,10 @@ tower` answer with theirs; the worker card alone has none.
 **The emoji are drawn here and uploaded by hand.** Application emoji
 belong to one application and there is no upload code, so
 `scripts/render_codex_emoji.py` draws `gold`, `exhaust` and `target`
-into `codex/images/emoji/` (the heroes' two faces once their art is
-imported), `codex.png` is the medallion cut from the module's card back,
+into `codex/images/emoji/`, and cuts `troq_bashar` and `river_montoya`
+from their cards' art at a square pinned per hero (`FACES`), since no
+one crop finds two faces drawn in two places; `codex.png` is the
+medallion cut from the module's card back,
 and the author uploads each to the Codex application under its file's
 name. `CodexTokens` picks each up by that name and shows a word until
 it is there.
