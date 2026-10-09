@@ -101,7 +101,7 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     deck's own faces keyed by (suit, rank)."""
     c = _Canvas(AID_WIDTH, 260 + ROW_H * len(SETS) + 120)
     c.text(MARGIN, 36, "Tethys Deck · Six-Card Sets", 34, "bold")
-    c.text(MARGIN, 88, "Your best set counts. Sets are listed from rarest to most common.", 16, fill=INK2)
+    c.text(MARGIN, 88, "Your best set counts. Sets are listed from rarest to most common, and no set last.", 16, fill=INK2)
 
     y, x = 120, MARGIN
     for key, label in KEY:
@@ -145,8 +145,8 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     y += 22
     c.text(MARGIN, y, "Left and Right", 13, "bold", fill=INK2)
     c.text(MARGIN + c.width("Left and Right ", 13, "bold"), y,
-           "are one rank, just above 10: they pair with each other and either one follows 10 "
-           "in a straight (6-7-8-9-10-Left). Straights don't wrap.", 13, fill=INK2)
+           "pair only with each other: a Left and a Right are a pair, two Lefts are not. Either "
+           "follows 10 in a straight (6-7-8-9-10-Left). Straights don't wrap.", 13, fill=INK2)
     c.text(MARGIN, y + 20, "Three of a kind with a pair counts as three of a kind, and four of a kind "
            "with a pair as four of a kind.", 13, fill=INK2)
     c.text(MARGIN, y + 40, "Uniform chances are for all Fortune or all Doom together; each alone is half.",
@@ -170,7 +170,7 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
     bottom = PLOT_TOP + CHART_ROW * len(SETS)
     c = _Canvas(CHART_WIDTH, bottom + 110)
     c.text(24, 22, "Tethys deck: six-card hands", 24, "bold")
-    c.text(24, 52, "Chance of each set when all six cards count, rarest first. Log scale.", 14, fill=INK2)
+    c.text(24, 52, "Chance of each set when all six cards count, rarest first and no set last. Log scale.", 14, fill=INK2)
 
     _diamond(c, PLOT_LEFT, 92, 6, MIXED_DOT, circle=True)
     c.text(PLOT_LEFT + 12, 92, "Mixed Fortune and Doom", 14, anchor="lm")
@@ -202,7 +202,7 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
         c.text(xm, y - 13, percent(count.mixed), 12, anchor="ms")
 
     c.text(24, bottom + 50, f"All {total_hands():,} hands of six from the 72-card deck, counted exactly. "
-           "Left and Right are one rank. Each hand counts once, under its best set.", 12, fill=INK2)
+           "A Left pairs only with a Right. Each hand counts once, under its best set.", 12, fill=INK2)
     c.text(24, bottom + 68, "Uniform is either all Fortune or all Doom; each one alone is half the figure shown.",
            12, fill=INK2)
     return c.done(bottom + 96)
