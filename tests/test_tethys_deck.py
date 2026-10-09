@@ -46,14 +46,14 @@ class PiecesTests(unittest.TestCase):
                 self.assertLessEqual(len(pieces), 4, (suit, rank))
                 self.assertTrue(set(pieces) <= set(deck.DENOMINATIONS), (suit, rank))
 
-    def test_a_ruler_is_twelve_for_fortune_and_eleven_for_doom(self):
+    def test_the_two_rulers_share_the_power_equally(self):
         for suit in deck.SUITS:
-            for rank in ("Left", "Right"):
-                expected = 12 if deck.fate_of(suit, rank) == "fortune" else 11
-                self.assertEqual(deck.worth(suit, rank), expected, (suit, rank))
-        self.assertEqual(deck.worth("money", "Left"), 12)
-        self.assertEqual(deck.worth("money", "Right"), 11)
-        self.assertEqual(deck.pieces("tools", "Left"), [6, 3, 1, 1])
+            self.assertEqual(deck.worth(suit, "Left"), deck.worth(suit, "Right"), suit)
+            self.assertEqual(deck.worth(suit, "Left"), 12, suit)
+            self.assertEqual(deck.pieces(suit, "Left"), [12], suit)
+            self.assertEqual(deck.pieces(suit, "Right"), [12], suit)
+        self.assertEqual(deck.money_coins("Left"), [("gold", 1)])
+        self.assertEqual(deck.money_coins("Right"), [("gold", 1)])
         self.assertEqual(deck.pieces("tools", "Right"), [12])
 
     def test_money_coins_make_the_value_in_dinkies(self):

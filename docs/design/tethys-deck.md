@@ -87,11 +87,14 @@ than Doom (`LIGHT`). The coin is not embossed; it is already a picture.
 A card's value is **made of pieces, the way the coins make a sum**: 1,
 3, 6 and 12, the fewest pieces, largest first (`deck.pieces`), spread
 over the face like pips (`cards.SPREAD`). A 7 is a 6-piece and a
-1-piece; a 10 is 6, 3 and 1. **A ruler is worth 12 when it is Fortune
-and 11 when it is Doom** (the author), so a Fortune ruler is one
-12-piece and a Doom ruler is 6, 3, 1 and 1 -- which is Left in Money,
-Might, Fiends and Fools and Right in Tools and States. `deck.worth` takes
-the suit for that reason.
+1-piece; a 10 is 6, 3 and 1. **The two rulers share the suit's power
+equally**: Left and Right are each worth 12 (the author, 2026-10-09,
+"left and right ... equally sharing the power"), so each is one whole
+12-piece under its own fate -- the Fortune ruler's whole, the Doom
+ruler's broken -- and Money's two are each one gold coin, on its sunrise
+face and its ruined one. (For a day a ruler was 12 when Fortune and 11
+when Doom, the Doom ruler 6, 3, 1 and 1; before that Left was 11 and
+Right 12.)
 
 - **Money's pieces are the real coins**, worth their dinkies by the
   Coins tab (1B = 1, 3B = 3, 1S = 6, 1G = 12, 3S = 18, 3G = 36), each on

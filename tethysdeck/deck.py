@@ -30,14 +30,15 @@ def fate_of(suit: str, rank: str) -> str:
     return odd if int(rank) % 2 else even
 
 
-# A card's value: its number; a ruler is worth 12 when it is Fortune and 11
-# when it is Doom (the author), so Money's Left is the 12 and its Right the 11.
-RULER_WORTH = {"fortune": 12, "doom": 11}
+# A card's value: its number; the two rulers share the suit's power equally
+# (the author, 2026-10-09), each worth 12, so each is one whole piece under
+# its own fate -- Money's Left and Right are each one gold coin.
+RULER_WORTH = 12
 
 
 def worth(suit: str, rank: str) -> int:
     if rank in ("Left", "Right"):
-        return RULER_WORTH[fate_of(suit, rank)]
+        return RULER_WORTH
     return int(rank)
 
 
