@@ -1101,10 +1101,13 @@ pile, and not before; a hired card is trashed and so gone. It is
 pictured by `render_codex`, each card once with its copies on the
 badge, the starting cards first and then each tech level, and captioned
 with how many are in each place -- the draw pile a count, never an
-order. The button is under the other player's hand (`HandView`, its one
-button), after the hand's buttons on the main-phase panel, beside
-**Save tech** on the picker and on the confirmation -- the places the
-author named, the hand and the tech choice. Each press is **a message
+order; a tech choice not yet in the discard pile is not listed, there
+or anywhere in it (the author, 2026-10-09). The button is on the turn
+message, beside **My hand**, for either player whoever's turn it is
+(the author, 2026-10-09: "include it in the public message"); under the
+other player's hand (`HandView`, its one button); after the hand's
+buttons on the main-phase panel; and beside **Save tech** on the picker
+and on the confirmation. Each press is **a message
 of its own** (`send_deck`), not an edit of what it was pressed on, so
 the hand, the panel or the picker stays up beside it while the deck is
 looked at; like the Codex browser, it is reference and answers nothing.
@@ -1315,8 +1318,9 @@ Each turn's message is posted when the turn begins: its text
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
-**My hand**, **Tech**, **Codex**, **Swap view**. **After each action it
-is posted again at the foot of the channel** with the new lines and the
+**My hand**, **My deck**, **Tech**, **Codex**, **Swap view** -- and
+**Concede**, which a sixth button puts on a row of its own. **After
+each action it is posted again at the foot of the channel** with the new lines and the
 re-rendered board, and the one it replaces deleted
 (`post_turn_message(replace=True)`), so the table is always the
 channel's last message and the panel goes under it (the author,

@@ -1,7 +1,7 @@
 """
 The buttons on the current turn's public message (docs/codex-bot.md,
-decisions 4 and 5): **My hand**, **Tech**, **Codex**, **Swap view** and
-**Concede**
+decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
+**Swap view** and **Concede**
 -- persistent, so a restart re-arms them from `turn_message_id`.
 
 Hidden information is answered **ephemerally**, to the clicker alone and
@@ -13,9 +13,9 @@ other player gets their hand pictured and their discard pile listed,
 with **My deck** under it. **Tech** is the other player's alone: their
 standing tech choice, open all through the opponent's turn -- and in a
 test game, where nothing stands (`codex.prompts.tech_stands`), it says
-where the choice is made instead. **Codex**
-pictures the clicker's own codex through a menu of views. **My deck**
--- under the hand, on the panel and on the tech picker -- answers with
+where the choice is made instead. **Codex** pictures the clicker's own
+codex through a menu of views. **My deck** -- on the turn message,
+under the hand, on the panel and on the tech picker -- answers with
 every card the clicker owns, wherever it is (`send_deck`). What a hand
 may play, what a codex still holds and what a deck is are the engine's
 answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
@@ -71,6 +71,7 @@ class TurnMessageView(SafeView):
         layout = game.board_layout if game is not None else "stacked"
         for label, action, style in (
             ("My hand", "hand", discord.ButtonStyle.primary),
+            ("My deck", "deck", discord.ButtonStyle.secondary),
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             (swap_label(layout), "swap", discord.ButtonStyle.secondary),
@@ -101,6 +102,14 @@ class TurnMessageView(SafeView):
             await self.cog.show_panel(interaction, game, match, seat, edit=False)
             return
         await self.cog.send_hand(interaction, game, match, seat)
+
+    async def deck(self, interaction: discord.Interaction) -> None:
+        """Every card the clicker owns, to them alone, whoever's turn it
+        is."""
+        game, match, seat = await self._seat(interaction)
+        if seat is None:
+            return
+        await self.cog.send_deck(interaction, game, match, seat)
 
     async def tech(self, interaction: discord.Interaction) -> None:
         """The other player's standing tech choice, to them alone."""

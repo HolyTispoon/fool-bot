@@ -128,8 +128,9 @@ class PanelTests(TurnTestCase):
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
-        """**My deck** -- under the other player's hand, on the panel,
-        on the tech picker and its confirmation -- answers with a message
+        """**My deck** -- on the turn message, under the other player's
+        hand, on the panel, on the tech picker and its confirmation --
+        answers with a message
         of its own, ephemeral, the deck pictured, and spends nothing
         public; the panel it was pressed on is left as it is."""
         seat = self.table.match.active
@@ -144,6 +145,14 @@ class PanelTests(TurnTestCase):
         self.assertTrue(kwargs["file"].filename.startswith("codex-deck-"))
         deck = self.table.cog.engine.own_deck(self.table.match, seat)
         self.assertTrue(call.text().startswith(f"Your deck: {deck.size} cards"), call.text())
+        self.assertEqual(channel_requests(self.table, mark), [])
+
+        # On the turn message, for either player, whoever's turn it is.
+        for who in (self.table.active, self.table.waiting):
+            public = await self.table.turn_button("deck", who)
+            self.assertNothingWentWrong(public)
+            self.assertTrue(public.last()[2]["ephemeral"])
+            self.assertTrue(public.last()[2]["file"].filename.startswith("codex-deck-"))
         self.assertEqual(channel_requests(self.table, mark), [])
 
         theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
