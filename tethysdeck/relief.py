@@ -315,7 +315,7 @@ def sheet(images, out):
     cols, rows = 5, 2
     img = Image.new("RGB", (cols * cell + (cols + 1) * gap, rows * (cell + label) + (rows + 1) * gap), "#FFFFFF")
     d = ImageDraw.Draw(img)
-    suits = ["might", "fiends", "tools", "states", "fools"]
+    suits = ["tools", "might", "fiends", "states", "fools"]
     for name, icon in images.items():
         suit, fate = name.split("_")
         x = gap + suits.index(suit) * (cell + gap)

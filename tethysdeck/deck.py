@@ -9,13 +9,13 @@ six Doom; Left is Fortune in three suits and Doom in three, and whether it
 sits with the odds falls out (four suits) rather than being the rule.
 """
 
-SUITS = ["money", "might", "fiends", "tools", "states", "fools"]  # the sheet's order
+SUITS = ["money", "tools", "might", "fiends", "states", "fools"]  # the author's order (2026-10-09)
 RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
 
 ODD_FATE = {"money": "fortune", "might": "fortune", "states": "fortune",
             "tools": "doom", "fiends": "doom", "fools": "doom"}
-LEFT_FATE = {"money": "fortune", "might": "doom", "fiends": "fortune",
-             "tools": "doom", "states": "fortune", "fools": "doom"}  # alternating down the sheet
+LEFT_FATE = {"money": "fortune", "tools": "doom", "might": "doom",
+             "fiends": "fortune", "states": "fortune", "fools": "doom"}  # three and three
 
 
 def other(fate: str) -> str:
