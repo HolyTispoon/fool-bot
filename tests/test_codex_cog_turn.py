@@ -240,8 +240,10 @@ class PanelTests(TurnTestCase):
             self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
         builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
         self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
-        # End main phase is the panel's last button (the author, 2026-10-09).
-        self.assertEqual(view.children[-1].label, "End main phase")
+        # My deck, Undo... and End main phase are the panel's last three
+        # buttons, in that order (the author, 2026-10-09).
+        self.assertEqual([item.label for item in view.children[-3:]],
+                         ["My deck", "Undo...", "End main phase"])
         self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
@@ -314,7 +316,7 @@ class PanelTests(TurnTestCase):
 
     async def test_a_big_hand_leaves_the_boards_row(self) -> None:
         """Five rows of five: the hand takes two rows at most, under the
-        actions row and the heroes' row, so what may be built is still on
+        actions row with the heroes on it, so what may be built is still on
         the panel under a hand of more cards than fit, and no row holds
         more than five."""
         match = self.table.match
@@ -329,21 +331,23 @@ class PanelTests(TurnTestCase):
         self.assertTrue(all(len(items) <= 5 for items in rows.values()), {r: len(i) for r, i in rows.items()})
         cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
         self.assertEqual(len(cards), 10)
-        self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [1])
+        self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [0])
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
-        self.assertEqual(view.children[-1].label, "End main phase")
+        self.assertEqual([item.label for item in view.children[-3:]],
+                         ["My deck", "Undo...", "End main phase"])
 
-    async def test_end_main_phase_is_never_crowded_out(self) -> None:
-        """A board's row fuller than its room gives a button up, never
-        End main phase."""
+    async def test_the_last_three_are_never_crowded_out(self) -> None:
+        """A board's row fuller than its room gives buttons up, never My
+        deck, Undo... or End main phase, which stay last in that order."""
         view = TurnPanelView.__new__(TurnPanelView)
         discord.ui.View.__init__(view)
         buttons = [view.make_button(str(n), discord.ButtonStyle.primary, None) for n in range(8)]
-        end = view.make_button("End main phase", discord.ButtonStyle.danger, None)
-        view.place(buttons, 4, last=end)
+        last = [view.make_button(label, discord.ButtonStyle.secondary, None)
+                for label in ("My deck", "Undo...", "End main phase")]
+        view.place(buttons, 4, last=last)
         self.assertEqual(len(view.children), 5)
-        self.assertIs(view.children[-1], end)
+        self.assertEqual(view.children[-3:], last)
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -1071,7 +1075,7 @@ if __name__ == "__main__":
 
 
 class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
-    """A standard game through the panel (step 10): the heroes' row, one
+    """A standard game through the panel (step 10): the heroes on the actions row, one
     button per hero, and Build Tech II turning the panel into the spec
     choice -- each click held to the request budget."""
 
@@ -1091,7 +1095,7 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         _, view = await self.table.panel()
         heroes = [item for item in view.children if (item.choice or ("",))[0] == "summon"]
         self.assertEqual(len(heroes), 3)
-        self.assertEqual({item.row for item in heroes}, {1})
+        self.assertEqual({item.row for item in heroes}, {0})
         first = heroes[0].choice[1]
         old = self.game.turn_message_id
         mark = len(self.table.game_channel.requests)
