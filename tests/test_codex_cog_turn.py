@@ -200,6 +200,9 @@ class PanelTests(TurnTestCase):
             self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
         builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
         self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
+        # End main phase is the panel's last button (the author, 2026-10-09).
+        self.assertEqual(view.children[-1].label, "End main phase")
+        self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
         self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
@@ -286,6 +289,18 @@ class PanelTests(TurnTestCase):
         self.assertEqual(len(cards), 15)
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
+        self.assertEqual(view.children[-1].label, "End main phase")
+
+    async def test_end_main_phase_is_never_crowded_out(self) -> None:
+        """A board's row fuller than its room gives a button up, never
+        End main phase."""
+        view = TurnPanelView.__new__(TurnPanelView)
+        discord.ui.View.__init__(view)
+        buttons = [view.make_button(str(n), discord.ButtonStyle.primary, None) for n in range(8)]
+        end = view.make_button("End main phase", discord.ButtonStyle.danger, None)
+        view.place(buttons, 4, last=end)
+        self.assertEqual(len(view.children), 5)
+        self.assertIs(view.children[-1], end)
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -299,6 +314,7 @@ class PanelTests(TurnTestCase):
         defending = call.view()
         self.assertIsInstance(defending, TurnPanelView)
         self.assertIs(defending.prompt.kind, PromptKind.CHOOSE_DEFENDER)
+        self.assertTrue(call.last()[2]["attachments"][0].filename.startswith("codex-side-"))
         labels = [item.label for item in defending.children if getattr(item, "choice", None)]
         self.assertTrue(labels)
         self.assertFalse([item for item in defending.children if isinstance(item, discord.ui.Select)])
@@ -602,6 +618,21 @@ class WholeGameTests(TurnTestCase):
         return await table.press(view, "End main phase")
 
 
+class SideShownTests(unittest.TestCase):
+    def test_a_target_pictures_the_opponents_side_unless_all_are_ones_own(self) -> None:
+        from codex.prompts import PendingPrompt
+        from cogs.codex.turns import side_shown
+
+        def asked(*seats):
+            rows = tuple(SimpleNamespace(seat=seat) for seat in seats)
+            return PendingPrompt(PromptKind.TARGET, "", 1, SimpleNamespace(targets=rows))
+
+        self.assertEqual(side_shown(asked(2, 2, 1)), 2)
+        self.assertEqual(side_shown(asked(2)), 2)
+        self.assertEqual(side_shown(asked(1, 1)), 1)
+        self.assertEqual(side_shown(PendingPrompt(PromptKind.CHOOSE_DEFENDER, "", 2, None)), 1)
+
+
 class EffectPanelTests(TurnTestCase):
     """The questions an effect asks, in the same panel (step 6): a
     target, Appel Stomp's place and the upkeep's order as buttons, and
@@ -625,6 +656,10 @@ class EffectPanelTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         asking = call.view()
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        # Pictured with the opponent's side of the board, not the hand
+        # (the author, 2026-10-09).
+        (picture,) = call.last("followup.send")[2]["files"]
+        self.assertTrue(picture.filename.startswith("codex-side-"), picture.filename)
         # The ask says what the part does; the buttons are the targets.
         self.assertIn("deal 1 damage to a patroller", call.text().lower())
         self.assertFalse([item for item in asking.children if isinstance(item, discord.ui.Select)])

@@ -955,6 +955,22 @@ def render_board(match: MatchState, layout: str = "stacked",
     return _webp(scaled)
 
 
+def render_side(match: MatchState, seat: int, name: str,
+                cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    One player's side of the table as WebP bytes, upright and at the
+    board's scale: the panel `render_board` draws for `seat`, alone. A
+    target prompt's picture (docs/design/codex.md, "The panel"), where
+    what is chosen from is on the board rather than in the hand.
+    """
+    cards = cards or load_catalog()
+    panel = render_panel(match, seat, name, cards, default_building_hp(cards))
+    scaled = panel.resize(
+        (round(panel.width * BOARD_SCALE), round(panel.height * BOARD_SCALE)), Image.LANCZOS,
+    )
+    return _webp(scaled)
+
+
 # -- A hand, a codex -----------------------------------------------------------
 
 
