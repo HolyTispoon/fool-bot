@@ -306,15 +306,26 @@ class Table:
     def interaction(self, who, channel=None) -> FakeInteraction:
         return FakeInteraction(who, channel or self.game_channel, self.guild)
 
-    async def started(self):
+    async def started(self, teams=(("bashing",), ("finesse",))):
         """The real lobby -- opened in the game's own channel -- two seats,
-        Start: the opening position."""
+        Start: the opening position. `teams` are the two seats' heroes, as
+        specs; three each plays a standard game, chosen with the lobby's
+        **Standard game** first, each on its first hero's colour where
+        the deck is the player's to choose."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
-        await self.pick_heroes(lobby, self.basher, "bashing")
-        await self.pick_heroes(lobby, self.fencer, "finesse")
+        if len(teams[0]) == 3:
+            click = self.interaction(self.basher)
+            await next(item for item in lobby.children
+                       if ":mode_standard:" in item.custom_id).callback(click)
+            lobby = LobbyView(self.cog, game.game_id)
+        await self.pick_heroes(lobby, self.basher, *teams[0])
+        await self.pick_heroes(lobby, self.fencer, *teams[1])
+        for seat, who in ((1, self.basher), (2, self.fencer)):
+            if seat not in game.player_decks:
+                self.cog.service.choose_deck(game.game_id, who.id, game.deck_choices(seat)[0])
         click = self.interaction(self.fencer)
         await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         self.game = game

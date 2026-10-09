@@ -1750,6 +1750,7 @@
         "trojan_duck": 0,
         "wrecking_ball": 0
       },
+      "constructed_once": true,
       "deck": [
         "sneaky_pig",
         "eggship",
@@ -1876,6 +1877,7 @@
       "specs": [
         "bashing"
       ],
+      "tech2_spec": null,
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
@@ -1915,6 +1917,7 @@
         "starcrossed_starlet": 0,
         "two_step": 0
       },
+      "constructed_once": true,
       "deck": [
         "tenderfoot",
         "wither",
@@ -1976,6 +1979,7 @@
       "specs": [
         "finesse"
       ],
+      "tech2_spec": null,
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
@@ -3461,6 +3465,7 @@
             "trojan_duck": 0,
             "wrecking_ball": 0
           },
+          "constructed_once": true,
           "deck": [
             "sneaky_pig",
             "eggship",
@@ -3538,6 +3543,7 @@
           "specs": [
             "bashing"
           ],
+          "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -3577,6 +3583,7 @@
             "starcrossed_starlet": 0,
             "two_step": 2
           },
+          "constructed_once": true,
           "deck": [
             "tenderfoot",
             "wither",
@@ -3669,6 +3676,7 @@
           "specs": [
             "finesse"
           ],
+          "tech2_spec": null,
           "tech_choice": [
             "two_step",
             "two_step"
@@ -5235,6 +5243,7 @@
             "trojan_duck": 0,
             "wrecking_ball": 0
           },
+          "constructed_once": true,
           "deck": [
             "sneaky_pig",
             "eggship",
@@ -5344,6 +5353,7 @@
           "specs": [
             "bashing"
           ],
+          "tech2_spec": null,
           "tech_choice": [
             "final_smash",
             "final_smash"
@@ -5386,6 +5396,7 @@
             "starcrossed_starlet": 0,
             "two_step": 0
           },
+          "constructed_once": true,
           "deck": [
             "tenderfoot",
             "wither",
@@ -5464,6 +5475,7 @@
           "specs": [
             "finesse"
           ],
+          "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -7088,6 +7100,7 @@
             "trojan_duck": 0,
             "wrecking_ball": 0
           },
+          "constructed_once": true,
           "deck": [
             "sneaky_pig",
             "eggship",
@@ -7183,6 +7196,7 @@
           "specs": [
             "bashing"
           ],
+          "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -7222,6 +7236,7 @@
             "starcrossed_starlet": 0,
             "two_step": 0
           },
+          "constructed_once": true,
           "deck": [
             "tenderfoot",
             "wither",
@@ -7316,6 +7331,7 @@
           "specs": [
             "finesse"
           ],
+          "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,

@@ -56,7 +56,7 @@ from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
-from codex.engine import TECH_BUILDING_SLUGS
+from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
 #: (docs/design/board-image.md): Roboto Slab for every word and number.
@@ -832,7 +832,7 @@ def default_building_hp(cards: CardCatalog) -> dict[str, int]:
     """Each building's full HP, from the card data: what its damage chits
     are counted against."""
     found = {name: cards.building(slug).hp or 0 for name, slug in TECH_BUILDING_SLUGS.items()}
-    for slug in ("tower", "surplus"):
+    for slug in ADD_ONS:
         found[slug] = cards.building(slug).hp or 0
     found["base"] = 20
     return found

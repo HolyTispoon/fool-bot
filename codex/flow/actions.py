@@ -22,10 +22,11 @@ from typing import TYPE_CHECKING, Mapping, Optional
 from codex import effects, tokens
 from codex.components import PATROL_SLOTS, AddOnState, BuildingState, MatchState, is_hero_ref
 from codex.effects import UNIMPLEMENTED
-from codex.formatting import SLOT_NAMES
+from codex.formatting import SLOT_NAMES, deck_name
 from codex.engine import (
     ADD_ONS,
     BUILDING_DESTROYED_DAMAGE,
+    TECH_LAB,
     HIRE_COST,
     LEVEL_COST,
     TECH_BUILDING_SLUGS,
@@ -239,14 +240,43 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return resolve.carry_on(engine, game, match, result)
 
 
-def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, building: str) -> StepResult:
+def _check_spec(spec: Optional[str], choices, what: str) -> Optional[str]:
+    """`spec`, one of `choices` -- refused citing UMR p. 8 where it is
+    missing or not one of them -- or `None` where nothing is chosen."""
+    if not choices:
+        if spec is not None:
+            raise RuleRefusal(f"Nothing chooses a spec for {what} now.", cite="UMR p. 8")
+        return None
+    spec = (spec or "").strip().lower() or None
+    if spec is None:
+        raise RuleRefusal(
+            f"In a standard game, {what} chooses a spec: one of your heroes'.", cite="UMR p. 8",
+        )
+    if spec not in choices:
+        raise RuleRefusal(
+            f"{what[0].upper() + what[1:]}'s spec is one of your heroes' "
+            f"that it may still take: {', '.join(choice.title() for choice in choices)}.",
+            cite="UMR p. 8",
+        )
+    return spec
+
+
+def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, building: str,
+              spec: Optional[str] = None, lab_spec: Optional[str] = None) -> StepResult:
     """
     A tech building -- Tech I for 1 at six workers, Tech II for 4 at
     eight, Tech III for 5 at ten, each on the one below, each rebuilt for
-    0 once destroyed (UMR p. 8) -- or an add-on, the tower or the surplus
-    (UMR p. 9). Either is finished at the end of the turn. A new add-on
-    replaces the one in the slot, which is destroyed and deals its 2 to
-    the base (the author, 2026-10-08).
+    0 once destroyed (UMR p. 8) -- or an add-on: the tower, the surplus,
+    the heroes' hall or the tech lab (UMR p. 9). Either is finished at
+    the end of the turn. A new add-on replaces the one in the slot, which
+    is destroyed and deals its 2 to the base (the author, 2026-10-08).
+
+    In a standard game the tech II chooses a spec among the heroes'
+    (`spec`, UMR p. 8), kept through its destruction and rebuild; a tech
+    lab chooses its own where the tech II's is chosen, and otherwise
+    waits for it and chooses with it (`lab_spec`, the tech_lab ruling).
+    A multicolour team's first construction costs 1 more, a rebuild
+    included (`RulesEngine.multicolor_surcharge`).
     """
     seat = match.active
     player = match.active_player
@@ -255,25 +285,46 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
     option = engine.build_option(player, building)
     if not option.allowed:
         page = "UMR p. 8" if building in TECH_BUILDING_SLUGS else "UMR p. 9"
+        if option.why_not.startswith("the basic game"):
+            page = "UMR p. 3"
         raise RuleRefusal(
             f"You can't build {_build_label(building)}: {option.why_not}.", cite=page,
         )
+    what = "a tech lab" if building == TECH_LAB else "the Tech II building"
+    spec = _check_spec(spec, option.specs, what)
+    lab_spec = _check_spec(lab_spec, option.lab_specs, "the tech lab")
+    if lab_spec is not None and lab_spec == spec:
+        raise RuleRefusal("A tech lab unlocks a spec besides the Tech II's.", cite="UMR p. 9")
     player.gold -= option.cost
+    player.constructed_once = True
     hp = engine.building_hp(building)
     if building in TECH_BUILDING_SLUGS:
         rebuilt = player.buildings[building] is not None
         player.buildings[building] = BuildingState(hp=hp, under_construction=True)
         verb = "rebuilds" if rebuilt else "builds"
+        if building == "tech2" and spec is not None:
+            player.tech2_spec = spec
+            if lab_spec is not None:
+                player.add_on.spec = lab_spec
     else:
         replaced = player.add_on
-        player.add_on = AddOnState(slug=building, hp=hp, under_construction=True)
+        player.add_on = AddOnState(slug=building, hp=hp, under_construction=True, spec=spec)
         verb = "builds"
     match.record_event("built", building=building, cost=option.cost)
-    result = _done(engine, game, match, [
+    line = (
         f"{tokens.player(seat)} {verb} {_build_label(building)} for "
-        f"{tokens.gold(option.cost)}; it is finished at the end of the turn."
-        + (_vanilla_note(engine, building) if building in ADD_ONS else "")
-    ])
+        f"{tokens.gold(option.cost)}"
+    )
+    if building == "tech2" and spec is not None:
+        line += f", choosing {deck_name((spec,))}"
+        if lab_spec is not None:
+            line += f" and {deck_name((lab_spec,))} for their {tokens.card(TECH_LAB)}"
+    elif building == TECH_LAB and spec is not None:
+        line += f", choosing {deck_name((spec,))}"
+    line += "; it is finished at the end of the turn."
+    if building in ADD_ONS:
+        line += _vanilla_note(engine, building)
+    result = _done(engine, game, match, [line])
     if building in ADD_ONS and replaced is not None:
         result.narration.append(
             f"It replaces their {tokens.card(replaced.slug)}, which is destroyed "

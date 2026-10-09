@@ -184,15 +184,21 @@ BUILDING_SAVED_FIELDS = (
 
 @dataclass
 class AddOnState:
-    """The one add-on a base holds: the tower or the surplus (UMR p. 9)."""
+    """The one add-on a base holds: the tower, the surplus, the heroes'
+    hall or the tech lab (UMR p. 9)."""
 
     slug: str
     hp: int
     under_construction: bool = True
     #: What this tower has detected this turn -- the `unit:<id>` or
-    #: `hero` ref -- or `None` while its once-a-turn detection is unused
-    #: (UMR p. 9). Emptied when each turn begins.
+    #: `hero:<slug>` ref -- or `None` while its once-a-turn detection is
+    #: unused (UMR p. 9). Emptied when each turn begins.
     detected: Optional[str] = None
+    #: A tech lab's spec (UMR p. 9): chosen as it is built where a tech
+    #: II's spec is chosen, and with the tech II's otherwise (the
+    #: tech_lab ruling). `None` for every other add-on, for a lab still
+    #: waiting on its choice, and in a save older than step 10.
+    spec: Optional[str] = None
 
     @property
     def active(self) -> bool:
@@ -204,6 +210,7 @@ ADD_ON_SAVED_FIELDS = (
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
     SavedField("detected"),
+    SavedField("spec"),
 )
 
 
@@ -344,6 +351,15 @@ class PlayerState:
     add_on: Optional[AddOnState] = None
     play: list[CardInstance] = field(default_factory=list)
     reshuffled_this_phase: bool = False
+    #: The spec chosen as the tech II building was constructed (UMR
+    #: p. 8): kept through its destruction and its rebuild. `None` until
+    #: then, always in a basic game -- whose one spec the rule chooses --
+    #: and in a save older than step 10.
+    tech2_spec: Optional[str] = None
+    #: Whether this player has constructed a tech building or an add-on
+    #: yet, a rebuild for 0 included: what a multicolour team's +1 on its
+    #: first is remembered by (UMR pp. 4, 8, 9). False in an older save.
+    constructed_once: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -428,6 +444,8 @@ PLAYER_SAVED_FIELDS = (
     SavedField("add_on", write=_write_add_on, read=_read_add_on),
     SavedField("play", factory=list, write=_write_play, read=_read_play),
     SavedField("reshuffled_this_phase", default=False),
+    SavedField("tech2_spec"),
+    SavedField("constructed_once", default=False),
 )
 
 

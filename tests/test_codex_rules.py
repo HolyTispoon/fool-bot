@@ -560,3 +560,154 @@ class StandardGameHeroTests(unittest.TestCase):
             match.player(2).heroes[("feral", "growth").index(slug)].summoning_runes = 2
         to_their_turn(engine, game, match)
         self.assertEqual([hero.summoning_runes for hero in match.player(2).heroes], [1, 1, 0])
+
+
+class StandardGameBuildingTests(unittest.TestCase):
+    """The standard game's buildings (UMR pp. 4, 8-9): the spec chosen at
+    Tech II, the tech lab's, the heroes' hall, and a multicolour team's
+    first construction."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    def standard(self, teams=None):
+        engine, game, match = new_game(teams=teams or (self.RED, self.GREEN))
+        begin(engine, game, match)
+        player = match.player(1)
+        player.gold, player.workers = 20, 10
+        return engine, game, match
+
+    def build(self, engine, game, match, building, **arguments):
+        return driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "build", {"building": building, **arguments},
+        ))
+
+    def test_tech_ii_chooses_a_spec_among_the_heroes(self) -> None:
+        """"In a standard game, when you construct your tech II building,
+        you must choose a spec ... that matches one of your heroes'
+        specs" (UMR p. 8)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        option = engine.build_option(match.player(1), "tech2")
+        self.assertEqual(option.specs, self.RED)
+        missing = self.build(engine, game, match, "tech2")
+        self.assertIsInstance(missing, driver.Refusal)
+        self.assertEqual(missing.cite, "UMR p. 8")
+        foreign = self.build(engine, game, match, "tech2", spec="feral")
+        self.assertIsInstance(foreign, driver.Refusal)
+        self.assertEqual(foreign.cite, "UMR p. 8")
+        self.assertNotIsInstance(self.build(engine, game, match, "tech2", spec="anarchy"), driver.Refusal)
+        self.assertEqual(match.player(1).tech2_spec, "anarchy")
+
+    def test_the_tech_ii_spec_is_kept_through_a_rebuild(self) -> None:
+        """"You don't get to change this spec when your tech II building is
+        destroyed and reconstructed" (UMR p. 8)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        self.build(engine, game, match, "tech2", spec="fire")
+        board.damage_building(match, 1, "tech2", 5, StepResult())
+        self.assertTrue(match.player(1).buildings["tech2"].destroyed)
+        option = engine.build_option(match.player(1), "tech2")
+        self.assertEqual((option.cost, option.specs), (0, ()))
+        self.assertIsInstance(self.build(engine, game, match, "tech2", spec="blood"), driver.Refusal)
+        self.assertNotIsInstance(self.build(engine, game, match, "tech2"), driver.Refusal)
+        self.assertEqual(match.player(1).tech2_spec, "fire")
+
+    def test_a_tech_ii_card_needs_its_spec_and_the_lab_unlocks_another(self) -> None:
+        """"You can only play tech II and tech III cards of your chosen
+        spec" (UMR p. 8); a tech lab's spec too, once it is finished --
+        "You can't immediately play cards of the new tech when you
+        construct this" (p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        player.tech2_spec = "fire"
+        fire = next(card.slug for card in engine.catalog.by_spec("fire")
+                    if card.is_unit and card.tech_level == 2)
+        blood = next(card.slug for card in engine.catalog.by_spec("blood")
+                     if card.is_unit and card.tech_level == 2)
+        self.assertEqual(engine.why_not_playable(player, fire), "")
+        self.assertIn("Fire", engine.why_not_playable(player, blood))
+        self.assertEqual(engine.build_option(player, "tech_lab").specs, ("anarchy", "blood"))
+        self.assertIsInstance(self.build(engine, game, match, "tech_lab", spec="fire"), driver.Refusal)
+        self.build(engine, game, match, "tech_lab", spec="blood")
+        self.assertEqual(player.add_on.spec, "blood")
+        self.assertIn("tech lab", engine.why_not_playable(player, blood), "not until it is finished")
+        player.add_on.under_construction = False
+        self.assertEqual(engine.why_not_playable(player, blood), "")
+
+    def test_a_destroyed_lab_loses_its_spec(self) -> None:
+        """"When this is destroyed, you lose its bonus spec. If you
+        reconstruct the tech lab, you can choose a different spec" (UMR
+        p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        player.tech2_spec = "fire"
+        self.build(engine, game, match, "tech_lab", spec="blood")
+        player.add_on.under_construction = False
+        board.damage_building(match, 1, "add_on", 4, StepResult())
+        self.assertIsNone(player.add_on)
+        self.assertEqual(engine.chosen_specs(player), ("fire",))
+        self.build(engine, game, match, "tech_lab", spec="anarchy")
+        self.assertEqual(player.add_on.spec, "anarchy")
+
+    def test_the_basic_game_builds_the_tower_and_the_surplus_alone(self) -> None:
+        """"Only use the tower and surplus add-ons. You can't construct
+        heroes' halls or tech labs" (UMR p. 3)."""
+        engine, game, match = main_phase()
+        match.player(1).gold = 20
+        offered = [row.building for row in pending_prompt(engine, game, match).options.buildings]
+        self.assertEqual(offered, ["tech1", "tech2", "tech3", "tower", "surplus"])
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "build", {"building": "heroes_hall"},
+        ))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertEqual(refused.cite, "UMR p. 3")
+
+    def test_a_multicolour_teams_first_building_costs_one_more(self) -> None:
+        """"If your team has multiple hero colors, then your first tech
+        building or add-on costs +1 gold" (UMR p. 8) -- once, a rebuild
+        included."""
+        engine, game, match = self.standard(teams=(("fire", "feral", "anarchy"), self.GREEN))
+        player = match.player(1)
+        self.assertEqual(engine.team_colors(player), ("red", "green"))
+        self.assertEqual(engine.build_option(player, "tech1").cost, 2)
+        self.assertEqual(engine.build_option(player, "heroes_hall").cost, 3)
+        self.build(engine, game, match, "tech1")
+        self.assertEqual(player.gold, 18)
+        self.assertTrue(player.constructed_once)
+        self.assertEqual(engine.build_option(player, "heroes_hall").cost, 2)
+
+    def test_a_rebuild_is_the_first_construction_too(self) -> None:
+        engine, game, match = self.standard(teams=(("fire", "feral", "anarchy"), self.GREEN))
+        player = match.player(1)
+        built(match, 1, "tech1").destroyed = True
+        self.assertEqual(engine.build_option(player, "tech1").cost, 1)
+        self.build(engine, game, match, "tech1")
+        self.assertEqual(engine.build_option(player, "tower").cost, 3)
+
+    def test_one_colour_and_neutral_cost_nothing_more(self) -> None:
+        """"Neutral heroes don't apply this cost to your team. For example,
+        a team with Jaina (red), Zane (red), and Troq (neutral) wouldn't
+        add to your building cost, but a team with Jaina, Troq, and
+        Calamandra (green) would" (UMR p. 8)."""
+        engine, game, match = self.standard(teams=(("fire", "anarchy", "bashing"), self.GREEN))
+        self.assertEqual(engine.team_colors(match.player(1)), ("red",))
+        self.assertEqual(engine.build_option(match.player(1), "tech1").cost, 1)
+        engine, game, match = self.standard(teams=(("fire", "bashing", "feral"), self.GREEN))
+        self.assertEqual(engine.build_option(match.player(1), "tech1").cost, 2)
+        self.assertEqual(engine.build_option(match.player(2), "tech1").cost, 1)
+
+    def test_the_heroes_hall_raises_the_limit_once_finished(self) -> None:
+        """"You can't immediately summon a new hero when you construct
+        this, because it finishes construction at end of turn" (UMR p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        self.build(engine, game, match, "heroes_hall")
+        self.assertEqual(engine.hero_limit(player), 1)
+        player.add_on.under_construction = False
+        self.assertEqual(engine.hero_limit(player), 2)

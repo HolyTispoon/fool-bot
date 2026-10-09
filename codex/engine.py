@@ -75,9 +75,15 @@ TECH_BUILDING_SLUGS = {
 }
 #: The level of tech card each building lets its owner play.
 TECH_LEVEL_BUILDING = {1: "tech1", 2: "tech2", 3: "tech3"}
-#: The two add-ons of the basic game (UMR p. 9); cost and HP are the
-#: card data's.
-ADD_ONS = ("tower", "surplus")
+#: The four add-ons (UMR p. 9), cost and HP the card data's: the basic
+#: game constructs the first two alone (UMR p. 3), the standard game all
+#: four (`RulesEngine.add_ons`).
+ADD_ONS = ("tower", "surplus", "heroes_hall", "tech_lab")
+BASIC_ADD_ONS = ("tower", "surplus")
+TECH_LAB = "tech_lab"
+#: What a multicolour team's first tech building or add-on costs on top
+#: (UMR pp. 4, 8, 9).
+MULTICOLOR_SURCHARGE = 1
 #: The cards a tech choice takes, and the workers from which it may be
 #: fewer (UMR p. 5).
 TECH_PICKS = 2
@@ -181,20 +187,35 @@ class PlayableCard:
 
 @dataclass(frozen=True)
 class BuildOption:
+    """
+    A building that may be constructed, at the cost it will charge -- a
+    multicolour team's surcharge included -- and, in a standard game,
+    the spec its construction chooses: `specs`, the choices for a tech
+    II's spec or a tech lab's own (empty where nothing is chosen), and
+    `lab_specs`, the choices for a lab already standing without one,
+    chosen together with the tech II's (the tech_lab ruling).
+    """
+
     building: str
     cost: int
     workers_needed: int = 0
     why_not: str = ""
+    specs: tuple[str, ...] = ()
+    lab_specs: tuple[str, ...] = ()
 
     @property
     def allowed(self) -> bool:
         return not self.why_not
 
     def to_dict(self) -> dict:
-        return {
+        found = {
             "building": self.building, "cost": self.cost,
             "workers_needed": self.workers_needed, "why_not": self.why_not,
         }
+        if self.specs or self.lab_specs:
+            found["specs"] = list(self.specs)
+            found["lab_specs"] = list(self.lab_specs)
+        return found
 
 
 @dataclass(frozen=True)
@@ -624,12 +645,81 @@ class RulesEngine:
         return building is not None and building.active
 
     def building_cost(self, player: PlayerState, building: str) -> int:
+        """What constructing `building` costs now: its printed cost, 0 to
+        rebuild a destroyed tech building (UMR p. 8), and a multicolour
+        team's +1 on the first tech building or add-on it constructs, a
+        rebuild included (`multicolor_surcharge`)."""
         if building in TECH_BUILDINGS:
             existing = player.buildings[building]
             if existing is not None and existing.destroyed:
-                return 0  # rebuilt for nothing (UMR p. 8)
-            return self.catalog.building(TECH_BUILDING_SLUGS[building]).cost or 0
-        return self.catalog.building(building).cost or 0
+                cost = 0  # rebuilt for nothing (UMR p. 8)
+            else:
+                cost = self.catalog.building(TECH_BUILDING_SLUGS[building]).cost or 0
+        else:
+            cost = self.catalog.building(building).cost or 0
+        return cost + self.multicolor_surcharge(player)
+
+    def multicolor_surcharge(self, player: PlayerState) -> int:
+        """
+        "If your team has multiple hero colors, then your first tech
+        building or add-on costs +1 gold" (UMR p. 8; p. 4, p. 9) --
+        neutral heroes not counting as a colour (`team_colors`) -- until
+        the player has constructed one (`PlayerState.constructed_once`).
+        """
+        if player.constructed_once or len(self.team_colors(player)) < 2:
+            return 0
+        return MULTICOLOR_SURCHARGE
+
+    def is_standard(self, player: PlayerState) -> bool:
+        """A standard game's side has three heroes; the basic game's one
+        (UMR p. 3)."""
+        return len(player.specs) > 1
+
+    def add_ons(self, player: PlayerState) -> tuple[str, ...]:
+        """The add-ons this player may construct: the tower and the
+        surplus in the basic game, all four in the standard one (UMR
+        p. 3)."""
+        return ADD_ONS if self.is_standard(player) else BASIC_ADD_ONS
+
+    def tech_lab(self, player: PlayerState) -> Optional[AddOnState]:
+        add_on = player.add_on
+        return add_on if add_on is not None and add_on.slug == TECH_LAB else None
+
+    def chosen_specs(self, player: PlayerState) -> tuple[str, ...]:
+        """
+        The specs whose tech II and III cards this player may play (UMR
+        pp. 8-9): the basic game's one, chosen by the rule; in a standard
+        game the tech II's, once chosen, and a finished tech lab's --
+        "You can't immediately play cards of the new tech when you
+        construct this".
+        """
+        if not self.is_standard(player):
+            return tuple(player.specs)
+        found = [player.tech2_spec] if player.tech2_spec else []
+        lab = self.tech_lab(player)
+        if lab is not None and lab.active and lab.spec and lab.spec not in found:
+            found.append(lab.spec)
+        return tuple(found)
+
+    def spec_choices(self, player: PlayerState, building: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """
+        What constructing `building` chooses in a standard game (UMR
+        pp. 8-9): for a tech II whose spec is not yet chosen, one of the
+        heroes' specs -- and, where a tech lab stands without one, the
+        lab's too, a different one (the tech_lab ruling); for a tech lab
+        where the tech II's spec is chosen, one of the other specs.
+        Nothing is chosen in a basic game, or for anything else.
+        """
+        if not self.is_standard(player):
+            return (), ()
+        specs = tuple(player.specs)
+        if building == "tech2" and player.tech2_spec is None:
+            lab = self.tech_lab(player)
+            waiting = specs if lab is not None and lab.spec is None else ()
+            return specs, waiting
+        if building == TECH_LAB and player.tech2_spec is not None:
+            return tuple(spec for spec in specs if spec != player.tech2_spec), ()
+        return (), ()
 
     def building_hp(self, building: str) -> int:
         slug = TECH_BUILDING_SLUGS.get(building, building)
@@ -637,6 +727,7 @@ class RulesEngine:
 
     def build_option(self, player: PlayerState, building: str) -> BuildOption:
         cost = self.building_cost(player, building)
+        specs, lab_specs = self.spec_choices(player, building)
         if building in TECH_BUILDINGS:
             workers, below = TECH_REQUIREMENTS[building]
             existing = player.buildings[building]
@@ -651,16 +742,18 @@ class RulesEngine:
                 why = f"it needs a finished {_building_name(below)} building"
             elif player.gold < cost:
                 why = "not enough gold"
-            return BuildOption(building, cost, workers, why)
+            return BuildOption(building, cost, workers, why, specs, lab_specs)
         # A new add-on replaces the one in the slot, which deals its 2 to
         # the base (UMR p. 9; the author, 2026-10-08) -- the same one again
         # is no replacement.
         why = ""
-        if player.add_on is not None and player.add_on.slug == building:
+        if building not in self.add_ons(player):
+            why = "the basic game builds the tower and the surplus alone"
+        elif player.add_on is not None and player.add_on.slug == building:
             why = "it is already built"
         elif player.gold < cost:
             why = "not enough gold"
-        return BuildOption(building, cost, 0, why)
+        return BuildOption(building, cost, 0, why, specs, lab_specs)
 
     # -- The main phase -----------------------------------------------------
 
@@ -722,6 +815,9 @@ class RulesEngine:
         if card.is_unit:
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
+            why = self._why_not_spec(player, card)
+            if why:
+                return why
         elif card.is_spell:
             if not player.heroes_in_play:
                 return "a spell needs a hero in play"
@@ -740,6 +836,20 @@ class RulesEngine:
         ):
             return "it has nothing it could target"
         return ""
+
+    def _why_not_spec(self, player: PlayerState, card) -> str:
+        """A tech II or III card is played only of a spec the player has
+        chosen -- their tech II's, or their tech lab's (UMR pp. 8-9)."""
+        if (card.tech_level or 0) < 2 or not card.spec:
+            return ""
+        key = card.spec.lower()
+        if key in self.chosen_specs(player):
+            return ""
+        if not self.is_standard(player):
+            return f"it is not a card of your {player.specs[0].title()} codex"
+        if player.tech2_spec is None:
+            return f"it needs {card.spec} chosen as your Tech II spec"
+        return f"your Tech II spec is {player.tech2_spec.title()}, and no tech lab has {card.spec}"
 
     def spell_can_resolve(self, match: MatchState, seat: int, slug: str, gold: int) -> bool:
         """Whether a spell has a part that can resolve: one choosing
@@ -809,7 +919,7 @@ class RulesEngine:
             playable=self.playable(player, match),
             buildings=tuple(
                 self.build_option(player, building)
-                for building in (*TECH_BUILDINGS, *ADD_ONS)
+                for building in (*TECH_BUILDINGS, *self.add_ons(player))
             ),
             attackers=self.attackers(match),
             detect=self.detect_option(match),

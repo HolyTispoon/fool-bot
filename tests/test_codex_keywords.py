@@ -27,6 +27,7 @@ from unittest import mock
 from codex import keywords, rulings
 from codex.components import AddOnState, CardInstance, is_hero_ref
 from codex.flow import StepResult, actions, board, combat, turn
+from codex.game import RuleRefusal
 from codex.prompts import PromptKind, pending_prompt
 from codex_positions import TROQ, begin, built, hero_in_play, new_game, put
 
@@ -54,6 +55,7 @@ STEP_5_KEYWORDS = {
     "Detector": 0,
     #: The standard game's add-on, step 10's (UMR p. 9).
     "Heroes' Hall": 2,
+    "Tech Lab": 2,
 }
 
 
@@ -1117,6 +1119,58 @@ class HeroesHallTests(KeywordCase):
         self.assertEqual(engine.hero_limit(player), 1)
         option = engine.hero_option(player, player.hero_of("drakk_ramhorn"))
         self.assertIn("hero limit is 1", option.why_not)
+
+
+class TechLabTests(KeywordCase):
+    """The tech lab (UMR p. 9): a second spec's tech II and III cards."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    def standard(self):
+        engine, game, match = new_game(teams=(self.RED, self.GREEN))
+        begin(engine, game, match)
+        player = match.player(1)
+        player.gold, player.workers = 20, 10
+        return engine, game, match, player
+
+    def build(self, engine, game, match, building, **arguments):
+        return actions.construct(engine, game, match, building, **arguments)
+
+    def test_tech_lab_1(self) -> None:
+        """If you choose one spec for your Tech Lab, you can build another
+        Tech Lab later and choose a different spec."""
+        engine, game, match, player = self.standard()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        player.tech2_spec = "fire"
+        self.build(engine, game, match, "tech_lab", spec="anarchy")
+        player.add_on.under_construction = False
+        self.assertEqual(engine.chosen_specs(player), ("fire", "anarchy"))
+        board.damage_building(match, 1, "add_on", 4, StepResult())
+        self.build(engine, game, match, "tech_lab", spec="blood")
+        player.add_on.under_construction = False
+        self.assertEqual(engine.chosen_specs(player), ("fire", "blood"))
+
+    def test_tech_lab_2(self) -> None:
+        """If you have a Tech Lab but have not built a Tech 2 building, you
+        do not choose a spec for your Tech Lab. Later when you build your
+        Tech 2 building, you will choose the spec for the Tech 2 building
+        and for the Tech Lab."""
+        engine, game, match, player = self.standard()
+        self.assertEqual(engine.build_option(player, "tech_lab").specs, ())
+        with self.assertRaises(RuleRefusal):
+            self.build(engine, game, match, "tech_lab", spec="fire")
+        self.build(engine, game, match, "tech_lab")
+        self.assertIsNone(player.add_on.spec)
+        player.add_on.under_construction = False
+        built(match, 1, "tech1")
+        option = engine.build_option(player, "tech2")
+        self.assertEqual((option.specs, option.lab_specs), (self.RED, self.RED))
+        with self.assertRaises(RuleRefusal):
+            self.build(engine, game, match, "tech2", spec="fire", lab_spec="fire")
+        self.build(engine, game, match, "tech2", spec="fire", lab_spec="blood")
+        self.assertEqual((player.tech2_spec, player.add_on.spec), ("fire", "blood"))
 
 
 class EveryRulingIsPinnedTests(unittest.TestCase):

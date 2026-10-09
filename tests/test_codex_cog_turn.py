@@ -974,3 +974,64 @@ class UndoTests(TurnTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
+    """A standard game through the panel (step 10): the heroes' row, one
+    button per hero, and Build Tech II turning the panel into the spec
+    choice -- each click held to the request budget."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.RED, self.GREEN))
+
+    async def test_the_heroes_row_summons_each_hero_by_its_own_button(self) -> None:
+        match = self.table.match
+        seat = match.active
+        match.player(seat).gold = 10
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        heroes = [item for item in view.children if (item.choice or ("",))[0] == "summon"]
+        self.assertEqual(len(heroes), 3)
+        self.assertEqual({item.row for item in heroes}, {1})
+        first = heroes[0].choice[1]
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, ("summon", first))
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertTrue(self.table.match.player(seat).hero_of(first).in_play)
+        after = [item for item in call.view().children if (item.choice or ("",))[0] == "summon"]
+        self.assertTrue(all(item.disabled for item in after))
+        self.assertTrue(all("hero limit is 1" in item.label for item in after))
+
+    async def test_build_tech_ii_asks_its_spec_in_the_panel(self) -> None:
+        match = self.table.match
+        seat = match.active
+        player = match.player(seat)
+        player.gold, player.workers = 10, 8
+        built = player.buildings
+        from codex.components import BuildingState
+
+        built["tech1"] = BuildingState(hp=5, under_construction=False)
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, ("build", "tech2"))
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        choice = opened.view()
+        specs = [item.choice[2] for item in choice.children if (item.choice or ("",))[0] == "spec"]
+        self.assertEqual(specs, list(self.table.match.player(seat).specs))
+        back = await self.table.press(choice, "Back")
+        self.assertIs(back.view().prompt.kind, PromptKind.MAIN_ACTION)
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        chosen = await self.table.press(choice, ("spec", "tech2", specs[1]))
+        self.assertEqual([answer[0] for answer in chosen.answers], PANEL_REPLACED)
+        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertEqual(self.table.match.player(seat).tech2_spec, specs[1])

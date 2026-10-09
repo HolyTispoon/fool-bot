@@ -220,7 +220,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
 
 def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
                  building=None, attacker=None, card=None, ability=None,
-                 source=None, hero=None) -> StepResult:
+                 source=None, hero=None, spec=None, lab_spec=None) -> StepResult:
     if choice == "hire":
         return actions.hire_worker(engine, game, match, _required(slug, "slug"))
     if choice == "summon":
@@ -230,7 +230,9 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
     if choice == "play":
         return actions.play_card(engine, game, match, _required(slug, "slug"))
     if choice == "build":
-        return actions.construct(engine, game, match, _required(building, "building"))
+        return actions.construct(
+            engine, game, match, _required(building, "building"), spec, lab_spec,
+        )
     if choice == "attack":
         return actions.declare_attacker(engine, game, match, _required(attacker, "attacker"))
     if choice == "detect":
@@ -357,6 +359,7 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.MAIN_ACTION: frozenset({
         "slug", "levels", "building", "attacker", "card", "ability", "source", "hero",
+        "spec", "lab_spec",
     }),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender"}),
     PromptKind.PATROL: frozenset({"assignment"}),

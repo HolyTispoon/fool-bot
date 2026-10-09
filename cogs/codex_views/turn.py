@@ -36,7 +36,7 @@ import discord
 
 from codex import effects, history
 from codex.engine import TECH_BUILDINGS, building_name
-from codex.formatting import ref_label
+from codex.formatting import deck_name, ref_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import SafeView, send_ephemeral
@@ -175,9 +175,14 @@ class TurnPanelView(PanelView):
     """
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
-                 undo_targets: dict | None = None) -> None:
+                 undo_targets: dict | None = None, building: str | None = None,
+                 spec: str | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
         self.mode = mode
+        #: The spec choice's building, and the Tech II spec chosen so far
+        #: where a tech lab waits on its own (`build_spec`).
+        self.building = building
+        self.spec = spec
         options = prompt.options
         if prompt.kind is PromptKind.CHOOSE_DEFENDER:
             self.build_defenders(options)
@@ -203,6 +208,8 @@ class TurnPanelView(PanelView):
             self.build_detect(options)
         elif mode == "undo":
             self.build_undo(undo_targets or {})
+        elif mode == "spec":
+            self.build_spec(options)
         else:
             self.build_actions(options)
 
@@ -241,8 +248,11 @@ class TurnPanelView(PanelView):
                                disabled=True)]
         board = [
             self.make_button(
-                f"Build {building_label(row.building)} ({row.cost} gold)",
-                discord.ButtonStyle.primary, self._answer(self.build, row.building),
+                f"Build {building_label(row.building)} ({row.cost} gold)"
+                + ("..." if row.specs else ""),
+                discord.ButtonStyle.primary,
+                self._answer(self.open_spec, row.building) if row.specs
+                else self._answer(self.build, row.building),
                 choice=("build", row.building),
             )
             for row in options.buildings if row.allowed
@@ -361,6 +371,13 @@ class TurnPanelView(PanelView):
                     "which card goes? It is trashed unseen.")
         if self.mode == "attack":
             return "**Attack** with which?"
+        if self.mode == "spec":
+            row = self.build_row()
+            if row is not None and row.lab_specs:
+                return ("**Build Tech II**: choose its spec, then your tech lab's -- "
+                        "a different one.")
+            what = "Tech II" if self.building == "tech2" else "your tech lab"
+            return f"**Build {what}**: which spec does it unlock?"
         return ""
 
     async def open_mode(self, interaction: discord.Interaction, mode: str) -> None:
@@ -399,8 +416,88 @@ class TurnPanelView(PanelView):
     async def play(self, interaction: discord.Interaction, slug: str) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", {"slug": slug}))
 
-    async def build(self, interaction: discord.Interaction, building: str) -> None:
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "build", {"building": building}))
+    async def build(self, interaction: discord.Interaction, building: str,
+                    spec: str | None = None, lab_spec: str | None = None) -> None:
+        arguments = {"building": building}
+        if spec is not None:
+            arguments["spec"] = spec
+        if lab_spec is not None:
+            arguments["lab_spec"] = lab_spec
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "build", arguments))
+
+    # -- The spec a building chooses (UMR pp. 8-9) ----------------------------
+
+    def build_row(self):
+        return next((row for row in self.prompt.options.buildings
+                     if row.building == self.building), None)
+
+    async def open_spec(self, interaction: discord.Interaction, building: str) -> None:
+        """Build Tech II in a standard game, or Build Tech lab where the
+        Tech II's spec is chosen: the panel turns into the spec choice,
+        a button per spec the options offer, and **Back** -- the shape
+        Attack... has."""
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match,
+                             mode="spec", building=building)
+        await self.show(interaction, view, self.cog.panel_caption(game, self.prompt, view.caption()))
+
+    def build_spec(self, options) -> None:
+        """
+        A button per spec the building may choose; where a tech lab
+        waits on its spec, the Tech II's first -- marked once chosen --
+        and then a row for the lab's, a different one, whose button
+        builds. **Back** on the last row.
+        """
+        row = self.build_row()
+        if row is None:
+            self.button("Back", discord.ButtonStyle.secondary, self.back, row=0)
+            return
+        name = "Tech II" if row.building == "tech2" else "Tech lab"
+        if not row.lab_specs:
+            buttons = [
+                self.make_button(
+                    f"{name}: {deck_name((spec,))}", discord.ButtonStyle.primary,
+                    self._answer(self.build, row.building, spec),
+                    choice=("spec", row.building, spec),
+                )
+                for spec in row.specs
+            ]
+            at = self.place(buttons, 0, until=ROWS - 1)
+            self.button("Back", discord.ButtonStyle.secondary, self.back, row=at)
+            return
+        firsts = [
+            self.make_button(
+                f"Tech II: {deck_name((spec,))}",
+                discord.ButtonStyle.success if spec == self.spec else discord.ButtonStyle.primary,
+                self._answer(self.choose_tech2_spec, spec), choice=("spec", "tech2", spec),
+            )
+            for spec in row.specs
+        ]
+        at = self.place(firsts, 0, until=ROWS - 2)
+        labs = [
+            self.make_button(
+                f"Tech lab: {deck_name((spec,))}", discord.ButtonStyle.primary,
+                self._answer(self.build, row.building, self.spec, spec),
+                disabled=self.spec is None or spec == self.spec,
+                choice=("lab_spec", spec),
+            )
+            for spec in row.lab_specs
+        ]
+        at = self.place(labs, at, until=ROWS - 1)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=at)
+
+    async def choose_tech2_spec(self, interaction: discord.Interaction, spec: str) -> None:
+        """The Tech II's spec, marked; the lab's row is pressed next. The
+        panel's own edit -- nothing is applied until the lab's button."""
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        await self.show(interaction, TurnPanelView(
+            self.cog, self.game_id, self.prompt, self.match, mode="spec",
+            building=self.building, spec=spec,
+        ))
 
     async def attack(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": ref}))
