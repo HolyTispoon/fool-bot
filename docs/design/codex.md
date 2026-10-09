@@ -369,7 +369,7 @@ decision 7): `body_keywords(body)` is every keyword a thing in play has
 and `has_keyword` / `keyword_x` the two questions over it, and
 `RulesEngine` asks them wherever a keyword changes an answer. **Nothing
 else reads a card's text to decide a rule**, and nothing in `cogs/`
-knows a keyword at all -- the panel's menus are the prompts' options, as
+knows a keyword at all -- the panel's buttons and menus are the prompts' options, as
 always.
 
 - **A keyword comes from three places**: the card's printed text (read
@@ -400,7 +400,7 @@ always.
   *may* shoot up but is never forced to. `ignores_patrollers` is the
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
-  panel's menu can say why a defender is legal ("it flies over the patrol
+  panel's buttons can say why a defender is legal ("it flies over the patrol
   zone", "it sneaks past the patrol zone", "it is unstoppable").
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
@@ -468,8 +468,8 @@ attack preview the step's prompt set aside -- what would happen if this
 attacker took that defender -- is **not built**: the board shows the
 position.
 
-**Once an attack has begun it cannot be taken back.** **Cancel** on the
-defender menu is still there for a misclick on the attacker, since
+**Once an attack has begun it cannot be taken back.** **Cancel** under
+the defender buttons is still there for a misclick on the attacker, since
 nothing has happened then; after the defender is chosen, obliterate may
 have destroyed something and the tower may have spent its detection, so
 `cancel_attack` refuses while `MatchState.combat` stands.
@@ -1045,29 +1045,72 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 - **Its picture is the hand**, numbered, greyed where it may not be
   played, each card's cost after reductions -- `render_hand` over
   `MainActionOptions.hand`, a field the prompt grew for it so the
-  picture and the menu read one list. **Play a card** names each
-  playable card by its number in the picture. `render_prompt` gives the
+  picture and the buttons read one list. `render_prompt` gives the
   main phase and the defender no picture of their own (the board on the
   turn message is theirs); the tech picker's is the codex with the
   picks framed in gold and counted (`render_codex`'s `picked`), the
   confirmation's the picks as a hand.
+- **The main phase is rows of buttons, not menus** (the author,
+  2026-10-09, after a turn through the four selects step 4 built --
+  Play a card..., Build..., Attack with..., Level up...). A message
+  carries five rows of five buttons, and the panel fills them in three
+  groups, each starting a row of its own (`TurnPanelView.place`): the
+  **actions row** -- **Hire worker**, **Summon** or **Level up** the
+  hero, **Attack...**, **Undo...**, **End main phase**; **the hand**, a
+  button per card in the hand's order, "3. Bloom (2 gold)", numbered as
+  the picture numbers it (`hand_numbers`) and disabled where it may not
+  be played now, as the picture greys it, so the row and the picture
+  agree card for card -- at most three rows (`HAND_ROWS`), a hand
+  rarely being more than one; and **the board's row** -- **Build** per
+  building that may be built now ("Build Tower (3 gold)"),
+  **Detect...** where there is a tower, and each ability that may be
+  used now, in the card's own words ("Sacrifice Harmony: stop the
+  music"). **Level up** buys one level a click (the author, 2026-10-09):
+  one button per hero, pressed again for the next level, rather than a
+  menu of counts. **Attack...** turns the panel into what may attack,
+  one button each as `ref_label` names it ("Older Brother 2/2"), and
+  **Back**; the attacker's button asks the defender next, in the same
+  panel, and opening the mode spends nothing public, like Hire's and
+  Undo's. What does not fit the five rows is left out, the groups
+  placed first having the earlier claim -- in practice never, since the
+  hand needs its third row only past ten distinct cards
+  (`test_the_main_phase_is_rows_of_buttons`,
+  `test_a_big_hand_leaves_the_boards_row`). Every button that answers
+  with one choice off the options is a `PanelButton` carrying that
+  choice -- `("play", slug)`, `("attack", ref)` -- so the fakes press
+  it by what it chooses, never by its label.
 - **Built from the options and nothing else.** A control the engine
   says no to is disabled with its reason as its label ("Hire: a worker
-  has been hired this turn"); a menu with nothing to offer is a disabled
-  menu saying why, so the panel keeps its shape. **Hire worker** opens
-  a menu of the hand's cards (the one hired with is trashed unseen);
-  **Undo** the choices `history.undo_targets` says are open. The
-  defender menu labels each defender with why it is legal -- "squad
+  has been hired this turn"); a group with nothing to offer is one
+  disabled button saying why ("Nothing can be built now"), so the
+  panel keeps its shape. **Hire worker** turns the panel into the hand, a button
+  per card numbered as the picture (the one hired with is trashed
+  unseen), the question the menu's placeholder used to carry written
+  under the prompt's ask (the view's `caption`, which `panel_caption`
+  reads, as the tech and patrol views' are); **Undo** the choices
+  `history.undo_targets` says are open. The attacker is named the same
+  way over the defender's buttons, and each is labelled with why it is
+  legal -- "squad
   leader", "patroller", "nothing is patrolling" -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
+  **Nothing the turn panel asks is a menu any more**: the tower's
+  detection and the three choices inside an attack -- obliterate's tie,
+  sparkshot's neighbour, overpower's excess -- are buttons too, what
+  their placeholders said (how many obliterate has left, how much of
+  sparkshot's damage is still to place, how much overpower carries
+  over) written under the ask as the view's caption. The author's word
+  came in three parts through 2026-10-09 -- the main phase, then the
+  hire's card, the defender and the targets, then the rest -- and the
+  menus left on the Codex bot are the patrol lock's two and the tech
+  picker's, below, and the codex browser's views.
 - **An effect's questions are the same panel going on** (step 6): a
-  `TARGET` is one menu of what the part may choose, each labelled with
-  whose it is, what it costs in resist and whether the flagbearer rule
-  forces it; Appel Stomp's place and the upkeep's order are buttons. The
-  abilities share the panel's last row with the hero's levels -- **Level
-  up or use an ability...** -- because a message has five rows and the
-  other four are taken; only an ability that may be used now is in the
-  menu. The panel's picture stays the hand.
+  `TARGET` is a button per thing the part may choose, each labelled
+  with whose it is, what it costs in resist and whether the flagbearer
+  rule forces it, under the ask, which says what the part does; Appel
+  Stomp's place and the upkeep's order are buttons too.
+  The abilities are buttons on the board's row, only those that may be
+  used now -- they shared the last row's menu with the hero's levels
+  until 2026-10-09. The panel's picture stays the hand.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard
@@ -1168,7 +1211,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message's edit through the gate | 1: the panel's edit |
-| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, Undo's menu) | **0** | 1 |
+| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, Undo's choices, Attack... opening what may attack) | **0** | 1 |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **4**: the old message's last edit, the new one's post, its pin, the old one's unpin | 2: the panel closed, the tech picker sent |
 | The attack that destroys a base | **2**: the last edit and the winner's line with the board | 1 |

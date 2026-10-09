@@ -1976,7 +1976,17 @@ and the heroes' hall, the spec chosen at Tech II and the tech lab, the
 starting deck's colour, the multicolour penalties (UMR p. 4, 6, 8, 9)
 -- and the Codex button's menu gains a view per spec of the player's
 three, since a seventy-two card codex is three binders (the author,
-2026-10-08). Step 10 builds those rules over the red and green data
+2026-10-08). **The panel's main phase is rows of buttons, not menus**
+(the author, 2026-10-09; docs/design/codex.md, "The panel"), and three
+heroes a side do not fit its actions row, which holds one hero's
+**Summon** or **Level up** beside Hire, Attack, Undo and End main
+phase: step 10 gives the heroes a row of their own -- one button per
+hero, Summon or Level up by one level a click -- under the actions
+row, so the hand keeps two rows at most (`HAND_ROWS`) and the board's
+row stays the last. A choice the standard game adds -- the spec chosen
+at Tech II, which hero to summon -- is buttons where it fits a row or
+two, a menu only where it cannot. Step 10 builds those rules over the
+red and green data
 with every card
 still played for its numbers, so the standard game is playable before
 a single red or green effect exists; step 11 gives red and green their
