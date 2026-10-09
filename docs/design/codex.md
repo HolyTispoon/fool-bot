@@ -1365,16 +1365,30 @@ being trashed when it leaves), and a spell of theirs being cast -- an
 effect frame's `spell`, or Appel Stomp waiting on its place. A tech
 choice joins it at the ready phase, when the picks reach the discard
 pile, and not before; a hired card is trashed and so gone. It is
-pictured by `render_codex`, each card once with its copies on the
-badge, the starting cards first and then each tech level, **the cards
-in the hand framed in gold with how many copies are there** ("2 in
-hand", the tech picker's mark worded for the deck; the author,
-2026-10-09: "the 'my deck' view should mark which cards are in a
-player's hand") -- `OwnDeck.in_hand`, the engine's count beside each
-card, so the view computes nothing -- and captioned
-with how many are in each place -- the draw pile a count, never an
-order; a tech choice not yet in the discard pile is not listed, there
-or anywhere in it (the author, 2026-10-09). The button is on the turn
+pictured by `render_deck` in three parts: **the cards in the hand
+together in a box at the top**, headed "In your hand", **the discard
+pile's in a box under it**, headed "In your discard pile" (the author,
+2026-10-09: "also show which cards in the discard"), and the rest of
+the deck -- the draw pile and what is in play -- under both, each part
+in the deck's order -- the starting cards
+first and then each tech level -- and each card once per part with its
+copies there on its badge, so a card with one copy in the hand and
+another in the draw pile shows in both (the author, 2026-10-09: "I want
+the cards in hand to appear together. A second copy of the same card
+would show up again outside of the box"). The hand's box is drawn in
+the neutral white the words are and the discard pile's in the quiet
+grey, not gold: the author asked for no gold there, gold being the tech picker's mark (its first day, the deck was
+the codex grid with the hand's copies framed in gold on each card,
+which left a hand's cards scattered through the deck). The split is
+the engine's, `OwnDeck.held`, `discarded` and `elsewhere` beside the
+whole `cards`, so the view computes nothing; `render_deck` shares one card
+tile with `render_codex` (`codex_tile`), whose output the extraction
+left byte-identical. Its caption is the total alone, "Total cards in
+deck: 13." (the author, 2026-10-09: "cut down on text"), where it
+first counted every place in words; the picture says where the cards
+are, and the draw pile's order is never shown, its cards being in the
+rest of the deck in the deck's order. A tech choice not yet in the
+discard pile is not listed, there or anywhere in it (the author, 2026-10-09). The button is on the turn
 message, beside **My hand**, for either player whoever's turn it is
 (the author, 2026-10-09: "include it in the public message"); under the
 other player's hand (`HandView`, its one button); after the hand's
