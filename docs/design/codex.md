@@ -1750,8 +1750,8 @@ page, since the rulebook allows it and the bot does not play it yet. A
 basic game's deck is its hero's colour; a standard game's one of its
 three heroes' colours, settled by the rule where they share one and the
 player's choice where they differ, neutral among them. Both seats may
-choose the same hero: each player chooses their own, and nothing in the
-rulebook says the two may not meet. Start waits on both seats complete --
+choose the same hero -- **mirror games are fine** (the author,
+2026-10-09). Start waits on both seats complete --
 heroes and deck. A rematch swaps the two teams whole, heroes and decks,
 in the same game.
 
@@ -1801,7 +1801,7 @@ foreign one citing p. 8, and `PlayerState.tech2_spec` keeps it --
 unchanged by the building's destruction and its rebuild ("You don't get
 to change this spec"). A tech lab carries its own (`AddOnState.spec`):
 chosen as it is built where the tech II's is chosen, from the other
-specs; built without one where it is not, and chosen together with the
+specs -- **never the tech II's own** (the author, 2026-10-09); built without one where it is not, and chosen together with the
 tech II's when that is built (`lab_spec`, the tech_lab ruling). A
 destroyed lab loses its spec; a rebuilt one may choose another (p. 9).
 A tech II or III card is playable only of the tech II's spec or a
@@ -1840,7 +1840,12 @@ maximum level since the turn began (p. 7). Channeling stays by spec.
 A kill's two levels (UMR p. 10) go to the killing side's one hero in
 play; with none, nobody gains them; with more than one, **the active
 player is asked** -- `LEVEL_GAIN`, a button per hero in play -- because
-the active player makes every decision (p. 14). The question is a frame
+the active player makes every decision (p. 14). **The hero's own
+controller never decides on an opponent's turn** (the author,
+2026-10-09): p. 10's "choose one hero to gain the levels" speaks of a
+kill on your own turn, so where a defending patroller kills the
+attacking hero and the defender has two heroes in play, the active
+player chooses which of the defender's gains them. The question is a frame
 put at the front of `MatchState.resolving` where the kill happened
 (`board.level_gain_owed`), on the attack's stack or the effect's, so
 nothing after the kill resolves before it; the answer pops it and the
@@ -1854,7 +1859,8 @@ the hand for their cost, with the tech building and the spec their level
 needs, arriving with arrival fatigue; neither attacks nor patrols. **A
 building card** has HP: it may be attacked once the patrol zone allows
 ("anything with HP", p. 10), a damage spell may choose it as a building
-and a repair takes its damage off; destroyed, it goes to its owner's
+and **a repair takes its damage off** (the author, 2026-10-09: "you can
+repair building cards"); destroyed, it goes to its owner's
 discard and **deals nothing to the base** -- p. 8 says that of tech
 buildings and add-ons. **An upgrade** has no HP and cannot be attacked.
 Their text waits in `UNIMPLEMENTED` with the rest of red and green's.
