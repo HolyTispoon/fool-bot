@@ -24,10 +24,10 @@ from cogs.codex_views.turn import (
     hand_numbers,
 )
 from cogs.codex_views.turn_message import (
-    CODEX_VIEW_LABELS,
     NOT_YOUR_TABLE,
     CodexBrowser,
     TurnMessageView,
+    codex_view_menu,
     hand_caption,
     hand_file,
     side_label,
@@ -35,7 +35,6 @@ from cogs.codex_views.turn_message import (
 )
 
 __all__ = [
-    "CODEX_VIEW_LABELS",
     "CodexBrowser",
     "ERROR_RECOVERY_ADVICE",
     "HelperConfirmationView",
@@ -51,6 +50,7 @@ __all__ = [
     "TurnPanelView",
     "UndoConfirmView",
     "building_label",
+    "codex_view_menu",
     "hand_caption",
     "hand_file",
     "hand_numbers",

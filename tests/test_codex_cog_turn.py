@@ -47,6 +47,22 @@ def playable(view) -> list[str]:
     return [row.slug for row in view.prompt.options.playable if row.allowed]
 
 
+def cards_pictured(call) -> int:
+    """How many cards the codex picture a panel edit carries lays out:
+    its columns, one per card up to `CODEX_COLUMNS` (never reached by a
+    narrowed view of the basic game's codex)."""
+    from PIL import Image
+
+    from codex.render import CODEX_CARD
+
+    (picture,) = call.last("response.edit")[2]["attachments"]
+    picture.fp.seek(0)
+    with Image.open(picture.fp) as image:
+        width = image.size[0]
+    picture.fp.seek(0)
+    return (width - 14) // (CODEX_CARD[0] + 14)
+
+
 class TurnTestCase(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.table = Table()
@@ -268,6 +284,71 @@ class TurnEndTests(TurnTestCase):
         played = await self.table.choose(active_panel, "Play a card", playable(active_panel)[0])
         self.assertNothingWentWrong(played)
         self.assertEqual([answer[0] for answer in played.answers], ["response.edit"])
+
+    async def test_the_tech_picker_is_narrowed_by_its_show_menu(self) -> None:
+        """
+        **Show...** on the picker narrows the menu and the picture to one
+        view -- a tech level, the spells -- and the picks are kept across
+        views: one picked under Tech I stays picked while Tech II is
+        shown, both are saved. Each change of view is the picker's own
+        edit and spends nothing public (the author, 2026-10-09: the
+        whole codex at once is too much to pick from).
+        """
+        await self.end_turn()
+        engine = self.table.cog.engine
+        mark = len(self.table.game_channel.requests)
+        tech = await self.table.turn_button("tech", self.table.waiting)
+        picker = tech.view()
+        self.assertIsInstance(picker, TechChoiceView)
+        self.assertEqual(picker.view, "everything")
+        codex = picker.prompt.options.codex
+        self.assertEqual(len(picker.select.options), sum(left for _, left in codex))
+
+        # The picture is drawn for real here, and its width counts the
+        # cards shown (`render_codex` lays one column per card, up to
+        # `CODEX_COLUMNS`): a mock by the module's dotted name would miss
+        # the cog once a bot test has closed its bot, which unloads the
+        # extension and evicts `cogs.codex` from `sys.modules`.
+        shown = await self.table.choose(picker, "Show", "tech1", who=self.table.waiting)
+        self.assertNothingWentWrong(shown)
+        self.assertEqual([answer[0] for answer in shown.answers], ["response.edit"])
+        narrowed = shown.view()
+        tech1 = engine.codex_view_rows(codex, "tech1")
+        self.assertEqual({option.value.split("#")[0] for option in narrowed.select.options},
+                         {slug for slug, _ in tech1})
+        self.assertEqual(narrowed.select.min_values, 0)
+        self.assertEqual(cards_pictured(shown), len(tech1))
+        self.assertLess(len(tech1), len(codex))
+        self.assertIn("Showing: Tech I.", shown.text())
+
+        first = narrowed.select.options[0].value
+        picked = (await self.table.choose(narrowed, "Choose", first, who=self.table.waiting)).view()
+        self.assertEqual(picked.picks, [first.split("#")[0]])
+
+        # Tech II shown: the Tech I pick is kept, unseen, and leaves one
+        # place in the menu.
+        switched = await self.table.choose(picked, "Show", "tech2", who=self.table.waiting)
+        later = switched.view()
+        self.assertEqual(later.picks, picked.picks)
+        self.assertEqual(later.hidden, picked.picks)
+        self.assertEqual(later.select.max_values, later.prompt.options.maximum - 1)
+        self.assertEqual(cards_pictured(switched), len(engine.codex_view_rows(codex, "tech2")))
+        self.assertIn("Picked so far: " + engine.catalog.name(picked.picks[0]), switched.text())
+        second = later.select.options[0].value
+        both = (await self.table.choose(later, "Choose", second, who=self.table.waiting)).view()
+        self.assertEqual(both.picks, [first.split("#")[0], second.split("#")[0]])
+
+        # Every pick elsewhere: the spells' menu is closed, and says so.
+        full = (await self.table.choose(both, "Show", "spells", who=self.table.waiting)).view()
+        self.assertIsNone(full.select)
+        self.assertTrue(any(getattr(item, "disabled", False) and "other views" in (item.placeholder or "")
+                            for item in full.children))
+        self.assertEqual(full.picks, both.picks)
+
+        saved = await self.table.press(full, "Save tech", who=self.table.waiting)
+        self.assertNothingWentWrong(saved)
+        self.assertEqual(self.table.match.player(picker.seat).tech_choice, both.picks)
+        self.assertEqual(channel_requests(self.table, mark), [])
 
     async def test_tech_is_the_other_players_alone(self) -> None:
         call = await self.table.turn_button("tech", self.table.active)

@@ -92,6 +92,27 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
     return f"{label}, {damage} damage" if damage else label
 
 
+#: What the built-in codex views are called (`RulesEngine.codex_views`).
+CODEX_VIEW_NAMES = {
+    "everything": "Everything",
+    "tech1": "Tech I",
+    "tech2": "Tech II",
+    "tech3": "Tech III",
+    "spells": "Spells",
+}
+
+
+def codex_view_name(view: str) -> str:
+    """
+    A codex view by name: "Everything", "Tech I" to "Tech III", "Spells",
+    and a spec's view by the spec -- "Anarchy" -- as `deck_name` spells
+    it. The Codex menu and the tech picker's both say it.
+    """
+    if view.startswith("spec:"):
+        return deck_name((view[len("spec:"):],))
+    return CODEX_VIEW_NAMES.get(view, view)
+
+
 def deck_name(specs) -> str:
     """
     A deck by its specs: "Bashing" in the basic game, where a deck is

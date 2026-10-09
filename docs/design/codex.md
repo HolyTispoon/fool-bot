@@ -904,8 +904,15 @@ reductions on a coin, greyed where it may not be played, which is the
 engine's `hand_rows`) and their discard pile listed as text. **Codex**
 answers with their own codex pictured by `render_codex`, every card with
 a badge of the copies left and faint at none, under a menu -- Everything,
-Tech I, Tech II, Tech III, Spells -- that re-renders the picture in place
-(the engine's `codex_remaining`, by `codex_views`). A watcher who
+Tech I, Tech II, Tech III, Spells, and one view per spec once a deck is
+more than one (the standard game's, step 9) -- that re-renders the
+picture in place (the engine's `codex_remaining`, by `codex_views`; the
+views are named by `codex.formatting.codex_view_name`). **Which cards a
+view holds is one reading**, `RulesEngine.codex_view_rows`: a tech level
+is every card printed with it, a building or an upgrade as much as a
+unit, the spells are the rest, so the four together are the whole codex
+and a card is in exactly one; the tech picker narrows by the same
+function. A watcher who
 presses either is told the table is not theirs. Nothing is stored: each
 press makes a fresh ephemeral message, and `/codex hand` answers the
 same. Where it was checked that nothing hidden is public: the turn
@@ -1001,6 +1008,29 @@ its owner's ready phase alone, as "puts 2 tech cards into their discard
 pile" (the author, 2026-10-08). The menu has a line per
 copy left in the codex, so two copies of one card can be picked.
 
+**The picker is narrowed by a Show menu** (the author, 2026-10-09: the
+whole codex at once is too much to pick from -- "need a way to filter
+and look just at several pieces, by tech level, by spec"). Its first
+row is the same menu the Codex button carries -- Everything, Tech I to
+III, Spells, and in the standard game one spec (`codex_view_menu`, over
+the engine's `codex_views`) -- and choosing one re-renders the picture
+and rebuilds the cards' menu from that view alone
+(`codex_view_rows` over `TechOptions.codex`, so the picker reads the
+prompt's list, narrowed by the engine, and computes nothing). **The
+picks are kept across views**: a card picked under Tech I stays picked
+while Tech II is shown; the caption says which view is shown and lists
+every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship."); the
+shown menu offers only the places the hidden picks leave, and once they
+fill the choice it is a closed menu saying the picks are in other views.
+Within a narrowed view the menu forces no minimum, since a pick may come
+from any view; under Everything it holds the choice to its bounds as
+before, and Save is held to them by the driver either way. A change of
+view is the picker's own edit through the interaction's webhook and
+spends nothing public, like a pick before saving. Save sends the picks
+whatever view is shown. After Save, or from **Tech**, the picker opens
+on Everything again: which view was shown is not remembered, since the
+picker is an ephemeral message made afresh each time.
+
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
 cog's caption, `TECH_WAIT`, gone once the ready phase has run), and My
@@ -1074,7 +1104,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message's edit through the gate | 1: the panel's edit |
-| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, Undo's menu) | **0** | 1 |
+| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's menu) | **0** | 1 |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **4**: the old message's last edit, the new one's post, its pin, the old one's unpin | 2: the panel closed, the tech picker sent |
 | The attack that destroys a base | **2**: the last edit and the winner's line with the board | 1 |

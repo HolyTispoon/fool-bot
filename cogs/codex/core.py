@@ -217,15 +217,17 @@ class CoreMixin:
         return None if view is None else view(self, game.game_id, prompt, match)
 
     async def render_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt],
-                            *, picks=None) -> Optional[discord.File]:
+                            *, picks=None, view: str = "everything") -> Optional[discord.File]:
         """
         A prompt's own picture, off the event loop: the tech picker's
         codex with the picks marked (`picks`, the picker's selection so
-        far, defaulting to the prompt's), and the confirmation's picks as
-        a hand. The main phase, the defender and the patrol lock have
-        none -- the board on the turn message is theirs, and the panel
-        pictures the hand (`hand_file`). Everything here is its asked
-        player's alone.
+        far, defaulting to the prompt's) and narrowed to `view` -- the
+        whole by default, or the one tech level, the spells or the spec
+        its Show menu chose (the engine's `codex_view_rows`) -- and the
+        confirmation's picks as a hand. The main phase, the defender and
+        the patrol lock have none -- the board on the turn message is
+        theirs, and the panel pictures the hand (`hand_file`).
+        Everything here is its asked player's alone.
         """
         if prompt is None or prompt.options is None:
             return None
@@ -233,10 +235,10 @@ class CoreMixin:
         if prompt.kind is PromptKind.TECH_CHOICE:
             options = prompt.options
             chosen = Counter(options.picks if picks is None else picks)
+            shown = self.engine.codex_view_rows(options.codex, view)
             webp = await asyncio.to_thread(
-                render_codex, [slug for slug, _ in options.codex],
-                [left for _, left in options.codex], cards,
-                [chosen.get(slug, 0) for slug, _ in options.codex],
+                render_codex, [slug for slug, _ in shown], [left for _, left in shown], cards,
+                [chosen.get(slug, 0) for slug, _ in shown],
             )
             return discord.File(io.BytesIO(webp), filename="codex-tech.webp")
         if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:
