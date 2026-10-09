@@ -70,8 +70,9 @@ class SlashCommandsMixin:
     async def resume(self, interaction: discord.Interaction) -> None:
         """
         Run any step the bot owes, then re-post the turn message -- the
-        board, the turn's lines and the buttons -- pinned, the old one
-        unpinned; and put up, afresh and ephemerally, what the clicker is
+        board, the turn's lines and the buttons -- at the foot of the
+        channel, the old one deleted, pinging the player whose turn it
+        is; and put up, afresh and ephemerally, what the clicker is
         asked: the panel for the active player, the tech picker for the
         other while their choice is open. Either player's, or a game
         helper's.
@@ -100,7 +101,7 @@ class SlashCommandsMixin:
                 self.turn_lines.setdefault(game.game_id, [])
             if match.phase == "main" and before.phase != "main":
                 self.note_turn_head(game, match)
-            await self.post_turn_message(interaction.channel, game, match)
+            await self.post_turn_message(interaction.channel, game, match, replace=True, ping=True)
             await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
             seat = game.seat_for(interaction.user.id, match.active)
             if seat is not None and match.winner is None:

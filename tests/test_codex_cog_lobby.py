@@ -185,7 +185,8 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game.channel_id, GAME_CHANNEL)
 
         # The first turn's message, in the same channel: the board, the
-        # turn's lines, the buttons; pinned.
+        # turn's lines, the buttons; nothing pinned, since a pin's own
+        # notice would land under the board.
         self.assertEqual(table.game_channel.send.await_count, 2)
         (text,), sent = table.game_channel.send.call_args
         first = game.player_1_name if table.cog.service.load(game).first == 1 else game.player_2_name
@@ -194,7 +195,7 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("{", text)
         self.assertTrue(sent["file"].filename.startswith("codex-"))
         self.assertIsInstance(sent["view"], TurnMessageView)
-        table.turn_message.pin.assert_awaited_once()
+        table.turn_message.pin.assert_not_awaited()
         self.assertEqual(game.turn_message_id, TURN_MESSAGE)
 
         # The lobby says the game has started, once, its buttons gone.

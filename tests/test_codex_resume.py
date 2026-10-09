@@ -48,8 +48,11 @@ class ResumeTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(new, old)
         self.assertEqual(
             [(kind, message_id) for kind, message_id, _ in self.table.game_channel.since(mark)],
-            [("send", new), ("pin", new), ("unpin", old)],
+            [("send", new), ("delete", old)],
         )
+        # The re-posted table pings the player whose turn it is.
+        mentioned = self.table.game_channel.since(mark)[0][2]["allowed_mentions"].users
+        self.assertEqual([user.id for user in mentioned], [self.table.active.id])
         panel = call.answers[-1]
         self.assertEqual(panel[0], "followup.send")
         self.assertTrue(panel[2]["ephemeral"])

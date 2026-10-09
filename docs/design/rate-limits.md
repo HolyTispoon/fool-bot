@@ -21,7 +21,15 @@ D12 Ball -- the view kept on the message, when the full-image link may
 go up, which message is the board -- is a parameter, D12 Ball's by
 default, and a fourth sets the message's text beside the picture, an
 edit whose picture and text are both unchanged skipped (see "The board
-on Discord" in [codex.md](codex.md)).
+on Discord" in [codex.md](codex.md)). The Codex bot does not edit its
+turn message after an action: it posts it again at the foot of the
+channel and deletes the old one, so the panel can sit under the board,
+and hands the post to the gate (`BoardRefresher.posted`), which takes it
+as the board on the message -- the window runs from it and its
+full-image link is owed. That is two requests an action where the edit
+was one, and no coalescing, since the panel waits on the board; the
+author's choice, measured in "The requests per click" in
+[codex.md](codex.md).
 They were seven attributes and six methods on the cog, touched by nothing
 but each other, which made the one piece of this bot with measured timing
 invariants read as ordinary cog surface among 223 methods.

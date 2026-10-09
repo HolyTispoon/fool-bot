@@ -212,10 +212,12 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((match.winner, match.conceded), (2 if seat == 1 else 1, seat))
         self.assertIs(self.game.status, GameStatus.FINISHED)
         requests = self.table.game_channel.since(mark)
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
+        # The last edit, the pin every turn that stands gets, the line.
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"], "the turn message stands without its buttons")
-        self.assertIn("conceded", requests[1][2]["content"])
-        self.assertIsInstance(requests[1][2]["view"], RematchView)
+        self.assertEqual(requests[1][1], requests[0][1])
+        self.assertIn("conceded", requests[2][2]["content"])
+        self.assertIsInstance(requests[2][2]["view"], RematchView)
         self.table.guild.create_category.assert_awaited_with(
             name=CODEX_ARCHIVE_CATEGORY_NAME, reason=mock.ANY,
         )
@@ -302,8 +304,8 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(self.game.status, GameStatus.ABANDONED)
         self.assertIsNone(self.table.match.winner)
         requests = self.table.game_channel.since(mark)
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
-        self.assertIn("abandoned** by fencer", requests[1][2]["content"])
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
+        self.assertIn("abandoned** by fencer", requests[2][2]["content"])
 
     async def test_abandon_ends_the_game_with_no_winner(self) -> None:
         helper = user(303, "helper", helper=True)
@@ -313,10 +315,10 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(self.game.status, GameStatus.ABANDONED)
         self.assertIsNone(self.table.match.winner)
         requests = self.table.game_channel.since(mark)
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"])
-        self.assertIn("abandoned", requests[1][2]["content"])
-        self.assertIsNone(requests[1][2].get("view"), "an abandoned game offers no rematch")
+        self.assertIn("abandoned", requests[2][2]["content"])
+        self.assertIsNone(requests[2][2].get("view"), "an abandoned game offers no rematch")
 
     async def test_abandon_closes_a_lobby(self) -> None:
         await self.finish()
