@@ -875,10 +875,13 @@ black's, and the rest waits for step 13.
   Chances' "choose randomly" is `engine.pick`, journalled as
   `["@pick", slug]` beside the coin and the shuffles, so a replay returns
   the same unit (`test_second_chances_random_return_is_replayed_byte_for_byte`).
-- **Read from the rulings, not asked**: Blackhand Resurrector ignores
-  the hero limit; Soul Stone applies before indestructible; Geiger's
-  trashed tokens do not come back; Carrion Curse shows the hand even
-  where nothing in it may be discarded.
+- **Built as the default and put to the author** (step 12's PR, until
+  answered): Blackhand Resurrector ignores the hero limit; Soul Stone
+  applies before indestructible; Rememberer is always the first
+  sacrificed; Geiger's trashed tokens do not come back; Carrion Curse
+  shows the hand even where nothing in it may be discarded; the
+  Graveyard's boost is a mode choice; Banefire Golem is ordered beside
+  Plague Lord, and the debt is always the upkeep's last item.
 
 ### The saved fields
 
