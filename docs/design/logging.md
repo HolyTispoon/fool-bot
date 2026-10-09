@@ -28,7 +28,7 @@ Everything is optional and lives in `.env` next to `DISCORD_TOKEN`:
 | `FOOLBOT_LOG_CHANNEL_ID` | — | Mirror into exactly this channel |
 | `FOOLBOT_LOG_CHANNEL_NAME` | `logs` | Channel to find or create, when no id is set |
 | `FOOLBOT_LOG_GUILD_ID` | first server | Which server hosts the channel |
-| `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice |
+| `FOOLBOT_DEPLOY_NOTICE` | on | `off` stops the "now running this build" notice and the restart line |
 | `FOOLBOT_HOST_NAME` | machine name | What the deploy notice calls this host |
 
 **Two bots read these.** The Codex bot (`codexbot.py`, see
@@ -83,11 +83,23 @@ Things to know before changing any of it:
   prints those to stderr, deliberately.
 - **The build notice is keyed on the commit sha**, remembered in the
   untracked `data/bot_state.json`. `on_ready` fires again on every gateway
-  reconnect and either of us restarts the bot constantly while testing;
-  keying on the commit is what keeps that from being a stream of identical
-  "restarted" posts. It reads HEAD out of the checkout with `git log`, so
-  the notice is only as accurate as the deployed tree — and degrades to
-  saying nothing at all if git is not on PATH.
+  reconnect; keying the change list on the commit is what keeps that from
+  being a stream of identical posts. It reads HEAD out of the checkout
+  with `git log`, so the notice is only as accurate as the deployed tree —
+  and degrades to saying nothing at all if git is not on PATH.
+- **A restart on a build already announced is one line**, "**Codex bot
+  restarted** on `host` -- same build as before, `abc1234` ...", posted
+  once per process: `announce_startup` passes `restarted` on its first
+  call alone, so a reconnect stays quiet. Until 2026-10-09 such a restart
+  posted nothing, and a bot restarted on its own tree --
+  `run_codex_bot.ps1`, which never pulls, or `update_main_bot.ps1
+  -SkipPull` -- never has a new build, so it left no trace in #logs and
+  nobody could tell from the channel that the restart had happened. The
+  old reason for silence, a developer restarting a test bot constantly,
+  no longer applies: a test bot does not post at all (the opt-in above).
+  The line is spent on the first try, posted or not, so a failed one is
+  not repeated on a reconnect hours later; a new build's change list is
+  still retried until it lands.
 - **The notices are one stream per machine, not one per repository.** That
   state file is local, so when two opted-in hosts deploy into the same
   `#logs` the posts interleave: the same commit gets announced once by each,
