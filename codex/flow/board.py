@@ -336,6 +336,25 @@ def raise_level(engine: "RulesEngine", hero: HeroState, levels: int) -> bool:
     return reached
 
 
+def trash(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
+    """`card` out of play and out of the game (UMR p. 13): in no pile and
+    in no count, never returning -- not a death, so nothing that pays on
+    one pays."""
+    match.player(card.controller).play.remove(card)
+    match.record_event("trashed", slug=card.slug, owner=card.owner)
+
+
+def trash_worker(match: MatchState, seat: int) -> bool:
+    """One of `seat`'s workers trashed (UMR p. 15): a count down, unseen
+    and all alike. False where there is none to trash."""
+    player = match.player(seat)
+    if player.workers <= 0:
+        return False
+    player.workers -= 1
+    match.record_event("worker_trashed", owner=seat)
+    return True
+
+
 def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
     """A card of yours out of play to its owner's discard pile -- not a
     death, so nothing that pays on one pays."""

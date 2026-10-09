@@ -279,13 +279,17 @@ class AbilityOption:
     effect: str
     source: str
     why_not: str = ""
+    #: What using it costs, in words: "exhaust", "pay 1 gold and
+    #: exhaust" (`RulesEngine.cost_words`).
+    pays: str = "exhaust"
 
     @property
     def allowed(self) -> bool:
         return not self.why_not
 
     def to_dict(self) -> dict:
-        return {"effect": self.effect, "source": self.source, "why_not": self.why_not}
+        return {"effect": self.effect, "source": self.source, "why_not": self.why_not,
+                "pays": self.pays}
 
 
 @dataclass(frozen=True)
@@ -333,6 +337,20 @@ class RulesEngine:
         self.replaying: list[list[str]] = []
 
     # -- Randomness ----------------------------------------------------
+
+    def flip_coin(self) -> str:
+        """
+        "heads" or "tails" (Rickety Mine) -- drawn from `rng`, or, while a
+        journal is replayed, taken back from the next of `replaying`,
+        where the step recorded it as `[COIN, side]` beside the shuffles
+        (`StepResult.drawn`), so a replay lands the same side.
+        """
+        if self.replaying:
+            recorded = self.replaying.pop(0)
+            if not recorded or recorded[0] != effects.COIN:
+                raise ValueError("a recorded outcome is not a coin")
+            return recorded[1]
+        return self.rng.choice(("heads", "tails"))
 
     def shuffle(self, cards: Sequence[str], recorded: Optional[Sequence[str]] = None) -> list[str]:
         """
@@ -567,9 +585,21 @@ class RulesEngine:
         card = self.catalog.cards[slug]
         cost = card.cost or 0
         if card.is_spell:
+            if self.free_spell(player, card):
+                return 0
             return cost + self.wrong_color_surcharge(player, slug)
         if not card.is_unit:
             return cost
+        if self.free_unit(player, card):
+            return 0
+        less = effects.LESS_PER_GREEN_UNIT.get(slug)
+        if less:
+            # Gigadon: 1 less for each green unit its player has -- to play
+            # it from the hand alone (its rulings).
+            cost -= less * sum(
+                1 for other in player.play
+                if self.catalog.cards[other.slug].is_unit and self.color_of(other) == "green"
+            )
         if self.is_virtuoso(slug) and any(
             other.slug in effects.MAESTROS for other in player.play
         ):
@@ -580,6 +610,40 @@ class RulesEngine:
                     if hero.slug == hero_slug and hero.level >= level:
                         cost -= amount
         return max(cost, 0)
+
+    def free_unit(self, player: PlayerState, card) -> bool:
+        """Pirategang Commander's "You may play tech I or II Blood units
+        for free and without any tech buildings"."""
+        for slug, (spec, levels) in effects.FREE_UNITS.items():
+            if (
+                any(other.slug == slug for other in player.play)
+                and (card.spec or "").lower() == spec and (card.tech_level or 0) in levels
+            ):
+                return True
+        return False
+
+    def free_spell(self, player: PlayerState, card) -> bool:
+        """Guargum's "You may play Growth spells for free and without
+        having a Growth Hero"."""
+        for slug, spec in effects.FREE_SPELLS.items():
+            if any(other.slug == slug for other in player.play) and (card.spec or "").lower() == spec:
+                return True
+        return False
+
+    def color_of(self, card: CardInstance) -> str:
+        """A card in play's colour, lowered: "green"."""
+        return (self.catalog.cards[card.slug].color or "neutral").lower()
+
+    def subtype_of(self, card: CardInstance) -> str:
+        """A card in play's subtype: "Pirate", "Tiger"."""
+        return self.catalog.cards[card.slug].subtype or ""
+
+    def hire_cost(self, player: PlayerState) -> int:
+        """A worker costs 1 (UMR p. 6), and nothing with Rich Earth --
+        whose card still goes, once a turn (its rulings)."""
+        if any(card.slug in effects.FREE_HIRE for card in player.play):
+            return 0
+        return HIRE_COST
 
     # -- Heroes and colours -----------------------------------------------
 
@@ -808,13 +872,14 @@ class RulesEngine:
     # -- The main phase -----------------------------------------------------
 
     def hire_option(self, player: PlayerState) -> HireOption:
+        cost = self.hire_cost(player)
         if player.hired_this_turn:
-            return HireOption(False, why_not="a worker has been hired this turn")
-        if player.gold < HIRE_COST:
-            return HireOption(False, why_not="not enough gold")
+            return HireOption(False, cost, why_not="a worker has been hired this turn")
+        if player.gold < cost:
+            return HireOption(False, cost, why_not="not enough gold")
         if not player.hand:
-            return HireOption(False, why_not="there is no card in hand to hire with")
-        return HireOption(True)
+            return HireOption(False, cost, why_not="there is no card in hand to hire with")
+        return HireOption(True, cost)
 
     def hero_options(self, player: PlayerState) -> tuple[HeroOption, ...]:
         """One `HeroOption` per hero, in the team's order."""
@@ -862,7 +927,11 @@ class RulesEngine:
         any of whose parts can resolve (Final Smash's ruling)."""
         card = self.catalog.cards[slug]
         cost = self.effective_cost(player, slug)
-        if card.is_unit or card.is_permanent:
+        if card.is_unit and self.free_unit(player, card):
+            pass  # no tech building, and so no spec, needed
+        elif card.is_spell and self.free_spell(player, card):
+            pass  # no hero needed, an ultimate's included
+        elif card.is_unit or card.is_permanent:
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
             why = self._why_not_spec(player, card)
@@ -1669,6 +1738,19 @@ class RulesEngine:
                 if side == seat:
                     found += [(side, card.ref) for card in units
                               if self.partnered(match, card) is None]
+            elif choose == "base":
+                found.append((side, "base"))
+            elif choose == "worker_or_building_card":
+                # "A worker or building card (not add-on)" -- any
+                # player's workers, all alike (Detonate's rulings).
+                if player.workers > 0:
+                    found.append((side, WORKERS))
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
+            elif choose == "upgrade_spell_or_building_card":
+                found += [
+                    (side, card.ref) for card in player.play
+                    if not self.catalog.cards[card.slug].is_unit
+                ]
             else:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
@@ -1760,28 +1842,72 @@ class RulesEngine:
         found: list[AbilityOption] = []
         for card in player.play:
             if card.slug == effects.HARMONY:
-                found.append(AbilityOption("stop_the_music", card.ref))
+                found.append(AbilityOption("stop_the_music", card.ref, pays=self.cost_words("stop_the_music")))
         for hero in player.heroes_in_play:
             for when, effect in effects.rows(hero.slug, hero.level):
                 if when == "ability":
-                    found.append(AbilityOption(
-                        effect, hero_ref(hero.slug),
-                        self._ability_why_not(match, seat, hero, effect),
-                    ))
+                    found.append(self._ability(match, seat, hero, hero_ref(hero.slug), effect))
         if any(card.slug in effects.MAESTROS for card in player.play):
             for card in player.play:
                 if self.catalog.cards[card.slug].is_unit and self.is_virtuoso(card.slug):
-                    found.append(AbilityOption(
-                        "maestro", card.ref, self._ability_why_not(match, seat, card, "maestro"),
-                    ))
+                    found.append(self._ability(match, seat, card, card.ref, "maestro"))
+        # Red and green's: the abilities printed on a card in play -- a
+        # unit's, a building card's, an upgrade's (step 11).
+        for card in player.play:
+            for when, effect in effects.rows(card.slug):
+                if when == "ability":
+                    found.append(self._ability(match, seat, card, card.ref, effect))
         return tuple(found)
 
+    def _ability(self, match: MatchState, seat: int, body, source: str, effect: str) -> AbilityOption:
+        return AbilityOption(effect, source, self._ability_why_not(match, seat, body, effect),
+                             self.cost_words(effect))
+
+    def ability_cost(self, effect: str) -> "effects.Cost":
+        return effects.COSTS.get(effect, effects.Cost(exhaust=True))
+
+    def cost_words(self, effect: str) -> str:
+        """What an ability costs, in words for its button: "exhaust",
+        "pay 1 gold and exhaust", "sacrifice it"."""
+        cost = self.ability_cost(effect)
+        words = []
+        if cost.gold:
+            words.append(f"pay {cost.gold} gold")
+        if cost.discard:
+            words.append(f"discard {cost.discard} cards")
+        if cost.runes:
+            kind, count = cost.runes
+            rune = "+1/+1" if kind == "plus" else kind
+            words.append(f"remove {'a' if count == 1 else count} {rune} rune{'' if count == 1 else 's'}")
+        if cost.sacrifice:
+            words.append("sacrifice it")
+        if cost.exhaust:
+            words.append("exhaust")
+        return " and ".join(words) or "use it"
+
     def _ability_why_not(self, match: MatchState, seat: int, body, effect: str) -> str:
-        why = self.may_exhaust(body, match)
-        if why:
-            return why
-        part = effects.EFFECTS[effect].parts[0]
-        if part.choose is not None and not self.target_rows(match, seat, part):
+        """Why an ability may not be used now, or "": every part of its
+        cost payable (UMR p. 8), and something its text could do with
+        what is left."""
+        cost = self.ability_cost(effect)
+        player = match.player(seat)
+        if cost.exhaust:
+            why = self.may_exhaust(body, match)
+            if why:
+                return why
+        if cost.gold and player.gold < cost.gold:
+            return "not enough gold"
+        if cost.runes:
+            kind, count = cost.runes
+            have = body.plus_runes if kind == "plus" else body.runes.get(kind, 0)
+            if have < count:
+                rune = "+1/+1" if kind == "plus" else kind
+                return f"it needs {count} {rune} rune{'' if count == 1 else 's'}"
+        if cost.discard and len(player.hand) < cost.discard:
+            return f"it needs {cost.discard} cards in hand to discard"
+        if cost.needs_spell and not player.spells_played:
+            return "you have not played a spell this turn"
+        if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold):
             return "there is nothing it could target"
         return ""
 
@@ -1978,6 +2104,10 @@ def parse_target(key: str) -> tuple[int, str]:
     if seat not in ("1", "2") or not ref:
         raise ValueError(f"not a target: {key!r}")
     return int(seat), ref
+
+
+#: How a target names a side's workers, all alike: "2:workers".
+WORKERS = "workers"
 
 
 def unit_ref(ref: str) -> Optional[int]:

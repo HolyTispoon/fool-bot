@@ -244,6 +244,10 @@ class CardInstance:
     armor: int = 0
     #: It has attacked this turn -- what readiness's once a turn reads.
     attacked_this_turn: bool = False
+    #: The runes on it besides +1/+1 and -1/-1, by kind (step 11):
+    #: Bloodburn's "blood", Might of Leaf and Claw's "growth", Fairie
+    #: Dragon's "feather". Empty in an older save.
+    runes: dict[str, int] = field(default_factory=dict)
 
     @property
     def ref(self) -> str:
@@ -267,6 +271,7 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("flipped", default=False),
     SavedField("armor", default=0),
     SavedField("attacked_this_turn", default=False),
+    SavedField("runes", factory=dict, write=dict, read=dict),
 )
 
 
@@ -360,6 +365,10 @@ class PlayerState:
     #: yet, a rebuild for 0 included: what a multicolour team's +1 on its
     #: first is remembered by (UMR pp. 4, 8, 9). False in an older save.
     constructed_once: bool = False
+    #: Desperation's "Discard your hand at the end of the main phase":
+    #: set as it resolves, read and cleared by the patrol lock that ends
+    #: the main phase (step 11). False in an older save.
+    discards_at_main_end: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -446,6 +455,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("reshuffled_this_phase", default=False),
     SavedField("tech2_spec"),
     SavedField("constructed_once", default=False),
+    SavedField("discards_at_main_end", default=False),
 )
 
 

@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import re
 import unittest
+from unittest import mock
 
-from codex import rulings
+from codex import effects, rulings
+from codex.components import AddOnState
 from codex.effects import BASIC_SET
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
@@ -590,6 +592,220 @@ class WitherTests(unittest.TestCase):
         messenger.armor = 1
         cast(engine, game, match, "wither", f"2:{messenger.ref}")
         self.assertIsNone(match.player(2).instance(messenger.id))
+
+
+# -- Red and green (step 11) ---------------------------------------------------
+#
+# Every ruling of the Red, Green and Heroes groups on the pair's cards and
+# heroes, one test each, named and pinned as the basic set's are.
+
+
+def red_green(first: int = 1, teams=(("anarchy",), ("growth",))):
+    """A basic game of red against green -- Anarchy (seat 1) against
+    Growth by default, or `teams` -- standing in `first`'s main phase."""
+    engine, game, match = new_game(first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def ability(engine, game, match, effect: str, source: str):
+    return apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                 ability=effect, source=source)
+
+
+def option(engine, match, effect: str, source: str):
+    return next(one for one in engine.abilities(match)
+                if one.effect == effect and one.source == source)
+
+
+class CostsAndResourcesRulingTests(unittest.TestCase):
+    def test_desperation_1(self) -> None:
+        """Desperation only draws cards if it's the only card in your hand
+        before you play it. By the time it checks whether your hand it
+        empty, it won't be in your hand anymore."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        hero_in_play(match, 1)
+        player = match.player(1)
+        cast(engine, game, match, "desperation", gold=5)
+        self.assertEqual(len(player.hand), 3)
+        self.assertNotIn("desperation", player.discard, "it is trashed")
+        hand(match, 1, "desperation", "mad_man")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="desperation")
+        self.assertEqual(player.hand, ["mad_man"], "another card in hand: no draw")
+        self.assertIn("desperation", player.discard)
+
+    def test_desperation_2(self) -> None:
+        """You discard your hand before the draw/discard phase. So normally
+        you'll discard your hand, then discard 0 and draw 2."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        hero_in_play(match, 1)
+        cast(engine, game, match, "desperation", gold=5)
+        hand_size = len(match.player(1).hand)
+        self.assertTrue(match.player(1).discards_at_main_end)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        run = apply(engine, game, match, PromptKind.PATROL, assignment={})
+        lines = " ".join([*(line for group in run.groups for line in group.narration),
+                          *run.result.narration])
+        self.assertIn(f"discards their hand, {hand_size} cards", lines)
+        self.assertIn("discards 0 and draws 2", lines)
+        self.assertFalse(match.player(1).discards_at_main_end)
+
+    def test_detonate_1(self) -> None:
+        """The point of this spell is to trash an opponent's worker or
+        building card, but you can trash your own if you want."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        before = match.player(1).workers
+        cast(engine, game, match, "detonate", "1:workers", gold=5)
+        self.assertEqual(match.player(1).workers, before - 1)
+        self.assertNotIn("detonate", match.player(1).discard, "then trash this card")
+
+    def test_detonate_2(self) -> None:
+        """A "building card" does not mean a base, an add-on (such as the
+        Tower or Surplus), and it does not mean your tech I, II, or III
+        buildings. It does mean building cards that you can have in your
+        deck such as Rickety Mine, Graveyard, Firehouse, etc."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        built(match, 2, "tech1")
+        match.player(2).add_on = AddOnState("tower", 4, under_construction=False)
+        tree = put(match, 2, "verdant_tree")
+        part = effects.EFFECTS["detonate"].parts[0]
+        offered = {row.key for row in engine.target_rows(match, 1, part)}
+        self.assertIn(f"2:{tree.ref}", offered)
+        for ref in ("2:base", "2:tech1", "2:add_on"):
+            self.assertNotIn(ref, offered)
+        cast(engine, game, match, "detonate", f"2:{tree.ref}", gold=5)
+        self.assertIsNone(match.player(2).instance(tree.id))
+        self.assertNotIn("verdant_tree", match.player(2).discard, "trashed, not discarded")
+
+    def test_detonate_3(self) -> None:
+        """When you trash an opponent's worker, you don't get to choose
+        which worker to destroy (because they're alll considered
+        identical) and you don't get to see the front of the destroyed
+        worker."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        match.player(2).workers = 5
+        run = None
+        hand(match, 1, "detonate")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="detonate")
+        run = apply(engine, game, match, PromptKind.TARGET, target="2:workers")
+        self.assertEqual(match.player(2).workers, 4)
+        said = " ".join(run.result.narration)
+        self.assertIn("trashes one of {player:2}'s workers", said)
+        self.assertNotIn("{card:", said.replace("{card:detonate}", ""))
+
+    def test_gigadon_1(self) -> None:
+        """Some abilities on cards like Insurance Agent or Garth Torken care
+        about the cost of cards. Those abilities will always see Gigadon's
+        cost as 9. Gigadon's ability only reduces the cost of playing it."""
+        engine, game, match = red_green(first=2, teams=(("anarchy",), ("feral",)))
+        for _ in range(3):
+            put(match, 2, "tiger_cub")
+        self.assertEqual(engine.effective_cost(match.player(2), "gigadon"), 6)
+        self.assertEqual(engine.catalog.cards["gigadon"].cost, 9)
+
+    def test_gigadon_2(self) -> None:
+        """You can only reduce the gold cost of something to 0, not lower
+        than that."""
+        engine, game, match = red_green(first=2, teams=(("anarchy",), ("feral",)))
+        for _ in range(11):
+            put(match, 2, "squirrel")
+        self.assertEqual(engine.effective_cost(match.player(2), "gigadon"), 0)
+
+    def test_guargum_eternal_sentinel_1(self) -> None:
+        """Guargum can even play an ultimate Growth spell for free. He can
+        play it even if you didn't control him at the start of your
+        turn."""
+        engine, game, match = red_green(first=2)
+        put(match, 2, "guargum_eternal_sentinel", arrived=True)
+        hand(match, 2, "stampede")
+        match.player(2).gold = 0
+        self.assertEqual(engine.effective_cost(match.player(2), "stampede"), 0)
+        self.assertEqual(engine.why_not_playable(match.player(2), "stampede", match), "")
+
+    def test_nature_reclaims_1(self) -> None:
+        """A "building card" does not mean a base, an add-on (such as the
+        Tower or Surplus), and it does not mean your tech I, II, or III
+        buildings. It does mean building cards that you can have in your
+        deck such as Rickety Mine, Graveyard, Firehouse, etc."""
+        engine, game, match = red_green(first=2, teams=(("anarchy",), ("balance",)))
+        hero_in_play(match, 2)
+        built(match, 1, "tech1")
+        mine = put(match, 1, "rickety_mine")
+        fire = put(match, 1, "hotter_fire")
+        part = effects.EFFECTS["nature_reclaims"].parts[0]
+        offered = {row.key for row in engine.target_rows(match, 2, part)}
+        self.assertEqual(offered, {f"1:{mine.ref}", f"1:{fire.ref}"})
+        cast(engine, game, match, "nature_reclaims", f"1:{mine.ref}", gold=5)
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertNotIn("rickety_mine", match.player(1).discard)
+        self.assertNotIn("nature_reclaims", match.player(2).discard)
+
+    def test_pillage_1(self) -> None:
+        """If the player has less gold than you're trying to steal, steal as
+        much as you can. You can only gain as much gold as you actually
+        take from the other player."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        put(match, 1, "bombaster")
+        match.player(2).gold = 1
+        cast(engine, game, match, "pillage", "2:base", gold=5)
+        self.assertEqual(match.player(2).base_hp, 18, "a Pirate: 2 damage")
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(match.player(1).gold, 5 - 1 + 1)
+
+    def test_rich_earth_1(self) -> None:
+        """You still have to put a card from your hand into the worker
+        zone, even though you don't have to pay gold to hire a worker. And
+        you still can only hire one worker per turn."""
+        engine, game, match = red_green(first=2)
+        put(match, 2, "rich_earth")
+        player = match.player(2)
+        player.gold = 0
+        hand(match, 2, "tiger_cub", "wisp")
+        self.assertTrue(engine.hire_option(player).allowed)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug="tiger_cub")
+        self.assertEqual(player.hand, ["wisp"])
+        self.assertEqual(player.gold, 0)
+        self.assertFalse(engine.hire_option(player).allowed)
+        hand(match, 2)
+        player.hired_this_turn = False
+        self.assertIn("no card in hand", engine.hire_option(player).why_not)
+
+    def test_rich_earth_2(self) -> None:
+        """If an effect increases the cost of hiring workers, you still have
+        to pay that cost increase."""
+        engine, game, match = red_green(first=2)
+        put(match, 2, "rich_earth")
+        # Nothing red or green raises it: a worker is 0 with Rich Earth,
+        # the 1 it would otherwise be waived and nothing more.
+        self.assertEqual(engine.hire_cost(match.player(2)), 0)
+        self.assertEqual(engine.hire_cost(match.player(1)), 1)
+
+    def test_rickety_mine_1(self) -> None:
+        """You can't use the ability the turn Rickety Mine comes under your
+        control because it doesn't have haste."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        mine = put(match, 1, "rickety_mine", arrived=True)
+        self.assertEqual(option(engine, match, "rickety_mine", mine.ref).why_not, "it arrived this turn")
+        mine.arrived_this_turn = False
+        self.assertTrue(option(engine, match, "rickety_mine", mine.ref).allowed)
+
+    def test_rickety_mine_2(self) -> None:
+        """"Phew!" has no gameplay effect. It has a psychological effect
+        though."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        mine = put(match, 1, "rickety_mine")
+        match.player(1).gold = 0
+        with mock.patch.object(engine, "flip_coin", return_value="heads"):
+            run = ability(engine, game, match, "rickety_mine", mine.ref)
+        self.assertEqual(match.player(1).gold, 3)
+        self.assertEqual(match.player(1).base_hp, 20)
+        self.assertIsNotNone(match.player(1).instance(mine.id))
+        self.assertIn("Phew!", " ".join(run.result.narration))
 
 
 class EveryCardRulingIsPinnedTests(unittest.TestCase):

@@ -66,12 +66,12 @@ def hire_worker(engine: "RulesEngine", game: "CodexGame", match: MatchState, slu
     if slug not in player.hand:
         raise RuleRefusal("That card is not in your hand.")
     player.hand.remove(slug)
-    player.gold -= HIRE_COST
+    player.gold -= option.cost
     player.workers += 1
     player.hired_this_turn = True
     match.record_event("hired", slug=slug)
     return _done(engine, game, match, [
-        f"{tokens.player(seat)} hires a worker for {tokens.gold(HIRE_COST)}: "
+        f"{tokens.player(seat)} hires a worker for {tokens.gold(option.cost)}: "
         f"{player.workers} workers."
     ])
 
@@ -240,26 +240,55 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if not option.allowed:
         raise RuleRefusal(f"You can't use that ability: {option.why_not}.", cite="UMR p. 7")
     result = StepResult(board_changed=True)
-    body = engine.body(match, seat, source)
+    body = board.body_of(match, seat, source) if is_hero_ref(source) else player.instance(
+        int(source.split(":", 1)[1]),
+    )
     if effect == "stop_the_music":
-        harmony = player.instance(int(source.split(":", 1)[1]))
-        board.sacrifice(engine, match, harmony)
+        board.sacrifice(engine, match, body)
         result.narration.append(
             f"{tokens.player(seat)} sacrifices {tokens.card(effects.HARMONY)}: stop the music!"
         )
         by = tokens.card(effects.HARMONY)
     else:
-        body.exhausted = True
-        if is_hero_ref(source):
-            by = tokens.hero(body.slug)
-        else:
-            by = tokens.card(body.slug)
-        result.narration.append(f"{tokens.player(seat)} exhausts {by}.")
+        by = tokens.hero(body.slug) if is_hero_ref(source) else tokens.card(body.slug)
+        result.narration.append(_pay(engine, match, seat, body, effect, by))
     match.record_event("ability", effect=effect, source=source)
     resolve.push(match, resolve.frame(
         effect, seat, by, source=source, cancel_from=len(match.journal),
     ))
     return resolve.carry_on(engine, game, match, result)
+
+
+def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str, by: str) -> str:
+    """
+    An ability's cost, all of it (UMR p. 7-8): the gold, the runes off
+    its card, its card exhausted or sacrificed -- said as one line,
+    "{player:1} exhausts {card:merfolk_prospector}." A sacrifice is a
+    death (UMR p. 18), so what pays on one pays.
+    """
+    cost = engine.ability_cost(effect)
+    player = match.player(seat)
+    said = []
+    if cost.gold:
+        player.gold -= cost.gold
+        said.append(f"pays {tokens.gold(cost.gold)}")
+    if cost.runes:
+        kind, count = cost.runes
+        if kind == "plus":
+            body.plus_runes -= count
+            rune = "+1/+1"
+        else:
+            body.runes[kind] = body.runes.get(kind, 0) - count
+            rune = kind
+        said.append(f"removes {'a' if count == 1 else count} {rune} rune"
+                    f"{'' if count == 1 else 's'} from {by}")
+    if cost.exhaust:
+        body.exhausted = True
+        said.append(f"exhausts {by}")
+    if cost.sacrifice:
+        board.sacrifice(engine, match, body)
+        said.append(f"sacrifices {by}")
+    return f"{tokens.player(seat)} " + " and ".join(said) + "."
 
 
 def _check_spec(spec: Optional[str], choices, what: str) -> Optional[str]:
@@ -482,6 +511,18 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     else:
         said = f"{tokens.player(seat)} leaves the patrol zone empty."
     match.record_event("patrolled", slots=dict(assignment))
+    narration = [said]
+    if player.discards_at_main_end:
+        # Desperation: "Discard your hand at the end of the main phase" --
+        # before the draw phase, which then discards nothing (its rulings).
+        player.discards_at_main_end = False
+        if player.hand:
+            narration.append(
+                f"{tokens.player(seat)} discards their hand, {len(player.hand)} "
+                f"card{'' if len(player.hand) == 1 else 's'}, for {tokens.card('desperation')}."
+            )
+            player.discard.extend(player.hand)
+            player.hand = []
     match.enter_phase("draw")
-    return StepResult(narration=[said], board_changed=True, next=FollowOn(FollowOnStep.DRAW_PHASE))
+    return StepResult(narration=narration, board_changed=True, next=FollowOn(FollowOnStep.DRAW_PHASE))
 

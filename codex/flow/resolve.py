@@ -28,10 +28,10 @@ from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
 from codex.components import MatchState
-from codex.engine import parse_target, target_key
+from codex.engine import WORKERS, parse_target, target_key
 from codex.flow import board
 from codex.flow.result import StepResult
-from codex.flow.turn import damage_base, draw_cards
+from codex.flow.turn import damage_base, draw_cards, gain_gold
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -460,6 +460,102 @@ def _stop_music(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{tokens.player(seat)} has no Dancer to flip.")
 
 
+def _gain_gold(engine, match, top, part, target, result) -> None:
+    seat = top["seat"]
+    gained = gain_gold(match, seat, part.amount)
+    result.narration.append(f"{tokens.player(seat)} gains {tokens.gold(gained)} from {top['by']}.")
+
+
+def steal_gold(match: MatchState, seat: int, other: int, amount: int) -> int:
+    """`seat` takes up to `amount` of `other`'s gold -- "If that player has
+    less than you would steal, then steal as much as you can" (UMR
+    p. 18) -- gaining what was taken, to the cap; what was taken."""
+    taken = min(amount, match.player(other).gold)
+    match.player(other).gold -= taken
+    gain_gold(match, seat, taken)
+    return taken
+
+
+def _coin(engine, match, top, part, target, result) -> None:
+    """Rickety Mine's coin: heads, "Phew!", which does nothing; tails, the
+    mine sacrificed and its controller's base taking `part.amount`. The
+    side is journalled beside the shuffles (`StepResult.drawn`), so a
+    replay lands it again."""
+    seat = top["seat"]
+    side = engine.flip_coin()
+    result.drawn.append([effects.COIN, side])
+    match.record_event("coin", seat=seat, side=side)
+    if side == "heads":
+        result.narration.append(f"{top['by']} flips a coin: heads. Phew!")
+        return
+    mine = board.body_of(match, seat, top["source"]) if top.get("source") else None
+    result.narration.append(
+        f"{top['by']} flips a coin: tails. It is sacrificed, and "
+        f"{tokens.player(seat)}'s base takes {part.amount} damage."
+    )
+    if mine is not None:
+        board.sacrifice(engine, match, mine)
+    damage_base(match, seat, part.amount, result)
+
+
+def _pillage(engine, match, top, part, target, result) -> None:
+    """Pillage: 1 damage to the base and 1 gold stolen from its player --
+    2 and 2 where the caster has a Pirate."""
+    seat = top["seat"]
+    other, _ = target
+    pirate = any(
+        engine.catalog.cards[card.slug].is_unit and effects.PIRATE in engine.subtype_of(card)
+        for card in match.player(seat).play
+    )
+    amount = 2 if pirate else part.amount
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
+    damage_base(match, other, amount, result)
+    taken = steal_gold(match, seat, other, amount) if other != seat else 0
+    if taken:
+        result.narration.append(
+            f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
+        )
+
+
+def _trash(engine, match, top, part, target, result) -> None:
+    """A worker, or a card in play, out of the game (UMR p. 13, 15): a
+    worker unseen and all alike (Detonate's rulings)."""
+    seat, ref = target
+    if ref == WORKERS:
+        if board.trash_worker(match, seat):
+            result.narration.append(
+                f"{top['by']} trashes one of {tokens.player(seat)}'s workers: "
+                f"{match.player(seat).workers} left."
+            )
+        return
+    card = board.body_of(match, seat, ref)
+    if card is None:
+        return
+    result.narration.append(f"{top['by']} trashes {_thing(match, target)}.")
+    board.trash(engine, match, card)
+
+
+def _desperation(engine, match, top, part, target, result) -> None:
+    """Desperation: with the hand empty -- it is, once Desperation is the
+    one card in it and played (its rulings) -- trashed, and three cards
+    drawn; and the hand discarded at the end of the main phase, whatever
+    (`PlayerState.discards_at_main_end`, which the patrol lock reads)."""
+    seat = top["seat"]
+    player = match.player(seat)
+    if not player.hand:
+        top["trashed"] = True
+        top["drew"] = True
+        drawn = draw_cards(engine, match, seat, part.amount, result)
+        result.narration.append(
+            f"{top['by']} is trashed, and {tokens.player(seat)} draws "
+            f"{drawn} card{'' if drawn == 1 else 's'}."
+        )
+    player.discards_at_main_end = True
+    result.narration.append(
+        f"{tokens.player(seat)} discards their hand at the end of the main phase."
+    )
+
+
 #: What each `Part.does` does. Every key `codex.effects.EFFECTS` uses is
 #: here, which `tests/test_codex_spells.py` holds.
 DOES = {
@@ -479,6 +575,11 @@ DOES = {
     "base_damage": _base_damage,
     "dancer": _dancer,
     "stop_music": _stop_music,
+    "gain_gold": _gain_gold,
+    "coin": _coin,
+    "pillage": _pillage,
+    "trash": _trash,
+    "desperation": _desperation,
 }
 
 
@@ -516,6 +617,10 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
         return
     if spell == effects.APPEL_STOMP:
         match.resolving.insert(0, {"kind": APPEL_TOP, "seat": seat})
+        return
+    if top.get("trashed") or effects.EFFECTS[top["effect"]].trash_after:
+        # "... then trash this card": out of the game (UMR p. 13).
+        match.record_event("trashed", slug=spell, owner=seat)
         return
     match.player(seat).discard.append(spell)
 

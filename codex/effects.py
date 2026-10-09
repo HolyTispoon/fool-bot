@@ -126,26 +126,22 @@ UNIMPLEMENTED: frozenset = frozenset({
     "bombaster", "burning_volley", "calypso_vystari", "captain_zane",
     "captured_bugblatter", "careless_musketeer", "chameleon_lizzo",
     "chaos_mirror", "charge", "cinderblast_dragon", "crash_bomber",
-    "desperation", "detonate", "disguised_monkey",
+    "disguised_monkey",
     "doubleshot_archer", "drakk_ramhorn", "ember_sparks", "fire_dart",
     "firebat", "firehouse", "flame_arrow", "gunpoint_taxman", "hotter_fire",
     "jaina_stormborne", "kidnapping", "land_octopus", "lobber",
     "marauder", "maximum_anarchy",
-    "molting_firebird", "ogre_recruiter", "pillage",
-    "pirategang_commander", "rickety_mine", "sanatorium", "scorch",
+    "molting_firebird", "ogre_recruiter",     "pirategang_commander", "sanatorium", "scorch",
     "surprise_attack", "war_drums",
     # Green.
     "argagarg_garg", "artisan_mantis", "behind_the_ferns",
     "blooming_ancient", "blooming_elm", "calamandra_moss", "circle_of_life",
     "dinosize", "dothram_horselord", "fairie_dragon", "feral_strike",
     "ferocity", "final_showdown", "forests_favor", "galina_glimmer",
-    "gemscout_owl", "giant_panda", "gigadon", "guargum_eternal_sentinel",
-    "master_midori", "merfolk_prospector",
-    "might_of_leaf_and_claw", "moments_peace", "moss_ancient",
-    "murkwood_allies", "nature_reclaims", "playful_panda",
+    "gemscout_owl", "giant_panda",     "master_midori",     "might_of_leaf_and_claw", "moments_peace", "moss_ancient",
+    "murkwood_allies", "playful_panda",
     "polymorph_squirrel", "potent_basilisk", "predator_tiger",
-    "rampant_growth", "rich_earth",
-    "spirit_of_the_panda", "spore_shambler", "stampede",
+    "rampant_growth",     "spirit_of_the_panda", "spore_shambler", "stampede",
     "tyrannosaurus_rex", "verdant_tree",
     "young_treant",
 })
@@ -187,10 +183,38 @@ class Effect:
     key: str
     parts: tuple[Part, ...]
     whole: bool = False
+    #: "... then trash this card": the spell leaves the game once it has
+    #: resolved instead of going to the discard (Detonate, Nature
+    #: Reclaims; UMR p. 13).
+    trash_after: bool = False
+    #: The whole text in a few words, for a button that offers it; the
+    #: first part's `says` where it is empty.
+    says: str = ""
 
 
-def _effect(key: str, *parts: Part, whole: bool = False) -> Effect:
-    return Effect(key, parts, whole)
+def _effect(key: str, *parts: Part, whole: bool = False, trash_after: bool = False,
+            says: str = "") -> Effect:
+    return Effect(key, parts, whole, trash_after, says)
+
+
+@dataclass(frozen=True)
+class Cost:
+    """
+    What an ability action costs (UMR p. 7), all of it paid as it is
+    used and none of it unless all of it can be (UMR p. 8): exhausting
+    its card -- which arrival fatigue forbids without haste -- gold,
+    sacrificing its card, runes off its card (`plus` for +1/+1 runes, or
+    a named rune, "blood"), cards discarded from the hand. `needs_spell`
+    is Calypso Vystari's "If you played a spell this turn", which the
+    Card FAQ reads as a condition of using it at all.
+    """
+
+    exhaust: bool = False
+    gold: int = 0
+    sacrifice: bool = False
+    runes: tuple = ()
+    discard: int = 0
+    needs_spell: bool = False
 
 
 EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
@@ -270,6 +294,34 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # "Sacrifice Harmony -> Stop the music." (Your Dancers will flip
     # over!)
     _effect("stop_the_music", Part("stop_music", None, 0, targeted=False)),
+
+    # -- Red and green: the costs and the resources (step 11) --------------
+    # Merfolk Prospector: "{exhaust} -> Gain {gold:1}."
+    _effect("merfolk_prospector", Part("gain_gold", None, 1, "gain 1 gold", targeted=False)),
+    # Rickety Mine: "{exhaust} -> Gain {gold:3} and flip a coin. Heads:
+    # Phew! Tails: Sacrifice Rickety Mine and your base takes 2 damage."
+    _effect(
+        "rickety_mine",
+        Part("gain_gold", None, 3, "gain 3 gold", targeted=False),
+        Part("coin", None, 2, targeted=False),
+        says="gain 3 gold and flip a coin",
+    ),
+    # Pillage: "Deal 1 damage to a base. Steal {gold:1} from that player.
+    # If you have a Pirate, instead deal 2 damage and steal {gold:2}."
+    _effect("pillage", Part("pillage", "base", 1,
+                            "deal 1 damage to a base and steal 1 gold from that player")),
+    # Detonate: "Trash a worker or building card (not add-on), then trash
+    # this card."
+    _effect("detonate", Part("trash", "worker_or_building_card", 0,
+                             "trash a worker or a building card"), trash_after=True),
+    # Nature Reclaims: "Trash an upgrade, ongoing spell, or building card
+    # (not add-on), then trash this card."
+    _effect("nature_reclaims", Part("trash", "upgrade_spell_or_building_card", 0,
+                                    "trash an upgrade, an ongoing spell or a building card"),
+            trash_after=True),
+    # Desperation: "If your hand is empty, trash this card and draw three
+    # cards. Discard your hand at the end of the main phase."
+    _effect("desperation", Part("desperation", None, 3, targeted=False)),
 )}
 
 
@@ -296,6 +348,22 @@ TEXT: dict = {
     "sneaky_pig": (("arrives", "sneaky_pig"),),
     ("troq_bashar", 5): (("attacks", "troq_bashar"),),
     ("river_montoya", 3): (("ability", "river_montoya"),),
+    # Red and green (step 11).
+    "merfolk_prospector": (("ability", "merfolk_prospector"),),
+    "rickety_mine": (("ability", "rickety_mine"),),
+    "pillage": (("play", "pillage"),),
+    "detonate": (("play", "detonate"),),
+    "nature_reclaims": (("play", "nature_reclaims"),),
+    "desperation": (("play", "desperation"),),
+}
+
+#: What each ability action costs (`Cost`), by its effect.
+COSTS: dict[str, Cost] = {
+    "river_montoya": Cost(exhaust=True),
+    "maestro": Cost(exhaust=True),
+    "stop_the_music": Cost(sacrifice=True),
+    "merfolk_prospector": Cost(exhaust=True),
+    "rickety_mine": Cost(exhaust=True),
 }
 
 
@@ -403,3 +471,22 @@ MIMIC = "wandering_mimic"
 MIMICKED = ("Flying", "Overpower", "Haste", "Sparkshot", "Untargetable", "Stealth")
 #: Master Midori at 8: "During your turn: Flying".
 FLYING_ON_OWN_TURN = {("master_midori", 8)}
+
+#: Rich Earth: "You may hire workers for free." -- the card still goes,
+#: and still once a turn (its rulings).
+FREE_HIRE = frozenset({"rich_earth"})
+#: Gigadon: "costs {gold:1} less to play for each green unit you have" --
+#: to play it from the hand alone; to anything that reads its cost it is
+#: still 9 (its rulings).
+LESS_PER_GREEN_UNIT = {"gigadon": 1}
+#: Pirategang Commander: "You may play tech I or II Blood units for free
+#: and without any tech buildings." -- the spec and tech levels it frees.
+FREE_UNITS = {"pirategang_commander": ("blood", (1, 2))}
+#: Guargum: "You may play Growth spells for free and without having a
+#: Growth Hero." -- an ultimate too, and the turn he arrives (his ruling).
+FREE_SPELLS = {"guargum_eternal_sentinel": "growth"}
+#: The coin a journal records beside the shuffles it replays (Rickety
+#: Mine): `[COIN, "heads"]`. No slug begins with "@".
+COIN = "@coin"
+#: A Pirate, for Pillage's "If you have a Pirate".
+PIRATE = "Pirate"

@@ -644,5 +644,91 @@ class RulebookTests(unittest.TestCase):
         cast(engine, game, match, "wither", "2:hero")
         self.assertEqual(match.player(1).hero.level, 3)
 
+# -- Red and green: the costs and the resources (step 11) -----------------------
+
+
+class ResourcesTests(unittest.TestCase):
+    def test_rickety_mines_coin_is_replayed_byte_for_byte(self) -> None:
+        """The coin is `engine.rng`'s, journalled beside the shuffles, so a
+        replay by an engine of another seed lands the same side."""
+        import json
+
+        from codex import history
+        from codex.engine import RulesEngine
+        from codex_positions import begin, new_game
+
+        for seed in range(6):
+            engine, game, match = new_game(seed=seed, teams=(("blood",), ("growth",)))
+            mine = put(match, 1, "rickety_mine")
+            begin(engine, game, match)
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+            outcome = match.journal[-1]["outcomes"]
+            self.assertEqual(outcome[0][0], "@coin")
+            replayed = history.replay(
+                RulesEngine(seed=seed + 100), game, match.turn_snapshots[-1],
+                match.journal, history=match.turn_snapshots,
+            )
+            self.assertEqual(json.dumps(replayed.to_dict(), sort_keys=True),
+                             json.dumps(match.to_dict(), sort_keys=True))
+
+    def test_tails_sacrifices_the_mine_and_hurts_the_base(self) -> None:
+        from unittest import mock
+
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        mine = put(match, 1, "rickety_mine")
+        with mock.patch.object(engine, "flip_coin", return_value="tails"):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIn("rickety_mine", match.player(1).discard)
+        self.assertEqual(match.player(1).base_hp, 18)
+
+    def test_merfolk_prospector_gains_a_gold_for_its_exhaust(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(first=2)
+        merfolk = put(match, 2, "merfolk_prospector")
+        match.player(2).gold = 0
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+              ability="merfolk_prospector", source=merfolk.ref)
+        self.assertEqual(match.player(2).gold, 1)
+        self.assertTrue(merfolk.exhausted)
+
+    def test_pirategang_plays_blood_tech_i_and_ii_units_free_without_buildings(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("anarchy",), ("growth",)))
+        player = match.player(1)
+        hand(match, 1, "crash_bomber", "land_octopus", "marauder")
+        self.assertIn("needs a finished", why(engine, match, "crash_bomber"))
+        put(match, 1, "pirategang_commander")
+        player.gold = 0
+        self.assertEqual(why(engine, match, "crash_bomber"), "")
+        self.assertEqual(why(engine, match, "land_octopus"), "")
+        self.assertEqual(engine.effective_cost(player, "land_octopus"), 0)
+        self.assertNotEqual(why(engine, match, "marauder"), "", "Anarchy is not Blood")
+
+    def test_boost_is_offered_with_its_cost_and_refused_where_it_cannot_be_paid(self) -> None:
+        from codex_positions import built
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("anarchy",), ("growth",)))
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        hand(match, 1, "marauder")
+        player = match.player(1)
+        player.gold = 4
+        row = next(row for row in engine.playable(player, match) if row.slug == "marauder")
+        self.assertEqual((row.cost, row.boost), (3, 3))
+        self.assertEqual(row.boost_why_not, "not enough gold to boost")
+        refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="marauder", boost=True)
+        player.gold = 6
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="marauder", boost=True)
+        self.assertEqual(player.gold, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

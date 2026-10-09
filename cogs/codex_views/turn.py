@@ -422,8 +422,9 @@ class TurnPanelView(PanelView):
         card's own words (`codex.effects.EFFECTS`)."""
         if ability.effect == "stop_the_music":
             return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
-        says = effects.EFFECTS[ability.effect].parts[0].says
-        return f"{self.label(ability.source)}: exhaust to {says}"
+        effect = effects.EFFECTS[ability.effect]
+        says = effect.says or effect.parts[0].says
+        return f"{self.label(ability.source)}: {ability.pays} to {says}"
 
     async def level(self, interaction: discord.Interaction, hero: str) -> None:
         """One level for a gold: a level a click."""
