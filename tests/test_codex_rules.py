@@ -105,6 +105,47 @@ class EconomyTests(unittest.TestCase):
         self.assertIsInstance(again, driver.Refusal)
 
 
+class OwnDeckTests(unittest.TestCase):
+    """`own_deck`: every card a player owns, wherever it is -- the
+    starting deck, plus the tech, less what was hired away (the author,
+    2026-10-09)."""
+
+    def test_the_starting_deck_is_the_ten_neutral_cards(self) -> None:
+        engine, game, match = main_phase()
+        deck = engine.own_deck(match, 1)
+        self.assertEqual(sorted(slug for slug, _ in deck.cards),
+                         sorted(engine.catalog.starting_deck("neutral")))
+        self.assertEqual((deck.size, deck.hand, deck.draw_pile, deck.discard, deck.in_play),
+                         (10, 5, 5, 0, 0))
+
+    def test_tech_joins_it_and_a_hired_card_leaves_it(self) -> None:
+        engine, game, match = main_phase()
+        player = match.player(1)
+        hand(match, 1, "spark", "tenderfoot")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "hire", {"slug": "spark"}))
+        player.discard += ["eggship", "eggship"]
+        deck = dict(engine.own_deck(match, 1).cards)
+        self.assertNotIn("spark", deck)
+        self.assertEqual(deck["eggship"], 2)
+        self.assertEqual(engine.own_deck(match, 1).size, len(player.hand) + len(player.deck) + 2)
+
+    def test_a_card_in_play_is_its_owners_and_a_token_is_nobodys(self) -> None:
+        engine, game, match = main_phase()
+        match.player(1).hand = []
+        match.player(1).deck = []
+        stolen = put(match, 1, "older_brother")
+        stolen.controller = 2
+        match.player(1).play.remove(stolen)
+        match.player(2).play.append(stolen)
+        put(match, 1, "dancer")
+        match.resolving.append({"kind": "effect", "seat": 1, "spell": "wither"})
+        deck = engine.own_deck(match, 1)
+        self.assertEqual(dict(deck.cards), {"older_brother": 1, "wither": 1})
+        self.assertEqual(deck.in_play, 2)
+        # Seat 2's own Older Brother, and not the one it controls.
+        self.assertEqual(dict(engine.own_deck(match, 2).cards)["older_brother"], 1)
+
+
 class HeroTests(unittest.TestCase):
     def test_bands_give_the_stats_and_a_new_band_heals(self) -> None:
         engine, game, match = main_phase()

@@ -904,22 +904,39 @@ else the bot shows is ephemeral.
     the standard one (three command-zone plates and four cards in the
     first row), read from how many heroes a player has
     (`panel_columns`), so the picture's width holds from turn to turn:
-    1649 wide, or 2227. Rows are added as the position needs them, so
+    1625 wide, or 2203. Rows are added as the position needs them, so
     the height follows it -- about 740 a panel with one row, 289 more a
     row -- which the gate already allows for.
-  - **On the left, the buildings**, 160 wide, bottom-aligned, top to
+  - **On the left, the buildings**, 136 wide, bottom-aligned, top to
     bottom: the add-on slot (a dashed outline, or the add-on's card at
-    82 by 114), Tech III, II and I as the module's tiles at 160 by 114,
-    and the base. A tech building is greyed and half seen until built,
-    in colour once built, carries the module's house chit while under
+    136 by 193, as wide as the tiles and aligned with them), Tech III,
+    II and I as the module's tiles at 136 by 97, and the base. The
+    add-on was 82 by 114 and could not be read at Discord's size; a
+    card's size (195 by 273) beside the patrol slots was tried the same
+    day and was too large, and the add-on stays with the other
+    buildings, as wide as the tech buildings. At the canvas's 160 wide
+    that made the column 728 tall against the one-row grid's 629, so
+    every building, chit and the base's heart is drawn at 0.85 of the
+    canvas's size (`BUILDING_SCALE`), which makes the column exactly as
+    tall as the patrol zone and one row (the author, 2026-10-09: the
+    buildings a little smaller, so the column is the one-row grid's
+    height); a test holds the two equal. A tech building is greyed and
+    half seen until built, in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
     turn) and is dark with the house chit when destroyed; damage is a
     chit on its corner. The base's tile prints a heart with 20 on it, so
     a heart is drawn over it carrying the HP it has now.
-  - **Across the top, the patrol zone** on the mat's blue: the mat's own
-    five slots with their bonus strips under them, cut from the playmat
-    ("The cards are data"), each centred in its column; a patroller's
-    card covers its slot, chits and all, and the bonus stays under it.
+  - **Across the top, the patrol zone**: the mat's own five slots with
+    their bonus strips under them, cut from the playmat ("The cards are
+    data"), **each on its own holder** of the mat's blue, packed side by
+    side 12 apart from the grid's left edge; a patroller's card covers
+    its slot, chits and all, and the bonus stays under it. They were
+    one blue band the grid's width, each slot centred in a 273 column
+    (the author, 2026-10-09: the holders individually, to save the
+    space between the cards). What that leaves at the row's right end
+    stays empty. A slot needs only a card's width, not a
+    cell's, because a patroller is never exhausted: exhausting one
+    sidelines it.
   - **The grid**: a command-zone plate per hero first -- the hero lying
     on it in full at 184 by 251 with its time-rune chit while off the
     field, the plate empty while it is on the field -- then the heroes
@@ -1126,9 +1143,33 @@ unit (the author, 2026-10-09: "not meant to show units only but all
 tech cards" -- the first reading showed units alone, which lost nothing
 in the basic game and dropped Anarchy's Tech II building, say), the
 spells are the rest, so the four together are the whole codex and a
-card is in exactly one; the tech picker narrows by the same function. A
-watcher who
-presses either is told the table is not theirs. Nothing is stored: each
+card is in exactly one; the tech picker narrows by the same function.
+**My deck** shows every card a player owns, wherever it is (the
+author, 2026-10-09: "all the cards that are in your deck, which
+includes all the cards you've added with tech ... minus all the cards
+you removed by making them workers"). It is the engine's one reading,
+`RulesEngine.own_deck`, worked out from where the cards are rather than
+kept as a list, since nothing in the save records the deck as a whole:
+the hand, the draw pile, the discard pile, the owner's cards in play on
+either side (a stolen unit is still its owner's; a token is nobody's,
+being trashed when it leaves), and a spell of theirs being cast -- an
+effect frame's `spell`, or Appel Stomp waiting on its place. A tech
+choice joins it at the ready phase, when the picks reach the discard
+pile, and not before; a hired card is trashed and so gone. It is
+pictured by `render_codex`, each card once with its copies on the
+badge, the starting cards first and then each tech level, and captioned
+with how many are in each place -- the draw pile a count, never an
+order; a tech choice not yet in the discard pile is not listed, there
+or anywhere in it (the author, 2026-10-09). The button is on the turn
+message, beside **My hand**, for either player whoever's turn it is
+(the author, 2026-10-09: "include it in the public message"); under the
+other player's hand (`HandView`, its one button); after the hand's
+buttons on the main-phase panel; and beside **Save tech** on the picker
+and on the confirmation. Each press is **a message
+of its own** (`send_deck`), not an edit of what it was pressed on, so
+the hand, the panel or the picker stays up beside it while the deck is
+looked at; like the Codex browser, it is reference and answers nothing.
+A watcher who presses either is told the table is not theirs. Nothing is stored: each
 press makes a fresh ephemeral message, and `/codex hand` answers the
 same. Where it was checked that nothing hidden is public: the turn
 message's text is the narration alone (`test_the_turn_message_names_no_card_in_a_hand`),
@@ -1201,9 +1242,20 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 - **Its picture is the hand**, numbered, greyed where it may not be
   played, each card's cost after reductions -- `render_hand` over
   `MainActionOptions.hand`, a field the prompt grew for it so the
-  picture and the buttons read one list. `render_prompt` gives the
-  main phase and the defender no picture of their own (the board on the
-  turn message is theirs); the tech picker's is the codex with the
+  picture and the buttons read one list. **A target's picture is a
+  side of the board, not the hand** (the author, 2026-10-09: the hand
+  is no help choosing what to wither): the defender, obliterate's,
+  sparkshot's and overpower's choices and an effect's `TARGET` are
+  pictured with one player's panel alone, upright and at the board's
+  scale (`render_side`, `PANEL_SIDE_KINDS`) -- the opponent's, or the
+  asked player's own where every target the prompt offers is theirs;
+  where the targets are on both sides, as Wither's may be, **both sides
+  stacked** (the author, 2026-10-09), the stacked board seen from the
+  player choosing (`render_board`'s `near`, the active player's by
+  default) -- `side_shown`, since what is chosen from is on the table. Appel
+  Stomp's place, about the player's own draw pile, keeps the hand.
+  `render_prompt` gives the main phase no picture of its own (the
+  board on the turn message is its board); the tech picker's is the codex with the
   picks framed in gold and counted (`render_codex`'s `picked`), the
   confirmation's the picks as a hand.
 - **The main phase is rows of buttons, not menus** (the author,
@@ -1211,13 +1263,12 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Play a card..., Build..., Attack with..., Level up...). A message
   carries five rows of five buttons, and the panel fills them in three
   groups, each starting a row of its own (`TurnPanelView.place`): the
-  **actions row** -- **Hire worker**, **Attack...**, **Undo...**,
-  **End main phase**; **the heroes' row**, since step 10, a button per
-  hero that summons it or levels it up ("The standard game", below) --
-  until then the one hero's **Summon** or **Level up** was in the
-  actions row; **the hand**, a
-  button per card in the hand's order, "3. Bloom (2 gold)", numbered as
-  the picture numbers it (`hand_numbers`) and disabled where it may not
+  **actions row** -- **Hire worker**, **Attack...**, **Undo...**;
+  **the heroes' row**, since step 10, a button per hero that summons it
+  or levels it up ("The standard game", below) -- until then the one
+  hero's **Summon** or **Level up** was in the actions row; **the
+  hand**, a button per card in the hand's order, "3. Bloom (2 gold)",
+  numbered as the picture numbers it (`hand_numbers`) and disabled where it may not
   be played now, as the picture greys it, so the row and the picture
   agree card for card -- at most two rows (`HAND_ROWS`; three until
   the heroes' row took one), a hand
@@ -1225,8 +1276,10 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability that may be
   used now, in the card's own words ("Sacrifice Harmony: stop the
-  music"). **Level up** buys one level a click (the author, 2026-10-09):
-  one button per hero, pressed again for the next level, rather than a
+  music") -- and **End main phase**, always the panel's last button
+  (the author, 2026-10-09), which `place`'s `last` never crowds out: a
+  board's button gives up its place to it first. **Level up** buys one
+  level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
   **Back**; the attacker's button asks the defender next, in the same
@@ -1340,8 +1393,9 @@ Each turn's message is posted when the turn begins: its text
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
-**My hand**, **Tech**, **Codex**, **Swap view**. **After each action it
-is posted again at the foot of the channel** with the new lines and the
+**My hand**, **My deck**, **Tech**, **Codex**, **Swap view** -- and
+**Concede**, which a sixth button puts on a row of its own. **After
+each action it is posted again at the foot of the channel** with the new lines and the
 re-rendered board, and the one it replaces deleted
 (`post_turn_message(replace=True)`), so the table is always the
 channel's last message and the panel goes under it (the author,

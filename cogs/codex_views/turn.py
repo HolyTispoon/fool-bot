@@ -147,6 +147,14 @@ class PanelView(SafeView):
         await self.cog.present(game, result, before)
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
+    async def open_deck(self, interaction: discord.Interaction) -> None:
+        """**My deck**: every card this panel's player owns, in an
+        ephemeral message of its own; the panel stays as it is."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.send_deck(interaction, game, match, self.seat)
+
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:
         """Change the panel's mode in place: the click's own response."""
@@ -160,14 +168,14 @@ class TurnPanelView(PanelView):
     """
     The main phase, from `MainActionOptions`, as rows of buttons (the
     author, 2026-10-09): the actions row -- **Hire worker**,
-    **Attack...**, **Undo...**, **End main phase** -- then the heroes'
-    row, a button per hero that summons it or levels it up by one level
-    a click (step 10: three heroes a side do not fit the actions row),
-    then the hand, a button per card
-    numbered as the picture numbers it and disabled where it may not be
-    played, then the board's row -- **Build** per building that may be
-    built, **Detect...** where there is a tower, and each ability that
-    may be used. A control the engine says no to is disabled with its
+    **Attack...**, **Undo...** -- then the heroes' row, a button per hero
+    that summons it or levels it up by one level a click (step 10: three
+    heroes a side do not fit the actions row), then the hand, a button
+    per card numbered as the picture numbers it and disabled where it may
+    not be played, and **My deck** after it, then the board's row --
+    **Build** per building that may be built, **Detect...** where there
+    is a tower, and each ability that may be used -- and **End main
+    phase** last of all. A control the engine says no to is disabled with its
     reason as its label. **Attack...** turns the panel into what may
     attack, one button each, and **Back**; **Hire worker** into the
     hand, a button per card. For `CHOOSE_DEFENDER`, a button per legal
@@ -230,7 +238,6 @@ class TurnPanelView(PanelView):
                 discord.ButtonStyle.primary, self.open_attack, disabled=not options.attackers,
             ),
             self.make_button("Undo...", discord.ButtonStyle.secondary, self.open_undo),
-            self.make_button("End main phase", discord.ButtonStyle.danger, self.end_main),
         ]
         # The hand, every card once in the hand's order (`playable`), by
         # its number in the picture: a card that may not be played now
@@ -246,6 +253,7 @@ class TurnPanelView(PanelView):
             for row in options.playable
         ] or [self.make_button("Your hand is empty", discord.ButtonStyle.secondary, None,
                                disabled=True)]
+        hand.append(self.make_button("My deck", discord.ButtonStyle.secondary, self.open_deck))
         board = [
             self.make_button(
                 f"Build {building_label(row.building)} ({row.cost} gold)"
@@ -275,10 +283,13 @@ class TurnPanelView(PanelView):
             for ability in options.abilities if ability.allowed
         ]
         heroes = [self.hero_button(hero) for hero in options.heroes]
+        # **End main phase** is always the panel's last button (the
+        # author, 2026-10-09), after the board's row, and always placed.
+        end = self.make_button("End main phase", discord.ButtonStyle.danger, self.end_main)
         row = self.place(actions, 0)
         row = self.place(heroes, row)
         row = self.place(hand, row, until=row + HAND_ROWS)
-        self.place(board, row)
+        self.place(board, row, last=end)
 
     def hero_button(self, hero) -> PanelButton:
         """**Summon Jaina (2 gold)**, or **Level up Jaina (1 gold)** -- a
@@ -309,13 +320,18 @@ class TurnPanelView(PanelView):
             button.callback = callback
         return button
 
-    def place(self, buttons: list, row: int, until: int = ROWS) -> int:
+    def place(self, buttons: list, row: int, until: int = ROWS, last=None) -> int:
         """
         Add `buttons` five a row from `row`, before row `until`; the next
         free row. What does not fit is left out: a message carries five
-        rows, and the groups placed first have the earlier claim.
+        rows, and the groups placed first have the earlier claim. `last`
+        goes after them and is never left out: a button of `buttons`
+        gives up its place to it where they would fill the rows.
         """
         until = min(until, ROWS)
+        if last is not None:
+            room = max(until - row, 0) * BUTTONS_PER_ROW
+            buttons = list(buttons)[: max(room - 1, 0)] + [last]
         placed = 0
         for button in buttons:
             at = row + placed // BUTTONS_PER_ROW
