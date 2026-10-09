@@ -149,6 +149,7 @@ class ReferenceMixin:
         name="The card's name",
         text="Add the card's text under the picture",
         rulings="Add Sirlin's rulings on the card under the picture",
+        public="Post it in the channel for everyone, rather than to you alone",
     )
     async def card(
         self,
@@ -156,6 +157,7 @@ class ReferenceMixin:
         name: str,
         text: bool = False,
         rulings: bool = False,
+        public: bool = False,
     ) -> None:
         slug = catalog().find(name)
         if slug is None:
@@ -173,18 +175,20 @@ class ReferenceMixin:
         # follow-up to the picture's response -- a second message that
         # sits straight beneath it. A card whose picture is not in the
         # checkout is answered with its text whether or not that was
-        # asked for.
+        # asked for. The answer is the asker's alone unless `public`
+        # says otherwise, and its follow-up goes the same way.
+        ephemeral = not public
         words = card_answer(
             slug, self.tokens.render, text=text or picture is None, rulings=rulings,
         )
         if picture is None:
-            await interaction.response.send_message(words)
+            await interaction.response.send_message(words, ephemeral=ephemeral)
             return
         await interaction.response.send_message(
-            file=discord.File(picture, filename=picture.name),
+            file=discord.File(picture, filename=picture.name), ephemeral=ephemeral,
         )
         if words:
-            await interaction.followup.send(words)
+            await interaction.followup.send(words, ephemeral=ephemeral)
 
     @card.autocomplete("name")
     async def card_autocomplete(

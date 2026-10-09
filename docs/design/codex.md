@@ -691,8 +691,8 @@ commit, so a test says exactly the card it means.
 
 ## The reference commands
 
-`/codex card <name>` answers in the channel with the card's picture
-and nothing else (the author, 2026-10-08): the card already shows its
+`/codex card <name>` answers with the card's picture and nothing else
+(the author, 2026-10-08): the card already shows its
 name, its cost, its numbers and its text. Two options, both off unless
 asked for, add words **under** the picture -- `text:True` the name, the
 type line, the cost and numbers (a hero's three bands) and the printed
@@ -704,7 +704,9 @@ the picture's response, a second message that sits straight beneath it
 (the author asked for the rulings below the picture, not above). Every
 card has a picture in the tree; one missing from a checkout is answered
 with the card's text whether or not that was asked for, since a lookup
-that shows nothing answers nothing. `/codex rules <keyword>` answers
+that shows nothing answers nothing. The answer is ephemeral, the
+asker's alone, and its follow-up with it; `public:True` posts both in
+the channel instead (the author, 2026-10-09). `/codex rules <keyword>` answers
 with a keyword's rulings as the official rules they are.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
