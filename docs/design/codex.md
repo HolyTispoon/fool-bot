@@ -876,8 +876,9 @@ else the bot shows is ephemeral.
     asks whether it should be the mat's leather instead, and the
     author has not said.
   - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
-    WebP at quality 85 (`BOARD_QUALITY`), about 70 to 140 KB; the hand
-    and the codex pictures stay PNG.
+    WebP at quality 85 (`WEBP_QUALITY`), about 70 to 140 KB -- the
+    encoding every picture the bot uploads has, the hand, the codex and
+    the tech picker since 2026-10-09 (below).
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
@@ -911,6 +912,19 @@ else the bot shows is ephemeral.
   apart, so the board is WebP (the author, 2026-10-08) -- the smallest
   of the three, and Discord shows it natively. That shortens the moment
   rather than removes it.
+- **The hand, the codex and the tech picker are WebP too** (2026-10-09:
+  the author found the codex's cards slow to load). They were PNG,
+  which spent 855 KB on a twelve-card codex and the tech picker's, and
+  419 KB on a five-card hand; WebP at the board's quality spends 168 KB
+  and 63 KB, and at 1:1 the card text is the same. Each goes up on a
+  click -- **My hand** and the panel, **Codex** and each choice of its
+  menu, each tech pick -- uploaded by the bot and fetched by the client
+  every time, so the wait is the file's size twice over. The card
+  files themselves were not what was slow: 330 by 450 JPEGs of 65 to
+  130 KB, the smallest the pictures are drawn from, and `/codex card`
+  alone posts one as it is; drawing takes a quarter of a second
+  whichever the encoding. `WEBP_QUALITY` is the one number
+  (`BOARD_QUALITY` until then), and the attachments are `.webp`.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons

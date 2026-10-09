@@ -233,19 +233,19 @@ class CoreMixin:
         if prompt.kind is PromptKind.TECH_CHOICE:
             options = prompt.options
             chosen = Counter(options.picks if picks is None else picks)
-            png = await asyncio.to_thread(
+            webp = await asyncio.to_thread(
                 render_codex, [slug for slug, _ in options.codex],
                 [left for _, left in options.codex], cards,
                 [chosen.get(slug, 0) for slug, _ in options.codex],
             )
-            return discord.File(io.BytesIO(png), filename="codex-tech.png")
+            return discord.File(io.BytesIO(webp), filename="codex-tech.webp")
         if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:
             picks = list(prompt.options.picks)
-            png = await asyncio.to_thread(
+            webp = await asyncio.to_thread(
                 render_hand, picks, [True] * len(picks),
                 [cards.cards[slug].cost or 0 for slug in picks], cards,
             )
-            return discord.File(io.BytesIO(png), filename="codex-tech.png")
+            return discord.File(io.BytesIO(webp), filename="codex-tech.webp")
         return None
 
     # -- The turn message's text ----------------------------------------------

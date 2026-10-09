@@ -1,9 +1,9 @@
 """
 The Codex pictures render: a picture of the expected size for the
-opening position in both layouts (the board is WebP), a hand and a
-codex view (PNG) -- and nothing about
-how they look, which is for the eye (`scripts/render_codex_sample.py`;
-docs/design/codex.md, "The board on Discord").
+opening position in both layouts, a hand and a codex view, each WebP
+(`render.WEBP_QUALITY`) -- and nothing about how they look, which is
+for the eye (`scripts/render_codex_sample.py`; docs/design/codex.md,
+"The board on Discord").
 """
 
 import io
@@ -89,12 +89,14 @@ class RenderTests(unittest.TestCase):
         rows = self.engine.hand_rows(self.match, 1)
         png = render.render_hand([row.slug for row in rows], [row.allowed for row in rows],
                                  [row.cost for row in rows], self.engine.catalog)
+        self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png)[0], 5 * (render.HAND_CARD[0] + 16) + 16)
 
     def test_a_codex_view(self) -> None:
         rows = self.engine.codex_remaining(self.match, 1)
         png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],
                                   self.engine.catalog)
+        self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png), (6 * (render.CODEX_CARD[0] + 14) + 14,
                                      2 * (render.CODEX_CARD[1] + 14) + 14))
 

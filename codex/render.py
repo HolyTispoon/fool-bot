@@ -68,15 +68,22 @@ EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
 #: to read a card's name on a phone through the full-image link, small
 #: enough to upload quickly on every edit.
 BOARD_SCALE = 0.6
-#: The board's WebP quality. The board is mostly card art, which PNG
-#: spends megabytes on and WebP at 85 a fraction of, the two hard to
-#: tell apart at 1:1 (measured 2026-10-08 on the mat the board used to
-#: be, with JPEG at 85 between them); the author chose WebP. What the
-#: smaller file buys is a shorter wait on every edit -- above all the
-#: swap between the two layouts, where the client re-lays the message
-#: out while the new picture loads. The hand and the codex pictures
-#: stay PNG.
-BOARD_QUALITY = 85
+#: The WebP quality every picture is saved at. Each is mostly card art,
+#: which PNG spends four to eight times the bytes on, the two hard to
+#: tell apart at 1:1: the board on the mat it used to be about 2 MB
+#: against 220 KB (measured 2026-10-08, with JPEG at 85 at about 340 KB
+#: between them; the author chose WebP), a twelve-card codex 855 KB
+#: against 168 KB and a five-card hand 419 KB against 63 KB (measured
+#: 2026-10-09, the card text the same at 1:1). What the smaller file
+#: buys is a shorter wait every time a picture goes up, uploaded by the
+#: bot and fetched by the client: the board on every edit -- above all
+#: the swap between the two layouts, where the client re-lays the
+#: message out while the new picture loads -- and the hand, the codex
+#: and the tech picker on every click that pictures them. The card files
+#: themselves (330 by 450 JPEGs, 65 to 130 KB) are not what is sent, and
+#: drawing takes a quarter of a second either way; `/codex card` alone
+#: posts a card's own file as it is.
+WEBP_QUALITY = 85
 
 # -- The panel's measures, in pixels, as the canvas's plan board gives them.
 
@@ -755,16 +762,10 @@ def default_building_hp(cards: CardCatalog) -> dict[str, int]:
 # -- The board ---------------------------------------------------------------
 
 
-def _png(picture: Image.Image) -> bytes:
-    buffer = io.BytesIO()
-    picture.convert("RGB").save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
-
-
 def _webp(picture: Image.Image) -> bytes:
-    """The board's encoding -- see `BOARD_QUALITY`."""
+    """Every picture's encoding -- see `WEBP_QUALITY`."""
     buffer = io.BytesIO()
-    picture.convert("RGB").save(buffer, format="WEBP", quality=BOARD_QUALITY)
+    picture.convert("RGB").save(buffer, format="WEBP", quality=WEBP_QUALITY)
     return buffer.getvalue()
 
 
@@ -886,7 +887,7 @@ def cost_badge(picture: Image.Image, cost: int, size: int) -> None:
 def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
                 costs: Sequence[int], cards: Optional[CardCatalog] = None) -> bytes:
     """
-    A hand as PNG bytes: the cards' own pictures in a row, numbered,
+    A hand as WebP bytes: the cards' own pictures in a row, numbered,
     each with its cost after reductions, greyed where it may not be
     played -- the picture **My hand** and the panel attach.
     """
@@ -911,14 +912,14 @@ def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
         if not playable[index]:
             picture = faint(picture)
         canvas.alpha_composite(picture, (left, top + label))
-    return _png(canvas)
+    return _webp(canvas)
 
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
                  picked: Optional[Sequence[int]] = None) -> bytes:
     """
-    A codex view as PNG bytes: a grid of its cards' own pictures, each
+    A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
     upload limit. `picked`, where given, is how many copies of each the
@@ -955,4 +956,4 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
             pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), f"picked {taken}", 26,
                  ACTIVE_FILL, anchor="mm")
         canvas.alpha_composite(picture, (left, top))
-    return _png(canvas)
+    return _webp(canvas)
