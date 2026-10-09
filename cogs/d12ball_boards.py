@@ -170,6 +170,15 @@ def d12ball_board_links(game: D12BallGame) -> bool:
     return game.home_and_visiting_selected
 
 
+def board_digest(png: bytes, text: Optional[str] = None) -> bytes:
+    """What the gate compares to skip a write: the picture, and the text
+    beside it where the frontend sets one."""
+    digest = hashlib.sha256(png).digest()
+    if text is not None:
+        digest = hashlib.sha256(digest + text.encode("utf-8")).digest()
+    return digest
+
+
 class BoardRefresher:
     """
     One game's board is written through one of these per cog.
@@ -310,6 +319,8 @@ class BoardRefresher:
         channel: discord.TextChannel,
         game: D12BallGame,
         delay: float,
+        *,
+        want: bool = True,
     ) -> None:
         """
         Arrange for the board to be brought up to date once the window
@@ -334,9 +345,13 @@ class BoardRefresher:
         board would be written twice in the same instant. What the
         interval is owed is settled once the lock is held, against the
         moment the last write landed.
+
+        `want=False` books a pass for the link alone: `posted` owes one
+        on a board nobody has asked to redraw.
         """
         state = self.state(game.game_id)
-        state.wanted = True
+        if want:
+            state.wanted = True
 
         if state.task is not None:
             return
@@ -557,9 +572,7 @@ class BoardRefresher:
         # The text set beside the picture, where the frontend sets one;
         # an edit whose picture and text are both unchanged is skipped.
         text = None if self.text_for is None else self.text_for(game)
-        digest = hashlib.sha256(png).digest()
-        if text is not None:
-            digest = hashlib.sha256(digest + text.encode("utf-8")).digest()
+        digest = board_digest(png, text)
         if state.png_digest == digest:
             if relink:
                 await self.settle_link(channel, game)
@@ -604,6 +617,42 @@ class BoardRefresher:
         button = build_full_image_button(updated_message)
         if button is not None:
             state.link_owed = button.url
+
+    def posted(
+        self,
+        channel: discord.TextChannel,
+        game: D12BallGame,
+        message: discord.Message,
+        png: bytes,
+        text: Optional[str] = None,
+    ) -> None:
+        """
+        Take a board the frontend has just **posted** as a new message
+        as the one the gate keeps: the Codex bot puts its turn message
+        back at the foot of the channel after every action rather than
+        editing it (docs/design/codex.md, "The turn message, posted
+        again"). The post is the write, so the window runs from it, a
+        want booked before it is covered by it, and the gate's next
+        write skips a board and text it has already put up; the new
+        upload's full-image link is owed, and a pass is booked for it
+        alone, as after any upload.
+
+        Called after the post, outside the lock the post was made under.
+        """
+        state = self.state(game.game_id)
+        state.png_digest = board_digest(png, text)
+        state.refreshed_at = time.monotonic()
+        state.wanted = False
+        state.writes_refused = 0
+        state.link_owed = None
+
+        if not self.links(game):
+            return
+
+        button = build_full_image_button(message)
+        if button is not None:
+            state.link_owed = button.url
+            self.schedule(channel, game, self.interval(game), want=False)
 
     async def settle_link(
         self,

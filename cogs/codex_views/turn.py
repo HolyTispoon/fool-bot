@@ -123,8 +123,14 @@ class PanelView(SafeView):
         return game, match
 
     async def act(self, interaction: discord.Interaction, action: Action) -> None:
-        """Answer through the service; the panel edited in place with
-        what is asked next; then the turn message, through the gate."""
+        """
+        Answer through the service. Where the answer puts something in
+        public, the click is deferred, the turn message posted again at
+        the foot of the channel, and the panel sent afresh under it, the
+        one clicked deleted; where it puts nothing in public, the panel
+        is edited in place and the channel is left alone
+        (docs/design/codex.md, "The turn message, posted again").
+        """
         game, match = await self.mine(interaction)
         if game is None:
             return
@@ -132,8 +138,13 @@ class PanelView(SafeView):
         result = await self.apply(interaction, game, action)
         if result is None:
             return
-        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
+        if not self.cog.goes_public(result):
+            await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
+            await self.cog.present(game, result, before)
+            return
+        await interaction.response.defer()
         await self.cog.present(game, result, before)
+        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:

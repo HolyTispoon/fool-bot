@@ -693,6 +693,37 @@ class FullImageLinkTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(channel.message.edits, 3)
 
+    async def test_a_posted_board_owes_its_link_and_is_not_redrawn(self) -> None:
+        # The Codex bot posts its turn message again after an action
+        # rather than editing it (docs/design/codex.md, "The turn
+        # message, posted again") and hands the post to the gate: the
+        # link is owed on it, and the pass that pays it draws nothing
+        # and uploads nothing.
+        cog, game, channel, _ = self.build()
+
+        cog.boards.posted(channel, game, FakeMessage(), b"the posted board")
+        self.assertEqual(cog.boards.state(game.game_id).link_owed, ATTACHMENT_URL)
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await asyncio.gather(*cog.boards.pending_tasks())
+
+        cog.render_match_png.assert_not_awaited()
+        self.assertEqual([list(fields) for fields in channel.message.fields], [["view"]])
+        self.assertEqual(link_urls(channel.message.fields[0]), [ATTACHMENT_URL])
+
+    async def test_a_refresh_after_a_post_skips_the_board_it_posted(self) -> None:
+        # The post is the write: a refresh asked for the same board
+        # after it spends only the link.
+        cog, game, channel, interaction = self.build()
+        cog.render_match_png = mock.AsyncMock(return_value=b"one board")
+
+        cog.boards.posted(channel, game, FakeMessage(), b"one board")
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await cog.refresh_match_image(interaction, game)
+            await asyncio.gather(*cog.boards.pending_tasks())
+
+        self.assertEqual([list(fields) for fields in channel.message.fields], [["view"]])
+
     async def test_a_settled_board_owes_nothing(self) -> None:
         # Nothing stripped a link, so the settling pass has nothing to
         # put back and spends no request finding that out.

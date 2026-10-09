@@ -80,7 +80,7 @@ class LobbyMixin:
         Start, in the lobby's own channel: the service deals and runs the
         first turn's start; the channel is renamed for the players; the lobby is edited once to
         say the game has started, its buttons gone; and the first turn's
-        message is posted and pinned under it. The click has been
+        message is posted under it. The click has been
         deferred, so every answer here is a followup.
         """
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else None

@@ -119,6 +119,9 @@ class FakeChannel:
 
 
 class FakeMessage(FakePartial):
+    #: Nothing uploaded, so the gate owes no full-image link for a post.
+    attachments: list = []
+
     async def pin(self, **kwargs):
         await FakePartial.pin(self, **kwargs)
 
@@ -172,6 +175,11 @@ class FakeInteraction:
     async def original_response(self):
         return SimpleNamespace(id=LOBBY_MESSAGE)
 
+    async def delete_original_response(self):
+        """The message clicked deleted -- a panel replaced by the one
+        sent under the turn message -- through the click's webhook."""
+        self.answers.append(("original.delete", (), {}))
+
     def last(self, kind: Optional[str] = None):
         """The last answer, or the last of `kind` -- `(kind, args, kwargs)`."""
         for answer in reversed(self.answers):
@@ -187,8 +195,12 @@ class FakeInteraction:
         return None
 
     def text(self) -> str:
-        _, args, kwargs = self.last()
-        return kwargs.get("content") or (args[0] if args else "") or ""
+        """The text of the last message the click put up -- its answer,
+        an edit or a follow-up; a defer or a deletion carries none."""
+        for kind, args, kwargs in reversed(self.answers):
+            if kind not in ("response.defer", "original.delete"):
+                return kwargs.get("content") or (args[0] if args else "") or ""
+        return ""
 
 
 def find_button(view, which) -> discord.ui.Button:
