@@ -176,6 +176,8 @@ What is under `codex/images/board/`, and what each is named by:
 | `specs/` | The twenty spec cards | the spec, as a slug |
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
+| `ground/` | `leather`: a plain patch of the playmat's leather, 860 by 168 from below its logo, cut by `PLAYMAT_CUTS` as the patrol slots are -- what the board's panels are laid on, mirror-tiled (the author, 2026-10-09) | what it is |
+| `patrol_slots/` | The five patrol slots as the playmat prints them, 200 by 273, and each one's bonus strip under it, 200 by 41 (`<slot>_bonus`) -- cut from `playmat.png` itself rather than a sheet, at the boxes pinned in `PLAYMAT_CUTS` beside `BOARD_SHEETS` (from the design canvas's plan board, 2026-10-08), and re-cut by `--cut-only` with the rest: the board's patrol zone is drawn from them, the mat's own slots (the author, 2026-10-08) | the slot |
 | `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
 | `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), a blue `swirl` nobody has said the module's use of, and the orange `house`, the module's mark on a building under construction or destroyed (the author, 2026-10-08), both named for what they show | what it shows |
 
@@ -265,6 +267,22 @@ codex.
   frontend's, as always.
 - **What a tech prompt holds is its owner's**: their codex and their
   picks. A frontend sends it to them alone.
+- **Nothing stands in a test game** (`tech_stands`; the author,
+  2026-10-09). One person plays both sides there, and a choice standing
+  for the side whose turn it is not reached them beside the other
+  side's: the Lock's follow-up was the picker of the side that had just
+  ended its turn, and My hand -- from the third turn on, where the
+  side whose turn began had never picked during the other's -- that
+  side's own picker, two in a row with nothing to say whose was whose.
+  So in a test game `standing_prompts` is empty, the picker is the
+  pending prompt in its owner's ready phase, and the pick made there is
+  the choice: `_answer_tech_choice` confirms it at once, since there is
+  nothing earlier to review, and the turn begins on the save. Nobody
+  owes tech before their first turn has ended, so the second side's
+  first turn opens on its main phase as before. The reading is the
+  model's, off the record's `test_game`, as D12 Ball's model reads its
+  own: a cog hiding the standing prompt would be a second reading of
+  what the match waits on. A real game is unchanged.
 
 ### Undo's groundwork: the snapshots and the journal
 
@@ -742,8 +760,16 @@ frees both seats, and `seats_of` reads both. A click acts for
 `seat_for(user, active)` -- the seat whose turn it is, where the clicker
 holds it -- so **My hand**, **Codex** and `/codex hand` show the side
 that is playing, and their captions name it. Nothing is hidden from one
-person playing both hands, so nothing more is needed; the tech choice
-on the other side's turn is step 4's to word.
+person playing both hands, so nothing more is needed. The tech choice
+is the one thing a test game plays differently: each side's is chosen
+in its own ready phase, from My hand, and nothing stands during the
+other side's turn ("The standing prompt", above). On Discord the Lock
+closes the panel with "Patrol locked: Bashing's turn is over. **My
+hand** opens Finesse's turn, its tech choice first." -- the sides named
+by their decks, since both are the one person -- and sends no picker
+(the channel's four requests, one on the webhook), **Tech** says where
+the choice is made, and Save tech in the ready phase edits the panel
+into the turn's actions.
 
 **Start turns that channel into the game's**, in one edit: renamed
 `codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
@@ -811,47 +837,113 @@ one else can see it to press it.
 the turn's lines as its text, the game's buttons under it. Everything
 else the bot shows is ephemeral.
 
-- **The board is the module's playmat with the position laid on it**
-  (`codex/render.py`): the hero as its card in the first hero slot
-  while it is in the command zone, a time-rune chit on the card for
-  its summoning runes; once summoned it is on the field like any other
-  unit, so it lies in the play zone with the units, first among them,
-  with its level chit -- or in its patrol slot (the author,
-  2026-10-08: the mat's hero slots are where the heroes off the board
-  wait, three of them for the standard game's three; the board used to
-  keep the hero in its slot while in play and leave the slot empty
-  while it was in the command zone, which read the wrong way round);
-  patrollers in their five slots; the Tech I to III tiles in their places, faint where
-  unbuilt, tagged *building* while under construction and *destroyed*
-  when they are, with damage chits; the base's damage on the mat's own
-  base, which the mat prints (the module's base tile was tried and
-  doubled the printed base); the add-on's card in its slot; the draw
-  pile as the card back with its count on a tag below the medallion;
-  the discard and the workers as counts; the play zone's cards -- the
-  hero, then the units -- across the mat's middle, in a grid of square
-  cells so a card turned sideways (exhausted) fits too, each with
-  damage and rune chits and *arrived* when it came this turn. A strip along each mat's
-  top names the player, the spec and the hero, and counts the gold, the
-  hand, the codex and the base; the active player's strip is lit.
-  Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
-  saved as WebP at quality 85 (`WEBP_QUALITY`), about 220 KB -- the
-  encoding every picture the bot uploads has, the hand, the codex and
-  the tech picker since 2026-10-09 (below).
+- **The board is drawn element by element** (`codex/render.py`, step
+  7, from the author's design canvas of 2026-10-08,
+  https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f): each player is a
+  panel (`render_panel`) built from the module's pieces and the cards'
+  own art, at the pixels the canvas was drawn at, Roboto Slab for every
+  word and number.
+  - **Cards are 200 by 273** (the art at 61%) **in square cells of 273**,
+    16 between, so an exhausted card lies in its cell on its side at
+    full size, turned a quarter clockwise with the exhaust glyph on the
+    cell's top corner (the author, 2026-10-08: A of the canvas's three
+    ways -- dimmed in place, and a smaller card, were the others).
+  - **The column count is the game's**: five in the basic game, seven in
+    the standard one (three command-zone plates and four cards in the
+    first row), read from how many heroes a player has
+    (`panel_columns`), so the picture's width holds from turn to turn:
+    1649 wide, or 2227. Rows are added as the position needs them, so
+    the height follows it -- about 740 a panel with one row, 289 more a
+    row -- which the gate already allows for.
+  - **On the left, the buildings**, 160 wide, bottom-aligned, top to
+    bottom: the add-on slot (a dashed outline, or the add-on's card at
+    82 by 114), Tech III, II and I as the module's tiles at 160 by 114,
+    and the base. A tech building is greyed and half seen until built,
+    in colour once built, carries the module's house chit while under
+    construction (UMR p. 8: from when it is paid for to the end of the
+    turn) and is dark with the house chit when destroyed; damage is a
+    chit on its corner. The base's tile prints a heart with 20 on it, so
+    a heart is drawn over it carrying the HP it has now.
+  - **Across the top, the patrol zone** on the mat's blue: the mat's own
+    five slots with their bonus strips under them, cut from the playmat
+    ("The cards are data"), each centred in its column; a patroller's
+    card covers its slot, chits and all, and the bonus stays under it.
+  - **The grid**: a command-zone plate per hero first -- the hero lying
+    on it in full at 184 by 251 with its time-rune chit while off the
+    field, the plate empty while it is on the field -- then the heroes
+    on the field (the level chit top left), then the units, each with a
+    damage chit over the stats, its rune chits top right, Two Step's
+    chit on a dance partner and ARRIVED the turn it came.
+  - **A nameplate along the panel's outer edge**, 56 tall: the player,
+    the spec and hero, then gold (the gold emoji's picture), workers,
+    hand, deck, discard and codex, a word and a count each. The active
+    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill,
+    the hero by its short name -- "Troq's turn 7".
+  - **A hero's short name is kept by hand** (`SHORT_NAMES` in
+    `codex/cards.py`, `Hero.short_name`), the one thing about a card the
+    repository holds outside the imported data, because the database has
+    no such field. A table, not the name's first word: three heroes
+    carry a title first -- Captain Zane, General Onimaru, Master Midori
+    -- and "Captain's turn 3" names nobody (the author, 2026-10-09, over
+    the full name the first draft of step 7 used). A test holds the
+    table to the catalog's twenty and each short name to a word of its
+    hero's name.
+  - **Why the mat went**: on the mat the cards sat in its printed
+    places, about 200 pixels wide on a picture 1838 by 1088 a side,
+    most of it the mat's art and places the position did not use. The
+    panel keeps the card at the same pixels in about three fifths of
+    the area, so at any size Discord shows the board, the cards come out
+    larger, and nothing is drawn for a place the position does not use
+    beyond those that must be seen empty -- a patrol slot, a tech
+    building, the add-on, the command zone. The playmat stays imported
+    as the reference the layout was taken from; nothing draws it but
+    the pieces cut from it.
+  - **The ground is the mat's leather** (the author, 2026-10-09: leather,
+    so long as it does not make the board load much slower): a plain
+    patch of it below the Codex logo, cut like the patrol slots
+    (`ground/leather.png`), mirrored across and down into a tile that
+    meets itself, and tiled under each panel from its top left
+    (`leather_ground`). The far panel's leather turns with it, so the
+    far side reads as one mat turned. The space between the panels
+    stays flat (#15100c). Measured that day against the flat ground the
+    canvas sketched (#231a14), the leather costs about a fifth more
+    bytes -- 70 KB to 86 KB for the opening, 111 KB to 133 KB for a
+    busy mid-game board -- a few hundredths of a second on a phone's
+    connection, and still well under the 220 KB the mat board was.
+  - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
+    WebP at quality 85 (`WEBP_QUALITY`), about 85 to 165 KB -- the
+    encoding every picture the bot uploads has, the hand, the codex and
+    the tech picker since 2026-10-09 (below).
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
   everyone and the board goes up through the gate.
 - **Stacked is the table seen from the active player's side** (the
-  author, 2026-10-08): their mat at the bottom, the other player's
+  author, 2026-10-08): their panel at the bottom, the other player's
   above it and turned round to face them, so the two patrol zones face
   each other across the gap as they do across a table, and the picture
   turns with the turn (`stacked_seats`, the one reading of which seat
-  is near). The far mat is turned whole -- its cards, chits and counts
-  read upside down, as the far side of a table does -- but the strip
-  above it is the bot's words, not the mat's, and stays the right way
-  up: a name and four counts nobody should have to turn a phone for.
-  A finished game is seen from where it was left. Side by side turns
-  neither mat: two mats read left to right are a desk, not a table.
+  is near). The far panel's body is turned whole -- its cards and chits
+  read upside down, as the far side of a table does -- but its
+  nameplate is the bot's words and stays the right way up, on the
+  panel's outer edge, above: a name and its counts nobody should have
+  to turn a phone for. A 52-pixel divider between the two reads
+  "<HERO>'S TURN <N>", the same short name, bold and white on a teal
+  pill (`TURN_PILL`) between two grey rules -- taller and brighter than
+  the canvas's 36 pixels of faint capitals, which did not read at
+  Discord's size (the author, 2026-10-09: the turn more prominent, not
+  gold, which the active nameplate's pill already is, and not cream).
+  Teal is apart from every other colour on the board: the gold pill,
+  the red damage chits, the patrol zone's blue, ARRIVED's green.
+- **No cream** (the author, 2026-10-09): the canvas's light words were a
+  warm cream and its quiet ones a tan; the board, the hand and the
+  codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from
+  where it was left.
+  Side by side turns neither panel and puts an 80-pixel divider
+  between them, the same words standing: two panels read left to right
+  are a desk, not a table. Where the two are of different heights, the
+  shorter is filled between its body and its nameplate, so the
+  nameplates stay level.
 - **Swapping the view changes the message's shape**, and what the
   reader sees in between is the client's. A stacked board is tall and
   a side-by-side one wide, so the one edit that replaces the picture
@@ -1033,7 +1125,9 @@ picker is an ephemeral message made afresh each time.
 
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
-cog's caption, `TECH_WAIT`, gone once the ready phase has run), and My
+cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
+"to choose their tech" where My hand is the picker instead, because they
+never picked, or because the game is a test game), and My
 hand is `TechConfirmView` -- the picks pictured, **Confirm** and
 **Change**. Confirm runs the ready phase and the upkeep, and the panel
 becomes the turn's actions in place. The prompt asked for the

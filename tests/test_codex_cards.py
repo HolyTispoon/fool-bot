@@ -12,7 +12,7 @@ import re
 import unittest
 
 from codex import tokens
-from codex.cards import DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, KIND_WORKER, catalog
+from codex.cards import DATA_DIR, IMAGE_DIR, KIND_BUILDING, KIND_TOKEN, KIND_WORKER, SHORT_NAMES, catalog
 from codex.formatting import card_label, plain_text
 from codex.rulings import keyword_rulings, keywords, rulings_for
 
@@ -98,6 +98,15 @@ class CodexCardDataTests(unittest.TestCase):
         slugs = [record["slug"] for record in cards + heroes]
         self.assertEqual(len(slugs), len(set(slugs)))
         self.assertEqual(slugs[: len(cards)], sorted(slugs[: len(cards)]))
+
+    def test_every_hero_has_a_short_name_from_its_own(self):
+        """The hand-kept table covers the catalog's twenty and nothing
+        else, and each short name is a word of the hero's own name."""
+        self.assertEqual(set(SHORT_NAMES), set(self.catalog.heroes))
+        for slug, hero in self.catalog.heroes.items():
+            with self.subTest(slug):
+                self.assertIn(hero.short_name, hero.name.split())
+        self.assertEqual(self.catalog.heroes["captain_zane"].short_name, "Zane")
 
     def test_the_basic_set_has_the_worksheets_numbers(self):
         for slug, (cost, tech_level, atk, hp) in BASIC_SET.items():
@@ -241,6 +250,9 @@ class CodexCardArtTests(unittest.TestCase):
         self.assertEqual(
             pngs("patrol"), {"squad_leader", "elite", "scavenger", "technician", "lookout"},
         )
+        slots = {"squad_leader", "elite", "scavenger", "technician", "lookout"}
+        self.assertEqual(pngs("patrol_slots"), slots | {f"{slot}_bonus" for slot in slots})
+        self.assertEqual(pngs("ground"), {"leather"})
 
     def test_the_numbered_chits(self):
         for folder, names in NUMBERED_CHITS.items():

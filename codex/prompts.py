@@ -18,7 +18,9 @@ lists what the other player may answer meanwhile -- in this set only
 `TECH_CHOICE`, answerable again and again until their turn begins, each
 answer replacing the picks. Their turn then opens on `TECH_CONFIRM` (or
 on `TECH_CHOICE` itself, if they never picked), and `begin_turn` runs
-only once the picks are confirmed.
+only once the picks are confirmed. **In a test game nothing stands**
+(`tech_stands`): one person plays both sides, and their tech is chosen
+in each side's own ready phase instead.
 
 Every prompt names `asked_player`: the active player for every kind
 but the tech choice and its confirmation, whose asked player is the
@@ -556,6 +558,26 @@ def tech_is_owed(match: MatchState, seat: int) -> bool:
     return player.tech_owed and not player.tech_confirmed
 
 
+def tech_stands(game: "Optional[CodexGame]") -> bool:
+    """
+    Whether the tech choice stands open through the opponent's turn
+    (decision 8), or waits for its owner's ready phase.
+
+    **A test game's waits** (the author, 2026-10-09). One person plays
+    both sides there, and a choice standing for the side whose turn it
+    is not reached them beside the other side's: the Lock's follow-up
+    was the side that had just ended its turn, My hand the side whose
+    turn had begun -- two pickers in a row, with nothing to say whose
+    was whose. So in a test game nothing stands: the picker is the
+    pending prompt in its owner's ready phase, from their second turn
+    on (nobody owes tech before their first turn has ended), and the
+    pick made there is the choice, with no confirmation asked after it
+    (`codex.flow.driver._answer_tech_choice`). With no record to read,
+    the choice stands.
+    """
+    return game is None or not game.test_game
+
+
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
         return PendingPrompt(
@@ -627,9 +649,10 @@ def standing_prompts(engine: "RulesEngine", match: MatchState,
     """
     What the player who is not active may answer meanwhile: the tech
     choice they owe from the turn they just ended, open to change until
-    their own turn begins (decision 8). Nothing once the game is over.
+    their own turn begins (decision 8). Nothing once the game is over,
+    and nothing in a test game (`tech_stands`).
     """
-    if match.winner is not None:
+    if match.winner is not None or not tech_stands(game):
         return ()
     other = 2 if match.active == 1 else 1
     if not tech_is_owed(match, other):

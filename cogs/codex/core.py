@@ -88,8 +88,14 @@ PROMPT_VIEWS = {
 }
 
 #: What the turn message says while the new turn waits on its player's
-#: tech confirmation -- the cog's caption, not the model's line.
-TECH_WAIT = "*The turn waits on {who} to confirm their tech: **My hand**.*"
+#: tech -- the cog's caption, not the model's line -- worded for the
+#: prompt My hand opens: the confirmation of picks made during the
+#: opponent's turn, or the picker itself where none were made (always,
+#: in a test game: `codex.prompts.tech_stands`).
+TECH_WAIT = {
+    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **My hand**.*",
+    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **My hand**.*",
+}
 
 
 class CoreMixin:
@@ -262,11 +268,11 @@ class CoreMixin:
         """The caption under the lines while the turn waits on its
         player's tech: the cog's words over the model's prompt."""
         prompt = pending_prompt(self.engine, game, match)
-        if prompt is None or prompt.kind not in (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE):
+        if prompt is None or prompt.kind not in TECH_WAIT:
             return None
         player_id = game.player_1_id if prompt.asked_player == 1 else game.player_2_id
         who = f"<@{player_id}>" if player_id else (game.seat_name(prompt.asked_player) or "its player")
-        return TECH_WAIT.format(who=who)
+        return TECH_WAIT[prompt.kind].format(who=who)
 
     def turn_text(self, game: CodexGame, match=None, lines=None, footer: bool = True) -> str:
         """

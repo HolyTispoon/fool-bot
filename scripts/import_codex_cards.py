@@ -43,7 +43,10 @@ The art comes in the same run, unless `--no-images`:
   playmat whole as `codex/images/board/playmat.png`, every other sheet
   whole under `codex/images/board/sheets/` -- the source its cells are
   cut from -- and then cut into the cells pinned for it, each under
-  `codex/images/board/<folder>/<name>.png`.
+  `codex/images/board/<folder>/<name>.png`; and the five patrol slots
+  and their bonus strips, and a plain patch of the leather, cut from
+  the playmat itself at the boxes pinned in `PLAYMAT_CUTS`, into
+  `codex/images/board/patrol_slots/` and `ground/`.
 
 `--cut-only` cuts the cells again from the sheets already in the tree,
 fetching nothing and writing no data, so a change to a pinned cell is
@@ -222,6 +225,31 @@ BOARD_SHEETS: dict[str, tuple[tuple[int, int] | None, dict[str, int | tuple[int,
         "chits/house": 7,
         "chits/two_step": 8,
     }),
+}
+
+#: The pieces cut from the playmat itself rather than a sheet, as
+#: `{path: (left, top, right, bottom)}` on `playmat.png`: the five patrol
+#: slots as the mat prints them, 200 by 273, and under each its bonus
+#: strip, 200 by 41 -- what the board's patrol zone is drawn from, so the
+#: slots are the mat's own (the author, 2026-10-08; docs/codex-bot.md,
+#: step 7). Pinned from the design canvas's plan board; nothing else of
+#: the mat is drawn.
+PLAYMAT_CUTS: dict[str, tuple[int, int, int, int]] = {
+    name: box
+    for slot, left in (
+        ("squad_leader", 688), ("elite", 917), ("scavenger", 1143),
+        ("technician", 1371), ("lookout", 1597),
+    )
+    for name, box in (
+        (f"patrol_slots/{slot}", (left, 38, left + 200, 38 + 273)),
+        (f"patrol_slots/{slot}_bonus", (left, 311, left + 200, 311 + 41)),
+    )
+} | {
+    # A plain patch of the mat's leather, below the Codex logo and clear
+    # of every printed place, which the board's panels are laid on,
+    # mirror-tiled (the author, 2026-10-09: leather, so long as it does
+    # not make the board much slower to load -- it adds about a fifth).
+    "ground/leather": (700, 900, 1560, 1068),
 }
 
 GLYPHS = {"⤵": "{exhaust}", "◎": "{target}", "→": "{arrow}"}
@@ -501,7 +529,7 @@ def cut_board_sheets() -> list[str]:
         BOARD_IMAGE_DIR / Path(name).parent
         for _, cells in BOARD_SHEETS.values() if isinstance(cells, dict)
         for name in cells
-    }
+    } | {BOARD_IMAGE_DIR / Path(name).parent for name in PLAYMAT_CUTS}
     for folder in folders:
         for stale in folder.glob("*.png"):
             stale.unlink()
@@ -519,12 +547,26 @@ def cut_board_sheets() -> list[str]:
             piece = image.crop(cell_box(index, grid, image.size))
             if turns:
                 piece = piece.rotate(90 * turns, expand=True)
-            if piece.getextrema()[3][0] == 255:
-                piece = piece.convert("RGB")
-            target = BOARD_IMAGE_DIR / f"{name}.png"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            piece.save(target)
+            save_piece(piece, name)
+    playmat = BOARD_IMAGE_DIR / "playmat.png"
+    if not playmat.is_file():
+        problems.append(f"Playmat: nothing at {playmat.relative_to(PROJECT_ROOT)} to cut from")
+        return problems
+    with Image.open(playmat) as opened:
+        image = opened.convert("RGBA")
+    for name, box in PLAYMAT_CUTS.items():
+        save_piece(image.crop(box), name)
     return problems
+
+
+def save_piece(piece, name: str) -> None:
+    """One cut under `codex/images/board/`, without its alpha channel
+    where nothing in it is see-through."""
+    if piece.getextrema()[3][0] == 255:
+        piece = piece.convert("RGB")
+    target = BOARD_IMAGE_DIR / f"{name}.png"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    piece.save(target)
 
 
 def main() -> int:

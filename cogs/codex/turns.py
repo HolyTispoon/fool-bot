@@ -53,6 +53,12 @@ TURN_OVER = (
     "Patrol locked: your turn is over. Choose your tech below -- or later, from "
     "**Tech** on the turn message, until your next turn begins."
 )
+#: The Lock where nothing stands for the side that ended its turn: a
+#: test game's (`codex.prompts.tech_stands`), where the one person plays
+#: on from My hand as the other side, choosing that side's tech first
+#: where it owes one -- or any game whose turn ended owing no tech.
+TURN_OVER_TEST = "Patrol locked: {ended}'s turn is over. **My hand** opens {begins}'s turn{tech}."
+TURN_OVER_NOTHING_OWED = "Patrol locked: your turn is over."
 
 
 def split_at_turn_end(result: GameResult) -> tuple[list[str], Optional[dict], list[str], bool]:
@@ -79,7 +85,8 @@ class TurnsMixin:
 
     def standing_for(self, game: CodexGame, match, seat: int) -> Optional[PendingPrompt]:
         """The standing prompt `seat` may answer meanwhile -- the tech
-        choice -- or `None`."""
+        choice -- or `None`: always, in a test game, whose tech is
+        chosen in each side's own ready phase (`codex.prompts.tech_stands`)."""
         for prompt in standing_prompts(self.engine, match, game):
             if prompt.asked_player == seat:
                 return prompt
@@ -163,8 +170,13 @@ class TurnsMixin:
         The panel after its own click, **edited in place** with what is
         asked next: the next action, the defender, the patrol lock, the
         turn's actions once the tech is confirmed. A tech save stays on
-        the picker, saved. The Lock that ends the turn closes the panel
-        and sends the tech picker as an ephemeral follow-up.
+        the picker, saved -- or, in a test game, where the save is the
+        ready phase's and the turn begins on it, becomes the turn's
+        actions. The Lock that ends the turn closes the panel and sends
+        the tech picker as an ephemeral follow-up; in a test game nothing
+        stands to send (`codex.prompts.tech_stands`), so it closes the
+        panel naming the side whose turn it is now, and the one person
+        plays on from My hand.
         """
         match = result.match
         prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
@@ -180,10 +192,27 @@ class TurnsMixin:
             await interaction.response.edit_message(content=TURN_OVER, attachments=[], view=None)
             await self.show_panel(interaction, game, match, seat, edit=False, standing=True)
             return
+        if answered is PromptKind.PATROL and match is not None and match.active != seat and match.winner is None:
+            await interaction.response.edit_message(
+                content=self.turn_over_text(game, match, seat, result.prompt), attachments=[], view=None,
+            )
+            return
         if match is not None and match.winner is not None:
             await interaction.response.edit_message(content="The game is over.", attachments=[], view=None)
             return
         await interaction.response.edit_message(content=NOTHING_ASKED, attachments=[], view=None)
+
+    def turn_over_text(self, game: CodexGame, match, seat: int,
+                       prompt: Optional[PendingPrompt]) -> str:
+        """What the Lock's panel closes on where no tech picker follows
+        it: in a test game, the side that ended and the side My hand
+        opens, with its tech choice first where `prompt` is one."""
+        if not game.test_game:
+            return TURN_OVER_NOTHING_OWED
+        tech = ", its tech choice first" if prompt is not None and prompt.kind is PromptKind.TECH_CHOICE else ""
+        return TURN_OVER_TEST.format(
+            ended=match.player(seat).spec.title(), begins=match.active_player.spec.title(), tech=tech,
+        )
 
     # -- The presenter ---------------------------------------------------------
 
