@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
-from codex.components import HERO, MatchState
+from codex.components import MatchState
 from codex.engine import parse_target, target_key
 from codex.flow import board
 from codex.flow.result import StepResult

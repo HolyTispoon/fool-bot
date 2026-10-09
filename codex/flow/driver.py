@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Se
 
 from codex import history
 from codex.components import MatchState
-from codex.flow import actions, combat, resolve, turn
+from codex.flow import actions, board, combat, resolve, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
 from gamekit.driver import MOVED_ON, STEP_OWED  # noqa: F401 -- re-exported
@@ -210,6 +210,7 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.TARGET: "That target has already been chosen.",
     PromptKind.APPEL_STOMP_TOP: "Appel Stomp has already gone where it goes.",
     PromptKind.UPKEEP_ORDER: "That upkeep has already been done.",
+    PromptKind.LEVEL_GAIN: "Those levels have already been gained.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
 
@@ -219,13 +220,13 @@ STALE_CLICK: Mapping[PromptKind, str] = {
 
 def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
                  building=None, attacker=None, card=None, ability=None,
-                 source=None) -> StepResult:
+                 source=None, hero=None) -> StepResult:
     if choice == "hire":
         return actions.hire_worker(engine, game, match, _required(slug, "slug"))
     if choice == "summon":
-        return actions.summon_hero(engine, game, match)
+        return actions.summon_hero(engine, game, match, hero)
     if choice == "level":
-        return actions.level_hero(engine, game, match, 1 if levels is None else levels)
+        return actions.level_hero(engine, game, match, 1 if levels is None else levels, hero)
     if choice == "play":
         return actions.play_card(engine, game, match, _required(slug, "slug"))
     if choice == "build":
@@ -320,6 +321,17 @@ def _answer_upkeep_order(engine, game, match, prompt, choice, *, first=None) -> 
     return turn.finish_upkeep(engine, game, match, _required(first, "first"))
 
 
+def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None) -> StepResult:
+    """Which hero gains the kill's two levels (UMR p. 10), then the stack
+    goes on from where the kill stood."""
+    if hero not in prompt.options.heroes:
+        raise RuleRefusal("Choose one of their heroes in play to gain the levels.", cite="UMR p. 10")
+    top = match.resolving.pop(0)
+    result = StepResult(board_changed=True)
+    board.gain_kill_levels(engine, match, match.player(top["seat"]).hero_by_ref(hero), result)
+    return resolve.carry_on(engine, game, match, result)
+
+
 def _answer_game_over(engine, game, match, prompt, choice) -> StepResult:
     raise RuleRefusal("The game is over.")
 
@@ -337,13 +349,14 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.TARGET: _answer_target,
     PromptKind.APPEL_STOMP_TOP: _answer_appel,
     PromptKind.UPKEEP_ORDER: _answer_upkeep_order,
+    PromptKind.LEVEL_GAIN: _answer_level_gain,
     PromptKind.GAME_OVER: _answer_game_over,
 }
 
 #: The arguments each kind's answer may take.
 ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.MAIN_ACTION: frozenset({
-        "slug", "levels", "building", "attacker", "card", "ability", "source",
+        "slug", "levels", "building", "attacker", "card", "ability", "source", "hero",
     }),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender"}),
     PromptKind.PATROL: frozenset({"assignment"}),
@@ -355,6 +368,7 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.TARGET: frozenset({"target"}),
     PromptKind.APPEL_STOMP_TOP: frozenset(),
     PromptKind.UPKEEP_ORDER: frozenset({"first"}),
+    PromptKind.LEVEL_GAIN: frozenset({"hero"}),
     PromptKind.GAME_OVER: frozenset(),
 }
 
@@ -385,6 +399,44 @@ def _find_prompt(engine, game, match, action: Action) -> Union[PendingPrompt, Re
     return waiting
 
 
+def _upgrade_refs(match: MatchState, action: Action) -> Action:
+    """
+    An action from a journal older than step 10 names a hero `hero`
+    alone -- its side's one hero -- where it attacks, defends, patrols
+    or is targeted; read as `hero:<slug>`, the side's first, so a replay
+    of such a turn (a cancel's) finds the hero the engine now names.
+    """
+    from codex.components import HERO, hero_ref
+
+    active, other = match.active, (2 if match.active == 1 else 1)
+
+    def mine(seat: int, value):
+        if value == HERO:
+            return hero_ref(match.player(seat).heroes[0].slug)
+        if isinstance(value, str) and value[:2] in ("1:", "2:") and value[2:] == HERO:
+            return f"{value[0]}:{hero_ref(match.player(int(value[0])).heroes[0].slug)}"
+        return value
+
+    sides = {
+        "attacker": active, "source": active, "defender": other, "card": other,
+        "unit": other, "patroller": other, "target": other,
+    }
+    arguments = dict(action.arguments)
+    changed = False
+    for name, seat in sides.items():
+        if name in arguments and mine(seat, arguments[name]) != arguments[name]:
+            arguments[name] = mine(seat, arguments[name])
+            changed = True
+    if isinstance(arguments.get("assignment"), Mapping):
+        assignment = {slot: mine(active, ref) for slot, ref in arguments["assignment"].items()}
+        if assignment != arguments["assignment"]:
+            arguments["assignment"] = assignment
+            changed = True
+    if not changed:
+        return action
+    return Action(action.kind, action.choice, arguments)
+
+
 @dataclass(frozen=True)
 class Answered:
     """What one answer did, before anything that follows it has run."""
@@ -401,6 +453,7 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     does not offer, for an argument it does not take, and wherever the
     position says no (`RuleRefusal`, the one exception caught).
     """
+    action = _upgrade_refs(match, action)
     found = _find_prompt(engine, game, match, action)
     if isinstance(found, Refusal):
         return found

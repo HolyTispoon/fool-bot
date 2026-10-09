@@ -89,6 +89,11 @@ class PromptKind(Enum):
     #: The upkeep's order, where it changes what happens -- healing and
     #: Star-Crossed Starlet's damage both due (Starlet's ruling).
     UPKEEP_ORDER = "upkeep_order"
+    #: Which hero gains a kill's two levels, where the side that made
+    #: the kill has more than one in play (UMR p. 10) -- asked of the
+    #: active player where the kill happened, before anything after it
+    #: resolves.
+    LEVEL_GAIN = "level_gain"
     #: A base is destroyed (UMR p. 2), or a player conceded.
     GAME_OVER = "game_over"
 
@@ -101,7 +106,9 @@ class MainActionOptions:
     """The engine's `legal_actions`, as the prompt carries them."""
 
     hire: HireOption
-    hero: HeroOption
+    #: One per hero of the team, in its order: summon or level, or why
+    #: not (`RulesEngine.hero_options`).
+    heroes: tuple[HeroOption, ...]
     playable: tuple[PlayableCard, ...]
     buildings: tuple[BuildOption, ...]
     attackers: tuple[str, ...]
@@ -117,7 +124,7 @@ class MainActionOptions:
 
     def to_dict(self) -> dict:
         return jsonable({
-            "hire": self.hire, "hero": self.hero, "playable": self.playable,
+            "hire": self.hire, "heroes": self.heroes, "playable": self.playable,
             "buildings": self.buildings, "attackers": self.attackers,
             "end_main": self.end_main, "detect": self.detect, "hand": self.hand,
             "abilities": self.abilities,
@@ -277,6 +284,20 @@ class UpkeepOrderOptions:
 
 
 @dataclass(frozen=True)
+class LevelGainOptions:
+    """Which of `owner`'s heroes in play gains the kill's two levels --
+    `heroes` as refs, `hero:<slug>`. `seat` is the active player, who
+    is asked."""
+
+    seat: int
+    owner: int
+    heroes: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "owner": self.owner, "heroes": list(self.heroes)}
+
+
+@dataclass(frozen=True)
 class GameOverOptions:
     """Who won, and who conceded where the game ended that way. Nothing
     answers a finished game: playing it again is a new record
@@ -292,7 +313,7 @@ class GameOverOptions:
 PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
     TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
-    TargetOptions, AppelOptions, UpkeepOrderOptions, GameOverOptions,
+    TargetOptions, AppelOptions, UpkeepOrderOptions, LevelGainOptions, GameOverOptions,
 ]
 
 
@@ -363,6 +384,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.TARGET: ("", "cancel"),
     PromptKind.APPEL_STOMP_TOP: ("top", "discard"),
     PromptKind.UPKEEP_ORDER: ("",),
+    PromptKind.LEVEL_GAIN: ("",),
     PromptKind.GAME_OVER: (),
 }
 
@@ -421,6 +443,11 @@ def _upkeep_ask(seat: int) -> str:
     )
 
 
+def _level_ask(seat: int, owner: int) -> str:
+    whose = "your" if seat == owner else f"{tokens.player(owner)}'s"
+    return f"{tokens.player(seat)}, a hero was destroyed: choose which of {whose} heroes gains the 2 levels."
+
+
 def _confirm_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, your turn: confirm your tech choice, or change it."
 
@@ -440,7 +467,7 @@ COMBAT_PROMPTS = {
 def _main_options(engine, game, match, prompt) -> MainActionOptions:
     legal = engine.legal_actions(match)
     return MainActionOptions(
-        legal.hire, legal.hero, legal.playable, legal.buildings, legal.attackers,
+        legal.hire, legal.heroes, legal.playable, legal.buildings, legal.attackers,
         legal.end_main, legal.detect, engine.hand_rows(match, match.active),
         legal.abilities,
     )
@@ -464,6 +491,17 @@ def _appel_options(engine, game, match, prompt) -> AppelOptions:
 
 def _upkeep_options(engine, game, match, prompt) -> UpkeepOrderOptions:
     return UpkeepOrderOptions(prompt.asked_player)
+
+
+def _level_options(engine, game, match, prompt) -> LevelGainOptions:
+    from codex.components import hero_ref
+
+    top = match.resolving[0]
+    owner = match.player(top["seat"])
+    return LevelGainOptions(
+        prompt.asked_player, owner.seat,
+        tuple(hero_ref(hero.slug) for hero in owner.heroes_in_play),
+    )
 
 
 def _obliterate_options(engine, game, match, prompt) -> ObliterateOptions:
@@ -533,6 +571,7 @@ OPTIONS = {
     PromptKind.TARGET: _target_options,
     PromptKind.APPEL_STOMP_TOP: _appel_options,
     PromptKind.UPKEEP_ORDER: _upkeep_options,
+    PromptKind.LEVEL_GAIN: _level_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -600,6 +639,9 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             return PendingPrompt(PromptKind.APPEL_STOMP_TOP, _appel_ask(top["seat"]), top["seat"])
         if kind == "upkeep_order":
             return PendingPrompt(PromptKind.UPKEEP_ORDER, _upkeep_ask(top["seat"]), top["seat"])
+        if kind == "level_gain":
+            asked = top.get("asked", seat)
+            return PendingPrompt(PromptKind.LEVEL_GAIN, _level_ask(asked, top["seat"]), asked)
         return PendingPrompt(PromptKind.TARGET, _target_ask(engine, match, top), top["seat"])
     if match.phase == "ready":
         if tech_is_owed(match, seat):

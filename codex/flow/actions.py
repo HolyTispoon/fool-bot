@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Mapping, Optional
 
 from codex import effects, tokens
-from codex.components import HERO, PATROL_SLOTS, AddOnState, BuildingState, MatchState
+from codex.components import PATROL_SLOTS, AddOnState, BuildingState, MatchState, is_hero_ref
 from codex.effects import UNIMPLEMENTED
 from codex.formatting import SLOT_NAMES
 from codex.engine import (
@@ -75,16 +75,29 @@ def hire_worker(engine: "RulesEngine", game: "CodexGame", match: MatchState, slu
     ])
 
 
-def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
-    """The hero, for its cost, into play at level 1 with arrival fatigue
-    (UMR p. 6)."""
+def _hero(match: MatchState, slug: Optional[str]):
+    """The active player's hero named by `slug` -- their first where an
+    older journal names none, from before a side had three."""
+    player = match.active_player
+    if slug is None:
+        return player.heroes[0]
+    hero = player.hero_of(slug)
+    if hero is None:
+        raise RuleRefusal("That is not one of your heroes.")
+    return hero
+
+
+def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                slug: Optional[str] = None) -> StepResult:
+    """A hero, for its cost, into play at level 1 with arrival fatigue --
+    not with summoning runes, and not past the hero limit (UMR p. 6)."""
     seat = match.active
     player = match.active_player
-    option = engine.hero_option(player)
+    hero = _hero(match, slug)
+    option = engine.hero_option(player, hero)
     if option.action != "summon" or option.why_not:
         why = option.why_not or "it is already in play"
-        raise RuleRefusal(f"You can't summon your hero: {why}.", cite="UMR p. 6")
-    hero = player.hero
+        raise RuleRefusal(f"You can't summon {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
     player.gold -= option.cost
     hero.zone = "play"
     hero.level = 1
@@ -101,23 +114,24 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> 
     ])
 
 
-def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int) -> StepResult:
-    """`levels` levels for the hero in play, a gold each (UMR p. 6)."""
+def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int,
+               slug: Optional[str] = None) -> StepResult:
+    """`levels` levels for a hero in play, a gold each (UMR p. 6)."""
     seat = match.active
     player = match.active_player
-    option = engine.hero_option(player)
+    hero = _hero(match, slug)
+    option = engine.hero_option(player, hero)
     if option.action != "level" or option.why_not:
         why = option.why_not or "it is not in play"
-        raise RuleRefusal(f"You can't level your hero: {why}.", cite="UMR p. 6")
+        raise RuleRefusal(f"You can't level {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
     if not isinstance(levels, int) or levels < 1:
         raise RuleRefusal("Level the hero by one level or more.")
     if levels > option.max_levels:
         raise RuleRefusal(
-            f"Your hero can gain at most {option.max_levels} level"
+            f"{engine.name(hero.slug)} can gain at most {option.max_levels} level"
             + ("s" if option.max_levels != 1 else "") + " now.",
             cite="UMR p. 6",
         )
-    hero = player.hero
     player.gold -= levels * LEVEL_COST
     reached = raise_level(engine, hero, levels)
     match.record_event("levelled", slug=hero.slug, levels=levels, level=hero.level)
@@ -213,7 +227,7 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         by = tokens.card(effects.HARMONY)
     else:
         body.exhausted = True
-        if source == HERO:
+        if is_hero_ref(source):
             by = tokens.hero(body.slug)
         else:
             by = tokens.card(body.slug)
@@ -287,8 +301,10 @@ def declare_attacker(engine: "RulesEngine", game: "CodexGame", match: MatchState
 
 def _why_not_attacker(engine, match: MatchState, attacker: str) -> str:
     player = match.active_player
-    if attacker == HERO:
-        hero = player.hero
+    if is_hero_ref(attacker):
+        hero = player.hero_by_ref(attacker)
+        if hero is None:
+            return "That is not one of your heroes."
         name = engine.name(hero.slug)
         if not hero.in_play:
             return f"{name} can't attack: it is not in play."
@@ -341,7 +357,7 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
     body = engine.body(match, other, card)
     engine.tower(match.active_player).detected = card
     match.record_event("detected", card=card, by=seat)
-    named = tokens.hero(body.slug) if card == HERO else tokens.card(body.slug)
+    named = tokens.hero(body.slug) if is_hero_ref(card) else tokens.card(body.slug)
     return _done(engine, game, match, [
         f"{tokens.player(seat)}'s tower detects {tokens.player(other)}'s {named}: "
         "it is visible for the rest of the turn."
@@ -357,8 +373,8 @@ def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Ste
 def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 assignment: Optional[Mapping[str, str]]) -> StepResult:
     """
-    Put ready units and the hero into the five slots -- slot to
-    `unit:<id>` or `hero`, any slot left empty -- and end the main phase
+    Put ready units and heroes into the five slots -- slot to
+    `unit:<id>` or `hero:<slug>`, any slot left empty -- and end the main phase
     (UMR p. 10). Exhausted cards cannot patrol; fatigued ones can.
     """
     seat = match.active
@@ -379,9 +395,10 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         ref = assignment.get(slot)
         if ref is None:
             continue
-        if ref == HERO:
-            player.hero.patrol_slot = slot
-            named = tokens.hero(player.hero.slug)
+        if is_hero_ref(ref):
+            hero = player.hero_by_ref(ref)
+            hero.patrol_slot = slot
+            named = tokens.hero(hero.slug)
         else:
             card = player.instance(int(ref.split(":", 1)[1]))
             card.patrol_slot = slot

@@ -32,7 +32,7 @@
       "kind": "patrolled",
       "seat": 2,
       "slots": {
-        "elite": "hero",
+        "elite": "hero:river_montoya",
         "squad_leader": "unit:1"
       },
       "turn": 1
@@ -77,7 +77,7 @@
       "kind": "patrolled",
       "seat": 1,
       "slots": {
-        "elite": "hero",
+        "elite": "hero:troq_bashar",
         "squad_leader": "unit:2"
       },
       "turn": 2
@@ -141,7 +141,7 @@
       "turn": 3
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:2",
       "kind": "attacked",
       "seat": 2,
@@ -222,7 +222,7 @@
       "turn": 4
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "unit:4",
       "kind": "attacked",
       "seat": 1,
@@ -295,7 +295,7 @@
       "turn": 5
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "base",
       "kind": "attacked",
       "seat": 2,
@@ -362,7 +362,7 @@
       "turn": 6
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "unit:7",
       "kind": "attacked",
       "seat": 1,
@@ -427,7 +427,7 @@
       "turn": 7
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "base",
       "kind": "attacked",
       "seat": 2,
@@ -558,7 +558,7 @@
       "turn": 9
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:10",
       "kind": "attacked",
       "seat": 2,
@@ -625,7 +625,7 @@
       "kind": "patrolled",
       "seat": 1,
       "slots": {
-        "elite": "hero",
+        "elite": "hero:troq_bashar",
         "squad_leader": "unit:13"
       },
       "turn": 10
@@ -661,7 +661,7 @@
       "turn": 11
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:13",
       "kind": "attacked",
       "seat": 2,
@@ -743,7 +743,7 @@
       "turn": 12
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "base",
       "kind": "attacked",
       "seat": 1,
@@ -753,7 +753,7 @@
       "kind": "patrolled",
       "seat": 1,
       "slots": {
-        "squad_leader": "hero"
+        "squad_leader": "hero:troq_bashar"
       },
       "turn": 12
     },
@@ -821,7 +821,7 @@
       "turn": 14
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "unit:16",
       "kind": "attacked",
       "seat": 1,
@@ -839,7 +839,7 @@
       "seat": 1,
       "slots": {
         "elite": "unit:18",
-        "scavenger": "hero",
+        "scavenger": "hero:troq_bashar",
         "squad_leader": "unit:17"
       },
       "turn": 14
@@ -894,7 +894,7 @@
       "seat": 2,
       "slots": {
         "elite": "unit:20",
-        "scavenger": "hero",
+        "scavenger": "hero:river_montoya",
         "squad_leader": "unit:19"
       },
       "turn": 15
@@ -952,7 +952,7 @@
       "turn": 16
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "unit:20",
       "kind": "attacked",
       "seat": 1,
@@ -1006,7 +1006,7 @@
       "turn": 17
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:21",
       "kind": "attacked",
       "seat": 2,
@@ -1142,7 +1142,7 @@
       "turn": 19
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:26",
       "kind": "attacked",
       "seat": 2,
@@ -1240,7 +1240,7 @@
       "kind": "patrolled",
       "seat": 1,
       "slots": {
-        "squad_leader": "hero"
+        "squad_leader": "hero:troq_bashar"
       },
       "turn": 20
     },
@@ -1270,7 +1270,7 @@
     },
     {
       "attacker": "unit:27",
-      "defender": "hero",
+      "defender": "hero:troq_bashar",
       "kind": "attacked",
       "seat": 2,
       "turn": 21
@@ -1284,7 +1284,7 @@
     },
     {
       "attacker": "unit:28",
-      "defender": "hero",
+      "defender": "hero:troq_bashar",
       "kind": "attacked",
       "seat": 2,
       "turn": 21
@@ -1420,7 +1420,7 @@
       "kind": "patrolled",
       "seat": 2,
       "slots": {
-        "elite": "hero",
+        "elite": "hero:river_montoya",
         "squad_leader": "unit:34"
       },
       "turn": 23
@@ -1498,7 +1498,7 @@
         "elite": "unit:36",
         "scavenger": "unit:37",
         "squad_leader": "unit:35",
-        "technician": "hero"
+        "technician": "hero:troq_bashar"
       },
       "turn": 24
     },
@@ -1541,7 +1541,7 @@
       "turn": 25
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:river_montoya",
       "defender": "unit:35",
       "kind": "attacked",
       "seat": 2,
@@ -1616,7 +1616,7 @@
       "turn": 26
     },
     {
-      "attacker": "hero",
+      "attacker": "hero:troq_bashar",
       "defender": "base",
       "kind": "attacked",
       "seat": 1,
@@ -1695,7 +1695,7 @@
     {
       "action": {
         "arguments": {
-          "attacker": "hero"
+          "attacker": "hero:troq_bashar"
         },
         "choice": "attack",
         "kind": "main_action"
@@ -1770,6 +1770,7 @@
         "spark",
         "intimidate"
       ],
+      "deck_color": "neutral",
       "discard": [
         "eggship",
         "the_boot",
@@ -1781,22 +1782,24 @@
       ],
       "gold": 3,
       "hand": [],
-      "hero": {
-        "armor": 0,
-        "arrived_this_turn": false,
-        "attacked_this_turn": true,
-        "damage": 0,
-        "exhausted": false,
-        "level": 8,
-        "max_level_since_turn_began": true,
-        "minus_runes": 0,
-        "modifiers": [],
-        "patrol_slot": null,
-        "plus_runes": 0,
-        "slug": "troq_bashar",
-        "summoning_runes": 0,
-        "zone": "play"
-      },
+      "heroes": [
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attacked_this_turn": true,
+          "damage": 0,
+          "exhausted": false,
+          "level": 8,
+          "max_level_since_turn_began": true,
+          "minus_runes": 0,
+          "modifiers": [],
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "slug": "troq_bashar",
+          "summoning_runes": 0,
+          "zone": "play"
+        }
+      ],
       "hired_this_turn": false,
       "play": [
         {
@@ -1870,7 +1873,9 @@
       ],
       "reshuffled_this_phase": false,
       "seat": 1,
-      "spec": "bashing",
+      "specs": [
+        "bashing"
+      ],
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
@@ -1916,6 +1921,7 @@
         "maestro",
         "grounded_guide"
       ],
+      "deck_color": "neutral",
       "discard": [
         "older_brother",
         "granfalloon_flagbearer",
@@ -1945,27 +1951,31 @@
         "maestro",
         "backstabber"
       ],
-      "hero": {
-        "armor": 0,
-        "arrived_this_turn": false,
-        "attacked_this_turn": false,
-        "damage": 3,
-        "exhausted": true,
-        "level": 5,
-        "max_level_since_turn_began": true,
-        "minus_runes": 0,
-        "modifiers": [],
-        "patrol_slot": null,
-        "plus_runes": 0,
-        "slug": "river_montoya",
-        "summoning_runes": 0,
-        "zone": "play"
-      },
+      "heroes": [
+        {
+          "armor": 0,
+          "arrived_this_turn": false,
+          "attacked_this_turn": false,
+          "damage": 3,
+          "exhausted": true,
+          "level": 5,
+          "max_level_since_turn_began": true,
+          "minus_runes": 0,
+          "modifiers": [],
+          "patrol_slot": null,
+          "plus_runes": 0,
+          "slug": "river_montoya",
+          "summoning_runes": 0,
+          "zone": "play"
+        }
+      ],
       "hired_this_turn": false,
       "play": [],
       "reshuffled_this_phase": false,
       "seat": 2,
-      "spec": "finesse",
+      "specs": [
+        "finesse"
+      ],
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
@@ -2009,7 +2019,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:1"
           },
           "turn": 1
@@ -2054,7 +2064,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:2"
           },
           "turn": 2
@@ -2118,7 +2128,7 @@
           "turn": 3
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:2",
           "kind": "attacked",
           "seat": 2,
@@ -2199,7 +2209,7 @@
           "turn": 4
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:4",
           "kind": "attacked",
           "seat": 1,
@@ -2272,7 +2282,7 @@
           "turn": 5
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -2339,7 +2349,7 @@
           "turn": 6
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:7",
           "kind": "attacked",
           "seat": 1,
@@ -2404,7 +2414,7 @@
           "turn": 7
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -2535,7 +2545,7 @@
           "turn": 9
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:10",
           "kind": "attacked",
           "seat": 2,
@@ -2602,7 +2612,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:13"
           },
           "turn": 10
@@ -2638,7 +2648,7 @@
           "turn": 11
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:13",
           "kind": "attacked",
           "seat": 2,
@@ -2720,7 +2730,7 @@
           "turn": 12
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "base",
           "kind": "attacked",
           "seat": 1,
@@ -2730,7 +2740,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 12
         },
@@ -2798,7 +2808,7 @@
           "turn": 14
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:16",
           "kind": "attacked",
           "seat": 1,
@@ -2816,7 +2826,7 @@
           "seat": 1,
           "slots": {
             "elite": "unit:18",
-            "scavenger": "hero",
+            "scavenger": "hero:troq_bashar",
             "squad_leader": "unit:17"
           },
           "turn": 14
@@ -2871,7 +2881,7 @@
           "seat": 2,
           "slots": {
             "elite": "unit:20",
-            "scavenger": "hero",
+            "scavenger": "hero:river_montoya",
             "squad_leader": "unit:19"
           },
           "turn": 15
@@ -2929,7 +2939,7 @@
           "turn": 16
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:20",
           "kind": "attacked",
           "seat": 1,
@@ -2983,7 +2993,7 @@
           "turn": 17
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:21",
           "kind": "attacked",
           "seat": 2,
@@ -3119,7 +3129,7 @@
           "turn": 19
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:26",
           "kind": "attacked",
           "seat": 2,
@@ -3217,7 +3227,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 20
         },
@@ -3247,7 +3257,7 @@
         },
         {
           "attacker": "unit:27",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -3261,7 +3271,7 @@
         },
         {
           "attacker": "unit:28",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -3397,7 +3407,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:34"
           },
           "turn": 23
@@ -3473,6 +3483,7 @@
             "granfalloon_flagbearer",
             "regularsized_rhinoceros"
           ],
+          "deck_color": "neutral",
           "discard": [
             "eggship",
             "the_boot",
@@ -3484,22 +3495,24 @@
             "iron_man",
             "regularsized_rhinoceros"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": false,
-            "attacked_this_turn": false,
-            "damage": 0,
-            "exhausted": false,
-            "level": 1,
-            "max_level_since_turn_began": false,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": null,
-            "plus_runes": 0,
-            "slug": "troq_bashar",
-            "summoning_runes": 0,
-            "zone": "command"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attacked_this_turn": false,
+              "damage": 0,
+              "exhausted": false,
+              "level": 1,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "slug": "troq_bashar",
+              "summoning_runes": 0,
+              "zone": "command"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -3522,7 +3535,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
-          "spec": "bashing",
+          "specs": [
+            "bashing"
+          ],
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -3570,6 +3585,7 @@
             "backstabber",
             "maestro"
           ],
+          "deck_color": "neutral",
           "discard": [
             "older_brother",
             "granfalloon_flagbearer",
@@ -3593,22 +3609,24 @@
             "backstabber",
             "brick_thief"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": true,
-            "attacked_this_turn": false,
-            "damage": 0,
-            "exhausted": false,
-            "level": 5,
-            "max_level_since_turn_began": false,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": "elite",
-            "plus_runes": 0,
-            "slug": "river_montoya",
-            "summoning_runes": 0,
-            "zone": "play"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attacked_this_turn": false,
+              "damage": 0,
+              "exhausted": false,
+              "level": 5,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": "elite",
+              "plus_runes": 0,
+              "slug": "river_montoya",
+              "summoning_runes": 0,
+              "zone": "play"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -3648,7 +3666,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
-          "spec": "finesse",
+          "specs": [
+            "finesse"
+          ],
           "tech_choice": [
             "two_step",
             "two_step"
@@ -3696,7 +3716,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:1"
           },
           "turn": 1
@@ -3741,7 +3761,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:2"
           },
           "turn": 2
@@ -3805,7 +3825,7 @@
           "turn": 3
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:2",
           "kind": "attacked",
           "seat": 2,
@@ -3886,7 +3906,7 @@
           "turn": 4
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:4",
           "kind": "attacked",
           "seat": 1,
@@ -3959,7 +3979,7 @@
           "turn": 5
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -4026,7 +4046,7 @@
           "turn": 6
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:7",
           "kind": "attacked",
           "seat": 1,
@@ -4091,7 +4111,7 @@
           "turn": 7
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -4222,7 +4242,7 @@
           "turn": 9
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:10",
           "kind": "attacked",
           "seat": 2,
@@ -4289,7 +4309,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:13"
           },
           "turn": 10
@@ -4325,7 +4345,7 @@
           "turn": 11
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:13",
           "kind": "attacked",
           "seat": 2,
@@ -4407,7 +4427,7 @@
           "turn": 12
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "base",
           "kind": "attacked",
           "seat": 1,
@@ -4417,7 +4437,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 12
         },
@@ -4485,7 +4505,7 @@
           "turn": 14
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:16",
           "kind": "attacked",
           "seat": 1,
@@ -4503,7 +4523,7 @@
           "seat": 1,
           "slots": {
             "elite": "unit:18",
-            "scavenger": "hero",
+            "scavenger": "hero:troq_bashar",
             "squad_leader": "unit:17"
           },
           "turn": 14
@@ -4558,7 +4578,7 @@
           "seat": 2,
           "slots": {
             "elite": "unit:20",
-            "scavenger": "hero",
+            "scavenger": "hero:river_montoya",
             "squad_leader": "unit:19"
           },
           "turn": 15
@@ -4616,7 +4636,7 @@
           "turn": 16
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:20",
           "kind": "attacked",
           "seat": 1,
@@ -4670,7 +4690,7 @@
           "turn": 17
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:21",
           "kind": "attacked",
           "seat": 2,
@@ -4806,7 +4826,7 @@
           "turn": 19
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:26",
           "kind": "attacked",
           "seat": 2,
@@ -4904,7 +4924,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 20
         },
@@ -4934,7 +4954,7 @@
         },
         {
           "attacker": "unit:27",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -4948,7 +4968,7 @@
         },
         {
           "attacker": "unit:28",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -5084,7 +5104,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:34"
           },
           "turn": 23
@@ -5162,7 +5182,7 @@
             "elite": "unit:36",
             "scavenger": "unit:37",
             "squad_leader": "unit:35",
-            "technician": "hero"
+            "technician": "hero:troq_bashar"
           },
           "turn": 24
         },
@@ -5235,6 +5255,7 @@
             "spark",
             "intimidate"
           ],
+          "deck_color": "neutral",
           "discard": [
             "eggship",
             "the_boot",
@@ -5246,22 +5267,24 @@
             "regularsized_rhinoceros",
             "granfalloon_flagbearer"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": true,
-            "attacked_this_turn": false,
-            "damage": 0,
-            "exhausted": false,
-            "level": 8,
-            "max_level_since_turn_began": false,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": "technician",
-            "plus_runes": 0,
-            "slug": "troq_bashar",
-            "summoning_runes": 0,
-            "zone": "play"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": true,
+              "attacked_this_turn": false,
+              "damage": 0,
+              "exhausted": false,
+              "level": 8,
+              "max_level_since_turn_began": false,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": "technician",
+              "plus_runes": 0,
+              "slug": "troq_bashar",
+              "summoning_runes": 0,
+              "zone": "play"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -5318,7 +5341,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
-          "spec": "bashing",
+          "specs": [
+            "bashing"
+          ],
           "tech_choice": [
             "final_smash",
             "final_smash"
@@ -5369,6 +5394,7 @@
             "backstabber",
             "maestro"
           ],
+          "deck_color": "neutral",
           "discard": [
             "older_brother",
             "granfalloon_flagbearer",
@@ -5395,22 +5421,24 @@
             "backstabber",
             "brick_thief"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": false,
-            "attacked_this_turn": false,
-            "damage": 0,
-            "exhausted": false,
-            "level": 5,
-            "max_level_since_turn_began": true,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": null,
-            "plus_runes": 0,
-            "slug": "river_montoya",
-            "summoning_runes": 0,
-            "zone": "play"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attacked_this_turn": false,
+              "damage": 0,
+              "exhausted": false,
+              "level": 5,
+              "max_level_since_turn_began": true,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "slug": "river_montoya",
+              "summoning_runes": 0,
+              "zone": "play"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -5433,7 +5461,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
-          "spec": "finesse",
+          "specs": [
+            "finesse"
+          ],
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -5478,7 +5508,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:1"
           },
           "turn": 1
@@ -5523,7 +5553,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:2"
           },
           "turn": 2
@@ -5587,7 +5617,7 @@
           "turn": 3
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:2",
           "kind": "attacked",
           "seat": 2,
@@ -5668,7 +5698,7 @@
           "turn": 4
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:4",
           "kind": "attacked",
           "seat": 1,
@@ -5741,7 +5771,7 @@
           "turn": 5
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -5808,7 +5838,7 @@
           "turn": 6
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:7",
           "kind": "attacked",
           "seat": 1,
@@ -5873,7 +5903,7 @@
           "turn": 7
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "base",
           "kind": "attacked",
           "seat": 2,
@@ -6004,7 +6034,7 @@
           "turn": 9
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:10",
           "kind": "attacked",
           "seat": 2,
@@ -6071,7 +6101,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:troq_bashar",
             "squad_leader": "unit:13"
           },
           "turn": 10
@@ -6107,7 +6137,7 @@
           "turn": 11
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:13",
           "kind": "attacked",
           "seat": 2,
@@ -6189,7 +6219,7 @@
           "turn": 12
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "base",
           "kind": "attacked",
           "seat": 1,
@@ -6199,7 +6229,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 12
         },
@@ -6267,7 +6297,7 @@
           "turn": 14
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:16",
           "kind": "attacked",
           "seat": 1,
@@ -6285,7 +6315,7 @@
           "seat": 1,
           "slots": {
             "elite": "unit:18",
-            "scavenger": "hero",
+            "scavenger": "hero:troq_bashar",
             "squad_leader": "unit:17"
           },
           "turn": 14
@@ -6340,7 +6370,7 @@
           "seat": 2,
           "slots": {
             "elite": "unit:20",
-            "scavenger": "hero",
+            "scavenger": "hero:river_montoya",
             "squad_leader": "unit:19"
           },
           "turn": 15
@@ -6398,7 +6428,7 @@
           "turn": 16
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:troq_bashar",
           "defender": "unit:20",
           "kind": "attacked",
           "seat": 1,
@@ -6452,7 +6482,7 @@
           "turn": 17
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:21",
           "kind": "attacked",
           "seat": 2,
@@ -6588,7 +6618,7 @@
           "turn": 19
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:26",
           "kind": "attacked",
           "seat": 2,
@@ -6686,7 +6716,7 @@
           "kind": "patrolled",
           "seat": 1,
           "slots": {
-            "squad_leader": "hero"
+            "squad_leader": "hero:troq_bashar"
           },
           "turn": 20
         },
@@ -6716,7 +6746,7 @@
         },
         {
           "attacker": "unit:27",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -6730,7 +6760,7 @@
         },
         {
           "attacker": "unit:28",
-          "defender": "hero",
+          "defender": "hero:troq_bashar",
           "kind": "attacked",
           "seat": 2,
           "turn": 21
@@ -6866,7 +6896,7 @@
           "kind": "patrolled",
           "seat": 2,
           "slots": {
-            "elite": "hero",
+            "elite": "hero:river_montoya",
             "squad_leader": "unit:34"
           },
           "turn": 23
@@ -6944,7 +6974,7 @@
             "elite": "unit:36",
             "scavenger": "unit:37",
             "squad_leader": "unit:35",
-            "technician": "hero"
+            "technician": "hero:troq_bashar"
           },
           "turn": 24
         },
@@ -6987,7 +7017,7 @@
           "turn": 25
         },
         {
-          "attacker": "hero",
+          "attacker": "hero:river_montoya",
           "defender": "unit:35",
           "kind": "attacked",
           "seat": 2,
@@ -7078,6 +7108,7 @@
             "spark",
             "intimidate"
           ],
+          "deck_color": "neutral",
           "discard": [
             "eggship",
             "the_boot",
@@ -7092,22 +7123,24 @@
             "regularsized_rhinoceros",
             "granfalloon_flagbearer"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": false,
-            "attacked_this_turn": false,
-            "damage": 0,
-            "exhausted": false,
-            "level": 8,
-            "max_level_since_turn_began": true,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": null,
-            "plus_runes": 0,
-            "slug": "troq_bashar",
-            "summoning_runes": 0,
-            "zone": "play"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attacked_this_turn": false,
+              "damage": 0,
+              "exhausted": false,
+              "level": 8,
+              "max_level_since_turn_began": true,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "slug": "troq_bashar",
+              "summoning_runes": 0,
+              "zone": "play"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -7147,7 +7180,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
-          "spec": "bashing",
+          "specs": [
+            "bashing"
+          ],
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
@@ -7193,6 +7228,7 @@
             "maestro",
             "grounded_guide"
           ],
+          "deck_color": "neutral",
           "discard": [
             "older_brother",
             "granfalloon_flagbearer",
@@ -7220,22 +7256,24 @@
             "maestro",
             "backstabber"
           ],
-          "hero": {
-            "armor": 0,
-            "arrived_this_turn": false,
-            "attacked_this_turn": false,
-            "damage": 3,
-            "exhausted": true,
-            "level": 5,
-            "max_level_since_turn_began": true,
-            "minus_runes": 0,
-            "modifiers": [],
-            "patrol_slot": null,
-            "plus_runes": 0,
-            "slug": "river_montoya",
-            "summoning_runes": 0,
-            "zone": "play"
-          },
+          "heroes": [
+            {
+              "armor": 0,
+              "arrived_this_turn": false,
+              "attacked_this_turn": false,
+              "damage": 3,
+              "exhausted": true,
+              "level": 5,
+              "max_level_since_turn_began": true,
+              "minus_runes": 0,
+              "modifiers": [],
+              "patrol_slot": null,
+              "plus_runes": 0,
+              "slug": "river_montoya",
+              "summoning_runes": 0,
+              "zone": "play"
+            }
+          ],
           "hired_this_turn": false,
           "play": [
             {
@@ -7275,7 +7313,9 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
-          "spec": "finesse",
+          "specs": [
+            "finesse"
+          ],
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,

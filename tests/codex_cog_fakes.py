@@ -209,7 +209,7 @@ def find_button(view, which) -> discord.ui.Button:
     """A button by the start of its label, or -- a tuple -- by the choice
     it answers with (`PanelButton.choice`): `("play", slug)`,
     `("build", building)`, `("attack", ref)`, `("ability", effect,
-    source)`, `("level",)`, `("hire", slug)`, `("defend", ref)`,
+    source)`, `("summon", hero)`, `("level", hero)`, `("hire", slug)`, `("defend", ref)`,
     `("target", key)`, `("detect", ref)`, `("obliterate", ref)`,
     `("sparkshot", ref)`, `("overpower", ref)`."""
     for item in view.children:

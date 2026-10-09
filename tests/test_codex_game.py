@@ -25,7 +25,7 @@ class LobbyTests(unittest.TestCase):
         self.game.start(RulesEngine(seed=3))
         self.assertIs(self.game.status, GameStatus.PLAYING)
         match = MatchState.from_dict(self.game.match_state)
-        self.assertEqual([p.spec for p in match.players], ["bashing", "finesse"])
+        self.assertEqual([p.specs for p in match.players], [("bashing",), ("finesse",)])
 
     def test_both_sides_may_play_one_hero(self) -> None:
         """Each player chooses their heroes (UMR p. 3): nothing says the

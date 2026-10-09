@@ -25,10 +25,10 @@ from contextlib import contextmanager
 from unittest import mock
 
 from codex import keywords, rulings
-from codex.components import HERO, AddOnState, CardInstance
-from codex.flow import actions, combat, turn
+from codex.components import AddOnState, CardInstance, is_hero_ref
+from codex.flow import StepResult, actions, board, combat, turn
 from codex.prompts import PromptKind, pending_prompt
-from codex_positions import begin, built, hero_in_play, new_game, put
+from codex_positions import TROQ, begin, built, hero_in_play, new_game, put
 
 #: The keywords step 5 implements, and how many `General` rulings each
 #: carried at the pinned import (`SOURCE_SHA` in
@@ -52,6 +52,8 @@ STEP_5_KEYWORDS = {
     "Haste": 2,
     #: A detector is what the tower is; the database rules on it nowhere.
     "Detector": 0,
+    #: The standard game's add-on, step 10's (UMR p. 9).
+    "Heroes' Hall": 2,
 }
 
 
@@ -97,7 +99,7 @@ class KeywordCase(unittest.TestCase):
         return combat.declare_attack(engine, game, match, attacker, defender)
 
     def damage(self, match, seat: int, ref: str) -> int:
-        body = match.player(seat).hero if ref == HERO else match.player(seat).instance(
+        body = match.player(seat).hero_by_ref(ref) if is_hero_ref(ref) else match.player(seat).instance(
             int(ref.split(":", 1)[1]),
         )
         return body.damage
@@ -821,12 +823,12 @@ class ReadinessTests(KeywordCase):
         hero_in_play(match, 1, level=8)
         hero = match.player(1).hero
         self.assertTrue(engine.has_keyword(hero, "Readiness"))
-        self.assertIn(HERO, engine.attackers(match))
+        self.assertIn(TROQ, engine.attackers(match))
         hero.exhausted = True
-        self.assertNotIn(HERO, engine.attackers(match))
+        self.assertNotIn(TROQ, engine.attackers(match))
         hero.exhausted = False
         hero.arrived_this_turn = True
-        self.assertNotIn(HERO, engine.attackers(match))
+        self.assertNotIn(TROQ, engine.attackers(match))
 
     def test_readiness_2(self) -> None:
         """If you attack with something that has readiness, it won't
@@ -835,7 +837,7 @@ class ReadinessTests(KeywordCase):
         can't attack with it again that turn."""
         engine, game, match = fresh()
         hero_in_play(match, 1, level=8)
-        self.attack(engine, game, match, HERO, "base")
+        self.attack(engine, game, match, TROQ, "base")
         hero = match.player(1).hero
         self.assertFalse(hero.exhausted)
         self.assertTrue(hero.attacked_this_turn)
@@ -847,10 +849,10 @@ class ReadinessTests(KeywordCase):
         level abilities), they count as new objects though."""
         engine, game, match = fresh()
         hero_in_play(match, 1, level=8)
-        self.attack(engine, game, match, HERO, "base")
-        self.assertNotIn(HERO, engine.attackers(match))
+        self.attack(engine, game, match, TROQ, "base")
+        self.assertNotIn(TROQ, engine.attackers(match))
         with self.assertRaises(Exception):
-            self.attack(engine, game, match, HERO, "base")
+            self.attack(engine, game, match, TROQ, "base")
         # Killed and summoned again, it is a new object: nothing of the
         # turn clings to it.
         hero = match.player(1).hero
@@ -1056,6 +1058,65 @@ class AttackChoiceTests(KeywordCase):
         combat.declare_attack(engine, game, match, duck, "unit:2")
         with self.assertRaises(Exception):
             actions.cancel_attack(engine, game, match)
+
+
+class HeroesHallTests(KeywordCase):
+    """The heroes' hall (UMR p. 9) -- a standard game's add-on, whose
+    rulings are the one reading of the hero limit (`RulesEngine.hero_limit`)."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    def standard(self):
+        engine, game, match = new_game(teams=(self.RED, self.GREEN))
+        begin(engine, game, match)
+        return engine, game, match
+
+    def test_heroes_hall_1(self) -> None:
+        """Heroes' Hall only does anything when you want to play a hero.
+        You can determine how many heroes you can play like so: - If you
+        have an active Tech 3 building, or you have an active Tech 2
+        building and an active Heroes' Hall, you can play all 3 heroes. -
+        If you have an active Tech 2 building or an active Heroes' Hall,
+        you can play 2 heroes. - Otherwise, you can play only 1 hero."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        self.assertEqual(engine.hero_limit(player), 1)
+        hall = AddOnState(slug="heroes_hall", hp=4, under_construction=True)
+        player.add_on = hall
+        self.assertEqual(engine.hero_limit(player), 1, "a hall under construction is not active")
+        hall.under_construction = False
+        self.assertEqual(engine.hero_limit(player), 2)
+        player.add_on = None
+        built(match, 1, "tech1")
+        tech2 = built(match, 1, "tech2")
+        self.assertEqual(engine.hero_limit(player), 2)
+        player.add_on = hall
+        self.assertEqual(engine.hero_limit(player), 3)
+        player.add_on = None
+        built(match, 1, "tech3")
+        self.assertEqual(engine.hero_limit(player), 3)
+        tech2.destroyed = True
+        self.assertEqual(engine.hero_limit(player), 3, "an active Tech 3 is enough")
+        match.player(1).buildings["tech3"].destroyed = True
+        self.assertEqual(engine.hero_limit(player), 1)
+
+    def test_heroes_hall_2(self) -> None:
+        """Losing Heroes' Hall won't cause any of your heroes to leave
+        play."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        player.add_on = AddOnState(slug="heroes_hall", hp=1, under_construction=False)
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        hero_in_play(match, 1, slug="captain_zane")
+        put(match, 2, "iron_man")
+        board.damage_building(match, 1, "add_on", 1, StepResult())
+        self.assertIsNone(player.add_on)
+        board.settle(engine, match, StepResult())
+        self.assertEqual(len(player.heroes_in_play), 2)
+        self.assertEqual(engine.hero_limit(player), 1)
+        option = engine.hero_option(player, player.hero_of("drakk_ramhorn"))
+        self.assertIn("hero limit is 1", option.why_not)
 
 
 class EveryRulingIsPinnedTests(unittest.TestCase):

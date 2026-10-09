@@ -6,17 +6,18 @@ pictured above it, the main phase's actions under it. The view for
 `MAIN_ACTION` and `CHOOSE_DEFENDER`, for the three choices an attack
 asks inside itself -- obliterate's tie, sparkshot's neighbour and
 overpower's excess -- and for the questions an effect asks as it
-resolves: a target (`TARGET`), Appel Stomp's place (`APPEL_STOMP_TOP`)
-and the upkeep's order (`UPKEEP_ORDER`), each buttons for what the
-prompt offers.
+resolves: a target (`TARGET`), Appel Stomp's place (`APPEL_STOMP_TOP`),
+the upkeep's order (`UPKEEP_ORDER`) and which hero gains a kill's levels
+(`LEVEL_GAIN`), each buttons for what the prompt offers.
 
 Every control is built from the prompt's options and nothing else --
 `MainActionOptions` for the actions, `DefenderOptions` for the defender
 -- and every click answers through `SafeView.apply`, so the driver
 refuses whatever the options did not offer. **The main phase is rows
 of buttons, not menus** (the author, 2026-10-09): a card in the hand
-is a button, a building is a button, the hero's level is one button
-that buys one level, and **Attack...** opens the attackers as buttons.
+is a button, a building is a button, each hero is one button on a row of
+their own that summons it or buys one level, and **Attack...** opens the
+attackers as buttons.
 Three modes are the view's own and change nothing: **Attack...** opens
 what may attack, **Hire worker** the hand's cards to hire with, **Undo**
 the undos `history.undo_targets` says are open
@@ -53,8 +54,8 @@ BUTTONS_PER_ROW = 5
 
 #: The hand's buttons take at most this many rows, so the board's row
 #: -- what may be built, the tower, the abilities -- always has one
-#: left after the actions row and the hand.
-HAND_ROWS = 3
+#: left after the actions row, the heroes' row and the hand.
+HAND_ROWS = 2
 
 NOT_YOUR_PANEL = "This panel is the active player's: only they can act from it."
 
@@ -82,8 +83,8 @@ def hand_numbers(options) -> dict[str, int]:
 class PanelButton(discord.ui.Button):
     """A button on the panel, carrying `choice` -- what it answers with
     off the prompt's options: `("play", slug)`, `("build", building)`,
-    `("attack", ref)`, `("ability", effect, source)`, `("level",)`,
-    `("hire", slug)`, `("defend", ref)`, `("target", key)`,
+    `("attack", ref)`, `("ability", effect, source)`, `("summon", hero)`,
+    `("level", hero)`, `("level_gain", ref)`, `("hire", slug)`, `("defend", ref)`, `("target", key)`,
     `("detect", ref)`, `("obliterate", ref)`, `("sparkshot", ref)`,
     `("overpower", ref)`, or `None` for a button that is not one choice
     among several -- so a test finds it by what it chooses rather than
@@ -158,9 +159,11 @@ class PanelView(SafeView):
 class TurnPanelView(PanelView):
     """
     The main phase, from `MainActionOptions`, as rows of buttons (the
-    author, 2026-10-09): the actions row -- **Hire worker**, **Summon**
-    or **Level up** the hero (one level a click), **Attack...**,
-    **Undo...**, **End main phase** -- then the hand, a button per card
+    author, 2026-10-09): the actions row -- **Hire worker**,
+    **Attack...**, **Undo...**, **End main phase** -- then the heroes'
+    row, a button per hero that summons it or levels it up by one level
+    a click (step 10: three heroes a side do not fit the actions row),
+    then the hand, a button per card
     numbered as the picture numbers it and disabled where it may not be
     played, then the board's row -- **Build** per building that may be
     built, **Detect...** where there is a tower, and each ability that
@@ -190,6 +193,8 @@ class TurnPanelView(PanelView):
             self.build_appel(options)
         elif prompt.kind is PromptKind.UPKEEP_ORDER:
             self.build_upkeep(options)
+        elif prompt.kind is PromptKind.LEVEL_GAIN:
+            self.build_level_gain(options)
         elif mode == "attack":
             self.build_attack(options)
         elif mode == "hire":
@@ -204,15 +209,15 @@ class TurnPanelView(PanelView):
     # -- The actions -------------------------------------------------------
 
     def build_actions(self, options) -> None:
-        """The actions row, the hand's rows, then the board's row -- each
-        group starting a row of its own, five buttons a row."""
+        """The actions row, the heroes' row, the hand's rows, then the
+        board's row -- each group starting a row of its own, five buttons
+        a row."""
         hire = options.hire
         actions = [
             self.make_button(
                 "Hire worker" if hire.allowed else f"Hire: {hire.why_not}",
                 discord.ButtonStyle.primary, self.open_hire, disabled=not hire.allowed,
             ),
-            self.hero_button(options.hero),
             self.make_button(
                 "Attack..." if options.attackers else "Attack: nothing of yours can attack now",
                 discord.ButtonStyle.primary, self.open_attack, disabled=not options.attackers,
@@ -259,24 +264,29 @@ class TurnPanelView(PanelView):
             )
             for ability in options.abilities if ability.allowed
         ]
+        heroes = [self.hero_button(hero) for hero in options.heroes]
         row = self.place(actions, 0)
+        row = self.place(heroes, row)
         row = self.place(hand, row, until=row + HAND_ROWS)
         self.place(board, row)
 
     def hero_button(self, hero) -> PanelButton:
-        """**Summon** for its cost, or **Level up** by one level -- a
-        level a click (the author, 2026-10-09) -- or why neither."""
+        """**Summon Jaina (2 gold)**, or **Level up Jaina (1 gold)** -- a
+        level a click (the author, 2026-10-09) -- disabled with its reason
+        where the engine says no: the hero limit, the runes, the gold,
+        the maximum."""
         name = card_name(hero.slug)
         if hero.action == "summon":
             return self.make_button(
                 f"Summon {name} ({hero.cost} gold)" if not hero.why_not
-                else f"Summon: {hero.why_not}",
-                discord.ButtonStyle.primary, self.summon, disabled=bool(hero.why_not),
+                else f"Summon {name}: {hero.why_not}",
+                discord.ButtonStyle.primary, self._answer(self.summon, hero.slug),
+                disabled=bool(hero.why_not), choice=("summon", hero.slug),
             )
         if hero.action == "level" and not hero.why_not and hero.max_levels:
             return self.make_button(
                 f"Level up {name} ({hero.cost} gold)", discord.ButtonStyle.primary,
-                self.level, choice=("level",),
+                self._answer(self.level, hero.slug), choice=("level", hero.slug),
             )
         return self.make_button(f"{name}: {hero.why_not or 'nothing to do'}",
                                 discord.ButtonStyle.secondary, None, disabled=True)
@@ -364,8 +374,8 @@ class TurnPanelView(PanelView):
         await self.show(interaction, view,
                         self.cog.panel_caption(game, self.prompt, caption) if caption else None)
 
-    async def summon(self, interaction: discord.Interaction) -> None:
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "summon"))
+    async def summon(self, interaction: discord.Interaction, hero: str) -> None:
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "summon", {"hero": hero}))
 
     def ability_label(self, ability) -> str:
         """An ability's button: what offers it and what it does, in the
@@ -375,9 +385,11 @@ class TurnPanelView(PanelView):
         says = effects.EFFECTS[ability.effect].parts[0].says
         return f"{self.label(ability.source)}: exhaust to {says}"
 
-    async def level(self, interaction: discord.Interaction) -> None:
+    async def level(self, interaction: discord.Interaction, hero: str) -> None:
         """One level for a gold: a level a click."""
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "level", {"levels": 1}))
+        await self.act(interaction, Action(
+            PromptKind.MAIN_ACTION, "level", {"levels": 1, "hero": hero},
+        ))
 
     async def ability(self, interaction: discord.Interaction, effect: str, source: str) -> None:
         await self.act(interaction, Action(
@@ -589,6 +601,17 @@ class TurnPanelView(PanelView):
         async def run(interaction: discord.Interaction) -> None:
             await self.act(interaction, Action(PromptKind.UPKEEP_ORDER, "", {"first": effect}))
         return run
+
+    def build_level_gain(self, options) -> None:
+        """Which hero gains the kill's two levels, a button each (UMR
+        p. 10)."""
+        self.place(self.choices(
+            options.heroes, lambda ref: self.label(ref, options.owner), self.level_gain,
+            "level_gain", "No hero is in play",
+        ), 0)
+
+    async def level_gain(self, interaction: discord.Interaction, ref: str) -> None:
+        await self.act(interaction, Action(PromptKind.LEVEL_GAIN, "", {"hero": ref}))
 
     # -- Undo ----------------------------------------------------------------
 

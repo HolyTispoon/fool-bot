@@ -54,7 +54,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont, ImageOps
 
 from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
-    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState,
+    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
 from codex.engine import TECH_BUILDING_SLUGS
 
@@ -588,8 +588,8 @@ def partner_ids(player: PlayerState) -> set[int]:
 
 def heroes(player: PlayerState) -> list[HeroState]:
     """A player's heroes: one in the basic game, three in the standard
-    one once it is played."""
-    return [player.hero]
+    one."""
+    return list(player.heroes)
 
 
 def panel_columns(player: PlayerState) -> int:
@@ -659,8 +659,8 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         ref = player.patroller(slot)
         if ref is None:
             continue
-        if ref == "hero":
-            lying = hero_lying(player.hero, cards)
+        if is_hero_ref(ref):
+            lying = hero_lying(player.hero_by_ref(ref), cards)
         else:
             instance_id = int(ref.split(":", 1)[1])
             lying = unit_lying(match.instance(instance_id), instance_id in partners)
@@ -737,7 +737,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
     x += font(26).getlength(name) + 18
-    spec = f"{player.spec.title()} · {hero_name(player.hero, cards)}"
+    spec = f"{player.specs[0].title()} · {hero_name(player.heroes[0], cards)}"
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:

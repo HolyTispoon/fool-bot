@@ -10,7 +10,7 @@
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:3} and 5 workers.
 --- board changed
-=== action 2: MAIN_ACTION 'summon' {}
+=== action 2: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 2)
@@ -25,7 +25,7 @@
 === action 4: MAIN_ACTION 'end_main' {}
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
-=== action 5: PATROL '' {"assignment": {"elite": "hero", "squad_leader": "unit:1"}}
+=== action 5: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:1"}}
 --- narration
 {player:2} patrols with {card:tenderfoot} as squad leader, {hero:river_montoya} as elite. {player:2} discards 3 and draws 5. **End of turn 1** -- {player:2} (Finesse).
 {player:1} collects {gold:5} from 5 workers: {gold:5}.
@@ -51,7 +51,7 @@
 {player:1}, your main phase: {gold:3} and 6 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 9: MAIN_ACTION 'summon' {}
+=== action 9: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 1)
@@ -69,7 +69,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 12: PATROL '' {"assignment": {"elite": "hero", "squad_leader": "unit:2"}}
+=== action 12: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:2"}}
 --- narration
 {player:1} patrols with {card:tenderfoot} as squad leader, {hero:troq_bashar} as elite. {player:1} discards 3 and draws 5.
 {player:1}'s Tech I building is finished.
@@ -143,7 +143,7 @@
 {player:2}, your main phase: {gold:0} and 6 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 23: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 23: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -210,7 +210,7 @@
 {player:1}, your main phase: {gold:1} and 7 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 33: MAIN_ACTION 'level' {"levels": 1}
+=== action 33: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 2 for {gold:1}.
 --- prompt MAIN_ACTION (player 1)
@@ -230,7 +230,7 @@
 {player:1}, your main phase: {gold:0} and 7 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 36: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 36: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
@@ -330,7 +330,7 @@
 {player:2}, your main phase: {gold:0} and 7 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 51: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 51: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -387,7 +387,7 @@
 {player:1}, your main phase: {gold:1} and 8 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 60: MAIN_ACTION 'level' {"levels": 1}
+=== action 60: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 3 for {gold:1}.
 --- prompt MAIN_ACTION (player 1)
@@ -407,7 +407,7 @@
 {player:1}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 63: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 63: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
@@ -461,7 +461,7 @@
 {player:2}, your main phase: {gold:2} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 71: MAIN_ACTION 'level' {"levels": 2}
+=== action 71: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 2}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:2}: a new band, 3/4 and healed.
 --- prompt MAIN_ACTION (player 2)
@@ -480,7 +480,7 @@
 {player:2}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 74: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 74: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -624,7 +624,7 @@
 {player:2}, your main phase: {gold:5} and 9 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 96: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 96: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -676,7 +676,7 @@
 {player:1}, your main phase: {gold:5} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 104: MAIN_ACTION 'summon' {}
+=== action 104: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 1)
@@ -690,7 +690,7 @@
 {player:1}, your main phase: {gold:1} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 106: MAIN_ACTION 'level' {"levels": 1}
+=== action 106: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 1}
 --- narration
 {player:1} levels {hero:troq_bashar} to 2 for {gold:1}.
 --- prompt MAIN_ACTION (player 1)
@@ -701,7 +701,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 108: PATROL '' {"assignment": {"elite": "hero", "squad_leader": "unit:13"}}
+=== action 108: PATROL '' {"assignment": {"elite": "hero:troq_bashar", "squad_leader": "unit:13"}}
 --- narration
 {player:1} patrols with {card:revolver_ocelot} as squad leader, {hero:troq_bashar} as elite. {player:1} discards 0 and draws 2. {player:1} shuffles their discard pile into their deck.
 {player:1}'s Tech III building is finished.
@@ -757,7 +757,7 @@
 {player:2}, your main phase: {gold:7} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 116: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 116: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -813,7 +813,7 @@
 {player:1}, your main phase: {gold:5} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 124: MAIN_ACTION 'level' {"levels": 4}
+=== action 124: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 4}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:4}: a new band, 4/5 and healed.
 --- prompt MAIN_ACTION (player 1)
@@ -846,7 +846,7 @@
 {player:1}, your main phase: {gold:1} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 129: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 129: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
@@ -863,7 +863,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 132: PATROL '' {"assignment": {"squad_leader": "hero"}}
+=== action 132: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
 --- narration
 {player:1} patrols with {hero:troq_bashar} as squad leader. {player:1} discards 0 and draws 2.
 **End of turn 12** -- {player:1} (Bashing).
@@ -942,7 +942,7 @@
 {player:1}, your main phase: {gold:6} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 144: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 144: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
@@ -960,7 +960,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 147: PATROL '' {"assignment": {"elite": "unit:18", "scavenger": "hero", "squad_leader": "unit:17"}}
+=== action 147: PATROL '' {"assignment": {"elite": "unit:18", "scavenger": "hero:troq_bashar", "squad_leader": "unit:17"}}
 --- narration
 {player:1} patrols with {card:helpful_turtle} as squad leader, {card:iron_man} as elite, {hero:troq_bashar} as scavenger. {player:1} discards 0 and draws 2.
 **End of turn 14** -- {player:1} (Bashing).
@@ -981,7 +981,7 @@
 {player:2}, your main phase: {gold:20} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 150: MAIN_ACTION 'summon' {}
+=== action 150: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 2)
@@ -1016,7 +1016,7 @@
 {player:2}, your main phase: {gold:12} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 155: MAIN_ACTION 'level' {"levels": 4}
+=== action 155: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed.
 --- prompt MAIN_ACTION (player 2)
@@ -1027,7 +1027,7 @@
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
-=== action 157: PATROL '' {"assignment": {"elite": "unit:20", "scavenger": "hero", "squad_leader": "unit:19"}}
+=== action 157: PATROL '' {"assignment": {"elite": "unit:20", "scavenger": "hero:river_montoya", "squad_leader": "unit:19"}}
 --- narration
 {player:2} patrols with {card:older_brother} as squad leader, {card:granfalloon_flagbearer} as elite, {hero:river_montoya} as scavenger. {player:2} discards 0 and draws 2. {player:2} shuffles their discard pile into their deck.
 **End of turn 15** -- {player:2} (Finesse).
@@ -1088,7 +1088,7 @@
 {player:1}, your main phase: {gold:9} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 166: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 166: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 2)
@@ -1141,7 +1141,7 @@
 {player:2}, your main phase: {gold:14} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 174: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 174: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -1272,7 +1272,7 @@
 {player:2}, your main phase: {gold:13} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 194: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 194: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -1310,7 +1310,7 @@
 {player:1}, your main phase: {gold:20} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 200: MAIN_ACTION 'summon' {}
+=== action 200: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 1)
@@ -1332,7 +1332,7 @@
 {player:1}, your main phase: {gold:14} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 203: MAIN_ACTION 'level' {"levels": 7}
+=== action 203: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed.
 --- prompt MAIN_ACTION (player 1)
@@ -1381,7 +1381,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 211: PATROL '' {"assignment": {"squad_leader": "hero"}}
+=== action 211: PATROL '' {"assignment": {"squad_leader": "hero:troq_bashar"}}
 --- narration
 {player:1} patrols with {hero:troq_bashar} as squad leader. {player:1} discards 0 and draws 2.
 **End of turn 20** -- {player:1} (Bashing).
@@ -1420,7 +1420,7 @@
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
-=== action 217: CHOOSE_DEFENDER '' {"defender": "hero"}
+=== action 217: CHOOSE_DEFENDER '' {"defender": "hero:troq_bashar"}
 --- narration
 {card:nimble_fencer} attacks {player:1}'s {hero:troq_bashar}.
 {card:nimble_fencer} deals 3 (armor takes 1); {player:1}'s {hero:troq_bashar} deals 4.
@@ -1433,7 +1433,7 @@
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
-=== action 219: CHOOSE_DEFENDER '' {"defender": "hero"}
+=== action 219: CHOOSE_DEFENDER '' {"defender": "hero:troq_bashar"}
 --- narration
 {card:grounded_guide} attacks {player:1}'s {hero:troq_bashar}.
 {card:grounded_guide} deals 4; {player:1}'s {hero:troq_bashar} deals 4.
@@ -1524,7 +1524,7 @@
 {player:2}, your main phase: {gold:20} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 233: MAIN_ACTION 'summon' {}
+=== action 233: MAIN_ACTION 'summon' {"hero": "river_montoya"}
 --- narration
 {player:2} summons {hero:river_montoya} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 2)
@@ -1546,7 +1546,7 @@
 {player:2}, your main phase: {gold:16} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 236: MAIN_ACTION 'level' {"levels": 4}
+=== action 236: MAIN_ACTION 'level' {"hero": "river_montoya", "levels": 4}
 --- narration
 {player:2} levels {hero:river_montoya} to 5 for {gold:4}: a new band, 3/4 and healed.
 --- prompt MAIN_ACTION (player 2)
@@ -1583,7 +1583,7 @@
 --- prompt PATROL (player 2)
 {player:2}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 1)
-=== action 242: PATROL '' {"assignment": {"elite": "hero", "squad_leader": "unit:34"}}
+=== action 242: PATROL '' {"assignment": {"elite": "hero:river_montoya", "squad_leader": "unit:34"}}
 --- narration
 {player:2} patrols with {card:leaping_lizard} as squad leader, {hero:river_montoya} as elite. {player:2} discards 0 and draws 2.
 **End of turn 23** -- {player:2} (Finesse).
@@ -1604,7 +1604,7 @@
 {player:1}, your main phase: {gold:20} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 245: MAIN_ACTION 'summon' {}
+=== action 245: MAIN_ACTION 'summon' {"hero": "troq_bashar"}
 --- narration
 {player:1} summons {hero:troq_bashar} for {gold:2}: level 1, 2/3.
 --- prompt MAIN_ACTION (player 1)
@@ -1640,7 +1640,7 @@
 {player:1}, your main phase: {gold:7} and 10 workers.
 --- standing TECH_CHOICE (player 2)
 --- board changed
-=== action 250: MAIN_ACTION 'level' {"levels": 7}
+=== action 250: MAIN_ACTION 'level' {"hero": "troq_bashar", "levels": 7}
 --- narration
 {player:1} levels {hero:troq_bashar} to 8 for {gold:7}: a new band, 4/5 and healed.
 --- prompt MAIN_ACTION (player 1)
@@ -1664,7 +1664,7 @@
 --- prompt PATROL (player 1)
 {player:1}, lock your patrollers: the main phase ends.
 --- standing TECH_CHOICE (player 2)
-=== action 254: PATROL '' {"assignment": {"elite": "unit:36", "scavenger": "unit:37", "squad_leader": "unit:35", "technician": "hero"}}
+=== action 254: PATROL '' {"assignment": {"elite": "unit:36", "scavenger": "unit:37", "squad_leader": "unit:35", "technician": "hero:troq_bashar"}}
 --- narration
 {player:1} patrols with {card:iron_man} as squad leader, {card:hired_stomper} as elite, {card:regularsized_rhinoceros} as scavenger, {hero:troq_bashar} as technician. {player:1} discards 0 and draws 2.
 **End of turn 24** -- {player:1} (Bashing).
@@ -1725,7 +1725,7 @@
 {player:2}, your main phase: {gold:16} and 10 workers.
 --- standing TECH_CHOICE (player 1)
 --- board changed
-=== action 263: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 263: MAIN_ACTION 'attack' {"attacker": "hero:river_montoya"}
 --- prompt CHOOSE_DEFENDER (player 2)
 {player:2}, choose what the attacker takes.
 --- standing TECH_CHOICE (player 1)
@@ -1790,7 +1790,7 @@
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:3} and 10 workers.
 --- board changed
-=== action 274: MAIN_ACTION 'attack' {"attacker": "hero"}
+=== action 274: MAIN_ACTION 'attack' {"attacker": "hero:troq_bashar"}
 --- prompt CHOOSE_DEFENDER (player 1)
 {player:1}, choose what the attacker takes.
 === action 275: CHOOSE_DEFENDER '' {"defender": "base"}

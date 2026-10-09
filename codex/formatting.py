@@ -71,14 +71,15 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
     A unit's or hero's numbers are the engine's, with its damage after
     them where it has any. A name, never a rule.
     """
-    from codex.components import HERO
+    from codex.components import is_hero_ref
     from codex.engine import building_name, unit_ref
 
     player = match.player(seat)
-    if ref == HERO:
-        atk, hp = engine.hero_stats(player.hero)
-        label = f"{catalog().name(player.hero.slug)} {atk}/{hp}"
-        damage = player.hero.damage
+    hero = player.hero_by_ref(ref) if is_hero_ref(ref) else None
+    if hero is not None:
+        atk, hp = engine.hero_stats(hero)
+        label = f"{catalog().name(hero.slug)} {atk}/{hp}"
+        damage = hero.damage
     else:
         instance_id = unit_ref(ref)
         card = player.instance(instance_id) if instance_id is not None else None

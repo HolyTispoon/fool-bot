@@ -97,6 +97,8 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         return Action(kind, "discard")
     if kind is PromptKind.UPKEEP_ORDER:
         return Action(kind, arguments={"first": options.effects[0]})
+    if kind is PromptKind.LEVEL_GAIN:
+        return Action(kind, arguments={"hero": options.heroes[0]})
     if kind is PromptKind.PATROL:
         assignment = dict(zip(PATROL_SLOTS, options.candidates))
         return Action(kind, arguments={"assignment": assignment})
@@ -113,16 +115,18 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     for row in options.buildings:
         if row.building.startswith("tech") and row.allowed:
             return Action(kind, "build", {"building": row.building})
-    if options.hero.action == "summon" and not options.hero.why_not:
-        return Action(kind, "summon")
+    for hero in options.heroes:
+        if hero.action == "summon" and hero.allowed:
+            return Action(kind, "summon", {"hero": hero.slug})
     cards = sorted(
         (row for row in options.playable if row.allowed),
         key=lambda row: (row.cost, not engine.catalog.cards[row.slug].is_unit, row.slug),
     )
     if cards:
         return Action(kind, "play", {"slug": cards[0].slug})
-    if options.hero.action == "level" and not options.hero.why_not:
-        return Action(kind, "level", {"levels": options.hero.max_levels})
+    for hero in options.heroes:
+        if hero.action == "level" and hero.allowed and hero.max_levels:
+            return Action(kind, "level", {"levels": hero.max_levels, "hero": hero.slug})
     if options.attackers:
         return Action(kind, "attack", {"attacker": options.attackers[0]})
     return Action(kind, "end_main")
