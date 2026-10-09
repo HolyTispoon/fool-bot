@@ -1810,6 +1810,7 @@
         }
       ],
       "hired_this_turn": false,
+      "lasting": [],
       "peace": false,
       "play": [
         {
@@ -2011,6 +2012,7 @@
         }
       ],
       "hired_this_turn": false,
+      "lasting": [],
       "peace": false,
       "play": [],
       "reshuffled_this_phase": false,
@@ -3564,6 +3566,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {
@@ -3695,6 +3698,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {
@@ -5376,6 +5380,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {
@@ -5557,6 +5562,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {
@@ -7277,6 +7283,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {
@@ -7432,6 +7439,7 @@
             }
           ],
           "hired_this_turn": false,
+          "lasting": [],
           "peace": false,
           "play": [
             {

@@ -675,9 +675,10 @@ def steal_gold(match: MatchState, seat: int, other: int, amount: int) -> int:
 
 def _coin(engine, match, top, part, target, result) -> None:
     """Rickety Mine's coin: heads, "Phew!", which does nothing; tails, the
-    mine sacrificed and its controller's base taking `part.amount`. The
-    side is journalled beside the shuffles (`StepResult.drawn`), so a
-    replay lands it again."""
+    mine sacrificed and its controller's base taking `part.amount` --
+    which the mine does not deal, so Hotter Fire adds nothing to it (the
+    author, 2026-10-09). The side is journalled beside the shuffles
+    (`StepResult.drawn`), so a replay lands it again."""
     seat = top["seat"]
     side = engine.flip_coin()
     result.drawn.append([effects.COIN, side])
@@ -686,7 +687,7 @@ def _coin(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} flips a coin: heads. Phew!")
         return
     mine = board.body_of(match, seat, top["source"]) if top.get("source") else None
-    amount = damage_amount(engine, match, top, part.amount)
+    amount = part.amount
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
         f"{tokens.player(seat)}'s base takes {amount} damage."
@@ -1089,32 +1090,28 @@ def _circle_sacrifice(engine, match, top, part, target, result) -> None:
 
 def _stampede(engine, match, top, part, target, result) -> None:
     """Stampede: its caster's units +3 ATK and +3 armor this turn, their
-    excess combat damage to units and heroes onto that opponent's base."""
+    excess combat damage to units and heroes onto that opponent's base --
+    continuous, so a unit that comes under them later this turn gets it
+    too (`board.lasting_armor`; the author, 2026-10-09)."""
     seat = top["seat"]
-    count = 0
+    match.player(seat).lasting.append({"kind": "stampede", "until": "end_of_turn"})
     for card in match.player(seat).play:
         if engine.catalog.cards[card.slug].is_unit:
-            card.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
-            card.modifiers.append({"kind": "stampede", "until": "end_of_turn"})
-            board.grant_armor(card, part.amount)
-            count += 1
+            board.grant_armor(card, effects.STAMPEDE_BONUS)
     result.narration.append(
-        f"{top['by']} gives {tokens.player(seat)}'s {count} unit{'' if count == 1 else 's'} +3 ATK "
-        "and +3 armor this turn, their excess combat damage to the opposing base."
+        f"{top['by']}: {tokens.player(seat)}'s units get +3 ATK and +3 armor this turn, "
+        "their excess combat damage to the opposing base."
     )
 
 
 def _ferocity(engine, match, top, part, target, result) -> None:
     """Ferocity: its caster's units armor piercing and swift strike until
-    the caster's next upkeep."""
+    the caster's next upkeep -- continuous, every unit they control while
+    it lasts (the author, 2026-10-09)."""
     seat = top["seat"]
-    for card in match.player(seat).play:
-        if engine.catalog.cards[card.slug].is_unit:
-            for keyword in ("Armor piercing", "Swift strike"):
-                card.modifiers.append({"kind": "keyword", "keyword": keyword,
-                                       "until": "upkeep", "seat": seat})
+    match.player(seat).lasting.append({"kind": "ferocity", "until": "upkeep", "seat": seat})
     result.narration.append(
-        f"{top['by']} gives {tokens.player(seat)}'s units armor piercing and swift strike "
+        f"{top['by']}: {tokens.player(seat)}'s units get armor piercing and swift strike "
         "until their next upkeep."
     )
 

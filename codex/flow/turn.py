@@ -223,6 +223,10 @@ def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
                 m for m in card.modifiers
                 if not (m.get("until") == "upkeep" and m.get("seat") == seat)
             ]
+        side.lasting = [
+            lasting for lasting in side.lasting
+            if not (lasting.get("until") == "upkeep" and lasting.get("seat") == seat)
+        ]
     board.settle(engine, match, result)
 
 
@@ -543,6 +547,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # This turn's effects end (Intimidate, Discord, Sneaky Pig's
     # stealth), on both sides, heroes too.
     for side in match.players:
+        side.lasting = [lasting for lasting in side.lasting if lasting.get("until") != "end_of_turn"]
         for body in (*side.play, *side.heroes):
             # Temporary armor not used up goes with the turn (UMR p. 16).
             lent = sum(m.get("amount", 0) for m in body.modifiers

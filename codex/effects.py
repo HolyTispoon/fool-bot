@@ -945,6 +945,12 @@ FIRST_FROM_HAND_HASTE = ("drakk_ramhorn", 6)
 #: Hotter Fire: "Your red spells and abilities that deal damage deal 1
 #: damage more." -- each copy (its rulings).
 HOTTER_FIRE = "hotter_fire"
+#: Stampede's "Your units get +3 ATK / +3 armor this turn" and Ferocity's
+#: "Your units get armor piercing and swift strike until your next
+#: upkeep" -- continuous, on every unit the caster controls while they
+#: last (`PlayerState.lasting`; the author, 2026-10-09).
+STAMPEDE_BONUS = 3
+FEROCITY_KEYWORDS = ("Armor piercing", "Swift strike")
 #: Red and green's upkeep (step 11): Gemscout Owl's "Upkeep: Gain
 #: {gold:1}", Galina Glimmer's "Upkeep: Gain {gold:1} for every two of your
 #: green units", Land Octopus's "Upkeep: Sacrifice two workers or Land

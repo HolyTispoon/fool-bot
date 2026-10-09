@@ -727,6 +727,16 @@ ruling's own words and a ratchet counting them.
   the tech choice is asked. This turn's modifiers, armor and Chaos
   Mirror's swap go in `begin_tech`; Polymorph and Ferocity last until
   their caster's next upkeep.
+- **"Your units get" is continuous** (the author, 2026-10-09). Stampede
+  and Ferocity are not snapshots of the units in play when they resolve:
+  each is an entry on its caster's side (`PlayerState.lasting`), and the
+  engine reads it for every unit that side controls while it lasts -- a
+  unit arriving later that turn has Stampede's +3 ATK and its excess to
+  the base, or Ferocity's armor piercing and swift strike, and a unit
+  taken from that side loses them. Stampede's +3 armor is the one part
+  spent as it is hit, so it is granted as each unit comes under the side
+  (`board.lasting_armor`) rather than read. Stampede's entry goes in
+  `begin_tech`, Ferocity's at its caster's next upkeep.
 - **The tokens' limits.** A token carries a limit only where its card
   prints one: Harmony's Dancers (3, the Angry Dancers and a polymorphed
   Dancer counted, a stolen one taking a side past it) and Bloodburn's
@@ -752,8 +762,13 @@ ruling's own words and a ratchet counting them.
   alone, and only "workers" where two can be trashed.
 - **Hotter Fire** is `engine.damage_bonus`, read off the frame's
   `origin` -- the red card the effect came from, so a granted dies line
-  ("Pirate-Gang Commander's") and Rickety Mine's tails count -- and never
-  combat damage.
+  ("Pirate-Gang Commander's") counts -- and never combat damage. Rickety
+  Mine's tails is not damage the mine deals -- its controller's base
+  takes 2 -- so it gets nothing (the author, 2026-10-09).
+- **Read as the author answered** (2026-10-09): Dothram's total ATK
+  counts heroes as well as units; Feral Strike boosted fetches before it
+  puts into play, so a unit just fetched may go into play in the same
+  cast.
 - **A position settles whenever the stack empties**, not only when a
   frame finishes, so a second copy of a legendary unit played with
   nothing to resolve -- a second Galina -- is destroyed on arrival.
@@ -810,15 +825,16 @@ match as its saved dict, as D12 Ball's record does; its file,
   "neutral" where the key is missing) and `rematch_decks` beside
   `rematch_specs`.
 
-- **Step 11 added twelve**, each with its fallback: on a card `runes`
+- **Step 11 added thirteen**, each with its fallback: on a card `runes`
   (`{}`: blood, growth and feather runes beside the +1/+1 and -1/-1),
   `returns_to` (`None`: whom a stolen card goes back to), `attached_hero`
   (`None`: a hero Spirit of the Panda or Final Showdown is on), `printed`
   (`None`: the printed override) and `sequence` (0); on a hero `printed`
   (`None`) and `bands` (`{}`: when each band was reached); on a side
   `discards_at_main_end` (false, Desperation), `spells_played` (0),
-  `peace` (false, Moment's Peace) and `arrived_from_hand` (false, Drakk's
-  first unit); and `sequence` (0) on the match. A save made before step 11
+  `peace` (false, Moment's Peace), `arrived_from_hand` (false, Drakk's
+  first unit) and `lasting` (`[]`: Stampede and Ferocity on that side's
+  units); and `sequence` (0) on the match. A save made before step 11
   reads every card and band as having entered at 0, so its grants apply
   in the order the ids give.
 

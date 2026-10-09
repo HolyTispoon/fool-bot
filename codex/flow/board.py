@@ -515,6 +515,7 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
     ))
     if engine.catalog.cards[card.slug].is_unit:
         _grow_on_arrival(match, seat, card)
+        lasting_armor(match, card)
         if from_hand:
             _first_from_hand(engine, match, seat, card)
 
@@ -600,7 +601,16 @@ def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
     card.arrived_this_turn = True
     match.player(seat).play.append(card)
     match.record_event("gained_control", slug=card.slug, by=seat)
+    lasting_armor(match, card)
     return True
+
+
+def lasting_armor(match: MatchState, card: CardInstance) -> None:
+    """Stampede's +3 armor for a unit that comes under a side whose
+    Stampede is in play this turn -- the ATK is the engine's to read, the
+    armor is spent as it is hit, so it is granted as the unit arrives."""
+    if any(lasting.get("kind") == "stampede" for lasting in match.player(card.controller).lasting):
+        grant_armor(card, effects.STAMPEDE_BONUS)
 
 
 def give_back(match: MatchState, card: CardInstance, result: StepResult) -> None:

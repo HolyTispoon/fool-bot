@@ -501,6 +501,16 @@ class RulesEngine:
             if modifier.get("kind") == "keyword":
                 found.append((modifier["keyword"], modifier.get("amount")))
                 ability = True
+        if match is not None and printed.is_unit:
+            # Stampede's +3 ATK and Ferocity's keywords, on every unit
+            # its caster controls while they last -- continuous, so one
+            # arriving later has them too (the author, 2026-10-09).
+            for lasting in match.player(card.controller).lasting:
+                if lasting.get("kind") == "stampede":
+                    atk += effects.STAMPEDE_BONUS
+                elif lasting.get("kind") == "ferocity":
+                    found.extend((keyword, None) for keyword in effects.FEROCITY_KEYWORDS)
+                    ability = True
         changed_atk, changed_hp = self._changes(card)
         atk += changed_atk
         hp += changed_hp
@@ -1808,10 +1818,13 @@ class RulesEngine:
             return 0
         return max(0, self.attack_value(match, seat, attacker) - self.lethal_damage(match, seat, attacker, body))
 
-    def stampedes(self, body) -> bool:
+    def stampedes(self, match: MatchState, body) -> bool:
         """Whether Stampede sends this unit's excess combat damage to the
-        base this turn."""
-        return any(modifier.get("kind") == "stampede" for modifier in getattr(body, "modifiers", ()))
+        base this turn: a unit, its controller's Stampede in play."""
+        if not isinstance(body, CardInstance) or not self.catalog.cards[body.slug].is_unit:
+            return False
+        return any(lasting.get("kind") == "stampede"
+                   for lasting in match.player(body.controller).lasting)
 
     def lethal_damage(self, match: MatchState, seat: int, attacker: str, body) -> int:
         """
@@ -1842,7 +1855,7 @@ class RulesEngine:
         other = 2 if seat == 1 else 1
         if not self.overpower_excess(match, attacker, defender):
             return ()
-        if self.stampedes(self.body(match, seat, attacker)) and self.body(match, other, defender) is not None:
+        if self.stampedes(match, self.body(match, seat, attacker)) and self.body(match, other, defender) is not None:
             # Stampede's excess goes to the base, over overpower's.
             return ()
         patrollers = [

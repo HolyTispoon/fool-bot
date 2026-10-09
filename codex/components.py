@@ -416,6 +416,12 @@ class PlayerState:
     #: first unit that arrives from your hand each turn". Emptied as each
     #: of their turns begins; False in an older save.
     arrived_from_hand: bool = False
+    #: What a spell gives all of this side's units for a while, read
+    #: continuously -- a unit arriving later has it too, one leaving
+    #: their control loses it: Stampede (`{"kind": "stampede", "until":
+    #: "end_of_turn"}`) and Ferocity (`"until": "upkeep"`, with its
+    #: caster's `seat`) (the author, 2026-10-09).
+    lasting: list = field(default_factory=list)
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -506,6 +512,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("spells_played", default=0),
     SavedField("peace", default=False),
     SavedField("arrived_from_hand", default=False),
+    SavedField("lasting", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 

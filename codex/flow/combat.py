@@ -461,7 +461,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Stampede: "Excess combat damage they would deal to units and heroes
     # hits that opponent's base. (This takes precedence over overpower.)"
     stampeded = 0
-    if not taking.is_building and engine.stampedes(body):
+    if not taking.is_building and engine.stampedes(match, body):
         stampeded = max(0, dealt - engine.lethal_damage(match, seat, attacker, taking.body))
         excess = 0
     slot_attacked = None if taking.is_building else taking.body.patrol_slot

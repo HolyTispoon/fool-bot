@@ -688,6 +688,21 @@ class ResourcesTests(unittest.TestCase):
         self.assertIn("rickety_mine", match.player(1).discard)
         self.assertEqual(match.player(1).base_hp, 18)
 
+    def test_tails_gets_nothing_from_hotter_fire(self) -> None:
+        """The mine deals no damage -- its base takes it -- so Hotter Fire
+        adds nothing (the author, 2026-10-09)."""
+        from unittest import mock
+
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood", "fire", "anarchy"), ("growth", "feral", "balance")))
+        put(match, 1, "hotter_fire")
+        mine = put(match, 1, "rickety_mine")
+        with mock.patch.object(engine, "flip_coin", return_value="tails"):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+        self.assertEqual(match.player(1).base_hp, 18)
+
     def test_merfolk_prospector_gains_a_gold_for_its_exhaust(self) -> None:
         from test_codex_card_rulings import red_green
 
@@ -868,6 +883,63 @@ class LegendaryArrivalTests(unittest.TestCase):
         self.assertEqual([card.id for card in galinas], [first.id])
         self.assertIn("galina_glimmer", match.player(2).discard)
         self.assertIn("{card:galina_glimmer}", said(run))
+
+
+class ContinuousYourUnitsTests(unittest.TestCase):
+    """Stampede's and Ferocity's "your units get" is continuous: a unit
+    that comes under their caster while it lasts has it too (the author,
+    2026-10-09)."""
+
+    def test_a_unit_arriving_after_stampede_gets_it(self) -> None:
+        from test_codex_card_rulings import at_max, red_green
+
+        engine, game, match = red_green(first=2)
+        at_max(engine, match, 2)
+        before = put(match, 2, "tiger_cub")
+        cast(engine, game, match, "stampede", gold=6)
+        later = board.put_into_play(engine, match, "tiger_cub", 2, from_hand=False)
+        for cub in (before, later):
+            self.assertEqual(engine.unit_stats(cub, match)[0], 2 + 3)
+            self.assertEqual(cub.armor, 3)
+            self.assertTrue(engine.stampedes(match, cub))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(engine.unit_stats(later, match)[0], 2)
+        self.assertEqual(later.armor, 0)
+        self.assertFalse(engine.stampedes(match, later))
+        self.assertEqual(match.player(2).lasting, [])
+
+    def test_a_unit_taken_from_a_stampeding_side_loses_it(self) -> None:
+        from test_codex_card_rulings import at_max, red_green
+
+        engine, game, match = red_green(first=2)
+        at_max(engine, match, 2)
+        cub = put(match, 2, "tiger_cub")
+        cast(engine, game, match, "stampede", gold=6)
+        board.gain_control(match, cub, 1)
+        self.assertEqual(engine.unit_stats(cub, match)[0], 2)
+        self.assertFalse(engine.stampedes(match, cub))
+
+    def test_a_unit_arriving_after_ferocity_gets_it_until_the_next_upkeep(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cast(engine, game, match, "ferocity", gold=2)
+        later = board.put_into_play(engine, match, "tiger_cub", 1, from_hand=False)
+        self.assertTrue(engine.has_keyword(later, "Armor piercing", match))
+        self.assertTrue(engine.has_keyword(later, "Swift strike", match))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertTrue(engine.has_keyword(later, "Swift strike", match), "through their turn")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        picks = [slug for slug, _ in asked(engine, game, match).options.codex[:2]]
+        apply(engine, game, match, PromptKind.TECH_CHOICE, player=1, picks=picks)
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=1)
+        self.assertEqual((match.active, match.phase), (1, "main"))
+        self.assertFalse(engine.has_keyword(later, "Swift strike", match))
+        self.assertEqual(match.player(1).lasting, [])
 
 
 if __name__ == "__main__":
