@@ -11,6 +11,8 @@ from cogs.codex_views.base import (
     ERROR_RECOVERY_ADVICE,
     HelperConfirmationView,
     SafeView,
+    kept_pictures,
+    picture_file,
     send_ephemeral,
 )
 from cogs.codex_views.ending import ConcedeConfirmView, RematchView
@@ -60,8 +62,10 @@ __all__ = [
     "hand_caption",
     "hand_file",
     "hand_numbers",
+    "kept_pictures",
     "next_empty",
     "picks_listed",
+    "picture_file",
     "send_ephemeral",
     "side_label",
     "swap_label",

@@ -972,14 +972,38 @@ def cost_badge(picture: Image.Image, cost: int, size: int) -> None:
               fill=SHADOW, anchor="mm")
 
 
+def scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.Image:
+    """A card's own art at `size`, scaled once per card and size: a copy,
+    so a caller may draw on it. A game's hands and codex views draw a
+    few dozen cards at two sizes; 128 holds them in tens of megabytes."""
+    return _scaled_card(slug, size, cards).copy()
+
+
+@lru_cache(maxsize=128)
+def _scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.Image:
+    return card_picture(slug, cards).resize(size, Image.LANCZOS)
+
+
+#: How many hands and codex pictures are kept, drawn, for the next click
+#: that asks for the same one (`render_hand`, `render_codex`).
+RENDERED_KEPT = 32
+
+
 def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
                 costs: Sequence[int], cards: Optional[CardCatalog] = None) -> bytes:
     """
     A hand as WebP bytes: the cards' own pictures in a row, numbered,
     each with its cost after reductions, greyed where it may not be
-    played -- the picture **My hand** and the panel attach.
+    played -- the picture **My hand** and the panel attach. The same hand
+    asked again is the bytes already drawn (`RENDERED_KEPT`).
     """
-    cards = cards or load_catalog()
+    return _render_hand(tuple(cards_in_hand), tuple(playable), tuple(costs),
+                        cards or load_catalog())
+
+
+@lru_cache(maxsize=RENDERED_KEPT)
+def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
+                 costs: tuple[int, ...], cards: CardCatalog) -> bytes:
     count = max(1, len(cards_in_hand))
     columns = min(count, 6)
     rows = -(-count // columns)
@@ -995,7 +1019,7 @@ def render_hand(cards_in_hand: Sequence[str], playable: Sequence[bool],
         left = gap + column * (HAND_CARD[0] + gap)
         top = gap + row * (HAND_CARD[1] + label + gap)
         text_centred(draw, (left + HAND_CARD[0] // 2, top + label // 2), str(index + 1), 34)
-        picture = card_picture(slug, cards).resize(HAND_CARD, Image.LANCZOS)
+        picture = scaled_card(slug, HAND_CARD, cards)
         cost_badge(picture, costs[index], 62)
         if not playable[index]:
             picture = faint(picture)
@@ -1012,9 +1036,16 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
     Sized so the standard game's thirty-six stay well under Discord's
     upload limit. `picked`, where given, is how many copies of each the
     tech choice has taken so far: such a card is framed in gold with
-    the count on a pill over its art -- the tech picker's picture.
+    the count on a pill over its art -- the tech picker's picture. The
+    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
     """
-    cards = cards or load_catalog()
+    return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
+                         None if picked is None else tuple(picked))
+
+
+@lru_cache(maxsize=RENDERED_KEPT)
+def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
+                  cards: CardCatalog, picked: Optional[tuple[int, ...]]) -> bytes:
     count = max(1, len(cards_in_codex))
     columns = min(count, CODEX_COLUMNS)
     rows = -(-count // columns)
@@ -1029,7 +1060,7 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
         row, column = divmod(index, columns)
         left = gap + column * (CODEX_CARD[0] + gap)
         top = gap + row * (CODEX_CARD[1] + gap)
-        picture = card_picture(slug, cards).resize(CODEX_CARD, Image.LANCZOS)
+        picture = scaled_card(slug, CODEX_CARD, cards)
         if counts[index] <= 0:
             picture = faint(picture)
         badge = ImageDraw.Draw(picture)

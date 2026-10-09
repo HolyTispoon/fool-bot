@@ -167,7 +167,9 @@ class FakeInteraction:
         #: What Discord sends with a component click; `choose` fills in
         #: a menu's values here, as Discord does.
         self.data: dict = {}
-        self.message = SimpleNamespace(id=0)
+        #: The message clicked, carrying what it was put up with --
+        #: `Table` fills in the attachments a view's message carries.
+        self.message = SimpleNamespace(id=0, attachments=[])
         self.answers: list = []
         self.response = FakeResponse(self.answers)
         self.followup = FakeFollowup(self.answers)
@@ -257,6 +259,10 @@ class Table:
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.game_channel)
         self.game_channel.guild = self.guild
         self.basher, self.fencer = user(101, "basher"), user(202, "fencer")
+        #: What the message each view sits on carries, as Discord hands
+        #: it back on a click: an uploaded file as an attachment by its
+        #: name, a kept one as it was.
+        self.carried: dict = {}
         self.said: list[str] = []
         self.build({}, seed)
 
@@ -333,7 +339,27 @@ class Table:
         view = TurnMessageView(self.cog, self.game.game_id)
         call = self.interaction(who)
         await next(item for item in view.children if f":{action}:" in item.custom_id).callback(call)
+        self.remember(call)
         return call
+
+    def remember(self, call: FakeInteraction) -> None:
+        """What each view `call` put up sits beside: the files sent with
+        it, the attachments an edit gave it, or -- an edit that named
+        none -- what the message clicked already carried."""
+        for kind, _, kwargs in call.answers:
+            view = kwargs.get("view")
+            if view is None:
+                continue
+            if "attachments" in kwargs:
+                shown = kwargs["attachments"]
+            elif "files" in kwargs or "file" in kwargs:
+                shown = kwargs.get("files") or [kwargs["file"]]
+            else:
+                shown = call.message.attachments if kind == "response.edit" else []
+            self.carried[view] = [
+                SimpleNamespace(filename=item.filename) if isinstance(item, discord.File) else item
+                for item in shown
+            ]
 
     async def panel(self, who=None) -> tuple[FakeInteraction, object]:
         call = await self.turn_button("hand", who or self.active)
@@ -344,12 +370,16 @@ class Table:
         button = find_button(view, which)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": button.custom_id, "component_type": 2}
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(button, call)
+        self.remember(call)
         return call
 
     async def choose(self, view, placeholder: str, *values: str, who=None) -> FakeInteraction:
         select = find_select(view, placeholder)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(values)}
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(select, call)
+        self.remember(call)
         return call

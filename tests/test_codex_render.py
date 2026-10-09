@@ -93,6 +93,19 @@ class RenderTests(unittest.TestCase):
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png)[0], 5 * (render.HAND_CARD[0] + 16) + 16)
 
+    def test_the_same_hand_asked_again_is_not_drawn_again(self) -> None:
+        """A panel edited in place, **My hand** clicked twice: the bytes
+        already drawn (`RENDERED_KEPT`) -- and a hand differing in one
+        cost is drawn anew."""
+        rows = self.engine.hand_rows(self.match, 1)
+        slugs, allowed = [row.slug for row in rows], [row.allowed for row in rows]
+        costs = [row.cost for row in rows]
+        first = render.render_hand(slugs, allowed, costs, self.engine.catalog)
+        self.assertIs(render.render_hand(list(slugs), list(allowed), list(costs), self.engine.catalog),
+                      first)
+        cheaper = [max(0, costs[0] - 1)] + costs[1:] if costs[0] else [1] + costs[1:]
+        self.assertNotEqual(render.render_hand(slugs, allowed, cheaper, self.engine.catalog), first)
+
     def test_a_codex_view(self) -> None:
         rows = self.engine.codex_remaining(self.match, 1)
         png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],

@@ -28,7 +28,9 @@ from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
-from cogs.codex_views import RematchView, UndoConfirmView, hand_file, send_ephemeral
+from cogs.codex_views import (
+    RematchView, UndoConfirmView, hand_file, kept_pictures, send_ephemeral,
+)
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
 
@@ -178,7 +180,9 @@ class TurnsMixin:
         """
         files = list(files or [])
         if edit and not replace:
-            await interaction.response.edit_message(content=content, attachments=files, view=view)
+            await interaction.response.edit_message(
+                content=content, attachments=kept_pictures(files, interaction.message), view=view,
+            )
             return
         if replace and not interaction.response.is_done():
             # Deferred first, so the message deleted below is the panel
