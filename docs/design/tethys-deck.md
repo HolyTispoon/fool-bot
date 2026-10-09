@@ -126,6 +126,48 @@ Doom d12**, the darker of the studio's orange pair, drawn at build time
 by `d12ball.dice.die_mark` (under a second, so nothing is committed).
 Nothing on the back is lettered.
 
+## Tethys poker: the six-card sets
+
+**Tethys poker** is the name (the author, 2026-10-09): a hand of six read the way poker reads five, and what each set's chance
+is (the author, 2026-10-09). `sets.py` is the rule and the count;
+`sets_aid.py` draws it twice, the player aid and a chart.
+
+- **All six cards count.** A "best five of six" reading was looked at and
+  set aside.
+- **Left and Right sit after 10, and pair only with each other**: a Left
+  and a Right are a pair, two Lefts or two Rights are not, and a ruler
+  never pairs with a number. Either follows 10 in a straight; straights do
+  not wrap. So the rulers never make three or more of a kind -- six, five
+  and four of a kind are the numbers' alone -- and two Lefts with two
+  Rights are two pairs. (The first reading had them one rank, a Left
+  pairing with a Left too; the author narrowed it the same day.) None of
+  this reads what a ruler is *worth* (12 Fortune, 11 Doom).
+- **The sets**, rarest first, which is the ranking: six of a kind, 6-card
+  straight flush, five of a kind, 6-card flush, two triples, four of a
+  kind, 6-card straight, three pairs, three of a kind, two pairs, one
+  pair -- and no set last, though one pair is the commoner. A hand is the
+  first it makes. A three or a four with a pair is the three or the four,
+  since every such hand is already that set and the pair adds nothing
+  rarer. A flush can hold its suit's Left and Right as a pair, and is
+  still a flush. Four of a kind (0.206%) and the straight (0.209%) are
+  within a hair of each other.
+- **Mixed and uniform.** Uniform is all six Fortune or all six Doom. The
+  deck is its own mirror (the numbers three and three a rank, Left's four
+  Fortune Right's four Doom), so the two are always equally likely and are
+  counted and shown together; the aid says each alone is half. No straight
+  flush is uniform, since a suit's fates alternate along the numbers, and
+  no four, five or six of a kind, since a number is three and three.
+- **The count is exact**, not sampled: by rank multiset with the Fortune
+  count carried as a polynomial, and the 5,544 one-suit hands walked one by
+  one, because a flush is the only set that reads suits. It ran against a
+  brute-force walk of all 156,238,908 hands; the test pins that table.
+- **The aid is a player aid, not a statistics page**: each set with a
+  one-line rule, a mixed example hand of the deck's own card faces, and
+  its chance as a percentage, mixed and uniform. The chart is the
+  statistics view: the same chances as dot (mixed) and diamond (uniform)
+  on a log scale, because they run from half of all hands to a few in a
+  hundred million.
+
 ## Print sheets
 
 Two PDFs, both at 300 dpi with a page of backs after every page of
@@ -145,8 +187,11 @@ fronts, so a duplex print puts a back behind each front:
 ```bash
 python3 scripts/render_tethys_deck.py            # everything, into tethysdeck/print/
 python3 scripts/render_tethys_deck.py --only sheets   # just the contact sheets
+python3 scripts/render_tethys_deck.py --only sets     # the player aid and the chart
 ```
 
 Look at `deck_sheet.png` (all 72), `closeup_sheet.png` (six, large),
 `icon_sheet.png` and the two ladders after any change to a drawing;
-nothing printed is tested. The suite checks the rule only.
+and `sets_aid.png` and `sets_chart.png` after any change to the sets;
+nothing printed is tested. The suite checks the rule only: the fates,
+the pieces, and the sets' census.
