@@ -92,7 +92,15 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         defender = "base" if "base" in options.defenders else options.defenders[0]
         return Action(kind, arguments={"defender": defender})
     if kind is PromptKind.TARGET:
+        # "Up to" and "you may" (step 11): the first thing offered, until
+        # the part has chosen as many as it must, then Done.
+        if options.done and (options.picked or not options.targets):
+            return Action(kind, "done")
         return Action(kind, arguments={"target": options.targets[0].key})
+    if kind is PromptKind.DIVIDE_DAMAGE:
+        return Action(kind, arguments={"target": options.split[0][0]})
+    if kind is PromptKind.MODE_CHOICE:
+        return Action(kind, arguments={"mode": options.modes[0][0]})
     if kind is PromptKind.APPEL_STOMP_TOP:
         return Action(kind, "discard")
     if kind is PromptKind.UPKEEP_ORDER:
@@ -282,8 +290,8 @@ class CodexStandardGameTests(unittest.TestCase):
     Step 10's second game: a standard one, three red heroes against
     three green, through the driver alone -- the policy summoning and
     levelling each hero, choosing the first spec offered at Tech II, and
-    playing every red and green card for its numbers, to a destroyed
-    base.
+    playing red and green cards -- each doing what it says since step 11
+    -- to a destroyed base.
     """
 
     @classmethod
@@ -307,8 +315,8 @@ class CodexStandardGameTests(unittest.TestCase):
 
     def test_the_game_used_the_standard_games_rules(self) -> None:
         """More than one hero summoned on a side, a Tech II with its spec,
-        and red and green cards played -- each said to be played for its
-        numbers where its text waits on step 11."""
+        and red and green cards played -- each doing what it says since
+        step 11, so none is said to be played for its numbers."""
         summoned = {}
         for event in self.match.events:
             if event["kind"] == "summoned":
@@ -319,7 +327,7 @@ class CodexStandardGameTests(unittest.TestCase):
         from codex import effects
 
         self.assertTrue(played & effects.RED and played & effects.GREEN)
-        self.assertTrue(any("(its text is not played yet)" in line for line in self.transcript))
+        self.assertFalse(any("(its text is not played yet)" in line for line in self.transcript))
 
     def test_nothing_hidden_is_said(self) -> None:
         for line in self.transcript:

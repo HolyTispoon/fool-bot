@@ -144,7 +144,8 @@ def staged_standard(engine: RulesEngine) -> MatchState:
     (Fire, Anarchy, Blood) against green (Feral, Growth, Balance), two of
     the first side's heroes in play and the third in the command zone,
     its tech II's spec Fire and a heroes' hall built; the other side's
-    tech II Feral, and a tech lab unlocking Growth."""
+    tech II Feral, and a tech lab unlocking Growth -- and from step 11 a
+    Bloodburn with blood runes, a growth rune and a polymorphed unit."""
     match = engine.new_match(
         (("fire", "anarchy", "blood"), ("feral", "growth", "balance")),
         first=1, decks=("red", "green"),
@@ -179,6 +180,11 @@ def staged_standard(engine: RulesEngine) -> MatchState:
     put(2, "tiger_cub", patrol="elite")
     put(2, "ironbark_treant", patrol="lookout")
     put(2, "merfolk_prospector", exhausted=True)
+    # Step 11's states: Bloodburn's blood runes, a growth rune, and a
+    # unit Polymorph: Squirrel has turned, drawn as the Squirrel.
+    put(1, "bloodburn").runes["blood"] = 2
+    put(2, "young_treant").runes["growth"] = 1
+    put(2, "spore_shambler").printed = {"polymorph": 1}
     one.discard = ["scorch", "charge"]
     match.validate(engine.catalog)
     return match

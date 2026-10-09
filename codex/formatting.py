@@ -75,6 +75,14 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
     from codex.engine import building_name, unit_ref
 
     player = match.player(seat)
+    if ref == "workers":
+        return f"Workers ({player.workers})"
+    for prefix, where in (("slot:", "slot"), ("hand:", "from the hand"), ("codex:", "from the codex")):
+        if ref.startswith(prefix):
+            name = ref[len(prefix):]
+            if prefix == "slot:":
+                return f"The {slot_name(name)} slot"
+            return f"{catalog().name(name)} ({where})"
     hero = player.hero_by_ref(ref) if is_hero_ref(ref) else None
     if hero is not None:
         atk, hp = engine.hero_stats(hero)

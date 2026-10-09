@@ -30,7 +30,7 @@ from codex.formatting import deck_name
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
-from codex.render import render_board, render_side
+from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
     RematchView, UndoConfirmView, kept_pictures, picture_file, send_ephemeral,
@@ -63,7 +63,22 @@ PANEL_SIDE_KINDS = (
     PromptKind.SPARKSHOT_TARGET,
     PromptKind.OVERPOWER_TARGET,
     PromptKind.TARGET,
+    PromptKind.DIVIDE_DAMAGE,
 )
+
+
+def private_choices(prompt: PendingPrompt) -> list[str]:
+    """The cards a `TARGET` offers from its asked player's own hand or
+    codex (Sanatorium, Feral Strike, Cinderblast Dragon, Calamandra), by
+    slug -- pictured as a hand is, to them alone, never on the table."""
+    from codex.engine import CODEX, HAND
+
+    if prompt.kind is not PromptKind.TARGET:
+        return []
+    return [row.ref.split(":", 1)[1] for row in prompt.options.targets
+            if row.ref.startswith((HAND, CODEX))]
+
+
 NOTHING_ASKED = "Nothing is asked of you now."
 STEP_OWED = (
     "The game has a step of its own to run before anybody is asked anything: "
@@ -109,6 +124,12 @@ def side_shown(prompt: PendingPrompt) -> Optional[int]:
     opponent = 2 if asked == 1 else 1
     if prompt.kind is PromptKind.TARGET:
         seats = {row.seat for row in prompt.options.targets}
+        if seats == {asked}:
+            return asked
+        if seats == {asked, opponent}:
+            return None
+    if prompt.kind is PromptKind.DIVIDE_DAMAGE:
+        seats = {int(key.split(":", 1)[0]) for key, _ in prompt.options.split}
         if seats == {asked}:
             return asked
         if seats == {asked, opponent}:
@@ -169,7 +190,10 @@ class TurnsMixin:
         extra = [note] if note else []
         if callable(caption):
             extra.append(caption())
-        if prompt.kind in PANEL_SIDE_KINDS:
+        private = private_choices(prompt)
+        if private:
+            files = [await self.choices_file(private)]
+        elif prompt.kind in PANEL_SIDE_KINDS:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
         elif prompt.kind in HAND_MESSAGE_KINDS or gate:
             files = []
@@ -177,6 +201,16 @@ class TurnsMixin:
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
         return self.panel_caption(game, prompt, "\n".join(extra)), files, view
+
+    async def choices_file(self, slugs: list[str]) -> discord.File:
+        """The cards a private target offers, pictured as a hand is, off
+        the event loop -- its asked player's alone."""
+        cards = self.engine.catalog
+        webp = await asyncio.to_thread(
+            render_hand, slugs, [True] * len(slugs),
+            [cards.cards[slug].cost or 0 for slug in slugs], cards,
+        )
+        return picture_file(webp, "codex-choices")
 
     async def side_file(self, game: CodexGame, match, asked: int,
                         seat: Optional[int]) -> discord.File:

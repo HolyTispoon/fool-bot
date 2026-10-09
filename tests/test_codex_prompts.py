@@ -166,6 +166,36 @@ def level_gain():
     return engine, game, match
 
 
+def divide_damage():
+    """Ember Sparks has chosen two patrollers: its 3 is 1 each and 1 more
+    to place (step 11)."""
+    engine, game, match = new_game(teams=(("fire",), ("growth",)))
+    begin(engine, game, match)
+    from codex_positions import hand
+    hero_in_play(match, 1)
+    first = put(match, 2, "tiger_cub", patrol="squad_leader")
+    second = put(match, 2, "young_treant", patrol="elite")
+    hand(match, 1, "ember_sparks")
+    match.player(1).gold = 5
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "ember_sparks"}))
+    for ref in (first.ref, second.ref):
+        driver.apply(engine, game, match, Action(PromptKind.TARGET, arguments={"target": f"2:{ref}"}))
+    driver.apply(engine, game, match, Action(PromptKind.TARGET, "done"))
+    return engine, game, match
+
+
+def mode_choice():
+    """Murkwood Allies, not boosted: a Beast or four Frogs (step 11)."""
+    engine, game, match = new_game(teams=(("feral",), ("growth",)))
+    begin(engine, game, match)
+    from codex_positions import hand
+    hero_in_play(match, 1)
+    hand(match, 1, "murkwood_allies")
+    match.player(1).gold = 5
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "murkwood_allies"}))
+    return engine, game, match
+
+
 def game_over():
     engine, game, match = _main()
     match.winner = 2
@@ -185,6 +215,8 @@ PROMPT_FIXTURES = {
     PromptKind.APPEL_STOMP_TOP: appel_stomp_top,
     PromptKind.UPKEEP_ORDER: upkeep_order,
     PromptKind.LEVEL_GAIN: level_gain,
+    PromptKind.DIVIDE_DAMAGE: divide_damage,
+    PromptKind.MODE_CHOICE: mode_choice,
     PromptKind.GAME_OVER: game_over,
 }
 

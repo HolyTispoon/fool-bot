@@ -98,6 +98,10 @@ def _copy_dicts(value: list) -> list:
     return [dict(item) for item in value]
 
 
+def _copy_optional_dict(value: Optional[dict]) -> Optional[dict]:
+    return None if value is None else dict(value)
+
+
 def _copy_optional_combat(value: Optional[dict]) -> Optional[dict]:
     return None if value is None else copy.deepcopy(value)
 
@@ -136,6 +140,15 @@ class HeroState:
     #: This-turn effects, each `{kind, amount, until}` -- Intimidate's
     #: -4 ATK -- as a card's.
     modifiers: list[dict] = field(default_factory=list)
+    #: A printed value replaced (step 11): Chaos Mirror's ATK, `{"atk":
+    #: n}`, until the end of the turn. `None` otherwise, and in an older
+    #: save.
+    printed: Optional[dict] = None
+    #: When each band the hero is in play with came to be, by its first
+    #: level ("5": 12), from `MatchState.sequence` -- what orders a band's
+    #: grant against a card's (Midori's +1/+1 and Behind the Ferns). Empty
+    #: in an older save.
+    bands: dict[str, int] = field(default_factory=dict)
 
     @property
     def in_play(self) -> bool:
@@ -157,6 +170,8 @@ HERO_SAVED_FIELDS = (
     SavedField("plus_runes", default=0),
     SavedField("minus_runes", default=0),
     SavedField("modifiers", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("printed", write=_copy_optional_dict, read=_copy_optional_dict),
+    SavedField("bands", factory=dict, write=dict, read=dict),
 )
 
 
@@ -244,6 +259,26 @@ class CardInstance:
     armor: int = 0
     #: It has attacked this turn -- what readiness's once a turn reads.
     attacked_this_turn: bool = False
+    #: The runes on it besides +1/+1 and -1/-1, by kind (step 11):
+    #: Bloodburn's "blood", Might of Leaf and Claw's "growth", Fairie
+    #: Dragon's "feather". Empty in an older save.
+    runes: dict[str, int] = field(default_factory=dict)
+    #: The seat a kidnapped unit goes back to at the end of the turn --
+    #: its last controller (Kidnapping's Card FAQ) -- or `None`.
+    returns_to: Optional[int] = None
+    #: The hero an attaching spell is attached to, as a target names it
+    #: ("1:hero:master_midori") -- Final Showdown's. `None` otherwise; a
+    #: unit an attaching spell is on is in `attached`.
+    attached_hero: Optional[str] = None
+    #: A printed value replaced (step 11): Chaos Mirror's ATK, `{"atk": n}`,
+    #: until the end of the turn; Polymorph: Squirrel's `{"polymorph":
+    #: seat}`, a 1/1 green Squirrel with no abilities until that seat's
+    #: next upkeep. `None` otherwise, and in an older save.
+    printed: Optional[dict] = None
+    #: The order it came into play in (`MatchState.sequence`): what orders
+    #: the grants that read each other (the Card FAQ's Behind the Ferns
+    #: and Midori). 0 in an older save.
+    sequence: int = 0
 
     @property
     def ref(self) -> str:
@@ -267,6 +302,11 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("flipped", default=False),
     SavedField("armor", default=0),
     SavedField("attacked_this_turn", default=False),
+    SavedField("runes", factory=dict, write=dict, read=dict),
+    SavedField("returns_to"),
+    SavedField("attached_hero"),
+    SavedField("printed", write=_copy_optional_dict, read=_copy_optional_dict),
+    SavedField("sequence", default=0),
 )
 
 
@@ -360,6 +400,28 @@ class PlayerState:
     #: yet, a rebuild for 0 included: what a multicolour team's +1 on its
     #: first is remembered by (UMR pp. 4, 8, 9). False in an older save.
     constructed_once: bool = False
+    #: Desperation's "Discard your hand at the end of the main phase":
+    #: set as it resolves, read and cleared by the patrol lock that ends
+    #: the main phase (step 11). False in an older save.
+    discards_at_main_end: bool = False
+    #: How many spells this player has played this turn -- Calypso
+    #: Vystari's "If you played a spell this turn". Emptied as each of
+    #: their turns begins; 0 in an older save.
+    spells_played: int = 0
+    #: Moment's Peace stands: their units can't patrol and opposing units
+    #: can't attack them, until their next turn begins. False in an
+    #: older save.
+    peace: bool = False
+    #: A unit has arrived from this player's hand this turn -- Drakk's "The
+    #: first unit that arrives from your hand each turn". Emptied as each
+    #: of their turns begins; False in an older save.
+    arrived_from_hand: bool = False
+    #: What a spell gives all of this side's units for a while, read
+    #: continuously -- a unit arriving later has it too, one leaving
+    #: their control loses it: Stampede (`{"kind": "stampede", "until":
+    #: "end_of_turn"}`) and Ferocity (`"until": "upkeep"`, with its
+    #: caster's `seat`) (the author, 2026-10-09).
+    lasting: list = field(default_factory=list)
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -446,6 +508,11 @@ PLAYER_SAVED_FIELDS = (
     SavedField("reshuffled_this_phase", default=False),
     SavedField("tech2_spec"),
     SavedField("constructed_once", default=False),
+    SavedField("discards_at_main_end", default=False),
+    SavedField("spells_played", default=0),
+    SavedField("peace", default=False),
+    SavedField("arrived_from_hand", default=False),
+    SavedField("lasting", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 
@@ -510,6 +577,10 @@ class MatchState:
     #: The actions applied since this turn began, each with the random
     #: outcomes it consumed.
     journal: list[dict] = field(default_factory=list)
+    #: The last number handed out to something coming to be -- a card
+    #: into play, a hero's band (step 11): the order the Card FAQ's grants
+    #: are applied in. 0 in an older save.
+    sequence: int = 0
 
     # -- Reading -------------------------------------------------------
 
@@ -536,10 +607,15 @@ class MatchState:
 
     # -- Writing -------------------------------------------------------
 
+    def next_sequence(self) -> int:
+        """The next number in the order things come to be."""
+        self.sequence += 1
+        return self.sequence
+
     def new_instance(self, slug: str, owner: int) -> CardInstance:
         card = CardInstance(
             id=self.next_instance_id, slug=slug, owner=owner, controller=owner,
-            arrived_this_turn=True,
+            arrived_this_turn=True, sequence=self.next_sequence(),
         )
         self.next_instance_id += 1
         self.player(owner).play.append(card)
@@ -675,6 +751,7 @@ MATCH_SAVED_FIELDS = (
     SavedField("resolving", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("journal", factory=list, write=_deep_copy, read=_deep_copy),
+    SavedField("sequence", default=0),
 )
 
 def upgrade_hero_refs(match: MatchState) -> None:

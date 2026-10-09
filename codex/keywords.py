@@ -25,29 +25,60 @@ from typing import Optional
 from codex.cards import CardCatalog, Hero, catalog as load_catalog
 from codex.effects import LANDED_SET
 
-#: The keywords the basic set's texts open with, as the rulings'
-#: `General` group names them.
+#: The keywords the landed cards' texts open with, as the rulings'
+#: `General` group names them -- the basic set's, and red and green's
+#: (step 11): deathtouch, long-range, ephemeral, boost and untargetable.
 KEYWORDS = (
-    "Anti-air", "Channeling", "Flying", "Frenzy", "Haste", "Healing",
-    "Invisible", "Obliterate", "Overpower", "Readiness", "Resist",
-    "Sparkshot", "Stealth", "Swift strike", "Unstoppable",
+    "Anti-air", "Boost", "Channeling", "Deathtouch", "Ephemeral", "Flying", "Frenzy",
+    "Haste", "Healing", "Invisible", "Long-range", "Obliterate", "Overpower", "Readiness",
+    "Resist", "Sparkshot", "Stealth", "Swift strike", "Unstoppable", "Untargetable",
 )
 
-_OPENING = re.compile(
-    r"^(" + "|".join(re.escape(keyword) for keyword in KEYWORDS) + r")(?: (\d+))?(?:\s*\(|$)",
+#: One keyword with its X: a number, or -- for boost -- the gold it
+#: costs, printed as a gold glyph ("Boost {gold:4}").
+_ONE = re.compile(
+    r"^(" + "|".join(re.escape(keyword) for keyword in KEYWORDS) + r")"
+    r"(?: (\d+)| \{gold:(\d+)\})?$",
     re.IGNORECASE,
 )
 
 
+def _one(text: str) -> Optional[tuple[str, Optional[int]]]:
+    found = _ONE.match(text.strip())
+    if found is None:
+        return None
+    keyword = next(k for k in KEYWORDS if k.lower() == found.group(1).lower())
+    number = found.group(2) or found.group(3)
+    return keyword, int(number) if number else None
+
+
 def read_keywords(lines) -> tuple[tuple[str, Optional[int]], ...]:
-    """The (keyword, X) pairs a card's text lines open with."""
+    """
+    The (keyword, X) pairs a card's text lines open with. A line is
+    read as keywords where everything before its reminder text -- the
+    first "(" -- is keywords alone, one or a list joined by commas:
+    "Frenzy 1 (Gets +1 ATK on your turn.)", "Flying, haste, long-range,
+    resist 2 (...)", "Boost {gold:4} (...)". A line with anything else
+    in it -- "Flying but can't attack.", "Arrives: Gets stealth this
+    turn" -- is not a keyword line, and is read by the effects' tables.
+    """
     found = []
     for line in lines:
-        match = _OPENING.match(line.strip())
-        if match:
-            keyword = next(k for k in KEYWORDS if k.lower() == match.group(1).lower())
-            found.append((keyword, int(match.group(2)) if match.group(2) else None))
+        head = line.strip().split("(", 1)[0].strip().rstrip(".")
+        if not head:
+            continue
+        pairs = [_one(part) for part in head.split(",")]
+        if all(pair is not None for pair in pairs):
+            found.extend(pairs)
     return tuple(found)
+
+
+#: Keywords a card has that its text does not open a line with: Gemscout
+#: Owl's "Flying but can't attack." (the "can't attack" is
+#: `codex.effects.CANT_ATTACK`'s).
+EXTRA_KEYWORDS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
+    "gemscout_owl": (("Flying", None),),
+}
 
 
 @lru_cache(maxsize=1)
@@ -70,7 +101,7 @@ def keyword_table(catalog: Optional[CardCatalog] = None) -> dict:
                 if found:
                     table[(slug, band.min_level)] = found
             continue
-        found = read_keywords(card.text)
+        found = read_keywords(card.text) + EXTRA_KEYWORDS.get(slug, ())
         if found:
             table[slug] = found
     return table

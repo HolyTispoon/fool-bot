@@ -223,6 +223,9 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
+#: A named rune's tag on a card (step 11): Bloodburn's, Might of Leaf and
+#: Claw's, a feather rune.
+MARK_FILL = (122, 74, 160)       # #7a4aa0
 FIGURE_EDGE = (15, 10, 10)
 
 # The hand's and the codex's.
@@ -485,12 +488,31 @@ class Lying:
     partnered: bool = False
     arrived: bool = False
     exhausted: bool = False
+    #: The runes besides +1/+1 and -1/-1 (step 11) -- "Blood 2",
+    #: "Growth 5", "Feather" -- as tags under the rune chits.
+    marks: tuple[str, ...] = ()
+
+
+#: What Polymorph: Squirrel shows a unit as while it lasts.
+POLYMORPHED = "squirrel"
+
+
+def rune_marks(card: CardInstance) -> tuple[str, ...]:
+    """A card's named runes as tags: "Blood 2", "Feather"."""
+    return tuple(
+        kind.title() + (f" {count}" if count > 1 or kind != "feather" else "")
+        for kind, count in sorted((card.runes or {}).items()) if count
+    )
 
 
 def unit_lying(card: CardInstance, partnered: bool) -> Lying:
-    return Lying(card.slug, damage=card.damage, plus_runes=card.plus_runes,
+    """A card in play as it lies -- a Squirrel's art while Polymorph:
+    Squirrel has it (step 11)."""
+    slug = POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
+    return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
-                 arrived=card.arrived_this_turn, exhausted=card.exhausted)
+                 arrived=card.arrived_this_turn, exhausted=card.exhausted,
+                 marks=rune_marks(card))
 
 
 def hero_lying(hero: HeroState, cards: CardCatalog) -> Lying:
@@ -532,6 +554,10 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], 50, (margin - 8, bottom + 8),
                 upward=True)
+    if lying.marks:
+        draw = ImageDraw.Draw(upright)
+        for index, mark in enumerate(lying.marks):
+            pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
     if lying.arrived:
         arrived_tag(upright, margin, bottom)
 
