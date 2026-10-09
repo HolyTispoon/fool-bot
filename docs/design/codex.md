@@ -1392,6 +1392,43 @@ way and nothing is written from it.
   game" line can carry `validate`'s sentence, which names a slug only where
   the slug is not a card at all.
 
+### The golden
+
+`tests/test_codex_golden.py` is the Codex bot's safety net, D12 Ball's
+`test_golden_service.py` copied: **a seeded whole game of Bashing against
+Finesse through the Codex `GameService`** -- `create_game`, the two seats,
+`start`, `apply_action` for every answer and `resume` for every step the
+bot owes, with the default `Batching()` -- every `GameResult` written
+down as the service handed it back (its groups and their steps, what was
+carried, the prompt and its ask, the standing prompts' kinds) and the
+final save beside it, in `tests/golden/codex_service_transcript.txt` and
+`codex_service_final_match.json`, byte for byte.
+
+- **The seed is the full-game test's**, `SEED = 20261008`, and so is the
+  policy (`test_codex_driver_full_game.choose`, which reads the prompt's
+  options and nothing else); on it the game runs 275 answers to Troq
+  Bashar destroying Finesse's base. `FOOLBOT_UPDATE_GOLDEN=1 python3 -m
+  unittest tests.test_codex_golden` re-records it, as the D12 Ball
+  goldens are.
+- **It pins the model's voice with its tokens intact**, before any
+  frontend draws one. So a faithful change to rendering -- the emoji, the
+  mentions, the message layout, the board's picture -- leaves it alone;
+  a change to the model's wording or to what the game does re-records it,
+  and **the pull request that re-records it says so and shows the diff**.
+  The rule is written in the test's docstring and in its failure message.
+- **Nothing hidden is written into it**: a prompt's options are never
+  described (a hand and a codex are their asked player's), and the test's
+  own action lines leave out a hire's card and a tech choice's picks --
+  `test_nothing_hidden_is_written` holds both. The final save holds every
+  hand, as any save does; it is a test fixture, never a message.
+- **What it does not cover**: a concession, an undo, an abandon or a
+  rematch (`tests/test_codex_ending.py`, `tests/test_codex_history.py`);
+  a test game, whose tech is chosen in each side's own ready phase;
+  whatever the policy never does -- the tower's detection, an ability it
+  does not reach, an attack's choice that never comes up on this seed;
+  and everything the cog renders, which `tests/test_codex_cog_turn.py`
+  plays through the fakes.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:
