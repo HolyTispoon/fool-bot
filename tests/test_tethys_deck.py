@@ -11,11 +11,11 @@ from tethysdeck import deck, sets
 # The author's rule, as the World Building sheet's table holds it.
 EXPECTED = {
     "money": ("fortune", "doom", "fortune", "doom"),
-    "might": ("fortune", "doom", "fortune", "doom"),
+    "might": ("fortune", "doom", "doom", "fortune"),
     "fiends": ("doom", "fortune", "fortune", "doom"),
     "tools": ("doom", "fortune", "doom", "fortune"),
-    "states": ("fortune", "doom", "doom", "fortune"),
-    "fools": ("doom", "fortune", "fortune", "doom"),
+    "states": ("fortune", "doom", "fortune", "doom"),
+    "fools": ("doom", "fortune", "doom", "fortune"),
 }  # odd cards, even cards, Left, Right
 
 
@@ -26,6 +26,12 @@ class FateRuleTests(unittest.TestCase):
                 self.assertEqual(deck.fate_of(suit, rank), odd if int(rank) % 2 else even, (suit, rank))
             self.assertEqual(deck.fate_of(suit, "Left"), left, suit)
             self.assertEqual(deck.fate_of(suit, "Right"), right, suit)
+
+    def test_the_rulers_are_split_between_the_fates(self):
+        lefts = [deck.fate_of(suit, "Left") for suit in deck.SUITS]
+        self.assertEqual(lefts.count("fortune"), 3)
+        for suit in deck.SUITS:
+            self.assertNotEqual(deck.fate_of(suit, "Left"), deck.fate_of(suit, "Right"), suit)
 
     def test_every_suit_is_six_and_six(self):
         for suit in deck.SUITS:
@@ -47,14 +53,14 @@ class PiecesTests(unittest.TestCase):
                 self.assertLessEqual(len(pieces), 4, (suit, rank))
                 self.assertTrue(set(pieces) <= set(deck.DENOMINATIONS), (suit, rank))
 
-    def test_a_ruler_is_twelve_for_fortune_and_eleven_for_doom(self):
+    def test_the_two_rulers_share_the_power_equally(self):
         for suit in deck.SUITS:
-            for rank in ("Left", "Right"):
-                expected = 12 if deck.fate_of(suit, rank) == "fortune" else 11
-                self.assertEqual(deck.worth(suit, rank), expected, (suit, rank))
-        self.assertEqual(deck.worth("money", "Left"), 12)
-        self.assertEqual(deck.worth("money", "Right"), 11)
-        self.assertEqual(deck.pieces("tools", "Left"), [6, 3, 1, 1])
+            self.assertEqual(deck.worth(suit, "Left"), deck.worth(suit, "Right"), suit)
+            self.assertEqual(deck.worth(suit, "Left"), 12, suit)
+            self.assertEqual(deck.pieces(suit, "Left"), [12], suit)
+            self.assertEqual(deck.pieces(suit, "Right"), [12], suit)
+        self.assertEqual(deck.money_coins("Left"), [("gold", 1)])
+        self.assertEqual(deck.money_coins("Right"), [("gold", 1)])
         self.assertEqual(deck.pieces("tools", "Right"), [12])
 
     def test_money_coins_make_the_value_in_dinkies(self):
@@ -71,8 +77,23 @@ class PiecesTests(unittest.TestCase):
         self.assertEqual(set(deck.VARIANTS), {"might", "tools"})
 
 
-# Every hand of six by its best set, (mixed, uniform), as a brute-force
-# walk of all 156,238,908 hands counted them (2026-10-09).
+class PictureNamesTests(unittest.TestCase):
+    """The committed pictures are named as `icons.icon_name` names a piece, so
+    `IconSet` finds each one; the pictures themselves are not tested."""
+
+    def test_every_picture_is_a_piece(self):
+        from tethysdeck import icons
+        from tethysdeck.relief import PICTURES
+
+        names = {icons.icon_name(suit, variant, fate) for suit, variant, fate in icons.every_icon()}
+        for path in sorted(PICTURES.glob("*.png")):
+            self.assertIn(path.stem, names, path.name)
+
+# Every hand of six by its best set, (mixed, uniform). The totals per set are
+# as a brute-force walk of all 156,238,908 hands counted them (2026-10-09);
+# the uniform share -- all six Fortune or all six Doom -- depends on the fate
+# table, and was re-walked over the 3,895,584 uniform hands when Left's fate
+# became the table's own input (the same day), the mixed share following.
 CENSUS = {
     "six_of_a_kind": (10, 0),
     "straight_flush": (42, 0),
@@ -81,11 +102,11 @@ CENSUS = {
     "two_triples": (17_910, 90),
     "four_of_a_kind": (321_750, 0),
     "straight": (316_344, 10_206),
-    "three_pairs": (790_330, 13_320),
+    "three_pairs": (789_338, 14_312),
     "three_of_a_kind": (9_007_060, 108_940),
-    "two_pairs": (24_721_648, 513_452),
-    "one_pair": (76_221_972, 1_953_900),
-    "no_set": (40_936_808, 1_295_664),
+    "two_pairs": (24_697_350, 537_750),
+    "one_pair": (76_199_472, 1_976_400),
+    "no_set": (40_984_598, 1_247_874),
 }
 
 

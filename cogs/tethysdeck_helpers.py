@@ -17,11 +17,11 @@ LOGGER = logging.getLogger(__name__)
 # https://docs.google.com/spreadsheets/d/1OGvn3FSLqAN97zn5LMKe8KDDVaO5TbZiRIr6cbq46TE
 # Fiends has no symbol filled in upstream yet; 〠 is what the rest of
 # this codebase already used for it before the sheet existed.
-SUITS = [
+SUITS = [  # the author's order (2026-10-09)
     ("$", "Money"),
+    ("⚒", "Tools"),
     ("⚔", "Might"),
     ("〠", "Fiends"),
-    ("⚒", "Tools"),
     ("☯", "States"),
     ("🃟", "Fools"),
 ]

@@ -87,7 +87,7 @@ AID_WIDTH, MARGIN = 1240, 40
 CARD_W, CARD_H, CARD_GAP = 86, 120, 11
 ROW_H = CARD_H + 26
 # The key's two cards: which ink is which fate.
-KEY = ((("money", "1"), "Fortune card: teal"), (("money", "2"), "Doom card: black and gold"))
+KEY = ((("money", "1"), "Fortune card: violet"), (("money", "2"), "Doom card: coal and orange"))
 COLUMNS = {"num": 52, "name": 100, "hand": 366, "mixed": 1050, "uniform": 1198}
 
 
