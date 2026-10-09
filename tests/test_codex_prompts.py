@@ -22,7 +22,7 @@ from codex.prompts import (
     standing_prompts,
 )
 
-from codex_positions import begin, new_game, put
+from codex_positions import begin, hero, hero_in_play, new_game, put
 
 
 def _main():
@@ -148,6 +148,24 @@ def upkeep_order():
     return engine, game, match
 
 
+def level_gain():
+    """A standard game: seat 1's Rhinoceros kills seat 2's patrolling
+    hero while two of seat 1's heroes are in play, so the active player
+    chooses which gains the levels (UMR p. 10)."""
+    engine, game, match = new_game(teams=(("fire", "anarchy", "blood"), ("feral", "growth", "balance")))
+    begin(engine, game, match)
+    hero_in_play(match, 1, slug="jaina_stormborne")
+    hero_in_play(match, 1, slug="captain_zane")
+    hero_in_play(match, 2, slug="calamandra_moss", patrol="squad_leader")
+    match.player(2).hero.armor = 0
+    put(match, 1, "regularsized_rhinoceros")
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "unit:1"}))
+    driver.apply(engine, game, match, Action(
+        PromptKind.CHOOSE_DEFENDER, arguments={"defender": hero(match, 2, "calamandra_moss")},
+    ))
+    return engine, game, match
+
+
 def game_over():
     engine, game, match = _main()
     match.winner = 2
@@ -166,6 +184,7 @@ PROMPT_FIXTURES = {
     PromptKind.TARGET: target,
     PromptKind.APPEL_STOMP_TOP: appel_stomp_top,
     PromptKind.UPKEEP_ORDER: upkeep_order,
+    PromptKind.LEVEL_GAIN: level_gain,
     PromptKind.GAME_OVER: game_over,
 }
 

@@ -42,11 +42,43 @@ class SavedFieldTests(unittest.TestCase):
         player = saved["players"][0]
         for name in ("tech_confirmed", "reshuffled_this_phase", "add_on", "buildings"):
             player.pop(name)
-        player["hero"].pop("armor")
+        player["heroes"][0].pop("armor")
         loaded = MatchState.from_dict(saved)
         self.assertEqual((loaded.journal, loaded.turn_snapshots, loaded.attacking), ([], [], None))
         self.assertEqual(loaded.player(1).buildings, {"tech1": None, "tech2": None, "tech3": None})
         self.assertEqual(loaded.player(1).hero.armor, 0)
+        loaded.validate(catalog())
+
+    def test_a_save_older_than_the_standard_game_is_a_team_of_one(self) -> None:
+        """Step 10's fields, each with its fallback: `spec` and `hero` as
+        a team of one, no `deck_color` the neutral deck, and a hero named
+        `hero` alone -- an attack standing half-resolved, a tower's
+        detection, an effect's source and target -- read as the side's
+        first hero, `hero:<slug>`."""
+        engine, game, match = new_game()
+        saved = match.to_dict()
+        for player in saved["players"]:
+            player["spec"] = player.pop("specs")[0]
+            player["hero"] = player.pop("heroes")[0]
+            player.pop("deck_color")
+        saved["attacking"] = "hero"
+        saved["combat"] = {"attacker": "hero", "defender": "hero", "stage": "sparkshot",
+                           "obliterated": [], "sparks": ["hero"], "overpower": None}
+        saved["players"][1]["add_on"] = {"slug": "tower", "hp": 4, "detected": "hero"}
+        saved["resolving"] = [{"kind": "effect", "effect": "spark", "seat": 1,
+                               "source": "hero", "taken": ["2:hero"], "part": 0}]
+        loaded = MatchState.from_dict(saved)
+        self.assertEqual(loaded.player(1).specs, ("bashing",))
+        self.assertEqual([hero.slug for hero in loaded.player(2).heroes], ["river_montoya"])
+        self.assertEqual(loaded.player(1).deck_color, "neutral")
+        active, other = (loaded.player(loaded.active).heroes[0].slug,
+                         loaded.opponent(loaded.active).heroes[0].slug)
+        self.assertEqual(loaded.attacking, f"hero:{active}")
+        self.assertEqual((loaded.combat["attacker"], loaded.combat["defender"], loaded.combat["sparks"]),
+                         (f"hero:{active}", f"hero:{other}", [f"hero:{other}"]))
+        self.assertEqual(loaded.player(2).add_on.detected, "hero:troq_bashar")
+        self.assertEqual(loaded.resolving[0]["source"], "hero:troq_bashar")
+        self.assertEqual(loaded.resolving[0]["taken"], ["2:hero:river_montoya"])
         loaded.validate(catalog())
 
     def test_the_saved_lists_are_copies(self) -> None:

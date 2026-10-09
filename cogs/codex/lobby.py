@@ -12,30 +12,49 @@ import discord
 from discord import app_commands
 
 from codex import tokens
+from codex.cards import catalog
+from codex.formatting import deck_name
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from cogs.codex_views import LobbyView, send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
 
-#: The seats, by spec, as the lobby names them.
-SPEC_HEROES = {"bashing": "Troq Bashar", "finesse": "River Montoya"}
-
-
 class LobbyMixin:
     def lobby_text(self, game: CodexGame) -> str:
-        """The lobby's text: who sits where, and what Start waits on."""
+        """The lobby's text: the game, who sits where with which heroes
+        and deck, and what Start waits on. The catalog names the heroes."""
+        cards = catalog()
         rows = []
-        for spec in ("bashing", "finesse"):
-            seat = next((held for held, chosen in game.player_specs.items() if chosen == spec), None)
-            name = game.seat_name(seat) if seat is not None else None
-            rows.append(f"**{spec.title()}** ({SPEC_HEROES[spec]}): {name or '*open*'}")
+        for seat in (1, 2):
+            name = game.seat_name(seat)
+            if name is None:
+                rows.append(f"**Player {seat}**: *open*")
+                continue
+            specs = game.player_specs.get(seat, ())
+            if not specs:
+                rows.append(f"**Player {seat}**: {name} -- *choosing heroes*")
+                continue
+            heroes = ", ".join(cards.hero_for(spec).name for spec in specs)
+            row = f"**Player {seat}**: {name} -- {heroes} ({deck_name(specs)})"
+            if len(specs) < game.heroes_per_seat:
+                row += " -- *choosing heroes*"
+            deck = game.player_decks.get(seat)
+            if deck in game.deck_choices(seat):
+                row += f"; the {deck.title()} starting deck"
+            else:
+                row += "; *choosing a starting deck*"
+            rows.append(row)
         if game.status is not GameStatus.LOBBY:
             waiting = "The game has started."
         elif game.may_start():
-            waiting = "Both seats are taken: either player may **Start**."
+            waiting = "Both seats are ready: either player may **Start**."
         else:
-            waiting = "Take a seat to play."
-        head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- the basic game, Bashing against Finesse.")
+            waiting = "Choose your heroes to take a seat."
+        if game.mode == "standard":
+            kind = "a standard game, three heroes a side"
+        else:
+            kind = "the basic game, one hero a side"
+        head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
         if game.test_game:
             head += " A **test game**: one person may take both seats and play both sides."
         lines = [head.strip(), *rows]
@@ -57,8 +76,8 @@ class LobbyMixin:
             asked = asked[:1]
         tail = f" ({' and '.join(asked)} asked to keep them.)" if asked else ""
         return (
-            f"A rematch of {last}: the heroes are swapped -- unless both players "
-            f"press **Keep heroes**.{tail}"
+            f"A rematch of {last}: the teams are swapped, heroes and decks -- unless "
+            f"both players press **Keep heroes**.{tail}"
         )
 
     @app_commands.command(name="lobby", description="Open a Codex lobby in a channel of its own: two seats, then Start.")

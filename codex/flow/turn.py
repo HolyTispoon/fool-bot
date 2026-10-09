@@ -145,28 +145,27 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         card.exhausted = False
         card.arrived_this_turn = False
         card.patrol_slot = None
-    hero = player.hero
-    hero.exhausted = False
-    hero.arrived_this_turn = False
-    hero.patrol_slot = None
+    for hero in player.heroes:
+        hero.exhausted = False
+        hero.arrived_this_turn = False
+        hero.patrol_slot = None
     player.hired_this_turn = False
     # Readiness attacks once a turn and a tower detects once a turn
     # (UMR p. 9, 17), so both are new each turn, on both sides.
     for side in match.players:
-        for card in side.play:
-            card.attacked_this_turn = False
-        side.hero.attacked_this_turn = False
+        for body in (*side.play, *side.heroes):
+            body.attacked_this_turn = False
         if side.add_on is not None:
             side.add_on.detected = None
     # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
-        for card in side.play:
-            card.armor = SQUAD_LEADER_ARMOR if card.patrol_slot == "squad_leader" else 0
-        side.hero.armor = SQUAD_LEADER_ARMOR if side.hero.patrol_slot == "squad_leader" else 0
-    hero.max_level_since_turn_began = (
-        hero.in_play and hero.level == engine.hero_card(hero).max_level
-    )
+        for body in (*side.play, *side.heroes):
+            body.armor = SQUAD_LEADER_ARMOR if body.patrol_slot == "squad_leader" else 0
+    for hero in player.heroes:
+        hero.max_level_since_turn_began = (
+            hero.in_play and hero.level == engine.hero_card(hero).max_level
+        )
 
     # Upkeep.
     match.enter_phase("upkeep")
@@ -182,12 +181,14 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     else:
         collected += f": {tokens.gold(player.gold)}."
     result.narration.append(collected)
-    if not hero.in_play and hero.summoning_runes:
-        hero.summoning_runes -= 1
-        result.narration.append(
-            f"{tokens.hero(hero.slug)} loses a summoning rune "
-            f"({hero.summoning_runes} left)."
-        )
+    # One summoning rune off each hero (UMR p. 5).
+    for hero in player.heroes:
+        if not hero.in_play and hero.summoning_runes:
+            hero.summoning_runes -= 1
+            result.narration.append(
+                f"{tokens.hero(hero.slug)} loses a summoning rune "
+                f"({hero.summoning_runes} left)."
+            )
     if engine.upkeep_order_matters(player):
         # The active player orders their upkeep effects (Starlet's
         # ruling): asked, and the main phase opens on the answer.
@@ -228,7 +229,6 @@ def _upkeep_effects(engine: "RulesEngine", match: MatchState, order, result: Ste
 
     seat = match.active
     player = match.active_player
-    hero = player.hero
     for effect in order:
         if effect == "draw":
             if draw_cards(engine, match, seat, 1, result):
@@ -238,9 +238,7 @@ def _upkeep_effects(engine: "RulesEngine", match: MatchState, order, result: Ste
         elif effect == "healing":
             healing = engine.healing(player)
             healed = 0
-            bodies = [card for card in player.play]
-            if hero.in_play:
-                bodies.append(hero)
+            bodies = [*player.play, *player.heroes_in_play]
             for body in bodies:
                 taken = min(body.damage, healing)
                 body.damage -= taken
@@ -317,7 +315,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # This turn's effects end (Intimidate, Discord, Sneaky Pig's
     # stealth), on both sides, heroes too.
     for side in match.players:
-        for body in (*side.play, side.hero):
+        for body in (*side.play, *side.heroes):
             body.modifiers = [m for m in body.modifiers if m.get("until") != "end_of_turn"]
     minimum, maximum = engine.tech_bounds(player)
     player.tech_owed = maximum > 0

@@ -697,7 +697,7 @@ starting.
 | ~~7~~ | ~~The board drawn element by element~~ -- landed; what it settled is in docs/design/codex.md, "The board on Discord" and "The cards are data" | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
 | ~~8~~ | ~~Finishing a game: concede, abandon, rematch, the golden~~ -- landed; what it settled is in docs/design/codex.md, "The end of a game" and "The golden" | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | ~~9~~ | ~~The look back: what turned out identical moves to one home~~ -- landed; what it settled is in docs/design/codex.md, "What the two games share" | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
-| 10 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
+| ~~10~~ | ~~The standard game's rules, over the red and green data~~ -- landed; what it settled is in docs/design/codex.md, "The standard game" and "The vanilla engine and `UNIMPLEMENTED`" | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
 | 11 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
 | 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
 | 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
@@ -733,9 +733,10 @@ host after merging (`deploy.cmd`, every new `.env` variable by name,
 every emoji to upload to the Codex application, any Discord-side
 setup; "Nothing to do on the live host" when that is true) and what can
 be tested in the server now, command by command, with what should
-happen and what is not expected to work yet. A step whose section has
-no prompt (10 to 13, until the author writes them) stops the routine
-with a report, never a guess. A PR it opened that is closed without
+happen and what is not expected to work yet. A step whose section has no
+prompt stops the routine with a report, never a guess -- none since
+2026-10-09, when steps 10 to 13 were written, and the rule stands for
+a step added later. A PR it opened that is closed without
 merging is a rejected step: it does not open it again, and a human
 claims the step to redo it.
 
@@ -2002,25 +2003,1116 @@ hero, Summon or Level up by one level a click -- under the actions
 row, so the hand keeps two rows at most (`HAND_ROWS`) and the board's
 row stays the last. A choice the standard game adds -- the spec chosen
 at Tech II, which hero to summon -- is buttons where it fits a row or
-two, a menu only where it cannot. Step 10 builds those rules over the
-red and green data
-with every card
-still played for its numbers, so the standard game is playable before
-a single red or green effect exists; step 11 gives red and green their
-effects and rulings, the way steps 5 and 6 did for the neutral set,
-and lands on Calamandra against Jaina, the Core Set's own first game
-(UMR p. 3); steps 12 and 13 repeat step 11 for the other two pairs.
-Their prompts are written when step 9 lands, in the shape of steps 5
-and 6, from the design note as it stands then. Nothing in steps 1 to 9
-builds any of it, and everything in them is written so that it fits.
+two, a menu only where it cannot.
+
+The four prompts were written on 2026-10-09, once steps 8 and 9 had
+landed, from the design note as it stood then and in the shape of
+steps 5 and 6. Step 10 builds the standard game's rules over the red
+and green data with every card still played for its numbers, so the
+standard game is playable before a single red or green effect exists;
+step 11 gives red and green their effects and rulings, the way steps 5
+and 6 did for the neutral set, and lands on Calamandra against Jaina,
+the Core Set's own first game (UMR p. 3) -- a basic game, one hero a
+side, on the green and red starting decks, which is why step 10 lets
+a basic game seat any landed hero and not only the neutral two; steps
+12 and 13 repeat step 11 for the other two pairs, each landing its
+colours first and then playing their text. Where a comment in the code
+names "step 9" for the standard game, it was written before the board
+redraw became step 7 (2026-10-08) and means step 10.
+
+**What the four hold in common.** A colour lands as the basic set did:
+its heroes offered in the lobby (`LANDED_COLORS`, which step 10 adds
+and each pair's step extends), its cards read by the keyword table and
+played for their numbers with every text the engine does not honour in
+`UNIMPLEMENTED`, written out and pinned; then the keywords the pair
+adds, then the effects, every ruling a test with the ruling as its
+docstring, and the set empty at the end of the step. Nothing is ever
+ignored silently. The cards, the rulings and the art have been in the
+tree since step 1; what each step adds is code. The prompts name the
+cards by mechanic rather than one by one where a mechanic is a dozen
+cards, and each colour's card table -- `codex/data/cards.json` read by
+colour, with the Card FAQ (UMR pp. 19-22) and the glossary (pp. 16-18)
+-- is the scope, as the worksheet's table was for the basic set. The
+design note's sections are the record of what each step settled; a
+step that finds a question the rulings and the FAQ do not answer takes
+it to the author on the PR, as the preamble says, and builds the
+rulebook's reading until it has an answer.
+
+### 10. The standard game's rules, over the red and green data
+
+**Landed** (2026-10-09, by the cloud routine): the record and the lobby,
+the match with three heroes, the buildings and the costs, the board and
+the codex, and red and green played for their numbers --
+[design/codex.md](design/codex.md), "The standard game", with
+`LANDED_COLORS` and the landed set in "The vanilla engine and
+`UNIMPLEMENTED`", which is no longer empty and says so.
+
+The standard game is what the rulebook calls the game: three heroes a
+side, a codex of seventy-two, all four add-ons (UMR p. 3). Everything
+in steps 1 to 9 was written so that it fits -- the seats by spec, the
+add-on as data, the hero as a list later, every colour's data and art
+imported at step 1, the panel's columns and the codex's views already
+reading how many heroes a player has -- and this step is where the
+hero becomes a list. It lands red and green as data the vanilla engine
+plays for its numbers, so that a standard game can be played at all
+(three neutral heroes do not exist), and so that step 11 starts from a
+game that runs. A basic game may seat any landed hero from this step
+on, because the Core Set's first game is a basic game of Calamandra
+against Jaina (p. 3), and because a seat picked from a menu of heroes
+makes no distinction the rules do not.
+
+```text
+Step 10 of docs/codex-bot.md. Steps 1 to 9 have landed. Also read
+docs/design/codex.md whole -- "The lobby and the channel", "The
+panel", "The board on Discord", "The saved fields", "The end of a
+game" (the rematch's swap) and "What the two games share" are what
+this step changes -- and UMR pp. 3-4 and 6-10: three heroes, the
+starting deck's colour, the hero limit, the spec chosen at Tech II,
+the heroes' hall and the tech lab, the multicolour penalties, which
+hero gains a kill's levels; with the General rulings heroes_hall and
+tech_lab, which are the rules. Where a comment in the code names
+"step 9" for the standard game, it means this step. Five commits: the
+record and the lobby; the match with three heroes; the buildings and
+the costs; the board and the codex; red and green under the vanilla
+engine.
+
+1. The record and the lobby. CodexGame gains mode -- "basic" or
+   "standard", saved, "basic" where an older record has none -- and a
+   seat holds its heroes rather than one spec: player_specs stays the
+   saved key and becomes a list per seat, one spec in a basic game and
+   three in a standard one (a hero is its spec's one hero, hero_for,
+   so a spec names a hero and nothing is saved twice), and player_decks
+   the starting deck's colour per seat, "neutral" where absent. The
+   rules, on the record with RuleRefusal (UMR pp. 3-4): a seat's heroes
+   are distinct and of colours the bot has landed (cards.LANDED_COLORS
+   -- neutral, red and green from this step; a hero of another colour
+   is refused as not in this bot yet, with no page to cite); a basic
+   game's deck is its hero's colour; a standard game's is one of its
+   three heroes' colours, asked where they differ and settled by the
+   rule where they do not, the neutral heroes' colour a deck the three
+   may take; Start is refused until every seat is complete; a rematch
+   swaps the two teams whole (rematch_specs as lists; Keep heroes as it
+   is); a test game seats one person on both sides as before. The
+   lobby (cogs/codex_views/lobby.py) is rebuilt from the record: its
+   first row Basic game / Standard game -- either seated player's, or
+   anyone's while nobody sits, the lobby's until Start -- Leave and
+   Start; its second a menu of the landed heroes, one pick in a basic
+   game and three in a standard one, which seats the clicker with those
+   heroes (Play Bashing and Play Finesse go, and with them the cog's
+   SPEC_HEROES and its "Bashing against Finesse" line: the catalog
+   names the heroes); its third, shown only to a seat whose heroes span
+   more than one colour, a button per colour for the deck. A menu
+   because twenty heroes do not fit two rows of buttons; the lobby's
+   line per seat names its heroes and its deck. Everywhere the cog
+   names a side by spec.title() (cogs/codex/ending.py, turns.py,
+   cogs/codex_views/turn_message.py) it names it by
+   formatting.deck_name(player.specs) instead, and turn_heading is
+   unchanged.
+
+2. The match with three heroes. PlayerState.hero becomes heroes, a
+   list of HeroState saved under "heroes", an older save's "hero" read
+   as a list of one; spec becomes specs, a tuple saved under "specs"
+   with "spec" its fallback (the specs property goes); deck_color is
+   new, "neutral" in an older save. new_match deals each seat its
+   deck's starters (catalog.starting_deck) and a codex of every spec's
+   twenty-four (codex_for over specs); the first player's 4 and the
+   second's 5 workers, the hand of five and the random first player
+   are unchanged. Every hero ref becomes hero:<slug> -- Action's
+   arguments gain hero, and summon, level and attack name one -- and
+   the golden re-records for it, which the PR says and shows.
+   Everything that touched player.hero loops over heroes: the ready
+   phase and the armor, one summoning rune off each hero at upkeep
+   (UMR p. 5), max_level_since_turn_began per hero, validate,
+   patroller, patrol_candidates, attackers, legal_defenders,
+   hero_keywords and TEXT's band rows per hero, the snapshots, the
+   render. The hero limit (engine.hero_limit, UMR p. 6 and the
+   heroes_hall ruling, which is the one reading): one; two with an
+   active tech II or an active heroes' hall; three with an active tech
+   III, or an active tech II and an active heroes' hall -- active being
+   built, finished and not destroyed (tech_building_active) -- and a
+   summon past it is refused citing p. 6; a dead hero in the command
+   zone does not count against it, so it may be replaced at once, and
+   losing a building removes nobody. Spells (UMR p. 7): a spec spell
+   needs its spec's hero in play, an ultimate that hero at max level
+   since the turn began, as now but per hero; a starting spell any hero
+   -- effective_cost adds 1 where the spell's colour is not neutral and
+   no hero of its colour is in play ("a hero of the wrong colour"),
+   never for a neutral spell -- and the caster is the engine's, a hero
+   of the spell's colour where there is one, with nobody asked, since
+   nothing in these sets turns on which hero cast a starting spell.
+   Channeling stays by spec (settle, unchanged). The kill's two levels
+   (UMR p. 10): with one hero in play it gains them, with none nobody
+   does, and with more than one the active player is asked --
+   LEVEL_GAIN, a new kind, a button per hero in play, asked where the
+   kill happened as obliterate's choice is, on MatchState.combat or
+   the effect's frame, so the levels are gained before anything after
+   the kill resolves. The panel's hero row (TurnPanelView, the
+   author's decision above): one button per hero under the actions
+   row, "Summon Jaina (2 gold)" or "Level up Jaina (1 gold)", a level
+   a click, disabled with its reason (the limit, the runes, the gold,
+   the maximum); the actions row keeps Hire worker, Attack..., Undo...
+   and End main phase; HAND_ROWS becomes two so the board's row stays
+   the last; MainActionOptions.hero becomes heroes, one HeroOption
+   each.
+
+3. The buildings and the costs. The add-ons are the data's four
+   (engine.ADD_ONS, effects.ADD_ONS, and render's default HP read from
+   the catalog): the heroes' hall (UMR p. 9) and the tech lab, which
+   carries a spec (AddOnState.spec, None in an older save). In a
+   standard game, constructing tech II chooses a spec among the
+   player's heroes' (UMR p. 8): the build action carries spec, the
+   BuildOption lists the choices, the driver refuses a missing or a
+   foreign one citing p. 8, and PlayerState.tech2_spec keeps it,
+   unchanged by the building's destruction and its rebuild. A tech II
+   or III card is playable only with its spec the tech II's or the
+   lab's (why_not_playable says which is missing); a basic game's one
+   spec is chosen by the rule and never asked. The tech lab's spec is
+   chosen as it is built, from the heroes' specs, where a tech II
+   stands; where none does it is built without one and chosen together
+   with the tech II's when that is built (the tech_lab ruling); a
+   destroyed lab loses its spec, and a rebuilt one may choose another
+   (p. 9). The multicolour penalties (UMR pp. 4, 8, 9):
+   engine.team_colors(player) is the heroes' colours less neutral, and
+   where there are two or more, the first tech building or add-on the
+   player constructs costs 1 more -- PlayerState.constructed_once,
+   false in an older save, set by any construction, a rebuild for 0
+   included -- and the build option shows the cost it will charge. On
+   the panel, Build Tech II in a standard game turns the panel into the
+   spec choice, a button per spec and Back, the shape Attack... has;
+   Build Tech lab the same where a tech II stands, and both rows where
+   a lab without a spec waits on the tech II's choice; the hall needs
+   nothing. Destroyed, each add-on deals its 2 to the base and a new
+   one replaces the one in the slot, as step 2 settled.
+
+4. The board and the codex. render.heroes reads player.heroes, so a
+   standard panel is seven columns with three command-zone plates as
+   step 7 drew it; the nameplate reads the deck's colour and the
+   heroes' names ("Red · Jaina, Zane, Drakk"), turn_colors as it is;
+   the add-on slot draws the hall's and the lab's cards from
+   buildings/, which the import cut at step 1; the chosen spec card
+   (specs/<spec>.png, cut for this) is drawn small on the tech II tile
+   once chosen, and on the lab's card for its own. The codex is three
+   binders: codex_counts over specs; codex_views' spec views appear as
+   the engine already offers them; TechOptions.codex lists every
+   spec's cards; the Everything view of seventy-two at CODEX_COLUMNS
+   must stay under Discord's upload limit -- measure it and say so in
+   the PR, and narrow the view to the specs' three where it does not.
+   scripts/render_codex_sample.py renders a standard game's board, hand
+   and codex beside the basic game's; put the pictures in the PR.
+
+5. Red and green under the vanilla engine. keywords.keyword_table and
+   the set constants in codex.effects read the landed set
+   (effects.LANDED_SET: the basic set plus RED and GREEN -- each
+   colour's ten starters, its three specs' thirty-six, its three
+   heroes and its tokens), so a red or green card whose text is only
+   keywords the engine already plays -- Mad Man's haste, Nautical
+   Dog's frenzy, Centaur's overpower, Chameleon's stealth, Huntress's
+   sparkshot and anti-air, Barkcoat Bear's resist and overpower -- plays
+   in full from this step; every other red or green card with text,
+   the six heroes' bands and the pair's tokens go into UNIMPLEMENTED,
+   written out, and tests/test_codex_effects.py pins the set as exactly
+   that and every other landed card handled (its _handled table grows
+   with any new static table). A text that opens with a keyword the
+   table does not know -- deathtouch, long-range, ephemeral, boost,
+   untargetable -- is unimplemented, not half-read: read_keywords takes
+   only KEYWORDS. Building cards and upgrades are things in play from
+   this step, since Bloodburn, Rich Earth and Verdant Tree are
+   starters: a building card has HP, may be attacked once the patrol
+   zone allows ("anything with HP", UMR p. 10) and goes to its owner's
+   discard when destroyed, dealing nothing to the base (p. 8 speaks of
+   tech buildings and add-ons); an upgrade has no HP and cannot be
+   attacked (p. 7); neither patrols, both arrive with arrival fatigue,
+   and render_panel draws them after the units.
+
+Tests: tests/test_codex_rules.py gains the standard game's rules, each
+with its page -- the hero limit at each building and at the hall, a
+dead hero replaced at once, a summon refused past the limit, the tech
+II's spec kept through a rebuild, the lab's spec and its loss, a tech
+II card refused for the wrong spec and allowed for the lab's, the +1
+on a multicolour team's first building and never on a team of one
+colour and neutral, a starting spell's +1 by the wrong hero and never
+for a neutral one, the levels' recipient asked with two heroes in play
+and not with one; tests/test_codex_keywords.py pins the heroes_hall
+and tech_lab rulings (four); tests/test_codex_game.py the lobby's
+rules (a hero of a colour not landed, a fourth hero, a hero twice, a
+deck of a colour nobody plays, Start before the seats are complete, a
+rematch's swap of teams); tests/codex_positions.py's new_game takes
+the teams and the mode -- Bashing against Finesse the default, so no
+test changes -- and hero_in_play names the hero where a side has three;
+tests/test_codex_driver_full_game.py plays a second game, a standard
+one, three red heroes against three green, the policy summoning and
+levelling each hero and choosing the first spec offered, to a destroyed
+base with every card played for its numbers, and checks nothing hidden
+is said; tests/test_codex_cog_lobby.py seats a standard team through
+the menu and the deck buttons and starts it; tests/test_codex_cog_turn.py
+presses the hero row and the spec choice through the fakes, holding
+the request budget. The basic golden is re-recorded for the hero refs
+alone, and the PR shows that its diff is only the refs.
+
+scripts/render_codex_emoji.py's FACES gains the six red and green
+heroes, a square pinned per hero after one look at the card; the PR's
+For the author names the six PNGs to upload to the Codex application.
+
+Record in docs/design/codex.md, a new section "The standard game":
+the lobby's picks and why a menu, the record's keys, the saved fields
+and their fallbacks, the hero refs and the golden's re-recording, the
+hero limit as the ruling words it, the spec at tech II and the lab's,
+the multicolour costs and where the surcharge is remembered, the
+caster nobody chooses and why, the levels' recipient, building cards
+and upgrades in play, what the board draws for all of it; and
+LANDED_COLORS beside the landed set in "The vanilla engine and
+UNIMPLEMENTED", which is no longer empty and says so.
+
+Done when: a standard game runs through the driver from the lobby to
+a destroyed base with three heroes a side; a basic game of Bashing
+against Finesse plays as before; the suite is green.
+
+Stop: a standard game on the test server, red against green: three
+heroes summoned on one side, its tech II's spec chosen, a heroes' hall
+and a tech lab built, every red and green card played for its numbers
+and saying so.
+```
+
+### 11. Red and green: every card does what it says
+
+The Blood Anarchs and the Moss Sentinels, ninety-two cards, six
+heroes, six tokens: everything with text that step 10 played for its
+numbers. The pair brings the engine keywords it has not met, two
+kinds of choice a spell can ask that nothing neutral asked (damage
+divided among targets, one of two modes), control that changes hands
+and comes back, a printed value replaced for a turn, a coin, and the
+first upkeep and end-of-turn effects that are not the surplus's draw.
+It lands on the rulebook's own first game.
+
+```text
+Step 11 of docs/codex-bot.md. Steps 1 to 10 have landed. The rules are
+the card texts of the red and green sets in codex/data/cards.json --
+the two starting decks, Anarchy, Blood and Fire, Balance, Feral and
+Growth, the six heroes' bands and the pair's tokens -- their rulings in
+rulings.json's Red, Green and Heroes groups, the General rulings on the
+keywords below, and the Card FAQ (UMR pp. 19-22): read every one before
+writing any, and read each card against the glossary (pp. 16-18) and
+UMR p. 15 (play, put into play and summon; legendary; owner and
+controller; workers). Also read docs/design/codex.md, "Targeting and
+the effects", "The keywords" and "The standard game". Five commits:
+the keywords; the costs and the resources; the spells, the triggers
+and the abilities; the static grants and the printed overrides; the
+upkeep, the end of the turn and the tokens. UNIMPLEMENTED empties as
+they land and is empty at the end.
+
+1. The keywords (KEYWORDS, STACKING, the engine's questions):
+   deathtouch (Tiny Basilisk, Potent Basilisk: combat damage kills a
+   unit or hero through armor and counts as death from combat damage;
+   two instances are one), long-range (Doubleshot Archer: the defender
+   deals nothing back unless it has it too; anti-air flown over and the
+   tower still shoot), ephemeral (Crashbarrow, Shoddy Glider, the
+   Sharks of Surprise Attack: dies at the end of any turn), boost X
+   (Marauder, Feral Strike, Murkwood Allies: paid as the card is
+   played, from the hand alone -- PlayOption carries the boost's cost
+   and the play action whether it was boosted, refused where it cannot
+   be paid, and never offered where an effect puts the card into play),
+   untargetable (Moss Ancient, Potent Basilisk: no part with the target
+   symbol may choose it; attackable, and chosen by what does not
+   target), armor as the glossary has it -- the squad leader's,
+   refreshed each turn as now; Ironbark Treant's +2 while patrolling;
+   the temporary armor of Rampant Growth, Dinosize, Stampede and
+   Argagarg's band, gone unused at the end of the turn; stacking --
+   armor piercing (Ferocity: armor prevents nothing of it, and still
+   prevents the next damage), legendary (Galina Glimmer, Guargum;
+   UMR p. 15: settle destroys the newest copy, whatever else it is), and
+   the conditioned keywords read off the position each time: Predator
+   Tiger and Tiny Basilisk against tech 0 units, Stalking Tiger's
+   stealth while attacking a unit and its invisibility while a Feral
+   hero is held, Gemscout Owl's flying that cannot attack, "can't
+   patrol" (Makeshift Rambaster, Land Octopus) and "can't attack"
+   (Young Treant), "+X ATK when attacking buildings" (Makeshift
+   Rambaster, Steam Tank), and Wandering Mimic's six, read off what is
+   in play and never off another Mimic (the FAQ). Rampaging Elephant
+   readies the first time it exhausts each turn. Frenzy, sparkshot,
+   resist, anti-air, haste, overpower, flying and stealth on the pair's
+   cards play as they did from step 10.
+
+2. The costs and the resources. Rich Earth hires for 0 and still tucks
+   a card; Gigadon costs 1 less per green unit held, Pirategang
+   Commander's Blood units and Guargum's Growth spells cost 0 and need
+   no building or hero (effective_cost and why_not_playable; floor 0,
+   and Gigadon's cost stays 9 to anything that reads a cost, the FAQ);
+   Merfolk Prospector, Galina Glimmer and Gemscout Owl gain gold,
+   Pillage and Gunpoint Taxman steal it (the glossary's Steal: as much
+   as there is); Rickety Mine flips a coin -- engine.rng, recorded in
+   the journal as a shuffle's order is (StepResult.drawn grows a kind),
+   so a replay lands the same side; workers are trashed by Marauder's
+   boost, Detonate, Predator Tiger and Land Octopus's upkeep (a worker
+   lost is a count down, UMR p. 15, and the hire still needs a card); a
+   trashed card leaves the game (Detonate, Nature Reclaims,
+   Desperation): gone, in no pile and in no count. Desperation's two
+   halves -- trash and draw three with an empty hand (the hand is empty
+   once it is played, the FAQ), and the hand discarded at the end of
+   the main phase -- the second a flag on the player that lock_patrol
+   reads and clears.
+
+3. The spells, the triggers and the abilities, through codex.effects
+   and codex.flow.resolve as step 6 built them, each a row beside its
+   sentence. Damage with a shape: Fire Dart and Flame Arrow choose a
+   unit (or a hero) or a building and deal by what was chosen; Scorch,
+   Bombaster and Firebat a patroller or a building; Ember Sparks and
+   Burning Volley divide theirs -- DIVIDE_DAMAGE, a new kind: the
+   targets chosen as TARGET parts, then the split, at least 1 to each
+   (the FAQ), a button per target adding a point until the damage is
+   placed, with Hotter Fire's +1 on the total and not per target -- and
+   the modal spells, Feral Strike and Murkwood Allies, choose one of
+   two, or both when boosted: MODE_CHOICE, a new kind, a button per
+   mode, asked only where there is a choice. Kidnapping and Ogre
+   Recruiter take control (the controller changes, the owner does not,
+   as Final Smash's third part does), Kidnapping until the end of the
+   turn and back to the last controller then, the kidnapped unit
+   readied with haste (the FAQ); Chaos Mirror swaps two printed ATKs
+   until the end of the turn and Polymorph: Squirrel makes a unit a 1/1
+   Squirrel with no abilities until its caster's next upkeep -- both a
+   printed override on the instance, commit 4. Maximum Anarchy,
+   Bloodlust (the damage at the end of the turn), Charge, Now, Pillage
+   with its Pirate clause, Scorch, Moment's Peace (the caster's units
+   cannot patrol and the opponent's cannot attack anything of theirs
+   until the caster's next turn: patrol_candidates and legal_defenders
+   read it), Circle of Life (sacrifice a green unit, then a green unit
+   one tech higher costing 5 or less from the codex into play -- a
+   TARGET over the codex, which is the caster's, pictured to them
+   alone, and never Gigadon), Feral Strike's two modes (two units from
+   the codex to the hand, revealed and so named; up to two units from
+   the hand into play with the tech building of their level, the spec
+   ignored, the FAQ), Stampede (+3 ATK and +3 armor, the excess to the
+   base and never elsewhere, over overpower), Ferocity, Dinosize,
+   Rampant Growth, Forest's Favor, Nature Reclaims (never a base, an
+   add-on or a tech building), Detonate (any player's worker, or a
+   building card). Arrives: Bamstamper Lizzo (3 to a unit, mandatory),
+   Artisan Mantis (repair 3), Potent Basilisk (may destroy an upgrade
+   or an ongoing spell), Pirategang Commander (three Pirates), Moss
+   Ancient (three Squirrels, on arriving and on attacking), the two
+   Pandas (arrive exhausted, a Wisp each), Young Treant (a card), Spore
+   Shambler (two runes on itself), Fairie Dragon (a feather rune on a
+   tech I or II unit, may), Tyrannosaurus Rex (up to two of units,
+   upgrades and workers, in any mix), Disguised Monkey (stealth this
+   turn), Argagarg's Wisp. Attacks: Doubleshot Archer (3 to that
+   player's base), Ogre Recruiter (control of a tech 0 or I unit, after
+   the damage, if it survived), Cinderblast Dragon (on arriving and on
+   attacking: a non-ultimate Fire spell from the hand or the codex for
+   free, no Fire hero needed; on an attack, after the defender and
+   before the damage, a new defender if the spell destroyed the first
+   and no second spell, the FAQ). Dies: Crash Bomber (by whose turn it
+   is), Captured Bugblatter (whenever any unit dies, by whose turn),
+   Drakk's band (each opponent's base), Pirategang Commander's granted
+   line on its controller's units, Bloodburn's rune (limit 4). Damages:
+   Molting Firebird (a building: 1 to every unit and hero of that
+   opponent), Predator Tiger (a base: a worker trashed there), Might of
+   Leaf and Claw (a growth rune per attacker's combat damage, none for
+   0, one for damage armor prevented, the FAQ), Gunpoint Taxman (kills
+   a patroller: steal 1), Zane's band (a scavenger or technician Zane
+   himself kills, in combat or by his own ability, never by a spell).
+   Abilities, as actions with their costs, usable only where the cost
+   can be paid in full (UMR p. 8): a gold (Firebat with its exhaust,
+   Lobber, Bombaster's sacrifice of itself, Calypso Vystari's "if you
+   played a spell this turn", Careless Musketeer's 1 to its own base,
+   Verdant Tree's tech buildings finished at once this turn -- two in
+   one turn, the FAQ -- Firehouse, readied where its 2 destroyed the
+   target and not where an Illusion died of the targeting, the FAQ),
+   a rune (Bloodburn's two, Spore Shambler's and Blooming Ancient's
+   moved rune, Blooming Elm's three or one), a discard (Calamandra's
+   stealth), a sacrifice (Bombaster), the heroes' bands (Jaina's 1 to a
+   patrolling unit or building and her 3; Argagarg's +1 ATK and +1
+   armor; Calamandra's max: a Tiger from the codex into play, free and
+   needing no building; Zane's max: a patroller shoved to an empty
+   slot of its own zone and 1 damage to it, the damage alone where no
+   slot is empty), Rickety Mine's exhaust, Sanatorium (a gold and its
+   exhaust: a card, then up to two tech 0, I or II units from the hand
+   into play with haste and ephemeral -- a TARGET over the hand,
+   pictured to its owner alone), Merfolk Prospector's exhaust.
+
+4. The static grants and the printed overrides, read off the position
+   each time (body_keywords and unit_stats with the match, as step 6
+   left them): War Drums (+X where X is its controller's units in play,
+   the FAQ), Hotter Fire (+1 to every red spell's and red ability's
+   damage, stacking per copy, never combat damage), Behind the Ferns
+   (stealth to the caster's units of 3 ATK or less, read as the attack
+   is declared and before its bonuses, the FAQ), Master Midori's +1/+1
+   to units with no abilities (is_vanilla: a keyword, a granted
+   ability and a printed line each count, a rune, damage, a patrol
+   slot's bonus and an Illusion's type do not, his rulings) and his
+   flying on his own turn, Calamandra's resist 1 to her units, Drakk's
+   frenzy to his units and his haste to the first unit that arrives
+   from the hand each turn (kept for good once given, and only by an
+   arrival from the hand -- a token, a forecast unit and a unit out of
+   a Jail do not count, nor does a unit played before he reached max,
+   his rulings), Blooming Elm's overpower to units and heroes with a
+   +1/+1 rune, Fairie Dragon's feather runes (3/1 with flying, over the
+   printed values and under the runes, while any Fairie Dragon is held
+   by anyone, the FAQ), Spirit of the Panda's +2/+2 with its granted
+   attacks trigger (the gold to the attached unit's controller, the
+   healing to the spell's), Might of Leaf and Claw's +5/+5 from five
+   growth runes, Pirategang Commander's and Guargum's free plays.
+   Where two grants read each other --
+   Behind the Ferns gives stealth to a unit of 3 ATK or less, and
+   Midori's +1/+1 goes only to a unit with no abilities -- the Card FAQ
+   settles it by which came first: each card in play and each band a
+   hero has reached carries the order it came to be (one sequence on
+   the match, a saved field), and unit_stats applies the grants in that
+   order; a test holds the FAQ's two examples, the Tiger Cub and the
+   Iron Man, both ways round. The printed override
+   (CardInstance.printed, None in an older save): Chaos Mirror's ATK and
+   Polymorph's 1/1 Squirrel with no abilities replace what the card
+   prints until their end, keep its runes, damage and attachments over
+   them, and are what a copy reads (the glossary's Copy): the Mirror
+   Illusions of step 13 copy the printed card, and these are the two
+   exceptions the glossary names.
+
+5. The upkeep, the end of the turn and the tokens. Upkeep effects of
+   the pair: Land Octopus (two workers or itself: a choice), Galina
+   Glimmer's gold (rounded down, herself counted), Gemscout Owl's gold,
+   Dothram Horselord joining the side with the most total ATK (control
+   at upkeep, his own ATK counted on his side, the FAQ), Spirit of the
+   Panda's healing; UPKEEP_ORDER is asked only where the order changes
+   something -- a sacrifice or a death among the effects due -- and
+   pure gains resolve unasked in a fixed order, as the surplus's draw
+   did; say in the PR which orders are asked. The end of the turn
+   (begin_tech, before the buildings finish, both sides): ephemeral
+   dies, Bloodrage Ogre returns to its owner's hand where it neither
+   arrived nor attacked this turn (after the draw phase, the FAQ),
+   Chameleon Lizzo returns if still in play, Bloodlust's 1 damage,
+   Kidnapping's control given back, every this-turn modifier and
+   override removed, Moment's Peace held until its caster's next turn.
+   The tokens (Pirate, Beast, Frog, Hunter, Squirrel, Wisp; the blue
+   Shark is Surprise Attack's) are summoned as the Dancer is, trashed
+   when they leave play; Final Showdown's two Hunters are summoned for
+   the opponent, who controls them and may not patrol them on the
+   caster's turn (the FAQ); Moss Ancient's Squirrels have haste and are
+   invisible while it is held and not after.
+
+Tests: tests/test_codex_keywords.py pins the General rulings of
+deathtouch, longrange, ephemeral, boost_x, untargetable, limit_x and
+channelling -- fourteen today -- named as before, and the ratchet counts
+them; tests/test_codex_card_rulings.py every ruling of the Red, Green
+and Heroes groups on the pair's cards and heroes (88 and 13 today; the
+file says how many it found, so a re-import that adds one fails
+loudly); tests/test_codex_spells.py each spell's happy path and its
+refusals, the divided damage with and without Hotter Fire, the modal
+spells boosted and not, a boost refused when an effect puts the card
+into play; tests/test_codex_effects.py asserts UNIMPLEMENTED empty and
+every red and green card handled; and the scenarios: the FAQ's Behind
+the Ferns and Midori examples, Cinderblast Dragon's spell destroying
+the defender, Dothram Horselord changing sides at upkeep, Bloodrage
+Ogre's return after the draw, Rickety Mine's coin replayed byte for
+byte, Kidnapping's control back at the end of the turn, Stampede's
+excess to the base past overpower, a second Galina Glimmer destroyed on
+arrival, Final Showdown's Hunters refused the patrol zone on the
+caster's turn, Land Octopus's upkeep choice asked and the Owl's gold
+not. The new kinds' views: DIVIDE_DAMAGE and MODE_CHOICE are buttons in
+the panel; a TARGET over the hand or the codex is pictured as the hand
+is, to its owner alone, and tests/test_codex_cog_turn.py holds that
+nothing of it reaches the channel. Read every new line of both
+full-game transcripts for hidden information: a card fetched from the
+codex is named only once it is revealed or in play.
+
+Record in docs/design/codex.md, a section "Red and green" after
+"Targeting and the effects": the keywords added and what stacks, the
+boost, the printed override and the order of grants, control that
+returns, the coin in the journal, the trash, the end-of-turn effects
+and their order, the tokens' limits, the two prompt kinds, which
+upkeep orders are asked; "The saved fields" gains what this step added
+with its fallbacks (printed, the sequence, the end-of-main-phase
+discard, the controller to return to, the growth and blood runes).
+
+Done when: every red and green card has a handler or a keyword, every
+ruling on them is a test, UNIMPLEMENTED is empty, and both full-game
+tests still end a game; the golden is untouched unless a wording
+changed, which the PR says and shows.
+
+Stop: Calamandra against Jaina on the test server -- the Core Set's
+own first game (UMR p. 3), a basic game on the green and red starting
+decks -- with the author on one side, and nothing refused that the
+rulebook allows.
+```
+
+### 12. Purple and black
+
+The Vortoss Conclave and the Blackhand Scourge, ninety-two cards,
+six heroes, six tokens. Purple is time: runes that count down on a card
+in play (fading) or on a card not yet in play (forecast, and with it a
+zone the game has not had, the future), a turn taken twice, a hero who
+fades, a loan paid at upkeep or the game lost. Black is death: damage
+dealt as runes that never heal, a graveyard that buries what dies and
+plays it again, the weakest unit sacrificed, a hero back from the
+command zone at max level, and the one max-level trigger whose choice
+the active player cannot make for the other side (UMR p. 14). The step
+lands the two colours for their numbers first, as step 10 landed red
+and green, then plays their text.
+
+```text
+Step 12 of docs/codex-bot.md. Steps 1 to 11 have landed. The rules are
+the card texts of the purple and black sets in codex/data/cards.json
+-- the two starting decks, Past, Present and Future, Demonology,
+Disease and Necromancy, the six heroes' bands and the pair's tokens --
+their rulings in rulings.json's Purple, Black and Heroes groups, the
+General rulings on the keywords below, and the Card FAQ (UMR pp.
+19-22): read every one before writing any, and read each card against
+the glossary (pp. 16-18) and p. 14 (decisions on opponents' turns).
+Also read docs/design/codex.md, "The standard game" and "Red and
+green". Six commits: the colours landed for their numbers; time, and
+the keywords; the forms of death; black's effects; purple's effects;
+the upkeep, the extra turn and the tokens. UNIMPLEMENTED holds the
+pair after the first commit, pinned, and is empty after the last.
+
+1. The colours landed. LANDED_COLORS gains purple and black, so the
+   lobby offers Max Geiger, Prynn Pasternaak, Vir Garbarean, Garth
+   Torken, Orpal Gloor and Vandy Anadrose; LANDED_SET gains PURPLE and
+   BLACK; every purple or black card whose text is only keywords the
+   engine plays (Argonaut's readiness, the Stinger's flying, the
+   Horror's deathtouch) plays in full, and every other goes into
+   UNIMPLEMENTED, written out and pinned; scripts/render_codex_emoji.py's
+   FACES gains the six heroes, and the PR's For the author names the six
+   PNGs. A standard game of three purple heroes against three black
+   runs through the driver for its numbers before anything below.
+
+2. Time, and the keywords. Time runes (CardInstance.time_runes and
+   HeroState.time_runes for Prynn, 0 in an older save; the chits under
+   time_runes/ on the board): fading X (Fading Argonaut, Shimmer Ray,
+   Yesterday's Golgort, Rememberer, Ebbflow Archon, Vortoss Emblem,
+   Prynn) arrives with X and loses one at its controller's upkeep, and
+   is sacrificed when its last rune goes by any means (the ruling), a
+   fading card with no runes from the start never fading; forecast X
+   (Plasmodium, Knight of the Conclave, Reaver, Omegacron, Double Time,
+   the Mech) is played from the hand paying its cost and meeting its
+   requirements now -- into the future, PlayerState.future, a list of
+   instances with their runes, not in play, untargetable and
+   unaffected, and jailed by nothing (step 13) -- and arrives at the
+   upkeep that removes its last rune, with arrival fatigue and its
+   arrives trigger then, needing nothing any more; a forecast spell
+   resolves then instead. Time Spiral, Tinkerer and Seer add or remove
+   a rune from any player's card, in play or in the future (the FAQ);
+   Shimmer Ray discards to add one, in the main phase alone; Omegacron
+   sacrifices to lose one while forecasted, the one ability usable on a
+   card in the future; Temporal Research counts its caster's runes,
+   Vortoss Emblem's among them wherever it is attached. The keywords
+   (KEYWORDS, STACKING): indestructible (Hardened Mox, Immortal,
+   Gargoyle: exhausted instead of dying, its damage and attachments
+   gone and its runes kept; never sacrificed; exhausted for good at 0
+   HP from runes; skipped by every "lowest" or "weakest" choice, the
+   ruling), disable (Octavian, Ready or Not's second clause: exhausted,
+   sidelined if patrolling, and not readied at its next ready phase --
+   CardInstance.disabled and HeroState.disabled, false in an older
+   save, cleared by the ready phase that skips them), untargetable
+   (Chronofixer, Omegacron, the Mech, Nebula's grant), long-range
+   (Necromancer), boost (Hooded Executioner), deathtouch (Gorgon, the
+   Horror, Wight against heroes), obliterate 2 and 4 (Terras Q,
+   Zarramonde) and resist 2 and 3 on them; unstoppable with a
+   condition (Pestering Haunt, Cursed Ghoul against runed units, Wight
+   against heroes, Shrine's Demons against units); Nullcraft's "can't
+   be the target of Buff or Debuff spells" and Battle Suits' Soldiers
+   and Mystics read a card's subtype for the first time (Card.subtype,
+   which the import carries; Illusion is step 13's); Lord of Shadows'
+   "your black units are invisible" reads a card's colour.
+
+3. The forms of death. Damage dealt as -1/-1 runes (Orpal's first
+   band, Poisonblade Rogue's attacks, Plague Spitter): combat damage
+   that leaves runes instead of damage, permanent, kills at 0 HP, and
+   still counts as combat damage for anything that asks (Brave Knight
+   in step 13, Jandra now; Orpal's ruling); Blackhand Dozer's floor
+   (damage its controller deals, from any source and on any turn,
+   cannot take an opposing base below 6, a tech building's 2 included,
+   the FAQ). The Graveyard (a starting building): its controller's
+   non-token units are buried in it as they die -- a list on the
+   building's instance, out of play and out of the discard, runes and
+   effects gone -- and a buried unit is played from it through its
+   exhaust, paid and meeting its requirements, with its arrives
+   trigger; four buried sacrifice it and discard them; it changes hands
+   with the building and its tech II and III units are playable only
+   with the matching spec (the FAQ). The weakest unit (the glossary:
+   lowest tech, then least ATK, the chooser deciding a tie -- the
+   active player, since the chooser is whoever resolves it) for
+   Sacrifice the Weak and Hooded Executioner's boost, skipping what
+   cannot be sacrificed or destroyed (Pestering Haunt, an indestructible
+   unit, Gilded Glaxx with gold); Death Rites (a this-turn trigger on
+   the caster: an opponent's lowest-tech unit per death); Doom Grasp
+   (sacrifice a unit, then destroy a tech 0, I or II unit or hero);
+   Spreading Plague; Death and Decay; Shadow Blade (3 to a patroller,
+   and a random discard if it dies of it -- an Illusion's controller
+   discards too, the FAQ); Soul Stone (attach; +1/+1; where the unit
+   would die, its damage is removed and every Soul Stone on it
+   sacrificed instead, no death effect; with Two Lives in step 13, the
+   crumbling rune first). A random discard (Thieving Imp, Cursed Crow,
+   Shadow Blade) is engine.rng recorded in the journal, and the card
+   is a count to the narration, never a name. Sacrifice as a cost
+   (Bombaster's shape): Lich's Bargain's worker, Doom Grasp's unit,
+   Orpal's non-Demon, Garth's Skeleton, Banefire Golem's unit at
+   upkeep, Omegacron's.
+
+4. Black's effects, through the tables and the resolve loop. Arrives:
+   Thieving Imp (a random discard), Plague Lab (a -1/-1 rune on every
+   opposing unit), Plague Lord (on arriving and on attacking: a rune on
+   each opposing unit and hero), Cursed Ghoul (a rune on a unit),
+   Skeleton Javelineer (a javelin rune), Zarramonde (played from the
+   hand alone: a unit, hero, worker, upgrade or ongoing spell
+   destroyed), Terras Q (four Warlocks summoned for an opponent, who
+   controls them; Terras Q may not attack or patrol while any of those
+   four is in play -- the tokens remember the Terras Q that made them,
+   so a second copy or a trashed-and-returned one is held by its own
+   four alone, the FAQ). Attacks: Bone Collector (a Skeleton),
+   Poisonblade Rogue (armor piercing and runes for damage this turn).
+   Dies: Jandra (from combat damage, deathtouch and rune damage
+   included: every non-Demon unit of hers), Blackhand Dozer (the active
+   player destroys one of its controller's lowest-tech units -- asked
+   of the active player whichever side the Dozer was on, UMR p. 14),
+   Gorgon (a card), Corpse Catapult (a corpse rune per death of its
+   controller's units), Necromancer (a Skeleton per non-token death of
+   its controller's). Damages: Cursed Crow (a base: a random discard,
+   not for a building's 2, the FAQ). Spells: Deteriorate, Sickness (one
+   or two), Summon Skeletons, Dark Pact (2 to a base, two cards drawn
+   by its owner), Carrion Curse (look at an opponent's hand -- pictured
+   to the caster alone, never to the channel -- and choose up to two
+   non-unit cards of it, which they discard: a TARGET over the
+   opponent's hand), Nether Drain (two levels from one hero to another,
+   either side's, floors and ceilings kept; the drained hero may not
+   level this turn; a max-level trigger reached on the opponent's turn
+   does not resolve where it asks a choice, p. 14), Lich's Bargain (a
+   worker, 4 to the caster's base, three tokens), Metamorphosis (every
+   unit sacrificed; each non-Demon hero to max, a Demon until it leaves
+   play, two +1/+1 runes, readiness, invisible), Death Rites, Doom
+   Grasp, Shadow Blade, Spreading Plague, Death and Decay. Abilities:
+   Garth's Skeleton (once per turn), his Skeleton for a card, his max
+   (a tech I or II unit costing 5 or less from the discard pile into
+   play, the discard pictured to him alone, its tech building and spec
+   needed, no gold), Orpal's rune for a non-Demon (once per turn) and
+   his max (the first time a unit with a -1/-1 rune dies each turn, the
+   active player puts a rune on two units friendly to it), Vandy's
+   fetch (a Demonology spell from the codex to the hand, revealed and
+   named) and her max (+2/+2 to one friendly and one opposing tech 0 or
+   I unit, mandatory as far as it goes, both dying at her controller's
+   next upkeep whether she is there or not; reached on the opponent's
+   turn, it does not resolve, p. 14 -- the engine's one reading of a
+   trigger that needs a decision on the wrong turn, which Nether Drain
+   and Blackhand Resurrector can cause), Gargoyle's gold (once per
+   turn: until its controller's next upkeep, not indestructible, flying,
+   +3 ATK, may attack and patrol), Corpse Catapult's 6 to a building,
+   Crypt Crawler's gold (a flier loses flying this turn), Plague Lab's
+   duplication (a gold and its exhaust: for any number of cards with
+   runes, another rune of a kind already there -- a TARGET repeated,
+   each pick a card and, where it has runes of two kinds, which; never
+   a card in the future), Skeletal Lord's five Skeletons (exhausted by
+   the Lord, so arrival fatigue is no bar, the FAQ: a unit from the
+   hand into play, no requirements), Blackhand Resurrector (its exhaust
+   and sacrifice: a hero that died this game summoned from the command
+   zone at max level, summoning runes or none, its max-level trigger
+   resolved; at level 1 under Chronofixer). Static: Abomination (-1/-1
+   to every other unit, both sides, stacking), Twilight Baron (its
+   controller plays no tech II or III units while it is held; those
+   already in play and the future unaffected), Voidblocker (whoever
+   attacks it exhausts another of their ready units or heroes -- a
+   choice at declare_attacker, or nothing where there is none, the
+   FAQ), Shrine of Forbidden Knowledge (a card more at the draw phase
+   and a hand of six, two of them seven; Demons unstoppable by units),
+   Skeletal Lord's +1/+1 to Skeletons, Skeletal Archery's long-range
+   and anti-air to Skeletons, Lord of Shadows (itself included),
+   Pestering Haunt's ceiling of 1 ATK, Wight.
+
+5. Purple's effects. Max Geiger: sparkshot; discard for a card; his
+   max: a friendly unit trashed and returned fresh, under the same
+   controller, with arrival fatigue (his rulings). Prynn: fading 4 and
+   a rune per attack; dies from fading -- by the upkeep's removal
+   alone -- and every opponent skips their next draw phase, keeping
+   their hand; her max: two runes for a unit trashed, every unit she
+   trashed returned fresh to its last controller when she leaves play
+   (a list on her); at two runes she may use it and dies at once, not
+   from fading (her rulings). Vir: look at the top card of the deck
+   (pictured to him alone), exchange it with a card from the hand, play
+   it paying and meeting its requirements -- nothing on an empty deck,
+   no reshuffle; his max: a Mech in the future with forecast 2.
+   Spells: Forgotten Fighter, Undo and Stewardess's return to the
+   owner's hand; Origin Story (a hero to its command zone without
+   dying -- no death effect, its levels and runes gone, and no
+   summoning rune placed, the author, 2026-10-09 -- so its owner may
+   summon it again on their next turn); Assimilate (control of an upgrade, an ongoing spell or a
+   building card, never a base, an add-on or a tech building; a
+   channeling spell taken is discarded at once); Temporal Distortion (a
+   tech I or II unit of the caster's to its owner's hand, then a unit
+   of that level costing no more from the codex into play, requirements
+   ignored; nothing where the unit cannot leave play); Ready or Not;
+   Rewind (an ultimate castable whatever the turn Prynn maxed, every
+   tech 0, I and II unit to its owner's hand, no death effects);
+   Research & Development (five cards, the one reshuffle); Promise of
+   Payment (the next card played this turn costs 0 -- the discount
+   taken by the next card alone, never a hire, a building or an ability
+   -- and its printed cost is owed at the caster's next upkeep after
+   the upkeep's other effects, or the game is lost: GAME_OVER's third
+   way, MatchState.lost_by_debt or its like, and nothing owed where no
+   card followed, the FAQ); Now, Unphase (invisible until the caster's
+   next upkeep), Temporal Research, Time Spiral, Double Time (a forecast
+   spell: an extra turn after this one when it resolves, two copies two
+   turns -- MatchState.extra_turns, the turn passing to the same
+   player with every phase, and the tech choice standing through it as
+   through any turn). Units: Hive (five Stingers on arriving; a gold
+   re-summons one, five per Hive; the Stingers sacrificed with it,
+   which the active player chooses between two Hives), Ebbflow Archon
+   (-1/-1 per rune; a rune for a unit to its owner's hand or a hero to
+   its command zone), Gilded Glaxx (while its controller has gold it
+   is not sacrificed and leaves play only by combat damage, and 0 HP
+   does not kill it; deathtouch and rune damage do, the FAQ),
+   Chronofixer (no opposing hero gains a level by any means), Nebula
+   (its controller's other units invisible; a free destroy once per
+   turn), Octavian (8 gold: readied, and up to eight units and heroes
+   disabled), Omegacron, Reaver (a gold, its exhaust and a discard: two
+   workers trashed, or 6 damage to each of up to two units or heroes --
+   MODE_CHOICE), Rememberer (fading 3; per rune removed, a unit with
+   fading from the discard pile into play with its requirements met --
+   the sacrifice and the return at once, the active player ordering
+   the sacrifice first to return itself, the FAQ), Second Chances (once
+   per turn, a non-token unit leaving play other than by combat damage
+   -- sacrificed, bounced, obliterated, killed by a spell -- returns
+   fresh to its last controller; several at once, one at random,
+   engine.rng, recorded), Sentry (prevents the first spell or ability
+   damage to one of its controller's patrollers each turn, sparkshot's
+   included, random among several), Shimmer Ray, Slowtime Generator
+   (every player's workers yield at most 4 at upkeep), Tricycloid (+1/+1
+   per rune; a rune for 1 damage), Void Star (4 gold once per turn: +4
+   ATK until the next upkeep), Vortoss Emblem (fading 3; attached to
+   any unit, which is a flagbearer; its caster's card), Warp Gate
+   Disciple (a gold and its exhaust: a tech I or II unit from the codex
+   into play, requirements ignored), Xenostalker (attacks: 1 to up to
+   four patrollers without flying), Yesterday's Golgort (a rune per
+   building its controller's cards damage), Hardened Mox (trashed the
+   moment its controller has a tech II unit, the future included),
+   Hyperion (attacks: a card), Knight of the Conclave, Immortal,
+   Plasmodium, Seer, Nullcraft. Where a card's rulings speak of Jail or
+   Illusions, the rule waits for step 13 and the test is written then.
+
+6. The upkeep, the extra turn and the tokens. Upkeep effects of the
+   pair: a time rune off each fading and forecast card, Banefire Golem's
+   sacrifice (itself where nothing else, mandatory), Plague Lord's base
+   damage per rune (its controller's turn alone, its own base included),
+   Shrine's 1, Promise of Payment's debt last, Vandy's doomed pair, Land
+   Octopus and the rest as step 11 ordered them; UPKEEP_ORDER as step
+   11 left it, asked where the order changes something -- a rune
+   removed before Rememberer's or Prynn's, a sacrifice before a death
+   -- and the PR says which. The extra turn: begin_tech passes the turn
+   to the same player where one is owed, and the turn message, the
+   heading and the standing tech prompt follow as for any turn. The
+   tokens: Skeleton, Zombie, Horror (deathtouch), Warlock, Stinger
+   (flying), Mech (forecast 2, untargetable); the board draws a card in
+   the future in the grid after the units, greyed with its rune chit,
+   a buried count on the Graveyard's card, and the disabled mark beside
+   the exhaust glyph.
+
+Tests: tests/test_codex_keywords.py pins the General rulings of
+fading_x, forecast_x and indestructible (ten today); tests/test_codex_card_rulings.py
+every ruling of the Purple, Black and Heroes groups on the pair (107
+and 15 today, counted by the file); tests/test_codex_spells.py each
+spell's happy path and refusals; tests/test_codex_effects.py asserts
+the set empty; and the scenarios: Prynn at two runes using her max and
+dying not from fading, Rememberer returning itself, two Double Times,
+Promise of Payment unpaid and the game lost, Second Chances' random
+return replayed byte for byte, Terras Q held by its own Warlocks and
+not a copy's, Banefire Golem sacrificing itself, Vandy's max reached
+on the opponent's turn and not resolved, Blackhand Dozer's floor
+against a tech building's 2, Skeletal Lord exhausting fatigued
+Skeletons, Hardened Mox trashed by a forecasted tech II unit, Gilded
+Glaxx at 0 HP with gold, Carrion Curse's look reaching the caster alone
+(tests/test_codex_cog_turn.py), a forecast unit arriving with its
+trigger after its building was destroyed. Read every new line of the
+transcripts for hidden information: the top of a deck, a hand looked
+at and a discard pile searched are pictured to one player and named to
+nobody until a card is played.
+
+Record in docs/design/codex.md, a section "Purple and black" after
+"Red and green": time and the future, the forms of death and the
+graveyard, the weakest, the decision the active player cannot make,
+the extra turn, the debt, the subtypes and the colour as rules, the
+saved fields with their fallbacks (time runes, the future, buried,
+disabled, the debt, extra turns, the lineage of a token).
+
+Done when: every purple and black card has a handler or a keyword,
+every ruling on them is a test, UNIMPLEMENTED is empty, and the
+full-game tests still end a game -- a third of them purple against
+black.
+
+Stop: the Vortoss Conclave against the Blackhand Scourge on the test
+server, the author on one side: a Plasmodium arriving from the future,
+a unit played again out of the Graveyard, and nothing refused that the
+rulebook allows.
+```
+
+### 13. White and blue
+
+The Whitestar Order and the Flagstone Dominion, ninety-two cards, six
+heroes, seven tokens. White is the body and the mind: armor that moves,
+a hero with two lives, monks who heal and ninjas who hide, an oath,
+and cards that look at the other hand. Blue is the law: a jail that
+holds the opponent's units, a council that limits their plays, a
+silence that strips their heroes, illusions that die when looked at,
+copies, a hero who stashes a card at the draw, and the one standing
+reveal in the game -- an upgrade under which the opponent plays with
+their hand open. After it every printed card plays, and the lobby
+offers all twenty heroes.
+
+```text
+Step 13 of docs/codex-bot.md. Steps 1 to 12 have landed. The rules are
+the card texts of the white and blue sets in codex/data/cards.json --
+the two starting decks, Discipline, Ninjutsu and Strength, Law, Peace
+and Truth, the six heroes' bands and the pair's tokens -- their rulings
+in rulings.json's White, Blue and Heroes groups, the General rulings on
+the keywords below, and the Card FAQ (UMR pp. 19-22): read every one
+before writing any, and read each card against the glossary (pp.
+16-18). Also read docs/design/codex.md, "Hidden information on
+Discord", "Red and green" and "Purple and black". Six commits: the
+colours landed for their numbers; the keywords and the copies; the
+zones and the rules a player is put under; white's effects; blue's
+effects; the last of the tables. UNIMPLEMENTED holds the pair after
+the first commit, pinned, and is empty for good after the last.
+
+1. The colours landed. LANDED_COLORS is every colour, so the lobby
+   offers all twenty heroes -- Garus Rook, Grave Stormborne, Setsuki
+   Hiruki, Bigby Hayes, General Onimaru, Sirus Quince the six new --
+   and LANDED_SET is every card; what plays for its keywords alone
+   plays (Fox Viper, Flying Fox, Glorious Ninja, Vigor Adept,
+   Porcupine, Savior Monk, Fuzz Cuddles), the rest is pinned in
+   UNIMPLEMENTED; FACES gains the six heroes and the PR names the PNGs.
+   The Everything view of a white or blue codex is measured as step
+   10's was.
+
+2. The keywords and the copies. Two lives (Rook's max, Justice
+   Juggernaut: destroyed, it heals and takes a crumbling rune instead,
+   no death effect resolving -- not the technician's card -- and dies
+   for real with the rune; sacrificed without one, it takes the rune
+   and the sacrifice's effect still happens); stash (Bigby: at the draw
+   phase its player may keep one card and draws one less, so the hand
+   ends the same size -- STASH, a new kind the owed DRAW_PHASE waits on
+   where its player has stash, a button per card to keep and one to
+   keep none, pictured as the hand is, to its owner alone); illusion
+   (a subtype, not an ability, so Midori's +1/+1 reaches it: an
+   Illusion dies the moment a spell or ability of either player
+   targets it, before the effect, which does not resolve on it --
+   Spectral Aven, Hound, Roc, Tiger and Flagbearer, Reteller of
+   Truths, Liberty Gryphon, the Mirror Illusions; Dreamscape makes
+   every tech 0, I and II unit one while it is held and Hallucination
+   up to two for a turn; Macciatus gives its controller's +1/+1 and
+   stops the dying); detector (Eyes of the Chancellor, Versatile
+   Style's hero for a turn: a detector sees every hidden card of the
+   opponent's, so detected_by reads detectors beside the tower);
+   unattackable (Masked Raccoon with a Cute Animal, Liberty Gryphon's
+   three with another Illusion); armor piercing (Speed of the Fox);
+   stealth and invisible with conditions (Smoker, Hidden Ninja's kept
+   past 4 ATK, Fox's Den School's Ninjas and Cute Animals, Flagstone
+   Spy, Eyes' grant); long-range while exactly 1 ATK (Bluecoat
+   Musketeer); unstoppable with conditions (Rook against a lone
+   patroller, Colossus against a base, Traffic Director against a
+   building, Patriot Gryphon against small units, Masked Raccoon with
+   another Ninja, Justice Juggernaut that cannot patrol, Daigo). Copies
+   (the glossary's Copy): Manufactured Truth and Quince's Mirror
+   Illusions copy the printed card -- its type, subtype, ATK, HP,
+   abilities and tech level, step 11's printed override read first --
+   and none of its runes, attachments or modifiers; a copy arrives with
+   nothing and resolves no arrival effect; CardInstance.copy_of, None in
+   an older save, is what the engine reads the card as while it stands.
+
+3. The zones and the rules a player is put under. Jail (a starting
+   building): an opposing unit played from the hand goes to it instead
+   of arriving -- a slot on the building's instance -- and the next
+   releases the last, which arrives then with its trigger and its
+   fatigue; a boost is paid as the unit is played and resolves as it
+   leaves; the jailed unit is discarded with the Jail; a forecast unit
+   and a summoned one never go there (the ruling). Censorship Council
+   (one card from the hand per turn for the opponent, hires aside, an
+   effect's put-into-play aside); Reputable Newsman (CHOOSE_NUMBER, a
+   new kind at its arrival, a menu of 0 to 20 since twenty-one numbers
+   do not fit two rows: no opposing spell or upgrade of that cost while
+   it is held); Building Inspector (the opponent's first building each
+   turn costs 1 more, a rebuild's 0 becoming 1); Free Speech (silence:
+   the opponent's heroes, in play and summoned meanwhile, cast nothing
+   and have no ability -- printed, band or granted -- until after that
+   opponent's next turn; they still level and heal at a band -- a
+   modifier on the PlayerState with its end, false in an older save);
+   Moment's Peace was step 11's; Oathkeeper's oath (OATH, a new kind at
+   its arrival, two buttons: no card from the hand but a worker's, or
+   no draw phase; held while it is in play, an effect's put-into-play
+   allowed, the FAQ); Morningstar Pass and Setsuki's first band (a gold
+   to attack it or her, charged by declare_attacker and refused
+   without it; Setsuki's while she is not patrolling); Lawbringer
+   Gryphon's base with flying (may_be_attacked for a base; gone when
+   it leaves); Mindparry Monk (no opposing target on its controller's
+   units or heroes); Eyes of the Chancellor (the opponent plays with
+   their hand revealed: the one standing reveal -- RulesEngine
+   .hands_visible_to(seat), read by My hand and /codex hand, which
+   picture the other hand under the owner's for the Eyes' controller
+   alone, and nowhere else).
+
+4. White's effects. Starters: Aged Sensei's +1 ATK and +1 armor, Fox
+   Primus, Fox Viper, Grappling Hook (a patroller to an empty slot of
+   its zone, over any between, the FAQ), Morningstar Flagbearer, Safe
+   Attacking (+1 armor to the controller's tech 0 and I attackers per
+   attack, lost after each, the FAQ), Savior Monk, Sensei's Advice (up
+   to two), Smoker (targeted, to its owner's hand before the effect),
+   Snapback (an opposing hero to its command zone with two summoning
+   runes; another hero of that zone into play, runes or none, theirs
+   removed -- the same hero where there is no other). Strength: Ardra's
+   Boulder, Bird's Nest (channeling; two Birds, limit 2 across nests;
+   lost Birds re-summoned at upkeep to the limit; a second Nest two
+   more at once, the FAQ), Colossus, Doubling Barbarbarian (every gain
+   of ATK, HP or armor doubled, a +1/+1 rune +2/+2, the squad leader's
+   armor 2, temporary bonuses too, the FAQ), Earthquake, Entangling
+   Vines (attached to a patrolling unit: sidelined, no attack, no
+   patrol), Hero's Monument (untargetable; Daigo Stormborne, an 8/8
+   legendary token indestructible, untargetable and unstoppable that
+   cannot patrol, trashed with the Monument; heroes +1/+1), Morningstar
+   Pass (no damage to the controller's other buildings), Mythmaking,
+   Oathkeeper (swift strike, resist 2; 2 gold: every patrolling unit
+   sidelined), Rambasa Twin (arrives: may put the other Twin from the
+   codex into play; the first Twin to die each turn returns to its
+   owner's codex -- a card back into the binder), Thunderclap (up to
+   three non-flying units costing 2 or less sidelined, tokens costing
+   0), Training Grounds (+1 ATK to heroes; its exhaust levels a hero to
+   max), True Power of Storms (two other cards costing 3 revealed and
+   discarded from the hand -- named, since revealed -- then 10 damage),
+   Whitestar Grappler (4 to a unit; the survivor deals its ATK back;
+   sidelined if patrolling). Ninjutsu: Flying Fox, Fox's Den School
+   (invisible; a unit made a Ninja for good, the FAQ), Fox's Den
+   Students (four Ninjas; the controller's Ninjas haste and stealth
+   this turn), Fuzz Cuddles, Glorious Ninja, Hidden Ninja (a card where
+   either is a Ninja or the Ninjutsu hero), Inverse Power Ninja (-1/-1
+   per other unit or hero of its controller's), Jade Fox (four Ninjas;
+   Ninjas flying and swift strike, herself included, not Setsuki),
+   Jefferson DeGrey (every token destroyed), Masked Raccoon, Porcupine,
+   Shuriken Hail, Speed of the Fox (the Ninjutsu hero: haste,
+   readiness, armor piercing, +1 ATK). Discipline: Focus Master (three
+   focus runes; one prevents 1 where a friendly unit or hero would take
+   exactly lethal damage -- deathtouch's one is lethal, more is not,
+   and never for overpower's or Stampede's excess, the FAQ), Martial
+   Mastery (discard, two cards, then look at the opponent's hand --
+   pictured to the caster alone; not discarded until done), Mindparry
+   Monk, Reversal (3 to a patroller, then disabled), Sparring Partner
+   (its exhaust for a +1/+1 rune; 2 gold readies it to spar again and
+   it may not attack this turn), Versatile Style (MODE_CHOICE of four:
+   an upgrade destroyed, a flier disabled, 2 repaired, the Discipline
+   hero a detector this turn), Vigor Adept, Young Lightning Dragon (a
+   gold for +1 ATK, three times a turn). The heroes: Rook (unstoppable
+   past a patrol zone of one; two lives), Grave (sparkshot; readiness;
+   at max a sword rune, and his exhaust with it destroys a unit or
+   hero -- after an attack, not during, his ruling), Setsuki (the gold
+   to attack her; attacks: swift strike this turn; two cards at
+   upkeep).
+
+5. Blue's effects. Starters: Arrest, Bluecoat Musketeer, Building
+   Inspector, Jail, Lawful Search (a card, then a look at the
+   opponent's hand or their discard pile -- MODE_CHOICE, pictured to
+   the caster alone), Manufactured Truth (one of the caster's tech 0
+   or I units a copy of another until the end of the turn), Porkhand
+   Magistrate (a gold and its exhaust: a unit or hero disabled, never
+   itself, its controller draws), Reputable Newsman, Spectral Aven,
+   Traffic Director. Law: Arresting Constable, Censorship Council,
+   Community Service (a look at the opponent's hand or discard pile,
+   then a tech I or II unit from it into play under the caster's
+   control -- a TARGET over what was looked at), Flagstone Garrison (a
+   card per unit played from the hand), Free Speech, General's Hammer,
+   Guardian of the Gates (no attack; what it deals combat damage to is
+   disabled, armor or not, itself never), Injunction (a tech I or II
+   building disabled -- not operational next turn, no tech II built on
+   a disabled tech I nor a tech III on a disabled tech II, the FAQ --
+   and every unit of that player's at its level, whatever their spec),
+   Insurance Agent (an insurance rune tied to the Agent that placed
+   it, the Agent's controller gaining the unit's printed cost in gold
+   and a card when it dies, sacrificed included, trashed or bounced
+   not; two Agents twice; Plague Lab's copy inert; an Illusion dies
+   before the rune lands, the FAQ), Judgment Day (the one ultimate
+   playable by a max-level Law hero whatever the turn he arrived or
+   maxed: every tech 0, I and II unit destroyed), Jurisdiction (a
+   non-ultimate spell from the caster's codex, paid and discarded; a
+   channeling one discarded at once without its hero), Lawbringer
+   Gryphon, Patriot Gryphon (a building destroyed: its ATK to that
+   base, beside the 2), Tax Collector (steal 1), Overeager Cadet.
+   Peace: Air Hammer (+2 against a damaged building), Boot Camp (a unit
+   or a non-Peace hero exhausted with a rune, sidelined; a card), Brave
+   Knight (readiness; dying of combat damage -- sparkshot's, overpower's,
+   deathtouch's, the tower's and rune damage included -- to its owner's
+   hand instead), Debilitator Alpha (-1 ATK to what attacks it as squad
+   leader), Drill Sergeant (a rune per unit played from the hand; a
+   rune moved), Elite Training (+1 ATK, +1 armor, anti-air and
+   sparkshot to up to two until the caster's next upkeep), Flagstone
+   Spy (invisible; combat damage to a building: a look at that hand,
+   pictured to its controller alone, and a gold stolen), Justice
+   Juggernaut, Scribe (a card), The Art of War (the Peace hero
+   unstoppable, swift strike, +2 ATK and +2 armor until the next
+   upkeep), Onimaru's max (three Soldiers with sparkshot). Truth:
+   Dreamscape, Hallucination, Liberty Gryphon, Macciatus, Mind Control
+   (an ultimate ongoing spell attached to a tech 0, I or II unit: the
+   caster controls it while attached, the owner again when it leaves;
+   taken by Assimilate, the unit with it; Kidnapping over it returns
+   to the Mind Controller), Reteller of Truths (the first two non-token
+   Illusions of its controller's to die each turn, itself included, to
+   their owner's hand, their death effects resolved), Spectral
+   Flagbearer, Hound, Roc and Tiger, Sirus Quince (a Mirror Illusion on
+   arriving and another for 2 gold, limit 2 across Mirrors and what
+   they became; his second band: a Mirror becomes a copy of a tech 0, I
+   or II unit -- type, tech level and all, still an Illusion, once per
+   Mirror per turn -- trashed at the end of the turn; his max: as a
+   non-token unit of his controller's arrives, a Mirror may copy it,
+   trashed when Quince or the original leaves; Mirrors that copied
+   nothing stay when he leaves, his rulings). Bigby: stash, the
+   sideline, a card for his exhaust.
+
+6. The last of the tables. tests/test_codex_effects.py asserts
+   UNIMPLEMENTED empty over every card in the data, and the file's
+   count of the sets is the whole catalog; tests/test_codex_card_rulings.py's
+   CARD_RULINGS is every ruling in rulings.json; tests/test_codex_keywords.py's
+   tables cover the whole General group, so EveryRulingIsPinnedTests
+   counts every ruling the data holds and a re-import that adds one
+   fails loudly. Every remaining "lands with step 13" or "the standard
+   game" comment in codex/ and cogs/codex* is resolved or deleted, and
+   docs/design/codex.md's opening paragraph says the bot plays the
+   whole game. CLAUDE.md's row for codex/ loses "the basic game" where
+   it says it; nothing else there changes.
+
+Tests: tests/test_codex_keywords.py pins the General rulings of
+illusion, stash, arrival_fatigue, detector and flagbearer, whichever
+are not yet pinned (ten today); tests/test_codex_card_rulings.py every
+ruling of the White, Blue and Heroes groups on the pair (79 and 13
+today, counted by the file); tests/test_codex_spells.py each spell's
+happy path and refusals; and the scenarios: Bigby's stash ending with
+the same hand size as the draw without it, a boosted unit jailed and
+released, Quince's copies and his limit of two, Free Speech's silence
+through a level-up and a summon, Brave Knight under deathtouch,
+Injunction on a tech I with the tech III still buildable, Eyes of the
+Chancellor's reveal reaching the Eyes' controller alone and never the
+channel (tests/test_codex_cog_turn.py), Oathkeeper's second oath
+through a draw phase, Reputable Newsman's number refusing a spell,
+Lawbringer Gryphon's base against a ground attacker, Rambasa Twin back
+in the codex, Snapback on a hero with summoning runes, Two Lives in the
+technician slot, a Spectral Flagbearer forced and dying of it, Mind
+Control taken by Assimilate. Read every new line of the transcripts
+for hidden information: a hand looked at, a discard pile searched and
+a stashed card are pictured to one player and named to nobody.
+
+Record in docs/design/codex.md, a section "White and blue" after
+"Purple and black": the illusion and the copy, the jail, the silence,
+the oath, the number, the stash, the one standing reveal and how it
+reaches one player, the attack that costs gold, the base that flies,
+the saved fields with their fallbacks (copy_of, the jail's slot, the
+silence, the oath, the number, the crumbling, focus, insurance and
+sword runes); and the opening of the note rewritten: the bot plays
+Codex whole, every printed card, the basic game and the standard one.
+
+Done when: every printed card has a handler or a keyword, every ruling
+in the data is a test, UNIMPLEMENTED is empty and the table has no
+next spec to wait for, and the full-game tests still end a game -- one
+of them white against blue.
+
+Stop: every printed card plays: the Whitestar Order against the
+Flagstone Dominion on the test server, the author on one side, a unit
+of theirs jailed and a stash kept, with the lobby offering all twenty
+heroes and nothing refused that the rulebook allows.
+```
 
 ## What is not in these prompts, on purpose
 
 - **The standard game and the six colours, in steps 1 to 9.** They
   are steps 10 to 13, in the order the author gave on 2026-10-08 --
   the standard game's rules first, then red and green, purple and
-  black, white and blue -- with prompts written when step 9 lands.
-  Everything in steps 1 to 9 is written so that they fit: the seats by
+  black, white and blue -- with prompts written on 2026-10-09, once
+  step 9 had landed. Everything in steps 1 to 9 is written so that they fit: the seats by
   spec, the add-on as data, the hero as a list later, every colour's
   data and art imported at step 1. Nothing in steps 1 to 9 builds them.
 - **An AI opponent.** Decision 13. The first one worth writing is a
@@ -2039,7 +3131,8 @@ builds any of it, and everything in them is written so that it fits.
   outcomes -- is in from step 2, and the two coarse undos are step 4;
   the finer one is a view and a service method over the same journal,
   later.
-- **A cloud routine for the series.** Eight steps; claim by hand.
+- ~~**A cloud routine for the series.** Eight steps; claim by hand.~~
+  The author asked for one on 2026-10-08; "Claiming a step" has it.
 - **A test of how the board looks.** The author's rule for everything
   rendered: render it and look.
 - **Moving fool-bot's `/roll`, the coins or the Tethys deck.** They are

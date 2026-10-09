@@ -9,8 +9,10 @@ PNG), `cards/` (every card and `back.png`), `icon_sheet.png`,
 `might_ladder.png`, `tools_ladder.png`, `deck_sheet.png`, `closeup_sheet.png`, and the PDFs
 `print_sheet.pdf` (letter, nine a page, crop marks) and `avery_95328.pdf`
 (Avery Presta 95328, six a page), each with a backs page after every
-fronts page for a duplex print. `--only` picks some of icons, cards,
-sheets and pdf. See docs/design/tethys-deck.md.
+fronts page for a duplex print, and the six-card sets twice:
+`sets_aid.png` (the player aid) and `sets_chart.png` (the chances on a log
+scale). `--only` picks some of icons, cards, sheets, pdf and sets. See
+docs/design/tethys-deck.md.
 """
 import argparse
 import sys
@@ -23,12 +25,14 @@ from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 from tethysdeck import icons  # noqa: E402
 from tethysdeck.back import back  # noqa: E402
-from tethysdeck.cards import closeup_sheet, deck_cards, deck_sheet, ladder_sheet  # noqa: E402
+from tethysdeck.cards import card, closeup_sheet, deck_cards, deck_sheet, ladder_sheet  # noqa: E402
 from tethysdeck.deck import SUITS  # noqa: E402
 from tethysdeck.print_sheets import PAGE_SIZES, avery_pages, grid_pages, write_pdf  # noqa: E402
 from tethysdeck.relief import IconSet  # noqa: E402
+from tethysdeck.sets import census  # noqa: E402
+from tethysdeck.sets_aid import faces_shown, odds_chart, player_aid  # noqa: E402
 
-STEPS = ("icons", "cards", "sheets", "pdf")
+STEPS = ("icons", "cards", "sheets", "pdf", "sets")
 CLOSEUP = [("money", "1"), ("money", "2"), ("might", "Left"), ("fiends", "1"), ("states", "Right"), ("fools", "10")]
 
 
@@ -95,6 +99,13 @@ def main() -> int:
         write_pdf(pages, out / "avery_95328.pdf", PAGE_SIZES["avery"])
         pages[0].save(out / "avery_95328_page1.png")
         print(f"pdf: print_sheet.pdf and avery_95328.pdf -> {out}")
+    if "sets" in steps:
+        counts = census()
+        if cards is None:  # only the faces the aid shows
+            cards = {key: card(icon_set, *key) for key in faces_shown()}
+        player_aid(counts, cards).save(out / "sets_aid.png")
+        odds_chart(counts).save(out / "sets_chart.png")
+        print(f"sets: sets_aid.png and sets_chart.png -> {out}")
     return 0
 
 

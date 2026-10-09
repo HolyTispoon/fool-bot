@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, tokens
-from codex.components import HERO, CardInstance, HeroState, MatchState
+from codex.components import CardInstance, HeroState, MatchState, is_hero_ref
 from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, building_name, unit_ref
 from codex.flow import board, resolve
 from codex.flow.result import StepResult
@@ -107,8 +107,8 @@ class _Hit:
 
 def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     player = match.player(seat)
-    if ref == HERO:
-        return _Fighter(seat, ref, hero=player.hero)
+    if is_hero_ref(ref):
+        return _Fighter(seat, ref, hero=player.hero_by_ref(ref))
     instance_id = unit_ref(ref)
     if instance_id is not None:
         return _Fighter(seat, ref, card=player.instance(instance_id))
@@ -379,8 +379,8 @@ def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
     printed ones, and a hero's from the bands it has reached (Troq at 5)."""
     seat = match.active
     player = match.player(seat)
-    if attacker == HERO:
-        hero = player.hero
+    if is_hero_ref(attacker):
+        hero = player.hero_by_ref(attacker)
         found = effects.triggers(hero.slug, "attacks", hero.level)
         by = tokens.hero(hero.slug)
     else:

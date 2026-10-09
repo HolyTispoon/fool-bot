@@ -10,8 +10,9 @@ choice's owner** and built from the prompt's options alone:
   whole codex at once is too much to pick from (the author, 2026-10-09)
   -- then a menu of the cards the view shows, a line per copy still in
   the codex, so two copies of one card can be picked, whose bounds are
-  `TechOptions.minimum` and `maximum`, and **Save tech** alone in its
-  row. **The picks are kept across views**: a card picked in Tech I
+  `TechOptions.minimum` and `maximum`, and **Save tech** in its own
+  row with **My deck** beside it -- what the picks are added to, sent
+  as a message of its own so the picker stays up. **The picks are kept across views**: a card picked in Tech I
   stays picked while Tech II is shown, the caption lists every pick,
   and the shown menu offers only the room the hidden picks leave.
   Which cards a view holds is the engine's answer (`codex_view_rows`);
@@ -19,8 +20,8 @@ choice's owner** and built from the prompt's options alone:
   own Lock patrol, and reachable all through the opponent's turn from
   **Tech** on the turn message; each save replaces the last.
 - `TechConfirmView`, for `TECH_CONFIRM`: the picks pictured as a hand
-  (`render_hand`), **Confirm** and **Change**. The ready phase runs on
-  Confirm; Change reopens the picker.
+  (`render_hand`), **Confirm**, **Change** and **My deck**. The ready
+  phase runs on Confirm; Change reopens the picker.
 
 Nothing about a tech choice is said publicly while it is made -- not
 the cards, not that one was made; the owner's ready phase says how many
@@ -36,8 +37,9 @@ import discord
 from codex.formatting import card_label, codex_view_name
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
+from cogs.codex_views.base import kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
-from cogs.codex_views.turn_message import codex_view_menu
+from cogs.codex_views.turn_message import codex_view_menu, deck_button
 
 
 def picks_listed(picks) -> str:
@@ -98,6 +100,7 @@ class TechChoiceView(PanelView):
         save = discord.ui.Button(label="Save tech", style=discord.ButtonStyle.success, row=2)
         save.callback = self.save
         self.add_item(save)
+        self.add_item(deck_button(self.open_deck, row=2))
 
     def bounds(self) -> str:
         options = self.prompt.options
@@ -125,7 +128,8 @@ class TechChoiceView(PanelView):
         picture = await self.cog.render_prompt(game, self.prompt, picks=picks, view=view)
         await interaction.response.edit_message(
             content=self.cog.panel_caption(game, self.prompt, panel.caption()),
-            attachments=[] if picture is None else [picture], view=panel,
+            attachments=[] if picture is None else kept_pictures([picture], interaction.message),
+            view=panel,
         )
 
     async def show(self, interaction: discord.Interaction) -> None:
@@ -156,6 +160,7 @@ class TechConfirmView(PanelView):
         change.callback = self.change
         self.add_item(confirm)
         self.add_item(change)
+        self.add_item(deck_button(self.open_deck))
 
     def caption(self) -> str:
         return f"Your tech: {picks_listed(self.prompt.options.picks)}."

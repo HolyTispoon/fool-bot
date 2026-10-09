@@ -32,9 +32,16 @@ class RenderTests(unittest.TestCase):
 
     def test_the_panel_is_the_canvas_size(self) -> None:
         """Five columns in the basic game, seven in the standard one."""
-        self.assertEqual((render.panel_width(5), render.panel_width(7)), (1649, 2227))
+        self.assertEqual((render.panel_width(5), render.panel_width(7)), (1625, 2203))
         panel = render.render_panel(self.match, 1, "a", self.engine.catalog)
-        self.assertEqual(panel.size, (1649, self.panel_height(1)))
+        self.assertEqual(panel.size, (1625, self.panel_height(1)))
+
+    def test_the_building_column_is_one_rows_height(self) -> None:
+        """The add-on, the three tech buildings and the base stand as
+        tall as the patrol zone and one row, so they never make a panel
+        taller than its grid."""
+        one_row = render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
+        self.assertEqual(render.BUILDING_COLUMN_HEIGHT, one_row)
 
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)
@@ -47,7 +54,7 @@ class RenderTests(unittest.TestCase):
         png = render.render_board(self.match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         height = 2 * self.panel_height(1) + render.DIVIDER_HEIGHT
-        self.assertEqual(size(png), (round(1649 * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round(1625 * render.BOARD_SCALE),
                                      round(height * render.BOARD_SCALE)))
 
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
@@ -83,7 +90,7 @@ class RenderTests(unittest.TestCase):
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)
-        self.assertEqual(size(png), (round((1649 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round((1625 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
                                      round(self.panel_height(1) * render.BOARD_SCALE)))
 
     def test_a_hand(self) -> None:
@@ -92,6 +99,19 @@ class RenderTests(unittest.TestCase):
                                  [row.cost for row in rows], self.engine.catalog)
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         self.assertEqual(size(png)[0], 5 * (render.HAND_CARD[0] + 16) + 16)
+
+    def test_the_same_hand_asked_again_is_not_drawn_again(self) -> None:
+        """A panel edited in place, **My hand** clicked twice: the bytes
+        already drawn (`RENDERED_KEPT`) -- and a hand differing in one
+        cost is drawn anew."""
+        rows = self.engine.hand_rows(self.match, 1)
+        slugs, allowed = [row.slug for row in rows], [row.allowed for row in rows]
+        costs = [row.cost for row in rows]
+        first = render.render_hand(slugs, allowed, costs, self.engine.catalog)
+        self.assertIs(render.render_hand(list(slugs), list(allowed), list(costs), self.engine.catalog),
+                      first)
+        cheaper = [max(0, costs[0] - 1)] + costs[1:] if costs[0] else [1] + costs[1:]
+        self.assertNotEqual(render.render_hand(slugs, allowed, cheaper, self.engine.catalog), first)
 
     def test_a_codex_view(self) -> None:
         rows = self.engine.codex_remaining(self.match, 1)

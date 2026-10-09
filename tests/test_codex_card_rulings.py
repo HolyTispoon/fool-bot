@@ -22,12 +22,11 @@ import re
 import unittest
 
 from codex import rulings
-from codex.components import HERO
 from codex.effects import BASIC_SET
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
-from codex_positions import begin, built, hand, hero_in_play, new_game, put
+from codex_positions import TROQ, begin, built, hand, hero, hero_in_play, new_game, put
 
 #: How many rulings the basic set's cards carry at the pinned import
 #: (`SOURCE_SHA` in `scripts/import_codex_cards.py`).
@@ -334,7 +333,7 @@ class HarmonyTests(unittest.TestCase):
         match.player(2).gold = 5
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="bloom")
         offered = [row.ref for row in asked(engine, game, match).options.targets]
-        self.assertEqual(sorted(offered), sorted([foot.ref, HERO]))
+        self.assertEqual(sorted(offered), sorted([foot.ref, hero(match, 2)]))
         apply(engine, game, match, PromptKind.TARGET, target=f"2:{foot.ref}")
         (dancer,) = self.dancers()
         self.assertEqual(dancer.plus_runes, 0)
@@ -349,7 +348,7 @@ class HarmonyTests(unittest.TestCase):
         song = harmony(match, 2)
         dancer = put(match, 2, "dancer")
         result = driver.StepResult()
-        board.destroy(engine, match, [(2, HERO)], result)
+        board.destroy(engine, match, [(2, hero(match, 2))], result)
         board.settle(engine, match, result)
         self.assertIsNone(match.player(2).instance(song.id))
         self.assertIn("harmony", match.player(2).discard)
@@ -540,7 +539,7 @@ class TroqBasharTests(unittest.TestCase):
         engine, game, match = bashing()
         hero_in_play(match, 1, level=5)
         brother = put(match, 2, "older_brother")
-        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=HERO)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=TROQ)
         apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=brother.ref)
         self.assertEqual(match.player(2).base_hp, 19)
         self.assertEqual(match.player(1).base_hp, 20)

@@ -167,7 +167,9 @@ class FakeInteraction:
         #: What Discord sends with a component click; `choose` fills in
         #: a menu's values here, as Discord does.
         self.data: dict = {}
-        self.message = SimpleNamespace(id=0)
+        #: The message clicked, carrying what it was put up with --
+        #: `Table` fills in the attachments a view's message carries.
+        self.message = SimpleNamespace(id=0, attachments=[])
         self.answers: list = []
         self.response = FakeResponse(self.answers)
         self.followup = FakeFollowup(self.answers)
@@ -207,7 +209,7 @@ def find_button(view, which) -> discord.ui.Button:
     """A button by the start of its label, or -- a tuple -- by the choice
     it answers with (`PanelButton.choice`): `("play", slug)`,
     `("build", building)`, `("attack", ref)`, `("ability", effect,
-    source)`, `("level",)`, `("hire", slug)`, `("defend", ref)`,
+    source)`, `("summon", hero)`, `("level", hero)`, `("hire", slug)`, `("defend", ref)`,
     `("target", key)`, `("detect", ref)`, `("obliterate", ref)`,
     `("sparkshot", ref)`, `("overpower", ref)`."""
     for item in view.children:
@@ -257,6 +259,10 @@ class Table:
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.game_channel)
         self.game_channel.guild = self.guild
         self.basher, self.fencer = user(101, "basher"), user(202, "fencer")
+        #: What the message each view sits on carries, as Discord hands
+        #: it back on a click: an uploaded file as an attachment by its
+        #: name, a kept one as it was.
+        self.carried: dict = {}
         self.said: list[str] = []
         self.build({}, seed)
 
@@ -300,18 +306,39 @@ class Table:
     def interaction(self, who, channel=None) -> FakeInteraction:
         return FakeInteraction(who, channel or self.game_channel, self.guild)
 
-    async def started(self):
+    async def started(self, teams=(("bashing",), ("finesse",))):
         """The real lobby -- opened in the game's own channel -- two seats,
-        Start: the opening position."""
+        Start: the opening position. `teams` are the two seats' heroes, as
+        specs; three each plays a standard game, chosen with the lobby's
+        **Standard game** first, each on its first hero's colour where
+        the deck is the player's to choose."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
-        for who, action in ((self.basher, "bashing"), (self.fencer, "finesse"), (self.fencer, "start")):
-            click = self.interaction(who)
-            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        if len(teams[0]) == 3:
+            click = self.interaction(self.basher)
+            await next(item for item in lobby.children
+                       if ":mode_standard:" in item.custom_id).callback(click)
+            lobby = LobbyView(self.cog, game.game_id)
+        await self.pick_heroes(lobby, self.basher, *teams[0])
+        await self.pick_heroes(lobby, self.fencer, *teams[1])
+        for seat, who in ((1, self.basher), (2, self.fencer)):
+            if seat not in game.player_decks:
+                self.cog.service.choose_deck(game.game_id, who.id, game.deck_choices(seat)[0])
+        click = self.interaction(self.fencer)
+        await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         self.game = game
         return game
+
+    async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
+        """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a
+        test game's two -- answered with `specs`, as Discord sends it."""
+        select = next(item for item in lobby.children if f":{menu}:" in (item.custom_id or ""))
+        call = self.interaction(who)
+        call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(specs)}
+        await lobby._scheduled_task(select, call)
+        return call
 
     @property
     def match(self):
@@ -333,7 +360,27 @@ class Table:
         view = TurnMessageView(self.cog, self.game.game_id)
         call = self.interaction(who)
         await next(item for item in view.children if f":{action}:" in item.custom_id).callback(call)
+        self.remember(call)
         return call
+
+    def remember(self, call: FakeInteraction) -> None:
+        """What each view `call` put up sits beside: the files sent with
+        it, the attachments an edit gave it, or -- an edit that named
+        none -- what the message clicked already carried."""
+        for kind, _, kwargs in call.answers:
+            view = kwargs.get("view")
+            if view is None:
+                continue
+            if "attachments" in kwargs:
+                shown = kwargs["attachments"]
+            elif "files" in kwargs or "file" in kwargs:
+                shown = kwargs.get("files") or [kwargs["file"]]
+            else:
+                shown = call.message.attachments if kind == "response.edit" else []
+            self.carried[view] = [
+                SimpleNamespace(filename=item.filename) if isinstance(item, discord.File) else item
+                for item in shown
+            ]
 
     async def panel(self, who=None) -> tuple[FakeInteraction, object]:
         call = await self.turn_button("hand", who or self.active)
@@ -344,12 +391,16 @@ class Table:
         button = find_button(view, which)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": button.custom_id, "component_type": 2}
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(button, call)
+        self.remember(call)
         return call
 
     async def choose(self, view, placeholder: str, *values: str, who=None) -> FakeInteraction:
         select = find_select(view, placeholder)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(values)}
+        call.message.attachments = self.carried.get(view, [])
         await view._scheduled_task(select, call)
+        self.remember(call)
         return call

@@ -26,6 +26,8 @@ from codex.game import RuleRefusal
 from gamekit.saved import SavedField
 
 __all__ = [
+    "HERO",
+    "HERO_PREFIX",
     "AddOnState",
     "BuildingState",
     "CardInstance",
@@ -38,6 +40,9 @@ __all__ = [
     "RuleRefusal",
     "SAVED_FIELDS",
     "TECH_BUILDINGS",
+    "hero_ref",
+    "is_hero_ref",
+    "upgrade_hero_refs",
 ]
 
 #: The patrol zone's five slots, left to right (UMR p. 10).
@@ -49,9 +54,24 @@ PHASES = ("ready", "upkeep", "main", "patrol", "draw", "tech")
 #: The three tech-building slots in a base (UMR p. 8).
 TECH_BUILDINGS = ("tech1", "tech2", "tech3")
 
-#: What an attacker or a defender names the hero by, beside a card's
-#: `unit:<id>` -- the hero is not a card instance.
+#: What an attacker or a defender names a hero by, beside a card's
+#: `unit:<id>` -- a hero is not a card instance: `hero:<slug>`
+#: (`hero_ref`), since a standard game's side has three. A save older
+#: than step 10 names its one hero `hero` alone, which reads as the
+#: side's first hero (`PlayerState.hero_by_ref`, `upgrade_hero_refs`).
 HERO = "hero"
+HERO_PREFIX = HERO + ":"
+
+
+def hero_ref(slug: str) -> str:
+    """How an action names a hero: `hero:jaina_stormborne`."""
+    return HERO_PREFIX + slug
+
+
+def is_hero_ref(ref: Optional[str]) -> bool:
+    """Whether `ref` names a hero -- `hero:<slug>`, or an older save's
+    bare `hero`."""
+    return ref == HERO or (isinstance(ref, str) and ref.startswith(HERO_PREFIX))
 
 
 # `SavedField`, one row of a save table, is `gamekit.saved`'s, shared
@@ -164,15 +184,21 @@ BUILDING_SAVED_FIELDS = (
 
 @dataclass
 class AddOnState:
-    """The one add-on a base holds: the tower or the surplus (UMR p. 9)."""
+    """The one add-on a base holds: the tower, the surplus, the heroes'
+    hall or the tech lab (UMR p. 9)."""
 
     slug: str
     hp: int
     under_construction: bool = True
     #: What this tower has detected this turn -- the `unit:<id>` or
-    #: `hero` ref -- or `None` while its once-a-turn detection is unused
-    #: (UMR p. 9). Emptied when each turn begins.
+    #: `hero:<slug>` ref -- or `None` while its once-a-turn detection is
+    #: unused (UMR p. 9). Emptied when each turn begins.
     detected: Optional[str] = None
+    #: A tech lab's spec (UMR p. 9): chosen as it is built where a tech
+    #: II's spec is chosen, and with the tech II's otherwise (the
+    #: tech_lab ruling). `None` for every other add-on, for a lab still
+    #: waiting on its choice, and in a save older than step 10.
+    spec: Optional[str] = None
 
     @property
     def active(self) -> bool:
@@ -184,6 +210,7 @@ ADD_ON_SAVED_FIELDS = (
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
     SavedField("detected"),
+    SavedField("spec"),
 )
 
 
@@ -288,11 +315,19 @@ def _read_hero(data: dict) -> HeroState:
 
 @dataclass
 class PlayerState:
-    """One side of the table (UMR p. 3)."""
+    """One side of the table (UMR p. 3): one hero in the basic game,
+    three in the standard one."""
 
     seat: int
-    spec: str
-    hero: HeroState
+    #: The deck's specs, in the order the heroes were chosen -- one in
+    #: the basic game, three in the standard one. Saved as `specs`; a
+    #: save older than step 10 has one `spec`.
+    specs: tuple[str, ...]
+    #: Each spec's hero, in the same order. Saved as `heroes`; a save
+    #: older than step 10 has one `hero`.
+    heroes: list[HeroState]
+    #: The starting deck's colour (UMR p. 3); "neutral" in an older save.
+    deck_color: str = "neutral"
     base_hp: int = 20
     gold: int = 0
     workers: int = 4
@@ -316,11 +351,21 @@ class PlayerState:
     add_on: Optional[AddOnState] = None
     play: list[CardInstance] = field(default_factory=list)
     reshuffled_this_phase: bool = False
+    #: The spec chosen as the tech II building was constructed (UMR
+    #: p. 8): kept through its destruction and its rebuild. `None` until
+    #: then, always in a basic game -- whose one spec the rule chooses --
+    #: and in a save older than step 10.
+    tech2_spec: Optional[str] = None
+    #: Whether this player has constructed a tech building or an add-on
+    #: yet, a rebuild for 0 included: what a multicolour team's +1 on its
+    #: first is remembered by (UMR pp. 4, 8, 9). False in an older save.
+    constructed_once: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
-        """What patrols `slot`: `unit:<id>`, `hero`, or `None`."""
-        if self.hero.in_play and self.hero.patrol_slot == slot:
-            return HERO
+        """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
+        for hero in self.heroes:
+            if hero.in_play and hero.patrol_slot == slot:
+                return hero_ref(hero.slug)
         for card in self.play:
             if card.patrol_slot == slot:
                 return card.ref
@@ -334,17 +379,53 @@ class PlayerState:
     def instance(self, instance_id: int) -> Optional[CardInstance]:
         return next((card for card in self.play if card.id == instance_id), None)
 
+    def hero_by_ref(self, ref: Optional[str]) -> Optional[HeroState]:
+        """The hero `ref` names -- `hero:<slug>`, or an older save's bare
+        `hero`, the first -- in the command zone or in play; `None` for
+        anything else."""
+        if ref == HERO:
+            return self.heroes[0] if self.heroes else None
+        if not is_hero_ref(ref):
+            return None
+        slug = ref[len(HERO_PREFIX):]
+        return next((hero for hero in self.heroes if hero.slug == slug), None)
+
+    def hero_of(self, slug: str) -> Optional[HeroState]:
+        return next((hero for hero in self.heroes if hero.slug == slug), None)
+
     @property
-    def specs(self) -> tuple[str, ...]:
-        """The deck's specs, in order: one in the basic game. The
-        standard game's three (step 9) widen this, not its callers."""
-        return (self.spec,)
+    def heroes_in_play(self) -> list[HeroState]:
+        return [hero for hero in self.heroes if hero.in_play]
+
+    @property
+    def hero(self) -> HeroState:
+        """**The first hero** -- the basic game's one. For a test that
+        stages a basic game, and nothing else: the model loops over
+        `heroes`, since a standard game's side has three."""
+        return self.heroes[0]
+
+
+def _write_heroes(heroes: list) -> list:
+    return [_write_hero(hero) for hero in heroes]
+
+
+def _read_heroes(data: list) -> list:
+    return [_read_hero(hero) for hero in data]
+
+
+def _write_specs(specs) -> list:
+    return list(specs)
+
+
+def _read_specs(data) -> tuple:
+    return tuple(data)
 
 
 PLAYER_SAVED_FIELDS = (
     SavedField("seat"),
-    SavedField("spec"),
-    SavedField("hero", write=_write_hero, read=_read_hero),
+    SavedField("specs", factory=tuple, write=_write_specs, read=_read_specs),
+    SavedField("heroes", factory=list, write=_write_heroes, read=_read_heroes),
+    SavedField("deck_color", default="neutral"),
     SavedField("base_hp", default=20),
     SavedField("gold", default=0),
     SavedField("workers", default=4),
@@ -363,6 +444,8 @@ PLAYER_SAVED_FIELDS = (
     SavedField("add_on", write=_write_add_on, read=_read_add_on),
     SavedField("play", factory=list, write=_write_play, read=_read_play),
     SavedField("reshuffled_this_phase", default=False),
+    SavedField("tech2_spec"),
+    SavedField("constructed_once", default=False),
 )
 
 
@@ -370,8 +453,18 @@ def _write_players(players: list) -> list:
     return [_save(player, PLAYER_SAVED_FIELDS) for player in players]
 
 
+def _read_player(data: dict) -> PlayerState:
+    """A side as saved -- a save older than step 10 holds one `spec`
+    and one `hero`, read as a team of one."""
+    if "specs" not in data and "spec" in data:
+        data = {**data, "specs": [data["spec"]]}
+    if "heroes" not in data and "hero" in data:
+        data = {**data, "heroes": [data["hero"]]}
+    return PlayerState(**_load(PLAYER_SAVED_FIELDS, data))
+
+
 def _read_players(data: list) -> list:
-    return [PlayerState(**_load(PLAYER_SAVED_FIELDS, player)) for player in data]
+    return [_read_player(player) for player in data]
 
 
 @dataclass
@@ -470,7 +563,9 @@ class MatchState:
 
     @classmethod
     def from_dict(cls, data: dict) -> "MatchState":
-        return cls(**_load(MATCH_SAVED_FIELDS, data))
+        match = cls(**_load(MATCH_SAVED_FIELDS, data))
+        upgrade_hero_refs(match)
+        return match
 
     def validate(self, catalog) -> None:
         """
@@ -514,7 +609,12 @@ class MatchState:
             for name in ("base_hp", "gold", "workers"):
                 if getattr(player, name) < 0:
                     fail(f"{where}'s {name} is below zero")
-            known(player.hero.slug, f"{where}'s hero")
+            if not player.heroes or len(player.heroes) != len(player.specs):
+                fail(f"{where} has {len(player.heroes)} heroes for {len(player.specs)} specs")
+            for hero in player.heroes:
+                known(hero.slug, f"{where}'s hero")
+            if len({hero.slug for hero in player.heroes}) != len(player.heroes):
+                fail(f"{where} has one hero twice")
             for zone in ("hand", "deck", "discard"):
                 for slug in getattr(player, zone):
                     known(slug, f"{where}'s {zone}")
@@ -524,17 +624,17 @@ class MatchState:
                     fail(f"{where}'s codex holds {count} of {slug}")
             for slug in player.tech_choice or ():
                 known(slug, f"{where}'s tech choice")
-            hero = player.hero
-            for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes"):
-                if getattr(hero, name) < 0:
-                    fail(f"{where}'s hero has {name} below zero")
-            if hero.zone not in ("command", "play"):
-                fail(f"{where}'s hero is in {hero.zone!r}")
             slots = []
-            if hero.patrol_slot is not None:
-                if not hero.in_play:
-                    fail(f"{where}'s hero patrols from the command zone")
-                slots.append(hero.patrol_slot)
+            for hero in player.heroes:
+                for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes"):
+                    if getattr(hero, name) < 0:
+                        fail(f"{where}'s hero has {name} below zero")
+                if hero.zone not in ("command", "play"):
+                    fail(f"{where}'s hero is in {hero.zone!r}")
+                if hero.patrol_slot is not None:
+                    if not hero.in_play:
+                        fail(f"{where}'s hero patrols from the command zone")
+                    slots.append(hero.patrol_slot)
             for card in player.play:
                 known(card.slug, f"{where}'s play zone")
                 for name in ("damage", "plus_runes", "minus_runes", "armor"):
@@ -576,6 +676,47 @@ MATCH_SAVED_FIELDS = (
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("journal", factory=list, write=_deep_copy, read=_deep_copy),
 )
+
+def upgrade_hero_refs(match: MatchState) -> None:
+    """
+    A save older than step 10 names a hero `hero` alone -- its side's one
+    hero -- where an attack stands half-resolved, a tower has detected,
+    or an effect is under way; each is rewritten `hero:<slug>`, the
+    side's first hero, so the engine reads one spelling. Nothing is
+    rewritten in a save that has none.
+    """
+    if len(match.players) != 2 or not all(player.heroes for player in match.players):
+        return
+
+    def mine(seat: int, ref):
+        if ref == HERO:
+            return hero_ref(match.player(seat).heroes[0].slug)
+        return ref
+
+    def key(text):
+        if isinstance(text, str) and text.endswith(":" + HERO) and text[:1] in ("1", "2"):
+            return f"{text[0]}:{mine(int(text[0]), HERO)}"
+        return text
+
+    active, other = match.active, (2 if match.active == 1 else 1)
+    match.attacking = mine(active, match.attacking)
+    if match.combat is not None:
+        combat = match.combat
+        for name, seat in (("attacker", active), ("defender", other), ("overpower", other)):
+            if name in combat:
+                combat[name] = mine(seat, combat[name])
+        for name in ("obliterated", "sparks"):
+            if name in combat:
+                combat[name] = [mine(other, ref) for ref in combat[name]]
+    for player in match.players:
+        if player.add_on is not None:
+            player.add_on.detected = mine(2 if player.seat == 1 else 1, player.add_on.detected)
+    for frame in match.resolving:
+        if "source" in frame and "seat" in frame:
+            frame["source"] = mine(frame["seat"], frame["source"])
+        if "taken" in frame:
+            frame["taken"] = [key(item) for item in frame["taken"]]
+
 
 #: Every saved class and its table, which the coverage test walks.
 SAVED_FIELDS = {
