@@ -3,22 +3,31 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoPath,
 
+    [string]$Branch = 'main',
+
+    # Restart on the tree already there. deploy.ps1 passes it, since
+    # update_main_bot.ps1 has just pulled (and pulled -Branch, which a
+    # second pull of main here would undo).
+    [switch]$SkipPull,
+
     # Stop it and start nothing -- the way to take the Codex bot down on
-    # purpose, since it has no Ctrl+C once it is running hidden.
+    # purpose, since it has no Ctrl+C once it is running hidden. No pull
+    # and no install either: there is nothing to start them for.
     [switch]$StopOnly
 )
 
-# (Re)start the Codex bot -- `python codexbot.py` -- out of this
-# checkout, beside fool-bot and the web app. See "The Codex bot" in
-# docs/design/collaboration.md, and docs/design/codex.md.
+# Pull, install and (re)start the Codex bot -- `python codexbot.py` --
+# out of this checkout, beside fool-bot and the web app. See "The Codex
+# bot" in docs/design/collaboration.md, and docs/design/codex.md.
 #
-# Modelled line for line on run_web_app.ps1. It does not pull and does
-# not install: the checkout and its .venv are fool-bot's too, and
-# update_main_bot.ps1 is what moves them, so an update is
-# update_main_bot.ps1 first (pull, install, restart fool-bot), then
-# this (restart the Codex bot on the same tree). The Codex bot is its
-# own process with its own token and its own files, so either may be
-# restarted alone.
+# Modelled line for line on run_web_app.ps1. The pull and the install
+# are pull_checkout.ps1's, shared with run_web_app.ps1, and come first,
+# before anything is stopped. The checkout and its .venv are fool-bot's
+# and the web app's too, so pulling here leaves them running the code
+# they started on until they are restarted -- pull_checkout.ps1 warns
+# when it brought anything, and deploy.cmd restarts all four. The Codex
+# bot is its own process with its own token and its own files, so
+# either may be restarted alone.
 
 $ErrorActionPreference = 'Stop'
 
@@ -32,6 +41,11 @@ if (-not (Test-Path -LiteralPath $codexBotScript)) {
 if (-not (Test-Path -LiteralPath $venvPython)) {
     throw ("The virtual environment is missing at $venvPython. Run " +
         "update_main_bot.ps1 first -- it creates the .venv every process shares.")
+}
+
+if (-not $SkipPull -and -not $StopOnly) {
+    & (Join-Path $PSScriptRoot 'pull_checkout.ps1') `
+        -RepoPath $resolvedRepoPath -Branch $Branch -ProcessName 'the Codex bot'
 }
 
 $runtimeFolder = Join-Path $resolvedRepoPath 'data'

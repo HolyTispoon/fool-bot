@@ -207,7 +207,8 @@ on, so the request never reaches this machine.
 ### Keeping it running
 
 `scripts/run_web_app.ps1` is `update_main_bot.ps1`'s process handling
-for the web app, and nothing else:
+for the web app, with the pull and the install in front of it through
+`scripts/pull_checkout.ps1`:
 
 From the checkout's root folder, through the launchers beside the
 scripts, or the one that runs them all in order:
@@ -215,9 +216,9 @@ scripts, or the one that runs them all in order:
 ```powershell
 .\scripts\update_main_bot.cmd          # pull, install, restart the bot
 .\scripts\update_main_bot.cmd -StopOnly
-.\scripts\run_codex_bot.cmd            # restart the Codex bot on the same tree
+.\scripts\run_codex_bot.cmd            # pull, install, restart the Codex bot
 .\scripts\run_codex_bot.cmd -StopOnly
-.\scripts\run_web_app.cmd              # restart the web app on the same tree
+.\scripts\run_web_app.cmd              # pull, install, restart the web app
 .\scripts\run_web_app.cmd -StopOnly
 .\scripts\run_tunnel.cmd               # restart the tunnel's connector
 .\scripts\run_tunnel.cmd -StopOnly
@@ -238,7 +239,9 @@ new option goes in both.
 `deploy.ps1`/`deploy.cmd` call the four scripts above in order and add
 no logic of their own -- no new process matching, no new pid file. It
 takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
-them through. `$ErrorActionPreference = 'Stop'` means a failed
+them through, and passes `-SkipPull` to the Codex bot's and the web
+app's scripts whatever it was given: the updater has just pulled, and
+their own pull, of `main` by default, would undo a `-Branch` deploy. `$ErrorActionPreference = 'Stop'` means a failed
 pull, install or bot start stops it before the web app is touched, so
 the web app is never restarted onto a tree the first half failed to
 update. The tunnel goes last: it serves nothing until the web app is
@@ -246,8 +249,8 @@ up, and it is the one step a checkout may skip (see "Exposing the
 port").
 
 `-StopOnly` is each script's own stop and nothing else: the same
-matching as a restart, then no start -- the bot's skips the pull and
-the install too, having nothing to start them for. It exists because
+matching as a restart, then no start -- the three that pull skip the
+pull and the install too, having nothing to start them for. It exists because
 a process started hidden has no Ctrl+C. `deploy.cmd -StopOnly` runs
 the three the other way round, the tunnel first so nobody reaches a
 web app that is going away, and unlike a deploy it carries on past a
@@ -285,11 +288,25 @@ from the top again; Ctrl+C there stops the viewer and nothing else.
   batch file with bare LF endings and the Mac checkout would otherwise
   commit them that way.
 
-- **It does not pull or install.** The checkout and the `.venv` are the
-  bot's too, and moving them is the updater's; a web script that pulled
-  would leave the bot on a tree older than the one on disk. So a deploy
-  is the two lines above, in that order, and a web-only restart is the
-  second alone. It refuses to start if the `.venv` does not exist yet.
+- **It pulls and installs first, unless told `-SkipPull`** (and takes
+  `-Branch`), as does `run_codex_bot.ps1`: both call
+  `scripts/pull_checkout.ps1`, the updater's steps -- refuse a dirty
+  tree, fetch, check out the branch, fast-forward, pip against
+  `requirements.txt` -- before anything is stopped, so a failed pull
+  leaves the running process running. Until 2026-10-09 neither pulled,
+  because the checkout and the `.venv` are the bot's too: a pull here
+  leaves the bot, and the other of the two, running code older than
+  the tree on disk until they are restarted. The author chose the other
+  cost (2026-10-09): restarting one alone was never picking up new code,
+  so a restart looked like an update and was not. `pull_checkout.ps1`
+  warns whenever the pull brought anything, naming `deploy.cmd` as what
+  restarts all four on it; with nothing new, the pip run touches
+  nothing already satisfied, so it is safe beside the processes still
+  running out of the same `.venv`. `update_main_bot.ps1` keeps its own
+  copy of the steps rather than calling the shared one, since it is the
+  script every deploy goes through and this change was written where
+  only a parse and a run against a scratch clone could check it. It
+  refuses to start if the `.venv` does not exist yet.
 - **It stops every web app of this checkout before starting one**, and
   refuses to start if any survive -- the updater's reasoning: a process
   started by hand is invisible to a pid file, and two over one games
@@ -435,7 +452,8 @@ build it announced, which in one shared file each bot would overwrite,
 re-syncing on every start), `data/codexbot.pid` and its two logs, and
 the games file a later step adds -- and its restart,
 `scripts/run_codex_bot.ps1` (`run_codex_bot.cmd`), modelled line for
-line on `run_web_app.ps1`: no pull and no install, every `codexbot.py`
+line on `run_web_app.ps1`: the pull and the install first, through
+`pull_checkout.ps1` (`-SkipPull` and `-Branch` as the updater's), every `codexbot.py`
 run by this checkout's venv python stopped, a refusal to start while
 any survives, a hidden start, and a failure if the process has exited
 after four seconds. A checkout with no `CODEX_DISCORD_TOKEN` starts no

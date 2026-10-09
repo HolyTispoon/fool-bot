@@ -17,6 +17,9 @@ param(
 # (restart the Codex bot on the same tree), then run_web_app.ps1
 # (restart the web app on the same tree), then run_tunnel.ps1 (restart
 # the connector that puts the web app on https://play.d12ball.com).
+# The Codex bot and the web app are each told -SkipPull: alone, each
+# pulls first, but here update_main_bot.ps1 has just pulled, and a
+# second pull of their default main would undo a -Branch deploy.
 # The Codex bot goes straight after the pull because, like fool-bot, it
 # is a bot and nothing else waits on it -- and before the web app and
 # its tunnel, which serve play.d12ball.com together; a checkout with no
@@ -66,6 +69,6 @@ if ($SkipPull) {
 }
 
 & (Join-Path $scriptFolder 'update_main_bot.ps1') @updateArgs
-& (Join-Path $scriptFolder 'run_codex_bot.ps1') -RepoPath $resolvedRepoPath
-& (Join-Path $scriptFolder 'run_web_app.ps1') -RepoPath $resolvedRepoPath
+& (Join-Path $scriptFolder 'run_codex_bot.ps1') -RepoPath $resolvedRepoPath -SkipPull
+& (Join-Path $scriptFolder 'run_web_app.ps1') -RepoPath $resolvedRepoPath -SkipPull
 & (Join-Path $scriptFolder 'run_tunnel.ps1') -RepoPath $resolvedRepoPath

@@ -3,23 +3,33 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoPath,
 
+    [string]$Branch = 'main',
+
+    # Restart on the tree already there. deploy.ps1 passes it, since
+    # update_main_bot.ps1 has just pulled (and pulled -Branch, which a
+    # second pull of main here would undo).
+    [switch]$SkipPull,
+
     # Stop it and start nothing -- the way to take the web app down on
-    # purpose, since it has no Ctrl+C once it is running hidden.
+    # purpose, since it has no Ctrl+C once it is running hidden. No pull
+    # and no install either: there is nothing to start them for.
     [switch]$StopOnly
 )
 
-# (Re)start the D12 Ball web app -- `python -m webapp` -- out of this
-# checkout, beside the bot. See "Running the web app" in
-# docs/design/collaboration.md.
+# Pull, install and (re)start the D12 Ball web app -- `python -m
+# webapp` -- out of this checkout, beside the bot. See "Running the web
+# app" in docs/design/collaboration.md.
 #
-# It does not pull and does not install. The checkout and its .venv are
-# the bot's too, and update_main_bot.ps1 is what moves them: pulling
-# here would leave the bot running code older than the tree it was
-# started from, which is the "fixed on the Mac, not on K:\" confusion
-# with the two processes swapped. So an update is update_main_bot.ps1
-# first (pull, install, restart the bot), then this (restart the web
-# app on the same tree). The web app is its own process over its own
-# files, so either may be restarted alone.
+# The pull and the install are pull_checkout.ps1's, shared with
+# run_codex_bot.ps1, and come first, before anything is stopped. The
+# checkout and its .venv are the bot's too, so pulling here leaves the
+# bot running code older than the tree -- the "fixed on the Mac, not on
+# K:\" confusion with the two processes swapped -- until it is
+# restarted. It used not to pull for that reason; the author chose a
+# restart that picks up new code (2026-10-09), so pull_checkout.ps1
+# warns whenever the pull brought anything, and deploy.cmd restarts all
+# four. The web app is its own process over its own files, so either
+# may be restarted alone.
 
 $ErrorActionPreference = 'Stop'
 
@@ -33,6 +43,11 @@ if (-not (Test-Path -LiteralPath $webAppPackage)) {
 if (-not (Test-Path -LiteralPath $venvPython)) {
     throw ("The virtual environment is missing at $venvPython. Run " +
         "update_main_bot.ps1 first -- it creates the .venv both processes share.")
+}
+
+if (-not $SkipPull -and -not $StopOnly) {
+    & (Join-Path $PSScriptRoot 'pull_checkout.ps1') `
+        -RepoPath $resolvedRepoPath -Branch $Branch -ProcessName 'the web app'
 }
 
 $runtimeFolder = Join-Path $resolvedRepoPath 'data'
