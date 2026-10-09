@@ -874,9 +874,13 @@ else the bot shows is ephemeral.
     and the base. A tech building is greyed and half seen until built,
     in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
-    turn) and is dark with the house chit when destroyed; damage is a
-    chit on its corner. The base's tile prints a heart with 20 on it, so
-    a heart is drawn over it carrying the HP it has now.
+    turn) and is dark with the house chit when destroyed. Every
+    building's picture prints its HP in a heart, so a damaged one has
+    that heart drawn over, a little larger, carrying the HP it has now
+    (`heart_over`, at the printed heart's centre measured on the
+    module's pictures -- `TECH_HEART`, `ADD_ON_HEART`), rather than a
+    damage chit beside it (the author, 2026-10-09); the base's tile
+    prints 20, so its heart is always drawn.
   - **Across the top, the patrol zone** on the mat's blue: the mat's own
     five slots with their bonus strips under them, cut from the playmat
     ("The cards are data"), each centred in its column; a patroller's
@@ -884,8 +888,10 @@ else the bot shows is ephemeral.
   - **The grid**: a command-zone plate per hero first -- the hero lying
     on it in full at 184 by 251 with its time-rune chit while off the
     field, the plate empty while it is on the field -- then the heroes
-    on the field (the level chit top left), then the units, each with a
-    damage chit over the stats, its rune chits top right, Two Step's
+    on the field (the level chit top left), then the units, each with
+    its damage chits on the foot of its art (`ART_FOOT`), clear of the
+    ATK and HP the card prints, which a chit over the stats hid (the
+    author, 2026-10-09), its rune chits top right, Two Step's
     chit on a dance partner and ARRIVED the turn it came.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
