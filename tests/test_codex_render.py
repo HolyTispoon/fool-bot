@@ -27,16 +27,21 @@ class RenderTests(unittest.TestCase):
         cls.match = cls.engine.new_match(("bashing", "finesse"), first=1)
 
     def panel_height(self, rows: int) -> int:
-        grid = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
-        # One row is shorter than the building column, the add-on on top.
-        body = max(grid, render.BUILDING_COLUMN_HEIGHT)
+        body = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
         return 2 * render.PADDING + body + render.NAMEPLATE_GAP + render.NAMEPLATE_HEIGHT
 
     def test_the_panel_is_the_canvas_size(self) -> None:
         """Five columns in the basic game, seven in the standard one."""
-        self.assertEqual((render.panel_width(5), render.panel_width(7)), (1649, 2227))
+        self.assertEqual((render.panel_width(5), render.panel_width(7)), (1625, 2203))
         panel = render.render_panel(self.match, 1, "a", self.engine.catalog)
-        self.assertEqual(panel.size, (1649, self.panel_height(1)))
+        self.assertEqual(panel.size, (1625, self.panel_height(1)))
+
+    def test_the_building_column_is_one_rows_height(self) -> None:
+        """The add-on, the three tech buildings and the base stand as
+        tall as the patrol zone and one row, so they never make a panel
+        taller than its grid."""
+        one_row = render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
+        self.assertEqual(render.BUILDING_COLUMN_HEIGHT, one_row)
 
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)
@@ -49,7 +54,7 @@ class RenderTests(unittest.TestCase):
         png = render.render_board(self.match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         height = 2 * self.panel_height(1) + render.DIVIDER_HEIGHT
-        self.assertEqual(size(png), (round(1649 * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round(1625 * render.BOARD_SCALE),
                                      round(height * render.BOARD_SCALE)))
 
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
@@ -85,7 +90,7 @@ class RenderTests(unittest.TestCase):
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)
-        self.assertEqual(size(png), (round((1649 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round((1625 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
                                      round(self.panel_height(1) * render.BOARD_SCALE)))
 
     def test_a_hand(self) -> None:

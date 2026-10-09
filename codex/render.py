@@ -15,7 +15,7 @@ slots, and a plain patch of its leather that each panel is laid on.
 
 A panel (`render_panel`), top to bottom and left to right:
 
-- a column of buildings on the left, 160 wide -- the add-on slot, Tech
+- a column of buildings on the left, 136 wide -- the add-on slot, Tech
   III, II and I, and the base, its heart carrying the HP it has now;
 - the patrol zone across the top of the grid: the mat's own five slots
   with their bonuses under them, each on its own holder of the mat's
@@ -97,17 +97,24 @@ CELL = 273
 CELL_GAP = 16
 #: Around the panel's edge.
 PADDING = 20
-#: The column of buildings, and the gap between it and the grid.
-BUILDING_WIDTH = 160
+#: The column of buildings, and the gap between it and the grid. The
+#: column is the one-row grid's height (629), the add-on on top: every
+#: building, chit and heart in it drawn at `BUILDING_SCALE` of the 160
+#: wide the canvas gave it (the author, 2026-10-09: the buildings a
+#: little smaller, so the column is no taller than one row).
+BUILDING_WIDTH = 136
+BUILDING_SCALE = BUILDING_WIDTH / 160
 BUILDING_GAP = 20
-#: A tech building's tile and the base's.
-TILE = (160, 114)
+#: A tech building's tile and the base's, in the art's proportions (350
+#: by 250).
+TILE = (136, 97)
 #: The add-on's card at the top of the building column, as wide as the
 #: tech buildings and aligned with them, in the art's proportions (250
 #: by 350). It was 82 by 114, too small to read; a card's size beside
 #: the patrol slots was too large, and the add-on stays with the other
-#: buildings (the author, 2026-10-09).
-ADD_ON = (TILE[0], round(TILE[0] * 350 / 250))
+#: buildings (the author, 2026-10-09). 193 rather than 190 so the
+#: column comes out the grid's height exactly, a stretch nobody sees.
+ADD_ON = (136, 193)
 #: Between two places in the building column.
 TILE_GAP = 12
 #: A patrol slot's bonus strip, and the space above it.
@@ -488,13 +495,13 @@ def command_zone_plate(hero: Optional[HeroState], cards: CardCatalog) -> Image.I
 # -- The buildings -----------------------------------------------------------
 
 
-def heart(number: int) -> Image.Image:
+def heart(number: int, size: float = 1.0) -> Image.Image:
     """The base's heart, red and edged as the tile prints its own, with
     `number` on it: drawn, since the number changes (the tile prints 20).
     The canvas's path, a cubic Bezier at a time, drawn four times over
-    and scaled down for a smooth edge."""
+    and scaled down for a smooth edge; `size` times 68 by 64."""
     scale = 4
-    width, height = 68, 64
+    width, height = round(68 * size), round(64 * size)
     sx, sy = width / 64 * scale, height / 60 * scale
 
     def curve(p0, p1, p2, p3, steps=24):
@@ -515,13 +522,14 @@ def heart(number: int) -> Image.Image:
     ImageDraw.Draw(big).polygon([(x * sx + pad, y * sy + pad) for x, y in points],
                                 fill=HEART_FILL, outline=HEART_EDGE, width=3 * scale)
     shape = big.resize((big.width // scale, big.height // scale), Image.LANCZOS)
-    ImageDraw.Draw(shape).text((shape.width / 2, shape.height / 2 - 4), str(number),
-                               font=font(30), fill=(255, 255, 255), anchor="mm")
+    ImageDraw.Draw(shape).text((shape.width / 2, shape.height / 2 - 4 * size), str(number),
+                               font=font(round(30 * size)), fill=(255, 255, 255), anchor="mm")
     return shape
 
 
 def building_tile(slug: str) -> Image.Image:
-    return rounded(board_piece("buildings", f"{slug}.png").resize(TILE, Image.LANCZOS), 10)
+    return rounded(board_piece("buildings", f"{slug}.png").resize(TILE, Image.LANCZOS),
+                   round(10 * BUILDING_SCALE))
 
 
 def draw_building_column(body: Image.Image, player: PlayerState,
@@ -548,17 +556,26 @@ def draw_building_column(body: Image.Image, player: PlayerState,
             tile = greyed(tile, 0.35)
         body.alpha_composite(tile, (left, y))
         if state is not None and (state.destroyed or state.under_construction):
-            lay_row(body, [house], 50, (left - 8, y - 8))
+            lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
         if state is not None and not state.destroyed:
             damage = building_hp[name] - state.hp
             if damage > 0:
-                lay_row(body, damage_chits(damage), 54, (left + TILE[0] + 8, y - 8), leftward=True)
+                lay_row(body, damage_chits(damage), DAMAGE_CHIT,
+                        (left + TILE[0] + CHIT_OUT, y - CHIT_OUT), leftward=True)
         y += TILE[1] + TILE_GAP
 
     base = building_tile("base")
     body.alpha_composite(base, (left, y))
-    mark = heart(player.base_hp)
-    body.alpha_composite(mark, (left + TILE[0] - 8 - 68 - 3, y + 22 - 3))
+    mark = heart(player.base_hp, BUILDING_SCALE)
+    body.alpha_composite(mark, (left + TILE[0] - round(79 * BUILDING_SCALE),
+                                y + round(19 * BUILDING_SCALE)))
+
+
+#: A building's house and damage chits, and how far they hang over its
+#: corner, at the column's scale.
+HOUSE_CHIT = round(50 * BUILDING_SCALE)
+DAMAGE_CHIT = round(54 * BUILDING_SCALE)
+CHIT_OUT = round(8 * BUILDING_SCALE)
 
 
 BUILDING_COLUMN_HEIGHT = ADD_ON[1] + 4 * TILE[1] + 4 * TILE_GAP
@@ -583,10 +600,12 @@ def draw_add_on(body: Image.Image, player: PlayerState,
                    round(ADD_ON[0] / 20))
     body.alpha_composite(card, slot[:2])
     if add_on.under_construction:
-        lay_row(body, [board_piece("chits", "house.png")], 50, (slot[0] - 8, slot[1] - 8))
+        lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
+                (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
     damage = building_hp.get(add_on.slug, add_on.hp) - add_on.hp
     if damage > 0:
-        lay_row(body, damage_chits(damage), 54, (slot[2] + 8, slot[1] - 8), leftward=True)
+        lay_row(body, damage_chits(damage), DAMAGE_CHIT,
+                (slot[2] + CHIT_OUT, slot[1] - CHIT_OUT), leftward=True)
 
 
 def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = 6, width: int = 2) -> None:
