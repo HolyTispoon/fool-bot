@@ -531,6 +531,12 @@ class RulesEngine:
         changed_atk, changed_hp = self._changes(card)
         atk += changed_atk
         hp += changed_hp
+        per_rune = effects.PER_TIME_RUNE.get(card.slug) if texted else None
+        if per_rune:
+            # Ebbflow Archon's -1/-1 and Tricycloid's +1/+1 for each time
+            # rune on it.
+            atk += per_rune * card.time_runes
+            hp += per_rune * card.time_runes
         if match is not None and printed.is_unit:
             # Abomination: "All other units get -1/-1." -- both sides,
             # stacking (its ruling).
@@ -668,6 +674,10 @@ class RulesEngine:
                 # Lord of Shadows: "Your black units are invisible." -- the
                 # colour read, himself included.
                 if self.color_of(card) == effects.INVISIBLE_COLOR.get(source.slug, "black"):
+                    profile.grant("Invisible")
+            elif grant == "others_invisible":
+                # Nebula: "Your other units are invisible."
+                if source.id != card.id:
                     profile.grant("Invisible")
             elif grant == "skeletons":
                 # Skeletal Lord: "Your Skeletons get +1/+1."
@@ -824,6 +834,16 @@ class RulesEngine:
         card = self.catalog.cards.get(slug)
         return card is not None and effects.FLAGBEARER in (card.subtype or "")
 
+    def is_flagbearer_body(self, match: MatchState, body) -> bool:
+        """A flagbearer in play: printed so, or a unit a Vortoss Emblem is
+        attached to (step 12)."""
+        if not isinstance(body, CardInstance):
+            return False
+        if self.texted(body) and self.is_flagbearer(body.slug):
+            return True
+        return any(spell.slug == effects.VORTOSS_EMBLEM and body.id in spell.attached
+                   for spell in match.instances())
+
     def seat_of(self, match: MatchState, body) -> Optional[int]:
         """Who controls a unit or a hero in play."""
         if isinstance(body, CardInstance):
@@ -877,8 +897,24 @@ class RulesEngine:
 
     def cant_leave_play(self, match: MatchState, card) -> bool:
         """Gilded Glaxx while its controller has gold: it leaves play only
-        by dying from combat damage (step 12, commit 5)."""
-        return False
+        by dying from combat damage -- not sacrificed, not destroyed or
+        returned or trashed by an effect, and not killed by 0 HP (its
+        rulings, the Card FAQ). Polymorph takes the text away."""
+        return (
+            isinstance(card, CardInstance) and self.text_slug(card) in effects.CANT_LEAVE_WITH_GOLD
+            and match is not None and match.player(card.controller).gold > 0
+        )
+
+    def levels_frozen(self, match: Optional[MatchState], hero: HeroState) -> bool:
+        """Chronofixer: "Opposing heroes can't level up." -- by any means:
+        a kill's levels, Nether Drain, Blackhand Resurrector (its rulings)."""
+        if match is None:
+            return False
+        seat = self.seat_of(match, hero)
+        if seat is None:
+            return False
+        return any(card.slug in effects.NO_OPPOSING_LEVELS and self.texted(card)
+                   for card in match.opponent(seat).play)
 
     def rune_damage(self, match: Optional[MatchState], body) -> bool:
         """Whether `body` deals its damage to units and heroes in the form
@@ -924,6 +960,12 @@ class RulesEngine:
     def graveyards(self, player: PlayerState) -> list[CardInstance]:
         """The Graveyards a player controls, their text in play."""
         return [card for card in player.play if card.slug == effects.GRAVEYARD and self.texted(card)]
+
+    def why_not_play_top(self, match: MatchState, player: PlayerState, slug: str) -> str:
+        """Why Vir may not play the top card of his draw pile now, or "":
+        "You still pay for it and must meet the reqs for it" -- the reqs a
+        card played from the hand has."""
+        return self.why_not_playable(player, slug, match)
 
     def no_high_tech(self, player: PlayerState, card) -> bool:
         """Twilight Baron: "You can't play tech II or III units." --
@@ -1332,11 +1374,13 @@ class RulesEngine:
             return HireOption(False, cost, why_not="there is no card in hand to hire with")
         return HireOption(True, cost)
 
-    def hero_options(self, player: PlayerState) -> tuple[HeroOption, ...]:
+    def hero_options(self, player: PlayerState,
+                     match: Optional[MatchState] = None) -> tuple[HeroOption, ...]:
         """One `HeroOption` per hero, in the team's order."""
-        return tuple(self.hero_option(player, hero) for hero in player.heroes)
+        return tuple(self.hero_option(player, hero, match) for hero in player.heroes)
 
-    def hero_option(self, player: PlayerState, hero: Optional[HeroState] = None) -> HeroOption:
+    def hero_option(self, player: PlayerState, hero: Optional[HeroState] = None,
+                    match: Optional[MatchState] = None) -> HeroOption:
         """
         What the player may do with `hero` (their first by default):
         summon it from the command zone for its cost -- not while it has
@@ -1367,6 +1411,9 @@ class RulesEngine:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it is at its maximum level")
         if any(m.get("kind") == "no_level" for m in hero.modifiers):
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
+        if self.levels_frozen(match, hero):
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST,
+                              why_not="an opposing Chronofixer stops it levelling up")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
@@ -1400,7 +1447,11 @@ class RulesEngine:
                 if hero is None:
                     return f"it needs the {card.spec} hero"
                 if "Ultimate" in card.type and not hero.max_level_since_turn_began:
-                    return "an ultimate needs its hero at maximum level since the turn began"
+                    # Rewind: "Your max level Past hero can cast this no
+                    # matter when she arrived or maxed."
+                    if not (slug in effects.ANY_TIME_ULTIMATES
+                            and hero.level >= self.hero_card(hero).max_level):
+                        return "an ultimate needs its hero at maximum level since the turn began"
         else:
             return "it is not a card that is played"
         if player.gold < cost:
@@ -1520,7 +1571,7 @@ class RulesEngine:
         player = match.active_player
         return LegalActions(
             hire=self.hire_option(player),
-            heroes=self.hero_options(player),
+            heroes=self.hero_options(player, match),
             playable=self.playable(player, match),
             buildings=tuple(
                 self.build_option(player, building)
@@ -2313,7 +2364,7 @@ class RulesEngine:
                 found += [(side, card.ref) for card in units if tech(card) <= 1]
             elif choose == "unit_tech_1_2":
                 found += [(side, card.ref) for card in units if 1 <= tech(card) <= 2]
-            elif choose.startswith("unit_tech_"):
+            elif choose.startswith("unit_tech_") and choose[len("unit_tech_"):].isdigit():
                 level = int(choose.rsplit("_", 1)[1])
                 found += [(side, card.ref) for card in units if tech(card) == level]
             elif choose == "own_unpartnered":
@@ -2459,6 +2510,27 @@ class RulesEngine:
                 if side != seat:
                     found += [(side, HAND + slug) for slug in dict.fromkeys(player.hand)
                               if not self.catalog.cards[slug].is_unit]
+            elif choose == "patrolling_weak_unit":
+                # Forgotten Fighter: a patrolling tech 0 or I unit with 2 ATK
+                # or less.
+                found += [(side, card.ref) for card in units
+                          if card.patrol_slot is not None and tech(card) <= 1
+                          and self.unit_stats(card, match)[0] <= 2]
+            elif choose == "unit_tech_upto_2":
+                found += [(side, card.ref) for card in units if tech(card) <= 2]
+            elif choose == "opposing_upgrade_spell_or_building_card":
+                if side != seat:
+                    found += [(side, card.ref) for card in player.play
+                              if not self.catalog.cards[card.slug].is_unit]
+            elif choose == "own_unit_tech_1_2":
+                if side == seat:
+                    found += [(side, card.ref) for card in units if 1 <= tech(card) <= 2]
+            elif choose == "stingers_of_against":
+                if side == frame.get("against"):
+                    found += [(side, card.ref) for card in units if card.slug == effects.STINGER]
+            elif choose == "ground_patroller":
+                found += [(side, ref) for ref in player.patrollers().values()
+                          if not self.has_keyword(self.body(match, side, ref), "Flying", match)]
             elif choose == "empty_slot":
                 # Zane's shove: an empty slot of the shoved patroller's
                 # own zone -- the side the frame's first pick was on.
@@ -2496,6 +2568,36 @@ class RulesEngine:
             return [HAND + slug for slug in hand]
         if choose == "hand_unit":
             return [HAND + slug for slug in hand if cards[slug].is_unit]
+        if choose == "deck_top":
+            # Vir: the top card of his draw pile, to him alone -- nothing on
+            # an empty pile, and no reshuffle (his rulings).
+            return [DECK + player.deck[-1]] if player.deck else []
+        if choose == "hand_card_with_deck":
+            return [HAND + slug for slug in hand] if player.deck else []
+        if choose == "deck_top_playable":
+            if not player.deck:
+                return []
+            top = player.deck[-1]
+            return [] if self.why_not_play_top(match, player, top) else [DECK + top]
+        if choose == "discard_fading_unit":
+            # Rememberer: a unit with fading from the discard pile, its tech
+            # building and spec met (its rulings).
+            return [DISCARD + slug for slug in dict.fromkeys(player.discard)
+                    if cards[slug].is_unit
+                    and any(name == "Fading" for name, _ in keywords.keywords(slug))
+                    and self.tech_building_active(player, level(slug))
+                    and not self._why_not_spec(player, cards[slug])]
+        if choose == "codex_tech_1_2_unit":
+            return [CODEX + slug for slug in codex if cards[slug].is_unit and 1 <= level(slug) <= 2]
+        if choose == "codex_distortion":
+            # Temporal Distortion: a unit of the tech level of the one
+            # returned, costing no more, requirements ignored.
+            gone = frame.get("distorted")
+            if not gone:
+                return []
+            return [CODEX + slug for slug in codex
+                    if cards[slug].is_unit and level(slug) == gone["tech"]
+                    and (cards[slug].cost or 0) <= gone["cost"]]
         if choose == "codex_demonology_spell":
             return [CODEX + slug for slug in codex
                     if cards[slug].is_spell and (cards[slug].spec or "").lower() == "demonology"]
@@ -2593,10 +2695,7 @@ class RulesEngine:
             if resist > gold:
                 continue
             body = self.body(match, side, ref)
-            flag = (
-                side != seat and isinstance(body, CardInstance)
-                and self.is_flagbearer(body.slug)
-            )
+            flag = side != seat and self.is_flagbearer_body(match, body)
             rows.append(TargetRow(target_key(side, ref), side, ref, resist, flag))
         if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
             return tuple(row for row in rows if row.flagbearer)
@@ -2764,7 +2863,8 @@ class RulesEngine:
             return "not enough gold"
         if cost.runes:
             kind, count = cost.runes
-            have = body.plus_runes if kind == "plus" else body.runes.get(kind, 0)
+            have = (body.plus_runes if kind == "plus"
+                    else body.time_runes if kind == "time" else body.runes.get(kind, 0))
             if have < count:
                 rune = "+1/+1" if kind == "plus" else kind
                 return f"it needs {count} {rune} rune{'' if count == 1 else 's'}"
@@ -3098,6 +3198,8 @@ _PRIVATE_FILTERS = frozenset({
     "codex_circle", "fire_spell",
     # Purple and black's (step 12).
     "hand_unit", "codex_demonology_spell", "discard_tech_1_2_cheap",
+    "deck_top", "hand_card_with_deck", "deck_top_playable", "discard_fading_unit",
+    "codex_tech_1_2_unit", "codex_distortion",
 })
 
 

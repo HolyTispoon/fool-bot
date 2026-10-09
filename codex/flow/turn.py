@@ -207,12 +207,22 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Upkeep.
     match.enter_phase("upkeep")
     _until_upkeep_ends(engine, match, seat, result)
-    gained = gain_gold(match, seat, player.workers)
+    produced = player.workers
+    caps = [limit for side in match.players for card in side.play
+            if (limit := effects.SLOWTIME.get(engine.text_slug(card) or "")) is not None]
+    if caps:
+        # Slowtime Generator: "Each player's workers can't produce more than
+        # {gold:4} total during their upkeep."
+        produced = min(produced, min(caps))
+    gained = gain_gold(match, seat, produced)
     collected = (
         f"{tokens.player(seat)} collects {tokens.gold(gained)} from "
         f"{_plural(player.workers, 'worker')}"
     )
-    if gained < player.workers:
+    if produced < player.workers:
+        collected += f", held to {tokens.gold(produced)} by {tokens.card('slowtime_generator')}: "
+        collected += f"{tokens.gold(player.gold)}."
+    elif gained < player.workers:
         # Said where it bites, so a short income is not read as a slip
         # (the author, 2026-10-08).
         collected += f" and hits the gold cap: {tokens.gold(player.gold)}."
@@ -524,6 +534,20 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat = match.active
     player = match.active_player
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
+    if player.skip_draw:
+        # Prynn died from fading: "Opponents skip their next draw/discard
+        # step (they keep their hand cards)."
+        player.skip_draw = False
+        result.narration.append(f"{tokens.player(seat)} skips their draw and discard, keeping their hand.")
+        match.enter_phase("tech")
+        end_of_turn(engine, match, result)
+        from codex.flow import resolve
+
+        if not resolve.run(engine, match, result):
+            result.next = pending(engine, game, match)
+            return result
+        result.next = FollowOn(FollowOnStep.BEGIN_TECH)
+        return result
     discarded = len(player.hand)
     player.discard.extend(player.hand)
     player.hand = []

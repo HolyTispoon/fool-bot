@@ -1809,6 +1809,7 @@
           "slug": "troq_bashar",
           "summoning_runes": 0,
           "time_runes": 0,
+          "trashed": [],
           "zone": "play"
         }
       ],
@@ -1923,6 +1924,7 @@
       ],
       "reshuffled_this_phase": false,
       "seat": 1,
+      "skip_draw": false,
       "specs": [
         "bashing"
       ],
@@ -2030,6 +2032,7 @@
           "slug": "river_montoya",
           "summoning_runes": 0,
           "time_runes": 0,
+          "trashed": [],
           "zone": "play"
         }
       ],
@@ -2039,6 +2042,7 @@
       "play": [],
       "reshuffled_this_phase": false,
       "seat": 2,
+      "skip_draw": false,
       "specs": [
         "finesse"
       ],
@@ -3587,6 +3591,7 @@
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "command"
             }
           ],
@@ -3623,6 +3628,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
+          "skip_draw": false,
           "specs": [
             "bashing"
           ],
@@ -3726,6 +3732,7 @@
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "play"
             }
           ],
@@ -3788,6 +3795,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
+          "skip_draw": false,
           "specs": [
             "finesse"
           ],
@@ -5419,6 +5427,7 @@
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "play"
             }
           ],
@@ -5507,6 +5516,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
+          "skip_draw": false,
           "specs": [
             "bashing"
           ],
@@ -5616,6 +5626,7 @@
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "play"
             }
           ],
@@ -5652,6 +5663,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
+          "skip_draw": false,
           "specs": [
             "finesse"
           ],
@@ -7344,6 +7356,7 @@
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "play"
             }
           ],
@@ -7406,6 +7419,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 1,
+          "skip_draw": false,
           "specs": [
             "bashing"
           ],
@@ -7511,6 +7525,7 @@
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
+              "trashed": [],
               "zone": "play"
             }
           ],
@@ -7573,6 +7588,7 @@
           ],
           "reshuffled_this_phase": false,
           "seat": 2,
+          "skip_draw": false,
           "specs": [
             "finesse"
           ],

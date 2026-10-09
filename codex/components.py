@@ -155,6 +155,10 @@ class HeroState:
     #: Disabled (step 12, UMR p. 16): it does not ready at its next ready
     #: phase, which clears this. False in an older save.
     disabled: bool = False
+    #: What Prynn Pasternaak's max level ability has trashed (step 12), each
+    #: `{slug, owner, controller, id}`, returned to play when she leaves it.
+    #: Empty for every other hero, and in an older save.
+    trashed: list[dict] = field(default_factory=list)
 
     @property
     def in_play(self) -> bool:
@@ -180,6 +184,7 @@ HERO_SAVED_FIELDS = (
     SavedField("bands", factory=dict, write=dict, read=dict),
     SavedField("time_runes", default=0),
     SavedField("disabled", default=False),
+    SavedField("trashed", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 
@@ -454,6 +459,10 @@ class PlayerState:
     #: untargetable, unaffected -- until its last rune goes and it
     #: arrives, or a spell resolves. Empty in an older save.
     future: list[CardInstance] = field(default_factory=list)
+    #: Prynn Pasternaak at 4 died from fading: this player skips their next
+    #: draw/discard step, keeping their hand (step 12). False in an older
+    #: save.
+    skip_draw: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -546,6 +555,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("arrived_from_hand", default=False),
     SavedField("lasting", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("future", factory=list, write=_write_play, read=_read_play),
+    SavedField("skip_draw", default=False),
 )
 
 

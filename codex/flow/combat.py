@@ -535,6 +535,14 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         tower = _Hit(0 if first else 1, None, hitting, TOWER_DAMAGE, "tower")
         hits.append(tower)
 
+    # Sentry: the first spell or ability damage to one of its controller's
+    # patrollers each turn -- sparkshot's included (its ruling).
+    sparks = [hit for hit in hits if hit.kind == "sparkshot" and not hit.target.is_building]
+    if sparks:
+        shielded = board.sentry_shields(engine, match, [hit.target.body for hit in sparks], result)
+        for hit in sparks:
+            if any(hit.target.body is body for body in shielded):
+                hit.amount = 0
     bodies = [hit.target for hit in hits if not hit.target.is_building]
     bodies += [hit.source for hit in hits if hit.source is not None]
     seen: list[_Fighter] = []
@@ -573,6 +581,13 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         for fighter in seen:
             if any(fighter.body is one.body for one in dead):
                 continue
+            if engine.cant_leave_play(match, fighter.body) and not any(
+                hit.target.body is fighter.body and (hit.landed > 0 or fighter.body in touched)
+                for hit in hits if not hit.target.is_building
+            ):
+                # Gilded Glaxx with gold dies only when combat damage is
+                # dealt to him (his rulings).
+                continue
             if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
 
@@ -610,6 +625,11 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                                   by=hit.source.seat if hit.source is not None else None)
 
     mine_hits = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0]
+    for hit in hits:
+        if (hit.source is not None and not hit.skipped and hit.amount > 0
+                and engine.is_building_ref(match, hit.target.seat, hit.target.ref)):
+            # Yesterday's Golgort: combat damage to a building.
+            board.golgort(engine, match, hit.source.seat, result)
     killed = any(fighter.body is taking.body for fighter in dead)
     _destroy(engine, match, dead, result, combat=True)
     _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)

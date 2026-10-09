@@ -95,7 +95,7 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat = match.active
     player = match.active_player
     hero = _hero(match, slug)
-    option = engine.hero_option(player, hero)
+    option = engine.hero_option(player, hero, match)
     if option.action != "summon" or option.why_not:
         why = option.why_not or "it is already in play"
         raise RuleRefusal(f"You can't summon {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
@@ -124,7 +124,7 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
     seat = match.active
     player = match.active_player
     hero = _hero(match, slug)
-    option = engine.hero_option(player, hero)
+    option = engine.hero_option(player, hero, match)
     if option.action != "level" or option.why_not:
         why = option.why_not or "it is not in play"
         raise RuleRefusal(f"You can't level {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
@@ -180,10 +180,32 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             raise RuleRefusal(f"You can't boost {engine.name(slug)}: not enough gold.", cite="UMR p. 16")
         cost += extra
     player.hand.remove(slug)
-    player.gold -= cost
-    match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}))
-    note = _vanilla_note(engine, slug)
     result = StepResult(board_changed=True)
+    _played(engine, match, seat, slug, cost, boost, result)
+    return resolve.carry_on(engine, game, match, result)
+
+
+def put_card_into_play(engine: "RulesEngine", match: MatchState, seat: int, slug: str,
+                       boost: bool, result: StepResult, where: str = "hand") -> None:
+    """A card played from somewhere other than the hand -- the top of Vir's
+    draw pile: paid as a card played from the hand is, boost and all (the
+    boost ruling), and then everything playing it does."""
+    player = match.player(seat)
+    cost = engine.effective_cost(player, slug) + ((engine.boost_cost(slug) or 0) if boost else 0)
+    _played(engine, match, seat, slug, cost, boost, result, where=where)
+
+
+def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost: int,
+            boost: bool, result: StepResult, where: str = "hand") -> None:
+    """A card played, paid for: into the future, into play, or cast."""
+    player = match.player(seat)
+    card = engine.catalog.cards[slug]
+    player.gold -= cost
+    match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}),
+                       **({"from": where} if where != "hand" else {}))
+    note = _vanilla_note(engine, slug)
+    if where != "hand":
+        note += f" (from their {where})"
     if engine.forecast(slug):
         # Forecast X: played from the hand, paid and its requirements met
         # now, into the future with X time runes -- not in play (UMR
@@ -200,7 +222,7 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
                 resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
                 for harmony in player.play if harmony.slug == effects.HARMONY
             ))
-        return resolve.carry_on(engine, game, match, result)
+        return
     if card.is_unit:
         instance = match.new_instance(slug, seat)
         atk, hp = engine.unit_stats(instance, match)
@@ -239,7 +261,6 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
             for harmony in player.play if harmony.slug == effects.HARMONY
         ))
-    return resolve.carry_on(engine, game, match, result)
 
 
 def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -295,6 +316,11 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
         if kind == "plus":
             body.plus_runes -= count
             rune = "+1/+1"
+        elif kind == "time":
+            # A time rune paid as a cost: a fading card left with none is
+            # sacrificed once the ability has resolved (`fade_check`).
+            body.time_runes -= count
+            rune = "time"
         else:
             body.runes[kind] = body.runes.get(kind, 0) - count
             rune = kind

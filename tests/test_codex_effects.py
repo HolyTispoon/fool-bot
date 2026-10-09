@@ -74,6 +74,8 @@ def _handled(slug: str) -> list[str]:
         "UNSTOPPABLE_ATTACKING_HEROES", "UNTARGETABLE_BY_BUFFS", "INVISIBLE_COLOR",
         "RUNE_DAMAGE", "ALL_OTHER_UNITS", "CORPSE_RUNES", "SKELETON_ON_DEATH",
         "ON_DAMAGING_A_BASE", "SHACKLED", "NO_HIGH_TECH_UNITS", "VOIDBLOCKERS", "DRAW_MORE",
+        "NO_OPPOSING_LEVELS", "CANT_LEAVE_WITH_GOLD", "TRASHED_BY_TECH_II", "PER_TIME_RUNE",
+        "SECOND_CHANCES", "SENTRIES", "SLOWTIME", "GOLGORTS", "REMEMBERERS",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -101,15 +103,8 @@ def _handled(slug: str) -> list[str]:
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
-    "assimilate", "banefire_golem", "chronofixer", "double_time", "ebbflow_archon",
-    "forgotten_fighter", "gilded_glaxx", "hardened_mox", "hive", "hyperion",
-    "max_geiger", "nebula", "now", "octavian", "origin_story", "plague_lord",
-    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
-    "research__development", "rewind", "second_chances", "sentry",
-    "shrine_of_forbidden_knowledge", "slowtime_generator", "stewardess_of_the_undone",
-    "temporal_distortion", "tricycloid", "undo", "unphase", "vir_garbarean",
-    "void_star", "vortoss_emblem", "warp_gate_disciple", "xenostalker",
-    "yesterdays_golgort"
+    "banefire_golem", "double_time", "plague_lord", "promise_of_payment",
+    "shrine_of_forbidden_knowledge"
 })
 
 

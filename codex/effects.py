@@ -170,15 +170,8 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 #: them. Argonaut's readiness, the Stinger's flying and the Horror's
 #: deathtouch are read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
-    "assimilate", "banefire_golem", "chronofixer", "double_time", "ebbflow_archon",
-    "forgotten_fighter", "gilded_glaxx", "hardened_mox", "hive", "hyperion",
-    "max_geiger", "nebula", "now", "octavian", "origin_story", "plague_lord",
-    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
-    "research__development", "rewind", "second_chances", "sentry",
-    "shrine_of_forbidden_knowledge", "slowtime_generator", "stewardess_of_the_undone",
-    "temporal_distortion", "tricycloid", "undo", "unphase", "vir_garbarean",
-    "void_star", "vortoss_emblem", "warp_gate_disciple", "xenostalker",
-    "yesterdays_golgort"
+    "banefire_golem", "double_time", "plague_lord", "promise_of_payment",
+    "shrine_of_forbidden_knowledge"
 })
 
 
@@ -883,6 +876,172 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
                                           "summon a hero that died this game, at max level",
                                           targeted=False)),
 
+    # -- Purple's effects (step 12, commit 5) -----------------------------
+    # Max Geiger at 3: "{exhaust}, Discard a card -> Draw a card."
+    _effect(
+        "max_geiger",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("draw", None, 1, targeted=False),
+        says="draw a card",
+    ),
+    # Max Geiger at 5: "Max Level: You may trash a friendly unit then return
+    # it to play. {target}" -- fresh, under the same controller, with
+    # arrival fatigue (his rulings).
+    _effect("max_geiger_max", Part("geiger", "own_unit", 0, "trash a friendly unit and return it",
+                                   least=0)),
+    # Prynn at 1: "Attacks: Put a time rune on this."
+    _effect("prynn_pasternaak", Part("time_rune_self", None, 1, targeted=False)),
+    # Prynn at 7: "Remove two time runes -> Trash a unit. {target}" -- at two
+    # runes she may, and dies at once, not from fading (her rulings).
+    _effect(
+        "prynn_pasternaak_max",
+        Part("prynn_trash", "unit", 0, "trash a unit"),
+        Part("fade_check", None, 0, targeted=False),
+        says="trash a unit",
+    ),
+    # Vir at 1: "{gold:0} -> Look at the top card of your draw pile." --
+    # pictured to him alone; nothing on an empty pile (his rulings).
+    _effect("vir_garbarean", Part("look", "deck_top", 0, "look at the top card of your draw pile",
+                                  targeted=False, least=0),
+            says="look at the top card of your draw pile"),
+    # Vir at 1: "{gold:1} -> Exchange the top card of your draw pile with a
+    # card from your hand."
+    _effect("vir_garbarean_exchange", Part("exchange", "hand_card_with_deck", 0,
+                                           "choose a card from your hand to put on top",
+                                           targeted=False),
+            says="exchange the top card of your draw pile with a card from your hand"),
+    # Vir at 5: "{exhaust} -> Play the top card of your draw pile. (You still
+    # pay for it and must meet the reqs for it.)"
+    _effect(
+        "vir_garbarean_play",
+        Part("pick_top", "deck_top_playable", 0, "play the top card of your draw pile",
+             targeted=False),
+        Part("mode", modes=(("plain", "play it"), ("boosted", "play it boosted")),
+             says="boost it or not", follows=True),
+        Part("play_top", None, 0, targeted=False, follows=True),
+        says="play the top card of your draw pile",
+    ),
+    # Vir at 7: "Max Level: Summon a 6/7 purple Mech token with forecast 2
+    # that's untargetable."
+    _effect("vir_garbarean_max", Part("token", None, 1, targeted=False, token="mech")),
+    # Forgotten Fighter: "Return a patrolling tech 0 or I unit with 2 ATK or
+    # less to its owner's hand."
+    _effect("forgotten_fighter", Part("return", "patrolling_weak_unit", 0,
+                                      "return a patrolling tech 0 or I unit with 2 ATK or less")),
+    # Undo: "Return a tech 0, I, or II unit to its owner's hand."
+    _effect("undo", Part("return", "unit_tech_upto_2", 0, "return a tech 0, I or II unit")),
+    # Stewardess of the Undone: "Arrives: You may return a tech 0 unit to
+    # its owner's hand."
+    _effect("stewardess_of_the_undone", Part("return", "unit_tech_0", 0, "return a tech 0 unit",
+                                             least=0)),
+    # Origin Story: "Return a hero to its command zone." -- no death, its
+    # levels and runes gone, and no summoning runes (the author,
+    # 2026-10-09).
+    _effect("origin_story", Part("to_command_zone", "hero_in_play", 0,
+                                 "return a hero to its command zone")),
+    # Assimilate: "Gain control of an upgrade, ongoing spell, or building
+    # card (not add-on)."
+    _effect("assimilate", Part("steal", "opposing_upgrade_spell_or_building_card", 0,
+                               "gain control of an upgrade, ongoing spell or building card")),
+    # Temporal Distortion: "Return a tech I or II unit of yours to its
+    # owner's hand. If you do, you may put a unit of the same tech level and
+    # the same cost or less from your codex into play. (Even if you don't
+    # meet the tech reqs for it.)"
+    _effect(
+        "temporal_distortion",
+        Part("distort", "own_unit_tech_1_2", 0, "return a tech I or II unit of yours",
+             targeted=False),
+        Part("put_into_play", "codex_distortion", 0,
+             "put a unit of that tech level costing no more from your codex into play",
+             targeted=False, least=0, follows=True),
+    ),
+    # Ready or Not: "Ready one of your units. Opposing exhausted units don't
+    # ready during their next ready step."
+    _effect(
+        "ready_or_not",
+        Part("ready", "own_unit", 0, "ready one of your units"),
+        Part("hold_down", None, 0, targeted=False),
+    ),
+    # Rewind: "Return all tech 0, I, and II units to their owner's hands."
+    _effect("rewind", Part("rewind", None, 0, targeted=False)),
+    # Research & Development: "Draw five cards."
+    _effect("research__development", Part("draw", None, 5, targeted=False)),
+    # Now: "Give a unit or hero haste this turn."
+    _effect("now", Part("keyword", "unit_or_hero", 0, "give a unit or hero haste this turn",
+                        token="Haste")),
+    # Unphase: "Make a unit or hero invisible until your next upkeep."
+    _effect("unphase", Part("unphase", "unit_or_hero", 0,
+                            "make a unit or hero invisible until your next upkeep")),
+    # Hive: "Arrives: Summon five 1/1 purple Stinger tokens with flying." and
+    # "{gold:1} -> Re-summon a lost Stinger (limit: 5 per Hive.)"
+    _effect("hive", Part("stingers", None, 5, targeted=False)),
+    _effect("hive_resummon", Part("stingers", None, 1, targeted=False),
+            says="re-summon a lost Stinger"),
+    # The Stingers past five a Hive, sacrificed -- the active player choosing
+    # which (Hive's rulings).
+    _effect("hive_excess", Part("sacrifice", "stingers_of_against", 0,
+                                "choose a Stinger to sacrifice", targeted=False, most=99, least=99)),
+    # Ebbflow Archon: "Remove a time rune -> Return a unit to its owner's
+    # hand or a hero to its command zone."
+    _effect(
+        "ebbflow_archon",
+        Part("bounce", "unit_or_hero", 0, "return a unit to its owner's hand or a hero to its command zone"),
+        Part("fade_check", None, 0, targeted=False),
+        says="return a unit or a hero",
+    ),
+    # Nebula: "{gold:0} -> Destroy a tech 0, I, or II unit. Once-per-turn."
+    _effect("nebula", Part("destroy", "unit_tech_upto_2", 0, "destroy a tech 0, I or II unit")),
+    # Octavian: "{gold:8}, {exhaust} -> Ready Octavian and disable up to eight
+    # units and/or heroes."
+    _effect(
+        "octavian",
+        Part("ready_self", None, 0, targeted=False),
+        Part("disable", "unit_or_hero", 0, "disable a unit or hero", most=8, least=0),
+        says="ready it and disable up to eight units and heroes",
+    ),
+    # Reaver: "{gold:1}, {exhaust}, Discard a card -> Choose one: Trash 2
+    # workers. Deal 6 damage to up to 2 units and/or heroes."
+    _effect(
+        "reaver",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("mode", modes=(("workers", "trash 2 workers"),
+                            ("damage", "deal 6 damage to up to 2 units and heroes")),
+             says="choose one"),
+        Part("trash", "workers", 0, "trash a worker", targeted=False, most=2, least=2,
+             only="workers"),
+        Part("damage", "unit_or_hero", 6, "deal 6 damage to a unit or hero", targeted=False,
+             most=2, least=1, only="damage"),
+        says="trash 2 workers, or deal 6 to up to 2 units and heroes",
+    ),
+    # Rememberer: "Whenever you remove a time rune from Rememberer, you may
+    # put a unit with fading from your discard pile into play if you meet
+    # the tech requirements for it."
+    _effect("rememberer", Part("put_into_play", "discard_fading_unit", 0,
+                               "put a unit with fading from your discard pile into play",
+                               targeted=False, least=0)),
+    # Tricycloid: "Arrives: Put three time runes on this." and "Remove a time
+    # rune -> Deal 1 damage to a unit, hero, or building."
+    _effect("tricycloid", Part("time_rune_self", None, 3, targeted=False)),
+    _effect("tricycloid_shot", Part("damage", "unit_hero_or_building", 1,
+                                    "deal 1 damage to a unit, hero or building"),
+            says="deal 1 damage to a unit, hero or building"),
+    # Void Star: "{gold:4} -> Gets +4 ATK until your next upkeep.
+    # Once-per-turn."
+    _effect("void_star", Part("void_star", None, 4, targeted=False), says="get +4 ATK"),
+    # Vortoss Emblem: "Attach to a unit. That unit is a flagbearer."
+    _effect("vortoss_emblem", Part("attach", "unit", 0, "attach to a unit")),
+    # Warp Gate Disciple: "{gold:1}, {exhaust} -> Put a tech I or II unit from
+    # your codex into play. (You don't have to meet the tech reqs for it.)"
+    _effect("warp_gate_disciple", Part("put_into_play", "codex_tech_1_2_unit", 0,
+                                       "put a tech I or II unit from your codex into play",
+                                       targeted=False)),
+    # Xenostalker: "Attacks: Deal 1 damage to up to four patrollers without
+    # flying."
+    _effect("xenostalker", Part("damage", "ground_patroller", 1,
+                                "deal 1 damage to a patroller without flying", most=4, least=0)),
+    # Hyperion: "Attacks: Draw a card."
+    _effect("hyperion", Part("draw", None, 1, targeted=False)),
+
     # -- Purple and black: time (step 12) ----------------------------------
     # Time Spiral: "Add or remove a time rune from a card (or forcasted
     # card) with at least one time rune." -- any player's (its ruling), no
@@ -1089,6 +1248,36 @@ TEXT: dict = {
     ("orpal_gloor", 4): (("ability", "orpal_gloor"),),
     ("vandy_anadrose", 3): (("ability", "vandy_anadrose"),),
     ("vandy_anadrose", 5): (("max_level", "vandy_anadrose_max"),),
+    # Purple's (commit 5).
+    ("max_geiger", 3): (("ability", "max_geiger"),),
+    ("max_geiger", 5): (("max_level", "max_geiger_max"),),
+    ("prynn_pasternaak", 1): (("attacks", "prynn_pasternaak"),),
+    ("prynn_pasternaak", 7): (("ability", "prynn_pasternaak_max"),),
+    ("vir_garbarean", 1): (("ability", "vir_garbarean"), ("ability", "vir_garbarean_exchange")),
+    ("vir_garbarean", 5): (("ability", "vir_garbarean_play"),),
+    ("vir_garbarean", 7): (("max_level", "vir_garbarean_max"),),
+    "forgotten_fighter": (("play", "forgotten_fighter"),),
+    "undo": (("play", "undo"),),
+    "stewardess_of_the_undone": (("arrives", "stewardess_of_the_undone"),),
+    "origin_story": (("play", "origin_story"),),
+    "assimilate": (("play", "assimilate"),),
+    "temporal_distortion": (("play", "temporal_distortion"),),
+    "ready_or_not": (("play", "ready_or_not"),),
+    "rewind": (("play", "rewind"),),
+    "research__development": (("play", "research__development"),),
+    "now": (("play", "now"),),
+    "unphase": (("play", "unphase"),),
+    "vortoss_emblem": (("play", "vortoss_emblem"),),
+    "hive": (("arrives", "hive"), ("ability", "hive_resummon")),
+    "ebbflow_archon": (("ability", "ebbflow_archon"),),
+    "nebula": (("ability", "nebula"),),
+    "octavian": (("ability", "octavian"),),
+    "reaver": (("ability", "reaver"),),
+    "tricycloid": (("arrives", "tricycloid"), ("ability", "tricycloid_shot")),
+    "void_star": (("ability", "void_star"),),
+    "warp_gate_disciple": (("ability", "warp_gate_disciple"),),
+    "xenostalker": (("attacks", "xenostalker"),),
+    "hyperion": (("attacks", "hyperion"),),
 }
 
 #: What each ability action costs (`Cost`), by its effect.
@@ -1133,6 +1322,20 @@ COSTS: dict[str, Cost] = {
     "garth_torken_draw": Cost(),
     "orpal_gloor": Cost(once=True),
     "vandy_anadrose": Cost(gold=1, exhaust=True, discard=1),
+    # Purple's (commit 5).
+    "max_geiger": Cost(exhaust=True, discard=1),
+    "prynn_pasternaak_max": Cost(runes=("time", 2)),
+    "vir_garbarean": Cost(),
+    "vir_garbarean_exchange": Cost(gold=1),
+    "vir_garbarean_play": Cost(exhaust=True),
+    "hive_resummon": Cost(gold=1),
+    "ebbflow_archon": Cost(runes=("time", 1)),
+    "nebula": Cost(once=True),
+    "octavian": Cost(gold=8, exhaust=True),
+    "reaver": Cost(gold=1, exhaust=True, discard=1),
+    "tricycloid_shot": Cost(runes=("time", 1)),
+    "void_star": Cost(gold=4, once=True),
+    "warp_gate_disciple": Cost(gold=1, exhaust=True),
 }
 
 
@@ -1485,3 +1688,52 @@ UNIT_GRANTS.update({
 ORPAL_MAX = ("orpal_gloor", 6)
 #: Metamorphosis's grants to a hero, until it leaves play.
 METAMORPHOSIS_KEYWORDS = ("Readiness", "Invisible")
+
+# -- Purple's static texts (step 12, commit 5) ------------------------------------
+
+#: Chronofixer: "Opposing heroes can't level up." -- by any means (its
+#: rulings).
+NO_OPPOSING_LEVELS = frozenset({"chronofixer"})
+#: Gilded Glaxx: "While you have gold in your gold pile, you can't
+#: sacrifice Gilded Glaxx and he can't leave play unless he dies from
+#: combat damage."
+CANT_LEAVE_WITH_GOLD = frozenset({"gilded_glaxx"})
+#: Hardened Mox: "When you have a tech II unit (even a forecasted one),
+#: trash Hardened Mox."
+TRASHED_BY_TECH_II = frozenset({"hardened_mox"})
+#: Ebbflow Archon's "Gets -1/-1 for each time rune on it", Tricycloid's
+#: "+1/+1".
+PER_TIME_RUNE = {"ebbflow_archon": -1, "tricycloid": 1}
+#: Nebula: "Your other units are invisible."
+UNIT_GRANTS.update({"nebula": "others_invisible"})
+#: Second Chances: "Whenever one of your non-token units leaves play from
+#: something other than combat damage, return it to play. Once-per-turn."
+SECOND_CHANCES = frozenset({"second_chances"})
+#: Sentry: "Prevent the first damage per turn that a spell or ability would
+#: deal to one of your patrollers."
+SENTRIES = frozenset({"sentry"})
+#: Slowtime Generator: "Each player's workers can't produce more than
+#: {gold:4} total during their upkeep."
+SLOWTIME = {"slowtime_generator": 4}
+#: Yesterday's Golgort: "Whenever you deal combat damage to a building, put
+#: a time rune on this." -- any card or effect of its controller's, spells
+#: included (the Card FAQ).
+GOLGORTS = frozenset({"yesterdays_golgort"})
+#: Vortoss Emblem: "Attach to a unit. That unit is a flagbearer."
+VORTOSS_EMBLEM = "vortoss_emblem"
+ATTACHING = ATTACHING | {VORTOSS_EMBLEM}
+#: Rewind: "Your max level Past hero can cast this no matter when she
+#: arrived or maxed."
+ANY_TIME_ULTIMATES = frozenset({"rewind"})
+#: Hive: "limit: 5 per Hive", and the Stinger.
+HIVE = "hive"
+STINGER = "stinger"
+STINGERS_PER_HIVE = 5
+#: Rememberer: "Whenever you remove a time rune from Rememberer".
+REMEMBERERS = frozenset({"rememberer"})
+#: Prynn at 4: "Dies from fading: Opponents skip their next draw/discard
+#: step (they keep their hand cards)."; at 7, "Leaves: Return all cards to
+#: play that Pasternaak trashed."
+PRYNN = "prynn_pasternaak"
+PRYNN_FADES = ("prynn_pasternaak", 4)
+PRYNN_RETURNS = ("prynn_pasternaak", 7)
