@@ -30,6 +30,29 @@ function Invoke-CheckedCommand {
     }
 }
 
+# Google Drive writes a hidden desktop.ini into the folders it syncs,
+# .git\refs\ and every folder under it included, and git reads every
+# file under refs\ as a ref. The fetch then dies on the first of them
+# ("fatal: bad object refs/desktop.ini", reported as "did not send all
+# necessary objects") before anything here has been stopped. They are
+# Drive's folder-icon metadata, nothing git wrote, and Drive writes them
+# again, so they are removed before every fetch rather than once. The
+# working tree's are left alone: untracked, and the dirty check before
+# the fetch ignores untracked files. See "The K:\ drive is a mounted
+# Google Drive letter" in docs/design/collaboration.md.
+function Remove-GoogleDriveDesktopIni {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GitFolder
+    )
+
+    $strays = @(Get-ChildItem -LiteralPath $GitFolder -Recurse -Force -File -Filter 'desktop.ini' -ErrorAction SilentlyContinue)
+    foreach ($stray in $strays) {
+        Write-Host "Removing $($stray.FullName) -- Google Drive's, which git would read as a ref."
+        Remove-Item -LiteralPath $stray.FullName -Force
+    }
+}
+
 $resolvedRepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
 $botScript = Join-Path $resolvedRepoPath 'foolbot.py'
 $requirementsFile = Join-Path $resolvedRepoPath 'requirements.txt'
@@ -55,6 +78,8 @@ if (-not $SkipPull -and -not $StopOnly) {
     if ($trackedChanges) {
         throw 'The main bot has uncommitted tracked changes. Update cancelled.'
     }
+
+    Remove-GoogleDriveDesktopIni -GitFolder $gitFolder
 
     Invoke-CheckedCommand -FailureMessage "Could not fetch origin/$Branch." -Command {
         git fetch origin $Branch

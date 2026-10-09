@@ -58,6 +58,11 @@ if (\$trackedChanges) {
     throw 'The main bot has uncommitted tracked changes. Update cancelled.'
 }
 
+# Google Drive's desktop.ini under .git\refs\ is read by git as a ref and
+# kills the fetch -- see update_main_bot.ps1's Remove-GoogleDriveDesktopIni.
+Get-ChildItem -LiteralPath (Join-Path \$repoPath '.git') -Recurse -Force -File -Filter 'desktop.ini' -ErrorAction SilentlyContinue |
+    Remove-Item -Force
+
 & git fetch origin \$branch
 if (\$LASTEXITCODE -ne 0) {
     throw "Could not fetch origin/\$branch."
