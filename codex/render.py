@@ -897,9 +897,11 @@ def vertical_divider(height: int, label: str) -> Image.Image:
 
 def compose_board(match: MatchState, layout: str = "stacked",
                   names: Optional[Mapping[int, str]] = None,
-                  cards: Optional[CardCatalog] = None) -> Image.Image:
+                  cards: Optional[CardCatalog] = None,
+                  near: Optional[int] = None) -> Image.Image:
     """The whole table at the canvas's pixels, before it is scaled and
-    encoded -- `render_board`'s picture."""
+    encoded -- `render_board`'s picture. `near`, for the stacked board,
+    is the seat looked from: the active player's by default."""
     cards = cards or load_catalog()
     names = names or {}
     building_hp = default_building_hp(cards)
@@ -925,6 +927,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
         return board
 
     far_seat, near_seat = stacked_seats(match)
+    if near is not None:
+        far_seat, near_seat = (2 if near == 1 else 1), near
     far = render_panel(match, far_seat, name(far_seat), cards, building_hp, turned=True)
     near = render_panel(match, near_seat, name(near_seat), cards, building_hp)
     width = max(far.width, near.width)
@@ -937,7 +941,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
 
 def render_board(match: MatchState, layout: str = "stacked",
                  names: Optional[Mapping[int, str]] = None,
-                 cards: Optional[CardCatalog] = None) -> bytes:
+                 cards: Optional[CardCatalog] = None,
+                 near: Optional[int] = None) -> bytes:
     """
     The whole table as WebP bytes: both panels, stacked -- seen from the
     active player's side, the other player's above theirs and turned
@@ -946,11 +951,29 @@ def render_board(match: MatchState, layout: str = "stacked",
     `layout` says. `names` is what each seat's nameplate calls its
     player -- the frontend's to give, since a name is not the model's.
     The picture's size follows the position: a row of cards more is a
-    taller panel.
+    taller panel. `near` looks at the stacked board from that seat
+    rather than the active player's: a target prompt's picture where the
+    targets are on both sides, seen from the player choosing.
     """
-    board = compose_board(match, layout, names, cards)
+    board = compose_board(match, layout, names, cards, near)
     scaled = board.resize(
         (round(board.width * BOARD_SCALE), round(board.height * BOARD_SCALE)), Image.LANCZOS,
+    )
+    return _webp(scaled)
+
+
+def render_side(match: MatchState, seat: int, name: str,
+                cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    One player's side of the table as WebP bytes, upright and at the
+    board's scale: the panel `render_board` draws for `seat`, alone. A
+    target prompt's picture (docs/design/codex.md, "The panel"), where
+    what is chosen from is on the board rather than in the hand.
+    """
+    cards = cards or load_catalog()
+    panel = render_panel(match, seat, name, cards, default_building_hp(cards))
+    scaled = panel.resize(
+        (round(panel.width * BOARD_SCALE), round(panel.height * BOARD_SCALE)), Image.LANCZOS,
     )
     return _webp(scaled)
 

@@ -6,8 +6,9 @@ staged position from the middle of a game (units in play, exhausted and
 just arrived, patrollers, damage, a building under construction, the
 tower, the hero levelled) -- stacked, from each seat in turn, since the
 stacked board is seen from the active player's side -- a position with
-every other state on the design canvas's states board, the first
-player's hand, their codex through every view, and the tech picker's
+every other state on the design canvas's states board, the second
+player's side alone as a target prompt pictures it, the first player's
+hand, their codex through every view, and the tech picker's
 codex with two picks marked:
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
@@ -31,7 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from codex.components import AddOnState, BuildingState, MatchState  # noqa: E402
 from codex.engine import RulesEngine  # noqa: E402
 from codex.game import BOARD_LAYOUTS  # noqa: E402
-from codex.render import render_board, render_codex, render_hand  # noqa: E402
+from codex.render import render_board, render_codex, render_hand, render_side  # noqa: E402
 from gamesaves.codex.storage import load_games  # noqa: E402
 
 
@@ -182,6 +183,8 @@ def main() -> None:
     render_all(engine, states, names, args.out, "states")
     states.active = 2
     render_all(engine, states, names, args.out, "states-seat-2", ("stacked",))
+    # A target prompt's picture: the opponent's side alone, upright.
+    write(args.out / "midgame-side-2.webp", render_side(staged(engine), 2, names[2], engine.catalog))
 
     rows = engine.hand_rows(opening, 1)
     write(args.out / "hand-opening.webp", render_hand(
