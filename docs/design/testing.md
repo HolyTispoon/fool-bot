@@ -85,6 +85,30 @@ starts saving and is not named there.
   `cog.player_label`, or `cog.render_text(text, game)`, on the posted
   side; `tests/test_d12ball_tokens.py` is where the rendering itself is
   pinned.
+- **A bot test that loads an extension leaves `sys.modules` as it found
+  it.** discord.py's `load_extension` executes the extension's package
+  afresh and puts the new module in `sys.modules` (so an extension can
+  be reloaded), and `commands.Bot.close` unloads every extension, which
+  deletes the package *and every submodule* from `sys.modules`. Nothing,
+  for a process on its way out; but `unittest discover` imports every
+  test module before it runs any test, so a bot test that closed a
+  loaded bot stranded every other module's `cogs.codex` import: the cog
+  under test kept running the evicted `cogs.codex.core`, and a
+  `mock.patch("cogs.codex.core.render_codex")` in a later module
+  imported a fresh `cogs.codex.core` and patched that. Silent, like the
+  package-split patch -- the whole-game test drew every codex and hand
+  picture for real, six seconds a run, and passed -- and it made any
+  mock-based assertion by dotted name in a later module a lie (one was
+  rewritten to decode the real picture, `cards_pictured`, before the
+  cause was found). `tests/test_codex_bot.py`'s one test that runs
+  `setup_hook` keeps the bot's whole life, the close included, under
+  `mock.patch.dict(sys.modules)`, which puts every entry back on the way
+  out, and asserts the `cogs.codex` modules after are the objects
+  before; the whole-game test asserts its stand-ins were called, so the
+  miss fails rather than costing time. The D12 Ball bot has no such
+  test: `tests/test_command_sync.py` imports `foolbot` with `run`
+  stubbed, which builds its bot and never runs `setup_hook` or closes
+  it, and every other cog test builds the cog over a mock bot.
 
 
 **A recorder is tested where a real game is already being played.** The event
