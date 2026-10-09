@@ -55,13 +55,13 @@ def pieces(suit: str, rank: str) -> list[int]:
     return out
 
 
-# Might's denominations are four instruments of power, Tools' four tools,
-# the heavier the worthier, and Fools' four things a fool carries; every
-# other suit is its one symbol at four sizes.
+# Might's denominations are four instruments of power and Tools' four
+# tools, the heavier the worthier; every other suit is its one symbol at
+# four sizes. (Fools had a ladder for a day -- cap, marotte, tambourine,
+# mask -- and the author reverted it.)
 VARIANTS = {
     "might": {1: "sword", 3: "axe", 6: "sceptre", 12: "crown"},
     "tools": {1: "hammer", 3: "pick", 6: "spade", 12: "anvil"},
-    "fools": {1: "cap", 3: "marotte", 6: "tambourine", 12: "mask"},
 }
 
 # Money's pieces are the studio's coins, worth their dinkies (the Coins

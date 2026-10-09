@@ -67,7 +67,7 @@ class PiecesTests(unittest.TestCase):
         for suit, variants in deck.VARIANTS.items():
             self.assertIn(suit, deck.SUITS)
             self.assertEqual(set(variants), set(deck.DENOMINATIONS), suit)
-        self.assertEqual(set(deck.VARIANTS), {"might", "tools", "fools"})
+        self.assertEqual(set(deck.VARIANTS), {"might", "tools"})
 
 
 class CogAgreementTests(unittest.TestCase):

@@ -43,9 +43,9 @@ COLOURS = {
     },
     "fools": {
         "fortune": {"ink": "#2A1A2E", "red": "#D7263D", "green": "#2E9E5B", "purple": "#6A3FA0", "band": "#F2C14E",
-                    "bell": "#F2C14E", "white": "#FFFFFF", "wood": "#A2683A", "skin": "#F2F2F2"},
+                    "bell": "#F2C14E", "white": "#FFFFFF", "wood": "#A2683A"},
         "doom": {"ink": "#1A1020", "red": "#7A1F2A", "green": "#245A3A", "purple": "#3E2A5E", "band": "#8C6B2A",
-                 "bell": "#8C6B2A", "white": "#B8B2BC", "wood": "#5A3A22", "skin": "#8E8278"},
+                 "bell": "#8C6B2A", "white": "#B8B2BC", "wood": "#5A3A22"},
     },
 }
 
@@ -587,117 +587,9 @@ def tools_anvil(d, c, fate, layer):
         d.line(pts([(520, 320), (480, 420), (540, 520), (490, 640), (530, 780)]), fill=c["ink"], width=W(12), joint="curve")
 
 
-def fools_cap(d, c, fate, layer):
-    """The cap on its own: the 1 of Fools."""
-    fools(d, c, fate, layer)
-
-
-def fools_marotte(d, c, fate, layer):
-    """A marotte, the fool's bauble: a little jester's head on a stick with ribbons: the 3 of Fools."""
-    ink = W(10)
-    up = fate == "fortune"
-    # The stick, with a collar under the head.
-    if up:
-        d.polygon(pts([(484, 330), (516, 330), (522, 900), (478, 900)]), fill=c["wood"], outline=c["ink"], width=ink)
-    else:
-        d.polygon(pts([(484, 330), (516, 330), (518, 600), (498, 630), (520, 650), (482, 630)]), fill=c["wood"], outline=c["ink"], width=ink)
-        piece = new_layer()
-        pd = ImageDraw.Draw(piece)
-        pd.polygon(pts([(482, 650), (498, 630), (520, 670), (522, 900), (478, 900)]), fill=c["wood"], outline=c["ink"], width=ink)
-        piece = piece.rotate(22, resample=Image.BICUBIC, center=pt(500, 670))
-        layer.alpha_composite(piece, (W(30), W(0)))
-    # Ribbons off the collar.
-    for sign, colour in ((-1, c["red"]), (1, c["green"])):
-        ribbon = bezier((500 + sign * 30, 330), (500 + sign * 160, 420 if up else 380), (500 + sign * 130, 560 if up else 640))
-        d.polygon(pts(tapered(ribbon, 34, 14)), fill=colour, outline=c["ink"], width=W(6))
-    d.rounded_rectangle(pts([(440, 300), (560, 340)]), radius=W(14), fill=c["band"], outline=c["ink"], width=ink)
-    # The head: a round face in a two-pointed cap with bells.
-    d.ellipse(box(500, 215, 95), fill=c["skin"], outline=c["ink"], width=ink)
-    for sign, colour in ((-1, c["purple"]), (1, c["red"])):
-        if up:
-            point = bezier((500 + sign * 60, 150), (500 + sign * 190, 120), (500 + sign * 200, 40))
-        else:
-            point = bezier((500 + sign * 60, 150), (500 + sign * 200, 160), (500 + sign * 200, 290))
-        d.polygon(pts(tapered(point, 80, 16)), fill=colour, outline=c["ink"], width=W(7))
-        tip = point[-1]
-        d.ellipse(box(tip[0], tip[1], 22), fill=c["bell"], outline=c["ink"], width=W(6))
-    d.chord(box(500, 215, 95), 180, 360, fill=c["purple"], outline=c["ink"], width=ink)
-    d.line(pts([(405, 215), (595, 215)]), fill=c["ink"], width=W(6))
-    # The face: grinning for Fortune, glum for Doom.
-    for sign in (-1, 1):
-        d.ellipse(box(500 + sign * 34, 240, 9), fill=c["ink"])
-    if up:
-        d.arc(box(500, 250, 48), 15, 165, fill=c["ink"], width=W(8))
-    else:
-        d.arc(box(500, 300, 44), 200, 340, fill=c["ink"], width=W(8))
-    d.ellipse(box(500, 262, 11), fill=c["red"], outline=c["ink"], width=W(3))
-
-
-def fools_tambourine(d, c, fate, layer):
-    """A tambourine: a wooden hoop, a skin, pairs of jingles round the rim: the 6 of Fools."""
-    ink = W(10)
-    up = fate == "fortune"
-    cx, cy, r = 500, 500, 340
-    d.ellipse(box(cx, cy, r), fill=c["wood"], outline=c["ink"], width=ink)
-    d.ellipse(box(cx, cy, r - 60), fill=c["skin"], outline=c["ink"], width=W(6))
-    d.arc(box(cx, cy, r - 30), 200, 320, fill=c["shine"] if "shine" in c else c["band"], width=W(5))
-    # Jingles in pairs round the hoop, one pair missing and one hanging for Doom.
-    angles = list(range(0, 360, 45))
-    for i, a in enumerate(angles):
-        if not up and i in (1, 5):
-            continue
-        ax, ay = math.cos(math.radians(a)), math.sin(math.radians(a))
-        for off in (-14, 14):
-            jx = cx + (r - 30) * ax + off * -ay
-            jy = cy + (r - 30) * ay + off * ax
-            d.ellipse(box(jx, jy, 20), fill=c["bell"], outline=c["ink"], width=W(5))
-    if up:
-        for a in (300, 340, 60):
-            ax, ay = math.cos(math.radians(a)), math.sin(math.radians(a))
-            for rr in (r + 40, r + 66):
-                d.arc(box(cx, cy, rr), a - 10, a + 10, fill=c["ink"], width=W(6))
-    else:
-        # The skin torn open.
-        d.polygon(pts([(380, 420), (470, 470), (430, 560), (520, 540), (560, 640), (600, 520), (660, 560),
-                       (620, 440), (560, 400), (500, 440), (440, 380)]), fill=c["ink"])
-        d.polygon(pts([(400, 430), (470, 470), (440, 540), (520, 530), (548, 600), (590, 520), (630, 540),
-                       (610, 450), (560, 420), (500, 455), (450, 400)]), fill=c["skin"])
-
-
-def fools_mask(d, c, fate, layer):
-    """A theatre mask with ribbons: comedy for Fortune, tragedy for Doom: the 12 of Fools."""
-    ink = W(10)
-    up = fate == "fortune"
-    # Ribbons behind.
-    for sign, colour in ((-1, c["purple"]), (1, c["green"])):
-        ribbon = bezier((500 + sign * 250, 420), (500 + sign * 420, 520), (500 + sign * 360, 820))
-        d.polygon(pts(tapered(ribbon, 44, 18)), fill=colour, outline=c["ink"], width=W(6))
-    face = [(290, 300), (330, 230), (420, 180), (500, 168), (580, 180), (670, 230), (710, 300),
-            (720, 470), (690, 620), (610, 760), (500, 840), (390, 760), (310, 620), (280, 470)]
-    d.polygon(pts(face), fill=c["skin"], outline=c["ink"], width=ink)
-    d.polygon(pts([(x + (500 - x) * 0.08, y + (500 - y) * 0.08) for (x, y) in face]), outline=c["band"], width=W(5))
-    # Eye holes, brows and the mouth, each turned the mask's way.
-    for sign in (-1, 1):
-        cx = 500 + sign * 100
-        if up:
-            d.polygon(pts([(cx - sign * 70, 430), (cx + sign * 60, 400), (cx + sign * 50, 455), (cx - sign * 55, 465)]), fill=c["ink"])
-            d.arc(box(cx, 400, 85), 200, 340, fill=c["ink"], width=W(10))
-        else:
-            d.polygon(pts([(cx - sign * 70, 400), (cx + sign * 60, 430), (cx + sign * 50, 475), (cx - sign * 55, 450)]), fill=c["ink"])
-            d.line(pts([(cx - sign * 80, 340), (cx + sign * 40, 380)]), fill=c["ink"], width=W(10))
-    if up:
-        d.chord(box(500, 600, 130), 10, 170, fill=c["ink"])
-        d.chord(box(500, 600, 130), 10, 170, outline=c["ink"], width=W(6))
-        d.chord(box(500, 606, 110), 20, 160, fill=c["white"])
-    else:
-        d.chord(box(500, 720, 130), 190, 350, fill=c["ink"])
-    d.ellipse(box(500, 540, 18), fill=c["red"], outline=c["ink"], width=W(4))
-
-
-# The drawing behind each of Might's, Tools' and Fools' denominations (deck.VARIANTS names them).
+# The drawing behind each of Might's and Tools' denominations (deck.VARIANTS names them).
 DRAWINGS = {"might_sword": might, "might_axe": might_axe, "might_sceptre": might_sceptre, "might_crown": might_crown,
-            "tools_hammer": tools_hammer, "tools_pick": tools_pick, "tools_spade": tools_spade, "tools_anvil": tools_anvil,
-            "fools_cap": fools_cap, "fools_marotte": fools_marotte, "fools_tambourine": fools_tambourine, "fools_mask": fools_mask}
+            "tools_hammer": tools_hammer, "tools_pick": tools_pick, "tools_spade": tools_spade, "tools_anvil": tools_anvil}
 
 
 SUITS = {"money": money, "might": might, "fiends": fiends, "tools": tools, "states": states, "fools": fools}

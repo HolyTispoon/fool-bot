@@ -106,15 +106,15 @@ the suit for that reason.
   suit's own mark stays the hammer crossed with the wrench. Doom's
   pickaxe has a cracked head and a snapped haft, the spade's blade is
   cracked and its shaft broken, the anvil split.
-- **Fools' four are the things a fool carries**, a trial the author asked
-  for unsure ("not sure about the fools ladders of object. but let's
-  try"): the cap for 1, a marotte (the fool's bauble, a little jester's
-  head on a stick with ribbons) for 3, a tambourine for 6, a theatre mask
-  for 12. Fortune grins, jingles and laughs; Doom is glum, torn and
-  weeps. If the trial fails, drop `"fools"` from `deck.VARIANTS` and the
-  suit goes back to its cap at four sizes.
-- **Fiends and States are their one symbol at four sizes**
+- **Fiends, States and Fools are their one symbol at four sizes**
   (`cards.PIECE_SIZE`): "for states, use the smaller and larger sizes."
+  Fools had a ladder of its own for a day (2026-10-09): the cap for 1, a
+  marotte for 3, a tambourine for 6, a theatre mask for 12, laughing for
+  Fortune and weeping for Doom. The author asked for it unsure ("not sure
+  about the fools ladders of object. but let's try") and reverted it on
+  seeing it, so the suit is its cap; the drawings are in the branch's
+  history, and a ladder for Fools would be three drawings and a row in
+  `deck.VARIANTS` again.
 
 ## The back
 
