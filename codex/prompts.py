@@ -89,7 +89,7 @@ class PromptKind(Enum):
     #: The upkeep's order, where it changes what happens -- healing and
     #: Star-Crossed Starlet's damage both due (Starlet's ruling).
     UPKEEP_ORDER = "upkeep_order"
-    #: A base is destroyed (UMR p. 2).
+    #: A base is destroyed (UMR p. 2), or a player conceded.
     GAME_OVER = "game_over"
 
 
@@ -278,10 +278,15 @@ class UpkeepOrderOptions:
 
 @dataclass(frozen=True)
 class GameOverOptions:
+    """Who won, and who conceded where the game ended that way. Nothing
+    answers a finished game: playing it again is a new record
+    (`GameService.rematch`), not an answer to this one."""
+
     winner: int
+    conceded: Optional[int] = None
 
     def to_dict(self) -> dict:
-        return {"winner": self.winner}
+        return {"winner": self.winner, "conceded": self.conceded}
 
 
 PromptOptions = Union[
@@ -513,7 +518,7 @@ def _confirm_options(engine, game, match, prompt) -> TechConfirmOptions:
 
 
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
-    return GameOverOptions(match.winner)
+    return GameOverOptions(match.winner, match.conceded)
 
 
 OPTIONS = {
@@ -580,10 +585,11 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
 
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
-        return PendingPrompt(
-            PromptKind.GAME_OVER,
-            f"{tokens.player(match.winner)} wins: the opposing base is destroyed.",
+        how = (
+            "the opposing base is destroyed." if match.conceded is None
+            else f"{tokens.player(match.conceded)} conceded."
         )
+        return PendingPrompt(PromptKind.GAME_OVER, f"{tokens.player(match.winner)} wins: {how}")
     seat = match.active
     if match.resolving:
         # An effect under way asks before anything else does: a target,

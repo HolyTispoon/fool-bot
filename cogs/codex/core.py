@@ -37,6 +37,7 @@ from cogs.codex_views import (
     ERROR_RECOVERY_ADVICE,
     LobbyView,
     PatrolView,
+    RematchView,
     TechChoiceView,
     TechConfirmView,
     TurnMessageView,
@@ -128,14 +129,22 @@ class CoreMixin:
 
     def restore_saved_views(self) -> None:
         """
-        Re-arm every persistent view: each open lobby's `LobbyView` and
-        each playing game's `TurnMessageView`. A playing game with no
-        turn message, or one the bot owes a step, is logged at ERROR:
+        Re-arm every persistent view: each open lobby's `LobbyView`,
+        each playing game's `TurnMessageView` -- the current turn
+        message's buttons and no older turn's, which stand as summaries
+        -- and a finished game's **Rematch** while no rematch has been
+        opened from it. An abandoned game's messages, and a finished
+        one's turn messages, are left as they stand. A playing game with
+        no turn message, or one the bot owes a step, is logged at ERROR:
         somebody has to run `/codex resume`.
         """
         for game in self.games.values():
             if game.status is GameStatus.LOBBY and game.message_id is not None:
                 self.bot.add_view(LobbyView(self, game.game_id), message_id=game.message_id)
+                continue
+            if game.status is GameStatus.FINISHED:
+                if game.final_message_id is not None and game.rematch_game_id is None:
+                    self.bot.add_view(RematchView(self, game.game_id), message_id=game.final_message_id)
                 continue
             if game.status is not GameStatus.PLAYING:
                 continue
