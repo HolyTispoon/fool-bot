@@ -10,13 +10,16 @@ clicked (the author, 2026-10-08): the active player gets the control
 panel for whatever the match asks them -- the actions, the defender,
 the patrol lock, the tech confirmation -- made afresh each time; the
 other player gets their hand pictured and their discard pile listed,
-with nothing to press. **Tech** is the other player's alone: their
+with **My deck** under it. **Tech** is the other player's alone: their
 standing tech choice, open all through the opponent's turn -- and in a
 test game, where nothing stands (`codex.prompts.tech_stands`), it says
 where the choice is made instead. **Codex**
-pictures the clicker's own codex through a menu of views. What a hand
-may play and what a codex still holds are the engine's answers
-(`hand_rows`, `codex_remaining`); the views compute nothing.
+pictures the clicker's own codex through a menu of views. **My deck**
+-- under the hand, on the panel and on the tech picker -- answers with
+every card the clicker owns, wherever it is (`send_deck`). What a hand
+may play, what a codex still holds and what a deck is are the engine's
+answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
+nothing.
 **Concede** gives up the clicker's own side, behind a second click on an
 ephemeral confirmation (`ConcedeConfirmView`).
 """
@@ -194,6 +197,62 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
         [row.cost for row in rows], engine.catalog,
     )
     return picture_file(webp, "codex-hand")
+
+
+def deck_caption(deck, side: str = "") -> str:
+    """What the deck picture is sent with: its size and where its cards
+    are -- the places holding none left out -- which is its owner's to
+    know; the draw pile is a count, never an order."""
+    places = [
+        f"{count} {where}" for count, where in (
+            (deck.hand, "in your hand"), (deck.draw_pile, "in your draw pile"),
+            (deck.discard, "in your discard pile"), (deck.in_play, "in play"),
+        ) if count
+    ]
+    size = f"{deck.size} card" + ("" if deck.size == 1 else "s")
+    return (
+        f"Your deck{side}: {size}" + (": " + ", ".join(places) if places else "") + ". "
+        "Only you can see this."
+    )
+
+
+async def deck_file(engine, deck) -> discord.File:
+    """A deck pictured as a codex is, each card once with its copies on
+    its badge (`render_codex`)."""
+    webp = await asyncio.to_thread(
+        render_codex, [slug for slug, _ in deck.cards], [count for _, count in deck.cards],
+        engine.catalog,
+    )
+    return picture_file(webp, "codex-deck")
+
+
+def deck_button(callback, row: int | None = None) -> discord.ui.Button:
+    """**My deck**: every card the clicker owns, in a message of its own
+    beside whatever it was pressed under (`send_deck`)."""
+    button = discord.ui.Button(label="My deck", style=discord.ButtonStyle.secondary, row=row)
+    button.callback = callback
+    return button
+
+
+class HandView(SafeView):
+    """
+    Under the hand **My hand** shows the player whose turn it is not:
+    **My deck** alone, the hand being nothing to press. Not persistent:
+    an ephemeral message dies with the client's session.
+    """
+
+    def __init__(self, cog, game_id: str, seat: int) -> None:
+        super().__init__(timeout=900)
+        self.cog = cog
+        self.game_id = game_id
+        self.seat = seat
+        self.add_item(deck_button(self.deck))
+
+    async def deck(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        await self.cog.send_deck(interaction, game, match, self.seat)
 
 
 class CodexBrowser(SafeView):

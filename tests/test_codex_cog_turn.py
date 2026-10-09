@@ -121,10 +121,41 @@ class PanelTests(TurnTestCase):
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
         self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
-        # The other player's My hand is their hand, with nothing to press.
+        # The other player's My hand is their hand, with My deck alone
+        # to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
-        self.assertNotIn("view", theirs.last()[2])
+        self.assertEqual([item.label for item in theirs.view().children], ["My deck"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
+
+    async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
+        """**My deck** -- under the other player's hand, on the panel,
+        on the tech picker and its confirmation -- answers with a message
+        of its own, ephemeral, the deck pictured, and spends nothing
+        public; the panel it was pressed on is left as it is."""
+        seat = self.table.match.active
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, "My deck")
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        kwargs = call.last()[2]
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertNotIn("view", kwargs)
+        self.assertTrue(kwargs["file"].filename.startswith("codex-deck-"))
+        deck = self.table.cog.engine.own_deck(self.table.match, seat)
+        self.assertTrue(call.text().startswith(f"Your deck: {deck.size} cards"), call.text())
+        self.assertEqual(channel_requests(self.table, mark), [])
+
+        theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
+        self.assertTrue((await self.table.press(theirs, "My deck")).last()[2]["file"]
+                        .filename.startswith("codex-deck-"))
+
+        await self.end_turn()
+        picker = (await self.table.turn_button("tech", self.table.waiting)).view()
+        self.assertIsInstance(picker, TechChoiceView)
+        call = await self.table.press(picker, "My deck")
+        self.assertNothingWentWrong(call)
+        self.assertTrue(call.last()[2]["file"].filename.startswith("codex-deck-"))
 
     async def test_an_action_reposts_the_turn_message_and_the_panel_under_it(self) -> None:
         """**The count per click**: the turn message posted again at the
