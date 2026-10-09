@@ -866,18 +866,19 @@ else the bot shows is ephemeral.
     first row), read from how many heroes a player has
     (`panel_columns`), so the picture's width holds from turn to turn:
     1649 wide, or 2227. Rows are added as the position needs them, so
-    the height follows it -- 814 a panel with one row, where the
+    the height follows it -- 836 a panel with one row, where the
     building column is the tallest thing in it, 1026 with two and 289
     more a row after that -- which the gate already allows for.
   - **On the left, the buildings**, 160 wide, bottom-aligned, top to
     bottom: the add-on slot (a dashed outline, or the add-on's card at
-    144 by 202), Tech III, II and I as the module's tiles at 160 by 114,
+    160 by 224, as wide as the tiles and aligned with them), Tech III,
+    II and I as the module's tiles at 160 by 114,
     and the base. The add-on was 82 by 114 and could not be read at
     Discord's size; a card's size (195 by 273) beside the patrol slots
     was tried the same day and was too large, and the add-on stays with
-    the other buildings (the author, 2026-10-09). At 144 it is the one
-    place on a one-row panel that sets the panel's height: the column
-    is 706 tall against the grid's 619. A tech building is greyed and half seen until built,
+    the other buildings, as wide as the tech buildings (the author,
+    2026-10-09). It is the one place on a one-row panel that sets the
+    panel's height: the column is 728 tall against the grid's 619. A tech building is greyed and half seen until built,
     in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
     turn) and is dark with the house chit when destroyed; damage is a

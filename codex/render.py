@@ -102,11 +102,12 @@ BUILDING_WIDTH = 160
 BUILDING_GAP = 20
 #: A tech building's tile and the base's.
 TILE = (160, 114)
-#: The add-on's card at the top of the building column, the art's
-#: proportions (250 by 350). It was 82 by 114, too small to read; a
-#: card's size beside the patrol slots was too large, and the add-on
-#: stays with the other buildings (the author, 2026-10-09).
-ADD_ON = (144, 202)
+#: The add-on's card at the top of the building column, as wide as the
+#: tech buildings and aligned with them, in the art's proportions (250
+#: by 350). It was 82 by 114, too small to read; a card's size beside
+#: the patrol slots was too large, and the add-on stays with the other
+#: buildings (the author, 2026-10-09).
+ADD_ON = (TILE[0], round(TILE[0] * 350 / 250))
 #: Between two places in the building column.
 TILE_GAP = 12
 #: A patrol slot's bonus strip, and the space above it.
