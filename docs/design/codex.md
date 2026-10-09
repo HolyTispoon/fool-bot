@@ -1273,22 +1273,23 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Play a card..., Build..., Attack with..., Level up...). A message
   carries five rows of five buttons, and the panel fills them in three
   groups, each starting a row of its own (`TurnPanelView.place`): the
-  **actions row** -- **Hire worker**, **Attack...**, **Undo...**;
-  **the heroes' row**, since step 10, a button per hero that summons it
-  or levels it up ("The standard game", below) -- until then the one
-  hero's **Summon** or **Level up** was in the actions row; **the
+  **actions row** -- **Hire worker**, **Attack...**, then a button per
+  hero that summons it or levels it up ("The standard game", below):
+  step 10 gave the heroes a row of their own, since three did not fit
+  beside three actions, and they came back when **Undo...** moved to
+  the end; **the
   hand**, a button per card in the hand's order, "3. Bloom (2 gold)",
   numbered as the picture numbers it (`hand_numbers`) and disabled where it may not
   be played now, as the picture greys it, so the row and the picture
-  agree card for card -- at most two rows (`HAND_ROWS`; three until
-  the heroes' row took one), a hand
+  agree card for card -- at most two rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability that may be
   used now, in the card's own words ("Sacrifice Harmony: stop the
-  music") -- and **End main phase**, always the panel's last button
-  (the author, 2026-10-09), which `place`'s `last` never crowds out: a
-  board's button gives up its place to it first. **Level up** buys one
+  music") -- and always last, in this order, **My deck**, **Undo...**
+  and **End main phase** (the author, 2026-10-09), which `place`'s
+  `last` never crowds out: a board's button gives up its place to them
+  first. **Level up** buys one
   level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
@@ -1297,7 +1298,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Undo's. What does not fit the five rows is left out, the groups
   placed first having the earlier claim -- in practice rarely: the hand
   is cut at ten distinct cards, and the board's row loses what passes
-  five where the hand needs a second row
+  two -- the last three take the rest of it -- where the hand needs a
+  second row
   (`test_the_main_phase_is_rows_of_buttons`,
   `test_a_big_hand_leaves_the_boards_row`). Every button that answers
   with one choice off the options is a `PanelButton` carrying that
