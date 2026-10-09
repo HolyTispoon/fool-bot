@@ -27,7 +27,7 @@ class ResumeTests(unittest.IsolatedAsyncioTestCase):
         """A card played, so the turn is under way; the panel's prompt."""
         _, view = await self.table.panel()
         slug = next(row.slug for row in view.prompt.options.playable if row.allowed)
-        return (await self.table.choose(view, "Play a card", slug)).view().prompt
+        return (await self.table.press(view, ("play", slug))).view().prompt
 
     async def test_my_hand_resumes_the_same_prompt_after_a_restart(self) -> None:
         before = await self.mid_turn()
@@ -64,7 +64,8 @@ class ResumeTests(unittest.IsolatedAsyncioTestCase):
         attacker = put(match, match.active, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        asked = (await self.table.choose(view, "Attack with", attacker.ref)).view().prompt
+        opened = (await self.table.press(view, "Attack...")).view()
+        asked = (await self.table.press(opened, ("attack", attacker.ref))).view().prompt
         self.assertIs(asked.kind, PromptKind.CHOOSE_DEFENDER)
         self.table.restart()
         _, view = await self.table.panel()

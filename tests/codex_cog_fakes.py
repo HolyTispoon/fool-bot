@@ -191,11 +191,23 @@ class FakeInteraction:
         return kwargs.get("content") or (args[0] if args else "") or ""
 
 
-def find_button(view, label: str) -> discord.ui.Button:
+def find_button(view, which) -> discord.ui.Button:
+    """A button by the start of its label, or -- a tuple -- by the choice
+    it answers with (`PanelButton.choice`): `("play", slug)`,
+    `("build", building)`, `("attack", ref)`, `("ability", effect,
+    source)`, `("level",)`."""
     for item in view.children:
-        if isinstance(item, discord.ui.Button) and (item.label or "").startswith(label):
+        if not isinstance(item, discord.ui.Button):
+            continue
+        if isinstance(which, tuple):
+            if getattr(item, "choice", None) == which:
+                return item
+        elif (item.label or "").startswith(which):
             return item
-    raise AssertionError(f"no button {label!r} among {[getattr(i, 'label', None) for i in view.children]}")
+    raise AssertionError(
+        f"no button {which!r} among "
+        f"{[getattr(i, 'choice', None) or getattr(i, 'label', None) for i in view.children]}"
+    )
 
 
 def find_select(view, placeholder: str) -> discord.ui.Select:
@@ -313,8 +325,9 @@ class Table:
         call = await self.turn_button("hand", who or self.active)
         return call, call.view()
 
-    async def press(self, view, label: str, who=None) -> FakeInteraction:
-        button = find_button(view, label)
+    async def press(self, view, which, who=None) -> FakeInteraction:
+        """A button, by its label's start or by its choice (`find_button`)."""
+        button = find_button(view, which)
         call = self.interaction(who or self.seated(view.seat))
         call.data = {"custom_id": button.custom_id, "component_type": 2}
         await view._scheduled_task(button, call)

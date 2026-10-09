@@ -20,6 +20,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+import discord
+
 from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.prompts import PromptKind
@@ -33,6 +35,7 @@ from cogs.codex_views import (
     TurnMessageView,
     TurnPanelView,
     UndoConfirmView,
+    hand_numbers,
 )
 
 CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
@@ -57,6 +60,12 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
         for kind, args, kwargs in call.answers:
             text = kwargs.get("content") or (args[0] if args else "") or ""
             self.assertNotIn("Something went wrong", text)
+
+    async def attack(self, view, ref: str):
+        """**Attack...** turns the panel into what may attack; then the
+        attacker's own button."""
+        opened = (await self.table.press(view, "Attack...")).view()
+        return await self.table.press(opened, ("attack", ref))
 
     async def end_turn(self, patrol: str | None = None):
         """End the active player's main phase and lock the patrol --
@@ -90,7 +99,7 @@ class PanelTests(TurnTestCase):
         -- nothing else, and no channel send."""
         _, view = await self.table.panel()
         mark = len(self.table.game_channel.requests)
-        call = await self.table.choose(view, "Play a card", playable(view)[0])
+        call = await self.table.press(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
         self.assertEqual([answer[0] for answer in call.answers], ["response.edit"])
         self.assertIsInstance(call.view(), TurnPanelView)
@@ -122,11 +131,80 @@ class PanelTests(TurnTestCase):
         _, first = await self.table.panel()
         _, second = await self.table.panel()
         await self.table.press(first, "End main phase")
-        call = await self.table.choose(second, "Play a card", playable(second)[0])
+        call = await self.table.press(second, ("play", playable(second)[0]))
         kind, args, kwargs = call.last()
         self.assertTrue(kwargs["ephemeral"])
         self.assertEqual(args[0], STALE_CLICK[PromptKind.MAIN_ACTION])
         self.assertEqual(self.table.match.phase, "patrol")
+
+    async def test_the_main_phase_is_rows_of_buttons(self) -> None:
+        """No menu in the main phase (the author, 2026-10-09): the hand a
+        button per card, numbered as the picture numbers it and disabled
+        where it may not be played; a building a button; **Attack...**
+        turning the panel into what may attack, one button each, with
+        **Back** -- and spending nothing public to open."""
+        match = self.table.match
+        seat = match.active
+        attacker = put(match, seat, "older_brother")
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if isinstance(item, discord.ui.Select)])
+        options = view.prompt.options
+        numbers = hand_numbers(options)
+        cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
+        self.assertEqual([item.choice[1] for item in cards], [row.slug for row in options.playable])
+        self.assertEqual([item.disabled for item in cards],
+                         [not row.allowed for row in options.playable])
+        for item in cards:
+            self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
+        builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
+        self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, "Attack...")
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        attacking = opened.view()
+        self.assertEqual([item.choice for item in attacking.children if item.choice],
+                         [("attack", attacker.ref)])
+        back = (await self.table.press(attacking, "Back")).view()
+        self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
+
+    async def test_level_up_buys_one_level_a_click(self) -> None:
+        """One button per hero, a level a click (the author, 2026-10-09)."""
+        match = self.table.match
+        seat = match.active
+        hero_in_play(match, seat)
+        match.player(seat).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("level",))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).hero.level, 2)
+        self.assertEqual(self.table.match.player(seat).gold, 2)
+        call = await self.table.press(call.view(), ("level",))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).hero.level, 3)
+        self.assertEqual(self.table.match.player(seat).gold, 1)
+
+    async def test_a_big_hand_leaves_the_boards_row(self) -> None:
+        """Five rows of five: the hand takes three rows at most, so what
+        may be built is still on the panel under a hand of more cards
+        than fit, and no row holds more than five."""
+        match = self.table.match
+        seat = match.active
+        match.player(seat).hand = list(self.table.cog.engine.catalog.cards)[:18]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        rows: dict[int, list] = {}
+        for item in view.children:
+            rows.setdefault(item.row, []).append(item)
+        self.assertLessEqual(max(rows), 4)
+        self.assertTrue(all(len(items) <= 5 for items in rows.values()), {r: len(i) for r, i in rows.items()})
+        cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
+        self.assertEqual(len(cards), 15)
+        self.assertTrue([item for item in view.children
+                         if item.label.startswith(("Build ", "Nothing can be built"))])
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -136,7 +214,7 @@ class PanelTests(TurnTestCase):
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Attack with", attacker.ref)
+        call = await self.attack(view, attacker.ref)
         defending = call.view()
         self.assertIsInstance(defending, TurnPanelView)
         self.assertIs(defending.prompt.kind, PromptKind.CHOOSE_DEFENDER)
@@ -155,7 +233,7 @@ class PanelTests(TurnTestCase):
         the same channel since the game is played where it was opened,
         is the lobby's own text."""
         _, view = await self.table.panel()
-        view = (await self.table.choose(view, "Play a card", playable(view)[0])).view()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
         view = (await self.table.press(view, "Hire worker")).view()
         hire = await self.table.choose(view, "Hire a worker", view.prompt.options.hand[0].slug)
         self.assertNothingWentWrong(hire)
@@ -265,7 +343,7 @@ class TurnEndTests(TurnTestCase):
         # its owner's ready phase alone (the author, 2026-10-08).
         self.assertEqual(channel_requests(self.table, mark), [])
         # The active player's panel, opened before, still acts.
-        played = await self.table.choose(active_panel, "Play a card", playable(active_panel)[0])
+        played = await self.table.press(active_panel, ("play", playable(active_panel)[0]))
         self.assertNothingWentWrong(played)
         self.assertEqual([answer[0] for answer in played.answers], ["response.edit"])
 
@@ -356,20 +434,19 @@ class WholeGameTests(TurnTestCase):
             return await table.press(view, "Summon")
         cards = [row for row in options.playable if row.allowed]
         if cards:
-            return await table.choose(view, "Play a card", cards[0].slug)
+            return await table.press(view, ("play", cards[0].slug))
         tech = [row for row in options.buildings if row.allowed and row.building.startswith("tech")]
         if tech:
-            return await table.choose(view, "Build", tech[0].building)
+            return await table.press(view, ("build", tech[0].building))
         if options.attackers:
-            return await table.choose(view, "Attack with", options.attackers[0])
+            return await self.attack(view, options.attackers[0])
         return await table.press(view, "End main phase")
 
 
 class EffectPanelTests(TurnTestCase):
     """The questions an effect asks, in the same panel (step 6): a
     target as a menu, Appel Stomp's place and the upkeep's order as
-    buttons, and the abilities in the last row beside the hero's
-    levels."""
+    buttons, and the abilities as buttons on the board's row."""
 
     def stage(self):
         match = self.table.match
@@ -385,7 +462,7 @@ class EffectPanelTests(TurnTestCase):
         match.player(seat).gold = 1
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Play a card", "spark")
+        call = await self.table.press(view, ("play", "spark"))
         self.assertNothingWentWrong(call)
         asking = call.view()
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
@@ -407,20 +484,20 @@ class EffectPanelTests(TurnTestCase):
         match.journal = []
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        asking = (await self.table.choose(view, "Play a card", "spark")).view()
+        asking = (await self.table.press(view, ("play", "spark"))).view()
         call = await self.table.press(asking, "Cancel")
         self.assertNothingWentWrong(call)
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(seat).hand, ["spark"])
         self.assertEqual(self.table.match.player(seat).gold, 1)
 
-    async def test_an_ability_is_in_the_last_row(self) -> None:
+    async def test_an_ability_is_a_button_on_the_boards_row(self) -> None:
         match, seat, _ = self.stage()
         song = put(match, seat, "harmony")
         put(match, seat, "dancer")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Use an ability", f"ability:stop_the_music:{song.ref}")
+        call = await self.table.press(view, ("ability", "stop_the_music", song.ref))
         self.assertNothingWentWrong(call)
         slugs = [card.slug for card in self.table.match.player(seat).play]
         self.assertEqual(slugs, ["angry_dancer"])
@@ -488,7 +565,7 @@ class GameOverTests(TurnTestCase):
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        defending = (await self.table.choose(view, "Attack with", attacker.ref)).view()
+        defending = (await self.attack(view, attacker.ref)).view()
         mark = len(self.table.game_channel.requests)
         call = await self.table.choose(defending, "", "base")
         self.assertNothingWentWrong(call)
@@ -506,7 +583,7 @@ class UndoTests(TurnTestCase):
         message = self.game.turn_message_id
         before_text = self.table.game_channel.texts[message]
         _, view = await self.table.panel()
-        view = (await self.table.choose(view, "Play a card", playable(view)[0])).view()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
         view = (await self.table.press(view, "Undo")).view()
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "To the start of my turn")
