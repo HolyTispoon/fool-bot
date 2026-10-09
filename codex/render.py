@@ -147,11 +147,29 @@ WORD = (242, 242, 242)           # #f2f2f2
 QUIET = (168, 168, 168)          # #a8a8a8
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
-TURN_GOLD = (224, 182, 74)       # #e0b64a
-#: The divider's pill: teal, apart from the nameplate's gold, the
-#: damage chits' red, the patrol zone's blue and ARRIVED's green
-#: (the author, 2026-10-09: not gold, not cream).
-TURN_PILL = (18, 135, 122)       # #12877a
+#: The active nameplate's mark -- its rule and its "<name>'s turn <n>"
+#: pill -- is the colour of the active player's first hero (the author,
+#: 2026-10-09): the seven colours the cards come in, Neutral as tan,
+#: each with the ink that reads on it, and Black with an edge, since a
+#: black pill on this ground needs one (and its rule is drawn in the
+#: edge, for the same reason). Keyed as `Hero.color` spells them,
+#: lowered. The divider's pill is white in every game, with dark words
+#: (the author, 2026-10-09: the hero's colour is the pill's alone).
+#: Their first day the nameplate's were gold and the divider's teal,
+#: and the author asked for both replaced: gold is the currency's, and
+#: teal sat between the two patrol zones' blue -- docs/design/codex.md,
+#: "The board on Discord".
+TurnColors = tuple[tuple[int, int, int], tuple[int, int, int], Optional[tuple[int, int, int]]]
+TURN_COLORS: dict[str, TurnColors] = {
+    "neutral": ((201, 168, 106), GROUND, None),   # tan, the plates' ink
+    "red": ((200, 50, 42), WORD, None),           # #c8322a
+    "green": ((78, 154, 70), WORD, None),         # #4e9a46
+    "blue": ((63, 127, 196), WORD, None),         # #3f7fc4
+    "black": ((38, 38, 38), WORD, QUIET),         # #262626, edged grey
+    "white": (WORD, GROUND, None),
+    "purple": ((125, 71, 168), WORD, None),       # #7d47a8
+}
+DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 HEART_FILL = (208, 32, 28)       # #d0201c
 HEART_EDGE = (90, 11, 9)         # #5a0b09
@@ -664,15 +682,33 @@ def hero_name(hero: HeroState, cards: CardCatalog) -> str:
     return cards.heroes[hero.slug].name
 
 
-def turn_label(match: MatchState, cards: CardCatalog) -> str:
-    """"<Hero>'s turn <n>", named by the active player's hero, for short
-    -- "Troq's turn 7", "Zane's turn 3" (`Hero.short_name`)."""
-    hero = cards.heroes[match.player(match.active).hero.slug]
-    return f"{hero.short_name}'s turn {match.turn}"
+def turn_label(match: MatchState, name: str) -> str:
+    """"<name>'s turn <n>", `name` the active player's as the frontend
+    names them -- "perrytom's turn 7". The player and not a hero,
+    since a standard game's deck has three (the author, 2026-10-09)."""
+    return f"{name}'s turn {match.turn}"
 
 
 def is_to_act(match: MatchState, seat: int) -> bool:
     return match.active == seat and match.winner is None
+
+
+def turn_colors(match: MatchState, cards: CardCatalog) -> TurnColors:
+    """The fill, the ink and the edge of the active nameplate's mark:
+    the colour of the active player's first hero -- Neutral's tan for a
+    Bashing deck, Red's red for a Fire one."""
+    player = match.player(match.active)
+    hero = cards.hero_for(player.specs[0])
+    return TURN_COLORS[(hero.color or "neutral").strip().lower()]
+
+
+def turn_pill(draw: ImageDraw.ImageDraw, box: tuple[float, float, float, float],
+              radius: int, colors: TurnColors) -> None:
+    """The rounded tag behind a turn's words, edged where its colour
+    needs one."""
+    fill, _, edge = colors
+    draw.rounded_rectangle(box, radius=radius, fill=fill,
+                           outline=edge, width=2 if edge else 0)
 
 
 def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog,
@@ -681,9 +717,10 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     """
     The nameplate, 56 tall: the player, the spec and hero, then gold
     (the gold emoji's picture), workers, hand, deck, discard and codex,
-    a word and a count each. The active player's carries a gold rule
-    and "<Hero>'s turn <n>" in a gold pill. The rule is on the side the
-    rest of the panel is on. Drawn straight onto `ground`, the piece of
+    a word and a count each. The active player's carries a rule and
+    "<name>'s turn <n>" in a pill, both in its first hero's colour
+    (`turn_colors`). The rule is on the side the rest of the panel is
+    on. Drawn straight onto `ground`, the piece of
     leather it lies on, so its words are smoothed against the leather.
     """
     player = match.player(seat)
@@ -691,7 +728,8 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
              else Image.new("RGBA", (width, NAMEPLATE_HEIGHT), PANEL))
     draw = ImageDraw.Draw(plate)
     to_act = is_to_act(match, seat)
-    rule = TURN_GOLD if to_act else RULE
+    colors = turn_colors(match, cards) if to_act else None
+    rule = (colors[2] or colors[0]) if colors else RULE
     rule_y = 0 if rule_at_top else NAMEPLATE_HEIGHT - 3
     draw.rectangle((0, rule_y, width, rule_y + 2), fill=rule)
     middle = NAMEPLATE_HEIGHT / 2 + (1.5 if rule_at_top else -1.5)
@@ -702,13 +740,12 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     spec = f"{player.spec.title()} · {hero_name(player.hero, cards)}"
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
-    if to_act:
-        label = turn_label(match, cards)
+    if colors:
+        label = turn_label(match, name)
         face = font(15)
         pill_width = face.getlength(label) + 24
-        draw.rounded_rectangle((x, middle - 13, x + pill_width, middle + 13), radius=10,
-                               fill=TURN_GOLD)
-        draw.text((x + 12, middle), label, font=face, fill=PANEL, anchor="lm")
+        turn_pill(draw, (x, middle - 13, x + pill_width, middle + 13), 10, colors)
+        draw.text((x + 12, middle), label, font=face, fill=colors[1], anchor="lm")
 
     counts = (
         ("WORKERS", player.workers), ("HAND", len(player.hand)), ("DECK", len(player.deck)),
@@ -823,17 +860,16 @@ def stacked_seats(match: MatchState) -> tuple[int, int]:
     return (2 if near == 1 else 1), near
 
 
-def divider_label(match: MatchState, cards: CardCatalog) -> str:
-    return turn_label(match, cards).upper()
+def divider_label(match: MatchState, name: str) -> str:
+    return turn_label(match, name).upper()
 
 
 def horizontal_divider(width: int, label: str) -> Image.Image:
     """
-    The stacked board's divider: "<HERO>'S TURN <N>", the hero by its
-    short name, bold and white on a teal pill between two rules, so
-    whose turn it is reads at a glance (the author, 2026-10-09: more
-    prominent, and neither gold, which the nameplate's pill already is,
-    nor cream).
+    The stacked board's divider: "<NAME>'S TURN <N>", the active player
+    by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
+    rules, so whose turn it is reads at a glance (the author,
+    2026-10-09: more prominent, and neither gold nor cream).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -844,9 +880,9 @@ def horizontal_divider(width: int, label: str) -> Image.Image:
     pad, half = 18, 18
     draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
     draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
-    draw.rounded_rectangle((left - pad, middle - half, left + text_width + pad, middle + half),
-                           radius=half, fill=TURN_PILL)
-    spaced_text(draw, (left, middle), label, face, WORD, 2)
+    turn_pill(draw, (left - pad, middle - half, left + text_width + pad, middle + half),
+              half, DIVIDER_TURN)
+    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN[1], 2)
     return strip
 
 
@@ -867,10 +903,11 @@ def compose_board(match: MatchState, layout: str = "stacked",
     cards = cards or load_catalog()
     names = names or {}
     building_hp = default_building_hp(cards)
-    label = divider_label(match, cards)
 
     def name(seat: int) -> str:
         return names.get(seat) or f"Player {seat}"
+
+    label = divider_label(match, name(match.active))
 
     if layout == "side_by_side":
         first = match.first
