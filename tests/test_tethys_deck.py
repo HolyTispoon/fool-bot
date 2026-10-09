@@ -3,8 +3,9 @@ made of pieces. Nothing drawn is tested (the author, 2026-09-23); this is
 the data under the drawings.
 """
 import unittest
+from math import comb
 
-from tethysdeck import deck
+from tethysdeck import deck, sets
 
 
 # The author's rule, as the World Building sheet's table holds it.
@@ -68,6 +69,58 @@ class PiecesTests(unittest.TestCase):
             self.assertIn(suit, deck.SUITS)
             self.assertEqual(set(variants), set(deck.DENOMINATIONS), suit)
         self.assertEqual(set(deck.VARIANTS), {"might", "tools"})
+
+
+# Every hand of six by its best set, (mixed, uniform), as a brute-force
+# walk of all 156,238,908 hands counted them (2026-10-09).
+CENSUS = {
+    "straight_flush": (42, 0),
+    "six_of_a_kind": (932, 2),
+    "flush": (5_490, 12),
+    "five_of_a_kind": (51_120, 360),
+    "two_triples": (61_510, 490),
+    "straight": (316_344, 10_206),
+    "three_pairs": (1_054_620, 18_630),
+    "four_of_a_kind": (1_184_850, 13_050),
+    "three_of_a_kind": (16_285_860, 270_540),
+    "two_pairs": (28_256_040, 612_360),
+    "no_set": (105_126_516, 2_969_934),
+}
+
+
+class SixCardSetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.census = sets.census()
+
+    def test_the_census(self):
+        self.assertEqual({key: (c.mixed, c.uniform) for key, c in self.census.items()}, CENSUS)
+        self.assertEqual(sum(c.total for c in self.census.values()), comb(72, 6))
+
+    def test_by_formula(self):
+        """Left and Right make one rank of twelve cards; the numbers six each."""
+        self.assertEqual(self.census["six_of_a_kind"].total, 10 + comb(12, 6))
+        # Five runs of numbers in one suit, and 6-10 then either ruler.
+        self.assertEqual(self.census["straight_flush"].total, 6 * (5 + 2))
+        self.assertEqual(self.census["flush"].total, 6 * comb(12, 6) - 42)
+
+    def test_the_sets_are_rarest_first(self):
+        totals = [self.census[s.key].total for s in sets.SETS]
+        self.assertEqual(totals, sorted(totals))
+
+    def test_every_example_is_its_set_and_mixed(self):
+        for s in sets.SETS:
+            self.assertEqual(len(set(s.example)), 6, s.key)
+            self.assertEqual(sets.set_of(s.example), s.key, s.key)
+            self.assertFalse(sets.is_uniform(s.example), s.key)
+
+    def test_left_and_right_pair_and_follow_ten(self):
+        self.assertEqual(sets.set_of((("money", "Left"), ("might", "Right"), ("fiends", "1"),
+                                      ("tools", "3"), ("states", "5"), ("fools", "7"))), "no_set")
+        self.assertEqual(sets.set_of((("money", "Left"), ("might", "Right"), ("fiends", "1"),
+                                      ("tools", "1"), ("states", "5"), ("fools", "7"))), "two_pairs")
+        self.assertEqual(sets.set_of((("money", "6"), ("might", "7"), ("fiends", "8"),
+                                      ("tools", "9"), ("states", "10"), ("fools", "Right"))), "straight")
 
 
 class CogAgreementTests(unittest.TestCase):
