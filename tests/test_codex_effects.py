@@ -66,6 +66,7 @@ def _handled(slug: str) -> list[str]:
         "GROWS_ON_ARRIVAL", "BLOOD_RUNES", "ON_ANY_DEATH", "DIES_ON_YOUR_TURN",
         "GRANTS_DIES", "STEALS_ON_PATROLLER_KILL", "TRASHES_WORKER_ON_BASE_DAMAGE",
         "ON_DAMAGING_A_BUILDING", "GROWTH_RUNES", "AFTER_COMBAT", "ATTACHING",
+        "UNIT_GRANTS", "HERO_GRANTS", "ATTACHED_UNIT_GRANTS",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -78,6 +79,10 @@ def _handled(slug: str) -> list[str]:
         found.append("stop_the_music")
     if slug == effects.MIMIC:
         found.append("MIMICKED")
+    if any(key[0] == slug for key in effects.BAND_GRANTS):
+        found.append("BAND_GRANTS")
+    if slug in (effects.HOTTER_FIRE, effects.FAIRIE_DRAGON):
+        found.append("the engine's damage bonus and feather runes")
     if any(key[0] == slug for key in effects.KILL_BONUSES):
         found.append("KILL_BONUSES")
     if any(key[0] == slug for key in effects.FLYING_ON_OWN_TURN):
@@ -89,15 +94,10 @@ def _handled(slug: str) -> list[str]:
 #: each commit gives its cards their handlers, and is empty at the end.
 REMAINING = frozenset({
     # Red.
-    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "chaos_mirror",
-    "drakk_ramhorn", "hotter_fire", "kidnapping", "land_octopus",
-    "war_drums",
+    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "kidnapping",
+    "land_octopus",
     # Green.
-    "behind_the_ferns", "blooming_elm", "calamandra_moss",
-    "dothram_horselord", "fairie_dragon", "ferocity", "final_showdown",
-    "galina_glimmer", "gemscout_owl", "master_midori",
-    "might_of_leaf_and_claw", "moss_ancient", "polymorph_squirrel",
-    "spirit_of_the_panda",
+    "dothram_horselord", "galina_glimmer", "gemscout_owl",
 })
 
 

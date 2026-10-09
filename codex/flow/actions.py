@@ -107,6 +107,7 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     hero.exhausted = False
     hero.patrol_slot = None
     hero.max_level_since_turn_began = False
+    hero.bands = {str(engine.hero_card(hero).bands[0].min_level): match.next_sequence()}
     match.record_event("summoned", slug=hero.slug)
     atk, hp = engine.hero_stats(hero)
     result = StepResult(board_changed=True, narration=[
@@ -136,7 +137,7 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
             cite="UMR p. 6",
         )
     player.gold -= levels * LEVEL_COST
-    reached = raise_level(engine, hero, levels)
+    reached = raise_level(engine, hero, levels, match)
     match.record_event("levelled", slug=hero.slug, levels=levels, level=hero.level)
     atk, hp = engine.hero_stats(hero)
     line = (

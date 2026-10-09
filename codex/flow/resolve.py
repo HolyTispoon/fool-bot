@@ -600,8 +600,9 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     # "deal 1 damage to the base controlled by the same player who
     # controls the thing he's attacking" (Sirlin, 2016-03-03).
     other = 2 if top["seat"] == 1 else 1
-    result.narration.append(f"{top['by']} deals {part.amount} to {tokens.player(other)}'s base.")
-    damage_base(match, other, part.amount, result)
+    amount = damage_amount(engine, match, top, part.amount)
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
+    damage_base(match, other, amount, result)
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
@@ -673,13 +674,14 @@ def _coin(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} flips a coin: heads. Phew!")
         return
     mine = board.body_of(match, seat, top["source"]) if top.get("source") else None
+    amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
-        f"{tokens.player(seat)}'s base takes {part.amount} damage."
+        f"{tokens.player(seat)}'s base takes {amount} damage."
     )
     if mine is not None:
         board.sacrifice(engine, match, mine)
-    damage_base(match, seat, part.amount, result)
+    damage_base(match, seat, amount, result)
 
 
 def _pillage(engine, match, top, part, target, result) -> None:
@@ -691,10 +693,11 @@ def _pillage(engine, match, top, part, target, result) -> None:
         engine.catalog.cards[card.slug].is_unit and effects.PIRATE in engine.subtype_of(card)
         for card in match.player(seat).play
     )
-    amount = 2 if pirate else part.amount
+    steal = 2 if pirate else part.amount
+    amount = damage_amount(engine, match, top, steal)
     result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
     damage_base(match, other, amount, result)
-    taken = steal_gold(match, seat, other, amount) if other != seat else 0
+    taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
         result.narration.append(
             f"{tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
@@ -1126,6 +1129,43 @@ def _firebird(engine, match, top, part, target, result) -> None:
     )
 
 
+def _mirror(engine, match, top, part, target, result) -> None:
+    """Chaos Mirror: once both are chosen, their printed ATKs swapped
+    until the end of the turn -- what runes, attachments and other
+    effects add stays each one's own (the Card FAQ)."""
+    picks = top.get("picks") or []
+    if len(picks) < 2:
+        return
+    first, second = (board.body_of(match, *parse_target(key)) for key in picks[:2])
+    if first is None or second is None:
+        return
+    one, other = engine.printed_atk(first), engine.printed_atk(second)
+    for body, atk in ((first, other), (second, one)):
+        body.printed = {**(body.printed or {}), "atk": atk}
+    names = [_thing(match, parse_target(key)) for key in picks[:2]]
+    result.narration.append(
+        f"{top['by']} swaps the printed ATK of {names[0]} and {names[1]} until the end of the turn: "
+        f"{other} and {one}."
+    )
+
+
+def _polymorph(engine, match, top, part, target, result) -> None:
+    """Polymorph: Squirrel: a 1/1 green Squirrel with no abilities until
+    its caster's next upkeep -- no arrival, its runes, damage and
+    attachments kept, the one-time effects on it before gone, and its
+    tech level the same (its rulings)."""
+    card = board.body_of(match, *target)
+    named = _thing(match, target)
+    lent = sum(m.get("amount", 0) for m in card.modifiers if m.get("kind") == "armor")
+    card.armor = max(0, card.armor - lent)
+    card.modifiers = []
+    card.printed = {"polymorph": top["seat"]}
+    result.narration.append(
+        f"{top['by']} transforms {named} into a 1/1 {tokens.card(effects.POLYMORPH_INTO)} "
+        f"with no abilities until {tokens.player(top['seat'])}'s next upkeep."
+    )
+
+
 def _shove(engine, match, top, part, target, result) -> None:
     """Zane's shove, first: the patroller chosen; its new slot is the next
     part's, and its damage the one after."""
@@ -1220,6 +1260,8 @@ DOES = {
     "attach": _attach,
     "firebird": _firebird,
     "shove": _shove,
+    "mirror": _mirror,
+    "polymorph": _polymorph,
     "shove_slot": _shove_slot,
     "damage_shoved": _damage_shoved,
 }

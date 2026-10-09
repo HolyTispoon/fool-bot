@@ -395,11 +395,26 @@ def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
         hero = player.hero_by_ref(attacker)
         found = effects.triggers(hero.slug, "attacks", hero.level)
         by = tokens.hero(hero.slug)
+        origin = hero.slug
+        host = hero.slug
     else:
         card = player.instance(unit_ref(attacker))
-        found = effects.triggers(card.slug, "attacks")
+        found = effects.triggers(card.slug, "attacks") if "polymorph" not in (card.printed or {}) else ()
         by = tokens.card(card.slug)
-    return [resolve.frame(effect, seat, by, source=attacker) for effect in found]
+        origin = card.slug
+        host = card.id
+    frames = [resolve.frame(effect, seat, by, source=attacker, origin=origin) for effect in found]
+    # What an attached spell gives what it is on: Spirit of the Panda's
+    # gold, Final Showdown's card (step 11).
+    for spell in match.instances():
+        effect = effects.ATTACHED_ATTACKS.get(spell.slug)
+        if effect is None:
+            continue
+        on = spell.attached_hero == f"{seat}:{attacker}" if is_hero_ref(attacker) else host in spell.attached
+        if on:
+            frames.append(resolve.frame(effect, seat, tokens.card(spell.slug), source=attacker,
+                                        origin=spell.slug))
+    return frames
 
 
 
@@ -431,7 +446,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if not ready:
         body.exhausted = True
         if (
-            isinstance(body, CardInstance) and body.slug in effects.READIES_ONCE
+            isinstance(body, CardInstance) and engine.text_slug(body) in effects.READIES_ONCE
             and not any(modifier.get("kind") == "readied_once" for modifier in body.modifiers)
         ):
             # "The first time Rampaging Elephant exhausts each turn, ready
@@ -569,7 +584,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     board.settle(engine, match, result)
     if board.still_there(match, seat, attacker) and match.winner is None:
         card = hitting.card
-        effect = effects.AFTER_COMBAT.get(card.slug) if card is not None else None
+        effect = effects.AFTER_COMBAT.get(engine.text_slug(card) or "") if card is not None else None
         if effect is not None:
             # Ogre Recruiter: "If this survives the combat, gain control of
             # a tech 0 or tech I unit" -- after the damage.
@@ -601,7 +616,7 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
         if card.slug in effects.GROWTH_RUNES:
             card.runes["growth"] = card.runes.get("growth", 0) + 1
             result.narration.append(f"{tokens.card(card.slug)} gets a growth rune.")
-    slug = hitting.card.slug if hitting.card is not None else None
+    slug = engine.text_slug(hitting.card) if hitting.card is not None else None
     on_buildings = [hit for hit in hits if engine.is_building_ref(match, hit.target.seat, hit.target.ref)]
     if slug in effects.TRASHES_WORKER_ON_BASE_DAMAGE and any(
         hit.target.ref == "base" for hit in on_buildings

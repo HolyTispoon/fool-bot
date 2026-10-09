@@ -122,15 +122,10 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
 #: the engine's own (`RulesEngine.hero_limit`, `chosen_specs`).
 UNIMPLEMENTED: frozenset = frozenset({
     # Red.
-    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "chaos_mirror",
-    "drakk_ramhorn", "hotter_fire", "kidnapping", "land_octopus",
-    "war_drums",
+    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "kidnapping",
+    "land_octopus",
     # Green.
-    "behind_the_ferns", "blooming_elm", "calamandra_moss",
-    "dothram_horselord", "fairie_dragon", "ferocity", "final_showdown",
-    "galina_glimmer", "gemscout_owl", "master_midori",
-    "might_of_leaf_and_claw", "moss_ancient", "polymorph_squirrel",
-    "spirit_of_the_panda",
+    "dothram_horselord", "galina_glimmer", "gemscout_owl",
 })
 
 
@@ -576,6 +571,20 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     ),
     # Spirit of the Panda: "Attach to a unit." -- any player's (the Card FAQ).
     _effect("spirit_of_the_panda", Part("attach", "unit", 0, "attach to a unit")),
+    # Chaos Mirror: "Swap the printed ATK of two units and/or heroes until
+    # end of turn." -- no {target}.
+    _effect("chaos_mirror", Part("mirror", "unit_or_hero", 0,
+                                 "choose a unit or hero whose printed ATK is swapped",
+                                 targeted=False, most=2, least=2)),
+    # Polymorph: Squirrel: "Transform a unit into a 1/1 green Squirrel
+    # with no abilities until your next upkeep."
+    _effect("polymorph_squirrel", Part("polymorph", "unit", 0,
+                                       "transform a unit into a 1/1 Squirrel with no abilities")),
+    # Spirit of the Panda's granted "Attacks: Gain {gold:1}." -- to the
+    # attacker's controller (the Card FAQ).
+    _effect("panda_gold", Part("gain_gold", None, 1, targeted=False)),
+    # Final Showdown's hero "draws a card when he attacks".
+    _effect("showdown_draw", Part("draw", None, 1, targeted=False)),
     # The ongoing spells whose text is what they grant in play: Behind
     # the Ferns, War Drums, and the upgrade Hotter Fire's.
     _effect("behind_the_ferns"),
@@ -637,6 +646,8 @@ TEXT: dict = {
     "spirit_of_the_panda": (("play", "spirit_of_the_panda"),),
     "behind_the_ferns": (("play", "behind_the_ferns"),),
     "war_drums": (("play", "war_drums"),),
+    "chaos_mirror": (("play", "chaos_mirror"),),
+    "polymorph_squirrel": (("play", "polymorph_squirrel"),),
     # The arrives, attacks and dies triggers.
     "bamstamper_lizzo": (("arrives", "bamstamper_lizzo"),),
     "artisan_mantis": (("arrives", "artisan_mantis"),),
@@ -864,3 +875,67 @@ ON_DAMAGING_A_BUILDING = {"molting_firebird": "molting_firebird"}
 GROWTH_RUNES = frozenset({"might_of_leaf_and_claw"})
 AFTER_COMBAT = {"ogre_recruiter": "ogre_recruiter"}
 KILL_BONUSES = {("captain_zane", 4): {"scavenger": "gold", "technician": "card"}}
+
+# -- The grants, in the order they came (step 11) -------------------------------
+#
+# What a card in play, or a hero's band, gives its controller's units and
+# heroes, read off the position each time and applied in the order each
+# came to be (`RulesEngine._profile`; the Card FAQ, Behind the Ferns and
+# Master Midori).
+
+#: A card's grant to its controller's units, by the card: Grounded
+#: Guide's +1 ATK (+2/+1 to a Virtuoso) to the others, Blademaster's swift
+#: strike, Nimble Fencer's haste to Virtuosos, War Drums' +X ATK, Behind
+#: the Ferns' stealth to 3 ATK or less, Blooming Elm's overpower to a unit
+#: with +1/+1 runes, Might of Leaf and Claw's +5/+5 from five growth
+#: runes, Pirate-Gang Commander's "Dies:" line, Moss Ancient's haste and
+#: invisibility to Squirrels.
+UNIT_GRANTS = {
+    **{slug: "guide" for slug in GUIDES},
+    **{slug: "swift_strike" for slug in GRANTS_SWIFT_STRIKE},
+    **{slug: "virtuoso_haste" for slug in GRANTS_VIRTUOSO_HASTE},
+    "war_drums": "war_drums",
+    "behind_the_ferns": "behind_the_ferns",
+    "blooming_elm": "rune_overpower",
+    "might_of_leaf_and_claw": "growth",
+    "pirategang_commander": "dies",
+    "moss_ancient": "squirrels",
+}
+#: An attached spell's grant to the unit it is on: Spirit of the Panda's
+#: +2/+2 and "Attacks: Gain {gold:1}."
+ATTACHED_UNIT_GRANTS = {"spirit_of_the_panda": "panda"}
+#: A hero's band's grant to its controller's units: Midori's +1/+1 to
+#: units with no abilities, Calamandra's resist 1, Drakk's frenzy 1.
+BAND_GRANTS = {
+    ("master_midori", 5): "no_abilities",
+    ("calamandra_moss", 3): "resist",
+    ("drakk_ramhorn", 4): "frenzy",
+}
+#: A card's grant to its controller's heroes: Blooming Elm's overpower,
+#: Might of Leaf and Claw's +5/+5, Final Showdown's to the hero it is
+#: attached to.
+HERO_GRANTS = {
+    "blooming_elm": "rune_overpower",
+    "might_of_leaf_and_claw": "growth",
+    "final_showdown": "showdown",
+}
+FERNS_ATK = 3
+GROWTH_THRESHOLD = 5
+GROWTH_BONUS = 5
+PANDA_BONUS = 2
+SHOWDOWN_BONUS = 3
+SQUIRREL = "Squirrel"
+#: Polymorph: Squirrel's 1/1, and a feather rune's 3/1.
+SQUIRREL_STATS = (1, 1)
+FEATHER_STATS = (3, 1)
+FAIRIE_DRAGON = "fairie_dragon"
+#: Drakk at 6: "The first unit that arrives from your hand each turn gets
+#: haste." -- for good (his rulings).
+FIRST_FROM_HAND_HASTE = ("drakk_ramhorn", 6)
+#: Hotter Fire: "Your red spells and abilities that deal damage deal 1
+#: damage more." -- each copy (its rulings).
+HOTTER_FIRE = "hotter_fire"
+#: What Polymorph: Squirrel makes a unit.
+POLYMORPH_INTO = "squirrel"
+#: The attacks lines an attached spell gives what it is on.
+ATTACHED_ATTACKS = {"spirit_of_the_panda": "panda_gold", "final_showdown": "showdown_draw"}

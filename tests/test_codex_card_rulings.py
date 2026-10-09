@@ -1545,6 +1545,475 @@ class AbilityAndArrivalRulingTests(unittest.TestCase):
         self.assertFalse(engine.has_keyword(second, "Flying", match))
 
 
+def balance_team():
+    """A standard game: Balance, Feral and Growth (seat 1) against red,
+    in seat 1's main phase, Calamandra in play so Behind the Ferns may
+    stand, and Midori in play at 4."""
+    engine, game, match = red_green(teams=(("balance", "feral", "growth"), ("anarchy", "blood", "fire")))
+    hero_in_play(match, 1, slug="calamandra_moss")
+    hero_in_play(match, 1, slug="master_midori", level=4)
+    match.player(1).hero_of("master_midori").bands = {"1": 0}
+    return engine, game, match
+
+
+def midori_to_5(engine, game, match) -> None:
+    match.player(1).gold = max(match.player(1).gold, 1)
+    apply(engine, game, match, PromptKind.MAIN_ACTION, "level", levels=1, hero="master_midori")
+
+
+class GrantRulingTests(unittest.TestCase):
+    def test_behind_the_ferns_1(self) -> None:
+        """If you have Behind the Ferns and a Steam Tank (3 ATK), then
+        attack a building with Steam Tank, it still does get stealth from
+        Behind the Ferns. The extra ATK from Steam Tank's ability kicks in
+        after the check that lets it sneak past patrollers."""
+        engine, game, match = balance_team()
+        put(match, 1, "behind_the_ferns")
+        tank = put(match, 1, "steam_tank")
+        put(match, 2, "iron_man", patrol="squad_leader")
+        self.assertTrue(engine.has_keyword(tank, "Stealth", match))
+        self.assertIn("base", engine.legal_defenders(match, tank.ref))
+        self.assertEqual(engine.attack_value(match, 1, tank.ref, against="base"), 7)
+
+    def test_behind_the_ferns_2(self) -> None:
+        """Interactions between Behind the Ferns and Midori's mid-level
+        ability (which gives +2/+2 to units without abilities) depend on
+        the order of events. Some examples using those cards and Overeager
+        Cadet (a 2/2 with no ability). If you pay Ferns -> Cadet -> Midori
+        or Cadet -> Ferns -> Midori, your Overeager Cadet will be a 2/2 with
+        stealth. That's what he is at step 2 of those examples, so at step
+        3 when Midori's middle ability is involved, it will not buff Cadet
+        because at a that point, Cadet does have an ability (stealth from
+        Behind the Ferns). Similarly if you get Midori -> Cadet -> Ferns or
+        Cadet -> Midori -> Ferns, the Cadet will be a 4/4 before Ferns
+        happens, so it will stay a 4/4 with no abilities. However, if you
+        play in this order: Ferns -> Midori -> Cadet or Midori -> Ferns ->
+        Cadet, then the cadet is arriving while both effects already exist.
+        In these cases it is also a 4/4 with no abilities."""
+        # Midori gives +1/+1 today: the 2/2 with no ability is a Tiger
+        # Cub, and the "4/4 that stays" is a 3/4 Iron Man at 4/5 -- the
+        # Cub at 3/3 is still 3 ATK or less, which is the FAQ's example.
+        for order in ("ferns, unit, midori", "unit, ferns, midori",
+                      "midori, unit, ferns", "unit, midori, ferns",
+                      "ferns, midori, unit", "midori, ferns, unit"):
+            with self.subTest(order=order):
+                engine, game, match = balance_team()
+                units = {}
+                for step in order.split(", "):
+                    if step == "ferns":
+                        put(match, 1, "behind_the_ferns")
+                    elif step == "midori":
+                        midori_to_5(engine, game, match)
+                    else:
+                        units["man"] = put(match, 1, "iron_man")
+                man = units["man"]
+                stealth = engine.has_keyword(man, "Stealth", match)
+                stats = engine.unit_stats(man, match)
+                if order.index("ferns") < order.index("midori") and order.index("unit") < order.index("midori"):
+                    self.assertEqual((stats, stealth), ((3, 4), True))
+                else:
+                    self.assertEqual((stats, stealth), ((4, 5), False))
+
+    def test_the_card_faqs_tiger_cub_and_iron_man_both_ways_round(self) -> None:
+        """The Card FAQ (UMR p. 19): a Tiger Cub and an Iron Man, then
+        Behind the Ferns, then Midori to 5 -- neither gains +1/+1, both
+        have stealth; Midori to 5 first -- the Iron Man is 4/5 without
+        stealth, and the Tiger Cub 3/3, then stealth, then loses the +1/+1."""
+        engine, game, match = balance_team()
+        cub, man = put(match, 1, "tiger_cub"), put(match, 1, "iron_man")
+        put(match, 1, "behind_the_ferns")
+        midori_to_5(engine, game, match)
+        self.assertEqual((engine.unit_stats(cub, match), engine.unit_stats(man, match)), ((2, 2), (3, 4)))
+        self.assertTrue(engine.has_keyword(cub, "Stealth", match) and engine.has_keyword(man, "Stealth", match))
+
+        engine, game, match = balance_team()
+        cub, man = put(match, 1, "tiger_cub"), put(match, 1, "iron_man")
+        midori_to_5(engine, game, match)
+        put(match, 1, "behind_the_ferns")
+        self.assertEqual((engine.unit_stats(cub, match), engine.unit_stats(man, match)), ((2, 2), (4, 5)))
+        self.assertTrue(engine.has_keyword(cub, "Stealth", match))
+        self.assertFalse(engine.has_keyword(man, "Stealth", match))
+
+    def test_chaos_mirror_1(self) -> None:
+        """The printed ATK means the ATK actually printed on the card. For
+        example, a 2/3 unit has "2" as it's printed ATK, even if it gets a
+        +1/+1 rune and an additional +2/+2 from Two Step."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        cub.plus_runes = 1
+        man = put(match, 2, "iron_man")
+        cast(engine, game, match, "chaos_mirror", f"1:{cub.ref}", f"2:{man.ref}", gold=2)
+        self.assertEqual(engine.unit_stats(cub, match), (4, 3), "3 printed, its rune on top")
+        self.assertEqual(engine.unit_stats(man, match), (2, 4))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(engine.unit_stats(man, match), (3, 4), "until the end of the turn")
+
+    def test_chaos_mirror_2(self) -> None:
+        """Any effects that copy a unit such as Manufactured Truth, copy
+        only the printed version of a unit, but they will respect Chaos
+        Mirror's swap of the printed values. For example, if you have a 1/1
+        and an 8/8, then swap their printed ATK with Chaos Mirror (so you
+        have an 8/1 and a 1/8) then you copy the 8/1 with Manufactured
+        Truth, your copy will be an 8/1."""
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        small = put(match, 1, "mad_man")
+        big = put(match, 2, "oversized_rhinoceros")
+        cast(engine, game, match, "chaos_mirror", f"1:{small.ref}", f"2:{big.ref}", gold=2)
+        # What a copy reads (step 13's Mirror Illusions): the swap.
+        self.assertEqual((engine.printed_atk(small), engine.printed_atk(big)), (7, 1))
+
+    def test_fairie_dragon_1(self) -> None:
+        """If Fairie Dragon leaves play, units with feather runes no longer
+        have flying and are no longer 3/1. If a Fairie Dragon later enters
+        play, any units with a feather rune (even from a previous Fairie
+        Dragon) will be flying and will be 3/1."""
+        engine, game, match = red_green()
+        dragon = put(match, 2, "fairie_dragon")
+        man = put(match, 1, "iron_man")
+        man.runes["feather"] = 1
+        self.assertEqual(engine.unit_stats(man, match), (3, 1))
+        self.assertTrue(engine.has_keyword(man, "Flying", match))
+        board.destroy(engine, match, [(2, dragon.ref)], driver.StepResult())
+        self.assertEqual(engine.unit_stats(man, match), (3, 4))
+        self.assertFalse(engine.has_keyword(man, "Flying", match))
+        put(match, 1, "fairie_dragon")
+        self.assertTrue(engine.has_keyword(man, "Flying", match))
+
+    def test_fairie_dragon_2(self) -> None:
+        """If something such as Manufactured Truth copies a unit with a
+        feather rune, the copy will not have the rune, will not be 3/1 and
+        will not have flying."""
+        engine, game, match = red_green()
+        put(match, 2, "fairie_dragon")
+        man = put(match, 1, "iron_man")
+        man.runes["feather"] = 1
+        # The rune is the unit's, never its printed card's: a copy reads
+        # the printed 3.
+        self.assertEqual(engine.printed_atk(man), 3)
+        self.assertIsNone(man.printed)
+
+    def test_fairie_dragon_3(self) -> None:
+        """Fairie Dragon only changes the "base" ATK and health of those
+        units; runes and other effects can add or subtract ATK or
+        health."""
+        engine, game, match = red_green()
+        put(match, 2, "fairie_dragon")
+        cub = put(match, 1, "tiger_cub")
+        cub.runes["feather"] = 1
+        cub.plus_runes = 1
+        self.assertEqual(engine.unit_stats(cub, match), (4, 2))
+
+    def test_fairie_dragon_4(self) -> None:
+        """Units with feather runes gain flying, but don't lose any of their
+        other abilities."""
+        engine, game, match = red_green()
+        put(match, 2, "fairie_dragon")
+        taxman = put(match, 1, "gunpoint_taxman")
+        taxman.runes["feather"] = 1
+        self.assertTrue(engine.has_keyword(taxman, "Flying", match))
+        self.assertTrue(engine.has_keyword(taxman, "Anti-air", match))
+
+    def test_hotter_fire_1(self) -> None:
+        """This really does apply to all abilities that deal damage on all
+        red cards and red spells that deal damage. For example, Molting
+        Firebird deals 2 damage to every opposing unit if you have Hotter
+        Fire. Zane's max level ability deals 2 damage to the patroller
+        shoves. Jaina's max level ability deals 4 damage. Scorch deals 3
+        damage. Crash Bomber deals 2 damage when he dies. Careless
+        Musketeer deals 2 damage to a unit or building AND 2 damage to your
+        base, etc."""
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        put(match, 1, "hotter_fire")
+        hero_in_play(match, 1, level=7)
+        target = put(match, 2, "iron_man", patrol="squad_leader")
+        cast(engine, game, match, "scorch", f"2:{target.ref}", gold=3)
+        self.assertEqual(target.damage, 3)
+        musketeer = put(match, 1, "careless_musketeer")
+        ability(engine, game, match, "careless_musketeer", musketeer.ref)
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        self.assertEqual((match.player(2).base_hp, match.player(1).base_hp), (18, 18))
+        ability(engine, game, match, "jaina_stormborne_max", "hero:jaina_stormborne")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        self.assertEqual(match.player(2).base_hp, 14)
+
+    def test_hotter_fire_2(self) -> None:
+        """This does not affect any red units or heroes with abilities that
+        simply deal combat damage. For example, it doesn't increase the
+        damage from sparkshot, overpower, or anti-air."""
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        put(match, 1, "hotter_fire")
+        hero_in_play(match, 1)
+        wisp = put(match, 2, "wisp", patrol="squad_leader")
+        neighbour = put(match, 2, "iron_man", patrol="elite")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker="hero:jaina_stormborne")
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=wisp.ref)
+        self.assertEqual(neighbour.damage, 1, "sparkshot's 1, no more")
+
+    def test_hotter_fire_3(self) -> None:
+        """If you have more than one Hotter Fire, the effects do stack."""
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        put(match, 1, "hotter_fire")
+        put(match, 1, "hotter_fire")
+        hero_in_play(match, 1)
+        cast(engine, game, match, "fire_dart", "2:base", gold=2)
+        self.assertEqual(match.player(2).base_hp, 16)
+
+    def test_burning_volley_2(self) -> None:
+        """If you have the Hotter Fire upgrade, Burning Volley can do a
+        total of 6 damage. You can then divide that damage to up to six
+        targets."""
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        put(match, 1, "hotter_fire")
+        at_max(engine, match, 1)
+        wisps = [put(match, 2, "wisp") for _ in range(7)]
+        hand(match, 1, "burning_volley")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="burning_volley")
+        for wisp in wisps[:6]:
+            apply(engine, game, match, PromptKind.TARGET, target=f"2:{wisp.ref}")
+        self.assertEqual(sum(card.slug == "wisp" for card in match.player(2).play), 1)
+
+    def test_ember_sparks_2(self) -> None:
+        """If you have the Hotter Fire upgrade, Ember Sparks can do a total
+        of 4 damage, rather than 3. You can still only divide that damage
+        amongst one, two, or three targets though (not four targets)."""
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        put(match, 1, "hotter_fire")
+        hero_in_play(match, 1)
+        wisps = [put(match, 2, "wisp", patrol=slot) for slot in ("squad_leader", "elite", "scavenger", "technician")]
+        hand(match, 1, "ember_sparks")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="ember_sparks")
+        for wisp in wisps[:3]:
+            apply(engine, game, match, PromptKind.TARGET, target=f"2:{wisp.ref}")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.DIVIDE_DAMAGE, "three targets: no fourth asked")
+        self.assertEqual((prompt.options.total, prompt.options.left), (4, 1))
+
+    def test_master_midori_1(self) -> None:
+        """"Units with no abilities" means units that don't have any ability
+        text at all. Keywords such as haste, swift strike, resist 1, frenzy
+        1, etc. do count as abilities. If an effect changes a units stats,
+        such as giving it +1/+1, that does not count as an ability. If a
+        unit has damage on it, or +1/+1 runes, or any other type of rune,
+        that does not count as having an ability."""
+        engine, game, match = balance_team()
+        midori_to_5(engine, game, match)
+        cub = put(match, 1, "tiger_cub", damage=1)
+        cub.plus_runes = 1
+        cub.runes["growth"] = 1
+        dog = put(match, 1, "nautical_dog")
+        self.assertEqual(engine.unit_stats(cub, match), (4, 4))
+        self.assertEqual(engine.unit_stats(dog, match), (1, 1), "frenzy is an ability")
+
+    def test_master_midori_2(self) -> None:
+        """If a unit gets an ability, such as Calamandra giving it resist 1,
+        then it loses +2/+2 from Midori. This could cause it to die if it
+        then has 0 or less HP."""
+        engine, game, match = balance_team()
+        midori_to_5(engine, game, match)
+        cub = put(match, 1, "tiger_cub", damage=2)
+        self.assertEqual(engine.unit_stats(cub, match), (3, 3))
+        calamandra = match.player(1).hero_of("calamandra_moss")
+        calamandra.level = 3
+        calamandra.bands["3"] = match.next_sequence()
+        board.settle(engine, match, driver.StepResult())
+        self.assertIsNone(match.player(1).instance(cub.id))
+
+    def test_master_midori_3(self) -> None:
+        """Units do not lose the benefit of Midori's midband ability for
+        being in any patrol slot."""
+        engine, game, match = balance_team()
+        midori_to_5(engine, game, match)
+        cub = put(match, 1, "tiger_cub", patrol="lookout")
+        self.assertTrue(engine.has_keyword(cub, "Resist", match))
+        self.assertEqual(engine.unit_stats(cub, match), (3, 3))
+
+    def test_master_midori_4(self) -> None:
+        """You can only reduce the gold cost of something to 0, not lower
+        than that."""
+        engine, game, match = red_green(first=2, teams=(("anarchy",), ("feral",)))
+        for _ in range(12):
+            put(match, 2, "frog")
+        self.assertEqual(engine.effective_cost(match.player(2), "gigadon"), 0)
+
+    def test_moss_ancient_1(self) -> None:
+        """Your Squirrels only keep haste and invisible from Moss Ancient's
+        ability while he's still in play under your control. If he leaves
+        play or leaves your control, he won't continue to grant those
+        abilities."""
+        engine, game, match = red_green(first=2, teams=(("anarchy",), ("feral",)))
+        ancient = put(match, 2, "moss_ancient")
+        squirrel = put(match, 2, "squirrel", arrived=True)
+        self.assertTrue(engine.has_keyword(squirrel, "Invisible", match))
+        self.assertIn(squirrel.ref, engine.attackers(match))
+        board.gain_control(match, ancient, 1)
+        self.assertFalse(engine.has_keyword(squirrel, "Invisible", match))
+        self.assertNotIn(squirrel.ref, engine.attackers(match))
+
+    def test_polymorph_squirrel_1(self) -> None:
+        """Transforming into a Squirrel does not count as a new unit entering
+        play. No "arrive" happens here. If the unit had any baggage, such as
+        +1/+1 runes, an ongoing spell such as a Soul Stone or Spirit of the
+        Panda, or damage on it, all of that will still be on it when it
+        Transforms. Though it loses all printed abilities it has and loses
+        all one-time effects that other things might have granted it before
+        the transform, it still benefits from one-time effects that happen
+        to it after the transform and it still benefits from +1/+1 runes
+        that are on it, and attachments such as Spirit of the Panda."""
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        taxman = put(match, 1, "gunpoint_taxman")
+        taxman.plus_runes = 1
+        taxman.modifiers.append({"kind": "atk", "amount": 2, "until": "end_of_turn"})
+        spirit = put(match, 1, "spirit_of_the_panda")
+        spirit.attached = [taxman.id]
+        before = match.next_instance_id
+        cast(engine, game, match, "polymorph_squirrel", gold=3)
+        self.assertEqual(match.next_instance_id, before, "nothing arrived")
+        self.assertEqual(engine.unit_stats(taxman, match), (4, 4), "1/1, its rune, the Panda's +2/+2")
+        self.assertFalse(engine.has_keyword(taxman, "Anti-air", match))
+        self.assertEqual(engine.subtype_of(taxman), "Squirrel")
+
+    def test_polymorph_squirrel_2(self) -> None:
+        """Transforming the unit to a 1/1 can kill it if it already had
+        damage on it."""
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        man = put(match, 1, "iron_man", damage=1)
+        cast(engine, game, match, "polymorph_squirrel", gold=3)
+        self.assertIsNone(match.player(1).instance(man.id))
+
+    def test_polymorph_squirrel_3(self) -> None:
+        """This spell can kill units that usually can't be killed."""
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        # Nothing red or green is indestructible: what this pins is that a
+        # Squirrel has no ability left to keep it alive -- the 1 kills it.
+        man = put(match, 1, "iron_man")
+        cast(engine, game, match, "polymorph_squirrel", gold=3)
+        man.damage = 1
+        board.settle(engine, match, driver.StepResult())
+        self.assertIsNone(match.player(1).instance(man.id))
+
+    def test_polymorph_squirrel_4(self) -> None:
+        """The transformed unit is still whatever tech level it was
+        before."""
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        taxman = put(match, 1, "gunpoint_taxman")
+        cast(engine, game, match, "polymorph_squirrel", gold=3)
+        self.assertEqual(engine.catalog.cards[taxman.slug].tech_level, 1)
+        self.assertIn((1, taxman.ref), engine.target_candidates(match, 2, "unit_tech_0_1"))
+        self.assertFalse(engine.is_tech_0_unit(taxman))
+
+    def test_polymorph_squirrel_5(self) -> None:
+        """If something would copy the Squirrel such as Manufactured Truth,
+        then the copy is a 1/1 Squirrel with no abilities."""
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        man = put(match, 1, "oversized_rhinoceros")
+        cast(engine, game, match, "polymorph_squirrel", gold=3)
+        self.assertEqual(engine.printed_atk(man), 1)
+        self.assertEqual(man.printed, {"polymorph": 2})
+
+    def test_war_drums_1(self) -> None:
+        """Units you "have" refers to units you control. It does not include
+        units you own, but that were stolen from you for some reason, and
+        it doesn't include units that aren't in play, such as those in
+        Jail, Graveyard, or forecasted."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        at_max(engine, match, 1)
+        cub = put(match, 1, "mad_man")
+        stolen = put(match, 1, "nautical_dog")
+        cast(engine, game, match, "war_drums", gold=2)
+        self.assertEqual(engine.unit_stats(cub, match)[0], 1 + 2)
+        board.gain_control(match, stolen, 2)
+        self.assertEqual(engine.unit_stats(cub, match)[0], 1 + 1)
+
+
+def drakk_at(engine, match, level: int) -> None:
+    hero_in_play(match, 1, level=level)
+
+
+class DrakkRulingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.engine, self.game, self.match = red_green(teams=(("blood",), ("feral",)))
+
+    def play(self, slug: str):
+        match = self.match
+        match.player(1).hand.append(slug)
+        match.player(1).gold = max(match.player(1).gold, 10)
+        apply(self.engine, self.game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+        return [card for card in match.player(1).play if card.slug == slug][-1]
+
+    def test_drakk_ramhorn_1(self) -> None:
+        """If a unit arrives from your hand, then after that you control a
+        max level Drakk, then another unit arrives from your hand, NEITHER
+        of those units will get haste from Drakk's max level ability. The
+        second one won't because his ability only ever cares about the
+        first unit per turn that arrives from your hand. The first one in
+        this example also doesn't because you didn't have a max level Drakk
+        when you played that unit, and Drakk's ability can't retroactively
+        grant haste to units you played earlier in the turn."""
+        drakk_at(self.engine, self.match, 5)
+        first = self.play("bloodrage_ogre")
+        self.match.player(1).hero.level = 6
+        second = self.play("bloodrage_ogre")
+        for card in (first, second):
+            self.assertFalse(self.engine.has_keyword(card, "Haste", self.match))
+
+    def test_drakk_ramhorn_2(self) -> None:
+        """There are many ways to get units other than "arriving from your
+        hand." If you play a spell from your hand that summons units, such
+        as Murkwood Allies, that does not count as the unit "arriving from
+        your hand." You can get units in these various ways and still have
+        Drakk's max level ability trigger that turn once you finally have a
+        unit actually arrive from your hand for the first time that
+        turn."""
+        engine, game, match = red_green(teams=(("blood", "feral", "growth"), ("anarchy", "fire", "balance")))
+        hero_in_play(match, 1, slug="drakk_ramhorn", level=6)
+        hero_in_play(match, 1, slug="calamandra_moss")
+        hand(match, 1, "murkwood_allies", "bloodrage_ogre")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies", boost=True)
+        tokens_made = [card for card in match.player(1).play if card.slug in ("beast", "frog")]
+        self.assertTrue(tokens_made)
+        self.assertFalse(any(engine.has_keyword(card, "Haste", match) for card in tokens_made))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="bloodrage_ogre")
+        ogre = next(card for card in match.player(1).play if card.slug == "bloodrage_ogre")
+        self.assertTrue(engine.has_keyword(ogre, "Haste", match))
+
+    def test_drakk_ramhorn_3(self) -> None:
+        """Though the unit must "arrive from your hand" to benefit from
+        Drakk's max level ability, it doesn't have to be PLAYED from hand.
+        Feral Strike and Skeletal Lord's ability, for example, "put
+        something into play" from your hand. Even though that's different
+        from "playing" those things, Drakk's ability still does work because
+        they "arrived from your hand." """
+        engine, game, match = red_green(teams=(("blood", "feral", "growth"), ("anarchy", "fire", "balance")))
+        hero_in_play(match, 1, slug="drakk_ramhorn", level=6)
+        at_max(engine, match, 1, slug="calamandra_moss")
+        hand(match, 1, "feral_strike", "tiger_cub")
+        match.player(1).gold = 4
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="feral_strike")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="put")
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:tiger_cub")
+        cub = next(card for card in match.player(1).play if card.slug == "tiger_cub")
+        self.assertTrue(engine.has_keyword(cub, "Haste", match))
+
+    def test_drakk_ramhorn_5(self) -> None:
+        """Drakk's max level ability grants Haste to units permanently."""
+        drakk_at(self.engine, self.match, 6)
+        ogre = self.play("bloodrage_ogre")
+        self.match.player(1).hero.zone = "command"
+        self.assertTrue(self.engine.has_keyword(ogre, "Haste", self.match))
+        self.assertIn({"kind": "keyword", "keyword": "Haste", "until": None}, ogre.modifiers)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""

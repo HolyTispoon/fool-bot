@@ -66,6 +66,7 @@ STEP_11_KEYWORDS = {
     "Ephemeral": 1,
     "Untargetable": 1,
     "Boost X": 3,
+    "Channelling": 1,
 }
 
 
@@ -1348,6 +1349,24 @@ class BoostTests(KeywordCase):
         match.player(1).hand.remove("marauder")
         board.put_into_play(engine, match, "marauder", 1, from_hand=True)
         self.assertEqual(match.resolving[-1].get("boosted"), None)
+
+
+class ChannellingTests(KeywordCase):
+    def test_channelling_1(self) -> None:
+        """If at any moment you don't control the correct hero for a
+        channeling spell, you sacrifice the channeling spell."""
+        engine, game, match = fresh(teams=(("blood",), ("feral",)))
+        drums = put(match, 1, "war_drums")
+        match.active = 2
+        ferns = put(match, 2, "behind_the_ferns")
+        hero_in_play(match, 1)
+        board.settle(engine, match, StepResult())
+        self.assertIsNotNone(match.player(1).instance(drums.id))
+        self.assertIsNone(match.player(2).instance(ferns.id), "no Feral hero in play")
+        match.player(1).hero.zone = "command"
+        board.settle(engine, match, StepResult())
+        self.assertIsNone(match.player(1).instance(drums.id))
+        self.assertIn("war_drums", match.player(1).discard)
 
 
 class ConditionedKeywordTests(KeywordCase):

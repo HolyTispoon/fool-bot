@@ -151,6 +151,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         hero.patrol_slot = None
     player.hired_this_turn = False
     player.spells_played = 0
+    player.arrived_from_hand = False
     # Moment's Peace holds "until your next turn" (step 11).
     player.peace = False
     # Readiness attacks once a turn and a tower detects once a turn
@@ -178,6 +179,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     # Upkeep.
     match.enter_phase("upkeep")
+    _until_upkeep_ends(engine, match, seat, result)
     gained = gain_gold(match, seat, player.workers)
     collected = (
         f"{tokens.player(seat)} collects {tokens.gold(gained)} from "
@@ -206,6 +208,25 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         return result
     _upkeep_effects(engine, match, engine.upkeep_effects(player), result)
     return _open_main(engine, game, match, result)
+
+
+def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
+                       result: StepResult) -> None:
+    """What lasts "until your next upkeep" ends as it opens: Polymorph:
+    Squirrel's transformation and Ferocity's armor piercing and swift
+    strike, whoever's units they are on."""
+    from codex.flow import board
+
+    for side in match.players:
+        for card in side.play:
+            if card.printed and card.printed.get("polymorph") == seat:
+                card.printed = {k: v for k, v in card.printed.items() if k != "polymorph"} or None
+                result.narration.append(f"{tokens.card(card.slug)} is itself again.")
+            card.modifiers = [
+                m for m in card.modifiers
+                if not (m.get("until") == "upkeep" and m.get("seat") == seat)
+            ]
+    board.settle(engine, match, result)
 
 
 def finish_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -259,7 +280,7 @@ def _upkeep_effects(engine: "RulesEngine", match: MatchState, order, result: Ste
                 )
         elif effect == "starlet":
             for card in list(player.play):
-                if card.slug in effects.UPKEEP_SELF_DAMAGE:
+                if engine.text_slug(card) in effects.UPKEEP_SELF_DAMAGE:
                     card.damage += 1
                     result.narration.append(f"{tokens.card(card.slug)} takes 1 damage.")
             board.settle(engine, match, result)
@@ -357,6 +378,9 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                        if m.get("kind") == "armor" and m.get("until") == "end_of_turn")
             body.armor = max(0, body.armor - lent)
             body.modifiers = [m for m in body.modifiers if m.get("until") != "end_of_turn"]
+            # Chaos Mirror's swap lasts the turn.
+            if body.printed and "atk" in body.printed:
+                body.printed = {k: v for k, v in body.printed.items() if k != "atk"} or None
     minimum, maximum = engine.tech_bounds(player)
     player.tech_owed = maximum > 0
     player.tech_choice = None

@@ -249,6 +249,8 @@ def _destroy_hero(match: MatchState, seat: int, hero: HeroState, result: StepRes
     hero.plus_runes = 0
     hero.minus_runes = 0
     hero.modifiers = []
+    hero.printed = None
+    hero.bands = {}
     hero.max_level_since_turn_began = False
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
     match.record_event("hero_died", slug=hero.slug, owner=seat)
@@ -321,7 +323,7 @@ def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState
     """The kill's two levels for `victor`, to its maximum, said -- and
     its max level text, where it got there."""
     before = victor.level
-    reached = raise_level(engine, victor, LEVELS_FOR_A_KILL)
+    reached = raise_level(engine, victor, LEVELS_FOR_A_KILL, match)
     seat = engine.seat_of(match, victor)
     if victor.level > before:
         gained = victor.level - before
@@ -335,7 +337,8 @@ def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState
             max_level_reached(engine, match, seat, victor, result)
 
 
-def raise_level(engine: "RulesEngine", hero: HeroState, levels: int) -> bool:
+def raise_level(engine: "RulesEngine", hero: HeroState, levels: int,
+                match: Optional[MatchState] = None) -> bool:
     """Up to `levels` levels for `hero`, to its maximum, healing it if it
     reaches a new band (UMR p. 6). Returns whether it reached one. A
     hero now at its maximum that was not is marked `max_reached`, for
@@ -345,6 +348,10 @@ def raise_level(engine: "RulesEngine", hero: HeroState, levels: int) -> bool:
     was_max = hero.level >= card.max_level
     hero.level = min(card.max_level, hero.level + levels)
     reached = card.band(hero.level).min_level != before
+    if reached and match is not None:
+        for band in card.bands:
+            if before < band.min_level <= hero.level:
+                hero.bands[str(band.min_level)] = match.next_sequence()
     if reached:
         hero.damage = 0
     if not was_max and hero.level >= card.max_level:
@@ -425,6 +432,8 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     found = {"bugblatters": [], "pirategang": {}}
     for player in match.players:
         for card in player.play:
+            if not engine.texted(card):
+                continue
             if card.slug in effects.ON_ANY_DEATH:
                 found["bugblatters"].append((player.seat, card.slug))
             if card.slug in effects.GRANTS_DIES:
@@ -449,7 +458,8 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
         seat = card.controller
         by = tokens.card(card.slug)
         mine = seat == match.active
-        effect = (effects.DIES_ON_YOUR_TURN if mine else effects.DIES_ON_THEIR_TURN).get(card.slug)
+        effect = (effects.DIES_ON_YOUR_TURN if mine else effects.DIES_ON_THEIR_TURN).get(
+            engine.text_slug(card) or "")
         if effect is not None:
             frames.append(resolve.frame(effect, seat, by, origin=card.slug))
         granted = witnesses["pirategang"].get(seat)
@@ -505,6 +515,25 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
     ))
     if engine.catalog.cards[card.slug].is_unit:
         _grow_on_arrival(match, seat, card)
+        if from_hand:
+            _first_from_hand(engine, match, seat, card)
+
+
+def _first_from_hand(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance) -> None:
+    """
+    Drakk at 6: "The first unit that arrives from your hand each turn
+    gets haste." -- for good; only the first, whether or not Drakk was at
+    his maximum when it came; never one that arrived otherwise -- a
+    token, a unit from the codex -- and played or put into play from the
+    hand alike (his rulings).
+    """
+    player = match.player(seat)
+    if player.arrived_from_hand:
+        return
+    player.arrived_from_hand = True
+    slug, level = effects.FIRST_FROM_HAND_HASTE
+    if any(hero.slug == slug and hero.level >= level for hero in player.heroes_in_play):
+        card.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": None})
 
 
 def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState) -> None:
@@ -522,7 +551,7 @@ def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: Hero
 
 def _grow_on_arrival(match: MatchState, seat: int, body) -> None:
     for card in match.player(seat).play:
-        if card.slug in effects.GROWS_ON_ARRIVAL and card is not body:
+        if card.slug in effects.GROWS_ON_ARRIVAL and card is not body and "polymorph" not in (card.printed or {}):
             add_plus_rune(card)
 
 
