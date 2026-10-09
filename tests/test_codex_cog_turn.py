@@ -406,9 +406,8 @@ class TurnEndTests(TurnTestCase):
 
         # The picture is drawn for real here, and its width counts the
         # cards shown (`render_codex` lays one column per card, up to
-        # `CODEX_COLUMNS`): a mock by the module's dotted name would miss
-        # the cog once a bot test has closed its bot, which unloads the
-        # extension and evicts `cogs.codex` from `sys.modules`.
+        # `CODEX_COLUMNS`): what the player is sent, rather than what the
+        # renderer was asked for.
         shown = await self.table.choose(picker, "Show", "tech1", who=self.table.waiting)
         self.assertNothingWentWrong(shown)
         self.assertEqual([answer[0] for answer in shown.answers], ["response.edit"])
@@ -468,14 +467,16 @@ class WholeGameTests(TurnTestCase):
         turn's end (the old
         message's last edit, the new one's post, pin and unpin), two at
         the game's end (the last edit and the winner's line). The
-        panel's pictures are stood in for; drawing them is not the
-        subject here.
+        panel's pictures are stood in for -- and the stand-ins are checked
+        to have been used, since a stub by dotted name that misses the
+        cog draws every picture for real and fails nothing; drawing them
+        is not the subject here.
         """
         table = self.table
         budget = {"click": 1, "turn": 4, "end": 2}
         with mock.patch("cogs.codex_views.turn_message.render_hand", return_value=b"hand"), \
-                mock.patch("cogs.codex.core.render_codex", return_value=b"codex"), \
-                mock.patch("cogs.codex.core.render_hand", return_value=b"hand"):
+                mock.patch("cogs.codex.core.render_codex", return_value=b"codex") as codex_pictures, \
+                mock.patch("cogs.codex.core.render_hand", return_value=b"hand") as hand_pictures:
             for _ in range(200):
                 if table.match.winner is not None:
                     break
@@ -502,6 +503,8 @@ class WholeGameTests(TurnTestCase):
         self.assertIsNotNone(table.match.winner)
         sent = [kwargs for kind, _, kwargs in table.game_channel.requests if kind == "send"]
         self.assertIn("wins", sent[-1]["content"])
+        self.assertTrue(hand_pictures.called)
+        self.assertTrue(codex_pictures.called)
 
     async def policy(self, view):
         table = self.table

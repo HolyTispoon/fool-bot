@@ -5,6 +5,7 @@ the token resolver, and botlog naming the bot and reading `CODEX_*`.
 """
 
 import os
+import sys
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -29,23 +30,46 @@ def codex_bot() -> gamebot.GameBot:
     )
 
 
+def codex_modules() -> dict[str, object]:
+    return {name: module for name, module in sys.modules.items() if name.startswith("cogs.codex")}
+
+
 class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_bot_loads_the_codex_cog_alone(self) -> None:
+        """
+        The one test that loads the extension through `setup_hook`, and
+        so the one that closes a bot holding it. Both touch `sys.modules`:
+        `load_extension` executes the package afresh and puts the new
+        module there, and `close` unloads it, which deletes the package
+        and every submodule. In a `unittest discover` run every other
+        test module imported `cogs.codex` before this ran, so the bot's
+        life is kept under `patch.dict`, which puts every entry back on
+        the way out -- or a `mock.patch("cogs.codex.core...")` after this
+        would patch a fresh import the cog under test never reads
+        (docs/design/testing.md, "A bot test that loads an extension
+        leaves `sys.modules` as it found it").
+        """
+        imported = codex_modules()
         bot = codex_bot()
         self.assertFalse(bot.intents.message_content)
-        with mock.patch.object(gamebot.GameBot, "sync_commands_if_changed") as sync:
+        with mock.patch.dict(sys.modules), \
+                mock.patch.object(gamebot.GameBot, "sync_commands_if_changed") as sync:
             await bot.setup_hook()
-        sync.assert_awaited_once()
-        group = bot.tree.get_command("codex")
-        self.assertIsNotNone(group)
-        self.assertLessEqual(len(group.description), 100)
-        self.assertEqual(
-            {command.name for command in group.commands},
-            {"card", "rules", "lobby", "games", "board", "hand", "resume",
-             "concede", "abandon", "admin"},
-        )
-        self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
-        await bot.close()
+            sync.assert_awaited_once()
+            group = bot.tree.get_command("codex")
+            self.assertIsNotNone(group)
+            self.assertLessEqual(len(group.description), 100)
+            self.assertEqual(
+                {command.name for command in group.commands},
+                {"card", "rules", "lobby", "games", "board", "hand", "resume",
+                 "concede", "abandon", "admin"},
+            )
+            self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
+            await bot.close()
+        self.assertEqual(bot.cogs, {})
+        self.assertEqual(set(codex_modules()), set(imported))
+        for name, module in imported.items():
+            self.assertIs(sys.modules[name], module, name)
 
     def card_lookup(self) -> tuple[gamebot.GameBot, Codex, mock.Mock]:
         bot = codex_bot()

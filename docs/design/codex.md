@@ -1037,7 +1037,12 @@ active player and summarised in **one public message per turn**.
 `tests/test_codex_cog_turn.py` drives it through the cog with Discord
 faked -- `tests/codex_cog_fakes.py` logs every request by route -- and
 plays a whole game through the panels to a destroyed base, every click
-held to the request budget below.
+held to the request budget below, with the pictures stood in for by
+dotted-name patches on `cogs.codex.core`. Those reach the cog only while
+`sys.modules` still holds the modules the tests imported, which is why
+the bot test that loads the extension and closes the bot restores it
+("A bot test that loads an extension leaves `sys.modules` as it found
+it" in [testing.md](testing.md)).
 
 ### The panel
 
