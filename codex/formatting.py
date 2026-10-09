@@ -83,6 +83,10 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
             if prefix == "slot:":
                 return f"The {slot_name(name)} slot"
             return f"{catalog().name(name)} ({where})"
+    if ref.startswith("future:"):
+        card = next((one for one in player.future if f"future:{one.id}" == ref), None)
+        if card is not None:
+            return f"{catalog().name(card.slug)} (in the future, {card.time_runes} time runes)"
     hero = player.hero_by_ref(ref) if is_hero_ref(ref) else None
     if hero is not None:
         atk, hp = engine.hero_stats(hero)

@@ -184,6 +184,23 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
     match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}))
     note = _vanilla_note(engine, slug)
     result = StepResult(board_changed=True)
+    if engine.forecast(slug):
+        # Forecast X: played from the hand, paid and its requirements met
+        # now, into the future with X time runes -- not in play (UMR
+        # p. 17). A spell is played, so a Harmony still pays for it.
+        board.to_future(engine, match, slug, seat)
+        boosted = ", boosted" if boost else ""
+        result.narration.append(
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted} "
+            f"into the future, with {engine.forecast(slug)} time runes.{note}"
+        )
+        if card.is_spell:
+            player.spells_played += 1
+            resolve.push(match, *(
+                resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+                for harmony in player.play if harmony.slug == effects.HARMONY
+            ))
+        return resolve.carry_on(engine, game, match, result)
     if card.is_unit:
         instance = match.new_instance(slug, seat)
         atk, hp = engine.unit_stats(instance, match)
@@ -243,9 +260,7 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if not option.allowed:
         raise RuleRefusal(f"You can't use that ability: {option.why_not}.", cite="UMR p. 7")
     result = StepResult(board_changed=True)
-    body = board.body_of(match, seat, source) if is_hero_ref(source) else player.instance(
-        int(source.split(":", 1)[1]),
-    )
+    body = board.timed(match, seat, source)
     if effect == "stop_the_music":
         board.sacrifice(engine, match, body)
         result.narration.append(

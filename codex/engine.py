@@ -530,7 +530,21 @@ class RulesEngine:
         if texted:
             profile.keywords.extend(self._conditioned_keywords(match, card, card.controller))
         self._apply_grants(match, card, profile)
+        self._lose_keywords(card, profile)
+        ceiling = effects.ATK_CEILING.get(self.text_slug(card) or "")
+        if ceiling is not None:
+            # Pestering Haunt: "Can't have more than 1 ATK."
+            profile.atk = min(profile.atk, ceiling)
         return profile
+
+    @staticmethod
+    def _lose_keywords(body, profile: "Profile") -> None:
+        """A keyword a modifier takes away for a while (step 12):
+        `{kind: "lose_keyword", keyword}` -- Gargoyle's "isn't
+        indestructible", a flier's flying lost to Crypt Crawler."""
+        lost = {m.get("keyword") for m in body.modifiers if m.get("kind") == "lose_keyword"}
+        if lost:
+            profile.keywords = [(name, x) for name, x in profile.keywords if name not in lost]
 
     def _grants(self, match: MatchState, card: CardInstance) -> list:
         """The grants on a unit, as `(time, rank, since, grant)`: what
@@ -619,6 +633,19 @@ class RulesEngine:
                 if effects.SQUIRREL in self.subtype_of(card):
                     profile.grant("Haste")
                     profile.grant("Invisible")
+            elif grant == "battle_suits":
+                # Battle Suits: "Your non-token Soldiers and Mystics get +1
+                # ATK." -- the subtype read word by word.
+                words = self.subtype_of(card).split()
+                if self.catalog.cards[card.slug].kind != "token" and any(
+                    word in effects.SUITED for word in words
+                ):
+                    profile.atk += 1
+            elif grant == "black_invisible":
+                # Lord of Shadows: "Your black units are invisible." -- the
+                # colour read, himself included.
+                if self.color_of(card) == effects.INVISIBLE_COLOR.get(source.slug, "black"):
+                    profile.grant("Invisible")
             elif grant == "panda":
                 profile.atk += effects.PANDA_BONUS
                 profile.hp += effects.PANDA_BONUS
@@ -666,6 +693,7 @@ class RulesEngine:
                 profile.grant("Readiness")
                 profile.grant("Resist", 1)
         profile.keywords.extend(self._conditioned_keywords(match, hero, seat))
+        self._lose_keywords(hero, profile)
         return profile
 
     def _hero_raw(self, hero: HeroState, match: Optional[MatchState] = None) -> tuple[int, int]:
@@ -735,6 +763,10 @@ class RulesEngine:
             bonus = effects.ATTACKING_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
             if bonus and self.is_building_ref(match, 2 if seat == 1 else 1, against):
                 atk += bonus
+        if isinstance(body, CardInstance):
+            ceiling = effects.ATK_CEILING.get(self.text_slug(body) or "")
+            if ceiling is not None:
+                atk = min(atk, ceiling)
         return max(atk, 0)
 
     def is_building_ref(self, match: MatchState, seat: int, ref: str) -> bool:
@@ -779,6 +811,57 @@ class RulesEngine:
             if len(spell.attached) == 2 and all(found is not None for found in held):
                 return spell
         return None
+
+    # -- What cannot die, and what cannot be sacrificed (step 12) -----------
+
+    def indestructible(self, match: Optional[MatchState], body) -> bool:
+        """Indestructible (UMR p. 17): exhausted instead of dying, never
+        sacrificed -- while it has the keyword (Gargoyle loses it to its
+        own ability, Polymorph takes it away)."""
+        return isinstance(body, CardInstance) and self.has_keyword(body, "Indestructible", match)
+
+    def may_sacrifice(self, match: MatchState, card: CardInstance) -> bool:
+        """Whether `card` may be sacrificed at all: not indestructible, not
+        Pestering Haunt ("Can't be sacrificed"), not a Gilded Glaxx whose
+        controller has gold -- each ignored completely when choosing what to
+        sacrifice (their rulings)."""
+        if self.indestructible(match, card):
+            return False
+        if self.text_slug(card) in effects.CANT_BE_SACRIFICED:
+            return False
+        return not self.cant_leave_play(match, card)
+
+    def may_be_destroyed(self, match: MatchState, card: CardInstance) -> bool:
+        """Whether a "lowest" or "weakest" choice may take `card`:
+        neither indestructible nor unable to leave play (the obliterate,
+        Sacrifice the Weak and Death Rites rulings)."""
+        return not self.indestructible(match, card) and not self.cant_leave_play(match, card)
+
+    def cant_leave_play(self, match: MatchState, card) -> bool:
+        """Gilded Glaxx while its controller has gold: it leaves play only
+        by dying from combat damage (step 12, commit 5)."""
+        return False
+
+    # -- Time (step 12) --------------------------------------------------------
+
+    def fading(self, body) -> int:
+        """Fading X (UMR p. 17): the time runes it arrives with -- 0 for a
+        card without it."""
+        return self.keyword_x(body, "Fading")
+
+    def forecast(self, slug: str) -> int:
+        """Forecast X (UMR p. 17): the time runes it goes into the future
+        with -- 0 for a card without it."""
+        return next((x or 0 for name, x in keywords.keywords(slug) if name == "Forecast"), 0)
+
+    def time_runes_of(self, match: MatchState, seat: int) -> int:
+        """Every time rune on what `seat` controls: the cards in play --
+        a Vortoss Emblem wherever it is attached -- their heroes, and the
+        cards in their future (Temporal Research's rulings)."""
+        player = match.player(seat)
+        total = sum(card.time_runes for card in player.play)
+        total += sum(hero.time_runes for hero in player.heroes_in_play)
+        return total + sum(card.time_runes for card in player.future)
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -1224,7 +1307,13 @@ class RulesEngine:
             # Two Step's two partners.
             first = effect.parts[0]
             return len(self.target_rows(match, seat, first, gold=gold)) >= len(effect.parts)
+        if frame is None and slug in self.catalog.cards:
+            frame = {"spell": slug}
         for part in effect.parts:
+            if part.does == "mode" or part.follows:
+                # A choice of modes, or a part acting on an earlier part's
+                # pick, does nothing by itself (step 12).
+                continue
             if part.choose is None:
                 return True
             if self.target_rows(match, seat, part, gold=gold, frame=frame):
@@ -1382,6 +1471,13 @@ class RulesEngine:
             for hero in match.player(seat).heroes_in_play
         ):
             found.append(("Invisible", None))
+        if slug in effects.WHEN_ATTACKING_HEROES and seat == match.active:
+            # Wight: "Deathtouch when attacking heroes."
+            state = match.combat
+            if state is not None and state.get("attacker") == body.ref and is_hero_ref(
+                state.get("defender") or ""
+            ):
+                found.extend((keyword, None) for keyword in effects.WHEN_ATTACKING_HEROES[slug])
         if slug in effects.STEALTH_ATTACKING_UNITS and seat == match.active:
             state = match.combat
             defender = None
@@ -1630,14 +1726,14 @@ class RulesEngine:
         other = 2 if seat == 1 else 1
         flying = self.has(match, seat, attacker, "Flying")
         blocking = {}
-        past_tech_0 = self._unstoppable_by_tech_0(match, attacker)
         for slot, ref in match.player(other).patrollers().items():
             if self.has(match, other, ref, "Flying") != flying:
                 continue
             if not self.may_be_attacked(match, attacker, ref):
                 continue
-            if past_tech_0 and self.is_tech_0_unit(self.body(match, other, ref)):
-                # "... unstoppable by tech 0 units": it may ignore them.
+            if self._unstoppable_by(match, attacker, self.body(match, other, ref)):
+                # "... unstoppable by tech 0 units" and the like: it may
+                # ignore them.
                 continue
             blocking[slot] = ref
         return blocking
@@ -1645,6 +1741,39 @@ class RulesEngine:
     def _unstoppable_by_tech_0(self, match: MatchState, attacker: str) -> bool:
         body = self.body(match, match.active, attacker)
         return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_TECH_0
+
+    def is_demon(self, body) -> bool:
+        """A Demon: a unit whose subtype says so, or a hero Metamorphosis
+        made one, until it leaves play (step 12)."""
+        if isinstance(body, CardInstance):
+            return effects.DEMON in self.subtype_of(body).split()
+        return isinstance(body, HeroState) and any(
+            m.get("kind") == "demon" for m in body.modifiers
+        )
+
+    def _unstoppable_by(self, match: MatchState, attacker: str, patroller) -> bool:
+        """
+        Whether this attacker may ignore one patroller in particular (its
+        conditional unstoppable): Predator Tiger's and Tiny Basilisk's tech
+        0 units, Cursed Ghoul's units with -1/-1 runes, and the Demons of a
+        player with a Shrine of Forbidden Knowledge, which are unstoppable
+        by units -- a patrolling hero still stops them (step 12).
+        """
+        body = self.body(match, match.active, attacker)
+        if body is None or patroller is None:
+            return False
+        unit = isinstance(patroller, CardInstance) and self.catalog.cards[patroller.slug].is_unit
+        slug = self.text_slug(body) if isinstance(body, CardInstance) else None
+        if slug in effects.UNSTOPPABLE_BY_TECH_0 and self.is_tech_0_unit(patroller):
+            return True
+        if slug in effects.UNSTOPPABLE_BY_RUNED and unit and patroller.minus_runes > 0:
+            return True
+        if unit and self.is_demon(body) and any(
+            card.slug in effects.DEMONS_UNSTOPPABLE and self.texted(card)
+            for card in match.player(match.active).play
+        ):
+            return True
+        return False
 
     def legal_defenders(self, match: MatchState, attacker: str) -> tuple[str, ...]:
         """Who `attacker` may take, in the three priorities (UMR p. 10),
@@ -1676,6 +1805,16 @@ class RulesEngine:
                     for card in self._units_of(match, other)
                     if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref)
                 ]
+            if self._unstoppable_to_heroes(match, attacker):
+                # Wight: "Unstoppable when attacking heroes" -- any of their
+                # heroes, past the patrol zone (step 12).
+                taken = {ref for ref, _ in rows}
+                rows += [
+                    (hero_ref(hero.slug), "it is unstoppable when attacking heroes")
+                    for hero in match.player(other).heroes_in_play
+                    if hero_ref(hero.slug) not in taken
+                    and self.may_be_attacked(match, attacker, hero_ref(hero.slug))
+                ]
             return tuple(rows)
         why = self._open_why(match, attacker)
         return tuple(
@@ -1693,6 +1832,10 @@ class RulesEngine:
         other = 2 if match.active == 1 else 1
         return not self.detected_by(match, other, attacker)
 
+    def _unstoppable_to_heroes(self, match: MatchState, attacker: str) -> bool:
+        body = self.body(match, match.active, attacker)
+        return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_ATTACKING_HEROES
+
     def _open_why(self, match: MatchState, attacker: str) -> str:
         """Why nothing in the patrol zone holds this attacker."""
         other = 2 if match.active == 1 else 1
@@ -1703,6 +1846,13 @@ class RulesEngine:
             return "it is unstoppable"
         if self._unstoppable_by_tech_0(match, attacker):
             return "it is unstoppable by tech 0 units"
+        body = self.body(match, match.active, attacker)
+        if isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_RUNED:
+            return "it is unstoppable by units with -1/-1 runes"
+        if self.is_demon(body) and any(
+            card.slug in effects.DEMONS_UNSTOPPABLE for card in match.active_player.play
+        ):
+            return "its Demons are unstoppable by units"
         if sneaking:
             return "it sneaks past the patrol zone"
         if self.has(match, match.active, attacker, "Flying"):
@@ -1883,9 +2033,11 @@ class RulesEngine:
         against it (Sirlin, 2016-03-14), and heroes are not units.
         """
         other = 2 if match.active == 1 else 1
+        # Indestructible units and units that can't leave play are
+        # skipped: the next lowest goes instead (the obliterate ruling).
         units = [
             card for card in match.player(other).play
-            if self.catalog.cards[card.slug].is_unit
+            if self.catalog.cards[card.slug].is_unit and self.may_be_destroyed(match, card)
         ]
         if not units:
             return ()
@@ -2062,6 +2214,23 @@ class RulesEngine:
                           if self.catalog.cards[card.slug].is_upgrade]
                 if player.workers > 0:
                     found.append((side, WORKERS))
+            elif choose == "timed":
+                # Time Spiral, Tinkerer, Seer: a card with a time rune, in
+                # play or in the future, any player's (their rulings).
+                found += [(side, card.ref) for card in player.play if card.time_runes > 0]
+                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                          if one.time_runes > 0]
+                found += [(side, future_ref(card)) for card in player.future if card.time_runes > 0]
+            elif choose == "own_sacrificable":
+                # Omegacron's cost: a unit, hero, worker or upgrade of yours
+                # -- never one that can't be sacrificed (UMR p. 17).
+                if side == seat:
+                    found += [(side, card.ref) for card in units if self.may_sacrifice(match, card)]
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play]
+                    if player.workers > 0:
+                        found.append((side, WORKERS))
+                    found += [(side, card.ref) for card in player.play
+                              if self.catalog.cards[card.slug].is_upgrade]
             elif choose == "empty_slot":
                 # Zane's shove: an empty slot of the shoved patroller's
                 # own zone -- the side the frame's first pick was on.
@@ -2178,6 +2347,8 @@ class RulesEngine:
                 # "This card can't be the target of spells or abilities"
                 # -- anybody's, its controller's included (UMR p. 18).
                 continue
+            if self._shielded_from(match, side, ref, frame):
+                continue
             resist = self.resist_cost(match, side, ref) if side != seat else 0
             if resist > gold:
                 continue
@@ -2190,6 +2361,18 @@ class RulesEngine:
         if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
             return tuple(row for row in rows if row.flagbearer)
         return tuple(TargetRow(row.key, row.seat, row.ref, row.resist, False) for row in rows)
+
+    def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
+        """Nullcraft: "Can't be the {target} of Buff or Debuff spells" --
+        a spell whose subtype says either (its ruling)."""
+        body = self.body(match, side, ref)
+        if not isinstance(body, CardInstance) or self.text_slug(body) not in effects.UNTARGETABLE_BY_BUFFS:
+            return False
+        spell = (frame or {}).get("spell")
+        card = self.catalog.cards.get(spell) if spell else None
+        if card is None or not card.is_spell:
+            return False
+        return any(word in effects.BUFF_SUBTYPES for word in (card.subtype or "").split())
 
     def damage_bonus(self, match: MatchState, frame: dict) -> int:
         """
@@ -2273,6 +2456,11 @@ class RulesEngine:
             for when, effect in effects.rows(self.text_slug(card) or ""):
                 if when == "ability":
                     found.append(self._ability(match, seat, card, card.ref, effect))
+        # The one ability used from the future: Omegacron's (step 12).
+        for card in player.future:
+            for when, effect in effects.rows(card.slug):
+                if when == "future_ability":
+                    found.append(self._ability(match, seat, card, future_ref(card), effect))
         return tuple(found)
 
     def _ability(self, match: MatchState, seat: int, body, source: str, effect: str) -> AbilityOption:
@@ -2339,6 +2527,14 @@ class RulesEngine:
         herself.
         """
         found = []
+        # A time rune off each fading card and hero, and off each card in
+        # the future (UMR p. 17; step 12): a card with none left from the
+        # start never fades.
+        found += [f"fade:{card.id}" for card in player.play
+                  if card.time_runes > 0 and self.fading(card)]
+        found += [f"fade_hero:{hero.slug}" for hero in player.heroes_in_play
+                  if hero.time_runes > 0 and self.fading(hero)]
+        found += [f"forecast:{card.id}" for card in player.future]
         add_on = player.add_on
         if add_on is not None and add_on.active and add_on.slug in effects.UPKEEP_DRAW:
             found.append("draw")
@@ -2559,6 +2755,15 @@ def parse_target(key: str) -> tuple[int, str]:
     if seat not in ("1", "2") or not ref:
         raise ValueError(f"not a target: {key!r}")
     return int(seat), ref
+
+
+#: How a card in the future is named (step 12): "future:<id>" -- not in
+#: play, so no `unit:` ref, and offered only to what reaches the future.
+FUTURE = "future:"
+
+
+def future_ref(card: CardInstance) -> str:
+    return f"{FUTURE}{card.id}"
 
 
 #: How a target names a side's workers, all alike: "2:workers".

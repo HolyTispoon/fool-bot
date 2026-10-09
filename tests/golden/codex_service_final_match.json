@@ -1783,6 +1783,7 @@
         "final_smash"
       ],
       "discards_at_main_end": false,
+      "future": [],
       "gold": 3,
       "hand": [],
       "heroes": [
@@ -1796,6 +1797,7 @@
             "8": 56
           },
           "damage": 0,
+          "disabled": false,
           "exhausted": false,
           "level": 8,
           "max_level_since_turn_began": true,
@@ -1806,6 +1808,7 @@
           "printed": null,
           "slug": "troq_bashar",
           "summoning_runes": 0,
+          "time_runes": 0,
           "zone": "play"
         }
       ],
@@ -1821,6 +1824,7 @@
           "attacked_this_turn": true,
           "controller": 1,
           "damage": 2,
+          "disabled": false,
           "exhausted": true,
           "flipped": false,
           "id": 36,
@@ -1833,7 +1837,8 @@
           "returns_to": null,
           "runes": {},
           "sequence": 53,
-          "slug": "hired_stomper"
+          "slug": "hired_stomper",
+          "time_runes": 0
         },
         {
           "armor": 0,
@@ -1843,6 +1848,7 @@
           "attacked_this_turn": true,
           "controller": 1,
           "damage": 4,
+          "disabled": false,
           "exhausted": true,
           "flipped": false,
           "id": 37,
@@ -1855,7 +1861,8 @@
           "returns_to": null,
           "runes": {},
           "sequence": 54,
-          "slug": "regularsized_rhinoceros"
+          "slug": "regularsized_rhinoceros",
+          "time_runes": 0
         },
         {
           "armor": 0,
@@ -1865,6 +1872,7 @@
           "attacked_this_turn": false,
           "controller": 1,
           "damage": 0,
+          "disabled": false,
           "exhausted": false,
           "flipped": false,
           "id": 40,
@@ -1877,7 +1885,8 @@
           "returns_to": null,
           "runes": {},
           "sequence": 59,
-          "slug": "granfalloon_flagbearer"
+          "slug": "granfalloon_flagbearer",
+          "time_runes": 0
         },
         {
           "armor": 0,
@@ -1887,6 +1896,7 @@
           "attacked_this_turn": false,
           "controller": 1,
           "damage": 0,
+          "disabled": false,
           "exhausted": false,
           "flipped": false,
           "id": 41,
@@ -1899,7 +1909,8 @@
           "returns_to": null,
           "runes": {},
           "sequence": 60,
-          "slug": "regularsized_rhinoceros"
+          "slug": "regularsized_rhinoceros",
+          "time_runes": 0
         }
       ],
       "reshuffled_this_phase": false,
@@ -1982,6 +1993,7 @@
         "backstabber"
       ],
       "discards_at_main_end": false,
+      "future": [],
       "gold": 16,
       "hand": [
         "maestro",
@@ -1998,6 +2010,7 @@
             "5": 50
           },
           "damage": 3,
+          "disabled": false,
           "exhausted": true,
           "level": 5,
           "max_level_since_turn_began": true,
@@ -2008,6 +2021,7 @@
           "printed": null,
           "slug": "river_montoya",
           "summoning_runes": 0,
+          "time_runes": 0,
           "zone": "play"
         }
       ],
@@ -3539,6 +3553,7 @@
             "the_boot"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 20,
           "hand": [
             "hired_stomper",
@@ -3552,6 +3567,7 @@
               "attacked_this_turn": false,
               "bands": {},
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "level": 1,
               "max_level_since_turn_began": false,
@@ -3562,6 +3578,7 @@
               "printed": null,
               "slug": "troq_bashar",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "command"
             }
           ],
@@ -3577,6 +3594,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 30,
@@ -3589,7 +3607,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 41,
-              "slug": "sneaky_pig"
+              "slug": "sneaky_pig",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,
@@ -3668,6 +3687,7 @@
             "cloud_sprite"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 12,
           "hand": [
             "backstabber",
@@ -3684,6 +3704,7 @@
                 "5": 50
               },
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "level": 5,
               "max_level_since_turn_began": false,
@@ -3694,6 +3715,7 @@
               "printed": null,
               "slug": "river_montoya",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "play"
             }
           ],
@@ -3709,6 +3731,7 @@
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
+              "disabled": false,
               "exhausted": true,
               "flipped": false,
               "id": 31,
@@ -3721,7 +3744,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 44,
-              "slug": "timely_messenger"
+              "slug": "timely_messenger",
+              "time_runes": 0
             },
             {
               "armor": 1,
@@ -3731,6 +3755,7 @@
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 34,
@@ -3743,7 +3768,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 48,
-              "slug": "leaping_lizard"
+              "slug": "leaping_lizard",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,
@@ -5350,6 +5376,7 @@
             "sneaky_pig"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 0,
           "hand": [
             "regularsized_rhinoceros",
@@ -5366,6 +5393,7 @@
                 "8": 56
               },
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "level": 8,
               "max_level_since_turn_began": false,
@@ -5376,6 +5404,7 @@
               "printed": null,
               "slug": "troq_bashar",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "play"
             }
           ],
@@ -5391,6 +5420,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 35,
@@ -5403,7 +5433,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 52,
-              "slug": "iron_man"
+              "slug": "iron_man",
+              "time_runes": 0
             },
             {
               "armor": 0,
@@ -5413,6 +5444,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 36,
@@ -5425,7 +5457,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 53,
-              "slug": "hired_stomper"
+              "slug": "hired_stomper",
+              "time_runes": 0
             },
             {
               "armor": 0,
@@ -5435,6 +5468,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 37,
@@ -5447,7 +5481,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 54,
-              "slug": "regularsized_rhinoceros"
+              "slug": "regularsized_rhinoceros",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,
@@ -5532,6 +5567,7 @@
             "two_step"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 20,
           "hand": [
             "backstabber",
@@ -5548,6 +5584,7 @@
                 "5": 50
               },
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "level": 5,
               "max_level_since_turn_began": true,
@@ -5558,6 +5595,7 @@
               "printed": null,
               "slug": "river_montoya",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "play"
             }
           ],
@@ -5573,6 +5611,7 @@
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 2,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 34,
@@ -5585,7 +5624,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 48,
-              "slug": "leaping_lizard"
+              "slug": "leaping_lizard",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,
@@ -7253,6 +7293,7 @@
             "final_smash"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 10,
           "hand": [
             "regularsized_rhinoceros",
@@ -7269,6 +7310,7 @@
                 "8": 56
               },
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "level": 8,
               "max_level_since_turn_began": true,
@@ -7279,6 +7321,7 @@
               "printed": null,
               "slug": "troq_bashar",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "play"
             }
           ],
@@ -7294,6 +7337,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 36,
@@ -7306,7 +7350,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 53,
-              "slug": "hired_stomper"
+              "slug": "hired_stomper",
+              "time_runes": 0
             },
             {
               "armor": 0,
@@ -7316,6 +7361,7 @@
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 37,
@@ -7328,7 +7374,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 54,
-              "slug": "regularsized_rhinoceros"
+              "slug": "regularsized_rhinoceros",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,
@@ -7409,6 +7456,7 @@
             "leaping_lizard"
           ],
           "discards_at_main_end": false,
+          "future": [],
           "gold": 16,
           "hand": [
             "maestro",
@@ -7425,6 +7473,7 @@
                 "5": 50
               },
               "damage": 3,
+              "disabled": false,
               "exhausted": true,
               "level": 5,
               "max_level_since_turn_began": true,
@@ -7435,6 +7484,7 @@
               "printed": null,
               "slug": "river_montoya",
               "summoning_runes": 0,
+              "time_runes": 0,
               "zone": "play"
             }
           ],
@@ -7450,6 +7500,7 @@
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 38,
@@ -7462,7 +7513,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 57,
-              "slug": "brick_thief"
+              "slug": "brick_thief",
+              "time_runes": 0
             },
             {
               "armor": 0,
@@ -7472,6 +7524,7 @@
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
+              "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 39,
@@ -7484,7 +7537,8 @@
               "returns_to": null,
               "runes": {},
               "sequence": 58,
-              "slug": "backstabber"
+              "slug": "backstabber",
+              "time_runes": 0
             }
           ],
           "reshuffled_this_phase": false,

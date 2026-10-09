@@ -69,6 +69,9 @@ def _handled(slug: str) -> list[str]:
         "UNIT_GRANTS", "HERO_GRANTS", "ATTACHED_UNIT_GRANTS",
         "UPKEEP_GOLD", "UPKEEP_GREEN_GOLD", "UPKEEP_CHOICE", "JOINS_THE_STRONGER",
         "RETURNS_IF_IDLE", "RETURNS_AT_END",
+        # Purple and black's (step 12).
+        "ATK_CEILING", "CANT_BE_SACRIFICED", "UNSTOPPABLE_BY_RUNED", "DEMONS_UNSTOPPABLE",
+        "UNSTOPPABLE_ATTACKING_HEROES", "UNTARGETABLE_BY_BUFFS", "INVISIBLE_COLOR",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -96,27 +99,25 @@ def _handled(slug: str) -> list[str]:
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
-    "abomination", "assimilate", "banefire_golem", "battle_suits", "blackhand_dozer",
+    "abomination", "assimilate", "banefire_golem", "blackhand_dozer",
     "blackhand_resurrector", "bone_collector", "carrion_curse", "chronofixer",
     "corpse_catapult", "crypt_crawler", "cursed_crow", "cursed_ghoul", "dark_pact",
     "death_and_decay", "death_rites", "deteriorate", "doom_grasp", "double_time",
-    "ebbflow_archon", "fading_argonaut", "forgotten_fighter", "gargoyle", "garth_torken",
-    "gilded_glaxx", "gorgon", "graveyard", "hardened_mox", "hive", "hooded_executioner",
-    "hyperion", "immortal", "jandra_the_negator", "knight_of_the_conclave",
-    "lichs_bargain", "lord_of_shadows", "max_geiger", "mech", "metamorphosis",
-    "nebula", "necromancer", "nether_drain", "now", "nullcraft", "octavian",
-    "omegacron", "origin_story", "orpal_gloor", "pestering_haunt", "plague_lab",
-    "plague_lord", "plague_spitter", "plasmodium", "poisonblade_rogue",
-    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
-    "research__development", "rewind", "sacrifice_the_weak", "second_chances", "seer",
-    "sentry", "shadow_blade", "shimmer_ray", "shrine_of_forbidden_knowledge",
+    "ebbflow_archon", "forgotten_fighter", "gargoyle", "garth_torken", "gilded_glaxx",
+    "gorgon", "graveyard", "hardened_mox", "hive", "hooded_executioner", "hyperion",
+    "jandra_the_negator", "lichs_bargain", "max_geiger", "metamorphosis", "nebula",
+    "necromancer", "nether_drain", "now", "octavian", "origin_story", "orpal_gloor",
+    "pestering_haunt", "plague_lab", "plague_lord", "plague_spitter",
+    "poisonblade_rogue", "promise_of_payment", "prynn_pasternaak", "ready_or_not",
+    "reaver", "rememberer", "research__development", "rewind", "sacrifice_the_weak",
+    "second_chances", "sentry", "shadow_blade", "shrine_of_forbidden_knowledge",
     "sickness", "skeletal_archery", "skeletal_lord", "skeleton_javelineer",
     "slowtime_generator", "soul_stone", "spreading_plague", "stewardess_of_the_undone",
-    "summon_skeletons", "temporal_distortion", "temporal_research",
-    "terras_q_the_shackled", "thieving_imp", "time_spiral", "tinkerer", "tricycloid",
-    "twilight_baron", "undo", "unphase", "vandy_anadrose", "vir_garbarean",
-    "void_star", "voidblocker", "vortoss_emblem", "warp_gate_disciple", "wight",
-    "xenostalker", "yesterdays_golgort", "zarramonde_the_obliterator",
+    "summon_skeletons", "temporal_distortion", "terras_q_the_shackled", "thieving_imp",
+    "tricycloid", "twilight_baron", "undo", "unphase", "vandy_anadrose",
+    "vir_garbarean", "void_star", "voidblocker", "vortoss_emblem",
+    "warp_gate_disciple", "xenostalker", "yesterdays_golgort",
+    "zarramonde_the_obliterator"
 })
 
 

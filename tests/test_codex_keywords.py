@@ -25,7 +25,7 @@ from contextlib import contextmanager
 from unittest import mock
 
 from codex import keywords, rulings
-from codex.components import AddOnState, CardInstance, is_hero_ref
+from codex.components import AddOnState, CardInstance, hero_ref, is_hero_ref
 from codex.flow import StepResult, actions, board, combat, driver, turn
 from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt
@@ -68,6 +68,14 @@ STEP_11_KEYWORDS = {
     "Boost X": 3,
     "Channelling": 1,
     "Limit: X": 4,
+}
+
+#: The keywords purple and black bring (step 12), and how many `General`
+#: rulings each carried at the pinned import.
+STEP_12_KEYWORDS = {
+    "Fading X": 3,
+    "Forecast X": 3,
+    "Indestructible": 4,
 }
 
 
@@ -1543,6 +1551,346 @@ class ConditionedKeywordTests(KeywordCase):
         self.assertIsNotNone(match.player(2).instance(theirs.id))
 
 
+# -- Purple and black's keywords (step 12) ----------------------------------------
+
+PURPLE_BLACK = (("past", "present", "future"), ("demonology", "disease", "necromancy"))
+
+
+def purple_black(seed: int = 7):
+    """A standard game of three purple heroes (seat 1) against three
+    black, standing in seat 1's main phase."""
+    return fresh(seed=seed, teams=PURPLE_BLACK)
+
+
+def apply_ok(engine, game, match, kind, choice="", **arguments):
+    run = driver.apply(engine, game, match, Action(kind, choice, arguments))
+    assert not isinstance(run, driver.Refusal), run
+    return run
+
+
+def next_upkeep(engine, game, match, seat: int) -> None:
+    """Run turns -- nothing played, nothing patrolling -- until `seat`'s
+    main phase opens again."""
+    for _ in range(6):
+        if match.active == seat and match.phase == "main" and not match.resolving:
+            return
+        prompt = pending_prompt(engine, game, match)
+        if prompt is None:
+            begin(engine, game, match)
+            continue
+        if prompt.kind is PromptKind.MAIN_ACTION:
+            apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        elif prompt.kind is PromptKind.PATROL:
+            apply_ok(engine, game, match, PromptKind.PATROL, assignment={})
+        elif prompt.kind is PromptKind.TECH_CHOICE:
+            apply_ok(engine, game, match, PromptKind.TECH_CHOICE,
+                     player=prompt.asked_player, picks=list(_picks(prompt.options)))
+        elif prompt.kind is PromptKind.TECH_CONFIRM:
+            apply_ok(engine, game, match, PromptKind.TECH_CONFIRM, "confirm",
+                     player=prompt.asked_player)
+        else:
+            raise AssertionError(prompt.kind)
+        begin(engine, game, match)
+        for standing in __import__("codex.prompts", fromlist=["standing_prompts"]).standing_prompts(
+            engine, match, game,
+        ):
+            if match.player(standing.asked_player).tech_choice is None:
+                apply_ok(engine, game, match, PromptKind.TECH_CHOICE,
+                         player=standing.asked_player, picks=list(_picks(standing.options)))
+    raise AssertionError("the turn did not come round")
+
+
+def _picks(options):
+    picks = []
+    for slug, count in options.codex:
+        for _ in range(count):
+            if len(picks) < options.minimum:
+                picks.append(slug)
+    return picks
+
+
+class FadingTests(KeywordCase):
+    def test_fading_x_1(self) -> None:
+        """If you remove the last time rune for some other reason than the
+        fading ability, such as from Time Spiral, Seer, or Tinkerer, you
+        still must sacrifice the fading thing."""
+        engine, game, match = purple_black()
+        argonaut = put(match, 1, "fading_argonaut")
+        argonaut.time_runes = 1
+        match.player(1).hand = ["time_spiral"]
+        match.player(1).gold = 5
+        hero_in_play(match, 1)
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="time_spiral")
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.MODE_CHOICE)
+        apply_ok(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        self.assertIsNone(match.player(1).instance(argonaut.id))
+        self.assertIn("fading_argonaut", match.player(1).discard)
+
+    def test_fading_x_2(self) -> None:
+        """If you somehow have something with fading in play with 0 time
+        runes (probably because you made a copy of something if fading),
+        it won't die from fading anymore."""
+        engine, game, match = purple_black()
+        argonaut = put(match, 1, "fading_argonaut")
+        self.assertEqual(argonaut.time_runes, 0)
+        self.assertNotIn(f"fade:{argonaut.id}", engine.upkeep_effects(match.player(1)))
+        next_upkeep(engine, game, match, 1)
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertIsNotNone(match.player(1).instance(argonaut.id))
+
+    def test_fading_x_3(self) -> None:
+        """X is not a limit to the number of time runes you can have on
+        that card. For example, you can play Shimmer Ray and discard 4
+        cards so that it has 6 time runes; you're not limited to 2 total."""
+        engine, game, match = purple_black()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        match.player(1).tech2_spec = "past"
+        match.player(1).gold = 5
+        match.player(1).hand = ["shimmer_ray", "neo_plexus", "neo_plexus", "neo_plexus", "neo_plexus"]
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="shimmer_ray")
+        ray = next(card for card in match.player(1).play if card.slug == "shimmer_ray")
+        self.assertEqual(ray.time_runes, 2)
+        for _ in range(4):
+            apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                     ability="shimmer_ray", source=ray.ref)
+        self.assertEqual(ray.time_runes, 6)
+        self.assertEqual(match.player(1).hand, [])
+
+    def test_fading_counts_down_at_its_controllers_upkeep(self) -> None:
+        """Fading X (UMR p. 17): a rune off at each of its controller's
+        upkeeps, sacrificed as the last goes."""
+        engine, game, match = purple_black()
+        built(match, 1, "tech1")
+        match.player(1).gold = 5
+        match.player(1).hand = ["fading_argonaut"]
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="fading_argonaut")
+        argonaut = match.player(1).play[-1]
+        self.assertEqual(argonaut.time_runes, 3)
+        next_upkeep(engine, game, match, 2)
+        self.assertEqual(argonaut.time_runes, 3, "not at the opponent's upkeep")
+        for left in (2, 1):
+            next_upkeep(engine, game, match, 1)
+            self.assertEqual(argonaut.time_runes, left)
+            next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertIsNone(match.player(1).instance(argonaut.id))
+
+
+class ForecastTests(KeywordCase):
+    def test_forecast_x_1(self) -> None:
+        """When it would come into play from something other than
+        forecast, instead it goes to the "future" zone and gets time
+        runes."""
+        engine, game, match = purple_black()
+        result = StepResult()
+        self.assertIsNone(board.put_into_play(engine, match, "plasmodium", 1, from_hand=False))
+        future = match.player(1).future
+        self.assertEqual([(card.slug, card.time_runes) for card in future], [("plasmodium", 3)])
+        self.assertFalse(any(card.slug == "plasmodium" for card in match.player(1).play))
+        del result
+
+    def test_forecast_x_2(self) -> None:
+        """To play a forecasted thing from your hand, you must meet the
+        requirements to play it, like any card. You do NOT need to meet
+        any requirements when it later arrives / resolves. For example,
+        playing a forecasted Future tech II unit requires a Future tech II
+        building, then the forecasted unit goes to the future, and if your
+        Future tech II building is destroyed before the time runes are all
+        removed, that's fine, the Future tech II unit will still arrive
+        when the last time rune is removed."""
+        engine, game, match = purple_black()
+        player = match.player(1)
+        player.gold = 10
+        player.hand = ["reaver"]
+        self.assertIn("Tech II", engine.why_not_playable(player, "reaver"))
+        built(match, 1, "tech1")
+        tech2 = built(match, 1, "tech2")
+        player.tech2_spec = "future"
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="reaver")
+        self.assertEqual([card.slug for card in player.future], ["reaver"])
+        self.assertEqual(player.gold, 10 - 3)
+        tech2.destroyed = True
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertEqual(player.future[0].time_runes, 1)
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertEqual(player.future, [])
+        reaver = next(card for card in player.play if card.slug == "reaver")
+        self.assertTrue(reaver.arrived_this_turn, "it arrives with arrival fatigue")
+
+    def test_forecast_x_3(self) -> None:
+        """Forecasted units do not go to Jail."""
+        # Jail is the Flagstone Dominion's (step 13): what this pins today
+        # is the ground the ruling stands on -- a card in the future is not
+        # in play, so nothing in play reaches it.
+        engine, game, match = purple_black()
+        board.to_future(engine, match, "plasmodium", 2)
+        card = match.player(2).future[0]
+        self.assertIsNone(engine.body(match, 2, f"future:{card.id}"))
+        self.assertNotIn(card, list(match.instances()))
+        self.assertFalse(engine.legal_defenders(match, put(match, 1, "neo_plexus").ref).count(
+            f"future:{card.id}"))
+
+    def test_a_forecast_unit_arrives_with_its_trigger(self) -> None:
+        """Forecast X (UMR p. 17): "Forecast cards resolve arrival effects
+        and have arrival fatigue on the turn they arrive from the future" --
+        Plasmodium's haste lets it attack at once."""
+        engine, game, match = purple_black()
+        player = match.player(1)
+        player.gold = 5
+        player.hand = ["plasmodium"]
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="plasmodium")
+        self.assertEqual(player.future[0].time_runes, 3)
+        for _ in range(3):
+            next_upkeep(engine, game, match, 2)
+            next_upkeep(engine, game, match, 1)
+        plasmodium = next(card for card in player.play if card.slug == "plasmodium")
+        self.assertIn(plasmodium.ref, engine.attackers(match))
+
+
+class IndestructibleTests(KeywordCase):
+    def test_indestructible_1(self) -> None:
+        """If an indestructible thing has 0 HP because of having -1/-1
+        runes, it will remain exhausted forever. If it gets any damage or
+        attachments in this state, immediately remove the damage and/or
+        attachments."""
+        engine, game, match = purple_black()
+        mox = put(match, 1, "hardened_mox")
+        mox.minus_runes = 1
+        result = StepResult()
+        board.settle(engine, match, result)
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+        self.assertTrue(mox.exhausted)
+        mox.damage = 2
+        board.settle(engine, match, result)
+        self.assertEqual(mox.damage, 0)
+        next_upkeep(engine, game, match, 2)
+        next_upkeep(engine, game, match, 1)
+        self.assertTrue(mox.exhausted, "it never readies at 0 HP")
+
+    def test_indestructible_2(self) -> None:
+        """Attachments are cards that attach to a unit or hero, like
+        "Spirit of the Panda" or "Entangling Vines". Runes and other
+        ongoing spells or effects are not attachments."""
+        engine, game, match = purple_black()
+        immortal = put(match, 2, "immortal")
+        immortal.plus_runes = 1
+        panda = put(match, 1, "spirit_of_the_panda")
+        panda.attached = [immortal.id]
+        board.destroy(engine, match, [(2, immortal.ref)], StepResult())
+        self.assertIsNotNone(match.player(2).instance(immortal.id))
+        self.assertIsNone(match.player(1).instance(panda.id))
+        self.assertIn("spirit_of_the_panda", match.player(1).discard)
+        self.assertEqual(immortal.plus_runes, 1, "a rune is not an attachment")
+
+    def test_indestructible_3(self) -> None:
+        """Even if it has -1/-1 runes that were from something that "dealt
+        combat damage in the form of -1/-1 runes," you still don't remove
+        them when the indestructible thing would die."""
+        engine, game, match = purple_black()
+        immortal = put(match, 2, "immortal", damage=4)
+        immortal.minus_runes = 1
+        board.settle(engine, match, StepResult())
+        self.assertIsNotNone(match.player(2).instance(immortal.id))
+        self.assertEqual((immortal.damage, immortal.minus_runes), (0, 1))
+        self.assertTrue(immortal.exhausted)
+
+    def test_indestructible_4(self) -> None:
+        """Some effects like Obliterate, Sacrifice the Weak, and Death Rites
+        ask a player to destroy or sacrifice the unit that is the least
+        according to some ordering. These effects skip units with
+        Indestructible and units that cannot leave play."""
+        engine, game, match = purple_black()
+        put(match, 2, "hardened_mox")
+        plexus = put(match, 2, "neo_plexus")
+        self.assertEqual(engine.obliterate_candidates(match), (plexus.ref,))
+
+    def test_an_indestructible_unit_cant_be_sacrificed(self) -> None:
+        engine, game, match = purple_black()
+        mox = put(match, 1, "hardened_mox")
+        self.assertFalse(engine.may_sacrifice(match, mox))
+        board.sacrifice(engine, match, mox)
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+
+
+class PurpleBlackStaticKeywordTests(KeywordCase):
+    def test_pestering_haunt_is_unstoppable_cant_patrol_and_has_1_atk(self) -> None:
+        engine, game, match = purple_black()
+        haunt = put(match, 1, "pestering_haunt")
+        guard = put(match, 2, "neo_plexus", patrol="squad_leader")
+        self.assertIn("base", engine.legal_defenders(match, haunt.ref))
+        self.assertNotIn(haunt.ref, engine.patrol_candidates(match))
+        haunt.plus_runes = 3
+        self.assertEqual(engine.unit_stats(haunt, match)[0], 1)
+        self.assertEqual(engine.attack_value(match, 1, haunt.ref), 1)
+        del guard
+
+    def test_wight_is_unstoppable_and_deathtouch_against_heroes(self) -> None:
+        engine, game, match = purple_black()
+        match.active = 2
+        wight = put(match, 2, "wight")
+        put(match, 1, "argonaut", patrol="squad_leader")
+        hero_in_play(match, 1, level=1)
+        hero = hero_ref("prynn_pasternaak")
+        defenders = engine.legal_defenders(match, wight.ref)
+        self.assertIn(hero, defenders)
+        self.assertNotIn("base", defenders)
+        match.player(1).hero.level = 7
+        self.attack(engine, game, match, wight.ref, hero)
+        self.assertFalse(match.player(1).hero.in_play, "4 damage on a 3/5 hero, and deathtouch")
+
+    def test_cursed_ghoul_ignores_patrolling_units_with_runes(self) -> None:
+        engine, game, match = purple_black()
+        match.active = 2
+        ghoul = put(match, 2, "cursed_ghoul")
+        leader = put(match, 1, "argonaut", patrol="squad_leader")
+        self.assertEqual(engine.legal_defenders(match, ghoul.ref), (leader.ref,))
+        leader.minus_runes = 1
+        self.assertIn("base", engine.legal_defenders(match, ghoul.ref))
+
+    def test_shrines_demons_are_unstoppable_by_units(self) -> None:
+        engine, game, match = purple_black()
+        match.active = 2
+        put(match, 2, "shrine_of_forbidden_knowledge")
+        baron = put(match, 2, "twilight_baron")
+        put(match, 1, "argonaut", patrol="squad_leader")
+        self.assertIn("base", engine.legal_defenders(match, baron.ref))
+        hero_in_play(match, 1, patrol="squad_leader")
+        match.player(1).play[-1].patrol_slot = None
+        self.assertEqual(engine.legal_defenders(match, baron.ref), (hero_ref("prynn_pasternaak"),))
+
+    def test_nullcraft_is_not_the_target_of_buff_or_debuff_spells(self) -> None:
+        """Nullcraft: "Can't be the {target} of Buff or Debuff spells." """
+        engine, game, match = purple_black()
+        craft = put(match, 2, "nullcraft")
+        plain = put(match, 2, "neo_plexus")
+        from codex import effects
+
+        wither = effects.EFFECTS["wither"].parts[0]
+        rows = {row.ref for row in engine.target_rows(match, 1, wither, frame={"spell": "spark"})}
+        self.assertIn(craft.ref, rows, "Spark is a Burn spell, neither Buff nor Debuff")
+        rows = {row.ref for row in engine.target_rows(match, 1, wither, frame={"spell": "deteriorate"})}
+        self.assertNotIn(craft.ref, rows)
+        self.assertIn(plain.ref, rows)
+
+    def test_battle_suits_and_lord_of_shadows(self) -> None:
+        engine, game, match = purple_black()
+        put(match, 1, "battle_suits")
+        argonaut = put(match, 1, "argonaut")
+        plexus = put(match, 1, "neo_plexus")
+        self.assertEqual(engine.unit_stats(argonaut, match)[0], 4)
+        self.assertEqual(engine.unit_stats(plexus, match)[0], 3)
+        lord = put(match, 2, "lord_of_shadows")
+        imp = put(match, 2, "thieving_imp")
+        self.assertTrue(engine.has_keyword(lord, "Invisible", match))
+        self.assertTrue(engine.has_keyword(imp, "Invisible", match))
+        self.assertFalse(engine.has_keyword(argonaut, "Invisible", match))
+
+
 class EveryRulingIsPinnedTests(unittest.TestCase):
     """
     The ratchet: every `General` ruling on a keyword this step implements
@@ -1565,7 +1913,7 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
 
     def test_every_ruling_has_a_test(self) -> None:
         found = self._collect()
-        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS}.items():
+        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS, **STEP_12_KEYWORDS}.items():
             slug = rulings.keyword_slug(keyword)
             with self.subTest(keyword=keyword):
                 self.assertEqual(
@@ -1577,7 +1925,7 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
 
     def test_each_test_says_the_ruling_it_pins(self) -> None:
         found = self._collect()
-        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS}.items():
+        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS, **STEP_12_KEYWORDS}.items():
             slug = rulings.keyword_slug(keyword)
             for number, ruling in enumerate(rulings.keyword_rulings(keyword), start=1):
                 with self.subTest(keyword=keyword, ruling=number):

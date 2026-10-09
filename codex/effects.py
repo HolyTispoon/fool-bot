@@ -170,27 +170,25 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 #: them. Argonaut's readiness, the Stinger's flying and the Horror's
 #: deathtouch are read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
-    "abomination", "assimilate", "banefire_golem", "battle_suits", "blackhand_dozer",
+    "abomination", "assimilate", "banefire_golem", "blackhand_dozer",
     "blackhand_resurrector", "bone_collector", "carrion_curse", "chronofixer",
     "corpse_catapult", "crypt_crawler", "cursed_crow", "cursed_ghoul", "dark_pact",
     "death_and_decay", "death_rites", "deteriorate", "doom_grasp", "double_time",
-    "ebbflow_archon", "fading_argonaut", "forgotten_fighter", "gargoyle",
-    "garth_torken", "gilded_glaxx", "gorgon", "graveyard", "hardened_mox", "hive",
-    "hooded_executioner", "hyperion", "immortal", "jandra_the_negator",
-    "knight_of_the_conclave", "lichs_bargain", "lord_of_shadows", "max_geiger", "mech",
-    "metamorphosis", "nebula", "necromancer", "nether_drain", "now", "nullcraft",
-    "octavian", "omegacron", "origin_story", "orpal_gloor", "pestering_haunt",
-    "plague_lab", "plague_lord", "plague_spitter", "plasmodium", "poisonblade_rogue",
-    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
-    "research__development", "rewind", "sacrifice_the_weak", "second_chances", "seer",
-    "sentry", "shadow_blade", "shimmer_ray", "shrine_of_forbidden_knowledge",
+    "ebbflow_archon", "forgotten_fighter", "gargoyle", "garth_torken", "gilded_glaxx",
+    "gorgon", "graveyard", "hardened_mox", "hive", "hooded_executioner", "hyperion",
+    "jandra_the_negator", "lichs_bargain", "max_geiger", "metamorphosis", "nebula",
+    "necromancer", "nether_drain", "now", "octavian", "origin_story", "orpal_gloor",
+    "pestering_haunt", "plague_lab", "plague_lord", "plague_spitter",
+    "poisonblade_rogue", "promise_of_payment", "prynn_pasternaak", "ready_or_not",
+    "reaver", "rememberer", "research__development", "rewind", "sacrifice_the_weak",
+    "second_chances", "sentry", "shadow_blade", "shrine_of_forbidden_knowledge",
     "sickness", "skeletal_archery", "skeletal_lord", "skeleton_javelineer",
     "slowtime_generator", "soul_stone", "spreading_plague", "stewardess_of_the_undone",
-    "summon_skeletons", "temporal_distortion", "temporal_research",
-    "terras_q_the_shackled", "thieving_imp", "time_spiral", "tinkerer", "tricycloid",
-    "twilight_baron", "undo", "unphase", "vandy_anadrose", "vir_garbarean",
-    "void_star", "voidblocker", "vortoss_emblem", "warp_gate_disciple", "wight",
-    "xenostalker", "yesterdays_golgort", "zarramonde_the_obliterator"
+    "summon_skeletons", "temporal_distortion", "terras_q_the_shackled", "thieving_imp",
+    "tricycloid", "twilight_baron", "undo", "unphase", "vandy_anadrose",
+    "vir_garbarean", "void_star", "voidblocker", "vortoss_emblem",
+    "warp_gate_disciple", "xenostalker", "yesterdays_golgort",
+    "zarramonde_the_obliterator"
 })
 
 
@@ -225,6 +223,11 @@ class Part:
       that belong to one mode.
     - `when="boosted"`: a part done only where the card was boosted.
     - `token`: the token a summoning part makes.
+
+    Step 12 added `follows`: a part that acts on what an earlier part of
+    the same frame chose -- Time Spiral's add or remove, Omegacron's rune
+    -- and so is done only where something was chosen, and never makes
+    a spell playable by itself.
     """
 
     does: str
@@ -239,6 +242,7 @@ class Part:
     modes: tuple = ()
     when: Optional[str] = None
     token: Optional[str] = None
+    follows: bool = False
 
 
 @dataclass(frozen=True)
@@ -663,6 +667,65 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # the Ferns, War Drums, and the upgrade Hotter Fire's.
     _effect("behind_the_ferns"),
     _effect("war_drums"),
+
+    # -- Purple and black: time (step 12) ----------------------------------
+    # Time Spiral: "Add or remove a time rune from a card (or forcasted
+    # card) with at least one time rune." -- any player's (its ruling), no
+    # {target}. The card first, then which.
+    _effect(
+        "time_spiral",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+        says="add or remove a time rune",
+    ),
+    # Tinkerer: "{exhaust} -> Add or remove a time rune from a card (or
+    # forcasted card) with at least one time rune."
+    _effect(
+        "tinkerer",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+        says="add or remove a time rune",
+    ),
+    # Seer: "Arrives: You may add or remove a time rune from a card (or
+    # forcasted card) with at least one time rune."
+    _effect(
+        "seer",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False, least=0),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+    ),
+    # Shimmer Ray: "Discard a card -> Add a time rune to this." -- in the
+    # main phase alone (its ruling): an ability action.
+    _effect(
+        "shimmer_ray",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("time_rune_self", None, 1, targeted=False),
+        says="add a time rune to it",
+    ),
+    # Omegacron: "Sacrifice a unit, hero, worker, or upgrade -> Remove a
+    # time rune from Omegacron while it's forecasted." -- the one ability
+    # used from the future.
+    _effect(
+        "omegacron",
+        Part("sacrifice", "own_sacrificable", 0, "sacrifice a unit, hero, worker or upgrade",
+             targeted=False),
+        Part("time_rune_self", None, -1, targeted=False, follows=True),
+        says="remove a time rune from it",
+    ),
+    # Temporal Research: "Draw a card. If you have 3 or more time runes,
+    # draw another card. If you have 10 or more time runes, draw another
+    # card." -- every time rune on what its caster controls, the future
+    # included (its rulings).
+    _effect(
+        "temporal_research",
+        Part("draw", None, 1, targeted=False),
+        Part("research", None, 0, targeted=False),
+    ),
 )}
 
 
@@ -761,6 +824,14 @@ TEXT: dict = {
     ("argagarg_garg", 5): (("max_level", "argagarg_garg_max"),),
     ("calamandra_moss", 1): (("ability", "calamandra_moss"),),
     ("calamandra_moss", 5): (("ability", "calamandra_moss_max"),),
+    # Purple and black (step 12). `future_ability` is an ability used
+    # while the card is in the future: Omegacron's alone.
+    "time_spiral": (("play", "time_spiral"),),
+    "tinkerer": (("ability", "tinkerer"),),
+    "seer": (("arrives", "seer"),),
+    "shimmer_ray": (("ability", "shimmer_ray"),),
+    "omegacron": (("future_ability", "omegacron"),),
+    "temporal_research": (("play", "temporal_research"),),
 }
 
 #: What each ability action costs (`Cost`), by its effect.
@@ -788,6 +859,10 @@ COSTS: dict[str, Cost] = {
     "argagarg_garg": Cost(exhaust=True),
     "calamandra_moss": Cost(discard=2),
     "calamandra_moss_max": Cost(gold=4, exhaust=True),
+    # Purple and black (step 12).
+    "tinkerer": Cost(exhaust=True),
+    "shimmer_ray": Cost(discard=1),
+    "omegacron": Cost(),
 }
 
 
@@ -1032,3 +1107,39 @@ RETURNS_AT_END = frozenset({"chameleon_lizzo"})
 POLYMORPH_INTO = "squirrel"
 #: The attacks lines an attached spell gives what it is on.
 ATTACHED_ATTACKS = {"spirit_of_the_panda": "panda_gold", "final_showdown": "showdown_draw"}
+
+# -- Purple and black's static texts (step 12) --------------------------------
+
+#: "Can't have more than 1 ATK." -- Pestering Haunt, after everything
+#: else is added.
+ATK_CEILING = {"pestering_haunt": 1}
+#: "Can't be sacrificed." -- ignored completely when choosing what to
+#: sacrifice (its ruling); an indestructible card can't be either (UMR
+#: p. 17), which the engine reads off the keyword.
+CANT_BE_SACRIFICED = frozenset({"pestering_haunt"})
+#: Cursed Ghoul: "Unstoppable by units with -1/-1 runes."
+UNSTOPPABLE_BY_RUNED = frozenset({"cursed_ghoul"})
+#: Shrine of Forbidden Knowledge: "Your Demons are unstoppable by units."
+DEMONS_UNSTOPPABLE = frozenset({"shrine_of_forbidden_knowledge"})
+DEMON = "Demon"
+#: Wight: "Unstoppable when attacking heroes. Deathtouch when attacking
+#: heroes." -- it may ignore the patrol zone to attack a hero, and its
+#: combat damage to the hero it attacks is deathtouch.
+UNSTOPPABLE_ATTACKING_HEROES = frozenset({"wight"})
+WHEN_ATTACKING_HEROES = {"wight": ("Deathtouch",)}
+#: Nullcraft: "Can't be the {target} of Buff or Debuff spells." -- a
+#: spell whose subtype says Buff or Debuff, or both (its ruling).
+UNTARGETABLE_BY_BUFFS = frozenset({"nullcraft"})
+BUFF_SUBTYPES = ("Buff", "Debuff")
+#: Battle Suits: "Your non-token Soldiers and Mystics get +1 ATK." -- the
+#: subtypes it reads.
+SUITED = ("Soldier", "Mystic")
+#: Lord of Shadows: "Your black units are invisible." -- himself included
+#: (his ruling).
+INVISIBLE_COLOR = {"lord_of_shadows": "black"}
+UNIT_GRANTS.update({
+    "battle_suits": "battle_suits",
+    "lord_of_shadows": "black_invisible",
+})
+#: Pestering Haunt's "can't patrol" beside red and green's.
+CANT_PATROL = CANT_PATROL | {"pestering_haunt"}

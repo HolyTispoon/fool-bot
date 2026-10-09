@@ -142,11 +142,11 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         player.tech_owed = False
         player.tech_confirmed = False
     for card in player.play:
-        card.exhausted = False
+        card.exhausted = _stays_exhausted(engine, match, card)
         card.arrived_this_turn = False
         card.patrol_slot = None
     for hero in player.heroes:
-        hero.exhausted = False
+        hero.exhausted = _stays_exhausted(engine, match, hero)
         hero.arrived_this_turn = False
         hero.patrol_slot = None
     player.hired_this_turn = False
@@ -205,6 +205,21 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # death's target, the order itself -- stands where a restart finds it.
     match.resolving.append(upkeep_frame(engine, match, seat))
     return carry_on_upkeep(engine, game, match, result)
+
+
+def _stays_exhausted(engine: "RulesEngine", match: MatchState, body) -> bool:
+    """
+    Whether the ready phase leaves `body` exhausted (step 12): disabled --
+    "it doesn't ready during its next ready step" (UMR p. 16), which this
+    ready phase uses up -- or indestructible at 0 HP from its runes,
+    "exhausted forever" (the indestructible ruling).
+    """
+    if body.disabled:
+        body.disabled = False
+        return True
+    if engine.indestructible(match, body) and engine.body_stats(match, body)[1] <= 0:
+        return True
+    return False
 
 
 def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
@@ -345,7 +360,9 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
 
     player = match.player(seat)
     kind, _, ident = name.partition(":")
-    if kind == "draw":
+    if kind in ("fade", "fade_hero", "forecast"):
+        _lose_time_rune(engine, match, seat, kind, ident, result)
+    elif kind == "draw":
         if draw_cards(engine, match, seat, 1, result):
             result.narration.append(
                 f"{tokens.player(seat)} draws a card from their {tokens.card('surplus')}."
@@ -398,6 +415,26 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         if card is not None:
             _dothram(engine, match, card, result)
     board.settle(engine, match, result)
+
+
+def _lose_time_rune(engine: "RulesEngine", match: MatchState, seat: int, kind: str,
+                    ident: str, result: StepResult) -> None:
+    """The upkeep's time rune off a fading card or hero, or a card in the
+    future (UMR p. 17): the last one sacrifices the fading thing -- "from
+    fading", which Prynn reads -- or brings the forecast card in."""
+    from codex.components import hero_ref
+    from codex.engine import FUTURE
+    from codex.flow import board
+
+    ref = {"fade": f"unit:{ident}", "fade_hero": hero_ref(ident), "forecast": f"{FUTURE}{ident}"}[kind]
+    thing = board.timed(match, seat, ref)
+    if thing is None or thing.time_runes <= 0:
+        return
+    left = thing.time_runes - 1
+    if left:
+        what = board.named(match, seat, ref, whose=False)
+        result.narration.append(f"{what} loses a time rune: {left} left.")
+    board.remove_time_rune(engine, match, seat, ref, result, by_fading=kind != "forecast")
 
 
 def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult) -> None:

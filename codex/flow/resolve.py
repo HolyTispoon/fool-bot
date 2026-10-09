@@ -165,10 +165,13 @@ def damage_amount(engine: "RulesEngine", match: MatchState, top: dict, amount: i
 
 def _applies(part, top: dict) -> bool:
     """Whether the frame does `part` at all: a part of one mode only in
-    that mode or both, a boosted part only where it was boosted."""
+    that mode or both, a boosted part only where it was boosted, and a
+    part that follows an earlier pick only where one was made (step 12)."""
     if part.only is not None and top.get("mode") not in (part.only, "both"):
         return False
     if part.when == "boosted" and not top.get("boosted"):
+        return False
+    if part.follows and not top.get("chose"):
         return False
     return True
 
@@ -377,6 +380,7 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
         top["flagbearer"] = True
     top["taken"].append(row.key)
     top.setdefault("picks", []).append(row.key)
+    top["chose"] = True
     if part.does != "divide":
         DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
@@ -865,11 +869,20 @@ def _from_hand(engine, match, top, target, result):
         return None
     player.hand.remove(slug)
     card = board.put_into_play(engine, match, slug, seat, from_hand=True)
-    atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s hand into play: {atk}/{hp}."
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s hand into play"
+        + _arrived(engine, match, card, slug)
     )
     return card
+
+
+def _arrived(engine, match, card, slug: str) -> str:
+    """The end of a line that puts a card into play: its numbers, or --
+    a forecast card -- that it went into the future instead (step 12)."""
+    if card is None:
+        return f", which goes into the future with {engine.forecast(slug)} time runes."
+    atk, hp = engine.unit_stats(card, match)
+    return f": {atk}/{hp}."
 
 
 def _put_into_play(engine, match, top, part, target, result) -> None:
@@ -888,9 +901,9 @@ def _put_into_play(engine, match, top, part, target, result) -> None:
         return
     player.codex[slug] -= 1
     card = board.put_into_play(engine, match, slug, seat, from_hand=False)
-    atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s codex into play: {atk}/{hp}."
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s codex into play"
+        + _arrived(engine, match, card, slug)
     )
 
 
@@ -920,7 +933,8 @@ def _discard(engine, match, top, part, target, result) -> None:
     player.hand.remove(slug)
     player.discard.append(slug)
     if len(top.get("picks") or []) == part.most:
-        result.narration.append(f"{tokens.player(seat)} discards {part.most} cards for {top['by']}.")
+        what = "a card" if part.most == 1 else f"{part.most} cards"
+        result.narration.append(f"{tokens.player(seat)} discards {what} for {top['by']}.")
 
 
 def _token(engine, match, top, part, target, result) -> None:
@@ -1231,6 +1245,94 @@ def _damage_shoved(engine, match, top, part, target, result) -> None:
         board.kill_bonus(engine, match, top["seat"], top.get("origin"), slot, result)
 
 
+# -- Purple and black's handlers (step 12) --------------------------------------
+
+
+def _time_target(engine, match, top, part, target, result) -> None:
+    """Time Spiral, Tinkerer, Seer: the card whose time runes change,
+    kept for the part that adds or removes one."""
+    top["time_target"] = target_key(*target)
+
+
+def _time_rune(engine, match, top, part, target, result) -> None:
+    """A time rune added to or removed from the card chosen: one in the
+    future arriving, a fading card sacrificed, as its last goes."""
+    key = top.get("time_target")
+    if key is None:
+        return
+    seat, ref = parse_target(key)
+    thing = board.timed(match, seat, ref)
+    if thing is None:
+        return
+    named = board.named(match, seat, ref)
+    if top.get("mode") == "add":
+        board.add_time_rune(thing)
+        result.narration.append(f"{top['by']} adds a time rune to {named}: {thing.time_runes}.")
+        return
+    result.narration.append(
+        f"{top['by']} removes a time rune from {named}: {max(thing.time_runes - 1, 0)}."
+    )
+    board.remove_time_rune(engine, match, seat, ref, result)
+
+
+def _time_rune_self(engine, match, top, part, target, result) -> None:
+    """A time rune onto the card the ability is on (Shimmer Ray), or off
+    it (Omegacron, from the future): `part.amount` says which."""
+    seat, source = top["seat"], top.get("source")
+    thing = board.timed(match, seat, source) if source else None
+    if thing is None:
+        return
+    if part.amount > 0:
+        board.add_time_rune(thing, part.amount)
+        result.narration.append(f"{top['by']} gets a time rune: {thing.time_runes}.")
+        return
+    result.narration.append(f"{top['by']} loses a time rune: {max(thing.time_runes - 1, 0)} left.")
+    board.remove_time_rune(engine, match, seat, source, result)
+
+
+def _sacrifice(engine, match, top, part, target, result) -> None:
+    """A sacrifice as a cost or an effect (step 12): a unit or an upgrade
+    to its owner's discard pile -- or the Graveyard -- a hero to its
+    command zone, a worker trashed (Omegacron's ruling)."""
+    seat, ref = target
+    if ref == WORKERS:
+        if board.trash_worker(match, seat):
+            result.narration.append(
+                f"{tokens.player(top['seat'])} sacrifices a worker: {match.player(seat).workers} left."
+            )
+        return
+    named = _thing(match, target)
+    from codex.components import is_hero_ref
+
+    if is_hero_ref(ref):
+        result.narration.append(f"{tokens.player(top['seat'])} sacrifices {named}.")
+        board.destroy(engine, match, [target], result, cause=seat)
+        return
+    card = board.body_of(match, seat, ref)
+    if card is None:
+        return
+    result.narration.append(f"{tokens.player(top['seat'])} sacrifices {named}.")
+    board.sacrifice(engine, match, card)
+
+
+def _research(engine, match, top, part, target, result) -> None:
+    """Temporal Research's further cards: one more at three time runes,
+    another at ten -- every rune on what its caster controls (its
+    rulings)."""
+    seat = top["seat"]
+    runes = engine.time_runes_of(match, seat)
+    more = (1 if runes >= 3 else 0) + (1 if runes >= 10 else 0)
+    if not more:
+        return
+    top["drew"] = True
+    drawn = draw_cards(engine, match, seat, more, result)
+    if drawn:
+        result.narration.append(
+            f"{tokens.player(seat)} has {runes} time runes, and draws "
+            f"{drawn} more card{'' if drawn == 1 else 's'}."
+        )
+
+
 #: The parts `run` works itself rather than a handler: "choose one" and
 #: divided damage.
 STRUCTURAL = frozenset({"mode", "divide"})
@@ -1294,6 +1396,11 @@ DOES = {
     "polymorph": _polymorph,
     "shove_slot": _shove_slot,
     "damage_shoved": _damage_shoved,
+    "time_target": _time_target,
+    "time_rune": _time_rune,
+    "time_rune_self": _time_rune_self,
+    "sacrifice": _sacrifice,
+    "research": _research,
 }
 
 

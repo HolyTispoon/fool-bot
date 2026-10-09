@@ -26,12 +26,14 @@ from codex.cards import CardCatalog, Hero, catalog as load_catalog
 from codex.effects import LANDED_SET
 
 #: The keywords the landed cards' texts open with, as the rulings'
-#: `General` group names them -- the basic set's, and red and green's
-#: (step 11): deathtouch, long-range, ephemeral, boost and untargetable.
+#: `General` group names them -- the basic set's, red and green's (step
+#: 11): deathtouch, long-range, ephemeral, boost and untargetable -- and
+#: purple and black's (step 12): fading, forecast and indestructible.
 KEYWORDS = (
-    "Anti-air", "Boost", "Channeling", "Deathtouch", "Ephemeral", "Flying", "Frenzy",
-    "Haste", "Healing", "Invisible", "Long-range", "Obliterate", "Overpower", "Readiness",
-    "Resist", "Sparkshot", "Stealth", "Swift strike", "Unstoppable", "Untargetable",
+    "Anti-air", "Boost", "Channeling", "Deathtouch", "Ephemeral", "Fading", "Flying",
+    "Forecast", "Frenzy", "Haste", "Healing", "Indestructible", "Invisible", "Long-range",
+    "Obliterate", "Overpower", "Readiness", "Resist", "Sparkshot", "Stealth",
+    "Swift strike", "Unstoppable", "Untargetable",
 )
 
 #: One keyword with its X: a number, or -- for boost -- the gold it
@@ -78,6 +80,9 @@ def read_keywords(lines) -> tuple[tuple[str, Optional[int]], ...]:
 #: `codex.effects.CANT_ATTACK`'s).
 EXTRA_KEYWORDS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
     "gemscout_owl": (("Flying", None),),
+    # Pestering Haunt: "Unstoppable but can't patrol" -- the "can't
+    # patrol" is `codex.effects.CANT_PATROL`'s (step 12).
+    "pestering_haunt": (("Unstoppable", None),),
 }
 
 

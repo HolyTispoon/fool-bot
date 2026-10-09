@@ -149,6 +149,12 @@ class HeroState:
     #: grant against a card's (Midori's +1/+1 and Behind the Ferns). Empty
     #: in an older save.
     bands: dict[str, int] = field(default_factory=dict)
+    #: Time runes on the hero (step 12): Prynn Pasternaak's fading. 0 in
+    #: an older save.
+    time_runes: int = 0
+    #: Disabled (step 12, UMR p. 16): it does not ready at its next ready
+    #: phase, which clears this. False in an older save.
+    disabled: bool = False
 
     @property
     def in_play(self) -> bool:
@@ -172,6 +178,8 @@ HERO_SAVED_FIELDS = (
     SavedField("modifiers", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("printed", write=_copy_optional_dict, read=_copy_optional_dict),
     SavedField("bands", factory=dict, write=dict, read=dict),
+    SavedField("time_runes", default=0),
+    SavedField("disabled", default=False),
 )
 
 
@@ -279,6 +287,12 @@ class CardInstance:
     #: the grants that read each other (the Card FAQ's Behind the Ferns
     #: and Midori). 0 in an older save.
     sequence: int = 0
+    #: Time runes on it (step 12): fading's and forecast's countdowns,
+    #: Tricycloid's, a rune Time Spiral added. 0 in an older save.
+    time_runes: int = 0
+    #: Disabled (step 12, UMR p. 16): it does not ready at its next ready
+    #: phase, which clears this. False in an older save.
+    disabled: bool = False
 
     @property
     def ref(self) -> str:
@@ -307,6 +321,8 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("attached_hero"),
     SavedField("printed", write=_copy_optional_dict, read=_copy_optional_dict),
     SavedField("sequence", default=0),
+    SavedField("time_runes", default=0),
+    SavedField("disabled", default=False),
 )
 
 
@@ -422,6 +438,11 @@ class PlayerState:
     #: "end_of_turn"}`) and Ferocity (`"until": "upkeep"`, with its
     #: caster's `seat`) (the author, 2026-10-09).
     lasting: list = field(default_factory=list)
+    #: The future (step 12, UMR p. 17): the forecast cards this player
+    #: has played, each an instance with its time runes, not in play --
+    #: untargetable, unaffected -- until its last rune goes and it
+    #: arrives, or a spell resolves. Empty in an older save.
+    future: list[CardInstance] = field(default_factory=list)
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -513,6 +534,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("peace", default=False),
     SavedField("arrived_from_hand", default=False),
     SavedField("lasting", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("future", factory=list, write=_write_play, read=_read_play),
 )
 
 
@@ -675,6 +697,7 @@ class MatchState:
             fail("more than three turn-start snapshots are kept")
 
         ids = [card.id for card in self.instances()]
+        ids += [card.id for player in self.players for card in player.future]
         if len(ids) != len(set(ids)):
             fail("two cards in play share an id")
         if ids and max(ids) >= self.next_instance_id:
@@ -702,7 +725,8 @@ class MatchState:
                 known(slug, f"{where}'s tech choice")
             slots = []
             for hero in player.heroes:
-                for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes"):
+                for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes",
+                             "time_runes"):
                     if getattr(hero, name) < 0:
                         fail(f"{where}'s hero has {name} below zero")
                 if hero.zone not in ("command", "play"):
@@ -711,9 +735,13 @@ class MatchState:
                     if not hero.in_play:
                         fail(f"{where}'s hero patrols from the command zone")
                     slots.append(hero.patrol_slot)
+            for card in player.future:
+                known(card.slug, f"{where}'s future")
+                if card.time_runes < 0:
+                    fail(f"card {card.id} has time runes below zero")
             for card in player.play:
                 known(card.slug, f"{where}'s play zone")
-                for name in ("damage", "plus_runes", "minus_runes", "armor"):
+                for name in ("damage", "plus_runes", "minus_runes", "armor", "time_runes"):
                     if getattr(card, name) < 0:
                         fail(f"card {card.id} has {name} below zero")
                 if card.controller != player.seat:

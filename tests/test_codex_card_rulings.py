@@ -24,7 +24,7 @@ from unittest import mock
 
 from codex import effects, rulings
 from codex.components import AddOnState
-from codex.effects import BASIC_SET, GREEN, RED
+from codex.effects import BASIC_SET, BLACK, GREEN, PURPLE, RED
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
@@ -2150,6 +2150,181 @@ class UpkeepAndEndOfTurnRulingTests(unittest.TestCase):
         self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
 
 
+# -- Purple and black (step 12) ------------------------------------------------------
+
+#: Step 12: the rulings on purple's and black's cards, heroes and tokens --
+#: 107 on the cards and 15 on the six heroes.
+PURPLE_BLACK_RULINGS = 122
+
+PB_TEAMS = (("past", "present", "future"), ("demonology", "disease", "necromancy"))
+
+
+def pb(first: int = 1, teams=PB_TEAMS):
+    """Three purple heroes (seat 1) against three black, standing in the
+    first player's main phase."""
+    engine, game, match = new_game(first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def turn_round(engine, game, match, seat: int) -> None:
+    """Turns with nothing done until `seat`'s main phase opens again."""
+    from test_codex_keywords import next_upkeep
+
+    next_upkeep(engine, game, match, 2 if seat == 1 else 1)
+    next_upkeep(engine, game, match, seat)
+
+
+def tech(match, seat: int, level: int, spec=None) -> None:
+    """`seat`'s tech buildings up to `level`, the Tech II's spec `spec`."""
+    for building in ("tech1", "tech2", "tech3")[:level]:
+        built(match, seat, building)
+    if level >= 2:
+        match.player(seat).tech2_spec = spec or match.player(seat).specs[0]
+
+
+class TimeRulingTests(unittest.TestCase):
+    def test_time_spiral_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        argonaut = put(match, 2, "fading_argonaut")
+        argonaut.time_runes = 2
+        hand(match, 1, "time_spiral")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="time_spiral")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="add")
+        self.assertEqual(argonaut.time_runes, 3)
+
+    def test_tinkerer_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        tinkerer = put(match, 1, "tinkerer")
+        board.to_future(engine, match, "plasmodium", 2)
+        future = match.player(2).future[0]
+        ability(engine, game, match, "tinkerer", tinkerer.ref)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        self.assertEqual(future.time_runes, 2)
+        self.assertTrue(tinkerer.exhausted)
+
+    def test_seer_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        tech(match, 1, 1)
+        board.to_future(engine, match, "plasmodium", 2)
+        future = match.player(2).future[0]
+        future.time_runes = 1
+        hand(match, 1, "seer")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="seer")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertTrue(prompt.options.done, "you may")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:future:{future.id}")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        self.assertEqual(match.player(2).future, [])
+        self.assertTrue(any(card.slug == "plasmodium" for card in match.player(2).play),
+                        "its last rune gone, it arrives")
+
+    def test_shimmer_ray_1(self) -> None:
+        """You can't discard a card DURING your upkeep to save it from dying
+        from fading. You can only use abilities during your own main phase
+        unless they are specifically marked otherwise, such as "upkeep"
+        abilities."""
+        engine, game, match = pb()
+        ray = put(match, 1, "shimmer_ray")
+        ray.time_runes = 1
+        hand(match, 1, "neo_plexus")
+        self.assertTrue(option(engine, match, "shimmer_ray", ray.ref).allowed)
+        turn_round(engine, game, match, 1)
+        self.assertIsNone(match.player(1).instance(ray.id), "it faded in the upkeep, unasked")
+        self.assertIn("shimmer_ray", match.player(1).discard)
+
+    def test_omegacron_1(self) -> None:
+        """Sacrificed units and upgrades always go to their owner's discard
+        pile. Sacrificed workers are always trashed. Sacrificed heroes
+        always go to their owner's command zone."""
+        engine, game, match = pb()
+        board.to_future(engine, match, "omegacron", 1)
+        omega = match.player(1).future[0]
+        source = f"future:{omega.id}"
+        stolen = put(match, 2, "neo_plexus")
+        board.gain_control(match, stolen, 1)
+        hero_in_play(match, 1)
+        workers = match.player(1).workers
+        for target in (f"1:{stolen.ref}", "1:workers", f"1:{hero(match, 1)}"):
+            ability(engine, game, match, "omegacron", source)
+            apply(engine, game, match, PromptKind.TARGET, target=target)
+        self.assertIn("neo_plexus", match.player(2).discard)
+        self.assertEqual(match.player(1).workers, workers - 1)
+        self.assertEqual(match.player(1).hero.zone, "command")
+        self.assertEqual(omega.time_runes, 3)
+
+    def test_omegacron_arrives_when_its_last_rune_goes(self) -> None:
+        engine, game, match = pb()
+        board.to_future(engine, match, "omegacron", 1)
+        omega = match.player(1).future[0]
+        omega.time_runes = 1
+        filler = put(match, 1, "neo_plexus")
+        ability(engine, game, match, "omegacron", f"future:{omega.id}")
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{filler.ref}")
+        self.assertIsNone(match.player(1).instance(filler.id))
+        arrived = next(card for card in match.player(1).play if card.slug == "omegacron")
+        self.assertIn(arrived.ref, engine.attackers(match), "haste")
+
+    def test_temporal_research_1(self) -> None:
+        """The time runes on your forecasted cards count too, even though
+        those are "in the future" and not in play. Time runes from fading
+        or from Tricycloid also count."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        board.to_future(engine, match, "plasmodium", 1)
+        tricycloid = put(match, 1, "tricycloid")
+        tricycloid.time_runes = 3
+        put(match, 1, "fading_argonaut").time_runes = 4
+        self.assertEqual(engine.time_runes_of(match, 1), 10)
+        match.player(1).deck = ["neo_plexus"] * 5
+        cast(engine, game, match, "temporal_research")
+        self.assertEqual(len(match.player(1).hand), 3)
+
+    def test_temporal_research_2(self) -> None:
+        """You resolve a spell's effect before discarding it, so Temporal
+        Research cannot draw itself from its own effect. You first draw
+        cards from Temporal Research's effect, and you reshuffle your
+        discard pile into your draw pile if you would draw from empty draw
+        pile. Then, you discard Temporal Research when you have finished
+        resolving its effect."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        match.player(1).deck = []
+        match.player(1).discard = ["neo_plexus"]
+        cast(engine, game, match, "temporal_research")
+        self.assertEqual(match.player(1).hand, ["neo_plexus"])
+        self.assertEqual(match.player(1).discard, ["temporal_research"])
+
+    def test_nullcraft_1(self) -> None:
+        """"Buff or Debuff" spells are spells that have the subtype "Buff"
+        or "Debuff" (or both!)."""
+        engine, game, match = pb()
+        craft = put(match, 2, "nullcraft")
+        part = effects.EFFECTS["wither"].parts[0]
+        for spell, offered in (("deteriorate", False), ("unphase", False), ("spark", True)):
+            with self.subTest(spell=spell):
+                rows = engine.target_rows(match, 1, part, frame={"spell": spell})
+                self.assertEqual(any(row.ref == craft.ref for row in rows), offered)
+
+    def test_lord_of_shadows_1(self) -> None:
+        """Lord of Shadows himself is invisible because he is a black unit."""
+        engine, game, match = pb()
+        lord = put(match, 2, "lord_of_shadows")
+        self.assertTrue(engine.has_keyword(lord, "Invisible", match))
+        attacker = put(match, 1, "argonaut")
+        self.assertNotIn(lord.ref, engine.legal_defenders(match, attacker.ref))
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""
@@ -2216,6 +2391,27 @@ class EveryRedAndGreenRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
             f"red's and green's cards carry {total} rulings, not {RED_GREEN_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
+
+class EveryPurpleAndBlackRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
+    """Step 12's ratchet: the same three checks over every purple and
+    black card, hero and token whose text is played -- every one once
+    `UNIMPLEMENTED` is empty."""
+
+    def _rulings(self) -> dict:
+        return {
+            slug: rulings.rulings_for(slug)
+            for slug in sorted((PURPLE | BLACK) - effects.UNIMPLEMENTED)
+            if rulings.rulings_for(slug)
+        }
+
+    def test_the_count_is_pinned(self) -> None:
+        total = sum(len(rulings.rulings_for(slug)) for slug in PURPLE | BLACK)
+        self.assertEqual(
+            total, PURPLE_BLACK_RULINGS,
+            f"purple's and black's cards carry {total} rulings, not {PURPLE_BLACK_RULINGS}: "
+            "a re-import changed them, and each needs its test",
+        )
+
 
 def _collapse(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
