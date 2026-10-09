@@ -137,13 +137,13 @@ def take_damage(body, amount: int, piercing: bool = False) -> int:
 
 
 def damage_building(match: MatchState, seat: int, ref: str, amount: int,
-                    result: StepResult) -> None:
+                    result: StepResult, by: Optional[int] = None) -> None:
     """Damage onto a building: the base (at 0 the game ends), a tech
     building or the add-on, a destroyed one dealing its 2 to its base
-    (UMR p. 8, 9)."""
+    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor."""
     player = match.player(seat)
     if ref == "base":
-        damage_base(match, seat, amount, result)
+        damage_base(match, seat, amount, result, by=by)
         return
     if ref in TECH_BUILDINGS:
         building = player.buildings[ref]
@@ -156,7 +156,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
                 f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
             )
             match.record_event("building_destroyed", owner=seat, building=ref)
-            damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
+            damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result, by=by)
         return
     add_on = player.add_on
     add_on.hp = max(0, add_on.hp - amount)
@@ -167,7 +167,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
             f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
         )
         match.record_event("building_destroyed", owner=seat, building=add_on.slug)
-        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
+        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result, by=by)
 
 
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
@@ -225,13 +225,41 @@ def leave_play(engine: "RulesEngine", match: MatchState, card: CardInstance, to:
     discard pile.
     """
     match.player(card.controller).play.remove(card)
+    _empty_graveyard(match, card)
     if is_token(engine, card.slug):
         return
     owner = match.player(card.owner)
     if to == "hand":
         owner.hand.append(card.slug)
+    elif to == "died" and _bury(engine, match, card):
+        return
     else:
         owner.discard.append(card.slug)
+
+
+def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
+    """
+    The Graveyard: "Whenever your non-token units die, bury them here" --
+    a unit dying under the control of a player with a Graveyard in play
+    goes into it, out of play and out of the discard pile, its runes and
+    effects gone (its ruling). Whether it was buried.
+    """
+    if not engine.catalog.cards[card.slug].is_unit:
+        return False
+    yards = engine.graveyards(match.player(card.controller))
+    if not yards:
+        return False
+    yards[0].buried.append({"slug": card.slug, "owner": card.owner})
+    match.record_event("buried", slug=card.slug, owner=card.owner)
+    return True
+
+
+def _empty_graveyard(match: MatchState, card: CardInstance) -> None:
+    """A Graveyard leaving play discards what is buried in it, each to its
+    owner's discard pile."""
+    for buried in card.buried:
+        match.player(buried["owner"]).discard.append(buried["slug"])
+    card.buried = []
 
 
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
@@ -240,7 +268,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
         line = f"{by} destroys {named(match, seat, card.ref)}."
     else:
         line = f"{named(match, seat, card.ref)} is destroyed."
-    leave_play(engine, match, card, "discard")
+    leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
     if card.patrol_slot == "scavenger":
         gained = gain_gold(match, card.controller, SCAVENGER_GOLD)
@@ -284,7 +312,7 @@ def _destroy_hero(match: MatchState, seat: int, hero: HeroState, result: StepRes
 
 def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int, str]],
             result: StepResult, by: str = "", cause: Optional[int] = None,
-            forced: bool = False) -> None:
+            forced: bool = False, combat: bool = False) -> None:
     """
     Destroy each of these units and heroes -- a unit face-down to its
     owner's discard pile, a hero to the command zone -- and give the
@@ -319,6 +347,9 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
                 dead_heroes.append((seat, hero))
             continue
         card = body_of(match, seat, ref)
+        if card is not None and not forced and engine.catalog.cards[card.slug].is_unit and \
+                soul_stone_saves(engine, match, card, result):
+            continue
         if card is not None and not forced and engine.indestructible(match, card):
             # Indestructible: it doesn't leave play -- exhausted, its
             # damage and attachments gone, its runes kept (UMR p. 17).
@@ -328,7 +359,7 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             _destroy_unit(engine, match, seat, card, result, by)
             if engine.catalog.cards[card.slug].is_unit:
                 dead_units.append(card)
-    _deaths(engine, match, dead_units, dead_heroes, witnesses)
+    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat)
     for seat in heroes:
         if cause == seat:
             continue
@@ -427,6 +458,7 @@ def trash(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
     in no count, never returning -- not a death, so nothing that pays on
     one pays."""
     match.player(card.controller).play.remove(card)
+    _empty_graveyard(match, card)
     match.record_event("trashed", slug=card.slug, owner=card.owner)
 
 
@@ -441,7 +473,8 @@ def trash_worker(match: MatchState, seat: int) -> bool:
     return True
 
 
-def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
+def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
+              result: Optional[StepResult] = None) -> None:
     """
     A card of yours out of play to its owner's discard pile. A unit
     sacrificed **dies** -- "Dies: A card dies when it is destroyed or
@@ -452,8 +485,10 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> N
     if engine.catalog.cards[card.slug].is_unit and not engine.may_sacrifice(match, card):
         # "You can't sacrifice this card" (UMR p. 17): nothing happens.
         return
+    if engine.catalog.cards[card.slug].is_unit and soul_stone_saves(engine, match, card, result):
+        return
     witnesses = _witnesses(engine, match)
-    leave_play(engine, match, card, "discard")
+    leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
     if engine.catalog.cards[card.slug].is_unit:
         _deaths(engine, match, [card], [], witnesses)
@@ -480,7 +515,7 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
 
 
 def _deaths(engine: "RulesEngine", match: MatchState, units: list,
-            heroes: list, witnesses: dict) -> None:
+            heroes: list, witnesses: dict, combat: bool = False) -> None:
     """
     The triggers a death sets off, each a frame onto the stack -- which
     whoever destroyed or sacrificed them runs -- or, where nothing is
@@ -518,6 +553,14 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        if any(lasting.get("kind") == effects.DEATH_RITES
+               for lasting in match.player(seat).lasting):
+            # Death Rites: "Whenever one of your units dies this turn,
+            # destroy one of an opponent's lowest tech units."
+            frames.append(resolve.frame(
+                "death_rites_destroy", seat, tokens.card(effects.DEATH_RITES),
+                origin=effects.DEATH_RITES,
+            ))
     for seat, hero in heroes:
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
@@ -814,6 +857,48 @@ def _spareable(match: MatchState, card: CardInstance) -> bool:
     return bool(card.damage) or attached or not card.exhausted
 
 
+def soul_stone_saves(engine: "RulesEngine", match: MatchState, card: CardInstance,
+                     result: Optional[StepResult]) -> bool:
+    """
+    Soul Stone: "If it would die, instead remove all damage from it and
+    sacrifice all Soul Stones on it." -- it does not die, so nothing that
+    pays on a death pays (its rulings). Whether a Soul Stone saved it.
+    """
+    stones = [spell for spell in match.instances()
+              if spell.slug == effects.SOUL_STONE and card.id in spell.attached]
+    if not stones:
+        return False
+    card.damage = 0
+    for stone in stones:
+        leave_play(engine, match, stone, "discard")
+        match.record_event("sacrificed", slug=stone.slug, owner=stone.owner)
+    if result is not None:
+        result.narration.append(
+            f"{named(match, card.controller, card.ref)} would die: its "
+            f"{tokens.card(effects.SOUL_STONE)} is sacrificed instead, and its damage removed."
+        )
+    return True
+
+
+def random_discard(engine: "RulesEngine", match: MatchState, seat: int,
+                   result: StepResult, by: str) -> bool:
+    """
+    `seat` discards a card at random (Thieving Imp, Cursed Crow, Shadow
+    Blade): picked by `engine.pick`, recorded beside the shuffles so a
+    replay discards the same one -- and said as a count, never by name.
+    """
+    player = match.player(seat)
+    if not player.hand:
+        return False
+    slug = engine.pick(player.hand)
+    result.drawn.append([effects.PICK, slug])
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    match.record_event("discarded_at_random", seat=seat, slug=slug)
+    result.narration.append(f"{tokens.player(seat)} discards a card at random for {by}.")
+    return True
+
+
 def disable(body) -> None:
     """Disable (UMR p. 16): exhausted, sidelined if it was patrolling, and
     not readied at its next ready phase."""
@@ -910,6 +995,17 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
                 f"{named(match, twin.controller, twin.ref)} is a second copy of a legendary card."
             )
             destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause, forced=True)
+            continue
+        full = next((yard for player in match.players for yard in engine.graveyards(player)
+                     if len(yard.buried) >= effects.GRAVEYARD_LIMIT), None)
+        if full is not None:
+            # "Sacrifice Graveyard when four or more units are buried in it
+            # (and discard those units)."
+            result.narration.append(
+                f"{named(match, full.controller, full.ref)} holds {len(full.buried)} units: it is "
+                "sacrificed, and they are discarded."
+            )
+            sacrifice(engine, match, full)
             continue
         gone = _sacrifice_due(engine, match)
         if gone is None:

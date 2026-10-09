@@ -370,6 +370,21 @@ class RulesEngine:
             return recorded[1]
         return self.rng.choice(("heads", "tails"))
 
+    def pick(self, cards: Sequence[str]) -> str:
+        """
+        One of `cards` at random (step 12) -- a card discarded at random, a
+        unit Second Chances returns -- drawn from `rng`, or, while a
+        journal is replayed, taken back as recorded (`[PICK, slug]`
+        beside the shuffles), so a replay picks the same one. The caller
+        records what it picked in `StepResult.drawn`.
+        """
+        if self.replaying:
+            recorded = self.replaying.pop(0)
+            if not recorded or recorded[0] != effects.PICK or recorded[1] not in cards:
+                raise ValueError("a recorded outcome is not a pick of these")
+            return recorded[1]
+        return self.rng.choice(list(cards))
+
     def shuffle(self, cards: Sequence[str], recorded: Optional[Sequence[str]] = None) -> list[str]:
         """
         `cards` in a new order -- **the only shuffle**. Drawn from `rng`,
@@ -646,6 +661,10 @@ class RulesEngine:
                 # colour read, himself included.
                 if self.color_of(card) == effects.INVISIBLE_COLOR.get(source.slug, "black"):
                     profile.grant("Invisible")
+            elif grant == "soul_stone":
+                # Soul Stone: "Attached unit gets +1/+1."
+                profile.atk += 1
+                profile.hp += 1
             elif grant == "panda":
                 profile.atk += effects.PANDA_BONUS
                 profile.hp += effects.PANDA_BONUS
@@ -841,6 +860,66 @@ class RulesEngine:
         """Gilded Glaxx while its controller has gold: it leaves play only
         by dying from combat damage (step 12, commit 5)."""
         return False
+
+    def rune_damage(self, match: Optional[MatchState], body) -> bool:
+        """Whether `body` deals its damage to units and heroes in the form
+        of -1/-1 runes (UMR p. 13): Plague Spitter, Orpal Gloor from his
+        first band, Poisonblade Rogue while it attacks."""
+        if isinstance(body, HeroState):
+            return any(body.slug == slug and body.level >= level
+                       for slug, level in effects.RUNE_DAMAGE_BANDS)
+        if not isinstance(body, CardInstance):
+            return False
+        if any(m.get("kind") == "rune_damage" for m in body.modifiers):
+            return True
+        return self.text_slug(body) in effects.RUNE_DAMAGE
+
+    def weakest(self, match: MatchState, seat: int, *, sacrifice: bool) -> list[CardInstance]:
+        """
+        `seat`'s weakest units, tied (UMR p. 18): "the lowest tech unit with
+        the least ATK" -- tech 0 below I below II below III, then the least
+        ATK among those -- passing over what the effect cannot take: a unit
+        that can't be sacrificed, or (to destroy) an indestructible one and
+        one that can't leave play (the rulings). Whoever resolves the
+        effect chooses between the tied.
+        """
+        units = [card for card in self._units_of(match, seat)
+                 if (self.may_sacrifice(match, card) if sacrifice
+                     else self.may_be_destroyed(match, card))]
+        if not units:
+            return []
+        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
+        units = [card for card in units if (self.catalog.cards[card.slug].tech_level or 0) == lowest]
+        least = min(self.unit_stats(card, match)[0] for card in units)
+        return [card for card in units if self.unit_stats(card, match)[0] == least]
+
+    def lowest_tech(self, match: MatchState, seat: int) -> list[CardInstance]:
+        """`seat`'s lowest tech units that may be destroyed -- Death Rites'
+        and Blackhand Dozer's (the indestructible and obliterate rulings)."""
+        units = [card for card in self._units_of(match, seat) if self.may_be_destroyed(match, card)]
+        if not units:
+            return []
+        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
+        return [card for card in units if (self.catalog.cards[card.slug].tech_level or 0) == lowest]
+
+    def graveyards(self, player: PlayerState) -> list[CardInstance]:
+        """The Graveyards a player controls, their text in play."""
+        return [card for card in player.play if card.slug == effects.GRAVEYARD and self.texted(card)]
+
+    def why_not_play_buried(self, player: PlayerState, slug: str) -> str:
+        """Why a buried unit may not be played from the Graveyard now, or
+        "": "You still pay for it and must meet the tech reqs for it" --
+        the building of its level, and a tech II or III unit's spec one its
+        controller has chosen (the Card FAQ)."""
+        card = self.catalog.cards[slug]
+        if not self.tech_building_active(player, card.tech_level or 0):
+            return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
+        why = self._why_not_spec(player, card)
+        if why:
+            return why
+        if player.gold < self.effective_cost(player, slug):
+            return "not enough gold"
+        return ""
 
     # -- Time (step 12) --------------------------------------------------------
 
@@ -2231,6 +2310,27 @@ class RulesEngine:
                         found.append((side, WORKERS))
                     found += [(side, card.ref) for card in player.play
                               if self.catalog.cards[card.slug].is_upgrade]
+            elif choose in ("weakest_own_to_sacrifice", "weakest_opposing_to_sacrifice",
+                            "weakest_opposing_to_destroy", "lowest_opposing_to_destroy"):
+                mine = choose.startswith("weakest_own")
+                if (side == seat) == mine:
+                    if choose == "lowest_opposing_to_destroy":
+                        chosen = self.lowest_tech(match, side)
+                    else:
+                        chosen = self.weakest(match, side, sacrifice=choose.endswith("sacrifice"))
+                    found += [(side, card.ref) for card in chosen]
+            elif choose == "own_unit_to_sacrifice":
+                if side == seat:
+                    found += [(side, card.ref) for card in units if self.may_sacrifice(match, card)]
+            elif choose == "unit_or_hero_tech_0_2":
+                found += [(side, card.ref) for card in units if tech(card) <= 2]
+                found += [(side, ref) for ref in hero]
+            elif choose == "buried_playable":
+                if side == seat:
+                    for yard in self.graveyards(player):
+                        for index, buried in enumerate(yard.buried):
+                            if not self.why_not_play_buried(player, buried["slug"]):
+                                found.append((side, f"{BURIED}{yard.id}:{index}"))
             elif choose == "empty_slot":
                 # Zane's shove: an empty slot of the shoved patroller's
                 # own zone -- the side the frame's first pick was on.
@@ -2411,8 +2511,20 @@ class RulesEngine:
             allowed = True
             if key == "workers":
                 allowed = match.player(seat).workers >= 2
+            elif key == "boosted":
+                # The Graveyard's buried unit, boosted where it has a boost
+                # and its controller can pay for both (the boost ruling).
+                slug = self.buried_slug(match, seat, frame.get("picked") or "")
+                boost = self.boost_cost(slug) if slug else None
+                player = match.player(seat)
+                allowed = boost is not None and player.gold >= self.effective_cost(player, slug) + boost
             rows.append((key, says, allowed))
         return tuple(rows)
+
+    def buried_slug(self, match: MatchState, seat: int, key: str) -> Optional[str]:
+        """The slug a buried pick names ("1:buried:7:0"), or `None`."""
+        found = buried_entry(match, key)
+        return None if found is None else found[1]["slug"]
 
     # -- Abilities -------------------------------------------------------------------
 
@@ -2764,6 +2876,27 @@ FUTURE = "future:"
 
 def future_ref(card: CardInstance) -> str:
     return f"{FUTURE}{card.id}"
+
+
+#: How a unit buried in a Graveyard is named: "buried:<the Graveyard's
+#: id>:<its place in the Graveyard>" (step 12).
+BURIED = "buried:"
+
+
+def buried_entry(match: MatchState, key: str):
+    """The Graveyard and the entry a buried pick names -- a target key
+    "1:buried:7:0", or the ref alone -- or `None`."""
+    ref = key.split(":", 1)[1] if key[:2] in ("1:", "2:") else key
+    if not ref.startswith(BURIED):
+        return None
+    try:
+        yard_id, index = (int(part) for part in ref[len(BURIED):].split(":"))
+    except ValueError:
+        return None
+    yard = match.instance(yard_id)
+    if yard is None or not 0 <= index < len(yard.buried):
+        return None
+    return yard, yard.buried[index]
 
 
 #: How a target names a side's workers, all alike: "2:workers".

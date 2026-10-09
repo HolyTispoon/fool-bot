@@ -293,6 +293,11 @@ class CardInstance:
     #: Disabled (step 12, UMR p. 16): it does not ready at its next ready
     #: phase, which clears this. False in an older save.
     disabled: bool = False
+    #: The units buried in a Graveyard (step 12), each `{slug, owner}`, in
+    #: the order they died: out of play and out of the discard pile, their
+    #: runes and effects gone. Empty for anything else, and in an older
+    #: save.
+    buried: list[dict] = field(default_factory=list)
 
     @property
     def ref(self) -> str:
@@ -323,6 +328,7 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("sequence", default=0),
     SavedField("time_runes", default=0),
     SavedField("disabled", default=False),
+    SavedField("buried", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 

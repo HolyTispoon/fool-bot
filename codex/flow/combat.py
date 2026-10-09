@@ -115,10 +115,23 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     return _Fighter(seat, ref)
 
 
-def _take(fighter: _Fighter, amount: int, piercing: bool = False) -> int:
+def _take(fighter: _Fighter, amount: int, piercing: bool = False, runes: bool = False) -> int:
     """Combat damage onto a unit or hero, armor first unless it pierces;
-    what landed."""
-    return board.take_damage(fighter.body, amount, piercing)
+    what landed -- as -1/-1 runes where the source deals its damage so
+    (UMR p. 13: "This counts as combat damage, so it can be prevented by
+    armor"), each cancelling a +1/+1 rune first."""
+    if not runes:
+        return board.take_damage(fighter.body, amount, piercing)
+    body = fighter.body
+    absorbed = 0 if piercing else min(body.armor, amount)
+    body.armor -= absorbed
+    landed = amount - absorbed
+    for _ in range(landed):
+        if body.plus_runes:
+            body.plus_runes -= 1
+        else:
+            body.minus_runes += 1
+    return landed
 
 
 def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -> bool:
@@ -127,10 +140,13 @@ def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -
 
 
 def _destroy(engine: "RulesEngine", match: MatchState, fighters: list[_Fighter],
-             result: StepResult) -> None:
+             result: StepResult, combat: bool = False) -> None:
     """Destroy each of these, and give the kill's two levels to the
-    opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`."""
-    board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result)
+    opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`;
+    `combat` where combat damage killed them, which "dies from combat
+    damage" reads (step 12)."""
+    board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result,
+                  combat=combat)
 
 
 # -- Declaring the attack ---------------------------------------------------
@@ -530,7 +546,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 continue
             source = hit.source.body if hit.source is not None else None
             piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
-            hit.landed = _take(hit.target, hit.amount, piercing)
+            hit.landed = _take(hit.target, hit.amount, piercing,
+                               runes=source is not None and engine.rune_damage(match, source))
             if (
                 hit.amount > 0 and source is not None
                 and engine.has_keyword(source, "Deathtouch", match)
@@ -573,11 +590,12 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
-            board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
+            board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result,
+                                  by=hit.source.seat if hit.source is not None else None)
 
     mine_hits = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0]
     killed = any(fighter.body is taking.body for fighter in dead)
-    _destroy(engine, match, dead, result)
+    _destroy(engine, match, dead, result, combat=True)
     _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.

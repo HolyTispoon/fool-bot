@@ -381,6 +381,7 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
     top["taken"].append(row.key)
     top.setdefault("picks", []).append(row.key)
     top["chose"] = True
+    top["picked"] = row.key
     if part.does != "divide":
         DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
@@ -484,7 +485,7 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     seat, ref = target
     if board.is_building(ref):
         result.narration.append(f"{top['by']} deals {amount} to {_thing(match, target)}.")
-        board.damage_building(match, seat, ref, amount, result)
+        board.damage_building(match, seat, ref, amount, result, by=top["seat"])
         return amount
     body = board.body_of(match, seat, ref)
     if body is None:
@@ -618,7 +619,7 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     other = 2 if top["seat"] == 1 else 1
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
-    damage_base(match, other, amount, result)
+    damage_base(match, other, amount, result, by=top["seat"])
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
@@ -697,7 +698,7 @@ def _coin(engine, match, top, part, target, result) -> None:
         f"{tokens.player(seat)}'s base takes {amount} damage."
     )
     if mine is not None:
-        board.sacrifice(engine, match, mine)
+        board.sacrifice(engine, match, mine, result)
     damage_base(match, seat, amount, result)
 
 
@@ -713,7 +714,7 @@ def _pillage(engine, match, top, part, target, result) -> None:
     steal = 2 if pirate else part.amount
     amount = damage_amount(engine, match, top, steal)
     result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
-    damage_base(match, other, amount, result)
+    damage_base(match, other, amount, result, by=top["seat"])
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
         result.narration.append(
@@ -777,7 +778,7 @@ def _active_base_damage(engine, match, top, part, target, result) -> None:
     seat = match.active
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
-    damage_base(match, seat, amount, result)
+    damage_base(match, seat, amount, result, by=top["seat"])
 
 
 def _damage_ready(engine, match, top, part, target, result) -> None:
@@ -1099,7 +1100,7 @@ def _circle_sacrifice(engine, match, top, part, target, result) -> None:
     card = board.body_of(match, *target)
     top["sacrificed_tech"] = engine.catalog.cards[card.slug].tech_level or 0
     result.narration.append(f"{tokens.player(top['seat'])} sacrifices {_thing(match, target)}.")
-    board.sacrifice(engine, match, card)
+    board.sacrifice(engine, match, card, result)
 
 
 def _stampede(engine, match, top, part, target, result) -> None:
@@ -1205,7 +1206,7 @@ def _sacrifice_self(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     result.narration.append(f"{tokens.player(top['seat'])} sacrifices {top['by']}.")
-    board.sacrifice(engine, match, card)
+    board.sacrifice(engine, match, card, result)
 
 
 def _shove(engine, match, top, part, target, result) -> None:
@@ -1312,7 +1313,7 @@ def _sacrifice(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     result.narration.append(f"{tokens.player(top['seat'])} sacrifices {named}.")
-    board.sacrifice(engine, match, card)
+    board.sacrifice(engine, match, card, result)
 
 
 def _research(engine, match, top, part, target, result) -> None:
@@ -1331,6 +1332,134 @@ def _research(engine, match, top, part, target, result) -> None:
             f"{tokens.player(seat)} has {runes} time runes, and draws "
             f"{drawn} more card{'' if drawn == 1 else 's'}."
         )
+
+
+def _rites(engine, match, top, part, target, result) -> None:
+    """Death Rites: the trigger set on its caster for the rest of the
+    turn."""
+    seat = top["seat"]
+    match.player(seat).lasting.append({"kind": effects.DEATH_RITES, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']}: this turn, whenever one of {tokens.player(seat)}'s units dies, one of "
+        f"{tokens.player(2 if seat == 1 else 1)}'s lowest tech units is destroyed."
+    )
+
+
+def _plague(engine, match, top, part, target, result) -> None:
+    """Spreading Plague: every tech 0, I or II unit and every hero with a
+    -1/-1 rune, either side's, destroyed."""
+    doomed = [
+        (player.seat, card.ref) for player in match.players for card in player.play
+        if engine.catalog.cards[card.slug].is_unit and card.minus_runes > 0
+        and (engine.catalog.cards[card.slug].tech_level or 0) <= 2
+    ] + [
+        (player.seat, hero_ref(hero.slug)) for player in match.players
+        for hero in player.heroes_in_play if hero.minus_runes > 0
+    ]
+    if not doomed:
+        result.narration.append(f"{top['by']} finds nothing with a -1/-1 rune.")
+        return
+    result.narration.append(f"{top['by']} destroys every tech 0, I and II unit and hero with a -1/-1 rune.")
+    board.destroy(engine, match, doomed, result, cause=top["seat"])
+
+
+def _decay(engine, match, top, part, target, result) -> None:
+    """Death and Decay: -3/-3 this turn to every unit and hero the opponent
+    has, and 3 damage to each of their buildings -- one being built this
+    turn excepted (UMR p. 8)."""
+    seat = top["seat"]
+    other = 2 if seat == 1 else 1
+    player = match.player(other)
+    for body in [*(card for card in player.play if engine.catalog.cards[card.slug].is_unit),
+                 *player.heroes_in_play]:
+        body.modifiers.append({"kind": "atk", "amount": -part.amount, "until": "end_of_turn"})
+        body.modifiers.append({"kind": "hp", "amount": -part.amount, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives every unit and hero {tokens.player(other)} controls -3/-3 this turn, "
+        "and deals 3 to each of their buildings."
+    )
+    board.settle(engine, match, result, cause=seat)
+    buildings = [
+        ref for ref in ("tech1", "tech2", "tech3", "add_on")
+        if board.still_there(match, other, ref) and not engine._under_construction(player, ref)
+    ]
+    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]
+    for card in cards:
+        board.take_damage(card, damage_amount(engine, match, top, part.amount))
+    for ref in buildings:
+        if board.still_there(match, other, ref):
+            board.damage_building(match, other, ref, damage_amount(engine, match, top, part.amount),
+                                  result, by=seat)
+    board.damage_building(match, other, "base", damage_amount(engine, match, top, part.amount),
+                          result, by=seat)
+
+
+def _shadow_blade(engine, match, top, part, target, result) -> None:
+    """Shadow Blade: 3 to a patroller, and where that kills it, its
+    controller discards a card at random."""
+    seat, ref = target
+    body = board.body_of(match, seat, ref)
+    _damage(engine, match, top, part, target, result)
+    if body is not None and board.lethal(engine, match, body):
+        board.settle(engine, match, result, cause=top["seat"])
+        if board.body_of(match, seat, ref) is None:
+            board.random_discard(engine, match, seat, result, top["by"])
+
+
+def _poison(engine, match, top, part, target, result) -> None:
+    """Poisonblade Rogue, as it attacks: armor piercing, and its damage to
+    units and heroes as -1/-1 runes, this turn."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.modifiers.append({"kind": "keyword", "keyword": "Armor piercing", "until": "end_of_turn"})
+    card.modifiers.append({"kind": "rune_damage", "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gets armor piercing and deals its damage as -1/-1 runes this turn."
+    )
+
+
+def _pick_buried(engine, match, top, part, target, result) -> None:
+    """The Graveyard: the buried unit to play, kept for the play."""
+
+
+def _play_buried(engine, match, top, part, target, result) -> None:
+    """
+    A buried unit played from the Graveyard: "You still pay for it and
+    must meet the tech reqs for it" -- its cost, boosted where the mode
+    says, its owner still its owner -- and it arrives, its arrives effects
+    with it (the Graveyard's ruling).
+    """
+    from codex.engine import buried_entry
+
+    seat = top["seat"]
+    found = buried_entry(match, top.get("picked") or "")
+    if found is None:
+        return
+    yard, entry = found
+    slug = entry["slug"]
+    player = match.player(seat)
+    why = engine.why_not_play_buried(player, slug)
+    if why:
+        result.narration.append(f"{tokens.card(slug)} can't be played: {why}.")
+        return
+    boosted = top.get("mode") == "boosted"
+    cost = engine.effective_cost(player, slug) + (engine.boost_cost(slug) or 0 if boosted else 0)
+    if player.gold < cost:
+        result.narration.append(f"{tokens.card(slug)} can't be played: not enough gold.")
+        return
+    yard.buried.remove(entry)
+    player.gold -= cost
+    match.record_event("played", slug=slug, cost=cost, buried=True,
+                       **({"boosted": True} if boosted else {}))
+    card = match.new_instance(slug, seat)
+    card.owner = entry["owner"]
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{tokens.player(seat)} plays {tokens.card(slug)} from their {tokens.card(effects.GRAVEYARD)} "
+        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}: {atk}/{hp}."
+    )
+    board.arrive(engine, match, card, boosted=boosted)
 
 
 #: The parts `run` works itself rather than a handler: "choose one" and
@@ -1401,6 +1530,13 @@ DOES = {
     "time_rune_self": _time_rune_self,
     "sacrifice": _sacrifice,
     "research": _research,
+    "rites": _rites,
+    "plague": _plague,
+    "decay": _decay,
+    "shadow_blade": _shadow_blade,
+    "poison": _poison,
+    "pick_buried": _pick_buried,
+    "play_buried": _play_buried,
 }
 
 

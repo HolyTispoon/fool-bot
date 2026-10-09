@@ -173,21 +173,18 @@ UNIMPLEMENTED: frozenset = frozenset({
     "abomination", "assimilate", "banefire_golem", "blackhand_dozer",
     "blackhand_resurrector", "bone_collector", "carrion_curse", "chronofixer",
     "corpse_catapult", "crypt_crawler", "cursed_crow", "cursed_ghoul", "dark_pact",
-    "death_and_decay", "death_rites", "deteriorate", "doom_grasp", "double_time",
-    "ebbflow_archon", "forgotten_fighter", "gargoyle", "garth_torken", "gilded_glaxx",
-    "gorgon", "graveyard", "hardened_mox", "hive", "hooded_executioner", "hyperion",
+    "deteriorate", "double_time", "ebbflow_archon", "forgotten_fighter", "gargoyle",
+    "garth_torken", "gilded_glaxx", "gorgon", "hardened_mox", "hive", "hyperion",
     "jandra_the_negator", "lichs_bargain", "max_geiger", "metamorphosis", "nebula",
     "necromancer", "nether_drain", "now", "octavian", "origin_story", "orpal_gloor",
-    "pestering_haunt", "plague_lab", "plague_lord", "plague_spitter",
-    "poisonblade_rogue", "promise_of_payment", "prynn_pasternaak", "ready_or_not",
-    "reaver", "rememberer", "research__development", "rewind", "sacrifice_the_weak",
-    "second_chances", "sentry", "shadow_blade", "shrine_of_forbidden_knowledge",
-    "sickness", "skeletal_archery", "skeletal_lord", "skeleton_javelineer",
-    "slowtime_generator", "soul_stone", "spreading_plague", "stewardess_of_the_undone",
-    "summon_skeletons", "temporal_distortion", "terras_q_the_shackled", "thieving_imp",
-    "tricycloid", "twilight_baron", "undo", "unphase", "vandy_anadrose",
-    "vir_garbarean", "void_star", "voidblocker", "vortoss_emblem",
-    "warp_gate_disciple", "xenostalker", "yesterdays_golgort",
+    "plague_lab", "plague_lord", "promise_of_payment", "prynn_pasternaak",
+    "ready_or_not", "reaver", "rememberer", "research__development", "rewind",
+    "second_chances", "sentry", "shrine_of_forbidden_knowledge", "sickness",
+    "skeletal_archery", "skeletal_lord", "skeleton_javelineer", "slowtime_generator",
+    "stewardess_of_the_undone", "summon_skeletons", "temporal_distortion",
+    "terras_q_the_shackled", "thieving_imp", "tricycloid", "twilight_baron", "undo",
+    "unphase", "vandy_anadrose", "vir_garbarean", "void_star", "voidblocker",
+    "vortoss_emblem", "warp_gate_disciple", "xenostalker", "yesterdays_golgort",
     "zarramonde_the_obliterator"
 })
 
@@ -668,6 +665,63 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     _effect("behind_the_ferns"),
     _effect("war_drums"),
 
+    # -- Purple and black: the forms of death (step 12) --------------------
+    # Sacrifice the Weak: "Each player sacrifices their weakest unit." --
+    # the lowest tech, then the least ATK; its caster chooses a tie, and
+    # what can't be sacrificed is passed over (its rulings).
+    _effect(
+        "sacrifice_the_weak",
+        Part("sacrifice", "weakest_own_to_sacrifice", 0, "choose your weakest unit to sacrifice",
+             targeted=False),
+        Part("sacrifice", "weakest_opposing_to_sacrifice", 0,
+             "choose their weakest unit, which they sacrifice", targeted=False),
+    ),
+    # Hooded Executioner: "If you boosted, destroy each opponent's weakest
+    # unit." -- indestructible units passed over (its rulings).
+    _effect("hooded_executioner", Part("destroy", "weakest_opposing_to_destroy", 0,
+                                       "choose their weakest unit to destroy", targeted=False,
+                                       when="boosted")),
+    # Death Rites: "Whenever one of your units dies this turn, destroy one of
+    # an opponent's lowest tech units." -- the trigger set on its caster.
+    _effect("death_rites", Part("rites", None, 0, targeted=False)),
+    _effect("death_rites_destroy", Part("destroy", "lowest_opposing_to_destroy", 0,
+                                        "choose one of their lowest tech units to destroy",
+                                        targeted=False)),
+    # Doom Grasp: "Sacrifice a unit. If you do, destroy a tech 0, I, or II
+    # unit or hero." -- the sacrifice no {target}, the destroy one.
+    _effect(
+        "doom_grasp",
+        Part("sacrifice", "own_unit_to_sacrifice", 0, "sacrifice one of your units",
+             targeted=False),
+        Part("destroy", "unit_or_hero_tech_0_2", 0, "destroy a tech 0, I or II unit or hero",
+             follows=True),
+    ),
+    # Spreading Plague: "Destroy all tech 0, I, or II units and heroes that
+    # have -1/-1 runes."
+    _effect("spreading_plague", Part("plague", None, 0, targeted=False)),
+    # Death and Decay: "Give all an opponent's units and heroes -3/-3 this
+    # turn. Deal 3 damage to all their buildings."
+    _effect("death_and_decay", Part("decay", None, 3, targeted=False)),
+    # Shadow Blade: "Deal 3 damage to a patroller. If it dies from Shadow
+    # Blade, its controller discards a card at random."
+    _effect("shadow_blade", Part("shadow_blade", "patroller", 3, "deal 3 damage to a patroller")),
+    # Soul Stone: "Attach to a unit."
+    _effect("soul_stone", Part("attach", "unit", 0, "attach to a unit")),
+    # Poisonblade Rogue: "Attacks: Gets armor piercing and deals damage to
+    # units and heroes in the form of -1/-1 runes this turn."
+    _effect("poisonblade_rogue", Part("poison", None, 0, targeted=False)),
+    # The Graveyard: "{exhaust} -> Play a buried unit. (You still pay for it
+    # and must meet the tech reqs for it.)" -- and boost it, which playing
+    # allows (the boost ruling).
+    _effect(
+        "graveyard",
+        Part("pick_buried", "buried_playable", 0, "choose a buried unit to play", targeted=False),
+        Part("mode", modes=(("plain", "play it"), ("boosted", "play it boosted")),
+             says="boost it or not", follows=True),
+        Part("play_buried", None, 0, targeted=False, follows=True),
+        says="play a buried unit",
+    ),
+
     # -- Purple and black: time (step 12) ----------------------------------
     # Time Spiral: "Add or remove a time rune from a card (or forcasted
     # card) with at least one time rune." -- any player's (its ruling), no
@@ -832,6 +886,16 @@ TEXT: dict = {
     "shimmer_ray": (("ability", "shimmer_ray"),),
     "omegacron": (("future_ability", "omegacron"),),
     "temporal_research": (("play", "temporal_research"),),
+    "sacrifice_the_weak": (("play", "sacrifice_the_weak"),),
+    "hooded_executioner": (("arrives", "hooded_executioner"),),
+    "death_rites": (("play", "death_rites"),),
+    "doom_grasp": (("play", "doom_grasp"),),
+    "spreading_plague": (("play", "spreading_plague"),),
+    "death_and_decay": (("play", "death_and_decay"),),
+    "shadow_blade": (("play", "shadow_blade"),),
+    "soul_stone": (("play", "soul_stone"),),
+    "poisonblade_rogue": (("attacks", "poisonblade_rogue"),),
+    "graveyard": (("ability", "graveyard"),),
 }
 
 #: What each ability action costs (`Cost`), by its effect.
@@ -863,6 +927,7 @@ COSTS: dict[str, Cost] = {
     "tinkerer": Cost(exhaust=True),
     "shimmer_ray": Cost(discard=1),
     "omegacron": Cost(),
+    "graveyard": Cost(exhaust=True),
 }
 
 
@@ -1143,3 +1208,31 @@ UNIT_GRANTS.update({
 })
 #: Pestering Haunt's "can't patrol" beside red and green's.
 CANT_PATROL = CANT_PATROL | {"pestering_haunt"}
+
+# -- The forms of death (step 12, commit 3) -------------------------------------
+
+#: What a random choice a journal records looks like beside the shuffles:
+#: `[PICK, slug]` -- a card discarded at random (Thieving Imp, Cursed Crow,
+#: Shadow Blade), a unit Second Chances returns. No slug begins with "@".
+PICK = "@pick"
+#: "Deals damage to units and heroes in the form of -1/-1 runes." --
+#: Plague Spitter's, Orpal Gloor's from his first band, and Poisonblade
+#: Rogue's while it attacks (a modifier of the turn).
+RUNE_DAMAGE = frozenset({"plague_spitter"})
+RUNE_DAMAGE_BANDS = {("orpal_gloor", 1)}
+#: Blackhand Dozer: "Damage you deal can reduce opposing bases' HP to 6,
+#: but not lower." -- any damage its controller deals, on any turn (its
+#: ruling and the Card FAQ).
+BASE_FLOOR = {"blackhand_dozer": 6}
+#: The Graveyard: "Whenever your non-token units die, bury them here.
+#: Sacrifice Graveyard when four or more units are buried in it."
+GRAVEYARD = "graveyard"
+GRAVEYARD_LIMIT = 4
+#: Soul Stone: "Attached unit gets +1/+1. If it would die, instead remove
+#: all damage from it and sacrifice all Soul Stones on it."
+SOUL_STONE = "soul_stone"
+ATTACHING = ATTACHING | {SOUL_STONE}
+ATTACHED_UNIT_GRANTS = {**ATTACHED_UNIT_GRANTS, SOUL_STONE: "soul_stone"}
+#: Death Rites: "Whenever one of your units dies this turn, destroy one of
+#: an opponent's lowest tech units." -- a this-turn trigger on its caster.
+DEATH_RITES = "death_rites"

@@ -2325,6 +2325,282 @@ class TimeRulingTests(unittest.TestCase):
         self.assertNotIn(lord.ref, engine.legal_defenders(match, attacker.ref))
 
 
+class DeathRulingTests(unittest.TestCase):
+    """The forms of death (step 12, commit 3)."""
+
+    def test_plague_spitter_1(self) -> None:
+        """Even though this deals damage in the form of -1/-1 runes, it still
+        counts as "dealing combat damage" and anything that checks if it
+        died to combat damage, such as Brave Knight, see getting hit by
+        this and immediately dying as "dying from combat damage." """
+        engine, game, match = pb(first=2)
+        spitter = put(match, 2, "plague_spitter")
+        target = put(match, 1, "argonaut")
+        target.plus_runes = 1
+        from codex.flow import combat
+
+        run = combat.declare_attack(engine, game, match, spitter.ref, target.ref)
+        # 3 damage as runes: the +1/+1 cancelled, two -1/-1 runes, no chits.
+        self.assertEqual((target.plus_runes, target.minus_runes, target.damage), (0, 2, 0))
+        self.assertEqual(engine.unit_stats(target, match), (1, 2))
+        del run
+
+    def test_poisonblade_rogue_1(self) -> None:
+        """Even though this deals damage in the form of -1/-1 runes, it
+        still counts as "dealing combat damage" and anything that checks if
+        it died to combat damage, such as Brave Knight, see getting hit by
+        this and immediately dying as "dying from combat damage." """
+        engine, game, match = pb()
+        rogue = put(match, 1, "poisonblade_rogue")
+        guard = put(match, 2, "neo_plexus", patrol="squad_leader")
+        from codex.flow import combat
+
+        combat.declare_attack(engine, game, match, rogue.ref, guard.ref)
+        # Armor piercing: the squad leader's armor prevents nothing, and two
+        # -1/-1 runes kill a 2/2.
+        self.assertIsNone(match.player(2).instance(guard.id))
+        self.assertTrue(any(event["kind"] == "destroyed" and event["slug"] == "neo_plexus"
+                            for event in match.events))
+
+    def test_graveyard_1(self) -> None:
+        """While a unit is buried in Graveyard, that unit is not in play;
+        it's in a special Graveyard zone. It loses all properties such as
+        attachments, +1/+1 runes, damage, etc. when it goes there. When you
+        later play it from Graveyard, it will arrive and trigger any
+        "arrive" effects at that time."""
+        engine, game, match = pb(first=2)
+        yard = put(match, 2, "graveyard")
+        imp = put(match, 2, "thieving_imp")
+        imp.plus_runes = 2
+        board.destroy(engine, match, [(2, imp.ref)], board.StepResult())
+        self.assertEqual(yard.buried, [{"slug": "thieving_imp", "owner": 2}])
+        self.assertNotIn("thieving_imp", match.player(2).discard)
+        match.player(2).gold = 10
+        hand(match, 1, "neo_plexus")
+        ability(engine, game, match, "graveyard", yard.ref)
+        played = next(card for card in match.player(2).play if card.slug == "thieving_imp")
+        self.assertEqual((played.plus_runes, played.damage), (0, 0))
+        self.assertTrue(played.arrived_this_turn)
+        self.assertEqual(match.player(2).gold, 7)
+        self.assertEqual(yard.buried, [])
+
+    def test_a_graveyard_with_four_units_is_sacrificed(self) -> None:
+        engine, game, match = pb()
+        yard = put(match, 1, "graveyard")
+        yard.buried = [{"slug": "neo_plexus", "owner": 1}] * 3
+        board.destroy(engine, match, [(1, put(match, 1, "argonaut").ref)], board.StepResult())
+        board.settle(engine, match, board.StepResult())
+        self.assertIsNone(match.player(1).instance(yard.id))
+        self.assertEqual(sorted(match.player(1).discard),
+                         ["argonaut", "graveyard", "neo_plexus", "neo_plexus", "neo_plexus"])
+
+    def test_sacrifice_the_weak_1(self) -> None:
+        """"Lowest tech unit with least ATK" means first you look at the set
+        of units the lowest tech, such as "tech 0." Tech 0 is below I is
+        below II is below III. Next, choose the unit in that set with the
+        least ATK."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        mine = put(match, 1, "neo_plexus")
+        put(match, 1, "argonaut")
+        theirs_strong_tech0 = put(match, 2, "thieving_imp")
+        put(match, 2, "bone_collector")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(theirs_strong_tech0.id),
+                          "a tech 0 unit with more ATK is weaker than a tech I one")
+
+    def test_sacrifice_the_weak_2(self) -> None:
+        """If there are any units that are indestructible or that can't be
+        sacrificed, ignore them when looking for the weakest unit. If such a
+        thing would be your "weakest unit" then instead sacrifice your next
+        weakest."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "hardened_mox")
+        put(match, 1, "pestering_haunt")
+        argonaut = put(match, 1, "argonaut")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(1).instance(argonaut.id))
+        self.assertEqual(sorted(card.slug for card in match.player(1).play),
+                         ["hardened_mox", "pestering_haunt"])
+
+    def test_pestering_haunt_1(self) -> None:
+        """"Can't be sacrificed" means you ignore it completely when
+        choosing things to sacrifice. If you would sacrifice your "weakest"
+        thing and this is it, then you sacrifice your second weakest thing,
+        not sacrifice nothing."""
+        engine, game, match = pb(first=2)
+        hero_in_play(match, 2)
+        haunt = put(match, 2, "pestering_haunt")
+        imp = put(match, 2, "thieving_imp")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNotNone(match.player(2).instance(haunt.id))
+        self.assertIsNone(match.player(2).instance(imp.id))
+
+    def test_a_tie_for_the_weakest_is_its_casters_to_choose(self) -> None:
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "argonaut")
+        first = put(match, 2, "neo_plexus")
+        second = put(match, 2, "neo_plexus")
+        hand(match, 1, "sacrifice_the_weak")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="sacrifice_the_weak")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {first.ref, second.ref})
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{second.ref}")
+        self.assertIsNotNone(match.player(2).instance(first.id))
+
+    def test_hooded_executioner_1(self) -> None:
+        """"Lowest tech unit with least ATK" means first you look at the set
+        of units the lowest tech, such as "tech 0." Tech 0 is below I is
+        below II is below III. Next, choose the unit in that set with the
+        least ATK."""
+        engine, game, match = pb(first=2)
+        tech(match, 2, 1)
+        put(match, 1, "argonaut")
+        weak = put(match, 1, "fading_argonaut")
+        strong = put(match, 1, "plasmodium")
+        hand(match, 2, "hooded_executioner")
+        match.player(2).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertIsNone(match.player(1).instance(weak.id))
+        self.assertIsNotNone(match.player(1).instance(strong.id))
+        self.assertEqual(match.player(2).gold, 10 - 5)
+
+    def test_hooded_executioner_2(self) -> None:
+        """If there are any units that are indestructible or that can't
+        leave play, ignore them when looking for the weakest unit. If such
+        a thing would be their "weakest unit" then instead destroy their
+        next weakest."""
+        engine, game, match = pb(first=2)
+        tech(match, 2, 1)
+        mox = put(match, 1, "hardened_mox")
+        next_weakest = put(match, 1, "argonaut")
+        hand(match, 2, "hooded_executioner")
+        match.player(2).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+        self.assertIsNone(match.player(1).instance(next_weakest.id))
+
+    def test_death_rites_1(self) -> None:
+        """If there are any units that are indestructible or that can't
+        leave play, ignore them when looking for the weakest unit. If such
+        a thing would be their "lowest tech unit" then instead destroy their
+        next weakest."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        put(match, 1, "hardened_mox")
+        lowest = put(match, 1, "argonaut")
+        mine = put(match, 2, "neo_plexus")
+        cast(engine, game, match, "death_rites")
+        board.destroy(engine, match, [(2, mine.ref)], board.StepResult())
+        from codex.flow import resolve
+
+        resolve.run(engine, match, board.StepResult())
+        self.assertIsNone(match.player(1).instance(lowest.id))
+
+    def test_doom_grasp_1(self) -> None:
+        """The "if you do" clause is not satisfied if you try to sacrifice
+        something that can't be sacrificed such a Gilded Glaxx that "can't
+        leave play." You can't even get close to satisfying "if you do" on
+        something like Pestering Haunt or Immortal that "can't be
+        sacrificed" because you can't even attempt to sacrifice those in
+        the first place, so the "if you do" clause is also not satisfied."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        put(match, 2, "pestering_haunt")
+        put(match, 2, "hardened_mox")
+        victim = put(match, 1, "argonaut")
+        hand(match, 2, "doom_grasp")
+        self.assertIn("nothing it could target",
+                      engine.why_not_playable(match.player(2), "doom_grasp", match),
+                      "nothing of theirs can be sacrificed, so nothing can be done")
+        del victim
+
+    def test_doom_grasp_2(self) -> None:
+        """The "if you do" clause is satisfied by attempting to sacrifice
+        something with a Soul Stone or something with Two Lives (Rook or
+        Justice Juggernaut). In these cases, the Soul Stone will fall off and
+        Rook or Justice Juggernaut will get a crumbling rune, then "if you
+        do" is satisfied."""
+        # Two Lives is the Whitestar Order's (step 13); the Soul Stone half
+        # is pinned here.
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        mine = put(match, 2, "neo_plexus")
+        stone = put(match, 2, "soul_stone")
+        stone.attached = [mine.id]
+        victim = put(match, 1, "argonaut")
+        cast(engine, game, match, "doom_grasp", f"1:{victim.ref}")
+        self.assertIsNotNone(match.player(2).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(stone.id))
+        self.assertIsNone(match.player(1).instance(victim.id))
+
+    def test_death_and_decay_1(self) -> None:
+        """Giving -3/-3 to an X/3 unit or hero will cause it to die (because
+        it has 0 HP) even if it had armor."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "orpal_gloor")
+        armored = put(match, 1, "thieving_imp", patrol="squad_leader")
+        armored.armor = 1
+        survivor = put(match, 1, "argonaut")
+        cast(engine, game, match, "death_and_decay")
+        self.assertIsNone(match.player(1).instance(armored.id))
+        self.assertIsNotNone(match.player(1).instance(survivor.id))
+        self.assertEqual(match.player(1).base_hp, 17)
+
+    def test_soul_stone_1(self) -> None:
+        """When the attached unit "would die," it doesn't actually die so
+        things that trigger on "dies" such as drawing a card in the
+        technician slot don't happen."""
+        engine, game, match = pb(first=2)
+        plexus = put(match, 2, "neo_plexus", patrol="technician", damage=1)
+        hero_in_play(match, 2)
+        cast(engine, game, match, "soul_stone")
+        stone = next(card for card in match.player(2).play if card.slug == "soul_stone")
+        self.assertEqual(stone.attached, [plexus.id])
+        self.assertEqual(engine.unit_stats(plexus, match), (3, 3))
+        before = len(match.player(2).hand)
+        board.destroy(engine, match, [(2, plexus.ref)], board.StepResult())
+        self.assertIsNotNone(match.player(2).instance(plexus.id))
+        self.assertEqual(plexus.damage, 0)
+        self.assertIsNone(match.player(2).instance(stone.id))
+        self.assertEqual(len(match.player(2).hand), before, "the technician draws nothing")
+
+    def test_soul_stone_2(self) -> None:
+        """If you Soul Stone something with Two Lives such as Justice
+        Juggernaut or Garus Rook, then the first time it would die, it gets
+        a crumbling rune from the Two Lives ability instead. The second time
+        it would die, Soul Stone's ability triggers (effectively giving it a
+        third life)"""
+        # Two Lives is step 13's; today the Soul Stone saves once, and the
+        # next death is a death.
+        engine, game, match = pb()
+        plexus = put(match, 1, "neo_plexus")
+        stone = put(match, 1, "soul_stone")
+        stone.attached = [plexus.id]
+        board.destroy(engine, match, [(1, plexus.ref)], board.StepResult())
+        self.assertIsNotNone(match.player(1).instance(plexus.id))
+        board.destroy(engine, match, [(1, plexus.ref)], board.StepResult())
+        self.assertIsNone(match.player(1).instance(plexus.id))
+
+    def test_shadow_blade_1(self) -> None:
+        """If you destroy an Illusion because you targeted it with Shadow
+        Blade, its controller discards a card."""
+        # Illusions are the Whitestar Order's (step 13): pinned here is the
+        # discard where Shadow Blade kills.
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "vandy_anadrose")
+        guard = put(match, 1, "neo_plexus", patrol="squad_leader")
+        hand(match, 1, "argonaut", "plasmodium")
+        cast(engine, game, match, "shadow_blade")
+        self.assertIsNone(match.player(1).instance(guard.id))
+        self.assertEqual(len(match.player(1).hand), 1)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""

@@ -70,8 +70,19 @@ def gain_gold(match: MatchState, seat: int, amount: int) -> int:
 def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
                 by: Optional[int] = None) -> None:
     """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
-    (UMR p. 2)."""
+    (UMR p. 2). `by` is the seat whose card or effect deals it, where
+    that is known: Blackhand Dozer's floor holds an opposing base at 6
+    against any damage its controller deals (`base_floor`)."""
     player = match.player(seat)
+    floor = base_floor(match, seat, by)
+    if floor is not None and player.base_hp - amount < floor:
+        kept = min(player.base_hp, floor)
+        if player.base_hp - amount < kept:
+            result.narration.append(
+                f"{tokens.card('blackhand_dozer')} holds {tokens.player(seat)}'s base at {kept}."
+            )
+        player.base_hp = kept
+        return
     player.base_hp = max(0, player.base_hp - amount)
     if player.base_hp == 0 and match.winner is None:
         match.winner = 2 if seat == 1 else 1
@@ -79,6 +90,22 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
+
+
+def base_floor(match: MatchState, seat: int, by: Optional[int]) -> Optional[int]:
+    """
+    Blackhand Dozer: "Damage you deal can reduce opposing bases' HP to 6,
+    but not lower." -- any damage the Dozer's controller deals, combat or
+    a spell or an ability, on any turn, a destroyed tech building's 2
+    included (its ruling, the Card FAQ). `None` where nothing holds it.
+    """
+    if by is None or by == seat:
+        return None
+    floors = [
+        effects.BASE_FLOOR[card.slug] for card in match.player(by).play
+        if card.slug in effects.BASE_FLOOR and "polymorph" not in (card.printed or {})
+    ]
+    return max(floors) if floors else None
 
 
 def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
