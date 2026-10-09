@@ -59,7 +59,6 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field, replace
-from enum import Enum, auto
 from typing import Any, Callable, Mapping, Optional, Sequence, Union
 
 from d12ball.components import MatchState, RuleRefusal, TeamSide
@@ -84,6 +83,7 @@ from d12ball.prompts import (
     pending_prompt,
 )
 from d12ball.wire import jsonable
+from gamekit.service import StopHandling
 from gamesaves.d12ball.storage import save_games
 
 
@@ -94,18 +94,6 @@ LOGGER = logging.getLogger(__name__)
 #: all of them, an index, or a callable asked with the `Answered` -- its
 #: detail, its lines and what it hands on to. See `apply_action`.
 CarryFrom = Union[None, int, Callable[[driver.Answered], Optional[int]]]
-
-
-class StopHandling(Enum):
-    """What a frontend does where the loop stopped for it."""
-
-    #: Take the picture: the group carries the position as it stands.
-    DRAW = auto()
-    #: Post the lines plainly, with no picture.
-    POST = auto()
-    #: Nothing to show here after all: the lines carry on into the
-    #: next step as its lead-in.
-    CARRY = auto()
 
 
 @dataclass(frozen=True)
