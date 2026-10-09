@@ -176,6 +176,7 @@ What is under `codex/images/board/`, and what each is named by:
 | `specs/` | The twenty spec cards | the spec, as a slug |
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
+| `patrol_slots/` | The five patrol slots as the playmat prints them, 200 by 273, and each one's bonus strip under it, 200 by 41 (`<slot>_bonus`) -- cut from `playmat.png` itself rather than a sheet, at the boxes pinned in `PLAYMAT_CUTS` beside `BOARD_SHEETS` (from the design canvas's plan board, 2026-10-08), and re-cut by `--cut-only` with the rest: the board's patrol zone is drawn from them, the mat's own slots (the author, 2026-10-08) | the slot |
 | `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
 | `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), a blue `swirl` nobody has said the module's use of, and the orange `house`, the module's mark on a building under construction or destroyed (the author, 2026-10-08), both named for what they show | what it shows |
 
@@ -811,46 +812,82 @@ one else can see it to press it.
 the turn's lines as its text, the game's buttons under it. Everything
 else the bot shows is ephemeral.
 
-- **The board is the module's playmat with the position laid on it**
-  (`codex/render.py`): the hero as its card in the first hero slot
-  while it is in the command zone, a time-rune chit on the card for
-  its summoning runes; once summoned it is on the field like any other
-  unit, so it lies in the play zone with the units, first among them,
-  with its level chit -- or in its patrol slot (the author,
-  2026-10-08: the mat's hero slots are where the heroes off the board
-  wait, three of them for the standard game's three; the board used to
-  keep the hero in its slot while in play and leave the slot empty
-  while it was in the command zone, which read the wrong way round);
-  patrollers in their five slots; the Tech I to III tiles in their places, faint where
-  unbuilt, tagged *building* while under construction and *destroyed*
-  when they are, with damage chits; the base's damage on the mat's own
-  base, which the mat prints (the module's base tile was tried and
-  doubled the printed base); the add-on's card in its slot; the draw
-  pile as the card back with its count on a tag below the medallion;
-  the discard and the workers as counts; the play zone's cards -- the
-  hero, then the units -- across the mat's middle, in a grid of square
-  cells so a card turned sideways (exhausted) fits too, each with
-  damage and rune chits and *arrived* when it came this turn. A strip along each mat's
-  top names the player, the spec and the hero, and counts the gold, the
-  hand, the codex and the base; the active player's strip is lit.
-  Composed at the mat's own size, scaled by `BOARD_SCALE` (0.6) and
-  saved as WebP at quality 85 (`BOARD_QUALITY`), about 220 KB; the
-  hand and the codex pictures stay PNG.
+- **The board is drawn element by element** (`codex/render.py`, step
+  7, from the author's design canvas of 2026-10-08,
+  https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f): each player is a
+  panel (`render_panel`) built from the module's pieces and the cards'
+  own art, at the pixels the canvas was drawn at, Roboto Slab for every
+  word and number.
+  - **Cards are 200 by 273** (the art at 61%) **in square cells of 273**,
+    16 between, so an exhausted card lies in its cell on its side at
+    full size, turned a quarter clockwise with the exhaust glyph on the
+    cell's top corner (the author, 2026-10-08: A of the canvas's three
+    ways -- dimmed in place, and a smaller card, were the others).
+  - **The column count is the game's**: five in the basic game, seven in
+    the standard one (three command-zone plates and four cards in the
+    first row), read from how many heroes a player has
+    (`panel_columns`), so the picture's width holds from turn to turn:
+    1649 wide, or 2227. Rows are added as the position needs them, so
+    the height follows it -- about 740 a panel with one row, 289 more a
+    row -- which the gate already allows for.
+  - **On the left, the buildings**, 160 wide, bottom-aligned, top to
+    bottom: the add-on slot (a dashed outline, or the add-on's card at
+    82 by 114), Tech III, II and I as the module's tiles at 160 by 114,
+    and the base. A tech building is greyed and half seen until built,
+    in colour once built, carries the module's house chit while under
+    construction (UMR p. 8: from when it is paid for to the end of the
+    turn) and is dark with the house chit when destroyed; damage is a
+    chit on its corner. The base's tile prints a heart with 20 on it, so
+    a heart is drawn over it carrying the HP it has now.
+  - **Across the top, the patrol zone** on the mat's blue: the mat's own
+    five slots with their bonus strips under them, cut from the playmat
+    ("The cards are data"), each centred in its column; a patroller's
+    card covers its slot, chits and all, and the bonus stays under it.
+  - **The grid**: a command-zone plate per hero first -- the hero lying
+    on it in full at 184 by 251 with its time-rune chit while off the
+    field, the plate empty while it is on the field -- then the heroes
+    on the field (the level chit top left), then the units, each with a
+    damage chit over the stats, its rune chits top right, Two Step's
+    chit on a dance partner and ARRIVED the turn it came.
+  - **A nameplate along the panel's outer edge**, 56 tall: the player,
+    the spec and hero, then gold (the gold emoji's picture), workers,
+    hand, deck, discard and codex, a word and a count each. The active
+    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill.
+  - **Why the mat went**: on the mat the cards sat in its printed
+    places, about 200 pixels wide on a picture 1838 by 1088 a side,
+    most of it the mat's art and places the position did not use. The
+    panel keeps the card at the same pixels in about three fifths of
+    the area, so at any size Discord shows the board, the cards come out
+    larger, and nothing is drawn for a place the position does not use
+    beyond those that must be seen empty -- a patrol slot, a tech
+    building, the add-on, the command zone. The playmat stays imported
+    as the reference the layout was taken from; nothing draws it. The
+    ground is flat (#231a14 a panel, #15100c between) -- the canvas
+    asks whether it should be the mat's leather instead, and the
+    author has not said.
+  - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
+    WebP at quality 85 (`BOARD_QUALITY`), about 70 to 140 KB; the hand
+    and the codex pictures stay PNG.
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
   everyone and the board goes up through the gate.
 - **Stacked is the table seen from the active player's side** (the
-  author, 2026-10-08): their mat at the bottom, the other player's
+  author, 2026-10-08): their panel at the bottom, the other player's
   above it and turned round to face them, so the two patrol zones face
   each other across the gap as they do across a table, and the picture
   turns with the turn (`stacked_seats`, the one reading of which seat
-  is near). The far mat is turned whole -- its cards, chits and counts
-  read upside down, as the far side of a table does -- but the strip
-  above it is the bot's words, not the mat's, and stays the right way
-  up: a name and four counts nobody should have to turn a phone for.
-  A finished game is seen from where it was left. Side by side turns
-  neither mat: two mats read left to right are a desk, not a table.
+  is near). The far panel's body is turned whole -- its cards and chits
+  read upside down, as the far side of a table does -- but its
+  nameplate is the bot's words and stays the right way up, on the
+  panel's outer edge, above: a name and its counts nobody should have
+  to turn a phone for. A 36-pixel divider between the two reads
+  "<HERO>'S TURN <N>". A finished game is seen from where it was left.
+  Side by side turns neither panel and puts an 80-pixel divider
+  between them, the same words standing: two panels read left to right
+  are a desk, not a table. Where the two are of different heights, the
+  shorter is filled between its body and its nameplate, so the
+  nameplates stay level.
 - **Swapping the view changes the message's shape**, and what the
   reader sees in between is the client's. A stacked board is tall and
   a side-by-side one wide, so the one edit that replaces the picture
