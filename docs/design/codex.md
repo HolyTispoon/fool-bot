@@ -852,7 +852,17 @@ else the bot shows is ephemeral.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
-    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill.
+    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill,
+    the hero by its short name -- "Troq's turn 7".
+  - **A hero's short name is kept by hand** (`SHORT_NAMES` in
+    `codex/cards.py`, `Hero.short_name`), the one thing about a card the
+    repository holds outside the imported data, because the database has
+    no such field. A table, not the name's first word: three heroes
+    carry a title first -- Captain Zane, General Onimaru, Master Midori
+    -- and "Captain's turn 3" names nobody (the author, 2026-10-09, over
+    the full name the first draft of step 7 used). A test holds the
+    table to the catalog's twenty and each short name to a word of its
+    hero's name.
   - **Why the mat went**: on the mat the cards sat in its printed
     places, about 200 pixels wide on a picture 1838 by 1088 a side,
     most of it the mat's art and places the position did not use. The
@@ -882,7 +892,7 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 36-pixel divider between the two reads
-  "<HERO>'S TURN <N>". A finished game is seen from where it was left.
+  "<HERO>'S TURN <N>", the same short name. A finished game is seen from where it was left.
   Side by side turns neither panel and puts an 80-pixel divider
   between them, the same words standing: two panels read left to right
   are a desk, not a table. Where the two are of different heights, the

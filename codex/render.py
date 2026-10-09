@@ -649,8 +649,10 @@ def hero_name(hero: HeroState, cards: CardCatalog) -> str:
 
 
 def turn_label(match: MatchState, cards: CardCatalog) -> str:
-    """"<Hero>'s turn <n>", named by the active player's hero."""
-    return f"{hero_name(match.player(match.active).hero, cards)}'s turn {match.turn}"
+    """"<Hero>'s turn <n>", named by the active player's hero, for short
+    -- "Troq's turn 7", "Zane's turn 3" (`Hero.short_name`)."""
+    hero = cards.heroes[match.player(match.active).hero.slug]
+    return f"{hero.short_name}'s turn {match.turn}"
 
 
 def is_to_act(match: MatchState, seat: int) -> bool:
