@@ -27,7 +27,9 @@ building. Step 6 gave it the rest: the spells, the arrives and attacks
 triggers, the heroes' bands, the abilities, the static grants and costs,
 the ongoing spells with their tokens and partners, and the upkeep's
 effects and their order -- so every card of the basic set does what it
-says and `UNIMPLEMENTED` is empty. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+says and `UNIMPLEMENTED` is empty. Step 8 gave a game its end -- a
+concession, a player's or a helper's abandon, the rematch, the channel moved to the
+archive -- and pinned a whole game through the service in a golden. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -232,7 +234,7 @@ on the other player's turn, a dozen actions in one turn, and undo.
 | `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below) |
 | `APPEL_STOMP_TOP` | the active player | `top` or `discard`: where Appel Stomp goes once it has resolved |
 | `UPKEEP_ORDER` | the active player | which of healing and Star-Crossed Starlet's damage goes first, asked only where both are due |
-| `GAME_OVER` | nobody | a base is destroyed (UMR p. 2); answering it is refused until step 7's rematch |
+| `GAME_OVER` | nobody | a base is destroyed (UMR p. 2), or a player conceded (`MatchState.conceded`); answering it is always refused -- playing again is a new record (`GameService.rematch`), not an answer ("The end of a game", below) |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
 `BEGIN_TURN` (the ready phase and the upkeep), `DRAW_PHASE` and
@@ -660,6 +662,11 @@ match as its saved dict, as D12 Ball's record does; its file,
   `flipped` (an Angry Dancer, whose `slug` the flip changes). The combat
   dict gained a `triggered` key, read with a default, so an attack saved
   by step 5 goes on as it would have.
+- **Step 8 added one**, `conceded` on the match (`None` where the game
+  ended on a destroyed base, and in an older save), and five on the
+  record, each read with a default: `final_message_id`,
+  `rematch_game_id`, `rematch_of`, `rematch_specs` and `kept_heroes`
+  ("The end of a game", below).
 
 ### What the narration may say
 
@@ -1253,6 +1260,9 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **4**: the old message's last edit, the new one's post, its pin, the old one's unpin | 2: the panel closed, the tech picker sent |
 | The attack that destroys a base | **2**: the last edit and the winner's line with the board | 1 |
+| Concede, the first click | **0** | 1: the confirmation |
+| Concede the game (step 8) | **2**: the last edit and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
+| Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
 | Undo to the start of the turn | **1** | 1 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the old message's edit, its pin, the current one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
@@ -1300,6 +1310,137 @@ hand** after a restart asks the same question with the same options
 its defender). `/codex resume` runs any step the bot owes, re-posts the
 turn message pinned, and hands the clicker their panel afresh -- the
 actions for the active player, the open tech picker for the other.
+
+## The end of a game
+
+Step 8 is what a game needs after its last turn ("Finishing a game" in
+the worksheet). **No statistics and no archive export for this bot**
+(the author, 2026-10-07): a finished game's channel is moved out of the
+way and nothing is written from it.
+
+- **A game ends with a winner one of two ways**: a destroyed base
+  (`codex.flow.turn.damage_base`, UMR p. 2), or a concession
+  (`codex.flow.turn.concede`). A concession is the model's: the seat
+  conceding loses, the other wins, `MatchState.conceded` remembers who
+  gave up -- a saved field step 8 added, `None` in an older save -- and
+  the match waits on `GAME_OVER`, whose ask says which way it ended
+  ("{player:1} wins: {player:2} conceded."). Either seat may concede,
+  whoever's turn it is; refused once the game is over.
+- **A concession is not an action the journal records.** It answers no
+  prompt -- it is open to both players at any moment -- so it is a door
+  of the service's own, `GameService.concede`, as the two undos are,
+  rather than a `PromptKind`. Nothing is undone past a finished game
+  (`history.undo_targets`), so there is nothing for the journal to
+  replay.
+- **The record follows the match in the same save**: `GameService.persist`
+  finishes the record (`CodexGame.finish`, `GameStatus.FINISHED`) once
+  its match has a winner, however it ended, so nothing downstream
+  compares the two. `/codex resume`, Swap view and the panel all stop at
+  a finished record.
+- **Concede is the clicker's own side, behind a second click.** **Concede**
+  on the turn message and `/codex concede` both answer ephemerally with
+  `ConcedeConfirmView` -- **Concede the game** or **Cancel** -- held to the
+  seat it was asked for (in a test game, the side whose turn it was) and
+  to the person who asked. No helper concedes for a player. The first
+  click spends nothing public; the second is the game's end below.
+- **The end on Discord** is what step 4 built for a destroyed base, with
+  two things after it: the turn message's last edit without its buttons,
+  the public line naming the winner with the final board -- now carrying
+  **Rematch** (`RematchView`, persistent, its message kept on the record
+  as `final_message_id`) -- and then **the channel moved to Codex
+  Archive** (`archive_channel`), its name and permissions left as they
+  are. The move is a request on the channel's own route, not the
+  messages' edit bucket, so the end still spends two from the bucket.
+- **`/codex abandon` is either player's own, or a helper's** (the
+  author, 2026-10-09: "any player should be able to abandon their own
+  game"): the game played in the channel, or the lobby open in it, ends
+  with no winner through `GameService.abandon`; the turn message (or the
+  lobby) stands without its buttons, one public line says it was
+  abandoned and by whom, and the channel is archived. An abandoned game
+  offers no rematch. A seated player may abandon only the game they sit
+  in -- the channel's own -- and a game helper (Manage Channels) any; a
+  watcher is refused privately. Unlike Concede it asks no second click:
+  it is a command typed in the game's channel, not a button beside the
+  others.
+- **`/codex admin`'s gate is read at run time**: Discord carries a
+  default permission on a top-level command and not on a subcommand of
+  `/codex`, so `/codex admin` is listed to everyone and refuses anybody
+  without Manage Channels ("Who may act, shared" is otherwise unchanged).
+  The author is content with the archive and the startup sweep as built
+  (2026-10-09).
+- **Rematch** (either player, or a helper, as the lobby's Start) opens a
+  new lobby through `GameService.rematch` -- a rule on the record,
+  `CodexGame.rematch`: the same two seats, the same people or the one
+  person of a test game, in the same channel, with **the heroes swapped**
+  (each seat plays the spec the other played), the finished game's specs
+  kept as `rematch_specs`. The button comes off its line in the click's
+  own response, the channel moves back under Codex Games, since a game
+  is about to be played in it, and the lobby is posted there with
+  **Keep heroes** beside its buttons. The finished record remembers its
+  rematch (`rematch_game_id`), so a second press finds the lobby. **Keep
+  heroes** (`CodexGame.keep_heroes`) is each seat's toggle; the heroes are
+  the last game's while both have pressed it, and swapped otherwise -- the
+  one person of a test game presses once for both. **Who goes first is
+  drawn again** at Start, as every game's is (`RulesEngine.new_match`).
+  Start renames the channel for the new game's number, as any Start does.
+- **`/codex admin reset_channels`**, for the test server: every channel
+  named `codex-<n>` outside Codex Archive deleted -- `/debug`'s
+  `delete_channel_with_retries`, with its backoff -- and every game of the
+  server not in an archived channel dropped (`GameService.drop_games`),
+  after the word "confirm", as `/debug reset_channels` does for D12 Ball.
+  The gate is `/debug`'s, guild only and Manage Channels, read at run time
+  for the reason above.
+- **The startup sweep** re-arms an open lobby's buttons, the current turn
+  message's buttons for a game still being played -- never an older
+  turn's, which stand as summaries -- and a finished game's **Rematch**
+  while no rematch has been opened from it. An abandoned game's messages,
+  and every turn message of a finished game, are left as they stand.
+- **Nothing hidden in a log line.** Step 8 audited every logging call under
+  `cogs/codex*` and `gamesaves/codex/`. One could name a card in a hand:
+  `SafeView.on_error` logged the item clicked with `%r`, and a button's
+  repr carries its label -- "3. Bloom (2 gold)" on a panel -- at ERROR,
+  which #logs mirrors. It now logs the view's class, the item's kind and
+  the game id (`test_a_clicks_error_names_no_label`). The rest log message
+  ids, game ids, numbers and Discord's errors; the storage's "invalid saved
+  game" line can carry `validate`'s sentence, which names a slug only where
+  the slug is not a card at all.
+
+### The golden
+
+`tests/test_codex_golden.py` is the Codex bot's safety net, D12 Ball's
+`test_golden_service.py` copied: **a seeded whole game of Bashing against
+Finesse through the Codex `GameService`** -- `create_game`, the two seats,
+`start`, `apply_action` for every answer and `resume` for every step the
+bot owes, with the default `Batching()` -- every `GameResult` written
+down as the service handed it back (its groups and their steps, what was
+carried, the prompt and its ask, the standing prompts' kinds) and the
+final save beside it, in `tests/golden/codex_service_transcript.txt` and
+`codex_service_final_match.json`, byte for byte.
+
+- **The seed is the full-game test's**, `SEED = 20261008`, and so is the
+  policy (`test_codex_driver_full_game.choose`, which reads the prompt's
+  options and nothing else); on it the game runs 275 answers to Troq
+  Bashar destroying Finesse's base. `FOOLBOT_UPDATE_GOLDEN=1 python3 -m
+  unittest tests.test_codex_golden` re-records it, as the D12 Ball
+  goldens are.
+- **It pins the model's voice with its tokens intact**, before any
+  frontend draws one. So a faithful change to rendering -- the emoji, the
+  mentions, the message layout, the board's picture -- leaves it alone;
+  a change to the model's wording or to what the game does re-records it,
+  and **the pull request that re-records it says so and shows the diff**.
+  The rule is written in the test's docstring and in its failure message.
+- **Nothing hidden is written into it**: a prompt's options are never
+  described (a hand and a codex are their asked player's), and the test's
+  own action lines leave out a hire's card and a tech choice's picks --
+  `test_nothing_hidden_is_written` holds both. The final save holds every
+  hand, as any save does; it is a test fixture, never a message.
+- **What it does not cover**: a concession, an undo, an abandon or a
+  rematch (`tests/test_codex_ending.py`, `tests/test_codex_history.py`);
+  a test game, whose tech is chosen in each side's own ready phase;
+  whatever the policy never does -- the tower's detection, an ability it
+  does not reach, an attack's choice that never comes up on this seed;
+  and everything the cog renders, which `tests/test_codex_cog_turn.py`
+  plays through the fakes.
 
 ## Running it
 

@@ -6,8 +6,10 @@ The Codex bot's Discord frontend: every slash command under `/codex`.
 `service` property, `DiscordBatching`, `render_prompt`,
 `view_for_prompt`, the turn message's text), `turns` (`present`, the
 panel, the turn's rollover, the finished game, the two undos), `lobby`
-(`/codex lobby` and what Start does), `presentation` (the board, the
-channel, the turn message, a hand),
+(`/codex lobby` and what Start does), `ending` (Concede,
+`/codex abandon`, Rematch, the channel archived, `/codex admin
+reset_channels`), `presentation` (the board, the channel, the turn
+message, a hand),
 `slash_commands` (`/codex games`, `board`, `hand`, `resume`) and
 `reference` (`/codex card`, `/codex rules`). Nothing in it decides a
 rule: it asks `codex/` and renders the answer.
@@ -16,6 +18,7 @@ rule: it asks `codex/` and renders the answer.
 from discord.ext import commands
 
 from cogs.codex.core import CoreMixin
+from cogs.codex.ending import EndingMixin
 from cogs.codex.lobby import LobbyMixin
 from cogs.codex.presentation import PresentationMixin
 from cogs.codex.reference import ReferenceMixin
@@ -26,6 +29,7 @@ from cogs.codex.turns import TurnsMixin
 class Codex(
     CoreMixin,
     TurnsMixin,
+    EndingMixin,
     LobbyMixin,
     PresentationMixin,
     SlashCommandsMixin,

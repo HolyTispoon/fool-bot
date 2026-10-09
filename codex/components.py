@@ -411,6 +411,10 @@ class MatchState:
     turn: int = 1
     phase: str = "ready"
     winner: Optional[int] = None
+    #: The seat that conceded, where the game ended that way rather
+    #: than on a destroyed base (`codex.flow.turn.concede`); `None`
+    #: otherwise, and in a save older than step 8.
+    conceded: Optional[int] = None
     #: What happened, in order, for the statistics and the summary --
     #: written by `record_event` alone, and never read to decide a rule.
     events: list[dict] = field(default_factory=list)
@@ -510,6 +514,8 @@ class MatchState:
             fail("first and active are seats 1 and 2")
         if self.winner not in (None, 1, 2):
             fail(f"winner is {self.winner!r}")
+        if self.conceded not in (None, 1, 2) or (self.conceded is not None and self.winner is None):
+            fail(f"conceded is {self.conceded!r} with winner {self.winner!r}")
         if self.phase not in PHASES:
             fail(f"phase is {self.phase!r}")
         if self.turn < 1:
@@ -581,6 +587,7 @@ MATCH_SAVED_FIELDS = (
     SavedField("turn", default=1),
     SavedField("phase", default="ready"),
     SavedField("winner"),
+    SavedField("conceded"),
     SavedField("events", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("next_instance_id", default=1),
     SavedField("attacking"),

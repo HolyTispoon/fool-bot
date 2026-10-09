@@ -24,12 +24,14 @@ import discord
 
 from codex import history
 from codex.flow.driver import STALE_CLICK
+from codex.game import GameStatus
 from codex.prompts import PromptKind
 from codex_cog_fakes import Table
 from codex_positions import hero_in_play, put
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     PatrolView,
+    RematchView,
     TechChoiceView,
     TechConfirmView,
     TurnMessageView,
@@ -499,7 +501,8 @@ class WholeGameTests(TurnTestCase):
                         break
                     view = call.view()
         self.assertIsNotNone(table.match.winner)
-        self.assertIn("wins", table.game_channel.requests[-1][2]["content"])
+        sent = [kwargs for kind, _, kwargs in table.game_channel.requests if kind == "send"]
+        self.assertIn("wins", sent[-1]["content"])
         self.assertTrue(hand_pictures.called)
         self.assertTrue(codex_pictures.called)
 
@@ -786,10 +789,17 @@ class GameOverTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.winner, seat)
         requests = self.table.game_channel.since(mark)
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send"])
+        # The two message requests the end spends, then the channel's own
+        # move to Codex Archive -- a request of the channel's route, not
+        # of the messages' edit bucket.
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"])
         self.assertIn("wins", requests[1][2]["content"])
         self.assertTrue(requests[1][2]["file"].filename.startswith("codex-"))
+        self.assertIsInstance(requests[1][2]["view"], RematchView)
+        self.assertIn("category", requests[2][2])
+        self.assertIs(self.game.status, GameStatus.FINISHED)
+        self.assertEqual(self.game.final_message_id, requests[1][1])
 
 
 class UndoTests(TurnTestCase):

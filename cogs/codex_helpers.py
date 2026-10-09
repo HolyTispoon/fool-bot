@@ -80,6 +80,13 @@ async def codex_games_category(guild):
     )
 
 
+async def codex_archive_category(guild):
+    """Where a finished or abandoned game's channel is moved and left."""
+    return await get_or_create_category(
+        guild, CODEX_ARCHIVE_CATEGORY_NAME, "Create the category for finished Codex games.",
+    )
+
+
 async def load_codex_emojis(bot: commands.Bot) -> dict[str, str]:
     """The uploaded emoji of `EMOJI_NAMES`, by name, as Discord writes
     them; whatever is missing is left to the word."""
