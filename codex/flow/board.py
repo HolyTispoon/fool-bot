@@ -99,8 +99,13 @@ def still_there(match: MatchState, seat: int, ref: str) -> bool:
 # -- Damage --------------------------------------------------------------------
 
 
-def take_damage(body, amount: int) -> int:
-    """Damage onto a unit or hero, its armor first; what landed."""
+def take_damage(body, amount: int, piercing: bool = False) -> int:
+    """Damage onto a unit or hero, its armor first -- unless it is
+    armor piercing, which armor prevents nothing of, and which leaves the
+    armor for the next damage (UMR p. 16); what landed."""
+    if piercing:
+        body.damage += amount
+        return amount
     absorbed = min(body.armor, amount)
     body.armor -= absorbed
     landed = amount - absorbed
@@ -400,6 +405,15 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         if dead:
             destroy(engine, match, dead, result, cause=cause)
             continue
+        twin = _legendary_twin(engine, match)
+        if twin is not None:
+            # "If you ever have multiple copies of a legendary card in
+            # play, the newest copy is immediately destroyed" (UMR p. 15).
+            result.narration.append(
+                f"{named(match, twin.controller, twin.ref)} is a second copy of a legendary card."
+            )
+            destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause)
+            continue
         gone = _sacrifice_due(engine, match)
         if gone is None:
             return
@@ -407,6 +421,20 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         line = f"{named(match, card.controller, card.ref)} is sacrificed: {why}."
         sacrifice(engine, match, card)
         result.narration.append(line)
+
+
+def _legendary_twin(engine: "RulesEngine", match: MatchState) -> Optional[CardInstance]:
+    """The newest copy of a legendary card a player has two of in play,
+    or `None` -- by the order things came into play, then by id."""
+    for player in match.players:
+        seen: dict[str, list[CardInstance]] = {}
+        for card in player.play:
+            if "Legendary" in (engine.catalog.cards[card.slug].type or ""):
+                seen.setdefault(card.slug, []).append(card)
+        for copies in seen.values():
+            if len(copies) > 1:
+                return max(copies, key=lambda card: (getattr(card, "sequence", 0), card.id))
+    return None
 
 
 def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[CardInstance, str]]:

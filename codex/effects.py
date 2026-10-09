@@ -95,11 +95,16 @@ GREEN = frozenset({
     "young_treant"
 })
 
+#: The tokens of another colour that red and green summon: Surprise
+#: Attack's Sharks and Argagarg's Water Elemental, both blue. Landed with
+#: the cards that make them, so their keywords are read.
+BORROWED_TOKENS = frozenset({"shark", "water_elemental"})
+
 #: **Every card the engine reads** -- the keyword table and the
 #: static tables below are read over it, and the lobby offers the
 #: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
 #: step adds its two.
-LANDED_SET = BASIC_SET | RED | GREEN
+LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
 
 #: Every landed slug whose text the engine plays for its numbers alone.
 #: Written out rather than computed, so the commit that takes a card out
@@ -121,27 +126,27 @@ UNIMPLEMENTED: frozenset = frozenset({
     "bombaster", "burning_volley", "calypso_vystari", "captain_zane",
     "captured_bugblatter", "careless_musketeer", "chameleon_lizzo",
     "chaos_mirror", "charge", "cinderblast_dragon", "crash_bomber",
-    "crashbarrow", "desperation", "detonate", "disguised_monkey",
+    "desperation", "detonate", "disguised_monkey",
     "doubleshot_archer", "drakk_ramhorn", "ember_sparks", "fire_dart",
     "firebat", "firehouse", "flame_arrow", "gunpoint_taxman", "hotter_fire",
     "jaina_stormborne", "kidnapping", "land_octopus", "lobber",
-    "makeshift_rambaster", "marauder", "maximum_anarchy",
-    "molting_firebird", "ogre_recruiter", "pillage", "pirate_gunship",
+    "marauder", "maximum_anarchy",
+    "molting_firebird", "ogre_recruiter", "pillage",
     "pirategang_commander", "rickety_mine", "sanatorium", "scorch",
-    "shoddy_glider", "steam_tank", "surprise_attack", "war_drums",
+    "surprise_attack", "war_drums",
     # Green.
     "argagarg_garg", "artisan_mantis", "behind_the_ferns",
     "blooming_ancient", "blooming_elm", "calamandra_moss", "circle_of_life",
     "dinosize", "dothram_horselord", "fairie_dragon", "feral_strike",
     "ferocity", "final_showdown", "forests_favor", "galina_glimmer",
     "gemscout_owl", "giant_panda", "gigadon", "guargum_eternal_sentinel",
-    "ironbark_treant", "master_midori", "merfolk_prospector",
+    "master_midori", "merfolk_prospector",
     "might_of_leaf_and_claw", "moments_peace", "moss_ancient",
     "murkwood_allies", "nature_reclaims", "playful_panda",
     "polymorph_squirrel", "potent_basilisk", "predator_tiger",
-    "rampaging_elephant", "rampant_growth", "rich_earth",
-    "spirit_of_the_panda", "spore_shambler", "stalking_tiger", "stampede",
-    "tiny_basilisk", "tyrannosaurus_rex", "verdant_tree", "wandering_mimic",
+    "rampant_growth", "rich_earth",
+    "spirit_of_the_panda", "spore_shambler", "stampede",
+    "tyrannosaurus_rex", "verdant_tree",
     "young_treant",
 })
 
@@ -363,3 +368,38 @@ DANCER_LIMIT = 3
 HARMONY = "harmony"
 TWO_STEP = "two_step"
 APPEL_STOMP = "appel_stomp"
+
+# -- Red and green's static texts (step 11) ------------------------------------
+
+#: "Can't attack" -- Young Treant; Gemscout Owl's "Flying but can't
+#: attack."
+CANT_ATTACK = frozenset({"young_treant", "gemscout_owl"})
+#: "Can't patrol." -- Makeshift Rambaster, Land Octopus.
+CANT_PATROL = frozenset({"makeshift_rambaster", "land_octopus"})
+#: "+X ATK when attacking buildings." -- read as the attack's damage is
+#: dealt, never as the attack is declared (Behind the Ferns' ruling).
+ATTACKING_BUILDINGS_ATK = {"makeshift_rambaster": 2, "steam_tank": 4}
+#: "... is unstoppable by tech 0 units" -- it ignores tech 0 patrollers
+#: when attacking: Predator Tiger, Tiny Basilisk.
+UNSTOPPABLE_BY_TECH_0 = frozenset({"predator_tiger", "tiny_basilisk"})
+#: "Tiny Basilisk is unattackable ... by tech 0 units."
+UNATTACKABLE_BY_TECH_0 = frozenset({"tiny_basilisk"})
+#: "Stealth while attacking a unit." -- Stalking Tiger.
+STEALTH_ATTACKING_UNITS = frozenset({"stalking_tiger"})
+#: "... is invisible while you have a Feral hero." -- the spec whose hero
+#: in play under its controller makes it invisible.
+INVISIBLE_WITH_HERO = {"stalking_tiger": "feral"}
+#: Ironbark Treant's "-2 ATK / +2 armor while patrolling" -- on the
+#: opponents' turns only, and only while in the patrol zone (its
+#: rulings): (ATK, armor).
+WHILE_PATROLLING = {"ironbark_treant": (-2, 2)}
+#: "The first time Rampaging Elephant exhausts each turn, ready him."
+READIES_ONCE = frozenset({"rampaging_elephant"})
+#: Wandering Mimic: "As long as a unit or hero with flying is in play,
+#: Wandering Mimic has flying. The same is true for overpower, haste,
+#: sparkshot, untargetable, and stealth." -- never from another Mimic
+#: (the Card FAQ).
+MIMIC = "wandering_mimic"
+MIMICKED = ("Flying", "Overpower", "Haste", "Sparkshot", "Untargetable", "Stealth")
+#: Master Midori at 8: "During your turn: Flying".
+FLYING_ON_OWN_TURN = {("master_midori", 8)}

@@ -162,6 +162,12 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     for side in match.players:
         for body in (*side.play, *side.heroes):
             body.armor = SQUAD_LEADER_ARMOR if body.patrol_slot == "squad_leader" else 0
+            change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
+            if change is not None and body.patrol_slot is not None and side.seat != seat:
+                # Ironbark Treant's +2 armor, new on each opponent's turn
+                # while it patrols (its rulings); it stacks with the squad
+                # leader's (UMR p. 16).
+                body.armor += change[1]
     for hero in player.heroes:
         hero.max_level_since_turn_began = (
             hero.in_play and hero.level == engine.hero_card(hero).max_level
@@ -286,8 +292,27 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         at, f"{tokens.player(seat)} discards {discarded} and draws {drawn}.",
     )
     match.enter_phase("tech")
+    end_of_turn(engine, match, result)
     result.next = FollowOn(FollowOnStep.BEGIN_TECH)
     return result
+
+
+def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) -> None:
+    """
+    What happens at the end of the turn, after the draw phase and before
+    the buildings finish (step 11), on both sides: every ephemeral unit
+    dies ("Destroy this card at the end of any turn, including any
+    opponent's turn", UMR p. 16).
+    """
+    from codex.flow import board
+
+    dying = [
+        (card.controller, card.ref) for side in match.players for card in side.play
+        if engine.has_keyword(card, "Ephemeral", match)
+    ]
+    if dying:
+        board.destroy(engine, match, dying, result)
+        board.settle(engine, match, result)
 
 
 def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -316,6 +341,10 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # stealth), on both sides, heroes too.
     for side in match.players:
         for body in (*side.play, *side.heroes):
+            # Temporary armor not used up goes with the turn (UMR p. 16).
+            lent = sum(m.get("amount", 0) for m in body.modifiers
+                       if m.get("kind") == "armor" and m.get("until") == "end_of_turn")
+            body.armor = max(0, body.armor - lent)
             body.modifiers = [m for m in body.modifiers if m.get("until") != "end_of_turn"]
     minimum, maximum = engine.tech_bounds(player)
     player.tech_owed = maximum > 0

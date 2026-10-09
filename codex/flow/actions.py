@@ -145,7 +145,8 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
     return _done(engine, game, match, [line])
 
 
-def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str) -> StepResult:
+def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str,
+              boost: bool = False) -> StepResult:
     """
     A card from the hand for its cost (UMR p. 7): a unit into play with
     arrival fatigue, its arrives triggers then resolving; a building card
@@ -164,20 +165,30 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
         raise RuleRefusal(f"You can't play {engine.name(slug)}: {why}.", cite="UMR p. 7")
     card = engine.catalog.cards[slug]
     cost = engine.effective_cost(player, slug)
+    if boost:
+        # Boost X: paid as the card is played from the hand, never where
+        # an effect puts it into play (UMR p. 16; the boost rulings).
+        extra = engine.boost_cost(slug)
+        if extra is None:
+            raise RuleRefusal(f"{engine.name(slug)} has no boost.", cite="UMR p. 16")
+        if player.gold < cost + extra:
+            raise RuleRefusal(f"You can't boost {engine.name(slug)}: not enough gold.", cite="UMR p. 16")
+        cost += extra
     player.hand.remove(slug)
     player.gold -= cost
-    match.record_event("played", slug=slug, cost=cost)
+    match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}))
     note = _vanilla_note(engine, slug)
     result = StepResult(board_changed=True)
     if card.is_unit:
         instance = match.new_instance(slug, seat)
         atk, hp = engine.unit_stats(instance, match)
+        boosted = ", boosted" if boost else ""
         result.narration.append(
-            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted}: "
             f"{atk}/{hp}.{note}"
         )
         resolve.push(match, *(
-            resolve.frame(effect, seat, tokens.card(slug), source=instance.ref)
+            resolve.frame(effect, seat, tokens.card(slug), source=instance.ref, boosted=boost)
             for effect in effects.triggers(slug, "arrives")
         ))
     elif card.is_permanent:
@@ -188,12 +199,14 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             f"{what}.{note}"
         )
     else:
+        boosted = ", boosted" if boost else ""
         result.narration.append(
-            f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
+            f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}{boosted}.{note}"
         )
         if slug in effects.EFFECTS:
             resolve.push(match, resolve.frame(
                 slug, seat, tokens.card(slug), spell=slug, cancel_from=len(match.journal),
+                boosted=boost,
             ))
         else:
             # A spell the table has no row for -- one in `UNIMPLEMENTED`,

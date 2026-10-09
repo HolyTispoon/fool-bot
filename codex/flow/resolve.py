@@ -46,7 +46,8 @@ EFFECT = "effect"
 
 
 def frame(effect: str, seat: int, by: str, *, source: Optional[str] = None,
-          spell: Optional[str] = None, cancel_from: Optional[int] = None) -> dict:
+          spell: Optional[str] = None, cancel_from: Optional[int] = None,
+          boosted: bool = False) -> dict:
     """
     A frame for `effect`, controlled by `seat`: `by` is its source as the
     narration names it (`{card:spark}`, `{hero:river_montoya}`),
@@ -65,6 +66,7 @@ def frame(effect: str, seat: int, by: str, *, source: Optional[str] = None,
         "source": source, "spell": spell, "part": 0, "taken": [],
         "flagbearer": False, "partners": [],
         "cancel_from": cancel_from, "drew": False,
+        **({"boosted": True} if boosted else {}),
     }
 
 

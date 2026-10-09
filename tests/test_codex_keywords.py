@@ -58,6 +58,15 @@ STEP_5_KEYWORDS = {
     "Tech Lab": 2,
 }
 
+#: The keywords red and green bring (step 11), and how many `General`
+#: rulings each carried at the pinned import.
+STEP_11_KEYWORDS = {
+    "Deathtouch": 2,
+    "Long-range": 2,
+    "Ephemeral": 1,
+    "Untargetable": 1,
+}
+
 
 @contextmanager
 def printed(**pairs):
@@ -73,10 +82,10 @@ def printed(**pairs):
         yield
 
 
-def fresh(seed: int = 7):
-    """A game of Bashing against Finesse standing in seat 1's main
-    phase."""
-    engine, game, match = new_game(seed=seed)
+def fresh(seed: int = 7, teams=(("bashing",), ("finesse",))):
+    """A game of Bashing against Finesse -- or `teams` -- standing in
+    seat 1's main phase."""
+    engine, game, match = new_game(seed=seed, teams=teams)
     begin(engine, game, match)
     return engine, game, match
 
@@ -1173,6 +1182,213 @@ class TechLabTests(KeywordCase):
         self.assertEqual((player.tech2_spec, player.add_on.spec), ("fire", "blood"))
 
 
+# -- Red and green's keywords (step 11) -------------------------------------
+
+
+class DeathtouchTests(KeywordCase):
+    def test_deathtouch_1(self) -> None:
+        """Anything that checks for "dying from combat damage" such as
+        Brave Knight or Gilded Glaxx does "die from combat damage" if
+        deathtouch hits it."""
+        engine, game, match = fresh()
+        basilisk = put(match, 1, "tiny_basilisk").ref
+        guard = put(match, 2, "older_brother", patrol="squad_leader")
+        guard.armor = 1
+        result = self.attack(engine, game, match, basilisk, guard.ref)
+        # The squad leader's armor took the 1, and it is destroyed by the
+        # combat all the same -- a death in combat, its 2 back included.
+        self.assertIsNone(match.player(2).instance(guard.id))
+        self.assertIsNone(match.player(1).instance(int(basilisk.split(":")[1])))
+        self.assertIn("armor takes 1", said(result))
+
+    def test_deathtouch_2(self) -> None:
+        """Deathtouch does not stack. Having two instances of deathtouch is
+        the same as having just one."""
+        self.assertNotIn("Deathtouch", keywords.STACKING)
+        with printed(tiny_basilisk=(("Deathtouch", None), ("Deathtouch", None))):
+            engine, game, match = fresh()
+            basilisk = put(match, 1, "tiny_basilisk")
+            self.assertEqual(engine.keyword_x(basilisk, "Deathtouch", match), 1)
+            target = put(match, 2, "iron_man")
+            self.assertEqual(engine.lethal_damage(match, 1, basilisk.ref, target), 1)
+
+    def test_deathtouch_kills_nothing_that_is_a_building(self) -> None:
+        """"This doesn't affect buildings" (UMR p. 16)."""
+        engine, game, match = fresh()
+        basilisk = put(match, 1, "tiny_basilisk").ref
+        self.attack(engine, game, match, basilisk, "base")
+        self.assertEqual(match.player(2).base_hp, 19)
+
+
+class LongRangeTests(KeywordCase):
+    def test_longrange_1(self) -> None:
+        """Long-range does not prevent anti-air patrollers that the
+        attacker flies over from dealing damage."""
+        with printed(eggship=(("Flying", None), ("Long-range", None))):
+            engine, game, match = fresh()
+            ship = put(match, 1, "eggship").ref
+            put(match, 2, "leaping_lizard", patrol="squad_leader")
+            result = self.attack(engine, game, match, ship, "base")
+            self.assertIn("with anti-air, deals", said(result))
+
+    def test_longrange_2(self) -> None:
+        """Long-range does not prevent towers from dealing damage."""
+        engine, game, match = fresh()
+        archer = put(match, 1, "doubleshot_archer").ref
+        tower(match, 2)
+        guard = put(match, 2, "iron_man").ref
+        # The defender deals nothing back...
+        self.assertEqual(engine.damage_back(match, archer, guard), 0)
+        self.attack(engine, game, match, archer, guard)
+        # ... and the tower still deals its 1.
+        self.assertEqual(self.damage(match, 1, archer), 1)
+        self.assertIsNone(engine.body(match, 2, guard))
+
+    def test_a_defender_with_long_range_deals_back(self) -> None:
+        engine, game, match = fresh()
+        archer = put(match, 1, "doubleshot_archer").ref
+        other = put(match, 2, "doubleshot_archer").ref
+        self.assertEqual(engine.damage_back(match, archer, other), 4)
+
+
+class EphemeralTests(KeywordCase):
+    def test_ephemeral_1(self) -> None:
+        """Ephemeral triggers at the end of each player's turn."""
+        engine, game, match = fresh()
+        mine = put(match, 1, "crashbarrow")
+        theirs = put(match, 2, "shoddy_glider")
+        result = StepResult()
+        turn.end_of_turn(engine, match, result)
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(theirs.id))
+        self.assertEqual(match.player(1).discard[-1], "crashbarrow")
+
+
+class UntargetableTests(KeywordCase):
+    def test_untargetable_1(self) -> None:
+        """Something that's untargetable still CAN be attacked. It can even
+        be affected by some spells and abilities, but NOT spells or
+        abilities that use the [target] symbol."""
+        engine, game, match = fresh()
+        attacker = put(match, 1, "iron_man").ref
+        ancient = put(match, 2, "moss_ancient").ref
+        self.assertIn(ancient, engine.legal_defenders(match, attacker))
+        from codex import effects
+
+        spark = effects.EFFECTS["spark"].parts[0]
+        put(match, 2, "older_brother", patrol="elite")
+        match.player(2).instance(int(ancient.split(":")[1])).patrol_slot = "squad_leader"
+        offered = {row.ref for row in engine.target_rows(match, 1, spark)}
+        self.assertNotIn(ancient, offered, "Spark has the target symbol")
+        self.assertTrue(offered, "the other patroller may still be chosen")
+        # Its own controller may not target it either.
+        self.assertNotIn(ancient, {row.ref for row in engine.target_rows(match, 2, spark)})
+
+
+class ConditionedKeywordTests(KeywordCase):
+    """The keywords a red or green card has only while the position says
+    so (docs/design/codex.md, "Red and green")."""
+
+    def test_tiny_basilisk_is_unattackable_and_unstoppable_by_tech_0(self) -> None:
+        engine, game, match = fresh()
+        basilisk = put(match, 2, "tiny_basilisk").ref
+        tenderfoot = put(match, 1, "tenderfoot").ref
+        self.assertNotIn(basilisk, engine.legal_defenders(match, tenderfoot))
+        match.active = 2
+        put(match, 1, "older_brother", patrol="squad_leader")
+        self.assertIn("base", engine.legal_defenders(match, basilisk))
+
+    def test_predator_tiger_ignores_tech_0_patrollers_only(self) -> None:
+        engine, game, match = fresh()
+        tiger = put(match, 1, "predator_tiger").ref
+        put(match, 2, "older_brother", patrol="squad_leader")
+        self.assertIn("base", engine.legal_defenders(match, tiger))
+        guard = put(match, 2, "huntress", patrol="elite").ref
+        self.assertEqual(engine.legal_defenders(match, tiger), (guard,))
+
+    def test_stalking_tiger_sneaks_to_a_unit_and_is_invisible_with_a_feral_hero(self) -> None:
+        engine, game, match = fresh(teams=(("feral",), ("finesse",)))
+        tiger = put(match, 1, "stalking_tiger")
+        leader = put(match, 2, "older_brother", patrol="squad_leader").ref
+        lying = put(match, 2, "tenderfoot").ref
+        defenders = engine.legal_defenders(match, tiger.ref)
+        self.assertIn(leader, defenders)
+        self.assertIn(lying, defenders, "stealth while attacking a unit")
+        self.assertNotIn("base", defenders)
+        self.assertFalse(engine.has_keyword(tiger, "Invisible", match))
+        hero_in_play(match, 1)
+        self.assertTrue(engine.has_keyword(tiger, "Invisible", match))
+
+    def test_cant_attack_and_cant_patrol(self) -> None:
+        engine, game, match = fresh()
+        treant = put(match, 1, "young_treant").ref
+        owl = put(match, 1, "gemscout_owl")
+        ram = put(match, 1, "makeshift_rambaster").ref
+        self.assertTrue(engine.has_keyword(owl, "Flying", match))
+        self.assertEqual(engine.attackers(match), (ram,))
+        self.assertNotIn(ram, engine.patrol_candidates(match))
+        self.assertIn(treant, engine.patrol_candidates(match))
+
+    def test_bonus_when_attacking_buildings(self) -> None:
+        engine, game, match = fresh()
+        tank = put(match, 1, "steam_tank").ref
+        self.attack(engine, game, match, tank, "base")
+        self.assertEqual(match.player(2).base_hp, 13)
+        unit = put(match, 2, "iron_man").ref
+        self.assertEqual(engine.attack_value(match, 1, tank, against=unit), 3)
+
+    def test_ironbark_treant_on_the_opponents_turn_while_patrolling(self) -> None:
+        """He's a 3/2 on your turn. The -2 ATK / +2 armor only happens on
+        opponents turns and only while he's in your patrol zone."""
+        engine, game, match = fresh()
+        treant = put(match, 2, "ironbark_treant", patrol="squad_leader")
+        self.assertEqual(engine.unit_stats(treant, match), (1, 2))
+        match.active = 2
+        self.assertEqual(engine.unit_stats(treant, match), (3, 2))
+
+    def test_rampaging_elephant_readies_the_first_time(self) -> None:
+        engine, game, match = fresh()
+        elephant = put(match, 1, "rampaging_elephant")
+        self.attack(engine, game, match, elephant.ref, "base")
+        self.assertFalse(elephant.exhausted)
+        self.assertIn(elephant.ref, engine.attackers(match))
+        self.attack(engine, game, match, elephant.ref, "base")
+        self.assertTrue(elephant.exhausted)
+        self.assertEqual(match.player(2).base_hp, 8)
+
+    def test_wandering_mimic_copies_what_is_in_play_and_never_another_mimic(self) -> None:
+        """If you have two Mimics that have flying because a THIRD unit
+        has flying, but then that third unit dies, both your Mimics lose
+        flying."""
+        engine, game, match = fresh()
+        first = put(match, 1, "wandering_mimic")
+        second = put(match, 2, "wandering_mimic")
+        ship = put(match, 2, "eggship")
+        self.assertTrue(engine.has_keyword(first, "Flying", match))
+        self.assertTrue(engine.has_keyword(second, "Flying", match))
+        match.player(2).play.remove(ship)
+        self.assertFalse(engine.has_keyword(first, "Flying", match))
+        self.assertFalse(engine.has_keyword(second, "Flying", match))
+
+    def test_midori_flies_on_his_own_turn_at_8(self) -> None:
+        engine, game, match = fresh(teams=(("balance",), ("finesse",)))
+        hero_in_play(match, 1, level=8)
+        midori = match.player(1).hero
+        self.assertTrue(engine.has_keyword(midori, "Flying", match))
+        match.active = 2
+        self.assertFalse(engine.has_keyword(midori, "Flying", match))
+
+    def test_a_second_legendary_copy_is_destroyed(self) -> None:
+        engine, game, match = fresh()
+        first = put(match, 1, "galina_glimmer")
+        second = put(match, 1, "galina_glimmer")
+        theirs = put(match, 2, "galina_glimmer")
+        board.settle(engine, match, StepResult())
+        self.assertIsNotNone(match.player(1).instance(first.id))
+        self.assertIsNone(match.player(1).instance(second.id))
+        self.assertIsNotNone(match.player(2).instance(theirs.id))
+
+
 class EveryRulingIsPinnedTests(unittest.TestCase):
     """
     The ratchet: every `General` ruling on a keyword this step implements
@@ -1195,7 +1411,7 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
 
     def test_every_ruling_has_a_test(self) -> None:
         found = self._collect()
-        for keyword, count in STEP_5_KEYWORDS.items():
+        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS}.items():
             slug = rulings.keyword_slug(keyword)
             with self.subTest(keyword=keyword):
                 self.assertEqual(
@@ -1207,7 +1423,7 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
 
     def test_each_test_says_the_ruling_it_pins(self) -> None:
         found = self._collect()
-        for keyword, count in STEP_5_KEYWORDS.items():
+        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS}.items():
             slug = rulings.keyword_slug(keyword)
             for number, ruling in enumerate(rulings.keyword_rulings(keyword), start=1):
                 with self.subTest(keyword=keyword, ruling=number):

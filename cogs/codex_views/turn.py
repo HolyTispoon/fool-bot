@@ -184,13 +184,15 @@ class TurnPanelView(PanelView):
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
                  undo_targets: dict | None = None, building: str | None = None,
-                 spec: str | None = None) -> None:
+                 spec: str | None = None, slug: str | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
         self.mode = mode
         #: The spec choice's building, and the Tech II spec chosen so far
         #: where a tech lab waits on its own (`build_spec`).
         self.building = building
         self.spec = spec
+        #: The card the boost choice is about (`build_boost`).
+        self.slug = slug
         options = prompt.options
         if prompt.kind is PromptKind.CHOOSE_DEFENDER:
             self.build_defenders(options)
@@ -218,6 +220,8 @@ class TurnPanelView(PanelView):
             self.build_undo(undo_targets or {})
         elif mode == "spec":
             self.build_spec(options)
+        elif mode == "boost":
+            self.build_boost(options)
         else:
             self.build_actions(options)
 
@@ -247,8 +251,9 @@ class TurnPanelView(PanelView):
             self.make_button(
                 f"{numbers.get(row.slug, '?')}. {card_name(row.slug)} ({row.cost} gold)",
                 discord.ButtonStyle.primary if row.allowed else discord.ButtonStyle.secondary,
-                self._answer(self.play, row.slug), disabled=not row.allowed,
-                choice=("play", row.slug),
+                self._answer(self.open_boost, row.slug) if row.boostable
+                else self._answer(self.play, row.slug),
+                disabled=not row.allowed, choice=("play", row.slug),
             )
             for row in options.playable
         ] or [self.make_button("Your hand is empty", discord.ButtonStyle.secondary, None,
@@ -387,6 +392,8 @@ class TurnPanelView(PanelView):
                     "which card goes? It is trashed unseen.")
         if self.mode == "attack":
             return "**Attack** with which?"
+        if self.mode == "boost":
+            return f"**{card_name(self.slug)}**: pay its boost?"
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
@@ -429,8 +436,40 @@ class TurnPanelView(PanelView):
             PromptKind.MAIN_ACTION, "ability", {"ability": effect, "source": source},
         ))
 
-    async def play(self, interaction: discord.Interaction, slug: str) -> None:
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", {"slug": slug}))
+    async def play(self, interaction: discord.Interaction, slug: str, boost: bool = False) -> None:
+        arguments = {"slug": slug}
+        if boost:
+            arguments["boost"] = True
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", arguments))
+
+    # -- Boost (UMR p. 16) ---------------------------------------------------
+
+    async def open_boost(self, interaction: discord.Interaction, slug: str) -> None:
+        """A card with a boost the player can pay: the panel asks whether
+        to pay it, the shape **Attack...** has."""
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match, mode="boost", slug=slug)
+        await self.show(interaction, view, self.cog.panel_caption(game, self.prompt, view.caption()))
+
+    def build_boost(self, options) -> None:
+        """**Play** and **Play boosted**, each with what it costs, as the
+        card's row in the options says, and **Back**."""
+        row = next((one for one in options.playable if one.slug == self.slug), None)
+        if row is not None and row.allowed:
+            name = card_name(row.slug)
+            self.button(f"Play {name} ({row.cost} gold)", discord.ButtonStyle.primary,
+                        self._answer(self.play, row.slug), row=0)
+            boosted = self.make_button(
+                f"Play {name} boosted ({row.cost + row.boost} gold)" if row.boostable
+                else f"Boost: {row.boost_why_not}",
+                discord.ButtonStyle.success, self._answer(self.play, row.slug, True),
+                disabled=not row.boostable, choice=("boost", row.slug),
+            )
+            boosted.row = 0
+            self.add_item(boosted)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
 
     async def build(self, interaction: discord.Interaction, building: str,
                     spec: str | None = None, lab_spec: str | None = None) -> None:

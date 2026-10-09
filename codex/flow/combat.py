@@ -115,9 +115,10 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     return _Fighter(seat, ref)
 
 
-def _take(fighter: _Fighter, amount: int) -> int:
-    """Combat damage onto a unit or hero, armor first; what landed."""
-    return board.take_damage(fighter.body, amount)
+def _take(fighter: _Fighter, amount: int, piercing: bool = False) -> int:
+    """Combat damage onto a unit or hero, armor first unless it pierces;
+    what landed."""
+    return board.take_damage(fighter.body, amount, piercing)
 
 
 def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -> bool:
@@ -415,10 +416,20 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     body = hitting.body
     ready = engine.has_keyword(body, "Readiness", match)
     body.attacked_this_turn = True
+    rampaged = False
     if not ready:
         body.exhausted = True
+        if (
+            isinstance(body, CardInstance) and body.slug in effects.READIES_ONCE
+            and not any(modifier.get("kind") == "readied_once" for modifier in body.modifiers)
+        ):
+            # "The first time Rampaging Elephant exhausts each turn, ready
+            # him. (He can attack again!)"
+            body.exhausted = False
+            body.modifiers.append({"kind": "readied_once", "until": "end_of_turn"})
+            rampaged = True
 
-    dealt = engine.attack_value(match, seat, attacker)
+    dealt = engine.attack_value(match, seat, attacker, against=defender)
     back = engine.damage_back(match, attacker, defender)
     excess = engine.overpower_excess(match, attacker, defender) if state["overpower"] else 0
     swift_attacker = engine.has_keyword(body, "Swift strike", match)
@@ -465,6 +476,10 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             seen.append(fighter)
 
     dead: list[_Fighter] = []
+    #: What deathtouch hit: "Destroy any unit or hero that takes combat
+    #: damage from this card, including damage prevented by armor"
+    #: (UMR p. 16).
+    touched: list = []
     for batch in (0, 1):
         for hit in hits:
             if hit.batch != batch:
@@ -478,11 +493,19 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 # the order the lines read.
                 hit.landed = hit.amount
                 continue
-            hit.landed = _take(hit.target, hit.amount)
+            source = hit.source.body if hit.source is not None else None
+            piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
+            hit.landed = _take(hit.target, hit.amount, piercing)
+            if (
+                hit.amount > 0 and source is not None
+                and engine.has_keyword(source, "Deathtouch", match)
+                and not engine.is_building_ref(match, hit.target.seat, hit.target.ref)
+            ):
+                touched.append(hit.target.body)
         for fighter in seen:
             if any(fighter.body is one.body for one in dead):
                 continue
-            if _is_destroyed(engine, match, fighter):
+            if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
 
     result.narration.append(_damage_line(hitting, taking, hits[0], defence, swift_attacker))
@@ -507,6 +530,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             f"{hitting.named(whose=False)}."
         )
 
+    if rampaged:
+        result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
             board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
