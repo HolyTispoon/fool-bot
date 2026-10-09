@@ -83,9 +83,11 @@ class PanelButton(discord.ui.Button):
     """A button on the panel, carrying `choice` -- what it answers with
     off the prompt's options: `("play", slug)`, `("build", building)`,
     `("attack", ref)`, `("ability", effect, source)`, `("level",)`,
-    `("hire", slug)`, `("defend", ref)`, `("target", key)`, or `None`
-    for a button that is not one choice among several -- so a test
-    finds it by what it chooses rather than by its label."""
+    `("hire", slug)`, `("defend", ref)`, `("target", key)`,
+    `("detect", ref)`, `("obliterate", ref)`, `("sparkshot", ref)`,
+    `("overpower", ref)`, or `None` for a button that is not one choice
+    among several -- so a test finds it by what it chooses rather than
+    by its label."""
 
     def __init__(self, choice: tuple | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -299,23 +301,16 @@ class TurnPanelView(PanelView):
         button.row = row
         self.add_item(button)
 
-    def menu(self, placeholder: str, empty: str, row: int, options: list, callback) -> None:
-        """A select, or -- where it would offer nothing -- a disabled one
-        saying why, so the panel keeps its shape."""
-        if not options:
-            select = discord.ui.Select(
-                placeholder=empty, row=row, disabled=True,
-                options=[discord.SelectOption(label=empty[:100], value="none")],
-            )
-        else:
-            select = discord.ui.Select(placeholder=placeholder, row=row, options=options)
-            select.callback = self._select(callback, select)
-        self.add_item(select)
-
-    def _select(self, callback, select):
-        async def run(interaction: discord.Interaction) -> None:
-            await callback(interaction, select.values[0])
-        return run
+    def choices(self, items, label, callback, kind: str, empty: str) -> list:
+        """A button per `ref` in `items`, labelled by `label(ref)`,
+        answering `callback(interaction, ref)` and carrying `(kind, ref)`
+        -- or, with nothing to offer, one disabled button saying why, so
+        the panel keeps its shape."""
+        return [
+            self.make_button(label(ref), discord.ButtonStyle.primary,
+                             self._answer(callback, ref), choice=(kind, ref))
+            for ref in items
+        ] or [self.make_button(empty, discord.ButtonStyle.secondary, None, disabled=True)]
 
     def _answer(self, callback, *args):
         async def run(interaction: discord.Interaction) -> None:
@@ -327,8 +322,19 @@ class TurnPanelView(PanelView):
         reads it): the attacker, for the defender's question, and what a
         mode of the view's own asks -- the menus' placeholders used to
         carry both. Empty where the ask says it all."""
+        options = self.prompt.options
         if self.prompt.kind is PromptKind.CHOOSE_DEFENDER:
-            return f"**{self.label(self.prompt.options.attacker)} attacks.**"
+            return f"**{self.label(options.attacker)} attacks.**"
+        if self.prompt.kind is PromptKind.OBLITERATE_CHOICE:
+            return f"**Obliterate {options.left}**: which unit goes?"
+        if self.prompt.kind is PromptKind.SPARKSHOT_TARGET:
+            if options.left > 1 or options.placed:
+                return f"**Sparkshot**: {options.left} of its damage left to place."
+            return ""
+        if self.prompt.kind is PromptKind.OVERPOWER_TARGET:
+            return f"**Overpower** carries {options.excess} over."
+        if self.mode == "detect":
+            return "**Detect with your tower**: which of theirs?"
         if self.mode == "hire":
             return (f"**Hire a worker** for {self.prompt.options.hire.cost} gold: "
                     "which card goes? It is trashed unseen.")
@@ -426,17 +432,15 @@ class TurnPanelView(PanelView):
         await self.open_mode(interaction, "detect")
 
     def build_detect(self, options) -> None:
-        """What the tower may detect, as the engine offers it (UMR p. 9)."""
+        """What the tower may detect, a button each as the engine offers
+        it (UMR p. 9), and **Back**."""
         other = 2 if self.seat == 1 else 1
-        self.menu(
-            "Detect with your tower...", "Nothing of theirs is hidden", 0,
-            [
-                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
-                for ref in options.detect.candidates[:SELECT_LIMIT]
-            ],
-            self.detect,
+        candidates = self.choices(
+            options.detect.candidates, lambda ref: self.label(ref, other), self.detect,
+            "detect", "Nothing of theirs is hidden",
         )
-        self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
+        row = self.place(candidates, 0, until=ROWS - 1)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=row)
 
     async def detect(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.MAIN_ACTION, "detect", {"card": ref}))
@@ -475,49 +479,37 @@ class TurnPanelView(PanelView):
     # -- The choices inside an attack ----------------------------------------
 
     def build_obliterate(self, options) -> None:
-        """Which of the equally low-tech units obliterate takes."""
+        """Which of the equally low-tech units obliterate takes, a
+        button each."""
         other = 2 if self.seat == 1 else 1
-        self.menu(
-            f"Obliterate {options.left}: which unit goes?", "Nothing to obliterate", 0,
-            [
-                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
-                for ref in options.units[:SELECT_LIMIT]
-            ],
-            self.obliterate,
-        )
+        self.place(self.choices(
+            options.units, lambda ref: self.label(ref, other), self.obliterate,
+            "obliterate", "Nothing to obliterate",
+        ), 0)
 
     async def obliterate(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.OBLITERATE_CHOICE, "", {"unit": ref}))
 
     def build_sparkshot(self, options) -> None:
-        """Which patroller beside the one attacked takes sparkshot's 1."""
+        """Which patroller beside the one attacked takes sparkshot's 1, a
+        button each; how much is left to place is the caption's."""
         other = 2 if self.seat == 1 else 1
-        placeholder = "Sparkshot hits..."
-        if options.left > 1 or options.placed:
-            placeholder = f"Sparkshot hits... ({options.left} of its damage left to place)"
-        self.menu(
-            placeholder, "No patroller is beside it", 0,
-            [
-                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
-                for ref in options.patrollers[:SELECT_LIMIT]
-            ],
-            self.sparkshot,
-        )
+        self.place(self.choices(
+            options.patrollers, lambda ref: self.label(ref, other), self.sparkshot,
+            "sparkshot", "No patroller is beside it",
+        ), 0)
 
     async def sparkshot(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.SPARKSHOT_TARGET, "", {"patroller": ref}))
 
     def build_overpower(self, options) -> None:
-        """Where overpower's excess goes."""
+        """Where overpower's excess goes, a button each; how much it is
+        is the caption's."""
         other = 2 if self.seat == 1 else 1
-        self.menu(
-            f"Overpower carries {options.excess} over to...", "Nothing can take it", 0,
-            [
-                discord.SelectOption(label=_cut(self.label(ref, other), 100), value=ref)
-                for ref in options.targets[:SELECT_LIMIT]
-            ],
-            self.overpower,
-        )
+        self.place(self.choices(
+            options.targets, lambda ref: self.label(ref, other), self.overpower,
+            "overpower", "Nothing can take it",
+        ), 0)
 
     async def overpower(self, interaction: discord.Interaction, ref: str) -> None:
         await self.act(interaction, Action(PromptKind.OVERPOWER_TARGET, "", {"target": ref}))

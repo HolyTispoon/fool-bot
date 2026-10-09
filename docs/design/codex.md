@@ -990,9 +990,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 - **Built from the options and nothing else.** A control the engine
   says no to is disabled with its reason as its label ("Hire: a worker
   has been hired this turn"); a group with nothing to offer is one
-  disabled button saying why ("Nothing can be built now"), and a menu
-  with nothing to offer a disabled menu saying why, so the panel keeps
-  its shape. **Hire worker** turns the panel into the hand, a button
+  disabled button saying why ("Nothing can be built now"), so the
+  panel keeps its shape. **Hire worker** turns the panel into the hand, a button
   per card numbered as the picture (the one hired with is trashed
   unseen), the question the menu's placeholder used to carry written
   under the prompt's ask (the view's `caption`, which `panel_caption`
@@ -1002,11 +1001,16 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   legal -- "squad
   leader", "patroller", "nothing is patrolling" -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
-  The tower's detection and the three choices inside an attack --
-  obliterate's tie, sparkshot's neighbour, overpower's excess -- stay
-  menus: each is asked rarely and offers a short list. (The hire's
-  card, the defender and the targets were menus too until the author's
-  second word on 2026-10-09.)
+  **Nothing the turn panel asks is a menu any more**: the tower's
+  detection and the three choices inside an attack -- obliterate's tie,
+  sparkshot's neighbour, overpower's excess -- are buttons too, what
+  their placeholders said (how many obliterate has left, how much of
+  sparkshot's damage is still to place, how much overpower carries
+  over) written under the ask as the view's caption. The author's word
+  came in three parts through 2026-10-09 -- the main phase, then the
+  hire's card, the defender and the targets, then the rest -- and the
+  menus left on the Codex bot are the patrol lock's two and the tech
+  picker's, below, and the codex browser's views.
 - **An effect's questions are the same panel going on** (step 6): a
   `TARGET` is a button per thing the part may choose, each labelled
   with whose it is, what it costs in resist and whether the flagbearer

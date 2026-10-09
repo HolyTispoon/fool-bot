@@ -436,13 +436,13 @@ class WholeGameTests(TurnTestCase):
         if view.prompt.kind is PromptKind.CHOOSE_DEFENDER:
             return await table.press(view, ("defend", options.defenders[0]))
         # The three questions an attack asks inside itself: the panel's
-        # one menu, whichever it is.
+        # buttons, whichever it is.
         if view.prompt.kind is PromptKind.OBLITERATE_CHOICE:
-            return await table.choose(view, "", options.units[0])
+            return await table.press(view, ("obliterate", options.units[0]))
         if view.prompt.kind is PromptKind.SPARKSHOT_TARGET:
-            return await table.choose(view, "", options.patrollers[0])
+            return await table.press(view, ("sparkshot", options.patrollers[0]))
         if view.prompt.kind is PromptKind.OVERPOWER_TARGET:
-            return await table.choose(view, "", options.targets[0])
+            return await table.press(view, ("overpower", options.targets[0]))
         # The questions an effect asks as it resolves (step 6).
         if view.prompt.kind is PromptKind.TARGET:
             return await table.press(view, ("target", options.targets[0].key))
@@ -524,6 +524,53 @@ class EffectPanelTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         slugs = [card.slug for card in self.table.match.player(seat).play]
         self.assertEqual(slugs, ["angry_dancer"])
+
+    async def test_the_combat_choices_and_the_detection_are_buttons(self) -> None:
+        """The three questions an attack asks inside itself, and the
+        tower's detection, as buttons carrying their choice, with what
+        the menus' placeholders said as the panel's caption."""
+        from dataclasses import replace
+
+        from codex.engine import DetectOption
+        from codex.prompts import (
+            ObliterateOptions, OverpowerOptions, PendingPrompt, SparkshotOptions,
+        )
+
+        match, seat, other = self.stage()
+        mine = put(match, seat, "older_brother")
+        first = put(match, other, "iron_man", patrol="squad_leader")
+        second = put(match, other, "granfalloon_flagbearer", patrol="elite")
+        self.table.cog.service.persist(self.game, match)
+        cog, game_id = self.table.cog, self.game.game_id
+
+        def built(kind, options):
+            return TurnPanelView(cog, game_id, PendingPrompt(kind, "", seat, options), match)
+
+        def choices(view):
+            return [item.choice for item in view.children if getattr(item, "choice", None)]
+
+        view = built(PromptKind.OBLITERATE_CHOICE,
+                     ObliterateOptions(mine.ref, (first.ref, second.ref), left=2))
+        self.assertEqual(choices(view), [("obliterate", first.ref), ("obliterate", second.ref)])
+        self.assertEqual(view.caption(), "**Obliterate 2**: which unit goes?")
+        view = built(PromptKind.SPARKSHOT_TARGET,
+                     SparkshotOptions(mine.ref, first.ref, (second.ref,), left=2))
+        self.assertEqual(choices(view), [("sparkshot", second.ref)])
+        self.assertIn("2 of its damage left", view.caption())
+        view = built(PromptKind.OVERPOWER_TARGET,
+                     OverpowerOptions(mine.ref, first.ref, 3, (second.ref, "base")))
+        self.assertEqual(choices(view), [("overpower", second.ref), ("overpower", "base")])
+        self.assertEqual(view.caption(), "**Overpower** carries 3 over.")
+        self.assertFalse([item for item in view.children if isinstance(item, discord.ui.Select)])
+        # Detect... turns the panel into what the tower may detect, one
+        # button each, with Back and the question in the text.
+        _, panel = await self.table.panel()
+        options = replace(panel.prompt.options, detect=DetectOption(True, (first.ref,), "", True))
+        panel = TurnPanelView(cog, game_id, replace(panel.prompt, options=options), match)
+        opened = await self.table.press(panel, "Detect...")
+        self.assertIn("Detect with your tower", opened.last()[2]["content"])
+        self.assertEqual(choices(opened.view()), [("detect", first.ref)])
+        self.assertIn("Back", [item.label for item in opened.view().children])
 
     async def test_appel_stomp_and_the_upkeep_are_buttons(self) -> None:
         match, seat, _ = self.stage()
