@@ -139,28 +139,28 @@ def main() -> None:
     render_all(engine, staged_effects(engine), names, args.out, "effects")
 
     rows = engine.hand_rows(opening, 1)
-    write(args.out / "hand-opening.png", render_hand(
+    write(args.out / "hand-opening.webp", render_hand(
         [row.slug for row in rows], [row.allowed for row in rows], [row.cost for row in rows],
         engine.catalog,
     ))
     middle = staged(engine)
     middle.player(1).hand = ["iron_man", "spark", "trojan_duck", "older_brother", "wither"]
     rows = engine.hand_rows(middle, 1)
-    write(args.out / "hand-midgame.png", render_hand(
+    write(args.out / "hand-midgame.webp", render_hand(
         [row.slug for row in rows], [row.allowed for row in rows], [row.cost for row in rows],
         engine.catalog,
     ))
     middle.player(1).codex["iron_man"] = 0
     for view in engine.codex_views(middle.player(1)):
         rows = engine.codex_remaining(middle, 1, view)
-        write(args.out / f"codex-{view}.png", render_codex(
+        write(args.out / f"codex-{view}.webp", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
         ))
     # The tech picker (`TechChoiceView`): the whole codex, the picks
     # framed and counted -- here two copies of one card.
     rows = engine.codex_counts(middle.player(1))
     picks = {"revolver_ocelot": 2}
-    write(args.out / "tech-picker.png", render_codex(
+    write(args.out / "tech-picker.webp", render_codex(
         [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
         [picks.get(slug, 0) for slug, _ in rows],
     ))

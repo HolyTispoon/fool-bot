@@ -165,11 +165,11 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
     `MainActionOptions.hand` -- or the engine's `hand_rows`."""
     if rows is None:
         rows = engine.hand_rows(match, seat)
-    png = await asyncio.to_thread(
+    webp = await asyncio.to_thread(
         render_hand, [row.slug for row in rows], [row.allowed for row in rows],
         [row.cost for row in rows], engine.catalog,
     )
-    return discord.File(io.BytesIO(png), filename="codex-hand.png")
+    return discord.File(io.BytesIO(webp), filename="codex-hand.webp")
 
 
 class CodexBrowser(SafeView):
@@ -206,11 +206,11 @@ class CodexBrowser(SafeView):
 
     async def picture(self, match, view: str) -> discord.File:
         rows = self.cog.engine.codex_remaining(match, self.seat, view)
-        png = await asyncio.to_thread(
+        webp = await asyncio.to_thread(
             render_codex, [slug for slug, _ in rows], [count for _, count in rows],
             self.cog.engine.catalog,
         )
-        return discord.File(io.BytesIO(png), filename=f"codex-{view}.png")
+        return discord.File(io.BytesIO(webp), filename=f"codex-{view}.webp")
 
     async def choose(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)

@@ -78,11 +78,11 @@ class PanelTests(TurnTestCase):
         self.assertEqual(kind, "response.send")
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
-        self.assertEqual(kwargs["files"][0].filename, "codex-hand.png")
+        self.assertEqual(kwargs["files"][0].filename, "codex-hand.webp")
         # The other player's My hand is their hand, with nothing to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
         self.assertNotIn("view", theirs.last()[2])
-        self.assertEqual(theirs.last()[2]["file"].filename, "codex-hand.png")
+        self.assertEqual(theirs.last()[2]["file"].filename, "codex-hand.webp")
 
     async def test_an_action_is_one_panel_edit_and_one_turn_message_edit(self) -> None:
         """**The count per click**: the panel's edit through the click's
