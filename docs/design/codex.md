@@ -869,18 +869,29 @@ else the bot shows is ephemeral.
     the height follows it -- about 740 a panel with one row, 289 more a
     row -- which the gate already allows for.
   - **On the left, the buildings**, 160 wide, bottom-aligned, top to
-    bottom: the add-on slot (a dashed outline, or the add-on's card at
-    82 by 114), Tech III, II and I as the module's tiles at 160 by 114,
+    bottom: Tech III, II and I as the module's tiles at 160 by 114,
     and the base. A tech building is greyed and half seen until built,
     in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
     turn) and is dark with the house chit when destroyed; damage is a
     chit on its corner. The base's tile prints a heart with 20 on it, so
     a heart is drawn over it carrying the HP it has now.
-  - **Across the top, the patrol zone** on the mat's blue: the mat's own
-    five slots with their bonus strips under them, cut from the playmat
-    ("The cards are data"), each centred in its column; a patroller's
-    card covers its slot, chits and all, and the bonus stays under it.
+  - **Across the top, the patrol zone**: the mat's own five slots with
+    their bonus strips under them, cut from the playmat ("The cards are
+    data"), **each on its own holder** of the mat's blue, packed side by
+    side 12 apart from the grid's left edge; a patroller's card covers
+    its slot, chits and all, and the bonus stays under it. They were
+    one blue band the grid's width, each slot centred in a 273 column
+    (the author, 2026-10-09: the holders individually, to save the
+    space between the cards). A slot needs only a card's width, not a
+    cell's, because a patroller is never exhausted: exhausting one
+    sidelines it.
+  - **The add-on slot is in the room that leaves**, 24 past the last
+    holder, at the slots' height: a dashed outline, or the add-on's
+    card at 195 by 273, the house chit on its corner while under
+    construction and a damage chit as a tech building's. It was 82 by
+    114 at the top of the building column, and the tower could not be
+    read at Discord's size (the author, 2026-10-09).
   - **The grid**: a command-zone plate per hero first -- the hero lying
     on it in full at 184 by 251 with its time-rune chit while off the
     field, the plate empty while it is on the field -- then the heroes
