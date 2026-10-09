@@ -125,7 +125,8 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
             building.under_construction = False
             result.narration.append(
                 f"{tokens.player(seat)}'s {building_name(ref)} building is destroyed, "
-                f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
+                f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
+                f"{left_after(match, seat, 'base', BUILDING_DESTROYED_DAMAGE, 'their base')}."
             )
             match.record_event("building_destroyed", owner=seat, building=ref)
             damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
@@ -136,7 +137,8 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
         player.add_on = None
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(add_on.slug)} is destroyed, "
-            f"and deals {BUILDING_DESTROYED_DAMAGE} to their base."
+            f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
+            f"{left_after(match, seat, 'base', BUILDING_DESTROYED_DAMAGE, 'their base')}."
         )
         match.record_event("building_destroyed", owner=seat, building=add_on.slug)
         damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
@@ -158,6 +160,15 @@ def building_hp(match: MatchState, seat: int, ref: str) -> int:
     if ref == "add_on":
         return player.add_on.hp
     return player.buildings[ref].hp
+
+
+def left_after(match: MatchState, seat: int, ref: str, amount: int,
+               subject: str = "it") -> str:
+    """What a damage line about a building says of what is left, before
+    the damage lands: "; it has 17 left", or nothing where the damage
+    destroys it -- the next line says so (the author, 2026-10-09)."""
+    left = max(0, building_hp(match, seat, ref) - amount)
+    return f"; {subject} has {left} left" if left else ""
 
 
 def repair_building(engine: "RulesEngine", match: MatchState, seat: int, ref: str,

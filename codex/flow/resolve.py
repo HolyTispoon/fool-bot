@@ -284,7 +284,10 @@ def _thing(match: MatchState, target: tuple[int, str]) -> str:
 def _damage(engine, match, top, part, target, result) -> None:
     seat, ref = target
     if board.is_building(ref):
-        result.narration.append(f"{top['by']} deals {part.amount} to {_thing(match, target)}.")
+        result.narration.append(
+            f"{top['by']} deals {part.amount} to {_thing(match, target)}"
+            f"{board.left_after(match, seat, ref, part.amount)}."
+        )
         board.damage_building(match, seat, ref, part.amount, result)
         return
     body = board.body_of(match, seat, ref)
@@ -421,9 +424,10 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     printed = effects.printing_band(top["effect"])
     if printed is not None:
         source = f"{top['by']}'s level {band_levels(engine, *printed)} ability"
-    left = max(0, match.player(other).base_hp - part.amount)
-    rest = f"; it has {left} left" if left else ""
-    result.narration.append(f"{source} deals {part.amount} to {tokens.player(other)}'s base{rest}.")
+    result.narration.append(
+        f"{source} deals {part.amount} to {tokens.player(other)}'s base"
+        f"{board.left_after(match, other, 'base', part.amount)}."
+    )
     damage_base(match, other, part.amount, result)
 
 

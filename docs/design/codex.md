@@ -723,6 +723,14 @@ checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
 
+**A line that damages a building or the base says what it has left**
+("deals 3 to {player:2}'s base; it has 17 left") -- an attack, overpower's
+excess, a spell's or an ability's damage, a destroyed building's 2 to its
+base ("; their base has 18 left"). A line whose damage destroys it says
+no count: the next line says it is destroyed (the author, 2026-10-09).
+`board.left_after` is the one wording, asked before the damage lands,
+since a building's damage in combat lands after the lines are said.
+
 ### Naming by slug in the tests
 
 `tests/codex_positions.py` stages a position by card slug --

@@ -485,15 +485,17 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             if _is_destroyed(engine, match, fighter):
                 dead.append(fighter)
 
-    result.narration.append(_damage_line(hitting, taking, hits[0], defence, swift_attacker))
+    result.narration.append(_damage_line(match, hitting, taking, hits[0], defence, swift_attacker))
     for hit in hits[1:]:
         if hit.kind == "sparkshot" and not hit.skipped:
             result.narration.append(
                 f"Sparkshot deals {hit.amount} to {hit.target.named()}."
             )
         elif hit.kind == "overpower" and not hit.skipped:
+            left = (board.left_after(match, hit.target.seat, hit.target.ref, hit.amount)
+                    if hit.target.is_building else "")
             result.narration.append(
-                f"Overpower carries {hit.amount} over to {hit.target.named()}."
+                f"Overpower carries {hit.amount} over to {hit.target.named()}{left}."
             )
     for hit in overflown:
         if not hit.skipped:
@@ -522,7 +524,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return result
 
 
-def _damage_line(hitting: _Fighter, taking: _Fighter, attack: _Hit,
+def _damage_line(match: MatchState, hitting: _Fighter, taking: _Fighter, attack: _Hit,
                  defence: Optional[_Hit], swift: bool) -> str:
     """The attacker's damage and the defender's back, in one line as step
     2 worded it, with swift strike said where it decided the order."""
@@ -530,7 +532,9 @@ def _damage_line(hitting: _Fighter, taking: _Fighter, attack: _Hit,
         return f"{hitting.named(whose=False)} is destroyed before it deals its damage."
     if taking.is_building:
         said = f"{hitting.named(whose=False)} deals {attack.amount} to {taking.named()}"
-        return said + (" with swift strike." if swift else ".")
+        if swift:
+            said += " with swift strike"
+        return said + board.left_after(match, taking.seat, taking.ref, attack.amount) + "."
     said = f"{hitting.named(whose=False)} deals {attack.landed}"
     if attack.landed < attack.amount:
         said += f" (armor takes {attack.amount - attack.landed})"
