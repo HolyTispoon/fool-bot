@@ -6,7 +6,7 @@ sheets, and the two print PDFs.
 
 Writes under `--out`: `icons/` (every suit mark and piece, transparent
 PNG), `cards/` (every card and `back.png`), `icon_sheet.png`,
-`might_ladder.png`, `tools_ladder.png`, `deck_sheet.png`, `closeup_sheet.png`, and the PDFs
+`might_ladder.png`, `tools_ladder.png`, `fools_ladder.png`, `deck_sheet.png`, `closeup_sheet.png`, and the PDFs
 `print_sheet.pdf` (letter, nine a page, crop marks) and `avery_95328.pdf`
 (Avery Presta 95328, six a page), each with a backs page after every
 fronts page for a duplex print. `--only` picks some of icons, cards,
@@ -83,6 +83,7 @@ def main() -> int:
         icon_sheet(icon_set).save(out / "icon_sheet.png")
         ladder_sheet(icon_set, "might").save(out / "might_ladder.png")
         ladder_sheet(icon_set, "tools").save(out / "tools_ladder.png")
+        ladder_sheet(icon_set, "fools").save(out / "fools_ladder.png")
         deck_sheet(cards).save(out / "deck_sheet.png")
         closeup_sheet(cards, CLOSEUP).save(out / "closeup_sheet.png")
         print(f"sheets -> {out}")

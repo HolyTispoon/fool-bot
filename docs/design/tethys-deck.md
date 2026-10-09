@@ -42,8 +42,13 @@ sagging for Doom**, each in its own material colours (`icons.COLOURS`):
 - **Money** is the studio's own gold coin, its Fortune face (the sunrise)
   and its Doom face (the smoking tower), straight from
   `d12ball/images/emoji/`, numeral and all.
-- **Might** is a longsword: tapered blade with a fuller, dipped quillons,
-  a red wrapped grip. Doom's blade is snapped, the point fallen aside.
+- **Might** is a longsword: a blade tapering from a ricasso to the point
+  with a fuller and two bevel planes, curved quillons with finials, a
+  wire-wrapped red grip, a disc pommel with its peen block. Doom's blade
+  is snapped, the point fallen aside. (The author asked twice for less
+  cartoon and more real: curves instead of blocks, then the structure a
+  real one has -- langets and rivets on the axe, a velvet cap and pearls
+  on the crown, a banded gem on the sceptre.)
 - **Fiends** is a horned mask -- wide brow, hollow cheeks, pointed chin,
   long swept horns -- crimson with closed lids and a brow gem for
   Fortune; ash black with hollow sockets, ember pupils and fangs for
@@ -51,7 +56,10 @@ sagging for Doom**, each in its own material colours (`icons.COLOURS`):
   to be a bit less silly".)
 - **Tools** is a claw hammer crossed with a combination wrench, steel on
   oak. Doom is rusted, the handle snapped, the jaw cracked. ("The tools
-  can be different tools but should be useful.")
+  can be different tools but should be useful.") The pieces carry the
+  same realism: grain on the handles, a wedge in the eye, a ferrule on
+  the pick, a D-handle and treads on the spade, a hardy and a pritchel
+  hole on the anvil.
 - **States** is the yin-yang the sheet already uses for the suit, teal
   and aqua. Doom is the same circle split by a gold lightning bolt,
   purple and ash.
@@ -98,10 +106,15 @@ the suit for that reason.
   suit's own mark stays the hammer crossed with the wrench. Doom's
   pickaxe has a cracked head and a snapped haft, the spade's blade is
   cracked and its shaft broken, the anvil split.
-- **Every other suit is its one symbol at four sizes**
+- **Fools' four are the things a fool carries**, a trial the author asked
+  for unsure ("not sure about the fools ladders of object. but let's
+  try"): the cap for 1, a marotte (the fool's bauble, a little jester's
+  head on a stick with ribbons) for 3, a tambourine for 6, a theatre mask
+  for 12. Fortune grins, jingles and laughs; Doom is glum, torn and
+  weeps. If the trial fails, drop `"fools"` from `deck.VARIANTS` and the
+  suit goes back to its cap at four sizes.
+- **Fiends and States are their one symbol at four sizes**
   (`cards.PIECE_SIZE`): "for states, use the smaller and larger sizes."
-  Fools could take a ladder of objects the same way: three drawings and
-  a row in `VARIANTS`.
 
 ## The back
 
