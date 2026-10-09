@@ -288,11 +288,22 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(rematch.status, GameStatus.PLAYING)
         self.assertIs(self.table.cog.game_for_channel(self.table.game_channel.id), rematch)
 
-    async def test_abandon_is_a_helpers(self) -> None:
-        call = self.table.interaction(self.table.basher)
+    async def test_abandon_is_a_players_own_or_a_helpers(self) -> None:
+        stranger = user(404, "stranger")
+        call = self.table.interaction(stranger)
         await self.table.cog.abandon_command.callback(self.table.cog, call)
-        self.assertIn("Manage Channels", call.text())
+        self.assertIn("Only this game's players", call.text())
         self.assertIs(self.game.status, GameStatus.PLAYING)
+
+    async def test_a_player_abandons_their_own_game(self) -> None:
+        mark = len(self.table.game_channel.requests)
+        call = self.table.interaction(self.table.fencer)
+        await self.table.cog.abandon_command.callback(self.table.cog, call)
+        self.assertIs(self.game.status, GameStatus.ABANDONED)
+        self.assertIsNone(self.table.match.winner)
+        requests = self.table.game_channel.since(mark)
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "send", "channel.edit"])
+        self.assertIn("abandoned** by fencer", requests[1][2]["content"])
 
     async def test_abandon_ends_the_game_with_no_winner(self) -> None:
         helper = user(303, "helper", helper=True)

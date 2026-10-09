@@ -2,7 +2,7 @@
 A game's end on Discord (docs/codex-bot.md, step 8; docs/design/codex.md,
 "The end of a game"): **Concede** -- on the turn message and as
 `/codex concede`, the clicker's own side alone, behind a second click --
-the admin's `/codex abandon`, **Rematch** under the finished game's last
+`/codex abandon` -- a player's own game, or any game for a helper -- **Rematch** under the finished game's last
 line, the channel moved to **Codex Archive**, and `/codex admin
 reset_channels` for the test server.
 
@@ -125,23 +125,29 @@ class EndingMixin:
 
     # -- Abandon -------------------------------------------------------------
 
-    @app_commands.command(name="abandon", description="Helpers: end this channel's Codex game or lobby, unfinished, and archive the channel.")
+    @app_commands.command(name="abandon", description="End this channel's Codex game or lobby, unfinished: its players' own, or a helper's.")
     async def abandon_command(self, interaction: discord.Interaction) -> None:
         """
         End the game played here -- or the lobby open here -- with no
         winner, through the service (`GameService.abandon`); its turn
         message stands without its buttons (the lobby's, without its
-        own), one public line says it was abandoned, and the channel is
-        archived. **A helper's alone** (Manage Channels), read at run
-        time: Discord carries a default permission on a top-level
-        command and not on `/codex`'s subcommands.
+        own), one public line says it was abandoned and by whom, and the
+        channel is archived. **Either of its players may abandon their
+        own game** (the author, 2026-10-09), and a game helper (Manage
+        Channels) any game; nobody else.
         """
-        if interaction.guild is None or not is_game_helper(interaction.user):
-            await send_ephemeral(interaction, HELPERS_ONLY)
+        if interaction.guild is None:
+            await send_ephemeral(interaction, "A Codex game is played in a server's channel.")
             return
         game = self.open_game_for_channel(interaction.channel_id)
         if game is None:
             await send_ephemeral(interaction, "No Codex game or lobby is open in this channel.")
+            return
+        if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
+            await send_ephemeral(
+                interaction,
+                "Only this game's players, or a helper with Manage Channels, can abandon it.",
+            )
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         async with self.locks.hold(game.game_id):

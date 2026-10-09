@@ -28,7 +28,7 @@ triggers, the heroes' bands, the abilities, the static grants and costs,
 the ongoing spells with their tokens and partners, and the upkeep's
 effects and their order -- so every card of the basic set does what it
 says and `UNIMPLEMENTED` is empty. Step 8 gave a game its end -- a
-concession, the admin's abandon, the rematch, the channel moved to the
+concession, a player's or a helper's abandon, the rematch, the channel moved to the
 archive -- and pinned a whole game through the service in a golden. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
@@ -1351,15 +1351,23 @@ way and nothing is written from it.
   Archive** (`archive_channel`), its name and permissions left as they
   are. The move is a request on the channel's own route, not the
   messages' edit bucket, so the end still spends two from the bucket.
-- **`/codex abandon` is a helper's** (Manage Channels): the game played in
-  the channel, or the lobby open in it, ends with no winner through
-  `GameService.abandon`; the turn message (or the lobby) stands without
-  its buttons, one public line says it was abandoned and by whom, and the
-  channel is archived. An abandoned game offers no rematch. **The gate is
-  read at run time**: Discord carries a default permission on a top-level
-  command and not on a subcommand of `/codex`, so `/codex abandon` and
-  `/codex admin` are listed to everyone and refuse anybody without
-  Manage Channels ("Who may act, shared" is otherwise unchanged).
+- **`/codex abandon` is either player's own, or a helper's** (the
+  author, 2026-10-09: "any player should be able to abandon their own
+  game"): the game played in the channel, or the lobby open in it, ends
+  with no winner through `GameService.abandon`; the turn message (or the
+  lobby) stands without its buttons, one public line says it was
+  abandoned and by whom, and the channel is archived. An abandoned game
+  offers no rematch. A seated player may abandon only the game they sit
+  in -- the channel's own -- and a game helper (Manage Channels) any; a
+  watcher is refused privately. Unlike Concede it asks no second click:
+  it is a command typed in the game's channel, not a button beside the
+  others.
+- **`/codex admin`'s gate is read at run time**: Discord carries a
+  default permission on a top-level command and not on a subcommand of
+  `/codex`, so `/codex admin` is listed to everyone and refuses anybody
+  without Manage Channels ("Who may act, shared" is otherwise unchanged).
+  The author is content with the archive and the startup sweep as built
+  (2026-10-09).
 - **Rematch** (either player, or a helper, as the lobby's Start) opens a
   new lobby through `GameService.rematch` -- a rule on the record,
   `CodexGame.rematch`: the same two seats, the same people or the one
