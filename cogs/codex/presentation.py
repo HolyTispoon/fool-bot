@@ -3,7 +3,7 @@ The board and the channel: the board rendered off the thread
 (`codex/render.py` through `asyncio.to_thread`), the gate's one
 forwarder, the game's channel, the turn message posted -- for a new
 turn, or again at the foot of the channel after an action -- and a
-player's hand sent to them alone.
+player's hand and their whole deck sent to them alone.
 """
 
 from __future__ import annotations
@@ -23,7 +23,15 @@ from cogs.codex_helpers import (
     channel_name,
     codex_games_category,
 )
-from cogs.codex_views import TurnMessageView, hand_caption, hand_file, side_label
+from cogs.codex_views import (
+    HandView,
+    TurnMessageView,
+    deck_caption,
+    deck_file,
+    hand_caption,
+    hand_file,
+    side_label,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -203,9 +211,27 @@ class PresentationMixin:
     async def send_hand(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
         """A player's hand pictured and their discard listed, **ephemeral
-        to them alone** -- the first hidden thing the bot shows."""
+        to them alone** -- the first hidden thing the bot shows -- with
+        **My deck** under it."""
         await interaction.response.send_message(
             hand_caption(match, seat, side_label(game, match, seat)),
             file=await hand_file(self.engine, match, seat),
+            view=HandView(self, game.game_id, seat),
+            ephemeral=True,
+        )
+
+    async def send_deck(self, interaction: discord.Interaction, game: CodexGame, match,
+                        seat: int) -> None:
+        """
+        Every card `seat` owns, wherever it is (the engine's `own_deck`),
+        pictured with each card's copies and its places counted,
+        **ephemeral to them alone**. A message of its own rather than the
+        panel's edit, so the hand, the panel or the tech picker it was
+        pressed under stays up beside it.
+        """
+        deck = self.engine.own_deck(match, seat)
+        await interaction.response.send_message(
+            deck_caption(deck, side_label(game, match, seat)),
+            file=await deck_file(self.engine, deck),
             ephemeral=True,
         )

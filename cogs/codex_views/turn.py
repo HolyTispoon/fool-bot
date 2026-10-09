@@ -146,6 +146,14 @@ class PanelView(SafeView):
         await self.cog.present(game, result, before)
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
+    async def open_deck(self, interaction: discord.Interaction) -> None:
+        """**My deck**: every card this panel's player owns, in an
+        ephemeral message of its own; the panel stays as it is."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.send_deck(interaction, game, match, self.seat)
+
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:
         """Change the panel's mode in place: the click's own response."""
@@ -161,10 +169,11 @@ class TurnPanelView(PanelView):
     author, 2026-10-09): the actions row -- **Hire worker**, **Summon**
     or **Level up** the hero (one level a click), **Attack...**,
     **Undo...** -- then the hand, a button per card numbered as the
-    picture numbers it and disabled where it may not be played, then the
-    board's row -- **Build** per building that may be built, **Detect...**
-    where there is a tower, and each ability that may be used -- and
-    **End main phase** last of all. A control the engine says no to is disabled with its
+    picture numbers it and disabled where it may not be played, and
+    **My deck** after it, then the board's row -- **Build** per building
+    that may be built, **Detect...** where there is a tower, and each
+    ability that may be used -- and **End main phase** last of all. A
+    control the engine says no to is disabled with its
     reason as its label. **Attack...** turns the panel into what may
     attack, one button each, and **Back**; **Hire worker** into the
     hand, a button per card. For `CHOOSE_DEFENDER`, a button per legal
@@ -233,6 +242,7 @@ class TurnPanelView(PanelView):
             for row in options.playable
         ] or [self.make_button("Your hand is empty", discord.ButtonStyle.secondary, None,
                                disabled=True)]
+        hand.append(self.make_button("My deck", discord.ButtonStyle.secondary, self.open_deck))
         board = [
             self.make_button(
                 f"Build {building_label(row.building)} ({row.cost} gold)",

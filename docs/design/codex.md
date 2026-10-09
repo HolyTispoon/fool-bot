@@ -1085,9 +1085,33 @@ unit (the author, 2026-10-09: "not meant to show units only but all
 tech cards" -- the first reading showed units alone, which lost nothing
 in the basic game and dropped Anarchy's Tech II building, say), the
 spells are the rest, so the four together are the whole codex and a
-card is in exactly one; the tech picker narrows by the same function. A
-watcher who
-presses either is told the table is not theirs. Nothing is stored: each
+card is in exactly one; the tech picker narrows by the same function.
+**My deck** shows every card a player owns, wherever it is (the
+author, 2026-10-09: "all the cards that are in your deck, which
+includes all the cards you've added with tech ... minus all the cards
+you removed by making them workers"). It is the engine's one reading,
+`RulesEngine.own_deck`, worked out from where the cards are rather than
+kept as a list, since nothing in the save records the deck as a whole:
+the hand, the draw pile, the discard pile, the owner's cards in play on
+either side (a stolen unit is still its owner's; a token is nobody's,
+being trashed when it leaves), and a spell of theirs being cast -- an
+effect frame's `spell`, or Appel Stomp waiting on its place. A tech
+choice joins it at the ready phase, when the picks reach the discard
+pile, and not before; a hired card is trashed and so gone. It is
+pictured by `render_codex`, each card once with its copies on the
+badge, the starting cards first and then each tech level, and captioned
+with how many are in each place -- the draw pile a count, never an
+order; a tech choice not yet in the discard pile is not listed, there
+or anywhere in it (the author, 2026-10-09). The button is on the turn
+message, beside **My hand**, for either player whoever's turn it is
+(the author, 2026-10-09: "include it in the public message"); under the
+other player's hand (`HandView`, its one button); after the hand's
+buttons on the main-phase panel; and beside **Save tech** on the picker
+and on the confirmation. Each press is **a message
+of its own** (`send_deck`), not an edit of what it was pressed on, so
+the hand, the panel or the picker stays up beside it while the deck is
+looked at; like the Codex browser, it is reference and answers nothing.
+A watcher who presses either is told the table is not theirs. Nothing is stored: each
 press makes a fresh ephemeral message, and `/codex hand` answers the
 same. Where it was checked that nothing hidden is public: the turn
 message's text is the narration alone (`test_the_turn_message_names_no_card_in_a_hand`),
@@ -1306,8 +1330,9 @@ Each turn's message is posted when the turn begins: its text
 as a mention, which that post pings and no later one does -- then the
 turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
-**My hand**, **Tech**, **Codex**, **Swap view**. **After each action it
-is posted again at the foot of the channel** with the new lines and the
+**My hand**, **My deck**, **Tech**, **Codex**, **Swap view** -- and
+**Concede**, which a sixth button puts on a row of its own. **After
+each action it is posted again at the foot of the channel** with the new lines and the
 re-rendered board, and the one it replaces deleted
 (`post_turn_message(replace=True)`), so the table is always the
 channel's last message and the panel goes under it (the author,
