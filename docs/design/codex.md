@@ -29,7 +29,10 @@ the ongoing spells with their tokens and partners, and the upkeep's
 effects and their order -- so every card of the basic set does what it
 says and `UNIMPLEMENTED` is empty. Step 8 gave a game its end -- a
 concession, a player's or a helper's abandon, the rematch, the channel moved to the
-archive -- and pinned a whole game through the service in a golden. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+archive -- and pinned a whole game through the service in a golden.
+Step 9 moved what the two games turned out to share to one home,
+`gamekit/` and `botkit/` ("What the two games share"). The model's
+purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -718,7 +721,7 @@ rulebook's PDF under `docs/codex/` is for the developers to read.
 `gamesaves/codex/` is D12 Ball's two modules copied (decision 2):
 `storage.py` writes `data/codex_games.json` -- the temporary file
 renamed over the real one, never raising, the two per-file failure
-flags -- with no legacy migration, since the save format has been the
+flags, all `gamekit.storage`'s since step 9 -- with no legacy migration, since the save format has been the
 contract from step 2; and `service.py` is `GameService`, whose lobby
 moves (`create_game`, `take_seat`, `leave`, `start`, `abandon`,
 `set_board_layout`) are each a thin door over a rule on `CodexGame`,
@@ -1537,6 +1540,94 @@ final save beside it, in `tests/golden/codex_service_transcript.txt` and
   does not reach, an attack's choice that never comes up on this seed;
   and everything the cog renders, which `tests/test_codex_cog_turn.py`
   plays through the fakes.
+
+## What the two games share
+
+Step 9 was decision 2's second half: with two games running, the generic
+and the particular could be told apart by diffing them. Every pair step
+1 to 8 copied was compared definition by definition, docstrings and
+comments aside; **what was identical, or differed only by the game's
+name, moved to one home, and both games import it** -- `gamekit/` for
+the model's side, `botkit/` for Discord's. The leaves steps 1 and 3
+moved (`gamebot.py`, `botlog/`'s parameters, `cogs/game_auth.py`, the
+`BoardRefresher`'s parameters) were the pattern and stay where they
+went. Each game's old module keeps the old name, re-exported, so no
+call site moved; no save, golden or game changed. About 480 lines left
+the two games for 470 in the two packages, docstrings included.
+
+`gamekit/` is held to the model's rules -- no `discord`, no `async def`,
+no Pillow or reportlab -- and imports neither game; `botkit/` imports
+neither game either (`tests/test_shared_kits.py`, a ratchet of its own,
+because `tests/test_model_purity.py` is one of the six safety-net tests).
+
+**What moved**
+
+- `gamekit/wire.py` -- `jsonable`, the one conversion to the wire.
+- `gamekit/driver.py` -- `MOVED_ON` and `STEP_OWED`, the two refusals
+  both drivers word alike.
+- `gamekit/tokens.py` -- `Resolver`, a frontend's signature for a token.
+- `gamekit/service.py` -- `StopHandling`, the three answers at a stop.
+- `gamekit/saved.py` -- `SavedField`, one row of a match's save table.
+- `gamekit/storage.py` -- the games file's guarded read
+  (`read_games_file`) and write (`save_games`), and `PROJECT_ROOT` and
+  `DATA_FOLDER`. **Each game still owns its two failure-flag sets and its
+  logger, and hands them in on every call**, so a test that swaps a
+  game's set reaches the write. Whether a load makes the folder is a
+  parameter, since D12 Ball's does and the Codex bot's does not.
+- `botkit/channels.py` -- `slugify_channel_part`,
+  `get_or_create_category` and `CHANNEL_NAME_MAX_LENGTH`, which the
+  Codex helpers had been importing from `cogs/d12ball_helpers.py`, the
+  other game's module.
+- `botkit/views.py` -- `GameLockedView`, the per-game click lock both
+  `SafeView`s now stand on.
+
+**What stays in each game, and why**
+
+- `flow/result.py` -- `FollowOn` is the same shape, but it is typed by,
+  and reads back into, each game's own closed `FollowOnStep`; the enum
+  is the point (nothing reaches a step by spelling its name), and a
+  shared class would need it injected. `Headline` (a seat against a side
+  and a roll's working) and `StepResult` (Codex's `drawn`) differ.
+- `prompts.py`'s `Action` -- the same, for `PromptKind`.
+- `flow/driver.py` -- the loop is the same idea and different code: D12
+  Ball's `speaks_lines` and an answer's `detail`, Codex's `draw_after`,
+  the journal and the replayed draws in `apply`. `Refusal` carries `law`
+  in one and `cite` in the other.
+- `tokens.py` -- the grammar differs: every D12 Ball token carries an
+  argument, and Codex's glyphs are bare, so `TOKEN_PATTERN`, `render`
+  and `find` read different patterns.
+- `gamesaves/<game>/storage.py`'s load loop -- D12 Ball migrates legacy
+  ids and builds the record by its constructor; Codex has no migration
+  and reads with `from_dict`.
+- `gamesaves/<game>/service.py` -- `Batching`, `Narration`, `GameResult`
+  and `GameService` are typed by each game's steps, prompts and record,
+  and differ in substance (the AI's carry, the standing prompts, the
+  journal's door).
+- `cogs/<game>_views/base.py` -- the helper's confirmation (D12 Ball's
+  carries the message, a label and custom ids; Codex's neither), the
+  gates (a coach against a seat) and `apply` differ.
+- The channel's name -- each bot's prefix, and D12 Ball's game name in
+  place of the players -- and each bot's categories. `pin_board_message`
+  and `add_full_image_button` were never copied: the Codex bot pins its
+  finished turn, not a board.
+- `scripts/run_codex_bot.ps1` against `run_web_app.ps1` -- the same
+  script around a different process: the command line it matches, the
+  pid and log names, the check before it starts. Sharing it would be a
+  PowerShell module the live host loads, and none of it can be run here.
+- The test ratchets -- each package-shape test pins its own package with
+  its own exemptions (Codex's re-export check skips constants, its mixin
+  check counts app commands, D12 Ball's walks the stray-save guard), and
+  `tests/test_model_purity.py` is a safety-net test.
+
+**Where the line was drawn.** A whole definition moved; a member of a
+class that differs in substance stayed with its class, though its body
+is the same -- `GameService.next_game_number`, `abandon`, `save`, `game`
+and `waiting_on`, `Batching.at_stop`, `GameResult.refused`,
+`Narration.drawn`, `DriverRun.ran`, the cog's `locks` property. Sharing
+those would mean a common base class each game's service or cog
+inherits half its door from, which is a design change rather than a
+move. One-line idioms -- a module's `LOGGER`, a private one-line copy
+helper -- are not copies.
 
 ## Running it
 
