@@ -27,7 +27,9 @@ class RenderTests(unittest.TestCase):
         cls.match = cls.engine.new_match(("bashing", "finesse"), first=1)
 
     def panel_height(self, rows: int) -> int:
-        body = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
+        grid = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
+        # One row is shorter than the building column, the add-on on top.
+        body = max(grid, render.BUILDING_COLUMN_HEIGHT)
         return 2 * render.PADDING + body + render.NAMEPLATE_GAP + render.NAMEPLATE_HEIGHT
 
     def test_the_panel_is_the_canvas_size(self) -> None:
