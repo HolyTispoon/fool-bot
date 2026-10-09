@@ -10,15 +10,16 @@ unless said otherwise.
 
 ## What the deck is
 
-Money, Might, Fiends, Tools, States, Fools (the order of the "Thetys
-Deck" tab of the World Building sheet, which also holds the table below),
-each the numbers 1 to 10 and two rulers, Left and Right. **The fate
+Money, Tools, Might, Fiends, States, Fools (the author's order, which
+the table in the "Thetys Deck" tab of the World Building sheet and the
+bot's `cogs/tethysdeck_helpers.SUITS` both follow), each the numbers 1 to
+10 and two rulers, Left and Right. **The fate
 rule** has two inputs per suit: the odd cards' fate, and Left's fate;
 the evens and Right are the other one. Money, Might and States are
 Fortune on the odds, Tools, Fiends and Fools on the evens; Left is
-Fortune in Money, Fiends and States and Doom in Might, Tools and Fools,
-alternating down the sheet. So every suit is six and six, 36 and 36 in
-all, and the rulers are split three and three. `deck.fate_of` is the one
+Fortune in Money, Fiends and States and Doom in Tools, Might and Fools.
+So every suit is six and six, 36 and 36 in all, and the rulers are split
+three and three. `deck.fate_of` is the one
 reading of it and `tests/test_tethys_deck.py` holds the table.
 
 Left used to sit with the odds or the evens as a second input, which
@@ -78,9 +79,14 @@ sagging for Doom**, each in its own material colours (`icons.COLOURS`):
   purple and green, with ring-marks beside the bells; Doom's side points
   hang below a sagging band and the middle one flops over the front.
 
-**Nothing is cream and every card is white**: Fortune in teal ink, Doom
-in black ink with gold, the paper white either way. The first frames
-were cream for Fortune and black for Doom, and the author struck both.
+**Nothing is cream and every card is white**: Fortune in violet ink,
+Doom in coal ink with orange, the paper white either way (`cards.PALETTE`,
+and the back follows it). The first frames were cream for Fortune and
+black for Doom, and the author struck both; then teal for Fortune and
+black with gold for Doom, until "instead of the black and gold for doom,
+make it coal and orange. instead of teal for fortune, make it violet"
+(2026-10-09). The orange is the Doom die's; the violet is near the
+studio's purple pair.
 
 ## The relief
 
@@ -156,10 +162,10 @@ Right 12.)
 
 ## The back
 
-White, the same double frame, a faint teal lattice, and a ring of the
+White, the same double frame, a faint violet lattice, and a ring of the
 twelve suit marks -- each suit's Fortune straight across from its Doom,
 all pointing outward, so the silhouette is the same either way up --
-round a gold dodecagon (twelve sides, twelve ranks) holding **the orange
+round an orange dodecagon (twelve sides, twelve ranks) holding **the orange
 Doom d12**, the darker of the studio's orange pair, drawn at build time
 by `d12ball.dice.die_mark` (under a second, so nothing is committed).
 Nothing on the back is lettered.

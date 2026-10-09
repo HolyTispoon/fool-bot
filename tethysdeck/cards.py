@@ -2,8 +2,8 @@
 over the face, the rank and the suit's mark in two corners.
 
 Poker size at 300 dpi, the same 750 x 1050 as `d12ball.cards`, so the
-deck prints on the same sheets. Fortune is teal ink, Doom black ink with
-gold; the paper is white either way (the author: no cream anywhere).
+deck prints on the same sheets. Fortune is violet ink, Doom coal ink with
+orange; the paper is white either way (the author: no cream anywhere).
 """
 from PIL import Image, ImageDraw, ImageFont
 
@@ -13,9 +13,10 @@ from tethysdeck.relief import IconSet
 
 W, H, RADIUS = 750, 1050, 36
 
+# Fortune is violet, Doom is coal and orange (the author, 2026-10-09; before: teal, and black and gold).
 PALETTE = {
-    "fortune": {"paper": "#FFFFFF", "ink": "#1C4A4F", "ink2": "#5E8A8E"},
-    "doom": {"paper": "#FFFFFF", "ink": "#1E1A24", "ink2": "#C9A54A"},
+    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#8F6FBE"},
+    "doom": {"paper": "#FFFFFF", "ink": "#2A2522", "ink2": "#D86A1E"},
 }
 # A piece's size on the card by what it is worth, and a coin's by what it is.
 PIECE_SIZE = {1: 230, 3: 280, 6: 330, 12: 400}
