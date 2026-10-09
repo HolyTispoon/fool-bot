@@ -382,7 +382,7 @@ always.
   *may* shoot up but is never forced to. `ignores_patrollers` is the
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
-  panel's menu can say why a defender is legal ("it flies over the patrol
+  panel's buttons can say why a defender is legal ("it flies over the patrol
   zone", "it sneaks past the patrol zone", "it is unstoppable").
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
@@ -450,8 +450,8 @@ attack preview the step's prompt set aside -- what would happen if this
 attacker took that defender -- is **not built**: the board shows the
 position.
 
-**Once an attack has begun it cannot be taken back.** **Cancel** on the
-defender menu is still there for a misclick on the attacker, since
+**Once an attack has begun it cannot be taken back.** **Cancel** under
+the defender buttons is still there for a misclick on the attacker, since
 nothing has happened then; after the defender is chosen, obliterate may
 have destroyed something and the tower may have spent its detection, so
 `cancel_attack` refuses while `MatchState.combat` stands.
@@ -992,19 +992,26 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   has been hired this turn"); a group with nothing to offer is one
   disabled button saying why ("Nothing can be built now"), and a menu
   with nothing to offer a disabled menu saying why, so the panel keeps
-  its shape. **Hire worker** opens
-  a menu of the hand's cards (the one hired with is trashed unseen);
-  **Undo** the choices `history.undo_targets` says are open. The
-  defender menu labels each defender with why it is legal -- "squad
+  its shape. **Hire worker** turns the panel into the hand, a button
+  per card numbered as the picture (the one hired with is trashed
+  unseen), the question the menu's placeholder used to carry written
+  under the prompt's ask (the view's `caption`, which `panel_caption`
+  reads, as the tech and patrol views' are); **Undo** the choices
+  `history.undo_targets` says are open. The attacker is named the same
+  way over the defender's buttons, and each is labelled with why it is
+  legal -- "squad
   leader", "patroller", "nothing is patrolling" -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
-  The lists a turn asks less often -- the defender, the hire's card, the
-  tower's detection, a target, the three choices inside an attack --
-  stay menus.
+  The tower's detection and the three choices inside an attack --
+  obliterate's tie, sparkshot's neighbour, overpower's excess -- stay
+  menus: each is asked rarely and offers a short list. (The hire's
+  card, the defender and the targets were menus too until the author's
+  second word on 2026-10-09.)
 - **An effect's questions are the same panel going on** (step 6): a
-  `TARGET` is one menu of what the part may choose, each labelled with
-  whose it is, what it costs in resist and whether the flagbearer rule
-  forces it; Appel Stomp's place and the upkeep's order are buttons.
+  `TARGET` is a button per thing the part may choose, each labelled
+  with whose it is, what it costs in resist and whether the flagbearer
+  rule forces it, under the ask, which says what the part does; Appel
+  Stomp's place and the upkeep's order are buttons too.
   The abilities are buttons on the board's row, only those that may be
   used now -- they shared the last row's menu with the hero's levels
   until 2026-10-09. The panel's picture stays the hand.

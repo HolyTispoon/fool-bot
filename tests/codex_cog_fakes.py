@@ -195,7 +195,8 @@ def find_button(view, which) -> discord.ui.Button:
     """A button by the start of its label, or -- a tuple -- by the choice
     it answers with (`PanelButton.choice`): `("play", slug)`,
     `("build", building)`, `("attack", ref)`, `("ability", effect,
-    source)`, `("level",)`."""
+    source)`, `("level",)`, `("hire", slug)`, `("defend", ref)`,
+    `("target", key)`."""
     for item in view.children:
         if not isinstance(item, discord.ui.Button):
             continue
