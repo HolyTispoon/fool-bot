@@ -877,8 +877,9 @@ else the bot shows is ephemeral.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
-    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill,
-    the hero by its short name -- "Troq's turn 7".
+    player's carries a rule and "<Hero>'s turn <n>" in a pill, both in
+    the turn's colour (`TURN`, below), the hero by its short name --
+    "Troq's turn 7".
   - **A hero's short name is kept by hand** (`SHORT_NAMES` in
     `codex/cards.py`, `Hero.short_name`), the one thing about a card the
     repository holds outside the imported data, because the database has
@@ -928,13 +929,28 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 52-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name, bold and white on a teal
-  pill (`TURN_PILL`) between two grey rules -- taller and brighter than
+  "<HERO>'S TURN <N>", the same short name, bold and white on a pill in
+  the turn's colour between two grey rules -- taller and brighter than
   the canvas's 36 pixels of faint capitals, which did not read at
   Discord's size (the author, 2026-10-09: the turn more prominent, not
-  gold, which the active nameplate's pill already is, and not cream).
-  Teal is apart from every other colour on the board: the gold pill,
-  the red damage chits, the patrol zone's blue, ARRIVED's green.
+  gold, and not cream).
+- **The turn has one colour** (`TURN`, raspberry, #b61e5e, with white
+  words, `TURN_INK`): the divider's pill, the active nameplate's pill
+  and its rule, one colour for one meaning. Its first day the divider
+  was teal and the nameplate's pill and rule gold, and the author asked
+  for both replaced (2026-10-09): gold is the currency's -- the coin
+  and every cost badge -- so a gold pill beside the gold count said
+  two things in one colour, and teal sat between the two patrol zones'
+  blue and read as a shade of it. What was left once blue (patrol),
+  green (ARRIVED, the level chit), red (damage, the hearts), gold and
+  the deep purple of the time-rune chit were taken, and the leather's
+  warmth ruled out orange and copper, which sink into it: a magenta, a
+  violet, or a neutral white pill with dark ink. Rendered side by side
+  at Discord's scale (`BOARD_SCALE`), violet read as a lighter blue
+  next to the patrol bands, a hollow nameplate pill did not read at
+  all, and white, legible as it is, is no colour and so marks nothing;
+  raspberry is apart from every one of them, and the vermilion of a
+  damage chit is a different red from a magenta at any size.
 - **No cream** (the author, 2026-10-09): the canvas's light words were a
   warm cream and its quiet ones a tan; the board, the hand and the
   codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from
