@@ -904,11 +904,16 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 52-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name, bold and dark on a cream
-  pill between two light rules -- taller and brighter than the canvas's
-  36 pixels of faint capitals, which did not read at Discord's size (the
-  author, 2026-10-09: the turn more prominent, and not gold, which the
-  active nameplate's pill already is). A finished game is seen from
+  "<HERO>'S TURN <N>", the same short name, bold and white on a teal
+  pill (`TURN_PILL`) between two grey rules -- taller and brighter than
+  the canvas's 36 pixels of faint capitals, which did not read at
+  Discord's size (the author, 2026-10-09: the turn more prominent, not
+  gold, which the active nameplate's pill already is, and not cream).
+  Teal is apart from every other colour on the board: the gold pill,
+  the red damage chits, the patrol zone's blue, ARRIVED's green.
+- **No cream** (the author, 2026-10-09): the canvas's light words were a
+  warm cream and its quiet ones a tan; the board, the hand and the
+  codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from
   where it was left.
   Side by side turns neither panel and puts an 80-pixel divider
   between them, the same words standing: two panels read left to right

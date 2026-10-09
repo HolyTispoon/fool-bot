@@ -140,17 +140,24 @@ PATROL_BLUE = (36, 73, 144)      # #244990, the mat's own
 PLATE_FILL = (58, 42, 28)        # #3a2a1c
 PLATE_EDGE = (138, 106, 58)      # #8a6a3a
 PLATE_INK = (201, 168, 106)      # #c9a86a
-WORD = (241, 232, 216)           # #f1e8d8
-QUIET = (191, 174, 148)          # #bfae94
+#: No cream anywhere (the author, 2026-10-09): the light words are a
+#: neutral white and the quiet ones a neutral grey, where the canvas had
+#: them warm.
+WORD = (242, 242, 242)           # #f2f2f2
+QUIET = (168, 168, 168)          # #a8a8a8
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
 TURN_GOLD = (224, 182, 74)       # #e0b64a
+#: The divider's pill: teal, apart from the nameplate's gold, the
+#: damage chits' red, the patrol zone's blue and ARRIVED's green
+#: (the author, 2026-10-09: not gold, not cream).
+TURN_PILL = (18, 135, 122)       # #12877a
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 HEART_FILL = (208, 32, 28)       # #d0201c
 HEART_EDGE = (90, 11, 9)         # #5a0b09
 
 # The hand's and the codex's.
-INK = (245, 238, 220)
+INK = (242, 242, 242)
 SHADOW = (12, 10, 8)
 GOLD = (236, 190, 64)
 STRIP_FILL = (24, 20, 16)
@@ -823,10 +830,10 @@ def divider_label(match: MatchState, cards: CardCatalog) -> str:
 def horizontal_divider(width: int, label: str) -> Image.Image:
     """
     The stacked board's divider: "<HERO>'S TURN <N>", the hero by its
-    short name, bold and dark on a cream pill between two rules -- the
-    brightest thing between the panels, so whose turn it is reads at a
-    glance (the author, 2026-10-09: more prominent, and not gold, which
-    the nameplate's pill already is).
+    short name, bold and white on a teal pill between two rules, so
+    whose turn it is reads at a glance (the author, 2026-10-09: more
+    prominent, and neither gold, which the nameplate's pill already is,
+    nor cream).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -838,8 +845,8 @@ def horizontal_divider(width: int, label: str) -> Image.Image:
     draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
     draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
     draw.rounded_rectangle((left - pad, middle - half, left + text_width + pad, middle + half),
-                           radius=half, fill=WORD)
-    spaced_text(draw, (left, middle), label, face, PANEL, 2)
+                           radius=half, fill=TURN_PILL)
+    spaced_text(draw, (left, middle), label, face, WORD, 2)
     return strip
 
 
