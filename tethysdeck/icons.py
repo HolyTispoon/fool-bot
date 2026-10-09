@@ -382,8 +382,79 @@ def might_crown(d, c, fate, layer):
         d.line(pts([(600, 575), (570, 650), (620, 700), (590, 770)]), fill=c["ink"], width=W(12), joint="curve")
 
 
-# The drawing behind each of Might's denominations (deck.VARIANTS names them).
-DRAWINGS = {"might_sword": might, "might_axe": might_axe, "might_sceptre": might_sceptre, "might_crown": might_crown}
+
+def tools_hammer(d, c, fate, layer):
+    """The claw hammer on its own: the 1 of Tools."""
+    layer.alpha_composite(_hammer(c, fate == "doom"))
+
+
+def tools_pick(d, c, fate, layer):
+    """A pickaxe, a point one side and a chisel the other: the 3 of Tools."""
+    ink = W(12)
+    broken = fate == "doom"
+    if not broken:
+        d.polygon(pts([(480, 250), (520, 250), (528, 900), (472, 900)]), fill=c["wood"], outline=c["ink"], width=ink)
+    else:
+        d.polygon(pts([(480, 250), (520, 250), (524, 580), (502, 620), (526, 640), (478, 620)]), fill=c["wood"], outline=c["ink"], width=ink)
+        piece = new_layer()
+        pd = ImageDraw.Draw(piece)
+        pd.polygon(pts([(478, 640), (502, 620), (526, 660), (528, 900), (472, 900)]), fill=c["wood"], outline=c["ink"], width=ink)
+        piece = piece.rotate(24, resample=Image.BICUBIC, center=pt(500, 660))
+        layer.alpha_composite(piece, (W(40), W(0)))
+    # The head: two tapered arms curving down from the socket, one to a point, one to a chisel.
+    left = bezier((500, 215), (320, 170), (120, 300))
+    right = bezier((500, 215), (680, 170), (880, 290))
+    d.polygon(pts(tapered(left, 110, 14)), fill=c["steel"], outline=c["ink"], width=W(10))
+    d.polygon(pts(tapered(right, 110, 40)), fill=c["steel"], outline=c["ink"], width=W(10))
+    d.rounded_rectangle(pts([(438, 160), (562, 290)]), radius=W(16), fill=c["steel"], outline=c["ink"], width=ink)
+    d.line(pts([(330, 195), (670, 195)]), fill=c["shine"], width=W(8))
+    if broken:
+        d.line(pts([(640, 170), (610, 215), (660, 250), (630, 280)]), fill=c["ink"], width=W(12), joint="curve")
+
+
+def tools_spade(d, c, fate, layer):
+    """A spade, blade down: the 6 of Tools."""
+    ink = W(12)
+    broken = fate == "doom"
+    # The T-handle and the shaft.
+    d.rounded_rectangle(pts([(410, 40), (590, 100)]), radius=W(24), fill=c["wood"], outline=c["ink"], width=ink)
+    if not broken:
+        d.polygon(pts([(478, 100), (522, 100), (526, 560), (474, 560)]), fill=c["wood"], outline=c["ink"], width=ink)
+    else:
+        d.polygon(pts([(478, 100), (522, 100), (524, 300), (502, 330), (524, 350), (476, 330)]), fill=c["wood"], outline=c["ink"], width=ink)
+        piece = new_layer()
+        pd = ImageDraw.Draw(piece)
+        pd.polygon(pts([(476, 350), (502, 330), (524, 370), (526, 560), (474, 560)]), fill=c["wood"], outline=c["ink"], width=ink)
+        piece = piece.rotate(18, resample=Image.BICUBIC, center=pt(500, 370))
+        layer.alpha_composite(piece, (W(30), W(10)))
+    # The blade: a socket, shoulders, a pointed face with a ridge.
+    d.polygon(pts([(455, 540), (545, 540), (545, 590), (455, 590)]), fill=c["steel"], outline=c["ink"], width=ink)
+    blade = [(370, 585), (630, 585), (630, 740), (500, 930), (370, 740)]
+    d.polygon(pts(blade), fill=c["steel"], outline=c["ink"], width=ink)
+    d.line(pts([(500, 600), (500, 900)]), fill=c["ink"], width=W(6))
+    d.line(pts([(395, 600), (395, 735)]), fill=c["shine"], width=W(8))
+    if broken:
+        d.line(pts([(560, 590), (530, 680), (585, 760), (545, 880)]), fill=c["ink"], width=W(12), joint="curve")
+
+
+def tools_anvil(d, c, fate, layer):
+    """An anvil, horn to the left: the 12 of Tools."""
+    ink = W(12)
+    broken = fate == "doom"
+    body = [(300, 330), (880, 330), (880, 440), (730, 455), (730, 640), (850, 700), (850, 780),
+            (150, 780), (150, 700), (270, 640), (270, 455), (200, 445), (105, 400), (200, 345)]
+    d.polygon(pts(body), fill=c["steel"], outline=c["ink"], width=ink)
+    # The face's top edge lit, a hardy hole, the foot's edge.
+    d.line(pts([(310, 345), (870, 345)]), fill=c["shine"], width=W(10))
+    d.rectangle(pts([(790, 365), (830, 405)]), fill=c["ink"])
+    d.line(pts([(150, 700), (850, 700)]), fill=c["ink"], width=W(5))
+    d.line(pts([(270, 455), (730, 455)]), fill=c["ink"], width=W(5))
+    if broken:
+        d.line(pts([(520, 330), (480, 420), (540, 520), (490, 640), (530, 780)]), fill=c["ink"], width=W(12), joint="curve")
+
+# The drawing behind each of Might's and Tools' denominations (deck.VARIANTS names them).
+DRAWINGS = {"might_sword": might, "might_axe": might_axe, "might_sceptre": might_sceptre, "might_crown": might_crown,
+            "tools_hammer": tools_hammer, "tools_pick": tools_pick, "tools_spade": tools_spade, "tools_anvil": tools_anvil}
 
 
 SUITS = {"money": money, "might": might, "fiends": fiends, "tools": tools, "states": states, "fools": fools}

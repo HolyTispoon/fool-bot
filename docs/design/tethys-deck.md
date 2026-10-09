@@ -79,23 +79,29 @@ than Doom (`LIGHT`). The coin is not embossed; it is already a picture.
 A card's value is **made of pieces, the way the coins make a sum**: 1,
 3, 6 and 12, the fewest pieces, largest first (`deck.pieces`), spread
 over the face like pips (`cards.SPREAD`). A 7 is a 6-piece and a
-1-piece; a 10 is 6, 3 and 1; Left is worth 11 (the author) and so 6, 3,
-1 and 1; Right is 12, one piece. **Right's worth is an assumption** --
-the author gave Left's and not Right's -- and `deck.RULER_WORTH` is
-where it changes.
+1-piece; a 10 is 6, 3 and 1. **A ruler is worth 12 when it is Fortune
+and 11 when it is Doom** (the author), so a Fortune ruler is one
+12-piece and a Doom ruler is 6, 3, 1 and 1 -- which is Left in Money,
+Might, Fiends and Fools and Right in Tools and States. `deck.worth` takes
+the suit for that reason.
 
 - **Money's pieces are the real coins**, worth their dinkies by the
   Coins tab (1B = 1, 3B = 3, 1S = 6, 1G = 12, 3S = 18, 3G = 36), each on
   its Fortune or Doom face per the table. The 1 is one bronze; the 6 one
-  silver; Right one gold.
+  silver; Left, the Fortune ruler, one gold.
 - **Might's four denominations are four instruments of power**: the
   sword for 1, a bearded axe for 3, a sceptre for 6, a crown for 12
   (`deck.VARIANTS`, `icons.DRAWINGS`). "Weapons but also
   scepters/crowns."
+- **Tools' four are four tools, the heavier the worthier**: the claw
+  hammer for 1, a pickaxe for 3, a spade for 6, an anvil for 12. The
+  suit's own mark stays the hammer crossed with the wrench. Doom's
+  pickaxe has a cracked head and a snapped haft, the spade's blade is
+  cracked and its shaft broken, the anvil split.
 - **Every other suit is its one symbol at four sizes**
   (`cards.PIECE_SIZE`): "for states, use the smaller and larger sizes."
-  Tools and Fools could take a ladder of objects like Might's by adding
-  three drawings each and a row to `VARIANTS`.
+  Fools could take a ladder of objects the same way: three drawings and
+  a row in `VARIANTS`.
 
 ## The back
 
@@ -128,6 +134,6 @@ python3 scripts/render_tethys_deck.py            # everything, into tethysdeck/p
 python3 scripts/render_tethys_deck.py --only sheets   # just the contact sheets
 ```
 
-Look at `deck_sheet.png` (all 72), `closeup_sheet.png` (six, large) and
-`icon_sheet.png` after any change to a drawing; nothing printed is
-tested. The suite checks the rule only.
+Look at `deck_sheet.png` (all 72), `closeup_sheet.png` (six, large),
+`icon_sheet.png` and the two ladders after any change to a drawing;
+nothing printed is tested. The suite checks the rule only.

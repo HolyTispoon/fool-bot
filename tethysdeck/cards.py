@@ -71,7 +71,7 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     if suit == "money":
         _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
     else:
-        _spread(img, [icon_set.piece(suit, value, fate, PIECE_SIZE[value]) for value in pieces(rank)])
+        _spread(img, [icon_set.piece(suit, value, fate, PIECE_SIZE[value]) for value in pieces(suit, rank)])
     if rank in ("Left", "Right"):
         d.text((W // 2, 862), rank.upper(), font=font(80), fill=p["ink"], anchor="mm")
     else:

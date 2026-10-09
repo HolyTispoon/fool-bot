@@ -38,29 +38,36 @@ class FateRuleTests(unittest.TestCase):
 
 class PiecesTests(unittest.TestCase):
     def test_pieces_make_the_value_with_the_fewest(self):
-        for rank in deck.RANKS:
-            pieces = deck.pieces(rank)
-            self.assertEqual(sum(pieces), deck.worth(rank), rank)
-            self.assertEqual(pieces, sorted(pieces, reverse=True), rank)
-            self.assertLessEqual(len(pieces), 4, rank)
-            self.assertTrue(set(pieces) <= set(deck.DENOMINATIONS), rank)
+        for suit in deck.SUITS:
+            for rank in deck.RANKS:
+                pieces = deck.pieces(suit, rank)
+                self.assertEqual(sum(pieces), deck.worth(suit, rank), (suit, rank))
+                self.assertEqual(pieces, sorted(pieces, reverse=True), (suit, rank))
+                self.assertLessEqual(len(pieces), 4, (suit, rank))
+                self.assertTrue(set(pieces) <= set(deck.DENOMINATIONS), (suit, rank))
 
-    def test_rulers(self):
-        self.assertEqual(deck.worth("Left"), 11)
-        self.assertEqual(deck.pieces("Left"), [6, 3, 1, 1])
-        self.assertEqual(deck.pieces("Right"), [12])
+    def test_a_ruler_is_twelve_for_fortune_and_eleven_for_doom(self):
+        for suit in deck.SUITS:
+            for rank in ("Left", "Right"):
+                expected = 12 if deck.fate_of(suit, rank) == "fortune" else 11
+                self.assertEqual(deck.worth(suit, rank), expected, (suit, rank))
+        self.assertEqual(deck.worth("money", "Left"), 12)
+        self.assertEqual(deck.worth("money", "Right"), 11)
+        self.assertEqual(deck.pieces("tools", "Left"), [6, 3, 1, 1])
+        self.assertEqual(deck.pieces("tools", "Right"), [12])
 
     def test_money_coins_make_the_value_in_dinkies(self):
         value_of = {(metal, amount): value for metal, amount, value in deck.COIN_WORTH}
         for rank in deck.RANKS:
             coins = deck.money_coins(rank)
-            self.assertEqual(sum(value_of[coin] for coin in coins), deck.worth(rank), rank)
+            self.assertEqual(sum(value_of[coin] for coin in coins), deck.worth("money", rank), rank)
             self.assertLessEqual(len(coins), 4, rank)
 
     def test_every_variant_is_a_denomination(self):
         for suit, variants in deck.VARIANTS.items():
             self.assertIn(suit, deck.SUITS)
             self.assertEqual(set(variants), set(deck.DENOMINATIONS), suit)
+        self.assertEqual(set(deck.VARIANTS), {"might", "tools"})
 
 
 class CogAgreementTests(unittest.TestCase):

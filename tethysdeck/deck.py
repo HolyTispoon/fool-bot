@@ -30,13 +30,15 @@ def fate_of(suit: str, rank: str) -> str:
     return odd if int(rank) % 2 else even
 
 
-# A card's value: its number, Left 11 and Right 12 (the author gave Left;
-# Right as the next number is an assumption, see the design note).
-RULER_WORTH = {"Left": 11, "Right": 12}
+# A card's value: its number; a ruler is worth 12 when it is Fortune and 11
+# when it is Doom (the author), so Money's Left is the 12 and its Right the 11.
+RULER_WORTH = {"fortune": 12, "doom": 11}
 
 
-def worth(rank: str) -> int:
-    return RULER_WORTH.get(rank) or int(rank)
+def worth(suit: str, rank: str) -> int:
+    if rank in ("Left", "Right"):
+        return RULER_WORTH[fate_of(suit, rank)]
+    return int(rank)
 
 
 # Every suit but Money makes a value of pieces worth 1, 3, 6 and 12, the
@@ -44,8 +46,8 @@ def worth(rank: str) -> int:
 DENOMINATIONS = (12, 6, 3, 1)
 
 
-def pieces(rank: str) -> list[int]:
-    left, out = worth(rank), []
+def pieces(suit: str, rank: str) -> list[int]:
+    left, out = worth(suit, rank), []
     for value in DENOMINATIONS:
         while left >= value:
             out.append(value)
@@ -53,9 +55,13 @@ def pieces(rank: str) -> list[int]:
     return out
 
 
-# Might's denominations are four instruments of power; every other suit
-# is its one symbol at four sizes.
-VARIANTS = {"might": {1: "sword", 3: "axe", 6: "sceptre", 12: "crown"}}
+# Might's denominations are four instruments of power and Tools' four
+# tools, the heavier the worthier; every other suit is its one symbol at
+# four sizes.
+VARIANTS = {
+    "might": {1: "sword", 3: "axe", 6: "sceptre", 12: "crown"},
+    "tools": {1: "hammer", 3: "pick", 6: "spade", 12: "anvil"},
+}
 
 # Money's pieces are the studio's coins, worth their dinkies (the Coins
 # tab of the World Building sheet): metal, how many, worth.
@@ -65,7 +71,7 @@ COIN_WORTH = (("gold", 3, 36), ("silver", 3, 18), ("gold", 1, 12),
 
 def money_coins(rank: str) -> list[tuple[str, int]]:
     """The fewest coins worth the card, as (metal, amount) pairs, largest first."""
-    left, coins = worth(rank), []
+    left, coins = worth("money", rank), []
     for metal, amount, value in COIN_WORTH:
         while left >= value:
             coins.append((metal, amount))
