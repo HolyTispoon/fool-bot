@@ -1184,9 +1184,20 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 - **Its picture is the hand**, numbered, greyed where it may not be
   played, each card's cost after reductions -- `render_hand` over
   `MainActionOptions.hand`, a field the prompt grew for it so the
-  picture and the buttons read one list. `render_prompt` gives the
-  main phase and the defender no picture of their own (the board on the
-  turn message is theirs); the tech picker's is the codex with the
+  picture and the buttons read one list. **A target's picture is a
+  side of the board, not the hand** (the author, 2026-10-09: the hand
+  is no help choosing what to wither): the defender, obliterate's,
+  sparkshot's and overpower's choices and an effect's `TARGET` are
+  pictured with one player's panel alone, upright and at the board's
+  scale (`render_side`, `PANEL_SIDE_KINDS`) -- the opponent's, or the
+  asked player's own where every target the prompt offers is theirs;
+  where the targets are on both sides, as Wither's may be, **both sides
+  stacked** (the author, 2026-10-09), the stacked board seen from the
+  player choosing (`render_board`'s `near`, the active player's by
+  default) -- `side_shown`, since what is chosen from is on the table. Appel
+  Stomp's place, about the player's own draw pile, keeps the hand.
+  `render_prompt` gives the main phase no picture of its own (the
+  board on the turn message is its board); the tech picker's is the codex with the
   picks framed in gold and counted (`render_codex`'s `picked`), the
   confirmation's the picks as a hand.
 - **The main phase is rows of buttons, not menus** (the author,
@@ -1195,17 +1206,18 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   carries five rows of five buttons, and the panel fills them in three
   groups, each starting a row of its own (`TurnPanelView.place`): the
   **actions row** -- **Hire worker**, **Summon** or **Level up** the
-  hero, **Attack...**, **Undo...**, **End main phase**; **the hand**, a
-  button per card in the hand's order, "3. Bloom (2 gold)", numbered as
-  the picture numbers it (`hand_numbers`) and disabled where it may not
+  hero, **Attack...**, **Undo...**; **the hand**, a button per card in
+  the hand's order, "3. Bloom (2 gold)", numbered as the picture numbers it (`hand_numbers`) and disabled where it may not
   be played now, as the picture greys it, so the row and the picture
   agree card for card -- at most three rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability that may be
   used now, in the card's own words ("Sacrifice Harmony: stop the
-  music"). **Level up** buys one level a click (the author, 2026-10-09):
-  one button per hero, pressed again for the next level, rather than a
+  music") -- and **End main phase**, always the panel's last button
+  (the author, 2026-10-09), which `place`'s `last` never crowds out: a
+  board's button gives up its place to it first. **Level up** buys one
+  level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
   **Back**; the attacker's button asks the defender next, in the same
