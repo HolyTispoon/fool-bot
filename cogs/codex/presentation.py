@@ -28,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 
 class PresentationMixin:
     async def render_match_png(self, game: CodexGame, match=None) -> bytes:
-        """The board as WebP bytes (`render.BOARD_QUALITY`), drawn off
+        """The board as WebP bytes (`render.WEBP_QUALITY`), drawn off
         the event loop. The name is the gate's: `BoardRefresher` looks
         this and `match_file_from_png` up on the cog by D12 Ball's names."""
         if match is None:

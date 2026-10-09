@@ -238,9 +238,9 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
                     # One button, two answers (the author, 2026-10-08):
                     # the active player's is the control panel.
                     self.assertIsInstance(kwargs["view"], TurnPanelView)
-                    self.assertEqual(kwargs["files"][0].filename, "codex-hand.png")
+                    self.assertEqual(kwargs["files"][0].filename, "codex-hand.webp")
                 else:
-                    self.assertEqual(kwargs["file"].filename, "codex-hand.png")
+                    self.assertEqual(kwargs["file"].filename, "codex-hand.webp")
                     self.assertIn(f"{len(match.player(seat).hand)} cards", caption)
 
     async def test_a_watcher_is_told_the_table_is_not_theirs(self) -> None:
@@ -263,7 +263,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
             await table.cog.hand.callback(table.cog, call)
         kwargs = call.response.send_message.call_args.kwargs
         self.assertTrue(kwargs["ephemeral"])
-        self.assertEqual(kwargs["file"].filename, "codex-hand.png")
+        self.assertEqual(kwargs["file"].filename, "codex-hand.webp")
 
     async def test_codex_is_the_clickers_own_and_ephemeral(self) -> None:
         with suppressed_cog_saves():
@@ -276,7 +276,7 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(kwargs["view"], CodexBrowser)
         self.assertEqual(kwargs["view"].seat, 1)
-        self.assertEqual(kwargs["file"].filename, "codex-everything.png")
+        self.assertEqual(kwargs["file"].filename, "codex-everything.webp")
 
 
 class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
