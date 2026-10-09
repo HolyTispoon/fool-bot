@@ -13,10 +13,11 @@ from tethysdeck.relief import IconSet
 
 W, H, RADIUS = 750, 1050, 36
 
-# Fortune is violet, Doom is coal and orange (the author, 2026-10-09; before: teal, and black and gold).
+# Fortune is violet paired with a light grey, Doom is coal and a dark orange (the author,
+# 2026-10-09; before: teal, and black and gold).
 PALETTE = {
-    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#8F6FBE"},
-    "doom": {"paper": "#FFFFFF", "ink": "#2A2522", "ink2": "#D86A1E"},
+    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#A6A4AD"},
+    "doom": {"paper": "#FFFFFF", "ink": "#2A2522", "ink2": "#BE5A12"},
 }
 # A piece's size on the card by what it is worth, and a coin's by what it is.
 PIECE_SIZE = {1: 230, 3: 280, 6: 330, 12: 400}

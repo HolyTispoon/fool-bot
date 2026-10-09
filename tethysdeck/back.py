@@ -16,7 +16,7 @@ from tethysdeck.cards import H, RADIUS, W
 from tethysdeck.deck import SUITS
 from tethysdeck.relief import IconSet
 
-VIOLET, ORANGE_INK = "#4A2A78", "#D86A1E"   # Fortune's violet and Doom's orange, as the card faces
+VIOLET, ORANGE_INK = "#4A2A78", "#BE5A12"   # Fortune's violet and Doom's orange, as the card faces
 
 
 def back(icon_set: IconSet) -> Image.Image:
