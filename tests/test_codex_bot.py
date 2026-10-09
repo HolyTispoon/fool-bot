@@ -86,7 +86,15 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
         self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
+        self.assertTrue(kwargs["ephemeral"])
         interaction.followup.send.assert_not_called()
+        await bot.close()
+
+    async def test_a_card_asked_for_in_public_is_posted_in_the_channel(self) -> None:
+        bot, cog, interaction = self.card_lookup()
+        await cog.card.callback(cog, interaction, "trojan duck", rulings=True, public=True)
+        self.assertFalse(interaction.response.send_message.call_args.kwargs["ephemeral"])
+        self.assertFalse(interaction.followup.send.call_args.kwargs["ephemeral"])
         await bot.close()
 
     async def test_the_text_and_the_rulings_go_under_the_picture(self) -> None:
@@ -95,7 +103,8 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         args, kwargs = interaction.response.send_message.call_args
         self.assertEqual(args, ())
         self.assertEqual(kwargs["file"].filename, "trojan_duck.jpg")
-        (words,), _ = interaction.followup.send.call_args
+        (words,), followup = interaction.followup.send.call_args
+        self.assertTrue(followup["ephemeral"])
         self.assertTrue(words.startswith("**Trojan Duck**"))
         self.assertIn("**Rulings** (", words)
         self.assertTrue(words.endswith("<http://codexcarddb.com/card/trojan_duck>"))
@@ -135,6 +144,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         (words,), kwargs = interaction.response.send_message.call_args
         self.assertTrue(words.startswith("**Trojan Duck**"))
         self.assertNotIn("file", kwargs)
+        self.assertTrue(kwargs["ephemeral"])
         interaction.followup.send.assert_not_called()
         await bot.close()
 
