@@ -1165,9 +1165,12 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   is no help choosing what to wither): the defender, obliterate's,
   sparkshot's and overpower's choices and an effect's `TARGET` are
   pictured with one player's panel alone, upright and at the board's
-  scale (`render_side`, `PANEL_SIDE_KINDS`) -- the opponent's, unless
-  every target the prompt offers is the asked player's own
-  (`side_shown`), since what is chosen from is on the table. Appel
+  scale (`render_side`, `PANEL_SIDE_KINDS`) -- the opponent's, or the
+  asked player's own where every target the prompt offers is theirs;
+  where the targets are on both sides, as Wither's may be, **both sides
+  stacked** (the author, 2026-10-09), the stacked board seen from the
+  player choosing (`render_board`'s `near`, the active player's by
+  default) -- `side_shown`, since what is chosen from is on the table. Appel
   Stomp's place, about the player's own draw pile, keeps the hand.
   `render_prompt` gives the main phase no picture of its own (the
   board on the turn message is its board); the tech picker's is the codex with the

@@ -28,7 +28,7 @@ import discord
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
-from codex.render import render_side
+from codex.render import render_board, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
     RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, send_ephemeral,
@@ -48,8 +48,9 @@ PANEL_HAND_KINDS = (
 )
 #: The prompts whose panel is pictured with a side of the board rather
 #: than the hand (the author, 2026-10-09): what is chosen from is on the
-#: table, the opponent's side as a rule -- the defender, the three
-#: choices inside an attack, and an effect's target (`side_shown`).
+#: table, the opponent's side as a rule, both sides stacked for a target
+#: on either -- the defender, the three choices inside an attack, and an
+#: effect's target (`side_shown`).
 PANEL_SIDE_KINDS = (
     PromptKind.CHOOSE_DEFENDER,
     PromptKind.OBLITERATE_CHOICE,
@@ -93,16 +94,19 @@ def split_at_turn_end(result: GameResult) -> tuple[list[str], Optional[dict], li
     return closing, board, opening, ended
 
 
-def side_shown(prompt: PendingPrompt) -> int:
-    """The side a target prompt's panel pictures: the opponent's, unless
-    every target the prompt offers is the asked player's own -- a part
-    that may only choose among their own cards."""
+def side_shown(prompt: PendingPrompt) -> Optional[int]:
+    """The side a target prompt's panel pictures: the opponent's, the
+    asked player's own where every target the prompt offers is theirs,
+    or `None` -- both sides, stacked -- where the targets are on both
+    (the author, 2026-10-09)."""
     asked = prompt.asked_player
     opponent = 2 if asked == 1 else 1
     if prompt.kind is PromptKind.TARGET:
         seats = {row.seat for row in prompt.options.targets}
         if seats == {asked}:
             return asked
+        if seats == {asked, opponent}:
+            return None
     return opponent
 
 
@@ -152,7 +156,7 @@ class TurnsMixin:
         if prompt.kind is PromptKind.MAIN_ACTION:
             files = [await hand_file(self.engine, match, prompt.asked_player, prompt.options.hand)]
         elif prompt.kind in PANEL_SIDE_KINDS:
-            files = [await self.side_file(game, match, side_shown(prompt))]
+            files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
         elif prompt.kind in PANEL_HAND_KINDS:
             files = [await hand_file(self.engine, match, prompt.asked_player)]
         else:
@@ -160,11 +164,20 @@ class TurnsMixin:
             files = [] if picture is None else [picture]
         return self.panel_caption(game, prompt, "\n".join(extra)), files, view
 
-    async def side_file(self, game: CodexGame, match, seat: int) -> discord.File:
+    async def side_file(self, game: CodexGame, match, asked: int,
+                        seat: Optional[int]) -> discord.File:
         """`seat`'s side of the table pictured alone, upright
-        (`render_side`), off the event loop."""
+        (`render_side`), or with `seat` `None` both sides stacked as
+        `asked` looks at them, their own nearer (`render_board`'s
+        `near`) -- off the event loop."""
+        names = self.seat_names(game)
+        if seat is None:
+            webp = await asyncio.to_thread(
+                render_board, match, "stacked", names, self.engine.catalog, asked,
+            )
+            return picture_file(webp, "codex-sides")
         webp = await asyncio.to_thread(
-            render_side, match, seat, self.seat_names(game)[seat], self.engine.catalog,
+            render_side, match, seat, names[seat], self.engine.catalog,
         )
         return picture_file(webp, "codex-side")
 

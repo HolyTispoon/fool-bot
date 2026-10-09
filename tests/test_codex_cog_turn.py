@@ -619,7 +619,7 @@ class WholeGameTests(TurnTestCase):
 
 
 class SideShownTests(unittest.TestCase):
-    def test_a_target_pictures_the_opponents_side_unless_all_are_ones_own(self) -> None:
+    def test_a_target_pictures_the_side_its_targets_are_on(self) -> None:
         from codex.prompts import PendingPrompt
         from cogs.codex.turns import side_shown
 
@@ -627,7 +627,7 @@ class SideShownTests(unittest.TestCase):
             rows = tuple(SimpleNamespace(seat=seat) for seat in seats)
             return PendingPrompt(PromptKind.TARGET, "", 1, SimpleNamespace(targets=rows))
 
-        self.assertEqual(side_shown(asked(2, 2, 1)), 2)
+        self.assertIsNone(side_shown(asked(2, 2, 1)))
         self.assertEqual(side_shown(asked(2)), 2)
         self.assertEqual(side_shown(asked(1, 1)), 1)
         self.assertEqual(side_shown(PendingPrompt(PromptKind.CHOOSE_DEFENDER, "", 2, None)), 1)
@@ -670,6 +670,25 @@ class EffectPanelTests(TurnTestCase):
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(other).instance(first.id).damage, 1)
         self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+
+    async def test_targets_on_both_sides_picture_both_sides(self) -> None:
+        """Wither may take either side's unit or hero: the panel pictures
+        both sides stacked, the chooser's own nearer (the author,
+        2026-10-09)."""
+        match, seat, other = self.stage()
+        hero_in_play(match, seat)
+        put(match, seat, "older_brother")
+        put(match, other, "iron_man")
+        match.player(seat).hand = ["wither"]
+        match.player(seat).gold = 2
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("play", "wither"))
+        self.assertNothingWentWrong(call)
+        self.assertIs(call.view().prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.seat for row in call.view().prompt.options.targets}, {seat, other})
+        (picture,) = call.last("followup.send")[2]["files"]
+        self.assertTrue(picture.filename.startswith("codex-sides-"), picture.filename)
 
     async def test_a_spell_is_cancelled_from_its_targets(self) -> None:
         match, seat, other = self.stage()
