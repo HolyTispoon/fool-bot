@@ -4,8 +4,9 @@ left, so a card can leave it only in the commit that gives it a handler
 (docs/codex-bot.md, decision 7) -- and the keyword table beside it is
 read off the texts.
 
-**Step 5 shrank it to the triggers, the spells and the grants, and step
-6 emptied it**: every card of the basic set with text now plays it --
+**Step 5 shrank it to the triggers, the spells and the grants, step 6
+emptied it, and step 10 filled it with red and green**, played for their
+numbers: every card of the basic set with text plays it --
 its keywords through `codex.keywords`, its spells, triggers and
 abilities through `codex.effects.EFFECTS` and `TEXT`, its static text
 through the engine's grants and costs. `test_every_card_with_text_is_handled`
@@ -58,6 +59,7 @@ def _handled(slug: str) -> list[str]:
     for name in (
         "GRANTS_VIRTUOSO_HASTE", "GRANTS_SWIFT_STRIKE", "GUIDES", "MAESTROS",
         "ATK_PER_DAMAGE", "UPKEEP_SELF_DAMAGE", "UPKEEP_DRAW", "CHANNELING",
+        "ENGINE_RULES",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -71,16 +73,80 @@ def _handled(slug: str) -> list[str]:
     return found
 
 
+#: The red and green cards whose whole text is keywords the engine
+#: reads, so they play in full from step 10.
+STEP_10_PLAYED = {
+    "mad_man": ("Haste",),
+    "nautical_dog": ("Frenzy",),
+    "centaur": ("Overpower",),
+    "chameleon": ("Stealth",),
+    "huntress": ("Sparkshot", "Anti-air"),
+    "barkcoat_bear": ("Resist", "Overpower"),
+    "hunter": ("Anti-air",),
+}
+
+
+def _lines(slug: str) -> list[str]:
+    card = catalog().by_slug(slug)
+    if isinstance(card, Hero):
+        return [line for band in card.bands for line in band.text]
+    return list(card.text)
+
+
 class UnimplementedTests(unittest.TestCase):
-    def test_the_set_is_empty(self) -> None:
-        """Step 6 leaves nothing in it: the basic game is the basic game."""
-        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
+    def test_the_set_is_red_and_greens_text(self) -> None:
+        """Step 10 lands red and green played for their numbers: the set
+        is exactly every red or green card, hero and token with text
+        that is not keywords alone -- the six heroes' bands among them --
+        and nothing of the basic set."""
+        expected = {
+            slug for slug in effects.RED | effects.GREEN
+            if _has_text(slug) and not (
+                not isinstance(catalog().by_slug(slug), Hero)
+                and all(keywords.read_keywords([line]) for line in _lines(slug))
+            )
+        }
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset(expected))
+        self.assertEqual(len(effects.UNIMPLEMENTED), 90)
+        self.assertFalse(effects.UNIMPLEMENTED & effects.BASIC_SET)
+        for slug in ("captain_zane", "drakk_ramhorn", "jaina_stormborne",
+                     "argagarg_garg", "calamandra_moss", "master_midori"):
+            self.assertIn(slug, effects.UNIMPLEMENTED)
+
+    def test_the_landed_set_is_the_basic_set_and_red_and_green(self) -> None:
+        cards = catalog()
+        for color in ("red", "green"):
+            group = effects.RED if color == "red" else effects.GREEN
+            self.assertTrue(set(cards.starting_deck(color)) <= group)
+            for hero in cards.heroes.values():
+                if (hero.color or "").lower() == color:
+                    self.assertIn(hero.slug, group)
+                    self.assertTrue(set(cards.codex_for(hero.spec)) <= group)
+        self.assertEqual(len(effects.RED), 10 + 36 + 3 + 1)
+        self.assertEqual(len(effects.GREEN), 10 + 36 + 3 + 5)
+        self.assertEqual(effects.LANDED_SET, effects.BASIC_SET | effects.RED | effects.GREEN)
+
+    def test_red_and_greens_keyword_cards_play_in_full(self) -> None:
+        for slug, printed in STEP_10_PLAYED.items():
+            with self.subTest(card=slug):
+                self.assertNotIn(slug, effects.UNIMPLEMENTED)
+                self.assertEqual(tuple(name for name, _ in keywords.keywords(slug)), printed)
+
+    def test_a_keyword_the_table_does_not_know_is_not_half_read(self) -> None:
+        """A line opening with deathtouch, long-range, ephemeral, boost or
+        untargetable is read as nothing, and its card is unimplemented."""
+        for line in ("Deathtouch", "Long-range (Defenders without long-range ...)",
+                     "Ephemeral", "Boost", "Untargetable",
+                     "Flying, long-range, haste"):
+            self.assertEqual(keywords.read_keywords([line]), ())
+        self.assertIn("doubleshot_archer", effects.UNIMPLEMENTED)
 
     def test_every_card_with_text_is_handled(self) -> None:
-        """Every card of the basic set with text plays it: each line is a
-        keyword the engine reads, or the card is in one of the tables a
-        handler reads. Nothing is ignored, silently or otherwise."""
-        for slug in sorted(effects.BASIC_SET):
+        """Every landed card with text plays it or is listed: each line is
+        a keyword the engine reads, the card is in one of the tables a
+        handler reads, or it is in `UNIMPLEMENTED`. Nothing is ignored
+        silently."""
+        for slug in sorted(effects.LANDED_SET - effects.UNIMPLEMENTED):
             if not _has_text(slug):
                 continue
             with self.subTest(card=slug):

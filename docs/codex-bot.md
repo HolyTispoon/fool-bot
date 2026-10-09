@@ -697,7 +697,7 @@ starting.
 | ~~7~~ | ~~The board drawn element by element~~ -- landed; what it settled is in docs/design/codex.md, "The board on Discord" and "The cards are data" | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
 | ~~8~~ | ~~Finishing a game: concede, abandon, rematch, the golden~~ -- landed; what it settled is in docs/design/codex.md, "The end of a game" and "The golden" | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | ~~9~~ | ~~The look back: what turned out identical moves to one home~~ -- landed; what it settled is in docs/design/codex.md, "What the two games share" | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
-| 10 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
+| ~~10~~ | ~~The standard game's rules, over the red and green data~~ -- landed; what it settled is in docs/design/codex.md, "The standard game" and "The vanilla engine and `UNIMPLEMENTED`" | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
 | 11 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
 | 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
 | 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
@@ -2039,6 +2039,13 @@ it to the author on the PR, as the preamble says, and builds the
 rulebook's reading until it has an answer.
 
 ### 10. The standard game's rules, over the red and green data
+
+**Landed** (2026-10-09, by the cloud routine): the record and the lobby,
+the match with three heroes, the buildings and the costs, the board and
+the codex, and red and green played for their numbers --
+[design/codex.md](design/codex.md), "The standard game", with
+`LANDED_COLORS` and the landed set in "The vanilla engine and
+`UNIMPLEMENTED`", which is no longer empty and says so.
 
 The standard game is what the rulebook calls the game: three heroes a
 side, a codex of seventy-two, all four add-ons (UMR p. 3). Everything

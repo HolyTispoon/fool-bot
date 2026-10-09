@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from codex.components import HERO, BuildingState, CardInstance, MatchState
+from codex.components import HERO, BuildingState, CardInstance, MatchState, hero_ref
 from codex.engine import RulesEngine
 from codex.flow import StepResult
 from codex.flow import driver
@@ -25,16 +25,40 @@ from codex.game import CodexGame
 from codex.prompts import owed_step
 
 
-def new_game(seed: int = 7, first: Optional[int] = 1) -> tuple[RulesEngine, CodexGame, MatchState]:
-    """A started game of Bashing (seat 1) against Finesse (seat 2), its
-    engine seeded, and the match standing on the first turn's start."""
+def new_game(seed: int = 7, first: Optional[int] = 1,
+             teams=(("bashing",), ("finesse",)), mode: Optional[str] = None,
+             ) -> tuple[RulesEngine, CodexGame, MatchState]:
+    """A started game, its engine seeded, and the match standing on the
+    first turn's start: Bashing (seat 1) against Finesse (seat 2) by
+    default, or `teams` -- each seat's specs, three for a standard game,
+    whose `mode` follows from them unless given -- each on the deck the
+    lobby settles, or its first hero's colour where it is the player's
+    choice."""
+    teams = tuple((team,) if isinstance(team, str) else tuple(team) for team in teams)
     engine = RulesEngine(seed=seed)
     game = CodexGame("codex-test", 1)
-    game.take_seat(101, "basher", "bashing")
-    game.take_seat(202, "fencer", "finesse")
-    match = engine.new_match(("bashing", "finesse"), first=first)
+    game.mode = mode or ("standard" if len(teams[0]) == 3 else "basic")
+    game.take_seat(101, "basher", list(teams[0]))
+    game.take_seat(202, "fencer", list(teams[1]))
+    for seat in (1, 2):
+        if seat not in game.player_decks:
+            game.player_decks[seat] = game.deck_choices(seat)[0]
+    match = engine.new_match(teams, first=first, decks=(game.player_decks[1], game.player_decks[2]))
     game.match_state = match.to_dict()
     return engine, game, match
+
+
+#: How an action names the basic game's two heroes, Bashing's seat 1
+#: and Finesse's seat 2 in `new_game`'s default.
+TROQ = hero_ref("troq_bashar")
+RIVER = hero_ref("river_montoya")
+
+
+def hero(match: MatchState, seat: int, slug: Optional[str] = None) -> str:
+    """How an action names `seat`'s hero -- `slug`, or their first, the
+    basic game's one: `hero:troq_bashar`."""
+    player = match.player(seat)
+    return hero_ref(slug or player.heroes[0].slug)
 
 
 def run_owed(engine: RulesEngine, game: CodexGame, match: MatchState):
@@ -74,8 +98,12 @@ def put(
 
 
 def hero_in_play(match: MatchState, seat: int, *, level: int = 1, damage: int = 0,
-                 patrol: Optional[str] = None, arrived: bool = False) -> None:
-    hero = match.player(seat).hero
+                 patrol: Optional[str] = None, arrived: bool = False,
+                 slug: Optional[str] = None) -> None:
+    """`seat`'s hero into play -- `slug`, where a side has three, or the
+    first."""
+    player = match.player(seat)
+    hero = player.hero_of(slug) if slug else player.heroes[0]
     hero.zone = "play"
     hero.level = level
     hero.damage = damage
@@ -95,4 +123,4 @@ def hand(match: MatchState, seat: int, *slugs: str) -> None:
     match.player(seat).hand = list(slugs)
 
 
-__all__ = ["HERO", "begin", "built", "hand", "hero_in_play", "new_game", "put", "run_owed"]
+__all__ = ["HERO", "RIVER", "TROQ", "begin", "built", "hand", "hero", "hero_in_play", "new_game", "put", "run_owed"]

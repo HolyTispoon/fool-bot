@@ -20,12 +20,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Mapping, Optional
 
 from codex import effects, tokens
-from codex.components import HERO, PATROL_SLOTS, AddOnState, BuildingState, MatchState
+from codex.components import PATROL_SLOTS, AddOnState, BuildingState, MatchState, is_hero_ref
 from codex.effects import UNIMPLEMENTED
-from codex.formatting import SLOT_NAMES
+from codex.formatting import SLOT_NAMES, deck_name
 from codex.engine import (
     ADD_ONS,
     BUILDING_DESTROYED_DAMAGE,
+    TECH_LAB,
     HIRE_COST,
     LEVEL_COST,
     TECH_BUILDING_SLUGS,
@@ -75,16 +76,29 @@ def hire_worker(engine: "RulesEngine", game: "CodexGame", match: MatchState, slu
     ])
 
 
-def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
-    """The hero, for its cost, into play at level 1 with arrival fatigue
-    (UMR p. 6)."""
+def _hero(match: MatchState, slug: Optional[str]):
+    """The active player's hero named by `slug` -- their first where an
+    older journal names none, from before a side had three."""
+    player = match.active_player
+    if slug is None:
+        return player.heroes[0]
+    hero = player.hero_of(slug)
+    if hero is None:
+        raise RuleRefusal("That is not one of your heroes.")
+    return hero
+
+
+def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                slug: Optional[str] = None) -> StepResult:
+    """A hero, for its cost, into play at level 1 with arrival fatigue --
+    not with summoning runes, and not past the hero limit (UMR p. 6)."""
     seat = match.active
     player = match.active_player
-    option = engine.hero_option(player)
+    hero = _hero(match, slug)
+    option = engine.hero_option(player, hero)
     if option.action != "summon" or option.why_not:
         why = option.why_not or "it is already in play"
-        raise RuleRefusal(f"You can't summon your hero: {why}.", cite="UMR p. 6")
-    hero = player.hero
+        raise RuleRefusal(f"You can't summon {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
     player.gold -= option.cost
     hero.zone = "play"
     hero.level = 1
@@ -101,23 +115,24 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> 
     ])
 
 
-def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int) -> StepResult:
-    """`levels` levels for the hero in play, a gold each (UMR p. 6)."""
+def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int,
+               slug: Optional[str] = None) -> StepResult:
+    """`levels` levels for a hero in play, a gold each (UMR p. 6)."""
     seat = match.active
     player = match.active_player
-    option = engine.hero_option(player)
+    hero = _hero(match, slug)
+    option = engine.hero_option(player, hero)
     if option.action != "level" or option.why_not:
         why = option.why_not or "it is not in play"
-        raise RuleRefusal(f"You can't level your hero: {why}.", cite="UMR p. 6")
+        raise RuleRefusal(f"You can't level {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
     if not isinstance(levels, int) or levels < 1:
         raise RuleRefusal("Level the hero by one level or more.")
     if levels > option.max_levels:
         raise RuleRefusal(
-            f"Your hero can gain at most {option.max_levels} level"
+            f"{engine.name(hero.slug)} can gain at most {option.max_levels} level"
             + ("s" if option.max_levels != 1 else "") + " now.",
             cite="UMR p. 6",
         )
-    hero = player.hero
     player.gold -= levels * LEVEL_COST
     reached = raise_level(engine, hero, levels)
     match.record_event("levelled", slug=hero.slug, levels=levels, level=hero.level)
@@ -133,7 +148,9 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
 def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str) -> StepResult:
     """
     A card from the hand for its cost (UMR p. 7): a unit into play with
-    arrival fatigue, its arrives triggers then resolving; a spell paid
+    arrival fatigue, its arrives triggers then resolving; a building card
+    or an upgrade into play with arrival fatigue -- neither patrols nor
+    attacks, and only the building has HP; a spell paid
     and its text resolved part by part (`codex.flow.resolve`) -- then
     into the discard pile, or into play for an ongoing spell -- and each
     Harmony of the caster's summoning its Dancer after it.
@@ -163,6 +180,13 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             resolve.frame(effect, seat, tokens.card(slug), source=instance.ref)
             for effect in effects.triggers(slug, "arrives")
         ))
+    elif card.is_permanent:
+        match.new_instance(slug, seat)
+        what = f"a building, {card.hp} HP" if card.is_building_card else "an upgrade"
+        result.narration.append(
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
+            f"{what}.{note}"
+        )
     else:
         result.narration.append(
             f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"
@@ -213,7 +237,7 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         by = tokens.card(effects.HARMONY)
     else:
         body.exhausted = True
-        if source == HERO:
+        if is_hero_ref(source):
             by = tokens.hero(body.slug)
         else:
             by = tokens.card(body.slug)
@@ -225,14 +249,43 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return resolve.carry_on(engine, game, match, result)
 
 
-def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, building: str) -> StepResult:
+def _check_spec(spec: Optional[str], choices, what: str) -> Optional[str]:
+    """`spec`, one of `choices` -- refused citing UMR p. 8 where it is
+    missing or not one of them -- or `None` where nothing is chosen."""
+    if not choices:
+        if spec is not None:
+            raise RuleRefusal(f"Nothing chooses a spec for {what} now.", cite="UMR p. 8")
+        return None
+    spec = (spec or "").strip().lower() or None
+    if spec is None:
+        raise RuleRefusal(
+            f"In a standard game, {what} chooses a spec: one of your heroes'.", cite="UMR p. 8",
+        )
+    if spec not in choices:
+        raise RuleRefusal(
+            f"{what[0].upper() + what[1:]}'s spec is one of your heroes' "
+            f"that it may still take: {', '.join(choice.title() for choice in choices)}.",
+            cite="UMR p. 8",
+        )
+    return spec
+
+
+def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, building: str,
+              spec: Optional[str] = None, lab_spec: Optional[str] = None) -> StepResult:
     """
     A tech building -- Tech I for 1 at six workers, Tech II for 4 at
     eight, Tech III for 5 at ten, each on the one below, each rebuilt for
-    0 once destroyed (UMR p. 8) -- or an add-on, the tower or the surplus
-    (UMR p. 9). Either is finished at the end of the turn. A new add-on
-    replaces the one in the slot, which is destroyed and deals its 2 to
-    the base (the author, 2026-10-08).
+    0 once destroyed (UMR p. 8) -- or an add-on: the tower, the surplus,
+    the heroes' hall or the tech lab (UMR p. 9). Either is finished at
+    the end of the turn. A new add-on replaces the one in the slot, which
+    is destroyed and deals its 2 to the base (the author, 2026-10-08).
+
+    In a standard game the tech II chooses a spec among the heroes'
+    (`spec`, UMR p. 8), kept through its destruction and rebuild; a tech
+    lab chooses its own where the tech II's is chosen, and otherwise
+    waits for it and chooses with it (`lab_spec`, the tech_lab ruling).
+    A multicolour team's first construction costs 1 more, a rebuild
+    included (`RulesEngine.multicolor_surcharge`).
     """
     seat = match.active
     player = match.active_player
@@ -241,25 +294,46 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
     option = engine.build_option(player, building)
     if not option.allowed:
         page = "UMR p. 8" if building in TECH_BUILDING_SLUGS else "UMR p. 9"
+        if option.why_not.startswith("the basic game"):
+            page = "UMR p. 3"
         raise RuleRefusal(
             f"You can't build {_build_label(building)}: {option.why_not}.", cite=page,
         )
+    what = "a tech lab" if building == TECH_LAB else "the Tech II building"
+    spec = _check_spec(spec, option.specs, what)
+    lab_spec = _check_spec(lab_spec, option.lab_specs, "the tech lab")
+    if lab_spec is not None and lab_spec == spec:
+        raise RuleRefusal("A tech lab unlocks a spec besides the Tech II's.", cite="UMR p. 9")
     player.gold -= option.cost
+    player.constructed_once = True
     hp = engine.building_hp(building)
     if building in TECH_BUILDING_SLUGS:
         rebuilt = player.buildings[building] is not None
         player.buildings[building] = BuildingState(hp=hp, under_construction=True)
         verb = "rebuilds" if rebuilt else "builds"
+        if building == "tech2" and spec is not None:
+            player.tech2_spec = spec
+            if lab_spec is not None:
+                player.add_on.spec = lab_spec
     else:
         replaced = player.add_on
-        player.add_on = AddOnState(slug=building, hp=hp, under_construction=True)
+        player.add_on = AddOnState(slug=building, hp=hp, under_construction=True, spec=spec)
         verb = "builds"
     match.record_event("built", building=building, cost=option.cost)
-    result = _done(engine, game, match, [
+    line = (
         f"{tokens.player(seat)} {verb} {_build_label(building)} for "
-        f"{tokens.gold(option.cost)}; it is finished at the end of the turn."
-        + (_vanilla_note(engine, building) if building in ADD_ONS else "")
-    ])
+        f"{tokens.gold(option.cost)}"
+    )
+    if building == "tech2" and spec is not None:
+        line += f", choosing {deck_name((spec,))}"
+        if lab_spec is not None:
+            line += f" and {deck_name((lab_spec,))} for their {tokens.card(TECH_LAB)}"
+    elif building == TECH_LAB and spec is not None:
+        line += f", choosing {deck_name((spec,))}"
+    line += "; it is finished at the end of the turn."
+    if building in ADD_ONS:
+        line += _vanilla_note(engine, building)
+    result = _done(engine, game, match, [line])
     if building in ADD_ONS and replaced is not None:
         result.narration.append(
             f"It replaces their {tokens.card(replaced.slug)}, which is destroyed "
@@ -287,8 +361,10 @@ def declare_attacker(engine: "RulesEngine", game: "CodexGame", match: MatchState
 
 def _why_not_attacker(engine, match: MatchState, attacker: str) -> str:
     player = match.active_player
-    if attacker == HERO:
-        hero = player.hero
+    if is_hero_ref(attacker):
+        hero = player.hero_by_ref(attacker)
+        if hero is None:
+            return "That is not one of your heroes."
         name = engine.name(hero.slug)
         if not hero.in_play:
             return f"{name} can't attack: it is not in play."
@@ -341,7 +417,7 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
     body = engine.body(match, other, card)
     engine.tower(match.active_player).detected = card
     match.record_event("detected", card=card, by=seat)
-    named = tokens.hero(body.slug) if card == HERO else tokens.card(body.slug)
+    named = tokens.hero(body.slug) if is_hero_ref(card) else tokens.card(body.slug)
     return _done(engine, game, match, [
         f"{tokens.player(seat)}'s tower detects {tokens.player(other)}'s {named}: "
         "it is visible for the rest of the turn."
@@ -357,8 +433,8 @@ def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Ste
 def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 assignment: Optional[Mapping[str, str]]) -> StepResult:
     """
-    Put ready units and the hero into the five slots -- slot to
-    `unit:<id>` or `hero`, any slot left empty -- and end the main phase
+    Put ready units and heroes into the five slots -- slot to
+    `unit:<id>` or `hero:<slug>`, any slot left empty -- and end the main phase
     (UMR p. 10). Exhausted cards cannot patrol; fatigued ones can.
     """
     seat = match.active
@@ -379,9 +455,10 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         ref = assignment.get(slot)
         if ref is None:
             continue
-        if ref == HERO:
-            player.hero.patrol_slot = slot
-            named = tokens.hero(player.hero.slug)
+        if is_hero_ref(ref):
+            hero = player.hero_by_ref(ref)
+            hero.patrol_slot = slot
+            named = tokens.hero(hero.slug)
         else:
             card = player.instance(int(ref.split(":", 1)[1]))
             card.patrol_slot = slot

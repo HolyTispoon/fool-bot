@@ -11,9 +11,10 @@ Draw the Codex bot's emoji into codex/images/emoji/.
 names, and a word where one is not uploaded; this draws them, 128 px on
 a transparent ground: `gold` (a gold coin -- the amount is written
 beside it), `exhaust` (the cards' ⤵, drawn, white on slate) and `target`
-(the cards' own ◎, the ring on red). `troq_bashar` and `river_montoya`,
-the two heroes' faces, are cut from their card art in
-codex/images/cards/ at the squares `FACES` pins. `codex.png`, the medallion,
+(the cards' own ◎, the ring on red). Each landed hero's face --
+`troq_bashar` and `river_montoya`, and from step 10 red's and green's
+six -- is cut from its card art in codex/images/cards/ at the square
+`FACES` pins. `codex.png`, the medallion,
 was cut by hand from the Screentop module's card back and is not this
 script's.
 
@@ -44,6 +45,13 @@ SLATE, RED, WHITE = (52, 58, 70), (178, 34, 40), (255, 255, 255)
 FACES = {
     "troq_bashar": (150, 5, 140),
     "river_montoya": (95, 25, 130),
+    # Red and green, landed at step 10.
+    "captain_zane": (165, 18, 105),
+    "drakk_ramhorn": (95, 35, 90),
+    "jaina_stormborne": (75, 30, 100),
+    "argagarg_garg": (115, 85, 120),
+    "calamandra_moss": (172, 22, 80),
+    "master_midori": (105, 45, 115),
 }
 
 

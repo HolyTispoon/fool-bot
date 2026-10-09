@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import effects, tokens
-from codex.components import HERO, TECH_BUILDINGS, CardInstance, HeroState, MatchState
+from codex.components import TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref
 from codex.engine import (
     BASE_HP,
     BUILDING_DESTROYED_DAMAGE,
@@ -48,8 +48,10 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
     """
     owner = f"{tokens.player(seat)}'s " if whose else ""
     player = match.player(seat)
-    if ref == HERO:
-        return f"{owner}{tokens.hero(player.hero.slug)}"
+    if is_hero_ref(ref):
+        hero = player.hero_by_ref(ref)
+        if hero is not None:
+            return f"{owner}{tokens.hero(hero.slug)}"
     instance_id = unit_ref(ref)
     if instance_id is not None:
         card = player.instance(instance_id)
@@ -66,13 +68,17 @@ def body_of(match: MatchState, seat: int, ref: str):
     """The unit or hero `ref` names on `seat`'s side, or `None` -- a
     building, or something no longer in play."""
     player = match.player(seat)
-    if ref == HERO:
-        return player.hero if player.hero.in_play else None
+    if is_hero_ref(ref):
+        hero = player.hero_by_ref(ref)
+        return hero if hero is not None and hero.in_play else None
     instance_id = unit_ref(ref)
     return None if instance_id is None else player.instance(instance_id)
 
 
 def is_building(ref: str) -> bool:
+    """Whether `ref` names the base, a tech building or the add-on --
+    the buildings with no card in play. A building card is a `unit:<id>`
+    ref, damaged and destroyed as a card is."""
     return ref in TECH_BUILDINGS or ref in ("add_on", "base")
 
 
@@ -159,6 +165,12 @@ def repair_building(engine: "RulesEngine", match: MatchState, seat: int, ref: st
     """Repair up to `amount` damage on a building, never above its
     maximum HP (Brick Thief's ruling); what was repaired."""
     player = match.player(seat)
+    card = body_of(match, seat, ref) if not is_building(ref) else None
+    if card is not None:
+        # A building card: its damage is what a repair takes off.
+        repaired = min(card.damage, amount)
+        card.damage -= repaired
+        return repaired
     most = building_max_hp(engine, match, seat, ref)
     before = building_hp(match, seat, ref)
     after = min(most, before + amount)
@@ -212,14 +224,15 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
     result.narration.append(line)
 
 
-def _destroy_hero(match: MatchState, seat: int, result: StepResult, by: str = "") -> None:
-    hero = match.player(seat).hero
+def _destroy_hero(match: MatchState, seat: int, hero: HeroState, result: StepResult,
+                  by: str = "") -> None:
+    ref = hero_ref(hero.slug)
     line = (
-        f"{named(match, seat, HERO)} dies and returns to the command zone with "
+        f"{named(match, seat, ref)} dies and returns to the command zone with "
         f"{SUMMONING_RUNES_ON_DEATH} summoning runes."
     )
     if by:
-        line = f"{by} destroys {named(match, seat, HERO)}, which returns to the command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
+        line = f"{by} destroys {named(match, seat, ref)}, which returns to the command zone with {SUMMONING_RUNES_ON_DEATH} summoning runes."
     hero.zone = "command"
     hero.level = 1
     hero.damage = 0
@@ -242,19 +255,26 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     """
     Destroy each of these units and heroes -- a unit face-down to its
     owner's discard pile, a hero to the command zone -- and give the
-    kill's two levels to the opposing hero in play: "When you destroy an
-    opponent's hero, one of your heroes immediately gains 2 levels" (UMR
-    p. 10). `cause` is the seat whose effect destroyed them, where an
-    effect did; a hero its own controller's effect destroyed (Wither on
-    your own River) gives nobody levels. Combat passes none: there each
-    side's hero falls to the other side.
+    kill's two levels to a hero of the opposing side's in play: "When you
+    destroy an opponent's hero, one of your heroes immediately gains 2
+    levels" (UMR p. 10). `cause` is the seat whose effect destroyed them,
+    where an effect did; a hero its own controller's effect destroyed
+    (Wither on your own River) gives nobody levels. Combat passes none:
+    there each side's hero falls to the other side.
+
+    "A hero must be in play to gain levels. If you have multiple heroes
+    in play, choose one hero to gain the levels" (p. 10): with one in
+    play it gains them at once, with none nobody does, and with more
+    than one the active player is asked (`level_gain_owed`, a frame put
+    at the front of the stack, so nothing else resolves before it).
     """
     things = list(things)
     heroes = []
     for seat, ref in things:
-        if ref == HERO:
-            if match.player(seat).hero.in_play:
-                _destroy_hero(match, seat, result, by)
+        if is_hero_ref(ref):
+            hero = match.player(seat).hero_by_ref(ref)
+            if hero is not None and hero.in_play:
+                _destroy_hero(match, seat, hero, result, by)
                 heroes.append(seat)
             continue
         card = body_of(match, seat, ref)
@@ -263,19 +283,40 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     for seat in heroes:
         if cause == seat:
             continue
-        victor = match.opponent(seat).hero
-        if not victor.in_play:
+        victor = match.opponent(seat)
+        standing = victor.heroes_in_play
+        if not standing:
             continue
-        before = victor.level
-        reached = raise_level(engine, victor, LEVELS_FOR_A_KILL)
-        if victor.level > before:
-            gained = victor.level - before
-            line = (
-                f"{tokens.hero(victor.slug)} gains {gained} "
-                f"level{'' if gained == 1 else 's'} for the kill: level {victor.level}"
-            )
-            line += ", a new band, and healed." if reached else "."
-            result.narration.append(line)
+        if len(standing) > 1:
+            level_gain_owed(match, victor.seat)
+            continue
+        gain_kill_levels(engine, match, standing[0], result)
+
+
+#: The frame the kill's levels wait on where the victor has more than
+#: one hero in play (`codex.prompts`' `LEVEL_GAIN`).
+LEVEL_GAIN = "level_gain"
+
+
+def level_gain_owed(match: MatchState, seat: int) -> None:
+    """Two levels owed to one of `seat`'s heroes, asked of the active
+    player before anything else on the stack resolves."""
+    match.resolving.insert(0, {"kind": LEVEL_GAIN, "seat": seat, "asked": match.active})
+
+
+def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState,
+                     result: StepResult) -> None:
+    """The kill's two levels for `victor`, to its maximum, said."""
+    before = victor.level
+    reached = raise_level(engine, victor, LEVELS_FOR_A_KILL)
+    if victor.level > before:
+        gained = victor.level - before
+        line = (
+            f"{tokens.hero(victor.slug)} gains {gained} "
+            f"level{'' if gained == 1 else 's'} for the kill: level {victor.level}"
+        )
+        line += ", a new band, and healed." if reached else "."
+        result.narration.append(line)
 
 
 def raise_level(engine: "RulesEngine", hero: HeroState, levels: int) -> bool:
@@ -351,10 +392,11 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         dead = []
         for player in match.players:
             for card in player.play:
-                if engine.catalog.cards[card.slug].is_unit and _lethal(engine, match, card):
+                if engine.has_hp(card) and _lethal(engine, match, card):
                     dead.append((player.seat, card.ref))
-            if player.hero.in_play and _lethal(engine, match, player.hero):
-                dead.append((player.seat, HERO))
+            for hero in player.heroes_in_play:
+                if _lethal(engine, match, hero):
+                    dead.append((player.seat, hero_ref(hero.slug)))
         if dead:
             destroy(engine, match, dead, result, cause=cause)
             continue
@@ -372,8 +414,10 @@ def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[C
         for card in player.play:
             spec = effects.CHANNELING.get(card.slug)
             if spec is not None:
-                hero = player.hero
-                if not (hero.in_play and (engine.hero_card(hero).spec or "").lower() == spec):
+                if not any(
+                    (engine.hero_card(hero).spec or "").lower() == spec
+                    for hero in player.heroes_in_play
+                ):
                     return card, f"its controller has no {spec.title()} hero"
             if card.slug == effects.TWO_STEP:
                 if any(player.instance(partner) is None for partner in card.attached):
@@ -382,7 +426,8 @@ def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[C
 
 
 __all__ = [
-    "body_of", "building_hp", "building_max_hp", "damage_building", "destroy",
+    "LEVEL_GAIN", "body_of", "building_hp", "building_max_hp", "damage_building", "destroy",
+    "gain_kill_levels", "level_gain_owed",
     "gain_control", "is_building", "leave_play", "named", "raise_level",
     "repair_building", "sacrifice", "settle", "sideline", "still_there", "take_damage",
 ]

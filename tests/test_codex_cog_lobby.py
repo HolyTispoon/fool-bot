@@ -89,11 +89,20 @@ class Table:
         await button(view, action).callback(call)
         return call
 
+    async def pick(self, view, specs, who, menu: str = "heroes", channel_id: int = GAME_CHANNEL):
+        """The lobby's hero menu answered with `specs` -- one spec, or a
+        list of them -- by `who`."""
+        select = next(item for item in view.children if f":{menu}:" in (item.custom_id or ""))
+        select._values = [specs] if isinstance(specs, str) else list(specs)
+        call = interaction(who, channel_id, guild=self.guild)
+        await select.callback(call)
+        return call
+
     async def started(self):
         game, _ = await self.open_lobby()
         lobby = LobbyView(self.cog, game.game_id)
-        await self.click(lobby, "bashing", self.basher)
-        await self.click(lobby, "finesse", self.fencer)
+        await self.pick(lobby, "bashing", self.basher)
+        await self.pick(lobby, "finesse", self.fencer)
         start = await self.click(lobby, "start", self.fencer)
         return game, start
 
@@ -132,18 +141,19 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.open_lobby()
-            call = await table.click(LobbyView(table.cog, game.game_id), "bashing", table.basher)
+            call = await table.pick(LobbyView(table.cog, game.game_id), "bashing", table.basher)
         self.assertEqual(game.player_1_id, 101)
         self.assertIn("basher", call.response.edit_message.call_args.kwargs["content"])
 
-    async def test_a_taken_side_is_refused_privately(self) -> None:
+    async def test_a_hero_not_in_this_bot_yet_is_refused_privately(self) -> None:
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.open_lobby()
             lobby = LobbyView(table.cog, game.game_id)
-            await table.click(lobby, "bashing", table.basher)
-            call = await table.click(lobby, "bashing", table.fencer)
+            await table.pick(lobby, "bashing", table.basher)
+            call = await table.pick(lobby, "law", table.fencer)
         self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
+        self.assertIn("not in this bot yet", call.response.send_message.call_args.args[0])
         self.assertIsNone(game.player_2_id)
 
     async def test_start_waits_for_both_seats(self) -> None:
@@ -151,7 +161,7 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
             table = Table()
             game, _ = await table.open_lobby()
             lobby = LobbyView(table.cog, game.game_id)
-            await table.click(lobby, "bashing", table.basher)
+            await table.pick(lobby, "bashing", table.basher)
             call = await table.click(lobby, "start", table.basher)
         self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
         table.game_channel.edit.assert_not_awaited()
@@ -162,11 +172,61 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
             table = Table()
             game, _ = await table.open_lobby()
             lobby = LobbyView(table.cog, game.game_id)
-            await table.click(lobby, "bashing", table.basher)
-            await table.click(lobby, "finesse", table.fencer)
+            await table.pick(lobby, "bashing", table.basher)
+            await table.pick(lobby, "finesse", table.fencer)
             call = await table.click(lobby, "start", user(999, "watcher"))
         self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
         self.assertIs(game.status, GameStatus.LOBBY)
+
+
+class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
+    """The standard game from the lobby: the mode, three heroes from the
+    menu, the deck buttons for a team of more than one colour."""
+
+    async def test_a_standard_team_through_the_menu_and_the_deck_buttons(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.open_lobby()
+            lobby = LobbyView(table.cog, game.game_id)
+            mode = await table.click(lobby, "mode_standard", table.basher)
+            self.assertEqual(game.mode, "standard")
+            self.assertIn("three heroes a side", mode.response.edit_message.call_args.kwargs["content"])
+            lobby = mode.response.edit_message.call_args.kwargs["view"]
+            menu = next(item for item in lobby.children if ":heroes:" in (item.custom_id or ""))
+            self.assertEqual((menu.min_values, menu.max_values), (3, 3))
+            offered = {option.value for option in menu.options}
+            self.assertEqual(offered, {"bashing", "finesse", "anarchy", "blood", "fire",
+                                       "balance", "feral", "growth"})
+            # No deck buttons while nobody's heroes span two colours.
+            self.assertFalse([item for item in lobby.children if ":deck" in (item.custom_id or "")])
+            picked = await table.pick(lobby, ["fire", "feral", "bashing"], table.basher)
+            lobby = picked.response.edit_message.call_args.kwargs["view"]
+            text = picked.response.edit_message.call_args.kwargs["content"]
+            self.assertIn("Jaina Stormborne, Calamandra Moss, Troq Bashar", text)
+            self.assertIn("choosing a starting deck", text)
+            decks = [item for item in lobby.children if ":deck1_" in (item.custom_id or "")]
+            self.assertEqual([item.label for item in decks],
+                             ["basher: Red deck", "basher: Green deck", "basher: Neutral deck"])
+            await table.pick(lobby, ["fire", "anarchy", "blood"], table.fencer)
+            refused = await table.click(lobby, "deck1_green", table.fencer)
+            self.assertTrue(refused.response.send_message.call_args.kwargs["ephemeral"])
+            chose = await table.click(lobby, "deck1_green", table.basher)
+            self.assertEqual(game.player_decks, {1: "green", 2: "red"})
+            self.assertIn("the Green starting deck", chose.response.edit_message.call_args.kwargs["content"])
+            await table.click(lobby, "start", table.fencer)
+        self.assertIs(game.status, GameStatus.PLAYING)
+        match = table.cog.service.load(game)
+        self.assertEqual(sum(match.player(1).codex.values()), 72)
+
+    async def test_a_watcher_cannot_change_the_game_once_somebody_sits(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.open_lobby()
+            lobby = LobbyView(table.cog, game.game_id)
+            await table.pick(lobby, "bashing", table.basher)
+            call = await table.click(lobby, "mode_standard", user(999, "watcher"))
+        self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
+        self.assertEqual(game.mode, "basic")
 
 
 class StartTests(unittest.IsolatedAsyncioTestCase):
@@ -288,8 +348,8 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
             await table.cog.lobby.callback(table.cog, call, test_game=True)
             (game,) = table.cog.games.values()
             lobby = LobbyView(table.cog, game.game_id)
-            await table.click(lobby, "bashing", table.basher)
-            await table.click(lobby, "finesse", table.basher)
+            await table.pick(lobby, "bashing", table.basher, menu="heroes1")
+            await table.pick(lobby, "finesse", table.basher, menu="heroes2")
             await table.click(lobby, "start", table.basher)
             hand = await table.click(TurnMessageView(table.cog, game.game_id), "hand", table.basher)
 

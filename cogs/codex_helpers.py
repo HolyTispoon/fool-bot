@@ -42,7 +42,12 @@ LOGGER = logging.getLogger(__name__)
 #: The application emoji the resolver asks for, by the name each must
 #: carry in the Developer Portal -- each PNG's file name under
 #: codex/images/emoji/. The heroes' are for the lines that name a hero.
-EMOJI_NAMES = ("codex", "gold", "exhaust", "target", "troq_bashar", "river_montoya")
+EMOJI_NAMES = (
+    "codex", "gold", "exhaust", "target", "troq_bashar", "river_montoya",
+    # Red and green's heroes, landed at step 10.
+    "captain_zane", "drakk_ramhorn", "jaina_stormborne",
+    "argagarg_garg", "calamandra_moss", "master_midori",
+)
 
 #: The token kinds an emoji stands for; `arrow` stays a character.
 TOKEN_EMOJI = {"codex": "codex", "gold": "gold", "exhaust": "exhaust", "target": "target"}

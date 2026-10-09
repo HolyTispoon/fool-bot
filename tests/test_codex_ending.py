@@ -123,7 +123,7 @@ class ServiceEndingTests(unittest.TestCase):
         self.assertEqual(rematch.game_number, 2)
         self.assertEqual(rematch.channel_id, game.channel_id)
         self.assertEqual((rematch.player_1_id, rematch.player_2_id), (101, 202))
-        self.assertEqual(rematch.player_specs, {1: "finesse", 2: "bashing"})
+        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]})
         self.assertEqual(rematch.rematch_of, game.game_id)
         self.assertIs(service.rematch(game.game_id), rematch, "a second press finds it")
         self.assertTrue(rematch.may_start())
@@ -133,11 +133,11 @@ class ServiceEndingTests(unittest.TestCase):
         service.concede(game.game_id, 1)
         rematch = service.rematch(game.game_id)
         service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: "finesse", 2: "bashing"})
+        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]})
         service.keep_heroes(rematch.game_id, 202)
-        self.assertEqual(rematch.player_specs, {1: "bashing", 2: "finesse"})
+        self.assertEqual(rematch.player_specs, {1: ["bashing"], 2: ["finesse"]})
         service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: "finesse", 2: "bashing"}, "pressed again, taken back")
+        self.assertEqual(rematch.player_specs, {1: ["finesse"], 2: ["bashing"]}, "pressed again, taken back")
         with self.assertRaises(RuleRefusal):
             service.keep_heroes(rematch.game_id, 999)
 
@@ -147,7 +147,7 @@ class ServiceEndingTests(unittest.TestCase):
         rematch = service.rematch(game.game_id)
         self.assertTrue(rematch.test_game)
         service.keep_heroes(rematch.game_id, 101)
-        self.assertEqual(rematch.player_specs, {1: "bashing", 2: "finesse"})
+        self.assertEqual(rematch.player_specs, {1: ["bashing"], 2: ["finesse"]})
 
     def test_the_first_player_is_drawn_again(self) -> None:
         """Who goes first is the engine's draw at every Start, a rematch's

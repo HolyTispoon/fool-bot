@@ -25,6 +25,7 @@ from typing import Optional
 
 import discord
 
+from codex.formatting import deck_name
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
@@ -298,7 +299,7 @@ class TurnsMixin:
             return TURN_OVER_NOTHING_OWED
         tech = ", its tech choice first" if prompt is not None and prompt.kind is PromptKind.TECH_CHOICE else ""
         return TURN_OVER_TEST.format(
-            ended=match.player(seat).spec.title(), begins=match.active_player.spec.title(), tech=tech,
+            ended=deck_name(match.player(seat).specs), begins=deck_name(match.active_player.specs), tech=tech,
         )
 
     # -- The presenter ---------------------------------------------------------

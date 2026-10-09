@@ -16,7 +16,7 @@ from cogs.codex_views.base import (
     send_ephemeral,
 )
 from cogs.codex_views.ending import ConcedeConfirmView, RematchView
-from cogs.codex_views.lobby import LobbyView
+from cogs.codex_views.lobby import MODE_LABELS, LobbyView, hero_options
 from cogs.codex_views.patrol import PatrolView, next_empty
 from cogs.codex_views.tech import TechChoiceView, TechConfirmView, picks_listed
 from cogs.codex_views.turn import (
@@ -31,8 +31,12 @@ from cogs.codex_views.turn import (
 from cogs.codex_views.turn_message import (
     NOT_YOUR_TABLE,
     CodexBrowser,
+    HandView,
     TurnMessageView,
     codex_view_menu,
+    deck_button,
+    deck_caption,
+    deck_file,
     hand_caption,
     hand_file,
     side_label,
@@ -43,8 +47,10 @@ __all__ = [
     "CodexBrowser",
     "ConcedeConfirmView",
     "ERROR_RECOVERY_ADVICE",
+    "HandView",
     "HelperConfirmationView",
     "LobbyView",
+    "MODE_LABELS",
     "NOT_YOUR_PANEL",
     "NOT_YOUR_TABLE",
     "PanelButton",
@@ -59,9 +65,13 @@ __all__ = [
     "UndoConfirmView",
     "building_label",
     "codex_view_menu",
+    "deck_button",
+    "deck_caption",
+    "deck_file",
     "hand_caption",
     "hand_file",
     "hand_numbers",
+    "hero_options",
     "kept_pictures",
     "next_empty",
     "picks_listed",

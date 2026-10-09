@@ -15,11 +15,11 @@ slots, and a plain patch of its leather that each panel is laid on.
 
 A panel (`render_panel`), top to bottom and left to right:
 
-- a column of buildings on the left, 160 wide -- the add-on slot, Tech
+- a column of buildings on the left, 136 wide -- the add-on slot, Tech
   III, II and I, and the base, each heart carrying the HP it has now;
-- the patrol zone across the top of the grid on the mat's blue, the
-  mat's own five slots with their bonuses under them, a patroller's
-  card over its slot;
+- the patrol zone across the top of the grid: the mat's own five slots
+  with their bonuses under them, each on its own holder of the mat's
+  blue, packed side by side, a patroller's card over its slot;
 - the grid: square cells of 273, five columns in the basic game -- the
   count is the game's, fixed when it starts -- the command zone first
   as a plate per hero, then the heroes on the field, then the units,
@@ -55,9 +55,9 @@ from PIL import (Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageF
 
 from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
-    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState,
+    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
-from codex.engine import TECH_BUILDING_SLUGS
+from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
 #: (docs/design/board-image.md): Roboto Slab for every word and number.
@@ -98,19 +98,38 @@ CELL = 273
 CELL_GAP = 16
 #: Around the panel's edge.
 PADDING = 20
-#: The column of buildings, and the gap between it and the grid.
-BUILDING_WIDTH = 160
+#: The column of buildings, and the gap between it and the grid. The
+#: column is the one-row grid's height (629), the add-on on top: every
+#: building, chit and heart in it drawn at `BUILDING_SCALE` of the 160
+#: wide the canvas gave it (the author, 2026-10-09: the buildings a
+#: little smaller, so the column is no taller than one row).
+BUILDING_WIDTH = 136
+BUILDING_SCALE = BUILDING_WIDTH / 160
 BUILDING_GAP = 20
-#: A tech building's tile, the base's, and the add-on's card.
-TILE = (160, 114)
-ADD_ON = (82, 114)
+#: A tech building's tile and the base's, in the art's proportions (350
+#: by 250).
+TILE = (136, 97)
+#: The add-on's card at the top of the building column, as wide as the
+#: tech buildings and aligned with them, in the art's proportions (250
+#: by 350). It was 82 by 114, too small to read; a card's size beside
+#: the patrol slots was too large, and the add-on stays with the other
+#: buildings (the author, 2026-10-09). 193 rather than 190 so the
+#: column comes out the grid's height exactly, a stretch nobody sees.
+ADD_ON = (136, 193)
 #: Between two places in the building column.
 TILE_GAP = 12
 #: A patrol slot's bonus strip, and the space above it.
 BONUS = (200, 41)
 BONUS_GAP = 6
-#: The blue band's padding round the five slots.
+#: A patrol holder's blue padding round its slot and bonus, and the
+#: gap between two holders. Each slot is its own holder, packed, rather
+#: than one band with the slots spread over the grid's columns (the
+#: author, 2026-10-09): a patroller is never exhausted -- exhausting
+#: one sidelines it -- so a slot never needs a cell's width.
 PATROL_PADDING = 10
+PATROL_SLOT_GAP = 12
+#: A patrol holder's width.
+PATROL_HOLDER = CARD[0] + 2 * PATROL_PADDING
 #: A command-zone plate's hero, which lies on the plate in full.
 PLATE_HERO = (184, 251)
 #: The nameplate along the panel's outer edge, and the gap between it
@@ -557,7 +576,8 @@ def building_picture(slug: str, hp: Optional[int] = None) -> Image.Image:
 
 
 def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
-    return rounded(building_picture(slug, hp).resize(TILE, Image.LANCZOS), 10)
+    return rounded(building_picture(slug, hp).resize(TILE, Image.LANCZOS),
+                   round(10 * BUILDING_SCALE))
 
 
 def damaged(hp: int, full: int) -> Optional[int]:
@@ -570,31 +590,17 @@ def draw_building_column(body: Image.Image, player: PlayerState,
                          building_hp: Mapping[str, int], left: int, bottom: int) -> None:
     """
     The column of buildings, bottom-aligned from `bottom`, top to
-    bottom: the add-on slot, Tech III, II and I, the base. A tech
+    bottom: the add-on slot (`draw_add_on`), Tech III, II and I, the
+    base. A tech
     building is greyed and half seen until built, in colour once built,
     the house chit on a top corner while under construction (UMR p. 8),
     dark with the house chit when destroyed. A damaged one's heart
     carries the HP it has now in place of the full HP it prints.
     """
     house = board_piece("chits", "house.png")
-    top = bottom - 5 * TILE[1] - 4 * TILE_GAP
-
-    # The add-on slot: a dashed outline, or the add-on's card.
-    slot = (left, top, left + ADD_ON[0], top + ADD_ON[1])
-    add_on = player.add_on
-    if add_on is None:
-        draw = ImageDraw.Draw(body)
-        dashed_box(draw, slot, FAINT_INK)
-        draw.text(((slot[0] + slot[2]) / 2, (slot[1] + slot[3]) / 2), "Add-on",
-                  font=font(14, bold=False), fill=FAINT_INK, anchor="mm")
-    else:
-        hp = damaged(add_on.hp, building_hp.get(add_on.slug, add_on.hp))
-        card = rounded(building_picture(add_on.slug, hp).resize(ADD_ON, Image.LANCZOS), 8)
-        body.alpha_composite(card, slot[:2])
-        if add_on.under_construction:
-            lay_row(body, [house], 44, (slot[0] - 10, slot[1] - 10))
-
-    y = top + TILE[1] + TILE_GAP
+    top = bottom - BUILDING_COLUMN_HEIGHT
+    draw_add_on(body, player, building_hp, left, top)
+    y = top + ADD_ON[1] + TILE_GAP
     for name in reversed(TECH_BUILDINGS):
         state = player.buildings.get(name)
         standing = state is not None and not state.destroyed
@@ -605,12 +611,75 @@ def draw_building_column(body: Image.Image, player: PlayerState,
         elif state.destroyed:
             tile = greyed(tile, 0.35)
         body.alpha_composite(tile, (left, y))
+        if name == "tech2" and player.tech2_spec:
+            # The spec chosen at Tech II, its card drawn small on the tile
+            # (UMR p. 8: "Place that card on your base").
+            # It hangs off the tile's right edge into the gap before the
+            # grid, so the tile's own words stay readable.
+            mark = spec_mark(player.tech2_spec, SPEC_ON_TILE)
+            body.alpha_composite(mark, (left + TILE[0] - SPEC_ON_TILE[0] // 2,
+                                        y + TILE[1] - SPEC_ON_TILE[1] + 2))
         if state is not None and (state.destroyed or state.under_construction):
-            lay_row(body, [house], 50, (left - 8, y - 8))
+            lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
         y += TILE[1] + TILE_GAP
 
     base = building_tile("base", damaged(player.base_hp, building_hp["base"]))
     body.alpha_composite(base, (left, y))
+
+
+#: A building's house chit, and how far it hangs over its corner, at
+#: the column's scale.
+HOUSE_CHIT = round(50 * BUILDING_SCALE)
+CHIT_OUT = round(8 * BUILDING_SCALE)
+
+
+BUILDING_COLUMN_HEIGHT = ADD_ON[1] + 4 * TILE[1] + 4 * TILE_GAP
+
+
+def draw_add_on(body: Image.Image, player: PlayerState,
+                building_hp: Mapping[str, int], left: int, top: int) -> None:
+    """
+    The add-on slot, its top left at (`left`, `top`): a dashed outline,
+    or the add-on's card -- the house chit on its top corner while under
+    construction, and on a damaged one the HP it has now in its heart,
+    as a tech building's.
+    """
+    slot = (left, top, left + ADD_ON[0], top + ADD_ON[1])
+    add_on = player.add_on
+    if add_on is None:
+        draw = ImageDraw.Draw(body)
+        dashed_box(draw, slot, FAINT_INK)
+        draw.text(((slot[0] + slot[2]) / 2, (slot[1] + slot[3]) / 2), "Add-on",
+                  font=font(18, bold=False), fill=FAINT_INK, anchor="mm")
+        return
+    hp = damaged(add_on.hp, building_hp.get(add_on.slug, add_on.hp))
+    card = rounded(building_picture(add_on.slug, hp).resize(ADD_ON, Image.LANCZOS),
+                   round(ADD_ON[0] / 20))
+    body.alpha_composite(card, slot[:2])
+    if add_on.spec:
+        # A tech lab's spec card, drawn small on its card (UMR p. 9).
+        mark = spec_mark(add_on.spec, SPEC_ON_LAB)
+        body.alpha_composite(mark, (slot[0] + (ADD_ON[0] - SPEC_ON_LAB[0]) // 2,
+                                    slot[3] - SPEC_ON_LAB[1] - 8))
+    if add_on.under_construction:
+        lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
+                (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
+
+
+#: A chosen spec's card as it lies on the tech II tile and on a tech
+#: lab's card: the module's spec card, small.
+SPEC_ON_TILE = (round(70 * BUILDING_SCALE), round(50 * BUILDING_SCALE))
+SPEC_ON_LAB = (96, 69)
+
+
+def spec_mark(spec: str, size: tuple[int, int]) -> Image.Image:
+    """A spec's card (`specs/<spec>.png`, cut at step 1) at `size`,
+    rounded and edged so it reads on the tile under it."""
+    picture = board_piece("specs", f"{spec}.png").resize(size, Image.LANCZOS)
+    mark = rounded(picture, 5)
+    ImageDraw.Draw(mark).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=5,
+                                           outline=(20, 16, 12, 255), width=2)
+    return mark
 
 
 def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = 6, width: int = 2) -> None:
@@ -636,8 +705,8 @@ def partner_ids(player: PlayerState) -> set[int]:
 
 def heroes(player: PlayerState) -> list[HeroState]:
     """A player's heroes: one in the basic game, three in the standard
-    one once it is played."""
-    return [player.hero]
+    one."""
+    return list(player.heroes)
 
 
 def panel_columns(player: PlayerState) -> int:
@@ -653,14 +722,16 @@ def panel_width(columns: int) -> int:
 
 def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     """The grid, in order: a command-zone plate per hero, then the
-    heroes on the field, then the units, every one not patrolling."""
+    heroes on the field, then the units, every one not patrolling, then
+    the building cards and upgrades, which never patrol (step 10)."""
     plates = [command_zone_plate(None if hero.in_play else hero, cards)
               for hero in heroes(player)]
     field = [lying_card(hero_lying(hero, cards), cards)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
-    units = [lying_card(unit_lying(card, card.id in partners), cards)
-             for card in player.play if card.patrol_slot is None]
+    lying = [card for card in player.play if card.patrol_slot is None]
+    lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
+    units = [lying_card(unit_lying(card, card.id in partners), cards) for card in lying]
     return plates + field + units
 
 
@@ -670,7 +741,7 @@ PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]
 def body_height(cells: int, columns: int) -> int:
     rows = max(1, -(-cells // columns))
     grid = PATROL_HEIGHT + CELL_GAP + rows * CELL + (rows - 1) * CELL_GAP
-    return max(grid, 5 * TILE[1] + 4 * TILE_GAP)
+    return max(grid, BUILDING_COLUMN_HEIGHT)
 
 
 def render_body(match: MatchState, seat: int, cards: CardCatalog,
@@ -690,16 +761,18 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     draw_building_column(body, player, building_hp, o, o + height)
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
-    grid_right = grid_left + columns * CELL + (columns - 1) * CELL_GAP
-    ImageDraw.Draw(body).rounded_rectangle(
-        (grid_left - PATROL_PADDING, o, grid_right + PATROL_PADDING - 1, o + PATROL_HEIGHT - 1),
-        radius=14, fill=PATROL_BLUE,
-    )
+    draw = ImageDraw.Draw(body)
     partners = partner_ids(player)
-    for index, slot in enumerate(PATROL_SLOTS):
-        column_left = grid_left + index * (CELL + CELL_GAP)
-        card_left = column_left + (CELL - CARD[0]) // 2
-        card_top = o + PATROL_PADDING
+    card_top = o + PATROL_PADDING
+    holder_left = grid_left - PATROL_PADDING
+    for slot in PATROL_SLOTS:
+        # Each slot on its own holder, packed against the last.
+        draw.rounded_rectangle(
+            (holder_left, o, holder_left + PATROL_HOLDER - 1, o + PATROL_HEIGHT - 1),
+            radius=14, fill=PATROL_BLUE,
+        )
+        card_left = holder_left + PATROL_PADDING
+        holder_left += PATROL_HOLDER + PATROL_SLOT_GAP
         body.alpha_composite(rounded(board_piece("patrol_slots", f"{slot}.png"), 12),
                              (card_left, card_top))
         body.alpha_composite(board_piece("patrol_slots", f"{slot}_bonus.png"),
@@ -707,15 +780,15 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         ref = player.patroller(slot)
         if ref is None:
             continue
-        if ref == "hero":
-            lying = hero_lying(player.hero, cards)
+        if is_hero_ref(ref):
+            lying = hero_lying(player.hero_by_ref(ref), cards)
         else:
             instance_id = int(ref.split(":", 1)[1])
             lying = unit_lying(match.instance(instance_id), instance_id in partners)
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards),
-                      (column_left, card_top, column_left + CELL, card_top + CARD[1]))
+                      (card_left, card_top, card_left + CARD[0], card_top + CARD[1]))
 
     top = o + PATROL_HEIGHT + CELL_GAP
     for index, cell in enumerate(cells):
@@ -785,7 +858,9 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
     x += font(26).getlength(name) + 18
-    spec = f"{player.spec.title()} · {hero_name(player.hero, cards)}"
+    spec = f"{player.deck_color.title()} · " + ", ".join(
+        hero_name(hero, cards) for hero in player.heroes
+    )
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:
@@ -880,7 +955,7 @@ def default_building_hp(cards: CardCatalog) -> dict[str, int]:
     """Each building's full HP, from the card data -- what its picture
     prints in its heart: below it, the heart carries the HP it has now."""
     found = {name: cards.building(slug).hp or 0 for name, slug in TECH_BUILDING_SLUGS.items()}
-    for slug in ("tower", "surplus"):
+    for slug in ADD_ONS:
         found[slug] = cards.building(slug).hp or 0
     found["base"] = 20
     return found
