@@ -298,6 +298,10 @@ class CardInstance:
     #: runes and effects gone. Empty for anything else, and in an older
     #: save.
     buried: list[dict] = field(default_factory=list)
+    #: The id of the card whose arrival summoned this token, where that
+    #: matters (step 12): Terras Q's four Warlocks shackle him alone. `None`
+    #: otherwise, and in an older save.
+    made_by: Optional[int] = None
 
     @property
     def ref(self) -> str:
@@ -329,6 +333,7 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("time_runes", default=0),
     SavedField("disabled", default=False),
     SavedField("buried", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("made_by"),
 )
 
 

@@ -66,15 +66,20 @@ PANEL_SIDE_KINDS = (
 
 
 def private_choices(prompt: PendingPrompt) -> list[str]:
-    """The cards a `TARGET` offers from its asked player's own hand or
-    codex (Sanatorium, Feral Strike, Cinderblast Dragon, Calamandra), by
-    slug -- pictured as a hand is, to them alone, never on the table."""
-    from codex.engine import CODEX, HAND
+    """The cards a `TARGET` offers from a hidden pile -- its asked player's
+    own hand, codex, discard or draw pile (Sanatorium, Feral Strike,
+    Calamandra, Garth, Vir), or the opponent's hand Carrion Curse looks at
+    -- by slug, pictured as a hand is, to them alone, never on the table.
+    Where the prompt shows more than it offers (`shown`, all of the hand
+    looked at), all of it."""
+    from codex.engine import CODEX, DECK, DISCARD, HAND
 
     if prompt.kind is not PromptKind.TARGET:
         return []
+    if prompt.options.shown:
+        return list(prompt.options.shown)
     return [row.ref.split(":", 1)[1] for row in prompt.options.targets
-            if row.ref.startswith((HAND, CODEX))]
+            if row.ref.startswith((HAND, CODEX, DISCARD, DECK))]
 
 
 NOTHING_ASKED = "Nothing is asked of you now."

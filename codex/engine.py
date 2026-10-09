@@ -531,6 +531,14 @@ class RulesEngine:
         changed_atk, changed_hp = self._changes(card)
         atk += changed_atk
         hp += changed_hp
+        if match is not None and printed.is_unit:
+            # Abomination: "All other units get -1/-1." -- both sides,
+            # stacking (its ruling).
+            for other in match.instances():
+                change = effects.ALL_OTHER_UNITS.get(other.slug)
+                if change is not None and other.id != card.id and self.texted(other):
+                    atk += change[0]
+                    hp += change[1]
         if texted and card.slug in effects.ATK_PER_DAMAGE:
             atk += card.damage
         profile = Profile(atk, hp, found, ability)
@@ -661,6 +669,17 @@ class RulesEngine:
                 # colour read, himself included.
                 if self.color_of(card) == effects.INVISIBLE_COLOR.get(source.slug, "black"):
                     profile.grant("Invisible")
+            elif grant == "skeletons":
+                # Skeletal Lord: "Your Skeletons get +1/+1."
+                if effects.SKELETON in self.subtype_of(card).split():
+                    profile.atk += 1
+                    profile.hp += 1
+            elif grant == "skeleton_archery":
+                # Skeletal Archery: "Your Skeletons have long-range and
+                # anti-air."
+                if effects.SKELETON in self.subtype_of(card).split():
+                    profile.grant("Long-range")
+                    profile.grant("Anti-air")
             elif grant == "soul_stone":
                 # Soul Stone: "Attached unit gets +1/+1."
                 profile.atk += 1
@@ -906,12 +925,21 @@ class RulesEngine:
         """The Graveyards a player controls, their text in play."""
         return [card for card in player.play if card.slug == effects.GRAVEYARD and self.texted(card)]
 
+    def no_high_tech(self, player: PlayerState, card) -> bool:
+        """Twilight Baron: "You can't play tech II or III units." --
+        playing alone; putting into play is untouched (its rulings)."""
+        return (card.tech_level or 0) >= 2 and any(
+            other.slug in effects.NO_HIGH_TECH_UNITS and self.texted(other) for other in player.play
+        )
+
     def why_not_play_buried(self, player: PlayerState, slug: str) -> str:
         """Why a buried unit may not be played from the Graveyard now, or
         "": "You still pay for it and must meet the tech reqs for it" --
         the building of its level, and a tech II or III unit's spec one its
         controller has chosen (the Card FAQ)."""
         card = self.catalog.cards[slug]
+        if self.no_high_tech(player, card):
+            return "Twilight Baron stops you playing tech II or III units"
         if not self.tech_building_active(player, card.tech_level or 0):
             return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
         why = self._why_not_spec(player, card)
@@ -941,6 +969,21 @@ class RulesEngine:
         total = sum(card.time_runes for card in player.play)
         total += sum(hero.time_runes for hero in player.heroes_in_play)
         return total + sum(card.time_runes for card in player.future)
+
+    @staticmethod
+    def unbound(body) -> bool:
+        """Gargoyle's ability: it can attack and patrol until its
+        controller's next upkeep."""
+        return any(m.get("kind") == "unbound" for m in getattr(body, "modifiers", ()))
+
+    def shackled(self, match: Optional[MatchState], card: CardInstance) -> bool:
+        """Terras Q: "can't attack or patrol while any of those tokens are
+        in play" -- the Warlocks his own arrival summoned, by lineage
+        (`made_by`), so another copy's or an earlier one's do nothing (his
+        rulings)."""
+        if match is None or self.text_slug(card) not in effects.SHACKLED:
+            return False
+        return any(other.made_by == card.id for other in match.instances())
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -1135,9 +1178,14 @@ class RulesEngine:
             return 2
         return 1
 
-    def draw_count(self, discarded: int) -> int:
-        """Two more than were discarded, to at most five (UMR p. 5)."""
-        return min(discarded + 2, HAND_SIZE)
+    def draw_count(self, discarded: int, player: Optional[PlayerState] = None) -> int:
+        """Two more than were discarded, to at most five (UMR p. 5) --
+        each Shrine of Forbidden Knowledge its player has a card more and a
+        hand of one more (its ruling and the Card FAQ)."""
+        more = 0 if player is None else sum(
+            1 for card in player.play if card.slug in effects.DRAW_MORE and self.texted(card)
+        )
+        return min(discarded + 2 + more, HAND_SIZE + more)
 
     def tech_bounds(self, player: PlayerState) -> tuple[int, int]:
         """
@@ -1317,6 +1365,8 @@ class RulesEngine:
         room = card.max_level - hero.level
         if not room:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it is at its maximum level")
+        if any(m.get("kind") == "no_level" for m in hero.modifiers):
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
@@ -1335,6 +1385,8 @@ class RulesEngine:
         elif card.is_spell and self.free_spell(player, card):
             pass  # no hero needed, an ultimate's included
         elif card.is_unit or card.is_permanent:
+            if card.is_unit and self.no_high_tech(player, card):
+                return "Twilight Baron stops you playing tech II or III units"
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
             why = self._why_not_spec(player, card)
@@ -1432,7 +1484,10 @@ class RulesEngine:
         """
         if body.exhausted:
             return False
-        if isinstance(body, CardInstance) and self.text_slug(body) in effects.CANT_ATTACK:
+        if isinstance(body, CardInstance) and self.text_slug(body) in effects.CANT_ATTACK \
+                and not self.unbound(body):
+            return False
+        if isinstance(body, CardInstance) and self.shackled(match, body):
             return False
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return False
@@ -2331,6 +2386,79 @@ class RulesEngine:
                         for index, buried in enumerate(yard.buried):
                             if not self.why_not_play_buried(player, buried["slug"]):
                                 found.append((side, f"{BURIED}{yard.id}:{index}"))
+            elif choose == "anything_destroyable":
+                # Zarramonde: "a unit, hero, worker, upgrade, or ongoing
+                # spell".
+                found += [(side, card.ref) for card in units]
+                found += [(side, ref) for ref in hero]
+                if player.workers > 0:
+                    found.append((side, WORKERS))
+                found += [(side, card.ref) for card in player.play
+                          if self.catalog.cards[card.slug].is_upgrade
+                          or self.catalog.cards[card.slug].is_spell]
+            elif choose == "lowest_against_to_destroy":
+                if side == frame.get("against"):
+                    found += [(side, card.ref) for card in self.lowest_tech(match, side)]
+            elif choose == "units_of_against":
+                if side == frame.get("against"):
+                    found += [(side, card.ref) for card in units]
+            elif choose == "runed_card":
+                # Plague Lab: a card with runes and a kind of them -- one
+                # row per kind, one rune a card (its rulings).
+                done = frame.get("lab_done") or []
+                bodies = [*player.play, *player.heroes_in_play]
+                for body in bodies:
+                    ref = body.ref if isinstance(body, CardInstance) else hero_ref(body.slug)
+                    if target_key(side, ref) in done:
+                        continue
+                    for kind in rune_kinds(body):
+                        found.append((side, f"{ref}#{kind}"))
+            elif choose in ("hero_in_play", "other_hero_in_play"):
+                first = (frame.get("taken") or [None])[0]
+                found += [(side, ref) for ref in hero
+                          if choose == "hero_in_play" or target_key(side, ref) != first]
+            elif choose == "own_workers":
+                if side == seat and player.workers > 0:
+                    found.append((side, WORKERS))
+            elif choose == "own_skeleton":
+                if side == seat:
+                    found += [(side, card.ref) for card in units
+                              if effects.SKELETON in self.subtype_of(card).split()
+                              and self.may_sacrifice(match, card)]
+            elif choose == "own_non_demon_to_sacrifice":
+                if side == seat:
+                    found += [(side, card.ref) for card in units
+                              if not self.is_demon(card) and self.may_sacrifice(match, card)]
+            elif choose in ("own_unit_tech_0_1", "opposing_unit_tech_0_1"):
+                if (side == seat) == choose.startswith("own"):
+                    found += [(side, card.ref) for card in units if tech(card) <= 1]
+            elif choose == "flier":
+                found += [(side, card.ref) for card in units if self.has_keyword(card, "Flying", match)]
+                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                          if self.has_keyword(one, "Flying", match)]
+            elif choose == "dead_hero":
+                # Blackhand Resurrector: a hero of yours in the command zone
+                # that died this game -- summoning runes or none (its ruling).
+                if side == seat:
+                    died = {event.get("slug") for event in match.events
+                            if event.get("kind") == "hero_died" and event.get("owner") == seat}
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes
+                              if not one.in_play and one.slug in died]
+            elif choose == "own_ready_other":
+                # Voidblocker: another of the attacker's side's ready units
+                # or heroes.
+                if side == seat:
+                    attacker = (match.combat or {}).get("attacker") or match.attacking
+                    found += [(side, card.ref) for card in units
+                              if not card.exhausted and card.ref != attacker]
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                              if not one.exhausted and hero_ref(one.slug) != attacker]
+            elif choose == "opponent_hand_nonunit":
+                # Carrion Curse: the opponent's hand, looked at by the caster
+                # alone -- the non-unit cards, each named once.
+                if side != seat:
+                    found += [(side, HAND + slug) for slug in dict.fromkeys(player.hand)
+                              if not self.catalog.cards[slug].is_unit]
             elif choose == "empty_slot":
                 # Zane's shove: an empty slot of the shoved patroller's
                 # own zone -- the side the frame's first pick was on.
@@ -2366,6 +2494,18 @@ class RulesEngine:
 
         if choose == "hand_card":
             return [HAND + slug for slug in hand]
+        if choose == "hand_unit":
+            return [HAND + slug for slug in hand if cards[slug].is_unit]
+        if choose == "codex_demonology_spell":
+            return [CODEX + slug for slug in codex
+                    if cards[slug].is_spell and (cards[slug].spec or "").lower() == "demonology"]
+        if choose == "discard_tech_1_2_cheap":
+            # Garth at 7: a tech I or II unit costing 5 or less, its tech
+            # building and spec met (his rulings).
+            return [DISCARD + slug for slug in dict.fromkeys(player.discard)
+                    if cards[slug].is_unit and 1 <= level(slug) <= 2 and (cards[slug].cost or 0) <= 5
+                    and self.tech_building_active(player, level(slug))
+                    and not self._why_not_spec(player, cards[slug])]
         if choose == "hand_unit_tech_0_2":
             return [HAND + slug for slug in hand if cards[slug].is_unit and level(slug) <= 2]
         if choose == "hand_unit_built":
@@ -2582,6 +2722,12 @@ class RulesEngine:
     def ability_cost(self, effect: str) -> "effects.Cost":
         return effects.COSTS.get(effect, effects.Cost(exhaust=True))
 
+    def ready_skeletons(self, match: MatchState, seat: int) -> list[CardInstance]:
+        """`seat`'s ready Skeletons, arrival fatigue no bar -- what Skeletal
+        Lord exhausts (its ruling)."""
+        return [card for card in match.player(seat).play
+                if effects.SKELETON in self.subtype_of(card).split() and not card.exhausted]
+
     def cost_words(self, effect: str) -> str:
         """What an ability costs, in words for its button: "exhaust",
         "pay 1 gold and exhaust", "sacrifice it"."""
@@ -2597,6 +2743,8 @@ class RulesEngine:
             words.append(f"remove {'a' if count == 1 else count} {rune} rune{'' if count == 1 else 's'}")
         if cost.sacrifice:
             words.append("sacrifice it")
+        if cost.skeletons:
+            words.append(f"exhaust {cost.skeletons} Skeletons")
         if cost.exhaust:
             words.append("exhaust")
         return " and ".join(words) or "use it"
@@ -2624,6 +2772,11 @@ class RulesEngine:
             return f"it needs {cost.discard} cards in hand to discard"
         if cost.needs_spell and not player.spells_played:
             return "you have not played a spell this turn"
+        if cost.once and any(m.get("kind") == "once" and m.get("effect") == effect
+                             for m in getattr(body, "modifiers", ())):
+            return "it has been used this turn"
+        if cost.skeletons and len(self.ready_skeletons(match, seat)) < cost.skeletons:
+            return f"it needs {cost.skeletons} ready Skeletons"
         if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
                                       {"source": source}):
             return "there is nothing it could target"
@@ -2631,7 +2784,8 @@ class RulesEngine:
 
     # -- The upkeep -------------------------------------------------------------------
 
-    def upkeep_effects(self, player: PlayerState) -> tuple[str, ...]:
+    def upkeep_effects(self, player: PlayerState,
+                       match: Optional[MatchState] = None) -> tuple[str, ...]:
         """
         The upkeep effects this player has (UMR p. 5), in the order they
         run unless the order is theirs to choose: the surplus's draw,
@@ -2665,7 +2819,17 @@ class RulesEngine:
                   if self.text_slug(card) in effects.UPKEEP_CHOICE]
         found += [f"dothram:{card.id}" for card in player.play
                   if self.text_slug(card) in effects.JOINS_THE_STRONGER]
+        if match is not None and self.doomed_by(match, player.seat):
+            # Vandy at 5: "They lose +2/+2 and die at your next upkeep."
+            found.append("doom")
         return tuple(found)
+
+    @staticmethod
+    def doomed_by(match: MatchState, seat: int) -> list:
+        """The units Vandy's max level doomed for `seat`'s next upkeep,
+        either side's."""
+        return [card for card in match.instances()
+                if any(m.get("kind") == "doomed" and m.get("seat") == seat for m in card.modifiers)]
 
     def upkeep_ordered(self, due) -> tuple[str, ...]:
         """
@@ -2704,7 +2868,8 @@ class RulesEngine:
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
-            and self.text_slug(card) not in effects.CANT_PATROL and not player.peace
+            and (self.text_slug(card) not in effects.CANT_PATROL or self.unbound(card))
+            and not self.shackled(match, card) and not player.peace
         ]
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted
@@ -2899,6 +3064,27 @@ def buried_entry(match: MatchState, key: str):
     return yard, yard.buried[index]
 
 
+#: A card in its owner's discard pile, chosen by its owner alone (Garth's
+#: max level, Rememberer): "1:discard:<slug>" (step 12).
+DISCARD = "discard:"
+#: A card in its owner's draw pile (Vir's top card): "1:deck:<slug>".
+DECK = "deck:"
+
+
+def rune_kinds(body) -> list[str]:
+    """The kinds of rune a card or hero carries -- "plus", "minus", "time"
+    and the named ones -- for Plague Lab (step 12)."""
+    found = []
+    if body.plus_runes:
+        found.append("plus")
+    if body.minus_runes:
+        found.append("minus")
+    if body.time_runes:
+        found.append("time")
+    found += [kind for kind, count in sorted((getattr(body, "runes", None) or {}).items()) if count]
+    return found
+
+
 #: How a target names a side's workers, all alike: "2:workers".
 WORKERS = "workers"
 #: How a target names an empty patrol slot ("2:slot:elite"), a card in
@@ -2910,6 +3096,8 @@ CODEX = "codex:"
 _PRIVATE_FILTERS = frozenset({
     "hand_card", "hand_unit_tech_0_2", "hand_unit_built", "codex_unit", "codex_tiger",
     "codex_circle", "fire_spell",
+    # Purple and black's (step 12).
+    "hand_unit", "codex_demonology_spell", "discard_tech_1_2_cheap",
 })
 
 

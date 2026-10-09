@@ -199,6 +199,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 f"{hitting.named(whose=False)}."
             )
             match.record_event("detected", card=attacker, by=other)
+        _voidblocker(engine, match, seat, attacker, defender, result)
     else:
         # The defender obliterate or a trigger took, chosen again: the
         # attack goes on from where it stood -- its triggers, once.
@@ -210,6 +211,21 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(f"They have chosen {taking.named(whose=False)}.")
         match.record_event("attacked", attacker=state["attacker"], defender=defender)
     return carry_on(engine, game, match, result)
+
+
+def _voidblocker(engine: "RulesEngine", match: MatchState, seat: int, attacker: str,
+                 defender: str, result: StepResult) -> None:
+    """
+    Voidblocker: "Whenever an opponent attacks Voidblocker, they exhaust
+    another of their ready units or heroes" -- the attacker's controller
+    chooses which, and with none to exhaust the attack goes on: it is no
+    cost to attack (its ruling, the Card FAQ).
+    """
+    other = 2 if seat == 1 else 1
+    body = board.body_of(match, other, defender)
+    if not isinstance(body, CardInstance) or engine.text_slug(body) not in effects.VOIDBLOCKERS:
+        return
+    resolve.push(match, resolve.frame("voidblocker", seat, tokens.card(body.slug), origin=body.slug))
 
 
 def cancel_attack_allowed(match: MatchState) -> bool:
@@ -643,6 +659,12 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
             result.narration.append(
                 f"{tokens.card(slug)} trashes a worker at {tokens.player(other)}'s base."
             )
+    crow = effects.ON_DAMAGING_A_BASE.get(slug or "")
+    if crow is not None and any(hit.target.ref == "base" for hit in on_buildings):
+        # Cursed Crow: the base itself, not a building's 2 (its ruling).
+        frame = resolve.frame(crow, seat, tokens.card(slug), source=hitting.ref, origin=slug)
+        frame["against"] = other
+        resolve.push(match, frame)
     if slug in effects.ON_DAMAGING_A_BUILDING and on_buildings:
         firebird = resolve.frame(effects.ON_DAMAGING_A_BUILDING[slug], seat, tokens.card(slug),
                                  source=hitting.ref, origin=slug)

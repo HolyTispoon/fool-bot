@@ -306,6 +306,9 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
     if cost.sacrifice:
         board.sacrifice(engine, match, body)
         said.append(f"sacrifices {by}")
+    if cost.once:
+        # Once-per-turn (step 12).
+        body.modifiers.append({"kind": "once", "effect": effect, "until": "end_of_turn"})
     if not said:
         # A cost the effect's own parts pay -- Calamandra's discards.
         said.append(f"uses {by}")

@@ -266,6 +266,10 @@ class TargetOptions:
     done: bool = False
     #: What the part has chosen so far, as target keys.
     picked: tuple[str, ...] = ()
+    #: Cards shown to the asked player alone beside the choice, by slug
+    #: (step 12): Carrion Curse's whole look at an opponent's hand, of
+    #: which only the non-units may be chosen. Empty for every other part.
+    shown: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         found = jsonable({
@@ -276,6 +280,8 @@ class TargetOptions:
         if self.done or self.picked:
             found["done"] = self.done
             found["picked"] = list(self.picked)
+        if self.shown:
+            found["shown"] = list(self.shown)
         return found
 
 
@@ -553,11 +559,21 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
     top = match.resolving[0]
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     rows = rows_for(engine, match, top)
+    shown: tuple[str, ...] = ()
+    if part.choose in LOOKS:
+        # Carrion Curse: "Look at an opponent's hand" -- all of it, to the
+        # caster alone.
+        other = 2 if top["seat"] == 1 else 1
+        shown = tuple(match.player(other).hand)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
-        offers_done(top, part), tuple(top.get("picks") or ()),
+        offers_done(top, part), tuple(top.get("picks") or ()), shown,
     )
+
+
+#: The parts that look at a hidden pile while they choose from it.
+LOOKS = frozenset({"opponent_hand_nonunit"})
 
 
 def _divide_options(engine, game, match, prompt) -> DivideOptions:

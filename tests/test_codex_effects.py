@@ -72,7 +72,8 @@ def _handled(slug: str) -> list[str]:
         # Purple and black's (step 12).
         "ATK_CEILING", "CANT_BE_SACRIFICED", "UNSTOPPABLE_BY_RUNED", "DEMONS_UNSTOPPABLE",
         "UNSTOPPABLE_ATTACKING_HEROES", "UNTARGETABLE_BY_BUFFS", "INVISIBLE_COLOR",
-        "RUNE_DAMAGE",
+        "RUNE_DAMAGE", "ALL_OTHER_UNITS", "CORPSE_RUNES", "SKELETON_ON_DEATH",
+        "ON_DAMAGING_A_BASE", "SHACKLED", "NO_HIGH_TECH_UNITS", "VOIDBLOCKERS", "DRAW_MORE",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -100,22 +101,15 @@ def _handled(slug: str) -> list[str]:
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
-    "abomination", "assimilate", "banefire_golem", "blackhand_dozer",
-    "blackhand_resurrector", "bone_collector", "carrion_curse", "chronofixer",
-    "corpse_catapult", "crypt_crawler", "cursed_crow", "cursed_ghoul", "dark_pact",
-    "deteriorate", "double_time", "ebbflow_archon", "forgotten_fighter", "gargoyle",
-    "garth_torken", "gilded_glaxx", "gorgon", "hardened_mox", "hive", "hyperion",
-    "jandra_the_negator", "lichs_bargain", "max_geiger", "metamorphosis", "nebula",
-    "necromancer", "nether_drain", "now", "octavian", "origin_story", "orpal_gloor",
-    "plague_lab", "plague_lord", "promise_of_payment", "prynn_pasternaak",
-    "ready_or_not", "reaver", "rememberer", "research__development", "rewind",
-    "second_chances", "sentry", "shrine_of_forbidden_knowledge", "sickness",
-    "skeletal_archery", "skeletal_lord", "skeleton_javelineer", "slowtime_generator",
-    "stewardess_of_the_undone", "summon_skeletons", "temporal_distortion",
-    "terras_q_the_shackled", "thieving_imp", "tricycloid", "twilight_baron", "undo",
-    "unphase", "vandy_anadrose", "vir_garbarean", "void_star", "voidblocker",
-    "vortoss_emblem", "warp_gate_disciple", "xenostalker", "yesterdays_golgort",
-    "zarramonde_the_obliterator"
+    "assimilate", "banefire_golem", "chronofixer", "double_time", "ebbflow_archon",
+    "forgotten_fighter", "gilded_glaxx", "hardened_mox", "hive", "hyperion",
+    "max_geiger", "nebula", "now", "octavian", "origin_story", "plague_lord",
+    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
+    "research__development", "rewind", "second_chances", "sentry",
+    "shrine_of_forbidden_knowledge", "slowtime_generator", "stewardess_of_the_undone",
+    "temporal_distortion", "tricycloid", "undo", "unphase", "vir_garbarean",
+    "void_star", "vortoss_emblem", "warp_gate_disciple", "xenostalker",
+    "yesterdays_golgort"
 })
 
 

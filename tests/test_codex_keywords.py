@@ -1402,7 +1402,7 @@ class LimitTests(KeywordCase):
         "If summoning the number of tokens indicated by an ability would
         cause you to have X or more of that kind of token in play, instead
         only summon enough tokens to bring your number of copies of that
-        token up to X.\""""
+        token up to X.\" """
         put(self.match, 2, "dancer")
         put(self.match, 2, "angry_dancer")
         self.spell()

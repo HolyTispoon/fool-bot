@@ -287,7 +287,7 @@ def upkeep_frame(engine: "RulesEngine", match: MatchState, seat: int) -> dict:
     a death can change (step 11). Pure gains -- the surplus's card, the
     Owl's and Galina's gold -- resolve unasked.
     """
-    due = list(engine.upkeep_effects(match.player(seat)))
+    due = list(engine.upkeep_effects(match.player(seat), match))
     ordered = list(engine.upkeep_ordered(due))
     first = [name for name in due if name not in ordered]
     return {"kind": UPKEEP, "seat": seat, "due": first + ordered, "ordered": ordered}
@@ -437,6 +437,19 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
                 effects.UPKEEP_CHOICE[card.slug], seat, tokens.card(card.slug),
                 source=card.ref, origin=card.slug,
             ))
+    elif kind == "doom":
+        doomed = engine.doomed_by(match, seat)
+        for card in doomed:
+            card.modifiers = [m for m in card.modifiers
+                              if not (m.get("until") == "doom" and m.get("seat") == seat)]
+        if doomed:
+            result.narration.append(
+                f"{tokens.hero('vandy_anadrose')}'s doom comes due: "
+                + ", ".join(board.named(match, card.controller, card.ref) for card in doomed)
+                + " lose +2/+2 and die."
+            )
+            board.destroy(engine, match, [(card.controller, card.ref) for card in doomed], result,
+                          cause=seat)
     elif kind == "dothram":
         card = player.instance(int(ident))
         if card is not None:
@@ -514,7 +527,7 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     discarded = len(player.hand)
     player.discard.extend(player.hand)
     player.hand = []
-    owed = engine.draw_count(discarded)
+    owed = engine.draw_count(discarded, player)
     # The count goes first, though it is only known after the draw: a
     # reshuffle the draw needed is said beneath it.
     at = len(result.narration)

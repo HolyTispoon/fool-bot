@@ -171,6 +171,8 @@ def _applies(part, top: dict) -> bool:
         return False
     if part.when == "boosted" and not top.get("boosted"):
         return False
+    if part.when == "from_hand" and not top.get("from_hand"):
+        return False
     if part.follows and not top.get("chose"):
         return False
     return True
@@ -893,6 +895,21 @@ def _put_into_play(engine, match, top, part, target, result) -> None:
     seat, ref = target
     from codex.engine import CODEX
 
+    from codex.engine import DISCARD
+
+    if ref.startswith(DISCARD):
+        # Garth at 7: from the discard pile, free, its tech met.
+        slug = _private_slug(ref)
+        player = match.player(seat)
+        if slug not in player.discard:
+            return
+        player.discard.remove(slug)
+        card = board.put_into_play(engine, match, slug, seat, from_hand=False)
+        result.narration.append(
+            f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s discard pile into play"
+            + _arrived(engine, match, card, slug)
+        )
+        return
     if not ref.startswith(CODEX):
         _from_hand(engine, match, top, target, result)
         return
@@ -946,7 +963,9 @@ def _token_for_opponent(engine, match, top, part, target, result) -> None:
     """Final Showdown's Hunters: summoned for the opponent, who controls
     them, in their play zone and never their patrol zone (the Card FAQ)."""
     other = 2 if top["seat"] == 1 else 1
-    board.summon(engine, match, part.token, other, part.amount, result, by=top["by"])
+    source = board.body_of(match, top["seat"], top.get("source") or "")
+    made_by = source.id if isinstance(source, CardInstance) and source.slug in effects.SHACKLED else None
+    board.summon(engine, match, part.token, other, part.amount, result, by=top["by"], made_by=made_by)
 
 
 def _exhaust_self(engine, match, top, part, target, result) -> None:
@@ -985,7 +1004,8 @@ def _destroy_any(engine, match, top, part, target, result) -> None:
         _trash(engine, match, top, part, target, result)
         return
     card = board.body_of(match, seat, ref)
-    if card is not None and engine.catalog.cards[card.slug].is_upgrade:
+    if isinstance(card, CardInstance) and not engine.catalog.cards[card.slug].is_unit:
+        # An upgrade or an ongoing spell (Zarramonde).
         _destroy_card(engine, match, top, part, target, result)
         return
     _destroy(engine, match, top, part, target, result)
@@ -1462,6 +1482,275 @@ def _play_buried(engine, match, top, part, target, result) -> None:
     board.arrive(engine, match, card, boosted=boosted)
 
 
+# -- Black's handlers (step 12, commit 4) ---------------------------------------
+
+
+def _against(top: dict) -> int:
+    """The other player of a frame -- or the one it names, where the active
+    player resolves something about another's cards."""
+    return top.get("against") or (2 if top["seat"] == 1 else 1)
+
+
+def _random_discard(engine, match, top, part, target, result) -> None:
+    """Thieving Imp, Cursed Crow: the opponent -- the defending player --
+    discards a card at random."""
+    board.random_discard(engine, match, _against(top), result, top["by"])
+
+
+def _runes_on_opposing(engine, match, top, part, target, result) -> None:
+    """Plague Lab: a -1/-1 rune on each of an opponent's units; Plague Lord
+    on each opposing unit and hero too (`part.token` "heroes")."""
+    other = _against(top)
+    player = match.player(other)
+    bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    if part.token == "heroes":
+        bodies += player.heroes_in_play
+    for body in bodies:
+        board.add_minus_rune(body)
+    what = "unit and hero" if part.token == "heroes" else "unit"
+    result.narration.append(f"{top['by']} puts a -1/-1 rune on each {what} {tokens.player(other)} controls.")
+
+
+def _lab_rune(engine, match, top, part, target, result) -> None:
+    """Plague Lab: another rune of a kind already on the card -- one a
+    card."""
+    seat, ref = target
+    ref, _, kind = ref.partition("#")
+    body = board.body_of(match, seat, ref)
+    if body is None:
+        return
+    top.setdefault("lab_done", []).append(target_key(seat, ref))
+    if kind == "plus":
+        board.add_plus_rune(body)
+    elif kind == "minus":
+        board.add_minus_rune(body)
+    elif kind == "time":
+        board.add_time_rune(body)
+    else:
+        body.runes[kind] = body.runes.get(kind, 0) + 1
+        limit = effects.BLOOD_RUNES.get(body.slug) if kind == "blood" else None
+        if limit is not None:
+            body.runes[kind] = min(limit, body.runes[kind])
+    rune = {"plus": "+1/+1", "minus": "-1/-1"}.get(kind, kind)
+    result.narration.append(f"{top['by']} adds a {rune} rune to {_thing(match, (seat, ref))}.")
+
+
+def _rune_on_self(engine, match, top, part, target, result) -> None:
+    """Skeleton Javelineer: "Put a javelin rune on this." """
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.runes[part.token] = body.runes.get(part.token, 0) + part.amount
+    result.narration.append(f"{top['by']} gets a {part.token} rune.")
+
+
+def _keyword_self(engine, match, top, part, target, result) -> None:
+    """A keyword for the turn on the card the ability is on: the
+    Javelineer's long-range."""
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.modifiers.append({"kind": "keyword", "keyword": part.token, "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gets {part.token.lower()} this turn.")
+
+
+def _negate(engine, match, top, part, target, result) -> None:
+    """Jandra: "Destroy all your units except for Demons." """
+    seat = top["seat"]
+    doomed = [(seat, card.ref) for card in match.player(seat).play
+              if engine.catalog.cards[card.slug].is_unit and not engine.is_demon(card)]
+    result.narration.append(f"{top['by']} destroys every unit of {tokens.player(seat)}'s but its Demons.")
+    if doomed:
+        board.destroy(engine, match, doomed, result, cause=seat)
+
+
+def _debuff(engine, match, top, part, target, result) -> None:
+    """-X/-X this turn (Deteriorate)."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": -part.amount, "until": "end_of_turn"})
+    body.modifiers.append({"kind": "hp", "amount": -part.amount, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} -{part.amount}/-{part.amount} this turn."
+    )
+
+
+def _dark_pact(engine, match, top, part, target, result) -> None:
+    """Dark Pact: 2 to a base, then that player draws 2."""
+    seat, _ = target
+    amount = damage_amount(engine, match, top, part.amount)
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
+    damage_base(match, seat, amount, result, by=top["seat"])
+    if match.winner is not None:
+        return
+    drawn = draw_cards(engine, match, seat, 2, result)
+    if seat == top["seat"]:
+        top["drew"] = True
+    if drawn:
+        result.narration.append(f"{tokens.player(seat)} draws {drawn} card{'' if drawn == 1 else 's'}.")
+
+
+def _curse_discard(engine, match, top, part, target, result) -> None:
+    """Carrion Curse: a non-unit card the caster chose from the opponent's
+    hand, discarded by them -- counted, never named."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if slug not in player.hand:
+        return
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    match.record_event("discarded", seat=seat, slug=slug, by=top["effect"])
+    result.narration.append(f"{tokens.player(seat)} discards a card for {top['by']}.")
+
+
+def _drain(engine, match, top, part, target, result) -> None:
+    """Nether Drain: two levels off a hero, never below 1, and no levels for
+    it this turn."""
+    hero = board.body_of(match, *target)
+    if hero is None:
+        return
+    before = hero.level
+    hero.level = max(1, hero.level - part.amount)
+    if hero.level < engine.hero_card(hero).max_level:
+        hero.max_level_since_turn_began = False
+    hero.modifiers.append({"kind": "no_level", "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} drains {_thing(match, target)} from level {before} to {hero.level}: "
+        "it can't level up this turn."
+    )
+
+
+def _gain_levels(engine, match, top, part, target, result) -> None:
+    """Nether Drain: two levels for another hero, to its maximum -- its max
+    level effect, where reached on another player's turn, not resolving
+    where it asks a choice (UMR p. 14)."""
+    seat, ref = target
+    hero = board.body_of(match, seat, ref)
+    if hero is None:
+        return
+    before = hero.level
+    reached = board.raise_level(engine, hero, part.amount, match)
+    if hero.level == before:
+        result.narration.append(f"{_thing(match, target)} gains no level.")
+        return
+    line = f"{top['by']} raises {_thing(match, target)} to level {hero.level}"
+    result.narration.append(line + (", a new band, and healed." if reached else "."))
+    board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _metamorphosis(engine, match, top, part, target, result) -> None:
+    """Metamorphosis: every unit its caster controls sacrificed; each of
+    their heroes not yet a Demon to its maximum level, a Demon until it
+    leaves play, two +1/+1 runes, readiness and invisibility."""
+    seat = top["seat"]
+    player = match.player(seat)
+    units = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    result.narration.append(f"{tokens.player(seat)} sacrifices every unit they control for {top['by']}.")
+    for card in units:
+        if player.instance(card.id) is not None:
+            board.sacrifice(engine, match, card, result)
+    board.settle(engine, match, result, cause=seat)
+    for hero in player.heroes_in_play:
+        if engine.is_demon(hero):
+            continue
+        board.raise_level(engine, hero, engine.hero_card(hero).max_level, match)
+        hero.modifiers.append({"kind": "demon", "until": None})
+        for keyword in effects.METAMORPHOSIS_KEYWORDS:
+            hero.modifiers.append({"kind": "keyword", "keyword": keyword, "until": None})
+        board.add_plus_rune(hero, part.amount)
+        result.narration.append(
+            f"{tokens.hero(hero.slug)} becomes a Demon at level {hero.level}: two +1/+1 runes, "
+            "readiness and invisibility."
+        )
+        board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _doom_buff(engine, match, top, part, target, result) -> None:
+    """Vandy at 5: +2/+2, and death at her controller's next upkeep -- with
+    or without her (her rulings)."""
+    seat = top["seat"]
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "doom", "seat": seat})
+    body.modifiers.append({"kind": "hp", "amount": part.amount, "until": "doom", "seat": seat})
+    body.modifiers.append({"kind": "doomed", "seat": seat, "until": "doom"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +2/+2: it dies at {tokens.player(seat)}'s next upkeep."
+    )
+
+
+def _gargoyle(engine, match, top, part, target, result) -> None:
+    """Gargoyle: until its controller's next upkeep, not indestructible,
+    flying, +3 ATK, and free to attack and patrol."""
+    seat = top["seat"]
+    body = board.body_of(match, seat, top.get("source") or "")
+    if body is None:
+        return
+    until = {"until": "upkeep", "seat": seat}
+    body.modifiers += [
+        {"kind": "lose_keyword", "keyword": "Indestructible", **until},
+        {"kind": "keyword", "keyword": "Flying", **until},
+        {"kind": "atk", "amount": part.amount, **until},
+        {"kind": "unbound", **until},
+    ]
+    result.narration.append(
+        f"{top['by']} wakes: until {tokens.player(seat)}'s next upkeep it is not indestructible, "
+        "flies, has +3 ATK and may attack and patrol."
+    )
+
+
+def _ground(engine, match, top, part, target, result) -> None:
+    """Crypt Crawler: a flier loses flying this turn."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "lose_keyword", "keyword": "Flying", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} grounds {_thing(match, target)}: it loses flying this turn.")
+
+
+def _exhaust_skeletons(engine, match, top, part, target, result) -> None:
+    """Skeletal Lord's cost: five of its controller's ready Skeletons,
+    exhausted -- fatigued ones too (its ruling)."""
+    seat = top["seat"]
+    skeletons = engine.ready_skeletons(match, seat)[:part.amount]
+    for card in skeletons:
+        card.exhausted = True
+    result.narration.append(f"{tokens.player(seat)} exhausts {len(skeletons)} Skeletons for {top['by']}.")
+
+
+def _resurrect(engine, match, top, part, target, result) -> None:
+    """Blackhand Resurrector: a hero that died this game summoned from the
+    command zone at its maximum level -- level 1 against an opposing
+    Chronofixer -- its summoning runes gone and its max level effect
+    resolved (its rulings)."""
+    seat, ref = target
+    hero = match.player(seat).hero_by_ref(ref)
+    if hero is None or hero.in_play:
+        return
+    hero.zone = "play"
+    hero.level = 1
+    hero.damage = 0
+    hero.summoning_runes = 0
+    hero.arrived_this_turn = True
+    hero.exhausted = False
+    hero.patrol_slot = None
+    hero.bands = {str(engine.hero_card(hero).bands[0].min_level): match.next_sequence()}
+    match.record_event("summoned", slug=hero.slug, seat=seat, by="blackhand_resurrector")
+    board.raise_level(engine, hero, engine.hero_card(hero).max_level, match)
+    result.narration.append(
+        f"{top['by']} summons {tokens.hero(hero.slug)} back from the command zone at level {hero.level}."
+    )
+    board.hero_arrives(engine, match, seat, hero)
+    board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _exhaust(engine, match, top, part, target, result) -> None:
+    """Voidblocker: another of the attacker's ready units or heroes,
+    exhausted."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.exhausted = True
+    result.narration.append(f"{tokens.player(top['seat'])} exhausts {_thing(match, target)} for {top['by']}.")
+
+
 #: The parts `run` works itself rather than a handler: "choose one" and
 #: divided damage.
 STRUCTURAL = frozenset({"mode", "divide"})
@@ -1537,6 +1826,24 @@ DOES = {
     "poison": _poison,
     "pick_buried": _pick_buried,
     "play_buried": _play_buried,
+    "random_discard": _random_discard,
+    "runes_on_opposing": _runes_on_opposing,
+    "lab_rune": _lab_rune,
+    "rune_on_self": _rune_on_self,
+    "keyword_self": _keyword_self,
+    "negate": _negate,
+    "debuff": _debuff,
+    "dark_pact": _dark_pact,
+    "curse_discard": _curse_discard,
+    "drain": _drain,
+    "gain_levels": _gain_levels,
+    "metamorphosis": _metamorphosis,
+    "doom_buff": _doom_buff,
+    "gargoyle": _gargoyle,
+    "ground": _ground,
+    "exhaust_skeletons": _exhaust_skeletons,
+    "resurrect": _resurrect,
+    "exhaust": _exhaust,
 }
 
 

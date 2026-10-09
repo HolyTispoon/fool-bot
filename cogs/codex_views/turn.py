@@ -706,7 +706,7 @@ class TurnPanelView(PanelView):
     def target_label(self, row) -> str:
         """A target in the menu: whose, what, and what it costs -- its
         resist -- or why it is forced (the flagbearer)."""
-        if row.ref.startswith(("hand:", "codex:")):
+        if row.ref.startswith(("hand:", "codex:", "discard:", "deck:")):
             return self.label(row.ref, row.seat)
         whose = "Your" if row.seat == self.seat else "Their"
         label = f"{whose} {self.label(row.ref, row.seat)}"

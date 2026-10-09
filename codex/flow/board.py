@@ -502,11 +502,13 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     Captured Bugblatter that dies with the others still counts them, and
     itself (its ruling), and Pirategang Commander's units that die with
     it still had its "Dies:"."""
-    found = {"bugblatters": [], "pirategang": {}}
+    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}}
     for player in match.players:
         for card in player.play:
             if not engine.texted(card):
                 continue
+            if card.slug in effects.SKELETON_ON_DEATH:
+                found["necromancers"].setdefault(player.seat, []).append(card.id)
             if card.slug in effects.ON_ANY_DEATH:
                 found["bugblatters"].append((player.seat, card.slug))
             if card.slug in effects.GRANTS_DIES:
@@ -544,6 +546,30 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 effects.GRANTS_DIES[granted], seat, f"{by} (from {tokens.card(granted)})",
                 origin=card.slug,
             ))
+        for when in ("dies", *(("dies_from_combat",) if combat else ())):
+            for effect in effects.triggers(engine.text_slug(card) or "", when):
+                one = resolve.frame(effect, seat, by, origin=card.slug)
+                if effect == "blackhand_dozer":
+                    # "Active player destroys one of your lowest tech units."
+                    one["seat"], one["against"] = match.active, seat
+                frames.append(one)
+        for catapult in match.player(seat).play:
+            if catapult.slug in effects.CORPSE_RUNES and engine.texted(catapult):
+                catapult.runes["corpse"] = catapult.runes.get("corpse", 0) + 1
+        if not is_token(engine, card.slug):
+            for watcher in witnesses["necromancers"].get(seat, ()):
+                if watcher != card.id:
+                    frames.append(resolve.frame(
+                        "necromancer", seat, tokens.card("necromancer"), origin="necromancer",
+                    ))
+        if card.minus_runes and _orpal_unspent(engine, match):
+            # Orpal at 6: "The first time a unit with a -1/-1 rune dies each
+            # turn, the active player puts a -1/-1 rune on two units
+            # friendly to the dead unit."
+            one = resolve.frame("orpal_gloor_max", match.active, tokens.hero("orpal_gloor"),
+                                origin="orpal_gloor")
+            one["against"] = seat
+            frames.append(one)
         for watcher, slug in witnesses["bugblatters"]:
             frames.append(resolve.frame(
                 effects.ON_ANY_DEATH[slug], watcher, tokens.card(slug), origin=slug,
@@ -567,7 +593,33 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
     resolve.push(match, *frames)
 
 
+def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
+    """Whether an Orpal Gloor at 6 is in play whose "first time each turn"
+    has not been spent -- spending it."""
+    slug, level = effects.ORPAL_MAX
+    for player in match.players:
+        for hero in player.heroes_in_play:
+            if hero.slug == slug and hero.level >= level:
+                if any(m.get("kind") == "once" and m.get("effect") == "orpal_gloor_max"
+                       for m in hero.modifiers):
+                    return False
+                hero.modifiers.append({"kind": "once", "effect": "orpal_gloor_max",
+                                       "until": "end_of_turn"})
+                return True
+    return False
+
+
 # -- Arriving (step 11) ---------------------------------------------------------
+
+
+def add_minus_rune(body, count: int = 1) -> None:
+    """-1/-1 runes onto a unit or hero, each cancelling a +1/+1 rune first
+    (UMR p. 13)."""
+    for _ in range(count):
+        if body.plus_runes:
+            body.plus_runes -= 1
+        else:
+            body.minus_runes += 1
 
 
 def add_plus_rune(body, count: int = 1) -> None:
@@ -595,11 +647,16 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
     if fading:
         # Fading X: "Arrives with X time runes" (UMR p. 17).
         card.time_runes = fading
-    resolve.push(match, *(
+    frames = [
         resolve.frame(effect, seat, tokens.card(card.slug), source=card.ref, boosted=boosted,
                       origin=card.slug)
         for effect in effects.triggers(card.slug, "arrives")
-    ))
+    ]
+    for one in frames:
+        if from_hand:
+            # Zarramonde's "If you played Zarramonde from your hand".
+            one["from_hand"] = True
+    resolve.push(match, *frames)
     if engine.catalog.cards[card.slug].is_unit:
         _grow_on_arrival(match, seat, card)
         lasting_armor(match, card)
@@ -648,7 +705,8 @@ def _grow_on_arrival(match: MatchState, seat: int, body) -> None:
 
 
 def summon(engine: "RulesEngine", match: MatchState, slug: str, seat: int,
-           count: int, result: StepResult, by: str = "") -> list[CardInstance]:
+           count: int, result: StepResult, by: str = "",
+           made_by: Optional[int] = None) -> list[CardInstance]:
     """`count` tokens of `slug` summoned for `seat` -- theirs, arriving
     as any unit does (UMR p. 13, 15) -- said in one line."""
     made = []
@@ -660,6 +718,7 @@ def summon(engine: "RulesEngine", match: MatchState, slug: str, seat: int,
             match.record_event("summoned_token", slug=slug, seat=seat)
             continue
         card = match.new_instance(slug, seat)
+        card.made_by = made_by
         match.record_event("summoned_token", slug=slug, seat=seat)
         arrive(engine, match, card)
         made.append(card)
