@@ -1,10 +1,12 @@
 """What the Tethys deck is: the suits, the ranks, which card is Fortune
 and which Doom, and how a card's value is made of pieces.
 
-The fate rule is the author's (2026-10-08), and the table in the "Thetys
-Deck" tab of the World Building sheet is built from the same two inputs
-per suit: the odd cards' fate, and which parity Left sits with. Right is
-the other one. So every suit is six Fortune and six Doom.
+The fate rule is the author's (2026-10-08, the rulers freed 2026-10-09),
+and the table in the "Thetys Deck" tab of the World Building sheet is built
+from the same two inputs per suit: the odd cards' fate, and Left's fate.
+The evens and Right are the other one. So every suit is six Fortune and
+six Doom; Left is Fortune in three suits and Doom in three, and whether it
+sits with the odds falls out (four suits) rather than being the rule.
 """
 
 SUITS = ["money", "might", "fiends", "tools", "states", "fools"]  # the sheet's order
@@ -12,8 +14,8 @@ RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
 
 ODD_FATE = {"money": "fortune", "might": "fortune", "states": "fortune",
             "tools": "doom", "fiends": "doom", "fools": "doom"}
-LEFT_WITH = {"money": "odds", "tools": "odds", "might": "odds",
-             "fiends": "evens", "states": "evens", "fools": "evens"}
+LEFT_FATE = {"money": "fortune", "might": "doom", "fiends": "fortune",
+             "tools": "doom", "states": "fortune", "fools": "doom"}  # alternating down the sheet
 
 
 def other(fate: str) -> str:
@@ -22,12 +24,11 @@ def other(fate: str) -> str:
 
 def fate_of(suit: str, rank: str) -> str:
     """Fortune or Doom, for one card."""
-    odd, even = ODD_FATE[suit], other(ODD_FATE[suit])
     if rank == "Left":
-        return odd if LEFT_WITH[suit] == "odds" else even
+        return LEFT_FATE[suit]
     if rank == "Right":
-        return even if LEFT_WITH[suit] == "odds" else odd
-    return odd if int(rank) % 2 else even
+        return other(LEFT_FATE[suit])
+    return ODD_FATE[suit] if int(rank) % 2 else other(ODD_FATE[suit])
 
 
 # A card's value: its number; the two rulers share the suit's power equally

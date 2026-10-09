@@ -13,12 +13,23 @@ unless said otherwise.
 Money, Might, Fiends, Tools, States, Fools (the order of the "Thetys
 Deck" tab of the World Building sheet, which also holds the table below),
 each the numbers 1 to 10 and two rulers, Left and Right. **The fate
-rule** has two inputs per suit: the odd cards' fate, and which parity
-Left sits with; Right is the other one. Money, Might and States are
-Fortune on the odds; Tools, Fiends and Fools on the evens; Left sits with
-the odds for Money, Tools and Might and with the evens for the rest. So
-every suit is six and six, 36 and 36 in all. `deck.fate_of` is the one
+rule** has two inputs per suit: the odd cards' fate, and Left's fate;
+the evens and Right are the other one. Money, Might and States are
+Fortune on the odds, Tools, Fiends and Fools on the evens; Left is
+Fortune in Money, Fiends and States and Doom in Might, Tools and Fools,
+alternating down the sheet. So every suit is six and six, 36 and 36 in
+all, and the rulers are split three and three. `deck.fate_of` is the one
 reading of it and `tests/test_tethys_deck.py` holds the table.
+
+Left used to sit with the odds or the evens as a second input, which
+left it Fortune in four suits. The author wanted the rulers "split
+between fortune and doom and not always match left to odds"
+(2026-10-09). With six suits you can balance any two of these three but
+never all three: the odds Fortune in three suits, Left Fortune in three,
+Left with the odds in three. If the first two hold, Left sits with the
+odds in an even number of suits -- twice the number where both the odds
+and Left are Fortune -- so four here (Money, Tools, States, Fools) and
+with the evens in two (Might, Fiends). The author kept the first two.
 
 ## Why the cards are drawn by code
 

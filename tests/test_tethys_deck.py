@@ -10,11 +10,11 @@ from tethysdeck import deck
 # The author's rule, as the World Building sheet's table holds it.
 EXPECTED = {
     "money": ("fortune", "doom", "fortune", "doom"),
-    "might": ("fortune", "doom", "fortune", "doom"),
+    "might": ("fortune", "doom", "doom", "fortune"),
     "fiends": ("doom", "fortune", "fortune", "doom"),
     "tools": ("doom", "fortune", "doom", "fortune"),
-    "states": ("fortune", "doom", "doom", "fortune"),
-    "fools": ("doom", "fortune", "fortune", "doom"),
+    "states": ("fortune", "doom", "fortune", "doom"),
+    "fools": ("doom", "fortune", "doom", "fortune"),
 }  # odd cards, even cards, Left, Right
 
 
@@ -25,6 +25,12 @@ class FateRuleTests(unittest.TestCase):
                 self.assertEqual(deck.fate_of(suit, rank), odd if int(rank) % 2 else even, (suit, rank))
             self.assertEqual(deck.fate_of(suit, "Left"), left, suit)
             self.assertEqual(deck.fate_of(suit, "Right"), right, suit)
+
+    def test_the_rulers_are_split_between_the_fates(self):
+        lefts = [deck.fate_of(suit, "Left") for suit in deck.SUITS]
+        self.assertEqual(lefts.count("fortune"), 3)
+        for suit in deck.SUITS:
+            self.assertNotEqual(deck.fate_of(suit, "Left"), deck.fate_of(suit, "Right"), suit)
 
     def test_every_suit_is_six_and_six(self):
         for suit in deck.SUITS:
