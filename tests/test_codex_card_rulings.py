@@ -24,7 +24,7 @@ from unittest import mock
 
 from codex import effects, rulings
 from codex.components import AddOnState
-from codex.effects import BASIC_SET
+from codex.effects import BASIC_SET, GREEN, RED
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
@@ -33,6 +33,10 @@ from codex_positions import TROQ, begin, built, hand, hero, hero_in_play, new_ga
 #: How many rulings the basic set's cards carry at the pinned import
 #: (`SOURCE_SHA` in `scripts/import_codex_cards.py`).
 CARD_RULINGS = 28
+
+#: Step 11: the rulings on red's and green's cards, heroes and tokens --
+#: 88 on the cards and 13 on the four heroes.
+RED_GREEN_RULINGS = 101
 
 
 def bashing():
@@ -1970,10 +1974,14 @@ class DrakkRulingTests(unittest.TestCase):
         """There are many ways to get units other than "arriving from your
         hand." If you play a spell from your hand that summons units, such
         as Murkwood Allies, that does not count as the unit "arriving from
-        your hand." You can get units in these various ways and still have
-        Drakk's max level ability trigger that turn once you finally have a
-        unit actually arrive from your hand for the first time that
-        turn."""
+        your hand." If you play a unit and it goes to an opponent's Jail,
+        then play another unit so your first unit arrives from Jail, it
+        never "arrived from your hand." If you play a forecasted unit, it
+        goes to the future, then it later arrives from that zone, so it
+        never "arrived from your hand" either. You can get units in these
+        various ways and still have Drakk's max level ability trigger that
+        turn once you finally have a unit actually arrive from your hand for
+        the first time that turn."""
         engine, game, match = red_green(teams=(("blood", "feral", "growth"), ("anarchy", "fire", "balance")))
         hero_in_play(match, 1, slug="drakk_ramhorn", level=6)
         hero_in_play(match, 1, slug="calamandra_moss")
@@ -2012,6 +2020,134 @@ class DrakkRulingTests(unittest.TestCase):
         self.match.player(1).hero.zone = "command"
         self.assertTrue(self.engine.has_keyword(ogre, "Haste", self.match))
         self.assertIn({"kind": "keyword", "keyword": "Haste", "until": None}, ogre.modifiers)
+
+
+def end_turn(engine, game, match):
+    """The active player's main phase ended, nothing patrolling: the
+    draw, the end of the turn, and the next player's upkeep."""
+    apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+    return apply(engine, game, match, PromptKind.PATROL, assignment={})
+
+
+class UpkeepAndEndOfTurnRulingTests(unittest.TestCase):
+    def test_bloodrage_ogre_1(self) -> None:
+        """He returns to your hand AFTER the draw/discard phase."""
+        engine, game, match = red_green()
+        ogre = put(match, 1, "bloodrage_ogre")
+        hand(match, 1, "mad_man")
+        run = end_turn(engine, game, match)
+        self.assertIsNone(match.player(1).instance(ogre.id))
+        # Discarded 1, drew 3, and the Ogre came back after.
+        self.assertEqual(len(match.player(1).hand), 4)
+        self.assertIn("bloodrage_ogre", match.player(1).hand)
+        text = said(run)
+        self.assertLess(text.index("draws 3"), text.index("{card:bloodrage_ogre} returns"))
+
+    def test_bloodrage_ogre_2(self) -> None:
+        """The "End of Turn" ability only triggers on his controller's
+        turn."""
+        engine, game, match = red_green()
+        ogre = put(match, 2, "bloodrage_ogre")
+        end_turn(engine, game, match)
+        self.assertIsNotNone(match.player(2).instance(ogre.id))
+
+    def test_chameleon_lizzo_1(self) -> None:
+        """He returns to your hand AFTER the draw/discard phase."""
+        engine, game, match = red_green()
+        lizzo = put(match, 1, "chameleon_lizzo")
+        hand(match, 1)
+        end_turn(engine, game, match)
+        self.assertIsNone(match.player(1).instance(lizzo.id))
+        self.assertEqual(len(match.player(1).hand), 3)
+        self.assertIn("chameleon_lizzo", match.player(1).hand)
+
+    def test_chameleon_lizzo_2(self) -> None:
+        """He will return to your hand at the end of each turn. So if he's in
+        play on your opponent's turn for some reason, he'll return to your
+        hand after your opponent's draw/discard phase."""
+        engine, game, match = red_green()
+        lizzo = put(match, 2, "chameleon_lizzo")
+        end_turn(engine, game, match)
+        self.assertIsNone(match.player(2).instance(lizzo.id))
+        self.assertIn("chameleon_lizzo", match.player(2).hand)
+
+    def test_dothram_horselord_1(self) -> None:
+        """Dothram Horselord himself counts in computing a player's total
+        ATK."""
+        engine, game, match = red_green()
+        dothram = put(match, 2, "dothram_horselord")
+        put(match, 1, "iron_man")
+        put(match, 1, "tiger_cub")
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 2)
+        self.assertEqual(dothram.controller, 2, "6 against 5: his own 6 counted")
+
+    def test_dothram_horselord_2(self) -> None:
+        """Effects that happen once (rather than continuously), such as
+        Final Smash stealing control of unit or Community Service giving you
+        control of an opponent's unit, DO get overridden by Dothram
+        Horselord's ability, because newer triggers beat older triggers."""
+        engine, game, match = red_green(first=2)
+        dothram = put(match, 2, "dothram_horselord")
+        board.gain_control(match, dothram, 1)
+        put(match, 2, "oversized_rhinoceros")
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 1)
+        self.assertEqual(dothram.controller, 2, "7 against his 6: back he goes")
+
+    def test_galina_glimmer_1(self) -> None:
+        """Galina Glimmer herself is a green unit, so she counts in the
+        total."""
+        engine, game, match = red_green()
+        put(match, 2, "galina_glimmer")
+        put(match, 2, "tiger_cub")
+        gold = match.player(2).gold
+        end_turn(engine, game, match)
+        workers = match.player(2).workers
+        self.assertEqual(match.player(2).gold, gold + workers + 1)
+
+    def test_galina_glimmer_2(self) -> None:
+        """If you have 3 green units, you still get only 1 gold, not 1.5
+        gold."""
+        engine, game, match = red_green()
+        put(match, 2, "galina_glimmer")
+        put(match, 2, "tiger_cub")
+        put(match, 2, "wisp")
+        put(match, 1, "tiger_cub")
+        gold = match.player(2).gold
+        end_turn(engine, game, match)
+        self.assertEqual(match.player(2).gold, gold + match.player(2).workers + 1)
+
+    def test_kidnapping_1(self) -> None:
+        """If the unit you steal does not die (or otherwise leave play) on
+        your turn, then whichever player you stole it from regains control
+        of it at the end of your turn."""
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        hero_in_play(match, 1)
+        cub = put(match, 2, "tiger_cub")
+        cast(engine, game, match, "kidnapping", gold=4)
+        self.assertEqual(cub.controller, 1)
+        run = end_turn(engine, game, match)
+        self.assertEqual(cub.controller, 2)
+        self.assertIsNone(cub.returns_to)
+        self.assertIn("{card:tiger_cub} goes back to {player:2}", said(run))
+
+    def test_land_octopus_1(self) -> None:
+        """If you choose to sacrifice workers, they are trashed. They don't
+        go to the discard pile."""
+        engine, game, match = red_green()
+        octopus = put(match, 2, "land_octopus")
+        discard = list(match.player(2).discard)
+        workers = match.player(2).workers
+        end_turn(engine, game, match)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.MODE_CHOICE)
+        self.assertEqual([key for key, _ in prompt.options.modes], ["workers", "itself"])
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="workers")
+        self.assertEqual(match.player(2).workers, workers - 2)
+        self.assertIsNotNone(match.player(2).instance(octopus.id))
+        self.assertEqual(match.player(2).discard[:len(discard)], discard)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
 
 
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
@@ -2061,6 +2197,25 @@ class EveryCardRulingIsPinnedTests(unittest.TestCase):
                     for sentence in _sentences(doc):
                         self.assertIn(sentence, text)
 
+
+
+class EveryRedAndGreenRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
+    """Step 11's ratchet: the same three checks over every red and green
+    card, hero and token."""
+
+    def _rulings(self) -> dict:
+        return {
+            slug: rulings.rulings_for(slug)
+            for slug in sorted(RED | GREEN) if rulings.rulings_for(slug)
+        }
+
+    def test_the_count_is_pinned(self) -> None:
+        total = sum(len(found) for found in self._rulings().values())
+        self.assertEqual(
+            total, RED_GREEN_RULINGS,
+            f"red's and green's cards carry {total} rulings, not {RED_GREEN_RULINGS}: "
+            "a re-import changed them, and each needs its test",
+        )
 
 def _collapse(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()

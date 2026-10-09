@@ -795,10 +795,20 @@ class TurnPanelView(PanelView):
         "starlet": "Star-Crossed Starlet takes her damage first",
     }
 
+    def upkeep_label(self, effect: str) -> str:
+        """An upkeep effect's button: the two the basic set orders by
+        their own words, and red and green's by the card whose it is."""
+        if effect in self.UPKEEP_LABELS:
+            return self.UPKEEP_LABELS[effect]
+        kind, _, ident = effect.partition(":")
+        if ident:
+            return f"{self.label(f'unit:{ident}')} first"
+        return effect
+
     def build_upkeep(self, options) -> None:
         for effect in options.effects:
             self.button(
-                self.UPKEEP_LABELS.get(effect, effect), discord.ButtonStyle.primary,
+                self.upkeep_label(effect), discord.ButtonStyle.primary,
                 self._upkeep(effect), row=0,
             )
 

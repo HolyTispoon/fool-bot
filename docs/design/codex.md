@@ -238,9 +238,11 @@ on the other player's turn, a dozen actions in one turn, and undo.
 | `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
 | `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
 | `OBLITERATE_CHOICE`, `SPARKSHOT_TARGET`, `OVERPOWER_TARGET` | the active player | the three choices inside an attack, each asked only where there is something to choose ("The keywords", below) |
-| `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below) |
+| `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below); since step 11 a part that picks *up to* some number offers `done`, and a pick from the asked player's own hand or codex is a private ref (`hand:<slug>`, `codex:<slug>`) the bot pictures to them alone ("Red and green", below) |
+| `DIVIDE_DAMAGE` | the active player | where the next point of a divided damage goes (Ember Sparks, Burning Volley), one point a click until the amount is placed, or `cancel` ("Red and green", below) |
+| `MODE_CHOICE` | the effect's controller | which of a "choose one" spell's modes -- or Land Octopus's upkeep choice -- is done; never asked when boosted, since "if you boosted, choose both", or where only one mode can be done |
 | `APPEL_STOMP_TOP` | the active player | `top` or `discard`: where Appel Stomp goes once it has resolved |
-| `UPKEEP_ORDER` | the active player | which of healing and Star-Crossed Starlet's damage goes first, asked only where both are due |
+| `UPKEEP_ORDER` | the active player | which of the upkeep effects whose order changes something goes first -- healing beside Star-Crossed Starlet's damage, and since step 11 Dothram Horselord beside a death or a sacrifice; never a gain ("Red and green", below) |
 | `GAME_OVER` | nobody | a base is destroyed (UMR p. 2), or a player conceded (`MatchState.conceded`); answering it is always refused -- playing again is a new record (`GameService.rematch`), not an answer ("The end of a game", below) |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
@@ -329,7 +331,8 @@ tables in `codex.effects` ("Targeting and the effects", below). **It is
 not empty since step 10**, which landed red and green played for their
 numbers: 90 slugs, every red or green card, hero and token whose text is
 more than keywords the engine reads -- the six heroes' bands among them
--- written out and pinned. Step 11 empties it again.
+-- written out and pinned. **Step 11 emptied it again**, in five commits
+("Red and green", below), and `test_unimplemented_is_empty` holds it there.
 
 - **The landed set and the landed colours are one decision in two
   places.** `codex.effects.LANDED_SET` is every card the engine reads --
@@ -656,6 +659,105 @@ Every line is the model's, with tokens: "{card:spark} deals 1 to
 drawn is a count, never a name -- Appel Stomp's draw, the surplus's -- and
 a card returned to a hand is named, since it was in play.
 
+### Red and green
+
+Step 11 made every red and green card, hero and token do what it says,
+in five commits -- the keywords, the costs and resources, the spells,
+triggers and abilities, the static grants and printed overrides, and the
+upkeep, the end of the turn and the tokens -- `UNIMPLEMENTED` shrinking
+in each and empty at the end. The General rulings of the keywords it
+added are pinned in `tests/test_codex_keywords.py` (fourteen), and every
+ruling on the pair's cards and heroes in `tests/test_codex_card_rulings.py`
+(101: 88 on the cards, 13 on the heroes), each test's docstring the
+ruling's own words and a ratchet counting them.
+
+- **The keywords added**: deathtouch (one damage that lands destroys --
+  so `lethal_damage` is 1, and overpower or Stampede carries the rest on,
+  UMR p. 18), long-range (no damage
+  back from the defender, `damage_back`), ephemeral (dies at the end of
+  any turn), untargetable (out of `target_rows`, never out of combat),
+  boost X (below) and channeling. `read_keywords` reads a line of
+  keywords joined by commas whole -- "Flying, haste, long-range, resist 2"
+  -- and a line with anything else in it as nothing, so a sentence is
+  never half-read. **What stacks** is unchanged from step 5: resist,
+  frenzy, obliterate and armor add up, a keyword with no number does not.
+  A keyword a card has only while the position says so -- Tiny
+  Basilisk's against tech 0, Stalking Tiger's stealth on its own turn,
+  Midori's flying at 8, Mimic's -- is the engine's `_conditioned_keywords`,
+  never a saved modifier.
+- **Boost** is offered beside a card's play, as `PlayableCard.boost` with
+  its own why-not; a boosted play is one more argument on the same
+  action (`play`, `boost=True`), the frame carries `boosted`, and a part
+  marked `when="boosted"` or a mode choice reads it. A card put into play
+  by something else (Feral Strike, Sanatorium, Cinderblast Dragon's free
+  spell) is never boosted: boost is paid "when you play this".
+- **The printed override and the order of grants.** What a card is
+  before anything grants it something is its `printed` dict -- Chaos
+  Mirror's swapped ATK, Polymorph: Squirrel (a 1/1 green Squirrel with no
+  abilities, its runes, damage and attachments kept), Mimic's copy. A
+  card's numbers and keywords are then a `Profile` built from that base,
+  with every grant applied **in the order it began to apply**: a grant's
+  time is the later of its source's and the unit's own `sequence`
+  (`MatchState.next_sequence`, given out as anything enters play, and to
+  a hero's band as it is reached), and on a tie "has no abilities" goes
+  first -- so Master Midori's "units with no abilities get +1/+1" is lost
+  by a unit given an ability after it, and kept by one given it before
+  (the FAQ's Behind the Ferns and Midori examples).
+- **Control that returns.** Kidnapping sets `returns_to` on the unit
+  it steals; the end of that turn gives it back where it is still in
+  play (its ruling). Dothram Horselord changes sides at his controller's
+  upkeep to whoever has the greater total ATK (units and heroes, him
+  included), which overrides an older one-time steal ("newer triggers
+  beat older triggers", his ruling).
+- **The coin in the journal.** Rickety Mine's flip is `engine.flip_coin`,
+  drawn from `rng` and recorded in `StepResult.drawn` as
+  `["@coin", side]` beside the shuffles, so a replayed journal lands the
+  same side byte for byte (`test_rickety_mines_coin_is_replayed_byte_for_byte`).
+- **The trash** is out of the game: in no pile and no count, never a
+  death (`board.trash`). A trashed worker is a count down
+  (`trash_worker`), so Land Octopus's two workers and a hire's card are
+  never named. A **sacrificed unit dies**, though -- the rulebook's
+  "Dies" covers it -- so its dies triggers and Bloodburn's rune fire.
+- **The end of the turn**, after the draw and before the buildings
+  finish (`turn.end_of_turn`), on both sides, in this order: every
+  ephemeral unit dies; Bloodrage Ogre returns to its owner's hand where
+  it neither arrived nor attacked this turn, on its controller's turn
+  alone; Chameleon Lizzo returns at the end of any turn; Bloodlust's 1
+  damage; a kidnapped unit goes back. What that sets off resolves before
+  the tech choice is asked. This turn's modifiers, armor and Chaos
+  Mirror's swap go in `begin_tech`; Polymorph and Ferocity last until
+  their caster's next upkeep.
+- **The tokens' limits.** A token carries a limit only where its card
+  prints one: Harmony's Dancers (3, the Angry Dancers and a polymorphed
+  Dancer counted, a stolen one taking a side past it) and Bloodburn's
+  blood runes (4). Every other token -- Squirrels, Hunters, the borrowed
+  Shark and Water Elemental (`BORROWED_TOKENS`, landed beside the pair)
+  -- is unbounded.
+- **The two prompt kinds.** `DIVIDE_DAMAGE` places divided damage a
+  point a click, the split saved on the frame, Hotter Fire's +1 added
+  once to the total; `MODE_CHOICE` asks a "choose one" -- never when
+  boosted. Both are buttons on the panel. A `TARGET` over the asked
+  player's own hand or codex (Sanatorium, Feral Strike, Cinderblast
+  Dragon, Calamandra's discard) is pictured to them alone
+  (`private_choices`); the cog test holds none of it reaches the channel,
+  and Feral Strike's fetch is named because the card says "reveal them".
+- **Which upkeep orders are asked.** The upkeep is a frame on the stack
+  (`upkeep_order`, with `due` and `ordered`, an older frame without them
+  recomputed). A gain -- the surplus's draw, Gemscout Owl's gold,
+  Galina's -- changes nothing about the rest and is run, not asked. The
+  order is asked only where it decides something: healing beside
+  Star-Crossed Starlet, and Dothram beside a death or a sacrifice
+  (Starlet's damage, Land Octopus's choice), since his side follows the
+  total ATK. Land Octopus's own choice is a `MODE_CHOICE`, asked even
+  alone, and only "workers" where two can be trashed.
+- **Hotter Fire** is `engine.damage_bonus`, read off the frame's
+  `origin` -- the red card the effect came from, so a granted dies line
+  ("Pirate-Gang Commander's") and Rickety Mine's tails count -- and never
+  combat damage.
+- **A position settles whenever the stack empties**, not only when a
+  frame finishes, so a second copy of a legendary unit played with
+  nothing to resolve -- a second Galina -- is destroyed on arrival.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -707,6 +809,18 @@ match as its saved dict, as D12 Ball's record does; its file,
   string read as a list of one), `player_decks` (every seated seat
   "neutral" where the key is missing) and `rematch_decks` beside
   `rematch_specs`.
+
+- **Step 11 added twelve**, each with its fallback: on a card `runes`
+  (`{}`: blood, growth and feather runes beside the +1/+1 and -1/-1),
+  `returns_to` (`None`: whom a stolen card goes back to), `attached_hero`
+  (`None`: a hero Spirit of the Panda or Final Showdown is on), `printed`
+  (`None`: the printed override) and `sequence` (0); on a hero `printed`
+  (`None`) and `bands` (`{}`: when each band was reached); on a side
+  `discards_at_main_end` (false, Desperation), `spells_played` (0),
+  `peace` (false, Moment's Peace) and `arrived_from_hand` (false, Drakk's
+  first unit); and `sequence` (0) on the match. A save made before step 11
+  reads every card and band as having entered at 0, so its grants apply
+  in the order the ids give.
 
 ### What the narration may say
 

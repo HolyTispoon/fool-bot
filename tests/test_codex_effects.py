@@ -67,6 +67,8 @@ def _handled(slug: str) -> list[str]:
         "GRANTS_DIES", "STEALS_ON_PATROLLER_KILL", "TRASHES_WORKER_ON_BASE_DAMAGE",
         "ON_DAMAGING_A_BUILDING", "GROWTH_RUNES", "AFTER_COMBAT", "ATTACHING",
         "UNIT_GRANTS", "HERO_GRANTS", "ATTACHED_UNIT_GRANTS",
+        "UPKEEP_GOLD", "UPKEEP_GREEN_GOLD", "UPKEEP_CHOICE", "JOINS_THE_STRONGER",
+        "RETURNS_IF_IDLE", "RETURNS_AT_END",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -90,15 +92,9 @@ def _handled(slug: str) -> list[str]:
     return found
 
 
-#: What step 11 has still to land, commit by commit: the set empties as
-#: each commit gives its cards their handlers, and is empty at the end.
-REMAINING = frozenset({
-    # Red.
-    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "kidnapping",
-    "land_octopus",
-    # Green.
-    "dothram_horselord", "galina_glimmer", "gemscout_owl",
-})
+#: What step 11 has still to land: nothing. The set emptied commit by
+#: commit as each gave its cards their handlers.
+REMAINING = frozenset()
 
 
 #: The red and green cards whose whole text is keywords the engine
@@ -122,12 +118,12 @@ def _lines(slug: str) -> list[str]:
 
 
 class UnimplementedTests(unittest.TestCase):
-    def test_the_set_is_what_step_11_has_not_landed(self) -> None:
-        """Step 11 empties the set step 10 filled with red and green's
-        text, commit by commit: what is left is exactly `REMAINING`, and
-        nothing of the basic set."""
+    def test_unimplemented_is_empty(self) -> None:
+        """Step 11 emptied the set step 10 filled with red and green's
+        text: every red and green card, hero and token does what it
+        says."""
         self.assertEqual(effects.UNIMPLEMENTED, REMAINING)
-        self.assertFalse(effects.UNIMPLEMENTED & effects.BASIC_SET)
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
 
     def test_the_landed_set_is_the_basic_set_and_red_and_green(self) -> None:
         cards = catalog()

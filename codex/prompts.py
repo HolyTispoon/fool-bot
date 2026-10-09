@@ -508,11 +508,13 @@ def _appel_ask(seat: int) -> str:
     )
 
 
-def _upkeep_ask(seat: int) -> str:
-    return (
-        f"{tokens.player(seat)}, your upkeep: heal first, or "
-        f"{tokens.card('starcrossed_starlet')} takes her damage first?"
-    )
+def _upkeep_ask(seat: int, effects_due=("healing", "starlet")) -> str:
+    if tuple(effects_due) == ("healing", "starlet") or set(effects_due) == {"healing", "starlet"}:
+        return (
+            f"{tokens.player(seat)}, your upkeep: heal first, or "
+            f"{tokens.card('starcrossed_starlet')} takes her damage first?"
+        )
+    return f"{tokens.player(seat)}, your upkeep: which of its effects goes next?"
 
 
 def _level_ask(seat: int, owner: int) -> str:
@@ -586,7 +588,9 @@ def _appel_options(engine, game, match, prompt) -> AppelOptions:
 
 
 def _upkeep_options(engine, game, match, prompt) -> UpkeepOrderOptions:
-    return UpkeepOrderOptions(prompt.asked_player)
+    from codex.flow.turn import upkeep_asks
+
+    return UpkeepOrderOptions(prompt.asked_player, tuple(upkeep_asks(match) or ()))
 
 
 def _level_options(engine, game, match, prompt) -> LevelGainOptions:
@@ -736,7 +740,10 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
         if kind == "appel_top":
             return PendingPrompt(PromptKind.APPEL_STOMP_TOP, _appel_ask(top["seat"]), top["seat"])
         if kind == "upkeep_order":
-            return PendingPrompt(PromptKind.UPKEEP_ORDER, _upkeep_ask(top["seat"]), top["seat"])
+            from codex.flow.turn import upkeep_asks
+
+            return PendingPrompt(PromptKind.UPKEEP_ORDER,
+                                 _upkeep_ask(top["seat"], upkeep_asks(match) or ()), top["seat"])
         if kind == "level_gain":
             asked = top.get("asked", seat)
             return PendingPrompt(PromptKind.LEVEL_GAIN, _level_ask(asked, top["seat"]), asked)

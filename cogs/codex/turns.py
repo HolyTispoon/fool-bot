@@ -72,6 +72,8 @@ def private_choices(prompt: PendingPrompt) -> list[str]:
         return []
     return [row.ref.split(":", 1)[1] for row in prompt.options.targets
             if row.ref.startswith((HAND, CODEX))]
+
+
 NOTHING_ASKED = "Nothing is asked of you now."
 STEP_OWED = (
     "The game has a step of its own to run before anybody is asked anything: "

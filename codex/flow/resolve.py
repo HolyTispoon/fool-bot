@@ -237,6 +237,12 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             _choose(engine, match, top, part, rows[0], result)
             continue
         return False
+    # The stack empty, the position's own consequences: a card played
+    # with nothing to resolve -- a second copy of a legendary unit, say --
+    # is settled here, and what that sets off is worked in turn.
+    board.settle(engine, match, result)
+    if match.resolving and match.winner is None:
+        return run(engine, match, result)
     return True
 
 
@@ -247,7 +253,13 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     attacks triggers it was resolving goes on to its damage
     (`codex.flow.combat`), and otherwise the main phase is asked again.
     """
-    if run(engine, match, result) and match.combat is not None and match.winner is None:
+    done = run(engine, match, result)
+    if not done and match.resolving and match.resolving[0].get("kind") == UPKEEP_ORDER:
+        # Under way in an upkeep: the upkeep goes on (`codex.flow.turn`).
+        from codex.flow import turn
+
+        return turn.carry_on_upkeep(engine, game, match, result)
+    if done and match.combat is not None and match.winner is None:
         from codex.flow import combat
 
         return combat.carry_on(engine, game, match, result)
@@ -1166,6 +1178,25 @@ def _polymorph(engine, match, top, part, target, result) -> None:
     )
 
 
+def _trash_workers(engine, match, top, part, target, result) -> None:
+    """Land Octopus's two workers, sacrificed -- and so trashed (its
+    ruling)."""
+    seat = top["seat"]
+    gone = sum(1 for _ in range(part.amount) if board.trash_worker(match, seat))
+    result.narration.append(
+        f"{tokens.player(seat)} sacrifices {gone} workers to {top['by']}: "
+        f"{match.player(seat).workers} left."
+    )
+
+
+def _sacrifice_self(engine, match, top, part, target, result) -> None:
+    card = board.body_of(match, top["seat"], top["source"])
+    if card is None:
+        return
+    result.narration.append(f"{tokens.player(top['seat'])} sacrifices {top['by']}.")
+    board.sacrifice(engine, match, card)
+
+
 def _shove(engine, match, top, part, target, result) -> None:
     """Zane's shove, first: the patroller chosen; its new slot is the next
     part's, and its damage the one after."""
@@ -1261,6 +1292,8 @@ DOES = {
     "firebird": _firebird,
     "shove": _shove,
     "mirror": _mirror,
+    "trash_workers": _trash_workers,
+    "sacrifice_self": _sacrifice_self,
     "polymorph": _polymorph,
     "shove_slot": _shove_slot,
     "damage_shoved": _damage_shoved,

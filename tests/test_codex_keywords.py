@@ -67,6 +67,7 @@ STEP_11_KEYWORDS = {
     "Untargetable": 1,
     "Boost X": 3,
     "Channelling": 1,
+    "Limit: X": 4,
 }
 
 
@@ -1367,6 +1368,75 @@ class ChannellingTests(KeywordCase):
         board.settle(engine, match, StepResult())
         self.assertIsNone(match.player(1).instance(drums.id))
         self.assertIn("war_drums", match.player(1).discard)
+
+
+class LimitTests(KeywordCase):
+    """Harmony's Dancers are the one token of red, green and the basic set
+    with a limit (docs/design/codex.md, "Red and green")."""
+
+    def setUp(self) -> None:
+        from test_codex_card_rulings import finesse
+        self.engine, self.game, self.match = finesse()
+        hero_in_play(self.match, 2)
+        put(self.match, 2, "harmony")
+
+    def spell(self) -> None:
+        from test_codex_card_rulings import cast
+        put(self.match, 1, "older_brother", patrol="elite")
+        cast(self.engine, self.game, self.match, "spark")
+
+    def dancers(self, seat: int = 2) -> list:
+        return [card for card in self.match.player(seat).play
+                if card.slug in ("dancer", "angry_dancer")]
+
+    def test_limit_x_1(self) -> None:
+        """Limit: X is a rule that applies to some kinds of tokens. It means
+        "If summoning the number of tokens indicated by an ability would
+        cause you to have X or more of that kind of token in play, instead
+        only summon enough tokens to bring your number of copies of that
+        token up to X.\""""
+        put(self.match, 2, "dancer")
+        put(self.match, 2, "angry_dancer")
+        self.spell()
+        self.assertEqual(len(self.dancers()), 3)
+        self.match.player(2).gold = 20
+        self.match.player(1).play[:] = [
+            card for card in self.match.player(1).play if card.slug != "older_brother"
+        ]
+        self.spell()
+        self.assertEqual(len(self.dancers()), 3, "three is Harmony's limit")
+
+    def test_limit_x_2(self) -> None:
+        """You might still end up having more than X of a token in play, for
+        example if you steal them from your opponent."""
+        for _ in range(3):
+            put(self.match, 2, "dancer")
+        stolen = put(self.match, 1, "dancer")
+        board.gain_control(self.match, stolen, 2)
+        self.assertEqual(len(self.dancers()), 4)
+        self.spell()
+        self.assertEqual(len(self.dancers()), 4, "none summoned past the limit, none lost")
+
+    def test_limit_x_3(self) -> None:
+        """When a card specifies that Limit: X applies to one way of creating
+        tokens, that limit applies to all ways of creating that kind of
+        token in the whole game."""
+        # Harmony is the only way red, green and the basic set make a
+        # Dancer, so the limit is counted where every Dancer comes from:
+        # the Dancers in play, whatever summoned them.
+        for _ in range(3):
+            put(self.match, 2, "dancer")
+        self.spell()
+        self.assertEqual(len(self.dancers()), 3)
+
+    def test_limit_x_4(self) -> None:
+        """Limit: X on some kind of token applies to things that are that
+        token before considering copy effects or Polymorph: Squirrel."""
+        for _ in range(3):
+            put(self.match, 2, "dancer")
+        self.dancers()[0].printed = {"polymorph": 1}
+        self.spell()
+        self.assertEqual(len(self.dancers()), 3, "the Squirrel is still a Dancer")
 
 
 class ConditionedKeywordTests(KeywordCase):

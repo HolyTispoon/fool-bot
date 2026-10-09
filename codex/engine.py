@@ -2327,19 +2327,51 @@ class RulesEngine:
         add_on = player.add_on
         if add_on is not None and add_on.active and add_on.slug in effects.UPKEEP_DRAW:
             found.append("draw")
+        texts = [self.text_slug(card) for card in player.play]
+        # Red and green's gains (step 11): Gemscout Owl's and Galina's.
+        if any(slug in effects.UPKEEP_GOLD for slug in texts):
+            found.append("owl")
+        if any(slug in effects.UPKEEP_GREEN_GOLD for slug in texts):
+            found.append("galina")
         if self.healing(player):
             found.append("healing")
-        if any(self.text_slug(card) in effects.UPKEEP_SELF_DAMAGE for card in player.play):
+        if any(slug in effects.UPKEEP_SELF_DAMAGE for slug in texts):
             found.append("starlet")
+        # One each: Land Octopus's choice, Dothram Horselord's side.
+        found += [f"octopus:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.UPKEEP_CHOICE]
+        found += [f"dothram:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.JOINS_THE_STRONGER]
         return tuple(found)
 
+    def upkeep_ordered(self, due) -> tuple[str, ...]:
+        """
+        Which of the upkeep effects due have their order asked: a death or
+        a sacrifice beside what it changes -- Starlet's damage and healing
+        (her ruling: "you, as the active player, can choose the order of
+        your upkeep effects"), Starlet's or Land Octopus's beside Dothram
+        Horselord, whose side follows the total ATK.
+        """
+        deaths = [name for name in due if name == "starlet" or name.startswith("octopus:")]
+        found = set()
+        if "starlet" in due and "healing" in due:
+            found |= {"starlet", "healing"}
+        dothrams = [name for name in due if name.startswith("dothram:")]
+        if dothrams and deaths:
+            found |= set(dothrams) | set(deaths)
+        return tuple(name for name in due if name in found)
+
     def upkeep_order_matters(self, player: PlayerState) -> bool:
-        """Whether the order is a question: healing and Starlet's damage
-        both due, so healing her first or after changes what she is left
-        with (Starlet's ruling: "you, as the active player, can choose the
-        order of your upkeep effects")."""
-        due = self.upkeep_effects(player)
-        return "healing" in due and "starlet" in due
+        """Whether the order is a question at all (`upkeep_ordered`)."""
+        return bool(self.upkeep_ordered(self.upkeep_effects(player)))
+
+    def total_atk(self, match: MatchState, seat: int) -> int:
+        """A player's total ATK -- Dothram Horselord's question: every unit
+        and hero they have in play, as each stands."""
+        player = match.player(seat)
+        units = sum(self.unit_stats(card, match)[0] for card in player.play
+                    if self.catalog.cards[card.slug].is_unit)
+        return units + sum(self.hero_stats(hero, match)[0] for hero in player.heroes_in_play)
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready

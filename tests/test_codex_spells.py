@@ -20,7 +20,9 @@ from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import RIVER, TROQ, built, hand, hero_in_play, put
-from test_codex_card_rulings import apply, asked, bashing, cast, finesse, ultimate_ready
+from test_codex_card_rulings import (
+    apply, asked, bashing, cast, finesse, red_green, said, ultimate_ready,
+)
 
 
 def refused(engine, game, match, kind, choice="", **arguments):
@@ -803,6 +805,69 @@ class RedGreenSpellTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.TARGET, target="1:hand:tiger_cub")
         self.assertIn("tiger_cub", [card.slug for card in match.player(1).play])
         self.assertEqual(match.player(1).gold, 0)
+
+
+class RedGreenUpkeepTests(unittest.TestCase):
+    """Step 11's upkeep: which orders are asked (docs/design/codex.md, "Red
+    and green")."""
+
+    def next_upkeep(self, engine, game, match) -> None:
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+
+    def test_the_owls_gold_is_never_asked(self) -> None:
+        """A gain beside a death changes nothing either way, so the Owl's
+        gold is run, not asked -- while Starlet beside healing still is."""
+        engine, game, match = red_green()
+        put(match, 2, "gemscout_owl")
+        put(match, 2, "starcrossed_starlet")
+        gold = match.player(2).gold
+        self.next_upkeep(engine, game, match)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(2).gold, gold + match.player(2).workers + 1)
+
+        engine, game, match = red_green()
+        put(match, 2, "gemscout_owl")
+        put(match, 2, "helpful_turtle")
+        put(match, 2, "starcrossed_starlet")
+        self.next_upkeep(engine, game, match)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.UPKEEP_ORDER)
+        self.assertNotIn("owl", prompt.options.effects)
+        self.assertEqual(set(prompt.options.effects), {"healing", "starlet"})
+
+    def test_land_octopus_is_asked_and_its_sacrifice_trashes_nothing_more(self) -> None:
+        engine, game, match = red_green()
+        octopus = put(match, 2, "land_octopus")
+        self.next_upkeep(engine, game, match)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MODE_CHOICE)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="itself")
+        self.assertIsNone(match.player(2).instance(octopus.id))
+        self.assertIn("land_octopus", match.player(2).discard)
+
+    def test_dothram_changes_sides_at_his_controllers_upkeep(self) -> None:
+        engine, game, match = red_green()
+        dothram = put(match, 2, "dothram_horselord")
+        put(match, 1, "oversized_rhinoceros")
+        put(match, 1, "iron_man")
+        self.next_upkeep(engine, game, match)
+        self.assertEqual(match.active, 2)
+        self.assertEqual(dothram.controller, 1)
+
+
+class LegendaryArrivalTests(unittest.TestCase):
+    def test_a_second_galina_played_is_destroyed_on_arrival(self) -> None:
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        built(match, 2, "tech1")
+        first = put(match, 2, "galina_glimmer")
+        hand(match, 2, "galina_glimmer")
+        match.player(2).gold = 5
+        run = apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="galina_glimmer")
+        galinas = [card for card in match.player(2).play if card.slug == "galina_glimmer"]
+        self.assertEqual([card.id for card in galinas], [first.id])
+        self.assertIn("galina_glimmer", match.player(2).discard)
+        self.assertIn("{card:galina_glimmer}", said(run))
 
 
 if __name__ == "__main__":

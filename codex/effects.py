@@ -1,7 +1,8 @@
 """
 What each card's text does -- the table the engine reads -- and the
 list of the cards whose text the engine does not do yet: empty from
-step 6 to step 9, and red and green's since step 10.
+step 6 to step 9, red and green's in step 10, and empty again since
+step 11.
 
 **`UNIMPLEMENTED` is the vanilla engine's honesty** (docs/codex-bot.md,
 decision 7, and docs/design/codex.md, "The vanilla engine"). Every card
@@ -25,6 +26,11 @@ and the static grants and costs the engine asks about in
 handlers that carry a part out are `codex.flow.resolve`'s: this module
 is data, imported by the engine, and decides nothing by itself
 (docs/design/codex.md, "Targeting and the effects").
+
+**Step 11 emptied it again** for red and green: the same tables, grown
+by the costs (`COSTS`), the static grants and their order, the upkeep's
+and the end of the turn's, and the tokens (docs/design/codex.md, "Red
+and green").
 """
 
 from __future__ import annotations
@@ -110,23 +116,18 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
 #: Written out rather than computed, so the commit that takes a card out
 #: of it is the commit that gives it a handler.
 #:
-#: **Empty from step 6 to step 9**: step 5 took the basic set's keywords
-#: out, and step 6 its triggers, spells, static grants, heroes' bands,
-#: tokens and the surplus. **Step 10 landed red and green** played for
-#: their numbers: a card whose whole text is keywords the engine reads
-#: plays in full -- Mad Man, Nautical Dog, Centaur, Chameleon, Huntress,
-#: Barkcoat Bear and the Hunter token -- and every other red or green
-#: card with text is here, the six heroes' bands with them; their
-#: keywords play meanwhile (Chameleon Lizzo's haste, say), their other
-#: text waits for step 11. The heroes' hall's and the tech lab's text is
-#: the engine's own (`RulesEngine.hero_limit`, `chosen_specs`).
-UNIMPLEMENTED: frozenset = frozenset({
-    # Red.
-    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "kidnapping",
-    "land_octopus",
-    # Green.
-    "dothram_horselord", "galina_glimmer", "gemscout_owl",
-})
+#: **Empty**: from step 6 to step 9 -- step 5 took the basic set's
+#: keywords out, and step 6 its triggers, spells, static grants, heroes'
+#: bands, tokens and the surplus -- and again since step 11. Step 10
+#: landed red and green played for their numbers, with every red or
+#: green card with text here; step 11 gave each its handler, commit by
+#: commit -- the keywords, the costs and the resources, the spells, the
+#: triggers and the abilities, the static grants and the printed
+#: overrides, the upkeep, the end of the turn and the tokens
+#: (docs/design/codex.md, "Red and green"). The heroes' hall's and the
+#: tech lab's text is the engine's own (`RulesEngine.hero_limit`,
+#: `chosen_specs`).
+UNIMPLEMENTED: frozenset = frozenset()
 
 
 # -- What a text does, part by part ------------------------------------------
@@ -585,6 +586,15 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     _effect("panda_gold", Part("gain_gold", None, 1, targeted=False)),
     # Final Showdown's hero "draws a card when he attacks".
     _effect("showdown_draw", Part("draw", None, 1, targeted=False)),
+    # Land Octopus: "Upkeep: Sacrifice two workers or Land Octopus." --
+    # the two workers trashed (its ruling), and only where it has two.
+    _effect(
+        "land_octopus",
+        Part("mode", modes=(("workers", "sacrifice two workers"), ("itself", "sacrifice Land Octopus")),
+             says="choose one"),
+        Part("trash_workers", None, 2, targeted=False, only="workers"),
+        Part("sacrifice_self", None, 0, targeted=False, only="itself"),
+    ),
     # The ongoing spells whose text is what they grant in play: Behind
     # the Ferns, War Drums, and the upgrade Hotter Fire's.
     _effect("behind_the_ferns"),
@@ -935,6 +945,19 @@ FIRST_FROM_HAND_HASTE = ("drakk_ramhorn", 6)
 #: Hotter Fire: "Your red spells and abilities that deal damage deal 1
 #: damage more." -- each copy (its rulings).
 HOTTER_FIRE = "hotter_fire"
+#: Red and green's upkeep (step 11): Gemscout Owl's "Upkeep: Gain
+#: {gold:1}", Galina Glimmer's "Upkeep: Gain {gold:1} for every two of your
+#: green units", Land Octopus's "Upkeep: Sacrifice two workers or Land
+#: Octopus." -- the effect that asks it -- and Dothram Horselord's side.
+UPKEEP_GOLD = frozenset({"gemscout_owl"})
+UPKEEP_GREEN_GOLD = frozenset({"galina_glimmer"})
+UPKEEP_CHOICE = {"land_octopus": "land_octopus"}
+JOINS_THE_STRONGER = frozenset({"dothram_horselord"})
+#: The end of the turn's own (step 11): Bloodrage Ogre's return, on its
+#: controller's turn where it neither arrived nor attacked; Chameleon
+#: Lizzo's, on any.
+RETURNS_IF_IDLE = frozenset({"bloodrage_ogre"})
+RETURNS_AT_END = frozenset({"chameleon_lizzo"})
 #: What Polymorph: Squirrel makes a unit.
 POLYMORPH_INTO = "squirrel"
 #: The attacks lines an attached spell gives what it is on.
