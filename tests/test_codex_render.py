@@ -14,6 +14,7 @@ from unittest import mock
 from PIL import Image, ImageFont
 
 from codex import render
+from codex.cards import Card
 from codex.engine import RulesEngine
 
 
@@ -180,11 +181,18 @@ class PreloadTests(unittest.TestCase):
         self.assertTrue(all(isinstance(call.args[0], io.BytesIO) for call in faces.call_args_list))
 
     def test_a_card_whose_picture_is_missing_is_the_back(self) -> None:
-        """`bundled` asks the disk only for what is not held."""
-        nowhere = Path("/nonexistent/trojan_duck.jpg")
-        self.assertFalse(render.bundled(nowhere))
+        """`bundled` asks the disk only for what is not held, and a card
+        whose picture is nowhere is drawn as the card back."""
+        back = render.BOARD_IMAGE_DIR / "backs" / "card.png"
+        render.bundled_bytes(back)
         with mock.patch.object(Path, "is_file", return_value=False):
-            self.assertTrue(render.bundled(render.BOARD_IMAGE_DIR / "backs" / "card.png"))
+            self.assertTrue(render.bundled(back))
+            self.assertFalse(render.bundled(Path("/nonexistent/trojan_duck.jpg")))
+        cards = RulesEngine().catalog
+        nowhere = mock.PropertyMock(return_value=Path("/nonexistent/trojan_duck.jpg"))
+        with mock.patch.object(Card, "picture", nowhere):
+            picture = render.card_picture("trojan_duck", cards)
+        self.assertEqual(picture.size, render.image(back).size)
 
 
 class CodexViewTests(unittest.TestCase):

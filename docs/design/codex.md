@@ -1168,6 +1168,16 @@ else the bot shows is ephemeral.
   hand where the hand did not change and sitting above the board posted
   again; or the hand on an ephemeral message of its own, edited only
   when it changes, with a panel of buttons alone sent under the board.
+- **The hand's and the codex's cards are a bit smaller** (the author,
+  2026-10-09, with the above): the art at 0.7 and at 8/15 -- 231 by
+  315 in a hand, 176 by 240 in a codex view, the deck and the tech
+  picker (`HAND_CARD`, `CODEX_CARD`), from 0.8 and 0.6 -- which takes
+  about a sixth off each picture's bytes: the staged mid-game hand
+  87 KB to 72, the twelve-card codex 164 to 134, the standard game's
+  seventy-two 590 to 477. The badges, the numbers and the picked pill
+  keep their size, so they read a little larger on the card. The
+  board's cards are the canvas's and `/codex card` posts the card's own
+  file, so neither moved.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons
@@ -2000,8 +2010,9 @@ slot draws the heroes' hall's and the tech lab's cards from
 edge so the tile's own words stay readable, and a lab's spec card lies
 on the lab's. Building cards and upgrades lie in the grid after the
 units. The codex is three binders: the Everything view of seventy-two
-(36 cards, two copies each) at `CODEX_COLUMNS` measured 591 KiB as WebP,
-1286 by 1718 -- far under Discord's upload limit, so it is not narrowed
+(36 cards, two copies each) at `CODEX_COLUMNS` measured 477 KB as WebP,
+1154 by 1538 (591 KiB and 1286 by 1718 before the cards were made a bit
+smaller, "The board on Discord") -- far under Discord's upload limit, so it is not narrowed
 -- and each spec has its view. `scripts/render_codex_sample.py` renders
 a standard game's board, hand and codex beside the basic game's.
 

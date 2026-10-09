@@ -1166,9 +1166,16 @@ def render_side(match: MatchState, seat: int, name: str,
 # -- A hand, a codex -----------------------------------------------------------
 
 
-#: A card in a hand or a codex picture, in pixels.
-HAND_CARD = (264, 360)
-CODEX_CARD = (198, 270)
+#: A card in a hand or a codex picture, in pixels: the art (330 by 450)
+#: at 0.7, and at 8/15 -- from 0.8 and 0.6 (264 by 360, 198 by 270)
+#: until the author asked for the cards a bit smaller (2026-10-09),
+#: which takes about a sixth off each picture's bytes: the staged
+#: mid-game hand 87 KB to 72, the twelve-card codex 164 to 134, the
+#: standard game's seventy-two 590 to 477. The badges, the numbers and
+#: the picked pill keep their size, so they read a little larger on
+#: the card.
+HAND_CARD = (231, 315)
+CODEX_CARD = (176, 240)
 CODEX_COLUMNS = 6
 
 
