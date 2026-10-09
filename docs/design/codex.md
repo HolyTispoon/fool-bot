@@ -1293,14 +1293,19 @@ else the bot shows is ephemeral.
   again, the hand on the panel sent afresh under it -- each uploaded by
   the bot and fetched cold by every client, which a kept attachment
   cannot touch, since only an edit keeps one and both messages are new.
-  Taking one of the two away was a change to the shape the author chose
+  Taking one of the two away is a change to the shape the author chose
   (the panel under the board; "The panel"), so it was put to them
   rather than made, two ways: the panel edited in place after an
   action, keeping its hand where the hand did not change and sitting
   above the board posted again; or the hand on an ephemeral message of
   its own, edited only when it changes, with a panel of buttons alone
-  sent under the board. **The author chose the second** (2026-10-09),
-  which keeps the panel at the foot: "The panel" has what it became.
+  sent under the board. **The author chose the second, and it was built
+  and undone the same day** (2026-10-09; #504's third commit and its
+  revert): the panel's buttons without the cards' pictures beside them
+  made no sense to them -- a panel that asks which card to play has to
+  show the cards -- so the panel pictures the hand again, and its
+  upload on every action stands as the price of that. The first way,
+  the panel edited in place and sitting above the board, was not tried.
 - **The hand's and the codex's cards are a bit smaller** (the author,
   2026-10-09, with the above): the art at 0.7 and at 8/15 -- 231 by
   315 in a hand, 176 by 240 in a codex view, the deck and the tech
@@ -1423,9 +1428,9 @@ nothing to press. The panel is the view for `MAIN_ACTION` and
 for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 `view_for_prompt`'s table, the only place a kind becomes a view. **My
 hand always shows the hand** (the author, 2026-10-09): where the turn
-waits on its player's tech, My hand sends the hand and, under it,
-`TechGateView` -- **Tech** and **My deck** in place of the turn's
-actions -- rather than the confirmation alone, which left a player
+waits on its player's tech, My hand sends the hand pictured with
+`TechGateView` under it -- **Tech** and **My deck** in place of the
+turn's actions -- rather than the confirmation alone, which left a player
 unable to see their hand before confirming. It is `view_for_prompt`'s
 too, asked with `gate` for the two kinds a turn may open on
 (`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
@@ -1447,8 +1452,7 @@ too, asked with `gate` for the two kinds a turn may open on
   ~five-in-five bucket the turn message lives in (rate-limits.md). The
   bot cannot find an ephemeral message again, so every entry point (My
   hand, **Tech**, `/codex resume`) makes a fresh one and the cog never
-  looks for an old panel. The one ephemeral message it reaches again is
-  the hand's, below, through the interaction that made it.
+  looks for an old panel.
 - **A panel is always drawn as an answer to something.** The author
   asked for it to stand alone rather than as a reply to the turn
   message (2026-10-09). Discord ties every message an interaction makes
@@ -1461,38 +1465,10 @@ too, asked with `gate` for the two kinds a turn may open on
   and every panel after it as an answer to the panel it replaced, which
   is deleted -- never to the board. How the client draws a strip whose
   message is gone has not been looked at on Discord.
-- **The hand is a message of its own, above the panel** (the author,
-  2026-10-09: B of the two ways under "The board on Discord"). **My
-  hand** sends the active player two ephemeral messages: their hand
-  pictured -- numbered, greyed where it may not be played, each card's
-  cost after reductions, `render_hand` over the engine's `hand_rows`,
-  the list `MainActionOptions.hand` is built from, so the picture and
-  the buttons read one list -- with their discard pile listed under it,
-  and the panel under that. **The panel carries no picture of the
-  hand**, so the one sent afresh after every action is light, and the
-  client fetches nothing for it. The hand message is **remembered**
-  (`HandMessage`, in memory by game and seat: the interaction that made
-  it, which of its messages it is, and what it shows) and **brought up
-  to date in place** after a public result where the hand or its
-  caption changed (`refresh_hand_messages`, from `answer_panel` and
-  the two undos), for both players -- a card played, the draw at the
-  turn's end, a card an effect returns to the other hand -- and left
-  alone where nothing changed, which is what the message of its own
-  buys: an attack, a patrol move, a target chosen cost the hand
-  nothing, where the panel sent afresh used to carry it again every
-  time. An ephemeral message can be reached only through the
-  interaction that made it, whose token Discord honours for fifteen
-  minutes (`edit_original_response`, or a follow-up's `edit_message`):
-  past that, or with the message gone, the edit fails and the message
-  is forgotten -- and where the click is the player's own, the hand is
-  sent afresh as its follow-up, under the board and above the panel,
-  and remembered anew; the other player's is forgotten until they
-  press My hand. A fresh hand message deletes the one remembered
-  before it where it still can, so **My hand** pressed twice leaves
-  one. The other player's **My hand** sends their hand the same way,
-  with **My deck** under it (`send_hand`), remembered and kept up to
-  date alike. After a restart nothing is remembered, as with the
-  panels; the old pictures stand. **A target's picture is a
+- **Its picture is the hand**, numbered, greyed where it may not be
+  played, each card's cost after reductions -- `render_hand` over
+  `MainActionOptions.hand`, a field the prompt grew for it so the
+  picture and the buttons read one list. **A target's picture is a
   side of the board, not the hand** (the author, 2026-10-09: the hand
   is no help choosing what to wither): the defender, obliterate's,
   sparkshot's and overpower's choices and an effect's `TARGET` are
@@ -1639,13 +1615,11 @@ turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
 pick tech"); at any other point in their own turn it says the tech is
-not theirs to press now. **My hand** sends the hand with `TechGateView`
-under it, whose Tech opens the same view in place. Confirm runs the
-ready phase and the upkeep, and the panel becomes the turn's actions,
-under the turn message posted again -- with the hand sent first,
-above it, where none of the player's is remembered (`answer_panel`),
-which is the Tech path's: the turn's actions are never put up without
-the hand above them. The prompt asked for the
+not theirs to press now. **My hand** sends the hand pictured with
+`TechGateView` under it, whose Tech opens the same view in place.
+Confirm runs the ready phase and the upkeep, and the panel becomes the
+turn's actions, the hand pictured on it, under the turn message posted
+again. The prompt asked for the
 confirmation to be sent "as the follow-up to the opponent's Lock when
 they are present"; a follow-up reaches only the clicker, so it is not
 sent to the other player -- the turn message's mention and its caption
@@ -1748,9 +1722,9 @@ Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 2: the hand, a message of its own, and the panel under it -- **Tech** alone while the turn waits on their tech |
+| My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
 | Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted -- and, where the hand or its caption changed, one edit on the interaction that made the hand message (a fourth of this click's, the hand sent afresh, only where that edit fails) |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
@@ -1806,9 +1780,9 @@ hand** after a restart asks the same question with the same options
 (`tests/test_codex_resume.py`, including a declared attacker waiting on
 its defender). `/codex resume` runs any step the bot owes, posts the
 turn message again at the foot of the channel -- the old one deleted,
-the player whose turn it is pinged -- and hands the clicker their hand
-and their panel afresh -- the actions for the active player, the open
-tech picker for the other.
+the player whose turn it is pinged -- and hands the clicker their panel
+afresh -- the
+actions for the active player, the open tech picker for the other.
 
 ## The end of a game
 

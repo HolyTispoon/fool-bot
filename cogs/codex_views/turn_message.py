@@ -6,15 +6,13 @@ decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
 
 Hidden information is answered **ephemerally**, to the clicker alone and
 stored nowhere. **My hand** is one button with two answers by who
-clicked (the author, 2026-10-08): the active player gets their hand, a
-message of its own, and under it the control panel for whatever the
-match asks them -- the actions, the defender, the patrol lock, the tech
-confirmation -- made afresh each time, the hand brought up to date in
-place as the turn goes (docs/design/codex.md, "The panel"); the other
-player gets their hand pictured and their discard pile listed, with
-**My deck** under it, kept up to date the same way. Where the active
-player's turn waits on their tech, **My hand** still sends the hand,
-and the panel under it is a **Tech** button rather than the turn's
+clicked (the author, 2026-10-08): the active player gets the control
+panel for whatever the match asks them -- the actions, the defender,
+the patrol lock, the tech confirmation -- made afresh each time, their
+hand pictured on it; the other player gets their hand pictured and
+their discard pile listed, with **My deck** under it. Where the active
+player's turn waits on their tech, **My hand** still shows the hand,
+with a **Tech** button under the picture rather than the turn's
 actions until the tech is confirmed (`TechGateView`). **Tech** answers
 the active player with that confirmation -- or the picker, where
 nothing was picked -- while their turn waits on it, and the other
@@ -107,8 +105,7 @@ class TurnMessageView(SafeView):
         return game, match, seat
 
     async def hand(self, interaction: discord.Interaction) -> None:
-        """The hand and the panel under it for the active player, the
-        hand for the other."""
+        """The panel for the active player, the hand for the other."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
