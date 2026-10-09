@@ -229,16 +229,18 @@ class TurnPanelView(PanelView):
     def build_actions(self, options) -> None:
         """The actions row with the heroes on it, the hand's rows, then
         the board's row and the three that always end the panel -- each
-        group starting a row of its own, five buttons a row."""
+        group starting a row of its own, five buttons a row. **Hire
+        worker** and every **Build** are green, **Attack...** red (the
+        author, 2026-10-09)."""
         hire = options.hire
         actions = [
             self.make_button(
                 "Hire worker" if hire.allowed else f"Hire: {hire.why_not}",
-                discord.ButtonStyle.primary, self.open_hire, disabled=not hire.allowed,
+                discord.ButtonStyle.success, self.open_hire, disabled=not hire.allowed,
             ),
             self.make_button(
                 "Attack..." if options.attackers else "Attack: nothing of yours can attack now",
-                discord.ButtonStyle.primary, self.open_attack, disabled=not options.attackers,
+                discord.ButtonStyle.danger, self.open_attack, disabled=not options.attackers,
             ),
         ] + [self.hero_button(hero) for hero in options.heroes]
         # The hand, every card once in the hand's order (`playable`), by
@@ -259,7 +261,7 @@ class TurnPanelView(PanelView):
             self.make_button(
                 f"Build {building_label(row.building)} ({row.cost} gold)"
                 + ("..." if row.specs else ""),
-                discord.ButtonStyle.primary,
+                discord.ButtonStyle.success,
                 self._answer(self.open_spec, row.building) if row.specs
                 else self._answer(self.build, row.building),
                 choice=("build", row.building),

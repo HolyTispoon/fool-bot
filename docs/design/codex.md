@@ -1398,7 +1398,10 @@ too, asked with `gate` for the two kinds a turn may open on
   music") -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
-  first. **Level up** buys one
+  first. **Hire worker** and every **Build** are green and **Attack...**
+  red, beside **End main phase**'s red (the author, 2026-10-09), so the
+  panel's three kinds of spending read apart at a glance; the rest
+  stay blurple or grey. **Level up** buys one
   level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
