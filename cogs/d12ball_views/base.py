@@ -23,7 +23,7 @@ from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
 from d12ball.formatting import contestant_detail  # noqa: F401 -- re-exported
 from d12ball.prompts import PromptKind, pending_prompt
 from gamesaves.d12ball.service import CarryFrom, GameResult
-from gamelocks import GameLocks
+from botkit.views import GameLockedView
 from cogs.d12ball_helpers import (
     ERROR_RECOVERY_ADVICE,
     HELPER_CONFIRMED_EXTRA,
@@ -45,7 +45,7 @@ from cogs.d12ball_helpers import (
 )
 
 
-class SafeView(discord.ui.View):
+class SafeView(GameLockedView):
     """
     Base class for every D12 Ball view. discord.py's default behavior
     for an uncaught exception in a button/select callback is to log it
@@ -60,8 +60,10 @@ class SafeView(discord.ui.View):
     `game_id` at the class default of None.
     """
 
-    # None on a view that belongs to no game -- the hub's.
-    game_id: Optional[str] = None
+    # `game_id`, None on a view that belongs to no game -- the hub's --
+    # and the per-game lock every click is answered under
+    # (`_scheduled_task`) are `botkit.views.GameLockedView`'s, shared
+    # with the Codex bot.
 
     # Whether a game helper's click for somebody else is put behind a
     # confirmation before it acts. True for every view in a game;
@@ -69,45 +71,6 @@ class SafeView(discord.ui.View):
     # helper is expected to be pressing things for people -- see "Who
     # may act on a game" in docs/design/permissions.md.
     confirms_helper_clicks = True
-
-    async def _scheduled_task(
-        self,
-        item: discord.ui.Item,
-        interaction: discord.Interaction,
-    ) -> None:
-        """
-        **Every click on this game, one at a time** -- discord.py's own
-        dispatch, run while holding the game's lock (`gamelocks.py`).
-
-        The lock is around the whole callback rather than around
-        `apply` alone, because what has to stay in order is not the
-        answer -- `GameService.apply_action` is synchronous and cannot
-        be interleaved on one event loop -- but everything the callback
-        does afterwards: two clicks applied back to back can otherwise
-        render, upload and edit in either order, which is a turn
-        arriving in a channel out of sequence. Decision 5 of
-        docs/web-app.md; the web app takes the same lock over the same
-        games, which is the whole reason it is a lock and not an
-        ordering convention.
-
-        It overrides discord.py's dispatch because that is the only
-        place a callback can be wrapped: `interaction_check` runs
-        *before* the callback and cannot hold anything across it.
-        `tests/test_game_locks.py` ratchets that the method being
-        overridden still exists, so a rename upstream fails the suite
-        rather than quietly leaving every click unordered.
-
-        A cog that is a test double holds nothing: there is no game
-        loop to order against. Neither does a view with no game (the
-        hub's two): there is no game for its click to be ordered
-        against, and the lobby it opens is a new one.
-        """
-        locks = getattr(self.cog, "locks", None)
-        if not isinstance(locks, GameLocks) or self.game_id is None:
-            await super()._scheduled_task(item, interaction)
-            return
-        async with locks.hold(self.game_id):
-            await super()._scheduled_task(item, interaction)
 
     async def on_error(
         self,

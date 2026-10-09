@@ -36,7 +36,6 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Any, Callable, Mapping, Optional, Union
 
 from codex import history
@@ -47,21 +46,11 @@ from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from codex.prompts import PendingPrompt, pending, pending_prompt, standing_prompts
 from codex.wire import jsonable
+from gamekit.service import StopHandling
 from gamesaves.codex.storage import save_games
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-class StopHandling(Enum):
-    """What a frontend does where the loop stopped for it."""
-
-    #: Take the picture: the group carries the position as it stands.
-    DRAW = auto()
-    #: Post the lines plainly, with no picture.
-    POST = auto()
-    #: Nothing to show here after all: the lines carry on.
-    CARRY = auto()
 
 
 @dataclass(frozen=True)

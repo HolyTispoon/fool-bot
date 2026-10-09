@@ -27,6 +27,7 @@ from codex.components import MatchState
 from codex.flow import actions, combat, resolve, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
+from gamekit.driver import MOVED_ON, STEP_OWED  # noqa: F401 -- re-exported
 from codex.prompts import (
     CHOICES,
     Action,
@@ -211,11 +212,6 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.UPKEEP_ORDER: "That upkeep has already been done.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
-MOVED_ON = "That answers a question this match has moved on from."
-STEP_OWED = (
-    "Nothing is being asked yet: the game still has a step of its own "
-    "to run here."
-)
 
 
 # -- The answers -------------------------------------------------------------

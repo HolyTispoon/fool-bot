@@ -33,10 +33,11 @@ is its own -- Discord mentions an account and names the AI.
 """
 
 import re
-from typing import Callable, Optional
+from typing import Optional
 
 from d12ball.components import PlayerRole
 from d12ball.game import CoinFace, Team
+from gamekit.tokens import Resolver
 
 
 #: The condition marks a sentence may carry, by the name the token
@@ -75,9 +76,7 @@ TOKEN_PATTERN = re.compile(
     r"\{(" + "|".join(KINDS) + r"):([a-z0-9_]+(?::[a-z0-9_]+)*)\}"
 )
 
-#: What a frontend renders a token with: the kind and its arguments
-#: in, the text out -- or `None` to leave the token as it stands.
-Resolver = Callable[[str, tuple[str, ...]], Optional[str]]
+#: `Resolver`, what a frontend renders a token with, is `gamekit.tokens`'s.
 
 
 def team(value: Team) -> str:

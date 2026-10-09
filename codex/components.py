@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field, fields
-from typing import Any, Callable, Iterable, Iterator, Optional
+from typing import Any, Iterable, Iterator, Optional
 
 from codex.game import RuleRefusal
+from gamekit.saved import SavedField
 
 __all__ = [
     "AddOnState",
@@ -53,29 +54,8 @@ TECH_BUILDINGS = ("tech1", "tech2", "tech3")
 HERO = "hero"
 
 
-@dataclass(frozen=True)
-class SavedField:
-    """
-    One saved field: its key, the fallback a save older than the field
-    comes back with (`default` immutable, `factory` mutable, as
-    `dataclasses.field` splits them), and the copy each way.
-    `d12ball.components.SavedField`'s shape.
-    """
-
-    name: str
-    default: Any = None
-    factory: Optional[Callable[[], Any]] = None
-    write: Optional[Callable[[Any], Any]] = None
-    read: Optional[Callable[[Any], Any]] = None
-
-    def stored(self, value: Any) -> Any:
-        return self.write(value) if self.write is not None else value
-
-    def restored(self, data: dict) -> Any:
-        if self.name not in data:
-            return self.factory() if self.factory is not None else self.default
-        value = data[self.name]
-        return self.read(value) if self.read is not None else value
+# `SavedField`, one row of a save table, is `gamekit.saved`'s, shared
+# with D12 Ball's model, and imported above.
 
 
 def _save(obj: Any, table: Iterable[SavedField]) -> dict:

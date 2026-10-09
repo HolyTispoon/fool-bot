@@ -1392,6 +1392,29 @@ code starts moving across the line.
   `d12ball/dice_brief.py`: a drawing module, beside the renderer, and
   never under the engine.
 
+## `gamekit/`: what the model shares with the Codex bot's
+
+The Codex bot's model (`codex/`) was built to this split's shapes, and
+in step 9 of [../codex-bot.md](../codex-bot.md) what turned out
+identical in the two moved to `gamekit/`, which both import: `jsonable`
+(`d12ball.wire` re-exports it), the driver's `MOVED_ON` and `STEP_OWED`,
+the token `Resolver`, `StopHandling`, `SavedField`, and the games file's
+guarded read and write under `gamesaves/d12ball/storage.py`. Each
+D12 Ball module keeps the old name, so no import moved and no save,
+golden or step changed. **`gamekit/` keeps this split's first rule --
+no `discord`, no `async def`, and no Pillow -- and imports no game**;
+`tests/test_shared_kits.py` ratchets it, beside rather than inside
+`tests/test_model_purity.py`, which is a safety-net test.
+
+What did not move is what differs in substance, and the reasons are
+this note's: `FollowOn` and `Action` are typed by each game's own closed
+enum, which is the point of naming a step rather than calling it; the
+loop in `driver.advance` and the `GameService` around it carry each
+game's own boundaries (D12 Ball's `speaks_lines` and the AI's carry,
+Codex's `draw_after` and its journal); and each game's tokens have their
+own grammar. The full list, pair by pair, is in
+[codex.md](codex.md), "What the two games share".
+
 ## The four goldens
 
 There were **three** from Phase 5, and they are separate files rather than

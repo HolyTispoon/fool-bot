@@ -1,9 +1,11 @@
-import json
+import json  # noqa: F401 -- unused here; tests patch `storage.json.dump`, the module gamekit.storage writes with
 import logging
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Optional
 from d12ball.game import TEAM_PAIRS, D12BallGame, Team
+from gamekit import storage as games_file
+from gamekit.storage import DATA_FOLDER, PROJECT_ROOT  # noqa: F401 -- re-exported
 
 
 LOGGER = logging.getLogger(__name__)
@@ -259,8 +261,8 @@ def migrate_legacy_game_data(game_data: dict) -> dict:
 
     return remapped
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_FOLDER = PROJECT_ROOT / "data"
+# The checkout's root and its data/ folder are `gamekit.storage`'s, the
+# same for both games.
 GAMES_FILE = DATA_FOLDER / "d12ball_games.json"
 
 # The web app's games: the same format, its own file, written only by
@@ -294,35 +296,16 @@ def load_games(path: Optional[Path] = None) -> dict[str, D12BallGame]:
     """
     path = GAMES_FILE if path is None else path
 
-    _load_unreadable.discard(path)
-
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        file_exists = path.exists()
-    except OSError as error:
-        # The folder is not reachable at all -- an unmounted drive, the
-        # case in `save_games`. Whether there is a file behind it is
-        # unknown, so assume there is: coming up empty and then saving
-        # over it when the mount returns is the one outcome that loses
-        # games for good.
-        LOGGER.error("Could not reach the D12 Ball save folder: %s", error)
-        _load_unreadable.add(path)
-
-        return {}
-
-    if not file_exists:
-        return {}
-
-    try:
-        with path.open("r", encoding="utf-8") as file:
-            raw_data = json.load(file)
-    except (json.JSONDecodeError, OSError) as error:
-        # Errors, not warnings: every game the bot knows about has just
-        # vanished from its view, and the players will see that as the
-        # bot forgetting their match.
-        LOGGER.error("Could not load D12 Ball games from %s: %s", path, error)
-        _load_unreadable.add(path)
-
+    # The read, and the flag a file that could not be read leaves, are
+    # `gamekit.storage.read_games_file`'s, shared with the Codex bot.
+    raw_data = games_file.read_games_file(
+        path,
+        noun="D12 Ball",
+        logger=LOGGER,
+        load_unreadable=_load_unreadable,
+        make_folder=True,
+    )
+    if raw_data is None:
         return {}
 
     games: dict[str, D12BallGame] = {}
@@ -384,92 +367,25 @@ def save_games(
 ) -> None:
     """
     Write the games out to `path` (the bot's file unless another is
-    named), and **never raise doing it.**
+    named), and **never raise doing it** -- called from about a hundred
+    and fifty places, most of them part-way through a turn. The write,
+    the temporary file renamed over the real one and the refusal to
+    write over a file this run could not read are
+    `gamekit.storage.save_games`'s, shared with the Codex bot, whose
+    docstring tells the mount that went away; this module's two flag
+    sets are handed in, read at call time.
 
-    This is called from about a hundred and fifty places, most of them
-    part-way through resolving a turn, and a raise there takes the turn
-    down with it: the click's callback dies wherever the save happened
-    to sit, so a coach whose maneuver has already been announced and
-    whose board has already been redrawn is told "something went wrong,
-    please try again" -- and trying again applies the turn twice. The
-    live game is the one in memory; this file is what a restart reads.
-    Losing it is worth an entry in #logs, not a broken turn.
-
-    Real cause seen in the wild: the checkout lives on a mounted
-    network drive (a Windows Google Drive letter) and the mount went
-    away mid-game, so `mkdir` walked the whole path up to a drive root
-    that no longer existed. Nothing in the bot can fix that, which is
-    exactly why it must not be the bot that breaks.
-
-    The write itself is already all-or-nothing -- a temporary file
-    renamed over the real one -- so a failure part-way through leaves
-    the last good save intact rather than a truncated one.
-
-    **A file we could not read is never written over.** The other half
-    of the same mount going away is the bot starting up while it is
-    gone: `load_games` comes back empty, and the first save after the
-    mount returns would replace every saved game with the one or two
-    played since. So a load that failed on anything but "there is no
-    file yet" blocks writing until the process is restarted, which is
-    the thing to do anyway -- the games it needs are in the file.
+    Each game is written through the record's own `to_dict`, not
+    `asdict`: what the record leaves out of its save (`ai_seats` while
+    None -- see the field) has to be left out of the file. It was
+    `asdict` until 2026-10-05, so a save made before then carries the
+    key as null.
     """
-    path = GAMES_FILE if path is None else path
-
-    if path in _load_unreadable and path.exists():
-        if path not in _save_failing:
-            LOGGER.error(
-                "Not saving D12 Ball games over %s, which this run could "
-                "not read: restart the process now that it is readable, "
-                "or these games are lost.",
-                path,
-            )
-
-        _save_failing.add(path)
-
-        return
-
-    # Through the record's own `to_dict`, not `asdict`: what the record
-    # leaves out of its save (`ai_seats` while None -- see the field)
-    # has to be left out of the file, or the comment on the field is a
-    # promise this function does not keep. It was `asdict` until
-    # 2026-10-05, so a save made before then carries the key as null.
-    serialized_games = {
-        game_id: game.to_dict()
-        for game_id, game in games.items()
-    }
-
-    temporary_file = path.with_suffix(".tmp")
-
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with temporary_file.open("w", encoding="utf-8") as file:
-            json.dump(serialized_games, file, indent=2)
-
-        temporary_file.replace(path)
-    except OSError as error:
-        # The first failure of a run reaches the server, because
-        # somebody has to go and remount the drive (or free the disk).
-        # The ones behind it are the same fact repeated once or twice a
-        # click, so they stay on the console -- see "The level you log
-        # at decides who sees it" in docs/design/logging.md.
-        if path in _save_failing:
-            LOGGER.info("Still could not save D12 Ball games: %s", error)
-        else:
-            LOGGER.error(
-                "Could not save D12 Ball games to %s, so a restart would "
-                "lose everything played since the last successful save: "
-                "%s",
-                path,
-                error,
-                exc_info=error,
-            )
-
-        _save_failing.add(path)
-
-        return
-
-    if path in _save_failing:
-        LOGGER.info("Saving D12 Ball games to %s again.", path)
-
-    _save_failing.discard(path)
+    games_file.save_games(
+        games,
+        GAMES_FILE if path is None else path,
+        noun="D12 Ball",
+        logger=LOGGER,
+        save_failing=_save_failing,
+        load_unreadable=_load_unreadable,
+    )

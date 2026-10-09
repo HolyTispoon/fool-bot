@@ -1,9 +1,10 @@
 """
 `SafeView`, which every Codex view subclasses: the game's lock around a
-click's whole answer, the error surfaced instead of swallowed, the
-lookups, the gates, and `apply` -- the one call a click makes, through
-`GameService` (copied from `cogs/d12ball_views/base.py`; docs/codex-bot.md,
-decision 2).
+click's whole answer (`botkit.views.GameLockedView`'s, shared with D12
+Ball), the error surfaced instead of swallowed, the lookups, the gates,
+and `apply` -- the one call a click makes, through `GameService`
+(modelled on `cogs/d12ball_views/base.py`; docs/codex-bot.md, decision
+2).
 
 It imports from no sibling, which keeps the package a DAG.
 
@@ -33,7 +34,7 @@ from cogs.game_auth import (
     is_game_helper,
 )
 from cogs.game_auth import may_act_in_game as user_may_act_in_game
-from gamelocks import GameLocks
+from botkit.views import GameLockedView
 from gamesaves.codex.service import GameResult
 
 LOGGER = logging.getLogger(__name__)
@@ -60,28 +61,18 @@ async def send_ephemeral(interaction: discord.Interaction, message: str) -> None
         pass
 
 
-class SafeView(discord.ui.View):
+class SafeView(GameLockedView):
     """
     Base class for every Codex view. Every subclass carries `self.cog`
     and `self.game_id`, set before anything below is called.
     """
 
-    game_id: Optional[str] = None
+    #: `game_id` and the game's lock around every click are
+    #: `botkit.views.GameLockedView`'s, shared with D12 Ball.
     #: Whether a game helper's click for a player is put behind a
     #: confirmation; the lobby turns it off. Until step 4 builds the
     #: confirmation, a view that would ask lets the players alone through.
     confirms_helper_clicks = True
-
-    async def _scheduled_task(self, item: discord.ui.Item, interaction: discord.Interaction) -> None:
-        """Every click on this game, one at a time, holding the game's
-        lock (`gamelocks.py`) -- around everything the callback puts up,
-        not only the apply."""
-        locks = getattr(self.cog, "locks", None)
-        if not isinstance(locks, GameLocks) or self.game_id is None:
-            await super()._scheduled_task(item, interaction)
-            return
-        async with locks.hold(self.game_id):
-            await super()._scheduled_task(item, interaction)
 
     async def on_error(self, interaction: discord.Interaction, error: Exception,
                        item: discord.ui.Item) -> None:
