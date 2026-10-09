@@ -89,6 +89,9 @@ class HeroBand:
 
 @dataclass(frozen=True)
 class Hero:
+    """A hero, as the card database gives it. `short_name` is the one
+    thing about it this repository keeps by hand (`SHORT_NAMES`)."""
+
     slug: str
     name: str
     color: Optional[str]
@@ -106,6 +109,42 @@ class Hero:
     @property
     def picture(self) -> Optional[Path]:
         return CARD_IMAGE_DIR / f"{self.slug}.jpg" if self.sirlins_filename else None
+
+    @property
+    def short_name(self) -> str:
+        """What the board calls the hero for short -- "Troq's turn 7" --
+        from `SHORT_NAMES`, or the full name for a hero not in it."""
+        return SHORT_NAMES.get(self.slug, self.name)
+
+
+#: Each hero's short name, by slug: what the board's turn label calls it
+#: ("Troq's turn 7", the design canvas's wording). Kept by hand because
+#: the card database has no such field, and a table rather than the name's
+#: first word because three heroes carry a title first -- Captain Zane,
+#: General Onimaru, Master Midori -- whose first word is not a name (the
+#: author, 2026-10-09). A test holds it to the catalog's twenty.
+SHORT_NAMES: dict[str, str] = {
+    "argagarg_garg": "Argagarg",
+    "bigby_hayes": "Bigby",
+    "calamandra_moss": "Calamandra",
+    "captain_zane": "Zane",
+    "drakk_ramhorn": "Drakk",
+    "garth_torken": "Garth",
+    "garus_rook": "Garus",
+    "general_onimaru": "Onimaru",
+    "grave_stormborne": "Grave",
+    "jaina_stormborne": "Jaina",
+    "master_midori": "Midori",
+    "max_geiger": "Max",
+    "orpal_gloor": "Orpal",
+    "prynn_pasternaak": "Prynn",
+    "river_montoya": "River",
+    "setsuki_hiruki": "Setsuki",
+    "sirus_quince": "Sirus",
+    "troq_bashar": "Troq",
+    "vandy_anadrose": "Vandy",
+    "vir_garbarean": "Vir",
+}
 
 
 def _spec_key(spec: str) -> str:

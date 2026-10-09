@@ -691,7 +691,7 @@ starting.
 | ~~4~~ | ~~The turn on Discord, and the two undos~~ -- landed; what it settled is in docs/design/codex.md, "The turn on Discord" | large | two people finish a game on the vanilla engine; a bot restart mid-turn resumes from **My hand**; an undo to the start of the turn puts the board, the turn message and the panel back |
 | ~~5~~ | ~~The keywords~~ -- landed; what it settled is in docs/design/codex.md, "The keywords" and "Which choices an attack asks, and which it does not" | medium | Eggship flies over a patrolling Leaping Lizard and takes its damage; every keyword ruling of the set is a test |
 | ~~6~~ | ~~Triggers, spells and the ongoing spells~~ -- landed; what it settled is in docs/design/codex.md, "Targeting and the effects" | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
-| 7 | The board drawn element by element | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
+| ~~7~~ | ~~The board drawn element by element~~ -- landed; what it settled is in docs/design/codex.md, "The board on Discord" and "The cards are data" | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
 | 8 | Finishing a game: concede, abandon, rematch, the golden | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | 9 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
 | 10 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
@@ -1762,6 +1762,13 @@ author on one side, and nothing refused that the rulebook allows.
 ```
 
 ### 7. The board drawn element by element
+
+**Landed.** `codex/render.py` draws each player as a panel from the
+module's pieces and the cards' art, and `render_board` composes two,
+stacked or side by side; the five patrol slots are cut from the
+playmat. What it settled -- the sizes, every state, why the mat went --
+is in docs/design/codex.md, "The board on Discord", and the cuts in
+"The cards are data".
 
 Decision 5 as the author's review of the design canvas left it on
 2026-10-08: the playmat step 3 laid the position on goes, and each side
