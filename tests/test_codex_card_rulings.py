@@ -4014,6 +4014,298 @@ class PurpleRulingTests(unittest.TestCase):
         self.assertEqual(golgort.time_runes, 2)
 
 
+def upkeep_of(engine, game, match, seat: int) -> None:
+    """`seat`'s next upkeep and main phase, nothing done in between."""
+    turn_round(engine, game, match, seat)
+
+
+class UpkeepRulingTests(unittest.TestCase):
+    """The upkeep, the extra turn and the debt (step 12, commit 6)."""
+
+    def test_banefire_golem_1(self) -> None:
+        """You can sacrifice him for his own effect. If you control no other
+        units, you MUST sacrifice him since the effect isn't optional. You'll
+        still deal the damage."""
+        engine, game, match = black()
+        golem = put(match, 2, "banefire_golem")
+        victim = put(match, 1, "neo_plexus")
+        upkeep_of(engine, game, match, 2)
+        self.assertIsNone(match.player(2).instance(golem.id))
+        self.assertEqual(victim.damage, 1)
+        self.assertEqual(match.player(1).base_hp, 19)
+
+    def test_banefire_golem_asks_which_unit_where_there_are_two(self) -> None:
+        engine, game, match = black()
+        golem = put(match, 2, "banefire_golem")
+        fodder = put(match, 2, "skeleton")
+        match.active = 1
+        match.enter_phase("ready")
+        match.player(1).tech_owed = False
+        begin(engine, game, match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        begin(engine, game, match)
+        for standing in __import__("codex.prompts", fromlist=["x"]).standing_prompts(engine, match, game):
+            del standing
+        prompt = asked(engine, game, match)
+        while prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+            if prompt.kind is PromptKind.TECH_CHOICE:
+                apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                      picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+            else:
+                apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+            begin(engine, game, match)
+            prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {golem.ref, fodder.ref})
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{fodder.ref}")
+        self.assertIsNotNone(match.player(2).instance(golem.id))
+
+    def test_plague_lord_1(self) -> None:
+        """The upkeep ability only triggers during your upkeep, not each
+        other player's. When it triggers, even your own base takes damage if
+        you have any -1/-1 runes on your units or heroes."""
+        from test_codex_keywords import next_upkeep
+
+        engine, game, match = black()
+        put(match, 2, "plague_lord")
+        mine = put(match, 2, "argonaut")
+        mine.minus_runes = 1
+        theirs = put(match, 1, "argonaut")
+        theirs.minus_runes = 2
+        next_upkeep(engine, game, match, 1)
+        self.assertEqual((match.player(1).base_hp, match.player(2).base_hp), (20, 20))
+        next_upkeep(engine, game, match, 2)
+        self.assertEqual((match.player(1).base_hp, match.player(2).base_hp), (18, 19))
+
+    def test_shrine_of_forbidden_knowledge_1(self) -> None:
+        """"Card draw +1, hand size +1" means that instead of discarding your
+        hand and drawing that many cards +2, capped at 5, you instead discard
+        your hand and draw that many cards +3, capped at 6."""
+        engine, game, match = black()
+        put(match, 2, "shrine_of_forbidden_knowledge")
+        player = match.player(2)
+        self.assertEqual(engine.draw_count(1, player), 4)
+        self.assertEqual(engine.draw_count(5, player), 6)
+        put(match, 2, "shrine_of_forbidden_knowledge")
+        self.assertEqual(engine.draw_count(5, player), 7)
+        before = player.base_hp
+        upkeep_of(engine, game, match, 2)
+        self.assertEqual(player.base_hp, before - 2, "each Shrine's 1 at its upkeep")
+
+    def test_double_time_1(self) -> None:
+        """If you would take multiple extra turns, they do stack so you can
+        potentially take 3 turns in a row."""
+        engine, game, match = purple()
+        for _ in range(2):
+            board.to_future(engine, match, "double_time", 1)
+        for card in match.player(1).future:
+            card.time_runes = 1
+        turn = match.turn
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual(match.extra_turns, [1, 1])
+        self.assertNotIn("double_time", match.player(1).discard, "trashed once it resolves")
+        from test_codex_keywords import next_upkeep
+
+        for _ in range(2):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+            apply(engine, game, match, PromptKind.PATROL, assignment={})
+            begin(engine, game, match)
+            prompt = asked(engine, game, match)
+            while prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+                if prompt.kind is PromptKind.TECH_CHOICE:
+                    apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                          picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+                else:
+                    apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+                begin(engine, game, match)
+                prompt = asked(engine, game, match)
+            self.assertEqual(match.active, 1)
+        self.assertEqual(match.extra_turns, [])
+        self.assertEqual(match.turn, turn + 4)
+        del next_upkeep
+
+    def test_promise_of_payment_1(self) -> None:
+        """You will get gold from your workers before you have to pay the
+        cost. Also, since you as the active player decide in what order your
+        upkeep effects happen, you can collect gold from upkeep effects like
+        Galina Glimmer and Gemscout Owl before you have to pay. HOWEVER, you
+        can't play cards or activate abilities (such as Merfolk Prospector
+        and Rickety Mine) until your Main phase, so they can't help you pay
+        the cost."""
+        engine, game, match = purple()
+        put(match, 1, "gemscout_owl")
+        match.player(1).debt = 5
+        match.player(1).gold = 0
+        match.player(1).workers = 4
+        upkeep_of(engine, game, match, 1)
+        self.assertIsNone(match.winner)
+        self.assertEqual((match.player(1).gold, match.player(1).debt), (0, 0))
+
+    def test_promise_of_payment_2(self) -> None:
+        """You still have to pay any additional costs of that card as you
+        play it. For example, if your opponent has a Building Inspector, you
+        pay 1 even if Promise of Payment makes the first building you build
+        cost 0."""
+        # Building Inspector is the Flagstone Dominion's (step 13): pinned
+        # here is that the promise is a card's cost, not what the card asks
+        # on top -- a boost is still paid.
+        engine, game, match = purple(first=2)
+        at_max(engine, match, 2, "vandy_anadrose")
+        tech(match, 2, 1)
+        match.player(2).promised = True
+        match.player(2).gold = 3
+        hand(match, 2, "hooded_executioner")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(match.player(2).debt, 2)
+
+    def test_promise_of_payment_3(self) -> None:
+        """Hiring a worker is not playing a card. Building a Tech Building or
+        Add-on isn't playing a card. Using an ability of a card or putting a
+        card into play is not playing a card. Promise of Payment doesn't
+        apply to any of those things."""
+        engine, game, match = purple()
+        player = match.player(1)
+        player.promised = True
+        player.gold = 10
+        hand(match, 1, "neo_plexus")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug="neo_plexus")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "build", building="tower")
+        self.assertEqual(player.gold, 10 - 1 - 3)
+        self.assertTrue(player.promised)
+        self.assertEqual(player.debt, 0)
+
+    def test_promise_of_payment_4(self) -> None:
+        """You CAN use Promise of Payment to play a unit from Graveyard or to
+        play the top card of your draw pile with Vir's middle ability."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        tech(match, 1, 1)
+        match.player(1).deck = ["argonaut"]
+        match.player(1).promised = True
+        match.player(1).gold = 0
+        ability(engine, game, match, "vir_garbarean_play", hero(match, 1, "vir_garbarean"))
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+        self.assertEqual(match.player(1).debt, 3)
+
+    def test_promise_of_payment_5(self) -> None:
+        """Be sure to play Promise of Payment JUST before you play the card
+        you want to pay 0 for. If you play another card in between (even with
+        an effect like Cinderblast Dragon's attack effect), you have to apply
+        Promise of Payment's effect to that card instead."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        hero_in_play(match, 1, slug="max_geiger")
+        tech(match, 1, 2, "future")
+        hand(match, 1, "promise_of_payment", "now", "reaver")
+        match.player(1).gold = 1
+        put(match, 1, "argonaut")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="promise_of_payment")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="now")
+        self.assertEqual(match.player(1).debt, 1, "Now took the promise")
+        self.assertIn("not enough gold", engine.why_not_playable(match.player(1), "reaver", match))
+
+    def test_promise_of_payment_6(self) -> None:
+        """The gold cost you have to pay during your next upkeep is the
+        printed gold cost on the card. You don't get to apply any effects
+        that would reduce its cost (even Gigadon's effect that's on the card
+        itself)."""
+        engine, game, match = purple()
+        built(match, 1, "tech1")
+        match.player(1).promised = True
+        hand(match, 1, "argonaut")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="argonaut")
+        self.assertEqual(match.player(1).debt, 3)
+
+    def test_promise_of_payment_7(self) -> None:
+        """If for some reason you play Promise of Payment and then don't play
+        any other cards that turn, nothing happens during your next upkeeep."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        cast(engine, game, match, "promise_of_payment")
+        self.assertTrue(match.player(1).promised)
+        upkeep_of(engine, game, match, 1)
+        self.assertFalse(match.player(1).promised)
+        self.assertEqual(match.player(1).debt, 0)
+        self.assertIsNone(match.winner)
+
+    def test_promise_of_payment_8(self) -> None:
+        """Promise of Payment does not help you pay for Boost. If you play
+        Promise of Payment and then Murkwood Allies, you only get one kind of
+        token unless you pay 4 gold."""
+        engine, game, match = purple(first=2)
+        tech(match, 2, 1)
+        match.player(2).promised = True
+        match.player(2).gold = 2
+        hand(match, 2, "hooded_executioner")
+        row = next(row for row in engine.playable(match.player(2), match) if row.slug == "hooded_executioner")
+        self.assertEqual(row.cost, 0)
+        self.assertEqual(row.boost_why_not, "not enough gold to boost")
+
+    def test_promise_unpaid_loses_the_game(self) -> None:
+        """Promise of Payment: "Pay its gold cost during your next upkeep or
+        lose the game." -- GAME_OVER's third way."""
+        engine, game, match = purple()
+        match.player(1).debt = 9
+        match.player(1).gold = 0
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual((match.winner, match.lost_by_debt), (2, 1))
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.GAME_OVER)
+        self.assertIn("could not pay", prompt.ask)
+        self.assertEqual(prompt.options.lost_by_debt, 1)
+
+    def test_second_chances_random_return_is_replayed_byte_for_byte(self) -> None:
+        """Second Chances: "Choose randomly if multiples leave at once" --
+        `engine.pick`, journalled beside the shuffles, so a replay by an
+        engine of another seed returns the same one."""
+        import json
+
+        from codex import history
+        from codex.engine import RulesEngine
+
+        for seed in range(6):
+            engine, game, match = new_game(seed=seed, first=1, teams=PB_TEAMS)
+            put(match, 1, "second_chances")
+            put(match, 1, "argonaut")
+            put(match, 1, "neo_plexus")
+            put(match, 1, "fading_argonaut")
+            at_max(engine, match, 1, "prynn_pasternaak")
+            hand(match, 1, "rewind")
+            match.player(1).gold = 10
+            begin(engine, game, match)
+            match.player(1).hero.max_level_since_turn_began = True
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="rewind")
+            outcome = match.journal[-1]["outcomes"]
+            self.assertEqual(outcome[0][0], "@pick")
+            replayed = history.replay(
+                RulesEngine(seed=seed + 100), game, match.turn_snapshots[-1],
+                match.journal, history=match.turn_snapshots,
+            )
+            self.assertEqual(json.dumps(replayed.to_dict(), sort_keys=True),
+                             json.dumps(match.to_dict(), sort_keys=True))
+
+    def test_a_forecast_unit_arrives_with_its_triggers_after_its_building_is_gone(self) -> None:
+        """Forecast X: "A card in the future can arrive even if you lose the
+        relevant spec or tech building" -- and it arrives as any unit does,
+        what reads an arrival reading it."""
+        engine, game, match = pb(first=1, teams=(("future", "past", "present"),
+                                                 ("demonology", "disease", "necromancy")))
+        tech(match, 1, 2, "future")
+        put(match, 1, "blooming_ancient")
+        hand(match, 1, "reaver")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="reaver")
+        match.player(1).buildings["tech2"].destroyed = True
+        ancient = match.player(1).play[0]
+        before = ancient.plus_runes
+        upkeep_of(engine, game, match, 1)
+        upkeep_of(engine, game, match, 1)
+        self.assertTrue(any(card.slug == "reaver" for card in match.player(1).play))
+        self.assertEqual(ancient.plus_runes, before + 1)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""

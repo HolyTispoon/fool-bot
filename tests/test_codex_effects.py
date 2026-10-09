@@ -76,6 +76,7 @@ def _handled(slug: str) -> list[str]:
         "ON_DAMAGING_A_BASE", "SHACKLED", "NO_HIGH_TECH_UNITS", "VOIDBLOCKERS", "DRAW_MORE",
         "NO_OPPOSING_LEVELS", "CANT_LEAVE_WITH_GOLD", "TRASHED_BY_TECH_II", "PER_TIME_RUNE",
         "SECOND_CHANCES", "SENTRIES", "SLOWTIME", "GOLGORTS", "REMEMBERERS",
+        "UPKEEP_SACRIFICE", "PLAGUE_UPKEEP", "SELF_BASE_UPKEEP",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -102,10 +103,7 @@ def _handled(slug: str) -> list[str]:
 #: What step 12 has still to land: every purple and black card, hero and
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
-REMAINING = frozenset({
-    "banefire_golem", "double_time", "plague_lord", "promise_of_payment",
-    "shrine_of_forbidden_knowledge"
-})
+REMAINING = frozenset()
 
 
 #: The purple and black cards whose whole text is keywords the engine
@@ -147,9 +145,11 @@ def _lines(slug: str) -> list[str]:
 class UnimplementedTests(unittest.TestCase):
     def test_unimplemented_is_pinned(self) -> None:
         """Step 11 emptied the set step 10 filled with red and green's
-        text; step 12 fills it with purple's and black's, played for
-        their numbers, and empties it commit by commit."""
+        text; step 12 filled it with purple's and black's, played for
+        their numbers, and emptied it commit by commit: every landed
+        card's text plays."""
         self.assertEqual(effects.UNIMPLEMENTED, REMAINING)
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
         self.assertTrue(effects.UNIMPLEMENTED <= effects.PURPLE | effects.BLACK)
 
     def test_unimplemented_is_exactly_the_pairs_unread_text(self) -> None:

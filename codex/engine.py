@@ -1047,6 +1047,10 @@ class RulesEngine:
         """
         card = self.catalog.cards[slug]
         cost = card.cost or 0
+        if player.promised:
+            # Promise of Payment: "The next card you play this turn costs
+            # {gold:0}." -- its printed cost owed at the next upkeep.
+            return 0
         if card.is_spell:
             if self.free_spell(player, card):
                 return 0
@@ -2922,6 +2926,17 @@ class RulesEngine:
         if match is not None and self.doomed_by(match, player.seat):
             # Vandy at 5: "They lose +2/+2 and die at your next upkeep."
             found.append("doom")
+        # Purple and black's (step 12): Banefire Golem's sacrifice, Plague
+        # Lord's runes onto the bases, the Shrine's 1 -- and Promise of
+        # Payment's debt, last of all (its rulings).
+        found += [f"banefire:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.UPKEEP_SACRIFICE]
+        found += [f"plague_lord:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.PLAGUE_UPKEEP]
+        found += [f"shrine:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.SELF_BASE_UPKEEP]
+        if player.debt:
+            found.append("debt")
         return tuple(found)
 
     @staticmethod
@@ -2939,13 +2954,19 @@ class RulesEngine:
         your upkeep effects"), Starlet's or Land Octopus's beside Dothram
         Horselord, whose side follows the total ATK.
         """
-        deaths = [name for name in due if name == "starlet" or name.startswith("octopus:")]
+        deaths = [name for name in due if name == "starlet" or name.startswith(("octopus:", "banefire:"))]
         found = set()
         if "starlet" in due and "healing" in due:
             found |= {"starlet", "healing"}
         dothrams = [name for name in due if name.startswith("dothram:")]
         if dothrams and deaths:
             found |= set(dothrams) | set(deaths)
+        # Step 12: a Banefire Golem's sacrifice and its damage change how
+        # many -1/-1 runes Plague Lord counts.
+        banefires = [name for name in due if name.startswith("banefire:")]
+        lords = [name for name in due if name.startswith("plague_lord:")]
+        if banefires and lords:
+            found |= set(banefires) | set(lords)
         return tuple(name for name in due if name in found)
 
     def upkeep_order_matters(self, player: PlayerState) -> bool:

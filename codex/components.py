@@ -463,6 +463,14 @@ class PlayerState:
     #: draw/discard step, keeping their hand (step 12). False in an older
     #: save.
     skip_draw: bool = False
+    #: Promise of Payment (step 12): the next card this player plays this
+    #: turn costs 0 -- set as it resolves, spent by that card, gone with the
+    #: turn. False in an older save.
+    promised: bool = False
+    #: What Promise of Payment left owing: paid at this player's next
+    #: upkeep, after its other effects, or the game is lost. 0 in an older
+    #: save.
+    debt: int = 0
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -556,6 +564,8 @@ PLAYER_SAVED_FIELDS = (
     SavedField("lasting", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("future", factory=list, write=_write_play, read=_read_play),
     SavedField("skip_draw", default=False),
+    SavedField("promised", default=False),
+    SavedField("debt", default=0),
 )
 
 
@@ -620,6 +630,13 @@ class MatchState:
     #: The actions applied since this turn began, each with the random
     #: outcomes it consumed.
     journal: list[dict] = field(default_factory=list)
+    #: The seats owed an extra turn after this one, in order (step 12):
+    #: Double Time's, two copies two turns. Empty in an older save.
+    extra_turns: list[int] = field(default_factory=list)
+    #: The seat that lost by failing to pay Promise of Payment's debt at
+    #: its upkeep (step 12) -- the game's third way to end. `None`
+    #: otherwise, and in an older save.
+    lost_by_debt: Optional[int] = None
     #: The last number handed out to something coming to be -- a card
     #: into play, a hero's band (step 11): the order the Card FAQ's grants
     #: are applied in. 0 in an older save.
@@ -801,6 +818,8 @@ MATCH_SAVED_FIELDS = (
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("journal", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("sequence", default=0),
+    SavedField("extra_turns", factory=list, write=_copy_list, read=_copy_list),
+    SavedField("lost_by_debt"),
 )
 
 def upgrade_hero_refs(match: MatchState) -> None:

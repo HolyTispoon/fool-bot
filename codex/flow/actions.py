@@ -195,6 +195,26 @@ def put_card_into_play(engine: "RulesEngine", match: MatchState, seat: int, slug
     _played(engine, match, seat, slug, cost, boost, result, where=where)
 
 
+def spend_promise(engine: "RulesEngine", match: MatchState, seat: int, slug: str,
+                  result: StepResult) -> None:
+    """
+    A card played while Promise of Payment stands took its discount: its
+    printed gold cost is owed at the next upkeep -- never reduced by
+    anything, never the boost (the rulings) -- and the promise is spent on
+    it alone.
+    """
+    player = match.player(seat)
+    if not player.promised:
+        return
+    player.promised = False
+    owed = engine.catalog.cards[slug].cost or 0
+    player.debt += owed
+    if owed:
+        result.narration.append(
+            f"{tokens.player(seat)} owes {tokens.gold(owed)} for {tokens.card(slug)} at their next upkeep."
+        )
+
+
 def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost: int,
             boost: bool, result: StepResult, where: str = "hand") -> None:
     """A card played, paid for: into the future, into play, or cast."""
@@ -203,6 +223,7 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
     player.gold -= cost
     match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}),
                        **({"from": where} if where != "hand" else {}))
+    spend_promise(engine, match, seat, slug, result)
     note = _vanilla_note(engine, slug)
     if where != "hand":
         note += f" (from their {where})"

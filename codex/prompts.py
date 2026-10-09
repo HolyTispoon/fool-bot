@@ -369,9 +369,14 @@ class GameOverOptions:
 
     winner: int
     conceded: Optional[int] = None
+    #: The seat that could not pay Promise of Payment's debt (step 12).
+    lost_by_debt: Optional[int] = None
 
     def to_dict(self) -> dict:
-        return {"winner": self.winner, "conceded": self.conceded}
+        found = {"winner": self.winner, "conceded": self.conceded}
+        if self.lost_by_debt is not None:
+            found["lost_by_debt"] = self.lost_by_debt
+        return found
 
 
 PromptOptions = Union[
@@ -672,7 +677,7 @@ def _confirm_options(engine, game, match, prompt) -> TechConfirmOptions:
 
 
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
-    return GameOverOptions(match.winner, match.conceded)
+    return GameOverOptions(match.winner, match.conceded, match.lost_by_debt)
 
 
 OPTIONS = {
@@ -742,10 +747,12 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
 
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
-        how = (
-            "the opposing base is destroyed." if match.conceded is None
-            else f"{tokens.player(match.conceded)} conceded."
-        )
+        if match.conceded is not None:
+            how = f"{tokens.player(match.conceded)} conceded."
+        elif match.lost_by_debt is not None:
+            how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
+        else:
+            how = "the opposing base is destroyed."
         return PendingPrompt(PromptKind.GAME_OVER, f"{tokens.player(match.winner)} wins: {how}")
     seat = match.active
     if match.resolving:

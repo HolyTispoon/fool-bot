@@ -1219,6 +1219,58 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
+    """Carrion Curse looks at the opponent's hand (step 12): what it sees
+    is pictured to the caster alone, in the ephemeral panel -- the whole
+    hand, the units among it shown but not offered -- and the channel
+    hears none of it until a card is discarded."""
+
+    BLACK = ("demonology", "disease", "necromancy")
+    PURPLE = ("past", "present", "future")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.BLACK, self.PURPLE))
+
+    async def test_the_look_reaches_the_caster_alone(self) -> None:
+        match = self.table.match
+        match.active = 1
+        hero_in_play(match, 1, slug="orpal_gloor")
+        match.player(1).hand = ["carrion_curse"]
+        match.player(1).gold = 3
+        match.player(2).hand = ["now", "argonaut", "undo"]
+        self.table.cog.service.persist(self.game, match)
+        mark = len(self.table.game_channel.requests)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("play", "carrion_curse"))
+        self.assertNothingWentWrong(call)
+        asking = call.view()
+        self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        self.assertEqual(asking.prompt.options.shown, ("now", "argonaut", "undo"))
+        self.assertEqual({row.ref for row in asking.prompt.options.targets}, {"hand:now", "hand:undo"})
+        (picture,) = call.last("followup.send")[2]["files"]
+        self.assertTrue(picture.filename.startswith("codex-choices-"), picture.filename)
+        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
+        channel = [kwargs.get("content") or "" for _, _, kwargs in self.table.game_channel.requests[mark:]]
+        for text in channel:
+            for name in ("Now", "Argonaut", "Undo"):
+                self.assertNotIn(name, text)
+        call = await self.table.press(asking, ("target", "2:hand:now"))
+        self.assertNothingWentWrong(call)
+        view = call.view()
+        if view.prompt.kind is PromptKind.TARGET:
+            call = await self.table.press(view, "Done")
+            self.assertNothingWentWrong(call)
+        self.assertEqual(sorted(self.table.match.player(2).hand), ["argonaut", "undo"])
+        self.assertIn("now", self.table.match.player(2).discard)
+
+    def assertNothingWentWrong(self, call) -> None:
+        for kind, args, kwargs in call.answers:
+            text = kwargs.get("content") or (args[0] if args else "") or ""
+            self.assertNotIn("Something went wrong", text)
+
+
 class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
     """A standard game through the panel (step 10): the heroes on the actions row, one
     button per hero, and Build Tech II turning the panel into the spec

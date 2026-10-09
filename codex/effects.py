@@ -169,10 +169,7 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 #: more than keywords the engine reads -- the six heroes' bands among
 #: them. Argonaut's readiness, the Stinger's flying and the Horror's
 #: deathtouch are read whole, and play in full.
-UNIMPLEMENTED: frozenset = frozenset({
-    "banefire_golem", "double_time", "plague_lord", "promise_of_payment",
-    "shrine_of_forbidden_knowledge"
-})
+UNIMPLEMENTED: frozenset = frozenset()
 
 
 # -- What a text does, part by part ------------------------------------------
@@ -1042,6 +1039,22 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # Hyperion: "Attacks: Draw a card."
     _effect("hyperion", Part("draw", None, 1, targeted=False)),
 
+    # -- The upkeep, the extra turn and the debt (step 12, commit 6) --------
+    # Promise of Payment: "The next card you play this turn costs {gold:0}.
+    # Pay its gold cost during your next upkeep or lose the game."
+    _effect("promise_of_payment", Part("promise", None, 0, targeted=False)),
+    # Double Time: "Take an extra turn after this one, then trash this
+    # card." -- as it resolves from the future.
+    _effect("double_time", Part("extra_turn", None, 0, targeted=False), trash_after=True),
+    # Banefire Golem: "Upkeep: Sacrifice a unit. If you do, deal 1 damage to
+    # each opposing unit, hero, and building." -- itself where nothing else,
+    # mandatory (its ruling).
+    _effect(
+        "banefire_golem",
+        Part("sacrifice", "own_unit_to_sacrifice", 0, "sacrifice one of your units", targeted=False),
+        Part("banefire", None, 1, targeted=False, follows=True),
+    ),
+
     # -- Purple and black: time (step 12) ----------------------------------
     # Time Spiral: "Add or remove a time rune from a card (or forcasted
     # card) with at least one time rune." -- any player's (its ruling), no
@@ -1277,6 +1290,8 @@ TEXT: dict = {
     "void_star": (("ability", "void_star"),),
     "warp_gate_disciple": (("ability", "warp_gate_disciple"),),
     "xenostalker": (("attacks", "xenostalker"),),
+    "promise_of_payment": (("play", "promise_of_payment"),),
+    "double_time": (("play", "double_time"),),
     "hyperion": (("attacks", "hyperion"),),
 }
 
@@ -1737,3 +1752,14 @@ REMEMBERERS = frozenset({"rememberer"})
 PRYNN = "prynn_pasternaak"
 PRYNN_FADES = ("prynn_pasternaak", 4)
 PRYNN_RETURNS = ("prynn_pasternaak", 7)
+
+# -- The upkeep's own (step 12, commit 6) ------------------------------------------
+
+#: Banefire Golem: "Upkeep: Sacrifice a unit." -- the effect it asks.
+UPKEEP_SACRIFICE = {"banefire_golem": "banefire_golem"}
+#: Plague Lord: "Upkeep: Each player's base takes 1 damage for each -1/-1
+#: rune on their units and heroes." -- its controller's upkeep alone, its
+#: own base included (its ruling).
+PLAGUE_UPKEEP = frozenset({"plague_lord"})
+#: Shrine of Forbidden Knowledge: "Upkeep: Your base takes 1 damage."
+SELF_BASE_UPKEEP = {"shrine_of_forbidden_knowledge": 1}

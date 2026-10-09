@@ -1069,6 +1069,12 @@ def _free_spell(engine, match, top, part, target, result) -> None:
         where = "hand"
     player.spells_played += 1
     match.record_event("played", slug=slug, cost=0, free=True)
+    from codex.flow.actions import spend_promise
+
+    # "If you play another card in between (even with an effect like
+    # Cinderblast Dragon's attack effect), you have to apply Promise of
+    # Payment's effect to that card instead" (its ruling).
+    spend_promise(engine, match, seat, slug, result)
     result.narration.append(
         f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their {where}, free."
     )
@@ -1497,6 +1503,9 @@ def _play_buried(engine, match, top, part, target, result) -> None:
     player.gold -= cost
     match.record_event("played", slug=slug, cost=cost, buried=True,
                        **({"boosted": True} if boosted else {}))
+    from codex.flow.actions import spend_promise
+
+    spend_promise(engine, match, seat, slug, result)
     card = match.new_instance(slug, seat)
     card.owner = entry["owner"]
     atk, hp = engine.unit_stats(card, match)
@@ -2002,6 +2011,52 @@ def _void_star(engine, match, top, part, target, result) -> None:
     result.narration.append(f"{top['by']} gets +4 ATK until {tokens.player(seat)}'s next upkeep.")
 
 
+# -- The upkeep, the extra turn and the debt (step 12, commit 6) -------------
+
+
+def _promise(engine, match, top, part, target, result) -> None:
+    """Promise of Payment: the next card played this turn costs 0."""
+    seat = top["seat"]
+    match.player(seat).promised = True
+    result.narration.append(
+        f"The next card {tokens.player(seat)} plays this turn costs {tokens.gold(0)}; its cost is owed "
+        "at their next upkeep."
+    )
+
+
+def _extra_turn(engine, match, top, part, target, result) -> None:
+    """Double Time: an extra turn after this one -- two copies, two turns
+    (its ruling, the Card FAQ)."""
+    seat = top["seat"]
+    match.extra_turns.append(seat)
+    result.narration.append(f"{tokens.player(seat)} takes an extra turn after this one.")
+
+
+def _banefire(engine, match, top, part, target, result) -> None:
+    """Banefire Golem, having sacrificed: 1 damage to each opposing unit,
+    hero and building -- one being built this turn excepted (UMR p. 8)."""
+    seat = top["seat"]
+    other = _against(top)
+    player = match.player(other)
+    amount = damage_amount(engine, match, top, part.amount)
+    bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    bodies += player.heroes_in_play
+    shielded = board.sentry_shields(engine, match, bodies, result)
+    for body in bodies:
+        if body not in shielded:
+            board.take_damage(body, amount)
+    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]:
+        board.take_damage(card, amount)
+    result.narration.append(
+        f"{top['by']} deals {amount} to each unit, hero and building {tokens.player(other)} controls."
+    )
+    board.golgort(engine, match, seat, result)
+    for ref in ("tech1", "tech2", "tech3", "add_on"):
+        if board.still_there(match, other, ref) and not engine._under_construction(player, ref):
+            board.damage_building(match, other, ref, amount, result, by=seat)
+    board.damage_building(match, other, "base", amount, result, by=seat)
+
+
 #: The parts `run` works itself rather than a handler: "choose one" and
 #: divided damage.
 STRUCTURAL = frozenset({"mode", "divide"})
@@ -2114,6 +2169,9 @@ DOES = {
     "ready_self": _ready_self,
     "disable": _disable,
     "void_star": _void_star,
+    "promise": _promise,
+    "extra_turn": _extra_turn,
+    "banefire": _banefire,
 }
 
 
