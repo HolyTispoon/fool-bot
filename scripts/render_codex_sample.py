@@ -5,7 +5,8 @@ The opening position of Bashing against Finesse in both layouts, a
 staged position from the middle of a game (units in play, exhausted and
 just arrived, patrollers, damage, a building under construction, the
 tower, the hero levelled) -- stacked, from each seat in turn, since the
-stacked board is seen from the active player's side -- the first
+stacked board is seen from the active player's side -- a position with
+every other state on the design canvas's states board, the first
 player's hand, their codex through every view, and the tech picker's
 codex with two picks marked:
 
@@ -94,6 +95,46 @@ def staged_effects(engine: RulesEngine) -> MatchState:
     return match
 
 
+def staged_states(engine: RulesEngine) -> MatchState:
+    """Every state on the design canvas's states board that the other
+    two positions do not show (docs/codex-bot.md, step 7): a tech
+    building built and damaged, under construction, destroyed and not
+    built; the base untouched and nearly down; the add-on slot empty
+    and a damaged Surplus; a patroller with damage over its slot; a
+    hero on the field at level 1, and one at level 3, damaged and
+    summoned this turn; a unit ready, one with a +1/+1 rune and damage,
+    a token arrived this turn, and one exhausted."""
+    match = engine.new_match(("bashing", "finesse"), first=1)
+    match.turn, match.phase = 7, "main"
+    one, two = match.player(1), match.player(2)
+    one.gold, one.workers = 2, 6
+    two.gold, two.workers, two.base_hp = 5, 7, 4
+    one.hero.zone, one.hero.level = "play", 1
+    two.hero.zone, two.hero.level, two.hero.damage = "play", 3, 2
+    two.hero.arrived_this_turn = True
+    one.buildings["tech1"] = BuildingState(hp=2, under_construction=False)
+    one.buildings["tech2"] = BuildingState(hp=5, under_construction=True)
+    two.buildings["tech1"] = BuildingState(hp=0, under_construction=False, destroyed=True)
+    two.add_on = AddOnState("surplus", 0, under_construction=False)
+    two.add_on.hp = engine.catalog.building("surplus").hp - 2
+
+    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False, plus=0):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.damage = patrol, damage
+        card.exhausted, card.arrived_this_turn, card.plus_runes = exhausted, arrived, plus
+        return card
+
+    put(1, "granfalloon_flagbearer", patrol="scavenger", damage=2)
+    put(1, "older_brother")
+    put(1, "tenderfoot", plus=1, damage=2)
+    put(1, "dancer", arrived=True)
+    put(1, "brick_thief", exhausted=True)
+    put(2, "helpful_turtle", patrol="squad_leader")
+    put(2, "spectral_aven", exhausted=True)
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -137,6 +178,10 @@ def main() -> None:
     midgame.active = 2
     render_all(engine, midgame, names, args.out, "midgame-seat-2", ("stacked",))
     render_all(engine, staged_effects(engine), names, args.out, "effects")
+    states = staged_states(engine)
+    render_all(engine, states, names, args.out, "states")
+    states.active = 2
+    render_all(engine, states, names, args.out, "states-seat-2", ("stacked",))
 
     rows = engine.hand_rows(opening, 1)
     write(args.out / "hand-opening.png", render_hand(
