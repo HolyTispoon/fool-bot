@@ -37,6 +37,7 @@ from cogs.codex_views import (
     RematchView,
     TechChoiceView,
     TechConfirmView,
+    TechGateView,
     TurnMessageView,
     TurnPanelView,
     UndoConfirmView,
@@ -226,6 +227,7 @@ class PanelTests(TurnTestCase):
         self.assertTrue(kwargs["file"].filename.startswith("codex-deck-"))
         deck = self.table.cog.engine.own_deck(self.table.match, seat)
         self.assertTrue(call.text().startswith(f"Your deck: {deck.size} cards"), call.text())
+        self.assertIn("The cards in your hand are framed in gold.", call.text())
         self.assertEqual(channel_requests(self.table, mark), [])
 
         # On the turn message, for either player, whoever's turn it is.
@@ -533,11 +535,9 @@ class TurnEndTests(TurnTestCase):
         # The finished turn is pinned; the current one never is.
         self.assertEqual(self.table.game_channel.pinned, {old})
 
-    async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
-        """From turn 3 on, the new turn opens on its player's tech
-        confirmation: the turn message says it waits on them, and My hand
-        is the confirmation; Confirm runs the ready phase and turns the
-        panel into the turn's actions."""
+    async def reach_turn_three(self):
+        """Two turns ended, the first player's tech picked and saved
+        during the second: the third turn waits on its confirmation."""
         first = self.table.active
         lock = await self.end_turn()
         picker = lock.answers[1][2]["view"]
@@ -550,11 +550,35 @@ class TurnEndTests(TurnTestCase):
         await self.end_turn()
         self.assertIs(self.table.active, first)
         self.assertEqual(self.table.match.phase, "ready")
+        return first, picker
+
+    async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
+        """From turn 3 on, the new turn opens on its player's tech
+        confirmation: the turn message says it waits on them, and My hand
+        is still the hand, with **Tech** under it in place of the turn's
+        actions (the author, 2026-10-09); Tech opens the confirmation in
+        place, and Confirm runs the ready phase and turns the panel into
+        the turn's actions."""
+        first, picker = await self.reach_turn_three()
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertIn("waits on", text)
+        self.assertIn("**Tech**", text)
         self.assertIn("**Turn 3**", text)
 
         call, view = await self.table.panel(first)
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], HAND_AND_PANEL)
+        hand, gate = [kwargs for _, _, kwargs in call.answers]
+        self.assertTrue(hand["file"].filename.startswith("codex-hand-"))
+        self.assertIsInstance(view, TechGateView)
+        self.assertNotIn("files", gate)
+        self.assertEqual([item.label for item in view.children], ["Tech", "My deck"])
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, "Tech")
+        self.assertNothingWentWrong(opened)
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        view = opened.view()
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)
@@ -563,6 +587,28 @@ class TurnEndTests(TurnTestCase):
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertNotIn("waits on", text)
         self.assertIn("2 tech cards", text)
+
+    async def test_tech_on_the_turn_message_opens_the_turns_tech(self) -> None:
+        """**Tech** pressed by the player whose turn waits on their tech
+        opens the confirmation at once; once it is confirmed, the hand
+        goes up above the turn's actions, as My hand would have sent it."""
+        first, _ = await self.reach_turn_three()
+        # No hand of theirs up: the one from turn 1 forgotten, as it is
+        # past its fifteen minutes or after a restart.
+        self.table.cog.hand_messages.pop((self.game.game_id, self.table.match.active), None)
+        call = await self.table.turn_button("tech", first)
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        view = call.view()
+        self.assertIsInstance(view, TechConfirmView)
+        confirmed = await self.table.press(view, "Confirm")
+        self.assertNothingWentWrong(confirmed)
+        self.assertEqual([answer[0] for answer in confirmed.answers],
+                         ["response.defer", "followup.send", "followup.send", "original.delete"])
+        hand, panel = [kwargs for kind, _, kwargs in confirmed.answers if kind == "followup.send"]
+        self.assertTrue(hand["file"].filename.startswith("codex-hand-"))
+        self.assertIsInstance(panel["view"], TurnPanelView)
+        self.assertEqual(self.table.match.phase, "main")
 
     async def test_the_tech_choice_is_answerable_while_the_other_panel_is_open(self) -> None:
         await self.end_turn()
@@ -712,6 +758,11 @@ class WholeGameTests(TurnTestCase):
 
     async def policy(self, view):
         table = self.table
+        if isinstance(view, TechGateView):
+            # Opened in place, spending nothing public: then answered.
+            opened = await table.press(view, "Tech")
+            self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+            return await self.policy(opened.view())
         if isinstance(view, TechConfirmView):
             return await table.press(view, "Confirm")
         if isinstance(view, TechChoiceView):
@@ -1000,7 +1051,9 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         text = table.game_channel.texts[game.turn_message_id]
         self.assertIn("**Turn 3**", text)
         self.assertIn("to choose their tech", text)
-        _, picker = await table.panel(table.basher)
+        _, gate = await table.panel(table.basher)
+        self.assertIsInstance(gate, TechGateView)
+        picker = (await table.press(gate, "Tech")).view()
         self.assertIsInstance(picker, TechChoiceView)
         self.assertEqual(picker.seat, first)
         values = [option.value for option in picker.select.options[:2]]

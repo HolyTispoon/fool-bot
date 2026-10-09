@@ -171,9 +171,11 @@ class HeroOption:
 @dataclass(frozen=True)
 class OwnDeck:
     """A player's whole deck (`RulesEngine.own_deck`): (slug, copies)
-    for every card they own, and how many are in each place."""
+    for every card they own, how many copies of each are in their hand
+    (`in_hand`, in the same order), and how many are in each place."""
 
     cards: tuple[tuple[str, int], ...]
+    in_hand: tuple[int, ...]
     hand: int
     draw_pile: int
     discard: int
@@ -1748,7 +1750,9 @@ class RulesEngine:
         token gone (the author, 2026-10-09: "all the cards that are in
         your deck"). Counted per card, in the starting deck's order
         first, then each tech level's, the spells after their level's
-        units. A tech choice not yet in the discard pile is not in it.
+        units, with each card's copies in the hand beside it, which **My
+        deck** marks (the author, 2026-10-09). A tech choice not yet in
+        the discard pile is not in it.
         **Its owner's alone**: the draw pile is told as a count, never
         an order.
         """
@@ -1775,8 +1779,11 @@ class RulesEngine:
             return (card.starting_zone != "deck", card.tech_level or 0, card.is_spell,
                     order.get(slug, len(order)))
 
+        held = Counter(player.hand)
+        ordered = sorted(counted, key=place)
         return OwnDeck(
-            cards=tuple((slug, counted[slug]) for slug in sorted(counted, key=place)),
+            cards=tuple((slug, counted[slug]) for slug in ordered),
+            in_hand=tuple(held[slug] for slug in ordered),
             hand=len(player.hand), draw_pile=len(player.deck),
             discard=len(player.discard), in_play=len(in_play),
         )

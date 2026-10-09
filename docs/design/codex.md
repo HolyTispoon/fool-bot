@@ -1235,7 +1235,12 @@ effect frame's `spell`, or Appel Stomp waiting on its place. A tech
 choice joins it at the ready phase, when the picks reach the discard
 pile, and not before; a hired card is trashed and so gone. It is
 pictured by `render_codex`, each card once with its copies on the
-badge, the starting cards first and then each tech level, and captioned
+badge, the starting cards first and then each tech level, **the cards
+in the hand framed in gold with how many copies are there** ("2 in
+hand", the tech picker's mark worded for the deck; the author,
+2026-10-09: "the 'my deck' view should mark which cards are in a
+player's hand") -- `OwnDeck.in_hand`, the engine's count beside each
+card, so the view computes nothing -- and captioned
 with how many are in each place -- the draw pile a count, never an
 order; a tech choice not yet in the discard pile is not listed, there
 or anywhere in it (the author, 2026-10-09). The button is on the turn
@@ -1285,7 +1290,14 @@ whatever the match asks them, the other player their hand pictured and
 nothing to press. The panel is the view for `MAIN_ACTION` and
 `CHOOSE_DEFENDER` (`TurnPanelView`), for `PATROL` (`PatrolView`), and
 for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
-`view_for_prompt`'s table, the only place a kind becomes a view.
+`view_for_prompt`'s table, the only place a kind becomes a view. **My
+hand always shows the hand** (the author, 2026-10-09): where the turn
+waits on its player's tech, My hand sends the hand and, under it,
+`TechGateView` -- **Tech** and **My deck** in place of the turn's
+actions -- rather than the confirmation alone, which left a player
+unable to see their hand before confirming. It is `view_for_prompt`'s
+too, asked with `gate` for the two kinds a turn may open on
+(`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
 
 - **One ephemeral message at a time, under the turn message.** Each
   click answers through the service and the panel is built afresh from
@@ -1452,7 +1464,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 The Lock that ends a turn turns the panel into the tech picker, saying
 the turn is over, sent under the new turn message.
 **Tech** on the turn message reopens it -- for the player whose turn it
-is not, alone -- all through the opponent's turn; each **Save tech**
+is not, and for the active player only while their own turn waits on
+their tech (below) -- all through the opponent's turn; each **Save tech**
 replaces the last, privately: **nothing is said in the channel** -- not
 the cards, and not that a choice was made. The choice is announced in
 its owner's ready phase alone, as "puts 2 tech cards into their discard
@@ -1485,15 +1498,24 @@ picker is an ephemeral message made afresh each time.
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
 cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
-"to choose their tech" where My hand is the picker instead, because they
-never picked, or because the game is a test game), and My
-hand is `TechConfirmView` -- the picks pictured, **Confirm** and
-**Change**. Confirm runs the ready phase and the upkeep, and the panel
-becomes the turn's actions, under the turn message posted again. The prompt asked for the
+"to choose their tech" where the picker is asked instead, because they
+never picked, or because the game is a test game) and points at
+**Tech**. **Tech** on the turn message, pressed by the player whose
+turn it is while the turn waits on their tech, opens it at once:
+`TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
+or the picker (the author, 2026-10-09: "clicking tech should let them
+pick tech"); at any other point in their own turn it says the tech is
+not theirs to press now. **My hand** sends the hand with `TechGateView`
+under it, whose Tech opens the same view in place. Confirm runs the
+ready phase and the upkeep, and the panel becomes the turn's actions,
+under the turn message posted again -- with the hand sent first,
+above it, where none of the player's is remembered (`answer_panel`),
+which is the Tech path's: the turn's actions are never put up without
+the hand above them. The prompt asked for the
 confirmation to be sent "as the follow-up to the opponent's Lock when
 they are present"; a follow-up reaches only the clicker, so it is not
 sent to the other player -- the turn message's mention and its caption
-point them at My hand instead.
+point them at Tech instead.
 
 ### The turn message, posted again
 
@@ -1592,7 +1614,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 2: the hand, a message of its own, and the panel under it |
+| My hand, the active player | **0** | 2: the hand, a message of its own, and the panel under it -- **Tech** alone while the turn waits on their tech |
+| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted -- and, where the hand or its caption changed, one edit on the interaction that made the hand message (a fourth of this click's, the hand sent afresh, only where that edit fails) |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |

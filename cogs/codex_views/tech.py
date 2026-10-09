@@ -22,6 +22,12 @@ choice's owner** and built from the prompt's options alone:
 - `TechConfirmView`, for `TECH_CONFIRM`: the picks pictured as a hand
   (`render_hand`), **Confirm**, **Change** and **My deck**. The ready
   phase runs on Confirm; Change reopens the picker.
+- `TechGateView`, under the hand **My hand** sends while the active
+  player's turn waits on their tech -- the confirmation, or the picker
+  where nothing was picked: **Tech** and **My deck** in place of the
+  turn's actions (the author, 2026-10-09: "clicking my hand should
+  always show a player their hand"). Tech turns it, in place, into
+  whichever of the two views above the turn waits on.
 
 Nothing about a tech choice is said publicly while it is made -- not
 the cards, not that one was made; the owner's ready phase says how many
@@ -170,3 +176,25 @@ class TechConfirmView(PanelView):
 
     async def change(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.TECH_CONFIRM, "change", {"player": self.seat}))
+
+
+class TechGateView(PanelView):
+    """**Tech** and **My deck**, the panel under the hand while the
+    turn waits on its player's tech: Tech opens the confirmation or the
+    picker in place -- the prompt's own view, `show_panel`'s edit."""
+
+    def __init__(self, cog, game_id: str, prompt, match) -> None:
+        super().__init__(cog, game_id, prompt, match)
+        tech = discord.ui.Button(label="Tech", style=discord.ButtonStyle.primary)
+        tech.callback = self.open_tech
+        self.add_item(tech)
+        self.add_item(deck_button(self.open_deck))
+
+    def caption(self) -> str:
+        return "**Tech** opens it; the turn's actions come once it is confirmed."
+
+    async def open_tech(self, interaction: discord.Interaction) -> None:
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.show_panel(interaction, game, match, self.seat, edit=True)

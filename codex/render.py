@@ -1244,23 +1244,26 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
-                 picked: Optional[Sequence[int]] = None) -> bytes:
+                 picked: Optional[Sequence[int]] = None,
+                 mark: str = "picked {}") -> bytes:
     """
     A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
-    upload limit. `picked`, where given, is how many copies of each the
-    tech choice has taken so far: such a card is framed in gold with
-    the count on a pill over its art -- the tech picker's picture. The
-    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
+    upload limit. `picked`, where given, is how many copies of each are
+    marked: such a card is framed in gold with the count on a pill over
+    its art, worded by `mark` -- "picked 2", the tech picker's picture,
+    or "2 in hand", **My deck**'s. The same picture asked again is the
+    bytes already drawn (`RENDERED_KEPT`).
     """
     return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
-                         None if picked is None else tuple(picked))
+                         None if picked is None else tuple(picked), mark)
 
 
 @lru_cache(maxsize=RENDERED_KEPT)
 def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
-                  cards: CardCatalog, picked: Optional[tuple[int, ...]]) -> bytes:
+                  cards: CardCatalog, picked: Optional[tuple[int, ...]],
+                  mark: str = "picked {}") -> bytes:
     count = max(1, len(cards_in_codex))
     columns = min(count, CODEX_COLUMNS)
     rows = -(-count // columns)
@@ -1287,7 +1290,7 @@ def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
         taken = picked[index] if picked is not None else 0
         if taken:
             badge.rectangle((0, 0, CODEX_CARD[0] - 1, CODEX_CARD[1] - 1), outline=GOLD, width=8)
-            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), f"picked {taken}", 26,
+            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), mark.format(taken), 26,
                  ACTIVE_FILL, anchor="mm")
         canvas.alpha_composite(picture, (left, top))
     return _webp(canvas)

@@ -35,6 +35,7 @@ from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, 
 from cogs.codex_views import (
     RematchView, UndoConfirmView, kept_pictures, picture_file, send_ephemeral,
 )
+from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
@@ -136,6 +137,13 @@ class TurnsMixin:
         prompt = pending_prompt(self.engine, game, match)
         return prompt if prompt is not None and prompt.asked_player == seat else None
 
+    def tech_asked(self, game: CodexGame, match, seat: int) -> bool:
+        """Whether `seat`'s turn waits on their tech -- the confirmation,
+        or the picker where nothing was picked -- which **Tech** opens
+        and **My hand** puts behind a Tech button (`TECH_GATE_KINDS`)."""
+        prompt = self.prompt_for(game, match, seat)
+        return prompt is not None and prompt.kind in TECH_GATE_KINDS
+
     # -- The panel -------------------------------------------------------------
 
     def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "") -> str:
@@ -148,20 +156,22 @@ class TurnsMixin:
         return "\n".join(lines)
 
     async def panel_parts(self, game: CodexGame, match, prompt: PendingPrompt,
-                          note: str = "") -> tuple[str, list[discord.File], Optional[discord.ui.View]]:
+                          note: str = "", gate: bool = False,
+                          ) -> tuple[str, list[discord.File], Optional[discord.ui.View]]:
         """The panel for `prompt`: its text, its picture -- a side of
         the board for a target (`side_shown`); the prompt's own
         (`render_prompt`) for the rest; none for the main phase, whose
-        hand is a message of its own (`HAND_MESSAGE_KINDS`) -- and its
-        view (`view_for_prompt`)."""
-        view = self.view_for_prompt(game, prompt, match)
+        hand is a message of its own (`HAND_MESSAGE_KINDS`), nor for a
+        turn's tech behind its Tech button (`gate`) -- and its view
+        (`view_for_prompt`)."""
+        view = self.view_for_prompt(game, prompt, match, gate=gate)
         caption = getattr(view, "caption", None)
         extra = [note] if note else []
         if callable(caption):
             extra.append(caption())
         if prompt.kind in PANEL_SIDE_KINDS:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
-        elif prompt.kind in HAND_MESSAGE_KINDS:
+        elif prompt.kind in HAND_MESSAGE_KINDS or gate:
             files = []
         else:
             picture = await self.render_prompt(game, prompt)
@@ -187,12 +197,15 @@ class TurnsMixin:
 
     async def show_panel(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int, *, edit: bool, standing: bool = False, note: str = "",
-                         replace: bool = False) -> None:
+                         replace: bool = False, open_tech: bool = False) -> None:
         """
         Put up what `seat` is asked: **made afresh** as an ephemeral
         message (`edit=False` -- My hand, Tech, `/codex resume`) -- for
         the main phase, under their hand sent first as a message of its
-        own (`send_hand_message`, `HAND_MESSAGE_KINDS`) -- in
+        own (`send_hand_message`, `HAND_MESSAGE_KINDS`); for a turn
+        that waits on its player's tech, under the hand too, as **Tech**
+        alone (`TechGateView`) until it is opened, or at once where
+        **Tech** was pressed (`open_tech`) -- in
         place of the panel clicked (`edit=True`), or **in its stead,
         under the turn message just posted again** (`replace=True`,
         `put_panel`). The cog never looks for an old panel: an ephemeral
@@ -208,10 +221,12 @@ class TurnsMixin:
             else:
                 await self.send_hand(interaction, game, match, seat)
             return
-        if not edit and not replace and prompt.kind in HAND_MESSAGE_KINDS:
+        fresh = not edit and not replace
+        gate = fresh and not standing and not open_tech and prompt.kind in TECH_GATE_KINDS
+        if fresh and (prompt.kind in HAND_MESSAGE_KINDS or gate):
             await self.send_hand_message(interaction, game, match, seat)
         started = time.perf_counter()
-        content, files, view = await self.panel_parts(game, match, prompt, note)
+        content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         await self.put_panel(interaction, content, files, view, edit=edit, replace=replace)
@@ -286,11 +301,17 @@ class TurnsMixin:
         from My hand.
         """
         match = result.match
+        prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
         if replace and match is not None:
             # What the click changed in either hand goes on the hand
             # messages first, so a hand sent afresh lands above the panel.
             await self.refresh_hand_messages(game, match, seat, interaction)
-        prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
+            if (prompt is not None and prompt.kind in HAND_MESSAGE_KINDS
+                    and (game.game_id, seat) not in self.hand_messages):
+                # The turn's actions with no hand above them -- its tech
+                # confirmed from **Tech** on the turn message: the hand
+                # goes up first, as My hand would have sent it.
+                await self.send_hand_message(interaction, game, match, seat)
         standing = next((one for one in result.standing if one.asked_player == seat), None)
         if prompt is not None:
             await self.show_panel(interaction, game, match, seat, edit=True, replace=replace)
