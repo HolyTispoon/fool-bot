@@ -148,7 +148,9 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
 def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str) -> StepResult:
     """
     A card from the hand for its cost (UMR p. 7): a unit into play with
-    arrival fatigue, its arrives triggers then resolving; a spell paid
+    arrival fatigue, its arrives triggers then resolving; a building card
+    or an upgrade into play with arrival fatigue -- neither patrols nor
+    attacks, and only the building has HP; a spell paid
     and its text resolved part by part (`codex.flow.resolve`) -- then
     into the discard pile, or into play for an ongoing spell -- and each
     Harmony of the caster's summoning its Dancer after it.
@@ -178,6 +180,13 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             resolve.frame(effect, seat, tokens.card(slug), source=instance.ref)
             for effect in effects.triggers(slug, "arrives")
         ))
+    elif card.is_permanent:
+        match.new_instance(slug, seat)
+        what = f"a building, {card.hp} HP" if card.is_building_card else "an upgrade"
+        result.narration.append(
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
+            f"{what}.{note}"
+        )
     else:
         result.narration.append(
             f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}.{note}"

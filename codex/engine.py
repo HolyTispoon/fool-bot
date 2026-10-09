@@ -812,7 +812,7 @@ class RulesEngine:
         any of whose parts can resolve (Final Smash's ruling)."""
         card = self.catalog.cards[slug]
         cost = self.effective_cost(player, slug)
-        if card.is_unit:
+        if card.is_unit or card.is_permanent:
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
             why = self._why_not_spec(player, card)
@@ -1118,6 +1118,7 @@ class RulesEngine:
         play, the tech buildings and add-on standing, and the base."""
         player = match.player(seat)
         found = list(self._things_in_play(match, seat))
+        found.extend(card.ref for card in self._building_cards_of(match, seat))
         found.extend(
             name for name in TECH_BUILDINGS
             if player.buildings[name] is not None and not player.buildings[name].destroyed
@@ -1421,6 +1422,19 @@ class RulesEngine:
     def _units_of(self, match: MatchState, seat: int) -> list[CardInstance]:
         return [card for card in match.player(seat).play if self.catalog.cards[card.slug].is_unit]
 
+    def _building_cards_of(self, match: MatchState, seat: int) -> list[CardInstance]:
+        """The building cards `seat` has in play -- things with HP besides
+        the base, the tech buildings and the add-on (UMR p. 7)."""
+        return [card for card in match.player(seat).play
+                if self.catalog.cards[card.slug].is_building_card]
+
+    def has_hp(self, card: CardInstance) -> bool:
+        """Whether a card in play has HP, and so can be damaged and
+        destroyed: a unit or a building card -- not an upgrade, not an
+        ongoing spell."""
+        printed = self.catalog.cards[card.slug]
+        return printed.is_unit or printed.is_building_card
+
     def target_candidates(self, match: MatchState, seat: int, choose: str,
                           taken: Sequence[str] = ()) -> list[tuple[int, str]]:
         """
@@ -1454,11 +1468,14 @@ class RulesEngine:
                               if not one.plus_runes]
             elif choose == "building":
                 # A building being constructed can't be dealt damage the
-                # turn it was started (UMR p. 8, and p. 9 for add-ons).
+                # turn it was started (UMR p. 8, and p. 9 for add-ons); a
+                # building card is a building as much as the base is.
                 found += [(side, ref) for ref in self._buildings_of(match, side)
                           if not self._under_construction(player, ref)]
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
             elif choose == "other_building":
                 found += [(side, ref) for ref in self._buildings_of(match, side)]
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
             elif choose == "unit":
                 found += [(side, card.ref) for card in units]
             elif choose == "unit_tech_0_1":
@@ -1637,7 +1654,7 @@ class RulesEngine:
         The views a player's codex is shown through -- everything, a
         tech level, or the spells (the author, 2026-10-08: "a lot of
         cards", so a menu rather than one picture) -- and, where the
-        deck is more than one spec (the standard game's three, step 9),
+        deck is more than one spec (the standard game's three, step 10),
         one view per spec, since a seventy-two card codex is three
         binders. The Codex button's menu and the tech picker's are both
         this list, so the two narrow the same way.

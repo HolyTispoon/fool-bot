@@ -76,6 +76,9 @@ def body_of(match: MatchState, seat: int, ref: str):
 
 
 def is_building(ref: str) -> bool:
+    """Whether `ref` names the base, a tech building or the add-on --
+    the buildings with no card in play. A building card is a `unit:<id>`
+    ref, damaged and destroyed as a card is."""
     return ref in TECH_BUILDINGS or ref in ("add_on", "base")
 
 
@@ -162,6 +165,12 @@ def repair_building(engine: "RulesEngine", match: MatchState, seat: int, ref: st
     """Repair up to `amount` damage on a building, never above its
     maximum HP (Brick Thief's ruling); what was repaired."""
     player = match.player(seat)
+    card = body_of(match, seat, ref) if not is_building(ref) else None
+    if card is not None:
+        # A building card: its damage is what a repair takes off.
+        repaired = min(card.damage, amount)
+        card.damage -= repaired
+        return repaired
     most = building_max_hp(engine, match, seat, ref)
     before = building_hp(match, seat, ref)
     after = min(most, before + amount)
@@ -383,7 +392,7 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         dead = []
         for player in match.players:
             for card in player.play:
-                if engine.catalog.cards[card.slug].is_unit and _lethal(engine, match, card):
+                if engine.has_hp(card) and _lethal(engine, match, card):
                     dead.append((player.seat, card.ref))
             for hero in player.heroes_in_play:
                 if _lethal(engine, match, hero):

@@ -634,14 +634,16 @@ def panel_width(columns: int) -> int:
 
 def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     """The grid, in order: a command-zone plate per hero, then the
-    heroes on the field, then the units, every one not patrolling."""
+    heroes on the field, then the units, every one not patrolling, then
+    the building cards and upgrades, which never patrol (step 10)."""
     plates = [command_zone_plate(None if hero.in_play else hero, cards)
               for hero in heroes(player)]
     field = [lying_card(hero_lying(hero, cards), cards)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
-    units = [lying_card(unit_lying(card, card.id in partners), cards)
-             for card in player.play if card.patrol_slot is None]
+    lying = [card for card in player.play if card.patrol_slot is None]
+    lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
+    units = [lying_card(unit_lying(card, card.id in partners), cards) for card in lying]
     return plates + field + units
 
 

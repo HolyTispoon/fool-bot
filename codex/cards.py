@@ -66,6 +66,24 @@ class Card:
         return "Spell" in self.type
 
     @property
+    def is_building_card(self) -> bool:
+        """A building played from the hand -- Verdant Tree, Firehouse --
+        as against the base, the tech buildings and the add-ons: it has
+        HP and may be attacked (UMR p. 7)."""
+        return self.kind == KIND_CARD and self.type == "Building"
+
+    @property
+    def is_upgrade(self) -> bool:
+        """An upgrade: no HP, so it is never attacked (UMR p. 7)."""
+        return self.kind == KIND_CARD and self.type == "Upgrade"
+
+    @property
+    def is_permanent(self) -> bool:
+        """A building card or an upgrade: in play, but neither a unit nor
+        a spell -- it neither attacks nor patrols."""
+        return self.is_building_card or self.is_upgrade
+
+    @property
     def picture(self) -> Optional[Path]:
         """
         The card's own art: the database's picture of a card, or the

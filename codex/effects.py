@@ -1,7 +1,7 @@
 """
 What each card's text does -- the table the engine reads -- and the
-list of the cards whose text the engine does not do yet, empty since
-step 6.
+list of the cards whose text the engine does not do yet: empty from
+step 6 to step 9, and red and green's since step 10.
 
 **`UNIMPLEMENTED` is the vanilla engine's honesty** (docs/codex-bot.md,
 decision 7, and docs/design/codex.md, "The vanilla engine"). Every card
@@ -52,19 +52,98 @@ FINESSE = frozenset({
 })
 HEROES = frozenset({"troq_bashar", "river_montoya"})
 TOKENS = frozenset({"dancer", "angry_dancer"})
-ADD_ONS = frozenset({"tower", "surplus"})
+#: The add-ons: the basic game's two, the standard game's four (step 10).
+ADD_ONS = frozenset({"tower", "surplus", "heroes_hall", "tech_lab"})
 BUILDINGS = frozenset({"base", "tech_i_building", "tech_ii_building", "tech_iii_building"})
 BASIC_SET = STARTERS | BASHING | FINESSE | HEROES | TOKENS | ADD_ONS | BUILDINGS
 
-#: Every slug of the basic set whose text the engine plays for its
-#: numbers alone. Written out rather than computed, so the commit that
-#: takes a card out of it is the commit that gives it a handler.
+#: Red, landed at step 10 (docs/codex-bot.md): its ten starters, the
+#: twelve of Anarchy, Blood and Fire, its three heroes and its token.
+RED = frozenset({
+    "bamstamper_lizzo", "bloodburn", "bloodlust", "bloodrage_ogre",
+    "bombaster", "burning_volley", "calypso_vystari", "captain_zane",
+    "captured_bugblatter", "careless_musketeer", "chameleon_lizzo",
+    "chaos_mirror", "charge", "cinderblast_dragon", "crash_bomber",
+    "crashbarrow", "desperation", "detonate", "disguised_monkey",
+    "doubleshot_archer", "drakk_ramhorn", "ember_sparks", "fire_dart",
+    "firebat", "firehouse", "flame_arrow", "gunpoint_taxman", "hotter_fire",
+    "jaina_stormborne", "kidnapping", "land_octopus", "lobber", "mad_man",
+    "makeshift_rambaster", "marauder", "maximum_anarchy",
+    "molting_firebird", "nautical_dog", "ogre_recruiter", "pillage",
+    "pirate", "pirate_gunship", "pirategang_commander", "rickety_mine",
+    "sanatorium", "scorch", "shoddy_glider", "steam_tank",
+    "surprise_attack", "war_drums"
+})
+
+#: Green, landed with red: its ten starters, the twelve of Balance,
+#: Feral and Growth, its three heroes and its five tokens.
+GREEN = frozenset({
+    "argagarg_garg", "artisan_mantis", "barkcoat_bear", "beast",
+    "behind_the_ferns", "blooming_ancient", "blooming_elm",
+    "calamandra_moss", "centaur", "chameleon", "circle_of_life", "dinosize",
+    "dothram_horselord", "fairie_dragon", "feral_strike", "ferocity",
+    "final_showdown", "forests_favor", "frog", "galina_glimmer",
+    "gemscout_owl", "giant_panda", "gigadon", "guargum_eternal_sentinel",
+    "hunter", "huntress", "ironbark_treant", "master_midori",
+    "merfolk_prospector", "might_of_leaf_and_claw", "moments_peace",
+    "moss_ancient", "murkwood_allies", "nature_reclaims",
+    "oversized_rhinoceros", "playful_panda", "polymorph_squirrel",
+    "potent_basilisk", "predator_tiger", "rampaging_elephant",
+    "rampant_growth", "rich_earth", "spirit_of_the_panda", "spore_shambler",
+    "squirrel", "stalking_tiger", "stampede", "tiger_cub", "tiny_basilisk",
+    "tyrannosaurus_rex", "verdant_tree", "wandering_mimic", "wisp",
+    "young_treant"
+})
+
+#: **Every card the engine reads** -- the keyword table and the
+#: static tables below are read over it, and the lobby offers the
+#: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
+#: step adds its two.
+LANDED_SET = BASIC_SET | RED | GREEN
+
+#: Every landed slug whose text the engine plays for its numbers alone.
+#: Written out rather than computed, so the commit that takes a card out
+#: of it is the commit that gives it a handler.
 #:
-#: **Empty from step 6**: step 5 took the keywords out, and step 6 the
-#: triggers, the spells, the static grants, the heroes' bands, the
-#: tokens and the surplus. The table's job is done until the next spec
-#: (step 9) brings cards the engine has not met.
-UNIMPLEMENTED: frozenset = frozenset()
+#: **Empty from step 6 to step 9**: step 5 took the basic set's keywords
+#: out, and step 6 its triggers, spells, static grants, heroes' bands,
+#: tokens and the surplus. **Step 10 landed red and green** played for
+#: their numbers: a card whose whole text is keywords the engine reads
+#: plays in full -- Mad Man, Nautical Dog, Centaur, Chameleon, Huntress,
+#: Barkcoat Bear and the Hunter token -- and every other red or green
+#: card with text is here, the six heroes' bands with them; their
+#: keywords play meanwhile (Chameleon Lizzo's haste, say), their other
+#: text waits for step 11. The heroes' hall's and the tech lab's text is
+#: the engine's own (`RulesEngine.hero_limit`, `chosen_specs`).
+UNIMPLEMENTED: frozenset = frozenset({
+    # Red.
+    "bamstamper_lizzo", "bloodburn", "bloodlust", "bloodrage_ogre",
+    "bombaster", "burning_volley", "calypso_vystari", "captain_zane",
+    "captured_bugblatter", "careless_musketeer", "chameleon_lizzo",
+    "chaos_mirror", "charge", "cinderblast_dragon", "crash_bomber",
+    "crashbarrow", "desperation", "detonate", "disguised_monkey",
+    "doubleshot_archer", "drakk_ramhorn", "ember_sparks", "fire_dart",
+    "firebat", "firehouse", "flame_arrow", "gunpoint_taxman", "hotter_fire",
+    "jaina_stormborne", "kidnapping", "land_octopus", "lobber",
+    "makeshift_rambaster", "marauder", "maximum_anarchy",
+    "molting_firebird", "ogre_recruiter", "pillage", "pirate_gunship",
+    "pirategang_commander", "rickety_mine", "sanatorium", "scorch",
+    "shoddy_glider", "steam_tank", "surprise_attack", "war_drums",
+    # Green.
+    "argagarg_garg", "artisan_mantis", "behind_the_ferns",
+    "blooming_ancient", "blooming_elm", "calamandra_moss", "circle_of_life",
+    "dinosize", "dothram_horselord", "fairie_dragon", "feral_strike",
+    "ferocity", "final_showdown", "forests_favor", "galina_glimmer",
+    "gemscout_owl", "giant_panda", "gigadon", "guargum_eternal_sentinel",
+    "ironbark_treant", "master_midori", "merfolk_prospector",
+    "might_of_leaf_and_claw", "moments_peace", "moss_ancient",
+    "murkwood_allies", "nature_reclaims", "playful_panda",
+    "polymorph_squirrel", "potent_basilisk", "predator_tiger",
+    "rampaging_elephant", "rampant_growth", "rich_earth",
+    "spirit_of_the_panda", "spore_shambler", "stalking_tiger", "stampede",
+    "tiny_basilisk", "tyrannosaurus_rex", "verdant_tree", "wandering_mimic",
+    "young_treant",
+})
 
 
 # -- What a text does, part by part ------------------------------------------
@@ -266,6 +345,11 @@ VIRTUOSO = "Virtuoso"
 #: River at 5: "Your tech 0 units cost 1 less to play." -- to 0 at the
 #: least (Sirlin, 2016-03-02).
 TECH_0_DISCOUNT = {("river_montoya", 5): 1}
+#: The add-ons whose text is a rule the engine answers by itself: the
+#: heroes' hall's "You may have an additional hero in play"
+#: (`RulesEngine.hero_limit`) and the tech lab's "Unlock an additional
+#: spec" (`RulesEngine.chosen_specs`, `spec_choices`).
+ENGINE_RULES = frozenset({"heroes_hall", "tech_lab"})
 #: The ongoing spells with channeling, and the hero spec each needs.
 CHANNELING = {"harmony": "finesse", "two_step": "finesse"}
 #: Two Step's partners' bonus, while both are held.

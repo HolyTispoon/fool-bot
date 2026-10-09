@@ -88,7 +88,11 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
                 return catalog().name(player.add_on.slug)
             return building_name(ref)
         atk, hp = engine.unit_stats(card, match)
-        label = f"{catalog().name(card.slug)} {atk}/{hp}"
+        if catalog().cards[card.slug].is_permanent:
+            # A building card has HP and no ATK; an upgrade neither.
+            label = catalog().name(card.slug) + (f" ({hp} HP)" if hp else "")
+        else:
+            label = f"{catalog().name(card.slug)} {atk}/{hp}"
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
 

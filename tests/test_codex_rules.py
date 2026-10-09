@@ -711,3 +711,63 @@ class StandardGameBuildingTests(unittest.TestCase):
         self.assertEqual(engine.hero_limit(player), 1)
         player.add_on.under_construction = False
         self.assertEqual(engine.hero_limit(player), 2)
+
+
+class BuildingCardTests(unittest.TestCase):
+    """Building cards and upgrades in play (UMR p. 7), since red and
+    green's starters have them: a building has HP and may be attacked, an
+    upgrade has none and may not; neither patrols nor attacks; both
+    arrive with arrival fatigue."""
+
+    def green(self):
+        engine, game, match = new_game(teams=(("feral",), ("fire",)))
+        begin(engine, game, match)
+        return engine, game, match
+
+    def test_a_building_card_and_an_upgrade_are_played_into_play(self) -> None:
+        engine, game, match = self.green()
+        player = match.player(1)
+        player.gold = 10
+        hand(match, 1, "verdant_tree", "rich_earth")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "verdant_tree"}))
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "rich_earth"}))
+        tree, earth = player.play
+        self.assertEqual((tree.slug, earth.slug), ("verdant_tree", "rich_earth"))
+        self.assertTrue(tree.arrived_this_turn and earth.arrived_this_turn)
+        self.assertEqual(player.gold, 10 - 2 - 3)
+        self.assertNotIn(tree.ref, engine.attackers(match))
+        self.assertNotIn(tree.ref, engine.patrol_candidates(match))
+        self.assertNotIn(earth.ref, engine.patrol_candidates(match))
+
+    def test_a_building_card_may_be_attacked_and_goes_to_the_discard(self) -> None:
+        """"Buildings have HP, so your opponent can attack and destroy
+        them" (UMR p. 7) -- once the patrol zone allows; destroyed, it
+        goes to its owner's discard and deals nothing to the base, which
+        p. 8 says of tech buildings and add-ons alone."""
+        engine, game, match = self.green()
+        tree = put(match, 2, "verdant_tree")
+        earth = put(match, 2, "rich_earth")
+        guard = put(match, 2, "older_brother", patrol="squad_leader")
+        rhino = put(match, 1, "regularsized_rhinoceros")
+        self.assertNotIn(tree.ref, engine.legal_defenders(match, rhino.ref))
+        guard.patrol_slot = None
+        defenders = engine.legal_defenders(match, rhino.ref)
+        self.assertIn(tree.ref, defenders)
+        self.assertNotIn(earth.ref, defenders, "an upgrade has no HP")
+        combat.declare_attack(engine, game, match, rhino.ref, tree.ref)
+        self.assertIsNone(match.player(2).instance(tree.id))
+        self.assertIn("verdant_tree", match.player(2).discard)
+        self.assertEqual(match.player(2).base_hp, 20)
+        self.assertEqual(rhino.damage, 0, "a building deals nothing back")
+
+    def test_a_tech_building_card_needs_its_building_and_its_spec(self) -> None:
+        engine, game, match = new_game(teams=(("fire", "anarchy", "blood"), ("feral", "growth", "balance")))
+        begin(engine, game, match)
+        player = match.player(1)
+        player.gold = 10
+        self.assertIn("Tech II", engine.why_not_playable(player, "firehouse"))
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        self.assertIn("Fire", engine.why_not_playable(player, "firehouse"))
+        player.tech2_spec = "fire"
+        self.assertEqual(engine.why_not_playable(player, "firehouse"), "")

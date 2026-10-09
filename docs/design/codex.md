@@ -31,7 +31,11 @@ says and `UNIMPLEMENTED` is empty. Step 8 gave a game its end -- a
 concession, a player's or a helper's abandon, the rematch, the channel moved to the
 archive -- and pinned a whole game through the service in a golden.
 Step 9 moved what the two games turned out to share to one home,
-`gamekit/` and `botkit/` ("What the two games share"). The model's
+`gamekit/` and `botkit/` ("What the two games share"). Step 10 made the
+standard game playable -- three heroes a side, the hero limit, the spec
+at Tech II, the heroes' hall and the tech lab, the multicolour costs --
+and landed red and green, played for their numbers ("The standard
+game"). The model's
 purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
@@ -318,13 +322,35 @@ snapshot it led to already holds its effects.
 
 ### The vanilla engine and `UNIMPLEMENTED`
 
-**`UNIMPLEMENTED` is empty from step 6**: every card of the basic set
-plays its text, and `tests/test_codex_effects.py` says where each one's
-text lives -- a keyword the engine reads, or a row of the tables in
-`codex.effects` ("Targeting and the effects", below). The table's job
-is done until the next spec (step 10) brings cards the engine has not
-met; a card with text nothing plays fails that test until it is
-handled or listed. What follows is how it got there.
+**`UNIMPLEMENTED` was empty from step 6 to step 9**: every card of the
+basic set plays its text, and `tests/test_codex_effects.py` says where
+each one's text lives -- a keyword the engine reads, or a row of the
+tables in `codex.effects` ("Targeting and the effects", below). **It is
+not empty since step 10**, which landed red and green played for their
+numbers: 90 slugs, every red or green card, hero and token whose text is
+more than keywords the engine reads -- the six heroes' bands among them
+-- written out and pinned. Step 11 empties it again.
+
+- **The landed set and the landed colours are one decision in two
+  places.** `codex.effects.LANDED_SET` is every card the engine reads --
+  the basic set, `RED` and `GREEN`, each a colour's ten starters, its
+  three specs' thirty-six, its three heroes and its tokens -- and the
+  keyword table and the static tables are read over it.
+  `codex.cards.LANDED_COLORS` (neutral, red, green) is what the lobby
+  offers heroes of, and refuses the rest of "not in this bot yet". Each
+  pair's step extends both.
+- **A card whose whole text is keywords plays in full** the moment it
+  lands: Mad Man's haste, Nautical Dog's frenzy, Centaur's overpower,
+  Chameleon's stealth, Huntress's sparkshot and anti-air, Barkcoat Bear's
+  resist and overpower, and the Hunter token's anti-air. A card in
+  `UNIMPLEMENTED` still plays the keywords it opens a line with
+  (Chameleon Lizzo's haste), as Brick Thief's resist did in step 2.
+- **A keyword the table does not know is not half-read**: a line that
+  opens with deathtouch, long-range, ephemeral, boost or untargetable --
+  or "Flying, long-range", which opens with nothing the reader takes
+  whole -- is read as nothing, and its card is unimplemented.
+
+What follows is how it got to empty the first time.
 
 The engine played every card of the set for its cost and its numbers in
 step 2 (decision 7); step 5 took the keywords out of
@@ -671,6 +697,17 @@ match as its saved dict, as D12 Ball's record does; its file,
   `rematch_game_id`, `rematch_of`, `rematch_specs` and `kept_heroes`
   ("The end of a game", below).
 
+- **Step 10 added five on a side and one on the add-on**, each with its
+  fallback, and changed two keys' shape ("The standard game", below):
+  `specs` (a list; an older save's `spec` read as a list of one),
+  `heroes` (a list of hero states; an older save's `hero` read as a list
+  of one), `deck_color` ("neutral"), `tech2_spec` (`None`) and
+  `constructed_once` (false) on the player, and `spec` (`None`) on the
+  add-on. On the record: `mode` ("basic"), `player_specs` as lists (a
+  string read as a list of one), `player_decks` (every seated seat
+  "neutral" where the key is missing) and `rematch_decks` beside
+  `rematch_specs`.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -756,8 +793,10 @@ The channel is `codex-<n>` under **Codex Games**, created if missing,
 and open to the whole server -- anyone can look in, talk and take a
 seat -- as D12 Ball's lobby channels are; the person who typed the
 command is told where it is, privately. A channel that cannot be made
-opens no lobby. The lobby is a line per seat and **Play Bashing**,
-**Play Finesse**, **Leave**, **Start**, persistent (fixed custom ids
+opens no lobby. The lobby is a line per seat and, since step 10,
+**Basic game** / **Standard game**, **Leave**, **Start**, a menu of the
+heroes and the deck buttons ("The standard game", below) -- **Play
+Bashing** and **Play Finesse** until then -- persistent (fixed custom ids
 carrying the game id), re-armed on startup. A seat taken or given up
 edits the lobby in place through the click's own response, which
 spends nothing from the channel's edit bucket. Start is either seated
@@ -888,7 +927,9 @@ else the bot shows is ephemeral.
     damage chit over the stats, its rune chits top right, Two Step's
     chit on a dance partner and ARRIVED the turn it came.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
-    the spec and hero, then gold (the gold emoji's picture), workers,
+    the deck's colour and its heroes' names ("Red · Jaina Stormborne,
+    Captain Zane, Drakk Ramhorn", step 10; the spec and the hero until
+    then), then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
     player's carries a rule and "<name>'s turn <n>" in a pill, both in
     its first hero's colour (`turn_colors`, below), the player by the
@@ -1076,7 +1117,7 @@ engine's `hand_rows`) and their discard pile listed as text. **Codex**
 answers with their own codex pictured by `render_codex`, every card with
 a badge of the copies left and faint at none, under a menu -- Everything,
 Tech I, Tech II, Tech III, Spells, and one view per spec once a deck is
-more than one (the standard game's, step 9) -- that re-renders the
+more than one (the standard game's, step 10) -- that re-renders the
 picture in place (the engine's `codex_remaining`, by `codex_views`; the
 views are named by `codex.formatting.codex_view_name`). **Which cards a
 view holds is one reading**, `RulesEngine.codex_view_rows`: a tech level
@@ -1170,12 +1211,16 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Play a card..., Build..., Attack with..., Level up...). A message
   carries five rows of five buttons, and the panel fills them in three
   groups, each starting a row of its own (`TurnPanelView.place`): the
-  **actions row** -- **Hire worker**, **Summon** or **Level up** the
-  hero, **Attack...**, **Undo...**, **End main phase**; **the hand**, a
+  **actions row** -- **Hire worker**, **Attack...**, **Undo...**,
+  **End main phase**; **the heroes' row**, since step 10, a button per
+  hero that summons it or levels it up ("The standard game", below) --
+  until then the one hero's **Summon** or **Level up** was in the
+  actions row; **the hand**, a
   button per card in the hand's order, "3. Bloom (2 gold)", numbered as
   the picture numbers it (`hand_numbers`) and disabled where it may not
   be played now, as the picture greys it, so the row and the picture
-  agree card for card -- at most three rows (`HAND_ROWS`), a hand
+  agree card for card -- at most two rows (`HAND_ROWS`; three until
+  the heroes' row took one), a hand
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability that may be
@@ -1187,8 +1232,9 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   **Back**; the attacker's button asks the defender next, in the same
   panel, and opening the mode spends nothing public, like Hire's and
   Undo's. What does not fit the five rows is left out, the groups
-  placed first having the earlier claim -- in practice never, since the
-  hand needs its third row only past ten distinct cards
+  placed first having the earlier claim -- in practice rarely: the hand
+  is cut at ten distinct cards, and the board's row loses what passes
+  five where the hand needs a second row
   (`test_the_main_phase_is_rows_of_buttons`,
   `test_a_big_hand_leaves_the_boards_row`). Every button that answers
   with one choice off the options is a `PanelButton` carrying that
@@ -1506,6 +1552,8 @@ way and nothing is written from it.
   new lobby through `GameService.rematch` -- a rule on the record,
   `CodexGame.rematch`: the same two seats, the same people or the one
   person of a test game, in the same channel, with **the heroes swapped**
+  -- since step 10 the teams swapped whole, heroes and decks, in the same
+  game, basic or standard --
   (each seat plays the spec the other played), the finished game's specs
   kept as `rematch_specs`. The button comes off its line in the click's
   own response, the channel moves back under Codex Games, since a game
@@ -1663,6 +1711,175 @@ those would mean a common base class each game's service or cog
 inherits half its door from, which is a design change rather than a
 move. One-line idioms -- a module's `LOGGER`, a private one-line copy
 helper -- are not copies.
+
+## The standard game
+
+Step 10 is the game the rulebook calls the game: three heroes a side, a
+codex of seventy-two, all four add-ons (UMR p. 3). Everything before it
+was written so that it fits, and this step is where the hero became a
+list. It lands red and green as data the vanilla engine plays for its
+numbers ("The vanilla engine and `UNIMPLEMENTED`"), so that a standard
+game can be played at all -- three neutral heroes do not exist -- and so
+that step 11 starts from a game that runs. A basic game may seat any
+landed hero from this step on: the Core Set's first game is a basic
+game of Calamandra against Jaina (p. 3), and a seat picked from a menu
+of heroes makes no distinction the rules do not.
+
+### The lobby's picks, and why a menu
+
+The lobby is rebuilt from the record on every change
+(`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
+game** -- either seated player's, a helper's, or anyone's while nobody
+sits -- **Leave** and **Start** (and a rematch's **Keep heroes**); its
+second a **menu of the landed heroes**, one pick in a basic game and
+three in a standard one, which seats the clicker with those heroes; and
+for each seat whose heroes span more than one colour, a row of buttons
+for its starting deck. A menu because twenty heroes, when all six
+colours have landed, do not fit two rows of buttons. A **test game**
+shows two menus, one per side, since one person plays both. Changing the
+mode keeps every seat's player and clears its heroes -- a team of one is
+no team of three -- and in a rematch's lobby drops the last game's teams
+and **Keep heroes** with them. The lobby's line per seat names its
+heroes, its deck and what it is still choosing; the catalog names the
+heroes, and the cog's old `SPEC_HEROES` table went.
+
+The rules are the record's (`CodexGame`, refusing with `RuleRefusal`,
+UMR pp. 3-4): as many heroes as the game takes, no hero twice, every one
+of a colour the bot has landed -- refused "not in this bot yet" with no
+page, since the rulebook allows it and the bot does not play it yet. A
+basic game's deck is its hero's colour; a standard game's one of its
+three heroes' colours, settled by the rule where they share one and the
+player's choice where they differ, neutral among them. Both seats may
+choose the same hero: each player chooses their own, and nothing in the
+rulebook says the two may not meet. Start waits on both seats complete --
+heroes and deck. A rematch swaps the two teams whole, heroes and decks,
+in the same game.
+
+### The record's keys, the match's fields, and the hero refs
+
+`player_specs` stays the saved key and holds a list per seat; a hero is
+its spec's one hero (`CardCatalog.hero_for`), so a spec names a hero and
+nothing is saved twice. `PlayerState` has `specs`, `heroes` and
+`deck_color`; `new_match` deals each seat its deck's starters and the
+codex of every spec. The saved fields and their fallbacks are in "The
+saved fields", above.
+
+**A hero is `hero:<slug>`** wherever an action, an attack, a target or
+a patrol names it -- the bare `hero` of steps 2 to 9 named the side's one
+hero. A save or a journal older than step 10 still says `hero`, and
+reads as the side's first hero: `MatchState.from_dict` rewrites an attack
+standing half-resolved, a tower's detection and an effect under way
+(`upgrade_hero_refs`), and `driver.answer` rewrites an older journal's
+actions as it replays them (`_upgrade_refs`). `summon` and `level` name
+their hero (`arguments["hero"]`); one that names none -- an older
+journal's -- is the first.
+
+**The golden was re-recorded** for exactly that: normalising
+`hero:<slug>` back to `hero` and `specs`/`heroes` back to `spec`/`hero`,
+the old and the new final match are identical, and the transcript
+differs only on the action lines that name a hero. Commit 3 added
+`tech2_spec` (null) and `constructed_once` to it, and nothing else.
+
+### The hero limit, as the ruling words it
+
+`RulesEngine.hero_limit` is the heroes_hall ruling, the one reading (UMR
+p. 6, p. 9): three with an active tech III, or an active tech II and an
+active heroes' hall; two with either; one otherwise -- active being
+built, finished and standing. A summon past it is refused citing p. 6
+("your hero limit is 1", on the button). A dead hero in the command zone
+does not count, so another may be summoned at once (p. 6: "you can
+immediately summon a different hero to replace it"), and losing a
+building removes nobody. The upkeep takes one summoning rune off each
+hero (p. 5); readiness, armor and arrival fatigue are each hero's.
+
+### The spec at Tech II, and the tech lab's
+
+In a standard game constructing tech II chooses a spec among the
+player's heroes' (UMR p. 8): the build action carries `spec`, the
+`BuildOption` lists the choices, the driver refuses a missing or a
+foreign one citing p. 8, and `PlayerState.tech2_spec` keeps it --
+unchanged by the building's destruction and its rebuild ("You don't get
+to change this spec"). A tech lab carries its own (`AddOnState.spec`):
+chosen as it is built where the tech II's is chosen, from the other
+specs; built without one where it is not, and chosen together with the
+tech II's when that is built (`lab_spec`, the tech_lab ruling). A
+destroyed lab loses its spec; a rebuilt one may choose another (p. 9).
+A tech II or III card is playable only of the tech II's spec or a
+finished lab's (`chosen_specs`; "You can't immediately play cards of the
+new tech"), and `why_not_playable` says which is missing. A basic game's
+one spec is chosen by the rule and never asked, and its `tech2_spec`
+stays `None`. On the panel, **Build Tech II** in a standard game turns
+the panel into the spec choice, a button per spec and **Back** -- the
+shape **Attack...** has -- and **Build Tech lab** the same where a tech
+II's spec is chosen; where a lab waits on its spec, the Tech II's row
+and then the lab's, whose button builds. The heroes' hall needs nothing.
+The basic game builds the tower and the surplus alone (p. 3).
+
+### The multicolour costs, and where the surcharge is remembered
+
+`team_colors` is the heroes' colours less neutral ("the neutral heroes
+don't count as an additional color", p. 4). With two or more, the first
+tech building or add-on the player constructs costs 1 more (pp. 4, 8,
+9), and `PlayerState.constructed_once` remembers that it has been paid:
+set by any construction, a rebuild for 0 included, so the first
+construction is the first whatever it is. The build option shows the
+cost it will charge.
+
+A starting spell costs 1 more where no hero of its colour is in play
+(p. 4: "when played by a hero of the wrong color"), never a neutral one
+(`wrong_color_surcharge`). **The caster is the engine's** (`caster`): a
+spec spell's own hero; a starting spell's, a hero of its colour where
+there is one, otherwise the first in play. Nobody is asked, because
+nothing in the sets this bot plays turns on which hero cast a starting
+spell, and the cheapest caster is the one any player would choose. A
+spec spell needs its spec's hero in play, an ultimate that hero at its
+maximum level since the turn began (p. 7). Channeling stays by spec.
+
+### The levels' recipient
+
+A kill's two levels (UMR p. 10) go to the killing side's one hero in
+play; with none, nobody gains them; with more than one, **the active
+player is asked** -- `LEVEL_GAIN`, a button per hero in play -- because
+the active player makes every decision (p. 14). The question is a frame
+put at the front of `MatchState.resolving` where the kill happened
+(`board.level_gain_owed`), on the attack's stack or the effect's, so
+nothing after the kill resolves before it; the answer pops it and the
+stack goes on. A kill by a player's own effect still gives nobody levels.
+
+### Building cards and upgrades in play
+
+Red and green's starters have them (Bloodburn, Rich Earth, Verdant
+Tree), so they are things in play from this step (UMR p. 7): played from
+the hand for their cost, with the tech building and the spec their level
+needs, arriving with arrival fatigue; neither attacks nor patrols. **A
+building card** has HP: it may be attacked once the patrol zone allows
+("anything with HP", p. 10), a damage spell may choose it as a building
+and a repair takes its damage off; destroyed, it goes to its owner's
+discard and **deals nothing to the base** -- p. 8 says that of tech
+buildings and add-ons. **An upgrade** has no HP and cannot be attacked.
+Their text waits in `UNIMPLEMENTED` with the rest of red and green's.
+
+### What the board draws for all of it
+
+`render.heroes` reads `player.heroes`, so a standard panel is seven
+columns with three command-zone plates, as step 7 drew it. The
+nameplate reads the deck's colour and the heroes' names -- "Red · Jaina
+Stormborne, Captain Zane, Drakk Ramhorn", "Neutral · Troq Bashar" in the
+basic game -- and its mark is still the first hero's colour. The add-on
+slot draws the heroes' hall's and the tech lab's cards from
+`buildings/`; the spec chosen at Tech II is its spec card
+(`specs/<spec>.png`, cut at step 1), small, hanging off the tile's right
+edge so the tile's own words stay readable, and a lab's spec card lies
+on the lab's. Building cards and upgrades lie in the grid after the
+units. The codex is three binders: the Everything view of seventy-two
+(36 cards, two copies each) at `CODEX_COLUMNS` measured 591 KiB as WebP,
+1286 by 1718 -- far under Discord's upload limit, so it is not narrowed
+-- and each spec has its view. `scripts/render_codex_sample.py` renders
+a standard game's board, hand and codex beside the basic game's.
+
+The six heroes' faces are emoji like Troq's and River's: `FACES` in
+`scripts/render_codex_emoji.py` pins a square per hero, and
+`EMOJI_NAMES` asks the Codex application for each.
 
 ## Running it
 

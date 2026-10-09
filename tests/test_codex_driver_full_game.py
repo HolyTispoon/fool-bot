@@ -114,7 +114,14 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         return Action(kind, "hire", {"slug": spare[-1]})
     for row in options.buildings:
         if row.building.startswith("tech") and row.allowed:
-            return Action(kind, "build", {"building": row.building})
+            arguments = {"building": row.building}
+            # A standard game's Tech II -- and a tech lab -- chooses a
+            # spec: the first offered, and the lab's a different one.
+            if row.specs:
+                arguments["spec"] = row.specs[0]
+            if row.lab_specs:
+                arguments["lab_spec"] = next(spec for spec in row.lab_specs if spec != row.specs[0])
+            return Action(kind, "build", arguments)
     for hero in options.heroes:
         if hero.action == "summon" and hero.allowed:
             return Action(kind, "summon", {"hero": hero.slug})
@@ -132,13 +139,25 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     return Action(kind, "end_main")
 
 
-def play(seed: int = SEED, *, say=None) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
-    """Play a whole game; return the engine, the record, the final match
-    and the transcript in plain words."""
+#: The standard game step 10's second game plays: three red heroes
+#: against three green, each on its own colour's deck.
+STANDARD_TEAMS = (["fire", "anarchy", "blood"], ["feral", "growth", "balance"])
+STANDARD_SEED = 20261009
+
+
+def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
+    """Play a whole game -- Bashing against Finesse, or a standard game
+    of `teams` -- and return the engine, the record, the final match and
+    the transcript in plain words."""
     engine = RulesEngine(seed=seed)
     game = CodexGame("codex-full-game", 1)
-    game.take_seat(101, "basher", "bashing")
-    game.take_seat(202, "fencer", "finesse")
+    if teams is None:
+        game.take_seat(101, "basher", "bashing")
+        game.take_seat(202, "fencer", "finesse")
+    else:
+        game.set_mode("standard")
+        game.take_seat(101, "red", teams[0])
+        game.take_seat(202, "green", teams[1])
     game.start(engine)
     match = MatchState.from_dict(game.match_state)
     transcript: list[str] = []
@@ -256,6 +275,58 @@ class CodexFullGameTests(unittest.TestCase):
         winner, leaked = ast.literal_eval(probe.stdout.strip().splitlines()[-1])
         self.assertIn(winner, (1, 2))
         self.assertEqual(leaked, [])
+
+
+class CodexStandardGameTests(unittest.TestCase):
+    """
+    Step 10's second game: a standard one, three red heroes against
+    three green, through the driver alone -- the policy summoning and
+    levelling each hero, choosing the first spec offered at Tech II, and
+    playing every red and green card for its numbers, to a destroyed
+    base.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        cls.engine, cls.game, cls.match, cls.transcript = play(
+            STANDARD_SEED, teams=STANDARD_TEAMS, say=print if verbose else None,
+        )
+
+    def test_a_base_is_destroyed_within_the_bound(self) -> None:
+        self.assertIsNotNone(self.match.winner)
+        self.assertLessEqual(self.match.turn, TURN_LIMIT)
+        self.assertEqual(self.match.opponent(self.match.winner).base_hp, 0)
+
+    def test_three_heroes_a_side(self) -> None:
+        for player, team in zip(self.match.players, STANDARD_TEAMS):
+            self.assertEqual(player.specs, tuple(team))
+            self.assertEqual(len(player.heroes), 3)
+        self.assertEqual(self.match.player(1).deck_color, "red")
+        self.assertEqual(self.match.player(2).deck_color, "green")
+
+    def test_the_game_used_the_standard_games_rules(self) -> None:
+        """More than one hero summoned on a side, a Tech II with its spec,
+        and red and green cards played -- each said to be played for its
+        numbers where its text waits on step 11."""
+        summoned = {}
+        for event in self.match.events:
+            if event["kind"] == "summoned":
+                summoned.setdefault(event["seat"], set()).add(event["slug"])
+        self.assertTrue(any(len(heroes) > 1 for heroes in summoned.values()), summoned)
+        self.assertTrue(any(player.tech2_spec for player in self.match.players))
+        played = {event["slug"] for event in self.match.events if event["kind"] == "played"}
+        from codex import effects
+
+        self.assertTrue(played & effects.RED and played & effects.GREEN)
+        self.assertTrue(any("(its text is not played yet)" in line for line in self.transcript))
+
+    def test_nothing_hidden_is_said(self) -> None:
+        for line in self.transcript:
+            if "hires a worker" in line or "their tech" in line:
+                for slug in self.engine.catalog.cards:
+                    name = self.engine.catalog.name(slug)
+                    self.assertNotIn(f" {name} ", f" {line} ")
 
 
 if __name__ == "__main__":

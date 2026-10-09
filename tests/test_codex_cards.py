@@ -266,5 +266,19 @@ class CodexEmojiTests(unittest.TestCase):
         self.assertTrue((IMAGE_DIR / "emoji" / "codex.png").is_file())
 
 
+class EmojiTests(unittest.TestCase):
+    def test_every_landed_hero_has_its_emoji_drawn_and_asked_for(self) -> None:
+        """Each hero the lobby offers has its face under
+        codex/images/emoji/, named by its slug, which is the name the
+        resolver asks the Codex application for."""
+        from cogs.codex_helpers import EMOJI_NAMES
+
+        for hero in catalog().landed_heroes():
+            with self.subTest(hero=hero.slug):
+                self.assertIn(hero.slug, EMOJI_NAMES)
+        for name in EMOJI_NAMES:
+            self.assertTrue((IMAGE_DIR / "emoji" / f"{name}.png").exists(), name)
+
+
 if __name__ == "__main__":
     unittest.main()

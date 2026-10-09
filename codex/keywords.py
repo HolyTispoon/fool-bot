@@ -23,7 +23,7 @@ from functools import lru_cache
 from typing import Optional
 
 from codex.cards import CardCatalog, Hero, catalog as load_catalog
-from codex.effects import BASIC_SET
+from codex.effects import LANDED_SET
 
 #: The keywords the basic set's texts open with, as the rulings'
 #: `General` group names them.
@@ -53,13 +53,16 @@ def read_keywords(lines) -> tuple[tuple[str, Optional[int]], ...]:
 @lru_cache(maxsize=1)
 def keyword_table(catalog: Optional[CardCatalog] = None) -> dict:
     """
-    Slug to its keywords, for every card of the basic set that has any.
-    A hero's are keyed `(slug, band's first level)`, since they come with
-    its bands.
+    Slug to its keywords, for every landed card that has any
+    (`codex.effects.LANDED_SET`: the basic set, and red and green from
+    step 10). A hero's are keyed `(slug, band's first level)`, since they
+    come with its bands. A line that opens with a keyword the table does
+    not know -- deathtouch, long-range, ephemeral -- is read as nothing,
+    and its card is in `UNIMPLEMENTED`: not half-read.
     """
     catalog = catalog or load_catalog()
     table: dict = {}
-    for slug in sorted(BASIC_SET):
+    for slug in sorted(LANDED_SET):
         card = catalog.by_slug(slug)
         if isinstance(card, Hero):
             for band in card.bands:
