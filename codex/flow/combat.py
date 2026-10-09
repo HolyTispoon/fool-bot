@@ -115,9 +115,10 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     return _Fighter(seat, ref)
 
 
-def _take(fighter: _Fighter, amount: int) -> int:
-    """Combat damage onto a unit or hero, armor first; what landed."""
-    return board.take_damage(fighter.body, amount)
+def _take(fighter: _Fighter, amount: int, piercing: bool = False) -> int:
+    """Combat damage onto a unit or hero, armor first unless it pierces;
+    what landed."""
+    return board.take_damage(fighter.body, amount, piercing)
 
 
 def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -> bool:
@@ -272,6 +273,17 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat = match.active
     other = 2 if seat == 1 else 1
     while True:
+        if match.resolving:
+            # A death on the way -- obliterate's -- set something off:
+            # it resolves before the attack goes on (step 11).
+            if not resolve.run(engine, match, result):
+                result.next = pending(engine, game, match)
+                return result
+            if match.winner is not None:
+                match.combat = None
+                match.attacking = None
+                result.next = pending(engine, game, match)
+                return result
         state = match.combat
         stage = state["stage"]
         if stage == OBLITERATE:
@@ -383,11 +395,26 @@ def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
         hero = player.hero_by_ref(attacker)
         found = effects.triggers(hero.slug, "attacks", hero.level)
         by = tokens.hero(hero.slug)
+        origin = hero.slug
+        host = hero.slug
     else:
         card = player.instance(unit_ref(attacker))
-        found = effects.triggers(card.slug, "attacks")
+        found = effects.triggers(card.slug, "attacks") if "polymorph" not in (card.printed or {}) else ()
         by = tokens.card(card.slug)
-    return [resolve.frame(effect, seat, by, source=attacker) for effect in found]
+        origin = card.slug
+        host = card.id
+    frames = [resolve.frame(effect, seat, by, source=attacker, origin=origin) for effect in found]
+    # What an attached spell gives what it is on: Spirit of the Panda's
+    # gold, Final Showdown's card (step 11).
+    for spell in match.instances():
+        effect = effects.ATTACHED_ATTACKS.get(spell.slug)
+        if effect is None:
+            continue
+        on = spell.attached_hero == f"{seat}:{attacker}" if is_hero_ref(attacker) else host in spell.attached
+        if on:
+            frames.append(resolve.frame(effect, seat, tokens.card(spell.slug), source=attacker,
+                                        origin=spell.slug))
+    return frames
 
 
 
@@ -415,12 +442,29 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     body = hitting.body
     ready = engine.has_keyword(body, "Readiness", match)
     body.attacked_this_turn = True
+    rampaged = False
     if not ready:
         body.exhausted = True
+        if (
+            isinstance(body, CardInstance) and engine.text_slug(body) in effects.READIES_ONCE
+            and not any(modifier.get("kind") == "readied_once" for modifier in body.modifiers)
+        ):
+            # "The first time Rampaging Elephant exhausts each turn, ready
+            # him. (He can attack again!)"
+            body.exhausted = False
+            body.modifiers.append({"kind": "readied_once", "until": "end_of_turn"})
+            rampaged = True
 
-    dealt = engine.attack_value(match, seat, attacker)
+    dealt = engine.attack_value(match, seat, attacker, against=defender)
     back = engine.damage_back(match, attacker, defender)
     excess = engine.overpower_excess(match, attacker, defender) if state["overpower"] else 0
+    # Stampede: "Excess combat damage they would deal to units and heroes
+    # hits that opponent's base. (This takes precedence over overpower.)"
+    stampeded = 0
+    if not taking.is_building and engine.stampedes(match, body):
+        stampeded = max(0, dealt - engine.lethal_damage(match, seat, attacker, taking.body))
+        excess = 0
+    slot_attacked = None if taking.is_building else taking.body.patrol_slot
     swift_attacker = engine.has_keyword(body, "Swift strike", match)
     swift_defender = not taking.is_building and engine.has_keyword(taking.body, "Swift strike", match)
 
@@ -429,7 +473,9 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Overpower's excess is what is left over once the patroller is
     # destroyed -- its remaining HP and its armor -- so the patroller takes
     # what destroys it and the rest goes on (the author, 2026-10-08).
-    hits.append(_Hit(mine, hitting, taking, dealt - excess, "attack"))
+    hits.append(_Hit(mine, hitting, taking, dealt - excess - stampeded, "attack"))
+    if stampeded:
+        hits.append(_Hit(mine, hitting, _fighter(match, other, "base"), stampeded, "stampede"))
     for ref in dict.fromkeys(state["sparks"]):
         sparked = state["sparks"].count(ref) * SPARKSHOT_DAMAGE
         hits.append(_Hit(mine, hitting, _fighter(match, other, ref), sparked, "sparkshot"))
@@ -465,6 +511,10 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             seen.append(fighter)
 
     dead: list[_Fighter] = []
+    #: What deathtouch hit: "Destroy any unit or hero that takes combat
+    #: damage from this card, including damage prevented by armor"
+    #: (UMR p. 16).
+    touched: list = []
     for batch in (0, 1):
         for hit in hits:
             if hit.batch != batch:
@@ -478,24 +528,32 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 # the order the lines read.
                 hit.landed = hit.amount
                 continue
-            hit.landed = _take(hit.target, hit.amount)
+            source = hit.source.body if hit.source is not None else None
+            piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
+            hit.landed = _take(hit.target, hit.amount, piercing)
+            if (
+                hit.amount > 0 and source is not None
+                and engine.has_keyword(source, "Deathtouch", match)
+                and not engine.is_building_ref(match, hit.target.seat, hit.target.ref)
+            ):
+                touched.append(hit.target.body)
         for fighter in seen:
             if any(fighter.body is one.body for one in dead):
                 continue
-            if _is_destroyed(engine, match, fighter):
+            if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
 
-    result.narration.append(_damage_line(match, hitting, taking, hits[0], defence, swift_attacker))
+    result.narration.append(_damage_line(engine, match, hitting, taking, hits[0], defence, swift_attacker))
     for hit in hits[1:]:
         if hit.kind == "sparkshot" and not hit.skipped:
             result.narration.append(
                 f"Sparkshot deals {hit.amount} to {hit.target.named()}."
             )
-        elif hit.kind == "overpower" and not hit.skipped:
+        elif hit.kind in ("overpower", "stampede") and not hit.skipped:
             left = (board.left_after(match, hit.target.seat, hit.target.ref, hit.amount)
-                    if hit.target.is_building else "")
+                    if hit.target.is_building else board.card_left(engine, match, hit.target.body))
             result.narration.append(
-                f"Overpower carries {hit.amount} over to {hit.target.named()}{left}."
+                f"{hit.kind.title()} carries {hit.amount} over to {hit.target.named()}{left}."
             )
     for hit in overflown:
         if not hit.skipped:
@@ -509,23 +567,82 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             f"{hitting.named(whose=False)}."
         )
 
+    if rampaged:
+        result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
             board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
 
+    mine_hits = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0]
+    killed = any(fighter.body is taking.body for fighter in dead)
     _destroy(engine, match, dead, result)
+    _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.
     board.settle(engine, match, result)
+    if board.still_there(match, seat, attacker) and match.winner is None:
+        card = hitting.card
+        effect = effects.AFTER_COMBAT.get(engine.text_slug(card) or "") if card is not None else None
+        if effect is not None:
+            # Ogre Recruiter: "If this survives the combat, gain control of
+            # a tech 0 or tech I unit" -- after the damage.
+            resolve.push(match, resolve.frame(effect, seat, tokens.card(card.slug),
+                                              source=attacker, origin=card.slug))
 
     match.attacking = None
     match.combat = None
-    result.next = pending(engine, game, match)
-    return result
+    return resolve.carry_on(engine, game, match, result)
 
 
-def _damage_line(match: MatchState, hitting: _Fighter, taking: _Fighter, attack: _Hit,
-                 defence: Optional[_Hit], swift: bool) -> str:
+def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
+                    taking: _Fighter, slot: Optional[str], hits: list, killed: bool,
+                    result: StepResult) -> None:
+    """
+    What an attack's own combat damage sets off (step 11): Might of Leaf
+    and Claw's growth rune where the attacker dealt any -- armor's share
+    counts, 0 does not, and sparkshot and overpower are the same instance
+    (its rulings); Predator Tiger's worker trashed at a base it damaged;
+    Molting Firebird's 1 to everything of a player whose building it
+    damaged; Gunpoint Taxman's gold for a patroller it killed; and
+    Captain Zane's for a scavenger or technician he killed.
+    """
+    seat = hitting.seat
+    other = taking.seat
+    if not hits:
+        return
+    for card in match.player(seat).play:
+        if card.slug in effects.GROWTH_RUNES:
+            card.runes["growth"] = card.runes.get("growth", 0) + 1
+            result.narration.append(f"{tokens.card(card.slug)} gets a growth rune.")
+    slug = engine.text_slug(hitting.card) if hitting.card is not None else None
+    on_buildings = [hit for hit in hits if engine.is_building_ref(match, hit.target.seat, hit.target.ref)]
+    if slug in effects.TRASHES_WORKER_ON_BASE_DAMAGE and any(
+        hit.target.ref == "base" for hit in on_buildings
+    ):
+        if board.trash_worker(match, other):
+            result.narration.append(
+                f"{tokens.card(slug)} trashes a worker at {tokens.player(other)}'s base."
+            )
+    if slug in effects.ON_DAMAGING_A_BUILDING and on_buildings:
+        firebird = resolve.frame(effects.ON_DAMAGING_A_BUILDING[slug], seat, tokens.card(slug),
+                                 source=hitting.ref, origin=slug)
+        firebird["against"] = other
+        resolve.push(match, firebird)
+    if killed and slot is not None:
+        steal = effects.STEALS_ON_PATROLLER_KILL.get(slug)
+        if steal:
+            taken = resolve.steal_gold(match, seat, other, steal)
+            if taken:
+                result.narration.append(
+                    f"{tokens.card(slug)} killed a patroller: {tokens.player(seat)} steals "
+                    f"{tokens.gold(taken)} from {tokens.player(other)}."
+                )
+        if hitting.hero is not None:
+            board.kill_bonus(engine, match, seat, hitting.hero.slug, slot, result)
+
+
+def _damage_line(engine: "RulesEngine", match: MatchState, hitting: _Fighter, taking: _Fighter,
+                 attack: _Hit, defence: Optional[_Hit], swift: bool) -> str:
     """The attacker's damage and the defender's back, in one line as step
     2 worded it, with swift strike said where it decided the order."""
     if attack.skipped:
@@ -541,7 +658,7 @@ def _damage_line(match: MatchState, hitting: _Fighter, taking: _Fighter, attack:
     if swift:
         said += " with swift strike"
     if defence is None:
-        return said + "."
+        return said + board.card_left(engine, match, taking.body) + "."
     if defence.skipped:
         return said + f"; {taking.named()} is destroyed before it strikes back."
     return said + f"; {taking.named()} deals {defence.landed}."

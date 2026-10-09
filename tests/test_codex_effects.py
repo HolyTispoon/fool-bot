@@ -59,7 +59,16 @@ def _handled(slug: str) -> list[str]:
     for name in (
         "GRANTS_VIRTUOSO_HASTE", "GRANTS_SWIFT_STRIKE", "GUIDES", "MAESTROS",
         "ATK_PER_DAMAGE", "UPKEEP_SELF_DAMAGE", "UPKEEP_DRAW", "CHANNELING",
-        "ENGINE_RULES",
+        "ENGINE_RULES", "CANT_ATTACK", "CANT_PATROL", "ATTACKING_BUILDINGS_ATK",
+        "UNSTOPPABLE_BY_TECH_0", "UNATTACKABLE_BY_TECH_0", "STEALTH_ATTACKING_UNITS",
+        "INVISIBLE_WITH_HERO", "WHILE_PATROLLING", "READIES_ONCE",
+        "FREE_HIRE", "LESS_PER_GREEN_UNIT", "FREE_UNITS", "FREE_SPELLS",
+        "GROWS_ON_ARRIVAL", "BLOOD_RUNES", "ON_ANY_DEATH", "DIES_ON_YOUR_TURN",
+        "GRANTS_DIES", "STEALS_ON_PATROLLER_KILL", "TRASHES_WORKER_ON_BASE_DAMAGE",
+        "ON_DAMAGING_A_BUILDING", "GROWTH_RUNES", "AFTER_COMBAT", "ATTACHING",
+        "UNIT_GRANTS", "HERO_GRANTS", "ATTACHED_UNIT_GRANTS",
+        "UPKEEP_GOLD", "UPKEEP_GREEN_GOLD", "UPKEEP_CHOICE", "JOINS_THE_STRONGER",
+        "RETURNS_IF_IDLE", "RETURNS_AT_END",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -70,7 +79,22 @@ def _handled(slug: str) -> list[str]:
         found.append("FLAGBEARER")
     if slug == effects.DANCER:
         found.append("stop_the_music")
+    if slug == effects.MIMIC:
+        found.append("MIMICKED")
+    if any(key[0] == slug for key in effects.BAND_GRANTS):
+        found.append("BAND_GRANTS")
+    if slug in (effects.HOTTER_FIRE, effects.FAIRIE_DRAGON):
+        found.append("the engine's damage bonus and feather runes")
+    if any(key[0] == slug for key in effects.KILL_BONUSES):
+        found.append("KILL_BONUSES")
+    if any(key[0] == slug for key in effects.FLYING_ON_OWN_TURN):
+        found.append("FLYING_ON_OWN_TURN")
     return found
+
+
+#: What step 11 has still to land: nothing. The set emptied commit by
+#: commit as each gave its cards their handlers.
+REMAINING = frozenset()
 
 
 #: The red and green cards whose whole text is keywords the engine
@@ -94,24 +118,12 @@ def _lines(slug: str) -> list[str]:
 
 
 class UnimplementedTests(unittest.TestCase):
-    def test_the_set_is_red_and_greens_text(self) -> None:
-        """Step 10 lands red and green played for their numbers: the set
-        is exactly every red or green card, hero and token with text
-        that is not keywords alone -- the six heroes' bands among them --
-        and nothing of the basic set."""
-        expected = {
-            slug for slug in effects.RED | effects.GREEN
-            if _has_text(slug) and not (
-                not isinstance(catalog().by_slug(slug), Hero)
-                and all(keywords.read_keywords([line]) for line in _lines(slug))
-            )
-        }
-        self.assertEqual(effects.UNIMPLEMENTED, frozenset(expected))
-        self.assertEqual(len(effects.UNIMPLEMENTED), 90)
-        self.assertFalse(effects.UNIMPLEMENTED & effects.BASIC_SET)
-        for slug in ("captain_zane", "drakk_ramhorn", "jaina_stormborne",
-                     "argagarg_garg", "calamandra_moss", "master_midori"):
-            self.assertIn(slug, effects.UNIMPLEMENTED)
+    def test_unimplemented_is_empty(self) -> None:
+        """Step 11 emptied the set step 10 filled with red and green's
+        text: every red and green card, hero and token does what it
+        says."""
+        self.assertEqual(effects.UNIMPLEMENTED, REMAINING)
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
 
     def test_the_landed_set_is_the_basic_set_and_red_and_green(self) -> None:
         cards = catalog()
@@ -124,7 +136,11 @@ class UnimplementedTests(unittest.TestCase):
                     self.assertTrue(set(cards.codex_for(hero.spec)) <= group)
         self.assertEqual(len(effects.RED), 10 + 36 + 3 + 1)
         self.assertEqual(len(effects.GREEN), 10 + 36 + 3 + 5)
-        self.assertEqual(effects.LANDED_SET, effects.BASIC_SET | effects.RED | effects.GREEN)
+        self.assertEqual(
+            effects.LANDED_SET,
+            effects.BASIC_SET | effects.RED | effects.GREEN | effects.BORROWED_TOKENS,
+        )
+        self.assertEqual(effects.BORROWED_TOKENS, {"shark", "water_elemental"})
 
     def test_red_and_greens_keyword_cards_play_in_full(self) -> None:
         for slug, printed in STEP_10_PLAYED.items():
@@ -132,14 +148,23 @@ class UnimplementedTests(unittest.TestCase):
                 self.assertNotIn(slug, effects.UNIMPLEMENTED)
                 self.assertEqual(tuple(name for name, _ in keywords.keywords(slug)), printed)
 
-    def test_a_keyword_the_table_does_not_know_is_not_half_read(self) -> None:
-        """A line opening with deathtouch, long-range, ephemeral, boost or
-        untargetable is read as nothing, and its card is unimplemented."""
-        for line in ("Deathtouch", "Long-range (Defenders without long-range ...)",
-                     "Ephemeral", "Boost", "Untargetable",
-                     "Flying, long-range, haste"):
+    def test_a_keyword_line_is_read_whole_or_not_at_all(self) -> None:
+        """Step 11: deathtouch, long-range, ephemeral, boost and
+        untargetable are read, and a line of keywords joined by commas is
+        read whole -- but a line with anything else in it is read as
+        nothing, so a sentence is never half-read as a keyword."""
+        self.assertEqual(keywords.read_keywords(["Untargetable, deathtouch"]),
+                         (("Untargetable", None), ("Deathtouch", None)))
+        self.assertEqual(
+            keywords.read_keywords(["Flying, haste, long-range, resist 2 (Opponents ...)"]),
+            (("Flying", None), ("Haste", None), ("Long-range", None), ("Resist", 2)),
+        )
+        self.assertEqual(keywords.read_keywords(["Boost {gold:4} (You may pay ...)"]), (("Boost", 4),))
+        self.assertEqual(keywords.read_keywords(["Haste, ephemeral"]), (("Haste", None), ("Ephemeral", None)))
+        for line in ("Flying but can't attack.", "Arrives: Gets stealth this turn",
+                     "Destroy a tech 0 unit, return a tech I unit to its owner's hand."):
             self.assertEqual(keywords.read_keywords([line]), ())
-        self.assertIn("doubleshot_archer", effects.UNIMPLEMENTED)
+        self.assertEqual(keywords.keywords("shark"), (("Haste", None), ("Ephemeral", None)))
 
     def test_every_card_with_text_is_handled(self) -> None:
         """Every landed card with text plays it or is listed: each line is
@@ -169,7 +194,8 @@ class UnimplementedTests(unittest.TestCase):
         for effect in effects.EFFECTS.values():
             for part in effect.parts:
                 with self.subTest(effect=effect.key, does=part.does):
-                    self.assertIn(part.does, resolve.DOES)
+                    if part.does not in resolve.STRUCTURAL:
+                        self.assertIn(part.does, resolve.DOES)
                     if part.choose is not None:
                         engine.target_candidates(match, 1, part.choose)
         for rows in effects.TEXT.values():

@@ -238,9 +238,11 @@ on the other player's turn, a dozen actions in one turn, and undo.
 | `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
 | `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
 | `OBLITERATE_CHOICE`, `SPARKSHOT_TARGET`, `OVERPOWER_TARGET` | the active player | the three choices inside an attack, each asked only where there is something to choose ("The keywords", below) |
-| `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below) |
+| `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below); since step 11 a part that picks *up to* some number offers `done`, and a pick from the asked player's own hand or codex is a private ref (`hand:<slug>`, `codex:<slug>`) the bot pictures to them alone ("Red and green", below) |
+| `DIVIDE_DAMAGE` | the active player | where the next point of a divided damage goes (Ember Sparks, Burning Volley), one point a click until the amount is placed, or `cancel` ("Red and green", below) |
+| `MODE_CHOICE` | the effect's controller | which of a "choose one" spell's modes -- or Land Octopus's upkeep choice -- is done; never asked when boosted, since "if you boosted, choose both", or where only one mode can be done |
 | `APPEL_STOMP_TOP` | the active player | `top` or `discard`: where Appel Stomp goes once it has resolved |
-| `UPKEEP_ORDER` | the active player | which of healing and Star-Crossed Starlet's damage goes first, asked only where both are due |
+| `UPKEEP_ORDER` | the active player | which of the upkeep effects whose order changes something goes first -- healing beside Star-Crossed Starlet's damage, and since step 11 Dothram Horselord beside a death or a sacrifice; never a gain ("Red and green", below) |
 | `GAME_OVER` | nobody | a base is destroyed (UMR p. 2), or a player conceded (`MatchState.conceded`); answering it is always refused -- playing again is a new record (`GameService.rematch`), not an answer ("The end of a game", below) |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
@@ -329,7 +331,8 @@ tables in `codex.effects` ("Targeting and the effects", below). **It is
 not empty since step 10**, which landed red and green played for their
 numbers: 90 slugs, every red or green card, hero and token whose text is
 more than keywords the engine reads -- the six heroes' bands among them
--- written out and pinned. Step 11 empties it again.
+-- written out and pinned. **Step 11 emptied it again**, in five commits
+("Red and green", below), and `test_unimplemented_is_empty` holds it there.
 
 - **The landed set and the landed colours are one decision in two
   places.** `codex.effects.LANDED_SET` is every card the engine reads --
@@ -658,6 +661,121 @@ Every line is the model's, with tokens: "{card:spark} deals 1 to
 drawn is a count, never a name -- Appel Stomp's draw, the surplus's -- and
 a card returned to a hand is named, since it was in play.
 
+### Red and green
+
+Step 11 made every red and green card, hero and token do what it says,
+in five commits -- the keywords, the costs and resources, the spells,
+triggers and abilities, the static grants and printed overrides, and the
+upkeep, the end of the turn and the tokens -- `UNIMPLEMENTED` shrinking
+in each and empty at the end. The General rulings of the keywords it
+added are pinned in `tests/test_codex_keywords.py` (fourteen), and every
+ruling on the pair's cards and heroes in `tests/test_codex_card_rulings.py`
+(101: 88 on the cards, 13 on the heroes), each test's docstring the
+ruling's own words and a ratchet counting them.
+
+- **The keywords added**: deathtouch (one damage that lands destroys --
+  so `lethal_damage` is 1, and overpower or Stampede carries the rest on,
+  UMR p. 18), long-range (no damage
+  back from the defender, `damage_back`), ephemeral (dies at the end of
+  any turn), untargetable (out of `target_rows`, never out of combat),
+  boost X (below) and channeling. `read_keywords` reads a line of
+  keywords joined by commas whole -- "Flying, haste, long-range, resist 2"
+  -- and a line with anything else in it as nothing, so a sentence is
+  never half-read. **What stacks** is unchanged from step 5: resist,
+  frenzy, obliterate and armor add up, a keyword with no number does not.
+  A keyword a card has only while the position says so -- Tiny
+  Basilisk's against tech 0, Stalking Tiger's stealth on its own turn,
+  Midori's flying at 8, Mimic's -- is the engine's `_conditioned_keywords`,
+  never a saved modifier.
+- **Boost** is offered beside a card's play, as `PlayableCard.boost` with
+  its own why-not; a boosted play is one more argument on the same
+  action (`play`, `boost=True`), the frame carries `boosted`, and a part
+  marked `when="boosted"` or a mode choice reads it. A card put into play
+  by something else (Feral Strike, Sanatorium, Cinderblast Dragon's free
+  spell) is never boosted: boost is paid "when you play this".
+- **The printed override and the order of grants.** What a card is
+  before anything grants it something is its `printed` dict -- Chaos
+  Mirror's swapped ATK, Polymorph: Squirrel (a 1/1 green Squirrel with no
+  abilities, its runes, damage and attachments kept), Mimic's copy. A
+  card's numbers and keywords are then a `Profile` built from that base,
+  with every grant applied **in the order it began to apply**: a grant's
+  time is the later of its source's and the unit's own `sequence`
+  (`MatchState.next_sequence`, given out as anything enters play, and to
+  a hero's band as it is reached), and on a tie "has no abilities" goes
+  first -- so Master Midori's "units with no abilities get +1/+1" is lost
+  by a unit given an ability after it, and kept by one given it before
+  (the FAQ's Behind the Ferns and Midori examples).
+- **Control that returns.** Kidnapping sets `returns_to` on the unit
+  it steals; the end of that turn gives it back where it is still in
+  play (its ruling). Dothram Horselord changes sides at his controller's
+  upkeep to whoever has the greater total ATK (units and heroes, him
+  included), which overrides an older one-time steal ("newer triggers
+  beat older triggers", his ruling).
+- **The coin in the journal.** Rickety Mine's flip is `engine.flip_coin`,
+  drawn from `rng` and recorded in `StepResult.drawn` as
+  `["@coin", side]` beside the shuffles, so a replayed journal lands the
+  same side byte for byte (`test_rickety_mines_coin_is_replayed_byte_for_byte`).
+- **The trash** is out of the game: in no pile and no count, never a
+  death (`board.trash`). A trashed worker is a count down
+  (`trash_worker`), so Land Octopus's two workers and a hire's card are
+  never named. A **sacrificed unit dies**, though -- the rulebook's
+  "Dies" covers it, as the author confirmed on 2026-10-09 -- so its dies
+  triggers and Bloodburn's rune fire.
+- **The end of the turn**, after the draw and before the buildings
+  finish (`turn.end_of_turn`), on both sides, in this order: every
+  ephemeral unit dies; Bloodrage Ogre returns to its owner's hand where
+  it neither arrived nor attacked this turn, on its controller's turn
+  alone; Chameleon Lizzo returns at the end of any turn; Bloodlust's 1
+  damage; a kidnapped unit goes back. What that sets off resolves before
+  the tech choice is asked. This turn's modifiers, armor and Chaos
+  Mirror's swap go in `begin_tech`; Polymorph and Ferocity last until
+  their caster's next upkeep.
+- **"Your units get" is continuous** (the author, 2026-10-09). Stampede
+  and Ferocity are not snapshots of the units in play when they resolve:
+  each is an entry on its caster's side (`PlayerState.lasting`), and the
+  engine reads it for every unit that side controls while it lasts -- a
+  unit arriving later that turn has Stampede's +3 ATK and its excess to
+  the base, or Ferocity's armor piercing and swift strike, and a unit
+  taken from that side loses them. Stampede's +3 armor is the one part
+  spent as it is hit, so it is granted as each unit comes under the side
+  (`board.lasting_armor`) rather than read. Stampede's entry goes in
+  `begin_tech`, Ferocity's at its caster's next upkeep.
+- **The tokens' limits.** A token carries a limit only where its card
+  prints one: Harmony's Dancers (3, the Angry Dancers and a polymorphed
+  Dancer counted, a stolen one taking a side past it) and Bloodburn's
+  blood runes (4). Every other token -- Squirrels, Hunters, the borrowed
+  Shark and Water Elemental (`BORROWED_TOKENS`, landed beside the pair)
+  -- is unbounded.
+- **The two prompt kinds.** `DIVIDE_DAMAGE` places divided damage a
+  point a click, the split saved on the frame, Hotter Fire's +1 added
+  once to the total; `MODE_CHOICE` asks a "choose one" -- never when
+  boosted. Both are buttons on the panel. A `TARGET` over the asked
+  player's own hand or codex (Sanatorium, Feral Strike, Cinderblast
+  Dragon, Calamandra's discard) is pictured to them alone
+  (`private_choices`); the cog test holds none of it reaches the channel,
+  and Feral Strike's fetch is named because the card says "reveal them".
+- **Which upkeep orders are asked.** The upkeep is a frame on the stack
+  (`upkeep_order`, with `due` and `ordered`, an older frame without them
+  recomputed). A gain -- the surplus's draw, Gemscout Owl's gold,
+  Galina's -- changes nothing about the rest and is run, not asked. The
+  order is asked only where it decides something: healing beside
+  Star-Crossed Starlet, and Dothram beside a death or a sacrifice
+  (Starlet's damage, Land Octopus's choice), since his side follows the
+  total ATK. Land Octopus's own choice is a `MODE_CHOICE`, asked even
+  alone, and only "workers" where two can be trashed.
+- **Hotter Fire** is `engine.damage_bonus`, read off the frame's
+  `origin` -- the red card the effect came from, Rickety Mine's tails
+  among them -- and never combat damage. A dies line Pirate-Gang
+  Commander grants is the dying unit's, so it gets the +1 only where that
+  unit is red (the author, 2026-10-09).
+- **Read as the author answered** (2026-10-09): Dothram's total ATK
+  counts heroes as well as units; Feral Strike boosted fetches before it
+  puts into play, so a unit just fetched may go into play in the same
+  cast.
+- **A position settles whenever the stack empties**, not only when a
+  frame finishes, so a second copy of a legendary unit played with
+  nothing to resolve -- a second Galina -- is destroyed on arrival.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -710,6 +828,19 @@ match as its saved dict, as D12 Ball's record does; its file,
   "neutral" where the key is missing) and `rematch_decks` beside
   `rematch_specs`.
 
+- **Step 11 added thirteen**, each with its fallback: on a card `runes`
+  (`{}`: blood, growth and feather runes beside the +1/+1 and -1/-1),
+  `returns_to` (`None`: whom a stolen card goes back to), `attached_hero`
+  (`None`: a hero Spirit of the Panda or Final Showdown is on), `printed`
+  (`None`: the printed override) and `sequence` (0); on a hero `printed`
+  (`None`) and `bands` (`{}`: when each band was reached); on a side
+  `discards_at_main_end` (false, Desperation), `spells_played` (0),
+  `peace` (false, Moment's Peace), `arrived_from_hand` (false, Drakk's
+  first unit) and `lasting` (`[]`: Stampede and Ferocity on that side's
+  units); and `sequence` (0) on the match. A save made before step 11
+  reads every card and band as having entered at 0, so its grants apply
+  in the order the ids give.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -725,11 +856,14 @@ bot never exports (the author, 2026-10-07).
 
 **A line that damages a building or the base says what it has left**
 ("deals 3 to {player:2}'s base; it has 17 left") -- an attack, overpower's
-excess, a spell's or an ability's damage, a destroyed building's 2 to its
-base ("; their base has 18 left"). A line whose damage destroys it says
-no count: the next line says it is destroyed (the author, 2026-10-09).
-`board.left_after` is the one wording, asked before the damage lands,
-since a building's damage in combat lands after the lines are said.
+or Stampede's excess, a spell's, a trigger's or an ability's damage, a
+destroyed building's 2 to its base ("; their base has 18 left"), and a
+building card's damage ("deals 3; it has 1 left"). A line whose damage
+destroys it says no count: the next line says it is destroyed (the
+author, 2026-10-09). `board.left_after` is the one wording for the base,
+a tech building and the add-on, asked before the damage lands, since
+their damage in combat lands after the lines are said; `board.card_left`
+is a building card's, asked after, since a card's damage lands first.
 
 ### Naming by slug in the tests
 
@@ -1172,14 +1306,19 @@ else the bot shows is ephemeral.
   again, the hand on the panel sent afresh under it -- each uploaded by
   the bot and fetched cold by every client, which a kept attachment
   cannot touch, since only an edit keeps one and both messages are new.
-  Taking one of the two away was a change to the shape the author chose
+  Taking one of the two away is a change to the shape the author chose
   (the panel under the board; "The panel"), so it was put to them
   rather than made, two ways: the panel edited in place after an
   action, keeping its hand where the hand did not change and sitting
   above the board posted again; or the hand on an ephemeral message of
   its own, edited only when it changes, with a panel of buttons alone
-  sent under the board. **The author chose the second** (2026-10-09),
-  which keeps the panel at the foot: "The panel" has what it became.
+  sent under the board. **The author chose the second, and it was built
+  and undone the same day** (2026-10-09; #504's third commit and its
+  revert): the panel's buttons without the cards' pictures beside them
+  made no sense to them -- a panel that asks which card to play has to
+  show the cards -- so the panel pictures the hand again, and its
+  upload on every action stands as the price of that. The first way,
+  the panel edited in place and sitting above the board, was not tried.
 - **The hand's and the codex's cards are a bit smaller** (the author,
   2026-10-09, with the above): the art at 0.7 and at 8/15 -- 231 by
   315 in a hand, 176 by 240 in a codex view, the deck and the tech
@@ -1245,7 +1384,12 @@ effect frame's `spell`, or Appel Stomp waiting on its place. A tech
 choice joins it at the ready phase, when the picks reach the discard
 pile, and not before; a hired card is trashed and so gone. It is
 pictured by `render_codex`, each card once with its copies on the
-badge, the starting cards first and then each tech level, and captioned
+badge, the starting cards first and then each tech level, **the cards
+in the hand framed in gold with how many copies are there** ("2 in
+hand", the tech picker's mark worded for the deck; the author,
+2026-10-09: "the 'my deck' view should mark which cards are in a
+player's hand") -- `OwnDeck.in_hand`, the engine's count beside each
+card, so the view computes nothing -- and captioned
 with how many are in each place -- the draw pile a count, never an
 order; a tech choice not yet in the discard pile is not listed, there
 or anywhere in it (the author, 2026-10-09). The button is on the turn
@@ -1295,7 +1439,14 @@ whatever the match asks them, the other player their hand pictured and
 nothing to press. The panel is the view for `MAIN_ACTION` and
 `CHOOSE_DEFENDER` (`TurnPanelView`), for `PATROL` (`PatrolView`), and
 for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
-`view_for_prompt`'s table, the only place a kind becomes a view.
+`view_for_prompt`'s table, the only place a kind becomes a view. **My
+hand always shows the hand** (the author, 2026-10-09): where the turn
+waits on its player's tech, My hand sends the hand pictured with
+`TechGateView` under it -- **Tech** and **My deck** in place of the
+turn's actions -- rather than the confirmation alone, which left a player
+unable to see their hand before confirming. It is `view_for_prompt`'s
+too, asked with `gate` for the two kinds a turn may open on
+(`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
 
 - **One ephemeral message at a time, under the turn message.** Each
   click answers through the service and the panel is built afresh from
@@ -1314,8 +1465,7 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   ~five-in-five bucket the turn message lives in (rate-limits.md). The
   bot cannot find an ephemeral message again, so every entry point (My
   hand, **Tech**, `/codex resume`) makes a fresh one and the cog never
-  looks for an old panel. The one ephemeral message it reaches again is
-  the hand's, below, through the interaction that made it.
+  looks for an old panel.
 - **A panel is always drawn as an answer to something.** The author
   asked for it to stand alone rather than as a reply to the turn
   message (2026-10-09). Discord ties every message an interaction makes
@@ -1328,38 +1478,10 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   and every panel after it as an answer to the panel it replaced, which
   is deleted -- never to the board. How the client draws a strip whose
   message is gone has not been looked at on Discord.
-- **The hand is a message of its own, above the panel** (the author,
-  2026-10-09: B of the two ways under "The board on Discord"). **My
-  hand** sends the active player two ephemeral messages: their hand
-  pictured -- numbered, greyed where it may not be played, each card's
-  cost after reductions, `render_hand` over the engine's `hand_rows`,
-  the list `MainActionOptions.hand` is built from, so the picture and
-  the buttons read one list -- with their discard pile listed under it,
-  and the panel under that. **The panel carries no picture of the
-  hand**, so the one sent afresh after every action is light, and the
-  client fetches nothing for it. The hand message is **remembered**
-  (`HandMessage`, in memory by game and seat: the interaction that made
-  it, which of its messages it is, and what it shows) and **brought up
-  to date in place** after a public result where the hand or its
-  caption changed (`refresh_hand_messages`, from `answer_panel` and
-  the two undos), for both players -- a card played, the draw at the
-  turn's end, a card an effect returns to the other hand -- and left
-  alone where nothing changed, which is what the message of its own
-  buys: an attack, a patrol move, a target chosen cost the hand
-  nothing, where the panel sent afresh used to carry it again every
-  time. An ephemeral message can be reached only through the
-  interaction that made it, whose token Discord honours for fifteen
-  minutes (`edit_original_response`, or a follow-up's `edit_message`):
-  past that, or with the message gone, the edit fails and the message
-  is forgotten -- and where the click is the player's own, the hand is
-  sent afresh as its follow-up, under the board and above the panel,
-  and remembered anew; the other player's is forgotten until they
-  press My hand. A fresh hand message deletes the one remembered
-  before it where it still can, so **My hand** pressed twice leaves
-  one. The other player's **My hand** sends their hand the same way,
-  with **My deck** under it (`send_hand`), remembered and kept up to
-  date alike. After a restart nothing is remembered, as with the
-  panels; the old pictures stand. **A target's picture is a
+- **Its picture is the hand**, numbered, greyed where it may not be
+  played, each card's cost after reductions -- `render_hand` over
+  `MainActionOptions.hand`, a field the prompt grew for it so the
+  picture and the buttons read one list. **A target's picture is a
   side of the board, not the hand** (the author, 2026-10-09: the hand
   is no help choosing what to wither): the defender, obliterate's,
   sparkshot's and overpower's choices and an effect's `TARGET` are
@@ -1396,7 +1518,10 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   music") -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
-  first. **Level up** buys one
+  first. **Hire worker** and every **Build** are green and **Attack...**
+  red, beside **End main phase**'s red (the author, 2026-10-09), so the
+  panel's three kinds of spending read apart at a glance; the rest
+  stay blurple or grey. **Level up** buys one
   level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
@@ -1462,7 +1587,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
 The Lock that ends a turn turns the panel into the tech picker, saying
 the turn is over, sent under the new turn message.
 **Tech** on the turn message reopens it -- for the player whose turn it
-is not, alone -- all through the opponent's turn; each **Save tech**
+is not, and for the active player only while their own turn waits on
+their tech (below) -- all through the opponent's turn; each **Save tech**
 replaces the last, privately: **nothing is said in the channel** -- not
 the cards, and not that a choice was made. The choice is announced in
 its owner's ready phase alone, as "puts 2 tech cards into their discard
@@ -1495,15 +1621,22 @@ picker is an ephemeral message made afresh each time.
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
 cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
-"to choose their tech" where My hand is the picker instead, because they
-never picked, or because the game is a test game), and My
-hand is `TechConfirmView` -- the picks pictured, **Confirm** and
-**Change**. Confirm runs the ready phase and the upkeep, and the panel
-becomes the turn's actions, under the turn message posted again. The prompt asked for the
+"to choose their tech" where the picker is asked instead, because they
+never picked, or because the game is a test game) and points at
+**Tech**. **Tech** on the turn message, pressed by the player whose
+turn it is while the turn waits on their tech, opens it at once:
+`TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
+or the picker (the author, 2026-10-09: "clicking tech should let them
+pick tech"); at any other point in their own turn it says the tech is
+not theirs to press now. **My hand** sends the hand pictured with
+`TechGateView` under it, whose Tech opens the same view in place.
+Confirm runs the ready phase and the upkeep, and the panel becomes the
+turn's actions, the hand pictured on it, under the turn message posted
+again. The prompt asked for the
 confirmation to be sent "as the follow-up to the opponent's Lock when
 they are present"; a follow-up reaches only the clicker, so it is not
 sent to the other player -- the turn message's mention and its caption
-point them at My hand instead.
+point them at Tech instead.
 
 ### The turn message, posted again
 
@@ -1602,8 +1735,9 @@ Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 2: the hand, a message of its own, and the panel under it |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted -- and, where the hand or its caption changed, one edit on the interaction that made the hand message (a fourth of this click's, the hand sent afresh, only where that edit fails) |
+| My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
+| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
@@ -1659,9 +1793,9 @@ hand** after a restart asks the same question with the same options
 (`tests/test_codex_resume.py`, including a declared attacker waiting on
 its defender). `/codex resume` runs any step the bot owes, posts the
 turn message again at the foot of the channel -- the old one deleted,
-the player whose turn it is pinged -- and hands the clicker their hand
-and their panel afresh -- the actions for the active player, the open
-tech picker for the other.
+the player whose turn it is pinged -- and hands the clicker their panel
+afresh -- the
+actions for the active player, the open tech picker for the other.
 
 ## The end of a game
 

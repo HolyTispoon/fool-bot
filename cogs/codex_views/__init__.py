@@ -4,7 +4,7 @@ player can be shown: `base` (`SafeView`, which imports no sibling, so the
 package is a DAG), `lobby`, `turn_message`, `ending` (`ConcedeConfirmView`,
 `RematchView`), and the panel's: `turn`
 (`TurnPanelView`, `UndoConfirmView`), `patrol` (`PatrolView`) and `tech`
-(`TechChoiceView`, `TechConfirmView`). Every name is re-exported here.
+(`TechChoiceView`, `TechConfirmView`, `TechGateView`). Every name is re-exported here.
 """
 
 from cogs.codex_views.base import (
@@ -18,7 +18,7 @@ from cogs.codex_views.base import (
 from cogs.codex_views.ending import ConcedeConfirmView, RematchView
 from cogs.codex_views.lobby import MODE_LABELS, LobbyView, hero_options
 from cogs.codex_views.patrol import PatrolView, next_empty
-from cogs.codex_views.tech import TechChoiceView, TechConfirmView, picks_listed
+from cogs.codex_views.tech import TechChoiceView, TechConfirmView, TechGateView, picks_listed
 from cogs.codex_views.turn import (
     NOT_YOUR_PANEL,
     PanelButton,
@@ -60,6 +60,7 @@ __all__ = [
     "SafeView",
     "TechChoiceView",
     "TechConfirmView",
+    "TechGateView",
     "TurnMessageView",
     "TurnPanelView",
     "UndoConfirmView",

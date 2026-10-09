@@ -66,6 +66,20 @@ class BuildingDamageLineTests(unittest.TestCase):
             "**{player:2}'s base is destroyed. {player:1} wins!**",
         ])
 
+    def test_a_building_card(self) -> None:
+        engine, game, match = fresh()
+        iron = put(match, 1, "iron_man").ref
+        elm = put(match, 2, "blooming_elm").ref  # 4 HP
+        result = combat.declare_attack(engine, game, match, iron, elm)
+        self.assertIn("{card:iron_man} deals 3; it has 1 left.", result.narration)
+
+    def test_a_building_card_the_damage_destroys(self) -> None:
+        engine, game, match = fresh()
+        iron = put(match, 1, "iron_man").ref
+        tree = put(match, 2, "verdant_tree").ref  # 3 HP
+        result = combat.declare_attack(engine, game, match, iron, tree)
+        self.assertIn("{card:iron_man} deals 3.", result.narration)
+
     def test_overpower_onto_the_base(self) -> None:
         engine, game, match = fresh()
         reaper = put(match, 1, "harvest_reaper").ref

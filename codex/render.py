@@ -223,6 +223,9 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
+#: A named rune's tag on a card (step 11): Bloodburn's, Might of Leaf and
+#: Claw's, a feather rune.
+MARK_FILL = (122, 74, 160)       # #7a4aa0
 FIGURE_EDGE = (15, 10, 10)
 
 # The hand's and the codex's.
@@ -485,12 +488,31 @@ class Lying:
     partnered: bool = False
     arrived: bool = False
     exhausted: bool = False
+    #: The runes besides +1/+1 and -1/-1 (step 11) -- "Blood 2",
+    #: "Growth 5", "Feather" -- as tags under the rune chits.
+    marks: tuple[str, ...] = ()
+
+
+#: What Polymorph: Squirrel shows a unit as while it lasts.
+POLYMORPHED = "squirrel"
+
+
+def rune_marks(card: CardInstance) -> tuple[str, ...]:
+    """A card's named runes as tags: "Blood 2", "Feather"."""
+    return tuple(
+        kind.title() + (f" {count}" if count > 1 or kind != "feather" else "")
+        for kind, count in sorted((card.runes or {}).items()) if count
+    )
 
 
 def unit_lying(card: CardInstance, partnered: bool) -> Lying:
-    return Lying(card.slug, damage=card.damage, plus_runes=card.plus_runes,
+    """A card in play as it lies -- a Squirrel's art while Polymorph:
+    Squirrel has it (step 11)."""
+    slug = POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
+    return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
-                 arrived=card.arrived_this_turn, exhausted=card.exhausted)
+                 arrived=card.arrived_this_turn, exhausted=card.exhausted,
+                 marks=rune_marks(card))
 
 
 def hero_lying(hero: HeroState, cards: CardCatalog) -> Lying:
@@ -532,6 +554,10 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], 50, (margin - 8, bottom + 8),
                 upward=True)
+    if lying.marks:
+        draw = ImageDraw.Draw(upright)
+        for index, mark in enumerate(lying.marks):
+            pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
     if lying.arrived:
         arrived_tag(upright, margin, bottom)
 
@@ -1244,23 +1270,26 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
-                 picked: Optional[Sequence[int]] = None) -> bytes:
+                 picked: Optional[Sequence[int]] = None,
+                 mark: str = "picked {}") -> bytes:
     """
     A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
-    upload limit. `picked`, where given, is how many copies of each the
-    tech choice has taken so far: such a card is framed in gold with
-    the count on a pill over its art -- the tech picker's picture. The
-    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
+    upload limit. `picked`, where given, is how many copies of each are
+    marked: such a card is framed in gold with the count on a pill over
+    its art, worded by `mark` -- "picked 2", the tech picker's picture,
+    or "2 in hand", **My deck**'s. The same picture asked again is the
+    bytes already drawn (`RENDERED_KEPT`).
     """
     return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
-                         None if picked is None else tuple(picked))
+                         None if picked is None else tuple(picked), mark)
 
 
 @lru_cache(maxsize=RENDERED_KEPT)
 def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
-                  cards: CardCatalog, picked: Optional[tuple[int, ...]]) -> bytes:
+                  cards: CardCatalog, picked: Optional[tuple[int, ...]],
+                  mark: str = "picked {}") -> bytes:
     count = max(1, len(cards_in_codex))
     columns = min(count, CODEX_COLUMNS)
     rows = -(-count // columns)
@@ -1287,7 +1316,7 @@ def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
         taken = picked[index] if picked is not None else 0
         if taken:
             badge.rectangle((0, 0, CODEX_CARD[0] - 1, CODEX_CARD[1] - 1), outline=GOLD, width=8)
-            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), f"picked {taken}", 26,
+            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), mark.format(taken), 26,
                  ACTIVE_FILL, anchor="mm")
         canvas.alpha_composite(picture, (left, top))
     return _webp(canvas)

@@ -30,11 +30,12 @@ from codex.formatting import deck_name
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
-from codex.render import render_board, render_side
+from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
-    RematchView, UndoConfirmView, kept_pictures, picture_file, send_ephemeral,
+    RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, send_ephemeral,
 )
+from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
@@ -43,12 +44,10 @@ LOGGER = logging.getLogger(__name__)
 
 PANEL_NOTE = "*Only you can see this.*"
 
-#: The prompts whose panel sits under the asked player's hand, sent as
-#: a message of its own (`send_hand_message`; docs/design/codex.md, "The
-#: panel"): the main phase's, and Appel Stomp's place, which is about
-#: their own draw pile. Their panel carries no picture.
-HAND_MESSAGE_KINDS = (
-    PromptKind.MAIN_ACTION,
+#: The prompts whose panel is pictured with the asked player's hand, as
+#: the main phase's is: Appel Stomp's place, which is about their own
+#: draw pile.
+PANEL_HAND_KINDS = (
     PromptKind.APPEL_STOMP_TOP,
 )
 #: The prompts whose panel is pictured with a side of the board rather
@@ -62,7 +61,22 @@ PANEL_SIDE_KINDS = (
     PromptKind.SPARKSHOT_TARGET,
     PromptKind.OVERPOWER_TARGET,
     PromptKind.TARGET,
+    PromptKind.DIVIDE_DAMAGE,
 )
+
+
+def private_choices(prompt: PendingPrompt) -> list[str]:
+    """The cards a `TARGET` offers from its asked player's own hand or
+    codex (Sanatorium, Feral Strike, Cinderblast Dragon, Calamandra), by
+    slug -- pictured as a hand is, to them alone, never on the table."""
+    from codex.engine import CODEX, HAND
+
+    if prompt.kind is not PromptKind.TARGET:
+        return []
+    return [row.ref.split(":", 1)[1] for row in prompt.options.targets
+            if row.ref.startswith((HAND, CODEX))]
+
+
 NOTHING_ASKED = "Nothing is asked of you now."
 STEP_OWED = (
     "The game has a step of its own to run before anybody is asked anything: "
@@ -112,6 +126,12 @@ def side_shown(prompt: PendingPrompt) -> Optional[int]:
             return asked
         if seats == {asked, opponent}:
             return None
+    if prompt.kind is PromptKind.DIVIDE_DAMAGE:
+        seats = {int(key.split(":", 1)[0]) for key, _ in prompt.options.split}
+        if seats == {asked}:
+            return asked
+        if seats == {asked, opponent}:
+            return None
     return opponent
 
 
@@ -136,6 +156,13 @@ class TurnsMixin:
         prompt = pending_prompt(self.engine, game, match)
         return prompt if prompt is not None and prompt.asked_player == seat else None
 
+    def tech_asked(self, game: CodexGame, match, seat: int) -> bool:
+        """Whether `seat`'s turn waits on their tech -- the confirmation,
+        or the picker where nothing was picked -- which **Tech** opens
+        and **My hand** puts behind a Tech button (`TECH_GATE_KINDS`)."""
+        prompt = self.prompt_for(game, match, seat)
+        return prompt is not None and prompt.kind in TECH_GATE_KINDS
+
     # -- The panel -------------------------------------------------------------
 
     def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "") -> str:
@@ -148,25 +175,41 @@ class TurnsMixin:
         return "\n".join(lines)
 
     async def panel_parts(self, game: CodexGame, match, prompt: PendingPrompt,
-                          note: str = "") -> tuple[str, list[discord.File], Optional[discord.ui.View]]:
-        """The panel for `prompt`: its text, its picture -- a side of
-        the board for a target (`side_shown`); the prompt's own
-        (`render_prompt`) for the rest; none for the main phase, whose
-        hand is a message of its own (`HAND_MESSAGE_KINDS`) -- and its
-        view (`view_for_prompt`)."""
-        view = self.view_for_prompt(game, prompt, match)
+                          note: str = "", gate: bool = False,
+                          ) -> tuple[str, list[discord.File], Optional[discord.ui.View]]:
+        """The panel for `prompt`: its text, its picture -- the hand,
+        numbered, for the main phase, and for a turn's tech behind its
+        Tech button (`gate`); a side of the board for a target
+        (`side_shown`); the prompt's own (`render_prompt`) for the rest
+        -- and its view (`view_for_prompt`)."""
+        view = self.view_for_prompt(game, prompt, match, gate=gate)
         caption = getattr(view, "caption", None)
         extra = [note] if note else []
         if callable(caption):
             extra.append(caption())
-        if prompt.kind in PANEL_SIDE_KINDS:
+        private = private_choices(prompt)
+        if private:
+            files = [await self.choices_file(private)]
+        elif prompt.kind is PromptKind.MAIN_ACTION:
+            files = [await hand_file(self.engine, match, prompt.asked_player, prompt.options.hand)]
+        elif prompt.kind in PANEL_SIDE_KINDS:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
-        elif prompt.kind in HAND_MESSAGE_KINDS:
-            files = []
+        elif prompt.kind in PANEL_HAND_KINDS or gate:
+            files = [await hand_file(self.engine, match, prompt.asked_player)]
         else:
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
         return self.panel_caption(game, prompt, "\n".join(extra)), files, view
+
+    async def choices_file(self, slugs: list[str]) -> discord.File:
+        """The cards a private target offers, pictured as a hand is, off
+        the event loop -- its asked player's alone."""
+        cards = self.engine.catalog
+        webp = await asyncio.to_thread(
+            render_hand, slugs, [True] * len(slugs),
+            [cards.cards[slug].cost or 0 for slug in slugs], cards,
+        )
+        return picture_file(webp, "codex-choices")
 
     async def side_file(self, game: CodexGame, match, asked: int,
                         seat: Optional[int]) -> discord.File:
@@ -187,12 +230,14 @@ class TurnsMixin:
 
     async def show_panel(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int, *, edit: bool, standing: bool = False, note: str = "",
-                         replace: bool = False) -> None:
+                         replace: bool = False, open_tech: bool = False) -> None:
         """
         Put up what `seat` is asked: **made afresh** as an ephemeral
-        message (`edit=False` -- My hand, Tech, `/codex resume`) -- for
-        the main phase, under their hand sent first as a message of its
-        own (`send_hand_message`, `HAND_MESSAGE_KINDS`) -- in
+        message (`edit=False` -- My hand, Tech, `/codex resume`) -- for a
+        turn that waits on its player's tech, the hand pictured with
+        **Tech** alone under it (`TechGateView`) until it is opened, or
+        the tech itself at once where **Tech** was pressed (`open_tech`)
+        -- in
         place of the panel clicked (`edit=True`), or **in its stead,
         under the turn message just posted again** (`replace=True`,
         `put_panel`). The cog never looks for an old panel: an ephemeral
@@ -208,21 +253,19 @@ class TurnsMixin:
             else:
                 await self.send_hand(interaction, game, match, seat)
             return
-        if not edit and not replace and prompt.kind in HAND_MESSAGE_KINDS:
-            await self.send_hand_message(interaction, game, match, seat)
+        fresh = not edit and not replace
+        gate = fresh and not standing and not open_tech and prompt.kind in TECH_GATE_KINDS
         started = time.perf_counter()
-        content, files, view = await self.panel_parts(game, match, prompt, note)
+        content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         await self.put_panel(interaction, content, files, view, edit=edit, replace=replace)
-        how = "sent afresh" if replace else "edited in place" if edit else "sent"
-        if files:
-            LOGGER.info(
-                "Codex game #%s: the panel's picture drawn in %d ms (%d KB); the panel %s in %d ms",
-                game.game_number, drawn, pictures_size(files) // 1024, how, elapsed_ms(started),
-            )
-        else:
-            LOGGER.info("Codex game #%s: the panel %s in %d ms", game.game_number, how, elapsed_ms(started))
+        LOGGER.info(
+            "Codex game #%s: the panel's picture drawn in %d ms (%d KB); the panel %s in %d ms",
+            game.game_number, drawn, pictures_size(files) // 1024,
+            "sent afresh" if replace else "edited in place" if edit else "sent",
+            elapsed_ms(started),
+        )
 
     async def put_panel(self, interaction: discord.Interaction, content: str,
                         files: Optional[list[discord.File]] = None,
@@ -286,10 +329,6 @@ class TurnsMixin:
         from My hand.
         """
         match = result.match
-        if replace and match is not None:
-            # What the click changed in either hand goes on the hand
-            # messages first, so a hand sent afresh lands above the panel.
-            await self.refresh_hand_messages(game, match, seat, interaction)
         prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
         standing = next((one for one in result.standing if one.asked_player == seat), None)
         if prompt is not None:
@@ -491,7 +530,6 @@ class TurnsMixin:
         # The acknowledgement goes out beside the board, not before it
         # (`TurnPanelView.act`).
         await asyncio.gather(interaction.response.defer(), self.repost_turn_message(game, restored))
-        await self.refresh_hand_messages(game, restored, seat, interaction)
         await self.show_panel(interaction, game, restored, seat, edit=True, replace=True)
 
     async def ask_undo_to_previous_turn(self, interaction: discord.Interaction, game: CodexGame,
@@ -554,10 +592,5 @@ class TurnsMixin:
         await self.post_turn_message(channel, game, restored, replace=True)
         if previous is not None and previous != game.turn_message_id:
             await self.delete_table_message(channel, game, previous)
-        # The restored hands, on whichever hand messages stand -- the
-        # restored turn's player gets theirs afresh with their panel.
-        for other in (1, 2):
-            if seat is None or other != seat or seat != restored.active:
-                await self.refresh_hand_message(game, restored, other)
         if seat is not None and seat == restored.active:
             await self.show_panel(interaction, game, restored, seat, edit=False)

@@ -187,13 +187,15 @@ class TurnPanelView(PanelView):
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
                  undo_targets: dict | None = None, building: str | None = None,
-                 spec: str | None = None) -> None:
+                 spec: str | None = None, slug: str | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
         self.mode = mode
         #: The spec choice's building, and the Tech II spec chosen so far
         #: where a tech lab waits on its own (`build_spec`).
         self.building = building
         self.spec = spec
+        #: The card the boost choice is about (`build_boost`).
+        self.slug = slug
         options = prompt.options
         if prompt.kind is PromptKind.CHOOSE_DEFENDER:
             self.build_defenders(options)
@@ -211,6 +213,10 @@ class TurnPanelView(PanelView):
             self.build_upkeep(options)
         elif prompt.kind is PromptKind.LEVEL_GAIN:
             self.build_level_gain(options)
+        elif prompt.kind is PromptKind.DIVIDE_DAMAGE:
+            self.build_divide(options)
+        elif prompt.kind is PromptKind.MODE_CHOICE:
+            self.build_mode(options)
         elif mode == "attack":
             self.build_attack(options)
         elif mode == "hire":
@@ -221,6 +227,8 @@ class TurnPanelView(PanelView):
             self.build_undo(undo_targets or {})
         elif mode == "spec":
             self.build_spec(options)
+        elif mode == "boost":
+            self.build_boost(options)
         else:
             self.build_actions(options)
 
@@ -229,16 +237,18 @@ class TurnPanelView(PanelView):
     def build_actions(self, options) -> None:
         """The actions row with the heroes on it, the hand's rows, then
         the board's row and the three that always end the panel -- each
-        group starting a row of its own, five buttons a row."""
+        group starting a row of its own, five buttons a row. **Hire
+        worker** and every **Build** are green, **Attack...** red (the
+        author, 2026-10-09)."""
         hire = options.hire
         actions = [
             self.make_button(
                 "Hire worker" if hire.allowed else f"Hire: {hire.why_not}",
-                discord.ButtonStyle.primary, self.open_hire, disabled=not hire.allowed,
+                discord.ButtonStyle.success, self.open_hire, disabled=not hire.allowed,
             ),
             self.make_button(
                 "Attack..." if options.attackers else "Attack: nothing of yours can attack now",
-                discord.ButtonStyle.primary, self.open_attack, disabled=not options.attackers,
+                discord.ButtonStyle.danger, self.open_attack, disabled=not options.attackers,
             ),
         ] + [self.hero_button(hero) for hero in options.heroes]
         # The hand, every card once in the hand's order (`playable`), by
@@ -249,8 +259,9 @@ class TurnPanelView(PanelView):
             self.make_button(
                 f"{numbers.get(row.slug, '?')}. {card_name(row.slug)} ({row.cost} gold)",
                 discord.ButtonStyle.primary if row.allowed else discord.ButtonStyle.secondary,
-                self._answer(self.play, row.slug), disabled=not row.allowed,
-                choice=("play", row.slug),
+                self._answer(self.open_boost, row.slug) if row.boostable
+                else self._answer(self.play, row.slug),
+                disabled=not row.allowed, choice=("play", row.slug),
             )
             for row in options.playable
         ] or [self.make_button("Your hand is empty", discord.ButtonStyle.secondary, None,
@@ -259,7 +270,7 @@ class TurnPanelView(PanelView):
             self.make_button(
                 f"Build {building_label(row.building)} ({row.cost} gold)"
                 + ("..." if row.specs else ""),
-                discord.ButtonStyle.primary,
+                discord.ButtonStyle.success,
                 self._answer(self.open_spec, row.building) if row.specs
                 else self._answer(self.build, row.building),
                 choice=("build", row.building),
@@ -392,6 +403,8 @@ class TurnPanelView(PanelView):
                     "which card goes? It is trashed unseen.")
         if self.mode == "attack":
             return "**Attack** with which?"
+        if self.mode == "boost":
+            return f"**{card_name(self.slug)}**: pay its boost?"
         if self.mode == "spec":
             row = self.build_row()
             if row is not None and row.lab_specs:
@@ -420,8 +433,9 @@ class TurnPanelView(PanelView):
         card's own words (`codex.effects.EFFECTS`)."""
         if ability.effect == "stop_the_music":
             return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
-        says = effects.EFFECTS[ability.effect].parts[0].says
-        return f"{self.label(ability.source)}: exhaust to {says}"
+        effect = effects.EFFECTS[ability.effect]
+        says = effect.says or effect.parts[0].says
+        return f"{self.label(ability.source)}: {ability.pays} to {says}"
 
     async def level(self, interaction: discord.Interaction, hero: str) -> None:
         """One level for a gold: a level a click."""
@@ -434,8 +448,40 @@ class TurnPanelView(PanelView):
             PromptKind.MAIN_ACTION, "ability", {"ability": effect, "source": source},
         ))
 
-    async def play(self, interaction: discord.Interaction, slug: str) -> None:
-        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", {"slug": slug}))
+    async def play(self, interaction: discord.Interaction, slug: str, boost: bool = False) -> None:
+        arguments = {"slug": slug}
+        if boost:
+            arguments["boost"] = True
+        await self.act(interaction, Action(PromptKind.MAIN_ACTION, "play", arguments))
+
+    # -- Boost (UMR p. 16) ---------------------------------------------------
+
+    async def open_boost(self, interaction: discord.Interaction, slug: str) -> None:
+        """A card with a boost the player can pay: the panel asks whether
+        to pay it, the shape **Attack...** has."""
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match, mode="boost", slug=slug)
+        await self.show(interaction, view, self.cog.panel_caption(game, self.prompt, view.caption()))
+
+    def build_boost(self, options) -> None:
+        """**Play** and **Play boosted**, each with what it costs, as the
+        card's row in the options says, and **Back**."""
+        row = next((one for one in options.playable if one.slug == self.slug), None)
+        if row is not None and row.allowed:
+            name = card_name(row.slug)
+            self.button(f"Play {name} ({row.cost} gold)", discord.ButtonStyle.primary,
+                        self._answer(self.play, row.slug), row=0)
+            boosted = self.make_button(
+                f"Play {name} boosted ({row.cost + row.boost} gold)" if row.boostable
+                else f"Boost: {row.boost_why_not}",
+                discord.ButtonStyle.success, self._answer(self.play, row.slug, True),
+                disabled=not row.boostable, choice=("boost", row.slug),
+            )
+            boosted.row = 0
+            self.add_item(boosted)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
 
     async def build(self, interaction: discord.Interaction, building: str,
                     spec: str | None = None, lab_spec: str | None = None) -> None:
@@ -660,6 +706,8 @@ class TurnPanelView(PanelView):
     def target_label(self, row) -> str:
         """A target in the menu: whose, what, and what it costs -- its
         resist -- or why it is forced (the flagbearer)."""
+        if row.ref.startswith(("hand:", "codex:")):
+            return self.label(row.ref, row.seat)
         whose = "Your" if row.seat == self.seat else "Their"
         label = f"{whose} {self.label(row.ref, row.seat)}"
         if row.resist:
@@ -681,9 +729,55 @@ class TurnPanelView(PanelView):
             for row in options.targets
         ] or [self.make_button("Nothing can be chosen", discord.ButtonStyle.secondary,
                                None, disabled=True)]
-        row = self.place(targets, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        last = options.cancellable or options.done
+        row = self.place(targets, 0, until=ROWS - 1 if last else ROWS)
+        if options.done:
+            self.button("Done", discord.ButtonStyle.success, self.done_choosing, row=row)
         if options.cancellable:
             self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=row)
+
+    async def done_choosing(self, interaction: discord.Interaction) -> None:
+        """**Done**: the part chooses nothing more -- "up to", "you may"."""
+        await self.act(interaction, Action(PromptKind.TARGET, "done"))
+
+    # -- Divided damage and "choose one" (step 11) -----------------------------
+
+    def build_divide(self, options) -> None:
+        """A button per target chosen, each adding a point of the damage
+        to it, with what it has so far; **Cancel** where offered."""
+        buttons = []
+        for key, amount in options.split:
+            seat, _, ref = key.partition(":")
+            buttons.append(self.make_button(
+                f"+1 to {self.label(ref, int(seat))} (has {amount})", discord.ButtonStyle.primary,
+                self._answer(self.divide, key), choice=("divide", key),
+            ))
+        row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        if options.cancellable:
+            self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_divide, row=row)
+
+    async def divide(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.DIVIDE_DAMAGE, "", {"target": key}))
+
+    async def cancel_divide(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.DIVIDE_DAMAGE, "cancel"))
+
+    def build_mode(self, options) -> None:
+        """A button per mode, in the card's words; **Cancel** where offered."""
+        buttons = [
+            self.make_button(says[0].upper() + says[1:], discord.ButtonStyle.primary,
+                             self._answer(self.mode_choice, key), choice=("mode", key))
+            for key, says in options.modes
+        ]
+        row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        if options.cancellable:
+            self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_mode, row=row)
+
+    async def mode_choice(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.MODE_CHOICE, "", {"mode": key}))
+
+    async def cancel_mode(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.MODE_CHOICE, "cancel"))
 
     async def target(self, interaction: discord.Interaction, key: str) -> None:
         await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))
@@ -708,10 +802,20 @@ class TurnPanelView(PanelView):
         "starlet": "Star-Crossed Starlet takes her damage first",
     }
 
+    def upkeep_label(self, effect: str) -> str:
+        """An upkeep effect's button: the two the basic set orders by
+        their own words, and red and green's by the card whose it is."""
+        if effect in self.UPKEEP_LABELS:
+            return self.UPKEEP_LABELS[effect]
+        kind, _, ident = effect.partition(":")
+        if ident:
+            return f"{self.label(f'unit:{ident}')} first"
+        return effect
+
     def build_upkeep(self, options) -> None:
         for effect in options.effects:
             self.button(
-                self.UPKEEP_LABELS.get(effect, effect), discord.ButtonStyle.primary,
+                self.upkeep_label(effect), discord.ButtonStyle.primary,
                 self._upkeep(effect), row=0,
             )
 

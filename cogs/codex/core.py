@@ -40,6 +40,7 @@ from cogs.codex_views import (
     RematchView,
     TechChoiceView,
     TechConfirmView,
+    TechGateView,
     TurnMessageView,
     TurnPanelView,
     picture_file,
@@ -84,20 +85,28 @@ PROMPT_VIEWS = {
     PromptKind.APPEL_STOMP_TOP: TurnPanelView,
     PromptKind.UPKEEP_ORDER: TurnPanelView,
     PromptKind.LEVEL_GAIN: TurnPanelView,
+    PromptKind.DIVIDE_DAMAGE: TurnPanelView,
+    PromptKind.MODE_CHOICE: TurnPanelView,
     PromptKind.PATROL: PatrolView,
     PromptKind.TECH_CHOICE: TechChoiceView,
     PromptKind.TECH_CONFIRM: TechConfirmView,
     PromptKind.GAME_OVER: None,
 }
 
+#: The prompts a turn may open on before its actions, its player's
+#: tech: the panel **My hand** sends is the hand pictured with
+#: `TechGateView` under it, **Tech** alone, until it is answered
+#: (`show_panel`).
+TECH_GATE_KINDS = (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE)
+
 #: What the turn message says while the new turn waits on its player's
 #: tech -- the cog's caption, not the model's line -- worded for the
-#: prompt My hand opens: the confirmation of picks made during the
+#: prompt Tech opens: the confirmation of picks made during the
 #: opponent's turn, or the picker itself where none were made (always,
 #: in a test game: `codex.prompts.tech_stands`).
 TECH_WAIT = {
-    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **My hand**.*",
-    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **My hand**.*",
+    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **Tech**.*",
+    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **Tech**.*",
 }
 
 
@@ -115,11 +124,6 @@ class CoreMixin:
         #: its main phase opened -- by game id and turn: what an undo
         #: puts back. In memory, the last three turns, as the snapshots.
         self.turn_heads: dict[str, dict[int, list[str]]] = {}
-        #: Each player's hand message, by game id and seat
-        #: (`presentation.HandMessage`): an ephemeral picture a later
-        #: click brings up to date in place. In memory: a restart
-        #: forgets every one, as it does the panels.
-        self.hand_messages: dict[tuple[str, int], object] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(
@@ -255,12 +259,16 @@ class CoreMixin:
         return service
 
     def view_for_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt],
-                        match) -> Optional[discord.ui.View]:
+                        match, gate: bool = False) -> Optional[discord.ui.View]:
         """**The only place a `PromptKind` becomes a view**: the panel the
         prompt is answered from, shown to its asked player alone, or
-        `None` for a kind nobody answers (a finished game)."""
+        `None` for a kind nobody answers (a finished game). With `gate`,
+        a turn's tech is **Tech** alone (`TechGateView`), the hand's
+        panel until it is opened."""
         if prompt is None:
             return None
+        if gate and prompt.kind in TECH_GATE_KINDS:
+            return TechGateView(self, game.game_id, prompt, match)
         view = PROMPT_VIEWS[prompt.kind]
         return None if view is None else view(self, game.game_id, prompt, match)
 
@@ -274,9 +282,8 @@ class CoreMixin:
         its Show menu chose (the engine's `codex_view_rows`) -- and the
         confirmation's picks as a hand. The main phase, the defender and
         the patrol lock have none -- the board on the turn message is
-        theirs, and the hand is a message of its own above the panel
-        (`send_hand_message`). Everything here is its asked player's
-        alone.
+        theirs, and the panel pictures the hand (`hand_file`).
+        Everything here is its asked player's alone.
         """
         if prompt is None or prompt.options is None:
             return None

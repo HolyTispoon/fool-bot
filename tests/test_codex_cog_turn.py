@@ -37,6 +37,7 @@ from cogs.codex_views import (
     RematchView,
     TechChoiceView,
     TechConfirmView,
+    TechGateView,
     TurnMessageView,
     TurnPanelView,
     UndoConfirmView,
@@ -50,9 +51,6 @@ CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
 #: deferred, the panel sent afresh under the turn message, and the panel
 #: clicked deleted (`TurnsMixin.put_panel`).
 PANEL_REPLACED = ["response.defer", "followup.send", "original.delete"]
-#: My hand for the active player: their hand, a message of its own, and
-#: the panel sent under it (`TurnsMixin.show_panel`).
-HAND_AND_PANEL = ["response.send", "followup.send"]
 
 
 def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
@@ -117,96 +115,18 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
 
 
 class PanelTests(TurnTestCase):
-    async def test_my_hand_opens_the_hand_and_the_panel_under_it_for_the_active_player(self) -> None:
-        """Two ephemeral messages: the hand pictured, a message of its
-        own, and the panel under it with no picture (the author,
-        2026-10-09)."""
+    async def test_my_hand_opens_the_panel_for_the_active_player(self) -> None:
         call, view = await self.table.panel()
-        self.assertEqual([answer[0] for answer in call.answers], HAND_AND_PANEL)
-        _, (caption,), hand = call.answers[0]
-        self.assertTrue(hand["ephemeral"])
-        self.assertTrue(hand["file"].filename.startswith("codex-hand-"))
-        self.assertNotIn("view", hand)
-        self.assertTrue(caption.startswith("Your hand: "))
         kind, _, kwargs = call.last()
-        self.assertEqual(kind, "followup.send")
+        self.assertEqual(kind, "response.send")
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
-        self.assertNotIn("files", kwargs)
+        self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
         # The other player's My hand is their hand, with My deck alone
         # to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
         self.assertEqual([item.label for item in theirs.view().children], ["My deck"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
-
-    async def test_my_hand_pressed_again_replaces_the_hand_message(self) -> None:
-        """The hand message remembered before is deleted through the
-        click that made it, so two presses leave one hand."""
-        first, _ = await self.table.panel()
-        second, _ = await self.table.panel()
-        self.assertEqual([answer[0] for answer in first.answers], [*HAND_AND_PANEL, "original.delete"])
-        self.assertEqual([answer[0] for answer in second.answers], HAND_AND_PANEL)
-
-    async def test_an_action_that_changes_the_hand_brings_its_message_up_to_date_in_place(self) -> None:
-        """Playing a card changes the hand: the hand message is edited
-        through the click that made it -- My hand's -- with the new
-        picture and caption, and the panel sent afresh under the board
-        carries no picture. A click that changes nothing in the hand
-        sends nothing for it."""
-        opened, view = await self.table.panel()
-        before = opened.answers[0][2]["file"].filename
-        call = await self.table.press(view, ("play", playable(view)[0]))
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
-        self.assertNotIn("files", call.last("followup.send")[2])
-        kind, _, kwargs = opened.last()
-        self.assertEqual(kind, "original.edit")
-        (picture,) = kwargs["attachments"]
-        self.assertIsInstance(picture, discord.File)
-        self.assertTrue(picture.filename.startswith("codex-hand-"))
-        self.assertNotEqual(picture.filename, before)
-        self.assertTrue(kwargs["content"].startswith("Your hand: "))
-        edits = len(opened.answers)
-        seat = self.table.match.active
-        await self.table.cog.refresh_hand_message(self.game, self.table.match, seat)
-        self.assertEqual(len(opened.answers), edits)
-        # The other player's hand is untouched, and they have no message
-        # to touch anyway.
-        self.assertEqual(set(self.table.cog.hand_messages), {(self.game.game_id, seat)})
-
-    async def test_the_turns_end_brings_the_hand_message_up_to_date_with_the_draw(self) -> None:
-        """The draw at the turn's end changes the hand, and nothing is
-        playable off the main phase: the ending player's hand message is
-        edited with the new picture."""
-        opened, view = await self.table.panel()
-        patrol = (await self.table.press(view, "End main phase")).view()
-        lock = await self.table.press(patrol, "Lock patrol")
-        self.assertNothingWentWrong(lock)
-        kind, _, kwargs = opened.last()
-        self.assertEqual(kind, "original.edit")
-        self.assertTrue(kwargs["attachments"][0].filename.startswith("codex-hand-"))
-        self.assertTrue(kwargs["content"].startswith("Your hand: "))
-
-    async def test_a_hand_message_past_its_token_is_sent_afresh_under_the_board(self) -> None:
-        """Discord honours an interaction's token for fifteen minutes; a
-        hand message older than that cannot be edited, so the hand is
-        sent afresh as the click's own follow-up, before the panel, and
-        remembered in its place -- the next change edits that one."""
-        opened, view = await self.table.panel()
-        gone = discord.NotFound(mock.Mock(status=404, reason="Not Found"),
-                                {"message": "Unknown Webhook", "code": 10015})
-        opened.edit_original_response = mock.AsyncMock(side_effect=gone)
-        call = await self.table.press(view, ("play", playable(view)[0]))
-        self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers],
-                         ["response.defer", "followup.send", "followup.send", "original.delete"])
-        hand, panel = [kwargs for kind, _, kwargs in call.answers if kind == "followup.send"]
-        self.assertTrue(hand["file"].filename.startswith("codex-hand-"))
-        self.assertTrue(hand["ephemeral"])
-        self.assertIsInstance(panel["view"], TurnPanelView)
-        again = await self.table.press(call.view(), ("play", playable(call.view())[0]))
-        self.assertNothingWentWrong(again)
-        self.assertEqual([answer[0] for answer in again.answers], PANEL_REPLACED)
-        self.assertEqual(call.last()[0], "followup.edit")
 
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
         """**My deck** -- on the turn message, under the other player's
@@ -226,6 +146,7 @@ class PanelTests(TurnTestCase):
         self.assertTrue(kwargs["file"].filename.startswith("codex-deck-"))
         deck = self.table.cog.engine.own_deck(self.table.match, seat)
         self.assertTrue(call.text().startswith(f"Your deck: {deck.size} cards"), call.text())
+        self.assertIn("The cards in your hand are framed in gold.", call.text())
         self.assertEqual(channel_requests(self.table, mark), [])
 
         # On the turn message, for either player, whoever's turn it is.
@@ -279,14 +200,16 @@ class PanelTests(TurnTestCase):
             call = await self.table.press(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
         lines = [line for line in logs.output if "Codex game #" in line]
-        self.assertEqual(len(lines), 3)
+        self.assertEqual(len(lines), 2)
         self.assertRegex(lines[0], r"the board drawn in \d+ ms \(\d+ KB\), posted in \d+ ms$")
-        self.assertRegex(lines[1], r"the hand drawn in \d+ ms \(\d+ KB\), brought up to date in \d+ ms$")
-        self.assertRegex(lines[2], r"the panel sent afresh in \d+ ms$")
+        self.assertRegex(
+            lines[1],
+            r"the panel's picture drawn in \d+ ms \(\d+ KB\); the panel sent afresh in \d+ ms$",
+        )
         # A choice that moves nothing public: the panel edited in place.
         with self.assertLogs("cogs.codex", level="INFO") as logs:
             await self.table.press(call.view(), "End main phase")
-        self.assertRegex(logs.output[-1], r": the panel edited in place in \d+ ms$")
+        self.assertRegex(logs.output[-1], r"; the panel edited in place in \d+ ms$")
 
     async def test_a_choice_that_changes_nothing_public_spends_nothing(self) -> None:
         """Ending the main phase moves nothing a board draws and says
@@ -356,15 +279,26 @@ class PanelTests(TurnTestCase):
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
 
-    async def test_a_panel_edited_in_place_carries_no_picture_and_leaves_the_hand_alone(self) -> None:
-        """**Back** from hiring puts the main phase up again: the panel
-        is edited in place with no picture of its own -- the hand is a
-        message of its own above it -- and that message is not touched."""
+    async def test_a_panel_edited_in_place_keeps_its_hand_picture(self) -> None:
+        """**Back** from hiring puts the main phase up again over the
+        same hand: the picture the message already carries is kept, not
+        uploaded again (`kept_pictures`); a message carrying some other
+        picture gets the file."""
         call, view = await self.table.panel()
+        uploaded = call.last()[2]["files"][0].filename
         hiring = (await self.table.press(view, "Hire worker")).view()
         back = await self.table.press(hiring, "Back")
-        self.assertEqual(back.last("response.edit")[2]["attachments"], [])
-        self.assertEqual([answer[0] for answer in call.answers], HAND_AND_PANEL)
+        (kept,) = back.last("response.edit")[2]["attachments"]
+        self.assertNotIsInstance(kept, discord.File)
+        self.assertEqual(kept.filename, uploaded)
+        # A message carrying some other picture gets this one uploaded.
+        stale = self.table.interaction(self.table.active)
+        stale.message.attachments = [SimpleNamespace(filename="codex-hand-000000000000.webp")]
+        await self.table.cog.show_panel(stale, self.game, self.table.match, self.table.match.active,
+                                        edit=True)
+        (fresh,) = stale.last("response.edit")[2]["attachments"]
+        self.assertIsInstance(fresh, discord.File)
+        self.assertEqual(fresh.filename, uploaded)
 
     async def test_hire_offers_the_hand_as_buttons(self) -> None:
         """**Hire worker** turns the panel into the hand, a button per
@@ -533,11 +467,9 @@ class TurnEndTests(TurnTestCase):
         # The finished turn is pinned; the current one never is.
         self.assertEqual(self.table.game_channel.pinned, {old})
 
-    async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
-        """From turn 3 on, the new turn opens on its player's tech
-        confirmation: the turn message says it waits on them, and My hand
-        is the confirmation; Confirm runs the ready phase and turns the
-        panel into the turn's actions."""
+    async def reach_turn_three(self):
+        """Two turns ended, the first player's tech picked and saved
+        during the second: the third turn waits on its confirmation."""
         first = self.table.active
         lock = await self.end_turn()
         picker = lock.answers[1][2]["view"]
@@ -550,11 +482,33 @@ class TurnEndTests(TurnTestCase):
         await self.end_turn()
         self.assertIs(self.table.active, first)
         self.assertEqual(self.table.match.phase, "ready")
+        return first, picker
+
+    async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
+        """From turn 3 on, the new turn opens on its player's tech
+        confirmation: the turn message says it waits on them, and My hand
+        is still the hand, with **Tech** under it in place of the turn's
+        actions (the author, 2026-10-09); Tech opens the confirmation in
+        place, and Confirm runs the ready phase and turns the panel into
+        the turn's actions."""
+        first, picker = await self.reach_turn_three()
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertIn("waits on", text)
+        self.assertIn("**Tech**", text)
         self.assertIn("**Turn 3**", text)
 
         call, view = await self.table.panel(first)
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        self.assertTrue(call.last()[2]["files"][0].filename.startswith("codex-hand-"))
+        self.assertIsInstance(view, TechGateView)
+        self.assertEqual([item.label for item in view.children], ["Tech", "My deck"])
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, "Tech")
+        self.assertNothingWentWrong(opened)
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        view = opened.view()
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)
@@ -563,6 +517,24 @@ class TurnEndTests(TurnTestCase):
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertNotIn("waits on", text)
         self.assertIn("2 tech cards", text)
+
+    async def test_tech_on_the_turn_message_opens_the_turns_tech(self) -> None:
+        """**Tech** pressed by the player whose turn waits on their tech
+        opens the confirmation at once; once it is confirmed, the turn's
+        actions come up with the hand pictured, as My hand sends them."""
+        first, _ = await self.reach_turn_three()
+        call = await self.table.turn_button("tech", first)
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        view = call.view()
+        self.assertIsInstance(view, TechConfirmView)
+        confirmed = await self.table.press(view, "Confirm")
+        self.assertNothingWentWrong(confirmed)
+        self.assertEqual([answer[0] for answer in confirmed.answers], PANEL_REPLACED)
+        panel = confirmed.last("followup.send")[2]
+        self.assertTrue(panel["files"][0].filename.startswith("codex-hand-"))
+        self.assertIsInstance(panel["view"], TurnPanelView)
+        self.assertEqual(self.table.match.phase, "main")
 
     async def test_the_tech_choice_is_answerable_while_the_other_panel_is_open(self) -> None:
         await self.end_turn()
@@ -712,6 +684,11 @@ class WholeGameTests(TurnTestCase):
 
     async def policy(self, view):
         table = self.table
+        if isinstance(view, TechGateView):
+            # Opened in place, spending nothing public: then answered.
+            opened = await table.press(view, "Tech")
+            self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+            return await self.policy(opened.view())
         if isinstance(view, TechConfirmView):
             return await table.press(view, "Confirm")
         if isinstance(view, TechChoiceView):
@@ -846,6 +823,83 @@ class EffectPanelTests(TurnTestCase):
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(seat).hand, ["spark"])
         self.assertEqual(self.table.match.player(seat).gold, 1)
+
+    async def test_a_target_in_the_hand_is_pictured_to_its_owner_alone(self) -> None:
+        """Sanatorium's units come from the hand (step 11): the question is
+        the hand's cards, pictured as a hand is, in the ephemeral panel --
+        and nothing of the hand reaches the channel until a card is put
+        into play, which names it."""
+        match, seat, _ = self.stage()
+        house = put(match, seat, "sanatorium")
+        match.player(seat).hand = ["older_brother", "tenderfoot"]
+        match.player(seat).gold = 1
+        self.table.cog.service.persist(self.game, match)
+        mark = len(self.table.game_channel.requests)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("ability", "sanatorium", house.ref))
+        self.assertNothingWentWrong(call)
+        asking = call.view()
+        self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        self.assertTrue(all(row.ref.startswith("hand:") for row in asking.prompt.options.targets))
+        (picture,) = call.last("followup.send")[2]["files"]
+        self.assertTrue(picture.filename.startswith("codex-choices-"), picture.filename)
+        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
+        # The channel heard only the cost and the draw, never the hand.
+        channel = [kwargs.get("content") or "" for kind, _, kwargs in self.table.game_channel.requests[mark:]]
+        for text in channel:
+            self.assertNotIn("Tenderfoot", text)
+            self.assertNotIn("Older Brother", text)
+        call = await self.table.press(asking, ("target", f"{seat}:hand:tenderfoot"))
+        self.assertNothingWentWrong(call)
+        done = call.view()
+        self.assertIs(done.prompt.kind, PromptKind.TARGET)
+        call = await self.table.press(done, "Done")
+        self.assertNothingWentWrong(call)
+        self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertIn("tenderfoot", [card.slug for card in self.table.match.player(seat).play])
+
+    async def test_choose_one_and_divided_damage_are_buttons(self) -> None:
+        """Murkwood Allies' "choose one" is a button per mode, and Ember
+        Sparks' divided damage a button per target adding a point (step
+        11) -- the side given Calamandra for the one, and Cinderblast
+        Dragon playing the other free."""
+        from codex.components import HeroState
+
+        match, seat, other = self.stage()
+        match.player(seat).specs = ("feral",)
+        match.player(seat).heroes = [HeroState(slug="calamandra_moss", zone="play")]
+        match.player(seat).hand = ["murkwood_allies"]
+        match.player(seat).gold = 5
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("play", "murkwood_allies"))
+        self.assertNothingWentWrong(call)
+        modes = call.view()
+        self.assertIs(modes.prompt.kind, PromptKind.MODE_CHOICE)
+        call = await self.table.press(modes, ("mode", "frogs"))
+        self.assertNothingWentWrong(call)
+        frogs = [card for card in self.table.match.player(seat).play if card.slug == "frog"]
+        self.assertEqual(len(frogs), 4)
+
+        match = self.table.match
+        dragon = put(match, seat, "cinderblast_dragon")
+        first = put(match, other, "older_brother", patrol="squad_leader")
+        second = put(match, other, "tenderfoot", patrol="elite")
+        match.player(seat).hand = ["ember_sparks"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        view = (await self.attack(view, dragon.ref)).view()
+        view = (await self.table.press(view, ("defend", first.ref))).view()
+        view = (await self.table.press(view, ("target", f"{seat}:hand:ember_sparks"))).view()
+        view = (await self.table.press(view, ("target", f"{other}:{first.ref}"))).view()
+        view = (await self.table.press(view, ("target", f"{other}:{second.ref}"))).view()
+        call = await self.table.press(view, "Done")
+        self.assertNothingWentWrong(call)
+        split = call.view()
+        self.assertIs(split.prompt.kind, PromptKind.DIVIDE_DAMAGE)
+        call = await self.table.press(split, ("divide", f"{other}:{second.ref}"))
+        self.assertNothingWentWrong(call)
+        self.assertIsNone(self.table.match.player(other).instance(second.id))
 
     async def test_an_ability_is_a_button_on_the_boards_row(self) -> None:
         match, seat, _ = self.stage()
@@ -1000,7 +1054,9 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         text = table.game_channel.texts[game.turn_message_id]
         self.assertIn("**Turn 3**", text)
         self.assertIn("to choose their tech", text)
-        _, picker = await table.panel(table.basher)
+        _, gate = await table.panel(table.basher)
+        self.assertIsInstance(gate, TechGateView)
+        picker = (await table.press(gate, "Tech")).view()
         self.assertIsInstance(picker, TechChoiceView)
         self.assertEqual(picker.seat, first)
         values = [option.value for option in picker.select.options[:2]]
