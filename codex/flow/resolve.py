@@ -413,9 +413,26 @@ def _stealth(engine, match, top, part, target, result) -> None:
 def _base_damage(engine, match, top, part, target, result) -> None:
     # "deal 1 damage to the base controlled by the same player who
     # controls the thing he's attacking" (Sirlin, 2016-03-03).
+    # The line names the band the damage comes from and what the base
+    # has left (the author, 2026-10-09); at 0 the next line is the
+    # base destroyed, which says it.
     other = 2 if top["seat"] == 1 else 1
-    result.narration.append(f"{top['by']} deals {part.amount} to {tokens.player(other)}'s base.")
+    source = top["by"]
+    printed = effects.printing_band(top["effect"])
+    if printed is not None:
+        source = f"{top['by']}'s level {band_levels(engine, *printed)} ability"
+    left = max(0, match.player(other).base_hp - part.amount)
+    rest = f"; it has {left} left" if left else ""
+    result.narration.append(f"{source} deals {part.amount} to {tokens.player(other)}'s base{rest}.")
     damage_base(match, other, part.amount, result)
+
+
+def band_levels(engine, slug: str, first: int) -> str:
+    """A hero's band as the levels it covers -- "5-7", or "8" for the
+    top band."""
+    later = [band.min_level for band in engine.catalog.heroes[slug].bands if band.min_level > first]
+    last = later[0] - 1 if later else first
+    return f"{first}-{last}" if last > first else str(first)
 
 
 def _dancer(engine, match, top, part, target, result) -> None:

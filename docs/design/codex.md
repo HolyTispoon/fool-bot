@@ -515,7 +515,9 @@ it does (`Part.does`, a handler in `codex.flow.resolve.DOES`), beside
 the sentence it was built from; `TEXT` says which card has which and
 when -- `play`, `arrives`, `attacks`, `ability` -- a hero's keyed by the
 band that prints it and read the way its keywords are (Troq's attacks
-trigger from 5, River's ability from 3); and the static texts are a
+trigger from 5, River's ability from 3; `printing_band` reads the key
+back, so Troq's base damage is said as his "level 5-7 ability" with what
+the base has left -- the author, 2026-10-09); and the static texts are a
 handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
 `GRANTS_SWIFT_STRIKE`, `TECH_0_DISCOUNT`, ...).
 

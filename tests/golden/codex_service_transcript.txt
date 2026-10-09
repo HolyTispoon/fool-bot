@@ -853,7 +853,7 @@
 === action 130: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s base.
-{hero:troq_bashar} deals 1 to {player:2}'s base.
+{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 16 left.
 {hero:troq_bashar} deals 4 to {player:2}'s base.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:1} and 10 workers.
@@ -949,7 +949,7 @@
 === action 145: CHOOSE_DEFENDER '' {"defender": "unit:16"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s {card:leaping_lizard}.
-{hero:troq_bashar} deals 1 to {player:2}'s base.
+{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 11 left.
 {hero:troq_bashar} deals 4; {player:2}'s {card:leaping_lizard} deals 3.
 {player:2}'s {card:leaping_lizard} is destroyed.
 --- prompt MAIN_ACTION (player 1)
@@ -1095,7 +1095,7 @@
 === action 167: CHOOSE_DEFENDER '' {"defender": "unit:20"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s {card:granfalloon_flagbearer}.
-{hero:troq_bashar} deals 1 to {player:2}'s base.
+{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 10 left.
 {hero:troq_bashar} deals 4; {player:2}'s {card:granfalloon_flagbearer} deals 3.
 {player:2}'s {card:granfalloon_flagbearer} is destroyed.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
@@ -1796,7 +1796,7 @@
 === action 275: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s base.
-{hero:troq_bashar} deals 1 to {player:2}'s base.
+{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 3 left.
 {hero:troq_bashar} deals 4 to {player:2}'s base.
 **{player:2}'s base is destroyed. {player:1} wins!**
 --- prompt GAME_OVER (player None)
