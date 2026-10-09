@@ -27,8 +27,12 @@ from cogs.game_auth import (  # noqa: F401 -- the shared gates, for the Codex vi
     may_act_in_game,
     send_new_prompt,
 )
-from cogs.d12ball_helpers import get_or_create_category, slugify_channel_part
 from discord_emoji_cache import ensure_cached_emojis
+from botkit.channels import (
+    CHANNEL_NAME_MAX_LENGTH,
+    get_or_create_category,
+    slugify_channel_part,
+)
 
 if TYPE_CHECKING:
     from codex.game import CodexGame
@@ -51,8 +55,6 @@ TOKEN_EMOJI = {"codex": "codex", "gold": "gold", "exhaust": "exhaust", "target":
 
 CODEX_GAMES_CATEGORY_NAME = "Codex Games"
 CODEX_ARCHIVE_CATEGORY_NAME = "Codex Archive"
-#: Discord's limit on a channel's name.
-CHANNEL_NAME_MAX_LENGTH = 100
 #: `codex-<n>`, then the players: the number is what identifies the game.
 CHANNEL_NAME_PATTERN = re.compile(r"^codex-(\d+)(?:-|$)")
 #: The board's file name begins with this, so the pin rollover knows the
