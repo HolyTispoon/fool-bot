@@ -824,6 +824,83 @@ class EffectPanelTests(TurnTestCase):
         self.assertEqual(self.table.match.player(seat).hand, ["spark"])
         self.assertEqual(self.table.match.player(seat).gold, 1)
 
+    async def test_a_target_in_the_hand_is_pictured_to_its_owner_alone(self) -> None:
+        """Sanatorium's units come from the hand (step 11): the question is
+        the hand's cards, pictured as a hand is, in the ephemeral panel --
+        and nothing of the hand reaches the channel until a card is put
+        into play, which names it."""
+        match, seat, _ = self.stage()
+        house = put(match, seat, "sanatorium")
+        match.player(seat).hand = ["older_brother", "tenderfoot"]
+        match.player(seat).gold = 1
+        self.table.cog.service.persist(self.game, match)
+        mark = len(self.table.game_channel.requests)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("ability", "sanatorium", house.ref))
+        self.assertNothingWentWrong(call)
+        asking = call.view()
+        self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        self.assertTrue(all(row.ref.startswith("hand:") for row in asking.prompt.options.targets))
+        (picture,) = call.last("followup.send")[2]["files"]
+        self.assertTrue(picture.filename.startswith("codex-choices-"), picture.filename)
+        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
+        # The channel heard only the cost and the draw, never the hand.
+        channel = [kwargs.get("content") or "" for kind, _, kwargs in self.table.game_channel.requests[mark:]]
+        for text in channel:
+            self.assertNotIn("Tenderfoot", text)
+            self.assertNotIn("Older Brother", text)
+        call = await self.table.press(asking, ("target", f"{seat}:hand:tenderfoot"))
+        self.assertNothingWentWrong(call)
+        done = call.view()
+        self.assertIs(done.prompt.kind, PromptKind.TARGET)
+        call = await self.table.press(done, "Done")
+        self.assertNothingWentWrong(call)
+        self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertIn("tenderfoot", [card.slug for card in self.table.match.player(seat).play])
+
+    async def test_choose_one_and_divided_damage_are_buttons(self) -> None:
+        """Murkwood Allies' "choose one" is a button per mode, and Ember
+        Sparks' divided damage a button per target adding a point (step
+        11) -- the side given Calamandra for the one, and Cinderblast
+        Dragon playing the other free."""
+        from codex.components import HeroState
+
+        match, seat, other = self.stage()
+        match.player(seat).specs = ("feral",)
+        match.player(seat).heroes = [HeroState(slug="calamandra_moss", zone="play")]
+        match.player(seat).hand = ["murkwood_allies"]
+        match.player(seat).gold = 5
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("play", "murkwood_allies"))
+        self.assertNothingWentWrong(call)
+        modes = call.view()
+        self.assertIs(modes.prompt.kind, PromptKind.MODE_CHOICE)
+        call = await self.table.press(modes, ("mode", "frogs"))
+        self.assertNothingWentWrong(call)
+        frogs = [card for card in self.table.match.player(seat).play if card.slug == "frog"]
+        self.assertEqual(len(frogs), 4)
+
+        match = self.table.match
+        dragon = put(match, seat, "cinderblast_dragon")
+        first = put(match, other, "older_brother", patrol="squad_leader")
+        second = put(match, other, "tenderfoot", patrol="elite")
+        match.player(seat).hand = ["ember_sparks"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        view = (await self.attack(view, dragon.ref)).view()
+        view = (await self.table.press(view, ("defend", first.ref))).view()
+        view = (await self.table.press(view, ("target", f"{seat}:hand:ember_sparks"))).view()
+        view = (await self.table.press(view, ("target", f"{other}:{first.ref}"))).view()
+        view = (await self.table.press(view, ("target", f"{other}:{second.ref}"))).view()
+        call = await self.table.press(view, "Done")
+        self.assertNothingWentWrong(call)
+        split = call.view()
+        self.assertIs(split.prompt.kind, PromptKind.DIVIDE_DAMAGE)
+        call = await self.table.press(split, ("divide", f"{other}:{second.ref}"))
+        self.assertNothingWentWrong(call)
+        self.assertIsNone(self.table.match.player(other).instance(second.id))
+
     async def test_an_ability_is_a_button_on_the_boards_row(self) -> None:
         match, seat, _ = self.stage()
         song = put(match, seat, "harmony")

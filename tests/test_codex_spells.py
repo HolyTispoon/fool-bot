@@ -20,7 +20,9 @@ from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import RIVER, TROQ, built, hand, hero_in_play, put
-from test_codex_card_rulings import apply, asked, bashing, cast, finesse, ultimate_ready
+from test_codex_card_rulings import (
+    apply, asked, bashing, cast, finesse, red_green, said, ultimate_ready,
+)
 
 
 def refused(engine, game, match, kind, choice="", **arguments):
@@ -643,6 +645,321 @@ class RulebookTests(unittest.TestCase):
         hero_in_play(match, 2, damage=2)
         cast(engine, game, match, "wither", "2:hero")
         self.assertEqual(match.player(1).hero.level, 3)
+
+# -- Red and green: the costs and the resources (step 11) -----------------------
+
+
+class ResourcesTests(unittest.TestCase):
+    def test_rickety_mines_coin_is_replayed_byte_for_byte(self) -> None:
+        """The coin is `engine.rng`'s, journalled beside the shuffles, so a
+        replay by an engine of another seed lands the same side."""
+        import json
+
+        from codex import history
+        from codex.engine import RulesEngine
+        from codex_positions import begin, new_game
+
+        for seed in range(6):
+            engine, game, match = new_game(seed=seed, teams=(("blood",), ("growth",)))
+            mine = put(match, 1, "rickety_mine")
+            begin(engine, game, match)
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+            outcome = match.journal[-1]["outcomes"]
+            self.assertEqual(outcome[0][0], "@coin")
+            replayed = history.replay(
+                RulesEngine(seed=seed + 100), game, match.turn_snapshots[-1],
+                match.journal, history=match.turn_snapshots,
+            )
+            self.assertEqual(json.dumps(replayed.to_dict(), sort_keys=True),
+                             json.dumps(match.to_dict(), sort_keys=True))
+
+    def test_tails_sacrifices_the_mine_and_hurts_the_base(self) -> None:
+        from unittest import mock
+
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood",), ("growth",)))
+        mine = put(match, 1, "rickety_mine")
+        with mock.patch.object(engine, "flip_coin", return_value="tails"):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIn("rickety_mine", match.player(1).discard)
+        self.assertEqual(match.player(1).base_hp, 18)
+
+    def test_tails_gets_hotter_fires_one_more(self) -> None:
+        """Rickety Mine is red, so its tails' 2 gets Hotter Fire's +1 (the
+        author, 2026-10-09)."""
+        from unittest import mock
+
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood", "fire", "anarchy"), ("growth", "feral", "balance")))
+        put(match, 1, "hotter_fire")
+        mine = put(match, 1, "rickety_mine")
+        with mock.patch.object(engine, "flip_coin", return_value="tails"):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                  ability="rickety_mine", source=mine.ref)
+        self.assertEqual(match.player(1).base_hp, 17)
+
+    def test_pirategangs_granted_line_is_hotter_only_on_a_red_unit(self) -> None:
+        """"Your units have 'Dies: deal 1 damage to each opposing base'" --
+        the line is the dying unit's, so Hotter Fire adds to it only where
+        that unit is red (the author, 2026-10-09)."""
+        from codex.flow import resolve
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood", "fire", "anarchy"), ("growth", "feral", "balance")))
+        put(match, 1, "pirategang_commander")
+        put(match, 1, "hotter_fire")
+        for slug, damage in (("pirate", 2), ("tenderfoot", 1)):
+            with self.subTest(dying=slug):
+                hp = match.player(2).base_hp
+                dying = put(match, 1, slug)
+                result = driver.StepResult()
+                board.destroy(engine, match, [(1, dying.ref)], result)
+                resolve.run(engine, match, result)
+                self.assertEqual(match.player(2).base_hp, hp - damage)
+
+    def test_merfolk_prospector_gains_a_gold_for_its_exhaust(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(first=2)
+        merfolk = put(match, 2, "merfolk_prospector")
+        match.player(2).gold = 0
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+              ability="merfolk_prospector", source=merfolk.ref)
+        self.assertEqual(match.player(2).gold, 1)
+        self.assertTrue(merfolk.exhausted)
+
+    def test_pirategang_plays_blood_tech_i_and_ii_units_free_without_buildings(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("anarchy",), ("growth",)))
+        player = match.player(1)
+        hand(match, 1, "crash_bomber", "land_octopus", "marauder")
+        self.assertIn("needs a finished", why(engine, match, "crash_bomber"))
+        put(match, 1, "pirategang_commander")
+        player.gold = 0
+        self.assertEqual(why(engine, match, "crash_bomber"), "")
+        self.assertEqual(why(engine, match, "land_octopus"), "")
+        self.assertEqual(engine.effective_cost(player, "land_octopus"), 0)
+        self.assertNotEqual(why(engine, match, "marauder"), "", "Anarchy is not Blood")
+
+    def test_boost_is_offered_with_its_cost_and_refused_where_it_cannot_be_paid(self) -> None:
+        from codex_positions import built
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("anarchy",), ("growth",)))
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        hand(match, 1, "marauder")
+        player = match.player(1)
+        player.gold = 4
+        row = next(row for row in engine.playable(player, match) if row.slug == "marauder")
+        self.assertEqual((row.cost, row.boost), (3, 3))
+        self.assertEqual(row.boost_why_not, "not enough gold to boost")
+        refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="marauder", boost=True)
+        player.gold = 6
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="marauder", boost=True)
+        self.assertEqual(player.gold, 0)
+
+
+# -- Red and green: the spells' shapes (step 11) --------------------------------
+
+
+class RedGreenSpellTests(unittest.TestCase):
+    def feral(self):
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        return engine, game, match
+
+    def test_a_modal_spell_asks_one_unboosted_and_does_both_boosted(self) -> None:
+        engine, game, match = self.feral()
+        hand(match, 1, "murkwood_allies", "murkwood_allies")
+        match.player(1).gold = 14
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.MODE_CHOICE)
+        self.assertEqual([key for key, _ in prompt.options.modes], ["beast", "frogs"])
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="beast")
+        self.assertEqual(sorted(card.slug for card in match.player(1).play), ["beast"])
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies", boost=True)
+        self.assertEqual(sorted(card.slug for card in match.player(1).play),
+                         ["beast", "beast", "frog", "frog", "frog", "frog"])
+        self.assertEqual(match.player(1).gold, 0)
+
+    def test_a_modal_spell_is_cancelled_from_its_choice(self) -> None:
+        engine, game, match = self.feral()
+        from codex import history
+
+        hand(match, 1, "murkwood_allies")
+        match.player(1).gold = 5
+        match.turn_snapshots[-1] = history.position(match)
+        match.journal = []
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, "cancel")
+        self.assertEqual((match.player(1).hand, match.player(1).gold), (["murkwood_allies"], 5))
+
+    def test_a_mode_not_offered_is_refused(self) -> None:
+        engine, game, match = self.feral()
+        hand(match, 1, "murkwood_allies")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        refused(engine, game, match, PromptKind.MODE_CHOICE, mode="both")
+
+    def test_done_is_offered_only_once_enough_is_chosen(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        hero_in_play(match, 1)
+        put(match, 2, "tiger_cub", patrol="squad_leader")
+        put(match, 2, "tiger_cub", patrol="elite")
+        hand(match, 1, "ember_sparks")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="ember_sparks")
+        self.assertFalse(asked(engine, game, match).options.done)
+        refused(engine, game, match, PromptKind.TARGET, "done")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        self.assertTrue(asked(engine, game, match).options.done)
+        # A pick stays where it is, so it is not offered twice.
+        self.assertNotIn("2:base", [row.key for row in asked(engine, game, match).options.targets])
+
+    def test_a_spell_putting_a_card_into_play_takes_no_boost(self) -> None:
+        engine, game, match = self.feral()
+        match.player(1).hero.level = 5
+        match.player(1).hero.max_level_since_turn_began = True
+        hand(match, 1, "feral_strike", "tiger_cub")
+        match.player(1).gold = 4
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="feral_strike")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="put")
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:tiger_cub")
+        self.assertIn("tiger_cub", [card.slug for card in match.player(1).play])
+        self.assertEqual(match.player(1).gold, 0)
+
+
+class RedGreenUpkeepTests(unittest.TestCase):
+    """Step 11's upkeep: which orders are asked (docs/design/codex.md, "Red
+    and green")."""
+
+    def next_upkeep(self, engine, game, match) -> None:
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+
+    def test_the_owls_gold_is_never_asked(self) -> None:
+        """A gain beside a death changes nothing either way, so the Owl's
+        gold is run, not asked -- while Starlet beside healing still is."""
+        engine, game, match = red_green()
+        put(match, 2, "gemscout_owl")
+        put(match, 2, "starcrossed_starlet")
+        gold = match.player(2).gold
+        self.next_upkeep(engine, game, match)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(2).gold, gold + match.player(2).workers + 1)
+
+        engine, game, match = red_green()
+        put(match, 2, "gemscout_owl")
+        put(match, 2, "helpful_turtle")
+        put(match, 2, "starcrossed_starlet")
+        self.next_upkeep(engine, game, match)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.UPKEEP_ORDER)
+        self.assertNotIn("owl", prompt.options.effects)
+        self.assertEqual(set(prompt.options.effects), {"healing", "starlet"})
+
+    def test_land_octopus_is_asked_and_its_sacrifice_trashes_nothing_more(self) -> None:
+        engine, game, match = red_green()
+        octopus = put(match, 2, "land_octopus")
+        self.next_upkeep(engine, game, match)
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MODE_CHOICE)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="itself")
+        self.assertIsNone(match.player(2).instance(octopus.id))
+        self.assertIn("land_octopus", match.player(2).discard)
+
+    def test_dothram_changes_sides_at_his_controllers_upkeep(self) -> None:
+        engine, game, match = red_green()
+        dothram = put(match, 2, "dothram_horselord")
+        put(match, 1, "oversized_rhinoceros")
+        put(match, 1, "iron_man")
+        self.next_upkeep(engine, game, match)
+        self.assertEqual(match.active, 2)
+        self.assertEqual(dothram.controller, 1)
+
+
+class LegendaryArrivalTests(unittest.TestCase):
+    def test_a_second_galina_played_is_destroyed_on_arrival(self) -> None:
+        engine, game, match = red_green(first=2)
+        hero_in_play(match, 2)
+        built(match, 2, "tech1")
+        first = put(match, 2, "galina_glimmer")
+        hand(match, 2, "galina_glimmer")
+        match.player(2).gold = 5
+        run = apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="galina_glimmer")
+        galinas = [card for card in match.player(2).play if card.slug == "galina_glimmer"]
+        self.assertEqual([card.id for card in galinas], [first.id])
+        self.assertIn("galina_glimmer", match.player(2).discard)
+        self.assertIn("{card:galina_glimmer}", said(run))
+
+
+class ContinuousYourUnitsTests(unittest.TestCase):
+    """Stampede's and Ferocity's "your units get" is continuous: a unit
+    that comes under their caster while it lasts has it too (the author,
+    2026-10-09)."""
+
+    def test_a_unit_arriving_after_stampede_gets_it(self) -> None:
+        from test_codex_card_rulings import at_max, red_green
+
+        engine, game, match = red_green(first=2)
+        at_max(engine, match, 2)
+        before = put(match, 2, "tiger_cub")
+        cast(engine, game, match, "stampede", gold=6)
+        later = board.put_into_play(engine, match, "tiger_cub", 2, from_hand=False)
+        for cub in (before, later):
+            self.assertEqual(engine.unit_stats(cub, match)[0], 2 + 3)
+            self.assertEqual(cub.armor, 3)
+            self.assertTrue(engine.stampedes(match, cub))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(engine.unit_stats(later, match)[0], 2)
+        self.assertEqual(later.armor, 0)
+        self.assertFalse(engine.stampedes(match, later))
+        self.assertEqual(match.player(2).lasting, [])
+
+    def test_a_unit_taken_from_a_stampeding_side_loses_it(self) -> None:
+        from test_codex_card_rulings import at_max, red_green
+
+        engine, game, match = red_green(first=2)
+        at_max(engine, match, 2)
+        cub = put(match, 2, "tiger_cub")
+        cast(engine, game, match, "stampede", gold=6)
+        board.gain_control(match, cub, 1)
+        self.assertEqual(engine.unit_stats(cub, match)[0], 2)
+        self.assertFalse(engine.stampedes(match, cub))
+
+    def test_a_unit_arriving_after_ferocity_gets_it_until_the_next_upkeep(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cast(engine, game, match, "ferocity", gold=2)
+        later = board.put_into_play(engine, match, "tiger_cub", 1, from_hand=False)
+        self.assertTrue(engine.has_keyword(later, "Armor piercing", match))
+        self.assertTrue(engine.has_keyword(later, "Swift strike", match))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertTrue(engine.has_keyword(later, "Swift strike", match), "through their turn")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        picks = [slug for slug, _ in asked(engine, game, match).options.codex[:2]]
+        apply(engine, game, match, PromptKind.TECH_CHOICE, player=1, picks=picks)
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=1)
+        self.assertEqual((match.active, match.phase), (1, "main"))
+        self.assertFalse(engine.has_keyword(later, "Swift strike", match))
+        self.assertEqual(match.player(1).lasting, [])
+
 
 if __name__ == "__main__":
     unittest.main()

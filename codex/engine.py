@@ -194,13 +194,25 @@ class PlayableCard:
     slug: str
     cost: int
     why_not: str = ""
+    #: Boost X (UMR p. 16): the gold more it costs played boosted, `None`
+    #: for a card with no boost, and why it may not be boosted now.
+    boost: Optional[int] = None
+    boost_why_not: str = ""
 
     @property
     def allowed(self) -> bool:
         return not self.why_not
 
+    @property
+    def boostable(self) -> bool:
+        return self.boost is not None and self.allowed and not self.boost_why_not
+
     def to_dict(self) -> dict:
-        return {"slug": self.slug, "cost": self.cost, "why_not": self.why_not}
+        found = {"slug": self.slug, "cost": self.cost, "why_not": self.why_not}
+        if self.boost is not None:
+            found["boost"] = self.boost
+            found["boost_why_not"] = self.boost_why_not
+        return found
 
 
 @dataclass(frozen=True)
@@ -269,13 +281,17 @@ class AbilityOption:
     effect: str
     source: str
     why_not: str = ""
+    #: What using it costs, in words: "exhaust", "pay 1 gold and
+    #: exhaust" (`RulesEngine.cost_words`).
+    pays: str = "exhaust"
 
     @property
     def allowed(self) -> bool:
         return not self.why_not
 
     def to_dict(self) -> dict:
-        return {"effect": self.effect, "source": self.source, "why_not": self.why_not}
+        return {"effect": self.effect, "source": self.source, "why_not": self.why_not,
+                "pays": self.pays}
 
 
 @dataclass(frozen=True)
@@ -298,6 +314,22 @@ class TargetRow:
             "key": self.key, "seat": self.seat, "ref": self.ref,
             "resist": self.resist, "flagbearer": self.flagbearer,
         }
+
+
+@dataclass
+class Profile:
+    """A unit or hero as it stands (`RulesEngine._profile`): ATK and HP
+    before the floor, its keywords, and whether it has an ability --
+    what Midori's "units with no abilities" reads."""
+
+    atk: int
+    hp: int
+    keywords: list
+    ability: bool
+
+    def grant(self, keyword: str, x: Optional[int] = None) -> None:
+        self.keywords.append((keyword, x))
+        self.ability = True
 
 
 @dataclass(frozen=True)
@@ -323,6 +355,20 @@ class RulesEngine:
         self.replaying: list[list[str]] = []
 
     # -- Randomness ----------------------------------------------------
+
+    def flip_coin(self) -> str:
+        """
+        "heads" or "tails" (Rickety Mine) -- drawn from `rng`, or, while a
+        journal is replayed, taken back from the next of `replaying`,
+        where the step recorded it as `[COIN, side]` beside the shuffles
+        (`StepResult.drawn`), so a replay lands the same side.
+        """
+        if self.replaying:
+            recorded = self.replaying.pop(0)
+            if not recorded or recorded[0] != effects.COIN:
+                raise ValueError("a recorded outcome is not a coin")
+            return recorded[1]
+        return self.rng.choice(("heads", "tails"))
 
     def shuffle(self, cards: Sequence[str], recorded: Optional[Sequence[str]] = None) -> list[str]:
         """
@@ -401,47 +447,251 @@ class RulesEngine:
                 hp += modifier.get("amount", 0)
         return atk, hp
 
-    def _hero_raw(self, hero: HeroState) -> tuple[int, int]:
-        band = self.hero_band(hero)
-        atk, hp = self._changes(hero)
-        return band.atk + atk, band.hp + hp
+    # -- What a unit or hero is, grants and all (step 11) ---------------------
 
-    def hero_stats(self, hero: HeroState) -> tuple[int, int]:
+    def texted(self, body) -> bool:
+        """Whether a card in play has its printed text -- not Polymorph:
+        Squirrel's "1/1 green Squirrel with no abilities"."""
+        printed = getattr(body, "printed", None)
+        return not (printed and printed.get("polymorph") is not None)
+
+    def text_slug(self, card) -> Optional[str]:
+        """The slug whose text a card in play has -- its own, or `None`
+        while Polymorph: Squirrel has taken its abilities."""
+        return card.slug if self.texted(card) else None
+
+    def _profile(self, body, match: Optional[MatchState]) -> "Profile":
+        """
+        **A unit or a hero as it stands**: its printed numbers -- or a
+        printed value replaced (Chaos Mirror's ATK, Polymorph's 1/1
+        Squirrel, a feather rune's 3/1) -- and its keywords, its runes and
+        this turn's modifiers, and then, given the match, every grant of
+        another card in play, **in the order each came to be** (the Card
+        FAQ, Behind the Ferns and Master Midori): a grant applies to a
+        unit from whichever came later, the unit or the grant's card or
+        band, Midori's first where they came at once (Behind the Ferns'
+        ruling: a unit arriving while both exist is a 4/4 with no
+        abilities). A grant that reads the unit -- Behind the Ferns' "3 ATK
+        or less", Midori's "no abilities" -- reads it as the grants before
+        it left it, and Midori's +1/+1 goes again where an ability came
+        after it.
+        """
+        if isinstance(body, HeroState):
+            return self._hero_profile(body, match)
+        return self._unit_profile(body, match)
+
+    def _unit_profile(self, card: CardInstance, match: Optional[MatchState]) -> "Profile":
+        printed = self.catalog.cards[card.slug]
+        texted = self.texted(card)
+        replaced = card.printed or {}
+        atk, hp = ((printed.atk or 0), (printed.hp or 0)) if texted else effects.SQUIRREL_STATS
+        found = list(keywords.keywords(card.slug)) if texted else []
+        ability = texted and bool(printed.text)
+        if match is not None and card.runes.get("feather") and any(
+            other.slug == effects.FAIRIE_DRAGON and self.texted(other) for other in match.instances()
+        ):
+            # "Units with feather runes are 3/1 and have flying" -- the
+            # base under the runes, while any Fairie Dragon is in play
+            # (its rulings).
+            atk, hp = effects.FEATHER_STATS
+            found.append(("Flying", None))
+            ability = True
+        if "atk" in replaced:
+            atk = replaced["atk"]
+        found.extend(keywords.PATROL_GRANTS.get(card.patrol_slot or "", ()))
+        for modifier in card.modifiers:
+            if modifier.get("kind") == "keyword":
+                found.append((modifier["keyword"], modifier.get("amount")))
+                ability = True
+        if match is not None and printed.is_unit:
+            # Stampede's +3 ATK and Ferocity's keywords, on every unit
+            # its caster controls while they last -- continuous, so one
+            # arriving later has them too (the author, 2026-10-09).
+            for lasting in match.player(card.controller).lasting:
+                if lasting.get("kind") == "stampede":
+                    atk += effects.STAMPEDE_BONUS
+                elif lasting.get("kind") == "ferocity":
+                    found.extend((keyword, None) for keyword in effects.FEROCITY_KEYWORDS)
+                    ability = True
+        changed_atk, changed_hp = self._changes(card)
+        atk += changed_atk
+        hp += changed_hp
+        if texted and card.slug in effects.ATK_PER_DAMAGE:
+            atk += card.damage
+        profile = Profile(atk, hp, found, ability)
+        if match is None or not printed.is_unit:
+            return profile
+        change = effects.WHILE_PATROLLING.get(self.text_slug(card) or "")
+        if change is not None and card.patrol_slot is not None and card.controller != match.active:
+            # Ironbark Treant: "-2 ATK / +2 armor while patrolling" -- on
+            # the opponents' turns, while in the patrol zone (its rulings);
+            # the armor is set as their turn begins.
+            profile.atk += change[0]
+        if texted:
+            profile.keywords.extend(self._conditioned_keywords(match, card, card.controller))
+        self._apply_grants(match, card, profile)
+        return profile
+
+    def _grants(self, match: MatchState, card: CardInstance) -> list:
+        """The grants on a unit, as `(time, rank, since, grant)`: what
+        another card or a hero's band of its controller's gives it, and a
+        Spirit of the Panda attached to it."""
+        seat = card.controller
+        found = []
+        for other in match.player(seat).play:
+            if not self.texted(other):
+                continue
+            grant = effects.UNIT_GRANTS.get(other.slug)
+            if grant == "guide" and other.id == card.id:
+                continue  # "Your *other* units"
+            if grant is not None:
+                found.append((other.sequence, grant, other))
+        for spell in match.instances():
+            if spell.slug in effects.ATTACHED_UNIT_GRANTS and card.id in spell.attached:
+                found.append((spell.sequence, effects.ATTACHED_UNIT_GRANTS[spell.slug], spell))
+        for spell in match.player(seat).play:
+            if spell.slug == effects.TWO_STEP and self.partnered(match, card, both_held=True) is spell:
+                found.append((spell.sequence, "two_step", spell))
+        for hero in match.player(seat).heroes_in_play:
+            for (slug, level), grant in effects.BAND_GRANTS.items():
+                if hero.slug == slug and hero.level >= level:
+                    found.append((hero.bands.get(str(level), 0), grant, hero))
+        return [
+            (max(since, card.sequence), 0 if grant == "no_abilities" else 1, since, grant, source)
+            for since, grant, source in found
+        ]
+
+    def _apply_grants(self, match: MatchState, card: CardInstance, profile: "Profile") -> None:
+        seat = card.controller
+        midori = 0
+        for _, _, _, grant, source in sorted(self._grants(match, card), key=lambda row: row[:3]):
+            if grant == "guide":
+                # Grounded Guide: +1 ATK, or +2/+1 for a Virtuoso,
+                # stacking (Sirlin, 2016-03-02).
+                if self.is_virtuoso(card.slug):
+                    profile.atk += 2
+                    profile.hp += 1
+                else:
+                    profile.atk += 1
+            elif grant == "two_step":
+                profile.atk += effects.PARTNER_BONUS[0]
+                profile.hp += effects.PARTNER_BONUS[1]
+            elif grant == "swift_strike":
+                profile.grant("Swift strike")
+            elif grant == "virtuoso_haste":
+                if self.is_virtuoso(card.slug):
+                    profile.grant("Haste")
+            elif grant == "war_drums":
+                # "+X ATK where X is the number of units you have" -- in
+                # play, under your control (its ruling).
+                profile.atk += sum(
+                    1 for other in match.player(seat).play if self.catalog.cards[other.slug].is_unit
+                )
+            elif grant == "behind_the_ferns":
+                # "Your units with 3 ATK or less have stealth" -- the ATK as
+                # the grants before this one leave it, frenzy on your own
+                # turn included, and no bonus against a building (its
+                # rulings, the Card FAQ).
+                frenzy = sum(1 if x is None else x for name, x in profile.keywords if name == "Frenzy")
+                atk = profile.atk + (frenzy if seat == match.active else 0)
+                if atk <= effects.FERNS_ATK:
+                    profile.grant("Stealth")
+            elif grant == "no_abilities":
+                # Midori at 5: "Your units with no abilities get +1/+1."
+                if not profile.ability:
+                    profile.atk += 1
+                    profile.hp += 1
+                    midori += 1
+            elif grant == "resist":
+                profile.grant("Resist", 1)
+            elif grant == "frenzy":
+                profile.grant("Frenzy", 1)
+            elif grant == "rune_overpower":
+                if card.plus_runes > 0:
+                    profile.grant("Overpower")
+            elif grant == "growth":
+                if source.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
+                    profile.atk += effects.GROWTH_BONUS
+                    profile.hp += effects.GROWTH_BONUS
+            elif grant == "dies":
+                profile.ability = True
+            elif grant == "squirrels":
+                if effects.SQUIRREL in self.subtype_of(card):
+                    profile.grant("Haste")
+                    profile.grant("Invisible")
+            elif grant == "panda":
+                profile.atk += effects.PANDA_BONUS
+                profile.hp += effects.PANDA_BONUS
+                profile.ability = True
+        if midori and profile.ability:
+            # "If a unit gets an ability ... then it loses +2/+2 from
+            # Midori" (his ruling).
+            profile.atk -= midori
+            profile.hp -= midori
+
+    def _hero_profile(self, hero: HeroState, match: Optional[MatchState]) -> "Profile":
+        band = self.hero_band(hero)
+        atk, hp = band.atk, band.hp
+        if hero.printed and "atk" in hero.printed:
+            atk = hero.printed["atk"]
+        changed_atk, changed_hp = self._changes(hero)
+        found = list(keywords.hero_keywords(hero.slug, hero.level))
+        found.extend(keywords.PATROL_GRANTS.get(hero.patrol_slot or "", ()))
+        for modifier in hero.modifiers:
+            if modifier.get("kind") == "keyword":
+                found.append((modifier["keyword"], modifier.get("amount")))
+        profile = Profile(atk + changed_atk, hp + changed_hp, found, True)
+        if match is None:
+            return profile
+        seat = self.seat_of(match, hero)
+        if seat is None:
+            return profile
+        mine = match.player(seat).play
+        if any(card.slug in effects.GRANTS_SWIFT_STRIKE and self.texted(card) for card in mine):
+            profile.grant("Swift strike")
+        for card in mine:
+            if not self.texted(card):
+                continue
+            grant = effects.HERO_GRANTS.get(card.slug)
+            if grant == "rune_overpower" and hero.plus_runes > 0:
+                profile.grant("Overpower")
+            elif grant == "growth" and card.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
+                profile.atk += effects.GROWTH_BONUS
+                profile.hp += effects.GROWTH_BONUS
+            elif grant == "showdown" and card.attached_hero == f"{seat}:{hero_ref(hero.slug)}":
+                # Final Showdown: "He gets +3/+3, readiness, resist 1, and
+                # draws a card when he attacks."
+                profile.atk += effects.SHOWDOWN_BONUS
+                profile.hp += effects.SHOWDOWN_BONUS
+                profile.grant("Readiness")
+                profile.grant("Resist", 1)
+        profile.keywords.extend(self._conditioned_keywords(match, hero, seat))
+        return profile
+
+    def _hero_raw(self, hero: HeroState, match: Optional[MatchState] = None) -> tuple[int, int]:
+        profile = self._hero_profile(hero, match)
+        return profile.atk, profile.hp
+
+    def hero_stats(self, hero: HeroState, match: Optional[MatchState] = None) -> tuple[int, int]:
         """The hero's ATK and HP: its level's band, then its runes and
-        this turn's modifiers. ATK is never below 0 (Intimidate's
+        this turn's modifiers, and -- given the match -- what its
+        controller's cards grant it. ATK is never below 0 (Intimidate's
         ruling)."""
-        atk, hp = self._hero_raw(hero)
+        atk, hp = self._hero_raw(hero, match)
         return max(atk, 0), hp
 
     def _unit_raw(self, card: CardInstance, match: Optional[MatchState]) -> tuple[int, int]:
         """
-        A unit's ATK and HP before the floor: printed, its runes and this
-        turn's modifiers, and -- given the match -- what other cards in
-        play give it: each Grounded Guide its controller has (+1 ATK, or
-        +2/+1 for a Virtuoso, stacking -- Sirlin, 2016-03-02), Two Step's
-        +2/+2 while its controller holds both partners, and Star-Crossed
-        Starlet's +1 ATK per damage on her.
+        A unit's ATK and HP before the floor (`_profile`): printed, its
+        runes and this turn's modifiers, and -- given the match -- what
+        other cards in play give it, in the order they came: each Grounded
+        Guide its controller has (+1 ATK, or +2/+1 for a Virtuoso,
+        stacking -- Sirlin, 2016-03-02), Two Step's +2/+2 while its
+        controller holds both partners, Star-Crossed Starlet's +1 ATK per
+        damage on her, and red and green's (step 11).
         """
-        printed = self.catalog.cards[card.slug]
-        changed_atk, changed_hp = self._changes(card)
-        atk = (printed.atk or 0) + changed_atk
-        hp = (printed.hp or 0) + changed_hp
-        if card.slug in effects.ATK_PER_DAMAGE:
-            atk += card.damage
-        if match is not None and printed.is_unit:
-            mine = match.player(card.controller).play
-            for other in mine:
-                if other.id == card.id or other.slug not in effects.GUIDES:
-                    continue
-                if self.is_virtuoso(card.slug):
-                    atk += 2
-                    hp += 1
-                else:
-                    atk += 1
-            if self.partnered(match, card, both_held=True):
-                atk += effects.PARTNER_BONUS[0]
-                hp += effects.PARTNER_BONUS[1]
-        return atk, hp
+        profile = self._unit_profile(card, match)
+        return profile.atk, profile.hp
 
     def unit_stats(self, card: CardInstance, match: Optional[MatchState] = None) -> tuple[int, int]:
         """
@@ -456,19 +706,22 @@ class RulesEngine:
         """A unit's or a hero's ATK and HP."""
         if isinstance(body, CardInstance):
             return self.unit_stats(body, match)
-        return self.hero_stats(body)
+        return self.hero_stats(body, match)
 
-    def attack_value(self, match: MatchState, seat: int, ref: str) -> int:
+    def attack_value(self, match: MatchState, seat: int, ref: str,
+                     against: Optional[str] = None) -> int:
         """
         What `ref` on `seat`'s side deals in combat: its ATK, the elite's
         +1 while it patrols there (UMR p. 10), and frenzy X on its
         controller's own turn (UMR p. 16), floored at 0 once everything
-        is added. A building deals nothing.
+        is added -- and, where it attacks a building (`against`, a ref on
+        the other side), "+X ATK when attacking buildings" (Steam Tank,
+        Makeshift Rambaster). A building deals nothing.
         """
         player = match.player(seat)
         if is_hero_ref(ref):
             body = player.hero_by_ref(ref)
-            atk = self._hero_raw(body)[0]
+            atk = self._hero_raw(body, match)[0]
         elif ref.startswith("unit:"):
             body = player.instance(int(ref.split(":", 1)[1]))
             atk = self._unit_raw(body, match)[0]
@@ -478,7 +731,20 @@ class RulesEngine:
             atk += ELITE_ATK
         if seat == match.active:
             atk += self.keyword_x(body, "Frenzy", match)
+        if against is not None and isinstance(body, CardInstance):
+            bonus = effects.ATTACKING_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
+            if bonus and self.is_building_ref(match, 2 if seat == 1 else 1, against):
+                atk += bonus
         return max(atk, 0)
+
+    def is_building_ref(self, match: MatchState, seat: int, ref: str) -> bool:
+        """Whether `ref` on `seat`'s side is a building: the base, a tech
+        building, the add-on, or a building card in play."""
+        if ref in TECH_BUILDINGS or ref in ("base", "add_on"):
+            return True
+        instance_id = unit_ref(ref)
+        card = match.player(seat).instance(instance_id) if instance_id is not None else None
+        return card is not None and self.catalog.cards[card.slug].is_building_card
 
     def is_virtuoso(self, slug: str) -> bool:
         card = self.catalog.cards.get(slug)
@@ -535,11 +801,23 @@ class RulesEngine:
         card = self.catalog.cards[slug]
         cost = card.cost or 0
         if card.is_spell:
+            if self.free_spell(player, card):
+                return 0
             return cost + self.wrong_color_surcharge(player, slug)
         if not card.is_unit:
             return cost
+        if self.free_unit(player, card):
+            return 0
+        less = effects.LESS_PER_GREEN_UNIT.get(slug)
+        if less:
+            # Gigadon: 1 less for each green unit its player has -- to play
+            # it from the hand alone (its rulings).
+            cost -= less * sum(
+                1 for other in player.play
+                if self.catalog.cards[other.slug].is_unit and self.color_of(other) == "green"
+            )
         if self.is_virtuoso(slug) and any(
-            other.slug in effects.MAESTROS for other in player.play
+            other.slug in effects.MAESTROS and self.texted(other) for other in player.play
         ):
             return 0
         if not (card.tech_level or 0):
@@ -548,6 +826,65 @@ class RulesEngine:
                     if hero.slug == hero_slug and hero.level >= level:
                         cost -= amount
         return max(cost, 0)
+
+    def free_unit(self, player: PlayerState, card) -> bool:
+        """Pirategang Commander's "You may play tech I or II Blood units
+        for free and without any tech buildings"."""
+        for slug, (spec, levels) in effects.FREE_UNITS.items():
+            if (
+                any(other.slug == slug for other in player.play)
+                and (card.spec or "").lower() == spec and (card.tech_level or 0) in levels
+            ):
+                return True
+        return False
+
+    def free_spell(self, player: PlayerState, card) -> bool:
+        """Guargum's "You may play Growth spells for free and without
+        having a Growth Hero"."""
+        for slug, spec in effects.FREE_SPELLS.items():
+            if any(other.slug == slug for other in player.play) and (card.spec or "").lower() == spec:
+                return True
+        return False
+
+    def color_of(self, card: CardInstance) -> str:
+        """A card in play's colour, lowered: "green" -- a Squirrel's while
+        Polymorph: Squirrel has it."""
+        slug = card.slug if self.texted(card) else effects.POLYMORPH_INTO
+        return (self.catalog.cards[slug].color or "neutral").lower()
+
+    def subtype_of(self, card: CardInstance) -> str:
+        """A card in play's subtype: "Pirate", "Tiger" -- "Squirrel" while
+        Polymorph: Squirrel has it."""
+        slug = card.slug if self.texted(card) else effects.POLYMORPH_INTO
+        return self.catalog.cards[slug].subtype or ""
+
+    def printed_atk(self, body) -> int:
+        """What Chaos Mirror swaps: "the ATK actually printed on the card"
+        (its ruling) -- a unit's, or a hero's band's -- or what replaced it
+        (a mirror's, Polymorph's 1)."""
+        replaced = getattr(body, "printed", None) or {}
+        if "atk" in replaced:
+            return replaced["atk"]
+        if isinstance(body, HeroState):
+            return self.hero_band(body).atk
+        if not self.texted(body):
+            return effects.SQUIRREL_STATS[0]
+        return self.catalog.cards[body.slug].atk or 0
+
+    def builds_instantly(self, player: PlayerState) -> bool:
+        """Whether this player's tech buildings build instantly this turn
+        -- a Verdant Tree of theirs used this turn."""
+        return any(
+            modifier.get("kind") == "instant_build"
+            for card in player.play for modifier in card.modifiers
+        )
+
+    def hire_cost(self, player: PlayerState) -> int:
+        """A worker costs 1 (UMR p. 6), and nothing with Rich Earth --
+        whose card still goes, once a turn (its rulings)."""
+        if any(card.slug in effects.FREE_HIRE for card in player.play):
+            return 0
+        return HIRE_COST
 
     # -- Heroes and colours -----------------------------------------------
 
@@ -776,13 +1113,14 @@ class RulesEngine:
     # -- The main phase -----------------------------------------------------
 
     def hire_option(self, player: PlayerState) -> HireOption:
+        cost = self.hire_cost(player)
         if player.hired_this_turn:
-            return HireOption(False, why_not="a worker has been hired this turn")
-        if player.gold < HIRE_COST:
-            return HireOption(False, why_not="not enough gold")
+            return HireOption(False, cost, why_not="a worker has been hired this turn")
+        if player.gold < cost:
+            return HireOption(False, cost, why_not="not enough gold")
         if not player.hand:
-            return HireOption(False, why_not="there is no card in hand to hire with")
-        return HireOption(True)
+            return HireOption(False, cost, why_not="there is no card in hand to hire with")
+        return HireOption(True, cost)
 
     def hero_options(self, player: PlayerState) -> tuple[HeroOption, ...]:
         """One `HeroOption` per hero, in the team's order."""
@@ -830,7 +1168,11 @@ class RulesEngine:
         any of whose parts can resolve (Final Smash's ruling)."""
         card = self.catalog.cards[slug]
         cost = self.effective_cost(player, slug)
-        if card.is_unit or card.is_permanent:
+        if card.is_unit and self.free_unit(player, card):
+            pass  # no tech building, and so no spec, needed
+        elif card.is_spell and self.free_spell(player, card):
+            pass  # no hero needed, an ultimate's included
+        elif card.is_unit or card.is_permanent:
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
             why = self._why_not_spec(player, card)
@@ -869,7 +1211,8 @@ class RulesEngine:
             return f"it needs {card.spec} chosen as your Tech II spec"
         return f"your Tech II spec is {player.tech2_spec.title()}, and no tech lab has {card.spec}"
 
-    def spell_can_resolve(self, match: MatchState, seat: int, slug: str, gold: int) -> bool:
+    def spell_can_resolve(self, match: MatchState, seat: int, slug: str, gold: int,
+                          frame: Optional[dict] = None) -> bool:
         """Whether a spell has a part that can resolve: one choosing
         nothing, or one with something it could choose, paying any
         resist out of the gold left once the spell is paid for."""
@@ -884,7 +1227,7 @@ class RulesEngine:
         for part in effect.parts:
             if part.choose is None:
                 return True
-            if self.target_rows(match, seat, part, gold=gold):
+            if self.target_rows(match, seat, part, gold=gold, frame=frame):
                 return True
         return False
 
@@ -897,9 +1240,20 @@ class RulesEngine:
             if slug in seen:
                 continue
             seen.append(slug)
-            rows.append(PlayableCard(slug, self.effective_cost(player, slug),
-                                     self.why_not_playable(player, slug, match)))
+            rows.append(self._playable_row(player, slug, self.why_not_playable(player, slug, match)))
         return tuple(rows)
+
+    def boost_cost(self, slug: str) -> Optional[int]:
+        """A card's boost X -- "Boost {gold:4}" -- or `None`."""
+        return next((x for name, x in keywords.keywords(slug) if name == "Boost"), None)
+
+    def _playable_row(self, player: PlayerState, slug: str, why: str) -> PlayableCard:
+        cost = self.effective_cost(player, slug)
+        boost = self.boost_cost(slug)
+        boost_why = ""
+        if boost is not None and player.gold < cost + boost:
+            boost_why = "not enough gold to boost"
+        return PlayableCard(slug, cost, why, boost, boost_why)
 
     def may_attack_with(self, body, match: Optional[MatchState] = None) -> bool:
         """
@@ -910,9 +1264,15 @@ class RulesEngine:
         """
         if body.exhausted:
             return False
+        if isinstance(body, CardInstance) and self.text_slug(body) in effects.CANT_ATTACK:
+            return False
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return False
-        if body.attacked_this_turn:
+        # Readiness attacks once a turn; anything else readied after it
+        # attacked -- Rampaging Elephant, a kidnapped unit -- may attack
+        # again ("If you ready a card after it attacks ... it can attack
+        # again", UMR p. 13).
+        if body.attacked_this_turn and self.has_keyword(body, "Readiness", match):
             return False
         return True
 
@@ -920,9 +1280,13 @@ class RulesEngine:
         """The active player's units and hero that may attack
         (`may_attack_with`)."""
         player = match.active_player
+        # Moment's Peace: "opposing units can't attack you" -- in a game
+        # of two, they can't attack at all; heroes still may.
+        peace = match.opponent(match.active).peace
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
+            and not peace
         ]
         for hero in player.heroes_in_play:
             if self.may_attack_with(hero, match):
@@ -969,33 +1333,79 @@ class RulesEngine:
 
     def body_keywords(self, body, match: Optional[MatchState] = None) -> tuple:
         """
-        Every keyword a thing in play has -- **the one reading**: its
-        printed ones and its patrol slot's (`codex.keywords.body_keywords`),
-        a keyword it was given for the turn (Sneaky Pig's stealth, a
-        modifier), and -- given the match -- what another card its
-        controller has in play grants it, exactly while that card is
-        there under their control: Blademaster's swift strike to every
-        unit and hero, Nimble Fencer's haste to every Virtuoso, herself
-        included (Sirlin, 2016-03-04).
+        Every keyword a thing in play has -- **the one reading**: a unit's
+        or a hero's as it stands (`_profile`) -- its printed ones and its
+        patrol slot's, a keyword it was given (Sneaky Pig's stealth for
+        the turn, Sanatorium's haste for good), what the position gives it
+        (Stalking Tiger's, Wandering Mimic's, Midori's flying) and, given
+        the match, what another card its controller has in play grants
+        it, exactly while that card is there under their control:
+        Blademaster's swift strike, Nimble Fencer's haste to every
+        Virtuoso, herself included (Sirlin, 2016-03-04), and red and
+        green's. A card in play that is neither -- an ongoing spell, an
+        upgrade, a building card -- has its printed ones.
         """
         if body is None:
             return ()
+        if isinstance(body, HeroState) or (
+            isinstance(body, CardInstance) and self.catalog.cards[body.slug].is_unit
+        ):
+            return tuple(self._profile(body, match).keywords)
         found = list(keywords.body_keywords(body, match))
         for modifier in getattr(body, "modifiers", ()):
             if modifier.get("kind") == "keyword":
                 found.append((modifier["keyword"], modifier.get("amount")))
-        if match is not None:
-            seat = self.seat_of(match, body)
-            if seat is not None:
-                mine = match.player(seat).play
-                if any(card.slug in effects.GRANTS_SWIFT_STRIKE for card in mine):
-                    found.append(("Swift strike", None))
-                if (
-                    isinstance(body, CardInstance) and self.is_virtuoso(body.slug)
-                    and any(card.slug in effects.GRANTS_VIRTUOSO_HASTE for card in mine)
-                ):
-                    found.append(("Haste", None))
         return tuple(found)
+
+    def _conditioned_keywords(self, match: MatchState, body, seat: Optional[int]) -> list:
+        """
+        The keywords a card has only while the position says so, read off
+        it each time (step 11): Midori's flying on his own turn; Stalking
+        Tiger's invisibility while its controller has a Feral hero in
+        play, and its stealth while it attacks a unit; and Wandering
+        Mimic's six, while anything in play that is not a Mimic has one
+        (the Card FAQ: "Copies of this card can't gain abilities from
+        each other").
+        """
+        found: list = []
+        if isinstance(body, HeroState):
+            for slug, level in effects.FLYING_ON_OWN_TURN:
+                if body.slug == slug and body.level >= level and seat == match.active:
+                    found.append(("Flying", None))
+            return found
+        if not isinstance(body, CardInstance):
+            return found
+        slug = body.slug
+        spec = effects.INVISIBLE_WITH_HERO.get(slug)
+        if spec is not None and seat is not None and any(
+            (self.hero_card(hero).spec or "").lower() == spec
+            for hero in match.player(seat).heroes_in_play
+        ):
+            found.append(("Invisible", None))
+        if slug in effects.STEALTH_ATTACKING_UNITS and seat == match.active:
+            state = match.combat
+            defender = None
+            if state is not None and state.get("attacker") == body.ref:
+                defender = self.body(match, 2 if seat == 1 else 1, state.get("defender") or "")
+            if isinstance(defender, CardInstance):
+                found.append(("Stealth", None))
+        if slug == effects.MIMIC:
+            others = [
+                other for other in self._bodies_in_play(match)
+                if not (isinstance(other, CardInstance) and other.slug == effects.MIMIC)
+            ]
+            for keyword in effects.MIMICKED:
+                if any(self.has_keyword(other, keyword, match) for other in others):
+                    found.append((keyword, None))
+        return found
+
+    def _bodies_in_play(self, match: MatchState) -> list:
+        """Every unit and hero in play, on both sides."""
+        found: list = []
+        for player in match.players:
+            found.extend(card for card in player.play if self.catalog.cards[card.slug].is_unit)
+            found.extend(player.heroes_in_play)
+        return found
 
     def has_keyword(self, body, keyword: str, match: Optional[MatchState] = None) -> bool:
         """Whether a thing in play has `keyword` (`body_keywords`)."""
@@ -1169,7 +1579,21 @@ class RulesEngine:
             if not (self.has_keyword(hitting, "Flying", match)
                     or self.has_keyword(hitting, "Anti-air", match)):
                 return False
+        if (
+            isinstance(body, CardInstance) and self.text_slug(body) in effects.UNATTACKABLE_BY_TECH_0
+            and self.is_tech_0_unit(self.body(match, seat, attacker))
+        ):
+            # "Tiny Basilisk is unattackable ... by tech 0 units."
+            return False
         return True
+
+    def is_tech_0_unit(self, body) -> bool:
+        """A unit of tech 0 -- a token is one (UMR p. 13) -- and never a
+        hero, which is no unit."""
+        if not isinstance(body, CardInstance):
+            return False
+        card = self.catalog.cards[body.slug]
+        return card.is_unit and not (card.tech_level or 0)
 
     def ignores_patrollers(self, match: MatchState, attacker: str) -> str:
         """
@@ -1206,13 +1630,21 @@ class RulesEngine:
         other = 2 if seat == 1 else 1
         flying = self.has(match, seat, attacker, "Flying")
         blocking = {}
+        past_tech_0 = self._unstoppable_by_tech_0(match, attacker)
         for slot, ref in match.player(other).patrollers().items():
             if self.has(match, other, ref, "Flying") != flying:
                 continue
             if not self.may_be_attacked(match, attacker, ref):
                 continue
+            if past_tech_0 and self.is_tech_0_unit(self.body(match, other, ref)):
+                # "... unstoppable by tech 0 units": it may ignore them.
+                continue
             blocking[slot] = ref
         return blocking
+
+    def _unstoppable_by_tech_0(self, match: MatchState, attacker: str) -> bool:
+        body = self.body(match, match.active, attacker)
+        return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_TECH_0
 
     def legal_defenders(self, match: MatchState, attacker: str) -> tuple[str, ...]:
         """Who `attacker` may take, in the three priorities (UMR p. 10),
@@ -1232,15 +1664,34 @@ class RulesEngine:
         if blocking:
             leader = blocking.get("squad_leader")
             if leader is not None:
-                return ((leader, "squad leader"),)
-            return tuple(
-                (blocking[slot], "patroller") for slot in PATROL_SLOTS if slot in blocking
-            )
+                rows = [(leader, "squad leader")]
+            else:
+                rows = [(blocking[slot], "patroller") for slot in PATROL_SLOTS if slot in blocking]
+            if self._sneaks_to_units(match, attacker):
+                # Stealth while attacking a unit: any of their units, past
+                # the patrol zone.
+                taken = {ref for ref, _ in rows}
+                rows += [
+                    (card.ref, "it sneaks past the patrol zone to a unit")
+                    for card in self._units_of(match, other)
+                    if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref)
+                ]
+            return tuple(rows)
         why = self._open_why(match, attacker)
         return tuple(
             (ref, why) for ref in self._standing(match, other)
             if self.may_be_attacked(match, attacker, ref)
         )
+
+    def _sneaks_to_units(self, match: MatchState, attacker: str) -> bool:
+        """Whether this attacker has stealth while attacking a unit
+        (Stalking Tiger) and no detector of theirs sees it, so it may
+        sneak past the patrol zone to any of their units."""
+        body = self.body(match, match.active, attacker)
+        if not isinstance(body, CardInstance) or body.slug not in effects.STEALTH_ATTACKING_UNITS:
+            return False
+        other = 2 if match.active == 1 else 1
+        return not self.detected_by(match, other, attacker)
 
     def _open_why(self, match: MatchState, attacker: str) -> str:
         """Why nothing in the patrol zone holds this attacker."""
@@ -1250,6 +1701,8 @@ class RulesEngine:
         sneaking = self.ignores_patrollers(match, attacker)
         if sneaking == "unstoppable":
             return "it is unstoppable"
+        if self._unstoppable_by_tech_0(match, attacker):
+            return "it is unstoppable by tech 0 units"
         if sneaking:
             return "it sneaks past the patrol zone"
         if self.has(match, match.active, attacker, "Flying"):
@@ -1300,6 +1753,13 @@ class RulesEngine:
         if self.has(match, seat, attacker, "Flying") and not (
             self.has_keyword(body, "Flying", match) or self.has_keyword(body, "Anti-air", match)
         ):
+            return 0
+        if self.has(match, seat, attacker, "Long-range") and not self.has_keyword(
+            body, "Long-range", match,
+        ):
+            # "When this card attacks, the defender deals no combat damage
+            # unless it also has long-range" (UMR p. 17) -- the anti-air
+            # it flies over and the tower still shoot (its rulings).
             return 0
         return self.attack_value(match, other, defender)
 
@@ -1358,9 +1818,31 @@ class RulesEngine:
         body = self.body(match, other, defender)
         if body is None:
             return 0
+        return max(0, self.attack_value(match, seat, attacker) - self.lethal_damage(match, seat, attacker, body))
+
+    def stampedes(self, match: MatchState, body) -> bool:
+        """Whether Stampede sends this unit's excess combat damage to the
+        base this turn: a unit, its controller's Stampede in play."""
+        if not isinstance(body, CardInstance) or not self.catalog.cards[body.slug].is_unit:
+            return False
+        return any(lasting.get("kind") == "stampede"
+                   for lasting in match.player(body.controller).lasting)
+
+    def lethal_damage(self, match: MatchState, seat: int, attacker: str, body) -> int:
+        """
+        How much of `attacker`'s combat damage destroys `body`: its HP
+        left and its armor -- the author's reading of overpower, 2026-10-08
+        -- none of the armor where the attacker pierces it, and **one**
+        where it has deathtouch: "One deathtouch damage is enough to
+        destroy a card, so a deathtouch card with overpower or Stampede
+        reapplies all damage after the first damage" (UMR p. 18).
+        """
+        hitting = self.body(match, seat, attacker)
+        if self.has_keyword(hitting, "Deathtouch", match):
+            return 1
         hp = self.body_stats(match, body)[1]
-        needed = max(0, hp - body.damage) + body.armor
-        return max(0, self.attack_value(match, seat, attacker) - needed)
+        armor = 0 if self.has_keyword(hitting, "Armor piercing", match) else body.armor
+        return max(0, hp - body.damage) + armor
 
     def overpower_candidates(self, match: MatchState, attacker: str,
                              defender: str) -> tuple[str, ...]:
@@ -1374,6 +1856,9 @@ class RulesEngine:
         seat = match.active
         other = 2 if seat == 1 else 1
         if not self.overpower_excess(match, attacker, defender):
+            return ()
+        if self.stampedes(match, self.body(match, seat, attacker)) and self.body(match, other, defender) is not None:
+            # Stampede's excess goes to the base, over overpower's.
             return ()
         patrollers = [
             ref for slot, ref in match.player(other).patrollers().items()
@@ -1454,26 +1939,43 @@ class RulesEngine:
         return printed.is_unit or printed.is_building_card
 
     def target_candidates(self, match: MatchState, seat: int, choose: str,
-                          taken: Sequence[str] = ()) -> list[tuple[int, str]]:
+                          taken: Sequence[str] = (), frame: Optional[dict] = None,
+                          ) -> list[tuple[int, str]]:
         """
         Everything `choose` names for an effect `seat` controls, the
         opponent's side first: before resist, invisibility and the
         flagbearer narrow it (`target_rows`). `taken` is what this cast
         has already chosen, as keys, for a part that must choose another
-        (Brick Thief's repair, Two Step's second partner).
+        (Brick Thief's repair, Two Step's second partner); `frame` the
+        effect under way, for a filter that reads it -- the card it comes
+        from ("another unit"), what an earlier part chose (Zane's shove,
+        Circle of Life's sacrifice).
+
+        Step 11 added the places that are not on the table: a side's
+        workers (`"2:workers"`, all alike), an empty patrol slot
+        (`"2:slot:elite"`), and a card in its owner's hand or codex
+        (`"1:hand:fire_dart"`, `"1:codex:predator_tiger"`) -- the owner's
+        alone, and so the effect's controller's alone.
         """
         other = 2 if seat == 1 else 1
+        frame = frame or {}
         found: list[tuple[int, str]] = []
+
+        def tech(card: CardInstance) -> int:
+            return self.catalog.cards[card.slug].tech_level or 0
+
         for side in (other, seat):
             player = match.player(side)
             units = self._units_of(match, side)
             hero = [hero_ref(one.slug) for one in player.heroes_in_play]
-
-            def tech(card: CardInstance) -> int:
-                return self.catalog.cards[card.slug].tech_level or 0
+            damageable = [
+                (side, ref) for ref in self._buildings_of(match, side)
+                if not self._under_construction(player, ref)
+            ] + [(side, card.ref) for card in self._building_cards_of(match, side)]
+            patrollers = [(side, ref) for ref in player.patrollers().values()]
 
             if choose == "patroller":
-                found += [(side, ref) for ref in player.patrollers().values()]
+                found += patrollers
             elif choose == "patroller_tech_0_1":
                 found += [(side, card.ref) for card in units
                           if card.patrol_slot is not None and tech(card) <= 1]
@@ -1488,16 +1990,43 @@ class RulesEngine:
                 # A building being constructed can't be dealt damage the
                 # turn it was started (UMR p. 8, and p. 9 for add-ons); a
                 # building card is a building as much as the base is.
-                found += [(side, ref) for ref in self._buildings_of(match, side)
-                          if not self._under_construction(player, ref)]
-                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
+                found += damageable
             elif choose == "other_building":
                 found += [(side, ref) for ref in self._buildings_of(match, side)]
                 found += [(side, card.ref) for card in self._building_cards_of(match, side)]
             elif choose == "unit":
                 found += [(side, card.ref) for card in units]
+            elif choose == "unit_or_building":
+                found += [(side, card.ref) for card in units] + damageable
+            elif choose == "unit_hero_or_building":
+                found += [(side, card.ref) for card in units] + [(side, ref) for ref in hero]
+                found += damageable
+            elif choose == "patroller_or_building":
+                found += patrollers + damageable
+            elif choose == "patrolling_unit":
+                found += [(side, card.ref) for card in units if card.patrol_slot is not None]
+            elif choose == "patrolling_unit_or_building":
+                found += [(side, card.ref) for card in units if card.patrol_slot is not None]
+                found += damageable
+            elif choose == "other_unit":
+                found += [(side, card.ref) for card in units if card.ref != frame.get("source")]
+            elif choose == "own_unit":
+                if side == seat:
+                    found += [(side, card.ref) for card in units]
+            elif choose == "own_green_unit":
+                if side == seat:
+                    found += [(side, card.ref) for card in units if self.color_of(card) == "green"]
+            elif choose == "own_balance_hero":
+                if side == seat:
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                              if (self.hero_card(one).spec or "").lower() == "balance"]
+            elif choose == "opposing_unit_tech_0_2":
+                if side != seat:
+                    found += [(side, card.ref) for card in units if tech(card) <= 2]
             elif choose == "unit_tech_0_1":
                 found += [(side, card.ref) for card in units if tech(card) <= 1]
+            elif choose == "unit_tech_1_2":
+                found += [(side, card.ref) for card in units if 1 <= tech(card) <= 2]
             elif choose.startswith("unit_tech_"):
                 level = int(choose.rsplit("_", 1)[1])
                 found += [(side, card.ref) for card in units if tech(card) == level]
@@ -1505,11 +2034,103 @@ class RulesEngine:
                 if side == seat:
                     found += [(side, card.ref) for card in units
                               if self.partnered(match, card) is None]
+            elif choose == "base":
+                found.append((side, "base"))
+            elif choose == "workers":
+                if player.workers > 0:
+                    found.append((side, WORKERS))
+            elif choose == "worker_or_building_card":
+                # "A worker or building card (not add-on)" -- any
+                # player's workers, all alike (Detonate's rulings).
+                if player.workers > 0:
+                    found.append((side, WORKERS))
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
+            elif choose == "upgrade_spell_or_building_card":
+                found += [
+                    (side, card.ref) for card in player.play
+                    if not self.catalog.cards[card.slug].is_unit
+                ]
+            elif choose == "upgrade_or_ongoing":
+                found += [
+                    (side, card.ref) for card in player.play
+                    if self.catalog.cards[card.slug].is_upgrade
+                    or self.catalog.cards[card.slug].is_spell
+                ]
+            elif choose == "unit_upgrade_or_workers":
+                found += [(side, card.ref) for card in units]
+                found += [(side, card.ref) for card in player.play
+                          if self.catalog.cards[card.slug].is_upgrade]
+                if player.workers > 0:
+                    found.append((side, WORKERS))
+            elif choose == "empty_slot":
+                # Zane's shove: an empty slot of the shoved patroller's
+                # own zone -- the side the frame's first pick was on.
+                shoved = (frame.get("taken") or [None])[0]
+                if shoved is not None and int(shoved.split(":", 1)[0]) == side:
+                    filled = player.patrollers()
+                    found += [(side, f"{SLOT}{slot}") for slot in PATROL_SLOTS if slot not in filled]
+            elif side == seat and choose in _PRIVATE_FILTERS:
+                found += [(side, ref) for ref in self._private_candidates(match, seat, choose, frame)]
+            elif choose in _PRIVATE_FILTERS:
+                pass
             else:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
         return found
+
+    def _private_candidates(self, match: MatchState, seat: int, choose: str,
+                            frame: dict) -> list[str]:
+        """
+        The cards in `seat`'s hand or codex a part may choose, each named
+        once (`hand:<slug>`, `codex:<slug>`), in the hand's order and the
+        codex's: **its owner's alone** -- which is why only the effect's
+        own controller is offered any.
+        """
+        player = match.player(seat)
+        cards = self.catalog.cards
+        hand = list(dict.fromkeys(player.hand))
+        codex = [slug for slug, left in self.codex_counts(player) if left > 0]
+
+        def level(slug: str) -> int:
+            return cards[slug].tech_level or 0
+
+        if choose == "hand_card":
+            return [HAND + slug for slug in hand]
+        if choose == "hand_unit_tech_0_2":
+            return [HAND + slug for slug in hand if cards[slug].is_unit and level(slug) <= 2]
+        if choose == "hand_unit_built":
+            # Feral Strike: "if you have tech buildings of the same tech
+            # level as them" -- the spec ignored (its ruling).
+            return [HAND + slug for slug in hand
+                    if cards[slug].is_unit and self.tech_building_active(player, level(slug))]
+        if choose == "codex_unit":
+            return [CODEX + slug for slug in codex if cards[slug].is_unit]
+        if choose == "codex_tiger":
+            return [CODEX + slug for slug in codex
+                    if cards[slug].is_unit and "Tiger" in (cards[slug].subtype or "")]
+        if choose == "codex_circle":
+            # Circle of Life: a green unit one tech higher than the one
+            # sacrificed, printed cost 5 or less (its rulings: Gigadon is 9).
+            sacrificed = frame.get("sacrificed_tech")
+            if sacrificed is None:
+                return []
+            return [CODEX + slug for slug in codex
+                    if cards[slug].is_unit and (cards[slug].color or "").lower() == "green"
+                    and level(slug) == sacrificed + 1 and (cards[slug].cost or 0) <= 5]
+        if choose == "fire_spell":
+            # Cinderblast Dragon: a non-ultimate Fire spell from the hand
+            # or the codex, played free -- one that could do something.
+            found = []
+            for prefix, slugs in ((HAND, hand), (CODEX, codex)):
+                for slug in slugs:
+                    card = cards[slug]
+                    if (card.is_spell and (card.spec or "").lower() == "fire"
+                            and "Ultimate" not in card.type
+                            and self.spell_can_resolve(match, seat, slug, player.gold)):
+                        found.append(prefix + slug)
+            return found
+        raise ValueError(f"not a target filter: {choose!r}")
 
     def targetable(self, match: MatchState, seat: int, side: int, ref: str) -> bool:
         """
@@ -1530,7 +2151,8 @@ class RulesEngine:
         return True
 
     def target_rows(self, match: MatchState, seat: int, part, *, taken: Sequence[str] = (),
-                    gold: Optional[int] = None, flagbearer_done: bool = False) -> tuple[TargetRow, ...]:
+                    gold: Optional[int] = None, flagbearer_done: bool = False,
+                    frame: Optional[dict] = None) -> tuple[TargetRow, ...]:
         """
         What `part` of an effect `seat` controls may choose, as the
         question offers it: what it names (`target_candidates`) that
@@ -1546,11 +2168,15 @@ class RulesEngine:
         """
         gold = match.player(seat).gold if gold is None else gold
         rows: list[TargetRow] = []
-        for side, ref in self.target_candidates(match, seat, part.choose, taken):
+        for side, ref in self.target_candidates(match, seat, part.choose, taken, frame):
             if not part.targeted:
                 rows.append(TargetRow(target_key(side, ref), side, ref))
                 continue
             if not self.targetable(match, seat, side, ref):
+                continue
+            if self.has_keyword(self.body(match, side, ref), "Untargetable", match):
+                # "This card can't be the target of spells or abilities"
+                # -- anybody's, its controller's included (UMR p. 18).
                 continue
             resist = self.resist_cost(match, side, ref) if side != seat else 0
             if resist > gold:
@@ -1564,6 +2190,46 @@ class RulesEngine:
         if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
             return tuple(row for row in rows if row.flagbearer)
         return tuple(TargetRow(row.key, row.seat, row.ref, row.resist, False) for row in rows)
+
+    def damage_bonus(self, match: MatchState, frame: dict) -> int:
+        """
+        What an effect's damage gets on top of what it prints: Hotter
+        Fire's "Your red spells and abilities that deal damage deal 1
+        damage more" -- a red spell's, a red hero's ability's, any ability
+        on a red card -- each copy its controller has (its rulings), and
+        never combat damage, which no effect deals. Divided damage gets
+        it once, on the total (the Card FAQ).
+        """
+        origin = frame.get("origin") or frame.get("spell")
+        if origin is None:
+            source = frame.get("source")
+            body = self.body(match, frame["seat"], source) if source else None
+            origin = getattr(body, "slug", None)
+        if origin is None:
+            return 0
+        card = self.catalog.by_slug(origin)
+        if (card.color or "").lower() != "red":
+            return 0
+        return sum(
+            1 for other in match.player(frame["seat"]).play
+            if other.slug == effects.HOTTER_FIRE and self.texted(other)
+        )
+
+    def mode_rows(self, match: MatchState, frame: dict, part) -> tuple[tuple[str, str, bool], ...]:
+        """
+        The modes a "choose one" part offers, each `(key, says, allowed)`:
+        Feral Strike's and Murkwood Allies' both always, and Land
+        Octopus's sacrifice of two workers only where its controller has
+        two -- "do as much as you can" leaves the Octopus itself.
+        """
+        seat = frame["seat"]
+        rows = []
+        for key, says in part.modes:
+            allowed = True
+            if key == "workers":
+                allowed = match.player(seat).workers >= 2
+            rows.append((key, says, allowed))
+        return tuple(rows)
 
     # -- Abilities -------------------------------------------------------------------
 
@@ -1592,28 +2258,74 @@ class RulesEngine:
         found: list[AbilityOption] = []
         for card in player.play:
             if card.slug == effects.HARMONY:
-                found.append(AbilityOption("stop_the_music", card.ref))
+                found.append(AbilityOption("stop_the_music", card.ref, pays=self.cost_words("stop_the_music")))
         for hero in player.heroes_in_play:
             for when, effect in effects.rows(hero.slug, hero.level):
                 if when == "ability":
-                    found.append(AbilityOption(
-                        effect, hero_ref(hero.slug),
-                        self._ability_why_not(match, seat, hero, effect),
-                    ))
-        if any(card.slug in effects.MAESTROS for card in player.play):
+                    found.append(self._ability(match, seat, hero, hero_ref(hero.slug), effect))
+        if any(card.slug in effects.MAESTROS and self.texted(card) for card in player.play):
             for card in player.play:
                 if self.catalog.cards[card.slug].is_unit and self.is_virtuoso(card.slug):
-                    found.append(AbilityOption(
-                        "maestro", card.ref, self._ability_why_not(match, seat, card, "maestro"),
-                    ))
+                    found.append(self._ability(match, seat, card, card.ref, "maestro"))
+        # Red and green's: the abilities printed on a card in play -- a
+        # unit's, a building card's, an upgrade's (step 11).
+        for card in player.play:
+            for when, effect in effects.rows(self.text_slug(card) or ""):
+                if when == "ability":
+                    found.append(self._ability(match, seat, card, card.ref, effect))
         return tuple(found)
 
-    def _ability_why_not(self, match: MatchState, seat: int, body, effect: str) -> str:
-        why = self.may_exhaust(body, match)
-        if why:
-            return why
-        part = effects.EFFECTS[effect].parts[0]
-        if part.choose is not None and not self.target_rows(match, seat, part):
+    def _ability(self, match: MatchState, seat: int, body, source: str, effect: str) -> AbilityOption:
+        return AbilityOption(effect, source, self._ability_why_not(match, seat, body, effect, source),
+                             self.cost_words(effect))
+
+    def ability_cost(self, effect: str) -> "effects.Cost":
+        return effects.COSTS.get(effect, effects.Cost(exhaust=True))
+
+    def cost_words(self, effect: str) -> str:
+        """What an ability costs, in words for its button: "exhaust",
+        "pay 1 gold and exhaust", "sacrifice it"."""
+        cost = self.ability_cost(effect)
+        words = []
+        if cost.gold:
+            words.append(f"pay {cost.gold} gold")
+        if cost.discard:
+            words.append(f"discard {cost.discard} cards")
+        if cost.runes:
+            kind, count = cost.runes
+            rune = "+1/+1" if kind == "plus" else kind
+            words.append(f"remove {'a' if count == 1 else count} {rune} rune{'' if count == 1 else 's'}")
+        if cost.sacrifice:
+            words.append("sacrifice it")
+        if cost.exhaust:
+            words.append("exhaust")
+        return " and ".join(words) or "use it"
+
+    def _ability_why_not(self, match: MatchState, seat: int, body, effect: str,
+                         source: Optional[str] = None) -> str:
+        """Why an ability may not be used now, or "": every part of its
+        cost payable (UMR p. 8), and something its text could do with
+        what is left."""
+        cost = self.ability_cost(effect)
+        player = match.player(seat)
+        if cost.exhaust:
+            why = self.may_exhaust(body, match)
+            if why:
+                return why
+        if cost.gold and player.gold < cost.gold:
+            return "not enough gold"
+        if cost.runes:
+            kind, count = cost.runes
+            have = body.plus_runes if kind == "plus" else body.runes.get(kind, 0)
+            if have < count:
+                rune = "+1/+1" if kind == "plus" else kind
+                return f"it needs {count} {rune} rune{'' if count == 1 else 's'}"
+        if cost.discard and len(player.hand) < cost.discard:
+            return f"it needs {cost.discard} cards in hand to discard"
+        if cost.needs_spell and not player.spells_played:
+            return "you have not played a spell this turn"
+        if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
+                                      {"source": source}):
             return "there is nothing it could target"
         return ""
 
@@ -1630,19 +2342,51 @@ class RulesEngine:
         add_on = player.add_on
         if add_on is not None and add_on.active and add_on.slug in effects.UPKEEP_DRAW:
             found.append("draw")
+        texts = [self.text_slug(card) for card in player.play]
+        # Red and green's gains (step 11): Gemscout Owl's and Galina's.
+        if any(slug in effects.UPKEEP_GOLD for slug in texts):
+            found.append("owl")
+        if any(slug in effects.UPKEEP_GREEN_GOLD for slug in texts):
+            found.append("galina")
         if self.healing(player):
             found.append("healing")
-        if any(card.slug in effects.UPKEEP_SELF_DAMAGE for card in player.play):
+        if any(slug in effects.UPKEEP_SELF_DAMAGE for slug in texts):
             found.append("starlet")
+        # One each: Land Octopus's choice, Dothram Horselord's side.
+        found += [f"octopus:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.UPKEEP_CHOICE]
+        found += [f"dothram:{card.id}" for card in player.play
+                  if self.text_slug(card) in effects.JOINS_THE_STRONGER]
         return tuple(found)
 
+    def upkeep_ordered(self, due) -> tuple[str, ...]:
+        """
+        Which of the upkeep effects due have their order asked: a death or
+        a sacrifice beside what it changes -- Starlet's damage and healing
+        (her ruling: "you, as the active player, can choose the order of
+        your upkeep effects"), Starlet's or Land Octopus's beside Dothram
+        Horselord, whose side follows the total ATK.
+        """
+        deaths = [name for name in due if name == "starlet" or name.startswith("octopus:")]
+        found = set()
+        if "starlet" in due and "healing" in due:
+            found |= {"starlet", "healing"}
+        dothrams = [name for name in due if name.startswith("dothram:")]
+        if dothrams and deaths:
+            found |= set(dothrams) | set(deaths)
+        return tuple(name for name in due if name in found)
+
     def upkeep_order_matters(self, player: PlayerState) -> bool:
-        """Whether the order is a question: healing and Starlet's damage
-        both due, so healing her first or after changes what she is left
-        with (Starlet's ruling: "you, as the active player, can choose the
-        order of your upkeep effects")."""
-        due = self.upkeep_effects(player)
-        return "healing" in due and "starlet" in due
+        """Whether the order is a question at all (`upkeep_ordered`)."""
+        return bool(self.upkeep_ordered(self.upkeep_effects(player)))
+
+    def total_atk(self, match: MatchState, seat: int) -> int:
+        """A player's total ATK -- Dothram Horselord's question: every unit
+        and hero they have in play, as each stands."""
+        player = match.player(seat)
+        units = sum(self.unit_stats(card, match)[0] for card in player.play
+                    if self.catalog.cards[card.slug].is_unit)
+        return units + sum(self.hero_stats(hero, match)[0] for hero in player.heroes_in_play)
 
     def patrol_candidates(self, match: MatchState) -> tuple[str, ...]:
         """What the active player may lock into the patrol zone: ready
@@ -1652,6 +2396,7 @@ class RulesEngine:
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
+            and self.text_slug(card) not in effects.CANT_PATROL and not player.peace
         ]
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted
@@ -1738,7 +2483,7 @@ class RulesEngine:
         rows = []
         for slug in player.hand:
             why = self.why_not_playable(player, slug, match) if mine else "it is not your main phase"
-            rows.append(PlayableCard(slug, self.effective_cost(player, slug), why))
+            rows.append(self._playable_row(player, slug, why))
         return tuple(rows)
 
     def own_deck(self, match: MatchState, seat: int) -> "OwnDeck":
@@ -1814,6 +2559,20 @@ def parse_target(key: str) -> tuple[int, str]:
     if seat not in ("1", "2") or not ref:
         raise ValueError(f"not a target: {key!r}")
     return int(seat), ref
+
+
+#: How a target names a side's workers, all alike: "2:workers".
+WORKERS = "workers"
+#: How a target names an empty patrol slot ("2:slot:elite"), a card in
+#: its owner's hand ("1:hand:fire_dart") or codex ("1:codex:gigadon").
+SLOT = "slot:"
+HAND = "hand:"
+CODEX = "codex:"
+#: The filters whose candidates are in the controller's hand or codex.
+_PRIVATE_FILTERS = frozenset({
+    "hand_card", "hand_unit_tech_0_2", "hand_unit_built", "codex_unit", "codex_tiger",
+    "codex_circle", "fire_spell",
+})
 
 
 def unit_ref(ref: str) -> Optional[int]:

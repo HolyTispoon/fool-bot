@@ -85,6 +85,8 @@ PROMPT_VIEWS = {
     PromptKind.APPEL_STOMP_TOP: TurnPanelView,
     PromptKind.UPKEEP_ORDER: TurnPanelView,
     PromptKind.LEVEL_GAIN: TurnPanelView,
+    PromptKind.DIVIDE_DAMAGE: TurnPanelView,
+    PromptKind.MODE_CHOICE: TurnPanelView,
     PromptKind.PATROL: PatrolView,
     PromptKind.TECH_CHOICE: TechChoiceView,
     PromptKind.TECH_CONFIRM: TechConfirmView,

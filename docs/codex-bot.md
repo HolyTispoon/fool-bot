@@ -698,7 +698,7 @@ starting.
 | ~~8~~ | ~~Finishing a game: concede, abandon, rematch, the golden~~ -- landed; what it settled is in docs/design/codex.md, "The end of a game" and "The golden" | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
 | ~~9~~ | ~~The look back: what turned out identical moves to one home~~ -- landed; what it settled is in docs/design/codex.md, "What the two games share" | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
 | ~~10~~ | ~~The standard game's rules, over the red and green data~~ -- landed; what it settled is in docs/design/codex.md, "The standard game" and "The vanilla engine and `UNIMPLEMENTED`" | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
-| 11 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
+| ~~11~~ | ~~Red and green: every card does what it says~~ -- landed; what it settled is in docs/design/codex.md, "Red and green" | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
 | 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
 | 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
 | -- | Later, and not now | -- | |
@@ -2274,6 +2274,14 @@ and saying so.
 ```
 
 ### 11. Red and green: every card does what it says
+
+**Landed** (2026-10-09, by the cloud routine): the keywords, the costs
+and resources, the spells, triggers and abilities, the static grants and
+printed overrides, and the upkeep, the end of the turn and the tokens, a
+commit each -- `UNIMPLEMENTED` empty again, the fourteen keyword rulings
+and the 101 card and hero rulings pinned, `DIVIDE_DAMAGE` and
+`MODE_CHOICE` as buttons. What it settled is in docs/design/codex.md,
+"Red and green".
 
 The Blood Anarchs and the Moss Sentinels, ninety-two cards, six
 heroes, six tokens: everything with text that step 10 played for its
