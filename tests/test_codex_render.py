@@ -52,8 +52,8 @@ class RenderTests(unittest.TestCase):
 
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
         """The active player's panel is the lower one -- its nameplate's
-        rule violet -- whichever seat is active, and the other player's
-        the upper."""
+        rule in its first hero's colour, Neutral's tan in the basic game
+        -- whichever seat is active, and the other player's the upper."""
         panel = self.panel_height(1)
         upper_rule = (render.PADDING + 5, render.PADDING + render.NAMEPLATE_HEIGHT - 2)
         lower_rule = (render.PADDING + 5,
@@ -64,7 +64,8 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(render.stacked_seats(match), (2 if active == 1 else 1, active))
             board = render.compose_board(match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
             self.assertEqual(board.getpixel(upper_rule)[:3], render.RULE)
-            self.assertEqual(board.getpixel(lower_rule)[:3], render.NAMEPLATE_TURN)
+            self.assertEqual(board.getpixel(lower_rule)[:3],
+                             render.TURN_COLORS["neutral"][0])
 
     def test_the_far_panel_is_turned_round(self) -> None:
         """A turned panel's body is the upright one's rotated whole; its

@@ -877,9 +877,9 @@ else the bot shows is ephemeral.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
-    player's carries a violet rule and "<Hero>'s turn <n>" in a violet
-    pill (`NAMEPLATE_TURN`, below), the hero by its short name --
-    "Troq's turn 7".
+    player's carries a rule and "<Hero>'s turn <n>" in a pill, both in
+    its first hero's colour (`turn_colors`, below), the hero by its
+    short name -- "Troq's turn 7".
   - **A hero's short name is kept by hand** (`SHORT_NAMES` in
     `codex/cards.py`, `Hero.short_name`), the one thing about a card the
     repository holds outside the imported data, because the database has
@@ -929,32 +929,39 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 52-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name, bold and dark on a white
-  pill between two grey rules -- taller and brighter than the canvas's
-  36 pixels of faint capitals, which did not read at Discord's size
-  (the author, 2026-10-09: the turn more prominent, not gold, and not
-  cream).
-- **The turn's two marks are violet and white** (the author,
-  2026-10-09): the active nameplate's pill and rule violet with white
-  words (`NAMEPLATE_TURN`, #6b45c4, `NAMEPLATE_TURN_INK`), the
-  divider's pill white with dark words (`DIVIDER_TURN`,
-  `DIVIDER_TURN_INK`). Their first day the nameplate's were gold and
-  the divider's teal, and the author asked for both replaced: gold is
-  the currency's -- the coin and every cost badge -- so a gold pill
+  "<HERO>'S TURN <N>", the same short name, bold on a pill in that
+  hero's colour between two grey rules -- taller and brighter than the
+  canvas's 36 pixels of faint capitals, which did not read at Discord's
+  size (the author, 2026-10-09: the turn more prominent, not gold, and
+  not cream).
+- **The turn's marks are the active player's first hero's colour** (the
+  author, 2026-10-09): the nameplate's pill and rule and the divider's
+  pill, all three, in the colour of the hero of the deck's first spec
+  (`turn_colors`: `PlayerState.specs[0]`, `CardCatalog.hero_for`,
+  `Hero.color`) -- so the turn says whose it is twice, by the hero's
+  name and by their colour, and in the standard game the two sides'
+  marks differ. `TURN_COLORS` holds the seven colours the cards come in
+  as a fill, the ink that reads on it and an edge: Neutral is tan (the
+  plates' ink, `PLATE_INK`, with dark words), Red, Green, Blue and
+  Purple a mid tone of the card frame's with white words, White white
+  with dark words, and Black a near-black with white words and a grey
+  edge (`QUIET`), because a black pill on this ground has no outline
+  without one -- and its rule is drawn in the edge, since a black rule
+  on the leather vanished (seen on the seven-colour sheet). Nothing
+  else reads a card's colour; the table is keyed as `Hero.color`
+  spells it, lowered. Their first day the nameplate's marks were gold
+  and the divider's teal, and the author asked for both replaced: gold
+  is the currency's -- the coin and every cost badge -- so a gold pill
   beside the gold count said two things in one colour, and teal sat
-  between the two patrol zones' blue and read as a shade of it. The
-  pick was made from a sheet of six candidates drawn on the staged
-  mid-game board and looked at at Discord's scale (`BOARD_SCALE`):
-  raspberry, plum and violet on both marks; a white pill with dark ink
-  on both; a raspberry divider over a white nameplate pill; and a
-  raspberry divider over a hollow nameplate pill, which did not read at
-  all. The author took violet for the nameplate and white for the
-  divider. The two marks are not one colour, and need not be: the
-  divider is the loud one, read first and from across the room, and
-  white on the flat ground between the panels is the brightest thing
-  the board can show; the nameplate's pill sits in a row of words and
-  counts and wants a colour of its own to be told from them. Violet is
-  near the time-rune chit's deep purple and nothing else on the board.
+  between the two patrol zones' blue and read as a shade of it. A sheet
+  of six fixed candidates (raspberry, plum, violet, white, and two
+  mixes) rendered at Discord's scale (`BOARD_SCALE`) came first, and a
+  violet nameplate over a white divider was taken from it, before the
+  author decided the colour should be the hero's rather than fixed.
+  Checked the same way: all seven colours, divider and nameplate, on
+  the staged mid-game board at Discord's scale. Green sits near
+  ARRIVED's and Blue near the patrol zone's; both are the cards' own
+  colours and the marks are not the board's to recolour.
 - **No cream** (the author, 2026-10-09): the canvas's light words were a
   warm cream and its quiet ones a tan; the board, the hand and the
   codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from
