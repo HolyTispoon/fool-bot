@@ -875,12 +875,16 @@ else the bot shows is ephemeral.
     in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
     turn) and is dark with the house chit when destroyed. Every
-    building's picture prints its HP in a heart, so a damaged one has
-    that heart drawn over, a little larger, carrying the HP it has now
-    (`heart_over`, at the printed heart's centre measured on the
-    module's pictures -- `TECH_HEART`, `ADD_ON_HEART`), rather than a
-    damage chit beside it (the author, 2026-10-09); the base's tile
-    prints 20, so its heart is always drawn.
+    building's picture prints its full HP in a heart; a damaged one's
+    heart carries the HP it has now instead, rather than a damage chit
+    beside it (the author, 2026-10-09). The heart is the picture's own:
+    a heart drawn over it in the canvas's flat red did not look like the
+    print's glossy one (the author, the same day), so `wiped_heart`
+    finds the heart by its red, wipes its white-and-black figures with
+    the heart's own red blended in, and `building_picture` writes the
+    new number there, white edged black in Roboto Slab stretched to the
+    print's broader figures. The print's face is not bundled; that
+    stretch is the nearest the bundled one comes.
   - **Across the top, the patrol zone** on the mat's blue: the mat's own
     five slots with their bonus strips under them, cut from the playmat
     ("The cards are data"), each centred in its column; a patroller's
