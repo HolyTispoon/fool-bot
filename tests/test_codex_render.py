@@ -122,6 +122,48 @@ class CodexViewTests(unittest.TestCase):
         self.assertEqual(sum(len(engine.codex_remaining(match, 1, view))
                              for view in ("tech1", "tech2", "tech3", "spells")), 12)
 
+    def test_a_tech_level_is_every_card_printed_with_it(self) -> None:
+        """A Tech II building or upgrade is a Tech II card as much as a
+        unit is: the four views together are every spec's whole codex,
+        and a card is in exactly one of them."""
+        engine = RulesEngine(seed=7)
+        catalog = engine.catalog
+        for spec in sorted({card.spec for card in catalog.cards.values() if card.spec}):
+            rows = tuple((slug, 2) for slug in dict.fromkeys(catalog.codex_for(spec)))
+            with self.subTest(spec=spec):
+                self.assertEqual(len(rows), 12)
+                parts = [engine.codex_view_rows(rows, view)
+                         for view in ("tech1", "tech2", "tech3", "spells")]
+                self.assertEqual(sorted(slug for part in parts for slug, _ in part),
+                                 sorted(slug for slug, _ in rows))
+                self.assertEqual(engine.codex_view_rows(rows, "everything"), rows)
+        anarchy = tuple((slug, 2) for slug in dict.fromkeys(catalog.codex_for("anarchy")))
+        tech2 = {slug for slug, _ in engine.codex_view_rows(anarchy, "tech2")}
+        self.assertTrue(any(catalog.cards[slug].kind == "card" and not catalog.cards[slug].is_unit
+                            for slug in tech2), "Anarchy's Tech II building is a Tech II card")
+
+    def test_a_spec_view_is_its_own_twelve(self) -> None:
+        """The standard game's menu: one view per spec of the deck. The
+        basic game's deck is one spec, so it offers none."""
+        from codex.engine import CODEX_VIEWS, spec_view
+        from codex.formatting import codex_view_name
+        engine = RulesEngine(seed=7)
+        match = engine.new_match(("bashing", "finesse"), first=1)
+        self.assertEqual(engine.codex_views(match.player(1)), CODEX_VIEWS)
+        catalog = engine.catalog
+        rows = tuple((slug, 2) for spec in ("bashing", "anarchy")
+                     for slug in dict.fromkeys(catalog.codex_for(spec)))
+        anarchy = engine.codex_view_rows(rows, spec_view("Anarchy"))
+        self.assertEqual(len(anarchy), 12)
+        self.assertTrue(all(catalog.cards[slug].spec == "Anarchy" for slug, _ in anarchy))
+        self.assertEqual(codex_view_name(spec_view("Anarchy")), "Anarchy")
+        self.assertEqual([codex_view_name(view) for view in CODEX_VIEWS],
+                         ["Everything", "Tech I", "Tech II", "Tech III", "Spells"])
+        with self.assertRaises(ValueError):
+            engine.codex_remaining(match, 1, spec_view("bashing"))
+        with self.assertRaises(ValueError):
+            engine.codex_view_rows(rows, "tech4")
+
     def test_nothing_is_playable_off_the_main_phase(self) -> None:
         engine = RulesEngine(seed=7)
         match = engine.new_match(("bashing", "finesse"), first=1)

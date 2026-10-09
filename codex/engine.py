@@ -80,8 +80,18 @@ ADD_ONS = ("tower", "surplus")
 #: fewer (UMR p. 5).
 TECH_PICKS = 2
 TECH_FREE_WORKERS = 10
-#: The views a codex is shown through (`RulesEngine.codex_views`).
+#: The views a codex is shown through (`RulesEngine.codex_views`): the
+#: whole, one tech level, the spells -- and, for a deck of more than one
+#: spec, one spec, as `spec:<key>` (`spec_view`).
 CODEX_VIEWS = ("everything", "tech1", "tech2", "tech3", "spells")
+SPEC_VIEW_PREFIX = "spec:"
+
+
+def spec_view(spec: str) -> str:
+    """The view of one spec's codex: "spec:anarchy"."""
+    return SPEC_VIEW_PREFIX + spec.strip().lower()
+
+
 #: What a hero's death costs and gives (UMR p. 7).
 SUMMONING_RUNES_ON_DEATH = 2
 LEVELS_FOR_A_KILL = 2
@@ -1382,32 +1392,60 @@ class RulesEngine:
         """
         The views a player's codex is shown through -- everything, a
         tech level, or the spells (the author, 2026-10-08: "a lot of
-        cards", so a menu rather than one picture). The standard game
-        adds one per spec (step 9).
+        cards", so a menu rather than one picture) -- and, where the
+        deck is more than one spec (the standard game's three, step 9),
+        one view per spec, since a seventy-two card codex is three
+        binders. The Codex button's menu and the tech picker's are both
+        this list, so the two narrow the same way.
         """
-        return CODEX_VIEWS
+        specs = player.specs
+        if len(specs) < 2:
+            return CODEX_VIEWS
+        return CODEX_VIEWS + tuple(spec_view(spec) for spec in specs)
+
+    def codex_view_rows(self, rows: Sequence[tuple[str, int]],
+                        view: str) -> tuple[tuple[str, int], ...]:
+        """
+        `rows` -- (slug, copies), a codex as `codex_counts` lists it or
+        as `TechOptions.codex` carries it -- narrowed to `view`, in the
+        order given. **The one reading of which cards a view holds**: a
+        tech level is every card printed with it, a building or an
+        upgrade as much as a unit; the spells are the rest of a codex,
+        so the four together are the whole; a spec's view is its own
+        twelve. A view nothing offers raises.
+        """
+        if view == "everything":
+            return tuple(rows)
+        if view.startswith(SPEC_VIEW_PREFIX):
+            key = view[len(SPEC_VIEW_PREFIX):]
+            return tuple(
+                row for row in rows
+                if (self.catalog.cards[row[0]].spec or "").strip().lower() == key
+            )
+        if view not in CODEX_VIEWS:
+            raise ValueError(f"not a codex view: {view!r}")
+
+        def shown(slug: str) -> bool:
+            card = self.catalog.cards[slug]
+            if view == "spells":
+                return card.is_spell
+            return card.tech_level == int(view[-1])
+
+        return tuple(row for row in rows if shown(row[0]))
 
     def codex_remaining(self, match: MatchState, seat: int,
                         view: str = "everything") -> tuple[tuple[str, int], ...]:
         """
         What `seat`'s codex still holds -- (slug, copies left), every
         card of it, in the data's order, a card with none left at 0 --
-        narrowed to `view` (`codex_views`). **Its owner's alone**: which
-        cards are still in a codex is fog of war (UMR p. 5).
+        narrowed to `view`, one of `codex_views` for that player.
+        **Its owner's alone**: which cards are still in a codex is fog
+        of war (UMR p. 5).
         """
-        if view not in CODEX_VIEWS:
+        player = match.player(seat)
+        if view not in self.codex_views(player):
             raise ValueError(f"not a codex view: {view!r}")
-        rows = self.codex_counts(match.player(seat))
-        if view == "everything":
-            return rows
-
-        def shown(slug: str) -> bool:
-            card = self.catalog.cards[slug]
-            if view == "spells":
-                return card.is_spell
-            return card.is_unit and card.tech_level == int(view[-1])
-
-        return tuple(row for row in rows if shown(row[0]))
+        return self.codex_view_rows(self.codex_counts(player), view)
 
     def hand_rows(self, match: MatchState, seat: int) -> tuple[PlayableCard, ...]:
         """

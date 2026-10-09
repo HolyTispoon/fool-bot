@@ -25,25 +25,32 @@ from collections import Counter
 
 import discord
 
+from codex.formatting import codex_view_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_hand
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import SafeView, send_ephemeral
-
-#: What each codex view is called in the menu.
-CODEX_VIEW_LABELS = {
-    "everything": "Everything",
-    "tech1": "Tech I",
-    "tech2": "Tech II",
-    "tech3": "Tech III",
-    "spells": "Spells",
-}
 
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
     "In a test game each side chooses its tech when its own turn begins, from "
     "**My hand** -- nothing is chosen during the other side's turn."
 )
+
+
+def codex_view_menu(views, current: str, row: int | None = None) -> discord.ui.Select:
+    """
+    The **Show...** menu over a codex -- the engine's `codex_views`, each
+    by `codex_view_name`, the one shown marked -- as the Codex browser
+    and the tech picker both carry it. The caller binds its callback.
+    """
+    return discord.ui.Select(
+        placeholder="Show...", row=row,
+        options=[
+            discord.SelectOption(label=codex_view_name(view), value=view, default=view == current)
+            for view in views
+        ],
+    )
 
 
 def swap_label(layout: str) -> str:
@@ -198,20 +205,13 @@ class CodexBrowser(SafeView):
         self.side = side
         game = cog.games.get(game_id)
         match = cog.service.load(game)
-        views = cog.engine.codex_views(match.player(seat))
-        select = discord.ui.Select(
-            placeholder="Show...",
-            options=[
-                discord.SelectOption(label=CODEX_VIEW_LABELS.get(view, view), value=view)
-                for view in views
-            ],
-        )
+        select = codex_view_menu(cog.engine.codex_views(match.player(seat)), "everything")
         select.callback = self.choose
         self.select = select
         self.add_item(select)
 
     def caption(self, view: str) -> str:
-        return f"Your codex{self.side}: {CODEX_VIEW_LABELS.get(view, view)}. Only you can see this."
+        return f"Your codex{self.side}: {codex_view_name(view)}. Only you can see this."
 
     async def picture(self, match, view: str) -> discord.File:
         rows = self.cog.engine.codex_remaining(match, self.seat, view)
@@ -226,6 +226,8 @@ class CodexBrowser(SafeView):
         if game is None:
             return
         view = self.select.values[0]
+        for option in self.select.options:
+            option.default = option.value == view
         await interaction.response.edit_message(
             content=self.caption(view), attachments=[await self.picture(match, view)], view=self,
         )
