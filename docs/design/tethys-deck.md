@@ -32,7 +32,7 @@ odds in an even number of suits -- twice the number where both the odds
 and Left are Fortune -- so four here (Money, Tools, States, Fools) and
 with the evens in two (Might, Fiends). The author kept the first two.
 
-## Why the cards are drawn by code
+## Why the cards are drawn by code, and why the pieces are pictures
 
 The first round was generated art: engraved scenes, one per card, from
 the local FLUX model. The author looked at ten and turned the deck round:
@@ -46,7 +46,64 @@ flat (schnell quantises the init strength to whole steps, so there is no
 "a little"), and left to itself it drew a coin medal with gibberish
 lettering. `relief.py` does the metal instead.
 
+Then the drawings, even lit as real materials, were "still abysmal"
+beside the coin art (the author, 2026-10-09), and the coins look real
+because they are pictures. So the pieces are pictures too -- see "The
+pieces are pictures" below. The card itself is still drawn by code: the
+frame, the ranks, the spread, the back, the print sheets; what the model
+makes is one object on white, which is the one thing it does well. The
+drawings stay in `icons.py` as the fallback behind any piece without a
+picture, and as the record of what each symbol is.
+
+## The pieces are pictures
+
+`scripts/generate_tethys_pieces.py` holds one prompt per piece and mark
+(`SUBJECTS`, with the seed each was made with) and runs them through
+FLUX.1-schnell on the author's Mac (`mflux-generate`, installed by hand;
+a minute or two a render). What was learned making them:
+
+- **One object, upright, on pure white, photographed.** "Playing card",
+  "illustration" and "icon" make the model draw card furniture; a planet's
+  name gets lettered onto the picture; a brand gets lettered onto a
+  handle unless the handle is "plain" and "unmarked". The suffix
+  `STUDIO` says all of that once.
+- **Medieval throughout**: "if the weapons are medieval style, so should
+  the tools be." A smith's forging hammer, a miner's pick, an oak spade
+  shod with iron under a T handle, the anvil; the Tools mark is the
+  hammer crossed with tongs, not a wrench.
+- **Doom is ruin, never breakage**: "ruined or rusty or nasty or
+  deserted or neglected or foul -- all are good for doom", and "no need
+  for broken". `RUIN` is that vocabulary; the first Doom prompts asked
+  for a snapped blade and the model mostly ignored them anyway.
+- **The author approved the style on a sheet of four** -- the sword and
+  the smith's hammer, whole and ruined -- before the rest were made,
+  rejecting the first ruined hammer ("weird") and a wisp near the ruined
+  sword's tip; those two were re-rolled with new seeds and "no smoke, no
+  dust" in the suffix.
+- **Keying.** The background is the near-white connected to the
+  picture's border (a flood fill with a tight tolerance), grown a little
+  over the faint shadow -- only over very light, unsaturated pixels,
+  because a looser pass once took a polished blade's highlight for
+  shadow and ate the blade. The edge is feathered a pixel and its white
+  fringe un-blended. An elongated piece is stood upright by its long
+  axis (the model lays swords diagonally however it is asked), with the
+  end `WIDE_END` names at the top: a hammer's head, a sword's point.
+  Compact things -- crown, anvil, mask, disc, cap, the crossed marks --
+  are left as rendered.
+- **Committed, not built.** The keyed PNGs live in `tethysdeck/images/`,
+  named as `icons.icon_name` names a piece (`might_sword_fortune`, and a
+  suit's mark is `might_fortune`), and `relief.IconSet` takes a picture
+  over the drawing wherever one exists. Fiends, States and Fools have a
+  picture for their one mark, at four sizes on the cards, so no suit is
+  a drawing beside the others. Made once by hand, like the rulebooks'
+  cover dice; never per build. `tests/test_tethys_deck.py` checks only
+  that every picture is named as a piece the deck has.
+
 ## The symbols
+
+These are the drawings `icons.py` makes. Since 2026-10-09 each has a
+picture in front of it (above); the drawings are the fallback and the
+record.
 
 One drawing per suit, **whole for Fortune and broken, cracked, split or
 sagging for Doom**, each in its own material colours (`icons.COLOURS`):
@@ -111,7 +168,8 @@ leather, cloth and stone are matte with a soft sheen; gems glow at the
 rim; velvet lights at grazing angles. Doom is lit lower (`LIGHT`), its
 gold tarnished and Tools' steel rusted matte. The coin is not lit; it is
 already a picture. It is slow -- about six seconds a drawing at the
-2048-pixel working size -- so `IconSet` renders each once.
+2048-pixel working size -- so `IconSet` renders each once, and only for
+a piece that has no picture in `tethysdeck/images/`.
 
 An earlier relief took the drawing's alpha alone as the height, one
 bevel and one dome for everything, and lit the painted colours as they
@@ -123,7 +181,11 @@ each material being lit its own way.
 
 A card's value is **made of pieces, the way the coins make a sum**: 1,
 3, 6 and 12, the fewest pieces, largest first (`deck.pieces`), spread
-over the face like pips (`cards.SPREAD`). A 7 is a 6-piece and a
+over the face like pips (`cards.SLOTS`: a centre and the room each slot
+has; a piece is cropped to what it shows and fills its value's size
+across or 1.6 times that down, whichever binds, so a sword stands tall
+where a crown sits wide -- the pictures made square slots shrink every
+tall thing to a sliver). A 7 is a 6-piece and a
 1-piece; a 10 is 6, 3 and 1. **The two rulers share the suit's power
 equally**: Left and Right are each worth 12 (the author, 2026-10-09,
 "left and right ... equally sharing the power"), so each is one whole
@@ -189,7 +251,14 @@ fronts, so a duplex print puts a back behind each front:
 ```bash
 python3 scripts/render_tethys_deck.py            # everything, into tethysdeck/print/
 python3 scripts/render_tethys_deck.py --only sheets   # just the contact sheets
+python3 scripts/generate_tethys_pieces.py generate might_axe_doom   # re-roll one piece (needs mflux)
+python3 scripts/generate_tethys_pieces.py key might_axe_doom        # key it into tethysdeck/images/
+python3 scripts/generate_tethys_pieces.py sheet                     # every picture on one sheet
 ```
+
+A re-rolled piece is a new seed in `SEEDS` and the raw render set aside
+first (`tethysdeck/print/pieces/raw/`, gitignored), since `generate`
+skips what exists.
 
 Look at `deck_sheet.png` (all 72), `closeup_sheet.png` (six, large),
 `icon_sheet.png` and the two ladders after any change to a drawing;

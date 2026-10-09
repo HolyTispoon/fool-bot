@@ -15,11 +15,19 @@ rest are matte with a soft sheen; gems glow at their rims; velvet lights
 at grazing angles. Doom is lit lower, its gold tarnished and Tools' steel
 rusted. Money is not lit here: its pieces are the coins themselves.
 """
+from pathlib import Path
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from tethysdeck import icons
 from tethysdeck.deck import VARIANTS
+
+# A piece that is a picture rather than a drawing: a photoreal object on
+# transparency, made by `scripts/generate_tethys_pieces.py` and committed,
+# named as `icons.icon_name` names it. The sword, the axe, the sceptre, the
+# crown, the hammer, the pick, the spade, the anvil, and the five marks.
+PICTURES = Path(__file__).resolve().parent / "images"
 
 WORK = 2048              # the lighting's working resolution
 SQ2 = 2 ** 0.5
@@ -327,8 +335,9 @@ def sheet(images, out):
 
 
 class IconSet:
-    """Every picture a card needs, rendered once and kept: a suit's mark and
-    its pieces, lit (Money's are the coin's faces, left as they are)."""
+    """Every picture a card needs, loaded or rendered once and kept: a suit's
+    mark and its pieces -- a committed picture where there is one (`PICTURES`),
+    Money's the coin's faces, and the drawing lit as its materials for the rest."""
 
     def __init__(self):
         self._images: dict[str, Image.Image] = {}
@@ -336,7 +345,10 @@ class IconSet:
     def image(self, suit: str, fate: str, variant: str | None = None) -> Image.Image:
         name = icons.icon_name(suit, variant, fate)
         if name not in self._images:
-            if suit == "money":
+            picture = PICTURES / f"{name}.png"
+            if picture.exists():
+                self._images[name] = Image.open(picture).convert("RGBA")
+            elif suit == "money":
                 self._images[name] = icons.render(suit, fate)
             else:
                 self._images[name] = emboss(suit, fate, size=icons.SIZE, variant=variant)

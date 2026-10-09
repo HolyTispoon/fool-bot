@@ -8,7 +8,7 @@ orange; the paper is white either way (the author: no cream anywhere).
 from PIL import Image, ImageDraw, ImageFont
 
 from tethysdeck import icons
-from tethysdeck.deck import RANKS, SUITS, fate_of, money_coins, pieces
+from tethysdeck.deck import RANKS, SUITS, VARIANTS, fate_of, money_coins, pieces
 from tethysdeck.relief import IconSet
 
 W, H, RADIUS = 750, 1050, 36
@@ -23,13 +23,18 @@ PALETTE = {
 PIECE_SIZE = {1: 230, 3: 280, 6: 330, 12: 400}
 COIN_SIZE = {("bronze", 1): 200, ("bronze", 3): 225, ("silver", 1): 260,
              ("silver", 3): 290, ("gold", 1): 330, ("gold", 3): 370}
-# Where the pieces sit, by how many there are: spread over the face like pips.
-SPREAD = {
-    1: [(375, 490)],
-    2: [(375, 320), (375, 660)],
-    3: [(375, 300), (225, 660), (525, 660)],
-    4: [(225, 320), (525, 320), (225, 660), (525, 660)],
+# Where the pieces sit, by how many there are, spread over the face like pips, and
+# the room each has: (centre, width, height). A piece is cropped to what it shows and
+# scaled to fill its value's size (PIECE_SIZE) across or TALL times that down, whichever
+# binds first, cut to the slot's room -- so a sword or a haft stands tall and a crown
+# or a disc sits wide, instead of every piece shrinking into a square.
+SLOTS = {
+    1: [((375, 470), 420, 620)],
+    2: [((375, 300), 420, 330), ((375, 650), 420, 330)],
+    3: [((375, 290), 420, 320), ((225, 650), 280, 320), ((525, 650), 280, 320)],
+    4: [((225, 300), 280, 330), ((525, 300), 280, 330), ((225, 650), 280, 330), ((525, 650), 280, 330)],
 }
+TALL = 1.6
 
 _coins: dict[tuple, Image.Image] = {}
 
@@ -48,8 +53,17 @@ def coin_image(metal: str, amount: int, fate: str) -> Image.Image:
     return _coins[key]
 
 
+def fit(im: Image.Image, width: int, height: int) -> Image.Image:
+    """The picture cropped to what it shows, scaled to fill `width` or `height`, whichever binds."""
+    bbox = im.getchannel("A").point(lambda v: 255 if v > 8 else 0).getbbox()
+    if bbox:
+        im = im.crop(bbox)
+    scale = min(width / im.width, height / im.height)
+    return im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
+
+
 def _spread(img: Image.Image, items: list[Image.Image]) -> None:
-    for im, (cx, cy) in zip(items, SPREAD[len(items)]):
+    for im, ((cx, cy), _, _) in zip(items, SLOTS[len(items)]):
         img.alpha_composite(im, (cx - im.width // 2, cy - im.height // 2))
 
 
@@ -65,7 +79,8 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     short = {"Left": "L", "Right": "R"}.get(rank, rank)
     corner = Image.new("RGBA", (130, 150), (0, 0, 0, 0))
     ImageDraw.Draw(corner).text((65, 0), short, font=font(66), fill=p["ink"], anchor="ma")
-    corner.alpha_composite(icon_set.mark(suit, fate, 62), (34, 84))
+    mark = fit(icon_set.image(suit, fate), 62, 62)
+    corner.alpha_composite(mark, (34 + (62 - mark.width) // 2, 84 + (62 - mark.height) // 2))
     img.alpha_composite(corner, (42, 40))
     img.alpha_composite(corner.rotate(180), (W - 172, H - 190))
 
@@ -73,7 +88,13 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     if suit == "money":
         _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
     else:
-        _spread(img, [icon_set.piece(suit, value, fate, PIECE_SIZE[value]) for value in pieces(suit, rank)])
+        values = pieces(suit, rank)
+        items = []
+        for value, (_, room_w, room_h) in zip(values, SLOTS[len(values)]):
+            size = PIECE_SIZE[value]
+            items.append(fit(icon_set.image(suit, fate, VARIANTS.get(suit, {}).get(value)),
+                             min(size, room_w), min(round(size * TALL), room_h)))
+        _spread(img, items)
     if rank in ("Left", "Right"):
         d.text((W // 2, 862), rank.upper(), font=font(80), fill=p["ink"], anchor="mm")
     else:

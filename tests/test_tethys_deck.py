@@ -76,6 +76,19 @@ class PiecesTests(unittest.TestCase):
         self.assertEqual(set(deck.VARIANTS), {"might", "tools"})
 
 
+class PictureNamesTests(unittest.TestCase):
+    """The committed pictures are named as `icons.icon_name` names a piece, so
+    `IconSet` finds each one; the pictures themselves are not tested."""
+
+    def test_every_picture_is_a_piece(self):
+        from tethysdeck import icons
+        from tethysdeck.relief import PICTURES
+
+        names = {icons.icon_name(suit, variant, fate) for suit, variant, fate in icons.every_icon()}
+        for path in sorted(PICTURES.glob("*.png")):
+            self.assertIn(path.stem, names, path.name)
+
+
 class CogAgreementTests(unittest.TestCase):
     """The bot deals the same deck by name."""
 
