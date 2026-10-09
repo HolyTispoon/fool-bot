@@ -100,7 +100,7 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     """Every set, rarest first, with a mixed example from `cards`, the
     deck's own faces keyed by (suit, rank)."""
     c = _Canvas(AID_WIDTH, 260 + ROW_H * len(SETS) + 120)
-    c.text(MARGIN, 36, "Tethys Deck · Six-Card Sets", 34, "bold")
+    c.text(MARGIN, 36, "Tethys Poker", 34, "bold")
     c.text(MARGIN, 88, "Your best set counts. Sets are listed from rarest to most common, and no set last.", 16, fill=INK2)
 
     y, x = 120, MARGIN
@@ -169,7 +169,7 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
 
     bottom = PLOT_TOP + CHART_ROW * len(SETS)
     c = _Canvas(CHART_WIDTH, bottom + 110)
-    c.text(24, 22, "Tethys deck: six-card hands", 24, "bold")
+    c.text(24, 22, "Tethys Poker: the odds", 24, "bold")
     c.text(24, 52, "Chance of each set when all six cards count, rarest first and no set last. Log scale.", 14, fill=INK2)
 
     _diamond(c, PLOT_LEFT, 92, 6, MIXED_DOT, circle=True)

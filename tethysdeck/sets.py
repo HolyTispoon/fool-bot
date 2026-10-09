@@ -1,4 +1,4 @@
-"""The sets a hand of six makes from the Tethys deck, and how many hands
+"""Tethys poker: the sets a hand of six makes from the Tethys deck, and how many hands
 make each one, as poker reads a hand of five.
 
 All six cards count. Left and Right sit after 10: either follows 10 in

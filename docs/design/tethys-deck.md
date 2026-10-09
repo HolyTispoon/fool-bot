@@ -126,9 +126,9 @@ Doom d12**, the darker of the studio's orange pair, drawn at build time
 by `d12ball.dice.die_mark` (under a second, so nothing is committed).
 Nothing on the back is lettered.
 
-## The six-card sets
+## Tethys poker: the six-card sets
 
-A hand of six read the way poker reads five, and what each set's chance
+**Tethys poker** is the name (the author, 2026-10-09): a hand of six read the way poker reads five, and what each set's chance
 is (the author, 2026-10-09). `sets.py` is the rule and the count;
 `sets_aid.py` draws it twice, the player aid and a chart.
 
