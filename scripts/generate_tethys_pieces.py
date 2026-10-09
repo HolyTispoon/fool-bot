@@ -103,8 +103,9 @@ SUBJECTS = {
                    "moss and grime in the cracks",
     "fools_fortune": "a jester's cap standing upright with three perky points in purple, red and green velvet, a gold bell on "
                      "each tip, a zigzag gold band round the brim",
-    "fools_doom": f"an empty jester's cap lying on its own with no head and no face in it, {RUIN}, the three points sagging "
-                  "and drooping, the velvet faded, filthy and moth-eaten, the bells tarnished black",
+    "fools_doom": f"an empty jester's cap standing upright on its own with no head and no face in it, three points in faded "
+                  f"purple, red and green velvet sagging and drooping over, a tarnished zigzag band round the brim, {RUIN}, "
+                  "filthy, moth-eaten and dusty, the bells on the tips tarnished black",
 }
 PROMPTS = {name: f"{subject}, {STUDIO}" for name, subject in SUBJECTS.items()}
 SEEDS = {name: 1000 + i * 7 for i, name in enumerate(SUBJECTS)}
@@ -112,8 +113,9 @@ SEEDS = {name: 1000 + i * 7 for i, name in enumerate(SUBJECTS)}
 # ruined sceptre carried debris and stood on its head, the first Tools mark's tongs fell apart, the first
 # whole spade was lettered, the first whole disc hid half its symbol on a stand, the first ruined cap had a
 # face in it, the first whole demon mask hung from a shop tag; the Might mark was one sword, a sliver in a
-# corner, and became two crossed.
-SEEDS.update({"might_sword_doom": 4101, "tools_hammer_doom": 4108, "might_sceptre_doom": 5101,               "tools_spade_fortune": 5103, "states_fortune": 5104, "fools_doom": 5105, "fiends_fortune": 5106,
+# corner, and became two crossed; the second ruined cap was a shapeless sack (the author: everything good
+# "except the fools doom"), and the third was picked from three seeds.
+SEEDS.update({"might_sword_doom": 4101, "tools_hammer_doom": 4108, "might_sceptre_doom": 5101,               "tools_spade_fortune": 5103, "states_fortune": 5104, "fools_doom": 6102, "fiends_fortune": 5106,
               "tools_fortune": 5107, "might_fortune": 5108, "might_doom": 5109})
 
 # Which end of an elongated piece goes up: its wide end or its narrow end; the rest are left as rendered.
