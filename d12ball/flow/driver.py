@@ -87,6 +87,7 @@ from d12ball.flow import (
 )
 from d12ball.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from d12ball.game import D12BallGame, Formation
+from gamekit.driver import MOVED_ON, STEP_OWED  # noqa: F401 -- re-exported
 from d12ball.prompts import (
     CHOICES,
     MERGE_SIDES,
@@ -665,17 +666,11 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.DRIBBLE_BURST_CHOICE: "That maneuver has already resolved.",
 }
 
-#: The sentence for a kind `STALE_CLICK` does not name.
-MOVED_ON = "That answers a question this match has moved on from."
-
-#: What an action arriving while the bot owes a step is told -- a
-#: click on a prompt a restart left up over a half-run cascade, a web
-#: request between two of the bot's own steps. The step is
-#: `d12ball.prompts.owed_step`'s and `GameService.resume` runs it.
-STEP_OWED = (
-    "Nothing is being asked yet: the game still has a step of its own "
-    "to run here."
-)
+#: `MOVED_ON`, the sentence for a kind `STALE_CLICK` does not name, and
+#: `STEP_OWED`, what an action arriving while the bot owes a step is told
+#: (the step is `d12ball.prompts.owed_step`'s and `GameService.resume`
+#: runs it), are `gamekit.driver`'s -- the Codex driver says the same --
+#: and imported above.
 
 
 def _refuse(reason: str, law: Optional[str] = None) -> None:

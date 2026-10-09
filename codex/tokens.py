@@ -21,7 +21,8 @@ card texts' tokens.
 """
 
 import re
-from typing import Callable, Optional
+
+from gamekit.tokens import Resolver
 
 #: The kinds a token may be. `gold` takes the amount, `player` and `to`
 #: the seat, `card` and `hero` the slug.
@@ -29,9 +30,7 @@ KINDS = ("exhaust", "target", "gold", "arrow", "codex", "player", "to", "card", 
 
 TOKEN_PATTERN = re.compile(r"\{(" + "|".join(KINDS) + r")((?::[a-z0-9_]+)*)\}")
 
-#: What a frontend renders a token with: the kind and its arguments in,
-#: the text out -- or `None` to leave the token as it stands.
-Resolver = Callable[[str, tuple[str, ...]], Optional[str]]
+#: `Resolver`, what a frontend renders a token with, is `gamekit.tokens`'s.
 
 
 def exhaust() -> str:

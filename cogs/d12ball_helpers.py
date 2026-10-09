@@ -15,6 +15,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from botkit.channels import (  # noqa: F401 -- re-exported: the names moved
+    CHANNEL_NAME_MAX_LENGTH,
+    get_or_create_category,
+    slugify_channel_part,
+)
 from gamebot import read_command_ids
 
 from cogs.game_auth import (  # noqa: F401 -- re-exported: the names moved
@@ -104,8 +109,8 @@ LOGGER = logging.getLogger(__name__)
 # about -- so it has to stay optional for channels named before there
 # was one.
 CHANNEL_NAME_PATTERN = re.compile(r"^d12ball-pbd(\d+)(?:-.*)?$")
-# Discord's limit on a channel name.
-CHANNEL_NAME_MAX_LENGTH = 100
+# Discord's limit on a channel name, `CHANNEL_NAME_MAX_LENGTH`, is
+# `botkit.channels`'s and imported above.
 PBD_GAMES_CATEGORY_NAME = "PBD Games"
 PBD_ARCHIVE_CATEGORY_NAME = "PBD Archive"
 # BENCH_DESTINATIONS is imported above from d12ball.formatting, which
@@ -547,22 +552,6 @@ async def load_role_emojis(
     return role_emojis
 
 
-def slugify_channel_part(text: str) -> str:
-    """
-    Turn free text into something Discord will keep verbatim in a
-    channel name.
-
-    Discord lowercases a text channel's name and rewrites spaces as
-    dashes itself, so doing it here only means the name we save and the
-    name the server shows are the same string. Punctuation is dropped
-    rather than kept, because Discord's own rewriting of it is not
-    worth predicting. Letters outside ASCII survive -- they are legal
-    in a channel name, and a display name that is entirely non-Latin
-    would otherwise slugify to nothing.
-    """
-    return re.sub(r"[^\w]+", "-", text, flags=re.UNICODE).strip("-_").casefold()
-
-
 def build_game_channel_name(
     game_number: int,
     player_1_name: str,
@@ -889,18 +878,6 @@ def filter_choices(
         app_commands.Choice(name=label, value=value)
         for value, label in matches[:25]
     ]
-
-
-async def get_or_create_category(
-    guild: discord.Guild,
-    name: str,
-    reason: str,
-) -> discord.CategoryChannel:
-    for category in guild.categories:
-        if category.name.casefold() == name.casefold():
-            return category
-
-    return await guild.create_category(name=name, reason=reason)
 
 
 # -- The three modes ----------------------------------------------

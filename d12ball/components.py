@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from math import ceil
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 # `RuleRefusal` is defined beside the game record, the leaf of the
 # model, because the record refuses too (a coin flipped twice, a lobby
@@ -14,6 +14,7 @@ from typing import Any, Callable, Optional
 # imported from here everywhere else.
 from d12ball.game import CoinFace, Formation, RuleRefusal, Team, VALID_BOARD_SIZES, team_display_name  # noqa: F401
 from d12ball.special_abilities import BOOST_BONUS, BOOST_DRAIN_COST
+from gamekit.saved import SavedField
 
 
 DATA_FOLDER = Path(__file__).resolve().parent / "data"
@@ -1680,43 +1681,8 @@ def formation_space_order(
     ]
 
 
-@dataclass(frozen=True)
-class SavedField:
-    """
-    One field of a match that is saved and read back on its own terms:
-    its key, what a save older than the field comes back as, and any
-    conversion either way.
-
-    `default` is for an immutable fallback and `factory` for a mutable
-    one, exactly as `dataclasses.field` splits them -- a shared `[]`
-    handed to every game that predates a field is the same bug there
-    as anywhere else.
-
-    `write` and `read` are the copies. A mutable field written straight
-    into the dict is one the live match can go on mutating between
-    `to_dict` and the save landing, and one read straight out is a
-    match holding a reference into the loaded JSON. Both directions are
-    usually the same callable; `time_outs_used` is the one that
-    differs, stored `sorted` so a save file is stable and read back as
-    a set.
-    """
-
-    name: str
-    default: Any = None
-    factory: Optional[Callable[[], Any]] = None
-    write: Optional[Callable[[Any], Any]] = None
-    read: Optional[Callable[[Any], Any]] = None
-
-    def stored(self, value: Any) -> Any:
-        """The value as it goes into the save."""
-        return self.write(value) if self.write is not None else value
-
-    def restored(self, data: dict) -> Any:
-        """The value as it comes back, for a save that may predate it."""
-        if self.name not in data:
-            return self.factory() if self.factory is not None else self.default
-        value = data[self.name]
-        return self.read(value) if self.read is not None else value
+# `SavedField`, one row of the save table below, is `gamekit.saved`'s,
+# shared with the Codex model, and imported above.
 
 
 def _optional_team_side(value: Optional[str]) -> Optional["TeamSide"]:

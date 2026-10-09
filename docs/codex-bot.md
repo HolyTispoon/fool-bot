@@ -696,7 +696,7 @@ starting.
 | ~~6~~ | ~~Triggers, spells and the ongoing spells~~ -- landed; what it settled is in docs/design/codex.md, "Targeting and the effects" | large | every card of the set does what it says; `UNIMPLEMENTED` is empty |
 | ~~7~~ | ~~The board drawn element by element~~ -- landed; what it settled is in docs/design/codex.md, "The board on Discord" and "The cards are data" | medium | a mid-game board on the test server is the canvas's stacked board: cards at 200 by 273, the far side turned to face the near one, nothing of the mat but its five patrol slots |
 | ~~8~~ | ~~Finishing a game: concede, abandon, rematch, the golden~~ -- landed; what it settled is in docs/design/codex.md, "The end of a game" and "The golden" | small | a finished game ends cleanly, offers a rematch and is moved aside; a seeded whole game is pinned byte for byte |
-| 9 | The look back: what turned out identical moves to one home | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
+| ~~9~~ | ~~The look back: what turned out identical moves to one home~~ -- landed; what it settled is in docs/design/codex.md, "What the two games share" | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
 | 10 | The standard game's rules, over the red and green data | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
 | 11 | Red and green: every card does what it says | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
 | 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
@@ -1936,6 +1936,15 @@ Stop: a game finished on the test server, its rematch opened.
 ```
 
 ### 9. The look back: what turned out identical moves to one home
+
+**Landed.** What was identical moved to `gamekit/` (the model's side:
+`jsonable`, the drivers' two shared refusals, the token `Resolver`,
+`StopHandling`, `SavedField`, the games file's guarded read and write)
+and `botkit/` (Discord's: the channel helpers and the per-game click
+lock), both games importing it and re-exporting the old names; every
+pair that differs in substance, and why, is in docs/design/codex.md,
+"What the two games share". Step 8 was already struck when this step
+ran.
 
 Decision 2's second half. With two games running, the generic and the
 particular can finally be told apart by diffing them.
