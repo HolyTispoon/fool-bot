@@ -147,17 +147,18 @@ WORD = (242, 242, 242)           # #f2f2f2
 QUIET = (168, 168, 168)          # #a8a8a8
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
-#: The turn's marks -- the active nameplate's rule and its "<Hero>'s
-#: turn <n>" pill, and the divider's pill -- are the colour of the active
-#: player's first hero (the author, 2026-10-09): the seven colours the
-#: cards come in, Neutral as tan, each with the ink that reads on it,
-#: and Black with an edge, since a black pill on this ground needs one
-#: (and its rule is drawn in the edge, for the same reason).
-#: Keyed as `Hero.color` spells them, lowered. Their first day the
-#: nameplate's were gold and the divider's teal, and the author asked
-#: for both replaced: gold is the currency's, and teal sat between the
-#: two patrol zones' blue -- docs/design/codex.md, "The board on
-#: Discord".
+#: The active nameplate's mark -- its rule and its "<name>'s turn <n>"
+#: pill -- is the colour of the active player's first hero (the author,
+#: 2026-10-09): the seven colours the cards come in, Neutral as tan,
+#: each with the ink that reads on it, and Black with an edge, since a
+#: black pill on this ground needs one (and its rule is drawn in the
+#: edge, for the same reason). Keyed as `Hero.color` spells them,
+#: lowered. The divider's pill is white in every game, with dark words
+#: (the author, 2026-10-09: the hero's colour is the pill's alone).
+#: Their first day the nameplate's were gold and the divider's teal,
+#: and the author asked for both replaced: gold is the currency's, and
+#: teal sat between the two patrol zones' blue -- docs/design/codex.md,
+#: "The board on Discord".
 TurnColors = tuple[tuple[int, int, int], tuple[int, int, int], Optional[tuple[int, int, int]]]
 TURN_COLORS: dict[str, TurnColors] = {
     "neutral": ((201, 168, 106), GROUND, None),   # tan, the plates' ink
@@ -168,6 +169,7 @@ TURN_COLORS: dict[str, TurnColors] = {
     "white": (WORD, GROUND, None),
     "purple": ((125, 71, 168), WORD, None),       # #7d47a8
 }
+DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 HEART_FILL = (208, 32, 28)       # #d0201c
 HEART_EDGE = (90, 11, 9)         # #5a0b09
@@ -680,11 +682,11 @@ def hero_name(hero: HeroState, cards: CardCatalog) -> str:
     return cards.heroes[hero.slug].name
 
 
-def turn_label(match: MatchState, cards: CardCatalog) -> str:
-    """"<Hero>'s turn <n>", named by the active player's hero, for short
-    -- "Troq's turn 7", "Zane's turn 3" (`Hero.short_name`)."""
-    hero = cards.heroes[match.player(match.active).hero.slug]
-    return f"{hero.short_name}'s turn {match.turn}"
+def turn_label(match: MatchState, name: str) -> str:
+    """"<name>'s turn <n>", `name` the active player's as the frontend
+    names them -- "perrytom's turn 7". The player and not a hero,
+    since a standard game's deck has three (the author, 2026-10-09)."""
+    return f"{name}'s turn {match.turn}"
 
 
 def is_to_act(match: MatchState, seat: int) -> bool:
@@ -692,9 +694,9 @@ def is_to_act(match: MatchState, seat: int) -> bool:
 
 
 def turn_colors(match: MatchState, cards: CardCatalog) -> TurnColors:
-    """The fill, the ink and the edge of the turn's marks: the colour of
-    the active player's first hero -- "Troq's turn 7" in Neutral's tan,
-    "Jaina's turn 7" in Red's red."""
+    """The fill, the ink and the edge of the active nameplate's mark:
+    the colour of the active player's first hero -- Neutral's tan for a
+    Bashing deck, Red's red for a Fire one."""
     player = match.player(match.active)
     hero = cards.hero_for(player.specs[0])
     return TURN_COLORS[(hero.color or "neutral").strip().lower()]
@@ -716,7 +718,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     The nameplate, 56 tall: the player, the spec and hero, then gold
     (the gold emoji's picture), workers, hand, deck, discard and codex,
     a word and a count each. The active player's carries a rule and
-    "<Hero>'s turn <n>" in a pill, both in its first hero's colour
+    "<name>'s turn <n>" in a pill, both in its first hero's colour
     (`turn_colors`). The rule is on the side the rest of the panel is
     on. Drawn straight onto `ground`, the piece of
     leather it lies on, so its words are smoothed against the leather.
@@ -739,7 +741,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:
-        label = turn_label(match, cards)
+        label = turn_label(match, name)
         face = font(15)
         pill_width = face.getlength(label) + 24
         turn_pill(draw, (x, middle - 13, x + pill_width, middle + 13), 10, colors)
@@ -858,16 +860,16 @@ def stacked_seats(match: MatchState) -> tuple[int, int]:
     return (2 if near == 1 else 1), near
 
 
-def divider_label(match: MatchState, cards: CardCatalog) -> str:
-    return turn_label(match, cards).upper()
+def divider_label(match: MatchState, name: str) -> str:
+    return turn_label(match, name).upper()
 
 
-def horizontal_divider(width: int, label: str, colors: TurnColors) -> Image.Image:
+def horizontal_divider(width: int, label: str) -> Image.Image:
     """
-    The stacked board's divider: "<HERO>'S TURN <N>", the hero by its
-    short name, bold on a pill in that hero's colour (`turn_colors`)
-    between two rules, so whose turn it is reads at a glance (the
-    author, 2026-10-09: more prominent, and neither gold nor cream).
+    The stacked board's divider: "<NAME>'S TURN <N>", the active player
+    by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
+    rules, so whose turn it is reads at a glance (the author,
+    2026-10-09: more prominent, and neither gold nor cream).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -879,16 +881,16 @@ def horizontal_divider(width: int, label: str, colors: TurnColors) -> Image.Imag
     draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
     draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
     turn_pill(draw, (left - pad, middle - half, left + text_width + pad, middle + half),
-              half, colors)
-    spaced_text(draw, (left, middle), label, face, colors[1], 2)
+              half, DIVIDER_TURN)
+    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN[1], 2)
     return strip
 
 
-def vertical_divider(height: int, label: str, colors: TurnColors) -> Image.Image:
+def vertical_divider(height: int, label: str) -> Image.Image:
     """The side-by-side board's, 80 wide: the same, standing, read top
     to bottom."""
     lying = Image.new("RGBA", (height, DIVIDER_WIDTH), GROUND)
-    lying.alpha_composite(horizontal_divider(height, label, colors),
+    lying.alpha_composite(horizontal_divider(height, label),
                           (0, (DIVIDER_WIDTH - DIVIDER_HEIGHT) // 2))
     return lying.transpose(Image.ROTATE_270)
 
@@ -901,11 +903,11 @@ def compose_board(match: MatchState, layout: str = "stacked",
     cards = cards or load_catalog()
     names = names or {}
     building_hp = default_building_hp(cards)
-    label = divider_label(match, cards)
-    colors = turn_colors(match, cards)
 
     def name(seat: int) -> str:
         return names.get(seat) or f"Player {seat}"
+
+    label = divider_label(match, name(match.active))
 
     if layout == "side_by_side":
         first = match.first
@@ -918,7 +920,7 @@ def compose_board(match: MatchState, layout: str = "stacked",
                        for seat, panel in zip((first, second), natural))
         board = Image.new("RGBA", (left.width + DIVIDER_WIDTH + right.width, height), GROUND)
         board.alpha_composite(left, (0, 0))
-        board.alpha_composite(vertical_divider(height, label, colors), (left.width, 0))
+        board.alpha_composite(vertical_divider(height, label), (left.width, 0))
         board.alpha_composite(right, (left.width + DIVIDER_WIDTH, 0))
         return board
 
@@ -928,7 +930,7 @@ def compose_board(match: MatchState, layout: str = "stacked",
     width = max(far.width, near.width)
     board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + near.height), GROUND)
     board.alpha_composite(far, ((width - far.width) // 2, 0))
-    board.alpha_composite(horizontal_divider(width, label, colors), (0, far.height))
+    board.alpha_composite(horizontal_divider(width, label), (0, far.height))
     board.alpha_composite(near, ((width - near.width) // 2, far.height + DIVIDER_HEIGHT))
     return board
 
