@@ -8,11 +8,12 @@ running". This module reads that answer, formats the notice, and
 remembers what it has already announced.
 
 The remembering is the whole design. on_ready fires again on every
-gateway reconnect, and either of us may restart the bot repeatedly while
-testing, none of which is a deploy. So the notice is keyed on the
-commit: the sha last announced is persisted next to the saved games and
-a build that has already been announced says nothing. New code posts
-once; everything else is quiet.
+gateway reconnect, none of which is a deploy. So the change list is
+keyed on the commit: the sha last announced is persisted next to the
+saved games and a build that has already been announced is never listed
+again. New code posts its change list once; a process restarted on a
+build already announced posts one line saying so, once per process
+(restart_message); a reconnect is quiet.
 
 Nothing here imports discord and nothing here raises. Every git call
 degrades to None, so a checkout without git in PATH, or a copy of the
@@ -421,6 +422,29 @@ def _heading(changes: Changes) -> str:
     return heading + "):"
 
 
+def _restarted(host: str, bot_name: str) -> str:
+    """
+    The opening both notices share: "**Codex bot restarted** on `host`".
+    The host is left out when empty, and "Bot" stands in for an empty
+    bot_name.
+    """
+    where = _inline(host, MAX_HOST_LENGTH)
+
+    return f"**{bot_name or 'Bot'} restarted**{f' on `{where}`' if where else ''}"
+
+
+def restart_message(build: Build, host: str = "", bot_name: str = "") -> str:
+    """
+    The one line a restart on a build already announced posts: the
+    process came back, on the code it was already running. No change
+    list -- there is none, and the build's own notice already gave it.
+    """
+    return (
+        f"{_restarted(host, bot_name)} -- same build as before, "
+        f"`{build.short}` {_clean(build.subject)}"
+    )[:MAX_MESSAGE_LENGTH]
+
+
 def deploy_message(
     build: Build,
     changes: Optional[Changes],
@@ -441,10 +465,9 @@ def deploy_message(
     from one checkout and post to one channel, and "Bot" stands in when
     it is empty.
     """
-    where = _inline(host, MAX_HOST_LENGTH)
     lines = [
-        f"**{bot_name or 'Bot'} restarted**{f' on `{where}`' if where else ''} -- now "
-        f"running `{build.short}` {_clean(build.subject)}"
+        f"{_restarted(host, bot_name)} -- now running `{build.short}` "
+        f"{_clean(build.subject)}"
     ]
 
     if first_run:
@@ -486,14 +509,22 @@ def deploy_message(
 def notice_for(
     previous: Optional[str],
     repo_dir: Path = REPO_DIR,
+    restarted: bool = False,
 ) -> Optional[tuple[str, str]]:
     """
     (sha, message) when the running build is not `previous` -- the sha
     last announced, or None if none ever was -- and None otherwise.
 
+    `restarted` is the process's first start, as against a gateway
+    reconnect: then the same build is not silent but gets
+    restart_message, one line saying the process came back. A process
+    restarted on its own tree -- run_codex_bot.ps1, which does not pull,
+    or update_main_bot.ps1 -SkipPull -- never has a new build, and
+    without the line it left no trace in #logs at all.
+
     None covers every silent case: the feature switched off, an
-    unreadable checkout, and the common one, a restart on the same
-    commit. The caller posts the message and only then records the sha.
+    unreadable checkout, and a reconnect on the same commit. The caller
+    posts the message and only then records the sha.
 
     This is the half that shells out to git, so it is meant to be run in
     a worker thread; it takes the previous sha as an argument rather
@@ -508,7 +539,12 @@ def notice_for(
         return None
 
     if previous == build.sha:
-        return None
+        if not restarted:
+            return None
+
+        return build.sha, restart_message(
+            build, host=host_name(), bot_name=settings.bot_name(),
+        )
 
     changes = None if previous is None else commits_since(previous, repo_dir)
 
