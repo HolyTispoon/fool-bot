@@ -108,6 +108,10 @@ _console_handler: Optional[logging.Handler] = None
 # console handler is: announce_gateway_recovery needs it back, and
 # foolbot.py holds the handler rather than the pieces bolted to it.
 _gateway_filter: Optional[GatewayReconnectFilter] = None
+# Whether announce_startup has run in this process yet. on_ready fires
+# on the first connection and again on every re-identify, and only the
+# first is a restart worth a line in #logs.
+_startup_announced = False
 
 
 def console_level() -> int:
@@ -331,8 +335,11 @@ async def announce_startup(
 ) -> None:
     """
     Post the "now running this build" notice, if this build has not been
-    announced already. Silent on a restart of the same commit -- see
-    deploy_notice for why that is the point.
+    announced already, and the one-line "same build as before" if it
+    has and this is the process's first call -- a restart on its own
+    tree. Silent on every later call, which is a gateway reconnect, not
+    a restart. See deploy_notice for why the change list is keyed on the
+    commit.
 
     Runs after start_mirror so that if this fails, the traceback has
     somewhere to go.
@@ -347,13 +354,23 @@ async def announce_startup(
     state_file is where the announced sha is kept; by default the one
     configure_logging named, which is fool-bot's unless it named another.
     """
+    global _startup_announced
+
     if not mirror_enabled():
         return
+
+    # Spent on the first try whatever happens to the post: a restart
+    # line that failed is not worth repeating on a reconnect hours
+    # later, where a new build's change list is, and still is.
+    restarted = not _startup_announced
+    _startup_announced = True
 
     try:
         previous = deploy_notice.last_announced(state_file)
         # git is a subprocess; keep it off the event loop.
-        pending = await asyncio.to_thread(deploy_notice.notice_for, previous)
+        pending = await asyncio.to_thread(
+            deploy_notice.notice_for, previous, restarted=restarted,
+        )
 
         if pending is None:
             return

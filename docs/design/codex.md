@@ -1243,6 +1243,74 @@ else the bot shows is ephemeral.
   What remains is Discord's -- the upload from the live host, its
   processing and the client's fetch -- which the bot cannot measure
   from here and does not shorten except by sending fewer bytes.
+- **No click reads the host's disk, and what each picture costs is
+  logged** (2026-10-09: the author found the cards slow a third time,
+  after WebP and after the kept pictures). The two fixes before had
+  taken what the bot's own drawing had to give: measured again that
+  day on the Mac, a five-card hand is drawn in about 40 ms and a
+  twelve-card codex in 50, the stacked board in 150 to 300, and the
+  WebP encoding is about half of each at Pillow's default effort
+  (`method=4`) -- its fastest saves 25 ms a picture for a tenth more
+  bytes, its slowest spends 50 ms to save a fiftieth, so the setting
+  stays. What was left in the bot's hands was three things:
+  - **The live host's disk.** Its checkout is a mounted Google Drive
+    letter (collaboration.md, "Two machines, one live bot"), which may
+    hand a file over from the cloud rather than the disk, and the bot
+    is restarted on every deploy -- so the first hand and the first
+    codex of a game after one read their cards' art through it, a
+    file at a time, and `/codex card` opened its file on the event
+    loop. Now **every file a picture is drawn from is read into memory
+    as the bot starts** (`render.preload_pictures`, off the event
+    loop, started by `cog_load` and cancelled by `cog_unload`): the
+    cards' art, the board's pieces and the emoji the pictures borrow --
+    not the module's sheets nor the playmat, never drawn -- and the two
+    fonts: 447 files, 44 MB, held for the process's life.
+    `bundled_bytes` is the one way a bundled file is read, and what the
+    preload missed is read once on first use; a file it cannot read is
+    a warning, and nothing is drawn differently (the sample script's
+    thirty-one pictures byte-identical before and after, SHA-256). The
+    line it logs says what the host's disk took: "Codex pictures read
+    into memory: 447 files, 44 MB, in 0.1 s" on the Mac.
+  - **The acknowledgement before the board.** An action deferred its
+    click, then drew and posted the board, then sent the panel: the
+    defer is a round trip of its own that nothing after it waited for.
+    It goes out beside the board now (`TurnPanelView.act` and
+    `undo_to_turn_start`, `asyncio.gather`), which takes it off the
+    panel's path.
+  - **Numbers from the host.** The bot could not say where a slow
+    picture's time went, so every picture a click puts up logs one
+    INFO line -- console-only (logging.md) -- with what it cost to
+    draw and what the write that carried it took: the board posted,
+    the panel sent afresh or edited in place, the hand, the deck, a
+    codex view, a card (`cogs.codex_helpers.elapsed_ms`,
+    `pictures_size`). The next report is read off the console
+    (`show_logs.cmd`) before anything is guessed: a long draw is the
+    host's CPU or its disk, a long send is the host's uplink or
+    Discord, and what follows the send is the client's fetch, which
+    the log cannot see.
+  What remains is the design's floor: an action that puts something in
+  public is **two new pictures** -- the board on the message posted
+  again, the hand on the panel sent afresh under it -- each uploaded by
+  the bot and fetched cold by every client, which a kept attachment
+  cannot touch, since only an edit keeps one and both messages are new.
+  Taking one of the two away was a change to the shape the author chose
+  (the panel under the board; "The panel"), so it was put to them
+  rather than made, two ways: the panel edited in place after an
+  action, keeping its hand where the hand did not change and sitting
+  above the board posted again; or the hand on an ephemeral message of
+  its own, edited only when it changes, with a panel of buttons alone
+  sent under the board. **The author chose the second** (2026-10-09),
+  which keeps the panel at the foot: "The panel" has what it became.
+- **The hand's and the codex's cards are a bit smaller** (the author,
+  2026-10-09, with the above): the art at 0.7 and at 8/15 -- 231 by
+  315 in a hand, 176 by 240 in a codex view, the deck and the tech
+  picker (`HAND_CARD`, `CODEX_CARD`), from 0.8 and 0.6 -- which takes
+  about a sixth off each picture's bytes: the staged mid-game hand
+  87 KB to 72, the twelve-card codex 164 to 134, the standard game's
+  seventy-two 590 to 477. The badges, the numbers and the picked pill
+  keep their size, so they read a little larger on the card. The
+  board's cards are the canvas's and `/codex card` posts the card's own
+  file, so neither moved.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons
@@ -1367,7 +1435,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   ~five-in-five bucket the turn message lives in (rate-limits.md). The
   bot cannot find an ephemeral message again, so every entry point (My
   hand, **Tech**, `/codex resume`) makes a fresh one and the cog never
-  looks for an old panel.
+  looks for an old panel. The one ephemeral message it reaches again is
+  the hand's, below, through the interaction that made it.
 - **A panel is always drawn as an answer to something.** The author
   asked for it to stand alone rather than as a reply to the turn
   message (2026-10-09). Discord ties every message an interaction makes
@@ -1380,10 +1449,38 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   and every panel after it as an answer to the panel it replaced, which
   is deleted -- never to the board. How the client draws a strip whose
   message is gone has not been looked at on Discord.
-- **Its picture is the hand**, numbered, greyed where it may not be
-  played, each card's cost after reductions -- `render_hand` over
-  `MainActionOptions.hand`, a field the prompt grew for it so the
-  picture and the buttons read one list. **A target's picture is a
+- **The hand is a message of its own, above the panel** (the author,
+  2026-10-09: B of the two ways under "The board on Discord"). **My
+  hand** sends the active player two ephemeral messages: their hand
+  pictured -- numbered, greyed where it may not be played, each card's
+  cost after reductions, `render_hand` over the engine's `hand_rows`,
+  the list `MainActionOptions.hand` is built from, so the picture and
+  the buttons read one list -- with their discard pile listed under it,
+  and the panel under that. **The panel carries no picture of the
+  hand**, so the one sent afresh after every action is light, and the
+  client fetches nothing for it. The hand message is **remembered**
+  (`HandMessage`, in memory by game and seat: the interaction that made
+  it, which of its messages it is, and what it shows) and **brought up
+  to date in place** after a public result where the hand or its
+  caption changed (`refresh_hand_messages`, from `answer_panel` and
+  the two undos), for both players -- a card played, the draw at the
+  turn's end, a card an effect returns to the other hand -- and left
+  alone where nothing changed, which is what the message of its own
+  buys: an attack, a patrol move, a target chosen cost the hand
+  nothing, where the panel sent afresh used to carry it again every
+  time. An ephemeral message can be reached only through the
+  interaction that made it, whose token Discord honours for fifteen
+  minutes (`edit_original_response`, or a follow-up's `edit_message`):
+  past that, or with the message gone, the edit fails and the message
+  is forgotten -- and where the click is the player's own, the hand is
+  sent afresh as its follow-up, under the board and above the panel,
+  and remembered anew; the other player's is forgotten until they
+  press My hand. A fresh hand message deletes the one remembered
+  before it where it still can, so **My hand** pressed twice leaves
+  one. The other player's **My hand** sends their hand the same way,
+  with **My deck** under it (`send_hand`), remembered and kept up to
+  date alike. After a restart nothing is remembered, as with the
+  panels; the old pictures stand. **A target's picture is a
   side of the board, not the hand** (the author, 2026-10-09: the hand
   is no help choosing what to wither): the defender, obliterate's,
   sparkshot's and overpower's choices and an effect's `TARGET` are
@@ -1404,22 +1501,23 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Play a card..., Build..., Attack with..., Level up...). A message
   carries five rows of five buttons, and the panel fills them in three
   groups, each starting a row of its own (`TurnPanelView.place`): the
-  **actions row** -- **Hire worker**, **Attack...**, **Undo...**;
-  **the heroes' row**, since step 10, a button per hero that summons it
-  or levels it up ("The standard game", below) -- until then the one
-  hero's **Summon** or **Level up** was in the actions row; **the
+  **actions row** -- **Hire worker**, **Attack...**, then a button per
+  hero that summons it or levels it up ("The standard game", below):
+  step 10 gave the heroes a row of their own, since three did not fit
+  beside three actions, and they came back when **Undo...** moved to
+  the end; **the
   hand**, a button per card in the hand's order, "3. Bloom (2 gold)",
   numbered as the picture numbers it (`hand_numbers`) and disabled where it may not
   be played now, as the picture greys it, so the row and the picture
-  agree card for card -- at most two rows (`HAND_ROWS`; three until
-  the heroes' row took one), a hand
+  agree card for card -- at most two rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability that may be
   used now, in the card's own words ("Sacrifice Harmony: stop the
-  music") -- and **End main phase**, always the panel's last button
-  (the author, 2026-10-09), which `place`'s `last` never crowds out: a
-  board's button gives up its place to it first. **Level up** buys one
+  music") -- and always last, in this order, **My deck**, **Undo...**
+  and **End main phase** (the author, 2026-10-09), which `place`'s
+  `last` never crowds out: a board's button gives up its place to them
+  first. **Level up** buys one
   level a click (the author, 2026-10-09): one button per hero, pressed again for the next level, rather than a
   menu of counts. **Attack...** turns the panel into what may attack,
   one button each as `ref_label` names it ("Older Brother 2/2"), and
@@ -1428,7 +1526,8 @@ for the tech prompts (`TechChoiceView`, `TechConfirmView`) --
   Undo's. What does not fit the five rows is left out, the groups
   placed first having the earlier claim -- in practice rarely: the hand
   is cut at ten distinct cards, and the board's row loses what passes
-  five where the hand needs a second row
+  two -- the last three take the rest of it -- where the hand needs a
+  second row
   (`test_the_main_phase_is_rows_of_buttons`,
   `test_a_big_hand_leaves_the_boards_row`). Every button that answers
   with one choice off the options is a `PanelButton` carrying that
@@ -1624,7 +1723,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted |
+| My hand, the active player | **0** | 2: the hand, a message of its own, and the panel under it |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted -- and, where the hand or its caption changed, one edit on the interaction that made the hand message (a fourth of this click's, the hand sent afresh, only where that edit fails) |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
@@ -1680,9 +1780,9 @@ hand** after a restart asks the same question with the same options
 (`tests/test_codex_resume.py`, including a declared attacker waiting on
 its defender). `/codex resume` runs any step the bot owes, posts the
 turn message again at the foot of the channel -- the old one deleted,
-the player whose turn it is pinged -- and hands the clicker their panel
-afresh -- the
-actions for the active player, the open tech picker for the other.
+the player whose turn it is pinged -- and hands the clicker their hand
+and their panel afresh -- the actions for the active player, the open
+tech picker for the other.
 
 ## The end of a game
 
@@ -2073,8 +2173,9 @@ slot draws the heroes' hall's and the tech lab's cards from
 edge so the tile's own words stay readable, and a lab's spec card lies
 on the lab's. Building cards and upgrades lie in the grid after the
 units. The codex is three binders: the Everything view of seventy-two
-(36 cards, two copies each) at `CODEX_COLUMNS` measured 591 KiB as WebP,
-1286 by 1718 -- far under Discord's upload limit, so it is not narrowed
+(36 cards, two copies each) at `CODEX_COLUMNS` measured 477 KB as WebP,
+1154 by 1538 (591 KiB and 1286 by 1718 before the cards were made a bit
+smaller, "The board on Discord") -- far under Discord's upload limit, so it is not narrowed
 -- and each spec has its view. `scripts/render_codex_sample.py` renders
 a standard game's board, hand and codex beside the basic game's.
 

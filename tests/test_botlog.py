@@ -919,6 +919,26 @@ class DeployNoticeDedupTests(unittest.TestCase):
             ):
                 self.assertIsNone(deploy_notice.notice_for("a" * 40))
 
+    def test_a_restart_on_the_same_build_says_so_in_one_line(self) -> None:
+        # The process's first start, on a build already announced: no
+        # change list, but a line saying it came back.
+        with environment(FOOLBOT_HOST_NAME="K"):
+            with mock.patch.object(
+                deploy_notice, "head_build", return_value=self.build(),
+            ), mock.patch.object(
+                deploy_notice, "commits_since",
+            ) as commits_since:
+                pending = deploy_notice.notice_for("a" * 40, restarted=True)
+
+        commits_since.assert_not_called()
+        sha, message = pending
+        self.assertEqual(sha, "a" * 40)
+        self.assertEqual(
+            message,
+            "**Bot restarted** on `K` -- same build as before, "
+            "`aaaaaaa` Latest work",
+        )
+
     def test_a_new_build_announces_once(self) -> None:
         with environment():
             with mock.patch.object(
@@ -1157,6 +1177,33 @@ class StartupWiringTests(unittest.TestCase):
         last_announced.assert_not_called()
         notice_for.assert_not_called()
         mark_announced.assert_not_called()
+
+    def test_only_the_first_start_in_a_process_is_a_restart(self) -> None:
+        # on_ready fires again on every re-identify; only the first one
+        # is the process starting.
+        channel = FakeTextChannel(name="logs", channel_id=7)
+
+        async def scenario() -> None:
+            for _ in range(3):
+                await botlog.announce_startup(FakeClient())
+
+        with environment(FOOLBOT_LOG_MIRROR="on"), mock.patch.object(
+            botlog, "_startup_announced", False,
+        ), mock.patch.object(
+            deploy_notice, "last_announced", return_value="a" * 40,
+        ), mock.patch.object(
+            deploy_notice, "head_build",
+            return_value=deploy_notice.Build("a" * 40, "aaaaaaa", "Work"),
+        ), mock.patch.object(
+            deploy_notice, "mark_announced",
+        ), mock.patch.object(
+            botlog, "ensure_log_channel",
+            mock.AsyncMock(return_value=channel),
+        ):
+            asyncio.run(scenario())
+
+        self.assertEqual(len(channel.sent), 1)
+        self.assertIn("same build as before, `aaaaaaa` Work", channel.sent[0])
 
     def test_binding_is_skipped_when_there_is_no_mirror(self) -> None:
         asyncio.run(botlog.start_mirror(FakeClient(), None))

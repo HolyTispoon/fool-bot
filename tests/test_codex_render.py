@@ -8,10 +8,13 @@ for the eye (`scripts/render_codex_sample.py`; docs/design/codex.md,
 
 import io
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from codex import render
+from codex.cards import Card
 from codex.engine import RulesEngine
 
 
@@ -127,6 +130,69 @@ class RenderTests(unittest.TestCase):
                  for slug in dict.fromkeys(self.engine.catalog.codex_for(spec))]
         png = render.render_codex(slugs, [2] * len(slugs), self.engine.catalog)
         self.assertLess(len(png), 10 * 1024 * 1024)
+
+
+class PreloadTests(unittest.TestCase):
+    """Every file a picture is drawn from, read into memory once, so no
+    click reads the host's disk (docs/design/codex.md, "The board on
+    Discord")."""
+
+    def test_the_pictures_are_read_into_memory_once(self) -> None:
+        files, size = render.preload_pictures()
+        self.assertGreaterEqual(files, 440)
+        self.assertGreater(size, 40 * 2 ** 20)
+        cards = RulesEngine().catalog
+        for slug in ("trojan_duck", "troq_bashar", "dancer", "worker_x5", "tower"):
+            self.assertIn(str(cards.by_slug(slug).picture), render._BUNDLED)
+        self.assertIn(str(render.BOARD_IMAGE_DIR / "ground" / "leather.png"), render._BUNDLED)
+        self.assertIn(str(render.EMOJI_DIR / "gold.png"), render._BUNDLED)
+        for name in render.FONT_FILES:
+            self.assertIn(str(render.FONT_DIR / name), render._BUNDLED)
+        # The sheets the pieces were cut from and the playmat are never
+        # drawn, so they are not held.
+        self.assertFalse([key for key in render._BUNDLED if "sheets" in key or "playmat" in key])
+        # Read once: a second preload reads nothing from the disk.
+        with mock.patch.object(Path, "read_bytes", side_effect=AssertionError("read the disk")):
+            self.assertEqual(render.preload_pictures(), (files, size))
+
+    def test_no_render_reads_the_disk_once_preloaded(self) -> None:
+        """The hand, the codex and the board drawn from memory alone:
+        with every cache cleared, every picture and font is opened from
+        the bytes held, and a read of the disk fails the test."""
+        render.preload_pictures()
+        engine = RulesEngine(seed=7)
+        match = engine.new_match(("bashing", "finesse"), first=1)
+        for cached in (render.font, render._image, render._scaled_card,
+                       render._render_hand, render._render_codex):
+            cached.cache_clear()
+        rows = engine.hand_rows(match, 1)
+        codex = engine.codex_remaining(match, 1)
+        with mock.patch.object(Path, "read_bytes", side_effect=AssertionError("read the disk")), \
+                mock.patch("PIL.Image.open", wraps=Image.open) as opened, \
+                mock.patch("PIL.ImageFont.truetype", wraps=ImageFont.truetype) as faces:
+            render.render_hand([row.slug for row in rows], [row.allowed for row in rows],
+                               [row.cost for row in rows], engine.catalog)
+            render.render_codex([slug for slug, _ in codex], [count for _, count in codex],
+                                engine.catalog)
+            render.render_board(match, "stacked", {1: "a", 2: "b"}, engine.catalog)
+        self.assertTrue(opened.call_args_list)
+        self.assertTrue(all(isinstance(call.args[0], io.BytesIO) for call in opened.call_args_list))
+        self.assertTrue(faces.call_args_list)
+        self.assertTrue(all(isinstance(call.args[0], io.BytesIO) for call in faces.call_args_list))
+
+    def test_a_card_whose_picture_is_missing_is_the_back(self) -> None:
+        """`bundled` asks the disk only for what is not held, and a card
+        whose picture is nowhere is drawn as the card back."""
+        back = render.BOARD_IMAGE_DIR / "backs" / "card.png"
+        render.bundled_bytes(back)
+        with mock.patch.object(Path, "is_file", return_value=False):
+            self.assertTrue(render.bundled(back))
+            self.assertFalse(render.bundled(Path("/nonexistent/trojan_duck.jpg")))
+        cards = RulesEngine().catalog
+        nowhere = mock.PropertyMock(return_value=Path("/nonexistent/trojan_duck.jpg"))
+        with mock.patch.object(Card, "picture", nowhere):
+            picture = render.card_picture("trojan_duck", cards)
+        self.assertEqual(picture.size, render.image(back).size)
 
 
 class CodexViewTests(unittest.TestCase):
