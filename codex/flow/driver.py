@@ -34,6 +34,7 @@ from codex.prompts import (
     PromptKind,
     pending,
     standing_prompts,
+    tech_stands,
     with_options,
 )
 
@@ -277,6 +278,11 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
         left[slug] -= 1
     owner = match.player(prompt.asked_player)
     owner.tech_choice = picks
+    if not tech_stands(game):
+        # A test game's choice is made in its owner's ready phase, just
+        # now, so there is nothing earlier to review: no confirmation is
+        # asked, and the turn begins on the pick (`codex.prompts.tech_stands`).
+        owner.tech_confirmed = True
     # Said nothing: a tech choice is announced only in its owner's ready
     # phase, as the count of cards into the discard (the author,
     # 2026-10-08) -- not while the other player's turn is going on.

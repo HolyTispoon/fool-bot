@@ -265,6 +265,22 @@ codex.
   frontend's, as always.
 - **What a tech prompt holds is its owner's**: their codex and their
   picks. A frontend sends it to them alone.
+- **Nothing stands in a test game** (`tech_stands`; the author,
+  2026-10-09). One person plays both sides there, and a choice standing
+  for the side whose turn it is not reached them beside the other
+  side's: the Lock's follow-up was the picker of the side that had just
+  ended its turn, and My hand -- from the third turn on, where the
+  side whose turn began had never picked during the other's -- that
+  side's own picker, two in a row with nothing to say whose was whose.
+  So in a test game `standing_prompts` is empty, the picker is the
+  pending prompt in its owner's ready phase, and the pick made there is
+  the choice: `_answer_tech_choice` confirms it at once, since there is
+  nothing earlier to review, and the turn begins on the save. Nobody
+  owes tech before their first turn has ended, so the second side's
+  first turn opens on its main phase as before. The reading is the
+  model's, off the record's `test_game`, as D12 Ball's model reads its
+  own: a cog hiding the standing prompt would be a second reading of
+  what the match waits on. A real game is unchanged.
 
 ### Undo's groundwork: the snapshots and the journal
 
@@ -742,8 +758,16 @@ frees both seats, and `seats_of` reads both. A click acts for
 `seat_for(user, active)` -- the seat whose turn it is, where the clicker
 holds it -- so **My hand**, **Codex** and `/codex hand` show the side
 that is playing, and their captions name it. Nothing is hidden from one
-person playing both hands, so nothing more is needed; the tech choice
-on the other side's turn is step 4's to word.
+person playing both hands, so nothing more is needed. The tech choice
+is the one thing a test game plays differently: each side's is chosen
+in its own ready phase, from My hand, and nothing stands during the
+other side's turn ("The standing prompt", above). On Discord the Lock
+closes the panel with "Patrol locked: Bashing's turn is over. **My
+hand** opens Finesse's turn, its tech choice first." -- the sides named
+by their decks, since both are the one person -- and sends no picker
+(the channel's four requests, one on the webhook), **Tech** says where
+the choice is made, and Save tech in the ready phase edits the panel
+into the turn's actions.
 
 **Start turns that channel into the game's**, in one edit: renamed
 `codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
@@ -1003,7 +1027,9 @@ copy left in the codex, so two copies of one card can be picked.
 
 From the third turn on the new turn opens on its player's confirmation:
 the new turn message says it waits on them to confirm their tech (the
-cog's caption, `TECH_WAIT`, gone once the ready phase has run), and My
+cog's caption, `TECH_WAIT`, gone once the ready phase has run -- worded
+"to choose their tech" where My hand is the picker instead, because they
+never picked, or because the game is a test game), and My
 hand is `TechConfirmView` -- the picks pictured, **Confirm** and
 **Change**. Confirm runs the ready phase and the upkeep, and the panel
 becomes the turn's actions in place. The prompt asked for the

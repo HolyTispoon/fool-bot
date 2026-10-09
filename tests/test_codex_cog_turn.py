@@ -448,34 +448,95 @@ class EffectPanelTests(TurnTestCase):
 
 
 class TestGameTests(unittest.IsolatedAsyncioTestCase):
-    async def test_one_person_plays_both_sides_from_the_panel(self) -> None:
-        """A test game seats one person in both seats: the panel is the
-        active side's either way, across the turn's end, and Tech is the
-        other side's."""
+    async def asyncSetUp(self) -> None:
+        """A test game: one person in both seats, through the real lobby."""
         from cogs.codex_views import LobbyView
 
-        table = Table()
-        self.addCleanup(table.close)
-        call = table.interaction(table.basher, table.lobby_channel)
-        await table.cog.lobby.callback(table.cog, call, test_game=True)
-        (game,) = table.cog.games.values()
-        table.game = game
-        lobby = LobbyView(table.cog, game.game_id)
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        call = self.table.interaction(self.table.basher, self.table.lobby_channel)
+        await self.table.cog.lobby.callback(self.table.cog, call, test_game=True)
+        (self.game,) = self.table.cog.games.values()
+        self.table.game = self.game
+        lobby = LobbyView(self.table.cog, self.game.game_id)
         for action in ("bashing", "finesse", "start"):
-            click = table.interaction(table.basher)
+            click = self.table.interaction(self.table.basher)
             await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
-        table.fencer = table.basher
-        for _ in range(2):
-            seat = table.match.active
-            _, view = await table.panel(table.basher)
-            self.assertEqual(view.seat, seat)
-            ended = await table.press((await table.press(view, "End main phase", who=table.basher)).view(),
-                                      "Lock patrol", who=table.basher)
-            self.assertIsInstance(ended.answers[-1][2]["view"], TechChoiceView)
-            self.assertNotEqual(table.match.active, seat)
+        # Both seats are the one person's: a press defaulting to the
+        # panel's seat finds them either way.
+        self.table.fencer = self.table.basher
+
+    async def lock(self, view):
+        ended = await self.table.press(view, "End main phase", who=self.table.basher)
+        return await self.table.press(ended.view(), "Lock patrol", who=self.table.basher)
+
+    async def test_one_person_plays_both_sides_from_the_panel(self) -> None:
+        """A test game seats one person in both seats, and its tech is
+        chosen in each side's own ready phase (the author, 2026-10-09):
+        the Lock closes the panel naming the side My hand opens next and
+        sends no picker, Tech says where the choice is made, the second
+        side's first turn opens on its actions with no tech to choose,
+        and from a side's second turn on My hand is its picker, whose
+        Save runs the ready phase and becomes the turn's actions."""
+        table, game = self.table, self.game
+        # The engine picks who goes first (UMR p. 3); the sides are
+        # named by their decks, since both are the one person.
+        first = table.match.active
+        second = 2 if first == 1 else 1
+        side = {seat: table.match.player(seat).spec.title() for seat in (1, 2)}
+
+        # Turn 1: the Lock closes the panel; nothing follows it.
+        _, view = await table.panel(table.basher)
+        self.assertEqual(view.seat, first)
+        ended = await self.lock(view)
+        self.assertEqual([answer[0] for answer in ended.answers], ["response.edit"])
+        self.assertIsNone(ended.answers[0][2]["view"])
+        self.assertIn(f"{side[first]}'s turn is over", ended.text())
+        self.assertIn(f"**My hand** opens {side[second]}'s turn.", ended.text())
+        self.assertTrue(table.match.player(first).tech_owed)
+        self.assertEqual(table.cog.service.standing(game, table.match), ())
+
+        # Tech is not where a test game's choice is made.
         tech = await table.turn_button("tech", table.basher)
-        self.assertIsInstance(tech.view(), TechChoiceView)
-        self.assertNotEqual(tech.view().seat, table.match.active)
+        self.assertTrue(tech.last()[2]["ephemeral"])
+        self.assertNotIn("view", tech.last()[2])
+        self.assertIn("My hand", tech.text())
+
+        # Turn 2, the second side's first: no tech to choose, the
+        # actions at once.
+        self.assertEqual((table.match.active, table.match.phase), (second, "main"))
+        _, view = await table.panel(table.basher)
+        self.assertIsInstance(view, TurnPanelView)
+        self.assertEqual(view.seat, second)
+        ended = await self.lock(view)
+        self.assertIn(f"{side[second]}'s turn is over", ended.text())
+        self.assertIn(f"opens {side[first]}'s turn, its tech choice first.", ended.text())
+
+        # Turn 3, the first side's second: the picker is the pending
+        # prompt, in the ready phase; the turn message says so.
+        self.assertEqual((table.match.active, table.match.phase), (first, "ready"))
+        text = table.game_channel.texts[game.turn_message_id]
+        self.assertIn("**Turn 3**", text)
+        self.assertIn("to choose their tech", text)
+        _, picker = await table.panel(table.basher)
+        self.assertIsInstance(picker, TechChoiceView)
+        self.assertEqual(picker.seat, first)
+        values = [option.value for option in picker.select.options[:2]]
+        picked = await table.choose(picker, "Choose", *values)
+        mark = len(table.game_channel.requests)
+        saved = await table.press(picked.view(), "Save tech")
+        for kind, args, kwargs in saved.answers:
+            self.assertNotIn("Something went wrong", kwargs.get("content") or (args[0] if args else "") or "")
+        # The pick is the choice: the ready phase ran, and the panel is
+        # the turn's actions, in place.
+        self.assertIsInstance(saved.view(), TurnPanelView)
+        self.assertEqual((table.match.active, table.match.phase), (first, "main"))
+        text = table.game_channel.texts[game.turn_message_id]
+        self.assertIn("2 tech cards", text)
+        self.assertNotIn("waits on", text)
+        # One panel edit, one turn message edit through the gate.
+        self.assertEqual([answer[0] for answer in saved.answers], ["response.edit"])
+        self.assertEqual(channel_requests(table, mark), [("edit", game.turn_message_id)])
 
 
 class GameOverTests(TurnTestCase):
