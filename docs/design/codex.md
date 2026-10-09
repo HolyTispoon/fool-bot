@@ -877,8 +877,8 @@ else the bot shows is ephemeral.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
-    player's carries a rule and "<Hero>'s turn <n>" in a pill, both in
-    the turn's colour (`TURN`, below), the hero by its short name --
+    player's carries a violet rule and "<Hero>'s turn <n>" in a violet
+    pill (`NAMEPLATE_TURN`, below), the hero by its short name --
     "Troq's turn 7".
   - **A hero's short name is kept by hand** (`SHORT_NAMES` in
     `codex/cards.py`, `Hero.short_name`), the one thing about a card the
@@ -929,28 +929,32 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 52-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name, bold and white on a pill in
-  the turn's colour between two grey rules -- taller and brighter than
-  the canvas's 36 pixels of faint capitals, which did not read at
-  Discord's size (the author, 2026-10-09: the turn more prominent, not
-  gold, and not cream).
-- **The turn has one colour** (`TURN`, raspberry, #b61e5e, with white
-  words, `TURN_INK`): the divider's pill, the active nameplate's pill
-  and its rule, one colour for one meaning. Its first day the divider
-  was teal and the nameplate's pill and rule gold, and the author asked
-  for both replaced (2026-10-09): gold is the currency's -- the coin
-  and every cost badge -- so a gold pill beside the gold count said
-  two things in one colour, and teal sat between the two patrol zones'
-  blue and read as a shade of it. What was left once blue (patrol),
-  green (ARRIVED, the level chit), red (damage, the hearts), gold and
-  the deep purple of the time-rune chit were taken, and the leather's
-  warmth ruled out orange and copper, which sink into it: a magenta, a
-  violet, or a neutral white pill with dark ink. Rendered side by side
-  at Discord's scale (`BOARD_SCALE`), violet read as a lighter blue
-  next to the patrol bands, a hollow nameplate pill did not read at
-  all, and white, legible as it is, is no colour and so marks nothing;
-  raspberry is apart from every one of them, and the vermilion of a
-  damage chit is a different red from a magenta at any size.
+  "<HERO>'S TURN <N>", the same short name, bold and dark on a white
+  pill between two grey rules -- taller and brighter than the canvas's
+  36 pixels of faint capitals, which did not read at Discord's size
+  (the author, 2026-10-09: the turn more prominent, not gold, and not
+  cream).
+- **The turn's two marks are violet and white** (the author,
+  2026-10-09): the active nameplate's pill and rule violet with white
+  words (`NAMEPLATE_TURN`, #6b45c4, `NAMEPLATE_TURN_INK`), the
+  divider's pill white with dark words (`DIVIDER_TURN`,
+  `DIVIDER_TURN_INK`). Their first day the nameplate's were gold and
+  the divider's teal, and the author asked for both replaced: gold is
+  the currency's -- the coin and every cost badge -- so a gold pill
+  beside the gold count said two things in one colour, and teal sat
+  between the two patrol zones' blue and read as a shade of it. The
+  pick was made from a sheet of six candidates drawn on the staged
+  mid-game board and looked at at Discord's scale (`BOARD_SCALE`):
+  raspberry, plum and violet on both marks; a white pill with dark ink
+  on both; a raspberry divider over a white nameplate pill; and a
+  raspberry divider over a hollow nameplate pill, which did not read at
+  all. The author took violet for the nameplate and white for the
+  divider. The two marks are not one colour, and need not be: the
+  divider is the loud one, read first and from across the room, and
+  white on the flat ground between the panels is the brightest thing
+  the board can show; the nameplate's pill sits in a row of words and
+  counts and wants a colour of its own to be told from them. Violet is
+  near the time-rune chit's deep purple and nothing else on the board.
 - **No cream** (the author, 2026-10-09): the canvas's light words were a
   warm cream and its quiet ones a tan; the board, the hand and the
   codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from

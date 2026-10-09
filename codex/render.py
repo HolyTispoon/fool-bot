@@ -147,19 +147,17 @@ WORD = (242, 242, 242)           # #f2f2f2
 QUIET = (168, 168, 168)          # #a8a8a8
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
-#: The turn's colour, one colour for one meaning: the active nameplate's
-#: rule and its "<Hero>'s turn <n>" pill, and the divider's pill. Apart
-#: from every other colour the board carries -- the coins' gold, the
-#: damage chits' and the hearts' red, the patrol zone's blue, ARRIVED's
-#: and the level chit's green, the time-rune chit's deep purple, the
-#: leather's brown -- and cool, since a warm colour sinks into the
-#: leather. Its first day the divider was teal and the nameplate's pill
-#: and rule gold, and the author asked for both replaced (2026-10-09):
-#: gold is the currency's, and teal sat between the two patrol zones'
-#: blue -- docs/design/codex.md, "The board on Discord".
-TURN = (182, 30, 94)             # #b61e5e
-#: The words on a turn pill.
-TURN_INK = WORD
+#: The turn's two marks (the author, 2026-10-09, from a sheet of six
+#: candidates rendered at Discord's scale): the active nameplate's rule
+#: and its "<Hero>'s turn <n>" pill violet, with white words, and the
+#: divider's pill white, with dark words. Their first day the nameplate's
+#: were gold and the divider's teal, and the author asked for both
+#: replaced: gold is the currency's, and teal sat between the two patrol
+#: zones' blue -- docs/design/codex.md, "The board on Discord".
+NAMEPLATE_TURN = (107, 69, 196)  # #6b45c4
+NAMEPLATE_TURN_INK = WORD
+DIVIDER_TURN = WORD
+DIVIDER_TURN_INK = GROUND
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 HEART_FILL = (208, 32, 28)       # #d0201c
 HEART_EDGE = (90, 11, 9)         # #5a0b09
@@ -689,9 +687,9 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     """
     The nameplate, 56 tall: the player, the spec and hero, then gold
     (the gold emoji's picture), workers, hand, deck, discard and codex,
-    a word and a count each. The active player's carries a rule and
-    "<Hero>'s turn <n>" in a pill, both in the turn's colour (`TURN`).
-    The rule is on the side the rest of the panel is on. Drawn straight onto `ground`, the piece of
+    a word and a count each. The active player's carries a violet rule
+    and "<Hero>'s turn <n>" in a violet pill (`NAMEPLATE_TURN`). The
+    rule is on the side the rest of the panel is on. Drawn straight onto `ground`, the piece of
     leather it lies on, so its words are smoothed against the leather.
     """
     player = match.player(seat)
@@ -699,7 +697,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
              else Image.new("RGBA", (width, NAMEPLATE_HEIGHT), PANEL))
     draw = ImageDraw.Draw(plate)
     to_act = is_to_act(match, seat)
-    rule = TURN if to_act else RULE
+    rule = NAMEPLATE_TURN if to_act else RULE
     rule_y = 0 if rule_at_top else NAMEPLATE_HEIGHT - 3
     draw.rectangle((0, rule_y, width, rule_y + 2), fill=rule)
     middle = NAMEPLATE_HEIGHT / 2 + (1.5 if rule_at_top else -1.5)
@@ -715,8 +713,8 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
         face = font(15)
         pill_width = face.getlength(label) + 24
         draw.rounded_rectangle((x, middle - 13, x + pill_width, middle + 13), radius=10,
-                               fill=TURN)
-        draw.text((x + 12, middle), label, font=face, fill=TURN_INK, anchor="lm")
+                               fill=NAMEPLATE_TURN)
+        draw.text((x + 12, middle), label, font=face, fill=NAMEPLATE_TURN_INK, anchor="lm")
 
     counts = (
         ("WORKERS", player.workers), ("HAND", len(player.hand)), ("DECK", len(player.deck)),
@@ -838,9 +836,9 @@ def divider_label(match: MatchState, cards: CardCatalog) -> str:
 def horizontal_divider(width: int, label: str) -> Image.Image:
     """
     The stacked board's divider: "<HERO>'S TURN <N>", the hero by its
-    short name, bold and white on a pill in the turn's colour (`TURN`)
-    between two rules, so whose turn it is reads at a glance (the
-    author, 2026-10-09: more prominent, and neither gold nor cream).
+    short name, bold and dark on a white pill (`DIVIDER_TURN`) between
+    two rules, so whose turn it is reads at a glance (the author,
+    2026-10-09: more prominent, and neither gold nor cream).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
@@ -852,8 +850,8 @@ def horizontal_divider(width: int, label: str) -> Image.Image:
     draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
     draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
     draw.rounded_rectangle((left - pad, middle - half, left + text_width + pad, middle + half),
-                           radius=half, fill=TURN)
-    spaced_text(draw, (left, middle), label, face, TURN_INK, 2)
+                           radius=half, fill=DIVIDER_TURN)
+    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN_INK, 2)
     return strip
 
 
