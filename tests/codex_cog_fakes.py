@@ -147,24 +147,12 @@ class FakeResponse:
         self._log.append(("response.defer", (), kwargs))
 
 
-#: The ids Discord gives a follow-up message, which a hand message sent
-#: as one is edited and deleted by (`HandMessage`).
-FOLLOWUP_IDS = itertools.count(7000)
-
-
 class FakeFollowup:
     def __init__(self, log: list) -> None:
         self._log = log
 
     async def send(self, *args, **kwargs):
         self._log.append(("followup.send", args, kwargs))
-        return SimpleNamespace(id=next(FOLLOWUP_IDS))
-
-    async def edit_message(self, message_id, **kwargs):
-        self._log.append(("followup.edit", (message_id,), kwargs))
-
-    async def delete_message(self, message_id):
-        self._log.append(("followup.delete", (message_id,), {}))
 
 
 class FakeInteraction:
@@ -191,15 +179,8 @@ class FakeInteraction:
 
     async def delete_original_response(self):
         """The message clicked deleted -- a panel replaced by the one
-        sent under the turn message, or a hand message replaced by a
-        fresh one -- through the click's webhook."""
+        sent under the turn message -- through the click's webhook."""
         self.answers.append(("original.delete", (), {}))
-
-    async def edit_original_response(self, **kwargs):
-        """The click's first answer edited in place -- a hand message
-        brought up to date by a later click, through the webhook of the
-        click that made it (`HandMessage`)."""
-        self.answers.append(("original.edit", (), kwargs))
 
     def last(self, kind: Optional[str] = None):
         """The last answer, or the last of `kind` -- `(kind, args, kwargs)`."""

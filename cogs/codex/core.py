@@ -92,8 +92,9 @@ PROMPT_VIEWS = {
 }
 
 #: The prompts a turn may open on before its actions, its player's
-#: tech: under the hand **My hand** sends, the panel is `TechGateView`,
-#: **Tech** alone, until it is answered (`show_panel`).
+#: tech: the panel **My hand** sends is the hand pictured with
+#: `TechGateView` under it, **Tech** alone, until it is answered
+#: (`show_panel`).
 TECH_GATE_KINDS = (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE)
 
 #: What the turn message says while the new turn waits on its player's
@@ -121,11 +122,6 @@ class CoreMixin:
         #: its main phase opened -- by game id and turn: what an undo
         #: puts back. In memory, the last three turns, as the snapshots.
         self.turn_heads: dict[str, dict[int, list[str]]] = {}
-        #: Each player's hand message, by game id and seat
-        #: (`presentation.HandMessage`): an ephemeral picture a later
-        #: click brings up to date in place. In memory: a restart
-        #: forgets every one, as it does the panels.
-        self.hand_messages: dict[tuple[str, int], object] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(
@@ -265,8 +261,8 @@ class CoreMixin:
         """**The only place a `PromptKind` becomes a view**: the panel the
         prompt is answered from, shown to its asked player alone, or
         `None` for a kind nobody answers (a finished game). With `gate`,
-        a turn's tech is **Tech** alone (`TechGateView`), the panel under
-        the hand until it is opened."""
+        a turn's tech is **Tech** alone (`TechGateView`), the hand's
+        panel until it is opened."""
         if prompt is None:
             return None
         if gate and prompt.kind in TECH_GATE_KINDS:
@@ -284,9 +280,8 @@ class CoreMixin:
         its Show menu chose (the engine's `codex_view_rows`) -- and the
         confirmation's picks as a hand. The main phase, the defender and
         the patrol lock have none -- the board on the turn message is
-        theirs, and the hand is a message of its own above the panel
-        (`send_hand_message`). Everything here is its asked player's
-        alone.
+        theirs, and the panel pictures the hand (`hand_file`).
+        Everything here is its asked player's alone.
         """
         if prompt is None or prompt.options is None:
             return None

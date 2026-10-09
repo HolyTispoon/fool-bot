@@ -293,20 +293,16 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
         match = table.cog.service.load(game)
         for call, seat in ((mine, 1), (theirs, 2)):
             with self.subTest(seat=seat):
-                (caption,), kwargs = call.response.send_message.call_args_list[0]
+                (caption,), kwargs = call.response.send_message.call_args
                 self.assertTrue(kwargs["ephemeral"])
-                self.assertTrue(kwargs["file"].filename.startswith("codex-hand-"))
-                self.assertIn(f"{len(match.player(seat).hand)} cards", caption)
                 if seat == match.active:
                     # One button, two answers (the author, 2026-10-08):
-                    # the active player's hand is a message of its own,
-                    # the control panel sent under it (this fake's
-                    # response never reports itself done, so the panel
-                    # lands on it as a second answer).
-                    self.assertNotIn("view", kwargs)
-                    _, panel = call.response.send_message.call_args
-                    self.assertIsInstance(panel["view"], TurnPanelView)
-                    self.assertNotIn("files", panel)
+                    # the active player's is the control panel.
+                    self.assertIsInstance(kwargs["view"], TurnPanelView)
+                    self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
+                else:
+                    self.assertTrue(kwargs["file"].filename.startswith("codex-hand-"))
+                    self.assertIn(f"{len(match.player(seat).hand)} cards", caption)
 
     async def test_a_watcher_is_told_the_table_is_not_theirs(self) -> None:
         with suppressed_cog_saves():
