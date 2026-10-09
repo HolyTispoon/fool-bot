@@ -1002,9 +1002,12 @@ picture in place (the engine's `codex_remaining`, by `codex_views`; the
 views are named by `codex.formatting.codex_view_name`). **Which cards a
 view holds is one reading**, `RulesEngine.codex_view_rows`: a tech level
 is every card printed with it, a building or an upgrade as much as a
-unit, the spells are the rest, so the four together are the whole codex
-and a card is in exactly one; the tech picker narrows by the same
-function. A watcher who
+unit (the author, 2026-10-09: "not meant to show units only but all
+tech cards" -- the first reading showed units alone, which lost nothing
+in the basic game and dropped Anarchy's Tech II building, say), the
+spells are the rest, so the four together are the whole codex and a
+card is in exactly one; the tech picker narrows by the same function. A
+watcher who
 presses either is told the table is not theirs. Nothing is stored: each
 press makes a fresh ephemeral message, and `/codex hand` answers the
 same. Where it was checked that nothing hidden is public: the turn
