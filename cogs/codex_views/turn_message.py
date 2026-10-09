@@ -6,11 +6,13 @@ decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
 
 Hidden information is answered **ephemerally**, to the clicker alone and
 stored nowhere. **My hand** is one button with two answers by who
-clicked (the author, 2026-10-08): the active player gets the control
-panel for whatever the match asks them -- the actions, the defender,
-the patrol lock, the tech confirmation -- made afresh each time; the
-other player gets their hand pictured and their discard pile listed,
-with **My deck** under it. **Tech** is the other player's alone: their
+clicked (the author, 2026-10-08): the active player gets their hand, a
+message of its own, and under it the control panel for whatever the
+match asks them -- the actions, the defender, the patrol lock, the tech
+confirmation -- made afresh each time, the hand brought up to date in
+place as the turn goes (docs/design/codex.md, "The panel"); the other
+player gets their hand pictured and their discard pile listed, with
+**My deck** under it, kept up to date the same way. **Tech** is the other player's alone: their
 standing tech choice, open all through the opponent's turn -- and in a
 test game, where nothing stands (`codex.prompts.tech_stands`), it says
 where the choice is made instead. **Codex** pictures the clicker's own
@@ -98,7 +100,8 @@ class TurnMessageView(SafeView):
         return game, match, seat
 
     async def hand(self, interaction: discord.Interaction) -> None:
-        """The panel for the active player, the hand for the other."""
+        """The hand and the panel under it for the active player, the
+        hand for the other."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
