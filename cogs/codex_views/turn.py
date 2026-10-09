@@ -32,6 +32,8 @@ which unwinds their turn as well (decision 11).
 
 from __future__ import annotations
 
+import asyncio
+
 import discord
 
 from codex import effects, history
@@ -143,8 +145,10 @@ class PanelView(SafeView):
             await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
             await self.cog.present(game, result, before)
             return
-        await interaction.response.defer()
-        await self.cog.present(game, result, before)
+        # The acknowledgement and the board go out together: the defer
+        # is a round trip of its own that neither the board's render nor
+        # its post waits on, and the panel is sent after both.
+        await asyncio.gather(interaction.response.defer(), self.cog.present(game, result, before))
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
     async def open_deck(self, interaction: discord.Interaction) -> None:

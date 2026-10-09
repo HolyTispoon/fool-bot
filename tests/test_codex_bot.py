@@ -4,6 +4,7 @@ shared bot class loading `cogs.codex`, `/codex card` and `/codex rules`,
 the token resolver, and botlog naming the bot and reading `CODEX_*`.
 """
 
+import io
 import os
 import sys
 import unittest
@@ -164,6 +165,55 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([(choice.name, choice.value) for choice in choices], [("Trojan Duck", "trojan_duck")])
         choices = await cog.rules_autocomplete(mock.Mock(), "over")
         self.assertIn("overpower", [choice.value for choice in choices])
+        await bot.close()
+
+
+class CodexPicturesTests(unittest.IsolatedAsyncioTestCase):
+    """The pictures read into memory as the bot starts, off the event
+    loop, and what a card costs logged (docs/design/codex.md, "The
+    board on Discord")."""
+
+    def cog(self) -> tuple[gamebot.GameBot, Codex]:
+        bot = codex_bot()
+        cog = Codex(bot)
+        cog.tokens.refresh = mock.AsyncMock()
+        return bot, cog
+
+    async def test_the_pictures_are_read_into_memory_as_the_cog_loads(self) -> None:
+        bot, cog = self.cog()
+        self.assertIsNone(cog.preloading)
+        with self.assertLogs("cogs.codex.core", level="INFO") as logs:
+            await cog.cog_load()
+            self.assertIsNotNone(cog.preloading)
+            await cog.preloading
+        self.assertRegex(logs.output[-1],
+                         r"Codex pictures read into memory: \d+ files, \d+ MB, in \d+\.\d s$")
+        await cog.cog_unload()
+        self.assertTrue(cog.preloading.done())
+        await bot.close()
+
+    async def test_a_file_the_preload_cannot_read_is_a_warning(self) -> None:
+        """The renderer then reads from the disk on first use, as before."""
+        bot, cog = self.cog()
+        with mock.patch("cogs.codex.core.preload_pictures", side_effect=OSError("no disk")), \
+                self.assertLogs("cogs.codex.core", level="WARNING") as logs:
+            await cog.cog_load()
+            await cog.preloading
+        self.assertIn("Could not read the Codex pictures into memory: no disk", logs.output[-1])
+        await bot.close()
+
+    async def test_a_card_is_sent_from_memory_and_its_cost_logged(self) -> None:
+        bot, cog = self.cog()
+        interaction = mock.Mock()
+        interaction.response.send_message = mock.AsyncMock()
+        interaction.followup.send = mock.AsyncMock()
+        with self.assertLogs("cogs.codex.reference", level="INFO") as logs:
+            await cog.card.callback(cog, interaction, "trojan duck")
+        file = interaction.response.send_message.call_args.kwargs["file"]
+        self.assertEqual(file.filename, "trojan_duck.jpg")
+        self.assertIsInstance(file.fp, io.BytesIO)
+        self.assertRegex(logs.output[-1],
+                         r"Codex card trojan_duck: \d+ KB read in \d+ ms, sent in \d+ ms$")
         await bot.close()
 
 

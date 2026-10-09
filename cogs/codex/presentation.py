@@ -2,8 +2,9 @@
 The board and the channel: the board rendered off the thread
 (`codex/render.py` through `asyncio.to_thread`), the gate's one
 forwarder, the game's channel, the turn message posted -- for a new
-turn, or again at the foot of the channel after an action -- and a
-player's hand and their whole deck sent to them alone.
+turn, or again at the foot of the channel after an action -- a
+player's hand sent to them alone as a message of its own and brought
+up to date in place (`HandMessage`), and their whole deck.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import time
+from dataclasses import dataclass
 from typing import Optional
 
 import aiohttp
@@ -22,6 +25,8 @@ from cogs.codex_helpers import (
     BOARD_IMAGE_FILENAME_PREFIX,
     channel_name,
     codex_games_category,
+    elapsed_ms,
+    pictures_size,
 )
 from cogs.codex_views import (
     HandView,
@@ -34,6 +39,38 @@ from cogs.codex_views import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class HandMessage:
+    """
+    A hand picture the bot sent a player, ephemeral, remembered so a
+    later click may bring it up to date in place rather than send the
+    hand again (docs/design/codex.md, "The panel"): the interaction
+    that made it -- an ephemeral message can be reached no other way,
+    and Discord honours the token for fifteen minutes -- which of its
+    messages this is (`None`: its first answer; else a follow-up's id),
+    and what it shows, so that a click that changed neither sends
+    nothing. In memory only: a restart forgets every one, as it does
+    the panels.
+    """
+
+    interaction: discord.Interaction
+    message_id: Optional[int]
+    caption: str
+    picture: str
+
+    async def edit(self, **kwargs) -> None:
+        if self.message_id is None:
+            await self.interaction.edit_original_response(**kwargs)
+        else:
+            await self.interaction.followup.edit_message(self.message_id, **kwargs)
+
+    async def delete(self) -> None:
+        if self.message_id is None:
+            await self.interaction.delete_original_response()
+        else:
+            await self.interaction.followup.delete_message(self.message_id)
 
 
 class PresentationMixin:
@@ -156,11 +193,14 @@ class PresentationMixin:
             match = self.service.load(game)
         if ping is None:
             ping = not replace
+        started = time.perf_counter()
         png = await self.render_match_png(game, match)
+        drawn = elapsed_ms(started)
         text = self.turn_text(game, match)
         player_id = game.player_1_id if match.active == 1 else game.player_2_id
         state = self.boards.state(game.game_id)
         async with state.lock:
+            started = time.perf_counter()
             message = await channel.send(
                 text,
                 file=self.match_file_from_png(game, png),
@@ -170,6 +210,8 @@ class PresentationMixin:
                     users=[discord.Object(id=player_id)] if ping and player_id else False,
                 ),
             )
+            LOGGER.info("Codex game #%s: the board drawn in %d ms (%d KB), posted in %d ms",
+                        game.game_number, drawn, len(png) // 1024, elapsed_ms(started))
             old = game.turn_message_id
             game.turn_message_id = message.id
             if not replace:
@@ -208,17 +250,106 @@ class PresentationMixin:
         except discord.HTTPException as error:
             LOGGER.warning("Could not delete a turn message of Codex game %s: %s", game.game_id, error)
 
+    # -- The hand, a message of its own ---------------------------------------
+
+    async def hand_parts(self, game: CodexGame, match, seat: int) -> tuple[str, discord.File]:
+        """The hand message's caption -- the hand's count and the discard
+        pile (`hand_caption`) -- and its picture (`hand_file`, over the
+        engine's `hand_rows`: the list the main phase's buttons read)."""
+        return (hand_caption(match, seat, side_label(game, match, seat)),
+                await hand_file(self.engine, match, seat))
+
+    async def send_hand_message(self, interaction: discord.Interaction, game: CodexGame, match,
+                                seat: int, view: Optional[discord.ui.View] = None) -> None:
+        """
+        `seat`'s hand pictured and their discard pile listed, **ephemeral
+        to them alone**: the click's first answer, or its follow-up where
+        the click has been answered already -- and remembered
+        (`HandMessage`), the one remembered before it deleted where its
+        token still allows, so My hand pressed twice leaves one. `view`
+        is the other player's **My deck** (`send_hand`); the active
+        player's panel carries its own.
+        """
+        held = self.hand_messages.pop((game.game_id, seat), None)
+        if held is not None:
+            try:
+                await held.delete()
+            except discord.HTTPException:
+                pass  # past its fifteen minutes, or gone already: it stands
+        started = time.perf_counter()
+        caption, file = await self.hand_parts(game, match, seat)
+        drawn = elapsed_ms(started)
+        kwargs: dict = {"file": file, "ephemeral": True}
+        if view is not None:
+            kwargs["view"] = view
+        started = time.perf_counter()
+        if interaction.response.is_done():
+            message = await interaction.followup.send(caption, **kwargs)
+            message_id = message.id
+        else:
+            await interaction.response.send_message(caption, **kwargs)
+            message_id = None
+        self.hand_messages[(game.game_id, seat)] = HandMessage(
+            interaction, message_id, caption, file.filename,
+        )
+        LOGGER.info("Codex game #%s: the hand drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
+
+    async def refresh_hand_message(self, game: CodexGame, match, seat: int,
+                                   interaction: Optional[discord.Interaction] = None) -> None:
+        """
+        `seat`'s hand message brought up to date where its hand or its
+        caption changed -- the picture uploaded again only where the hand
+        did -- in place, through the interaction that made it; nothing
+        is sent where neither changed. Where the edit fails (its fifteen
+        minutes past, or the message gone) the message is forgotten,
+        and where the click is `seat`'s own (`interaction`) the hand is
+        sent afresh as its follow-up: under the board, above the panel
+        sent after it.
+        """
+        held = self.hand_messages.get((game.game_id, seat))
+        if held is None:
+            return
+        started = time.perf_counter()
+        caption, file = await self.hand_parts(game, match, seat)
+        drawn = elapsed_ms(started)
+        if (caption, file.filename) == (held.caption, held.picture):
+            return
+        kwargs: dict = {"content": caption}
+        if file.filename != held.picture:
+            kwargs["attachments"] = [file]
+        started = time.perf_counter()
+        try:
+            await held.edit(**kwargs)
+        except discord.HTTPException as error:
+            del self.hand_messages[(game.game_id, seat)]
+            LOGGER.info("Codex game #%s: the hand message could not be brought up to date (%s): %s",
+                        game.game_number, error, "sent afresh" if interaction is not None else "forgotten")
+            if interaction is not None:
+                await self.send_hand_message(interaction, game, match, seat)
+            return
+        held.caption, held.picture = caption, file.filename
+        LOGGER.info("Codex game #%s: the hand drawn in %d ms (%d KB), brought up to date in %d ms",
+                    game.game_number, drawn, pictures_size(kwargs.get("attachments", ())) // 1024,
+                    elapsed_ms(started))
+
+    async def refresh_hand_messages(self, game: CodexGame, match, seat: int,
+                                    interaction: discord.Interaction) -> None:
+        """Both players' hand messages after a public result -- a card
+        played, the draw at the turn's end, a card an effect returned to
+        the other hand: the clicker's (`seat`) through their click where
+        it must be sent afresh, the other's in place or not at all."""
+        await self.refresh_hand_message(game, match, seat, interaction)
+        await self.refresh_hand_message(game, match, 2 if seat == 1 else 1)
+
     async def send_hand(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
-        """A player's hand pictured and their discard listed, **ephemeral
-        to them alone** -- the first hidden thing the bot shows -- with
-        **My deck** under it."""
-        await interaction.response.send_message(
-            hand_caption(match, seat, side_label(game, match, seat)),
-            file=await hand_file(self.engine, match, seat),
-            view=HandView(self, game.game_id, seat),
-            ephemeral=True,
-        )
+        """The other player's hand pictured and their discard listed,
+        **ephemeral to them alone** -- the first hidden thing the bot
+        shows -- with **My deck** under it; remembered and kept up to
+        date as the active player's is (`send_hand_message`)."""
+        await self.send_hand_message(interaction, game, match, seat,
+                                     view=HandView(self, game.game_id, seat))
 
     async def send_deck(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
@@ -230,8 +361,14 @@ class PresentationMixin:
         pressed under stays up beside it.
         """
         deck = self.engine.own_deck(match, seat)
+        started = time.perf_counter()
+        file = await deck_file(self.engine, deck)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
             deck_caption(deck, side_label(game, match, seat)),
-            file=await deck_file(self.engine, deck),
+            file=file,
             ephemeral=True,
         )
+        LOGGER.info("Codex game #%s: the deck drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))

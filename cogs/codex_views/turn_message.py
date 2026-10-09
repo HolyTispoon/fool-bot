@@ -6,11 +6,13 @@ decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
 
 Hidden information is answered **ephemerally**, to the clicker alone and
 stored nowhere. **My hand** is one button with two answers by who
-clicked (the author, 2026-10-08): the active player gets the control
-panel for whatever the match asks them -- the actions, the defender,
-the patrol lock, the tech confirmation -- made afresh each time; the
-other player gets their hand pictured and their discard pile listed,
-with **My deck** under it. **Tech** is the other player's alone: their
+clicked (the author, 2026-10-08): the active player gets their hand, a
+message of its own, and under it the control panel for whatever the
+match asks them -- the actions, the defender, the patrol lock, the tech
+confirmation -- made afresh each time, the hand brought up to date in
+place as the turn goes (docs/design/codex.md, "The panel"); the other
+player gets their hand pictured and their discard pile listed, with
+**My deck** under it, kept up to date the same way. **Tech** is the other player's alone: their
 standing tech choice, open all through the opponent's turn -- and in a
 test game, where nothing stands (`codex.prompts.tech_stands`), it says
 where the choice is made instead. **Codex** pictures the clicker's own
@@ -25,6 +27,8 @@ ephemeral confirmation (`ConcedeConfirmView`).
 """
 
 import asyncio
+import logging
+import time
 from collections import Counter
 
 import discord
@@ -32,8 +36,10 @@ import discord
 from codex.formatting import codex_view_name, deck_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_hand
-from cogs.codex_helpers import card_name
+from cogs.codex_helpers import card_name, elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
+
+LOGGER = logging.getLogger(__name__)
 
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
@@ -94,7 +100,8 @@ class TurnMessageView(SafeView):
         return game, match, seat
 
     async def hand(self, interaction: discord.Interaction) -> None:
-        """The panel for the active player, the hand for the other."""
+        """The hand and the panel under it for the active player, the
+        hand for the other."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
@@ -139,10 +146,15 @@ class TurnMessageView(SafeView):
         if seat is None:
             return
         view = CodexBrowser(self.cog, game.game_id, seat, side=side_label(game, match, seat))
+        started = time.perf_counter()
+        file = await view.picture(match, "everything")
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
-            view.caption("everything"), file=await view.picture(match, "everything"),
-            view=view, ephemeral=True,
+            view.caption("everything"), file=file, view=view, ephemeral=True,
         )
+        LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
 
     async def concede(self, interaction: discord.Interaction) -> None:
         """The clicker's own side given up, behind a second click
@@ -304,8 +316,13 @@ class CodexBrowser(SafeView):
         view = self.select.values[0]
         for option in self.select.options:
             option.default = option.value == view
+        started = time.perf_counter()
+        pictures = kept_pictures([await self.picture(match, view)], interaction.message)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.edit_message(
-            content=self.caption(view),
-            attachments=kept_pictures([await self.picture(match, view)], interaction.message),
-            view=self,
+            content=self.caption(view), attachments=pictures, view=self,
         )
+        LOGGER.info("Codex game #%s: the codex's %s drawn in %d ms (%d KB), shown in place in %d ms",
+                    game.game_number, codex_view_name(view), drawn,
+                    pictures_size(pictures) // 1024, elapsed_ms(started))

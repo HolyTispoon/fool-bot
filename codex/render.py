@@ -40,6 +40,16 @@ opening position, a mid-game one and every state on the canvas's
 states board, in both layouts; look at them. Every caller renders
 through `asyncio.to_thread` -- Pillow is CPU-bound and would block the
 heartbeat.
+
+**No render reads a disk.** Every file a picture is drawn from -- the
+cards' art, the board's pieces, the emoji the pictures borrow, the two
+fonts -- is read into memory once (`bundled_bytes`), the whole set as
+the bot starts (`preload_pictures`, which the cog runs off the event
+loop) and anything that missed on its first use. The live host's
+checkout is a mounted Google Drive letter (docs/design/collaboration.md),
+and the bot is restarted on every deploy: without this, the first hand
+and the first codex of a game after one read their cards' art through
+it, a file at a time (docs/design/codex.md, "The board on Discord").
 """
 
 from __future__ import annotations
@@ -53,7 +63,7 @@ from typing import Mapping, Optional, Sequence
 from PIL import (Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps,
                  ImageStat)
 
-from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
+from codex.cards import BOARD_IMAGE_DIR, CARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
@@ -65,6 +75,9 @@ FONT_DIR = Path(__file__).resolve().parent.parent / "d12ball" / "fonts"
 #: The emoji the bot uploads, whose pictures the nameplate and an
 #: exhausted card's corner borrow.
 EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
+#: The two faces every word the pictures carry is drawn in: bold, and
+#: regular for the quiet words.
+FONT_FILES = ("RobotoSlab-Bold.ttf", "RobotoSlab-Regular.ttf")
 
 #: What the composed board is scaled by before it is saved: big enough
 #: to read a card's name on a phone through the full-image link, small
@@ -223,15 +236,64 @@ ACTIVE_FILL = (64, 46, 18)
 # -- Loading -----------------------------------------------------------
 
 
+#: Every bundled file a picture is drawn from, by path, as its bytes:
+#: filled whole by `preload_pictures` as the bot starts, and by the
+#: first use of anything it missed. About 44 MB, held for the
+#: process's life, so that no click reads the host's disk (the module
+#: docstring).
+_BUNDLED: dict[str, bytes] = {}
+
+#: What `preload_pictures` reads: every file under these folders but
+#: the module's sheets and the playmat, which are imported as the
+#: references the pieces were cut from and never drawn -- and the two
+#: fonts.
+PRELOADED_FOLDERS = (CARD_IMAGE_DIR, BOARD_IMAGE_DIR, EMOJI_DIR)
+NOT_PRELOADED = ("sheets", "playmat.png")
+
+
+def bundled_bytes(path: Path) -> bytes:
+    """A bundled file's bytes, read from the disk once."""
+    key = str(path)
+    found = _BUNDLED.get(key)
+    if found is None:
+        found = _BUNDLED[key] = path.read_bytes()
+    return found
+
+
+def bundled(path: Path) -> bool:
+    """Whether a bundled file is there: in memory already, or on disk."""
+    return str(path) in _BUNDLED or path.is_file()
+
+
+def preload_pictures() -> tuple[int, int]:
+    """
+    Read every file a picture may be drawn from into memory: the files
+    read and their bytes. Blocking, and the one read of most of them --
+    the cog runs it off the event loop, once, as the bot starts.
+    """
+    files = size = 0
+    for folder in PRELOADED_FOLDERS:
+        for path in sorted(folder.rglob("*")):
+            if not path.is_file() or set(path.relative_to(folder).parts) & set(NOT_PRELOADED):
+                continue
+            size += len(bundled_bytes(path))
+            files += 1
+    for name in FONT_FILES:
+        size += len(bundled_bytes(FONT_DIR / name))
+        files += 1
+    return files, size
+
+
 @lru_cache(maxsize=32)
 def font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
-    name = "RobotoSlab-Bold.ttf" if bold else "RobotoSlab-Regular.ttf"
-    return ImageFont.truetype(str(FONT_DIR / name), size)
+    bold_face, regular_face = FONT_FILES
+    face = FONT_DIR / (bold_face if bold else regular_face)
+    return ImageFont.truetype(io.BytesIO(bundled_bytes(face)), size)
 
 
 @lru_cache(maxsize=256)
 def _image(path: str) -> Image.Image:
-    with Image.open(path) as opened:
+    with Image.open(io.BytesIO(bundled_bytes(Path(path)))) as opened:
         return opened.convert("RGBA")
 
 
@@ -247,7 +309,7 @@ def board_piece(*parts: str) -> Image.Image:
 def card_picture(slug: str, cards: CardCatalog) -> Image.Image:
     """A card's or a hero's own art, or the card back where it has none."""
     found = cards.by_slug(slug).picture
-    if found is None or not found.exists():
+    if found is None or not bundled(found):
         return board_piece("backs", "card.png")
     return image(found)
 
@@ -1104,9 +1166,16 @@ def render_side(match: MatchState, seat: int, name: str,
 # -- A hand, a codex -----------------------------------------------------------
 
 
-#: A card in a hand or a codex picture, in pixels.
-HAND_CARD = (264, 360)
-CODEX_CARD = (198, 270)
+#: A card in a hand or a codex picture, in pixels: the art (330 by 450)
+#: at 0.7, and at 8/15 -- from 0.8 and 0.6 (264 by 360, 198 by 270)
+#: until the author asked for the cards a bit smaller (2026-10-09),
+#: which takes about a sixth off each picture's bytes: the staged
+#: mid-game hand 87 KB to 72, the twelve-card codex 164 to 134, the
+#: standard game's seventy-two 590 to 477. The badges, the numbers and
+#: the picked pill keep their size, so they read a little larger on
+#: the card.
+HAND_CARD = (231, 315)
+CODEX_CARD = (176, 240)
 CODEX_COLUMNS = 6
 
 

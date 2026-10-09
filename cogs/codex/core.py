@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import Counter
 from dataclasses import dataclass
 from typing import Optional
@@ -30,7 +31,7 @@ from codex.flow.result import FollowOnStep
 from codex.formatting import turn_heading
 from codex.game import CodexGame, GameStatus
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt
-from codex.render import render_codex, render_hand
+from codex.render import preload_pictures, render_codex, render_hand
 from cogs.codex_helpers import CodexTokens
 from cogs.codex_views import (
     ERROR_RECOVERY_ADVICE,
@@ -114,6 +115,11 @@ class CoreMixin:
         #: its main phase opened -- by game id and turn: what an undo
         #: puts back. In memory, the last three turns, as the snapshots.
         self.turn_heads: dict[str, dict[int, list[str]]] = {}
+        #: Each player's hand message, by game id and seat
+        #: (`presentation.HandMessage`): an ephemeral picture a later
+        #: click brings up to date in place. In memory: a restart
+        #: forgets every one, as it does the panels.
+        self.hand_messages: dict[tuple[str, int], object] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(
@@ -124,6 +130,9 @@ class CoreMixin:
             text_for=self.turn_text_or_none,
             label="Codex",
         )
+        #: The pictures read into memory as the bot starts (`cog_load`),
+        #: off the event loop; cancelled by `cog_unload`.
+        self.preloading: Optional[asyncio.Task] = None
         self.restore_saved_views()
 
     # -- Startup ---------------------------------------------------------
@@ -169,9 +178,32 @@ class CoreMixin:
 
     async def cog_load(self) -> None:
         await self.tokens.refresh()
+        self.preloading = asyncio.create_task(self.preload_pictures())
+
+    async def preload_pictures(self) -> None:
+        """
+        Every file a picture is drawn from, read into memory once, off
+        the event loop (`codex.render.preload_pictures`), so that no
+        click reads the host's disk -- a mounted Google Drive letter on
+        the live host, met by the first hand and codex of every game
+        after a restart until then (docs/design/codex.md, "The board on
+        Discord"). The line it logs says what the host's disk took. A
+        file it cannot read is a warning, and the renderer reads from
+        the disk on first use as before.
+        """
+        started = time.perf_counter()
+        try:
+            files, size = await asyncio.to_thread(preload_pictures)
+        except OSError as error:
+            LOGGER.warning("Could not read the Codex pictures into memory: %s", error)
+            return
+        LOGGER.info("Codex pictures read into memory: %d files, %d MB, in %.1f s",
+                    files, round(size / 2 ** 20), time.perf_counter() - started)
 
     async def cog_unload(self) -> None:
         self.boards.shutdown()
+        if self.preloading is not None:
+            self.preloading.cancel()
 
     async def cog_app_command_error(self, interaction: discord.Interaction,
                                     error: app_commands.AppCommandError) -> None:
@@ -242,8 +274,9 @@ class CoreMixin:
         its Show menu chose (the engine's `codex_view_rows`) -- and the
         confirmation's picks as a hand. The main phase, the defender and
         the patrol lock have none -- the board on the turn message is
-        theirs, and the panel pictures the hand (`hand_file`).
-        Everything here is its asked player's alone.
+        theirs, and the hand is a message of its own above the panel
+        (`send_hand_message`). Everything here is its asked player's
+        alone.
         """
         if prompt is None or prompt.options is None:
             return None
