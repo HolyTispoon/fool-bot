@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import time
 from typing import Optional
 
 import aiohttp
@@ -22,6 +23,8 @@ from cogs.codex_helpers import (
     BOARD_IMAGE_FILENAME_PREFIX,
     channel_name,
     codex_games_category,
+    elapsed_ms,
+    pictures_size,
 )
 from cogs.codex_views import (
     HandView,
@@ -156,11 +159,14 @@ class PresentationMixin:
             match = self.service.load(game)
         if ping is None:
             ping = not replace
+        started = time.perf_counter()
         png = await self.render_match_png(game, match)
+        drawn = elapsed_ms(started)
         text = self.turn_text(game, match)
         player_id = game.player_1_id if match.active == 1 else game.player_2_id
         state = self.boards.state(game.game_id)
         async with state.lock:
+            started = time.perf_counter()
             message = await channel.send(
                 text,
                 file=self.match_file_from_png(game, png),
@@ -170,6 +176,8 @@ class PresentationMixin:
                     users=[discord.Object(id=player_id)] if ping and player_id else False,
                 ),
             )
+            LOGGER.info("Codex game #%s: the board drawn in %d ms (%d KB), posted in %d ms",
+                        game.game_number, drawn, len(png) // 1024, elapsed_ms(started))
             old = game.turn_message_id
             game.turn_message_id = message.id
             if not replace:
@@ -213,12 +221,18 @@ class PresentationMixin:
         """A player's hand pictured and their discard listed, **ephemeral
         to them alone** -- the first hidden thing the bot shows -- with
         **My deck** under it."""
+        started = time.perf_counter()
+        file = await hand_file(self.engine, match, seat)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
             hand_caption(match, seat, side_label(game, match, seat)),
-            file=await hand_file(self.engine, match, seat),
+            file=file,
             view=HandView(self, game.game_id, seat),
             ephemeral=True,
         )
+        LOGGER.info("Codex game #%s: the hand drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
 
     async def send_deck(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
@@ -230,8 +244,14 @@ class PresentationMixin:
         pressed under stays up beside it.
         """
         deck = self.engine.own_deck(match, seat)
+        started = time.perf_counter()
+        file = await deck_file(self.engine, deck)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
             deck_caption(deck, side_label(game, match, seat)),
-            file=await deck_file(self.engine, deck),
+            file=file,
             ephemeral=True,
         )
+        LOGGER.info("Codex game #%s: the deck drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))

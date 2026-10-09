@@ -13,6 +13,7 @@ once it is there, the way `cogs/d12ball_helpers.py`'s loaders fall back.
 
 import logging
 import re
+import time
 from typing import TYPE_CHECKING, Optional
 
 from discord.ext import commands
@@ -163,3 +164,26 @@ class CodexTokens:
 def card_name(slug: str) -> str:
     """A card's name, for a list of the player's own cards."""
     return catalog().name(slug)
+
+
+# -- What a picture cost ------------------------------------------------------
+
+
+def elapsed_ms(since: float) -> int:
+    """Milliseconds since `since`, a `time.perf_counter()` reading --
+    for the one INFO line each picture a click puts up logs with what
+    it cost to draw and to send (docs/design/codex.md, "The board on
+    Discord")."""
+    return round((time.perf_counter() - since) * 1000)
+
+
+def pictures_size(files) -> int:
+    """The bytes the pictures of an answer carry: a file about to go
+    up, or an attachment kept in place (`kept_pictures`), for the same
+    line."""
+    total = 0
+    for file in files:
+        buffer = getattr(getattr(file, "fp", None), "getbuffer", None)
+        size = buffer().nbytes if buffer is not None else getattr(file, "size", 0)
+        total += size if isinstance(size, int) else 0
+    return total

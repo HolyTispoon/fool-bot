@@ -9,13 +9,21 @@ database.
 
 from __future__ import annotations
 
+import asyncio
+import io
+import logging
+import time
 from typing import Callable
 
 import discord
 from discord import app_commands
 
 from codex.cards import Card, Hero, catalog
+from codex.render import bundled, bundled_bytes
 from codex.rulings import Ruling, keyword_entry, keywords, rulings_for
+from cogs.codex_helpers import elapsed_ms
+
+LOGGER = logging.getLogger(__name__)
 
 DATABASE_URL = "http://codexcarddb.com"
 
@@ -167,7 +175,7 @@ class ReferenceMixin:
             )
             return
         picture = catalog().by_slug(slug).picture
-        if picture is not None and not picture.is_file():
+        if picture is not None and not bundled(picture):
             picture = None
         await self.tokens.refresh()
         # The picture is the answer, and the words go under it. Discord
@@ -184,9 +192,17 @@ class ReferenceMixin:
         if picture is None:
             await interaction.response.send_message(words, ephemeral=ephemeral)
             return
+        # The file's bytes from memory, or off the event loop the first
+        # time: never opened on it (`codex.render.bundled_bytes`).
+        started = time.perf_counter()
+        data = await asyncio.to_thread(bundled_bytes, picture)
+        read = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
-            file=discord.File(picture, filename=picture.name), ephemeral=ephemeral,
+            file=discord.File(io.BytesIO(data), filename=picture.name), ephemeral=ephemeral,
         )
+        LOGGER.info("Codex card %s: %d KB read in %d ms, sent in %d ms",
+                    slug, len(data) // 1024, read, elapsed_ms(started))
         if words:
             await interaction.followup.send(words, ephemeral=ephemeral)
 

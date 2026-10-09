@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Optional
 
 import discord
@@ -34,6 +35,7 @@ from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, 
 from cogs.codex_views import (
     RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, send_ephemeral,
 )
+from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
 
@@ -203,8 +205,17 @@ class TurnsMixin:
             else:
                 await self.send_hand(interaction, game, match, seat)
             return
+        started = time.perf_counter()
         content, files, view = await self.panel_parts(game, match, prompt, note)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await self.put_panel(interaction, content, files, view, edit=edit, replace=replace)
+        LOGGER.info(
+            "Codex game #%s: the panel's picture drawn in %d ms (%d KB); the panel %s in %d ms",
+            game.game_number, drawn, pictures_size(files) // 1024,
+            "sent afresh" if replace else "edited in place" if edit else "sent",
+            elapsed_ms(started),
+        )
 
     async def put_panel(self, interaction: discord.Interaction, content: str,
                         files: Optional[list[discord.File]] = None,
@@ -466,8 +477,9 @@ class TurnsMixin:
         restored = result.match
         head = self.turn_heads.get(game.game_id, {}).get(restored.turn, [])
         self.turn_lines[game.game_id] = [*head, *result.lines]
-        await interaction.response.defer()
-        await self.repost_turn_message(game, restored)
+        # The acknowledgement goes out beside the board, not before it
+        # (`TurnPanelView.act`).
+        await asyncio.gather(interaction.response.defer(), self.repost_turn_message(game, restored))
         await self.show_panel(interaction, game, restored, seat, edit=True, replace=True)
 
     async def ask_undo_to_previous_turn(self, interaction: discord.Interaction, game: CodexGame,

@@ -469,6 +469,16 @@ before the live host runs one at all -- two processes on one token are
 the 10062 failure above. The author creates the applications and
 invites them; nothing in this repository can.
 
+**What its console says about the host.** A few seconds after it
+starts, the Codex bot logs how long the host's disk took to hand over
+every picture it draws from ("Codex pictures read into memory: 447
+files, 44 MB, in 0.1 s" on the Mac; the checkout is on the Google Drive
+letter, so the host's number is the one to know), and every picture a
+click puts up logs what it cost to draw and to send -- the board, the
+panel, a hand, a codex view, a card. Both are INFO, console-only
+(`show_logs.cmd`): read them before guessing why something was slow
+([codex.md](codex.md), "The board on Discord").
+
 **Nothing in this section has been run on the `K:\` host.** It was
 written in a Linux sandbox with no PowerShell; `run_codex_bot.ps1` has
 not been executed anywhere. Correct this section from the first deploy.

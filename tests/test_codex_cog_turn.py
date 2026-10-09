@@ -188,6 +188,27 @@ class PanelTests(TurnTestCase):
         # The previous turn's message is still the one the undo restores.
         self.assertNotEqual(self.game.previous_turn_message_id, old)
 
+    async def test_what_an_actions_pictures_cost_is_logged(self) -> None:
+        """One INFO line per picture a click puts up -- the board posted,
+        the panel sent afresh under it -- with what each cost to draw
+        and to send; the console's answer to "slow" (docs/design/codex.md,
+        "The board on Discord")."""
+        _, view = await self.table.panel()
+        with self.assertLogs("cogs.codex", level="INFO") as logs:
+            call = await self.table.press(view, ("play", playable(view)[0]))
+        self.assertNothingWentWrong(call)
+        lines = [line for line in logs.output if "Codex game #" in line]
+        self.assertEqual(len(lines), 2)
+        self.assertRegex(lines[0], r"the board drawn in \d+ ms \(\d+ KB\), posted in \d+ ms$")
+        self.assertRegex(
+            lines[1],
+            r"the panel's picture drawn in \d+ ms \(\d+ KB\); the panel sent afresh in \d+ ms$",
+        )
+        # A choice that moves nothing public: the panel edited in place.
+        with self.assertLogs("cogs.codex", level="INFO") as logs:
+            await self.table.press(call.view(), "End main phase")
+        self.assertRegex(logs.output[-1], r"; the panel edited in place in \d+ ms$")
+
     async def test_a_choice_that_changes_nothing_public_spends_nothing(self) -> None:
         """Ending the main phase moves nothing a board draws and says
         nothing: the panel turns to the patrol lock, and the channel

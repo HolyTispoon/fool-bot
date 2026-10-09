@@ -1112,6 +1112,62 @@ else the bot shows is ephemeral.
   What remains is Discord's -- the upload from the live host, its
   processing and the client's fetch -- which the bot cannot measure
   from here and does not shorten except by sending fewer bytes.
+- **No click reads the host's disk, and what each picture costs is
+  logged** (2026-10-09: the author found the cards slow a third time,
+  after WebP and after the kept pictures). The two fixes before had
+  taken what the bot's own drawing had to give: measured again that
+  day on the Mac, a five-card hand is drawn in about 40 ms and a
+  twelve-card codex in 50, the stacked board in 150 to 300, and the
+  WebP encoding is about half of each at Pillow's default effort
+  (`method=4`) -- its fastest saves 25 ms a picture for a tenth more
+  bytes, its slowest spends 50 ms to save a fiftieth, so the setting
+  stays. What was left in the bot's hands was three things:
+  - **The live host's disk.** Its checkout is a mounted Google Drive
+    letter (collaboration.md, "Two machines, one live bot"), which may
+    hand a file over from the cloud rather than the disk, and the bot
+    is restarted on every deploy -- so the first hand and the first
+    codex of a game after one read their cards' art through it, a
+    file at a time, and `/codex card` opened its file on the event
+    loop. Now **every file a picture is drawn from is read into memory
+    as the bot starts** (`render.preload_pictures`, off the event
+    loop, started by `cog_load` and cancelled by `cog_unload`): the
+    cards' art, the board's pieces and the emoji the pictures borrow --
+    not the module's sheets nor the playmat, never drawn -- and the two
+    fonts: 447 files, 44 MB, held for the process's life.
+    `bundled_bytes` is the one way a bundled file is read, and what the
+    preload missed is read once on first use; a file it cannot read is
+    a warning, and nothing is drawn differently (the sample script's
+    thirty-one pictures byte-identical before and after, SHA-256). The
+    line it logs says what the host's disk took: "Codex pictures read
+    into memory: 447 files, 44 MB, in 0.1 s" on the Mac.
+  - **The acknowledgement before the board.** An action deferred its
+    click, then drew and posted the board, then sent the panel: the
+    defer is a round trip of its own that nothing after it waited for.
+    It goes out beside the board now (`TurnPanelView.act` and
+    `undo_to_turn_start`, `asyncio.gather`), which takes it off the
+    panel's path.
+  - **Numbers from the host.** The bot could not say where a slow
+    picture's time went, so every picture a click puts up logs one
+    INFO line -- console-only (logging.md) -- with what it cost to
+    draw and what the write that carried it took: the board posted,
+    the panel sent afresh or edited in place, the hand, the deck, a
+    codex view, a card (`cogs.codex_helpers.elapsed_ms`,
+    `pictures_size`). The next report is read off the console
+    (`show_logs.cmd`) before anything is guessed: a long draw is the
+    host's CPU or its disk, a long send is the host's uplink or
+    Discord, and what follows the send is the client's fetch, which
+    the log cannot see.
+  What remains is the design's floor: an action that puts something in
+  public is **two new pictures** -- the board on the message posted
+  again, the hand on the panel sent afresh under it -- each uploaded by
+  the bot and fetched cold by every client, which a kept attachment
+  cannot touch, since only an edit keeps one and both messages are new.
+  Taking one of the two away is a change to the shape the author chose
+  (the panel under the board; "The panel"), and is put to them rather
+  than made: the panel edited in place after an action, keeping its
+  hand where the hand did not change and sitting above the board posted
+  again; or the hand on an ephemeral message of its own, edited only
+  when it changes, with a panel of buttons alone sent under the board.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons

@@ -25,6 +25,8 @@ ephemeral confirmation (`ConcedeConfirmView`).
 """
 
 import asyncio
+import logging
+import time
 from collections import Counter
 
 import discord
@@ -32,8 +34,10 @@ import discord
 from codex.formatting import codex_view_name, deck_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_hand
-from cogs.codex_helpers import card_name
+from cogs.codex_helpers import card_name, elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
+
+LOGGER = logging.getLogger(__name__)
 
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
@@ -139,10 +143,15 @@ class TurnMessageView(SafeView):
         if seat is None:
             return
         view = CodexBrowser(self.cog, game.game_id, seat, side=side_label(game, match, seat))
+        started = time.perf_counter()
+        file = await view.picture(match, "everything")
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.send_message(
-            view.caption("everything"), file=await view.picture(match, "everything"),
-            view=view, ephemeral=True,
+            view.caption("everything"), file=file, view=view, ephemeral=True,
         )
+        LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
 
     async def concede(self, interaction: discord.Interaction) -> None:
         """The clicker's own side given up, behind a second click
@@ -304,8 +313,13 @@ class CodexBrowser(SafeView):
         view = self.select.values[0]
         for option in self.select.options:
             option.default = option.value == view
+        started = time.perf_counter()
+        pictures = kept_pictures([await self.picture(match, view)], interaction.message)
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
         await interaction.response.edit_message(
-            content=self.caption(view),
-            attachments=kept_pictures([await self.picture(match, view)], interaction.message),
-            view=self,
+            content=self.caption(view), attachments=pictures, view=self,
         )
+        LOGGER.info("Codex game #%s: the codex's %s drawn in %d ms (%d KB), shown in place in %d ms",
+                    game.game_number, codex_view_name(view), drawn,
+                    pictures_size(pictures) // 1024, elapsed_ms(started))
