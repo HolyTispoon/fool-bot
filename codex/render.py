@@ -536,6 +536,11 @@ def draw_building_column(body: Image.Image, player: PlayerState,
     else:
         card = rounded(board_piece("buildings", f"{add_on.slug}.png").resize(ADD_ON, Image.LANCZOS), 8)
         body.alpha_composite(card, slot[:2])
+        if add_on.spec:
+            # A tech lab's spec card, drawn small on its card (UMR p. 9).
+            mark = spec_mark(add_on.spec, SPEC_ON_LAB)
+            body.alpha_composite(mark, (slot[0] + (ADD_ON[0] - SPEC_ON_LAB[0]) // 2,
+                                        slot[3] - SPEC_ON_LAB[1] - 6))
         if add_on.under_construction:
             lay_row(body, [house], 44, (slot[0] - 10, slot[1] - 10))
         damage = building_hp.get(add_on.slug, add_on.hp) - add_on.hp
@@ -551,6 +556,14 @@ def draw_building_column(body: Image.Image, player: PlayerState,
         elif state.destroyed:
             tile = greyed(tile, 0.35)
         body.alpha_composite(tile, (left, y))
+        if name == "tech2" and player.tech2_spec:
+            # The spec chosen at Tech II, its card drawn small on the tile
+            # (UMR p. 8: "Place that card on your base").
+            # It hangs off the tile's right edge into the gap before the
+            # grid, so the tile's own words stay readable.
+            mark = spec_mark(player.tech2_spec, SPEC_ON_TILE)
+            body.alpha_composite(mark, (left + TILE[0] - SPEC_ON_TILE[0] // 2,
+                                        y + TILE[1] - SPEC_ON_TILE[1] + 2))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], 50, (left - 8, y - 8))
         if state is not None and not state.destroyed:
@@ -563,6 +576,22 @@ def draw_building_column(body: Image.Image, player: PlayerState,
     body.alpha_composite(base, (left, y))
     mark = heart(player.base_hp)
     body.alpha_composite(mark, (left + TILE[0] - 8 - 68 - 3, y + 22 - 3))
+
+
+#: A chosen spec's card as it lies on the tech II tile and on a tech
+#: lab's card: the module's spec card, small.
+SPEC_ON_TILE = (70, 50)
+SPEC_ON_LAB = (64, 46)
+
+
+def spec_mark(spec: str, size: tuple[int, int]) -> Image.Image:
+    """A spec's card (`specs/<spec>.png`, cut at step 1) at `size`,
+    rounded and edged so it reads on the tile under it."""
+    picture = board_piece("specs", f"{spec}.png").resize(size, Image.LANCZOS)
+    mark = rounded(picture, 5)
+    ImageDraw.Draw(mark).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=5,
+                                           outline=(20, 16, 12, 255), width=2)
+    return mark
 
 
 def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = 6, width: int = 2) -> None:
@@ -737,7 +766,9 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
     x += font(26).getlength(name) + 18
-    spec = f"{player.specs[0].title()} · {hero_name(player.heroes[0], cards)}"
+    spec = f"{player.deck_color.title()} · " + ", ".join(
+        hero_name(hero, cards) for hero in player.heroes
+    )
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:

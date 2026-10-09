@@ -8,7 +8,10 @@ tower, the hero levelled) -- stacked, from each seat in turn, since the
 stacked board is seen from the active player's side -- a position with
 every other state on the design canvas's states board, the first
 player's hand, their codex through every view, and the tech picker's
-codex with two picks marked:
+codex with two picks marked; and beside them a standard game's -- red
+against green, three heroes a side, the specs chosen at Tech II and on a
+tech lab, a heroes' hall -- board, hand and codex, every view of its
+seventy-two cards (`standard-*`):
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
 
@@ -135,6 +138,51 @@ def staged_states(engine: RulesEngine) -> MatchState:
     return match
 
 
+def staged_standard(engine: RulesEngine) -> MatchState:
+    """A standard game in its middle (docs/codex-bot.md, step 10): red
+    (Fire, Anarchy, Blood) against green (Feral, Growth, Balance), two of
+    the first side's heroes in play and the third in the command zone,
+    its tech II's spec Fire and a heroes' hall built; the other side's
+    tech II Feral, and a tech lab unlocking Growth."""
+    match = engine.new_match(
+        (("fire", "anarchy", "blood"), ("feral", "growth", "balance")),
+        first=1, decks=("red", "green"),
+    )
+    match.turn, match.phase = 11, "main"
+    one, two = match.player(1), match.player(2)
+    one.gold, one.workers, one.base_hp = 6, 9, 15
+    two.gold, two.workers, two.base_hp = 2, 8, 12
+    jaina, zane, drakk = one.heroes
+    jaina.zone, jaina.level, jaina.damage = "play", 4, 1
+    zane.zone, zane.level, zane.arrived_this_turn = "play", 1, True
+    drakk.summoning_runes = 1
+    calamandra = two.heroes[0]
+    calamandra.zone, calamandra.level, calamandra.patrol_slot = "play", 3, "squad_leader"
+    for player, spec in ((one, "fire"), (two, "feral")):
+        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+        player.buildings["tech2"] = BuildingState(hp=5, under_construction=False)
+        player.tech2_spec = spec
+        player.constructed_once = True
+    one.add_on = AddOnState("heroes_hall", 4, under_construction=False)
+    two.add_on = AddOnState("tech_lab", 3, under_construction=False, spec="growth")
+
+    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.damage = patrol, damage
+        card.exhausted, card.arrived_this_turn = exhausted, arrived
+        return card
+
+    put(1, "nautical_dog", exhausted=True)
+    put(1, "mad_man", arrived=True)
+    put(1, "bombaster", damage=1)
+    put(2, "tiger_cub", patrol="elite")
+    put(2, "ironbark_treant", patrol="lookout")
+    put(2, "merfolk_prospector", exhausted=True)
+    one.discard = ["scorch", "charge"]
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -209,6 +257,24 @@ def main() -> None:
         [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
         [picks.get(slug, 0) for slug, _ in rows],
     ))
+
+    # The standard game: three heroes a side, a codex of seventy-two.
+    standard = staged_standard(engine)
+    render_all(engine, standard, names, args.out, "standard")
+    standard.active = 2
+    render_all(engine, standard, names, args.out, "standard-seat-2", ("stacked",))
+    standard.active = 1
+    standard.player(1).hand = ["scorch", "nautical_dog", "bloodburn", "charge", "careless_musketeer"]
+    rows = engine.hand_rows(standard, 1)
+    write(args.out / "standard-hand.webp", render_hand(
+        [row.slug for row in rows], [row.allowed for row in rows], [row.cost for row in rows],
+        engine.catalog,
+    ))
+    for view in engine.codex_views(standard.player(1)):
+        rows = engine.codex_remaining(standard, 1, view)
+        write(args.out / f"standard-codex-{view.replace(':', '-')}.webp", render_codex(
+            [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
+        ))
 
 
 if __name__ == "__main__":
