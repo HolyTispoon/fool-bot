@@ -16,7 +16,7 @@ slots, and a plain patch of its leather that each panel is laid on.
 A panel (`render_panel`), top to bottom and left to right:
 
 - a column of buildings on the left, 136 wide -- the add-on slot, Tech
-  III, II and I, and the base, its heart carrying the HP it has now;
+  III, II and I, and the base, each heart carrying the HP it has now;
 - the patrol zone across the top of the grid: the mat's own five slots
   with their bonuses under them, each on its own holder of the mat's
   blue, packed side by side, a patroller's card over its slot;
@@ -50,7 +50,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Mapping, Optional, Sequence
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont, ImageOps
+from PIL import (Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps,
+                 ImageStat)
 
 from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
@@ -143,6 +144,25 @@ DIVIDER_WIDTH = 80
 #: How far a chit hangs over a card's edge, which a body is drawn with
 #: room for.
 OVERHANG = 12
+#: Where a card's art ends, from the card's top at `CARD`: the name's
+#: banner starts below it (a hero's a little higher, at about 129). A
+#: unit's or a hero's damage chits stand on the art's foot, clear of the
+#: ATK and HP printed at the card's (the author, 2026-10-09).
+ART_FOOT = 122
+#: A building's picture prints its full HP in a red heart, white figures
+#: edged black; a damaged building's heart is the picture's own with
+#: those figures wiped and the HP it has now written in their place (the
+#: author, 2026-10-09: a heart drawn over it did not look like the
+#: print's). The heart is the red on the picture's right half; the old
+#: figures are its white and black, between these shares of its width
+#: and height -- clear of the gloss on its two lobes.
+HEART_RED = ((151, 255), (0, 69), (0, 69))
+FIGURE_WHITE = ((150, 255),) * 3
+FIGURE_BLACK = ((0, 70),) * 3
+FIGURE_AREA = (0.05, 0.22, 0.95, 0.8)
+#: The print's figures are broader than Roboto Slab's: written, then
+#: stretched across by this.
+FIGURE_STRETCH = 1.2
 
 #: The columns of a panel's grid, by how many heroes the game gives a
 #: player: five in the basic game, seven in the standard one (three
@@ -190,8 +210,7 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
-HEART_FILL = (208, 32, 28)       # #d0201c
-HEART_EDGE = (90, 11, 9)         # #5a0b09
+FIGURE_EDGE = (15, 10, 10)
 
 # The hand's and the codex's.
 INK = (242, 242, 242)
@@ -428,7 +447,7 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     One card as it lies in a cell, on a transparent square of `CELL`
     with `OVERHANG` round it, the card's centre the square's: its own
     art at 200 by 273, a level chit top left (a hero), its rune chits
-    top right, its damage over the stats at the foot, Two Step's chit on
+    top right, its damage chits on the foot of its art, Two Step's chit on
     a dance partner, ARRIVED the turn it came -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner, the right way up.
@@ -446,7 +465,7 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     if runes:
         lay_row(upright, runes, 50, (right + 8, margin - 8), leftward=True)
     if lying.damage:
-        lay_row(upright, damage_chits(lying.damage), 62, (right + 8, bottom + 8),
+        lay_row(upright, damage_chits(lying.damage), 62, (right - 10, margin + ART_FOOT),
                 leftward=True, upward=True)
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], 50, (margin - 8, bottom + 8),
@@ -495,41 +514,76 @@ def command_zone_plate(hero: Optional[HeroState], cards: CardCatalog) -> Image.I
 # -- The buildings -----------------------------------------------------------
 
 
-def heart(number: int, size: float = 1.0) -> Image.Image:
-    """The base's heart, red and edged as the tile prints its own, with
-    `number` on it: drawn, since the number changes (the tile prints 20).
-    The canvas's path, a cubic Bezier at a time, drawn four times over
-    and scaled down for a smooth edge; `size` times 68 by 64."""
-    scale = 4
-    width, height = round(68 * size), round(64 * size)
-    sx, sy = width / 64 * scale, height / 60 * scale
-
-    def curve(p0, p1, p2, p3, steps=24):
-        for step in range(1, steps + 1):
-            t = step / steps
-            u = 1 - t
-            yield (u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
-                   u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1])
-
-    points = [(32, 58), (6, 30)]
-    points += curve((6, 30), (-2, 20), (6, 4), (20, 6))
-    points += curve((20, 6), (26, 7), (30, 11), (32, 15))
-    points += curve((32, 15), (34, 11), (38, 7), (44, 6))
-    points += curve((44, 6), (58, 4), (66, 20), (58, 30))
-    points.append((32, 58))
-    pad = 3 * scale
-    big = Image.new("RGBA", (width * scale + 2 * pad, height * scale + 2 * pad), (0, 0, 0, 0))
-    ImageDraw.Draw(big).polygon([(x * sx + pad, y * sy + pad) for x, y in points],
-                                fill=HEART_FILL, outline=HEART_EDGE, width=3 * scale)
-    shape = big.resize((big.width // scale, big.height // scale), Image.LANCZOS)
-    ImageDraw.Draw(shape).text((shape.width / 2, shape.height / 2 - 4 * size), str(number),
-                               font=font(round(30 * size)), fill=(255, 255, 255), anchor="mm")
-    return shape
+def colour_mask(picture: Image.Image, bands) -> Image.Image:
+    """White where each of the picture's red, green and blue lies in its
+    band, black elsewhere."""
+    mask = Image.new("L", picture.size, 255)
+    for channel, (low, high) in zip(picture.convert("RGB").split(), bands):
+        mask = ImageChops.multiply(mask, channel.point(lambda v: 255 if low <= v <= high else 0))
+    return mask
 
 
-def building_tile(slug: str) -> Image.Image:
-    return rounded(board_piece("buildings", f"{slug}.png").resize(TILE, Image.LANCZOS),
+@lru_cache(maxsize=16)
+def wiped_heart(slug: str) -> tuple[Image.Image, tuple[float, float], int]:
+    """
+    A building's picture with the figures in its heart wiped -- filled
+    with the heart's own red and blended into it -- the heart's centre,
+    and how tall the figures stood, at the picture's own size.
+    """
+    picture = board_piece("buildings", f"{slug}.png")
+    red = colour_mask(picture, HEART_RED)
+    red.paste(0, (0, 0, picture.width // 2, picture.height))
+    left, top, right, bottom = red.getbbox()
+    width, height = right - left, bottom - top
+    a, b, c, d = FIGURE_AREA
+    area = (left + round(width * a), top + round(height * b),
+            left + round(width * c), top + round(height * d))
+    figures = Image.new("L", picture.size, 0)
+    figures.paste(ImageChops.lighter(colour_mask(picture, FIGURE_WHITE),
+                                     colour_mask(picture, FIGURE_BLACK)).crop(area), area[:2])
+    _, figure_top, _, figure_bottom = figures.getbbox()
+    figures = figures.filter(ImageFilter.MaxFilter(5))
+    fill = ImageStat.Stat(picture.crop(area).convert("RGB"), red.crop(area)).median
+    wiped = picture.copy()
+    wiped.paste(tuple(round(v) for v in fill) + (255,), mask=figures)
+    for _ in range(30):
+        wiped.paste(wiped.filter(ImageFilter.GaussianBlur(3)), mask=figures)
+    return wiped, ((left + right) / 2, (top + bottom) / 2), figure_bottom - figure_top
+
+
+def building_picture(slug: str, hp: Optional[int] = None) -> Image.Image:
+    """A building's picture at its own size -- with `hp` in its heart in
+    place of the full HP it prints, where given."""
+    if hp is None:
+        return board_piece("buildings", f"{slug}.png")
+    wiped, (centre_x, centre_y), height = wiped_heart(slug)
+    picture = wiped.copy()
+    stroke = max(2, round(height * 0.1))
+    probe = font(100)
+    _, glyph_top, _, glyph_bottom = probe.getbbox("0", anchor="ls")
+    face = font(round((height - 2 * stroke) * 100 / (glyph_bottom - glyph_top)))
+    text = str(hp)
+    figures = Image.new("RGBA", (round(face.getlength(text)) + 4 * stroke, 2 * height), (0, 0, 0, 0))
+    ImageDraw.Draw(figures).text((figures.width / 2, figures.height / 2), text, font=face,
+                                 fill=(255, 255, 255), anchor="mm",
+                                 stroke_width=stroke, stroke_fill=FIGURE_EDGE)
+    figures = figures.crop(figures.getbbox())
+    figures = figures.resize((round(figures.width * FIGURE_STRETCH), figures.height), Image.LANCZOS)
+    # The ink centred on the heart, as the print centres its own.
+    picture.alpha_composite(figures, (round(centre_x - figures.width / 2),
+                                      round(centre_y - figures.height / 2)))
+    return picture
+
+
+def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
+    return rounded(building_picture(slug, hp).resize(TILE, Image.LANCZOS),
                    round(10 * BUILDING_SCALE))
+
+
+def damaged(hp: int, full: int) -> Optional[int]:
+    """The HP a building's heart carries in place of its printed one:
+    none while it is whole."""
+    return hp if hp < full else None
 
 
 def draw_building_column(body: Image.Image, player: PlayerState,
@@ -540,8 +594,8 @@ def draw_building_column(body: Image.Image, player: PlayerState,
     base. A tech
     building is greyed and half seen until built, in colour once built,
     the house chit on a top corner while under construction (UMR p. 8),
-    dark with the house chit when destroyed, a damage chit on a damaged
-    one. The base's heart carries the HP it has now.
+    dark with the house chit when destroyed. A damaged one's heart
+    carries the HP it has now in place of the full HP it prints.
     """
     house = board_piece("chits", "house.png")
     top = bottom - BUILDING_COLUMN_HEIGHT
@@ -549,7 +603,9 @@ def draw_building_column(body: Image.Image, player: PlayerState,
     y = top + ADD_ON[1] + TILE_GAP
     for name in reversed(TECH_BUILDINGS):
         state = player.buildings.get(name)
-        tile = building_tile(TECH_BUILDING_SLUGS[name])
+        standing = state is not None and not state.destroyed
+        hp = damaged(state.hp, building_hp[name]) if standing else None
+        tile = building_tile(TECH_BUILDING_SLUGS[name], hp)
         if state is None:
             tile = greyed(tile, 0.55, 0.5)
         elif state.destroyed:
@@ -565,24 +621,15 @@ def draw_building_column(body: Image.Image, player: PlayerState,
                                         y + TILE[1] - SPEC_ON_TILE[1] + 2))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
-        if state is not None and not state.destroyed:
-            damage = building_hp[name] - state.hp
-            if damage > 0:
-                lay_row(body, damage_chits(damage), DAMAGE_CHIT,
-                        (left + TILE[0] + CHIT_OUT, y - CHIT_OUT), leftward=True)
         y += TILE[1] + TILE_GAP
 
-    base = building_tile("base")
+    base = building_tile("base", damaged(player.base_hp, building_hp["base"]))
     body.alpha_composite(base, (left, y))
-    mark = heart(player.base_hp, BUILDING_SCALE)
-    body.alpha_composite(mark, (left + TILE[0] - round(79 * BUILDING_SCALE),
-                                y + round(19 * BUILDING_SCALE)))
 
 
-#: A building's house and damage chits, and how far they hang over its
-#: corner, at the column's scale.
+#: A building's house chit, and how far it hangs over its corner, at
+#: the column's scale.
 HOUSE_CHIT = round(50 * BUILDING_SCALE)
-DAMAGE_CHIT = round(54 * BUILDING_SCALE)
 CHIT_OUT = round(8 * BUILDING_SCALE)
 
 
@@ -594,7 +641,8 @@ def draw_add_on(body: Image.Image, player: PlayerState,
     """
     The add-on slot, its top left at (`left`, `top`): a dashed outline,
     or the add-on's card -- the house chit on its top corner while under
-    construction, a damage chit on a damaged one, as a tech building's.
+    construction, and on a damaged one the HP it has now in its heart,
+    as a tech building's.
     """
     slot = (left, top, left + ADD_ON[0], top + ADD_ON[1])
     add_on = player.add_on
@@ -604,7 +652,8 @@ def draw_add_on(body: Image.Image, player: PlayerState,
         draw.text(((slot[0] + slot[2]) / 2, (slot[1] + slot[3]) / 2), "Add-on",
                   font=font(18, bold=False), fill=FAINT_INK, anchor="mm")
         return
-    card = rounded(board_piece("buildings", f"{add_on.slug}.png").resize(ADD_ON, Image.LANCZOS),
+    hp = damaged(add_on.hp, building_hp.get(add_on.slug, add_on.hp))
+    card = rounded(building_picture(add_on.slug, hp).resize(ADD_ON, Image.LANCZOS),
                    round(ADD_ON[0] / 20))
     body.alpha_composite(card, slot[:2])
     if add_on.spec:
@@ -615,10 +664,6 @@ def draw_add_on(body: Image.Image, player: PlayerState,
     if add_on.under_construction:
         lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
                 (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
-    damage = building_hp.get(add_on.slug, add_on.hp) - add_on.hp
-    if damage > 0:
-        lay_row(body, damage_chits(damage), DAMAGE_CHIT,
-                (slot[2] + CHIT_OUT, slot[1] - CHIT_OUT), leftward=True)
 
 
 #: A chosen spec's card as it lies on the tech II tile and on a tech
@@ -907,8 +952,8 @@ def leather_ground(size: tuple[int, int]) -> Image.Image:
 
 
 def default_building_hp(cards: CardCatalog) -> dict[str, int]:
-    """Each building's full HP, from the card data: what its damage chits
-    are counted against."""
+    """Each building's full HP, from the card data -- what its picture
+    prints in its heart: below it, the heart carries the HP it has now."""
     found = {name: cards.building(slug).hp or 0 for name, slug in TECH_BUILDING_SLUGS.items()}
     for slug in ADD_ONS:
         found[slug] = cards.building(slug).hp or 0

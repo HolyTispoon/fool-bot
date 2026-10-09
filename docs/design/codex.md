@@ -916,16 +916,24 @@ else the bot shows is ephemeral.
     day and was too large, and the add-on stays with the other
     buildings, as wide as the tech buildings. At the canvas's 160 wide
     that made the column 728 tall against the one-row grid's 629, so
-    every building, chit and the base's heart is drawn at 0.85 of the
+    every building and chit is drawn at 0.85 of the
     canvas's size (`BUILDING_SCALE`), which makes the column exactly as
     tall as the patrol zone and one row (the author, 2026-10-09: the
     buildings a little smaller, so the column is the one-row grid's
     height); a test holds the two equal. A tech building is greyed and
     half seen until built, in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
-    turn) and is dark with the house chit when destroyed; damage is a
-    chit on its corner. The base's tile prints a heart with 20 on it, so
-    a heart is drawn over it carrying the HP it has now.
+    turn) and is dark with the house chit when destroyed. Every
+    building's picture prints its full HP in a heart; a damaged one's
+    heart carries the HP it has now instead, rather than a damage chit
+    beside it (the author, 2026-10-09). The heart is the picture's own:
+    a heart drawn over it in the canvas's flat red did not look like the
+    print's glossy one (the author, the same day), so `wiped_heart`
+    finds the heart by its red, wipes its white-and-black figures with
+    the heart's own red blended in, and `building_picture` writes the
+    new number there, white edged black in Roboto Slab stretched to the
+    print's broader figures. The print's face is not bundled; that
+    stretch is the nearest the bundled one comes.
   - **Across the top, the patrol zone**: the mat's own five slots with
     their bonus strips under them, cut from the playmat ("The cards are
     data"), **each on its own holder** of the mat's blue, packed side by
@@ -940,8 +948,10 @@ else the bot shows is ephemeral.
   - **The grid**: a command-zone plate per hero first -- the hero lying
     on it in full at 184 by 251 with its time-rune chit while off the
     field, the plate empty while it is on the field -- then the heroes
-    on the field (the level chit top left), then the units, each with a
-    damage chit over the stats, its rune chits top right, Two Step's
+    on the field (the level chit top left), then the units, each with
+    its damage chits on the foot of its art (`ART_FOOT`), clear of the
+    ATK and HP the card prints, which a chit over the stats hid (the
+    author, 2026-10-09), its rune chits top right, Two Step's
     chit on a dance partner and ARRIVED the turn it came.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the deck's colour and its heroes' names ("Red · Jaina Stormborne,
