@@ -299,28 +299,40 @@ class TurnsMixin:
                                  png: bytes, text: Optional[str]) -> None:
         """
         A turn message's last edit: its lines and its board, **without
-        its buttons**, so it stands as that turn's summary. Written under
-        the gate's lock, so no write of the gate's lands on it after, and
-        the gate is forgotten: the next write is the next message's.
+        its buttons**, so it stands as that turn's summary -- and **it is
+        pinned** (the author, 2026-10-09), so the pins are the game's
+        history turn by turn. Written under the gate's lock, so no write
+        of the gate's lands on it after, and the gate is forgotten: the
+        next write is the next message's. Called before the next turn's
+        message is posted, so the pin's own notice lands above that
+        message rather than under the board.
         """
         state = self.boards.state(game.game_id)
         async with state.lock:
+            message = channel.get_partial_message(message_id)
             try:
-                await channel.get_partial_message(message_id).edit(
+                await message.edit(
                     attachments=[self.match_file_from_png(game, png)], view=None,
                     **({} if text is None else {"content": text}),
                 )
             except discord.HTTPException as error:
                 LOGGER.warning("Could not close the turn message of Codex game %s: %s",
                                game.game_id, error)
+            try:
+                await message.pin(reason="A finished turn of a Codex game")
+            except discord.HTTPException as error:
+                # Discord caps a channel's pins; past the cap the turn
+                # still stands, unpinned.
+                LOGGER.warning("Could not pin the turn summary of Codex game %s: %s",
+                               game.game_id, error)
         self.boards.forget(game)
 
     async def roll_over(self, game: CodexGame, result: GameResult) -> None:
         """
         The turn ended in this result: its message is edited a last time
-        with the turn's closing lines and its own last board and stands;
-        the next turn's message is posted under it with what the next
-        turn has said.
+        with the turn's closing lines and its own last board, stands and
+        is pinned; the next turn's message is posted under it with what
+        the next turn has said.
         """
         match = result.match
         closing, board, opening, _ = split_at_turn_end(result)
@@ -349,7 +361,8 @@ class TurnsMixin:
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:
         """
         A base fell: the turn message's last edit, without its buttons,
-        and **a public line naming the winner with the final board** --
+        pinned as every finished turn is, and **a public line naming the
+        winner with the final board** --
         rendered once, uploaded twice. Step 7 adds the rematch.
         """
         match = result.match

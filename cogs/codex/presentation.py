@@ -56,8 +56,8 @@ class PresentationMixin:
 
     def bot_access(self) -> discord.PermissionOverwrite:
         """The bot's own place in a game's channel: it writes, deletes its
-        own turn messages, and manages the channel, to rename it at Start
-        and archive it later."""
+        own turn messages and pins each finished turn's, and manages the
+        channel, to rename it at Start and archive it later."""
         return discord.PermissionOverwrite(
             view_channel=True, send_messages=True, read_message_history=True,
             manage_channels=True, manage_messages=True, attach_files=True,
@@ -135,9 +135,11 @@ class PresentationMixin:
           with the board every time an action is taken, it should be
           deleted and reposted"). It pings nobody unless `ping`.
 
-        Nothing is pinned: a pin is a system message of its own, which
-        would land under the board, and the pinned message is deleted at
-        the turn's first action anyway. Posted under the gate's lock, so
+        The current turn's message is never pinned: a pin is a system
+        message of its own, which would land under the board, and the
+        pinned message would be deleted at the turn's first action. A
+        turn's message is pinned once the turn ends and it stands
+        (`stand_turn_message`). Posted under the gate's lock, so
         no edit of the gate's lands on a message on its way out, and
         handed to the gate after (`BoardRefresher.posted`) as the board
         it keeps. The record's new ids are saved through the service.

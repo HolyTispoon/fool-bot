@@ -1238,10 +1238,18 @@ carries the position.
   still costs the gate's one settling edit after a burst, at most one
   per window. **Swap view** is not an action and still edits the
   message in place through the gate.
-- **Nothing is pinned** (since 2026-10-09). The message pinned at a
-  turn's start would be deleted at its first action, and pinning each
-  post again would put the pin's own notice -- a system message --
-  under the board every action, which is what the post is for.
+- **Each finished turn is pinned, the current one never** (the author,
+  2026-10-09). The message pinned at a turn's start would be deleted at
+  its first action, and pinning each post again would put the pin's own
+  notice -- a system message -- under the board every action, which is
+  what the post is for. So a turn's message is pinned once the turn
+  ends and it stands (`stand_turn_message`), **before** the next turn's
+  message is posted, so the notice lands above the new board; the pins
+  read as the game's history turn by turn. The last turn of a finished
+  game is pinned the same way, before the winner's line. An undo to the
+  previous turn deletes that turn's standing message, and its pin with
+  it. Discord caps a channel's pins; a pin it refuses is logged and the
+  turn stands unpinned.
 - **A post that fails is logged and the click goes on**
   (`repost_turn_message`): the action is saved, the panel still goes
   up, and the old message stands a board behind until the next action
@@ -1300,8 +1308,8 @@ Measured with the fakes, and held on every click of the whole-game test:
 | An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
-| Lock patrol (the turn's end) | **2**: the old message's last edit, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
-| The attack that destroys a base | **2**: the last edit and the winner's line with the board | 3 |
+| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
+| The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 3 |
 | Undo to the start of the turn | **2** | 3 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
@@ -1333,7 +1341,7 @@ snapshot holds.
   older snapshot; the restored turn's message is posted at the foot of
   the channel with its first lines and the undone line, the restored
   board and its buttons; the current turn's message is deleted, and so
-  is the previous turn's standing one
+  is the previous turn's standing one, pinned until then
   (`CodexGame.previous_turn_message_id`, a record field step 4 added,
   `None` in an older save), since that turn is current again; and the
   opponent, now the active player, gets a fresh panel under it. Where
