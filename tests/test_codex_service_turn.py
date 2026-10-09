@@ -84,7 +84,7 @@ class TurnHeadingTests(unittest.TestCase):
         svc, _, game = started()
         match = svc.load(game)
         seat = match.active
-        deck = match.player(seat).spec.title()
+        deck = match.player(seat).specs[0].title()
         self.assertEqual(turn_heading(match), f"**Turn 1** -- {{to:{seat}}} ({deck})")
 
     def test_a_deck_of_several_specs_is_named_by_all_of_them(self) -> None:
@@ -137,7 +137,7 @@ class TurnEndGroupTests(unittest.TestCase):
         self.assertTrue(any("draws" in line for line in closing.lines))
         # The model says the turn is over, as the group's last words,
         # naming the player and their deck; the event log says which turn.
-        deck = svc.load(game).player(ending).spec.title()
+        deck = svc.load(game).player(ending).specs[0].title()
         self.assertTrue(closing.lines[-1].endswith(
             f"**End of turn 1** -- {{player:{ending}}} ({deck})."
         ))

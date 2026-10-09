@@ -302,19 +302,21 @@ class PanelTests(TurnTestCase):
         match.player(seat).gold = 3
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.press(view, ("level",))
+        slug = match.player(seat).hero.slug
+        call = await self.table.press(view, ("level", slug))
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.player(seat).hero.level, 2)
         self.assertEqual(self.table.match.player(seat).gold, 2)
-        call = await self.table.press(call.view(), ("level",))
+        call = await self.table.press(call.view(), ("level", slug))
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.player(seat).hero.level, 3)
         self.assertEqual(self.table.match.player(seat).gold, 1)
 
     async def test_a_big_hand_leaves_the_boards_row(self) -> None:
-        """Five rows of five: the hand takes three rows at most, so what
-        may be built is still on the panel under a hand of more cards
-        than fit, and no row holds more than five."""
+        """Five rows of five: the hand takes two rows at most, under the
+        actions row and the heroes' row, so what may be built is still on
+        the panel under a hand of more cards than fit, and no row holds
+        more than five."""
         match = self.table.match
         seat = match.active
         match.player(seat).hand = list(self.table.cog.engine.catalog.cards)[:18]
@@ -326,7 +328,8 @@ class PanelTests(TurnTestCase):
         self.assertLessEqual(max(rows), 4)
         self.assertTrue(all(len(items) <= 5 for items in rows.values()), {r: len(i) for r, i in rows.items()})
         cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
-        self.assertEqual(len(cards), 15)
+        self.assertEqual(len(cards), 10)
+        self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [1])
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
         self.assertEqual(view.children[-1].label, "End main phase")
@@ -428,7 +431,7 @@ class TurnEndTests(TurnTestCase):
         # mention -- which the post pings -- and their deck.
         match = self.table.match
         player_id = self.game.player_1_id if match.active == 1 else self.game.player_2_id
-        heading = f"**Turn 2** -- <@{player_id}> ({match.active_player.spec.title()})"
+        heading = f"**Turn 2** -- <@{player_id}> ({match.active_player.specs[0].title()})"
         self.assertTrue(self.table.game_channel.texts[new].startswith(heading + "\n"))
         self.assertEqual(self.table.game_channel.texts[new].count("**Turn 2**"), 1)
         mentioned = self.table.game_channel.since(mark)[2][2]["allowed_mentions"].users
@@ -645,8 +648,11 @@ class WholeGameTests(TurnTestCase):
             return await table.press(view, "Into my discard pile")
         if view.prompt.kind is PromptKind.UPKEEP_ORDER:
             return await table.press(view, "Heal first")
-        if options.hero.action == "summon" and not options.hero.why_not:
-            return await table.press(view, "Summon")
+        if view.prompt.kind is PromptKind.LEVEL_GAIN:
+            return await table.press(view, ("level_gain", options.heroes[0]))
+        for hero in options.heroes:
+            if hero.action == "summon" and hero.allowed:
+                return await table.press(view, ("summon", hero.slug))
         cards = [row for row in options.playable if row.allowed]
         if cards:
             return await table.press(view, ("play", cards[0].slug))
@@ -840,9 +846,10 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         (self.game,) = self.table.cog.games.values()
         self.table.game = self.game
         lobby = LobbyView(self.table.cog, self.game.game_id)
-        for action in ("bashing", "finesse", "start"):
-            click = self.table.interaction(self.table.basher)
-            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        await self.table.pick_heroes(lobby, self.table.basher, "bashing", menu="heroes1")
+        await self.table.pick_heroes(lobby, self.table.basher, "finesse", menu="heroes2")
+        click = self.table.interaction(self.table.basher)
+        await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         # Both seats are the one person's: a press defaulting to the
         # panel's seat finds them either way.
         self.table.fencer = self.table.basher
@@ -864,7 +871,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         # named by their decks, since both are the one person.
         first = table.match.active
         second = 2 if first == 1 else 1
-        side = {seat: table.match.player(seat).spec.title() for seat in (1, 2)}
+        side = {seat: table.match.player(seat).specs[0].title() for seat in (1, 2)}
 
         # Turn 1: the Lock closes the panel -- sent under the new turn
         # message with nothing to press; no picker follows it.
@@ -1061,3 +1068,64 @@ class UndoTests(TurnTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
+    """A standard game through the panel (step 10): the heroes' row, one
+    button per hero, and Build Tech II turning the panel into the spec
+    choice -- each click held to the request budget."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.RED, self.GREEN))
+
+    async def test_the_heroes_row_summons_each_hero_by_its_own_button(self) -> None:
+        match = self.table.match
+        seat = match.active
+        match.player(seat).gold = 10
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        heroes = [item for item in view.children if (item.choice or ("",))[0] == "summon"]
+        self.assertEqual(len(heroes), 3)
+        self.assertEqual({item.row for item in heroes}, {1})
+        first = heroes[0].choice[1]
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, ("summon", first))
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertTrue(self.table.match.player(seat).hero_of(first).in_play)
+        after = [item for item in call.view().children if (item.choice or ("",))[0] == "summon"]
+        self.assertTrue(all(item.disabled for item in after))
+        self.assertTrue(all("hero limit is 1" in item.label for item in after))
+
+    async def test_build_tech_ii_asks_its_spec_in_the_panel(self) -> None:
+        match = self.table.match
+        seat = match.active
+        player = match.player(seat)
+        player.gold, player.workers = 10, 8
+        built = player.buildings
+        from codex.components import BuildingState
+
+        built["tech1"] = BuildingState(hp=5, under_construction=False)
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, ("build", "tech2"))
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        choice = opened.view()
+        specs = [item.choice[2] for item in choice.children if (item.choice or ("",))[0] == "spec"]
+        self.assertEqual(specs, list(self.table.match.player(seat).specs))
+        back = await self.table.press(choice, "Back")
+        self.assertIs(back.view().prompt.kind, PromptKind.MAIN_ACTION)
+        old = self.game.turn_message_id
+        mark = len(self.table.game_channel.requests)
+        chosen = await self.table.press(choice, ("spec", "tech2", specs[1]))
+        self.assertEqual([answer[0] for answer in chosen.answers], PANEL_REPLACED)
+        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertEqual(self.table.match.player(seat).tech2_spec, specs[1])

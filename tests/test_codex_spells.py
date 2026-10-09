@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import unittest
 
-from codex.components import HERO, AddOnState
+from codex.components import AddOnState
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
-from codex_positions import built, hand, hero_in_play, put
+from codex_positions import RIVER, TROQ, built, hand, hero_in_play, put
 from test_codex_card_rulings import apply, asked, bashing, cast, finesse, ultimate_ready
 
 
@@ -91,7 +91,7 @@ class TheSpellsTests(unittest.TestCase):
         match.player(1).gold = 1
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
         offered = {(row.seat, row.ref) for row in asked(engine, game, match).options.targets}
-        self.assertEqual(offered, {(1, HERO), (1, mine.ref), (2, theirs.ref)})
+        self.assertEqual(offered, {(1, TROQ), (1, mine.ref), (2, theirs.ref)})
         apply(engine, game, match, PromptKind.TARGET, target=f"2:{theirs.ref}")
         self.assertEqual(theirs.damage, 1)
 
@@ -328,7 +328,7 @@ class TriggerTests(unittest.TestCase):
         engine, game, match = bashing()
         hero_in_play(match, 1, level=5)
         match.player(2).base_hp = 1
-        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=HERO)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=TROQ)
         apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
         self.assertEqual(match.winner, 1)
         self.assertIsNone(match.combat)
@@ -343,7 +343,7 @@ class TriggerTests(unittest.TestCase):
         self.assertIn("arrived this turn", option.why_not)
         match.player(2).hero.arrived_this_turn = False
         apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
-              ability="river_montoya", source=HERO)
+              ability="river_montoya", source=RIVER)
         self.assertIsNone(leader.patrol_slot, "the tech I one; the tech II Eggship is not offered")
         self.assertTrue(match.player(2).hero.exhausted)
 

@@ -11,14 +11,14 @@ import ast
 import unittest
 from pathlib import Path
 
-from codex.components import HERO, PATROL_SLOTS
+from codex.components import PATROL_SLOTS
 from codex.engine import GOLD_CAP, RulesEngine
-from codex.flow import StepResult, actions, combat, turn
+from codex.flow import StepResult, actions, board, combat, turn
 from codex.flow import driver
 from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt
 
-from codex_positions import begin, built, hand, hero_in_play, new_game, put
+from codex_positions import RIVER, TROQ, begin, built, hand, hero, hero_in_play, new_game, put
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -171,8 +171,8 @@ class HeroTests(unittest.TestCase):
         hero = match.player(1).hero
         self.assertTrue(hero.in_play)
         self.assertEqual((hero.level, match.player(1).gold), (1, 0))
-        self.assertNotIn(HERO, engine.attackers(match))
-        self.assertIn(HERO, engine.patrol_candidates(match))
+        self.assertNotIn(TROQ, engine.attackers(match))
+        self.assertIn(TROQ, engine.patrol_candidates(match))
 
     def test_summoning_runes_and_the_kills_two_levels(self) -> None:
         """A hero that dies goes to the command zone with two summoning
@@ -183,11 +183,13 @@ class HeroTests(unittest.TestCase):
         hero_in_play(match, 2, level=1, patrol="squad_leader")
         match.player(2).hero.armor = 0
         put(match, 1, "regularsized_rhinoceros")
-        combat.declare_attack(engine, game, match, "unit:1", HERO)
+        combat.declare_attack(engine, game, match, "unit:1", RIVER)
         river = match.player(2).hero
         self.assertEqual((river.zone, river.summoning_runes, river.level), ("command", 2, 1))
         self.assertEqual(match.player(1).hero.level, 5)
-        self.assertEqual(engine.hero_option(match.player(2)).action, None)
+        option = engine.hero_option(match.player(2))
+        self.assertFalse(option.allowed)
+        self.assertIn("2 summoning runes", option.why_not)
         to_their_turn(engine, game, match)
         self.assertEqual(river.summoning_runes, 1)
 
@@ -356,9 +358,9 @@ class PatrolSlotTests(unittest.TestCase):
         ))
         self.assertIsInstance(refused, driver.Refusal)
         driver.apply(engine, game, match, Action(
-            PromptKind.PATROL, arguments={"assignment": {"squad_leader": unit.ref, "lookout": HERO}},
+            PromptKind.PATROL, arguments={"assignment": {"squad_leader": unit.ref, "lookout": TROQ}},
         ))
-        self.assertEqual(match.player(1).patrollers(), {"squad_leader": unit.ref, "lookout": HERO})
+        self.assertEqual(match.player(1).patrollers(), {"squad_leader": unit.ref, "lookout": TROQ})
         self.assertEqual(set(PATROL_SLOTS) >= set(match.player(1).patrollers()), True)
 
 
@@ -426,3 +428,387 @@ class RandomnessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StandardGameHeroTests(unittest.TestCase):
+    """The standard game's heroes (UMR pp. 6-7, 10): three a side, the
+    hero limit, the spells' heroes and colours, and who gains a kill's
+    levels."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    def standard(self, teams=None):
+        engine, game, match = new_game(teams=teams or (self.RED, self.GREEN))
+        begin(engine, game, match)
+        match.player(1).gold = 20
+        return engine, game, match
+
+    def summon(self, engine, game, match, slug):
+        return driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "summon", {"hero": slug},
+        ))
+
+    def test_a_standard_match_deals_three_heroes_and_three_codexes(self) -> None:
+        engine, game, match = self.standard()
+        player = match.player(1)
+        self.assertEqual(player.specs, self.RED)
+        self.assertEqual([hero.slug for hero in player.heroes],
+                         ["jaina_stormborne", "captain_zane", "drakk_ramhorn"])
+        self.assertEqual(player.deck_color, "red")
+        self.assertEqual(sum(player.codex.values()), 72)
+        cards = engine.catalog
+        dealt = sorted([*player.hand, *player.deck])
+        self.assertEqual(dealt, sorted(cards.starting_deck("red")))
+
+    def test_a_summon_past_the_hero_limit_is_refused(self) -> None:
+        """"You begin the game with a hero limit of 1, which means that you
+        can't summon a hero while you have a hero in play" (UMR p. 6)."""
+        engine, game, match = self.standard()
+        self.assertFalse(isinstance(self.summon(engine, game, match, "jaina_stormborne"), driver.Refusal))
+        refused = self.summon(engine, game, match, "captain_zane")
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertEqual(refused.cite, "UMR p. 6")
+        self.assertIn("hero limit is 1", refused.reason)
+        options = pending_prompt(engine, game, match).options
+        self.assertEqual([hero.allowed for hero in options.heroes], [True, False, False])
+        self.assertEqual(options.heroes[0].action, "level")
+
+    def test_the_hero_limit_rises_with_tech_ii_and_tech_iii(self) -> None:
+        """Tech I 1, Tech II 2, Tech III 3 (UMR p. 8's table)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        self.summon(engine, game, match, "jaina_stormborne")
+        self.assertIsInstance(self.summon(engine, game, match, "captain_zane"), driver.Refusal)
+        built(match, 1, "tech2")
+        self.assertNotIsInstance(self.summon(engine, game, match, "captain_zane"), driver.Refusal)
+        self.assertIsInstance(self.summon(engine, game, match, "drakk_ramhorn"), driver.Refusal)
+        built(match, 1, "tech3")
+        self.assertNotIsInstance(self.summon(engine, game, match, "drakk_ramhorn"), driver.Refusal)
+        self.assertEqual(len(match.player(1).heroes_in_play), 3)
+
+    def test_a_dead_hero_is_replaced_at_once(self) -> None:
+        """"When one of your heroes dies, you can immediately summon a
+        different hero to replace it" (UMR p. 6): a hero in the command
+        zone does not count against the limit."""
+        engine, game, match = self.standard()
+        self.summon(engine, game, match, "jaina_stormborne")
+        jaina = match.player(1).hero_of("jaina_stormborne")
+        jaina.arrived_this_turn = False
+        board.destroy(engine, match, [(1, hero(match, 1, "jaina_stormborne"))], StepResult())
+        self.assertEqual(jaina.zone, "command")
+        self.assertNotIsInstance(self.summon(engine, game, match, "captain_zane"), driver.Refusal)
+        option = engine.hero_option(match.player(1), jaina)
+        self.assertIn("summoning runes", option.why_not)
+
+    def test_losing_a_building_removes_nobody(self) -> None:
+        """"You're not forced to destroy a hero if you have two heroes in
+        play when an opponent destroys your tech II building" (UMR p. 6)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2", hp=1)
+        self.summon(engine, game, match, "jaina_stormborne")
+        self.summon(engine, game, match, "captain_zane")
+        board.damage_building(match, 1, "tech2", 1, StepResult())
+        self.assertEqual(len(match.player(1).heroes_in_play), 2)
+        self.assertEqual(engine.hero_limit(match.player(1)), 1)
+
+    def test_a_starting_spell_costs_one_more_without_a_hero_of_its_colour(self) -> None:
+        """"A starting spell costs +1 gold when played by a hero of the
+        wrong color" (UMR p. 4); "neutral starting spells never cost extra
+        gold to play"."""
+        engine, game, match = self.standard(teams=(("feral", "fire", "bashing"), self.GREEN))
+        player = match.player(1)
+        hero_in_play(match, 1, slug="calamandra_moss")
+        self.assertEqual(engine.effective_cost(player, "scorch"), 3 + 1)
+        self.assertEqual(engine.effective_cost(player, "rampant_growth"), 2)
+        self.assertEqual(engine.effective_cost(player, "spark"), 1)
+        self.assertEqual(engine.caster(player, "scorch").slug, "calamandra_moss")
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        self.assertEqual(engine.effective_cost(player, "scorch"), 3)
+        self.assertEqual(engine.caster(player, "scorch").slug, "jaina_stormborne")
+
+    def test_a_spec_spell_needs_its_heros_and_an_ultimate_its_max_level(self) -> None:
+        """"To play a spec spell, you must have that spec's hero in play"
+        and an ultimate "that hero must have been in play at maximum level
+        at the beginning of your turn" (UMR p. 7) -- the spec's own hero,
+        whatever else is in play."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        fire = next(card.slug for card in engine.catalog.by_spec("fire")
+                    if card.is_spell and "Ultimate" not in card.type)
+        ultimate = next(card.slug for card in engine.catalog.by_spec("fire")
+                        if "Ultimate" in card.type)
+        hero_in_play(match, 1, slug="captain_zane", level=6)
+        player.hero_of("captain_zane").max_level_since_turn_began = True
+        self.assertIn("Fire hero", engine.why_not_playable(player, fire))
+        self.assertIn("Fire hero", engine.why_not_playable(player, ultimate))
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        self.assertEqual(engine.why_not_playable(player, fire), "")
+        self.assertIn("maximum level", engine.why_not_playable(player, ultimate))
+        player.hero_of("jaina_stormborne").max_level_since_turn_began = True
+        self.assertEqual(engine.why_not_playable(player, ultimate), "")
+
+    def test_the_kills_levels_are_asked_where_two_heroes_could_gain_them(self) -> None:
+        """"If you have multiple heroes in play, choose one hero to gain
+        the levels from destroying an opponent's hero" (UMR p. 10) -- the
+        active player chooses, before anything after the kill resolves."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        hero_in_play(match, 1, slug="captain_zane")
+        hero_in_play(match, 2, slug="calamandra_moss", patrol="squad_leader")
+        match.player(2).hero.armor = 0
+        rhino = put(match, 1, "regularsized_rhinoceros")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": rhino.ref}))
+        driver.apply(engine, game, match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": hero(match, 2, "calamandra_moss")},
+        ))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.LEVEL_GAIN)
+        self.assertEqual(prompt.asked_player, 1)
+        self.assertEqual(prompt.options.heroes,
+                         (hero(match, 1, "jaina_stormborne"), hero(match, 1, "captain_zane")))
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.LEVEL_GAIN, arguments={"hero": hero(match, 1, "drakk_ramhorn")},
+        ))
+        self.assertIsInstance(refused, driver.Refusal)
+        driver.apply(engine, game, match, Action(
+            PromptKind.LEVEL_GAIN, arguments={"hero": hero(match, 1, "captain_zane")},
+        ))
+        self.assertEqual(match.player(1).hero_of("captain_zane").level, 3)
+        self.assertEqual(match.player(1).hero_of("jaina_stormborne").level, 1)
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+
+    def test_the_kills_levels_are_not_asked_with_one_hero(self) -> None:
+        engine, game, match = self.standard()
+        hero_in_play(match, 1, slug="captain_zane")
+        hero_in_play(match, 2, slug="calamandra_moss", patrol="squad_leader")
+        match.player(2).hero.armor = 0
+        rhino = put(match, 1, "regularsized_rhinoceros")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": rhino.ref}))
+        driver.apply(engine, game, match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": hero(match, 2, "calamandra_moss")},
+        ))
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(1).hero_of("captain_zane").level, 3)
+
+    def test_one_summoning_rune_comes_off_each_hero_at_upkeep(self) -> None:
+        """"Remove one summoning rune from each of your heroes" (UMR p. 5)."""
+        engine, game, match = self.standard()
+        for slug in ("feral", "growth"):
+            match.player(2).heroes[("feral", "growth").index(slug)].summoning_runes = 2
+        to_their_turn(engine, game, match)
+        self.assertEqual([hero.summoning_runes for hero in match.player(2).heroes], [1, 1, 0])
+
+
+class StandardGameBuildingTests(unittest.TestCase):
+    """The standard game's buildings (UMR pp. 4, 8-9): the spec chosen at
+    Tech II, the tech lab's, the heroes' hall, and a multicolour team's
+    first construction."""
+
+    RED = ("fire", "anarchy", "blood")
+    GREEN = ("feral", "growth", "balance")
+
+    def standard(self, teams=None):
+        engine, game, match = new_game(teams=teams or (self.RED, self.GREEN))
+        begin(engine, game, match)
+        player = match.player(1)
+        player.gold, player.workers = 20, 10
+        return engine, game, match
+
+    def build(self, engine, game, match, building, **arguments):
+        return driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "build", {"building": building, **arguments},
+        ))
+
+    def test_tech_ii_chooses_a_spec_among_the_heroes(self) -> None:
+        """"In a standard game, when you construct your tech II building,
+        you must choose a spec ... that matches one of your heroes'
+        specs" (UMR p. 8)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        option = engine.build_option(match.player(1), "tech2")
+        self.assertEqual(option.specs, self.RED)
+        missing = self.build(engine, game, match, "tech2")
+        self.assertIsInstance(missing, driver.Refusal)
+        self.assertEqual(missing.cite, "UMR p. 8")
+        foreign = self.build(engine, game, match, "tech2", spec="feral")
+        self.assertIsInstance(foreign, driver.Refusal)
+        self.assertEqual(foreign.cite, "UMR p. 8")
+        self.assertNotIsInstance(self.build(engine, game, match, "tech2", spec="anarchy"), driver.Refusal)
+        self.assertEqual(match.player(1).tech2_spec, "anarchy")
+
+    def test_the_tech_ii_spec_is_kept_through_a_rebuild(self) -> None:
+        """"You don't get to change this spec when your tech II building is
+        destroyed and reconstructed" (UMR p. 8)."""
+        engine, game, match = self.standard()
+        built(match, 1, "tech1")
+        self.build(engine, game, match, "tech2", spec="fire")
+        board.damage_building(match, 1, "tech2", 5, StepResult())
+        self.assertTrue(match.player(1).buildings["tech2"].destroyed)
+        option = engine.build_option(match.player(1), "tech2")
+        self.assertEqual((option.cost, option.specs), (0, ()))
+        self.assertIsInstance(self.build(engine, game, match, "tech2", spec="blood"), driver.Refusal)
+        self.assertNotIsInstance(self.build(engine, game, match, "tech2"), driver.Refusal)
+        self.assertEqual(match.player(1).tech2_spec, "fire")
+
+    def test_a_tech_ii_card_needs_its_spec_and_the_lab_unlocks_another(self) -> None:
+        """"You can only play tech II and tech III cards of your chosen
+        spec" (UMR p. 8); a tech lab's spec too, once it is finished --
+        "You can't immediately play cards of the new tech when you
+        construct this" (p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        player.tech2_spec = "fire"
+        fire = next(card.slug for card in engine.catalog.by_spec("fire")
+                    if card.is_unit and card.tech_level == 2)
+        blood = next(card.slug for card in engine.catalog.by_spec("blood")
+                     if card.is_unit and card.tech_level == 2)
+        self.assertEqual(engine.why_not_playable(player, fire), "")
+        self.assertIn("Fire", engine.why_not_playable(player, blood))
+        self.assertEqual(engine.build_option(player, "tech_lab").specs, ("anarchy", "blood"))
+        self.assertIsInstance(self.build(engine, game, match, "tech_lab", spec="fire"), driver.Refusal)
+        self.build(engine, game, match, "tech_lab", spec="blood")
+        self.assertEqual(player.add_on.spec, "blood")
+        self.assertIn("tech lab", engine.why_not_playable(player, blood), "not until it is finished")
+        player.add_on.under_construction = False
+        self.assertEqual(engine.why_not_playable(player, blood), "")
+
+    def test_a_destroyed_lab_loses_its_spec(self) -> None:
+        """"When this is destroyed, you lose its bonus spec. If you
+        reconstruct the tech lab, you can choose a different spec" (UMR
+        p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        player.tech2_spec = "fire"
+        self.build(engine, game, match, "tech_lab", spec="blood")
+        player.add_on.under_construction = False
+        board.damage_building(match, 1, "add_on", 4, StepResult())
+        self.assertIsNone(player.add_on)
+        self.assertEqual(engine.chosen_specs(player), ("fire",))
+        self.build(engine, game, match, "tech_lab", spec="anarchy")
+        self.assertEqual(player.add_on.spec, "anarchy")
+
+    def test_the_basic_game_builds_the_tower_and_the_surplus_alone(self) -> None:
+        """"Only use the tower and surplus add-ons. You can't construct
+        heroes' halls or tech labs" (UMR p. 3)."""
+        engine, game, match = main_phase()
+        match.player(1).gold = 20
+        offered = [row.building for row in pending_prompt(engine, game, match).options.buildings]
+        self.assertEqual(offered, ["tech1", "tech2", "tech3", "tower", "surplus"])
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "build", {"building": "heroes_hall"},
+        ))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertEqual(refused.cite, "UMR p. 3")
+
+    def test_a_multicolour_teams_first_building_costs_one_more(self) -> None:
+        """"If your team has multiple hero colors, then your first tech
+        building or add-on costs +1 gold" (UMR p. 8) -- once, a rebuild
+        included."""
+        engine, game, match = self.standard(teams=(("fire", "feral", "anarchy"), self.GREEN))
+        player = match.player(1)
+        self.assertEqual(engine.team_colors(player), ("red", "green"))
+        self.assertEqual(engine.build_option(player, "tech1").cost, 2)
+        self.assertEqual(engine.build_option(player, "heroes_hall").cost, 3)
+        self.build(engine, game, match, "tech1")
+        self.assertEqual(player.gold, 18)
+        self.assertTrue(player.constructed_once)
+        self.assertEqual(engine.build_option(player, "heroes_hall").cost, 2)
+
+    def test_a_rebuild_is_the_first_construction_too(self) -> None:
+        engine, game, match = self.standard(teams=(("fire", "feral", "anarchy"), self.GREEN))
+        player = match.player(1)
+        built(match, 1, "tech1").destroyed = True
+        self.assertEqual(engine.build_option(player, "tech1").cost, 1)
+        self.build(engine, game, match, "tech1")
+        self.assertEqual(engine.build_option(player, "tower").cost, 3)
+
+    def test_one_colour_and_neutral_cost_nothing_more(self) -> None:
+        """"Neutral heroes don't apply this cost to your team. For example,
+        a team with Jaina (red), Zane (red), and Troq (neutral) wouldn't
+        add to your building cost, but a team with Jaina, Troq, and
+        Calamandra (green) would" (UMR p. 8)."""
+        engine, game, match = self.standard(teams=(("fire", "anarchy", "bashing"), self.GREEN))
+        self.assertEqual(engine.team_colors(match.player(1)), ("red",))
+        self.assertEqual(engine.build_option(match.player(1), "tech1").cost, 1)
+        engine, game, match = self.standard(teams=(("fire", "bashing", "feral"), self.GREEN))
+        self.assertEqual(engine.build_option(match.player(1), "tech1").cost, 2)
+        self.assertEqual(engine.build_option(match.player(2), "tech1").cost, 1)
+
+    def test_the_heroes_hall_raises_the_limit_once_finished(self) -> None:
+        """"You can't immediately summon a new hero when you construct
+        this, because it finishes construction at end of turn" (UMR p. 9)."""
+        engine, game, match = self.standard()
+        player = match.player(1)
+        hero_in_play(match, 1, slug="jaina_stormborne")
+        self.build(engine, game, match, "heroes_hall")
+        self.assertEqual(engine.hero_limit(player), 1)
+        player.add_on.under_construction = False
+        self.assertEqual(engine.hero_limit(player), 2)
+
+
+class BuildingCardTests(unittest.TestCase):
+    """Building cards and upgrades in play (UMR p. 7), since red and
+    green's starters have them: a building has HP and may be attacked, an
+    upgrade has none and may not; neither patrols nor attacks; both
+    arrive with arrival fatigue."""
+
+    def green(self):
+        engine, game, match = new_game(teams=(("feral",), ("fire",)))
+        begin(engine, game, match)
+        return engine, game, match
+
+    def test_a_building_card_and_an_upgrade_are_played_into_play(self) -> None:
+        engine, game, match = self.green()
+        player = match.player(1)
+        player.gold = 10
+        hand(match, 1, "verdant_tree", "rich_earth")
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "verdant_tree"}))
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "rich_earth"}))
+        tree, earth = player.play
+        self.assertEqual((tree.slug, earth.slug), ("verdant_tree", "rich_earth"))
+        self.assertTrue(tree.arrived_this_turn and earth.arrived_this_turn)
+        self.assertEqual(player.gold, 10 - 2 - 3)
+        self.assertNotIn(tree.ref, engine.attackers(match))
+        self.assertNotIn(tree.ref, engine.patrol_candidates(match))
+        self.assertNotIn(earth.ref, engine.patrol_candidates(match))
+
+    def test_a_building_card_may_be_attacked_and_goes_to_the_discard(self) -> None:
+        """"Buildings have HP, so your opponent can attack and destroy
+        them" (UMR p. 7) -- once the patrol zone allows; destroyed, it
+        goes to its owner's discard and deals nothing to the base, which
+        p. 8 says of tech buildings and add-ons alone."""
+        engine, game, match = self.green()
+        tree = put(match, 2, "verdant_tree")
+        earth = put(match, 2, "rich_earth")
+        guard = put(match, 2, "older_brother", patrol="squad_leader")
+        rhino = put(match, 1, "regularsized_rhinoceros")
+        self.assertNotIn(tree.ref, engine.legal_defenders(match, rhino.ref))
+        guard.patrol_slot = None
+        defenders = engine.legal_defenders(match, rhino.ref)
+        self.assertIn(tree.ref, defenders)
+        self.assertNotIn(earth.ref, defenders, "an upgrade has no HP")
+        combat.declare_attack(engine, game, match, rhino.ref, tree.ref)
+        self.assertIsNone(match.player(2).instance(tree.id))
+        self.assertIn("verdant_tree", match.player(2).discard)
+        self.assertEqual(match.player(2).base_hp, 20)
+        self.assertEqual(rhino.damage, 0, "a building deals nothing back")
+
+    def test_a_tech_building_card_needs_its_building_and_its_spec(self) -> None:
+        engine, game, match = new_game(teams=(("fire", "anarchy", "blood"), ("feral", "growth", "balance")))
+        begin(engine, game, match)
+        player = match.player(1)
+        player.gold = 10
+        self.assertIn("Tech II", engine.why_not_playable(player, "firehouse"))
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        self.assertIn("Fire", engine.why_not_playable(player, "firehouse"))
+        player.tech2_spec = "fire"
+        self.assertEqual(engine.why_not_playable(player, "firehouse"), "")

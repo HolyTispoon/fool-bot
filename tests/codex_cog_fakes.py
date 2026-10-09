@@ -209,7 +209,7 @@ def find_button(view, which) -> discord.ui.Button:
     """A button by the start of its label, or -- a tuple -- by the choice
     it answers with (`PanelButton.choice`): `("play", slug)`,
     `("build", building)`, `("attack", ref)`, `("ability", effect,
-    source)`, `("level",)`, `("hire", slug)`, `("defend", ref)`,
+    source)`, `("summon", hero)`, `("level", hero)`, `("hire", slug)`, `("defend", ref)`,
     `("target", key)`, `("detect", ref)`, `("obliterate", ref)`,
     `("sparkshot", ref)`, `("overpower", ref)`."""
     for item in view.children:
@@ -306,18 +306,39 @@ class Table:
     def interaction(self, who, channel=None) -> FakeInteraction:
         return FakeInteraction(who, channel or self.game_channel, self.guild)
 
-    async def started(self):
+    async def started(self, teams=(("bashing",), ("finesse",))):
         """The real lobby -- opened in the game's own channel -- two seats,
-        Start: the opening position."""
+        Start: the opening position. `teams` are the two seats' heroes, as
+        specs; three each plays a standard game, chosen with the lobby's
+        **Standard game** first, each on its first hero's colour where
+        the deck is the player's to choose."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
-        for who, action in ((self.basher, "bashing"), (self.fencer, "finesse"), (self.fencer, "start")):
-            click = self.interaction(who)
-            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        if len(teams[0]) == 3:
+            click = self.interaction(self.basher)
+            await next(item for item in lobby.children
+                       if ":mode_standard:" in item.custom_id).callback(click)
+            lobby = LobbyView(self.cog, game.game_id)
+        await self.pick_heroes(lobby, self.basher, *teams[0])
+        await self.pick_heroes(lobby, self.fencer, *teams[1])
+        for seat, who in ((1, self.basher), (2, self.fencer)):
+            if seat not in game.player_decks:
+                self.cog.service.choose_deck(game.game_id, who.id, game.deck_choices(seat)[0])
+        click = self.interaction(self.fencer)
+        await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         self.game = game
         return game
+
+    async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
+        """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a
+        test game's two -- answered with `specs`, as Discord sends it."""
+        select = next(item for item in lobby.children if f":{menu}:" in (item.custom_id or ""))
+        call = self.interaction(who)
+        call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(specs)}
+        await lobby._scheduled_task(select, call)
+        return call
 
     @property
     def match(self):

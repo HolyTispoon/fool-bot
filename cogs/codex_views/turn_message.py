@@ -29,7 +29,7 @@ from collections import Counter
 
 import discord
 
-from codex.formatting import codex_view_name
+from codex.formatting import codex_view_name, deck_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_hand
 from cogs.codex_helpers import card_name
@@ -175,7 +175,7 @@ def side_label(game, match, seat: int) -> str:
     game, where one person holds both and the turn decides which."""
     if not game.test_game:
         return ""
-    return f" ({match.player(seat).spec.title()})"
+    return f" ({deck_name(match.player(seat).specs)})"
 
 
 def hand_caption(match, seat: int, side: str = "") -> str:

@@ -16,7 +16,7 @@ from cogs.codex_views.base import (
     send_ephemeral,
 )
 from cogs.codex_views.ending import ConcedeConfirmView, RematchView
-from cogs.codex_views.lobby import LobbyView
+from cogs.codex_views.lobby import MODE_LABELS, LobbyView, hero_options
 from cogs.codex_views.patrol import PatrolView, next_empty
 from cogs.codex_views.tech import TechChoiceView, TechConfirmView, picks_listed
 from cogs.codex_views.turn import (
@@ -50,6 +50,7 @@ __all__ = [
     "HandView",
     "HelperConfirmationView",
     "LobbyView",
+    "MODE_LABELS",
     "NOT_YOUR_PANEL",
     "NOT_YOUR_TABLE",
     "PanelButton",
@@ -70,6 +71,7 @@ __all__ = [
     "hand_caption",
     "hand_file",
     "hand_numbers",
+    "hero_options",
     "kept_pictures",
     "next_empty",
     "picks_listed",

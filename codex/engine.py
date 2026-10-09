@@ -36,6 +36,8 @@ from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
 from codex.components import (
     HERO,
     AddOnState,
+    hero_ref,
+    is_hero_ref,
     PATROL_SLOTS,
     TECH_BUILDINGS,
     CardInstance,
@@ -73,9 +75,15 @@ TECH_BUILDING_SLUGS = {
 }
 #: The level of tech card each building lets its owner play.
 TECH_LEVEL_BUILDING = {1: "tech1", 2: "tech2", 3: "tech3"}
-#: The two add-ons of the basic game (UMR p. 9); cost and HP are the
-#: card data's.
-ADD_ONS = ("tower", "surplus")
+#: The four add-ons (UMR p. 9), cost and HP the card data's: the basic
+#: game constructs the first two alone (UMR p. 3), the standard game all
+#: four (`RulesEngine.add_ons`).
+ADD_ONS = ("tower", "surplus", "heroes_hall", "tech_lab")
+BASIC_ADD_ONS = ("tower", "surplus")
+TECH_LAB = "tech_lab"
+#: What a multicolour team's first tech building or add-on costs on top
+#: (UMR pp. 4, 8, 9).
+MULTICOLOR_SURCHARGE = 1
 #: The cards a tech choice takes, and the workers from which it may be
 #: fewer (UMR p. 5).
 TECH_PICKS = 2
@@ -112,6 +120,11 @@ TECHNICIAN_CARDS = 1
 #: How the main phase's actions are named.
 SUMMON = "summon"
 LEVEL = "level"
+#: The add-on that raises the hero limit (UMR p. 9).
+HEROES_HALL = "heroes_hall"
+#: What a starting spell of another colour than every hero in play
+#: costs on top (UMR pp. 4, 7).
+WRONG_COLOR_SURCHARGE = 1
 
 
 # -- The engine's answers, as data --------------------------------------
@@ -133,15 +146,20 @@ class HireOption:
 
 @dataclass(frozen=True)
 class HeroOption:
-    """What the active player may do with their hero: summon it for its
-    cost, level it up to `max_levels` levels at a gold each, or nothing,
-    and why."""
+    """What the active player may do with one of their heroes: summon it
+    for its cost, level it up to `max_levels` levels at a gold each, or
+    nothing, and why -- `action` names what the button would do even
+    where `why_not` says it may not now."""
 
     slug: str
     action: Optional[str] = None
     cost: int = 0
     max_levels: int = 0
     why_not: str = ""
+
+    @property
+    def allowed(self) -> bool:
+        return self.action is not None and not self.why_not
 
     def to_dict(self) -> dict:
         return {
@@ -185,20 +203,35 @@ class PlayableCard:
 
 @dataclass(frozen=True)
 class BuildOption:
+    """
+    A building that may be constructed, at the cost it will charge -- a
+    multicolour team's surcharge included -- and, in a standard game,
+    the spec its construction chooses: `specs`, the choices for a tech
+    II's spec or a tech lab's own (empty where nothing is chosen), and
+    `lab_specs`, the choices for a lab already standing without one,
+    chosen together with the tech II's (the tech_lab ruling).
+    """
+
     building: str
     cost: int
     workers_needed: int = 0
     why_not: str = ""
+    specs: tuple[str, ...] = ()
+    lab_specs: tuple[str, ...] = ()
 
     @property
     def allowed(self) -> bool:
         return not self.why_not
 
     def to_dict(self) -> dict:
-        return {
+        found = {
             "building": self.building, "cost": self.cost,
             "workers_needed": self.workers_needed, "why_not": self.why_not,
         }
+        if self.specs or self.lab_specs:
+            found["specs"] = list(self.specs)
+            found["lab_specs"] = list(self.lab_specs)
+        return found
 
 
 @dataclass(frozen=True)
@@ -268,7 +301,8 @@ class TargetRow:
 @dataclass(frozen=True)
 class LegalActions:
     hire: HireOption
-    hero: HeroOption
+    #: One per hero, in the team's order.
+    heroes: tuple[HeroOption, ...]
     playable: tuple[PlayableCard, ...]
     buildings: tuple[BuildOption, ...]
     attackers: tuple[str, ...]
@@ -306,30 +340,41 @@ class RulesEngine:
 
     # -- The opening -----------------------------------------------------
 
-    def new_match(self, seats: Sequence[str], first: Optional[int] = None) -> MatchState:
+    def new_match(self, teams: Sequence, first: Optional[int] = None,
+                  decks: Optional[Sequence[str]] = None) -> MatchState:
         """
-        The opening position of the basic game (UMR p. 3): each seat's
-        hero in the command zone, the ten neutral starters shuffled as
-        its deck and five dealt, its spec's codex of twenty-four, a base
-        at 20, and four workers for whoever goes first and five for the
-        other -- who goes first drawn at random unless given.
+        The opening position (UMR p. 3): each seat's heroes in the
+        command zone -- `teams`, a list of specs per seat, or one spec as
+        a string for the basic game -- the ten starters of its deck's
+        colour (`decks`, the neutral deck where not given) shuffled as
+        its deck and five dealt, the codex of every one of its specs,
+        twenty-four a spec, a base at 20, and four workers for whoever
+        goes first and five for the other -- who goes first drawn at
+        random unless given.
         """
         if first is None:
             first = self.rng.choice((1, 2))
         players = []
-        for seat, spec in enumerate(seats, start=1):
-            hero = self.catalog.hero_for(spec)
-            deck = self.shuffle(self.catalog.starting_deck("neutral"))
+        for seat, specs in enumerate(teams, start=1):
+            if isinstance(specs, str):
+                specs = (specs,)
+            specs = tuple(spec.lower() for spec in specs)
+            color = (decks[seat - 1] if decks is not None else "neutral").lower()
+            deck = self.shuffle(self.catalog.starting_deck(color))
             hand = [deck.pop() for _ in range(HAND_SIZE)]
+            codex = Counter()
+            for spec in specs:
+                codex.update(self.catalog.codex_for(spec))
             players.append(PlayerState(
                 seat=seat,
-                spec=spec.lower(),
-                hero=HeroState(slug=hero.slug),
+                specs=specs,
+                heroes=[HeroState(slug=self.catalog.hero_for(spec).slug) for spec in specs],
+                deck_color=color,
                 base_hp=BASE_HP,
                 workers=STARTING_WORKERS[seat == first],
                 hand=hand,
                 deck=deck,
-                codex=dict(Counter(self.catalog.codex_for(spec))),
+                codex=dict(codex),
             ))
         return MatchState(players=players, first=first, active=first)
 
@@ -419,8 +464,8 @@ class RulesEngine:
         is added. A building deals nothing.
         """
         player = match.player(seat)
-        if ref == HERO:
-            body = player.hero
+        if is_hero_ref(ref):
+            body = player.hero_by_ref(ref)
             atk = self._hero_raw(body)[0]
         elif ref.startswith("unit:"):
             body = player.instance(int(ref.split(":", 1)[1]))
@@ -446,7 +491,7 @@ class RulesEngine:
         if isinstance(body, CardInstance):
             return body.controller
         for player in match.players:
-            if player.hero is body:
+            if any(hero is body for hero in player.heroes):
                 return player.seat
         return None
 
@@ -487,18 +532,107 @@ class RulesEngine:
         """
         card = self.catalog.cards[slug]
         cost = card.cost or 0
+        if card.is_spell:
+            return cost + self.wrong_color_surcharge(player, slug)
         if not card.is_unit:
             return cost
         if self.is_virtuoso(slug) and any(
             other.slug in effects.MAESTROS for other in player.play
         ):
             return 0
-        hero = player.hero
-        if hero.in_play and not (card.tech_level or 0):
-            for (hero_slug, level), amount in effects.TECH_0_DISCOUNT.items():
-                if hero.slug == hero_slug and hero.level >= level:
-                    cost -= amount
+        if not (card.tech_level or 0):
+            for hero in player.heroes_in_play:
+                for (hero_slug, level), amount in effects.TECH_0_DISCOUNT.items():
+                    if hero.slug == hero_slug and hero.level >= level:
+                        cost -= amount
         return max(cost, 0)
+
+    # -- Heroes and colours -----------------------------------------------
+
+    def hero_color(self, hero: HeroState) -> str:
+        """A hero's colour, lowered: "neutral", "red"."""
+        return (self.hero_card(hero).color or "neutral").lower()
+
+    def team_colors(self, player: PlayerState) -> tuple[str, ...]:
+        """
+        The colours a team counts for the multicolour penalties (UMR
+        pp. 4, 8): its heroes' colours less neutral -- "the neutral
+        heroes, Troq and River, don't count as an additional color" --
+        in the team's order.
+        """
+        found = []
+        for hero in player.heroes:
+            color = self.hero_color(hero)
+            if color != "neutral" and color not in found:
+                found.append(color)
+        return tuple(found)
+
+    def is_starting_spell(self, slug: str) -> bool:
+        card = self.catalog.cards[slug]
+        return card.is_spell and not card.spec
+
+    def wrong_color_surcharge(self, player: PlayerState, slug: str) -> int:
+        """
+        What a starting spell costs on top where no hero of its colour
+        is in play to cast it: "A starting spell costs +1 gold when
+        played by a hero of the wrong color" (UMR p. 4), never for a
+        neutral one ("neutral starting spells never cost extra gold to
+        play"), and never for a spec spell, which only its own hero casts.
+        The caster is the engine's (`caster`): a hero of the spell's
+        colour wherever there is one, so the surcharge is paid only
+        where there is none.
+        """
+        card = self.catalog.cards[slug]
+        if not self.is_starting_spell(slug):
+            return 0
+        color = (card.color or "neutral").lower()
+        if color == "neutral":
+            return 0
+        heroes = player.heroes_in_play
+        if not heroes or any(self.hero_color(hero) == color for hero in heroes):
+            return 0
+        return WRONG_COLOR_SURCHARGE
+
+    def caster(self, player: PlayerState, slug: str) -> Optional[HeroState]:
+        """
+        The hero that casts a spell (UMR p. 7: "the hero actually casts
+        the spell"): a spec spell's own hero; a starting spell's, a hero
+        of its colour where there is one in play, otherwise the first in
+        play -- **nobody is asked**, since nothing in the sets this bot
+        plays turns on which hero cast a starting spell, and the cheapest
+        caster is the one a player would choose. `None` with no hero in
+        play.
+        """
+        card = self.catalog.cards[slug]
+        heroes = player.heroes_in_play
+        if card.spec:
+            key = card.spec.lower()
+            return next((hero for hero in heroes
+                         if (self.hero_card(hero).spec or "").lower() == key), None)
+        color = (card.color or "neutral").lower()
+        return next((hero for hero in heroes if self.hero_color(hero) == color),
+                    heroes[0] if heroes else None)
+
+    def hero_limit(self, player: PlayerState) -> int:
+        """
+        How many heroes this player may have in play when summoning one
+        (UMR p. 6, p. 9) -- **the heroes_hall ruling is the one reading**:
+        "If you have an active Tech 3 building, or you have an active
+        Tech 2 building and an active Heroes' Hall, you can play all 3
+        heroes. If you have an active Tech 2 building or an active
+        Heroes' Hall, you can play 2 heroes. Otherwise, you can play only
+        1 hero." Active is built, finished and standing.
+        """
+        hall = (
+            player.add_on is not None and player.add_on.slug == HEROES_HALL
+            and player.add_on.active
+        )
+        tech2 = self.tech_building_active(player, 2)
+        if self.tech_building_active(player, 3) or (tech2 and hall):
+            return 3
+        if tech2 or hall:
+            return 2
+        return 1
 
     def draw_count(self, discarded: int) -> int:
         """Two more than were discarded, to at most five (UMR p. 5)."""
@@ -527,12 +661,81 @@ class RulesEngine:
         return building is not None and building.active
 
     def building_cost(self, player: PlayerState, building: str) -> int:
+        """What constructing `building` costs now: its printed cost, 0 to
+        rebuild a destroyed tech building (UMR p. 8), and a multicolour
+        team's +1 on the first tech building or add-on it constructs, a
+        rebuild included (`multicolor_surcharge`)."""
         if building in TECH_BUILDINGS:
             existing = player.buildings[building]
             if existing is not None and existing.destroyed:
-                return 0  # rebuilt for nothing (UMR p. 8)
-            return self.catalog.building(TECH_BUILDING_SLUGS[building]).cost or 0
-        return self.catalog.building(building).cost or 0
+                cost = 0  # rebuilt for nothing (UMR p. 8)
+            else:
+                cost = self.catalog.building(TECH_BUILDING_SLUGS[building]).cost or 0
+        else:
+            cost = self.catalog.building(building).cost or 0
+        return cost + self.multicolor_surcharge(player)
+
+    def multicolor_surcharge(self, player: PlayerState) -> int:
+        """
+        "If your team has multiple hero colors, then your first tech
+        building or add-on costs +1 gold" (UMR p. 8; p. 4, p. 9) --
+        neutral heroes not counting as a colour (`team_colors`) -- until
+        the player has constructed one (`PlayerState.constructed_once`).
+        """
+        if player.constructed_once or len(self.team_colors(player)) < 2:
+            return 0
+        return MULTICOLOR_SURCHARGE
+
+    def is_standard(self, player: PlayerState) -> bool:
+        """A standard game's side has three heroes; the basic game's one
+        (UMR p. 3)."""
+        return len(player.specs) > 1
+
+    def add_ons(self, player: PlayerState) -> tuple[str, ...]:
+        """The add-ons this player may construct: the tower and the
+        surplus in the basic game, all four in the standard one (UMR
+        p. 3)."""
+        return ADD_ONS if self.is_standard(player) else BASIC_ADD_ONS
+
+    def tech_lab(self, player: PlayerState) -> Optional[AddOnState]:
+        add_on = player.add_on
+        return add_on if add_on is not None and add_on.slug == TECH_LAB else None
+
+    def chosen_specs(self, player: PlayerState) -> tuple[str, ...]:
+        """
+        The specs whose tech II and III cards this player may play (UMR
+        pp. 8-9): the basic game's one, chosen by the rule; in a standard
+        game the tech II's, once chosen, and a finished tech lab's --
+        "You can't immediately play cards of the new tech when you
+        construct this".
+        """
+        if not self.is_standard(player):
+            return tuple(player.specs)
+        found = [player.tech2_spec] if player.tech2_spec else []
+        lab = self.tech_lab(player)
+        if lab is not None and lab.active and lab.spec and lab.spec not in found:
+            found.append(lab.spec)
+        return tuple(found)
+
+    def spec_choices(self, player: PlayerState, building: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """
+        What constructing `building` chooses in a standard game (UMR
+        pp. 8-9): for a tech II whose spec is not yet chosen, one of the
+        heroes' specs -- and, where a tech lab stands without one, the
+        lab's too, a different one (the tech_lab ruling); for a tech lab
+        where the tech II's spec is chosen, one of the other specs.
+        Nothing is chosen in a basic game, or for anything else.
+        """
+        if not self.is_standard(player):
+            return (), ()
+        specs = tuple(player.specs)
+        if building == "tech2" and player.tech2_spec is None:
+            lab = self.tech_lab(player)
+            waiting = specs if lab is not None and lab.spec is None else ()
+            return specs, waiting
+        if building == TECH_LAB and player.tech2_spec is not None:
+            return tuple(spec for spec in specs if spec != player.tech2_spec), ()
+        return (), ()
 
     def building_hp(self, building: str) -> int:
         slug = TECH_BUILDING_SLUGS.get(building, building)
@@ -540,6 +743,7 @@ class RulesEngine:
 
     def build_option(self, player: PlayerState, building: str) -> BuildOption:
         cost = self.building_cost(player, building)
+        specs, lab_specs = self.spec_choices(player, building)
         if building in TECH_BUILDINGS:
             workers, below = TECH_REQUIREMENTS[building]
             existing = player.buildings[building]
@@ -554,16 +758,18 @@ class RulesEngine:
                 why = f"it needs a finished {_building_name(below)} building"
             elif player.gold < cost:
                 why = "not enough gold"
-            return BuildOption(building, cost, workers, why)
+            return BuildOption(building, cost, workers, why, specs, lab_specs)
         # A new add-on replaces the one in the slot, which deals its 2 to
         # the base (UMR p. 9; the author, 2026-10-08) -- the same one again
         # is no replacement.
         why = ""
-        if player.add_on is not None and player.add_on.slug == building:
+        if building not in self.add_ons(player):
+            why = "the basic game builds the tower and the surplus alone"
+        elif player.add_on is not None and player.add_on.slug == building:
             why = "it is already built"
         elif player.gold < cost:
             why = "not enough gold"
-        return BuildOption(building, cost, 0, why)
+        return BuildOption(building, cost, 0, why, specs, lab_specs)
 
     # -- The main phase -----------------------------------------------------
 
@@ -576,21 +782,39 @@ class RulesEngine:
             return HireOption(False, why_not="there is no card in hand to hire with")
         return HireOption(True)
 
-    def hero_option(self, player: PlayerState) -> HeroOption:
-        hero = player.hero
+    def hero_options(self, player: PlayerState) -> tuple[HeroOption, ...]:
+        """One `HeroOption` per hero, in the team's order."""
+        return tuple(self.hero_option(player, hero) for hero in player.heroes)
+
+    def hero_option(self, player: PlayerState, hero: Optional[HeroState] = None) -> HeroOption:
+        """
+        What the player may do with `hero` (their first by default):
+        summon it from the command zone for its cost -- not while it has
+        summoning runes, and not past the hero limit (UMR p. 6), a dead
+        hero in the command zone not counting against it -- or level it
+        up in play, a gold a level, to its maximum.
+        """
+        hero = player.heroes[0] if hero is None else hero
         card = self.hero_card(hero)
         if not hero.in_play:
             if hero.summoning_runes:
                 return HeroOption(
-                    hero.slug, why_not=f"it has {hero.summoning_runes} summoning rune"
+                    hero.slug, SUMMON, card.cost,
+                    why_not=f"it has {hero.summoning_runes} summoning rune"
                     + ("s" if hero.summoning_runes != 1 else ""),
+                )
+            limit = self.hero_limit(player)
+            if len(player.heroes_in_play) >= limit:
+                return HeroOption(
+                    hero.slug, SUMMON, card.cost,
+                    why_not=f"your hero limit is {limit}",
                 )
             if player.gold < card.cost:
                 return HeroOption(hero.slug, SUMMON, card.cost, why_not="not enough gold")
             return HeroOption(hero.slug, SUMMON, card.cost)
         room = card.max_level - hero.level
         if not room:
-            return HeroOption(hero.slug, why_not="it is at its maximum level")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it is at its maximum level")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")
@@ -604,18 +828,21 @@ class RulesEngine:
         any of whose parts can resolve (Final Smash's ruling)."""
         card = self.catalog.cards[slug]
         cost = self.effective_cost(player, slug)
-        if card.is_unit:
+        if card.is_unit or card.is_permanent:
             if not self.tech_building_active(player, card.tech_level or 0):
                 return f"it needs a finished {_building_name(TECH_LEVEL_BUILDING[card.tech_level])} building"
+            why = self._why_not_spec(player, card)
+            if why:
+                return why
         elif card.is_spell:
-            hero = player.hero
-            if not hero.in_play:
+            if not player.heroes_in_play:
                 return "a spell needs a hero in play"
-            spec = self.hero_card(hero).spec
-            if card.spec and (spec or "").lower() != card.spec.lower():
-                return f"it needs the {card.spec} hero"
-            if "Ultimate" in card.type and not hero.max_level_since_turn_began:
-                return "an ultimate needs a hero at maximum level since the turn began"
+            if card.spec:
+                hero = self.caster(player, slug)
+                if hero is None:
+                    return f"it needs the {card.spec} hero"
+                if "Ultimate" in card.type and not hero.max_level_since_turn_began:
+                    return "an ultimate needs its hero at maximum level since the turn began"
         else:
             return "it is not a card that is played"
         if player.gold < cost:
@@ -625,6 +852,20 @@ class RulesEngine:
         ):
             return "it has nothing it could target"
         return ""
+
+    def _why_not_spec(self, player: PlayerState, card) -> str:
+        """A tech II or III card is played only of a spec the player has
+        chosen -- their tech II's, or their tech lab's (UMR pp. 8-9)."""
+        if (card.tech_level or 0) < 2 or not card.spec:
+            return ""
+        key = card.spec.lower()
+        if key in self.chosen_specs(player):
+            return ""
+        if not self.is_standard(player):
+            return f"it is not a card of your {player.specs[0].title()} codex"
+        if player.tech2_spec is None:
+            return f"it needs {card.spec} chosen as your Tech II spec"
+        return f"your Tech II spec is {player.tech2_spec.title()}, and no tech lab has {card.spec}"
 
     def spell_can_resolve(self, match: MatchState, seat: int, slug: str, gold: int) -> bool:
         """Whether a spell has a part that can resolve: one choosing
@@ -681,20 +922,20 @@ class RulesEngine:
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
         ]
-        hero = player.hero
-        if hero.in_play and self.may_attack_with(hero, match):
-            found.append(HERO)
+        for hero in player.heroes_in_play:
+            if self.may_attack_with(hero, match):
+                found.append(hero_ref(hero.slug))
         return tuple(found)
 
     def legal_actions(self, match: MatchState) -> LegalActions:
         player = match.active_player
         return LegalActions(
             hire=self.hire_option(player),
-            hero=self.hero_option(player),
+            heroes=self.hero_options(player),
             playable=self.playable(player, match),
             buildings=tuple(
                 self.build_option(player, building)
-                for building in (*TECH_BUILDINGS, *ADD_ONS)
+                for building in (*TECH_BUILDINGS, *self.add_ons(player))
             ),
             attackers=self.attackers(match),
             detect=self.detect_option(match),
@@ -716,8 +957,9 @@ class RulesEngine:
         their own (the tower's are the add-on's, read where it acts).
         """
         player = match.player(seat)
-        if ref == HERO:
-            return player.hero if player.hero.in_play else None
+        if is_hero_ref(ref):
+            hero = player.hero_by_ref(ref)
+            return hero if hero is not None and hero.in_play else None
         instance_id = unit_ref(ref)
         if instance_id is None:
             return None
@@ -786,8 +1028,8 @@ class RulesEngine:
         units and heroes (UMR p. 17): every healing X they control,
         each healing once."""
         total = sum(self.keyword_x(card, "Healing") for card in player.play)
-        if player.hero.in_play:
-            total += self.keyword_x(player.hero, "Healing")
+        for hero in player.heroes_in_play:
+            total += self.keyword_x(hero, "Healing")
         return total
 
     # -- The tower ------------------------------------------------------------
@@ -884,8 +1126,7 @@ class RulesEngine:
         """The units and the hero on `seat`'s side, as refs."""
         player = match.player(seat)
         found = [card.ref for card in player.play if self.catalog.cards[card.slug].is_unit]
-        if player.hero.in_play:
-            found.append(HERO)
+        found.extend(hero_ref(hero.slug) for hero in player.heroes_in_play)
         return tuple(found)
 
     def _standing(self, match: MatchState, seat: int) -> tuple[str, ...]:
@@ -893,6 +1134,7 @@ class RulesEngine:
         play, the tech buildings and add-on standing, and the base."""
         player = match.player(seat)
         found = list(self._things_in_play(match, seat))
+        found.extend(card.ref for card in self._building_cards_of(match, seat))
         found.extend(
             name for name in TECH_BUILDINGS
             if player.buildings[name] is not None and not player.buildings[name].destroyed
@@ -1196,6 +1438,19 @@ class RulesEngine:
     def _units_of(self, match: MatchState, seat: int) -> list[CardInstance]:
         return [card for card in match.player(seat).play if self.catalog.cards[card.slug].is_unit]
 
+    def _building_cards_of(self, match: MatchState, seat: int) -> list[CardInstance]:
+        """The building cards `seat` has in play -- things with HP besides
+        the base, the tech buildings and the add-on (UMR p. 7)."""
+        return [card for card in match.player(seat).play
+                if self.catalog.cards[card.slug].is_building_card]
+
+    def has_hp(self, card: CardInstance) -> bool:
+        """Whether a card in play has HP, and so can be damaged and
+        destroyed: a unit or a building card -- not an upgrade, not an
+        ongoing spell."""
+        printed = self.catalog.cards[card.slug]
+        return printed.is_unit or printed.is_building_card
+
     def target_candidates(self, match: MatchState, seat: int, choose: str,
                           taken: Sequence[str] = ()) -> list[tuple[int, str]]:
         """
@@ -1210,7 +1465,7 @@ class RulesEngine:
         for side in (other, seat):
             player = match.player(side)
             units = self._units_of(match, side)
-            hero = [HERO] if player.hero.in_play else []
+            hero = [hero_ref(one.slug) for one in player.heroes_in_play]
 
             def tech(card: CardInstance) -> int:
                 return self.catalog.cards[card.slug].tech_level or 0
@@ -1225,15 +1480,18 @@ class RulesEngine:
             elif choose == "friendly_unbloomed":
                 if side == seat:
                     found += [(side, card.ref) for card in units if not card.plus_runes]
-                    if hero and not player.hero.plus_runes:
-                        found.append((side, HERO))
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                              if not one.plus_runes]
             elif choose == "building":
                 # A building being constructed can't be dealt damage the
-                # turn it was started (UMR p. 8, and p. 9 for add-ons).
+                # turn it was started (UMR p. 8, and p. 9 for add-ons); a
+                # building card is a building as much as the base is.
                 found += [(side, ref) for ref in self._buildings_of(match, side)
                           if not self._under_construction(player, ref)]
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
             elif choose == "other_building":
                 found += [(side, ref) for ref in self._buildings_of(match, side)]
+                found += [(side, card.ref) for card in self._building_cards_of(match, side)]
             elif choose == "unit":
                 found += [(side, card.ref) for card in units]
             elif choose == "unit_tech_0_1":
@@ -1333,12 +1591,12 @@ class RulesEngine:
         for card in player.play:
             if card.slug == effects.HARMONY:
                 found.append(AbilityOption("stop_the_music", card.ref))
-        hero = player.hero
-        if hero.in_play:
+        for hero in player.heroes_in_play:
             for when, effect in effects.rows(hero.slug, hero.level):
                 if when == "ability":
                     found.append(AbilityOption(
-                        effect, HERO, self._ability_why_not(match, seat, hero, effect),
+                        effect, hero_ref(hero.slug),
+                        self._ability_why_not(match, seat, hero, effect),
                     ))
         if any(card.slug in effects.MAESTROS for card in player.play):
             for card in player.play:
@@ -1393,13 +1651,16 @@ class RulesEngine:
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
         ]
-        if player.hero.in_play and not player.hero.exhausted:
-            found.append(HERO)
+        found.extend(
+            hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted
+        )
         return tuple(found)
 
     def codex_counts(self, player: PlayerState) -> tuple[tuple[str, int], ...]:
         """The player's codex, as (slug, copies left), in the data's order."""
-        order = list(dict.fromkeys(self.catalog.codex_for(player.spec)))
+        order = list(dict.fromkeys(
+            slug for spec in player.specs for slug in self.catalog.codex_for(spec)
+        ))
         return tuple((slug, player.codex.get(slug, 0)) for slug in order)
 
     # -- What a player is shown of their own cards ------------------------
@@ -1409,7 +1670,7 @@ class RulesEngine:
         The views a player's codex is shown through -- everything, a
         tech level, or the spells (the author, 2026-10-08: "a lot of
         cards", so a menu rather than one picture) -- and, where the
-        deck is more than one spec (the standard game's three, step 9),
+        deck is more than one spec (the standard game's three, step 10),
         one view per spec, since a seventy-two card codex is three
         binders. The Codex button's menu and the tech picker's are both
         this list, so the two narrow the same way.

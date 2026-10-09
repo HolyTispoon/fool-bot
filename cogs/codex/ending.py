@@ -21,6 +21,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 
+from codex.formatting import deck_name
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from cogs.codex_helpers import (
     CHANNEL_NAME_PATTERN,
@@ -96,7 +97,7 @@ class EndingMixin:
             return
         other = 2 if seat == 1 else 1
         winner = game.seat_name(other) or f"Player {other}"
-        side = f" {match.player(seat).spec.title()}'s side of" if game.test_game else ""
+        side = f" {deck_name(match.player(seat).specs)}'s side of" if game.test_game else ""
         await interaction.response.send_message(
             f"Concede{side} the game? {winner} wins, and it cannot be undone.",
             view=ConcedeConfirmView(self, game.game_id, seat, interaction.user.id),

@@ -54,9 +54,9 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont, ImageOps
 
 from codex.cards import BOARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
-    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState,
+    PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
-from codex.engine import TECH_BUILDING_SLUGS
+from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
 #: (docs/design/board-image.md): Roboto Slab for every word and number.
@@ -555,6 +555,14 @@ def draw_building_column(body: Image.Image, player: PlayerState,
         elif state.destroyed:
             tile = greyed(tile, 0.35)
         body.alpha_composite(tile, (left, y))
+        if name == "tech2" and player.tech2_spec:
+            # The spec chosen at Tech II, its card drawn small on the tile
+            # (UMR p. 8: "Place that card on your base").
+            # It hangs off the tile's right edge into the gap before the
+            # grid, so the tile's own words stay readable.
+            mark = spec_mark(player.tech2_spec, SPEC_ON_TILE)
+            body.alpha_composite(mark, (left + TILE[0] - SPEC_ON_TILE[0] // 2,
+                                        y + TILE[1] - SPEC_ON_TILE[1] + 2))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
         if state is not None and not state.destroyed:
@@ -599,6 +607,11 @@ def draw_add_on(body: Image.Image, player: PlayerState,
     card = rounded(board_piece("buildings", f"{add_on.slug}.png").resize(ADD_ON, Image.LANCZOS),
                    round(ADD_ON[0] / 20))
     body.alpha_composite(card, slot[:2])
+    if add_on.spec:
+        # A tech lab's spec card, drawn small on its card (UMR p. 9).
+        mark = spec_mark(add_on.spec, SPEC_ON_LAB)
+        body.alpha_composite(mark, (slot[0] + (ADD_ON[0] - SPEC_ON_LAB[0]) // 2,
+                                    slot[3] - SPEC_ON_LAB[1] - 8))
     if add_on.under_construction:
         lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
                 (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
@@ -606,6 +619,22 @@ def draw_add_on(body: Image.Image, player: PlayerState,
     if damage > 0:
         lay_row(body, damage_chits(damage), DAMAGE_CHIT,
                 (slot[2] + CHIT_OUT, slot[1] - CHIT_OUT), leftward=True)
+
+
+#: A chosen spec's card as it lies on the tech II tile and on a tech
+#: lab's card: the module's spec card, small.
+SPEC_ON_TILE = (round(70 * BUILDING_SCALE), round(50 * BUILDING_SCALE))
+SPEC_ON_LAB = (96, 69)
+
+
+def spec_mark(spec: str, size: tuple[int, int]) -> Image.Image:
+    """A spec's card (`specs/<spec>.png`, cut at step 1) at `size`,
+    rounded and edged so it reads on the tile under it."""
+    picture = board_piece("specs", f"{spec}.png").resize(size, Image.LANCZOS)
+    mark = rounded(picture, 5)
+    ImageDraw.Draw(mark).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=5,
+                                           outline=(20, 16, 12, 255), width=2)
+    return mark
 
 
 def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = 6, width: int = 2) -> None:
@@ -631,8 +660,8 @@ def partner_ids(player: PlayerState) -> set[int]:
 
 def heroes(player: PlayerState) -> list[HeroState]:
     """A player's heroes: one in the basic game, three in the standard
-    one once it is played."""
-    return [player.hero]
+    one."""
+    return list(player.heroes)
 
 
 def panel_columns(player: PlayerState) -> int:
@@ -648,14 +677,16 @@ def panel_width(columns: int) -> int:
 
 def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     """The grid, in order: a command-zone plate per hero, then the
-    heroes on the field, then the units, every one not patrolling."""
+    heroes on the field, then the units, every one not patrolling, then
+    the building cards and upgrades, which never patrol (step 10)."""
     plates = [command_zone_plate(None if hero.in_play else hero, cards)
               for hero in heroes(player)]
     field = [lying_card(hero_lying(hero, cards), cards)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
-    units = [lying_card(unit_lying(card, card.id in partners), cards)
-             for card in player.play if card.patrol_slot is None]
+    lying = [card for card in player.play if card.patrol_slot is None]
+    lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
+    units = [lying_card(unit_lying(card, card.id in partners), cards) for card in lying]
     return plates + field + units
 
 
@@ -704,8 +735,8 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         ref = player.patroller(slot)
         if ref is None:
             continue
-        if ref == "hero":
-            lying = hero_lying(player.hero, cards)
+        if is_hero_ref(ref):
+            lying = hero_lying(player.hero_by_ref(ref), cards)
         else:
             instance_id = int(ref.split(":", 1)[1])
             lying = unit_lying(match.instance(instance_id), instance_id in partners)
@@ -782,7 +813,9 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
     x += font(26).getlength(name) + 18
-    spec = f"{player.spec.title()} · {hero_name(player.hero, cards)}"
+    spec = f"{player.deck_color.title()} · " + ", ".join(
+        hero_name(hero, cards) for hero in player.heroes
+    )
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:
@@ -877,7 +910,7 @@ def default_building_hp(cards: CardCatalog) -> dict[str, int]:
     """Each building's full HP, from the card data: what its damage chits
     are counted against."""
     found = {name: cards.building(slug).hp or 0 for name, slug in TECH_BUILDING_SLUGS.items()}
-    for slug in ("tower", "surplus"):
+    for slug in ADD_ONS:
         found[slug] = cards.building(slug).hp or 0
     found["base"] = 20
     return found
