@@ -1803,11 +1803,13 @@
         }
       ],
       "hired_this_turn": false,
+      "peace": false,
       "play": [
         {
           "armor": 0,
           "arrived_this_turn": false,
           "attached": [],
+          "attached_hero": null,
           "attacked_this_turn": true,
           "controller": 1,
           "damage": 2,
@@ -1819,6 +1821,7 @@
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
+          "returns_to": null,
           "runes": {},
           "slug": "hired_stomper"
         },
@@ -1826,6 +1829,7 @@
           "armor": 0,
           "arrived_this_turn": false,
           "attached": [],
+          "attached_hero": null,
           "attacked_this_turn": true,
           "controller": 1,
           "damage": 4,
@@ -1837,6 +1841,7 @@
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
+          "returns_to": null,
           "runes": {},
           "slug": "regularsized_rhinoceros"
         },
@@ -1844,6 +1849,7 @@
           "armor": 0,
           "arrived_this_turn": true,
           "attached": [],
+          "attached_hero": null,
           "attacked_this_turn": false,
           "controller": 1,
           "damage": 0,
@@ -1855,6 +1861,7 @@
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
+          "returns_to": null,
           "runes": {},
           "slug": "granfalloon_flagbearer"
         },
@@ -1862,6 +1869,7 @@
           "armor": 0,
           "arrived_this_turn": true,
           "attached": [],
+          "attached_hero": null,
           "attacked_this_turn": false,
           "controller": 1,
           "damage": 0,
@@ -1873,6 +1881,7 @@
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
+          "returns_to": null,
           "runes": {},
           "slug": "regularsized_rhinoceros"
         }
@@ -1882,6 +1891,7 @@
       "specs": [
         "bashing"
       ],
+      "spells_played": 0,
       "tech2_spec": null,
       "tech_choice": null,
       "tech_confirmed": false,
@@ -1979,12 +1989,14 @@
         }
       ],
       "hired_this_turn": false,
+      "peace": false,
       "play": [],
       "reshuffled_this_phase": false,
       "seat": 2,
       "specs": [
         "finesse"
       ],
+      "spells_played": 0,
       "tech2_spec": null,
       "tech_choice": null,
       "tech_confirmed": false,
@@ -3526,11 +3538,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 0,
               "arrived_this_turn": false,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -3542,6 +3556,7 @@
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "sneaky_pig"
             }
@@ -3551,6 +3566,7 @@
           "specs": [
             "bashing"
           ],
+          "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
@@ -3644,11 +3660,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 0,
               "arrived_this_turn": false,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
@@ -3660,6 +3678,7 @@
               "owner": 2,
               "patrol_slot": null,
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "timely_messenger"
             },
@@ -3667,6 +3686,7 @@
               "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
@@ -3678,6 +3698,7 @@
               "owner": 2,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "leaping_lizard"
             }
@@ -3687,6 +3708,7 @@
           "specs": [
             "finesse"
           ],
+          "spells_played": 1,
           "tech2_spec": null,
           "tech_choice": [
             "two_step",
@@ -5307,11 +5329,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -5323,6 +5347,7 @@
               "owner": 1,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "iron_man"
             },
@@ -5330,6 +5355,7 @@
               "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -5341,6 +5367,7 @@
               "owner": 1,
               "patrol_slot": "elite",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "hired_stomper"
             },
@@ -5348,6 +5375,7 @@
               "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -5359,6 +5387,7 @@
               "owner": 1,
               "patrol_slot": "scavenger",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "regularsized_rhinoceros"
             }
@@ -5368,6 +5397,7 @@
           "specs": [
             "bashing"
           ],
+          "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": [
             "final_smash",
@@ -5467,11 +5497,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 0,
               "arrived_this_turn": false,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 2,
@@ -5483,6 +5515,7 @@
               "owner": 2,
               "patrol_slot": null,
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "leaping_lizard"
             }
@@ -5492,6 +5525,7 @@
           "specs": [
             "finesse"
           ],
+          "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
@@ -7173,11 +7207,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 0,
               "arrived_this_turn": false,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -7189,6 +7225,7 @@
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "hired_stomper"
             },
@@ -7196,6 +7233,7 @@
               "armor": 0,
               "arrived_this_turn": false,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 1,
               "damage": 0,
@@ -7207,6 +7245,7 @@
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "regularsized_rhinoceros"
             }
@@ -7216,6 +7255,7 @@
           "specs": [
             "bashing"
           ],
+          "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,
@@ -7311,11 +7351,13 @@
             }
           ],
           "hired_this_turn": false,
+          "peace": false,
           "play": [
             {
               "armor": 1,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
@@ -7327,6 +7369,7 @@
               "owner": 2,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "brick_thief"
             },
@@ -7334,6 +7377,7 @@
               "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
+              "attached_hero": null,
               "attacked_this_turn": false,
               "controller": 2,
               "damage": 0,
@@ -7345,6 +7389,7 @@
               "owner": 2,
               "patrol_slot": "elite",
               "plus_runes": 0,
+              "returns_to": null,
               "runes": {},
               "slug": "backstabber"
             }
@@ -7354,6 +7399,7 @@
           "specs": [
             "finesse"
           ],
+          "spells_played": 0,
           "tech2_spec": null,
           "tech_choice": null,
           "tech_confirmed": false,

@@ -730,5 +730,80 @@ class ResourcesTests(unittest.TestCase):
         self.assertEqual(player.gold, 0)
 
 
+# -- Red and green: the spells' shapes (step 11) --------------------------------
+
+
+class RedGreenSpellTests(unittest.TestCase):
+    def feral(self):
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        return engine, game, match
+
+    def test_a_modal_spell_asks_one_unboosted_and_does_both_boosted(self) -> None:
+        engine, game, match = self.feral()
+        hand(match, 1, "murkwood_allies", "murkwood_allies")
+        match.player(1).gold = 14
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.MODE_CHOICE)
+        self.assertEqual([key for key, _ in prompt.options.modes], ["beast", "frogs"])
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="beast")
+        self.assertEqual(sorted(card.slug for card in match.player(1).play), ["beast"])
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies", boost=True)
+        self.assertEqual(sorted(card.slug for card in match.player(1).play),
+                         ["beast", "beast", "frog", "frog", "frog", "frog"])
+        self.assertEqual(match.player(1).gold, 0)
+
+    def test_a_modal_spell_is_cancelled_from_its_choice(self) -> None:
+        engine, game, match = self.feral()
+        from codex import history
+
+        hand(match, 1, "murkwood_allies")
+        match.player(1).gold = 5
+        match.turn_snapshots[-1] = history.position(match)
+        match.journal = []
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, "cancel")
+        self.assertEqual((match.player(1).hand, match.player(1).gold), (["murkwood_allies"], 5))
+
+    def test_a_mode_not_offered_is_refused(self) -> None:
+        engine, game, match = self.feral()
+        hand(match, 1, "murkwood_allies")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="murkwood_allies")
+        refused(engine, game, match, PromptKind.MODE_CHOICE, mode="both")
+
+    def test_done_is_offered_only_once_enough_is_chosen(self) -> None:
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("fire",), ("growth",)))
+        hero_in_play(match, 1)
+        put(match, 2, "tiger_cub", patrol="squad_leader")
+        put(match, 2, "tiger_cub", patrol="elite")
+        hand(match, 1, "ember_sparks")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="ember_sparks")
+        self.assertFalse(asked(engine, game, match).options.done)
+        refused(engine, game, match, PromptKind.TARGET, "done")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        self.assertTrue(asked(engine, game, match).options.done)
+        # A pick stays where it is, so it is not offered twice.
+        self.assertNotIn("2:base", [row.key for row in asked(engine, game, match).options.targets])
+
+    def test_a_spell_putting_a_card_into_play_takes_no_boost(self) -> None:
+        engine, game, match = self.feral()
+        match.player(1).hero.level = 5
+        match.player(1).hero.max_level_since_turn_began = True
+        hand(match, 1, "feral_strike", "tiger_cub")
+        match.player(1).gold = 4
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="feral_strike")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="put")
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:tiger_cub")
+        self.assertIn("tiger_cub", [card.slug for card in match.player(1).play])
+        self.assertEqual(match.player(1).gold, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

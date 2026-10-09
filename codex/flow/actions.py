@@ -109,10 +109,12 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     hero.max_level_since_turn_began = False
     match.record_event("summoned", slug=hero.slug)
     atk, hp = engine.hero_stats(hero)
-    return _done(engine, game, match, [
+    result = StepResult(board_changed=True, narration=[
         f"{tokens.player(seat)} summons {tokens.hero(hero.slug)} for "
         f"{tokens.gold(option.cost)}: level 1, {atk}/{hp}.{_vanilla_note(engine, hero.slug)}"
     ])
+    board.hero_arrives(engine, match, seat, hero)
+    return resolve.carry_on(engine, game, match, result)
 
 
 def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, levels: int,
@@ -142,7 +144,9 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
         f"for {tokens.gold(levels * LEVEL_COST)}"
     )
     line += f": a new band, {atk}/{hp} and healed." if reached else "."
-    return _done(engine, game, match, [line])
+    result = StepResult(board_changed=True, narration=[line])
+    board.max_level_reached(engine, match, seat, hero, result)
+    return resolve.carry_on(engine, game, match, result)
 
 
 def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug: str,
@@ -187,12 +191,9 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted}: "
             f"{atk}/{hp}.{note}"
         )
-        resolve.push(match, *(
-            resolve.frame(effect, seat, tokens.card(slug), source=instance.ref, boosted=boost)
-            for effect in effects.triggers(slug, "arrives")
-        ))
+        board.arrive(engine, match, instance, from_hand=True, boosted=boost)
     elif card.is_permanent:
-        match.new_instance(slug, seat)
+        board.arrive(engine, match, match.new_instance(slug, seat), from_hand=True)
         what = f"a building, {card.hp} HP" if card.is_building_card else "an upgrade"
         result.narration.append(
             f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}: "
@@ -203,6 +204,7 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
         result.narration.append(
             f"{tokens.player(seat)} casts {tokens.card(slug)} for {tokens.gold(cost)}{boosted}.{note}"
         )
+        player.spells_played += 1
         if slug in effects.EFFECTS:
             resolve.push(match, resolve.frame(
                 slug, seat, tokens.card(slug), spell=slug, cancel_from=len(match.journal),
@@ -288,6 +290,9 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
     if cost.sacrifice:
         board.sacrifice(engine, match, body)
         said.append(f"sacrifices {by}")
+    if not said:
+        # A cost the effect's own parts pay -- Calamandra's discards.
+        said.append(f"uses {by}")
     return f"{tokens.player(seat)} " + " and ".join(said) + "."
 
 
@@ -351,7 +356,9 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
     hp = engine.building_hp(building)
     if building in TECH_BUILDING_SLUGS:
         rebuilt = player.buildings[building] is not None
-        player.buildings[building] = BuildingState(hp=hp, under_construction=True)
+        # Verdant Tree: "Your tech buildings build instantly this turn."
+        instant = engine.builds_instantly(player)
+        player.buildings[building] = BuildingState(hp=hp, under_construction=not instant)
         verb = "rebuilds" if rebuilt else "builds"
         if building == "tech2" and spec is not None:
             player.tech2_spec = spec
@@ -372,7 +379,10 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
             line += f" and {deck_name((lab_spec,))} for their {tokens.card(TECH_LAB)}"
     elif building == TECH_LAB and spec is not None:
         line += f", choosing {deck_name((spec,))}"
-    line += "; it is finished at the end of the turn."
+    if building in TECH_BUILDING_SLUGS and not player.buildings[building].under_construction:
+        line += "; it is finished at once."
+    else:
+        line += "; it is finished at the end of the turn."
     if building in ADD_ONS:
         line += _vanilla_note(engine, building)
     result = _done(engine, game, match, [line])

@@ -150,6 +150,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         hero.arrived_this_turn = False
         hero.patrol_slot = None
     player.hired_this_turn = False
+    player.spells_played = 0
+    # Moment's Peace holds "until your next turn" (step 11).
+    player.peace = False
     # Readiness attacks once a turn and a tower detects once a turn
     # (UMR p. 9, 17), so both are new each turn, on both sides.
     for side in match.players:
@@ -293,6 +296,14 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     )
     match.enter_phase("tech")
     end_of_turn(engine, match, result)
+    from codex.flow import resolve
+
+    if not resolve.run(engine, match, result):
+        # A death at the end of the turn asks something -- Crash Bomber's
+        # target on its controller's turn: asked, and the turn ends on
+        # the answer (`pending` names BEGIN_TECH once the stack is empty).
+        result.next = pending(engine, game, match)
+        return result
     result.next = FollowOn(FollowOnStep.BEGIN_TECH)
     return result
 

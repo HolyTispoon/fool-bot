@@ -94,6 +94,13 @@ class PromptKind(Enum):
     #: active player where the kill happened, before anything after it
     #: resolves.
     LEVEL_GAIN = "level_gain"
+    #: Damage divided as the caster chooses among the targets a part
+    #: chose (Ember Sparks, Burning Volley): 1 each, and a point at a time
+    #: onto one of them until it is all placed (step 11).
+    DIVIDE_DAMAGE = "divide_damage"
+    #: "Choose one" -- Feral Strike's, Murkwood Allies', Land Octopus's
+    #: upkeep -- asked only where there is a choice (step 11).
+    MODE_CHOICE = "mode_choice"
     #: A base is destroyed (UMR p. 2), or a player conceded.
     GAME_OVER = "game_over"
 
@@ -254,13 +261,64 @@ class TargetOptions:
     #: Whether `cancel` is offered: a spell or ability, before it has
     #: drawn a card (`codex.flow.resolve.cancellable`).
     cancellable: bool = False
+    #: Whether **Done** is offered: the part chooses "up to" so many, or
+    #: "may", and has chosen as many as it must (step 11).
+    done: bool = False
+    #: What the part has chosen so far, as target keys.
+    picked: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
-        return jsonable({
+        found = jsonable({
             "seat": self.seat, "effect": self.effect, "source": self.source,
             "part": self.part, "says": self.says, "targets": self.targets,
             "forced": self.forced, "cancellable": self.cancellable,
         })
+        if self.done or self.picked:
+            found["done"] = self.done
+            found["picked"] = list(self.picked)
+        return found
+
+
+@dataclass(frozen=True)
+class DivideOptions:
+    """Damage being divided: the targets chosen, how much each has so far
+    (1 each to begin with), the total, and how much is left to place."""
+
+    seat: int
+    effect: str
+    source: str
+    total: int
+    split: tuple[tuple[str, int], ...]
+    cancellable: bool = False
+
+    @property
+    def left(self) -> int:
+        return self.total - sum(amount for _, amount in self.split)
+
+    def to_dict(self) -> dict:
+        return {
+            "seat": self.seat, "effect": self.effect, "source": self.source,
+            "total": self.total, "split": [list(row) for row in self.split],
+            "left": self.left, "cancellable": self.cancellable,
+        }
+
+
+@dataclass(frozen=True)
+class ModeOptions:
+    """The modes of a "choose one", each `(key, says)`, the ones that can
+    be done alone."""
+
+    seat: int
+    effect: str
+    source: str
+    modes: tuple[tuple[str, str], ...]
+    cancellable: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "seat": self.seat, "effect": self.effect, "source": self.source,
+            "modes": [list(row) for row in self.modes], "cancellable": self.cancellable,
+        }
 
 
 @dataclass(frozen=True)
@@ -314,6 +372,7 @@ PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
     TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
     TargetOptions, AppelOptions, UpkeepOrderOptions, LevelGainOptions, GameOverOptions,
+    DivideOptions, ModeOptions,
 ]
 
 
@@ -381,10 +440,12 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.OBLITERATE_CHOICE: ("",),
     PromptKind.SPARKSHOT_TARGET: ("",),
     PromptKind.OVERPOWER_TARGET: ("",),
-    PromptKind.TARGET: ("", "cancel"),
+    PromptKind.TARGET: ("", "cancel", "done"),
     PromptKind.APPEL_STOMP_TOP: ("top", "discard"),
     PromptKind.UPKEEP_ORDER: ("",),
     PromptKind.LEVEL_GAIN: ("",),
+    PromptKind.DIVIDE_DAMAGE: ("", "cancel"),
+    PromptKind.MODE_CHOICE: ("", "cancel"),
     PromptKind.GAME_OVER: (),
 }
 
@@ -427,6 +488,17 @@ def _target_ask(engine, match: MatchState, top: dict) -> str:
     if any(row.flagbearer for row in rows_for(engine, match, top)):
         ask += " Their flagbearer must be the target."
     return ask
+
+
+def _divide_ask(match: MatchState, top: dict, left: int) -> str:
+    return (
+        f"{tokens.player(top['seat'])}, {top['by']}: divide its damage -- "
+        f"{left} more to place, a point at a time."
+    )
+
+
+def _mode_ask(top: dict) -> str:
+    return f"{tokens.player(top['seat'])}, {top['by']}: choose one."
 
 
 def _appel_ask(seat: int) -> str:
@@ -474,7 +546,7 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
 
 
 def _target_options(engine, game, match, prompt) -> TargetOptions:
-    from codex.flow.resolve import cancellable, rows_for
+    from codex.flow.resolve import cancellable, offers_done, rows_for
 
     top = match.resolving[0]
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
@@ -482,6 +554,30 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
+        offers_done(top, part), tuple(top.get("picks") or ()),
+    )
+
+
+def _divide_options(engine, game, match, prompt) -> DivideOptions:
+    from codex.flow.resolve import cancellable, current_part, damage_amount
+
+    top = match.resolving[0]
+    part = current_part(match)
+    return DivideOptions(
+        top["seat"], top["effect"], top["by"], damage_amount(engine, match, top, part.amount),
+        tuple((key, amount) for key, amount in top["split"].items()), cancellable(match),
+    )
+
+
+def _mode_options(engine, game, match, prompt) -> ModeOptions:
+    from codex.flow.resolve import cancellable, current_part
+
+    top = match.resolving[0]
+    part = current_part(match)
+    return ModeOptions(
+        top["seat"], top["effect"], top["by"],
+        tuple((key, says) for key, says, allowed in engine.mode_rows(match, top, part) if allowed),
+        cancellable(match),
     )
 
 
@@ -572,6 +668,8 @@ OPTIONS = {
     PromptKind.APPEL_STOMP_TOP: _appel_options,
     PromptKind.UPKEEP_ORDER: _upkeep_options,
     PromptKind.LEVEL_GAIN: _level_options,
+    PromptKind.DIVIDE_DAMAGE: _divide_options,
+    PromptKind.MODE_CHOICE: _mode_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -642,6 +740,14 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
         if kind == "level_gain":
             asked = top.get("asked", seat)
             return PendingPrompt(PromptKind.LEVEL_GAIN, _level_ask(asked, top["seat"]), asked)
+        from codex.flow.resolve import ASKS_DIVIDE, ASKS_MODE, asking, current_part, damage_amount
+
+        asks = asking(match)
+        if asks == ASKS_MODE:
+            return PendingPrompt(PromptKind.MODE_CHOICE, _mode_ask(top), top["seat"])
+        if asks == ASKS_DIVIDE:
+            left = damage_amount(engine, match, top, current_part(match).amount) - sum(top["split"].values())
+            return PendingPrompt(PromptKind.DIVIDE_DAMAGE, _divide_ask(match, top, left), top["seat"])
         return PendingPrompt(PromptKind.TARGET, _target_ask(engine, match, top), top["seat"])
     if match.phase == "ready":
         if tech_is_owed(match, seat):

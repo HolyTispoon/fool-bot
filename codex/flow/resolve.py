@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
-from codex.components import MatchState
+from codex.components import CardInstance, MatchState, hero_ref
 from codex.engine import WORKERS, parse_target, target_key
 from codex.flow import board
 from codex.flow.result import StepResult
@@ -47,7 +47,7 @@ EFFECT = "effect"
 
 def frame(effect: str, seat: int, by: str, *, source: Optional[str] = None,
           spell: Optional[str] = None, cancel_from: Optional[int] = None,
-          boosted: bool = False) -> dict:
+          boosted: bool = False, origin: Optional[str] = None) -> dict:
     """
     A frame for `effect`, controlled by `seat`: `by` is its source as the
     narration names it (`{card:spark}`, `{hero:river_montoya}`),
@@ -67,6 +67,7 @@ def frame(effect: str, seat: int, by: str, *, source: Optional[str] = None,
         "flagbearer": False, "partners": [],
         "cancel_from": cancel_from, "drew": False,
         **({"boosted": True} if boosted else {}),
+        **({"origin": origin} if origin else {}),
     }
 
 
@@ -99,12 +100,83 @@ def current_part(match: MatchState):
     return parts[top["part"]] if top["part"] < len(parts) else None
 
 
+#: What the frame at the top of the stack is asking, where it is an
+#: effect's: a target, a mode, or how to divide the damage.
+ASKS_TARGET = "target"
+ASKS_MODE = "mode"
+ASKS_DIVIDE = "divide"
+
+
+def asking(match: MatchState) -> str:
+    """Which question the effect on top of the stack asks: its mode
+    (`MODE_CHOICE`), the split of its damage (`DIVIDE_DAMAGE`), or a
+    target (`TARGET`)."""
+    top = match.resolving[0]
+    part = current_part(match)
+    if part is not None and part.does == "mode" and "mode" not in top:
+        return ASKS_MODE
+    if top.get("split") is not None:
+        return ASKS_DIVIDE
+    return ASKS_TARGET
+
+
+def _unique(ref: str) -> bool:
+    """Whether a pick stays where it was, so a part choosing more than
+    one may not choose it again: a unit, a hero, a building -- not a side's
+    workers, which are many alike, nor a card in a hand or codex, which
+    the pick takes away."""
+    from codex.engine import CODEX, HAND
+
+    return ref != WORKERS and not ref.startswith((HAND, CODEX))
+
+
 def rows_for(engine: "RulesEngine", match: MatchState, top: dict):
-    """What the frame's current part may choose (`RulesEngine.target_rows`)."""
+    """What the frame's current part may choose (`RulesEngine.target_rows`),
+    less what this part has already chosen where a pick stays."""
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
-    return engine.target_rows(
+    rows = engine.target_rows(
         match, top["seat"], part, taken=top["taken"], flagbearer_done=top["flagbearer"],
+        frame=top,
     )
+    picks = top.get("picks") or []
+    return tuple(row for row in rows if not (row.key in picks and _unique(row.ref)))
+
+
+def pick_limit(engine: "RulesEngine", match: MatchState, top: dict, part) -> int:
+    """How many things `part` chooses at most: its `most`, or -- `0` --
+    as many as the damage it divides, at least 1 each (the Card FAQ)."""
+    if part.does == "divide":
+        total = damage_amount(engine, match, top, part.amount)
+        return total if not part.most else min(part.most, total)
+    return part.most or 1
+
+
+def offers_done(top: dict, part) -> bool:
+    """Whether the question offers **Done**: the part has chosen as many
+    as it must (`Part.least`)."""
+    return len(top.get("picks") or []) >= part.least
+
+
+def damage_amount(engine: "RulesEngine", match: MatchState, top: dict, amount: int) -> int:
+    """What a part of this frame deals: its printed amount, and Hotter
+    Fire's bonus on a red spell's or ability's damage (commit 4)."""
+    return amount + engine.damage_bonus(match, top)
+
+
+def _applies(part, top: dict) -> bool:
+    """Whether the frame does `part` at all: a part of one mode only in
+    that mode or both, a boosted part only where it was boosted."""
+    if part.only is not None and top.get("mode") not in (part.only, "both"):
+        return False
+    if part.when == "boosted" and not top.get("boosted"):
+        return False
+    return True
+
+
+def _next_part(top: dict) -> None:
+    top["part"] += 1
+    top["picks"] = []
+    top.pop("split", None)
 
 
 # -- Working the stack -----------------------------------------------------------
@@ -130,16 +202,38 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             board.settle(engine, match, result, cause=top["seat"])
             continue
         part = parts[top["part"]]
+        if not _applies(part, top):
+            _next_part(top)
+            continue
+        if part.does == "mode":
+            if "mode" not in top:
+                # "If you boosted, choose both"; otherwise one is asked,
+                # unless only one can be done (Land Octopus's).
+                if top.get("boosted"):
+                    top["mode"] = "both"
+                else:
+                    possible = [key for key, _, allowed in engine.mode_rows(match, top, part) if allowed]
+                    if len(possible) != 1:
+                        return False
+                    top["mode"] = possible[0]
+            _next_part(top)
+            continue
+        if top.get("split") is not None:
+            if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
+                return False
+            _deal_split(engine, match, top, part, result)
+            continue
         if part.choose is None:
             _do(engine, match, top, part, None, result)
             continue
         rows = rows_for(engine, match, top)
-        if not rows:
-            # "Do as much as you can": a part with nothing to choose is
-            # skipped, and said nothing about -- the board shows it.
-            top["part"] += 1
+        picks = top.setdefault("picks", [])
+        if len(picks) >= pick_limit(engine, match, top, part) or not rows:
+            # "Do as much as you can": a part with nothing (more) to
+            # choose is done, and said nothing about -- the board shows it.
+            _end_picks(engine, match, top, part, result)
             continue
-        if len(rows) == 1:
+        if len(picks) < part.least and len(rows) == 1:
             _choose(engine, match, top, part, rows[0], result)
             continue
         return False
@@ -256,7 +350,8 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
             result: StepResult) -> None:
     """Take `row` for the frame's current part: its resist paid, the
     flagbearer rule marked as obeyed for the rest of the cast, and the
-    part done."""
+    pick done -- the part done with it where it chooses one, and every
+    pick's share dealt at once where it divides damage (`_end_picks`)."""
     seat = top["seat"]
     if row.resist:
         match.player(seat).gold -= row.resist
@@ -269,13 +364,89 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
         # (Final Smash's ruling).
         top["flagbearer"] = True
     top["taken"].append(row.key)
-    _do(engine, match, top, part, (row.seat, row.ref), result)
+    top.setdefault("picks", []).append(row.key)
+    if part.does != "divide":
+        DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
+        board.settle(engine, match, result, cause=top["seat"])
+    if len(top["picks"]) >= pick_limit(engine, match, top, part):
+        _end_picks(engine, match, top, part, result)
+
+
+def _end_picks(engine: "RulesEngine", match: MatchState, top: dict, part,
+               result: StepResult) -> None:
+    """A part has chosen what it will: on to the next -- or, where it
+    divides damage among what it chose, to the split: 1 each (the Card
+    FAQ), and the rest asked of the caster where there is more than one
+    target and damage left over."""
+    picks = top.get("picks") or []
+    if part.does == "divide" and picks:
+        total = damage_amount(engine, match, top, part.amount)
+        top["split"] = {key: 1 for key in picks}
+        if len(picks) == 1:
+            top["split"][picks[0]] = total
+        if sum(top["split"].values()) >= total:
+            _deal_split(engine, match, top, part, result)
+        return
+    _next_part(top)
+
+
+def _deal_split(engine: "RulesEngine", match: MatchState, top: dict, part,
+                result: StepResult) -> None:
+    """The divided damage, dealt at once to every target as split."""
+    split = top["split"]
+    for key, amount in split.items():
+        target = parse_target(key)
+        _deal(engine, match, top, target, amount, result)
+    board.settle(engine, match, result, cause=top["seat"])
+    _next_part(top)
+
+
+def add_to_split(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                 target: str) -> StepResult:
+    """The answer to `DIVIDE_DAMAGE`: a point more of the damage onto one
+    of the targets chosen, until it is all placed."""
+    if not match.resolving or asking(match) != ASKS_DIVIDE:
+        raise RuleRefusal("Nothing is waiting on damage to divide.")
+    top = match.resolving[0]
+    if target not in top["split"]:
+        raise RuleRefusal("That is not one of the targets chosen.")
+    top["split"][target] += 1
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
+def choose_mode(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                mode: str) -> StepResult:
+    """The answer to `MODE_CHOICE`: one of the modes that can be done."""
+    if not match.resolving or asking(match) != ASKS_MODE:
+        raise RuleRefusal("Nothing is waiting on a choice of one.")
+    top = match.resolving[0]
+    part = current_part(match)
+    allowed = {key for key, _, can in engine.mode_rows(match, top, part) if can}
+    if mode not in allowed:
+        raise RuleRefusal("That is not one of the choices offered.")
+    top["mode"] = mode
+    match.record_event("mode", effect=top["effect"], mode=mode)
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
+def done_choosing(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
+    """**Done** on a `TARGET` that offers it: the part chooses nothing
+    more -- "up to two", "you may"."""
+    part = current_part(match)
+    if part is None or asking(match) != ASKS_TARGET:
+        raise RuleRefusal("Nothing is waiting on a target.")
+    top = match.resolving[0]
+    if not offers_done(top, part):
+        raise RuleRefusal(f"That has to be chosen: {part.says}.")
+    result = StepResult(board_changed=True)
+    _end_picks(engine, match, top, part, result)
+    return carry_on(engine, game, match, result)
 
 
 def _do(engine: "RulesEngine", match: MatchState, top: dict, part,
         target: Optional[tuple[int, str]], result: StepResult) -> None:
     DOES[part.does](engine, match, top, part, target, result)
-    top["part"] += 1
+    _next_part(top)
     board.settle(engine, match, result, cause=top["seat"])
 
 
@@ -285,17 +456,30 @@ def _thing(match: MatchState, target: tuple[int, str]) -> str:
 
 def _damage(engine, match, top, part, target, result) -> None:
     seat, ref = target
+    amount = part.amount
+    if part.building is not None and engine.is_building_ref(match, seat, ref):
+        amount = part.building
+    _deal(engine, match, top, target, damage_amount(engine, match, top, amount), result)
+
+
+def _deal(engine, match, top, target, amount: int, result) -> int:
+    """`amount` damage from the frame onto a unit, hero or building, said;
+    what landed on a unit or hero (all of it on a building)."""
+    seat, ref = target
     if board.is_building(ref):
-        result.narration.append(f"{top['by']} deals {part.amount} to {_thing(match, target)}.")
-        board.damage_building(match, seat, ref, part.amount, result)
-        return
+        result.narration.append(f"{top['by']} deals {amount} to {_thing(match, target)}.")
+        board.damage_building(match, seat, ref, amount, result)
+        return amount
     body = board.body_of(match, seat, ref)
+    if body is None:
+        return 0
     named = _thing(match, target)
-    landed = board.take_damage(body, part.amount)
+    landed = board.take_damage(body, amount)
     line = f"{top['by']} deals {landed} to {named}"
-    if landed < part.amount:
-        line += f" (armor takes {part.amount - landed})"
+    if landed < amount:
+        line += f" (armor takes {amount - landed})"
     result.narration.append(line + ".")
+    return landed
 
 
 def _repair(engine, match, top, part, target, result) -> None:
@@ -556,6 +740,433 @@ def _desperation(engine, match, top, part, target, result) -> None:
     )
 
 
+# -- Red and green's handlers (step 11) -----------------------------------------
+
+
+def _own_base_damage(engine, match, top, part, target, result) -> None:
+    """Careless Musketeer's "and 1 damage to your base"."""
+    seat = top["seat"]
+    amount = damage_amount(engine, match, top, part.amount)
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s own base.")
+    damage_base(match, seat, amount, result)
+
+
+def _active_base_damage(engine, match, top, part, target, result) -> None:
+    """Crash Bomber's "Dies on another player's turn: Deal 1 damage to that
+    player's base" -- the base of whoever's turn it is."""
+    seat = match.active
+    amount = damage_amount(engine, match, top, part.amount)
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
+    damage_base(match, seat, amount, result)
+
+
+def _damage_ready(engine, match, top, part, target, result) -> None:
+    """Firehouse: its 2, and readied where the 2 destroyed what it hit --
+    so it can fire again (its rulings)."""
+    _damage(engine, match, top, part, target, result)
+    seat, ref = target
+    if board.is_building(ref):
+        destroyed = not board.still_there(match, seat, ref)
+    else:
+        body = board.body_of(match, seat, ref)
+        destroyed = body is None or board.lethal(engine, match, body)
+    house = board.body_of(match, top["seat"], top["source"]) if top.get("source") else None
+    if destroyed and house is not None:
+        house.exhausted = False
+        result.narration.append(f"{top['by']} readies: its 2 destroys what it hit.")
+
+
+def _runes_on_self(engine, match, top, part, target, result) -> None:
+    """Spore Shambler: "Put two +1/+1 runes on this." """
+    body = board.body_of(match, top["seat"], top["source"])
+    if body is None:
+        return
+    board.add_plus_rune(body, part.amount)
+    result.narration.append(f"{top['by']} gets {part.amount} +1/+1 runes.")
+
+
+def _elm_runes(engine, match, top, part, target, result) -> None:
+    """Blooming Elm: three +1/+1 runes on a unit, one on a hero -- and none
+    on one that has any already (its ruling: a legal choice, no more)."""
+    body = board.body_of(match, *target)
+    named = _thing(match, target)
+    if body.plus_runes:
+        result.narration.append(f"{named} has +1/+1 runes already: {top['by']} adds none.")
+        return
+    count = part.amount if isinstance(body, CardInstance) else 1
+    board.add_plus_rune(body, count)
+    result.narration.append(
+        f"{top['by']} puts {count} +1/+1 rune{'' if count == 1 else 's'} on {named}."
+    )
+
+
+def _instant_build(engine, match, top, part, target, result) -> None:
+    """Verdant Tree: its controller's tech buildings build instantly this
+    turn -- each finished as it is built, so several in a row (its
+    rulings), and any under construction finished now."""
+    seat = top["seat"]
+    tree = board.body_of(match, seat, top["source"])
+    if tree is not None:
+        tree.modifiers.append({"kind": "instant_build", "until": "end_of_turn"})
+    finished = finish_buildings(match, seat)
+    line = f"{tokens.player(seat)}'s tech buildings build instantly this turn"
+    if finished:
+        line += ": " + ", ".join(finished) + " finished now"
+    result.narration.append(line + ".")
+
+
+def finish_buildings(match: MatchState, seat: int) -> list[str]:
+    """Every tech building of `seat`'s under construction, finished; their
+    names."""
+    names = {"tech1": "Tech I", "tech2": "Tech II", "tech3": "Tech III"}
+    done = []
+    for name, building in match.player(seat).buildings.items():
+        if building is not None and building.under_construction and not building.destroyed:
+            building.under_construction = False
+            done.append(names[name])
+    return done
+
+
+def _private_slug(ref: str) -> str:
+    return ref.split(":", 1)[1]
+
+
+def _sanatorium(engine, match, top, part, target, result) -> None:
+    """Sanatorium: a tech 0, I or II unit from the hand into play, free
+    and needing no building (its ruling), with haste and ephemeral for
+    good (its ruling)."""
+    card = _from_hand(engine, match, top, target, result)
+    if card is not None:
+        for keyword in ("Haste", "Ephemeral"):
+            card.modifiers.append({"kind": "keyword", "keyword": keyword, "until": None})
+
+
+def _from_hand(engine, match, top, target, result):
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if slug not in player.hand:
+        return None
+    player.hand.remove(slug)
+    card = board.put_into_play(engine, match, slug, seat, from_hand=True)
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s hand into play: {atk}/{hp}."
+    )
+    return card
+
+
+def _put_into_play(engine, match, top, part, target, result) -> None:
+    """A unit into play from the hand or the codex (UMR p. 15): Feral
+    Strike's, Circle of Life's, Calamandra's -- no cost paid, no building
+    needed, and from the codex a card of its owner's from then on."""
+    seat, ref = target
+    from codex.engine import CODEX
+
+    if not ref.startswith(CODEX):
+        _from_hand(engine, match, top, target, result)
+        return
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if player.codex.get(slug, 0) <= 0:
+        return
+    player.codex[slug] -= 1
+    card = board.put_into_play(engine, match, slug, seat, from_hand=False)
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s codex into play: {atk}/{hp}."
+    )
+
+
+def _fetch(engine, match, top, part, target, result) -> None:
+    """Feral Strike: a unit from the codex into the hand, revealed -- and
+    so named."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if player.codex.get(slug, 0) <= 0:
+        return
+    player.codex[slug] -= 1
+    player.hand.append(slug)
+    result.narration.append(
+        f"{tokens.player(seat)} fetches {tokens.card(slug)} from their codex into their hand."
+    )
+
+
+def _discard(engine, match, top, part, target, result) -> None:
+    """Calamandra's cost: a card from the hand, face-down to the discard
+    pile -- counted, never named."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if slug not in player.hand:
+        return
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    if len(top.get("picks") or []) == part.most:
+        result.narration.append(f"{tokens.player(seat)} discards {part.most} cards for {top['by']}.")
+
+
+def _token(engine, match, top, part, target, result) -> None:
+    board.summon(engine, match, part.token, top["seat"], part.amount, result, by=top["by"])
+
+
+def _token_for_opponent(engine, match, top, part, target, result) -> None:
+    """Final Showdown's Hunters: summoned for the opponent, who controls
+    them, in their play zone and never their patrol zone (the Card FAQ)."""
+    other = 2 if top["seat"] == 1 else 1
+    board.summon(engine, match, part.token, other, part.amount, result, by=top["by"])
+
+
+def _exhaust_self(engine, match, top, part, target, result) -> None:
+    """"Arrives: Exhausted." -- the Pandas."""
+    body = board.body_of(match, top["seat"], top["source"])
+    if body is not None:
+        body.exhausted = True
+        result.narration.append(f"{top['by']} arrives exhausted.")
+
+
+def _buff(engine, match, top, part, target, result) -> None:
+    """+X ATK and +X armor this turn (Rampant Growth, Dinosize, Argagarg)
+    -- the armor temporary, gone unused at the end of the turn (UMR
+    p. 16)."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+    board.grant_armor(body, part.amount)
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +{part.amount} ATK and +{part.amount} armor this turn."
+    )
+
+
+def _feather(engine, match, top, part, target, result) -> None:
+    """Fairie Dragon: a feather rune -- 3/1 and flying while any Fairie
+    Dragon is in play (commit 4's grant)."""
+    body = board.body_of(match, *target)
+    body.runes["feather"] = body.runes.get("feather", 0) + 1
+    result.narration.append(f"{top['by']} puts a feather rune on {_thing(match, target)}.")
+
+
+def _destroy_any(engine, match, top, part, target, result) -> None:
+    """Tyrannosaurus Rex: a unit or an upgrade destroyed, or a worker --
+    destroyed, a worker is trashed (its rulings)."""
+    seat, ref = target
+    if ref == WORKERS:
+        _trash(engine, match, top, part, target, result)
+        return
+    card = board.body_of(match, seat, ref)
+    if card is not None and engine.catalog.cards[card.slug].is_upgrade:
+        _destroy_card(engine, match, top, part, target, result)
+        return
+    _destroy(engine, match, top, part, target, result)
+
+
+def _destroy_card(engine, match, top, part, target, result) -> None:
+    """An upgrade or an ongoing spell destroyed: to its owner's discard."""
+    card = board.body_of(match, *target)
+    if card is None:
+        return
+    result.narration.append(f"{top['by']} destroys {_thing(match, target)}.")
+    board.leave_play(engine, match, card, "discard")
+    match.record_event("destroyed", slug=card.slug, owner=card.owner)
+
+
+def _free_spell(engine, match, top, part, target, result) -> None:
+    """Cinderblast Dragon: a non-ultimate Fire spell from the hand or the
+    codex, played free and with no Fire hero needed (its rulings) -- its
+    frame at the front of the stack, so it resolves now, and the spell to
+    the discard after: from the codex, a card of its owner's from then
+    on."""
+    from codex.engine import CODEX
+
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if ref.startswith(CODEX):
+        if player.codex.get(slug, 0) <= 0:
+            return
+        player.codex[slug] -= 1
+        where = "codex"
+    else:
+        if slug not in player.hand:
+            return
+        player.hand.remove(slug)
+        where = "hand"
+    player.spells_played += 1
+    match.record_event("played", slug=slug, cost=0, free=True)
+    result.narration.append(
+        f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their {where}, free."
+    )
+    spell = frame(slug, seat, tokens.card(slug), spell=slug, origin=slug)
+    harmonies = [
+        frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+        for harmony in player.play if harmony.slug == effects.HARMONY
+    ]
+    # After this frame's part, before anything else on the stack.
+    match.resolving[1:1] = [spell, *harmonies]
+
+
+def _kidnap(engine, match, top, part, target, result) -> None:
+    """Kidnapping: control of the unit until the end of the turn, readied,
+    with haste -- back to whoever had it then (its rulings)."""
+    seat = top["seat"]
+    card = board.body_of(match, *target)
+    named = _thing(match, target)
+    before = card.controller
+    if not board.gain_control(match, card, seat):
+        return
+    card.returns_to = before
+    card.exhausted = False
+    card.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": "end_of_turn"})
+    result.narration.append(
+        f"{tokens.player(seat)} kidnaps {named} until the end of the turn: readied, with haste."
+    )
+
+
+def _anarchy(engine, match, top, part, target, result) -> None:
+    """Maximum Anarchy: every unit and hero, destroyed -- its caster's
+    heroes too (its rulings)."""
+    everything = [
+        (player.seat, card.ref) for player in match.players for card in player.play
+        if engine.catalog.cards[card.slug].is_unit
+    ] + [
+        (player.seat, hero_ref(hero.slug)) for player in match.players
+        for hero in player.heroes_in_play
+    ]
+    result.narration.append(f"{top['by']} destroys every unit and hero.")
+    board.destroy(engine, match, everything, result, cause=top["seat"])
+
+
+def _bloodlust(engine, match, top, part, target, result) -> None:
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+    body.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": "end_of_turn"})
+    body.modifiers.append({"kind": "bloodlust", "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +1 ATK and haste this turn; "
+        "it takes 1 damage at the end of the turn."
+    )
+
+
+def _charge(engine, match, top, part, target, result) -> None:
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+    body.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gives {_thing(match, target)} haste and +1 ATK this turn.")
+
+
+def _peace(engine, match, top, part, target, result) -> None:
+    seat = top["seat"]
+    match.player(seat).peace = True
+    result.narration.append(
+        f"Until {tokens.player(seat)}'s next turn, their units can't patrol and "
+        "opposing units can't attack them."
+    )
+
+
+def _circle_sacrifice(engine, match, top, part, target, result) -> None:
+    """Circle of Life: the green unit sacrificed, and its tech remembered
+    for the second part -- "If you do"."""
+    card = board.body_of(match, *target)
+    top["sacrificed_tech"] = engine.catalog.cards[card.slug].tech_level or 0
+    result.narration.append(f"{tokens.player(top['seat'])} sacrifices {_thing(match, target)}.")
+    board.sacrifice(engine, match, card)
+
+
+def _stampede(engine, match, top, part, target, result) -> None:
+    """Stampede: its caster's units +3 ATK and +3 armor this turn, their
+    excess combat damage to units and heroes onto that opponent's base."""
+    seat = top["seat"]
+    count = 0
+    for card in match.player(seat).play:
+        if engine.catalog.cards[card.slug].is_unit:
+            card.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+            card.modifiers.append({"kind": "stampede", "until": "end_of_turn"})
+            board.grant_armor(card, part.amount)
+            count += 1
+    result.narration.append(
+        f"{top['by']} gives {tokens.player(seat)}'s {count} unit{'' if count == 1 else 's'} +3 ATK "
+        "and +3 armor this turn, their excess combat damage to the opposing base."
+    )
+
+
+def _ferocity(engine, match, top, part, target, result) -> None:
+    """Ferocity: its caster's units armor piercing and swift strike until
+    the caster's next upkeep."""
+    seat = top["seat"]
+    for card in match.player(seat).play:
+        if engine.catalog.cards[card.slug].is_unit:
+            for keyword in ("Armor piercing", "Swift strike"):
+                card.modifiers.append({"kind": "keyword", "keyword": keyword,
+                                       "until": "upkeep", "seat": seat})
+    result.narration.append(
+        f"{top['by']} gives {tokens.player(seat)}'s units armor piercing and swift strike "
+        "until their next upkeep."
+    )
+
+
+def _attach(engine, match, top, part, target, result) -> None:
+    """What an attaching spell attaches to, kept on the frame until the
+    spell goes into play with it (`_finish`)."""
+    top["host"] = target_key(*target)
+
+
+def _firebird(engine, match, top, part, target, result) -> None:
+    """Molting Firebird: 1 damage to every unit and hero the opponent it
+    damaged controls."""
+    other = top.get("against") or (2 if top["seat"] == 1 else 1)
+    amount = damage_amount(engine, match, top, part.amount)
+    player = match.player(other)
+    hit = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    for card in hit:
+        board.take_damage(card, amount)
+    for hero in player.heroes_in_play:
+        board.take_damage(hero, amount)
+    result.narration.append(
+        f"{top['by']} deals {amount} to every unit and hero {tokens.player(other)} controls."
+    )
+
+
+def _shove(engine, match, top, part, target, result) -> None:
+    """Zane's shove, first: the patroller chosen; its new slot is the next
+    part's, and its damage the one after."""
+
+
+def _shove_slot(engine, match, top, part, target, result) -> None:
+    from codex.engine import SLOT
+
+    side, ref = target
+    shoved = parse_target(top["taken"][0])
+    body = board.body_of(match, *shoved)
+    if body is None:
+        return
+    slot = ref[len(SLOT):]
+    body.patrol_slot = slot
+    if slot != "squad_leader":
+        body.armor = 0
+    result.narration.append(
+        f"{top['by']} shoves {_thing(match, shoved)} to the {slot.replace('_', ' ')} slot."
+    )
+
+
+def _damage_shoved(engine, match, top, part, target, result) -> None:
+    """Zane's 1 to the patroller he shoved -- or could not, with every
+    slot filled (his rulings) -- and his kill bonus where it is lethal."""
+    if not top["taken"]:
+        return
+    shoved = parse_target(top["taken"][0])
+    body = board.body_of(match, *shoved)
+    if body is None:
+        return
+    slot = body.patrol_slot
+    _deal(engine, match, top, shoved, damage_amount(engine, match, top, part.amount), result)
+    if board.lethal(engine, match, body):
+        board.kill_bonus(engine, match, top["seat"], top.get("origin"), slot, result)
+
+
+#: The parts `run` works itself rather than a handler: "choose one" and
+#: divided damage.
+STRUCTURAL = frozenset({"mode", "divide"})
+
 #: What each `Part.does` does. Every key `codex.effects.EFFECTS` uses is
 #: here, which `tests/test_codex_spells.py` holds.
 DOES = {
@@ -580,6 +1191,37 @@ DOES = {
     "pillage": _pillage,
     "trash": _trash,
     "desperation": _desperation,
+    "own_base_damage": _own_base_damage,
+    "active_base_damage": _active_base_damage,
+    "damage_ready": _damage_ready,
+    "runes_on_self": _runes_on_self,
+    "elm_runes": _elm_runes,
+    "instant_build": _instant_build,
+    "sanatorium": _sanatorium,
+    "put_into_play": _put_into_play,
+    "fetch": _fetch,
+    "discard": _discard,
+    "token": _token,
+    "token_for_opponent": _token_for_opponent,
+    "exhaust_self": _exhaust_self,
+    "buff": _buff,
+    "feather": _feather,
+    "destroy_any": _destroy_any,
+    "destroy_card": _destroy_card,
+    "free_spell": _free_spell,
+    "kidnap": _kidnap,
+    "anarchy": _anarchy,
+    "bloodlust": _bloodlust,
+    "charge": _charge,
+    "peace": _peace,
+    "circle_sacrifice": _circle_sacrifice,
+    "stampede": _stampede,
+    "ferocity": _ferocity,
+    "attach": _attach,
+    "firebird": _firebird,
+    "shove": _shove,
+    "shove_slot": _shove_slot,
+    "damage_shoved": _damage_shoved,
 }
 
 
@@ -597,6 +1239,21 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
     if spell is None:
         return
     seat = top["seat"]
+    if spell in effects.ATTACHING:
+        host = top.get("host")
+        if host is None:
+            # Nothing to attach to: it goes to the discard.
+            match.player(seat).discard.append(spell)
+            return
+        card = match.new_instance(spell, seat)
+        card.arrived_this_turn = True
+        side, ref = parse_target(host)
+        if ref.startswith("unit:"):
+            card.attached = [int(ref.split(":", 1)[1])]
+        else:
+            card.attached_hero = host
+        result.narration.append(f"{tokens.card(spell)} is attached to {board.named(match, side, ref)}.")
+        return
     if spell in effects.CHANNELING:
         card = match.new_instance(spell, seat)
         card.arrived_this_turn = True

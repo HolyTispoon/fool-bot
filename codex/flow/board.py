@@ -274,17 +274,24 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     at the front of the stack, so nothing else resolves before it).
     """
     things = list(things)
+    witnesses = _witnesses(engine, match)
     heroes = []
+    dead_units: list[CardInstance] = []
+    dead_heroes: list[tuple[int, HeroState]] = []
     for seat, ref in things:
         if is_hero_ref(ref):
             hero = match.player(seat).hero_by_ref(ref)
             if hero is not None and hero.in_play:
                 _destroy_hero(match, seat, hero, result, by)
                 heroes.append(seat)
+                dead_heroes.append((seat, hero))
             continue
         card = body_of(match, seat, ref)
         if card is not None:
             _destroy_unit(engine, match, seat, card, result, by)
+            if engine.catalog.cards[card.slug].is_unit:
+                dead_units.append(card)
+    _deaths(engine, match, dead_units, dead_heroes, witnesses)
     for seat in heroes:
         if cause == seat:
             continue
@@ -311,9 +318,11 @@ def level_gain_owed(match: MatchState, seat: int) -> None:
 
 def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState,
                      result: StepResult) -> None:
-    """The kill's two levels for `victor`, to its maximum, said."""
+    """The kill's two levels for `victor`, to its maximum, said -- and
+    its max level text, where it got there."""
     before = victor.level
     reached = raise_level(engine, victor, LEVELS_FOR_A_KILL)
+    seat = engine.seat_of(match, victor)
     if victor.level > before:
         gained = victor.level - before
         line = (
@@ -322,18 +331,53 @@ def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState
         )
         line += ", a new band, and healed." if reached else "."
         result.narration.append(line)
+        if seat is not None:
+            max_level_reached(engine, match, seat, victor, result)
 
 
 def raise_level(engine: "RulesEngine", hero: HeroState, levels: int) -> bool:
     """Up to `levels` levels for `hero`, to its maximum, healing it if it
-    reaches a new band (UMR p. 6). Returns whether it reached one."""
+    reaches a new band (UMR p. 6). Returns whether it reached one. A
+    hero now at its maximum that was not is marked `max_reached`, for
+    its "Max level:" trigger (`max_level_reached`)."""
     card = engine.hero_card(hero)
     before = card.band(hero.level).min_level
+    was_max = hero.level >= card.max_level
     hero.level = min(card.max_level, hero.level + levels)
     reached = card.band(hero.level).min_level != before
     if reached:
         hero.damage = 0
+    if not was_max and hero.level >= card.max_level:
+        hero.modifiers.append({"kind": "max_reached", "until": "end_of_turn"})
     return reached
+
+
+def max_level_reached(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
+                      result: StepResult) -> None:
+    """
+    A hero that has just reached its maximum level resolves its "Max
+    level:" text once (UMR p. 17: not again if it would gain a level
+    while already there): Zane's shove, Argagarg's Water Elemental. **On
+    an opponent's turn an effect that asks a decision does not resolve**
+    (UMR p. 14), so Zane's, which chooses, waits on nobody and is lost.
+    """
+    from codex.flow import resolve
+
+    mark = next((m for m in hero.modifiers if m.get("kind") == "max_reached"), None)
+    if mark is None:
+        return
+    hero.modifiers.remove(mark)
+    for effect in effects.triggers(hero.slug, "max_level", hero.level):
+        asks = any(part.choose is not None for part in effects.EFFECTS[effect].parts)
+        if asks and seat != match.active:
+            result.narration.append(
+                f"{tokens.hero(hero.slug)} reaches its maximum level on another player's turn: "
+                "its max level effect has nothing to decide it, and does not resolve."
+            )
+            continue
+        resolve.push(match, resolve.frame(
+            effect, seat, tokens.hero(hero.slug), source=hero_ref(hero.slug), origin=hero.slug,
+        ))
 
 
 def trash(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
@@ -356,10 +400,157 @@ def trash_worker(match: MatchState, seat: int) -> bool:
 
 
 def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
-    """A card of yours out of play to its owner's discard pile -- not a
-    death, so nothing that pays on one pays."""
+    """
+    A card of yours out of play to its owner's discard pile. A unit
+    sacrificed **dies** -- "Dies: A card dies when it is destroyed or
+    sacrificed" (UMR p. 16) -- so what pays on a death pays (step 11:
+    Bombaster, Land Octopus, Circle of Life); a spell or a building card
+    is no unit, and nothing pays.
+    """
+    witnesses = _witnesses(engine, match)
     leave_play(engine, match, card, "discard")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
+    if engine.catalog.cards[card.slug].is_unit:
+        _deaths(engine, match, [card], [], witnesses)
+
+
+# -- What pays on a death (step 11) -------------------------------------------
+
+
+def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
+    """What is in play to see a death, taken before the dying leave: so a
+    Captured Bugblatter that dies with the others still counts them, and
+    itself (its ruling), and Pirategang Commander's units that die with
+    it still had its "Dies:"."""
+    found = {"bugblatters": [], "pirategang": {}}
+    for player in match.players:
+        for card in player.play:
+            if card.slug in effects.ON_ANY_DEATH:
+                found["bugblatters"].append((player.seat, card.slug))
+            if card.slug in effects.GRANTS_DIES:
+                found["pirategang"][player.seat] = card.slug
+    return found
+
+
+def _deaths(engine: "RulesEngine", match: MatchState, units: list,
+            heroes: list, witnesses: dict) -> None:
+    """
+    The triggers a death sets off, each a frame onto the stack -- which
+    whoever destroyed or sacrificed them runs -- or, where nothing is
+    chosen and nothing is said, done at once: Crash Bomber's by whose
+    turn it is, Pirategang Commander's granted line, each Captured
+    Bugblatter's, a blood rune on each Bloodburn (limit 4), and a hero's
+    "Dies:" (Drakk's).
+    """
+    from codex.flow import resolve
+
+    frames = []
+    for card in units:
+        seat = card.controller
+        by = tokens.card(card.slug)
+        mine = seat == match.active
+        effect = (effects.DIES_ON_YOUR_TURN if mine else effects.DIES_ON_THEIR_TURN).get(card.slug)
+        if effect is not None:
+            frames.append(resolve.frame(effect, seat, by, origin=card.slug))
+        granted = witnesses["pirategang"].get(seat)
+        if granted is not None:
+            # The line is the dying unit's, granted by the Commander.
+            frames.append(resolve.frame(
+                effects.GRANTS_DIES[granted], seat, f"{by} (from {tokens.card(granted)})",
+                origin=granted,
+            ))
+        for watcher, slug in witnesses["bugblatters"]:
+            frames.append(resolve.frame(
+                effects.ON_ANY_DEATH[slug], watcher, tokens.card(slug), origin=slug,
+            ))
+        for player in match.players:
+            for upgrade in player.play:
+                limit = effects.BLOOD_RUNES.get(upgrade.slug)
+                if limit is not None:
+                    upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+    for seat, hero in heroes:
+        for effect in effects.triggers(hero.slug, "dies", 1):
+            frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
+    resolve.push(match, *frames)
+
+
+# -- Arriving (step 11) ---------------------------------------------------------
+
+
+def add_plus_rune(body, count: int = 1) -> None:
+    """+1/+1 runes onto a unit or hero, each cancelling a -1/-1 rune
+    first (UMR p. 13)."""
+    for _ in range(count):
+        if body.minus_runes:
+            body.minus_runes -= 1
+        else:
+            body.plus_runes += 1
+
+
+def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
+           from_hand: bool = False, boosted: bool = False) -> None:
+    """
+    `card` has come into play under its controller, from wherever (UMR
+    p. 16, "Arrives"): its arrives triggers go on the stack -- boosted,
+    where it was played boosted -- and each Blooming Ancient of its
+    controller's grows a rune for another unit of theirs arriving.
+    """
+    from codex.flow import resolve
+
+    seat = card.controller
+    resolve.push(match, *(
+        resolve.frame(effect, seat, tokens.card(card.slug), source=card.ref, boosted=boosted,
+                      origin=card.slug)
+        for effect in effects.triggers(card.slug, "arrives")
+    ))
+    if engine.catalog.cards[card.slug].is_unit:
+        _grow_on_arrival(match, seat, card)
+
+
+def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState) -> None:
+    """A hero summoned: its arrives triggers from the bands it has --
+    Argagarg's Wisp -- and Blooming Ancient's rune."""
+    from codex.flow import resolve
+
+    resolve.push(match, *(
+        resolve.frame(effect, seat, tokens.hero(hero.slug), source=hero_ref(hero.slug),
+                      origin=hero.slug)
+        for effect in effects.triggers(hero.slug, "arrives", hero.level)
+    ))
+    _grow_on_arrival(match, seat, hero)
+
+
+def _grow_on_arrival(match: MatchState, seat: int, body) -> None:
+    for card in match.player(seat).play:
+        if card.slug in effects.GROWS_ON_ARRIVAL and card is not body:
+            add_plus_rune(card)
+
+
+def summon(engine: "RulesEngine", match: MatchState, slug: str, seat: int,
+           count: int, result: StepResult, by: str = "") -> list[CardInstance]:
+    """`count` tokens of `slug` summoned for `seat` -- theirs, arriving
+    as any unit does (UMR p. 13, 15) -- said in one line."""
+    made = []
+    for _ in range(count):
+        card = match.new_instance(slug, seat)
+        match.record_event("summoned_token", slug=slug, seat=seat)
+        arrive(engine, match, card)
+        made.append(card)
+    if made:
+        what = (f"a {tokens.card(slug)} token" if count == 1
+                else f"{count} {tokens.card(slug)} tokens")
+        result.narration.append(f"{by} summons {what} for {tokens.player(seat)}.")
+    return made
+
+
+def put_into_play(engine: "RulesEngine", match: MatchState, slug: str, seat: int, *,
+                  from_hand: bool) -> CardInstance:
+    """A card put into play by an effect (UMR p. 15): no cost paid, no
+    tech building needed, no boost -- and it arrives."""
+    card = match.new_instance(slug, seat)
+    match.record_event("put_into_play", slug=slug, seat=seat)
+    arrive(engine, match, card, from_hand=from_hand)
+    return card
 
 
 def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
@@ -383,6 +574,17 @@ def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
     return True
 
 
+def give_back(match: MatchState, card: CardInstance, result: StepResult) -> None:
+    """Kidnapping's end: the unit back to the player it was taken from,
+    where it is still in play (its ruling)."""
+    seat = card.returns_to
+    card.returns_to = None
+    if seat is None or seat == card.controller:
+        return
+    gain_control(match, card, seat)
+    result.narration.append(f"{tokens.card(card.slug)} goes back to {tokens.player(seat)}.")
+
+
 def sideline(body) -> None:
     """Out of the patrol zone, and with it the squad leader's armor."""
     body.patrol_slot = None
@@ -392,9 +594,50 @@ def sideline(body) -> None:
 # -- The position's own consequences ----------------------------------------------
 
 
-def _lethal(engine: "RulesEngine", match: MatchState, body) -> bool:
+def lethal(engine: "RulesEngine", match: MatchState, body) -> bool:
+    """Whether a unit or hero has damage equal to its HP, or 0 HP."""
     hp = engine.body_stats(match, body)[1]
     return hp <= 0 or body.damage >= hp
+
+
+_lethal = lethal
+
+
+def grant_armor(body, amount: int) -> None:
+    """Temporary armor (Rampant Growth, Dinosize, Stampede, Argagarg):
+    onto the body's armor now, and taken off what is left at the end of
+    the turn (UMR p. 16)."""
+    body.armor += amount
+    body.modifiers.append({"kind": "armor", "amount": amount, "until": "end_of_turn"})
+
+
+def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Optional[str],
+               slot: Optional[str], result: StepResult) -> None:
+    """
+    Captain Zane at 4: "Whenever Zane kills a scavenger, get {gold:1}.
+    Whenever Zane kills a technician, draw a card." -- by his own combat
+    damage or his max level ability alone (his ruling). `killer` is the
+    hero's slug, `slot` where what died patrolled.
+    """
+    if killer is None or slot is None:
+        return
+    hero = match.player(seat).hero_of(killer)
+    if hero is None:
+        return
+    for (slug, level), bonuses in effects.KILL_BONUSES.items():
+        if slug != killer or hero.level < level:
+            continue
+        bonus = bonuses.get(slot)
+        if bonus == "gold":
+            gained = gain_gold(match, seat, 1)
+            result.narration.append(
+                f"{tokens.hero(slug)} killed a scavenger: {tokens.player(seat)} gets {tokens.gold(gained)}."
+            )
+        elif bonus == "card":
+            if draw_cards(engine, match, seat, 1, result):
+                result.narration.append(
+                    f"{tokens.hero(slug)} killed a technician: {tokens.player(seat)} draws a card."
+                )
 
 
 def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
@@ -469,6 +712,17 @@ def _sacrifice_due(engine: "RulesEngine", match: MatchState) -> Optional[tuple[C
             if card.slug == effects.TWO_STEP:
                 if any(player.instance(partner) is None for partner in card.attached):
                     return card, "a dance partner is gone"
+            if card.slug in effects.ATTACHING:
+                # Attached to a unit or a hero, it goes when that leaves
+                # play (UMR p. 15): Spirit of the Panda, Final Showdown.
+                if card.attached and match.instance(card.attached[0]) is None:
+                    return card, "what it was attached to is gone"
+                host = getattr(card, "attached_hero", None)
+                if host is not None:
+                    side, ref = host.split(":", 1)
+                    hero = match.player(int(side)).hero_by_ref(ref)
+                    if hero is None or not hero.in_play:
+                        return card, "the hero it was attached to is gone"
     return None
 
 

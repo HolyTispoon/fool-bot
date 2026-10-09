@@ -92,7 +92,15 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         defender = "base" if "base" in options.defenders else options.defenders[0]
         return Action(kind, arguments={"defender": defender})
     if kind is PromptKind.TARGET:
+        # "Up to" and "you may" (step 11): the first thing offered, until
+        # the part has chosen as many as it must, then Done.
+        if options.done and (options.picked or not options.targets):
+            return Action(kind, "done")
         return Action(kind, arguments={"target": options.targets[0].key})
+    if kind is PromptKind.DIVIDE_DAMAGE:
+        return Action(kind, arguments={"target": options.split[0][0]})
+    if kind is PromptKind.MODE_CHOICE:
+        return Action(kind, arguments={"mode": options.modes[0][0]})
     if kind is PromptKind.APPEL_STOMP_TOP:
         return Action(kind, "discard")
     if kind is PromptKind.UPKEEP_ORDER:

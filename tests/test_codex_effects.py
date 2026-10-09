@@ -63,6 +63,9 @@ def _handled(slug: str) -> list[str]:
         "UNSTOPPABLE_BY_TECH_0", "UNATTACKABLE_BY_TECH_0", "STEALTH_ATTACKING_UNITS",
         "INVISIBLE_WITH_HERO", "WHILE_PATROLLING", "READIES_ONCE",
         "FREE_HIRE", "LESS_PER_GREEN_UNIT", "FREE_UNITS", "FREE_SPELLS",
+        "GROWS_ON_ARRIVAL", "BLOOD_RUNES", "ON_ANY_DEATH", "DIES_ON_YOUR_TURN",
+        "GRANTS_DIES", "STEALS_ON_PATROLLER_KILL", "TRASHES_WORKER_ON_BASE_DAMAGE",
+        "ON_DAMAGING_A_BUILDING", "GROWTH_RUNES", "AFTER_COMBAT", "ATTACHING",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -75,6 +78,8 @@ def _handled(slug: str) -> list[str]:
         found.append("stop_the_music")
     if slug == effects.MIMIC:
         found.append("MIMICKED")
+    if any(key[0] == slug for key in effects.KILL_BONUSES):
+        found.append("KILL_BONUSES")
     if any(key[0] == slug for key in effects.FLYING_ON_OWN_TURN):
         found.append("FLYING_ON_OWN_TURN")
     return found
@@ -84,28 +89,15 @@ def _handled(slug: str) -> list[str]:
 #: each commit gives its cards their handlers, and is empty at the end.
 REMAINING = frozenset({
     # Red.
-    "bamstamper_lizzo", "bloodburn", "bloodlust", "bloodrage_ogre",
-    "bombaster", "burning_volley", "calypso_vystari", "captain_zane",
-    "captured_bugblatter", "careless_musketeer", "chameleon_lizzo",
-    "chaos_mirror", "charge", "cinderblast_dragon", "crash_bomber",
-    "disguised_monkey",
-    "doubleshot_archer", "drakk_ramhorn", "ember_sparks", "fire_dart",
-    "firebat", "firehouse", "flame_arrow", "gunpoint_taxman", "hotter_fire",
-    "jaina_stormborne", "kidnapping", "land_octopus", "lobber",
-    "marauder", "maximum_anarchy",
-    "molting_firebird", "ogre_recruiter",     "pirategang_commander", "sanatorium", "scorch",
-    "surprise_attack", "war_drums",
+    "bloodlust", "bloodrage_ogre", "chameleon_lizzo", "chaos_mirror",
+    "drakk_ramhorn", "hotter_fire", "kidnapping", "land_octopus",
+    "war_drums",
     # Green.
-    "argagarg_garg", "artisan_mantis", "behind_the_ferns",
-    "blooming_ancient", "blooming_elm", "calamandra_moss", "circle_of_life",
-    "dinosize", "dothram_horselord", "fairie_dragon", "feral_strike",
-    "ferocity", "final_showdown", "forests_favor", "galina_glimmer",
-    "gemscout_owl", "giant_panda",     "master_midori",     "might_of_leaf_and_claw", "moments_peace", "moss_ancient",
-    "murkwood_allies", "playful_panda",
-    "polymorph_squirrel", "potent_basilisk", "predator_tiger",
-    "rampant_growth",     "spirit_of_the_panda", "spore_shambler", "stampede",
-    "tyrannosaurus_rex", "verdant_tree",
-    "young_treant",
+    "behind_the_ferns", "blooming_elm", "calamandra_moss",
+    "dothram_horselord", "fairie_dragon", "ferocity", "final_showdown",
+    "galina_glimmer", "gemscout_owl", "master_midori",
+    "might_of_leaf_and_claw", "moss_ancient", "polymorph_squirrel",
+    "spirit_of_the_panda",
 })
 
 
@@ -206,7 +198,8 @@ class UnimplementedTests(unittest.TestCase):
         for effect in effects.EFFECTS.values():
             for part in effect.parts:
                 with self.subTest(effect=effect.key, does=part.does):
-                    self.assertIn(part.does, resolve.DOES)
+                    if part.does not in resolve.STRUCTURAL:
+                        self.assertIn(part.does, resolve.DOES)
                     if part.choose is not None:
                         engine.target_candidates(match, 1, part.choose)
         for rows in effects.TEXT.values():

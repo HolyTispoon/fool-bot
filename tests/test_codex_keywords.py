@@ -26,9 +26,9 @@ from unittest import mock
 
 from codex import keywords, rulings
 from codex.components import AddOnState, CardInstance, is_hero_ref
-from codex.flow import StepResult, actions, board, combat, turn
+from codex.flow import StepResult, actions, board, combat, driver, turn
 from codex.game import RuleRefusal
-from codex.prompts import PromptKind, pending_prompt
+from codex.prompts import Action, PromptKind, pending_prompt
 from codex_positions import TROQ, begin, built, hero_in_play, new_game, put
 
 #: The keywords step 5 implements, and how many `General` rulings each
@@ -65,6 +65,7 @@ STEP_11_KEYWORDS = {
     "Long-range": 2,
     "Ephemeral": 1,
     "Untargetable": 1,
+    "Boost X": 3,
 }
 
 
@@ -1283,6 +1284,70 @@ class UntargetableTests(KeywordCase):
         self.assertTrue(offered, "the other patroller may still be chosen")
         # Its own controller may not target it either.
         self.assertNotIn(ancient, {row.ref for row in engine.target_rows(match, 2, spark)})
+
+
+class BoostTests(KeywordCase):
+    def test_boost_x_1(self) -> None:
+        """If something has you "put a unit into play," that's different
+        from "playing it" so you can't pay for or use a boost effect in that
+        case. Likewise, if a unit with a boost enters play through any
+        means other than playing it (such as being returned from Second
+        Chances or Geiger or Pasternaak's max level abilities) then you
+        can't use its boost."""
+        engine, game, match = fresh(teams=(("anarchy",), ("growth",)))
+        house = put(match, 1, "sanatorium")
+        match.player(1).hand = ["marauder"]
+        match.player(1).gold = 10
+        workers = (match.player(1).workers, match.player(2).workers)
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "ability",
+                                                 {"ability": "sanatorium", "source": house.ref}))
+        run = driver.apply(engine, game, match, Action(PromptKind.TARGET, "", {"target": "1:hand:marauder"}))
+        self.assertNotIsInstance(run, driver.Refusal)
+        self.assertEqual(match.player(1).gold, 9, "only the ability's gold")
+        self.assertEqual((match.player(1).workers, match.player(2).workers), workers)
+
+    def test_boost_x_2(self) -> None:
+        """Using Graveyard, Jurisdiction, and Vir Garbarean you can "play" a
+        card from a zone other than your hand. You can still use boost when
+        playing a card this way."""
+        engine, game, match = fresh(teams=(("feral",), ("anarchy",)))
+        # Red and green play only from the hand: boosting is part of the
+        # play itself, offered with its cost on the hand's row.
+        hero_in_play(match, 1)
+        match.player(1).hero.level = 5
+        match.player(1).hero.max_level_since_turn_began = True
+        match.player(1).hand = ["feral_strike"]
+        match.player(1).gold = 8
+        row = engine.playable(match.player(1), match)[0]
+        self.assertEqual((row.cost, row.boost, row.boostable), (4, 4, True))
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                                 {"slug": "feral_strike", "boost": True}))
+        self.assertEqual(match.player(1).gold, 0)
+        self.assertIsNot(pending_prompt(engine, game, match).kind, PromptKind.MODE_CHOICE,
+                         "boosted: both, nothing asked")
+
+    def test_boost_x_3(self) -> None:
+        """If an opponent has Jail and you play a unit with a boost, you CAN
+        pay for and use the boost. You do that immediately as you play the
+        unit from your hand, then the boost effect happens and your unit
+        goes to Jail. When it leaves Jail and arrives in play, you do not
+        have a chance to pay for or use the boost a second time."""
+        engine, game, match = fresh(teams=(("anarchy",), ("growth",)))
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        match.player(1).hand = ["marauder"]
+        match.player(1).gold = 6
+        workers = match.player(2).workers
+        driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                                 {"slug": "marauder", "boost": True}))
+        driver.apply(engine, game, match, Action(PromptKind.TARGET, "", {"target": "2:workers"}))
+        self.assertEqual(match.player(2).workers, workers - 1)
+        # Back to the hand and in again, unplayed: no second boost.
+        marauder = next(card for card in match.player(1).play if card.slug == "marauder")
+        board.leave_play(engine, match, marauder, "hand")
+        match.player(1).hand.remove("marauder")
+        board.put_into_play(engine, match, "marauder", 1, from_hand=True)
+        self.assertEqual(match.resolving[-1].get("boosted"), None)
 
 
 class ConditionedKeywordTests(KeywordCase):

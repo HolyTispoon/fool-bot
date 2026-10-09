@@ -210,6 +210,10 @@ class TurnPanelView(PanelView):
             self.build_upkeep(options)
         elif prompt.kind is PromptKind.LEVEL_GAIN:
             self.build_level_gain(options)
+        elif prompt.kind is PromptKind.DIVIDE_DAMAGE:
+            self.build_divide(options)
+        elif prompt.kind is PromptKind.MODE_CHOICE:
+            self.build_mode(options)
         elif mode == "attack":
             self.build_attack(options)
         elif mode == "hire":
@@ -695,6 +699,8 @@ class TurnPanelView(PanelView):
     def target_label(self, row) -> str:
         """A target in the menu: whose, what, and what it costs -- its
         resist -- or why it is forced (the flagbearer)."""
+        if row.ref.startswith(("hand:", "codex:")):
+            return self.label(row.ref, row.seat)
         whose = "Your" if row.seat == self.seat else "Their"
         label = f"{whose} {self.label(row.ref, row.seat)}"
         if row.resist:
@@ -716,9 +722,55 @@ class TurnPanelView(PanelView):
             for row in options.targets
         ] or [self.make_button("Nothing can be chosen", discord.ButtonStyle.secondary,
                                None, disabled=True)]
-        row = self.place(targets, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        last = options.cancellable or options.done
+        row = self.place(targets, 0, until=ROWS - 1 if last else ROWS)
+        if options.done:
+            self.button("Done", discord.ButtonStyle.success, self.done_choosing, row=row)
         if options.cancellable:
             self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_cast, row=row)
+
+    async def done_choosing(self, interaction: discord.Interaction) -> None:
+        """**Done**: the part chooses nothing more -- "up to", "you may"."""
+        await self.act(interaction, Action(PromptKind.TARGET, "done"))
+
+    # -- Divided damage and "choose one" (step 11) -----------------------------
+
+    def build_divide(self, options) -> None:
+        """A button per target chosen, each adding a point of the damage
+        to it, with what it has so far; **Cancel** where offered."""
+        buttons = []
+        for key, amount in options.split:
+            seat, _, ref = key.partition(":")
+            buttons.append(self.make_button(
+                f"+1 to {self.label(ref, int(seat))} (has {amount})", discord.ButtonStyle.primary,
+                self._answer(self.divide, key), choice=("divide", key),
+            ))
+        row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        if options.cancellable:
+            self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_divide, row=row)
+
+    async def divide(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.DIVIDE_DAMAGE, "", {"target": key}))
+
+    async def cancel_divide(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.DIVIDE_DAMAGE, "cancel"))
+
+    def build_mode(self, options) -> None:
+        """A button per mode, in the card's words; **Cancel** where offered."""
+        buttons = [
+            self.make_button(says[0].upper() + says[1:], discord.ButtonStyle.primary,
+                             self._answer(self.mode_choice, key), choice=("mode", key))
+            for key, says in options.modes
+        ]
+        row = self.place(buttons, 0, until=ROWS - 1 if options.cancellable else ROWS)
+        if options.cancellable:
+            self.button("Cancel", discord.ButtonStyle.secondary, self.cancel_mode, row=row)
+
+    async def mode_choice(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.MODE_CHOICE, "", {"mode": key}))
+
+    async def cancel_mode(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.MODE_CHOICE, "cancel"))
 
     async def target(self, interaction: discord.Interaction, key: str) -> None:
         await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))

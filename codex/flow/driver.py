@@ -211,6 +211,8 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.APPEL_STOMP_TOP: "Appel Stomp has already gone where it goes.",
     PromptKind.UPKEEP_ORDER: "That upkeep has already been done.",
     PromptKind.LEVEL_GAIN: "Those levels have already been gained.",
+    PromptKind.DIVIDE_DAMAGE: "That damage has already been divided.",
+    PromptKind.MODE_CHOICE: "That choice has already been made.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
 
@@ -312,7 +314,21 @@ def _answer_overpower(engine, game, match, prompt, choice, *, target=None) -> St
 def _answer_target(engine, game, match, prompt, choice, *, target=None) -> StepResult:
     if choice == "cancel":
         return resolve.cancel(engine, game, match)
+    if choice == "done":
+        return resolve.done_choosing(engine, game, match)
     return resolve.choose_target(engine, game, match, _required(target, "target"))
+
+
+def _answer_divide(engine, game, match, prompt, choice, *, target=None) -> StepResult:
+    if choice == "cancel":
+        return resolve.cancel(engine, game, match)
+    return resolve.add_to_split(engine, game, match, _required(target, "target"))
+
+
+def _answer_mode(engine, game, match, prompt, choice, *, mode=None) -> StepResult:
+    if choice == "cancel":
+        return resolve.cancel(engine, game, match)
+    return resolve.choose_mode(engine, game, match, _required(mode, "mode"))
 
 
 def _answer_appel(engine, game, match, prompt, choice) -> StepResult:
@@ -352,6 +368,8 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.APPEL_STOMP_TOP: _answer_appel,
     PromptKind.UPKEEP_ORDER: _answer_upkeep_order,
     PromptKind.LEVEL_GAIN: _answer_level_gain,
+    PromptKind.DIVIDE_DAMAGE: _answer_divide,
+    PromptKind.MODE_CHOICE: _answer_mode,
     PromptKind.GAME_OVER: _answer_game_over,
 }
 
@@ -372,6 +390,8 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.APPEL_STOMP_TOP: frozenset(),
     PromptKind.UPKEEP_ORDER: frozenset({"first"}),
     PromptKind.LEVEL_GAIN: frozenset({"hero"}),
+    PromptKind.DIVIDE_DAMAGE: frozenset({"target"}),
+    PromptKind.MODE_CHOICE: frozenset({"mode"}),
     PromptKind.GAME_OVER: frozenset(),
 }
 
@@ -511,7 +531,9 @@ def apply(
     # A cancel is not recorded: it put the journal back to before the
     # cast it took back (`codex.flow.resolve.cancel`), and a replay of it
     # would have nothing to cancel.
-    cancelled = action.kind is PromptKind.TARGET and action.choice == "cancel"
+    cancelled = action.choice == "cancel" and action.kind in (
+        PromptKind.TARGET, PromptKind.DIVIDE_DAMAGE, PromptKind.MODE_CHOICE,
+    )
     if history.latest_snapshot(match) is marker and not cancelled:
         history.record(match, action, run.drawn)
     return run

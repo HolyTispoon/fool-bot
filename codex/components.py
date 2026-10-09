@@ -248,6 +248,13 @@ class CardInstance:
     #: Bloodburn's "blood", Might of Leaf and Claw's "growth", Fairie
     #: Dragon's "feather". Empty in an older save.
     runes: dict[str, int] = field(default_factory=dict)
+    #: The seat a kidnapped unit goes back to at the end of the turn --
+    #: its last controller (Kidnapping's Card FAQ) -- or `None`.
+    returns_to: Optional[int] = None
+    #: The hero an attaching spell is attached to, as a target names it
+    #: ("1:hero:master_midori") -- Final Showdown's. `None` otherwise; a
+    #: unit an attaching spell is on is in `attached`.
+    attached_hero: Optional[str] = None
 
     @property
     def ref(self) -> str:
@@ -272,6 +279,8 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("armor", default=0),
     SavedField("attacked_this_turn", default=False),
     SavedField("runes", factory=dict, write=dict, read=dict),
+    SavedField("returns_to"),
+    SavedField("attached_hero"),
 )
 
 
@@ -369,6 +378,14 @@ class PlayerState:
     #: set as it resolves, read and cleared by the patrol lock that ends
     #: the main phase (step 11). False in an older save.
     discards_at_main_end: bool = False
+    #: How many spells this player has played this turn -- Calypso
+    #: Vystari's "If you played a spell this turn". Emptied as each of
+    #: their turns begins; 0 in an older save.
+    spells_played: int = 0
+    #: Moment's Peace stands: their units can't patrol and opposing units
+    #: can't attack them, until their next turn begins. False in an
+    #: older save.
+    peace: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -456,6 +473,8 @@ PLAYER_SAVED_FIELDS = (
     SavedField("tech2_spec"),
     SavedField("constructed_once", default=False),
     SavedField("discards_at_main_end", default=False),
+    SavedField("spells_played", default=0),
+    SavedField("peace", default=False),
 )
 
 
