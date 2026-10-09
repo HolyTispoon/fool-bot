@@ -51,8 +51,13 @@ class GameStatus(str, Enum):
     ABANDONED = "abandoned"
 
 
-#: The two specs of the basic game, which are the lobby's two seats.
+#: The two specs of the first basic game (UMR p. 3), the neutral heroes.
 BASIC_SPECS = ("bashing", "finesse")
+
+#: The two games the rulebook names (UMR p. 3): one hero a side, or
+#: three -- and how many heroes a seat holds in each.
+MODES = ("basic", "standard")
+HEROES_PER_SEAT = {"basic": 1, "standard": 3}
 
 #: How the board image lays the two panels out: stacked, seen from the
 #: active player's side with the other player's panel turned to face
@@ -83,9 +88,22 @@ class CodexGame:
     test_game: bool = False
     observer_ids: list[int] = field(default_factory=list)
 
-    #: Seat number to spec ("bashing", "finesse"). Saved with string
-    #: keys, since JSON has no other kind.
-    player_specs: dict[int, str] = field(default_factory=dict)
+    #: The basic game or the standard one (`MODES`): one hero a seat,
+    #: or three. "basic" in a save older than step 10.
+    mode: str = "basic"
+    #: Seat number to its heroes, as their specs, in the order chosen --
+    #: one in the basic game, three in the standard one. A hero is its
+    #: spec's one hero (`CardCatalog.hero_for`), so a spec names a hero
+    #: and nothing is saved twice. Saved with string keys, since JSON
+    #: has no other kind; a save older than step 10 holds one spec as a
+    #: string, read as a list of one.
+    player_specs: dict[int, list[str]] = field(default_factory=dict)
+    #: Seat number to its starting deck's colour ("neutral", "red"),
+    #: once settled: by the rule where the seat's heroes are of one
+    #: colour, by the player's choice where they differ (UMR pp. 3-4).
+    #: A save older than step 10 has none, and every seat it seats
+    #: plays the neutral deck.
+    player_decks: dict[int, str] = field(default_factory=dict)
     status: GameStatus = GameStatus.LOBBY
     #: `MatchState.to_dict()`; `None` until Start.
     match_state: Optional[dict] = None
@@ -102,11 +120,13 @@ class CodexGame:
     #: The rematch opened from this finished game, so a second press
     #: finds it rather than opening another.
     rematch_game_id: Optional[str] = None
-    #: The finished game this lobby is the rematch of, and the specs it
-    #: was played with by seat: what **Keep heroes** keeps. Empty for a
-    #: lobby `/codex lobby` opened.
+    #: The finished game this lobby is the rematch of, and the teams it
+    #: was played with by seat -- each seat's heroes as specs -- and
+    #: their decks: what **Keep heroes** keeps. Empty for a lobby
+    #: `/codex lobby` opened.
     rematch_of: Optional[str] = None
-    rematch_specs: dict[int, str] = field(default_factory=dict)
+    rematch_specs: dict[int, list[str]] = field(default_factory=dict)
+    rematch_decks: dict[int, str] = field(default_factory=dict)
     #: The seats whose player has pressed **Keep heroes** in a rematch's
     #: lobby; the heroes are kept only while both have.
     kept_heroes: list[int] = field(default_factory=list)
@@ -152,42 +172,159 @@ class CodexGame:
         if self.status is not GameStatus.LOBBY:
             raise RuleRefusal("This game has already started.")
 
-    def take_seat(self, user_id: int, user_name: Optional[str], spec: str) -> int:
+    @property
+    def heroes_per_seat(self) -> int:
+        """How many heroes a seat holds: one in the basic game, three in
+        the standard one (UMR p. 3)."""
+        return HEROES_PER_SEAT[self.mode]
+
+    def set_mode(self, mode: str) -> None:
         """
-        Sit down to play `spec`. A seated player choosing the other spec
-        moves to it while it is free -- except in a **test game**, where
-        they sit down on that side too, and play both. The first to sit
-        holds seat 1. Returns the seat taken.
+        Play the basic game or the standard one. The lobby's until Start;
+        every seat keeps its player and loses its heroes, since a team of
+        one is no team of three -- each picks again. In a rematch's lobby
+        the last game's teams go with them, and so does **Keep heroes**.
         """
         self._require_lobby()
-        spec = spec.lower()
-        if spec not in BASIC_SPECS:
-            raise RuleRefusal(f"The basic game is Bashing against Finesse, not {spec}.")
-        holder = next(
-            (seat for seat, held in self.player_specs.items() if held == spec), None,
-        )
-        mine = self.seat_of(user_id)
-        if holder is not None and holder == mine:
-            raise RuleRefusal("You are already playing that side.")
-        if holder is not None:
-            raise RuleRefusal("Somebody is already playing that side.")
-        if mine is not None and not self.test_game:
-            self.player_specs[mine] = spec
-            return mine
-        if self.player_1_id is None:
-            seat = 1
+        if mode not in MODES:
+            raise RuleRefusal(f"A Codex game is basic or standard, not {mode}.", cite="UMR p. 3")
+        if mode == self.mode:
+            return
+        self.mode = mode
+        self.player_specs = {}
+        self.player_decks = {}
+        self.rematch_specs = {}
+        self.rematch_decks = {}
+        self.kept_heroes = []
+
+    def _check_team(self, specs: list[str]) -> list[str]:
+        """
+        A seat's heroes, as specs, checked against the lobby's rules
+        (UMR pp. 3-4): as many as the game takes, each a hero, no hero
+        twice, and every one of a colour the bot has landed.
+        """
+        from codex.cards import LANDED_COLORS, catalog
+
+        cards = catalog()
+        wanted = self.heroes_per_seat
+        if len(specs) != wanted:
+            game = "the basic game" if self.mode == "basic" else "a standard game"
+            count = "one hero" if wanted == 1 else f"{wanted} heroes"
+            raise RuleRefusal(f"In {game} each player chooses {count}.", cite="UMR p. 3")
+        if len(set(specs)) != len(specs):
+            raise RuleRefusal("A team's heroes are three different heroes.", cite="UMR p. 3")
+        for spec in specs:
+            try:
+                hero = cards.hero_for(spec)
+            except KeyError:
+                raise RuleRefusal(f"There is no hero of {spec}.") from None
+            color = (hero.color or "").lower()
+            if color not in LANDED_COLORS:
+                # No page to cite: the rulebook allows it, this bot does
+                # not play the colour yet (docs/codex-bot.md, steps 10-13).
+                raise RuleRefusal(
+                    f"{hero.name} is a {hero.color} hero, and {hero.color} is not in this bot yet."
+                )
+        return specs
+
+    def deck_choices(self, seat: int) -> tuple[str, ...]:
+        """
+        The starting decks `seat` may take: its heroes' colours, in the
+        order the heroes were chosen (UMR pp. 3-4) -- a basic game's
+        one, a standard game's one to three, the neutral heroes' colour
+        a deck the three may take. Empty while the seat has no heroes.
+        """
+        from codex.cards import catalog
+
+        found = []
+        for spec in self.player_specs.get(seat, ()):
+            color = (catalog().hero_for(spec).color or "neutral").lower()
+            if color not in found:
+                found.append(color)
+        return tuple(found)
+
+    def _settle_deck(self, seat: int) -> None:
+        """The deck the rule settles: the one colour a seat's heroes
+        share; otherwise the player's choice where it still fits, and
+        none until they make it."""
+        choices = self.deck_choices(seat)
+        if len(choices) == 1:
+            self.player_decks[seat] = choices[0]
+        elif self.player_decks.get(seat) not in choices:
+            self.player_decks.pop(seat, None)
+
+    def take_seat(self, user_id: int, user_name: Optional[str], specs,
+                  seat: Optional[int] = None) -> int:
+        """
+        Sit down with these heroes -- `specs`, one or three as the game
+        takes, a single spec as a string for the basic game. A seated
+        player choosing again changes their heroes; somebody new takes
+        the first free seat. In a **test game** one person plays both
+        sides: `seat` names which one they choose for, and without it a
+        second choice sits them down on the other side. Returns the seat.
+        """
+        self._require_lobby()
+        if isinstance(specs, str):
+            specs = [specs]
+        specs = self._check_team([spec.strip().lower() for spec in specs])
+        mine = self.seats_of(user_id)
+        if seat is not None:
+            if seat not in (1, 2):
+                raise RuleRefusal("A game has seats 1 and 2.")
+            held = self.player_1_id if seat == 1 else self.player_2_id
+            if held is not None and held != user_id:
+                raise RuleRefusal("Somebody else is sitting there.")
+            if held is None and mine and not self.test_game:
+                raise RuleRefusal("You are already seated -- a game is two players.")
+            target = seat
+        elif mine and (not self.test_game or len(mine) == 2):
+            target = mine[0]
+        elif self.player_1_id is None:
+            target = 1
         elif self.player_2_id is None:
-            seat = 2
+            target = 2
         else:
             raise RuleRefusal("Both seats are taken -- a game is two players.")
-        if seat == 1:
+        if target == 1:
             self.player_1_id, self.player_1_name = user_id, user_name
         else:
             self.player_2_id, self.player_2_name = user_id, user_name
-        self.player_specs[seat] = spec
+        self.player_specs[target] = specs
+        self._settle_deck(target)
         if user_id in self.observer_ids:
             self.observer_ids.remove(user_id)
+        return target
+
+    def choose_deck(self, user_id: int, color: str, seat: Optional[int] = None) -> int:
+        """
+        `user_id`'s seat -- or `seat`, one of theirs in a test game --
+        takes the starting deck of `color`, one of its heroes' colours
+        (UMR p. 3: "the 10 starting cards that match one of your three
+        heroes' colors"). Returns the seat.
+        """
+        self._require_lobby()
+        seats = self.seats_of(user_id)
+        if seat is None:
+            seat = seats[0] if seats else None
+        if seat is None or seat not in seats:
+            raise RuleRefusal("You are not seated in this lobby.")
+        color = color.strip().lower()
+        if color not in self.deck_choices(seat):
+            raise RuleRefusal(
+                "Your starting deck is the colour of one of your heroes.", cite="UMR p. 3",
+            )
+        self.player_decks[seat] = color
         return seat
+
+    def seat_complete(self, seat: int) -> bool:
+        """The seat is taken, with as many heroes as the game takes and
+        its deck settled."""
+        held = self.player_1_id if seat == 1 else self.player_2_id
+        return (
+            held is not None
+            and len(self.player_specs.get(seat, ())) == self.heroes_per_seat
+            and self.player_decks.get(seat) in self.deck_choices(seat)
+        )
 
     def leave(self, user_id: int) -> None:
         """Give up a seat in the lobby -- both, in a test game where one
@@ -202,16 +339,17 @@ class CodexGame:
             else:
                 self.player_2_id, self.player_2_name = None, None
             self.player_specs.pop(seat, None)
+            self.player_decks.pop(seat, None)
             if seat in self.kept_heroes:
                 self.kept_heroes.remove(seat)
 
     def may_start(self) -> bool:
-        """Both seats taken, each with its spec, in a lobby."""
+        """Both seats complete -- each taken, with its heroes and its
+        deck -- in a lobby."""
         return (
             self.status is GameStatus.LOBBY
-            and self.player_1_id is not None
-            and self.player_2_id is not None
-            and set(self.player_specs) == {1, 2}
+            and self.seat_complete(1)
+            and self.seat_complete(2)
         )
 
     def start(self, engine: "RulesEngine") -> None:
@@ -219,8 +357,15 @@ class CodexGame:
         picks who goes first (UMR p. 3)."""
         self._require_lobby()
         if not self.may_start():
-            raise RuleRefusal("Both seats have to be taken before the game can start.")
-        match = engine.new_match((self.player_specs[1], self.player_specs[2]))
+            raise RuleRefusal(
+                "Both seats have to be taken, each with its heroes and its deck, "
+                "before the game can start.",
+                cite="UMR p. 3",
+            )
+        match = engine.new_match(
+            (self.player_specs[1], self.player_specs[2]),
+            decks=(self.player_decks[1], self.player_decks[2]),
+        )
         self.match_state = match.to_dict()
         self.status = GameStatus.PLAYING
 
@@ -250,15 +395,17 @@ class CodexGame:
         """
         The lobby of this finished game played again: the same two
         seats -- the same people, or the one person of a test game --
-        in the same channel, **the heroes swapped** (each seat plays
-        the spec the other played) until both press **Keep heroes**
+        in the same channel, in the same game, **the teams swapped**
+        whole (each seat plays the heroes and the deck the other played)
+        until both press **Keep heroes**
         (`keep_heroes`). Who goes first is drawn again at Start, as
         every game's is (`RulesEngine.new_match`). Refused for a game
         that is not finished: an abandoned game is not played again.
         """
         if self.status is not GameStatus.FINISHED:
             raise RuleRefusal("Only a finished game can be played again.")
-        played = dict(self.player_specs)
+        played = {seat: list(specs) for seat, specs in self.player_specs.items()}
+        decks = dict(self.player_decks)
         return CodexGame(
             game_id=game_id,
             game_number=game_number,
@@ -269,10 +416,13 @@ class CodexGame:
             player_1_name=self.player_1_name,
             player_2_name=self.player_2_name,
             test_game=self.test_game,
-            player_specs={1: played[2], 2: played[1]},
+            mode=self.mode,
+            player_specs={1: list(played[2]), 2: list(played[1])},
+            player_decks={1: decks[2], 2: decks[1]},
             board_layout=self.board_layout,
             rematch_of=self.game_id,
             rematch_specs=played,
+            rematch_decks=decks,
         )
 
     def keep_heroes(self, user_id: int) -> bool:
@@ -298,8 +448,14 @@ class CodexGame:
         self.kept_heroes.sort()
         kept = self.heroes_kept
         if self.player_1_id is not None and self.player_2_id is not None:
-            last = self.rematch_specs
-            self.player_specs = dict(last) if kept else {1: last[2], 2: last[1]}
+            last, decks = self.rematch_specs, self.rematch_decks
+            order = (1, 2) if kept else (2, 1)
+            self.player_specs = {1: list(last[order[0]]), 2: list(last[order[1]])}
+            if decks:
+                self.player_decks = {1: decks[order[0]], 2: decks[order[1]]}
+            else:
+                self._settle_deck(1)
+                self._settle_deck(2)
         return kept
 
     @property
@@ -319,22 +475,44 @@ class CodexGame:
     def to_dict(self) -> dict:
         data = asdict(self)
         data["status"] = self.status.value
-        data["player_specs"] = {str(seat): spec for seat, spec in self.player_specs.items()}
-        data["rematch_specs"] = {str(seat): spec for seat, spec in self.rematch_specs.items()}
+        data["player_specs"] = {str(seat): list(specs) for seat, specs in self.player_specs.items()}
+        data["player_decks"] = {str(seat): deck for seat, deck in self.player_decks.items()}
+        data["rematch_specs"] = {str(seat): list(specs) for seat, specs in self.rematch_specs.items()}
+        data["rematch_decks"] = {str(seat): deck for seat, deck in self.rematch_decks.items()}
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "CodexGame":
         data = dict(data)
         data["status"] = GameStatus(data.get("status", GameStatus.LOBBY.value))
-        data["player_specs"] = {
-            int(seat): spec for seat, spec in (data.get("player_specs") or {}).items()
-        }
+        if data.get("mode") not in MODES:
+            data["mode"] = "basic"
+        data["player_specs"] = _read_teams(data.get("player_specs"))
+        if "player_decks" in data:
+            data["player_decks"] = {
+                int(seat): deck for seat, deck in (data.get("player_decks") or {}).items()
+            }
+        else:
+            # Older than step 10: every seat played the neutral deck.
+            data["player_decks"] = {seat: "neutral" for seat in data["player_specs"]}
         data["observer_ids"] = list(data.get("observer_ids") or [])
-        data["rematch_specs"] = {
-            int(seat): spec for seat, spec in (data.get("rematch_specs") or {}).items()
-        }
+        data["rematch_specs"] = _read_teams(data.get("rematch_specs"))
+        if "rematch_decks" in data:
+            data["rematch_decks"] = {
+                int(seat): deck for seat, deck in (data.get("rematch_decks") or {}).items()
+            }
+        else:
+            data["rematch_decks"] = {seat: "neutral" for seat in data["rematch_specs"]}
         data["kept_heroes"] = [int(seat) for seat in (data.get("kept_heroes") or [])]
         if data.get("board_layout") not in BOARD_LAYOUTS:
             data["board_layout"] = "stacked"
         return cls(**data)
+
+
+def _read_teams(data: Optional[dict]) -> dict[int, list[str]]:
+    """Seat to its heroes' specs -- a save older than step 10 holds one
+    spec as a string, read as a list of one."""
+    return {
+        int(seat): [specs] if isinstance(specs, str) else list(specs)
+        for seat, specs in (data or {}).items()
+    }

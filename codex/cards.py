@@ -30,6 +30,13 @@ KIND_WORKER = "worker"
 #: The spec every starting deck comes from: the ten neutral cards.
 NEUTRAL = "neutral"
 
+#: The colours this bot plays, as `Hero.color` and `Card.color` spell
+#: them, lowered: the lobby offers their heroes and refuses the rest.
+#: The data holds all seven since step 1; a colour lands when the engine
+#: has read its cards -- neutral from step 2, red and green from step 10,
+#: and each pair after it adds its two (docs/codex-bot.md, steps 10-13).
+LANDED_COLORS = ("neutral", "red", "green")
+
 
 @dataclass(frozen=True)
 class Card:
@@ -174,6 +181,15 @@ class CardCatalog:
     def codex_for(self, spec: str) -> list[str]:
         """A spec's codex: two copies of each of its twelve cards."""
         return [slug for card in self.by_spec(spec) for slug in (card.slug, card.slug)]
+
+    def landed_heroes(self) -> list[Hero]:
+        """Every hero of a landed colour (`LANDED_COLORS`), by colour in
+        that order and then by name: what the lobby's menu offers."""
+        return sorted(
+            (hero for hero in self.heroes.values()
+             if (hero.color or "").lower() in LANDED_COLORS),
+            key=lambda hero: (LANDED_COLORS.index((hero.color or "").lower()), hero.name),
+        )
 
     def hero_for(self, spec: str) -> Hero:
         key = _spec_key(spec)

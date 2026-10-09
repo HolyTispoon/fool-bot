@@ -10,7 +10,7 @@ and everything it starts through `codex.flow.driver`, **saves once**,
 and hands back a `GameResult` the frontend renders. It formats nothing.
 
 **The lobby is service methods, not prompt kinds**: `create_game`,
-`take_seat`, `leave`, `start`, `abandon`, `set_board_layout`, and after
+`take_seat`, `set_mode`, `choose_deck`, `leave`, `start`, `abandon`, `set_board_layout`, and after
 a game `rematch` and `keep_heroes`, each
 load the record, apply one change the record itself rules on
 (`CodexGame`, which refuses with `RuleRefusal`), and save once. A
@@ -283,9 +283,28 @@ class GameService:
         del self.games[game_id]
         self.save()
 
-    def take_seat(self, game_id: str, user_id: int, user_name: Optional[str], spec: str) -> CodexGame:
+    def take_seat(self, game_id: str, user_id: int, user_name: Optional[str], specs,
+                  seat: Optional[int] = None) -> CodexGame:
+        """Sit down with these heroes (`CodexGame.take_seat`), saved."""
         game = self.game(game_id)
-        game.take_seat(user_id, user_name, spec)
+        game.take_seat(user_id, user_name, specs, seat)
+        self.save()
+        return game
+
+    def set_mode(self, game_id: str, mode: str) -> CodexGame:
+        """The basic game or the standard one (`CodexGame.set_mode`),
+        saved."""
+        game = self.game(game_id)
+        game.set_mode(mode)
+        self.save()
+        return game
+
+    def choose_deck(self, game_id: str, user_id: int, color: str,
+                    seat: Optional[int] = None) -> CodexGame:
+        """A seat's starting deck, where its heroes' colours differ
+        (`CodexGame.choose_deck`), saved."""
+        game = self.game(game_id)
+        game.choose_deck(user_id, color, seat)
         self.save()
         return game
 

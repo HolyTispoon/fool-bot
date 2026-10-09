@@ -65,18 +65,29 @@ class LobbyTests(unittest.TestCase):
         saves.calls = 0
         svc.take_seat(game.game_id, 101, "basher", "bashing")
         self.assertEqual(game.player_1_id, 101)
-        self.assertEqual(game.player_specs, {1: "bashing"})
+        self.assertEqual(game.player_specs, {1: ["bashing"]})
         self.assertEqual(saves.calls, 1)
 
-    def test_a_taken_side_is_refused_and_nothing_is_saved(self) -> None:
+    def test_a_refused_team_is_refused_and_nothing_is_saved(self) -> None:
         svc, saves = service()
         game = svc.create_game(guild_id=1)
         svc.take_seat(game.game_id, 101, "basher", "bashing")
         saves.calls = 0
         with self.assertRaises(RuleRefusal):
-            svc.take_seat(game.game_id, 202, "fencer", "bashing")
+            svc.take_seat(game.game_id, 202, "fencer", ["bashing", "finesse"])
         self.assertEqual(saves.calls, 0)
         self.assertIsNone(game.player_2_id)
+
+    def test_the_mode_and_the_deck_are_each_saved_once(self) -> None:
+        svc, saves = service()
+        game = svc.create_game(guild_id=1)
+        saves.calls = 0
+        svc.set_mode(game.game_id, "standard")
+        self.assertEqual(saves.calls, 1)
+        svc.take_seat(game.game_id, 101, "basher", ["fire", "feral", "anarchy"])
+        svc.choose_deck(game.game_id, 101, "green")
+        self.assertEqual(saves.calls, 3)
+        self.assertEqual(game.player_decks, {1: "green"})
 
     def test_leave_frees_the_seat_and_saves_once(self) -> None:
         svc, saves = service()
@@ -296,7 +307,7 @@ class TestGameTests(unittest.TestCase):
         svc.take_seat(game.game_id, 101, "me", "bashing")
         svc.take_seat(game.game_id, 101, "me", "finesse")
         self.assertEqual((game.player_1_id, game.player_2_id), (101, 101))
-        self.assertEqual(game.player_specs, {1: "bashing", 2: "finesse"})
+        self.assertEqual(game.player_specs, {1: ["bashing"], 2: ["finesse"]})
         self.assertEqual(game.seats_of(101), (1, 2))
         result = svc.start(game.game_id)
         self.assertIs(result.prompt.kind, PromptKind.MAIN_ACTION)
@@ -325,5 +336,5 @@ class TestGameTests(unittest.TestCase):
         svc.take_seat(game.game_id, 101, "me", "bashing")
         svc.take_seat(game.game_id, 101, "me", "finesse")
         self.assertEqual((game.player_1_id, game.player_2_id), (101, None))
-        self.assertEqual(game.player_specs, {1: "finesse"})
+        self.assertEqual(game.player_specs, {1: ["finesse"]})
         self.assertFalse(game.may_start())

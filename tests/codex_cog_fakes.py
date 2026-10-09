@@ -313,11 +313,21 @@ class Table:
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
         lobby = LobbyView(self.cog, game.game_id)
-        for who, action in ((self.basher, "bashing"), (self.fencer, "finesse"), (self.fencer, "start")):
-            click = self.interaction(who)
-            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        await self.pick_heroes(lobby, self.basher, "bashing")
+        await self.pick_heroes(lobby, self.fencer, "finesse")
+        click = self.interaction(self.fencer)
+        await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         self.game = game
         return game
+
+    async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
+        """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a
+        test game's two -- answered with `specs`, as Discord sends it."""
+        select = next(item for item in lobby.children if f":{menu}:" in (item.custom_id or ""))
+        call = self.interaction(who)
+        call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(specs)}
+        await lobby._scheduled_task(select, call)
+        return call
 
     @property
     def match(self):

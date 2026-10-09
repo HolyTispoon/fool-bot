@@ -290,30 +290,40 @@ class RulesEngine:
 
     # -- The opening -----------------------------------------------------
 
-    def new_match(self, seats: Sequence[str], first: Optional[int] = None) -> MatchState:
+    def new_match(self, teams: Sequence, first: Optional[int] = None,
+                  decks: Optional[Sequence[str]] = None) -> MatchState:
         """
-        The opening position of the basic game (UMR p. 3): each seat's
-        hero in the command zone, the ten neutral starters shuffled as
-        its deck and five dealt, its spec's codex of twenty-four, a base
-        at 20, and four workers for whoever goes first and five for the
-        other -- who goes first drawn at random unless given.
+        The opening position (UMR p. 3): each seat's heroes in the
+        command zone -- `teams`, a list of specs per seat, or one spec as
+        a string for the basic game -- the ten starters of its deck's
+        colour (`decks`, the neutral deck where not given) shuffled as
+        its deck and five dealt, the codex of every one of its specs,
+        twenty-four a spec, a base at 20, and four workers for whoever
+        goes first and five for the other -- who goes first drawn at
+        random unless given.
         """
         if first is None:
             first = self.rng.choice((1, 2))
         players = []
-        for seat, spec in enumerate(seats, start=1):
-            hero = self.catalog.hero_for(spec)
-            deck = self.shuffle(self.catalog.starting_deck("neutral"))
+        for seat, specs in enumerate(teams, start=1):
+            if isinstance(specs, str):
+                specs = (specs,)
+            specs = tuple(spec.lower() for spec in specs)
+            color = (decks[seat - 1] if decks is not None else "neutral").lower()
+            deck = self.shuffle(self.catalog.starting_deck(color))
             hand = [deck.pop() for _ in range(HAND_SIZE)]
+            codex = Counter()
+            for spec in specs:
+                codex.update(self.catalog.codex_for(spec))
             players.append(PlayerState(
                 seat=seat,
-                spec=spec.lower(),
-                hero=HeroState(slug=hero.slug),
+                spec=specs[0],
+                hero=HeroState(slug=self.catalog.hero_for(specs[0]).slug),
                 base_hp=BASE_HP,
                 workers=STARTING_WORKERS[seat == first],
                 hand=hand,
                 deck=deck,
-                codex=dict(Counter(self.catalog.codex_for(spec))),
+                codex=dict(codex),
             ))
         return MatchState(players=players, first=first, active=first)
 

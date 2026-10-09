@@ -746,9 +746,10 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         (self.game,) = self.table.cog.games.values()
         self.table.game = self.game
         lobby = LobbyView(self.table.cog, self.game.game_id)
-        for action in ("bashing", "finesse", "start"):
-            click = self.table.interaction(self.table.basher)
-            await next(item for item in lobby.children if f":{action}:" in item.custom_id).callback(click)
+        await self.table.pick_heroes(lobby, self.table.basher, "bashing", menu="heroes1")
+        await self.table.pick_heroes(lobby, self.table.basher, "finesse", menu="heroes2")
+        click = self.table.interaction(self.table.basher)
+        await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         # Both seats are the one person's: a press defaulting to the
         # panel's seat finds them either way.
         self.table.fencer = self.table.basher
