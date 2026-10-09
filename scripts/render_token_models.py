@@ -25,6 +25,16 @@ to slice it:
   with one filament. Each half is a black slab with its art standing
   `--relief` proud of it: pause at the height the README gives, swap to
   the colour, finish, and glue the two halves back to back.
+- `plate_<token>.3mf`, and `plate_<token>_body.stl`, `_top.stl`,
+  `_bottom.stl` -- **a plate of whole tokens**: the one-piece token
+  `--count` times in a grid, each copy its own object of three parts,
+  so one file and one print make a table's worth. Still a printer that
+  changes filament by itself: every inlay layer is two colours.
+- `plate_half_<side>.stl` -- **a plate of one face's halves**, the same
+  half `--count` times in a grid, so one file and one filament change
+  print a table's worth. A plate holds one face because every half on it
+  changes to the same colour at the same height; the other face of the
+  token is its own plate.
 
 **The art is the bot's own**, traced rather than redrawn: the triangle is
 `exhaust.png` itself, and the four words are `render_condition_tokens.py`
@@ -49,12 +59,20 @@ silos `SILO_INCHES` wide (`d12ball/boards.py`, 0.8 in = 20.3 mm) -- a
 silo is a token wide -- so a token has to sit inside one with a little
 room. Printing bigger means reprinting the jumbotron's silos to match.
 
+**Why a plate holds the paper sheet's count.** `--count` defaults to
+`token_sheet.TOKEN_COUNTS` -- 48 exhaustion tokens and 16 of each
+condition, the set the print-and-play kit's page carries -- so a plate of
+each face, or of each whole token, is the same set in plastic. The grid is laid out to fit
+`--bed`, which defaults to 180 x 150 mm: inside a Prusa Mini, an Ender 3,
+a Bambu A1 mini and a Dremel 3D45 alike.
+
 Needs what the bot does not: `pip install numpy scikit-image shapely
 trimesh manifold3d mapbox-earcut`. Nothing printed is tested (CLAUDE.md);
 it is checked by `--preview`, which draws both faces as the slicer will
 see them, and by looking.
 """
 import argparse
+import math
 import sys
 import zipfile
 from functools import reduce
@@ -70,9 +88,11 @@ from skimage import measure
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
 import recolor_exhaust_token  # noqa: E402
 import render_condition_tokens  # noqa: E402
+from d12ball.token_sheet import TOKEN_COUNTS  # noqa: E402
 
 EXHAUST_PNG = render_condition_tokens.EMOJI_DIR / "exhaust.png"
 
@@ -257,16 +277,63 @@ def half(outline, art, slab, relief) -> trimesh.Trimesh:
     return to_mesh(extrude(outline, 0, slab) + extrude(art, slab, slab + relief))
 
 
+def grid(bounds, count: int, gap: float, bed: tuple) -> list:
+    """Where `count` copies of something within `bounds` go on `bed`: an
+    (x, y) offset each, the grid centred on the origin.
+
+    As square as the bed allows: the fewest columns that keep the rows on
+    the bed, so a plate of 16 is four by four and one of 48 goes wide.
+    """
+    (min_x, min_y, _), (max_x, max_y, _) = bounds
+    pitch = (max_x - min_x + gap, max_y - min_y + gap)
+    fits = [int((side + gap) // step) for side, step in zip(bed, pitch)]
+    columns = next(
+        (
+            c
+            for c in range(max(1, math.ceil(math.sqrt(count))), fits[0] + 1)
+            if math.ceil(count / c) <= fits[1]
+        ),
+        None,
+    )
+    if columns is None:
+        raise ValueError(
+            f"{count} tokens do not fit a {bed[0]:g} x {bed[1]:g} mm bed; "
+            "lower --count or raise --bed"
+        )
+    rows = math.ceil(count / columns)
+    origin = (
+        -(columns * pitch[0] - gap) / 2 - min_x,
+        (rows * pitch[1] - gap) / 2 - max_y,
+    )
+    return [
+        (origin[0] + column * pitch[0], origin[1] - row * pitch[1])
+        for row, column in (divmod(index, columns) for index in range(count))
+    ]
+
+
+def plate(mesh: trimesh.Trimesh, offsets: list) -> trimesh.Trimesh:
+    """`mesh` once at each offset, as one mesh of separate shells."""
+    copies = []
+    for x, y in offsets:
+        copy = mesh.copy()
+        copy.apply_translation((x, y, 0))
+        copies.append(copy)
+    return trimesh.util.concatenate(copies)
+
+
 def hex_color(rgb) -> str:
     return "#{:02X}{:02X}{:02X}FF".format(*rgb)
 
 
-def write_3mf(path: Path, name: str, parts: list) -> None:
-    """One object whose components are the parts, each with its colour.
+def write_3mf(path: Path, name: str, parts: list, offsets: list = ((0, 0),)) -> None:
+    """One object whose components are the parts, each with its colour --
+    once at each offset, a plate of them.
 
     Components rather than separate build items is what makes PrusaSlicer,
     Bambu Studio and OrcaSlicer load the parts as one object instead of
-    three to be arranged apart on the plate.
+    three to be arranged apart on the plate. On a plate each token is its
+    own object, its components the shared parts moved to its place, so
+    the parts' meshes are written once however many tokens there are.
     """
     materials = "".join(
         f'<base name="{label}" displaycolor="{hex_color(rgb)}"/>'
@@ -285,10 +352,19 @@ def write_3mf(path: Path, name: str, parts: list) -> None:
             f'pindex="{index}"><mesh><vertices>{vertices}</vertices>'
             f"<triangles>{triangles}</triangles></mesh></object>"
         )
-    whole = len(parts) + 2
-    components = "".join(
-        f'<component objectid="{index + 2}"/>' for index in range(len(parts))
-    )
+    tokens, items = [], []
+    for number, (x, y) in enumerate(offsets):
+        whole = len(parts) + 2 + number
+        moved = f' transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0"' if (x, y) != (0, 0) else ""
+        components = "".join(
+            f'<component objectid="{index + 2}"{moved}/>' for index in range(len(parts))
+        )
+        label = name if len(offsets) == 1 else f"{name} {number + 1}"
+        tokens.append(
+            f'<object id="{whole}" type="model" name="{label}">'
+            f"<components>{components}</components></object>"
+        )
+        items.append(f'<item objectid="{whole}"/>')
     model = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<model unit="millimeter" xml:lang="en-US" '
@@ -296,9 +372,8 @@ def write_3mf(path: Path, name: str, parts: list) -> None:
         f'<metadata name="Title">{name}</metadata>'
         f'<resources><basematerials id="1">{materials}</basematerials>'
         + "".join(objects)
-        + f'<object id="{whole}" type="model" name="{name}">'
-        f"<components>{components}</components></object></resources>"
-        f'<build><item objectid="{whole}"/></build></model>'
+        + "".join(tokens)
+        + f'</resources><build>{"".join(items)}</build></model>'
     )
     content_types = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -361,8 +436,20 @@ def main() -> int:
     parser.add_argument("--inlay", type=float, default=0.6, help="colour depth per face, mm (default 0.6)")
     parser.add_argument("--slab", type=float, default=1.2, help="black slab of a half, mm (default 1.2)")
     parser.add_argument("--relief", type=float, default=0.4, help="raised art on a half, mm (default 0.4)")
+    parser.add_argument(
+        "--count", type=int, default=None,
+        help="halves on every plate (default: the paper sheet's set -- "
+        + ", ".join(f"{count} {token}" for token, count in TOKEN_COUNTS.items()) + ")",
+    )
+    parser.add_argument("--gap", type=float, default=3.0, help="between halves on a plate, mm (default 3)")
+    parser.add_argument(
+        "--bed", type=parse_bed, default=(180.0, 150.0),
+        help="the plate's room, WxH mm (default 180x150)",
+    )
     parser.add_argument("--preview", action="store_true", help="also draw every face as a PNG")
     args = parser.parse_args()
+    if args.count is not None and args.count < 1:
+        parser.error("--count must be at least 1")
 
     if 2 * args.inlay >= args.thickness:
         parser.error("two inlays would meet in the middle; lower --inlay")
@@ -394,14 +481,23 @@ def main() -> int:
         write_3mf(args.out / f"{token}.3mf", token, colored)
         for label, mesh in parts.items():
             write_stl(mesh, args.out / f"{token}_{label}.stl")
-        for name, outline, art in (
-            (top_name, top_outline, top_art),
-            (bottom_name, bottom_outline, bottom_art),
-        ):
-            write_stl(
-                half(outline, art, args.slab, args.relief),
-                args.out / f"{token}_half_{name}.stl",
-            )
+        count = args.count or TOKEN_COUNTS[token]
+        try:
+            whole = trimesh.util.concatenate(list(parts.values()))
+            offsets = grid(whole.bounds, count, args.gap, args.bed)
+            write_3mf(args.out / f"plate_{token}.3mf", token, colored, offsets)
+            for label, mesh in parts.items():
+                write_stl(plate(mesh, offsets), args.out / f"plate_{token}_{label}.stl")
+            for name, outline, art in (
+                (top_name, top_outline, top_art),
+                (bottom_name, bottom_outline, bottom_art),
+            ):
+                one_half = half(outline, art, args.slab, args.relief)
+                write_stl(one_half, args.out / f"{token}_half_{name}.stl")
+                offsets = grid(one_half.bounds, count, args.gap, args.bed)
+                write_stl(plate(one_half, offsets), args.out / f"plate_half_{name}.stl")
+        except ValueError as error:
+            parser.error(str(error))
         if not parts["body"].is_watertight:
             report.append(f"  WARNING: {token} body is not watertight")
 
@@ -415,11 +511,22 @@ def main() -> int:
     return 0
 
 
+def parse_bed(text: str) -> tuple[float, float]:
+    try:
+        width, depth = (float(part) for part in text.lower().split("x"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--bed wants WxH in mm, not {text!r}")
+    return width, depth
+
+
 def readme(args) -> str:
     colors = []
     for token, faces in TOKENS.items():
         sides = " / ".join(f"{name} {hex_color(rgb)[:7]}" for name, rgb in faces)
         colors.append(f"  {token}: body {hex_color(BODY_COLOR)[:7]}, {sides}")
+    plates = ", ".join(
+        f"{args.count or TOKEN_COUNTS[token]} {token}" for token in TOKENS
+    )
     return f"""D12 Ball condition tokens -- {args.size:g} mm, generated by
 scripts/render_token_models.py. Three tokens; print as many of each as
 the table needs.
@@ -442,6 +549,13 @@ A. MULTI-MATERIAL PRINTER (AMS, MMU, tool changer) -- <token>.3mf
    A slicer that won't read the 3MF: load <token>_body/_top/_bottom.stl
    together and answer "yes" to loading them as one multi-part object.
 
+   plate_<token>.3mf is the same token many times over, each copy its
+   own object of the same three parts: {plates}.
+   Laid out to fit {args.bed[0]:g} x {args.bed[1]:g} mm (--bed), {args.gap:g} mm apart (--gap).
+   Set the filaments once and every token on the plate takes them. The
+   STL fallback is plate_<token>_body/_top/_bottom.stl, loaded together
+   as one multi-part object, as above.
+
 B. ONE FILAMENT -- <token>_half_<face>.stl, two per token
    Each half is a {args.slab:g} mm black slab with its art raised {args.relief:g} mm.
    Print it face up in black and add a filament change (Bambu Studio:
@@ -450,6 +564,13 @@ B. ONE FILAMENT -- <token>_half_<face>.stl, two per token
    The two halves of a token go back to back, plain sides together, with
    CA glue or a thin layer of epoxy -- lined up by their edges. A token
    is then {2 * args.slab:g} mm of black with {args.relief:g} mm of art on each face.
+
+   plate_half_<face>.stl is the same half many times over, one file a
+   face, as many as the whole plates.
+   Slice and print it exactly as one half -- the filament change at the
+   same height serves every half on the plate. A plate holds one face
+   alone because the whole plate changes to one colour; the token's other
+   face is the next plate. Laid out like the whole plates.
 
 Either way, keep to one plastic (all PLA, say): a colour change fuses
 only between filaments of the same kind.

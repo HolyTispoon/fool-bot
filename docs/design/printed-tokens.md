@@ -65,6 +65,30 @@ the letters more room, but the silos would then need reprinting to match.
   several passes with a swap between them, and that is too fiddly to ask
   of a coach.
 
+## Plates: a table's worth in one file
+
+Both ways also come as plates, because one token per file means
+arranging dozens of copies by hand in the slicer (the author,
+2026-10-09, asked for whole tokens as well as halves):
+
+- `plate_<token>.3mf` (and `plate_<token>_body/_top/_bottom.stl`) is the
+  whole one-piece token over and over. Each copy is its own object whose
+  components are the same three parts moved into place, so the parts'
+  meshes are written once and a slicer still sees body and inlays as one
+  object a token. It still needs a printer that changes filament on its
+  own.
+- `plate_half_<face>.stl` holds one face's halves. **A half-plate holds
+  one face alone**, because on one filament the whole plate changes to
+  one colour at the slab's height; the token's other face is the next
+  plate.
+
+`--count` defaults to the paper sheet's `TOKEN_COUNTS` (48 exhaustion,
+16 of each condition), so a plate of each is the kit's set in plastic and
+the two counts are one number. `grid` lays them out as square as `--bed`
+allows, 180 x 150 mm by default -- inside a Prusa Mini, an Ender 3, a
+Bambu A1 mini and a Dremel 3D45 -- and refuses a count that does not fit
+rather than running off the bed. The single-token files are unchanged.
+
 The script needs `numpy scikit-image shapely trimesh manifold3d
 mapbox-earcut`. The bot does not, which is why they are not in
 `requirements.txt` -- except numpy, which is there for the landing
