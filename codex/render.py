@@ -116,7 +116,9 @@ PLATE_HERO = (184, 251)
 NAMEPLATE_HEIGHT = 56
 NAMEPLATE_GAP = 12
 #: The stacked board's divider, and the side-by-side board's.
-DIVIDER_HEIGHT = 36
+#: The divider is taller than the canvas's 36 so its label can be read
+#: at a glance (the author, 2026-10-09: the turn more prominent).
+DIVIDER_HEIGHT = 52
 DIVIDER_WIDTH = 80
 #: How far a chit hangs over a card's edge, which a body is drawn with
 #: room for.
@@ -141,7 +143,6 @@ WORD = (241, 232, 216)           # #f1e8d8
 QUIET = (191, 174, 148)          # #bfae94
 FAINT_INK = (138, 122, 98)       # #8a7a62
 RULE = (74, 58, 44)              # #4a3a2c
-DIVIDER_RULE = (58, 45, 34)      # #3a2d22
 TURN_GOLD = (224, 182, 74)       # #e0b64a
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 HEART_FILL = (208, 32, 28)       # #d0201c
@@ -786,16 +787,25 @@ def divider_label(match: MatchState, cards: CardCatalog) -> str:
 
 
 def horizontal_divider(width: int, label: str) -> Image.Image:
-    """The stacked board's divider: "<HERO>'S TURN <N>" between two rules."""
+    """
+    The stacked board's divider: "<HERO>'S TURN <N>", the hero by its
+    short name, bold and dark on a cream pill between two rules -- the
+    brightest thing between the panels, so whose turn it is reads at a
+    glance (the author, 2026-10-09: more prominent, and not gold, which
+    the nameplate's pill already is).
+    """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
-    face = font(14, bold=False)
+    face = font(24)
     text_width = spaced_width(label, face, 2)
     middle = DIVIDER_HEIGHT // 2
     left = (width - text_width) / 2
-    draw.line((0, middle, left - 16, middle), fill=DIVIDER_RULE, width=1)
-    draw.line((left + text_width + 16, middle, width, middle), fill=DIVIDER_RULE, width=1)
-    spaced_text(draw, (left, middle), label, face, FAINT_INK, 2)
+    pad, half = 18, 18
+    draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
+    draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
+    draw.rounded_rectangle((left - pad, middle - half, left + text_width + pad, middle + half),
+                           radius=half, fill=WORD)
+    spaced_text(draw, (left, middle), label, face, PANEL, 2)
     return strip
 
 

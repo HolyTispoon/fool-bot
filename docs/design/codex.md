@@ -892,8 +892,13 @@ else the bot shows is ephemeral.
   read upside down, as the far side of a table does -- but its
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
-  to turn a phone for. A 36-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name. A finished game is seen from where it was left.
+  to turn a phone for. A 52-pixel divider between the two reads
+  "<HERO>'S TURN <N>", the same short name, bold and dark on a cream
+  pill between two light rules -- taller and brighter than the canvas's
+  36 pixels of faint capitals, which did not read at Discord's size (the
+  author, 2026-10-09: the turn more prominent, and not gold, which the
+  active nameplate's pill already is). A finished game is seen from
+  where it was left.
   Side by side turns neither panel and puts an 80-pixel divider
   between them, the same words standing: two panels read left to right
   are a desk, not a table. Where the two are of different heights, the
