@@ -675,10 +675,10 @@ def steal_gold(match: MatchState, seat: int, other: int, amount: int) -> int:
 
 def _coin(engine, match, top, part, target, result) -> None:
     """Rickety Mine's coin: heads, "Phew!", which does nothing; tails, the
-    mine sacrificed and its controller's base taking `part.amount` --
-    which the mine does not deal, so Hotter Fire adds nothing to it (the
-    author, 2026-10-09). The side is journalled beside the shuffles
-    (`StepResult.drawn`), so a replay lands it again."""
+    mine sacrificed and its controller's base taking `part.amount`, with
+    Hotter Fire's +1 like any red card's damage (the author, 2026-10-09).
+    The side is journalled beside the shuffles (`StepResult.drawn`), so a
+    replay lands it again."""
     seat = top["seat"]
     side = engine.flip_coin()
     result.drawn.append([effects.COIN, side])
@@ -687,7 +687,7 @@ def _coin(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} flips a coin: heads. Phew!")
         return
     mine = board.body_of(match, seat, top["source"]) if top.get("source") else None
-    amount = part.amount
+    amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
         f"{tokens.player(seat)}'s base takes {amount} damage."

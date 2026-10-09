@@ -464,10 +464,12 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
             frames.append(resolve.frame(effect, seat, by, origin=card.slug))
         granted = witnesses["pirategang"].get(seat)
         if granted is not None:
-            # The line is the dying unit's, granted by the Commander.
+            # The line is the dying unit's, granted by the Commander --
+            # so Hotter Fire adds to it only where that unit is red (the
+            # author, 2026-10-09).
             frames.append(resolve.frame(
                 effects.GRANTS_DIES[granted], seat, f"{by} (from {tokens.card(granted)})",
-                origin=granted,
+                origin=card.slug,
             ))
         for watcher, slug in witnesses["bugblatters"]:
             frames.append(resolve.frame(

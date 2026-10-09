@@ -688,9 +688,9 @@ class ResourcesTests(unittest.TestCase):
         self.assertIn("rickety_mine", match.player(1).discard)
         self.assertEqual(match.player(1).base_hp, 18)
 
-    def test_tails_gets_nothing_from_hotter_fire(self) -> None:
-        """The mine deals no damage -- its base takes it -- so Hotter Fire
-        adds nothing (the author, 2026-10-09)."""
+    def test_tails_gets_hotter_fires_one_more(self) -> None:
+        """Rickety Mine is red, so its tails' 2 gets Hotter Fire's +1 (the
+        author, 2026-10-09)."""
         from unittest import mock
 
         from test_codex_card_rulings import red_green
@@ -701,7 +701,26 @@ class ResourcesTests(unittest.TestCase):
         with mock.patch.object(engine, "flip_coin", return_value="tails"):
             apply(engine, game, match, PromptKind.MAIN_ACTION, "ability",
                   ability="rickety_mine", source=mine.ref)
-        self.assertEqual(match.player(1).base_hp, 18)
+        self.assertEqual(match.player(1).base_hp, 17)
+
+    def test_pirategangs_granted_line_is_hotter_only_on_a_red_unit(self) -> None:
+        """"Your units have 'Dies: deal 1 damage to each opposing base'" --
+        the line is the dying unit's, so Hotter Fire adds to it only where
+        that unit is red (the author, 2026-10-09)."""
+        from codex.flow import resolve
+        from test_codex_card_rulings import red_green
+
+        engine, game, match = red_green(teams=(("blood", "fire", "anarchy"), ("growth", "feral", "balance")))
+        put(match, 1, "pirategang_commander")
+        put(match, 1, "hotter_fire")
+        for slug, damage in (("pirate", 2), ("tenderfoot", 1)):
+            with self.subTest(dying=slug):
+                hp = match.player(2).base_hp
+                dying = put(match, 1, slug)
+                result = driver.StepResult()
+                board.destroy(engine, match, [(1, dying.ref)], result)
+                resolve.run(engine, match, result)
+                self.assertEqual(match.player(2).base_hp, hp - damage)
 
     def test_merfolk_prospector_gains_a_gold_for_its_exhaust(self) -> None:
         from test_codex_card_rulings import red_green

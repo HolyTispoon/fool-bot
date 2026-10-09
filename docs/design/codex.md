@@ -717,7 +717,8 @@ ruling's own words and a ratchet counting them.
   death (`board.trash`). A trashed worker is a count down
   (`trash_worker`), so Land Octopus's two workers and a hire's card are
   never named. A **sacrificed unit dies**, though -- the rulebook's
-  "Dies" covers it -- so its dies triggers and Bloodburn's rune fire.
+  "Dies" covers it, as the author confirmed on 2026-10-09 -- so its dies
+  triggers and Bloodburn's rune fire.
 - **The end of the turn**, after the draw and before the buildings
   finish (`turn.end_of_turn`), on both sides, in this order: every
   ephemeral unit dies; Bloodrage Ogre returns to its owner's hand where
@@ -761,10 +762,10 @@ ruling's own words and a ratchet counting them.
   total ATK. Land Octopus's own choice is a `MODE_CHOICE`, asked even
   alone, and only "workers" where two can be trashed.
 - **Hotter Fire** is `engine.damage_bonus`, read off the frame's
-  `origin` -- the red card the effect came from, so a granted dies line
-  ("Pirate-Gang Commander's") counts -- and never combat damage. Rickety
-  Mine's tails is not damage the mine deals -- its controller's base
-  takes 2 -- so it gets nothing (the author, 2026-10-09).
+  `origin` -- the red card the effect came from, Rickety Mine's tails
+  among them -- and never combat damage. A dies line Pirate-Gang
+  Commander grants is the dying unit's, so it gets the +1 only where that
+  unit is red (the author, 2026-10-09).
 - **Read as the author answered** (2026-10-09): Dothram's total ATK
   counts heroes as well as units; Feral Strike boosted fetches before it
   puts into play, so a unit just fetched may go into play in the same
