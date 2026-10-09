@@ -2719,9 +2719,9 @@ pair after the first commit, pinned, and is empty after the last.
    no reshuffle; his max: a Mech in the future with forecast 2.
    Spells: Forgotten Fighter, Undo and Stewardess's return to the
    owner's hand; Origin Story (a hero to its command zone without
-   dying, its runes gone, summonable on its owner's next turn -- so one
-   summoning rune where death gives two; confirm with the author on
-   the PR); Assimilate (control of an upgrade, an ongoing spell or a
+   dying -- no death effect, its levels and runes gone, and no
+   summoning rune placed, the author, 2026-10-09 -- so its owner may
+   summon it again on their next turn); Assimilate (control of an upgrade, an ongoing spell or a
    building card, never a base, an add-on or a tech building; a
    channeling spell taken is discarded at once); Temporal Distortion (a
    tech I or II unit of the caster's to its owner's hand, then a unit
