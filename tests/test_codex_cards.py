@@ -252,6 +252,7 @@ class CodexCardArtTests(unittest.TestCase):
         )
         slots = {"squad_leader", "elite", "scavenger", "technician", "lookout"}
         self.assertEqual(pngs("patrol_slots"), slots | {f"{slot}_bonus" for slot in slots})
+        self.assertEqual(pngs("ground"), {"leather"})
 
     def test_the_numbered_chits(self):
         for folder, names in NUMBERED_CHITS.items():

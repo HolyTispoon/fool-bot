@@ -176,6 +176,7 @@ What is under `codex/images/board/`, and what each is named by:
 | `specs/` | The twenty spec cards | the spec, as a slug |
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
+| `ground/` | `leather`: a plain patch of the playmat's leather, 860 by 168 from below its logo, cut by `PLAYMAT_CUTS` as the patrol slots are -- what the board's panels are laid on, mirror-tiled (the author, 2026-10-09) | what it is |
 | `patrol_slots/` | The five patrol slots as the playmat prints them, 200 by 273, and each one's bonus strip under it, 200 by 41 (`<slot>_bonus`) -- cut from `playmat.png` itself rather than a sheet, at the boxes pinned in `PLAYMAT_CUTS` beside `BOARD_SHEETS` (from the design canvas's plan board, 2026-10-08), and re-cut by `--cut-only` with the rest: the board's patrol zone is drawn from them, the mat's own slots (the author, 2026-10-08) | the slot |
 | `damage/`, `levels/`, `time_runes/` | Damage 1 to 9; a hero's level 2 to 8 and `max`; time runes 1 to 6 | the number |
 | `chits/` | Single counters: `damage_1`, `damage_3`, `level_1`, `levels_3`, `plus_rune`, `minus_rune`, `two_step` (the +2/+2 with two dancers), a blue `swirl` nobody has said the module's use of, and the orange `house`, the module's mark on a building under construction or destroyed (the author, 2026-10-08), both named for what they show | what it shows |
@@ -871,12 +872,22 @@ else the bot shows is ephemeral.
     larger, and nothing is drawn for a place the position does not use
     beyond those that must be seen empty -- a patrol slot, a tech
     building, the add-on, the command zone. The playmat stays imported
-    as the reference the layout was taken from; nothing draws it. The
-    ground is flat (#231a14 a panel, #15100c between) -- the canvas
-    asks whether it should be the mat's leather instead, and the
-    author has not said.
+    as the reference the layout was taken from; nothing draws it but
+    the pieces cut from it.
+  - **The ground is the mat's leather** (the author, 2026-10-09: leather,
+    so long as it does not make the board load much slower): a plain
+    patch of it below the Codex logo, cut like the patrol slots
+    (`ground/leather.png`), mirrored across and down into a tile that
+    meets itself, and tiled under each panel from its top left
+    (`leather_ground`). The far panel's leather turns with it, so the
+    far side reads as one mat turned. The space between the panels
+    stays flat (#15100c). Measured that day against the flat ground the
+    canvas sketched (#231a14), the leather costs about a fifth more
+    bytes -- 70 KB to 86 KB for the opening, 111 KB to 133 KB for a
+    busy mid-game board -- a few hundredths of a second on a phone's
+    connection, and still well under the 220 KB the mat board was.
   - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
-    WebP at quality 85 (`WEBP_QUALITY`), about 70 to 140 KB -- the
+    WebP at quality 85 (`WEBP_QUALITY`), about 85 to 165 KB -- the
     encoding every picture the bot uploads has, the hand, the codex and
     the tech picker since 2026-10-09 (below).
 - **The layout is the game's**, on the record (`board_layout`, not the

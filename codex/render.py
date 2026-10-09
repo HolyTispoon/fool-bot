@@ -10,7 +10,8 @@ the Screentop module's pieces and the cards' own art, at the pixels the
 canvas was drawn at, so that less of the picture is anything but cards
 and nothing is drawn for a place the position does not use. The
 playmat stays imported as the reference the layout was taken from;
-nothing of it is drawn but the five patrol slots cut from it.
+nothing of it is drawn but the pieces cut from it: the five patrol
+slots, and a plain patch of its leather that each panel is laid on.
 
 A panel (`render_panel`), top to bottom and left to right:
 
@@ -668,16 +669,19 @@ def is_to_act(match: MatchState, seat: int) -> bool:
 
 
 def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog,
-                     width: int, rule_at_top: bool) -> Image.Image:
+                     width: int, rule_at_top: bool,
+                     ground: Optional[Image.Image] = None) -> Image.Image:
     """
     The nameplate, 56 tall: the player, the spec and hero, then gold
     (the gold emoji's picture), workers, hand, deck, discard and codex,
     a word and a count each. The active player's carries a gold rule
     and "<Hero>'s turn <n>" in a gold pill. The rule is on the side the
-    rest of the panel is on.
+    rest of the panel is on. Drawn straight onto `ground`, the piece of
+    leather it lies on, so its words are smoothed against the leather.
     """
     player = match.player(seat)
-    plate = Image.new("RGBA", (width, NAMEPLATE_HEIGHT), PANEL)
+    plate = (ground.copy() if ground is not None
+             else Image.new("RGBA", (width, NAMEPLATE_HEIGHT), PANEL))
     draw = ImageDraw.Draw(plate)
     to_act = is_to_act(match, seat)
     rule = TURN_GOLD if to_act else RULE
@@ -738,16 +742,46 @@ def render_panel(match: MatchState, seat: int, name: str,
     width = body.width - 2 * OVERHANG + 2 * PADDING
     natural = (2 * PADDING + body.height - 2 * OVERHANG + NAMEPLATE_GAP + NAMEPLATE_HEIGHT)
     total = max(natural, height or 0)
-    panel = Image.new("RGBA", (width, total), PANEL)
-    plate = render_nameplate(match, seat, name, cards, width - 2 * PADDING, rule_at_top=not turned)
+    # Laid out the right way up on the leather, then, for the far side,
+    # turned round whole -- leather and all, so it reads as one mat
+    # turned rather than a turned patch on an upright one.
+    panel = leather_ground((width, total))
+    panel.alpha_composite(body, (PADDING - OVERHANG, PADDING - OVERHANG))
     if turned:
-        panel.alpha_composite(plate, (PADDING, PADDING))
-        body_top = total - PADDING - (body.height - 2 * OVERHANG)
-        panel.alpha_composite(body.rotate(180), (PADDING - OVERHANG, body_top - OVERHANG))
-    else:
-        panel.alpha_composite(body, (PADDING - OVERHANG, PADDING - OVERHANG))
-        panel.alpha_composite(plate, (PADDING, total - PADDING - NAMEPLATE_HEIGHT))
+        panel = panel.rotate(180)
+    plate_top = PADDING if turned else total - PADDING - NAMEPLATE_HEIGHT
+    box = (PADDING, plate_top, width - PADDING, plate_top + NAMEPLATE_HEIGHT)
+    plate = render_nameplate(match, seat, name, cards, width - 2 * PADDING,
+                             rule_at_top=not turned, ground=panel.crop(box))
+    panel.alpha_composite(plate, box[:2])
     return panel
+
+
+@lru_cache(maxsize=1)
+def leather_tile() -> Image.Image:
+    """The mat's leather -- a plain patch of it cut from the playmat
+    (`ground/leather.png`) -- mirrored across and down into a tile whose
+    edges meet themselves, so it repeats with no seam."""
+    patch = board_piece("ground", "leather.png")
+    row = Image.new("RGBA", (patch.width * 2, patch.height))
+    row.paste(patch, (0, 0))
+    row.paste(ImageOps.mirror(patch), (patch.width, 0))
+    tile = Image.new("RGBA", (row.width, row.height * 2))
+    tile.paste(row, (0, 0))
+    tile.paste(ImageOps.flip(row), (0, row.height))
+    return tile
+
+
+def leather_ground(size: tuple[int, int]) -> Image.Image:
+    """A panel's ground, `size`, the leather tiled from its top left
+    (the author, 2026-10-09: leather, so long as the board does not load
+    much slower -- it costs about a fifth more bytes)."""
+    tile = leather_tile()
+    ground = Image.new("RGBA", size)
+    for left in range(0, size[0], tile.width):
+        for top in range(0, size[1], tile.height):
+            ground.paste(tile, (left, top))
+    return ground
 
 
 def default_building_hp(cards: CardCatalog) -> dict[str, int]:

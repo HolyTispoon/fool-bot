@@ -44,8 +44,9 @@ The art comes in the same run, unless `--no-images`:
   whole under `codex/images/board/sheets/` -- the source its cells are
   cut from -- and then cut into the cells pinned for it, each under
   `codex/images/board/<folder>/<name>.png`; and the five patrol slots
-  and their bonus strips cut from the playmat itself, at the boxes
-  pinned in `PLAYMAT_CUTS`, into `codex/images/board/patrol_slots/`.
+  and their bonus strips, and a plain patch of the leather, cut from
+  the playmat itself at the boxes pinned in `PLAYMAT_CUTS`, into
+  `codex/images/board/patrol_slots/` and `ground/`.
 
 `--cut-only` cuts the cells again from the sheets already in the tree,
 fetching nothing and writing no data, so a change to a pinned cell is
@@ -243,6 +244,12 @@ PLAYMAT_CUTS: dict[str, tuple[int, int, int, int]] = {
         (f"patrol_slots/{slot}", (left, 38, left + 200, 38 + 273)),
         (f"patrol_slots/{slot}_bonus", (left, 311, left + 200, 311 + 41)),
     )
+} | {
+    # A plain patch of the mat's leather, below the Codex logo and clear
+    # of every printed place, which the board's panels are laid on,
+    # mirror-tiled (the author, 2026-10-09: leather, so long as it does
+    # not make the board much slower to load -- it adds about a fifth).
+    "ground/leather": (700, 900, 1560, 1068),
 }
 
 GLYPHS = {"⤵": "{exhaust}", "◎": "{target}", "→": "{arrow}"}
