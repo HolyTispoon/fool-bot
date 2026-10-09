@@ -101,6 +101,42 @@ GREEN = frozenset({
     "young_treant"
 })
 
+#: Purple, landed at step 12 (docs/codex-bot.md): its ten starters, the
+#: twelve of Past, Present and Future, its three heroes and its two
+#: tokens, the Stinger and the Mech.
+PURPLE = frozenset({
+    "argonaut", "assimilate", "battle_suits", "chronofixer", "double_time",
+    "ebbflow_archon", "fading_argonaut", "forgotten_fighter", "gilded_glaxx",
+    "hardened_mox", "hive", "hyperion", "immortal", "knight_of_the_conclave",
+    "max_geiger", "mech", "nebula", "neo_plexus", "now", "nullcraft", "octavian",
+    "omegacron", "origin_story", "plasmodium", "promise_of_payment",
+    "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
+    "research__development", "rewind", "second_chances", "seer", "sentry",
+    "shimmer_ray", "slowtime_generator", "stewardess_of_the_undone", "stinger",
+    "temporal_distortion", "temporal_research", "time_spiral", "tinkerer",
+    "tricycloid", "undo", "unphase", "vir_garbarean", "void_star", "vortoss_emblem",
+    "warp_gate_disciple", "xenostalker", "yesterdays_golgort"
+})
+
+#: Black, landed with purple: its ten starters, the twelve of
+#: Demonology, Disease and Necromancy, its three heroes and its four
+#: tokens -- the Skeleton, the Zombie, the Horror and the Warlock.
+BLACK = frozenset({
+    "abomination", "banefire_golem", "blackhand_dozer", "blackhand_resurrector",
+    "bone_collector", "carrion_curse", "corpse_catapult", "crypt_crawler",
+    "cursed_crow", "cursed_ghoul", "dark_pact", "death_and_decay", "death_rites",
+    "deteriorate", "doom_grasp", "gargoyle", "garth_torken", "gorgon", "graveyard",
+    "hooded_executioner", "horror", "jandra_the_negator", "lichs_bargain",
+    "lord_of_shadows", "metamorphosis", "necromancer", "nether_drain", "orpal_gloor",
+    "pestering_haunt", "plague_lab", "plague_lord", "plague_spitter",
+    "poisonblade_rogue", "sacrifice_the_weak", "shadow_blade",
+    "shrine_of_forbidden_knowledge", "sickness", "skeletal_archery", "skeletal_lord",
+    "skeleton", "skeleton_javelineer", "soul_stone", "spreading_plague",
+    "summon_skeletons", "terras_q_the_shackled", "thieving_imp", "twilight_baron",
+    "vandy_anadrose", "voidblocker", "warlock", "wight", "zarramonde_the_obliterator",
+    "zombie"
+})
+
 #: The tokens of another colour that red and green summon: Surprise
 #: Attack's Sharks and Argagarg's Water Elemental, both blue. Landed with
 #: the cards that make them, so their keywords are read.
@@ -110,7 +146,7 @@ BORROWED_TOKENS = frozenset({"shark", "water_elemental"})
 #: static tables below are read over it, and the lobby offers the
 #: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
 #: step adds its two.
-LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
+LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 
 #: Every landed slug whose text the engine plays for its numbers alone.
 #: Written out rather than computed, so the commit that takes a card out
@@ -127,7 +163,35 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
 #: (docs/design/codex.md, "Red and green"). The heroes' hall's and the
 #: tech lab's text is the engine's own (`RulesEngine.hero_limit`,
 #: `chosen_specs`).
-UNIMPLEMENTED: frozenset = frozenset()
+#:
+#: **Step 12 fills it again** with purple and black, played for their
+#: numbers: every purple or black card, hero and token with text that is
+#: more than keywords the engine reads -- the six heroes' bands among
+#: them. Argonaut's readiness, the Stinger's flying and the Horror's
+#: deathtouch are read whole, and play in full.
+UNIMPLEMENTED: frozenset = frozenset({
+    "abomination", "assimilate", "banefire_golem", "battle_suits", "blackhand_dozer",
+    "blackhand_resurrector", "bone_collector", "carrion_curse", "chronofixer",
+    "corpse_catapult", "crypt_crawler", "cursed_crow", "cursed_ghoul", "dark_pact",
+    "death_and_decay", "death_rites", "deteriorate", "doom_grasp", "double_time",
+    "ebbflow_archon", "fading_argonaut", "forgotten_fighter", "gargoyle",
+    "garth_torken", "gilded_glaxx", "gorgon", "graveyard", "hardened_mox", "hive",
+    "hooded_executioner", "hyperion", "immortal", "jandra_the_negator",
+    "knight_of_the_conclave", "lichs_bargain", "lord_of_shadows", "max_geiger", "mech",
+    "metamorphosis", "nebula", "necromancer", "nether_drain", "now", "nullcraft",
+    "octavian", "omegacron", "origin_story", "orpal_gloor", "pestering_haunt",
+    "plague_lab", "plague_lord", "plague_spitter", "plasmodium", "poisonblade_rogue",
+    "promise_of_payment", "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
+    "research__development", "rewind", "sacrifice_the_weak", "second_chances", "seer",
+    "sentry", "shadow_blade", "shimmer_ray", "shrine_of_forbidden_knowledge",
+    "sickness", "skeletal_archery", "skeletal_lord", "skeleton_javelineer",
+    "slowtime_generator", "soul_stone", "spreading_plague", "stewardess_of_the_undone",
+    "summon_skeletons", "temporal_distortion", "temporal_research",
+    "terras_q_the_shackled", "thieving_imp", "time_spiral", "tinkerer", "tricycloid",
+    "twilight_baron", "undo", "unphase", "vandy_anadrose", "vir_garbarean",
+    "void_star", "voidblocker", "vortoss_emblem", "warp_gate_disciple", "wight",
+    "xenostalker", "yesterdays_golgort", "zarramonde_the_obliterator"
+})
 
 
 # -- What a text does, part by part ------------------------------------------

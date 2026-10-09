@@ -48,6 +48,9 @@ EMOJI_NAMES = (
     # Red and green's heroes, landed at step 10.
     "captain_zane", "drakk_ramhorn", "jaina_stormborne",
     "argagarg_garg", "calamandra_moss", "master_midori",
+    # Purple's and black's, landed at step 12.
+    "max_geiger", "prynn_pasternaak", "vir_garbarean",
+    "garth_torken", "orpal_gloor", "vandy_anadrose",
 )
 
 #: The token kinds an emoji stands for; `arrow` stays a character.
