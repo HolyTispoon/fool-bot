@@ -17,6 +17,7 @@ from cogs.codex_views.patrol import PatrolView, next_empty
 from cogs.codex_views.tech import TechChoiceView, TechConfirmView, picks_listed
 from cogs.codex_views.turn import (
     NOT_YOUR_PANEL,
+    PanelButton,
     PanelView,
     TurnPanelView,
     UndoConfirmView,
@@ -41,6 +42,7 @@ __all__ = [
     "LobbyView",
     "NOT_YOUR_PANEL",
     "NOT_YOUR_TABLE",
+    "PanelButton",
     "PanelView",
     "PatrolView",
     "SafeView",

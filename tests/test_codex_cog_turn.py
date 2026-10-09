@@ -20,6 +20,8 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
+import discord
+
 from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.prompts import PromptKind
@@ -33,6 +35,7 @@ from cogs.codex_views import (
     TurnMessageView,
     TurnPanelView,
     UndoConfirmView,
+    hand_numbers,
 )
 
 CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
@@ -74,6 +77,12 @@ class TurnTestCase(unittest.IsolatedAsyncioTestCase):
             text = kwargs.get("content") or (args[0] if args else "") or ""
             self.assertNotIn("Something went wrong", text)
 
+    async def attack(self, view, ref: str):
+        """**Attack...** turns the panel into what may attack; then the
+        attacker's own button."""
+        opened = (await self.table.press(view, "Attack...")).view()
+        return await self.table.press(opened, ("attack", ref))
+
     async def end_turn(self, patrol: str | None = None):
         """End the active player's main phase and lock the patrol --
         `patrol`, a ref, as squad leader -- from a fresh panel."""
@@ -106,7 +115,7 @@ class PanelTests(TurnTestCase):
         -- nothing else, and no channel send."""
         _, view = await self.table.panel()
         mark = len(self.table.game_channel.requests)
-        call = await self.table.choose(view, "Play a card", playable(view)[0])
+        call = await self.table.press(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
         self.assertEqual([answer[0] for answer in call.answers], ["response.edit"])
         self.assertIsInstance(call.view(), TurnPanelView)
@@ -138,11 +147,99 @@ class PanelTests(TurnTestCase):
         _, first = await self.table.panel()
         _, second = await self.table.panel()
         await self.table.press(first, "End main phase")
-        call = await self.table.choose(second, "Play a card", playable(second)[0])
+        call = await self.table.press(second, ("play", playable(second)[0]))
         kind, args, kwargs = call.last()
         self.assertTrue(kwargs["ephemeral"])
         self.assertEqual(args[0], STALE_CLICK[PromptKind.MAIN_ACTION])
         self.assertEqual(self.table.match.phase, "patrol")
+
+    async def test_the_main_phase_is_rows_of_buttons(self) -> None:
+        """No menu in the main phase (the author, 2026-10-09): the hand a
+        button per card, numbered as the picture numbers it and disabled
+        where it may not be played; a building a button; **Attack...**
+        turning the panel into what may attack, one button each, with
+        **Back** -- and spending nothing public to open."""
+        match = self.table.match
+        seat = match.active
+        attacker = put(match, seat, "older_brother")
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if isinstance(item, discord.ui.Select)])
+        options = view.prompt.options
+        numbers = hand_numbers(options)
+        cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
+        self.assertEqual([item.choice[1] for item in cards], [row.slug for row in options.playable])
+        self.assertEqual([item.disabled for item in cards],
+                         [not row.allowed for row in options.playable])
+        for item in cards:
+            self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
+        builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
+        self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
+        mark = len(self.table.game_channel.requests)
+        opened = await self.table.press(view, "Attack...")
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertEqual(channel_requests(self.table, mark), [])
+        attacking = opened.view()
+        self.assertEqual([item.choice for item in attacking.children if item.choice],
+                         [("attack", attacker.ref)])
+        back = (await self.table.press(attacking, "Back")).view()
+        self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
+
+    async def test_hire_offers_the_hand_as_buttons(self) -> None:
+        """**Hire worker** turns the panel into the hand, a button per
+        card numbered as the picture, under the question the menu's
+        placeholder used to carry, with **Back**."""
+        _, view = await self.table.panel()
+        opened = await self.table.press(view, "Hire worker")
+        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
+        self.assertIn("which card goes", opened.last()[2]["content"])
+        hiring = opened.view()
+        options = view.prompt.options
+        numbers = hand_numbers(options)
+        cards = [item for item in hiring.children if getattr(item, "choice", None)]
+        self.assertEqual([item.choice for item in cards],
+                         [("hire", row.slug) for row in options.playable])
+        for item in cards:
+            self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
+        back = (await self.table.press(hiring, "Back")).view()
+        self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
+
+    async def test_level_up_buys_one_level_a_click(self) -> None:
+        """One button per hero, a level a click (the author, 2026-10-09)."""
+        match = self.table.match
+        seat = match.active
+        hero_in_play(match, seat)
+        match.player(seat).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("level",))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).hero.level, 2)
+        self.assertEqual(self.table.match.player(seat).gold, 2)
+        call = await self.table.press(call.view(), ("level",))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(self.table.match.player(seat).hero.level, 3)
+        self.assertEqual(self.table.match.player(seat).gold, 1)
+
+    async def test_a_big_hand_leaves_the_boards_row(self) -> None:
+        """Five rows of five: the hand takes three rows at most, so what
+        may be built is still on the panel under a hand of more cards
+        than fit, and no row holds more than five."""
+        match = self.table.match
+        seat = match.active
+        match.player(seat).hand = list(self.table.cog.engine.catalog.cards)[:18]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        rows: dict[int, list] = {}
+        for item in view.children:
+            rows.setdefault(item.row, []).append(item)
+        self.assertLessEqual(max(rows), 4)
+        self.assertTrue(all(len(items) <= 5 for items in rows.values()), {r: len(i) for r, i in rows.items()})
+        cards = [item for item in view.children if (item.choice or ("",))[0] == "play"]
+        self.assertEqual(len(cards), 15)
+        self.assertTrue([item for item in view.children
+                         if item.label.startswith(("Build ", "Nothing can be built"))])
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -152,12 +249,13 @@ class PanelTests(TurnTestCase):
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Attack with", attacker.ref)
+        call = await self.attack(view, attacker.ref)
         defending = call.view()
         self.assertIsInstance(defending, TurnPanelView)
         self.assertIs(defending.prompt.kind, PromptKind.CHOOSE_DEFENDER)
-        labels = [option.label for option in defending.children[0].options]
+        labels = [item.label for item in defending.children if getattr(item, "choice", None)]
         self.assertTrue(labels)
+        self.assertFalse([item for item in defending.children if isinstance(item, discord.ui.Select)])
         self.assertTrue(all(label.endswith("-- nothing is patrolling") for label in labels))
         cancelled = await self.table.press(defending, "Cancel the attack")
         self.assertIs(cancelled.view().prompt.kind, PromptKind.MAIN_ACTION)
@@ -171,9 +269,9 @@ class PanelTests(TurnTestCase):
         the same channel since the game is played where it was opened,
         is the lobby's own text."""
         _, view = await self.table.panel()
-        view = (await self.table.choose(view, "Play a card", playable(view)[0])).view()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
         view = (await self.table.press(view, "Hire worker")).view()
-        hire = await self.table.choose(view, "Hire a worker", view.prompt.options.hand[0].slug)
+        hire = await self.table.press(view, ("hire", view.prompt.options.hand[0].slug))
         self.assertNothingWentWrong(hire)
         await self.end_turn()
         tech = await self.table.turn_button("tech", self.table.waiting)
@@ -281,7 +379,7 @@ class TurnEndTests(TurnTestCase):
         # its owner's ready phase alone (the author, 2026-10-08).
         self.assertEqual(channel_requests(self.table, mark), [])
         # The active player's panel, opened before, still acts.
-        played = await self.table.choose(active_panel, "Play a card", playable(active_panel)[0])
+        played = await self.table.press(active_panel, ("play", playable(active_panel)[0]))
         self.assertNothingWentWrong(played)
         self.assertEqual([answer[0] for answer in played.answers], ["response.edit"])
 
@@ -417,18 +515,18 @@ class WholeGameTests(TurnTestCase):
             return await table.press(view, "Lock patrol")
         options = view.prompt.options
         if view.prompt.kind is PromptKind.CHOOSE_DEFENDER:
-            return await table.choose(view, "", options.defenders[0])
+            return await table.press(view, ("defend", options.defenders[0]))
         # The three questions an attack asks inside itself: the panel's
-        # one menu, whichever it is.
+        # buttons, whichever it is.
         if view.prompt.kind is PromptKind.OBLITERATE_CHOICE:
-            return await table.choose(view, "", options.units[0])
+            return await table.press(view, ("obliterate", options.units[0]))
         if view.prompt.kind is PromptKind.SPARKSHOT_TARGET:
-            return await table.choose(view, "", options.patrollers[0])
+            return await table.press(view, ("sparkshot", options.patrollers[0]))
         if view.prompt.kind is PromptKind.OVERPOWER_TARGET:
-            return await table.choose(view, "", options.targets[0])
+            return await table.press(view, ("overpower", options.targets[0]))
         # The questions an effect asks as it resolves (step 6).
         if view.prompt.kind is PromptKind.TARGET:
-            return await table.choose(view, "", options.targets[0].key)
+            return await table.press(view, ("target", options.targets[0].key))
         if view.prompt.kind is PromptKind.APPEL_STOMP_TOP:
             return await table.press(view, "Into my discard pile")
         if view.prompt.kind is PromptKind.UPKEEP_ORDER:
@@ -437,27 +535,26 @@ class WholeGameTests(TurnTestCase):
             return await table.press(view, "Summon")
         cards = [row for row in options.playable if row.allowed]
         if cards:
-            return await table.choose(view, "Play a card", cards[0].slug)
+            return await table.press(view, ("play", cards[0].slug))
         tech = [row for row in options.buildings if row.allowed and row.building.startswith("tech")]
         if tech:
-            return await table.choose(view, "Build", tech[0].building)
+            return await table.press(view, ("build", tech[0].building))
         if options.attackers:
-            return await table.choose(view, "Attack with", options.attackers[0])
+            return await self.attack(view, options.attackers[0])
         return await table.press(view, "End main phase")
 
 
 class EffectPanelTests(TurnTestCase):
     """The questions an effect asks, in the same panel (step 6): a
-    target as a menu, Appel Stomp's place and the upkeep's order as
-    buttons, and the abilities in the last row beside the hero's
-    levels."""
+    target, Appel Stomp's place and the upkeep's order as buttons, and
+    the abilities as buttons on the board's row."""
 
     def stage(self):
         match = self.table.match
         seat = match.active
         return match, seat, 2 if seat == 1 else 1
 
-    async def test_a_target_is_a_menu_in_the_panel(self) -> None:
+    async def test_a_target_is_a_button_in_the_panel(self) -> None:
         match, seat, other = self.stage()
         hero_in_play(match, seat)
         first = put(match, other, "older_brother", patrol="elite")
@@ -466,18 +563,21 @@ class EffectPanelTests(TurnTestCase):
         match.player(seat).gold = 1
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Play a card", "spark")
+        call = await self.table.press(view, ("play", "spark"))
         self.assertNothingWentWrong(call)
         asking = call.view()
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
+        # The ask says what the part does; the buttons are the targets.
+        self.assertIn("deal 1 damage to a patroller", call.last()[2]["content"].lower())
+        self.assertFalse([item for item in asking.children if isinstance(item, discord.ui.Select)])
         mark = len(self.table.game_channel.requests)
-        call = await self.table.choose(asking, "Deal 1 damage to a patroller", f"{other}:{first.ref}")
+        call = await self.table.press(asking, ("target", f"{other}:{first.ref}"))
         self.assertNothingWentWrong(call)
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(other).instance(first.id).damage, 1)
         self.assertEqual(channel_requests(self.table, mark), [("edit", self.game.turn_message_id)])
 
-    async def test_a_spell_is_cancelled_from_its_target_menu(self) -> None:
+    async def test_a_spell_is_cancelled_from_its_targets(self) -> None:
         match, seat, other = self.stage()
         hero_in_play(match, seat)
         put(match, other, "older_brother", patrol="elite")
@@ -488,23 +588,70 @@ class EffectPanelTests(TurnTestCase):
         match.journal = []
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        asking = (await self.table.choose(view, "Play a card", "spark")).view()
+        asking = (await self.table.press(view, ("play", "spark"))).view()
         call = await self.table.press(asking, "Cancel")
         self.assertNothingWentWrong(call)
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(seat).hand, ["spark"])
         self.assertEqual(self.table.match.player(seat).gold, 1)
 
-    async def test_an_ability_is_in_the_last_row(self) -> None:
+    async def test_an_ability_is_a_button_on_the_boards_row(self) -> None:
         match, seat, _ = self.stage()
         song = put(match, seat, "harmony")
         put(match, seat, "dancer")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.table.choose(view, "Use an ability", f"ability:stop_the_music:{song.ref}")
+        call = await self.table.press(view, ("ability", "stop_the_music", song.ref))
         self.assertNothingWentWrong(call)
         slugs = [card.slug for card in self.table.match.player(seat).play]
         self.assertEqual(slugs, ["angry_dancer"])
+
+    async def test_the_combat_choices_and_the_detection_are_buttons(self) -> None:
+        """The three questions an attack asks inside itself, and the
+        tower's detection, as buttons carrying their choice, with what
+        the menus' placeholders said as the panel's caption."""
+        from dataclasses import replace
+
+        from codex.engine import DetectOption
+        from codex.prompts import (
+            ObliterateOptions, OverpowerOptions, PendingPrompt, SparkshotOptions,
+        )
+
+        match, seat, other = self.stage()
+        mine = put(match, seat, "older_brother")
+        first = put(match, other, "iron_man", patrol="squad_leader")
+        second = put(match, other, "granfalloon_flagbearer", patrol="elite")
+        self.table.cog.service.persist(self.game, match)
+        cog, game_id = self.table.cog, self.game.game_id
+
+        def built(kind, options):
+            return TurnPanelView(cog, game_id, PendingPrompt(kind, "", seat, options), match)
+
+        def choices(view):
+            return [item.choice for item in view.children if getattr(item, "choice", None)]
+
+        view = built(PromptKind.OBLITERATE_CHOICE,
+                     ObliterateOptions(mine.ref, (first.ref, second.ref), left=2))
+        self.assertEqual(choices(view), [("obliterate", first.ref), ("obliterate", second.ref)])
+        self.assertEqual(view.caption(), "**Obliterate 2**: which unit goes?")
+        view = built(PromptKind.SPARKSHOT_TARGET,
+                     SparkshotOptions(mine.ref, first.ref, (second.ref,), left=2))
+        self.assertEqual(choices(view), [("sparkshot", second.ref)])
+        self.assertIn("2 of its damage left", view.caption())
+        view = built(PromptKind.OVERPOWER_TARGET,
+                     OverpowerOptions(mine.ref, first.ref, 3, (second.ref, "base")))
+        self.assertEqual(choices(view), [("overpower", second.ref), ("overpower", "base")])
+        self.assertEqual(view.caption(), "**Overpower** carries 3 over.")
+        self.assertFalse([item for item in view.children if isinstance(item, discord.ui.Select)])
+        # Detect... turns the panel into what the tower may detect, one
+        # button each, with Back and the question in the text.
+        _, panel = await self.table.panel()
+        options = replace(panel.prompt.options, detect=DetectOption(True, (first.ref,), "", True))
+        panel = TurnPanelView(cog, game_id, replace(panel.prompt, options=options), match)
+        opened = await self.table.press(panel, "Detect...")
+        self.assertIn("Detect with your tower", opened.last()[2]["content"])
+        self.assertEqual(choices(opened.view()), [("detect", first.ref)])
+        self.assertIn("Back", [item.label for item in opened.view().children])
 
     async def test_appel_stomp_and_the_upkeep_are_buttons(self) -> None:
         match, seat, _ = self.stage()
@@ -630,9 +777,9 @@ class GameOverTests(TurnTestCase):
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        defending = (await self.table.choose(view, "Attack with", attacker.ref)).view()
+        defending = (await self.attack(view, attacker.ref)).view()
         mark = len(self.table.game_channel.requests)
-        call = await self.table.choose(defending, "", "base")
+        call = await self.table.press(defending, ("defend", "base"))
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.winner, seat)
         requests = self.table.game_channel.since(mark)
@@ -648,7 +795,7 @@ class UndoTests(TurnTestCase):
         message = self.game.turn_message_id
         before_text = self.table.game_channel.texts[message]
         _, view = await self.table.panel()
-        view = (await self.table.choose(view, "Play a card", playable(view)[0])).view()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
         view = (await self.table.press(view, "Undo")).view()
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, "To the start of my turn")
