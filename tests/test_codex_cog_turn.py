@@ -20,6 +20,7 @@ Discord").
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 import discord
@@ -119,11 +120,11 @@ class PanelTests(TurnTestCase):
         self.assertEqual(kind, "response.send")
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
-        self.assertEqual(kwargs["files"][0].filename, "codex-hand.webp")
+        self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
         # The other player's My hand is their hand, with nothing to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
         self.assertNotIn("view", theirs.last()[2])
-        self.assertEqual(theirs.last()[2]["file"].filename, "codex-hand.webp")
+        self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
     async def test_an_action_reposts_the_turn_message_and_the_panel_under_it(self) -> None:
         """**The count per click**: the turn message posted again at the
@@ -209,6 +210,27 @@ class PanelTests(TurnTestCase):
         back = (await self.table.press(attacking, "Back")).view()
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
+
+    async def test_a_panel_edited_in_place_keeps_its_hand_picture(self) -> None:
+        """**Back** from hiring puts the main phase up again over the
+        same hand: the picture the message already carries is kept, not
+        uploaded again (`kept_pictures`); a message carrying some other
+        picture gets the file."""
+        call, view = await self.table.panel()
+        uploaded = call.last()[2]["files"][0].filename
+        hiring = (await self.table.press(view, "Hire worker")).view()
+        back = await self.table.press(hiring, "Back")
+        (kept,) = back.last("response.edit")[2]["attachments"]
+        self.assertNotIsInstance(kept, discord.File)
+        self.assertEqual(kept.filename, uploaded)
+        # A message carrying some other picture gets this one uploaded.
+        stale = self.table.interaction(self.table.active)
+        stale.message.attachments = [SimpleNamespace(filename="codex-hand-000000000000.webp")]
+        await self.table.cog.show_panel(stale, self.game, self.table.match, self.table.match.active,
+                                        edit=True)
+        (fresh,) = stale.last("response.edit")[2]["attachments"]
+        self.assertIsInstance(fresh, discord.File)
+        self.assertEqual(fresh.filename, uploaded)
 
     async def test_hire_offers_the_hand_as_buttons(self) -> None:
         """**Hire worker** turns the panel into the hand, a button per

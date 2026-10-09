@@ -19,8 +19,10 @@ opened it, so nobody else can see it to press it. The lobby asks no
 confirmation (`confirms_helper_clicks = False`).
 """
 
+import hashlib
+import io
 import logging
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 import discord
 
@@ -47,6 +49,32 @@ ERROR_RECOVERY_ADVICE = (
     "If trying again doesn't work, `/codex resume` puts the table back up. "
     "If that doesn't help either, let the bot developer know."
 )
+
+
+def picture_file(webp: bytes, stem: str) -> discord.File:
+    """
+    A picture -- a hand, a codex view, the tech picker -- as a file
+    **named by what it shows**: `<stem>-<digest>.webp`, the digest its
+    bytes'. The same picture is the same name, which is how an edit in
+    place knows the message already carries it (`kept_pictures`).
+    """
+    digest = hashlib.sha256(webp).hexdigest()[:12]
+    return discord.File(io.BytesIO(webp), filename=f"{stem}-{digest}.webp")
+
+
+def kept_pictures(files: Sequence[discord.File],
+                  message) -> list[Union[discord.Attachment, discord.File]]:
+    """
+    `files` for an edit of `message`, a picture the message already
+    carries under the same name (`picture_file`) kept rather than
+    uploaded again: no upload, and the client shows the picture it
+    already has instead of fetching the same one anew. A panel edited in
+    place for a target, an attacker or a menu shows the same hand it
+    did.
+    """
+    carried = {attachment.filename: attachment
+               for attachment in getattr(message, "attachments", None) or ()}
+    return [carried.get(file.filename, file) for file in files]
 
 
 async def send_ephemeral(interaction: discord.Interaction, message: str) -> None:

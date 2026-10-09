@@ -22,7 +22,6 @@ ephemeral confirmation (`ConcedeConfirmView`).
 """
 
 import asyncio
-import io
 from collections import Counter
 
 import discord
@@ -31,7 +30,7 @@ from codex.formatting import codex_view_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_hand
 from cogs.codex_helpers import card_name
-from cogs.codex_views.base import SafeView, send_ephemeral
+from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
@@ -194,7 +193,7 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
         render_hand, [row.slug for row in rows], [row.allowed for row in rows],
         [row.cost for row in rows], engine.catalog,
     )
-    return discord.File(io.BytesIO(webp), filename="codex-hand.webp")
+    return picture_file(webp, "codex-hand")
 
 
 class CodexBrowser(SafeView):
@@ -228,7 +227,7 @@ class CodexBrowser(SafeView):
             render_codex, [slug for slug, _ in rows], [count for _, count in rows],
             self.cog.engine.catalog,
         )
-        return discord.File(io.BytesIO(webp), filename=f"codex-{view}.webp")
+        return picture_file(webp, f"codex-{view}")
 
     async def choose(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -238,5 +237,7 @@ class CodexBrowser(SafeView):
         for option in self.select.options:
             option.default = option.value == view
         await interaction.response.edit_message(
-            content=self.caption(view), attachments=[await self.picture(match, view)], view=self,
+            content=self.caption(view),
+            attachments=kept_pictures([await self.picture(match, view)], interaction.message),
+            view=self,
         )

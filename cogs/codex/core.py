@@ -15,7 +15,6 @@ is one result, so one write. Nothing here decides a rule.
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 from collections import Counter
 from dataclasses import dataclass
@@ -42,6 +41,7 @@ from cogs.codex_views import (
     TechConfirmView,
     TurnMessageView,
     TurnPanelView,
+    picture_file,
     send_ephemeral,
 )
 from cogs.d12ball_boards import BoardRefresher
@@ -255,14 +255,14 @@ class CoreMixin:
                 render_codex, [slug for slug, _ in shown], [left for _, left in shown], cards,
                 [chosen.get(slug, 0) for slug, _ in shown],
             )
-            return discord.File(io.BytesIO(webp), filename="codex-tech.webp")
+            return picture_file(webp, "codex-tech")
         if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:
             picks = list(prompt.options.picks)
             webp = await asyncio.to_thread(
                 render_hand, picks, [True] * len(picks),
                 [cards.cards[slug].cost or 0 for slug in picks], cards,
             )
-            return discord.File(io.BytesIO(webp), filename="codex-tech.webp")
+            return picture_file(webp, "codex-tech")
         return None
 
     # -- The turn message's text ----------------------------------------------

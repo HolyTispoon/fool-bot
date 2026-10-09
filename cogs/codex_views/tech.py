@@ -36,6 +36,7 @@ import discord
 from codex.formatting import card_label, codex_view_name
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
+from cogs.codex_views.base import kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
 from cogs.codex_views.turn_message import codex_view_menu
 
@@ -125,7 +126,8 @@ class TechChoiceView(PanelView):
         picture = await self.cog.render_prompt(game, self.prompt, picks=picks, view=view)
         await interaction.response.edit_message(
             content=self.cog.panel_caption(game, self.prompt, panel.caption()),
-            attachments=[] if picture is None else [picture], view=panel,
+            attachments=[] if picture is None else kept_pictures([picture], interaction.message),
+            view=panel,
         )
 
     async def show(self, interaction: discord.Interaction) -> None:

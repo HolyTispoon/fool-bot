@@ -1011,6 +1011,39 @@ else the bot shows is ephemeral.
   alone posts one as it is; drawing takes a quarter of a second
   whichever the encoding. `WEBP_QUALITY` is the one number
   (`BOARD_QUALITY` until then), and the attachments are `.webp`.
+- **A picture already up is not drawn or uploaded again** (2026-10-09:
+  the author found the cards still slow after WebP). What the bot
+  controls in a click that pictures cards is three things -- drawing,
+  the upload, and whether the client has to fetch a new file at all --
+  and the panel spent all three on pictures it had just sent: every
+  in-place edit (**Back**, a menu, the tech picker's redraw) drew the
+  same hand again and uploaded it as a new file, which the client then
+  fetched as one. Three changes, none to what is drawn (the hand, the
+  codex views and the tech picker byte-identical before and after,
+  SHA-256, and the sample script's eighteen pictures):
+  - **Each picture is named by its bytes** (`picture_file`:
+    `codex-hand-<digest>.webp`, `codex-<view>-<digest>.webp`,
+    `codex-tech-<digest>.webp`), so an edit in place knows the message
+    already carries it, and `kept_pictures` hands Discord the
+    attachment it has rather than a file: no upload, and the client
+    shows the picture it already loaded. The name is the only state --
+    an ephemeral message is stored nowhere, and a restart loses
+    nothing. A message sent afresh (a panel under the turn message
+    posted again) has nothing to keep and uploads, as before.
+  - **The same picture asked again is the bytes already drawn**:
+    `render_hand` and `render_codex` keep the last `RENDERED_KEPT` (32)
+    each, keyed on what they draw -- **My hand** clicked twice, the
+    codex reopened, a view chosen again, the hand the in-place edit
+    names before it is kept.
+  - **Each card's art is scaled once per size** (`scaled_card`): a
+    fifth of a warm render was resizing the same 330 by 450 JPEGs.
+    Measured that day on a development container, not the live host,
+    a twelve-card codex drawn anew went from about
+    0.14 s to 0.10 s, a hand from 0.13 s to 0.07 s; asked again, both
+    are free. Two thirds of what is left is the WebP encoding itself.
+  What remains is Discord's -- the upload from the live host, its
+  processing and the client's fetch -- which the bot cannot measure
+  from here and does not shorten except by sending fewer bytes.
 - **The write gate is D12 Ball's `BoardRefresher`**, shared rather than
   copied: what it reached into D12 Ball for is a parameter -- the view
   kept on the message (`keep_view`; D12 Ball's home/visiting buttons
