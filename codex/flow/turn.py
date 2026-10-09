@@ -2,7 +2,8 @@
 A turn's phases that are nobody's choice: the ready phase and the
 upkeep (`begin_turn`), the draw (`draw_phase`) and the end of the turn
 (`begin_tech`), with the draw itself (`draw_cards`) that the
-technician's card shares (UMR p. 5).
+technician's card shares (UMR p. 5) -- and a concession (`concede`),
+which ends the game from outside any phase.
 
 Each step takes `(engine, game, match)`, changes the match, and returns
 a `StepResult` in the model's voice with tokens; it sends nothing and
@@ -78,6 +79,32 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
+
+
+def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+            seat: int) -> StepResult:
+    """
+    `seat` gives the game up, whoever's turn it is: the other player
+    wins, as if `seat`'s base had been destroyed, and the game waits on
+    `GAME_OVER`. Refused once the game is over. **Not an action the
+    journal records** -- nothing is undone past a finished game
+    (`codex.history.undo_targets`) -- so the service calls it as a door
+    of its own, as it calls the undos.
+    """
+    if seat not in (1, 2):
+        raise RuleRefusal("Only one of the game's two players can concede it.")
+    if match.winner is not None:
+        raise RuleRefusal("This game is already over.")
+    match.winner = 2 if seat == 1 else 1
+    match.conceded = seat
+    match.record_event("conceded", loser=seat, winner=match.winner)
+    text = f"{tokens.player(seat)} concedes. {tokens.player(match.winner)} wins!"
+    return StepResult(
+        narration=[f"**{text}**"],
+        board_changed=True,
+        headlines=(Headline(text, seat=match.winner),),
+        next=pending(engine, game, match),
+    )
 
 
 def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,

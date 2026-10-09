@@ -28,7 +28,7 @@ from codex.components import MatchState
 from codex.flow.result import FollowOnStep
 from codex.game import CodexGame, RuleRefusal
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
-from cogs.codex_views import UndoConfirmView, hand_file, send_ephemeral
+from cogs.codex_views import RematchView, UndoConfirmView, hand_file, send_ephemeral
 from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
 
@@ -360,10 +360,14 @@ class TurnsMixin:
 
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:
         """
-        A base fell: the turn message's last edit, without its buttons,
-        pinned as every finished turn is, and **a public line naming the
-        winner with the final board** --
-        rendered once, uploaded twice. Step 7 adds the rematch.
+        The game is over -- a base fell, or a player conceded: the turn
+        message's last edit, without its buttons, pinned as every
+        finished turn is, and **a public line naming the winner with the
+        final board** -- rendered once, uploaded twice -- with **Rematch**
+        under it (`RematchView`), whose message the record keeps so a
+        restart re-arms it. Then the channel is moved to Codex Archive
+        and left as it is (`archive_channel`): nothing is exported from
+        it and no statistics are read from it.
         """
         match = result.match
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
@@ -375,13 +379,20 @@ class TurnsMixin:
                                           self.turn_text(game, match))
         line = result.prompt.ask if result.prompt is not None else ""
         try:
-            await channel.send(
+            message = await channel.send(
                 self.render_text(f"**{line}**", game) if line else None,
                 file=self.match_file_from_png(game, png),
+                view=RematchView(self, game.game_id),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except discord.HTTPException as error:
             LOGGER.warning("Could not post the final board of Codex game %s: %s", game.game_id, error)
+        else:
+            game.final_message_id = message.id
+            self.service.save()
+        self.turn_lines.pop(game.game_id, None)
+        self.turn_heads.pop(game.game_id, None)
+        await self.archive_channel(channel, game)
 
     # -- The undos ---------------------------------------------------------------
 

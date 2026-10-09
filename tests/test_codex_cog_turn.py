@@ -26,12 +26,14 @@ import discord
 
 from codex import history
 from codex.flow.driver import STALE_CLICK
+from codex.game import GameStatus
 from codex.prompts import PromptKind
 from codex_cog_fakes import Table
 from codex_positions import hero_in_play, put
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     PatrolView,
+    RematchView,
     TechChoiceView,
     TechConfirmView,
     TurnMessageView,
@@ -429,9 +431,8 @@ class TurnEndTests(TurnTestCase):
 
         # The picture is drawn for real here, and its width counts the
         # cards shown (`render_codex` lays one column per card, up to
-        # `CODEX_COLUMNS`): a mock by the module's dotted name would miss
-        # the cog once a bot test has closed its bot, which unloads the
-        # extension and evicts `cogs.codex` from `sys.modules`.
+        # `CODEX_COLUMNS`): what the player is sent, rather than what the
+        # renderer was asked for.
         shown = await self.table.choose(picker, "Show", "tech1", who=self.table.waiting)
         self.assertNothingWentWrong(shown)
         self.assertEqual([answer[0] for answer in shown.answers], ["response.edit"])
@@ -494,13 +495,16 @@ class WholeGameTests(TurnTestCase):
         line) -- and **whatever a
         click puts in the channel, its panel comes after**, sent afresh
         under it and the one clicked deleted. The panel's pictures are
-        stood in for; drawing them is not the subject here.
+        stood in for -- and the stand-ins are checked to have been used,
+        since a stub by dotted name that misses the cog draws every
+        picture for real and fails nothing; drawing them is not the
+        subject here.
         """
         table = self.table
         budget = {"click": 2, "turn": 3, "end": 3}
         with mock.patch("cogs.codex_views.turn_message.render_hand", return_value=b"hand"), \
-                mock.patch("cogs.codex.core.render_codex", return_value=b"codex"), \
-                mock.patch("cogs.codex.core.render_hand", return_value=b"hand"):
+                mock.patch("cogs.codex.core.render_codex", return_value=b"codex") as codex_pictures, \
+                mock.patch("cogs.codex.core.render_hand", return_value=b"hand") as hand_pictures:
             for _ in range(200):
                 if table.match.winner is not None:
                     break
@@ -527,7 +531,10 @@ class WholeGameTests(TurnTestCase):
                         break
                     view = call.view()
         self.assertIsNotNone(table.match.winner)
-        self.assertIn("wins", table.game_channel.requests[-1][2]["content"])
+        sent = [kwargs for kind, _, kwargs in table.game_channel.requests if kind == "send"]
+        self.assertIn("wins", sent[-1]["content"])
+        self.assertTrue(hand_pictures.called)
+        self.assertTrue(codex_pictures.called)
 
     async def policy(self, view):
         table = self.table
@@ -815,11 +822,19 @@ class GameOverTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertEqual(self.table.match.winner, seat)
         requests = self.table.game_channel.since(mark)
-        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send"])
+        # The message requests the end spends -- the last edit, its pin,
+        # the winner's line -- then the channel's own move to Codex
+        # Archive, a request of the channel's route, not of the
+        # messages' edit bucket.
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
         self.assertIsNone(requests[0][2]["view"])
         self.assertEqual(requests[1][1], requests[0][1])
         self.assertIn("wins", requests[2][2]["content"])
         self.assertTrue(requests[2][2]["file"].filename.startswith("codex-"))
+        self.assertIsInstance(requests[2][2]["view"], RematchView)
+        self.assertIn("category", requests[3][2])
+        self.assertIs(self.game.status, GameStatus.FINISHED)
+        self.assertEqual(self.game.final_message_id, requests[2][1])
         # The panel closes under the winner's line.
         self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
         self.assertEqual(call.text(), "The game is over.")

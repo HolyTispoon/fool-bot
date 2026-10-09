@@ -88,7 +88,14 @@ class SafeView(discord.ui.View):
         if isinstance(error, HelperConfirmationRequired):
             await self.ask_helper_confirmation(interaction, item)
             return
-        LOGGER.error("Unhandled error in %r for %r: %r", self, item, error, exc_info=error)
+        # The view's class, the item's kind and the game -- never the
+        # item itself, whose repr carries its label, and a panel's
+        # labels name the cards in a hand (docs/design/codex.md,
+        # "Nothing hidden in a log line").
+        LOGGER.error(
+            "Unhandled error in %s (a %s) on Codex game %s: %r",
+            type(self).__name__, type(item).__name__, self.game_id, error, exc_info=error,
+        )
         await send_ephemeral(
             interaction, f"Something went wrong handling that click. {ERROR_RECOVERY_ADVICE}",
         )

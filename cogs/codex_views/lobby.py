@@ -1,7 +1,8 @@
 """
 `LobbyView`: the lobby `/codex lobby` posts -- **Play Bashing**, **Play
-Finesse**, **Leave** and **Start** -- persistent, so a restart re-arms it
-(docs/codex-bot.md, decision 10). Every move is a service method over the
+Finesse**, **Leave** and **Start**, and in a rematch's lobby **Keep
+heroes** -- persistent, so a restart re-arms it (docs/codex-bot.md,
+decision 10). Every move is a service method over the
 record's rule; the view changes nothing itself and saves nothing.
 """
 
@@ -25,12 +26,18 @@ class LobbyView(SafeView):
         super().__init__(timeout=None)
         self.cog = cog
         self.game_id = game_id
-        for label, action, style in (
+        game = cog.games.get(game_id)
+        buttons = [
             ("Play Bashing", "bashing", discord.ButtonStyle.primary),
             ("Play Finesse", "finesse", discord.ButtonStyle.primary),
             ("Leave", "leave", discord.ButtonStyle.secondary),
             ("Start", "start", discord.ButtonStyle.success),
-        ):
+        ]
+        if game is not None and game.rematch_specs:
+            # A rematch's lobby: the heroes are swapped unless both
+            # players ask to keep them.
+            buttons.insert(3, ("Keep heroes", "keep", discord.ButtonStyle.secondary))
+        for label, action, style in buttons:
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"codex:lobby:{action}:{game_id}",
             )
@@ -41,6 +48,9 @@ class LobbyView(SafeView):
         async def callback(interaction: discord.Interaction) -> None:
             if action == "start":
                 await self.start(interaction)
+            elif action == "keep":
+                await self.move(interaction, lambda: self.cog.service.keep_heroes(
+                    self.game_id, interaction.user.id))
             elif action == "leave":
                 await self.move(interaction, lambda: self.cog.service.leave(
                     self.game_id, interaction.user.id))

@@ -94,6 +94,23 @@ class CodexGame:
     #: at, and an undo does not take it back.
     board_layout: str = "stacked"
 
+    #: The public line a finished game ended on -- the winner and the
+    #: final board, with **Rematch** under it -- which the startup
+    #: sweep re-arms while no rematch has been opened. `None` until the
+    #: game is over, and in a save older than step 8.
+    final_message_id: Optional[int] = field(default=None, kw_only=True)
+    #: The rematch opened from this finished game, so a second press
+    #: finds it rather than opening another.
+    rematch_game_id: Optional[str] = None
+    #: The finished game this lobby is the rematch of, and the specs it
+    #: was played with by seat: what **Keep heroes** keeps. Empty for a
+    #: lobby `/codex lobby` opened.
+    rematch_of: Optional[str] = None
+    rematch_specs: dict[int, str] = field(default_factory=dict)
+    #: The seats whose player has pressed **Keep heroes** in a rematch's
+    #: lobby; the heroes are kept only while both have.
+    kept_heroes: list[int] = field(default_factory=list)
+
     # -- Reading the seats -------------------------------------------
 
     def seats_of(self, user_id: Optional[int]) -> tuple[int, ...]:
@@ -185,6 +202,8 @@ class CodexGame:
             else:
                 self.player_2_id, self.player_2_name = None, None
             self.player_specs.pop(seat, None)
+            if seat in self.kept_heroes:
+                self.kept_heroes.remove(seat)
 
     def may_start(self) -> bool:
         """Both seats taken, each with its spec, in a lobby."""
@@ -214,6 +233,80 @@ class CodexGame:
             raise RuleRefusal("Only a game being played has a board to lay out.")
         self.board_layout = layout
 
+    # -- The end ---------------------------------------------------------
+
+    def finish(self) -> None:
+        """The match has a winner: the record says the game is over, so
+        nothing re-arms its turn message and a rematch may be opened.
+        Once only; a game already over stays as it ended."""
+        if self.status is GameStatus.PLAYING:
+            self.status = GameStatus.FINISHED
+
+    @property
+    def is_over(self) -> bool:
+        return self.status in (GameStatus.FINISHED, GameStatus.ABANDONED)
+
+    def rematch(self, game_id: str, game_number: int) -> "CodexGame":
+        """
+        The lobby of this finished game played again: the same two
+        seats -- the same people, or the one person of a test game --
+        in the same channel, **the heroes swapped** (each seat plays
+        the spec the other played) until both press **Keep heroes**
+        (`keep_heroes`). Who goes first is drawn again at Start, as
+        every game's is (`RulesEngine.new_match`). Refused for a game
+        that is not finished: an abandoned game is not played again.
+        """
+        if self.status is not GameStatus.FINISHED:
+            raise RuleRefusal("Only a finished game can be played again.")
+        played = dict(self.player_specs)
+        return CodexGame(
+            game_id=game_id,
+            game_number=game_number,
+            guild_id=self.guild_id,
+            channel_id=self.channel_id,
+            player_1_id=self.player_1_id,
+            player_2_id=self.player_2_id,
+            player_1_name=self.player_1_name,
+            player_2_name=self.player_2_name,
+            test_game=self.test_game,
+            player_specs={1: played[2], 2: played[1]},
+            board_layout=self.board_layout,
+            rematch_of=self.game_id,
+            rematch_specs=played,
+        )
+
+    def keep_heroes(self, user_id: int) -> bool:
+        """
+        **Keep heroes** in a rematch's lobby: `user_id`'s seat -- both,
+        in a test game -- asks to play the hero it played last game, or,
+        pressed again, takes that back. The heroes are the last game's
+        while both seats have asked, and swapped otherwise. Returns
+        whether they are kept now.
+        """
+        self._require_lobby()
+        if not self.rematch_specs:
+            raise RuleRefusal("Only a rematch has heroes to keep.")
+        seats = self.seats_of(user_id)
+        if not seats:
+            raise RuleRefusal("You are not seated in this lobby.")
+        asking = not all(seat in self.kept_heroes for seat in seats)
+        for seat in seats:
+            if asking and seat not in self.kept_heroes:
+                self.kept_heroes.append(seat)
+            elif not asking and seat in self.kept_heroes:
+                self.kept_heroes.remove(seat)
+        self.kept_heroes.sort()
+        kept = self.heroes_kept
+        if self.player_1_id is not None and self.player_2_id is not None:
+            last = self.rematch_specs
+            self.player_specs = dict(last) if kept else {1: last[2], 2: last[1]}
+        return kept
+
+    @property
+    def heroes_kept(self) -> bool:
+        """Whether both seats have pressed Keep heroes."""
+        return set(self.kept_heroes) >= {1, 2}
+
     def abandon(self) -> None:
         """End a game nobody is going to finish. Refused for one already
         over; the record stays, so its number stays taken."""
@@ -227,6 +320,7 @@ class CodexGame:
         data = asdict(self)
         data["status"] = self.status.value
         data["player_specs"] = {str(seat): spec for seat, spec in self.player_specs.items()}
+        data["rematch_specs"] = {str(seat): spec for seat, spec in self.rematch_specs.items()}
         return data
 
     @classmethod
@@ -237,6 +331,10 @@ class CodexGame:
             int(seat): spec for seat, spec in (data.get("player_specs") or {}).items()
         }
         data["observer_ids"] = list(data.get("observer_ids") or [])
+        data["rematch_specs"] = {
+            int(seat): spec for seat, spec in (data.get("rematch_specs") or {}).items()
+        }
+        data["kept_heroes"] = [int(seat) for seat in (data.get("kept_heroes") or [])]
         if data.get("board_layout") not in BOARD_LAYOUTS:
             data["board_layout"] = "stacked"
         return cls(**data)

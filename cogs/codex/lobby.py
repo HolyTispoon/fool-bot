@@ -38,7 +38,28 @@ class LobbyMixin:
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- the basic game, Bashing against Finesse.")
         if game.test_game:
             head += " A **test game**: one person may take both seats and play both sides."
-        return "\n".join([head.strip(), *rows, waiting])
+        lines = [head.strip(), *rows]
+        if game.rematch_specs:
+            lines.append(self.rematch_line(game))
+        return "\n".join([*lines, waiting])
+
+    def rematch_line(self, game: CodexGame) -> str:
+        """What a rematch's lobby says about its heroes: swapped from
+        the last game, or kept because both players asked."""
+        played = next(
+            (other for other in self.games.values() if other.game_id == game.rematch_of), None,
+        )
+        last = f"game {played.game_number}" if played is not None else "the last game"
+        if game.heroes_kept:
+            return f"A rematch of {last}: both players keep their heroes."
+        asked = [game.seat_name(seat) or f"Player {seat}" for seat in game.kept_heroes]
+        if game.test_game and asked:
+            asked = asked[:1]
+        tail = f" ({' and '.join(asked)} asked to keep them.)" if asked else ""
+        return (
+            f"A rematch of {last}: the heroes are swapped -- unless both players "
+            f"press **Keep heroes**.{tail}"
+        )
 
     @app_commands.command(name="lobby", description="Open a Codex lobby in a channel of its own: two seats, then Start.")
     @app_commands.describe(test_game="A test game: you may take both seats and play both sides")

@@ -27,7 +27,9 @@ building. Step 6 gave it the rest: the spells, the arrives and attacks
 triggers, the heroes' bands, the abilities, the static grants and costs,
 the ongoing spells with their tokens and partners, and the upkeep's
 effects and their order -- so every card of the basic set does what it
-says and `UNIMPLEMENTED` is empty. The model's purity rules hold for `codex/` and `gamesaves/codex/`
+says and `UNIMPLEMENTED` is empty. Step 8 gave a game its end -- a
+concession, a player's or a helper's abandon, the rematch, the channel moved to the
+archive -- and pinned a whole game through the service in a golden. The model's purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
 
@@ -232,7 +234,7 @@ on the other player's turn, a dozen actions in one turn, and undo.
 | `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below) |
 | `APPEL_STOMP_TOP` | the active player | `top` or `discard`: where Appel Stomp goes once it has resolved |
 | `UPKEEP_ORDER` | the active player | which of healing and Star-Crossed Starlet's damage goes first, asked only where both are due |
-| `GAME_OVER` | nobody | a base is destroyed (UMR p. 2); answering it is refused until step 7's rematch |
+| `GAME_OVER` | nobody | a base is destroyed (UMR p. 2), or a player conceded (`MatchState.conceded`); answering it is always refused -- playing again is a new record (`GameService.rematch`), not an answer ("The end of a game", below) |
 
 The bot owes three steps, which `owed_step` names and a resume runs:
 `BEGIN_TURN` (the ready phase and the upkeep), `DRAW_PHASE` and
@@ -660,6 +662,11 @@ match as its saved dict, as D12 Ball's record does; its file,
   `flipped` (an Angry Dancer, whose `slug` the flip changes). The combat
   dict gained a `triggered` key, read with a default, so an attack saved
   by step 5 goes on as it would have.
+- **Step 8 added one**, `conceded` on the match (`None` where the game
+  ended on a destroyed base, and in an older save), and five on the
+  record, each read with a default: `final_message_id`,
+  `rematch_game_id`, `rematch_of`, `rematch_specs` and `kept_heroes`
+  ("The end of a game", below).
 
 ### What the narration may say
 
@@ -878,17 +885,16 @@ else the bot shows is ephemeral.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     the spec and hero, then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
-    player's carries a gold rule and "<Hero>'s turn <n>" in a gold pill,
-    the hero by its short name -- "Troq's turn 7".
-  - **A hero's short name is kept by hand** (`SHORT_NAMES` in
-    `codex/cards.py`, `Hero.short_name`), the one thing about a card the
-    repository holds outside the imported data, because the database has
-    no such field. A table, not the name's first word: three heroes
-    carry a title first -- Captain Zane, General Onimaru, Master Midori
-    -- and "Captain's turn 3" names nobody (the author, 2026-10-09, over
-    the full name the first draft of step 7 used). A test holds the
-    table to the catalog's twenty and each short name to a word of its
-    hero's name.
+    player's carries a rule and "<name>'s turn <n>" in a pill, both in
+    its first hero's colour (`turn_colors`, below), the player by the
+    name the cog passes -- "perrytom's turn 7".
+  - **The turn is the player's, not a hero's** (the author,
+    2026-10-09): a standard game's deck has three heroes, so "Troq's
+    turn 7" -- the wording the first draft of step 7 took from the
+    design canvas, by a hand-kept table of short names (`SHORT_NAMES`,
+    `Hero.short_name`, since "Captain's turn 3" names nobody) -- would
+    have had to pick one. The table went with the wording; nothing
+    else read it, and the catalog holds nothing by hand again.
   - **Why the mat went**: on the mat the cards sat in its printed
     places, about 200 pixels wide on a picture 1838 by 1088 a side,
     most of it the mat's art and places the position did not use. The
@@ -929,13 +935,42 @@ else the bot shows is ephemeral.
   nameplate is the bot's words and stays the right way up, on the
   panel's outer edge, above: a name and its counts nobody should have
   to turn a phone for. A 52-pixel divider between the two reads
-  "<HERO>'S TURN <N>", the same short name, bold and white on a teal
-  pill (`TURN_PILL`) between two grey rules -- taller and brighter than
-  the canvas's 36 pixels of faint capitals, which did not read at
-  Discord's size (the author, 2026-10-09: the turn more prominent, not
-  gold, which the active nameplate's pill already is, and not cream).
-  Teal is apart from every other colour on the board: the gold pill,
-  the red damage chits, the patrol zone's blue, ARRIVED's green.
+  "<NAME>'S TURN <N>", the same name, bold and dark on a white pill
+  between two grey rules -- taller and brighter than the canvas's
+  36 pixels of faint capitals, which did not read at Discord's size
+  (the author, 2026-10-09: the turn more prominent, not gold, and not
+  cream). **The divider is white in every game** (`DIVIDER_TURN`): the
+  hero's colour, below, is the nameplate pill's alone (the author,
+  2026-10-09), so the loud mark is the same from game to game and the
+  colour is read where the hero is named beside it.
+- **The nameplate's mark is the active player's first hero's colour**
+  (the author, 2026-10-09): its pill and its rule, in the colour of the
+  hero of the deck's first spec (`turn_colors`: `PlayerState.specs[0]`,
+  `CardCatalog.hero_for`, `Hero.color`) -- so the nameplate says whose
+  turn it is twice, by the player's name and by their deck's colour,
+  and in the standard game the two sides' marks differ. `TURN_COLORS` holds the seven colours the cards come in
+  as a fill, the ink that reads on it and an edge: Neutral is tan (the
+  plates' ink, `PLATE_INK`, with dark words), Red, Green, Blue and
+  Purple a mid tone of the card frame's with white words, White white
+  with dark words, and Black a near-black with white words and a grey
+  edge (`QUIET`), because a black pill on this ground has no outline
+  without one -- and its rule is drawn in the edge, since a black rule
+  on the leather vanished (seen on the seven-colour sheet). Nothing
+  else reads a card's colour; the table is keyed as `Hero.color`
+  spells it, lowered. Their first day the nameplate's marks were gold
+  and the divider's teal, and the author asked for both replaced: gold
+  is the currency's -- the coin and every cost badge -- so a gold pill
+  beside the gold count said two things in one colour, and teal sat
+  between the two patrol zones' blue and read as a shade of it. A sheet
+  of six fixed candidates (raspberry, plum, violet, white, and two
+  mixes) rendered at Discord's scale (`BOARD_SCALE`) came first, and a
+  violet nameplate over a white divider was taken from it, before the
+  author decided the colour should be the hero's rather than fixed --
+  first on both marks, then on the nameplate's alone, the divider
+  white. Checked the same way: all seven colours on the nameplate, on
+  the staged mid-game board at Discord's scale. Green sits near
+  ARRIVED's and Blue near the patrol zone's; both are the cards' own
+  colours and the mark is not the board's to recolour.
 - **No cream** (the author, 2026-10-09): the canvas's light words were a
   warm cream and its quiet ones a tan; the board, the hand and the
   codex draw them neutral -- white (`WORD`, `INK`) and grey (`QUIET`). A finished game is seen from
@@ -1037,7 +1072,12 @@ at the foot of the channel with the panel under it.
 `tests/test_codex_cog_turn.py` drives it through the cog with Discord
 faked -- `tests/codex_cog_fakes.py` logs every request by route -- and
 plays a whole game through the panels to a destroyed base, every click
-held to the request budget below.
+held to the request budget below, with the pictures stood in for by
+dotted-name patches on `cogs.codex.core`. Those reach the cog only while
+`sys.modules` still holds the modules the tests imported, which is why
+the bot test that loads the extension and closes the bot restores it
+("A bot test that loads an extension leaves `sys.modules` as it found
+it" in [testing.md](testing.md)).
 
 ### The panel
 
@@ -1310,6 +1350,9 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
 | Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 3 |
+| Concede, the first click | **0** | 1: the confirmation |
+| Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
+| Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
 | Undo to the start of the turn | **2** | 3 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
@@ -1361,6 +1404,139 @@ turn message again at the foot of the channel -- the old one deleted,
 the player whose turn it is pinged -- and hands the clicker their panel
 afresh -- the
 actions for the active player, the open tech picker for the other.
+
+## The end of a game
+
+Step 8 is what a game needs after its last turn ("Finishing a game" in
+the worksheet). **No statistics and no archive export for this bot**
+(the author, 2026-10-07): a finished game's channel is moved out of the
+way and nothing is written from it.
+
+- **A game ends with a winner one of two ways**: a destroyed base
+  (`codex.flow.turn.damage_base`, UMR p. 2), or a concession
+  (`codex.flow.turn.concede`). A concession is the model's: the seat
+  conceding loses, the other wins, `MatchState.conceded` remembers who
+  gave up -- a saved field step 8 added, `None` in an older save -- and
+  the match waits on `GAME_OVER`, whose ask says which way it ended
+  ("{player:1} wins: {player:2} conceded."). Either seat may concede,
+  whoever's turn it is; refused once the game is over.
+- **A concession is not an action the journal records.** It answers no
+  prompt -- it is open to both players at any moment -- so it is a door
+  of the service's own, `GameService.concede`, as the two undos are,
+  rather than a `PromptKind`. Nothing is undone past a finished game
+  (`history.undo_targets`), so there is nothing for the journal to
+  replay.
+- **The record follows the match in the same save**: `GameService.persist`
+  finishes the record (`CodexGame.finish`, `GameStatus.FINISHED`) once
+  its match has a winner, however it ended, so nothing downstream
+  compares the two. `/codex resume`, Swap view and the panel all stop at
+  a finished record.
+- **Concede is the clicker's own side, behind a second click.** **Concede**
+  on the turn message and `/codex concede` both answer ephemerally with
+  `ConcedeConfirmView` -- **Concede the game** or **Cancel** -- held to the
+  seat it was asked for (in a test game, the side whose turn it was) and
+  to the person who asked. No helper concedes for a player. The first
+  click spends nothing public; the second is the game's end below.
+- **The end on Discord** is what step 4 built for a destroyed base, with
+  two things after it: the turn message's last edit without its buttons,
+  pinned as every finished turn is, the public line naming the winner with the final board -- now carrying
+  **Rematch** (`RematchView`, persistent, its message kept on the record
+  as `final_message_id`) -- and then **the channel moved to Codex
+  Archive** (`archive_channel`), its name and permissions left as they
+  are. The move is a request on the channel's own route, not the
+  messages' edit bucket, so the end spends three from the bucket: the
+  edit, the pin and the line.
+- **`/codex abandon` is either player's own, or a helper's** (the
+  author, 2026-10-09: "any player should be able to abandon their own
+  game"): the game played in the channel, or the lobby open in it, ends
+  with no winner through `GameService.abandon`; the turn message (or the
+  lobby) stands without its buttons -- the turn message pinned, as every
+  message that stands as a turn's summary is -- one public line says it was
+  abandoned and by whom, and the channel is archived. An abandoned game
+  offers no rematch. A seated player may abandon only the game they sit
+  in -- the channel's own -- and a game helper (Manage Channels) any; a
+  watcher is refused privately. Unlike Concede it asks no second click:
+  it is a command typed in the game's channel, not a button beside the
+  others.
+- **`/codex admin`'s gate is read at run time**: Discord carries a
+  default permission on a top-level command and not on a subcommand of
+  `/codex`, so `/codex admin` is listed to everyone and refuses anybody
+  without Manage Channels ("Who may act, shared" is otherwise unchanged).
+  The author is content with the archive and the startup sweep as built
+  (2026-10-09).
+- **Rematch** (either player, or a helper, as the lobby's Start) opens a
+  new lobby through `GameService.rematch` -- a rule on the record,
+  `CodexGame.rematch`: the same two seats, the same people or the one
+  person of a test game, in the same channel, with **the heroes swapped**
+  (each seat plays the spec the other played), the finished game's specs
+  kept as `rematch_specs`. The button comes off its line in the click's
+  own response, the channel moves back under Codex Games, since a game
+  is about to be played in it, and the lobby is posted there with
+  **Keep heroes** beside its buttons. The finished record remembers its
+  rematch (`rematch_game_id`), so a second press finds the lobby. **Keep
+  heroes** (`CodexGame.keep_heroes`) is each seat's toggle; the heroes are
+  the last game's while both have pressed it, and swapped otherwise -- the
+  one person of a test game presses once for both. **Who goes first is
+  drawn again** at Start, as every game's is (`RulesEngine.new_match`).
+  Start renames the channel for the new game's number, as any Start does.
+- **`/codex admin reset_channels`**, for the test server: every channel
+  named `codex-<n>` outside Codex Archive deleted -- `/debug`'s
+  `delete_channel_with_retries`, with its backoff -- and every game of the
+  server not in an archived channel dropped (`GameService.drop_games`),
+  after the word "confirm", as `/debug reset_channels` does for D12 Ball.
+  The gate is `/debug`'s, guild only and Manage Channels, read at run time
+  for the reason above.
+- **The startup sweep** re-arms an open lobby's buttons, the current turn
+  message's buttons for a game still being played -- never an older
+  turn's, which stand as summaries -- and a finished game's **Rematch**
+  while no rematch has been opened from it. An abandoned game's messages,
+  and every turn message of a finished game, are left as they stand.
+- **Nothing hidden in a log line.** Step 8 audited every logging call under
+  `cogs/codex*` and `gamesaves/codex/`. One could name a card in a hand:
+  `SafeView.on_error` logged the item clicked with `%r`, and a button's
+  repr carries its label -- "3. Bloom (2 gold)" on a panel -- at ERROR,
+  which #logs mirrors. It now logs the view's class, the item's kind and
+  the game id (`test_a_clicks_error_names_no_label`). The rest log message
+  ids, game ids, numbers and Discord's errors; the storage's "invalid saved
+  game" line can carry `validate`'s sentence, which names a slug only where
+  the slug is not a card at all.
+
+### The golden
+
+`tests/test_codex_golden.py` is the Codex bot's safety net, D12 Ball's
+`test_golden_service.py` copied: **a seeded whole game of Bashing against
+Finesse through the Codex `GameService`** -- `create_game`, the two seats,
+`start`, `apply_action` for every answer and `resume` for every step the
+bot owes, with the default `Batching()` -- every `GameResult` written
+down as the service handed it back (its groups and their steps, what was
+carried, the prompt and its ask, the standing prompts' kinds) and the
+final save beside it, in `tests/golden/codex_service_transcript.txt` and
+`codex_service_final_match.json`, byte for byte.
+
+- **The seed is the full-game test's**, `SEED = 20261008`, and so is the
+  policy (`test_codex_driver_full_game.choose`, which reads the prompt's
+  options and nothing else); on it the game runs 275 answers to Troq
+  Bashar destroying Finesse's base. `FOOLBOT_UPDATE_GOLDEN=1 python3 -m
+  unittest tests.test_codex_golden` re-records it, as the D12 Ball
+  goldens are.
+- **It pins the model's voice with its tokens intact**, before any
+  frontend draws one. So a faithful change to rendering -- the emoji, the
+  mentions, the message layout, the board's picture -- leaves it alone;
+  a change to the model's wording or to what the game does re-records it,
+  and **the pull request that re-records it says so and shows the diff**.
+  The rule is written in the test's docstring and in its failure message.
+- **Nothing hidden is written into it**: a prompt's options are never
+  described (a hand and a codex are their asked player's), and the test's
+  own action lines leave out a hire's card and a tech choice's picks --
+  `test_nothing_hidden_is_written` holds both. The final save holds every
+  hand, as any save does; it is a test fixture, never a message.
+- **What it does not cover**: a concession, an undo, an abandon or a
+  rematch (`tests/test_codex_ending.py`, `tests/test_codex_history.py`);
+  a test game, whose tech is chosen in each side's own ready phase;
+  whatever the policy never does -- the tower's detection, an ability it
+  does not reach, an attack's choice that never comes up on this seed;
+  and everything the cog renders, which `tests/test_codex_cog_turn.py`
+  plays through the fakes.
 
 ## Running it
 

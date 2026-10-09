@@ -10,7 +10,8 @@ and everything it starts through `codex.flow.driver`, **saves once**,
 and hands back a `GameResult` the frontend renders. It formats nothing.
 
 **The lobby is service methods, not prompt kinds**: `create_game`,
-`take_seat`, `leave`, `start`, `abandon` and `set_board_layout` each
+`take_seat`, `leave`, `start`, `abandon`, `set_board_layout`, and after
+a game `rematch` and `keep_heroes`, each
 load the record, apply one change the record itself rules on
 (`CodexGame`, which refuses with `RuleRefusal`), and save once. A
 refusal is the exception itself: nothing was written.
@@ -41,7 +42,7 @@ from typing import Any, Callable, Mapping, Optional, Union
 from codex import history
 from codex.components import MatchState
 from codex.engine import RulesEngine
-from codex.flow import driver
+from codex.flow import driver, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from codex.prompts import PendingPrompt, pending, pending_prompt, standing_prompts
@@ -234,8 +235,12 @@ class GameService:
 
     def persist(self, game: CodexGame, match: MatchState) -> None:
         """Write the match back onto its record and save -- one step,
-        or the file keeps a state the game has moved past."""
+        or the file keeps a state the game has moved past. A match with
+        a winner finishes its record in the same save (`CodexGame.finish`),
+        however it ended: a destroyed base or a concession."""
         game.match_state = match.to_dict()
+        if match.winner is not None:
+            game.finish()
         (self._save or save_games)(self.games)
 
     def save(self) -> None:
@@ -304,6 +309,63 @@ class GameService:
     def abandon(self, game_id: str) -> CodexGame:
         game = self.game(game_id)
         game.abandon()
+        self.save()
+        return game
+
+    def drop_games(self, game_ids) -> None:
+        """Forget these games, played or not, in one save -- the test
+        server's reset (`/codex admin reset_channels`) and nothing else:
+        a real game is abandoned, so its record and its number stay."""
+        for game_id in game_ids:
+            self.games.pop(game_id, None)
+        self.save()
+
+    # -- The end -----------------------------------------------------------
+
+    def concede(self, game_id: str, seat: int) -> GameResult:
+        """
+        `seat` gives the game up (`codex.flow.turn.concede`): the match
+        and its record finished in one save, and the result waiting on
+        `GAME_OVER`, as a destroyed base's is. Who may concede for
+        which seat is the frontend's: the clicker's own side alone.
+        Refused with `RuleRefusal` once the game is over.
+        """
+        game = self.game(game_id)
+        match = self.load(game)
+        conceded = turn.concede(self.engine, game, match, seat)
+        self.persist(game, match)
+        result = GameResult(
+            narration=tuple(conceded.narration),
+            prompt=conceded.next if isinstance(conceded.next, PendingPrompt) else None,
+            board_changed=True,
+            match=match,
+            headlines=conceded.headlines,
+        )
+        self.announce(game, result)
+        return result
+
+    def rematch(self, game_id: str) -> CodexGame:
+        """
+        A finished game played again: a new lobby with the same two
+        seats, the heroes swapped (`CodexGame.rematch`), in the same
+        channel -- remembered on the finished game, so a second press
+        finds it rather than opening another. Saved once.
+        """
+        game = self.game(game_id)
+        existing = self.games.get(game.rematch_game_id) if game.rematch_game_id else None
+        if existing is not None:
+            return existing
+        rematch = game.rematch(uuid.uuid4().hex, self.next_game_number(game.guild_id))
+        self.games[rematch.game_id] = rematch
+        game.rematch_game_id = rematch.game_id
+        self.save()
+        return rematch
+
+    def keep_heroes(self, game_id: str, user_id: int) -> CodexGame:
+        """Keep heroes in a rematch's lobby (`CodexGame.keep_heroes`),
+        saved."""
+        game = self.game(game_id)
+        game.keep_heroes(user_id)
         self.save()
         return game
 

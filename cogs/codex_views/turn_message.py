@@ -1,6 +1,7 @@
 """
 The buttons on the current turn's public message (docs/codex-bot.md,
-decisions 4 and 5): **My hand**, **Tech**, **Codex** and **Swap view**
+decisions 4 and 5): **My hand**, **Tech**, **Codex**, **Swap view** and
+**Concede**
 -- persistent, so a restart re-arms them from `turn_message_id`.
 
 Hidden information is answered **ephemerally**, to the clicker alone and
@@ -15,8 +16,9 @@ test game, where nothing stands (`codex.prompts.tech_stands`), it says
 where the choice is made instead. **Codex**
 pictures the clicker's own codex through a menu of views. What a hand
 may play and what a codex still holds are the engine's answers
-(`hand_rows`, `codex_remaining`); the views compute nothing. Step 7
-adds Concede.
+(`hand_rows`, `codex_remaining`); the views compute nothing.
+**Concede** gives up the clicker's own side, behind a second click on an
+ephemeral confirmation (`ConcedeConfirmView`).
 """
 
 import asyncio
@@ -70,6 +72,7 @@ class TurnMessageView(SafeView):
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             (swap_label(layout), "swap", discord.ButtonStyle.secondary),
+            ("Concede", "concede", discord.ButtonStyle.danger),
         ):
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"codex:turn:{action}:{game_id}",
@@ -129,6 +132,12 @@ class TurnMessageView(SafeView):
             view.caption("everything"), file=await view.picture(match, "everything"),
             view=view, ephemeral=True,
         )
+
+    async def concede(self, interaction: discord.Interaction) -> None:
+        """The clicker's own side given up, behind a second click
+        (`ConcedeConfirmView`) -- in a test game, the side whose turn
+        it is."""
+        await self.cog.ask_concede(interaction, self.cog.games.get(self.game_id))
 
     async def swap(self, interaction: discord.Interaction) -> None:
         game = self.cog.games.get(self.game_id)
