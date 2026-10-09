@@ -33,9 +33,9 @@ COLOURS = {
     },
     "tools": {
         "fortune": {"ink": "#2A2420", "steel": "#C9D2DA", "shade": "#8E99A3", "shine": "#EEF2F5", "wood": "#A2683A",
-                    "grain": "#7A4E2A", "wrench": "#B9C3CC", "spark": "#F2C14E"},
+                    "grain": "#7A4E2A", "wrench": "#B9C3CC", "spark": "#F2C14E", "face": "#DFE6EC", "rubber": "#3C3836"},
         "doom": {"ink": "#1B1512", "steel": "#7A5A3A", "shade": "#5A4634", "shine": "#9A7A5A", "wood": "#5A3A22",
-                 "grain": "#3E2816", "wrench": "#6E5236", "spark": "#F2C14E"},
+                 "grain": "#3E2816", "wrench": "#6E5236", "spark": "#F2C14E", "face": "#8E6E4C", "rubber": "#2A2624"},
     },
     "states": {
         "fortune": {"ink": "#123A40", "dark": "#17606A", "light": "#BFE3E6"},
@@ -215,7 +215,7 @@ def _hammer(c, broken):
     if not broken:
         d.polygon(pts([(474, 320), (526, 320), (540, 880), (460, 880)]), fill=c["wood"], outline=c["ink"], width=ink)
         grain(d, 340, 780)
-        d.rounded_rectangle(pts([(452, 790), (548, 892)]), radius=W(18), fill=c["ink"])
+        d.rounded_rectangle(pts([(452, 790), (548, 892)]), radius=W(18), fill=c["rubber"], outline=c["ink"], width=W(5))
         for y in range(812, 880, 22):
             d.line(pts([(458, y), (542, y)]), fill=c["shade"], width=W(3))
     else:
@@ -224,7 +224,7 @@ def _hammer(c, broken):
         piece = new_layer()
         pd = ImageDraw.Draw(piece)
         pd.polygon(pts([(468, 660), (512, 640), (534, 680), (540, 880), (460, 880)]), fill=c["wood"], outline=c["ink"], width=ink)
-        pd.rounded_rectangle(pts([(452, 790), (548, 892)]), radius=W(18), fill=c["ink"])
+        pd.rounded_rectangle(pts([(452, 790), (548, 892)]), radius=W(18), fill=c["rubber"], outline=c["ink"], width=W(5))
         piece = piece.rotate(28, resample=Image.BICUBIC, center=pt(500, 660))
         layer.alpha_composite(piece, (W(45), W(0)))
     # The claw: two curved prongs with the V between them.
@@ -561,30 +561,54 @@ def tools_spade(d, c, fate, layer):
 
 
 def tools_anvil(d, c, fate, layer):
-    """An anvil: the horn, the step down to the table, the face with a hardy hole
-    and a pritchel hole, the waist, the feet with their bolt holes."""
+    """An anvil, London pattern, seen a little from above and from the left:
+    the horn, the step down to the table, the face with the hardy and
+    pritchel holes, the waist, the flared base with its bolt holes."""
     ink = W(10)
     broken = fate == "doom"
-    body = [(330, 320), (880, 320), (880, 440), (730, 455), (730, 640), (850, 700), (850, 780),
-            (150, 780), (150, 700), (270, 640), (270, 455), (200, 445), (105, 400), (200, 352), (330, 352)]
-    d.polygon(pts(body), fill=c["steel"], outline=c["ink"], width=ink)
-    # The underside of the face and the table in shadow; the face's edge lit.
-    d.polygon(pts([(270, 455), (730, 455), (880, 440), (880, 420), (730, 436), (270, 436)]), fill=c["shade"])
-    d.polygon(pts([(200, 352), (330, 352), (330, 366), (210, 366)]), fill=c["shade"])
-    d.line(pts([(340, 334), (868, 334)]), fill=c["shine"], width=W(9))
-    d.line(pts([(115, 400), (195, 360)]), fill=c["shine"], width=W(5))
-    d.line(pts([(330, 320), (330, 352)]), fill=c["ink"], width=W(5))
-    # The hardy hole, the pritchel hole, and the feet's bolt holes.
-    d.rectangle(pts([(790, 362), (830, 402)]), fill=c["ink"])
-    d.ellipse(box(735, 382, 14), fill=c["ink"])
-    for x in (205, 795):
-        d.ellipse(box(x, 740, 12), fill=c["ink"])
-        d.ellipse(box(x - 3, 737, 4), fill=c["shade"])
-    d.line(pts([(150, 700), (850, 700)]), fill=c["ink"], width=W(5))
-    d.line(pts([(160, 764), (840, 764)]), fill=c["shade"], width=W(5))
-    d.line(pts([(285, 470), (285, 630)]), fill=c["shine"], width=W(5))
+    ox, oy = 55, -42                      # the top faces recede up and to the right
+
+    def back(points):
+        return [(x + ox, y + oy) for x, y in points]
+
+    horn_top = bezier((95, 408), (165, 380), (240, 388))
+    horn_bottom = bezier((250, 456), (170, 448), (95, 408))
+    front = horn_top + [(240, 388), (300, 388), (300, 360), (800, 360), (800, 452), (760, 452),
+                        (640, 545), (640, 640), (745, 712), (775, 712), (775, 790), (225, 790),
+                        (225, 712), (255, 712), (360, 640), (360, 545), (300, 452), (250, 456)] + horn_bottom
+    # The right flank of the body and the heel's end, receding, in shadow; then the front over them.
+    flank = [(760, 452), (640, 545), (640, 640), (745, 712)]
+    d.polygon(pts(flank + back(flank)[::-1]), fill=c["shade"], outline=c["ink"], width=W(5))
+    base_end = [(775, 712), (775, 790)]
+    d.polygon(pts(base_end + back(base_end)[::-1]), fill=c["shade"], outline=c["ink"], width=W(5))
+    heel_end = [(800, 360), (800, 452)]
+    d.polygon(pts(heel_end + back(heel_end)[::-1]), fill=c["shade"], outline=c["ink"], width=W(5))
+    d.polygon(pts(front), fill=c["steel"], outline=c["ink"], width=ink)
+    # The slab's underside and the body's right half in shadow.
+    d.polygon(pts([(300, 452), (800, 452), (800, 466), (650, 545), (650, 640), (745, 712), (520, 712), (520, 560), (290, 466)]), fill=c["shade"])
+    d.line(pts([(225, 712), (775, 712)]), fill=c["ink"], width=W(5))
+    # The top faces: the face, the table and its riser, the plinth's top beside the foot.
+    face = [(300, 360), (800, 360)]
+    d.polygon(pts(face + back(face)[::-1]), fill=c["face"], outline=c["ink"], width=W(6))
+    table = [(240, 388), (300, 388)]
+    d.polygon(pts(table + back(table)[::-1]), fill=c["face"], outline=c["ink"], width=W(6))
+    riser = [(300, 388), (300, 360)]
+    d.polygon(pts(riser + back(riser)[::-1]), fill=c["steel"], outline=c["ink"], width=W(5))
+    plinth = [(745, 712), (775, 712)]
+    d.polygon(pts(plinth + back(plinth)[::-1]), fill=c["face"], outline=c["ink"], width=W(4))
+    # The hardy hole, square, and the pritchel hole, round, on the face by the heel.
+    d.polygon(pts([(770, 352), (798, 352), (816, 338), (788, 338)]), fill=c["ink"])
+    d.ellipse(pts([(728, 336), (752, 352)]), fill=c["ink"])
+    # The horn is round: a catch-light along its top, shadow under it; the face's front edge catches light too.
+    d.line(pts([(x, y - 9) for x, y in horn_top[6:-4]]), fill=c["shine"], width=W(6))
+    d.line(pts([(x, y - 11) for x, y in horn_bottom[4:-8]]), fill=c["shade"], width=W(6))
+    d.line(pts([(312, 367), (790, 367)]), fill=c["shine"], width=W(6))
+    # The bolt holes in the feet.
+    for x in (282, 718):
+        d.ellipse(box(x, 752, 12), fill=c["ink"])
+        d.ellipse(box(x - 3, 749, 4), fill=c["shade"])
     if broken:
-        d.line(pts([(520, 320), (480, 420), (540, 520), (490, 640), (530, 780)]), fill=c["ink"], width=W(12), joint="curve")
+        d.line(pts([(560, 318), (575, 360), (530, 452), (578, 560), (540, 712), (562, 790)]), fill=c["ink"], width=W(12), joint="curve")
 
 
 # The drawing behind each of Might's and Tools' denominations (deck.VARIANTS names them).
@@ -595,13 +619,17 @@ DRAWINGS = {"might_sword": might, "might_axe": might_axe, "might_sceptre": might
 SUITS = {"money": money, "might": might, "fiends": fiends, "tools": tools, "states": states, "fools": fools}
 
 
-def render(suit: str, fate: str, mask: bool = False, variant: str | None = None) -> Image.Image:
+def render(suit: str, fate: str, mask: bool = False, variant: str | None = None, palette=None,
+           size: int = SIZE, resample=Image.LANCZOS) -> Image.Image:
+    """The drawing, `size` pixels square: in its colours, or as a mask (`mask=True`:
+    white parts, black ink), or in any `palette` keyed like `COLOURS` (relief.py's
+    material map, which wants `resample=Image.NEAREST` to keep its greys apart)."""
     layer = new_layer()
     d = ImageDraw.Draw(layer)
-    c = Mask() if mask else COLOURS.get(suit, {}).get(fate, {})
+    c = palette if palette is not None else (Mask() if mask else COLOURS.get(suit, {}).get(fate, {}))
     draw = DRAWINGS[f"{suit}_{variant}"] if variant else SUITS[suit]
     draw(d, c, fate, layer)
-    return layer.resize((SIZE, SIZE), Image.LANCZOS)
+    return layer.resize((size, size), resample)
 
 
 def every_icon():

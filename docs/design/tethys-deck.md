@@ -73,14 +73,34 @@ were cream for Fortune and black for Doom, and the author struck both.
 
 ## The relief
 
-`relief.emboss` lights a flat drawing as embossed metal. The drawing's
-alpha is the height map -- a bevel at the edge, a dome over the whole so
-broad forms shade -- its ink lines (a second render with `mask=True`:
-white parts, black ink) are sunk into recesses, a light from the top
-left gives diffuse shading and a specular glint, and a little grain
-stands in for the coin's surface. The colours are the drawing's own, so
-one lighting serves steel, gold, cloth and horn. Fortune is lit brighter
-than Doom (`LIGHT`). The coin is not embossed; it is already a picture.
+`relief.emboss` lights a flat drawing as the stuff it is made of, the
+way the coin art is lit (the author, 2026-10-09: "look more real in line
+with the coin art as if they are real metal. And stone and such"). Each
+drawing is rendered three times: in its colours, as a mask (white parts,
+black ink lines) and as a material map -- `MATERIAL_OF` says what each
+colour key is: the blade and the anvil steel, the guard and the bells
+gold, the hafts wood, the grip leather, the yin-yang stone, the fiend's
+face lacquer, the cap cloth. The height is built from each part's
+distance to its own edge (`chamfer`, an exact two-sweep transform, since
+there is no scipy here), scaled to the part's width so a blade is a
+ridge, a haft a half-round and a block a bevelled slab (`SHAPE`), with
+the material's surface on top -- hammered dents on gold, fine grain on
+steel, streaks along wood, mottling on stone -- and every part bowed a
+little so broad faces shade. The ink lines are the grooves between
+parts, coloured as their neighbours and darkened, not a cartoon outline.
+The normals are lit from the top left: metals reflect an environment
+(sky above, ground below, a bright horizon) with a tight glint; wood,
+leather, cloth and stone are matte with a soft sheen; gems glow at the
+rim; velvet lights at grazing angles. Doom is lit lower (`LIGHT`), its
+gold tarnished and Tools' steel rusted matte. The coin is not lit; it is
+already a picture. It is slow -- about six seconds a drawing at the
+2048-pixel working size -- so `IconSet` renders each once.
+
+An earlier relief took the drawing's alpha alone as the height, one
+bevel and one dome for everything, and lit the painted colours as they
+were; the big steel faces came out as pewter and the gold as yellow
+paint. What made the difference was each part rising on its own and
+each material being lit its own way.
 
 ## Denominations, as the coins
 
@@ -106,7 +126,11 @@ Right 12.)
   scepters/crowns."
 - **Tools' four are four tools, the heavier the worthier**: the claw
   hammer for 1, a pickaxe for 3, a spade for 6, an anvil for 12. The
-  suit's own mark stays the hammer crossed with the wrench. Doom's
+  anvil is London pattern seen a little from above and the left -- the
+  horn, the step down to the table, the face with the hardy and pritchel
+  holes, the waist, the flared base -- because a flat side view "looks
+  weird" (the author). The suit's own mark stays the hammer crossed with
+  the wrench. Doom's
   pickaxe has a cracked head and a snapped haft, the spade's blade is
   cracked and its shaft broken, the anvil split.
 - **Fiends, States and Fools are their one symbol at four sizes**
