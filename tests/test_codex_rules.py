@@ -118,6 +118,16 @@ class OwnDeckTests(unittest.TestCase):
         self.assertEqual((deck.size, deck.hand, deck.draw_pile, deck.discard, deck.in_play),
                          (10, 5, 5, 0, 0))
 
+    def test_the_hands_copies_are_counted_beside_each_card(self) -> None:
+        """`in_hand` runs beside `cards`: each card's copies in the
+        hand, which My deck marks."""
+        engine, game, match = main_phase()
+        hand(match, 1, "spark", "spark", "tenderfoot")
+        deck = engine.own_deck(match, 1)
+        self.assertEqual(len(deck.in_hand), len(deck.cards))
+        held = {slug: copies for (slug, _), copies in zip(deck.cards, deck.in_hand) if copies}
+        self.assertEqual(held, {"spark": 2, "tenderfoot": 1})
+
     def test_tech_joins_it_and_a_hired_card_leaves_it(self) -> None:
         engine, game, match = main_phase()
         player = match.player(1)

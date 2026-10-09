@@ -12,13 +12,20 @@ match asks them -- the actions, the defender, the patrol lock, the tech
 confirmation -- made afresh each time, the hand brought up to date in
 place as the turn goes (docs/design/codex.md, "The panel"); the other
 player gets their hand pictured and their discard pile listed, with
-**My deck** under it, kept up to date the same way. **Tech** is the other player's alone: their
-standing tech choice, open all through the opponent's turn -- and in a
-test game, where nothing stands (`codex.prompts.tech_stands`), it says
-where the choice is made instead. **Codex** pictures the clicker's own
+**My deck** under it, kept up to date the same way. Where the active
+player's turn waits on their tech, **My hand** still sends the hand,
+and the panel under it is a **Tech** button rather than the turn's
+actions until the tech is confirmed (`TechGateView`). **Tech** answers
+the active player with that confirmation -- or the picker, where
+nothing was picked -- while their turn waits on it, and the other
+player with their standing tech choice, open all through the
+opponent's turn; in a test game, where nothing stands
+(`codex.prompts.tech_stands`), it says where the choice is made
+otherwise. **Codex** pictures the clicker's own
 codex through a menu of views. **My deck** -- on the turn message,
 under the hand, on the panel and on the tech picker -- answers with
-every card the clicker owns, wherever it is (`send_deck`). What a hand
+every card the clicker owns, wherever it is, those in their hand marked
+(`send_deck`). What a hand
 may play, what a codex still holds and what a deck is are the engine's
 answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
 nothing.
@@ -44,7 +51,7 @@ LOGGER = logging.getLogger(__name__)
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
 TECH_IN_READY_PHASE = (
     "In a test game each side chooses its tech when its own turn begins, from "
-    "**My hand** -- nothing is chosen during the other side's turn."
+    "**Tech** or **My hand** -- nothing is chosen during the other side's turn."
 )
 
 
@@ -119,9 +126,16 @@ class TurnMessageView(SafeView):
         await self.cog.send_deck(interaction, game, match, seat)
 
     async def tech(self, interaction: discord.Interaction) -> None:
-        """The other player's standing tech choice, to them alone."""
+        """The clicker's tech, to them alone: the active player's
+        confirmation or picker where their turn waits on it, else the
+        other player's standing choice."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
+            return
+        if seat == match.active and match.winner is None and self.cog.tech_asked(game, match, seat):
+            # The turn opens on its player's tech: the confirmation, or
+            # the picker where nothing was picked -- or in a test game.
+            await self.cog.show_panel(interaction, game, match, seat, edit=False, open_tech=True)
             return
         if game.test_game:
             # The one person holds both seats and nothing stands for
@@ -223,7 +237,8 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
 def deck_caption(deck, side: str = "") -> str:
     """What the deck picture is sent with: its size and where its cards
     are -- the places holding none left out -- which is its owner's to
-    know; the draw pile is a count, never an order."""
+    know; the draw pile is a count, never an order. Where the hand holds
+    any, it says how the picture marks them."""
     places = [
         f"{count} {where}" for count, where in (
             (deck.hand, "in your hand"), (deck.draw_pile, "in your draw pile"),
@@ -231,18 +246,21 @@ def deck_caption(deck, side: str = "") -> str:
         ) if count
     ]
     size = f"{deck.size} card" + ("" if deck.size == 1 else "s")
+    marked = "The cards in your hand are framed in gold. " if deck.hand else ""
     return (
         f"Your deck{side}: {size}" + (": " + ", ".join(places) if places else "") + ". "
-        "Only you can see this."
+        + marked + "Only you can see this."
     )
 
 
 async def deck_file(engine, deck) -> discord.File:
     """A deck pictured as a codex is, each card once with its copies on
-    its badge (`render_codex`)."""
+    its badge (`render_codex`), and the cards in the hand framed in gold
+    with how many copies are there (`OwnDeck.in_hand`, the engine's), as
+    the tech picker marks its picks (the author, 2026-10-09)."""
     webp = await asyncio.to_thread(
         render_codex, [slug for slug, _ in deck.cards], [count for _, count in deck.cards],
-        engine.catalog,
+        engine.catalog, deck.in_hand, "{} in hand",
     )
     return picture_file(webp, "codex-deck")
 

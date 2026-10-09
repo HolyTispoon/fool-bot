@@ -40,6 +40,7 @@ from cogs.codex_views import (
     RematchView,
     TechChoiceView,
     TechConfirmView,
+    TechGateView,
     TurnMessageView,
     TurnPanelView,
     picture_file,
@@ -90,14 +91,19 @@ PROMPT_VIEWS = {
     PromptKind.GAME_OVER: None,
 }
 
+#: The prompts a turn may open on before its actions, its player's
+#: tech: under the hand **My hand** sends, the panel is `TechGateView`,
+#: **Tech** alone, until it is answered (`show_panel`).
+TECH_GATE_KINDS = (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE)
+
 #: What the turn message says while the new turn waits on its player's
 #: tech -- the cog's caption, not the model's line -- worded for the
-#: prompt My hand opens: the confirmation of picks made during the
+#: prompt Tech opens: the confirmation of picks made during the
 #: opponent's turn, or the picker itself where none were made (always,
 #: in a test game: `codex.prompts.tech_stands`).
 TECH_WAIT = {
-    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **My hand**.*",
-    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **My hand**.*",
+    PromptKind.TECH_CONFIRM: "*The turn waits on {who} to confirm their tech: **Tech**.*",
+    PromptKind.TECH_CHOICE: "*The turn waits on {who} to choose their tech: **Tech**.*",
 }
 
 
@@ -255,12 +261,16 @@ class CoreMixin:
         return service
 
     def view_for_prompt(self, game: CodexGame, prompt: Optional[PendingPrompt],
-                        match) -> Optional[discord.ui.View]:
+                        match, gate: bool = False) -> Optional[discord.ui.View]:
         """**The only place a `PromptKind` becomes a view**: the panel the
         prompt is answered from, shown to its asked player alone, or
-        `None` for a kind nobody answers (a finished game)."""
+        `None` for a kind nobody answers (a finished game). With `gate`,
+        a turn's tech is **Tech** alone (`TechGateView`), the panel under
+        the hand until it is opened."""
         if prompt is None:
             return None
+        if gate and prompt.kind in TECH_GATE_KINDS:
+            return TechGateView(self, game.game_id, prompt, match)
         view = PROMPT_VIEWS[prompt.kind]
         return None if view is None else view(self, game.game_id, prompt, match)
 
