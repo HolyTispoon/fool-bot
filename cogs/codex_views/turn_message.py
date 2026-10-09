@@ -10,7 +10,9 @@ panel for whatever the match asks them -- the actions, the defender,
 the patrol lock, the tech confirmation -- made afresh each time; the
 other player gets their hand pictured and their discard pile listed,
 with nothing to press. **Tech** is the other player's alone: their
-standing tech choice, open all through the opponent's turn. **Codex**
+standing tech choice, open all through the opponent's turn -- and in a
+test game, where nothing stands (`codex.prompts.tech_stands`), it says
+where the choice is made instead. **Codex**
 pictures the clicker's own codex through a menu of views. What a hand
 may play and what a codex still holds are the engine's answers
 (`hand_rows`, `codex_remaining`); the views compute nothing. Step 7
@@ -38,6 +40,10 @@ CODEX_VIEW_LABELS = {
 }
 
 NOT_YOUR_TABLE = "This table is not yours: only its two players have a hand and a codex here."
+TECH_IN_READY_PHASE = (
+    "In a test game each side chooses its tech when its own turn begins, from "
+    "**My hand** -- nothing is chosen during the other side's turn."
+)
 
 
 def swap_label(layout: str) -> str:
@@ -89,9 +95,12 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        # In a test game the one person holds both seats: Tech is the
-        # side whose turn it is not.
-        seat = next((held for held in game.seats_of(interaction.user.id) if held != match.active), seat)
+        if game.test_game:
+            # The one person holds both seats and nothing stands for
+            # either: each side's tech is the pending prompt in its own
+            # ready phase, from My hand.
+            await send_ephemeral(interaction, TECH_IN_READY_PHASE)
+            return
         if seat == match.active:
             await send_ephemeral(
                 interaction,

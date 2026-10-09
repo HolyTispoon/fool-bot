@@ -536,6 +536,9 @@ and the step's prompt is rewritten rather than argued with.
    confirmed cards go face-down to the discard then (the author,
    2026-10-08). One chain, two readers, because a second copy of "what
    is this match waiting on" is the failure mode CLAUDE.md names.
+   (In a test game nothing stands: each side's tech is chosen in its
+   own ready phase -- the author, 2026-10-09;
+   [codex.md](design/codex.md), "The standing prompt".)
 
 9. **Every draw the game makes is `engine.rng`.** The shuffle, the
    opening hand and the first player are the only randomness in the

@@ -295,6 +295,46 @@ class StandingPromptTests(unittest.TestCase):
         options = standing_prompts(engine, match, game)[0].options
         self.assertEqual((options.minimum, options.maximum), (0, 2))
 
+    def test_a_test_games_tech_is_chosen_in_the_ready_phase(self) -> None:
+        """Nothing stands in a test game (the author, 2026-10-09): the
+        side whose turn ended is not asked during the other's turn, the
+        other side's first turn opens on its main phase with no tech to
+        choose, and from a side's second turn on the picker is the
+        pending prompt in its ready phase -- the pick made there is the
+        choice, with no confirmation asked after it."""
+        engine, game, match = _main()
+        game.test_game = True
+        _end_turn(engine, game, match)
+        self.assertEqual(match.active, 2)
+        self.assertTrue(match.player(1).tech_owed)
+        self.assertEqual(standing_prompts(engine, match, game), ())
+        # Seat 2's first turn: nobody owes tech before their first turn
+        # has ended, so the turn began and the main phase is open.
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        pick = lambda seat, *slugs: driver.apply(engine, game, match, Action(
+            PromptKind.TECH_CHOICE, arguments={"player": seat, "picks": list(slugs)},
+        ))
+        self.assertIsInstance(pick(1, "iron_man", "iron_man"), driver.Refusal)
+        self.assertIsNone(match.player(1).tech_choice)
+
+        _end_turn(engine, game, match)
+        self.assertEqual((match.active, match.phase), (1, "ready"))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TECH_CHOICE)
+        self.assertEqual(prompt.asked_player, 1)
+        self.assertEqual(standing_prompts(engine, match, game), ())
+        self.assertIsInstance(pick(2, "eggship", "eggship"), driver.Refusal)
+        codex_before = dict(match.player(1).codex)
+        self.assertNotIsInstance(pick(1, "iron_man", "iron_man"), driver.Refusal)
+        # The pick is the choice: the ready phase ran on it.
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.phase, "main")
+        player = match.player(1)
+        self.assertEqual(player.discard[-2:], ["iron_man", "iron_man"])
+        self.assertEqual(player.codex["iron_man"], codex_before["iron_man"] - 2)
+        self.assertEqual((player.tech_choice, player.tech_owed, player.tech_confirmed),
+                         (None, False, False))
+
 
 if __name__ == "__main__":
     unittest.main()
