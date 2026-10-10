@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
 from codex.formatting import deck_name
-from codex.components import MatchState
+from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
@@ -330,6 +330,21 @@ def finish_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return carry_on_upkeep(engine, game, match, result)
 
 
+def _body_token(body) -> str:
+    """A unit or a hero as a token."""
+    if isinstance(body, CardInstance):
+        return tokens.card(body.slug)
+    return tokens.hero(body.slug)
+
+
+def _listed(items: list[str], separator: str) -> str:
+    """"a", "a and b", or "a<sep>b<sep>and c" -- `separator` a semicolon
+    where an item carries a comma of its own."""
+    if len(items) <= 2:
+        return " and ".join(items)
+    return separator.join([*items[:-1], f"and {items[-1]}"])
+
+
 def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: str,
                    result: StepResult) -> None:
     """
@@ -352,16 +367,24 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
             )
     elif kind == "healing":
         healing = engine.healing(player)
-        healed = 0
+        healed = []
         bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
         for body in [*bodies, *player.heroes_in_play]:
             taken = min(body.damage, healing)
-            body.damage -= taken
-            healed += taken
+            if taken:
+                body.damage -= taken
+                hp = engine.body_stats(match, body)[1]
+                healed.append(f"{_body_token(body)} {taken}, now at {hp - body.damage}/{hp}")
         if healed:
+            # The line names where the healing comes from and what each
+            # card it healed now stands at (the author, 2026-10-10).
+            sources = [
+                _body_token(body) for body in [*player.play, *player.heroes_in_play]
+                if engine.keyword_x(body, "Healing")
+            ]
+            healed[0] = f"{tokens.player(seat)}'s {healed[0]}"
             result.narration.append(
-                f"{tokens.player(seat)} heals {healing} damage from each of their "
-                "units and heroes."
+                f"{_listed(sources, ', ')}'s healing {healing} heals {_listed(healed, '; ')}."
             )
     elif kind == "starlet":
         for card in list(player.play):

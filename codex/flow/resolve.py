@@ -479,7 +479,10 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     what landed on a unit or hero (all of it on a building)."""
     seat, ref = target
     if board.is_building(ref):
-        result.narration.append(f"{top['by']} deals {amount} to {_thing(match, target)}.")
+        result.narration.append(
+            f"{top['by']} deals {amount} to {_thing(match, target)}"
+            f"{board.left_after(engine, match, seat, ref, amount)}."
+        )
         board.damage_building(match, seat, ref, amount, result)
         return amount
     body = board.body_of(match, seat, ref)
@@ -490,7 +493,7 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     line = f"{top['by']} deals {landed} to {named}"
     if landed < amount:
         line += f" (armor takes {amount - landed})"
-    result.narration.append(line + ".")
+    result.narration.append(line + board.card_left(engine, match, body) + ".")
     return landed
 
 
@@ -498,7 +501,10 @@ def _repair(engine, match, top, part, target, result) -> None:
     seat, ref = target
     repaired = board.repair_building(engine, match, seat, ref, part.amount)
     if repaired:
-        result.narration.append(f"{top['by']} repairs {repaired} damage on {_thing(match, target)}.")
+        result.narration.append(
+            f"{top['by']} repairs {repaired} damage on {_thing(match, target)}"
+            f"{board.now_at(engine, match, seat, ref)}."
+        )
     else:
         # The repair ruling: an undamaged building is a legal choice,
         # and nothing happens to it.
@@ -611,10 +617,31 @@ def _stealth(engine, match, top, part, target, result) -> None:
 def _base_damage(engine, match, top, part, target, result) -> None:
     # "deal 1 damage to the base controlled by the same player who
     # controls the thing he's attacking" (Sirlin, 2016-03-03).
+    # The line names the band the damage comes from and what the base
+    # has left (the author, 2026-10-09); at 0 the next line is the
+    # base destroyed, which says it.
     other = 2 if top["seat"] == 1 else 1
     amount = damage_amount(engine, match, top, part.amount)
-    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
+    source = top["by"]
+    printed = effects.printing_band(top["effect"])
+    if printed is not None:
+        source = f"{top['by']}'s {band_name(engine, *printed)} band's ability"
+    result.narration.append(
+        f"{source} deals {amount} to {tokens.player(other)}'s base"
+        f"{board.base_left_after(match, other, amount)}."
+    )
     damage_base(match, other, amount, result)
+
+
+def band_name(engine, slug: str, first: int) -> str:
+    """A hero's band by where it is on the card -- "first level", "middle
+    level" or "max level" -- from the first level of the band (the
+    author, 2026-10-10: every hero ability is a first level band, middle
+    level band or max level band one)."""
+    starts = [band.min_level for band in engine.catalog.heroes[slug].bands]
+    if first == starts[-1]:
+        return "max level"
+    return "first level" if first == starts[0] else "middle level"
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
@@ -690,7 +717,8 @@ def _coin(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
-        f"{tokens.player(seat)}'s base takes {amount} damage."
+        f"{tokens.player(seat)}'s base takes {amount} damage"
+        f"{board.base_left_after(match, seat, amount)}."
     )
     if mine is not None:
         board.sacrifice(engine, match, mine)
@@ -708,7 +736,10 @@ def _pillage(engine, match, top, part, target, result) -> None:
     )
     steal = 2 if pirate else part.amount
     amount = damage_amount(engine, match, top, steal)
-    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(other)}'s base.")
+    result.narration.append(
+        f"{top['by']} deals {amount} to {tokens.player(other)}'s base"
+        f"{board.base_left_after(match, other, amount)}."
+    )
     damage_base(match, other, amount, result)
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
@@ -763,7 +794,10 @@ def _own_base_damage(engine, match, top, part, target, result) -> None:
     """Careless Musketeer's "and 1 damage to your base"."""
     seat = top["seat"]
     amount = damage_amount(engine, match, top, part.amount)
-    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s own base.")
+    result.narration.append(
+        f"{top['by']} deals {amount} to {tokens.player(seat)}'s own base"
+        f"{board.base_left_after(match, seat, amount)}."
+    )
     damage_base(match, seat, amount, result)
 
 
@@ -772,7 +806,10 @@ def _active_base_damage(engine, match, top, part, target, result) -> None:
     player's base" -- the base of whoever's turn it is."""
     seat = match.active
     amount = damage_amount(engine, match, top, part.amount)
-    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
+    result.narration.append(
+        f"{top['by']} deals {amount} to {tokens.player(seat)}'s base"
+        f"{board.base_left_after(match, seat, amount)}."
+    )
     damage_base(match, seat, amount, result)
 
 

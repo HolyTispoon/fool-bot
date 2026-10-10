@@ -741,6 +741,15 @@ def rows(slug: str, level: Optional[int] = None) -> tuple[tuple[str, str], ...]:
     return tuple(found)
 
 
+def printing_band(effect: str) -> Optional[tuple[str, int]]:
+    """The hero band that prints `effect`, as `(hero slug, first level of
+    the band)`; None for a card's own text."""
+    for key, entries in TEXT.items():
+        if isinstance(key, tuple) and any(name == effect for _, name in entries):
+            return key
+    return None
+
+
 def triggers(slug: str, when: str, level: Optional[int] = None) -> tuple[str, ...]:
     """The effects `slug` triggers `when` -- "arrives" or "attacks"."""
     return tuple(effect for moment, effect in rows(slug, level) if moment == when)
