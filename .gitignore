@@ -19,6 +19,16 @@ cards/
 # cards/ too: imported by scripts/import_codex_cards.py and committed
 # (docs/design/codex.md, "The cards are data")
 !codex/images/cards/
+# The colours' card sheets, 15 to 20 MB each, kept out for the twelve
+# worker cards cut from them, which are committed; fetched again by
+# `import_codex_cards.py --fetch-sheet` to re-cut (the author,
+# 2026-10-10; docs/design/codex.md, "The cards are data")
+codex/images/board/sheets/black_card_sheet.png
+codex/images/board/sheets/blue_card_sheet.png
+codex/images/board/sheets/green_card_sheet.png
+codex/images/board/sheets/purple_card_sheet.png
+codex/images/board/sheets/red_card_sheet.png
+codex/images/board/sheets/white_card_sheet.png
 print-and-play/
 box/
 print-and-play.zip

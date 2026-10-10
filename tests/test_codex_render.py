@@ -63,13 +63,15 @@ class RenderTests(unittest.TestCase):
         """x4 for the seat that went first and x5 for the other, in the
         starting deck's colour where that face is imported, and the
         neutral card where it is not."""
-        self.assertEqual(render.worker_face("neutral", True), "worker_x4.png")
-        self.assertEqual(render.worker_face("neutral", False), "worker_x5.png")
+        self.assertEqual(render.worker_face("neutral", True), ("workers", "worker_x4.png"))
+        self.assertEqual(render.worker_face("neutral", False), ("workers", "worker_x5.png"))
         with mock.patch.object(render, "bundled", return_value=False):
-            self.assertEqual(render.worker_face("red", True), "worker_x4.png")
-        with mock.patch.object(render, "bundled", return_value=True) as bundled:
-            self.assertEqual(render.worker_face("red", False), "worker_x5_red.png")
-        self.assertEqual(bundled.call_args.args[0].name, "worker_x5_red.png")
+            self.assertEqual(render.worker_face("red", True), ("workers", "worker_x4.png"))
+        # Every colour's two are imported.
+        for color in ("black", "blue", "green", "purple", "red", "white"):
+            self.assertEqual((render.worker_face(color, True), render.worker_face(color, False)),
+                             (("worker_colors", f"{color}_x4.png"),
+                              ("worker_colors", f"{color}_x5.png")))
 
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)

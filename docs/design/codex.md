@@ -184,7 +184,14 @@ committed. Two sources:
   `--fetch-sheet NAME` keeps one under `sheets/` and cuts nothing, so
   its cells are looked at, pinned in `BOARD_SHEETS` and cut with
   `--cut-only` like the rest -- the colours' card sheets, for their
-  worker cards, are the first.
+  worker cards, were the first. **The six colours' card sheets are not
+  committed** (the author, 2026-10-10): 15 to 20 MB each, 106 MB in
+  all, for twelve worker cards of about 1 MB together, so they are in
+  `.gitignore` and their cuts are committed alone. `--cut-only` keeps
+  the cuts of a sheet that is not on disk and fails only where one of
+  them is missing, naming the `--fetch-sheet` that brings the sheet
+  back; a cut no cell is pinned for still goes. The neutral sheet,
+  committed before, stays.
 
 What is under `codex/images/board/`, and what each is named by:
 
@@ -194,6 +201,7 @@ What is under `codex/images/board/`, and what each is named by:
 | `buildings/` | The base and the three tech buildings as tiles, the four add-ons as cards | the building's slug |
 | `tokens/` | All 22 tokens' faces, two printed under another name: "Ghost" is `daigo_stormborne`, "Elemental" `water_elemental` | the token's slug |
 | `workers/` | The two worker cards' faces off the neutral card sheet -- x4, printed "Player 1", and x5, "Player 2" -- which the database does not picture (the author, 2026-10-08: the module has them) | the worker card's slug |
+| `worker_colors/` | Each colour's two worker cards off its own card sheet, the neutral ones' layout in its own art and ink (cells 14 and 15, 38 and 39 on Green's; pinned 2026-10-10), drawn on the board for a side whose starting deck is that colour. Not catalog cards, so beside `workers/` rather than in it: that folder holds the catalog's faces and nothing else | `<colour>_x4`, `<colour>_x5` |
 | `specs/` | The twenty spec cards | the spec, as a slug |
 | `backs/` | `card`, `hero`, `token` | -- |
 | `patrol/` | The five slots' icons, white on the module's blue; the first printed "Patrol Leader", the rulebook's squad leader | the slot |
@@ -1404,14 +1412,17 @@ else the bot shows is ephemeral.
     the colour of the first hero whose colour the starting deck is --
     `PlayerState.deck_color`, since the first hero names the deck
     (the author, 2026-10-10) -- so the basic game's is the neutral,
-    brown card. The module has a worker card per colour; `worker_face`
-    takes `workers/worker_x4_<colour>.png` where it is imported and the
-    neutral one where it is not, and only the neutral sheet is imported
-    so far (the colour sheets' cells are still to be pinned in
-    `BOARD_SHEETS`). Its
-    printed count wiped -- the rosy figures and their dark edge blended
-    into the box by `wiped_workers`, as a building's heart is -- and the
-    workers the player has now written in their place, "x8", in Roboto
+    brown card. The module has a worker card per colour, each its own
+    art (Red's a pirate, Green's a nymph) on the neutral card's layout;
+    `worker_face` takes `worker_colors/<colour>_x4.png`, and the
+    neutral `workers/worker_x4.png` for a colour with none. Its printed count is wiped --
+    the figures and their edge blended into the box by `wiped_workers`,
+    as a building's heart is. Each colour prints them in its own ink,
+    black to white, which no one band of colour finds on all seven, so
+    where they stand is found once, by the rosy ink on the neutral card
+    (`worker_figures`), and wiped on every colour's; the ink under them
+    is the face's own. The workers the player has now are written in
+    their place, "x8", in that ink, in Roboto
     Slab's regular weight edged dark, as tall as the print's digit and
     narrowed to fit the box (`worker_card`). It takes a cell, so the
     basic game's first row holds four cards beside it and a fifth starts

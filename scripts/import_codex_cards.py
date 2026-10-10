@@ -204,6 +204,20 @@ BOARD_SHEETS: dict[str, tuple[tuple[int, int] | None, dict[str, int | tuple[int,
         "workers/worker_x4": 11,
         "workers/worker_x5": 12,
     }),
+    # 375 by 525 a card, eight across: each colour's cards, which the
+    # database pictures, left uncut, and its two worker cards -- the
+    # neutral ones' layout in the colour's own art and ink, x4 "Player
+    # 1" then x5 "Player 2" -- at 14 and 15, or 38 and 39 on Green's
+    # (pinned 2026-10-10 from one look at each sheet). Beside workers/,
+    # which holds the catalog's two worker cards and nothing else.
+    **{
+        f"{color.title()} Card Sheet": ((8, 6), {
+            f"worker_colors/{color}_x4": first,
+            f"worker_colors/{color}_x5": first + 1,
+        })
+        for color, first in (("black", 14), ("blue", 14), ("green", 38),
+                             ("purple", 14), ("red", 14), ("white", 14))
+    },
     # Damage 1 to 9, on red; 239 by 228 a cell.
     "Damage": ((3, 3), {f"damage/{n}": n - 1 for n in range(1, 10)}),
     # A hero's level 2 to 8 and its max, on slate; 0 is the sheet's own
@@ -541,28 +555,34 @@ def cell_box(index: int, grid: tuple[int, int], size: tuple[int, int]) -> tuple[
 def cut_board_sheets() -> list[str]:
     """
     Every pinned cell, cut from the sheets under `sheets/` into
-    `codex/images/board/<folder>/`, whose old cuts go first so a renamed
-    cell leaves nothing behind. A cell with nothing see-through in it is
-    kept without its alpha channel, which a card face never uses. What
-    could not be cut.
+    `codex/images/board/<folder>/`, where a cut no cell is pinned for
+    goes, so a renamed cell leaves nothing behind. A sheet not on disk
+    -- a colour's card sheet, which is not committed (`.gitignore`) --
+    keeps the cuts already committed from it, and is a problem only
+    where one is missing. A cell with nothing see-through in it is kept
+    without its alpha channel, which a card face never uses. What could
+    not be cut.
     """
     from PIL import Image
 
     problems = []
-    folders = {
-        BOARD_IMAGE_DIR / Path(name).parent
+    pinned = {
+        BOARD_IMAGE_DIR / f"{name}.png"
         for _, cells in BOARD_SHEETS.values() if isinstance(cells, dict)
         for name in cells
-    } | {BOARD_IMAGE_DIR / Path(name).parent for name in PLAYMAT_CUTS}
-    for folder in folders:
+    } | {BOARD_IMAGE_DIR / f"{name}.png" for name in PLAYMAT_CUTS}
+    for folder in {path.parent for path in pinned}:
         for stale in folder.glob("*.png"):
-            stale.unlink()
+            if stale not in pinned:
+                stale.unlink()
     for sheet, (grid, cells) in BOARD_SHEETS.items():
         if cells == "whole":
             continue
         source = sheet_path(sheet)
         if not source.is_file():
-            problems.append(f"{sheet}: nothing at {source.relative_to(PROJECT_ROOT)} to cut from")
+            if not all((BOARD_IMAGE_DIR / f"{name}.png").is_file() for name in cells):
+                problems.append(f"{sheet}: nothing at {source.relative_to(PROJECT_ROOT)} "
+                                f"to cut from (--fetch-sheet \"{sheet}\")")
             continue
         with Image.open(source) as opened:
             image = opened.convert("RGBA")
