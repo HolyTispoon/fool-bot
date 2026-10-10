@@ -2384,6 +2384,25 @@ class DeathRulingTests(unittest.TestCase):
         self.assertEqual(match.player(2).gold, 7)
         self.assertEqual(yard.buried, [])
 
+    def test_a_unit_played_from_the_graveyard_may_be_boosted(self) -> None:
+        """The author, 2026-10-10: "yes you can boost off of graveyard
+        because the rulebook says that boost applies when you 'play' a card
+        and that's what graveyard does." """
+        engine, game, match = pb(first=2)
+        built(match, 2, "tech1")
+        yard = put(match, 2, "graveyard")
+        executioner = put(match, 2, "hooded_executioner")
+        board.destroy(engine, match, [(2, executioner.ref)], board.StepResult())
+        victim = put(match, 1, "neo_plexus")
+        match.player(2).gold = 10
+        ability(engine, game, match, "graveyard", yard.ref)
+        # One unit buried, so it is the pick; the play asks boosted or not.
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MODE_CHOICE)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="boosted")
+        self.assertTrue(any(card.slug == "hooded_executioner" for card in match.player(2).play))
+        self.assertEqual(match.player(2).gold, 10 - 2 - 3, "its cost and its boost")
+        self.assertIsNone(match.player(1).instance(victim.id), "the boost's weakest destroyed")
+
     def test_a_graveyard_with_four_units_is_sacrificed(self) -> None:
         engine, game, match = pb()
         yard = put(match, 1, "graveyard")

@@ -829,7 +829,8 @@ black's, and the rest waits for step 13.
   (the Graveyard says "play", and the boost ruling lets a played card be
   boosted): after the pick a `MODE_CHOICE` asks "play it" or "play it
   boosted", the second disabled where the unit has no boost or the gold
-  does not cover both -- put to the author in step 12's PR.
+  does not cover both (the author, 2026-10-10: "boost applies when you
+  'play' a card and that's what graveyard does").
 - **The weakest** (UMR p. 18) is `engine.weakest`: the lowest tech unit
   with the least ATK, passing over what the effect cannot take -- one
   that can't be sacrificed, or, to destroy, one that is indestructible or
@@ -891,10 +892,9 @@ black's, and the rest waits for step 13.
   sacrificed; a token Max Geiger trashes comes back like any unit;
   Yesterday's Golgort counts combat damage alone; the upkeep's effects,
   Promise of Payment's debt among them, go in the active player's order;
+  a unit played from the Graveyard may be boosted;
   Carrion Curse shows the hand even where nothing in it may be
   discarded.
-- **Built as the default and put to the author** (step 12's PR, until
-  answered): a unit played from the Graveyard may be boosted.
 
 ### The saved fields
 
