@@ -298,6 +298,7 @@ class CoreMixin:
             webp = await asyncio.to_thread(
                 render_codex, [slug for slug, _ in shown], [left for _, left in shown], cards,
                 [chosen.get(slug, 0) for slug, _ in shown],
+                self.engine.codex_row_starts(shown, view),
             )
             return picture_file(webp, "codex-tech")
         if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:

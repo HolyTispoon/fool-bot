@@ -3598,6 +3598,19 @@ class RulesEngine:
 
         return tuple(row for row in rows if shown(row[0]))
 
+    def codex_row_starts(self, rows: Sequence[tuple[str, int]],
+                         view: str) -> tuple[int, ...]:
+        """
+        Where a picture of `rows` -- a view's cards, as `codex_view_rows`
+        hands them back -- starts a new row: in the Tech II view, at each
+        new spec, so every spec is a line of its own (the author,
+        2026-10-10); in every other view, nowhere -- the cards run on.
+        """
+        if view != "tech2":
+            return ()
+        specs = [self.catalog.cards[slug].spec for slug, _ in rows]
+        return tuple(index for index in range(1, len(specs)) if specs[index] != specs[index - 1])
+
     def codex_remaining(self, match: MatchState, seat: int,
                         view: str = "everything") -> tuple[tuple[str, int], ...]:
         """

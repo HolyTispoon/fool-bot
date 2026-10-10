@@ -347,6 +347,7 @@ def main() -> None:
         rows = engine.codex_remaining(middle, 1, view)
         write(args.out / f"codex-{view}.webp", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
+            None, engine.codex_row_starts(rows, view),
         ))
     # The tech picker (`TechChoiceView`): the whole codex, the picks
     # framed and counted -- here two copies of one card.
@@ -381,6 +382,7 @@ def main() -> None:
         rows = engine.codex_remaining(standard, 1, view)
         write(args.out / f"standard-codex-{view.replace(':', '-')}.webp", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
+            None, engine.codex_row_starts(rows, view),
         ))
 
 

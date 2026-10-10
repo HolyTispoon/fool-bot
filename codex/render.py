@@ -1378,18 +1378,22 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
-                 picked: Optional[Sequence[int]] = None) -> bytes:
+                 picked: Optional[Sequence[int]] = None,
+                 row_starts: Sequence[int] = ()) -> bytes:
     """
     A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
     upload limit. `picked`, where given, is how many copies of each the
     tech choice has taken so far: such a card is framed in gold with
-    the count on a pill over its art -- the tech picker's picture. The
-    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
+    the count on a pill over its art -- the tech picker's picture.
+    `row_starts` are the cards that begin a new row (the engine's
+    `codex_row_starts`: the Tech II view's specs, a line each), the grid
+    as wide as its longest line. The same picture asked again is the
+    bytes already drawn (`RENDERED_KEPT`).
     """
     return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
-                         None if picked is None else tuple(picked))
+                         None if picked is None else tuple(picked), tuple(row_starts))
 
 
 def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
@@ -1409,10 +1413,17 @@ def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
 
 @lru_cache(maxsize=RENDERED_KEPT)
 def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
-                  cards: CardCatalog, picked: Optional[tuple[int, ...]]) -> bytes:
-    count = max(1, len(cards_in_codex))
-    columns = min(count, CODEX_COLUMNS)
-    rows = -(-count // columns)
+                  cards: CardCatalog, picked: Optional[tuple[int, ...]],
+                  row_starts: tuple[int, ...] = ()) -> bytes:
+    bounds = [0, *sorted(set(row_starts) - {0}), len(cards_in_codex)]
+    lines = [range(start, end) for start, end in zip(bounds, bounds[1:]) if end > start]
+    columns = min(CODEX_COLUMNS, max([len(line) for line in lines] or [1]))
+    places, rows = {}, 0
+    for line in lines:
+        for at, index in enumerate(line):
+            places[index] = (rows + at // columns, at % columns)
+        rows += -(-len(line) // columns)
+    rows = max(1, rows)
     gap = 14
     width = columns * (CODEX_CARD[0] + gap) + gap
     height = rows * (CODEX_CARD[1] + gap) + gap
@@ -1421,7 +1432,7 @@ def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
     if not cards_in_codex:
         text_centred(draw, (width // 2, height // 2), "Nothing here", 32)
     for index, slug in enumerate(cards_in_codex):
-        row, column = divmod(index, columns)
+        row, column = places[index]
         left = gap + column * (CODEX_CARD[0] + gap)
         top = gap + row * (CODEX_CARD[1] + gap)
         picture = codex_tile(slug, counts[index], cards)

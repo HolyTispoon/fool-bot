@@ -2558,7 +2558,11 @@ picker's too, narrows that one list, so all of them read in the same
 order; a spec's own view is its twelve in the same order. A card with
 no copies left keeps its place, faint at x0, so the grid stands still
 while a codex empties (the author: "keep this structure steady even if
-some cards are taken in the middle"). The
+some cards are taken in the middle"). The Tech II view alone puts each
+spec on a line of its own (the author, 2026-10-10): the engine's
+`codex_row_starts` says where a view's picture starts a new row --
+at each new spec in Tech II, nowhere else -- and `render_codex` lays
+each line out on its own rows, the grid as wide as its longest line. The
 Everything view of seventy-two (36 cards, two copies each) at
 `CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
 measured 495 KB as WebP, 1154 by 1538 (477 KB in the data's order; 591 KiB and 1286 by 1718 before
