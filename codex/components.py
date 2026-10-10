@@ -159,6 +159,10 @@ class HeroState:
     #: `{slug, owner, controller, id}`, returned to play when she leaves it.
     #: Empty for every other hero, and in an older save.
     trashed: list[dict] = field(default_factory=list)
+    #: The runes on the hero besides +1/+1, -1/-1 and time runes, by kind
+    #: (step 13): Garus Rook's "crumbling" from Two Lives, Grave
+    #: Stormborne's "sword". Empty in an older save.
+    runes: dict[str, int] = field(default_factory=dict)
 
     @property
     def in_play(self) -> bool:
@@ -185,6 +189,7 @@ HERO_SAVED_FIELDS = (
     SavedField("time_runes", default=0),
     SavedField("disabled", default=False),
     SavedField("trashed", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("runes", factory=dict, write=dict, read=dict),
 )
 
 
@@ -197,16 +202,22 @@ class BuildingState:
     hp: int
     under_construction: bool = True
     destroyed: bool = False
+    #: Disabled by Injunction (step 13): not operational through its
+    #: owner's next turn, and so no tech card of its level played and no
+    #: building above it constructed until then (its rulings). False in a
+    #: save older than step 13.
+    disabled: bool = False
 
     @property
     def active(self) -> bool:
-        return not self.under_construction and not self.destroyed
+        return not self.under_construction and not self.destroyed and not self.disabled
 
 
 BUILDING_SAVED_FIELDS = (
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
     SavedField("destroyed", default=False),
+    SavedField("disabled", default=False),
 )
 
 
@@ -307,6 +318,26 @@ class CardInstance:
     #: matters (step 12): Terras Q's four Warlocks shackle him alone. `None`
     #: otherwise, and in an older save.
     made_by: Optional[int] = None
+    #: The slug of the card this one is a copy of (step 13, the glossary's
+    #: Copy): Manufactured Truth's until the end of the turn, Sirus
+    #: Quince's Mirror Illusions. The engine reads the card as that one --
+    #: its type, subtype, ATK, HP, abilities and tech level -- while it
+    #: stands; its own runes, damage and arrival fatigue stay its own.
+    #: `None` otherwise, and in an older save.
+    copy_of: Optional[str] = None
+    #: The unit in a Jail (step 13): `{slug, owner, controller, boosted}`
+    #: -- played from its controller's hand, not in play, released when
+    #: the next arrives, discarded with the Jail. `None` for anything
+    #: else, and in an older save.
+    jailed: Optional[dict] = None
+    #: Oathkeeper of Kor Mountain's oath (step 13): "hand" -- no card from
+    #: the hand but workers -- or "draw", no draw/discard phase. `None`
+    #: otherwise, and in an older save.
+    oath: Optional[str] = None
+    #: Reputable Newsman's number (step 13), 0 to 20: opponents play no
+    #: spell or upgrade of that cost while he is in play. `None`
+    #: otherwise, and in an older save.
+    number: Optional[int] = None
 
     @property
     def ref(self) -> str:
@@ -339,6 +370,10 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("disabled", default=False),
     SavedField("buried", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("made_by"),
+    SavedField("copy_of"),
+    SavedField("jailed", write=_copy_optional_dict, read=_copy_optional_dict),
+    SavedField("oath"),
+    SavedField("number"),
 )
 
 
@@ -471,6 +506,18 @@ class PlayerState:
     #: upkeep, after its other effects, or the game is lost. 0 in an older
     #: save.
     debt: int = 0
+    #: Free Speech (step 13): this player is silenced -- their heroes cast
+    #: no spells and have no abilities -- until their next turn has ended.
+    #: False in an older save.
+    silenced: bool = False
+    #: The cards this player has played from their hand this turn, hires
+    #: aside (step 13): what Censorship Council counts. 0 in an older
+    #: save.
+    played_from_hand: int = 0
+    #: Whether this player has built a building this turn (step 13): what
+    #: Building Inspector's "first building each turn" reads. False in an
+    #: older save.
+    built_this_turn: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -566,6 +613,9 @@ PLAYER_SAVED_FIELDS = (
     SavedField("skip_draw", default=False),
     SavedField("promised", default=False),
     SavedField("debt", default=0),
+    SavedField("silenced", default=False),
+    SavedField("played_from_hand", default=0),
+    SavedField("built_this_turn", default=False),
 )
 
 
@@ -779,6 +829,10 @@ class MatchState:
                     fail(f"card {card.id} has time runes below zero")
             for card in player.play:
                 known(card.slug, f"{where}'s play zone")
+                if card.copy_of is not None:
+                    known(card.copy_of, f"card {card.id}'s copy")
+                if card.jailed is not None:
+                    known(card.jailed.get("slug", ""), f"card {card.id}'s jail")
                 for name in ("damage", "plus_runes", "minus_runes", "armor", "time_runes"):
                     if getattr(card, name) < 0:
                         fail(f"card {card.id} has {name} below zero")

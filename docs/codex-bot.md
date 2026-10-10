@@ -700,7 +700,7 @@ starting.
 | ~~10~~ | ~~The standard game's rules, over the red and green data~~ -- landed; what it settled is in docs/design/codex.md, "The standard game" and "The vanilla engine and `UNIMPLEMENTED`" | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
 | ~~11~~ | ~~Red and green: every card does what it says~~ -- landed; what it settled is in docs/design/codex.md, "Red and green" | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
 | ~~12~~ | ~~Purple and black~~ -- landed; what it settled is in docs/design/codex.md, "Purple and black" | large | the same for the Vortoss Conclave and the Blackhand Scourge |
-| 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
+| ~~13~~ | ~~White and blue~~ -- landed; what it settled is in docs/design/codex.md, "White and blue" | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
 | -- | Later, and not now | -- | |
 
 ### Claiming a step
@@ -2852,6 +2852,14 @@ rulebook allows.
 ```
 
 ### 13. White and blue
+
+**Landed** (2026-10-10, by the cloud routine): every white and blue
+card, hero and token does what it says, in six commits, and so every
+printed card plays and the lobby offers all twenty heroes;
+`UNIMPLEMENTED` is empty for good, the 92 rulings on the pair and the
+General rulings of its keywords are pinned, and the ratchets count every
+ruling the data holds. What it settled is in docs/design/codex.md,
+"White and blue".
 
 The Whitestar Order and the Flagstone Dominion, ninety-two cards, six
 heroes, seven tokens. White is the body and the mind: armor that moves,

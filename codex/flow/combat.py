@@ -177,6 +177,14 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             cite="UMR p. 10",
         )
     result = StepResult(board_changed=True)
+    toll = engine.attack_toll(match, defender)
+    if toll:
+        # Morningstar Pass, Setsuki Hiruki: "opponents must pay {gold:1}
+        # each time they would attack" (step 13).
+        match.player(seat).gold -= toll
+        result.narration.append(
+            f"{tokens.player(seat)} pays {tokens.gold(toll)} to attack {_fighter(match, other, defender).named()}."
+        )
     if state is None:
         match.combat = {
             "attacker": attacker,
@@ -356,7 +364,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Duck's rulings: arrives *and* attacks, no choosing).
             state["triggered"] = True
             state["stage"] = AFTER_TRIGGERS
-            resolve.push(match, *_attack_frames(match, state["attacker"]))
+            resolve.push(match, *_attack_frames(engine, match, state["attacker"]))
             if not resolve.run(engine, match, result):
                 result.next = pending(engine, game, match)
                 return result
@@ -422,20 +430,20 @@ def _defender_is_gone(match: MatchState, state: dict) -> bool:
     )
 
 
-def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
+def _attack_frames(engine: "RulesEngine", match: MatchState, attacker: str) -> list[dict]:
     """The attacker's attacks triggers, as frames to resolve: a unit's
     printed ones, and a hero's from the bands it has reached (Troq at 5)."""
     seat = match.active
     player = match.player(seat)
     if is_hero_ref(attacker):
         hero = player.hero_by_ref(attacker)
-        found = effects.triggers(hero.slug, "attacks", hero.level)
+        found = effects.triggers(hero.slug, "attacks", hero.level) if not player.silenced else ()
         by = tokens.hero(hero.slug)
         origin = hero.slug
         host = hero.slug
     else:
         card = player.instance(unit_ref(attacker))
-        found = effects.triggers(card.slug, "attacks") if "polymorph" not in (card.printed or {}) else ()
+        found = effects.triggers(engine.text_slug(card) or "", "attacks")
         by = tokens.card(card.slug)
         origin = card.slug
         host = card.id
@@ -491,6 +499,13 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             body.modifiers.append({"kind": "readied_once", "until": "end_of_turn"})
             rampaged = True
 
+    safe = 0
+    if isinstance(body, CardInstance) and engine.catalog.cards[body.slug].is_unit and engine.tech_level(body) <= 1:
+        # Safe Attacking: "+1 armor while they attack" -- each copy, lost
+        # after the attack if still there (its rulings, step 13).
+        copies = sum(1 for card in match.player(seat).play if engine.text_slug(card) in effects.SAFE_ATTACKING)
+        safe = board.armor_gain(body, copies)
+        body.armor += safe
     dealt = engine.attack_value(match, seat, attacker, against=defender)
     back = engine.damage_back(match, attacker, defender)
     excess = engine.overpower_excess(match, attacker, defender) if state["overpower"] else 0
@@ -572,12 +587,24 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 # the order the lines read.
                 hit.landed = hit.amount
                 continue
+            if (hit.target.card is not None and engine.catalog.cards[hit.target.card.slug].is_building_card
+                    and board.pass_prevents(match, hit.target.seat, hit.target.card)):
+                # Morningstar Pass prevents it (step 13).
+                hit.landed = 0
+                continue
             source = hit.source.body if hit.source is not None else None
             piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
-            hit.landed = _take(hit.target, hit.amount, piercing,
+            # Focus Master: 1 of exactly lethal damage prevented, never on a
+            # patroller whose excess overpower or Stampede carries on.
+            amount = board.focus_prevents(
+                engine, match, hit.target.body, hit.amount, piercing=piercing,
+                deathtouch=source is not None and engine.has_keyword(source, "Deathtouch", match),
+                redirected=hit.kind == "attack" and bool(excess or stampeded), result=result,
+            )
+            hit.landed = _take(hit.target, amount, piercing,
                                runes=source is not None and engine.rune_damage(match, source))
             if (
-                hit.amount > 0 and source is not None
+                amount > 0 and source is not None
                 and engine.has_keyword(source, "Deathtouch", match)
                 and not engine.is_building_ref(match, hit.target.seat, hit.target.ref)
             ):
@@ -595,6 +622,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
 
+    if safe:
+        body.armor = max(0, body.armor - safe)
     result.narration.append(_damage_line(engine, match, hitting, taking, hits[0], defence, swift_attacker))
     for hit in hits[1:]:
         if hit.kind == "sparkshot" and not hit.skipped:
@@ -624,6 +653,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     if rampaged:
         result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
+    standing = _standing(engine, match, other)
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
             board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result,
@@ -637,6 +667,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             board.golgort(engine, match, hit.source.seat, result)
     killed = any(fighter.body is taking.body for fighter in dead)
     _destroy(engine, match, dead, result, combat=True)
+    _blue_triggers(engine, match, hitting, hits, standing, result)
     _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.
@@ -653,6 +684,66 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.attacking = None
     match.combat = None
     return resolve.carry_on(engine, game, match, result)
+
+
+def _standing(engine: "RulesEngine", match: MatchState, seat: int) -> set:
+    """`seat`'s buildings standing now, but the base: what Patriot Gryphon
+    may destroy."""
+    player = match.player(seat)
+    found = {ref for ref in ("tech1", "tech2", "tech3")
+             if player.buildings.get(ref) is not None and not player.buildings[ref].destroyed}
+    if player.add_on is not None:
+        found.add("add_on")
+    found |= {card.ref for card in player.play if engine.catalog.cards[card.slug].is_building_card}
+    return found
+
+
+def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, hits: list,
+                   standing: set, result: StepResult) -> None:
+    """
+    Blue's combat damage triggers (step 13): Guardian of the Gates disables
+    a unit he dealt combat damage to -- armor's share counting (his
+    ruling); Flagstone Spy, dealing combat damage to a building, looks at
+    its player's hand and steals {gold:1}; and Patriot Gryphon, destroying
+    a building, deals his ATK to that player's base.
+    """
+    for hit in hits:
+        source = hit.source
+        if source is None or hit.skipped or hit.amount <= 0 or source.card is None:
+            continue
+        slug = engine.text_slug(source.card)
+        if not engine.texted(source.card):
+            continue
+        target = hit.target.card
+        if slug in effects.GUARDIANS and target is not None and engine.catalog.cards[target.slug].is_unit \
+                and board.still_there(match, hit.target.seat, hit.target.ref):
+            board.disable(target)
+            result.narration.append(f"{source.named()} disables {hit.target.named()}.")
+    if hitting.card is None or not engine.texted(hitting.card):
+        return
+    slug = engine.text_slug(hitting.card)
+    seat = hitting.seat
+    other = 2 if seat == 1 else 1
+    on_buildings = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0
+                    and (hit.target.is_building or hit.target.ref in standing)]
+    if slug in effects.SPIES and on_buildings:
+        taken = resolve.steal_gold(match, seat, other, effects.SPIES[slug])
+        match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn"})
+        result.narration.append(
+            f"{tokens.card(slug)} looks at {tokens.player(other)}'s hand"
+            + (f" and steals {tokens.gold(taken)}." if taken else "; they have no gold to steal.")
+        )
+    if slug in effects.BASE_ON_BUILDING_KILL and match.winner is None:
+        gone = standing - _standing(engine, match, other)
+        for _ in gone:
+            atk = engine.unit_stats(hitting.card, match)[0]
+            result.narration.append(
+                f"{tokens.card(slug)} destroyed a building: it deals {atk} to {tokens.player(other)}'s base"
+                f"{board.base_left_after(match, other, atk, by=seat)}."
+            )
+            board.damage_base(match, other, atk, result, by=seat)
+            if match.winner is not None:
+                return
 
 
 def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,

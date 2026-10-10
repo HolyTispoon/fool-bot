@@ -13,7 +13,8 @@ a transparent ground: `gold` (a gold coin -- the amount is written
 beside it), `exhaust` (the cards' ⤵, drawn, white on slate) and `target`
 (the cards' own ◎, the ring on red). Each landed hero's face --
 `troq_bashar` and `river_montoya`, and from step 10 red's and green's
-six, from step 12 purple's and black's -- is cut from its card art in codex/images/cards/ at the square
+six, from step 12 purple's and black's, from step 13 white's and
+blue's -- is cut from its card art in codex/images/cards/ at the square
 `FACES` pins. `codex.png`, the medallion,
 was cut by hand from the Screentop module's card back and is not this
 script's.
@@ -59,6 +60,13 @@ FACES = {
     "garth_torken": (190, 15, 80),
     "orpal_gloor": (213, 12, 64),
     "vandy_anadrose": (135, 25, 90),
+    # White and blue, landed at step 13.
+    "garus_rook": (165, 35, 100),
+    "grave_stormborne": (100, 45, 95),
+    "setsuki_hiruki": (135, 50, 85),
+    "bigby_hayes": (125, 0, 95),
+    "general_onimaru": (220, 65, 85),
+    "sirus_quince": (232, 15, 90),
 }
 
 

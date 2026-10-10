@@ -512,22 +512,42 @@ class Lying:
 POLYMORPHED = "squirrel"
 
 
-def rune_marks(card: CardInstance) -> tuple[str, ...]:
-    """A card's named runes as tags: "Blood 2", "Feather"."""
-    return tuple(
-        kind.title() + (f" {count}" if count > 1 or kind != "feather" else "")
-        for kind, count in sorted((card.runes or {}).items()) if count
-    )
+#: The named runes that are one alone, so a tag of their own needs no
+#: count: a feather, a crumbling rune (step 13).
+SINGLE_RUNES = ("feather", "crumbling")
 
 
-def unit_lying(card: CardInstance, partnered: bool) -> Lying:
+def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[str, ...]:
+    """A card's or a hero's named runes as tags -- "Blood 2", "Feather",
+    "Crumbling", "Sword 1" -- and, on a card (step 13), what else it
+    carries: "Copy: Fox Viper", "Jail: Iron Man", "Number 3", "Oath: no
+    draw"."""
+    found = [
+        kind.title() + (f" {count}" if count > 1 or kind not in SINGLE_RUNES else "")
+        for kind, count in sorted((getattr(card, "runes", None) or {}).items()) if count
+    ]
+    if not isinstance(card, CardInstance):
+        return tuple(found)
+    name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
+    if card.copy_of:
+        found.append(f"Copy: {name(card.copy_of)}")
+    if card.jailed:
+        found.append(f"Jail: {name(card.jailed['slug'])}")
+    if card.number is not None:
+        found.append(f"Number {card.number}")
+    if card.oath:
+        found.append({"hand": "Oath: workers only", "draw": "Oath: no draw"}.get(card.oath, card.oath))
+    return tuple(found)
+
+
+def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
     Squirrel has it (step 11)."""
     slug = POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
     return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
-                 marks=rune_marks(card), time_runes=card.time_runes,
+                 marks=rune_marks(card, cards), time_runes=card.time_runes,
                  disabled=card.disabled, buried=len(card.buried or ()))
 
 
@@ -541,7 +561,7 @@ def hero_lying(hero: HeroState, cards: CardCatalog) -> Lying:
     return Lying(hero.slug, level=level_chit(hero, cards), damage=hero.damage,
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
-                 time_runes=hero.time_runes, disabled=hero.disabled)
+                 time_runes=hero.time_runes, disabled=hero.disabled, marks=rune_marks(hero))
 
 
 def card_face(slug: str, cards: CardCatalog, size: tuple[int, int] = CARD) -> Image.Image:
@@ -861,7 +881,7 @@ def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
-    units = [lying_card(unit_lying(card, card.id in partners), cards) for card in lying]
+    units = [lying_card(unit_lying(card, card.id in partners, cards), cards) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return plates + field + units + future
 
@@ -915,7 +935,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             lying = hero_lying(player.hero_by_ref(ref), cards)
         else:
             instance_id = int(ref.split(":", 1)[1])
-            lying = unit_lying(match.instance(instance_id), instance_id in partners)
+            lying = unit_lying(match.instance(instance_id), instance_id in partners, cards)
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards),

@@ -136,12 +136,29 @@ def take_damage(body, amount: int, piercing: bool = False) -> int:
     return landed
 
 
+def pass_prevents(match: MatchState, seat: int, target) -> bool:
+    """
+    Morningstar Pass: "Prevent all damage that would be dealt to your other
+    buildings." -- `seat`'s base, tech buildings, add-on and building cards
+    but the Pass itself, while it is in play with its text (step 13).
+    `target` is a ref or a card in play.
+    """
+    ref = target.ref if isinstance(target, CardInstance) else target
+    return any(
+        card.slug in effects.PASSES and "polymorph" not in (card.printed or {}) and card.ref != ref
+        for card in match.player(seat).play
+    )
+
+
 def damage_building(match: MatchState, seat: int, ref: str, amount: int,
                     result: StepResult, by: Optional[int] = None) -> None:
     """Damage onto a building: the base (at 0 the game ends), a tech
     building or the add-on, a destroyed one dealing its 2 to its base
-    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor."""
+    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor. None of
+    it where Morningstar Pass prevents it (step 13)."""
     player = match.player(seat)
+    if pass_prevents(match, seat, ref):
+        return
     if ref == "base":
         damage_base(match, seat, amount, result, by=by)
         return
@@ -197,6 +214,8 @@ def left_after(engine: "RulesEngine", match: MatchState, seat: int, ref: str,
     destroys it -- the next line says so (the author, 2026-10-10)."""
     if ref == "base":
         return base_left_after(match, seat, amount, by=by)
+    if pass_prevents(match, seat, ref):
+        return _PREVENTED
     left = max(0, building_hp(match, seat, ref) - amount)
     return _now_at(left, building_max_hp(engine, match, seat, ref))
 
@@ -208,6 +227,8 @@ def base_left_after(match: MatchState, seat: int, amount: int,
     damage), what the floor leaves (step 12)."""
     from codex.flow.turn import base_floor
 
+    if pass_prevents(match, seat, "base"):
+        return _PREVENTED
     left = max(0, match.player(seat).base_hp - amount)
     floor = base_floor(match, seat, by)
     if floor is not None:
@@ -223,6 +244,10 @@ def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str
     card = body_of(match, seat, ref)
     most = engine.body_stats(match, card)[1]
     return _now_at(most - card.damage, most)
+
+
+#: What a damage line says where Morningstar Pass prevents the damage.
+_PREVENTED = f", which {tokens.card('morningstar_pass')} prevents"
 
 
 def _now_at(left: int, most: int) -> str:
@@ -307,10 +332,14 @@ def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
 
 def _empty_graveyard(match: MatchState, card: CardInstance) -> None:
     """A Graveyard leaving play discards what is buried in it, each to its
-    owner's discard pile."""
+    owner's discard pile -- and a Jail the unit it holds (step 13: "They're
+    discarded if Jail is destroyed")."""
     for buried in card.buried:
         match.player(buried["owner"]).discard.append(buried["slug"])
     card.buried = []
+    if card.jailed is not None:
+        match.player(card.jailed["owner"]).discard.append(card.jailed["slug"])
+        card.jailed = None
 
 
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
@@ -355,6 +384,7 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
     hero.bands = {}
     hero.time_runes = 0
     hero.disabled = False
+    hero.runes = {}
     hero.max_level_since_turn_began = False
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
     match.record_event("hero_died", slug=hero.slug, owner=seat)
@@ -385,6 +415,7 @@ def to_command_zone(engine: "RulesEngine", match: MatchState, seat: int, hero: H
     hero.bands = {}
     hero.time_runes = 0
     hero.disabled = False
+    hero.runes = {}
     hero.max_level_since_turn_began = False
     match.record_event("hero_returned", slug=hero.slug, owner=seat)
     hero_left(engine, match, seat, hero, result)
@@ -434,6 +465,10 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     for seat, ref in things:
         if is_hero_ref(ref):
             hero = match.player(seat).hero_by_ref(ref)
+            if hero is not None and hero.in_play and not forced and two_lives_saves(
+                engine, match, hero, result,
+            ):
+                continue
             if hero is not None and hero.in_play:
                 _destroy_hero(engine, match, seat, hero, result, by)
                 heroes.append(seat)
@@ -447,6 +482,19 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
         if card is not None and not forced and engine.catalog.cards[card.slug].is_unit and \
                 soul_stone_saves(engine, match, card, result):
             continue
+        if card is not None and combat and not forced and engine.text_slug(card) in effects.BRAVE \
+                and engine.texted(card):
+            # Brave Knight: "Whenever Brave Knight would die from combat
+            # damage, return him to his owner's hand instead." (step 13)
+            line = f"{named(match, seat, card.ref)} returns to {tokens.player(card.owner)}'s hand instead."
+            leave_play(engine, match, card, "hand")
+            match.record_event("returned", slug=card.slug, owner=card.owner)
+            result.narration.append(line)
+            continue
+        if card is not None and not forced and two_lives_saves(engine, match, card, result):
+            # Two Lives: it doesn't actually die, so nothing that triggers
+            # on "dies" happens (its rulings).
+            continue
         if card is not None and not forced and engine.indestructible(match, card):
             # Indestructible: it doesn't leave play -- exhausted, its
             # damage and attachments gone, its runes kept (UMR p. 17).
@@ -456,7 +504,7 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             _destroy_unit(engine, match, seat, card, result, by)
             if engine.catalog.cards[card.slug].is_unit:
                 dead_units.append(card)
-    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat)
+    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat, result=result)
     if not combat:
         second_chances(engine, match, dead_units, result)
     for seat in heroes:
@@ -545,6 +593,10 @@ def max_level_reached(engine: "RulesEngine", match: MatchState, seat: int, hero:
     if mark is None:
         return
     hero.modifiers.remove(mark)
+    if match.player(seat).silenced:
+        # Silenced: its max level text is an ability it does not have
+        # (Free Speech, step 13).
+        return
     for effect in effects.triggers(hero.slug, "max_level", hero.level):
         asks = any(part.choose is not None for part in effects.EFFECTS[effect].parts)
         if asks and seat != match.active:
@@ -598,11 +650,15 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
         return
     if engine.catalog.cards[card.slug].is_unit and soul_stone_saves(engine, match, card, result):
         return
+    if two_lives_saves(engine, match, card, result):
+        # Sacrificed without a crumbling rune, it takes the rune instead;
+        # what the sacrifice paid for still happens (step 13).
+        return
     witnesses = _witnesses(engine, match)
     leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
     if engine.catalog.cards[card.slug].is_unit:
-        _deaths(engine, match, [card], [], witnesses)
+        _deaths(engine, match, [card], [], witnesses, result=result)
         second_chances(engine, match, [card], result)
 
 
@@ -614,22 +670,30 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     Captured Bugblatter that dies with the others still counts them, and
     itself (its ruling), and Pirategang Commander's units that die with
     it still had its "Dies:"."""
-    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}}
+    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}, "retellers": {}, "insurers": []}
     for player in match.players:
         for card in player.play:
-            if not engine.texted(card):
+            slug = engine.text_slug(card)
+            if slug is None:
                 continue
-            if card.slug in effects.SKELETON_ON_DEATH:
+            if slug in effects.SKELETON_ON_DEATH:
                 found["necromancers"].setdefault(player.seat, []).append(card.id)
-            if card.slug in effects.ON_ANY_DEATH:
-                found["bugblatters"].append((player.seat, card.slug))
-            if card.slug in effects.GRANTS_DIES:
-                found["pirategang"][player.seat] = card.slug
+            if slug in effects.ON_ANY_DEATH:
+                found["bugblatters"].append((player.seat, slug))
+            if slug in effects.GRANTS_DIES:
+                found["pirategang"][player.seat] = slug
+            if slug in effects.RETELLERS:
+                found["retellers"][player.seat] = found["retellers"].get(player.seat, 0) + 1
+            if slug in effects.INSURERS and engine.texted(card):
+                # Insurance Agent: the unit he insured, his alone (step 13).
+                found["insurers"] += [(player.seat, m["id"]) for m in card.modifiers
+                                      if m.get("kind") == "insures"]
     return found
 
 
 def _deaths(engine: "RulesEngine", match: MatchState, units: list,
-            heroes: list, witnesses: dict, combat: bool = False) -> None:
+            heroes: list, witnesses: dict, combat: bool = False,
+            result: Optional[StepResult] = None) -> None:
     """
     The triggers a death sets off, each a frame onto the stack -- which
     whoever destroyed or sacrificed them runs -- or, where nothing is
@@ -691,6 +755,14 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        for insurer, insured in witnesses["insurers"]:
+            if insured == card.id:
+                _pay_insurance(engine, match, insurer, card, result)
+        if engine.text_slug(card) in effects.TWINS and not is_token(engine, card.slug):
+            _twin_home(engine, match, card, result)
+        if witnesses["retellers"].get(seat) and not is_token(engine, card.slug) \
+                and engine.is_illusion(match, card):
+            _retell(engine, match, seat, card, witnesses["retellers"][seat], result)
         if any(lasting.get("kind") == effects.DEATH_RITES
                for lasting in match.player(seat).lasting):
             # Death Rites: "Whenever one of your units dies this turn,
@@ -700,9 +772,67 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 origin=effects.DEATH_RITES,
             ))
     for seat, hero in heroes:
+        if match.player(seat).silenced:
+            continue
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
+
+
+def _pay_insurance(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
+                   result: Optional[StepResult]) -> None:
+    """Insurance Agent: "gain gold equal to its gold cost and draw a card"
+    -- a token's cost 0 (step 13)."""
+    cost = 0 if is_token(engine, card.slug) and not card.copy_of else (engine.card_of(card).cost or 0)
+    gained = gain_gold(match, seat, cost)
+    drawn = draw_cards(engine, match, seat, 1, result) if result is not None else 0
+    if result is not None:
+        result.narration.append(
+            f"{tokens.card('insurance_agent')} pays out on {tokens.card(card.slug)}: {tokens.player(seat)} "
+            f"gains {tokens.gold(gained)}" + (" and draws a card." if drawn else ".")
+        )
+
+
+def _twin_home(engine: "RulesEngine", match: MatchState, card: CardInstance,
+               result: Optional[StepResult]) -> None:
+    """Rambasa Twin: "The first time a Rambasa Twin dies each turn, return
+    him to his owner's codex." -- from wherever his death put him (step 13)."""
+    owner = match.player(card.owner)
+    if any(entry.get("kind") == "twin_home" for entry in owner.lasting):
+        return
+    owner.lasting.append({"kind": "twin_home", "until": "end_of_turn"})
+    _take_back(engine, match, card)
+    owner.codex[card.slug] = owner.codex.get(card.slug, 0) + 1
+    match.record_event("to_codex", slug=card.slug, owner=card.owner)
+    if result is not None:
+        result.narration.append(f"{tokens.card(card.slug)} returns to {tokens.player(card.owner)}'s codex.")
+
+
+def _retell(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
+            retellers: int, result: Optional[StepResult]) -> None:
+    """
+    Reteller of Truths: "The first two times each turn one of your
+    non-token Illusion units dies (including this one), return it to its
+    owner's hand." -- it really died, so what triggers on a death has
+    triggered (its ruling); then it goes from where it went to its
+    owner's hand, two a turn for each Reteller that saw it die.
+    """
+    player = match.player(seat)
+    count = next((entry for entry in player.lasting if entry.get("kind") == "retold"), None)
+    if count is None:
+        count = {"kind": "retold", "count": 0, "until": "end_of_turn"}
+        player.lasting.append(count)
+    if count["count"] >= effects.RETELLER_LIMIT * retellers:
+        return
+    count["count"] += 1
+    _take_back(engine, match, card)
+    match.player(card.owner).hand.append(card.slug)
+    match.record_event("retold", slug=card.slug, owner=card.owner)
+    if result is not None:
+        result.narration.append(
+            f"{tokens.card('reteller_of_truths')} returns {tokens.card(card.slug)} to "
+            f"{tokens.player(card.owner)}'s hand."
+        )
 
 
 def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
@@ -710,6 +840,8 @@ def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
     has not been spent -- spending it."""
     slug, level = effects.ORPAL_MAX
     for player in match.players:
+        if player.silenced:
+            continue
         for hero in player.heroes_in_play:
             if hero.slug == slug and hero.level >= level:
                 if any(m.get("kind") == "once" and m.get("effect") == "orpal_gloor_max"
@@ -774,6 +906,27 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
         lasting_armor(match, card)
         if from_hand:
             _first_from_hand(engine, match, seat, card)
+        _quince_sees(engine, match, seat, card)
+
+
+def _quince_sees(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance) -> None:
+    """Quince at 5: "Whenever a non-token unit of yours arrives, you may make
+    one of your Mirrors an Illusion copy of it." -- asked where a Mirror
+    that copies nothing is there to be made one (step 13)."""
+    from codex.flow import resolve
+
+    player = match.player(seat)
+    if is_token(engine, card.slug) or player.silenced:
+        return
+    quince = player.hero_of(effects.QUINCE)
+    if quince is None or not quince.in_play or quince.level < engine.hero_card(quince).max_level:
+        return
+    if not any(one.slug == effects.MIRROR and one.copy_of is None for one in player.play):
+        return
+    one = resolve.frame("sirus_quince_max", seat, tokens.hero(effects.QUINCE),
+                        source=hero_ref(effects.QUINCE), origin=effects.QUINCE)
+    one["original"] = card.id
+    resolve.push(match, one)
 
 
 def _first_from_hand(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance) -> None:
@@ -789,7 +942,8 @@ def _first_from_hand(engine: "RulesEngine", match: MatchState, seat: int, card: 
         return
     player.arrived_from_hand = True
     slug, level = effects.FIRST_FROM_HAND_HASTE
-    if any(hero.slug == slug and hero.level >= level for hero in player.heroes_in_play):
+    if not player.silenced and any(hero.slug == slug and hero.level >= level
+                                   for hero in player.heroes_in_play):
         card.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": None})
 
 
@@ -802,6 +956,11 @@ def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: Hero
     if fading:
         # Prynn Pasternaak's fading 4: she arrives with four time runes.
         hero.time_runes = fading
+    if match.player(seat).silenced:
+        # A hero summoned while its player is silenced arrives with no
+        # abilities (Free Speech's ruling).
+        _grow_on_arrival(match, seat, hero)
+        return
     resolve.push(match, *(
         resolve.frame(effect, seat, tokens.hero(hero.slug), source=hero_ref(hero.slug),
                       origin=hero.slug)
@@ -1063,6 +1222,31 @@ def _spareable(match: MatchState, card: CardInstance) -> bool:
     return bool(card.damage) or attached or not card.exhausted
 
 
+def two_lives_saves(engine: "RulesEngine", match: MatchState, body,
+                    result: Optional[StepResult]) -> bool:
+    """
+    Two Lives (Garus Rook at 8, Justice Juggernaut): "If this would die,
+    heal all damage on it and put a crumbling rune on it instead. While it
+    has a crumbling rune, it can really die." -- it does not die, so
+    nothing that triggers on "dies" happens, the technician's card among
+    them (its rulings). Whether Two Lives saved it.
+    """
+    if not engine.has_keyword(body, effects.TWO_LIVES, match):
+        return False
+    if body.runes.get(effects.CRUMBLING):
+        return False
+    body.runes[effects.CRUMBLING] = 1
+    body.damage = 0
+    if result is not None:
+        seat = engine.seat_of(match, body)
+        ref = hero_ref(body.slug) if isinstance(body, HeroState) else body.ref
+        result.narration.append(
+            f"{named(match, seat, ref)} would die: Two Lives heals it and puts a crumbling "
+            "rune on it instead."
+        )
+    return True
+
+
 def soul_stone_saves(engine: "RulesEngine", match: MatchState, card: CardInstance,
                      result: Optional[StepResult]) -> bool:
     """
@@ -1280,10 +1464,53 @@ def lethal(engine: "RulesEngine", match: MatchState, body) -> bool:
 _lethal = lethal
 
 
+def armor_gain(body, amount: int) -> int:
+    """What `amount` armor gained is for `body`: double for a Doubling
+    Barbarbarian with his text (his rulings, step 13)."""
+    if (isinstance(body, CardInstance) and (body.copy_of or body.slug) in effects.DOUBLERS
+            and "polymorph" not in (body.printed or {})):
+        return amount * 2
+    return amount
+
+
+def focus_prevents(engine: "RulesEngine", match: MatchState, body, amount: int, *,
+                   piercing: bool = False, deathtouch: bool = False,
+                   redirected: bool = False, result: Optional[StepResult] = None) -> int:
+    """
+    Focus Master: "Whenever a friendly unit or hero would take exactly
+    lethal damage, remove a focus rune to prevent 1 damage." -- exactly
+    what destroys it after armor, a deathtouch damage of one counting and
+    more not, and never a patroller whose excess overpower or Stampede
+    carries on (its rulings, the Card FAQ). The damage left to deal.
+    """
+    if amount <= 0 or redirected:
+        return amount
+    seat = engine.seat_of(match, body)
+    if seat is None:
+        return amount
+    master = next((card for card in match.player(seat).play
+                   if engine.text_slug(card) in effects.FOCUS_MASTERS and card.runes.get(effects.FOCUS)), None)
+    if master is None:
+        return amount
+    landed = amount if piercing else max(0, amount - body.armor)
+    left = engine.body_stats(match, body)[1] - body.damage
+    exact = landed == 1 if deathtouch else (landed > 0 and landed == left)
+    if not exact:
+        return amount
+    master.runes[effects.FOCUS] -= 1
+    if result is not None:
+        ref = hero_ref(body.slug) if isinstance(body, HeroState) else body.ref
+        result.narration.append(
+            f"{tokens.card(master.slug)} spends a focus rune: 1 damage to {named(match, seat, ref)} is prevented."
+        )
+    return amount - 1
+
+
 def grant_armor(body, amount: int) -> None:
     """Temporary armor (Rampant Growth, Dinosize, Stampede, Argagarg):
     onto the body's armor now, and taken off what is left at the end of
-    the turn (UMR p. 16)."""
+    the turn (UMR p. 16) -- doubled for a Doubling Barbarbarian (step 13)."""
+    amount = armor_gain(body, amount)
     body.armor += amount
     body.modifiers.append({"kind": "armor", "amount": amount, "until": "end_of_turn"})
 
@@ -1299,7 +1526,7 @@ def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Opti
     if killer is None or slot is None:
         return
     hero = match.player(seat).hero_of(killer)
-    if hero is None:
+    if hero is None or match.player(seat).silenced:
         return
     for (slug, level), bonuses in effects.KILL_BONUSES.items():
         if slug != killer or hero.level < level:
@@ -1361,6 +1588,27 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
             )
             destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause, forced=True)
             continue
+        held = _mind_control_moves(match, result)
+        if held:
+            continue
+        copy = next((card for player in match.players for card in player.play
+                     if _quince_copy_orphaned(engine, match, card)), None)
+        if copy is not None:
+            # Quince at 5: "Trash that token when Quince or its original
+            # leaves." (step 13)
+            result.narration.append(f"{named(match, copy.controller, copy.ref)}, Quince's copy, is trashed.")
+            match.player(copy.controller).play.remove(copy)
+            match.record_event("trashed", slug=copy.slug, owner=copy.owner)
+            continue
+        orphan = next((card for player in match.players for card in player.play
+                       if card.slug == effects.DAIGO and card.made_by is not None
+                       and match.instance(card.made_by) is None), None)
+        if orphan is not None:
+            # Hero's Monument: "Trash him when this leaves play." (step 13)
+            result.narration.append(f"{named(match, orphan.controller, orphan.ref)} is trashed with its Monument.")
+            match.player(orphan.controller).play.remove(orphan)
+            match.record_event("trashed", slug=orphan.slug, owner=orphan.owner)
+            continue
         mox = next((card for player in match.players for card in player.play
                     if engine.text_slug(card) in effects.TRASHED_BY_TECH_II
                     and _has_tech_ii_unit(engine, match.player(card.controller))), None)
@@ -1393,6 +1641,44 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         line = f"{named(match, card.controller, card.ref)} is sacrificed: {why}."
         sacrifice(engine, match, card)
         result.narration.append(line)
+
+
+def _mind_control_moves(match: MatchState, result: StepResult) -> bool:
+    """
+    Mind Control's unit under whoever controls the spell -- Assimilate's
+    ruling: take the spell and you control the unit -- and back to whoever
+    had it before once the spell has left play. Whether anything moved.
+    """
+    for player in match.players:
+        for card in list(player.play):
+            held = next((m for m in card.modifiers if m.get("kind") == "mind_controlled"), None)
+            if held is None:
+                continue
+            spell = next((one for side in match.players for one in side.play
+                          if one.slug == effects.MIND_CONTROL and card.id in one.attached), None)
+            if spell is None:
+                card.modifiers.remove(held)
+                if gain_control(match, card, held["before"]):
+                    result.narration.append(
+                        f"{tokens.card(card.slug)} goes back to {tokens.player(held['before'])}'s control."
+                    )
+                return True
+            if spell.controller != card.controller:
+                gain_control(match, card, spell.controller)
+                result.narration.append(
+                    f"{tokens.player(spell.controller)} controls {tokens.card(card.slug)} with "
+                    f"{tokens.card(effects.MIND_CONTROL)}."
+                )
+                return True
+    return False
+
+
+def _quince_copy_orphaned(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
+    mark = next((m for m in card.modifiers if m.get("kind") == effects.QUINCE_COPY), None)
+    if mark is None:
+        return False
+    quince = match.player(card.controller).hero_of(effects.QUINCE)
+    return quince is None or not quince.in_play or match.instance(mark["original"]) is None
 
 
 def _legendary_twin(engine: "RulesEngine", match: MatchState) -> Optional[CardInstance]:

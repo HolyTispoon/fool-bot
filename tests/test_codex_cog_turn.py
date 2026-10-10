@@ -1270,6 +1270,71 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("Something went wrong", text)
 
 
+class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
+    """Eyes of the Chancellor (step 13): "Opponents play with their hands
+    revealed" -- the opponent's hand pictured under the Eyes' controller's
+    own, in My hand and /codex hand, to them alone; the hand's owner sees
+    nothing new, and the channel hears none of it."""
+
+    WHITE = ("discipline", "ninjutsu", "strength")
+    BLUE = ("law", "peace", "truth")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.WHITE, self.BLUE))
+
+    async def test_the_reveal_reaches_the_eyes_controller_alone(self) -> None:
+        match = self.table.match
+        match.active = 1
+        put(match, 2, "eyes_of_the_chancellor")
+        match.player(1).hand = ["smoker", "snapback", "grappling_hook"]
+        self.table.cog.service.persist(self.game, match)
+        mark = len(self.table.game_channel.requests)
+        # Blue's My hand, the waiting player's: their own hand, and white's.
+        call = await self.table.turn_button("hand", self.table.seated(2))
+        _, args, kwargs = call.last()
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertEqual([item.filename.split("-")[1] for item in kwargs["files"]], ["hand", "revealed"])
+        self.assertIn("revealed by Eyes of the Chancellor: 3 cards", args[0])
+        # White's own panel shows nothing of blue's hand.
+        call = await self.table.turn_button("hand", self.table.seated(1))
+        for _, _, sent in call.answers:
+            for item in sent.get("files") or ([sent["file"]] if "file" in sent else []):
+                self.assertFalse(item.filename.startswith("codex-revealed"), item.filename)
+        channel = [sent.get("content") or "" for _, _, sent in self.table.game_channel.requests[mark:]]
+        for text in channel:
+            for name in ("Smoker", "Snapback", "Grappling Hook"):
+                self.assertNotIn(name, text)
+
+    async def test_the_panel_of_the_eyes_controller_shows_both_hands(self) -> None:
+        match = self.table.match
+        put(match, match.active, "eyes_of_the_chancellor")
+        other = 2 if match.active == 1 else 1
+        match.player(other).hand = ["smoker", "snapback"]
+        self.table.cog.service.persist(self.game, match)
+        call, view = await self.table.panel()
+        files = call.last()[2]["files"]
+        self.assertEqual(len(files), 2)
+        self.assertTrue(files[1].filename.startswith("codex-revealed-hand"))
+        self.assertIn("revealed by Eyes of the Chancellor: 2 cards", call.last()[1][0])
+
+    async def test_a_stash_is_kept_through_the_panel(self) -> None:
+        match = self.table.match
+        match.active = 2
+        hero_in_play(match, 2, slug="bigby_hayes")
+        match.player(2).hand = ["arrest", "jail"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel(self.table.seated(2))
+        view = (await self.table.press(view, "End main phase")).view()
+        call = await self.table.press(view, "Lock patrol")
+        stash = call.view()
+        self.assertIs(stash.prompt.kind, PromptKind.STASH)
+        call = await self.table.press(stash, ("stash", "jail"))
+        self.assertIn("jail", self.table.match.player(2).hand)
+        self.assertEqual(len(self.table.match.player(2).hand), 4)
+
+
 class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
     """A standard game through the panel (step 10): the heroes on the actions row, one
     button per hero, and Build Tech II turning the panel into the spec

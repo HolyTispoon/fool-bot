@@ -992,12 +992,12 @@ SPEC_HEROES = {
 }
 
 
-def _spells(*, ultimate: bool):
+def _spells(*, ultimate: bool, colours=None):
     from codex import effects
     from codex.cards import catalog
 
     cards = catalog()
-    for slug in sorted(effects.PURPLE | effects.BLACK):
+    for slug in sorted(colours if colours is not None else effects.PURPLE | effects.BLACK):
         card = cards.by_slug(slug)
         kind = str(getattr(card, "type", ""))
         if "Spell" in kind and card.spec and ("Ultimate" in kind) == ultimate:
@@ -1170,3 +1170,313 @@ class BlackSpellTests(unittest.TestCase):
         self.cast("death_and_decay")
         self.assertFalse(any(card.slug == "neo_plexus" for card in self.match.player(1).play))
         self.assertEqual(self.match.player(1).base_hp, before - 3)
+
+
+# -- White and blue (step 13) ---------------------------------------------------
+
+#: The hero each white and blue spec's spells ask for, and the seat that
+#: side sits in under `wb`.
+WB_SPEC_HEROES = {
+    "Discipline": (1, "grave_stormborne"), "Ninjutsu": (1, "setsuki_hiruki"),
+    "Strength": (1, "garus_rook"), "Law": (2, "bigby_hayes"), "Peace": (2, "general_onimaru"),
+    "Truth": (2, "sirus_quince"),
+}
+
+
+def _wb_spells(*, ultimate: bool):
+    from codex import effects
+
+    return _spells(ultimate=ultimate, colours=effects.WHITE | effects.BLUE)
+
+
+class WhiteAndBlueRefusalTests(unittest.TestCase):
+    """Each white and blue spell refused where the UMR refuses it (p. 7),
+    as purple's and black's are."""
+
+    def test_a_spec_spell_needs_its_specs_hero(self) -> None:
+        from test_codex_card_rulings import wb
+
+        for slug, spec in _wb_spells(ultimate=False):
+            with self.subTest(spell=slug):
+                seat, wanted = WB_SPEC_HEROES[spec]
+                engine, game, match = wb(first=seat)
+                other = next(h.slug for h in match.player(seat).heroes if h.slug != wanted)
+                hero_in_play(match, seat, slug=other)
+                hand(match, seat, slug)
+                match.player(seat).gold = 20
+                self.assertIn(f"{spec} hero", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+    def test_an_ultimate_waits_for_its_hero_at_the_maximum(self) -> None:
+        from test_codex_card_rulings import wb
+
+        for slug, spec in _wb_spells(ultimate=True):
+            with self.subTest(spell=slug):
+                seat, wanted = WB_SPEC_HEROES[spec]
+                engine, game, match = wb(first=seat)
+                hero_in_play(match, seat, slug=wanted, level=3)
+                hand(match, seat, slug)
+                match.player(seat).gold = 20
+                self.assertIn("maximum level", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+    def test_a_minor_spell_needs_a_hero_in_play(self) -> None:
+        from test_codex_card_rulings import wb
+
+        for slug in ("arrest", "grappling_hook", "lawful_search", "manufactured_truth",
+                     "senseis_advice", "snapback"):
+            with self.subTest(spell=slug):
+                engine, game, match = wb()
+                hand(match, 1, slug)
+                match.player(1).gold = 20
+                self.assertIn("needs a hero in play", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+    def test_judgment_day_needs_its_law_hero_at_the_maximum_now(self) -> None:
+        from test_codex_card_rulings import wb
+
+        engine, game, match = wb(first=2)
+        hero_in_play(match, 2, slug="bigby_hayes", level=4)
+        hand(match, 2, "judgment_day")
+        match.player(2).gold = 20
+        refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="judgment_day")
+        match.player(2).hero_of("bigby_hayes").level = 5
+        self.assertEqual(why(engine, match, "judgment_day"), "")
+
+
+class WhiteSpellTests(unittest.TestCase):
+    """Each white spell's happy path (step 13)."""
+
+    def setUp(self) -> None:
+        from test_codex_card_rulings import wb
+
+        self.engine, self.game, self.match = wb()
+        for spec in ("Discipline", "Ninjutsu", "Strength"):
+            hero_in_play(self.match, 1, slug=WB_SPEC_HEROES[spec][1])
+        self.match.player(1).deck = ["tenderfoot"] * 10
+
+    def cast(self, slug, *targets) -> None:
+        cast(self.engine, self.game, self.match, slug, *targets)
+
+    def max_level(self, slug: str) -> None:
+        from test_codex_card_rulings import at_max
+
+        at_max(self.engine, self.match, 1, slug)
+
+    def done(self) -> None:
+        prompt = asked(self.engine, self.game, self.match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(self.engine, self.game, self.match, PromptKind.TARGET, "done")
+
+    def test_birds_nest_summons_two_birds(self) -> None:
+        self.cast("birds_nest")
+        self.assertEqual(sum(card.slug == "bird" for card in self.match.player(1).play), 2)
+        self.assertTrue(any(card.slug == "birds_nest" for card in self.match.player(1).play))
+
+    def test_earthquake_shakes_every_building(self) -> None:
+        self.max_level("garus_rook")
+        built(self.match, 2, "tech1", hp=3)
+        base = self.match.player(2).base_hp
+        self.cast("earthquake")
+        self.assertEqual(self.match.player(2).buildings["tech1"].hp, 0)
+        self.assertEqual(self.match.player(2).base_hp, base - 2)
+
+    def test_entangling_vines_sideline_and_hold_a_patroller(self) -> None:
+        unit = put(self.match, 2, "scribe", patrol="elite")
+        self.cast("entangling_vines")
+        self.assertIsNone(unit.patrol_slot)
+        self.assertTrue(self.engine.entangled(self.match, unit))
+
+    def test_foxs_den_students_summon_four_hasty_ninjas(self) -> None:
+        self.max_level("setsuki_hiruki")
+        self.cast("foxs_den_students")
+        ninjas = [card for card in self.match.player(1).play if card.slug == "ninja"]
+        self.assertEqual(len(ninjas), 4)
+        self.assertTrue(self.engine.has_keyword(ninjas[0], "Haste", self.match))
+
+    def test_grappling_hook_pulls_a_patroller(self) -> None:
+        unit = put(self.match, 2, "scribe", patrol="squad_leader")
+        self.cast("grappling_hook")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target="2:slot:technician")
+        self.assertEqual(unit.patrol_slot, "technician")
+
+    def test_hidden_ninja_hides(self) -> None:
+        unit = put(self.match, 1, "tenderfoot")
+        self.cast("hidden_ninja", f"1:{unit.ref}")
+        self.done()
+        self.assertTrue(self.engine.has_keyword(unit, "Stealth", self.match))
+
+    def test_martial_mastery_discards_draws_and_looks(self) -> None:
+        hand(self.match, 1, "martial_mastery", "scribe")
+        self.match.player(1).gold = 5
+        apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "play", slug="martial_mastery")
+        self.done()
+        self.assertEqual(self.match.player(1).hand, ["tenderfoot", "tenderfoot"])
+
+    def test_reversal_damages_and_disables(self) -> None:
+        unit = put(self.match, 2, "iron_man", patrol="elite")
+        self.cast("reversal")
+        self.assertEqual(unit.damage, 3)
+        self.assertTrue(unit.disabled)
+        self.assertIsNone(unit.patrol_slot)
+
+    def test_senseis_advice_buffs_two(self) -> None:
+        one, two = put(self.match, 1, "tenderfoot"), put(self.match, 1, "tiger_cub")
+        self.cast("senseis_advice", f"1:{one.ref}", f"1:{two.ref}")
+        self.assertEqual((one.armor, two.armor), (1, 1))
+
+    def test_shuriken_hail_hits_every_patroller(self) -> None:
+        theirs = put(self.match, 2, "scribe", patrol="elite")
+        self.cast("shuriken_hail")
+        self.assertEqual(theirs.damage, 1)
+
+    def test_snapback_swaps_an_opposing_hero(self) -> None:
+        hero_in_play(self.match, 2, slug="bigby_hayes", level=3)
+        self.cast("snapback")
+        prompt = asked(self.engine, self.game, self.match)
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target=prompt.options.targets[0].key)
+        self.assertFalse(self.match.player(2).hero_of("bigby_hayes").in_play)
+        self.assertEqual(len(self.match.player(2).heroes_in_play), 1)
+
+    def test_speed_of_the_fox_quickens_setsuki(self) -> None:
+        self.cast("speed_of_the_fox")
+        setsuki = self.match.player(1).hero_of("setsuki_hiruki")
+        self.assertTrue(self.engine.has_keyword(setsuki, "Readiness", self.match))
+
+    def test_thunderclap_sidelines_cheap_ground_units(self) -> None:
+        unit = put(self.match, 2, "tenderfoot", patrol="elite")
+        self.cast("thunderclap", f"2:{unit.ref}")
+        self.done()
+        self.assertIsNone(unit.patrol_slot)
+
+    def test_true_power_of_storms_deals_ten(self) -> None:
+        self.max_level("grave_stormborne")
+        target = put(self.match, 2, "patriot_gryphon")
+        hand(self.match, 1, "true_power_of_storms", "focus_master", "young_lightning_dragon")
+        self.match.player(1).gold = 10
+        apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:hand:focus_master")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:hand:young_lightning_dragon")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target=f"2:{target.ref}")
+        self.assertIsNone(self.match.player(2).instance(target.id))
+
+    def test_versatile_style_repairs(self) -> None:
+        self.match.player(1).base_hp = 15
+        self.cast("versatile_style")
+        prompt = asked(self.engine, self.game, self.match)
+        if prompt.kind is PromptKind.MODE_CHOICE:
+            apply(self.engine, self.game, self.match, PromptKind.MODE_CHOICE, mode="repair")
+        prompt = asked(self.engine, self.game, self.match)
+        if prompt.kind is PromptKind.TARGET:
+            apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:base")
+        self.assertEqual(self.match.player(1).base_hp, 17)
+
+
+class BlueSpellTests(unittest.TestCase):
+    """Each blue spell's happy path (step 13)."""
+
+    def setUp(self) -> None:
+        from test_codex_card_rulings import wb
+
+        self.engine, self.game, self.match = wb(first=2)
+        for spec in ("Law", "Peace", "Truth"):
+            hero_in_play(self.match, 2, slug=WB_SPEC_HEROES[spec][1])
+        self.match.player(2).deck = ["tenderfoot"] * 10
+
+    def cast(self, slug, *targets) -> None:
+        cast(self.engine, self.game, self.match, slug, *targets)
+
+    def max_level(self, slug: str) -> None:
+        from test_codex_card_rulings import at_max
+
+        at_max(self.engine, self.match, 2, slug)
+
+    def test_arrest_disables_a_patroller(self) -> None:
+        unit = put(self.match, 1, "tenderfoot", patrol="elite")
+        self.cast("arrest")
+        self.assertTrue(unit.disabled)
+
+    def test_boot_camp_exhausts_runes_and_draws(self) -> None:
+        unit = put(self.match, 1, "tenderfoot")
+        self.cast("boot_camp", f"1:{unit.ref}")
+        self.assertEqual((unit.exhausted, unit.plus_runes), (True, 1))
+        self.assertEqual(self.match.player(2).hand, ["tenderfoot"])
+
+    def test_community_service_takes_a_unit_from_the_discard_pile(self) -> None:
+        self.match.player(1).discard = ["focus_master"]
+        self.cast("community_service")
+        apply(self.engine, self.game, self.match, PromptKind.MODE_CHOICE, mode="discard")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:discard:focus_master")
+        self.assertTrue(any(card.slug == "focus_master" for card in self.match.player(2).play))
+        self.assertEqual(self.match.player(1).discard, [])
+
+    def test_dreamscape_channels(self) -> None:
+        self.cast("dreamscape")
+        self.assertTrue(any(card.slug == "dreamscape" for card in self.match.player(2).play))
+
+    def test_elite_training_trains_two(self) -> None:
+        one, two = put(self.match, 2, "tenderfoot"), put(self.match, 2, "tiger_cub")
+        self.cast("elite_training", f"2:{one.ref}", f"2:{two.ref}")
+        self.assertTrue(self.engine.has_keyword(two, "Anti-air", self.match))
+
+    def test_free_speech_silences(self) -> None:
+        self.cast("free_speech")
+        self.assertTrue(self.match.player(1).silenced)
+
+    def test_generals_hammer_hits_a_building(self) -> None:
+        base = self.match.player(1).base_hp
+        self.cast("generals_hammer", "1:base")
+        self.assertEqual(self.match.player(1).base_hp, base - 3)
+
+    def test_hallucination_makes_illusions(self) -> None:
+        unit = put(self.match, 1, "iron_man")
+        self.cast("hallucination", f"1:{unit.ref}")
+        prompt = asked(self.engine, self.game, self.match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(self.engine, self.game, self.match, PromptKind.TARGET, "done")
+        self.assertTrue(self.engine.is_illusion(self.match, unit))
+
+    def test_injunction_disables_a_tech_building(self) -> None:
+        built(self.match, 1, "tech1")
+        self.cast("injunction")
+        self.assertTrue(self.match.player(1).buildings["tech1"].disabled)
+
+    def test_judgment_day_destroys_the_low_tech(self) -> None:
+        self.max_level("bigby_hayes")
+        put(self.match, 1, "tenderfoot")
+        self.cast("judgment_day")
+        self.assertFalse(any(card.slug == "tenderfoot" for card in self.match.player(1).play))
+
+    def test_jurisdiction_plays_from_the_codex(self) -> None:
+        self.match.player(2).codex = {"generals_hammer": 1}
+        base = self.match.player(1).base_hp
+        self.cast("jurisdiction", "1:base")
+        self.assertEqual(self.match.player(1).base_hp, base - 3)
+        self.assertIn("generals_hammer", self.match.player(2).discard)
+
+    def test_lawful_search_draws_and_looks(self) -> None:
+        self.cast("lawful_search")
+        apply(self.engine, self.game, self.match, PromptKind.MODE_CHOICE, mode="hand")
+        prompt = asked(self.engine, self.game, self.match)
+        self.assertEqual(sorted(prompt.options.shown), sorted(self.match.player(1).hand))
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, "done")
+        self.assertEqual(self.match.player(2).hand, ["tenderfoot"])
+
+    def test_manufactured_truth_copies(self) -> None:
+        mine = put(self.match, 2, "tenderfoot")
+        put(self.match, 1, "tiger_cub")
+        self.cast("manufactured_truth")
+        self.assertEqual(mine.copy_of, "tiger_cub")
+
+    def test_mind_control_takes_a_unit(self) -> None:
+        self.max_level("sirus_quince")
+        unit = put(self.match, 1, "tiger_cub")
+        self.cast("mind_control")
+        self.assertEqual(unit.controller, 2)
+
+    def test_the_art_of_war_arms_the_peace_hero(self) -> None:
+        self.max_level("general_onimaru")
+        self.cast("the_art_of_war")
+        onimaru = self.match.player(2).hero_of("general_onimaru")
+        self.assertTrue(self.engine.has_keyword(onimaru, "Swift strike", self.match))
+

@@ -8,9 +8,11 @@ below, named `test_<the card's slug>_<its number in the file>` with the
 ruling as its docstring, and `EveryCardRulingIsPinnedTests` holds the
 two together -- it fails if a ruling has no test, if a test's docstring
 is not its ruling's words, or if a re-import changes how many rulings
-the set's cards carry. **There are 28 at the pinned import**: the step's
-prompt counted 26, before the Dancer and the Angry Dancer were counted as
-the two records their one shared ruling names.
+the set's cards carry. **There were 28 on the basic set at the pinned
+import**: step 6's prompt counted 26, before the Dancer and the Angry
+Dancer were counted as the two records their one shared ruling names.
+Steps 11 to 13 added each colour's, and since step 13 the ratchet counts
+every ruling the data holds on a card, a hero or a token -- 343.
 
 Positions are staged by slug (`tests/codex_positions.py`), and every
 action goes through `codex.flow.driver.apply`, the one door.
@@ -22,17 +24,20 @@ import re
 import unittest
 from unittest import mock
 
-from codex import effects, rulings
+from codex import effects, rulings, tokens
 from codex.components import AddOnState
-from codex.effects import BASIC_SET, BLACK, GREEN, PURPLE, RED
-from codex.flow import board, driver
+from codex.effects import BASIC_SET, BLACK, BLUE, GREEN, PURPLE, RED, WHITE
+from codex.flow import StepResult, board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import TROQ, begin, built, hand, hero, hero_in_play, new_game, put
 
-#: How many rulings the basic set's cards carry at the pinned import
-#: (`SOURCE_SHA` in `scripts/import_codex_cards.py`).
-CARD_RULINGS = 28
+#: How many rulings the cards, heroes and tokens carry at the pinned
+#: import (`SOURCE_SHA` in `scripts/import_codex_cards.py`): every ruling
+#: of `rulings.json` but the `General` group's, which
+#: `tests/test_codex_keywords.py` pins -- the basic set's 28, red's and
+#: green's 101, purple's and black's 122 and white's and blue's 92.
+CARD_RULINGS = 343
 
 #: Step 11: the rulings on red's and green's cards, heroes and tokens --
 #: 88 on the cards and 13 on the four heroes.
@@ -4410,9 +4415,1757 @@ class UpkeepRulingTests(unittest.TestCase):
         self.assertEqual(ancient.plus_runes, before + 1)
 
 
+# -- White and blue (step 13) ---------------------------------------------------
+
+#: Step 13: the rulings on white's and blue's cards, heroes and tokens --
+#: 79 on the cards and 13 on the six heroes.
+WHITE_BLUE_RULINGS = 92
+
+WB_TEAMS = (("discipline", "ninjutsu", "strength"), ("law", "peace", "truth"))
+
+
+def wb(first: int = 1, teams=WB_TEAMS):
+    """White (seat 1) against blue (seat 2), a standard game, in `first`'s
+    first main phase."""
+    engine, game, match = new_game(first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def wb_hero(match, seat: int, slug: str, level: int = 1, **kwargs):
+    hero_in_play(match, seat, slug=slug, level=level, **kwargs)
+    return match.player(seat).hero_of(slug)
+
+
+def answer_target(engine, game, match, key: str):
+    return apply(engine, game, match, PromptKind.TARGET, target=key)
+
+
+class WhiteBlueKeywordRulingTests(unittest.TestCase):
+    """Commit 2's cards: the keywords and the copies."""
+
+    def test_bluecoat_musketeer_1(self) -> None:
+        """This effect checks what his ATK is after applying all effects and
+        runes. It doesn't just check his printed or "base" ATK."""
+        engine, game, match = wb(first=2)
+        musketeer = put(match, 2, "bluecoat_musketeer")
+        self.assertTrue(engine.has_keyword(musketeer, "Long-range", match))
+        musketeer.modifiers.append({"kind": "atk", "amount": 1, "until": "end_of_turn"})
+        self.assertFalse(engine.has_keyword(musketeer, "Long-range", match))
+        musketeer.minus_runes = 1
+        self.assertTrue(engine.has_keyword(musketeer, "Long-range", match))
+
+    def test_liberty_gryphon_1(self) -> None:
+        """If you control a Liberty Gryphon and Mirror Illusion copy of
+        Liberty Gryphon, those both have the name "Liberty Gryphon." If you
+        don't control any Illusions other than those, then your Liberty
+        Gryphons do not get the keywords: unstoppable, unattackable,
+        untargetable."""
+        engine, game, match = wb(first=2)
+        gryphon = put(match, 2, "liberty_gryphon")
+        mirror = put(match, 2, "mirror_illusion")
+        mirror.copy_of = "liberty_gryphon"
+        mirror.modifiers.append({"kind": "illusion", "until": None})
+        for body in (gryphon, mirror):
+            for keyword in ("Unstoppable", "Unattackable", "Untargetable"):
+                self.assertFalse(engine.has_keyword(body, keyword, match))
+        put(match, 2, "spectral_hound")
+        self.assertTrue(engine.has_keyword(gryphon, "Untargetable", match))
+
+    def test_manufactured_truth_1(self) -> None:
+        """Copying something copies the printed version of the card and
+        does not copy any modifiers. For example, if you copy a 2/2 that has
+        a +1/+1 rune on it and Spirit of the Panda attached to it, the copy
+        will just be a 2/2."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        mine = put(match, 2, "spectral_hound")
+        theirs = put(match, 1, "fox_viper")
+        theirs.plus_runes = 1
+        theirs.modifiers.append({"kind": "atk", "amount": 3, "until": "end_of_turn"})
+        cast(engine, game, match, "manufactured_truth")
+        self.assertEqual(mine.copy_of, "fox_viper")
+        self.assertEqual(engine.unit_stats(mine, match), (2, 1))
+        self.assertEqual((mine.plus_runes, mine.modifiers[0]["kind"]), (0, "copy"))
+
+    def test_manufactured_truth_2(self) -> None:
+        """If an effect changes the "printed" values of a card, the new
+        values will be used. This includes Chaos Mirror and transformation
+        effects such as Polymorph: Squirrel."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        mine = put(match, 2, "spectral_hound")
+        theirs = put(match, 1, "fox_viper")
+        theirs.printed = {"atk": 6}
+        cast(engine, game, match, "manufactured_truth")
+        self.assertEqual(engine.unit_stats(mine, match), (6, 1))
+        theirs.printed = {"polymorph": 1}
+        other = put(match, 2, "bluecoat_musketeer")
+        cast(engine, game, match, "manufactured_truth")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{other.ref}")
+        answer_target(engine, game, match, f"1:{theirs.ref}")
+        self.assertEqual(engine.unit_stats(other, match), (1, 1))
+        self.assertFalse(engine.texted(other))
+
+    def test_justice_juggernaut_1(self) -> None:
+        """If this doesn't have a crumbling rune on it and it would die, it
+        doesn't actually die so nothing that triggers on "dies" will happen.
+        For example, it won't draw a card if it "would die" in the
+        technician slot, only when it really does die after it has a
+        crumbling rune on it."""
+        engine, game, match = wb()
+        juggernaut = put(match, 2, "justice_juggernaut", patrol="technician")
+        hand_before = len(match.player(2).hand)
+        juggernaut.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertEqual(len(match.player(2).hand), hand_before)
+        self.assertEqual(juggernaut.runes, {"crumbling": 1})
+        juggernaut.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertIsNone(match.player(2).instance(juggernaut.id))
+        self.assertEqual(len(match.player(2).hand), hand_before + 1)
+
+    def test_garus_rook_1(self) -> None:
+        """If this doesn't have a crumbling rune on it and it would die, it
+        doesn't actually die so nothing that triggers on "dies" will happen.
+        For example, it won't draw a card if it "would die" in the
+        technician slot, only when it really does die after it has a
+        crumbling rune on it."""
+        engine, game, match = wb(first=2)
+        rook = wb_hero(match, 1, "garus_rook", level=8, patrol="technician")
+        hand_before = len(match.player(1).hand)
+        rook.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertTrue(rook.in_play)
+        self.assertEqual(len(match.player(1).hand), hand_before)
+        rook.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertFalse(rook.in_play)
+        self.assertEqual(rook.summoning_runes, 2)
+
+    def test_reteller_of_truths_1(self) -> None:
+        """The ability triggers from a unit dying, so it means that unit
+        really did die. Anything that triggers from a unit dying really will
+        trigger, such as drawing a card if the unit died when it was in the
+        technician slot."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        put(match, 2, "reteller_of_truths")
+        hound = put(match, 2, "spectral_hound", patrol="technician")
+        hand_before = len(match.player(2).hand)
+        cast(engine, game, match, "wither", f"2:{hound.ref}")
+        self.assertIn("spectral_hound", match.player(2).hand)
+        # The technician's card, and the Hound back: two more.
+        self.assertEqual(len(match.player(2).hand), hand_before + 2)
+
+    def test_spectral_flagbearer_1(self) -> None:
+        """If you aren't able to target an opposing Flagbearer for any
+        reason, you don't have to. That includes if the Flagbearer has
+        "resist 1" and you have no gold. In that case, you can't target it
+        with a spell or ability because you can't afford to pay the cost for
+        resist, so you can ignore the Flagbearer and target something
+        else."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        flag = put(match, 2, "spectral_flagbearer", patrol="lookout")
+        other = put(match, 2, "scribe", patrol="elite")
+        hand(match, 1, "spark")
+        match.player(1).gold = 1
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        self.assertEqual(other.damage, 1)
+        self.assertIsNotNone(match.player(2).instance(flag.id))
+        # With the gold for its resist, the flagbearer is the one target --
+        # an Illusion, which dies of it.
+        flag2 = put(match, 2, "spectral_flagbearer", patrol="scavenger")
+        hand(match, 1, "spark")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        prompt = asked(engine, game, match)
+        self.assertTrue(prompt.options.forced)
+        answer_target(engine, game, match, f"2:{flag2.ref}")
+        self.assertIsNone(match.player(2).instance(flag2.id))
+
+    def test_smoker_1(self) -> None:
+        """When Smoker is targeted by something, he immediately returns to
+        hand, even before the rest of the spell or ability that targeted him
+        resolves."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        smoker = put(match, 1, "smoker", patrol="elite")
+        cast(engine, game, match, "wither", f"1:{smoker.ref}")
+        self.assertIsNone(match.player(1).instance(smoker.id))
+        self.assertIn("smoker", match.player(1).hand)
+        self.assertEqual(smoker.minus_runes, 0)
+
+
+def end_turn_of(engine, game, match, seat: int) -> None:
+    """End `seat`'s main phase with nothing patrolling, then run what the
+    bot owes into the next player's turn -- tech confirmed where asked."""
+    from codex_positions import begin as run_owed_steps
+
+    apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+    apply(engine, game, match, PromptKind.PATROL, assignment={})
+    while True:
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.STASH:
+            apply(engine, game, match, PromptKind.STASH, "none")
+            continue
+        if prompt is not None and prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+            player = prompt.asked_player
+            if prompt.kind is PromptKind.TECH_CHOICE:
+                picks = [slug for slug, left in prompt.options.codex for _ in range(left)][:prompt.options.maximum]
+                apply(engine, game, match, PromptKind.TECH_CHOICE, player=player,
+                      picks=picks[:prompt.options.minimum] or picks[:prompt.options.maximum])
+            else:
+                apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=player)
+            continue
+        run_owed_steps(engine, game, match)
+        prompt = asked(engine, game, match)
+        if prompt is None or prompt.kind not in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM,
+                                                  PromptKind.STASH):
+            return
+
+
+class WhiteBlueRuleRulingTests(unittest.TestCase):
+    """Commit 3's cards: the zones and the rules a player is put under."""
+
+    def jail_against(self, attacker_spec: str = "necromancy"):
+        """`attacker_spec`'s seat 1 against blue's seat 2, a Jail of seat 2's
+        in play, seat 1 on its main phase with the buildings to play its
+        tech I and II units."""
+        engine, game, match = new_game(teams=((attacker_spec,), ("law",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        jail = put(match, 2, "jail")
+        return engine, game, match, jail
+
+    def test_jail_1(self) -> None:
+        """When a unit goes from hand to Jail, that unit does not "enter
+        play" or arrive. It goes directly to the Jail zone and it's not
+        considered in play. When it's released from Jail (from another unit
+        entering), it will arrive and trigger any "arrive" effects at that
+        time."""
+        engine, game, match, jail = self.jail_against()
+        weak = put(match, 2, "tenderfoot")
+        hand(match, 1, "hooded_executioner", "older_brother")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertEqual(jail.jailed["slug"], "hooded_executioner")
+        self.assertTrue(jail.jailed["boosted"])
+        self.assertFalse(any(card.slug == "hooded_executioner" for card in match.player(1).play))
+        self.assertIsNotNone(match.player(2).instance(weak.id))
+        # A boosted unit jailed and released: its boost was paid as it was
+        # played, and resolves as it leaves -- the weakest unit destroyed.
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
+        self.assertEqual(jail.jailed["slug"], "older_brother")
+        released = next(card for card in match.player(1).play if card.slug == "hooded_executioner")
+        self.assertTrue(released.arrived_this_turn)
+        self.assertIsNone(match.player(2).instance(weak.id))
+
+    def test_jail_2(self) -> None:
+        """Forecasted units don't go to Jail when played. They also don't go
+        there when they later arrive."""
+        engine, game, match, jail = self.jail_against("past")
+        hand(match, 1, "plasmodium")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="plasmodium")
+        self.assertIsNone(jail.jailed)
+        future = match.player(1).future[0]
+        future.time_runes = 1
+        board.remove_time_rune(engine, match, 1, f"future:{future.id}", StepResult())
+        self.assertIsNone(jail.jailed)
+        self.assertTrue(any(card.slug == "plasmodium" for card in match.player(1).play))
+
+    def test_a_jailed_unit_is_discarded_with_the_jail(self) -> None:
+        engine, game, match, jail = self.jail_against()
+        hand(match, 1, "older_brother")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
+        board.destroy(engine, match, [(2, jail.ref)], StepResult())
+        self.assertIn("older_brother", match.player(1).discard)
+
+    def test_censorship_council_1(self) -> None:
+        """The restriction doesn't apply to effects that would "put a card
+        into play" such as from Feral Strike or Sanatorium."""
+        engine, game, match = new_game(teams=(("feral",), ("law",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        put(match, 2, "censorship_council")
+        hand(match, 1, "tiger_cub", "feral_strike", "young_treant")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tiger_cub")
+        refused = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                                             {"slug": "feral_strike"}))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertIn("Censorship Council", refused.reason)
+        # An effect's "put into play" is not playing a card from the hand.
+        frame = {"kind": "effect", "effect": "feral_strike", "seat": 1, "by": "{card:feral_strike}",
+                 "source": None, "spell": None, "part": 0, "taken": [], "flagbearer": False,
+                 "partners": [], "cancel_from": None, "drew": False, "mode": "put"}
+        match.resolving.append(frame)
+        from codex.flow import resolve
+        resolve.run(engine, match, StepResult())
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:young_treant")
+        self.assertTrue(any(card.slug == "young_treant" for card in match.player(1).play))
+
+    def test_reputable_newsman_1(self) -> None:
+        """When Newsman leaves play, his effect ends."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "bigby_hayes")
+        hand(match, 2, "reputable_newsman")
+        match.player(2).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="reputable_newsman")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.CHOOSE_NUMBER)
+        apply(engine, game, match, PromptKind.CHOOSE_NUMBER, number=1)
+        newsman = next(card for card in match.player(2).play if card.slug == "reputable_newsman")
+        self.assertEqual(newsman.number, 1)
+        match.active = 1
+        wb_hero(match, 1, "grave_stormborne")
+        hand(match, 1, "senseis_advice")
+        match.player(1).gold = 5
+        put(match, 1, "fox_viper")
+        why = engine.why_not_playable(match.player(1), "senseis_advice", match)
+        self.assertIn("Reputable Newsman", why)
+        board.destroy(engine, match, [(2, newsman.ref)], StepResult())
+        self.assertEqual(engine.why_not_playable(match.player(1), "senseis_advice", match), "")
+
+    def test_building_inspector_1(self) -> None:
+        """This effect applies to tech buildings and add-ons as well as
+        building cards. This effect also applies to rebuilding tech
+        buildings (if it's the first thing they build/rebuild in a turn, it
+        will cost 1 instead of 0.)"""
+        engine, game, match = wb()
+        put(match, 2, "building_inspector")
+        player = match.player(1)
+        player.workers = 6
+        built(match, 1, "tech1").destroyed = True
+        match.player(1).buildings["tech1"].hp = 0
+        self.assertEqual(engine.build_option(player, "tech1", match).cost, 1)
+        self.assertEqual(engine.build_option(player, "tower", match).cost, 4)
+        player.gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "build", building="tech1")
+        self.assertEqual(player.gold, 9)
+        self.assertEqual(engine.build_option(player, "tower", match).cost, 3)
+        # A building card is a building too.
+        player.built_this_turn = False
+        self.assertEqual(engine.effective_cost(player, "training_grounds", match), 2)
+
+    def test_free_speech_1(self) -> None:
+        """Opponents can still level up their heroes even if they are
+        silenced. Heroes that reach the next band of levels still heal their
+        damage even if their controller is silenced."""
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "grave_stormborne", level=2, damage=2)
+        match.player(1).silenced = True
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="grave_stormborne", levels=1)
+        self.assertEqual((grave.level, grave.damage), (3, 0))
+        self.assertFalse(engine.has_keyword(grave, "Readiness", match))
+        self.assertFalse(engine.has_keyword(grave, "Sparkshot", match))
+
+    def test_free_speech_2(self) -> None:
+        """If you use Free Speech on an opponent and that opponent plays a
+        new hero on their next turn (in which they are still silenced), that
+        new hero loses all abilities and can't cast spells."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        cast(engine, game, match, "free_speech")
+        self.assertTrue(match.player(1).silenced)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(match.active, 1)
+        player = match.player(1)
+        player.gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "summon", hero="grave_stormborne")
+        grave = player.hero_of("grave_stormborne")
+        self.assertFalse(engine.has_keyword(grave, "Sparkshot", match))
+        hand(match, 1, "senseis_advice")
+        self.assertIn("silenced", engine.why_not_playable(player, "senseis_advice", match))
+        # And after that turn, the silence ends.
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(player.silenced)
+        self.assertTrue(engine.has_keyword(grave, "Sparkshot", match))
+
+    def test_free_speech_3(self) -> None:
+        """A hero that "loses all abilities" from the silence effect can't
+        get new abilities either. For example, it can't be granted anti-air
+        or sparkshot from Elite Training, though it can be granted +1 ATK
+        and 1 armor from that same spell because those are stats and not
+        "abilities." """
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "garus_rook")
+        match.player(1).silenced = True
+        grave.modifiers += [
+            {"kind": "keyword", "keyword": "Anti-air", "until": "end_of_turn"},
+            {"kind": "atk", "amount": 1, "until": "end_of_turn"},
+        ]
+        self.assertFalse(engine.has_keyword(grave, "Anti-air", match))
+        self.assertEqual(engine.hero_stats(grave, match), (3, 4))
+
+    def test_free_speech_4(self) -> None:
+        """When the silence effect ends, that players heroes are now able to
+        have abilities again. (Imagine the abilities written on their
+        character card are erased during the silence effect, then appear
+        again when the duration ends.)"""
+        engine, game, match = wb()
+        rook = wb_hero(match, 1, "garus_rook", level=5)
+        put(match, 2, "tenderfoot", patrol="elite")
+        match.player(1).silenced = True
+        self.assertNotIn("base", engine.legal_defenders(match, hero(match, 1, "garus_rook")))
+        match.player(1).silenced = False
+        self.assertIn("base", engine.legal_defenders(match, hero(match, 1, "garus_rook")))
+        self.assertTrue(rook.in_play)
+
+    def test_free_speech_5(self) -> None:
+        """A silenced opponent can still play spells using Cinderblast Dragon
+        or Guargum, Eternal Sentinel"""
+        engine, game, match = new_game(teams=(("growth",), ("truth",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        built(match, 1, "tech3")
+        put(match, 1, "guargum_eternal_sentinel")
+        match.player(1).silenced = True
+        self.assertEqual(engine.why_not_playable(match.player(1), "dinosize", match), "")
+        self.assertIn("silenced", engine.why_not_playable(match.player(1), "spark", match))
+
+    def test_oathkeeper_of_kor_mountain_1(self) -> None:
+        """If you choose the first oath, you can still "put cards into play"
+        with an effect that has that wording, such as Sanatorium, without
+        breaking the oath."""
+        engine, game, match = wb()
+        keeper = put(match, 1, "oathkeeper_of_kor_mountain")
+        keeper.oath = "hand"
+        hand(match, 1, "fox_viper", "smoker")
+        match.player(1).gold = 20
+        self.assertIn("oath", engine.why_not_playable(match.player(1), "fox_viper", match))
+        self.assertTrue(engine.hire_option(match.player(1)).allowed)
+        card = board.put_into_play(engine, match, "smoker", 1, from_hand=True)
+        self.assertIsNotNone(card)
+
+    def test_oathkeeper_of_kor_mountain_2(self) -> None:
+        """Choosing the second oath means that instead of discarding your
+        hand and drawing new cards during the discard/draw phase, you simply
+        keep your same remaining cards in hand for the next turn."""
+        engine, game, match = wb()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        built(match, 1, "tech3")
+        match.player(1).tech2_spec = "strength"
+        hand(match, 1, "oathkeeper_of_kor_mountain", "fox_viper", "smoker")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="oathkeeper_of_kor_mountain")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.OATH)
+        apply(engine, game, match, PromptKind.OATH, oath="draw")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        run = apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(sorted(match.player(1).hand), ["fox_viper", "smoker"])
+        self.assertIn("keeping their hand", said(run))
+
+    def test_morningstar_pass_1(self) -> None:
+        """If they can't pay 1, they can't attack Morningstar Pass."""
+        engine, game, match = wb(first=2)
+        attacker = put(match, 2, "scribe")
+        morningstar = put(match, 1, "morningstar_pass")
+        match.player(2).gold = 0
+        self.assertNotIn(morningstar.ref, engine.legal_defenders(match, attacker.ref))
+        match.player(2).gold = 1
+        self.assertIn(morningstar.ref, engine.legal_defenders(match, attacker.ref))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=attacker.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=morningstar.ref)
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(morningstar.damage, 1)
+
+    def test_morningstar_pass_prevents_damage_to_the_other_buildings(self) -> None:
+        engine, game, match = wb(first=2)
+        attacker = put(match, 2, "scribe")
+        put(match, 1, "morningstar_pass")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=attacker.ref)
+        run = apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        self.assertEqual(match.player(1).base_hp, 20)
+        self.assertIn("prevents", said(run))
+
+    def test_lawbringer_gryphon_1(self) -> None:
+        """Your base is no longer flying if you lose Lawbringer Gryphon."""
+        engine, game, match = wb()
+        attacker = put(match, 1, "fox_viper")
+        gryphon = put(match, 2, "lawbringer_gryphon")
+        self.assertNotIn("base", engine.legal_defenders(match, attacker.ref))
+        flier = put(match, 1, "flying_fox")
+        self.assertIn("base", engine.legal_defenders(match, flier.ref))
+        board.trash(engine, match, gryphon)
+        self.assertIn("base", engine.legal_defenders(match, attacker.ref))
+
+    def test_mindparry_monk_1(self) -> None:
+        """This means that opponents can't use spells or abilities to target
+        any units or heroes you control."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        put(match, 1, "mindparry_monk")
+        viper = put(match, 1, "fox_viper", patrol="elite")
+        hand(match, 2, "spark")
+        self.assertIn("nothing it could target", engine.why_not_playable(match.player(2), "spark", match))
+        put(match, 2, "scribe", patrol="elite")
+        cast(engine, game, match, "spark")
+        self.assertEqual(viper.damage, 0)
+
+
+def birds(match, seat: int) -> list:
+    return [card for card in match.player(seat).play if card.slug == "bird"]
+
+
+class WhiteEffectRulingTests(unittest.TestCase):
+    """Commit 4's cards: white's effects."""
+
+    def test_birds_nest_1(self) -> None:
+        """If you have two Bird's Nests, you can still only have two Bird
+        tokens in play. Each Nest sees 2 birds in play, knows that's the
+        limit, and refuses to put more into play."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "garus_rook")
+        cast(engine, game, match, "birds_nest")
+        cast(engine, game, match, "birds_nest")
+        nests = [card for card in match.player(1).play if card.slug == "birds_nest"]
+        self.assertEqual(len(nests), 2)
+        # The second Nest sees the two and summons none.
+        self.assertEqual(len(birds(match, 1)), 2)
+        board.destroy(engine, match, [(1, birds(match, 1)[0].ref)], StepResult())
+        cast(engine, game, match, "birds_nest")
+        self.assertEqual(len(birds(match, 1)), 2)
+        for bird in birds(match, 1):
+            match.player(1).play.remove(bird)
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual(len(birds(match, 1)), 2)
+
+    def test_birds_nest_2(self) -> None:
+        """If you have Birds in play, then lose Bird's Nest, that doesn't
+        cause you to lose your Birds."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "garus_rook")
+        cast(engine, game, match, "birds_nest")
+        self.assertEqual(len(birds(match, 1)), 2)
+        board.destroy(engine, match, [(1, "hero:garus_rook")], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertFalse(any(card.slug == "birds_nest" for card in match.player(1).play))
+        self.assertEqual(len(birds(match, 1)), 2)
+
+    def test_doubling_barbarbarian_1(self) -> None:
+        """His ability DOES trigger when patroling as a squad leader (he
+        gets two armor instead of one), and it does trigger on +1/+1 runes
+        (they give him +2/+2)."""
+        engine, game, match = wb()
+        barb = put(match, 1, "doubling_barbarbarian")
+        barb.plus_runes = 1
+        self.assertEqual(engine.unit_stats(barb, match), (5, 7))
+        barb.patrol_slot = "squad_leader"
+        end_turn_of(engine, game, match, 1)
+        self.assertEqual(barb.armor, 2)
+
+    def test_doubling_barbarbarian_2(self) -> None:
+        """When the effect that raised his ATK, HP, or armor ends, he also
+        loses the extra stats from his effect. For example, Aged Sensei's
+        effect will give him +2 ATK/+2 armor this turn, NOT +1 ATK/+1 armor
+        this turn and +1 ATK /+1 armor permanently."""
+        engine, game, match = wb()
+        barb = put(match, 1, "doubling_barbarbarian")
+        sensei = put(match, 1, "aged_sensei")
+        ability(engine, game, match, "aged_sensei", sensei.ref)
+        answer_target(engine, game, match, f"1:{barb.ref}")
+        self.assertEqual(engine.unit_stats(barb, match), (5, 5))
+        self.assertEqual(barb.armor, 2)
+        end_turn_of(engine, game, match, 1)
+        self.assertEqual(engine.unit_stats(barb, match), (3, 5))
+        self.assertEqual(barb.armor, 0)
+
+    def test_doubling_barbarbarian_3(self) -> None:
+        """Healing something removes damage, rather than increases HP, so
+        his ability does NOT trigger on healing."""
+        engine, game, match = wb()
+        barb = put(match, 1, "doubling_barbarbarian", damage=3)
+        put(match, 1, "helpful_turtle")
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual(barb.damage, 2)
+        self.assertEqual(engine.unit_stats(barb, match), (3, 5))
+
+    def test_earthquake_1(self) -> None:
+        """If opponent has a damaged tech building and the 4 damage is enough
+        to destroy it but his base is undamaged, the base will take 2 damage
+        from the destruction of the tech building but none from the spell.
+        This is due to that you never read twice the same sentence. So you
+        deal 4 damage to the damaged buildings, which upon destruction cause
+        the base to take 2 damage , but then you are at the "Deal 1 damage to
+        all their undamaged buildings." line and the base is no more an
+        undamaged building."""
+        engine, game, match = wb()
+        rook = wb_hero(match, 1, "garus_rook", level=8)
+        rook.max_level_since_turn_began = True
+        built(match, 2, "tech1", hp=3)
+        base = match.player(2).base_hp
+        cast(engine, game, match, "earthquake")
+        self.assertTrue(match.player(2).buildings["tech1"].destroyed)
+        self.assertEqual(match.player(2).base_hp, base - 2)
+
+    def test_focus_master_1(self) -> None:
+        """1 deathtouch damage is exactly lethal damage. Any other amount of
+        deathtouch damage is not."""
+        engine, game, match = wb()
+        master = put(match, 1, "focus_master")
+        master.runes["focus"] = 3
+        guard = put(match, 1, "aged_sensei", damage=0)
+        self.assertEqual(board.focus_prevents(engine, match, guard, 1, deathtouch=True), 0)
+        self.assertEqual(master.runes["focus"], 2)
+        self.assertEqual(board.focus_prevents(engine, match, guard, 2, deathtouch=True), 2)
+        self.assertEqual(master.runes["focus"], 2)
+        # Exactly lethal without deathtouch: the Master's own 3 HP.
+        self.assertEqual(board.focus_prevents(engine, match, master, 3), 2)
+        self.assertEqual(board.focus_prevents(engine, match, master, 4), 4)
+
+    def test_focus_master_2(self) -> None:
+        """If a patroller would take excess damage, but that damage is
+        redirected by Overpower or Stampede, Focus Master cannot prevent any
+        damage for that patroller."""
+        engine, game, match = wb()
+        master = put(match, 1, "focus_master")
+        master.runes["focus"] = 3
+        sensei = put(match, 1, "aged_sensei", patrol="squad_leader")
+        self.assertEqual(board.focus_prevents(engine, match, sensei, 1, redirected=True), 1)
+        self.assertEqual(master.runes["focus"], 3)
+        self.assertEqual(board.focus_prevents(engine, match, sensei, 1), 0)
+
+    def test_focus_master_arrives_with_three_runes(self) -> None:
+        engine, game, match = wb()
+        tech(match, 1, 2, "discipline")
+        hero_in_play(match, 1)
+        hand(match, 1, "focus_master")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="focus_master")
+        master = next(card for card in match.player(1).play if card.slug == "focus_master")
+        self.assertEqual(master.runes.get("focus"), 3)
+
+    def test_foxs_den_school_1(self) -> None:
+        """A unit that becomes a Ninja this way stays a Ninja until it leaves
+        play. Even if Fox's Den School leaves play, your unit remains a
+        Ninja."""
+        engine, game, match = wb()
+        school = put(match, 1, "foxs_den_school")
+        sensei = put(match, 1, "aged_sensei")
+        match.player(1).gold = 5
+        # The one unit of seat 1's is the one target, taken unasked.
+        ability(engine, game, match, "foxs_den_school", school.ref)
+        self.assertTrue(engine.is_ninja(sensei))
+        self.assertTrue(engine.has_keyword(sensei, "Invisible", match))
+        board.destroy(engine, match, [(1, school.ref)], StepResult())
+        self.assertTrue(engine.is_ninja(sensei))
+        self.assertFalse(engine.has_keyword(sensei, "Invisible", match))
+
+    def test_grappling_hook_1(self) -> None:
+        """Pulling a patroller to another slot means removing it from the
+        slot its in and putting it in an empty slot in that same patrol
+        zone. It doesn't matter if slots in between are occupied or not."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        far = put(match, 2, "scribe", patrol="squad_leader")
+        put(match, 2, "tenderfoot", patrol="elite")
+        put(match, 2, "tenderfoot", patrol="scavenger")
+        cast(engine, game, match, "grappling_hook", f"2:{far.ref}")
+        prompt = asked(engine, game, match)
+        self.assertIn("2:slot:lookout", {row.key for row in prompt.options.targets})
+        answer_target(engine, game, match, "2:slot:lookout")
+        self.assertEqual(far.patrol_slot, "lookout")
+
+    def test_grave_stormborne_1(self) -> None:
+        """You can't activate his max level ability while attacking and he
+        can't attack if he's exhausted. So if you want to attack and use his
+        ability in the same turn, you generally have to attack first, and
+        then use his ability after he finishes attacking. If he can't
+        survive an attack, you'll have to pick which one you want to do."""
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "grave_stormborne", level=7)
+        grave.runes["sword"] = 1
+        victim = put(match, 2, "tenderfoot")
+        ability(engine, game, match, "grave_stormborne", "hero:grave_stormborne")
+        answer_target(engine, game, match, f"2:{victim.ref}")
+        self.assertIsNone(match.player(2).instance(victim.id))
+        self.assertTrue(grave.exhausted)
+        self.assertEqual(grave.runes.get("sword", 0), 0)
+        self.assertNotIn("hero:grave_stormborne", engine.attackers(match))
+
+    def test_grave_stormborne_gets_his_sword_at_max_level(self) -> None:
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "grave_stormborne", level=6)
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="grave_stormborne", levels=1)
+        self.assertEqual(grave.level, 7)
+        self.assertEqual(grave.runes.get("sword"), 1)
+
+    def test_hidden_ninja_1(self) -> None:
+        """If the unit or hero has more than 4 ATK later that turn, it keeps
+        stealth."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "setsuki_hiruki")
+        sensei = put(match, 1, "aged_sensei")
+        match.player(1).deck = ["scribe"] * 5
+        cast(engine, game, match, "hidden_ninja", f"1:{sensei.ref}")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, "done")
+        sensei.modifiers.append({"kind": "atk", "amount": 5, "until": "end_of_turn"})
+        self.assertTrue(engine.has_keyword(sensei, "Stealth", match))
+        # Neither a Ninja nor the Ninjutsu hero: no card drawn.
+        self.assertEqual(match.player(1).hand, [])
+        cast(engine, game, match, "hidden_ninja", "1:hero:setsuki_hiruki")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).hand, ["scribe"])
+
+    def test_inverse_power_ninja_1(self) -> None:
+        """Each other unit or hero "you have" refers to units or heroes you
+        control that are in play. It does not refer to heroes in your
+        command zone, units in Jail or Graveyard, forecasted units, or units
+        that you own but that an opponent now controls."""
+        engine, game, match = wb()
+        ninja = put(match, 1, "inverse_power_ninja")
+        self.assertEqual(engine.unit_stats(ninja, match), (6, 6))
+        wb_hero(match, 1, "setsuki_hiruki")
+        put(match, 1, "aged_sensei")
+        match.player(1).discard.append("tenderfoot")
+        taken = put(match, 1, "tenderfoot")
+        taken.controller = 2
+        match.player(1).play.remove(taken)
+        match.player(2).play.append(taken)
+        self.assertEqual(engine.unit_stats(ninja, match), (4, 4))
+
+    def test_jade_fox_dens_headmistress_1(self) -> None:
+        """Jade Fox is a Ninja so she has flying and swift strike."""
+        engine, game, match = wb()
+        fox = put(match, 1, "jade_fox_dens_headmistress")
+        for keyword in ("Flying", "Swift strike"):
+            self.assertTrue(engine.has_keyword(fox, keyword, match))
+
+    def test_jade_fox_dens_headmistress_2(self) -> None:
+        """Thought Setsuki is the Ninjutsu hero, she does not have the type
+        "Ninja" on her card, so she does not get buffed by Jade Fox."""
+        engine, game, match = wb()
+        put(match, 1, "jade_fox_dens_headmistress")
+        setsuki = wb_hero(match, 1, "setsuki_hiruki")
+        self.assertFalse(engine.has_keyword(setsuki, "Flying", match))
+
+    def test_jade_fox_summons_four_ninjas(self) -> None:
+        engine, game, match = wb()
+        hero_in_play(match, 1, slug="setsuki_hiruki")
+        tech(match, 1, 3, "ninjutsu")
+        hand(match, 1, "jade_fox_dens_headmistress")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="jade_fox_dens_headmistress")
+        ninjas = [card for card in match.player(1).play if card.slug == "ninja"]
+        self.assertEqual(len(ninjas), 4)
+        self.assertTrue(engine.has_keyword(ninjas[0], "Flying", match))
+
+    def test_martial_mastery_1(self) -> None:
+        """You resolve a spell's effect before discarding it, so a given copy
+        of Marital Master cannot draw itself from its own effect. The steps
+        here are 1) discard a card (not Martial Mastery), 2) draw 2 cards, 3)
+        look at opponent's hand, 4) discard Martial Mastery because its
+        effect is now fully resolved."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        player = match.player(1)
+        player.deck = []
+        player.discard = []
+        hand(match, 1, "martial_mastery", "tenderfoot")
+        player.gold = 5
+        # The Tenderfoot is the one card it may discard, taken unasked.
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="martial_mastery")
+        # The deck was empty: the discard -- the Tenderfoot alone -- is
+        # reshuffled, and Martial Mastery is not in it.
+        self.assertIn("tenderfoot", player.hand)
+        self.assertNotIn("martial_mastery", player.hand)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual(sorted(prompt.options.shown), sorted(match.player(2).hand))
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertIn("martial_mastery", player.discard)
+
+    def test_rambasa_twin_1(self) -> None:
+        """If two twins die simultaneously, the active player chooses which
+        returns to your codex."""
+        engine, game, match = wb()
+        twins = [put(match, 1, "rambasa_twin"), put(match, 1, "rambasa_twin")]
+        codex_before = match.player(1).codex.get("rambasa_twin", 0)
+        board.destroy(engine, match, [(1, twin.ref) for twin in twins], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertEqual(match.player(1).codex.get("rambasa_twin", 0), codex_before + 1)
+        self.assertEqual(match.player(1).discard.count("rambasa_twin"), 1)
+
+    def test_rambasa_twin_goes_back_to_the_codex_once_a_turn(self) -> None:
+        engine, game, match = wb()
+        first = put(match, 1, "rambasa_twin")
+        codex_before = match.player(1).codex.get("rambasa_twin", 0)
+        board.destroy(engine, match, [(1, first.ref)], StepResult())
+        self.assertEqual(match.player(1).codex.get("rambasa_twin", 0), codex_before + 1)
+        self.assertNotIn("rambasa_twin", match.player(1).discard)
+        second = put(match, 1, "rambasa_twin")
+        board.destroy(engine, match, [(1, second.ref)], StepResult())
+        self.assertIn("rambasa_twin", match.player(1).discard)
+        # Its arrival brings the one in the codex back.
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        hand(match, 1, "rambasa_twin")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="rambasa_twin")
+        answer_target(engine, game, match, "1:codex:rambasa_twin")
+        self.assertEqual(sum(1 for card in match.player(1).play if card.slug == "rambasa_twin"), 2)
+
+    def test_safe_attacking_1(self) -> None:
+        """After your unit finishes its attack (after combat damage is
+        dealt), it loses the armor Safe Attacking granted if it still had
+        it."""
+        engine, game, match = wb()
+        put(match, 1, "safe_attacking")
+        sensei = put(match, 1, "aged_sensei")
+        guard = put(match, 2, "tenderfoot", patrol="squad_leader")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=sensei.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=guard.ref)
+        # Tenderfoot's 1 ATK went into the armor; none is left after.
+        self.assertEqual((sensei.damage, sensei.armor), (0, 0))
+
+    def test_safe_attacking_2(self) -> None:
+        """If something readies that unit and you attack with it a second
+        time that turn, it will get 1 point of armor again."""
+        engine, game, match = wb()
+        put(match, 1, "safe_attacking")
+        sensei = put(match, 1, "aged_sensei")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=sensei.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        sensei.exhausted = False
+        guard = put(match, 2, "tenderfoot", patrol="squad_leader")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=sensei.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=guard.ref)
+        self.assertEqual((sensei.damage, sensei.armor), (0, 0))
+
+    def test_setsuki_hiruki_1(self) -> None:
+        """It's ok to have more than 5 cards in your hand. When you reach the
+        discard/draw phase, you'll still have to discard your hand, and draw
+        that many cards + 2, capped at 5."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "setsuki_hiruki", level=6)
+        hand(match, 1, "tenderfoot", "tenderfoot", "tenderfoot", "tenderfoot")
+        match.player(1).deck = ["scribe"] * 10
+        upkeep_of(engine, game, match, 1)
+        # Four discarded and five drawn -- 4 + 2, capped -- then two more.
+        self.assertEqual(len(match.player(1).hand), 7)
+
+    def test_setsuki_costs_a_gold_to_attack(self) -> None:
+        engine, game, match = wb(first=2)
+        setsuki = wb_hero(match, 1, "setsuki_hiruki")
+        self.assertEqual(engine.attack_toll(match, "hero:setsuki_hiruki"), 1)
+        setsuki.patrol_slot = "elite"
+        self.assertEqual(engine.attack_toll(match, "hero:setsuki_hiruki"), 0)
+
+    def test_shuriken_hail_1(self) -> None:
+        """If this would cause simultaneous effects to happen that require
+        some order (such as multiple units dying that have "dies" triggers),
+        then you (the active player) choose the order."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "setsuki_hiruki")
+        mine = put(match, 1, "ninja", patrol="squad_leader")
+        theirs = put(match, 2, "ninja", patrol="elite")
+        tough = put(match, 2, "scribe", patrol="lookout")
+        cast(engine, game, match, "shuriken_hail")
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(theirs.id))
+        self.assertEqual(tough.damage, 1)
+
+    def test_snapback_1(self) -> None:
+        """Whenever heroes enter a command zone, they lose all levels (become
+        level 1) and other properties. They lose any damage on them, lose
+        +1/+1 runes, lose any attachments, etc."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        rook = wb_hero(match, 1, "garus_rook", level=5, damage=2)
+        rook.plus_runes = 1
+        # The one opposing hero in play is taken unasked.
+        cast(engine, game, match, "snapback", "1:hero:grave_stormborne")
+        self.assertFalse(rook.in_play)
+        self.assertEqual((rook.level, rook.damage, rook.plus_runes, rook.summoning_runes), (1, 0, 0, 2))
+
+    def test_snapback_2(self) -> None:
+        """When Snapback returns a hero to its command zone, it cannot put
+        that very same hero back into play unless there are no other heroes
+        at all in that command zone."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        wb_hero(match, 1, "garus_rook", level=5)
+        hand(match, 2, "snapback")
+        match.player(2).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="snapback")
+        offered = {row.key for row in asked(engine, game, match).options.targets}
+        self.assertEqual(offered, {"1:hero:grave_stormborne", "1:hero:setsuki_hiruki"})
+        apply(engine, game, match, PromptKind.TARGET, target="1:hero:setsuki_hiruki")
+        # Every other hero in play: the same one comes back.
+        wb_hero(match, 1, "grave_stormborne")
+        rook = match.player(1).hero_of("garus_rook")
+        rook.summoning_runes = 0
+        hero_in_play(match, 1, slug="garus_rook", level=4)
+        hand(match, 2, "snapback")
+        match.player(2).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="snapback")
+        for key in ("1:hero:garus_rook", "1:hero:garus_rook"):
+            prompt = asked(engine, game, match)
+            if prompt is not None and prompt.kind is PromptKind.TARGET:
+                apply(engine, game, match, PromptKind.TARGET, target=key)
+        self.assertTrue(rook.in_play)
+        self.assertEqual(rook.level, 1)
+
+    def test_snapback_3(self) -> None:
+        """When Snapback returns a hero to its command zone, it CAN return a
+        different hero from that command zone to play, even if that different
+        hero is currently on cooldown from dying somehow."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        wb_hero(match, 1, "garus_rook", level=5)
+        setsuki = match.player(1).hero_of("setsuki_hiruki")
+        setsuki.summoning_runes = 2
+        cast(engine, game, match, "snapback", "1:hero:setsuki_hiruki")
+        self.assertTrue(setsuki.in_play)
+        self.assertEqual(setsuki.summoning_runes, 0)
+
+    def test_sparring_partner_1(self) -> None:
+        """"He can only spar" means that if you use his second ability, he
+        can still use his first ability that same turn, even though he can't
+        attack for the rest of that turn."""
+        engine, game, match = wb()
+        partner = put(match, 1, "sparring_partner")
+        sensei = put(match, 1, "aged_sensei")
+        other = put(match, 1, "tenderfoot")
+        ability(engine, game, match, "sparring_partner", partner.ref)
+        answer_target(engine, game, match, f"1:{sensei.ref}")
+        match.player(1).gold = 5
+        ability(engine, game, match, "sparring_partner_ready", partner.ref)
+        self.assertFalse(partner.exhausted)
+        self.assertNotIn(partner.ref, engine.attackers(match))
+        ability(engine, game, match, "sparring_partner", partner.ref)
+        answer_target(engine, game, match, f"1:{other.ref}")
+        self.assertEqual((sensei.plus_runes, other.plus_runes), (1, 1))
+
+    def test_thunderclap_1(self) -> None:
+        """Tokens count as cost 0, so this does work on token units unless
+        you somehow have a token that is copying a higher cost unit."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "garus_rook")
+        ninja = put(match, 2, "ninja", patrol="elite")
+        copier = put(match, 2, "ninja")
+        copier.copy_of = "doubling_barbarbarian"
+        hand(match, 1, "thunderclap")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="thunderclap")
+        offered = {row.key for row in asked(engine, game, match).options.targets}
+        self.assertIn(f"2:{ninja.ref}", offered)
+        self.assertNotIn(f"2:{copier.ref}", offered)
+
+    def test_thunderclap_2(self) -> None:
+        """This can target units that aren't patrolling. Sidelining those
+        won't do anything, but if they are illusions they will die from
+        being targeted."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "garus_rook")
+        hound = put(match, 2, "spectral_hound")
+        cast(engine, game, match, "thunderclap", f"2:{hound.ref}")
+        self.assertIsNone(match.player(2).instance(hound.id))
+
+    def test_true_power_of_storms_1(self) -> None:
+        """If you do not reveal and discard 2 cards that cost 3, it won't
+        target anything."""
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "grave_stormborne", level=7)
+        grave.max_level_since_turn_began = True
+        target = put(match, 2, "scribe")
+        # Played with no card that costs 3: it does nothing (the author,
+        # 2026-10-10).
+        hand(match, 1, "true_power_of_storms")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertIsNotNone(match.player(2).instance(target.id))
+        # With one: it may be discarded, and nothing is targeted.
+        hand(match, 1, "true_power_of_storms", "young_lightning_dragon")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        answer_target(engine, game, match, "1:hand:young_lightning_dragon")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertIn("young_lightning_dragon", match.player(1).discard)
+        self.assertIsNotNone(match.player(2).instance(target.id))
+        # Or kept: Done with none discarded.
+        hand(match, 1, "true_power_of_storms", "young_lightning_dragon")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).hand, ["young_lightning_dragon"])
+        # With two discarded, it deals its 10.
+        hand(match, 1, "true_power_of_storms", "young_lightning_dragon", "focus_master")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        answer_target(engine, game, match, "1:hand:young_lightning_dragon")
+        answer_target(engine, game, match, "1:hand:focus_master")
+        answer_target(engine, game, match, f"2:{target.ref}")
+        self.assertIn("focus_master", match.player(1).discard)
+        self.assertIsNone(match.player(2).instance(target.id))
+
+    def test_training_grounds_levels_its_controllers_hero_alone(self) -> None:
+        """The author, 2026-10-10: never an opponent's hero."""
+        engine, game, match = wb()
+        grounds = put(match, 1, "training_grounds")
+        grave = wb_hero(match, 1, "grave_stormborne", level=2)
+        wb_hero(match, 2, "bigby_hayes", level=2)
+        ability(engine, game, match, "training_grounds", grounds.ref)
+        self.assertEqual(grave.level, 7)
+        self.assertEqual(match.player(2).hero_of("bigby_hayes").level, 2)
+        self.assertEqual(engine.target_candidates(match, 1, "own_hero_in_play"), [(1, "hero:grave_stormborne")])
+
+    def test_young_lightning_dragon_1(self) -> None:
+        """Thrice-per-turn means three times per turn."""
+        engine, game, match = wb()
+        dragon = put(match, 1, "young_lightning_dragon")
+        match.player(1).gold = 10
+        for _ in range(3):
+            ability(engine, game, match, "young_lightning_dragon", dragon.ref)
+        self.assertEqual(engine.unit_stats(dragon, match), (6, 3))
+        self.assertEqual(option(engine, match, "young_lightning_dragon", dragon.ref).why_not,
+                         "it has been used 3 times this turn")
+
+
+def trigger(engine, game, match, effect: str, seat: int, source=None, slug=None):
+    """`effect` onto the stack for `seat` -- an arrives trigger of the card
+    at `source` -- and worked until it asks something."""
+    from codex.flow import resolve
+
+    by = tokens.card(slug or effect)
+    match.resolving.append(resolve.frame(effect, seat, by, source=source, origin=slug or effect))
+    resolve.run(engine, match, StepResult())
+
+
+def blue(first: int = 2):
+    """Blue's seat 2 against white's seat 1, blue to play by default."""
+    return wb(first=first)
+
+
+class BlueEffectRulingTests(unittest.TestCase):
+    """Commit 5's cards: blue's effects."""
+
+    def test_bigby_hayes_1(self) -> None:
+        """An example of how stash works. Normally (without stash), if you
+        have 2 cards left in hand when you reach the discard/draw phase,
+        you'd discard both cards and then draw 4 cards (you draw 2 more than
+        you discard). If you have stash, instead of discarding both cards,
+        you can choose to keep one of them in your hand. If you do, you will
+        STILL end up with 4 cards total, but you'll be drawing 3 cards rather
+        than 4 (the 4th card is the one you kept)."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        hand(match, 2, "scribe", "arrest")
+        match.player(2).deck = ["tenderfoot"] * 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertIs(asked(engine, game, match).kind, PromptKind.STASH)
+        apply(engine, game, match, PromptKind.STASH, "keep", slug="arrest")
+        self.assertEqual(sorted(match.player(2).hand), ["arrest", "tenderfoot", "tenderfoot", "tenderfoot"])
+        self.assertIn("scribe", match.player(2).discard)
+
+    def test_bigby_sidelines_and_draws(self) -> None:
+        engine, game, match = blue()
+        bigby = wb_hero(match, 2, "bigby_hayes", level=5)
+        patroller = put(match, 1, "tenderfoot", patrol="elite")
+        ability(engine, game, match, "bigby_hayes", "hero:bigby_hayes")
+        self.assertIsNone(patroller.patrol_slot)
+        self.assertTrue(bigby.exhausted)
+        self.assertEqual(option(engine, match, "bigby_hayes_draw", "hero:bigby_hayes").why_not, "it is exhausted")
+
+    def test_boot_camp_1(self) -> None:
+        """You CAN use this on something that's already exhausted. The
+        exhaust isn't a cost here, so you do as much as you can."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "general_onimaru")
+        tired = put(match, 2, "tenderfoot", exhausted=True)
+        match.player(2).deck = ["scribe"] * 3
+        # The one unit, Onimaru being the Peace hero: taken unasked.
+        cast(engine, game, match, "boot_camp")
+        self.assertEqual((tired.exhausted, tired.plus_runes), (True, 1))
+        self.assertEqual(match.player(2).hand, ["scribe"])
+        # Its own Peace hero can't be chosen.
+        put(match, 1, "tenderfoot")
+        hand(match, 2, "boot_camp")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="boot_camp")
+        offered = {row.key for row in asked(engine, game, match).options.targets}
+        self.assertNotIn("2:hero:general_onimaru", offered)
+
+    def test_brave_knight_1(self) -> None:
+        """Combat damage includes damage done while attacking or getting
+        attacked while patrolling. It also includes damage from the
+        overpower and sparkshot keywords as well as damage from the Tower
+        add-on."""
+        engine, game, match = blue()
+        knight = put(match, 2, "brave_knight", damage=2)
+        match.player(1).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=knight.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        self.assertIsNone(match.player(2).instance(knight.id))
+        self.assertIn("brave_knight", match.player(2).hand)
+        self.assertNotIn("brave_knight", match.player(2).discard)
+
+    def test_brave_knight_2(self) -> None:
+        """When something "deals damage in the form of" something else, such
+        as -1/-1 runes from Plague Spitter, Orpal Gloor, or Poisonblade
+        Rogue, they really did "deal combat damage." Immediately after their
+        form of damage is dealt, check if their victim would die. If yes,
+        that victim counts as "dying from combat damage." Brave Knight will
+        return to his owner's hand in this case."""
+        engine, game, match = blue(first=1)
+        knight = put(match, 2, "brave_knight", patrol="squad_leader")
+        spitter = put(match, 1, "plague_spitter")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=spitter.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=knight.ref)
+        self.assertIsNone(match.player(2).instance(knight.id))
+        self.assertIn("brave_knight", match.player(2).hand)
+
+    def test_brave_knight_returns_from_deathtouch(self) -> None:
+        engine, game, match = blue(first=1)
+        knight = put(match, 2, "brave_knight", patrol="squad_leader")
+        horror = put(match, 1, "horror")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=horror.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=knight.ref)
+        self.assertIsNone(match.player(2).instance(knight.id))
+        self.assertIn("brave_knight", match.player(2).hand)
+        # Not combat damage: he dies.
+        knight = put(match, 2, "brave_knight")
+        board.destroy(engine, match, [(2, knight.ref)], StepResult())
+        self.assertIn("brave_knight", match.player(2).discard)
+
+    def test_community_service_1(self) -> None:
+        """When you put units into play with this, you don't have to pay for
+        them and you don't have to meet the tech requirements for them
+        either."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        hand(match, 1, "doubling_barbarbarian", "tenderfoot")
+        cast(engine, game, match, "community_service", gold=5)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="hand")
+        prompt = asked(engine, game, match)
+        self.assertEqual(sorted(prompt.options.shown), ["doubling_barbarbarian", "tenderfoot"])
+        answer_target(engine, game, match, "1:hand:doubling_barbarbarian")
+        barb = next(card for card in match.player(2).play if card.slug == "doubling_barbarbarian")
+        self.assertEqual((barb.controller, barb.owner), (2, 1))
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(match.player(1).hand, ["tenderfoot"])
+
+    def test_community_service_shows_a_discard_pile_with_no_unit_in_it(self) -> None:
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        match.player(1).discard = ["thunderclap"]
+        cast(engine, game, match, "community_service")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="discard")
+        prompt = asked(engine, game, match)
+        self.assertEqual(prompt.options.shown, ("thunderclap",))
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+
+    def test_drill_sergeant_1(self) -> None:
+        """Playing a spell from your hand that summons units such as Murkwood
+        Allies or Summon Skeletons does NOT count as "playing a unit from
+        your hand.\""""
+        engine, game, match = blue()
+        sergeant = put(match, 2, "drill_sergeant")
+        trigger(engine, game, match, "murkwood_allies", 2)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="beast")
+        self.assertEqual(sergeant.plus_runes, 0)
+        hand(match, 2, "tenderfoot")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tenderfoot")
+        self.assertEqual(sergeant.plus_runes, 1)
+        other = next(card for card in match.player(2).play if card.slug == "tenderfoot")
+        ability(engine, game, match, "drill_sergeant", sergeant.ref)
+        if asked(engine, game, match).kind is PromptKind.TARGET:
+            answer_target(engine, game, match, f"2:{other.ref}")
+        self.assertEqual(sergeant.plus_runes, 0)
+        self.assertEqual(sum(card.plus_runes for card in match.player(2).play), 1)
+
+    def test_drill_sergeant_2(self) -> None:
+        """Using a spell or ability to "put a unit into play" from your hand
+        does not count as "playing it from your hand.\""""
+        engine, game, match = blue()
+        sergeant = put(match, 2, "drill_sergeant")
+        hand(match, 2, "tenderfoot")
+        match.player(2).hand.remove("tenderfoot")
+        board.put_into_play(engine, match, "tenderfoot", 2, from_hand=True)
+        self.assertEqual(sergeant.plus_runes, 0)
+
+    def test_flagstone_garrison_1(self) -> None:
+        """Playing a spell from your hand that summons units such as Murkwood
+        Allies or Summon Skeletons does NOT count as "playing a unit from
+        your hand.\""""
+        engine, game, match = blue()
+        put(match, 2, "flagstone_garrison")
+        match.player(2).deck = ["scribe"] * 3
+        hand(match, 2)
+        trigger(engine, game, match, "murkwood_allies", 2)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="beast")
+        self.assertEqual(match.player(2).hand, [])
+        hand(match, 2, "tenderfoot")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tenderfoot")
+        self.assertEqual(match.player(2).hand, ["scribe"])
+
+    def test_flagstone_garrison_2(self) -> None:
+        """Using a spell or ability to "put a unit into play" from your hand
+        does not count as "playing it from your hand.\""""
+        engine, game, match = blue()
+        put(match, 2, "flagstone_garrison")
+        match.player(2).deck = ["scribe"] * 3
+        hand(match, 2)
+        board.put_into_play(engine, match, "tenderfoot", 2, from_hand=True)
+        self.assertEqual(match.player(2).hand, [])
+
+    def test_flagstone_spy_1(self) -> None:
+        """His ability that steals gold can't steal any against an opponent
+        that doesn't have any gold."""
+        engine, game, match = blue()
+        spy = put(match, 2, "flagstone_spy")
+        match.player(1).gold = 0
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=spy.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        self.assertEqual(match.player(1).gold, 0)
+        self.assertEqual(engine.hands_visible_to(match, 2), (1,))
+        spy.exhausted = False
+        match.player(1).gold = 3
+        gold = match.player(2).gold
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=spy.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        self.assertEqual((match.player(1).gold, match.player(2).gold), (2, gold + 1))
+
+    def test_guardian_of_the_gates_1(self) -> None:
+        """Guardian of the Gates disables the unit he deals combat damage
+        to, not himself."""
+        engine, game, match = blue(first=1)
+        guardian = put(match, 2, "guardian_of_the_gates", patrol="squad_leader")
+        cub = put(match, 1, "tiger_cub")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=cub.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=guardian.ref)
+        self.assertTrue(cub.disabled)
+        self.assertFalse(guardian.disabled)
+        self.assertNotIn(guardian.ref, {ref for ref in engine.attackers(match)})
+
+    def test_guardian_of_the_gates_2(self) -> None:
+        """If Guardian of the Gates deals combat damage to a unit with armor
+        and the armor absorbs all the damage, his ability still triggers."""
+        engine, game, match = blue(first=1)
+        guardian = put(match, 2, "guardian_of_the_gates", patrol="squad_leader")
+        cub = put(match, 1, "tiger_cub")
+        cub.armor = 1
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=cub.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=guardian.ref)
+        self.assertEqual(cub.damage, 0)
+        self.assertTrue(cub.disabled)
+
+    def law_against_tech(self, *levels: str):
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        for level in levels:
+            built(match, 1, level)
+        match.player(1).tech2_spec = "strength"
+        return engine, game, match
+
+    def test_injunction_1(self) -> None:
+        """If you use Injunction on an opponent's Growth tech II building,
+        for example, this will disable any tech II units they control at
+        that moment, even if they are of a different spec. (They might have
+        gained control of an Anarchy tech II unit or something, or cheated in
+        units from other specs with Feral Strike.)"""
+        engine, game, match = self.law_against_tech("tech1", "tech2")
+        barb = put(match, 1, "doubling_barbarbarian", patrol="elite")
+        constable = put(match, 1, "arresting_constable")
+        constable.owner = 2
+        cub = put(match, 1, "tiger_cub")
+        cast(engine, game, match, "injunction", "1:tech2")
+        self.assertTrue(match.player(1).buildings["tech2"].disabled)
+        self.assertTrue(barb.disabled and constable.disabled)
+        self.assertIsNone(barb.patrol_slot)
+        self.assertFalse(cub.disabled)
+
+    def test_injunction_2(self) -> None:
+        """When you disable an opponent's tech building, they cannot build
+        the next higher tech building until the disable ends. For example,
+        if you disable their tech II building, they cannot build a tech III
+        building on their next turn. If they already had a tech III building
+        though, disabling their tech II building doesn't affect their tech
+        III building—the tech III building continues operating normally."""
+        engine, game, match = self.law_against_tech("tech1", "tech2")
+        cast(engine, game, match, "injunction", "1:tech2")
+        end_turn_of(engine, game, match, 2)
+        player = match.player(1)
+        player.workers, player.gold = 10, 20
+        self.assertIn("Tech II", engine.build_option(player, "tech3", match).why_not)
+        self.assertFalse(engine.tech_building_active(player, 2))
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(player.buildings["tech2"].disabled)
+        built(match, 1, "tech3")
+        player.buildings["tech2"].disabled = True
+        self.assertTrue(engine.tech_building_active(player, 3))
+
+    def test_injunction_on_tech_i_leaves_tech_iii_buildable(self) -> None:
+        engine, game, match = self.law_against_tech("tech1", "tech2")
+        cast(engine, game, match, "injunction", "1:tech1")
+        end_turn_of(engine, game, match, 2)
+        player = match.player(1)
+        player.workers, player.gold = 10, 20
+        self.assertFalse(engine.tech_building_active(player, 1))
+        self.assertEqual(engine.build_option(player, "tech3", match).why_not, "")
+
+    def test_injunction_3(self) -> None:
+        """If an opponent does not have a tech II building, you won't be able
+        to use Injunction to disable their tech II units."""
+        engine, game, match = self.law_against_tech("tech1")
+        barb = put(match, 1, "doubling_barbarbarian")
+        hand(match, 2, "injunction")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="injunction")
+        # The Tech I building is the one target, taken unasked.
+        self.assertTrue(match.player(1).buildings["tech1"].disabled)
+        self.assertFalse(barb.disabled)
+
+    def insured(self, unit: str = "tiger_cub", seat: int = 1):
+        engine, game, match = blue()
+        agent = put(match, 2, "insurance_agent")
+        target = put(match, seat, unit)
+        trigger(engine, game, match, "insurance_agent", 2, agent.ref)
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            answer_target(engine, game, match, f"{seat}:{target.ref}")
+        match.player(2).deck = ["scribe"] * 5
+        hand(match, 2)
+        return engine, game, match, agent, target
+
+    def test_insurance_agent_1(self) -> None:
+        """If you use the ability on an Illusion, the Illusion immediately
+        dies when targeted, never gets an insurance rune, and is thus never
+        considered "insured." You don't get gold when it dies."""
+        engine, game, match = blue()
+        agent = put(match, 2, "insurance_agent")
+        hound = put(match, 2, "spectral_hound")
+        gold = match.player(2).gold
+        trigger(engine, game, match, "insurance_agent", 2, agent.ref)
+        answer_target(engine, game, match, f"2:{hound.ref}")
+        self.assertIsNone(match.player(2).instance(hound.id))
+        self.assertEqual(match.player(2).gold, gold)
+        self.assertFalse(any(m.get("kind") == "insures" for m in agent.modifiers))
+
+    def test_insurance_agent_2(self) -> None:
+        """If Insurance Agent dies, his effect is no longer active. The
+        insurance rune on his target now does nothing, even if you play a new
+        Insurance Agent. The new Insurance Agent will place a new insurance
+        rune on something, but he won't interact with the previous rune
+        because of the "that unit" phrase on the ability."""
+        engine, game, match, agent, cub = self.insured()
+        self.assertEqual(cub.runes.get("insurance"), 1)
+        board.destroy(engine, match, [(2, agent.ref)], StepResult())
+        put(match, 2, "insurance_agent")
+        gold = match.player(2).gold
+        board.destroy(engine, match, [(1, cub.ref)], StepResult())
+        self.assertEqual(match.player(2).gold, gold)
+
+    def test_insurance_agent_3(self) -> None:
+        """If the unit with the insurance rune leaves play without dying, you
+        don't get the gold. For example, if it returns to someone's hand with
+        Undo or is trashed somehow. If it's "destroyed" or "sacrificed" you
+        do get the gold, because destroying or sacrificing a unit causes it
+        to die."""
+        engine, game, match, agent, cub = self.insured()
+        gold = match.player(2).gold
+        board.trash(engine, match, cub, StepResult())
+        self.assertEqual(match.player(2).gold, gold)
+        engine, game, match, agent, cub = self.insured()
+        gold = match.player(2).gold
+        board.destroy(engine, match, [(1, cub.ref)], StepResult())
+        self.assertEqual(match.player(2).gold, gold + 2)
+        self.assertEqual(match.player(2).hand, ["scribe"])
+
+    def test_insurance_agent_4(self) -> None:
+        """If Plague Lab adds a second insurance rune to a unit, that doesn't
+        let you collect insurance money twice. The insurance rune itself
+        doesn't actually do anything—it's just a tangible marker and memory
+        aid."""
+        engine, game, match, agent, cub = self.insured()
+        cub.runes["insurance"] = 2
+        gold = match.player(2).gold
+        board.destroy(engine, match, [(1, cub.ref)], StepResult())
+        self.assertEqual(match.player(2).gold, gold + 2)
+
+    def test_insurance_agent_5(self) -> None:
+        """If you have two Insurance Agents in play insuring the same unit,
+        you can get double the gold and cards when it dies (since their
+        abilities work independently)."""
+        engine, game, match, agent, cub = self.insured()
+        second = put(match, 2, "insurance_agent")
+        trigger(engine, game, match, "insurance_agent", 2, second.ref)
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            answer_target(engine, game, match, f"1:{cub.ref}")
+        gold = match.player(2).gold
+        board.destroy(engine, match, [(1, cub.ref)], StepResult())
+        self.assertEqual(match.player(2).gold, gold + 4)
+        self.assertEqual(len(match.player(2).hand), 2)
+
+    def test_insurance_agent_6(self) -> None:
+        """If Insurance Agent is insuring a unit, then you make something
+        else a copy of that Insurance Agent, the copy will NOT also be
+        insuring the unit. When you make something a copy of something else,
+        it doesn't arrive so no arrive triggers happen. The copy does not get
+        to put the insurance rune anywhere, and the rest of the copy's
+        ability is looking for where that particular rune went. Because the
+        copy never put a rune anywhere, the copy is not insuring anyting at
+        all."""
+        engine, game, match, agent, cub = self.insured()
+        from codex.flow import resolve
+
+        mirror = put(match, 2, "mirror_illusion")
+        resolve.make_copy(engine, match, mirror, agent)
+        gold = match.player(2).gold
+        board.destroy(engine, match, [(1, cub.ref)], StepResult())
+        self.assertEqual(match.player(2).gold, gold + 2)
+
+    def test_judgment_day_1(self) -> None:
+        """When a unit is "destroyed" it will "die" as a consequence of that.
+        Anything that triggers on "dies" such as the patrol zone's scavenger
+        and technician slots, or a Soul Stone, will trigger. When units die,
+        they go to their owner's discard pile."""
+        engine, game, match = blue()
+        bigby = wb_hero(match, 2, "bigby_hayes", level=5)
+        bigby.max_level_since_turn_began = False
+        put(match, 2, "tenderfoot", patrol="scavenger")
+        taken = put(match, 2, "tiger_cub")
+        taken.owner = 1
+        put(match, 1, "jade_fox_dens_headmistress")
+        cast(engine, game, match, "judgment_day", gold=4)
+        units = [card.slug for player in match.players for card in player.play
+                 if engine.catalog.cards[card.slug].is_unit]
+        self.assertEqual(units, ["jade_fox_dens_headmistress"])
+        self.assertEqual(match.player(2).gold, 1)
+        self.assertIn("tiger_cub", match.player(1).discard)
+
+    def test_jurisdiction_1(self) -> None:
+        """If you use this to play a channeling spell such as Two Step, but
+        you don't control the appropriate hero to channel that spell, it's
+        immediately discarded."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        match.player(2).codex = {"dreamscape": 1}
+        cast(engine, game, match, "jurisdiction", gold=10)
+        self.assertEqual(match.player(2).codex["dreamscape"], 0)
+        self.assertFalse(any(card.slug == "dreamscape" for card in match.player(2).play))
+        self.assertIn("dreamscape", match.player(2).discard)
+        self.assertEqual(match.player(2).gold, 10 - 2 - engine.catalog.cards["dreamscape"].cost)
+
+    def test_jurisdiction_plays_a_spell_of_another_spec(self) -> None:
+        """The author, 2026-10-10: Jurisdiction's spell needs no hero of its
+        spec -- a Peace spell, with Bigby the Law hero alone in play."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        unit = put(match, 2, "tenderfoot")
+        match.player(2).codex = {"elite_training": 1}
+        cast(engine, game, match, "jurisdiction", gold=10)
+        answer_target(engine, game, match, f"2:{unit.ref}")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertTrue(engine.has_keyword(unit, "Anti-air", match))
+        self.assertIn("elite_training", match.player(2).discard)
+
+    def mind_controlled(self):
+        engine, game, match = blue()
+        at_max(engine, match, 2, "sirus_quince")
+        cub = put(match, 1, "tiger_cub", patrol="elite")
+        cast(engine, game, match, "mind_control")
+        spell = next(card for card in match.player(2).play if card.slug == "mind_control")
+        return engine, game, match, cub, spell
+
+    def test_mind_control_1(self) -> None:
+        """If the unit dies, it and Mind Control each go to their OWNER'S
+        discard pile. That means Mind Control probably goes to yours and the
+        unit probably goes to an opponent's discard pile."""
+        engine, game, match, cub, spell = self.mind_controlled()
+        self.assertEqual(cub.controller, 2)
+        self.assertIsNone(cub.patrol_slot)
+        board.destroy(engine, match, [(2, cub.ref)], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertIn("tiger_cub", match.player(1).discard)
+        self.assertIn("mind_control", match.player(2).discard)
+
+    def test_mind_control_2(self) -> None:
+        """If Mind Control is destroyed (by Nature Reclaims, for example), the
+        unit returns to whoever controlled it before it was Mind
+        Controlled."""
+        engine, game, match, cub, spell = self.mind_controlled()
+        board.trash(engine, match, spell, StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertEqual(cub.controller, 1)
+        self.assertIn(cub, match.player(1).play)
+
+    def test_mind_control_3(self) -> None:
+        """If you Assimilate an a Mind Control, now you control the attached
+        unit."""
+        engine, game, match, cub, spell = self.mind_controlled()
+        trigger(engine, game, match, "assimilate", 1)
+        self.assertEqual(spell.controller, 1)
+        self.assertEqual(cub.controller, 1)
+
+    def test_patriot_gryphon_1(self) -> None:
+        """As an example, if Patriot Gryphon attacks a tech II building,
+        he'll destroy that tech building because he deals 6 damage to it. As
+        usual, that tech building being destroyed deals 2 damage to its
+        controller's base. Then, because of Patriot Gryphon's ability, he'll
+        deal an additional 6 damage to that same base."""
+        engine, game, match = blue()
+        gryphon = put(match, 2, "patriot_gryphon")
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        base = match.player(1).base_hp
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=gryphon.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="tech2")
+        self.assertTrue(match.player(1).buildings["tech2"].destroyed)
+        self.assertEqual(match.player(1).base_hp, base - 8)
+
+    def test_porkhand_magistrate_1(self) -> None:
+        """He can't use his ability on himself."""
+        engine, game, match = blue()
+        pig = put(match, 2, "porkhand_magistrate")
+        put(match, 1, "tenderfoot")
+        put(match, 1, "tiger_cub")
+        match.player(2).gold = 3
+        match.player(2).deck = ["scribe"] * 3
+        hand(match, 1)
+        ability(engine, game, match, "porkhand_magistrate", pig.ref)
+        offered = {row.key for row in asked(engine, game, match).options.targets}
+        self.assertNotIn(f"2:{pig.ref}", offered)
+
+    def test_porkhand_magistrate_2(self) -> None:
+        """He CAN use his ability on a unit or hero that's already exhausted.
+        He CAN use it on units or heroes you control as well."""
+        engine, game, match = blue()
+        pig = put(match, 2, "porkhand_magistrate")
+        mine = put(match, 2, "tenderfoot", exhausted=True)
+        match.player(2).gold = 3
+        match.player(2).deck = ["scribe"] * 3
+        hand(match, 2)
+        # His own controller's exhausted unit, the one other: taken unasked.
+        ability(engine, game, match, "porkhand_magistrate", pig.ref)
+        self.assertTrue(mine.disabled)
+        self.assertEqual(match.player(2).hand, ["scribe"])
+
+    def quince(self, level: int = 3):
+        engine, game, match = blue()
+        quince = wb_hero(match, 2, "sirus_quince", level=level)
+        mirror = put(match, 2, "mirror_illusion")
+        match.player(2).gold = 20
+        return engine, game, match, quince, mirror
+
+    def quince_copies(self, engine, game, match, mirror, original, seat: int = 1) -> None:
+        ability(engine, game, match, "sirus_quince_copy", "hero:sirus_quince")
+        # Each part asked where it has more than one to choose.
+        for _ in range(2):
+            prompt = asked(engine, game, match)
+            if prompt.kind is not PromptKind.TARGET:
+                break
+            key = f"2:{mirror.ref}" if prompt.options.part == 0 else f"{seat}:{original.ref}"
+            answer_target(engine, game, match, key)
+
+    def test_sirus_quince_1(self) -> None:
+        """Copying something copies the printed version of the card and does
+        not copy any modifiers. For example, if you copy a 2/2 that has a
+        +1/+1 rune on it and Spirit of the Panda attached to it, the copy
+        will just be a 2/2."""
+        engine, game, match, quince, mirror = self.quince()
+        cub = put(match, 1, "tiger_cub")
+        cub.plus_runes = 1
+        self.quince_copies(engine, game, match, mirror, cub)
+        self.assertEqual(engine.unit_stats(mirror, match), (2, 2))
+
+    def test_sirus_quince_2(self) -> None:
+        """If an effect changes the "printed" values of a card, the new
+        values will be used. This includes Chaos Mirror and transformation
+        effects such as Polymorph: Squirrel."""
+        engine, game, match, quince, mirror = self.quince()
+        cub = put(match, 1, "tiger_cub")
+        cub.printed = {"atk": 5}
+        self.quince_copies(engine, game, match, mirror, cub)
+        self.assertEqual(engine.unit_stats(mirror, match), (5, 2))
+
+    def test_sirus_quince_3(self) -> None:
+        """For both middle ability and max level ability, the copy is an
+        Illusion. That means, for example, if you copy a unit of type
+        Squirrel or Mystic then the copy will be an Illusion Squirrel or an
+        Illusion Mystic. It will still count as a Squirrel or Mystic, and it
+        also counts as an Illusion. Because it's an Illusion, it dies if its
+        targeted."""
+        engine, game, match, quince, mirror = self.quince()
+        master = put(match, 1, "focus_master")
+        self.quince_copies(engine, game, match, mirror, master)
+        self.assertTrue(engine.is_illusion(match, mirror))
+        self.assertIn("Mystic", engine.subtype_of(mirror))
+        cast(engine, game, match, "wither", f"2:{mirror.ref}")
+        self.assertIsNone(match.player(2).instance(mirror.id))
+
+    def test_sirus_quince_4(self) -> None:
+        """If you use the middle ability or max level ability to make of your
+        Mirror Illusions a copy of something else, you can't use either of
+        those abilities again the same turn on that same Illusion. The reason
+        is that the ability refers to your "Mirror Illusion" but after your
+        Mirror Illusion copies a Squirrel, for example, you have an Illusion
+        Squirrel, not a Mirror Illusion. You can use these abilities on
+        ANOTHER Mirror Illusion you control though."""
+        engine, game, match, quince, mirror = self.quince()
+        cub = put(match, 1, "tiger_cub")
+        self.quince_copies(engine, game, match, mirror, cub)
+        self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not,
+                         "there is nothing it could target")
+        other = put(match, 2, "mirror_illusion")
+        self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not, "")
+        self.assertIsNone(other.copy_of)
+
+    def test_sirus_quince_5(self) -> None:
+        """Mirror Illusions that are copying something else DO still count
+        toward your limit of 2 Mirror Illusion tokens."""
+        engine, game, match, quince, mirror = self.quince()
+        cub = put(match, 1, "tiger_cub")
+        self.quince_copies(engine, game, match, mirror, cub)
+        ability(engine, game, match, "sirus_quince_summon", "hero:sirus_quince")
+        self.assertEqual(sum(1 for card in match.player(2).play if card.slug == "mirror_illusion"), 2)
+        self.assertEqual(option(engine, match, "sirus_quince_summon", "hero:sirus_quince").why_not,
+                         "you have 2 Mirror Illusions")
+
+    def test_sirus_quince_6(self) -> None:
+        """The max level ability says that when you use it to make one of
+        your Mirror Illusions copy something, you must trash it when Quince
+        or the thing it copied leaves. This does NOT have anything to do
+        with Mirror Illusions that have not yet copied anything. Mirror
+        Illusions that haven't copied anything do NOT get trashed when
+        Quince leaves."""
+        engine, game, match, quince, mirror = self.quince(level=5)
+        board.destroy(engine, match, [(2, "hero:sirus_quince")], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertIsNotNone(match.player(2).instance(mirror.id))
+
+    def test_sirus_quince_7(self) -> None:
+        """Quince's middle ability trashes the Mirror Illusion only once at
+        the end of the turn you use the ability."""
+        engine, game, match, quince, mirror = self.quince()
+        cub = put(match, 1, "tiger_cub")
+        self.quince_copies(engine, game, match, mirror, cub)
+        self.assertIsNotNone(match.player(2).instance(mirror.id))
+        end_turn_of(engine, game, match, 2)
+        self.assertIsNone(match.player(2).instance(mirror.id))
+        self.assertNotIn("mirror_illusion", match.player(2).discard)
+
+    def test_sirus_quince_8(self) -> None:
+        """Quince's max level ability can try to trash the Mirror Illusion
+        two times, once when Quince leaves and once when the unit copied by
+        the Mirror Illusion leaves."""
+        engine, game, match, quince, mirror = self.quince(level=5)
+        hand(match, 2, "tenderfoot")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tenderfoot")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            answer_target(engine, game, match, f"2:{mirror.ref}")
+        original = next(card for card in match.player(2).play if card.slug == "tenderfoot")
+        self.assertEqual(mirror.copy_of, "tenderfoot")
+        board.destroy(engine, match, [(2, original.ref)], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertIsNone(match.player(2).instance(mirror.id))
+        # And once Quince leaves, for another.
+        second = put(match, 2, "mirror_illusion")
+        hand(match, 2, "tenderfoot")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tenderfoot")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            answer_target(engine, game, match, f"2:{second.ref}")
+        board.destroy(engine, match, [(2, "hero:sirus_quince")], StepResult())
+        board.settle(engine, match, StepResult())
+        self.assertIsNone(match.player(2).instance(second.id))
+
+    def test_sirus_quince_9(self) -> None:
+        """If your Mirror Illusion copies a Tech 1 unit, it becomes Tech
+        1."""
+        engine, game, match, quince, mirror = self.quince()
+        self.assertEqual(engine.tech_level(mirror), 0)
+        hound = put(match, 1, "iron_man")
+        self.quince_copies(engine, game, match, mirror, hound)
+        self.assertEqual(engine.tech_level(mirror), 1)
+
+    def test_quince_summons_his_mirror_as_he_arrives(self) -> None:
+        engine, game, match = blue()
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "summon", hero="sirus_quince")
+        self.assertEqual([card.slug for card in match.player(2).play], ["mirror_illusion"])
+
+    def test_tax_collector_1(self) -> None:
+        """His ability does nothing against an opponent that doesn't have
+        any gold."""
+        engine, game, match = blue()
+        collector = put(match, 2, "tax_collector")
+        match.player(1).gold = 0
+        gold = match.player(2).gold
+        trigger(engine, game, match, "tax_collector", 2, collector.ref)
+        self.assertEqual((match.player(1).gold, match.player(2).gold), (0, gold))
+        match.player(1).gold = 2
+        trigger(engine, game, match, "tax_collector", 2, collector.ref)
+        self.assertEqual((match.player(1).gold, match.player(2).gold), (1, gold + 1))
+
+    def test_the_art_of_war_lasts_until_the_next_upkeep(self) -> None:
+        engine, game, match = blue()
+        at_max(engine, match, 2, "general_onimaru")
+        onimaru = match.player(2).hero_of("general_onimaru")
+        cast(engine, game, match, "the_art_of_war")
+        self.assertTrue(engine.has_keyword(onimaru, "Unstoppable", match))
+        self.assertEqual(onimaru.armor, 2)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(onimaru.armor, 2, "new as the opponent's turn begins")
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(engine.has_keyword(onimaru, "Unstoppable", match))
+        self.assertEqual(onimaru.armor, 0)
+
+    def test_elite_training_and_the_air_hammer_and_the_debilitator(self) -> None:
+        engine, game, match = blue()
+        wb_hero(match, 2, "general_onimaru")
+        hammer = put(match, 2, "air_hammer")
+        cast(engine, game, match, "elite_training", f"2:{hammer.ref}")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, "done")
+        for keyword in ("Anti-air", "Sparkshot"):
+            self.assertTrue(engine.has_keyword(hammer, keyword, match))
+        self.assertEqual(hammer.armor, 1)
+        built(match, 1, "tech1", hp=4)
+        self.assertEqual(engine.attack_value(match, 2, hammer.ref, against="tech1"), 6)
+        self.assertEqual(engine.attack_value(match, 2, hammer.ref, against="base"), 4)
+        alpha = put(match, 1, "debilitator_alpha", patrol="squad_leader")
+        self.assertEqual(engine.attack_value(match, 2, hammer.ref, against=alpha.ref), 3)
+
+    def test_onimaru_summons_three_soldiers_at_max_level(self) -> None:
+        engine, game, match = blue()
+        wb_hero(match, 2, "general_onimaru", level=7)
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="general_onimaru", levels=1)
+        soldiers = [card for card in match.player(2).play if card.slug == "soldier"]
+        self.assertEqual(len(soldiers), 3)
+        self.assertTrue(engine.has_keyword(soldiers[0], "Sparkshot", match))
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
-    """The ratchet: every ruling on a card of the basic set has a test
-    named for it, whose docstring is the ruling's own words."""
+    """The ratchet: every ruling the data holds on a card, a hero or a
+    token has a test named for it, whose docstring is the ruling's own
+    words -- so a re-import that adds one fails here (step 13)."""
 
     def _collect(self) -> dict:
         import test_codex_card_rulings as module
@@ -4427,18 +6180,18 @@ class EveryCardRulingIsPinnedTests(unittest.TestCase):
         return found
 
     def _rulings(self) -> dict:
-        return {
-            slug: rulings.rulings_for(slug)
-            for slug in sorted(BASIC_SET) if rulings.rulings_for(slug)
-        }
+        everything = rulings._load()[1]
+        return {slug: entry.rulings for slug, entry in sorted(everything.items()) if entry.rulings}
 
     def test_the_count_is_pinned(self) -> None:
         total = sum(len(found) for found in self._rulings().values())
         self.assertEqual(
             total, CARD_RULINGS,
-            f"the basic set's cards carry {total} rulings, not {CARD_RULINGS}: "
+            f"the cards carry {total} rulings, not {CARD_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
+        basic = sum(len(rulings.rulings_for(slug)) for slug in BASIC_SET)
+        self.assertEqual(basic, 28, "the basic set's own count")
 
     def test_every_ruling_has_a_test(self) -> None:
         found = self._collect()
@@ -4494,6 +6247,27 @@ class EveryPurpleAndBlackRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
         self.assertEqual(
             total, PURPLE_BLACK_RULINGS,
             f"purple's and black's cards carry {total} rulings, not {PURPLE_BLACK_RULINGS}: "
+            "a re-import changed them, and each needs its test",
+        )
+
+
+class EveryWhiteAndBlueRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
+    """Step 13's ratchet: the same three checks over every white and blue
+    card, hero and token whose text is played -- every one once
+    `UNIMPLEMENTED` is empty."""
+
+    def _rulings(self) -> dict:
+        return {
+            slug: rulings.rulings_for(slug)
+            for slug in sorted((WHITE | BLUE) - effects.UNIMPLEMENTED)
+            if rulings.rulings_for(slug)
+        }
+
+    def test_the_count_is_pinned(self) -> None:
+        total = sum(len(rulings.rulings_for(slug)) for slug in WHITE | BLUE)
+        self.assertEqual(
+            total, WHITE_BLUE_RULINGS,
+            f"white's and blue's cards carry {total} rulings, not {WHITE_BLUE_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
 

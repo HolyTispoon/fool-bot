@@ -34,8 +34,9 @@ NEUTRAL = "neutral"
 #: them, lowered: the lobby offers their heroes and refuses the rest.
 #: The data holds all seven since step 1; a colour lands when the engine
 #: has read its cards -- neutral from step 2, red and green from step 10,
-#: and each pair after it adds its two (docs/codex-bot.md, steps 10-13).
-LANDED_COLORS = ("neutral", "red", "green", "purple", "black")
+#: purple and black from step 12, white and blue from step 13, so every
+#: colour now (docs/codex-bot.md, steps 10-13).
+LANDED_COLORS = ("neutral", "red", "green", "purple", "black", "white", "blue")
 
 
 @dataclass(frozen=True)
@@ -69,13 +70,15 @@ class Card:
     def is_building_card(self) -> bool:
         """A building played from the hand -- Verdant Tree, Firehouse --
         as against the base, the tech buildings and the add-ons: it has
-        HP and may be attacked (UMR p. 7)."""
-        return self.kind == KIND_CARD and self.type == "Building"
+        HP and may be attacked (UMR p. 7) -- a Legendary Building as much
+        as any (white's three, step 13)."""
+        return self.kind == KIND_CARD and self.type in ("Building", "Legendary Building")
 
     @property
     def is_upgrade(self) -> bool:
-        """An upgrade: no HP, so it is never attacked (UMR p. 7)."""
-        return self.kind == KIND_CARD and self.type == "Upgrade"
+        """An upgrade: no HP, so it is never attacked (UMR p. 7) -- a
+        Legendary Upgrade too (Mythmaking, step 13)."""
+        return self.kind == KIND_CARD and self.type in ("Upgrade", "Legendary Upgrade")
 
     @property
     def is_permanent(self) -> bool:
