@@ -24,7 +24,9 @@ A panel (`render_panel`), top to bottom and left to right:
   patroller's card over its slot. That row sets the panel's width;
 - the grid under it: square cells of 273, as many columns as fit under
   the top row -- six in the standard game, five in the basic, fixed
-  when it starts -- the heroes on the field, then the units, each its
+  when it starts -- the worker card first, under the command zone, its
+  printed count the workers the player has now, then the heroes on the
+  field, then the units, each its
   card at 200 by 273 with its chits, and on its side at full size when
   exhausted; rows added as the position needs them;
 - the nameplate along the panel's outer edge: the player, their team
@@ -183,6 +185,21 @@ FIGURE_AREA = (0.05, 0.22, 0.95, 0.8)
 #: The print's figures are broader than Roboto Slab's: written, then
 #: stretched across by this.
 FIGURE_STRETCH = 1.2
+
+#: The worker card (the Screentop module's, "workers/"): the seat that
+#: went first holds x4, printed "Player 1", the other x5, "Player 2"
+#: (UMR p. 3), and the count printed on it -- rosy, edged dark, in a
+#: pale box at its foot -- is wiped and the workers the player has now
+#: written in its place (the author, 2026-10-10: the count on the card
+#: under the command zone, not in the nameplate). The box is the
+#: picture's at 375 by 525: the count stands within `WORKER_AREA`, the
+#: printed "Player n" in `WORKER_PLAYER`, left alone, and the new count
+#: is set on `WORKER_BASELINE`, above it, as high as the print's digit
+#: and no wider than the box.
+WORKER_AREA = (14, 280, 165, 392)
+WORKER_PLAYER = (0, 380, 92, 525)
+WORKER_BASELINE = 379
+WORKER_BOX_RIGHT = 157
 
 #: The command zone: one plate beside the patrol zone, as on the mat,
 #: with a slot per hero -- three in the standard game, one in the basic
@@ -687,6 +704,47 @@ def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
     return tile
 
 
+@lru_cache(maxsize=2)
+def wiped_workers(went_first: bool) -> tuple[Image.Image, int, int, tuple[int, int, int]]:
+    """
+    The worker card's face with its printed count wiped -- the pixels
+    round its rosy figures blended into the box -- the left of those
+    figures, their top, and their ink, at the picture's own size.
+    """
+    picture = board_piece("workers", f"worker_x{4 if went_first else 5}.png")
+    red, green, _ = picture.convert("RGB").split()
+    rosy = ImageChops.multiply(ImageChops.subtract(red, green).point(lambda v: 255 if v >= 20 else 0),
+                               red.point(lambda v: 255 if v > 90 else 0))
+    figures = Image.new("L", picture.size, 0)
+    figures.paste(rosy.crop(WORKER_AREA), WORKER_AREA[:2])
+    left, top, _, _ = figures.getbbox()
+    ink = ImageStat.Stat(picture.convert("RGB"), figures).median
+    # Wide enough to take the figures' dark edge with them; never into
+    # the "Player n" printed under the x.
+    figures = figures.filter(ImageFilter.MaxFilter(11))
+    figures.paste(0, WORKER_PLAYER)
+    wiped = picture.copy()
+    for _ in range(40):
+        wiped.paste(wiped.filter(ImageFilter.GaussianBlur(3)), mask=figures)
+    return wiped, left, top, tuple(round(v) for v in ink)
+
+
+@lru_cache(maxsize=16)
+def worker_card(workers: int, went_first: bool) -> Image.Image:
+    """The worker card at a card's size, with `workers` -- "x8" -- where
+    the print has its starting count."""
+    wiped, left, top, ink = wiped_workers(went_first)
+    picture = wiped.copy()
+    text = f"x{workers}"
+    _, glyph_top, _, glyph_bottom = font(100, bold=False).getbbox("4", anchor="ls")
+    size = round((WORKER_BASELINE - top) * 100 / (glyph_bottom - glyph_top))
+    while size > 20 and font(size, bold=False).getlength(text) > WORKER_BOX_RIGHT - left:
+        size -= 2
+    ImageDraw.Draw(picture).text((left, WORKER_BASELINE), text, font=font(size, bold=False),
+                                 fill=ink, anchor="ls", stroke_width=2, stroke_fill=FIGURE_EDGE)
+    return rounded(picture.resize(CARD, Image.LANCZOS), round(CARD[0] / 20))
+
+
 # -- The buildings -----------------------------------------------------------
 
 
@@ -997,7 +1055,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     columns = panel_columns(player)
     cells = grid_cells(player, cards)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
-    height = body_height(len(cells), columns)
+    height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
     draw_building_column(body, player, building_hp, o, o + height)
@@ -1036,7 +1094,10 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
                       (card_left, card_top, card_left + CARD[0], card_top + CARD[1]))
 
     top = o + PATROL_HEIGHT + CELL_GAP
-    for index, cell in enumerate(cells):
+    # The worker card in the grid's first cell, under the command zone.
+    paste_centred(body, worker_card(player.workers, seat == match.first),
+                  (grid_left, top, grid_left + CELL, top + CELL))
+    for index, cell in enumerate(cells, start=1):
         row, column = divmod(index, columns)
         left = grid_left + column * (CELL + CELL_GAP)
         cell_top = top + row * (CELL + CELL_GAP)
@@ -1080,7 +1141,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     The nameplate, 56 tall: the player, their team (`team_name`: a
     colour's deck by its name, "Blood Anarchs", any other team by its
     specs, "Fire/Feral/Bashing"), then gold
-    (the gold emoji's picture), workers, hand, deck, discard and codex,
+    (the gold emoji's picture), hand, deck, discard and codex,
     a word and a count each. The active player's carries a rule and
     "<name>'s turn <n>" in a pill, both in its first hero's colour
     (`turn_colors`). The rule is on the side the rest of the panel is
@@ -1112,7 +1173,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
         draw.text((x + 12, middle), label, font=face, fill=colors[1], anchor="lm")
 
     counts = (
-        ("WORKERS", player.workers), ("HAND", len(player.hand)), ("DECK", len(player.deck)),
+        ("HAND", len(player.hand)), ("DECK", len(player.deck)),
         ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
     )
     number, word = font(20), font(15, bold=False)

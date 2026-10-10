@@ -1391,7 +1391,17 @@ else the bot shows is ephemeral.
     stays empty. A slot needs only a card's width, not a
     cell's, because a patroller is never exhausted: exhausting one
     sidelines it.
-  - **The grid**: the heroes on the field (the level chit top left),
+  - **The grid**: first the worker card, under the command zone (the
+    author, 2026-10-10: the count off the nameplate and onto the
+    Screentop module's worker card): x4, printed "Player 1", for the
+    seat that went first, x5, "Player 2", for the other (UMR p. 3), its
+    printed count wiped -- the rosy figures and their dark edge blended
+    into the box by `wiped_workers`, as a building's heart is -- and the
+    workers the player has now written in their place, "x8", in Roboto
+    Slab's regular weight edged dark, as tall as the print's digit and
+    narrowed to fit the box (`worker_card`). It takes a cell, so the
+    basic game's first row holds four cards beside it and a fifth starts
+    the second. Then the heroes on the field (the level chit top left),
     then the units, each with
     its damage chits on the foot of its art (`ART_FOOT`), clear of the
     ATK and HP the card prints, which a chit over the stats hid (the
@@ -1406,8 +1416,9 @@ else the bot shows is ephemeral.
     in the order chosen, "Fire/Feral/Bashing", and the basic game's one
     hero by its spec, "Bashing" (the author, 2026-10-10: never the
     heroes' names; "Red · Jaina Stormborne, Captain Zane, Drakk Ramhorn"
-    from step 10 until then) -- then gold (the gold emoji's picture), workers,
-    hand, deck, discard and codex, a word and a count each. The active
+    from step 10 until then) -- then gold (the gold emoji's picture),
+    hand, deck, discard and codex, a word and a count each; the workers
+    are counted on the worker card in the grid instead. The active
     player's carries a rule and "<name>'s turn <n>" in a pill, both in
     its first hero's colour (`turn_colors`, below), the player by the
     name the cog passes -- "perrytom's turn 7".

@@ -61,9 +61,10 @@ class RenderTests(unittest.TestCase):
 
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)
-        # One more than a row of `grid_columns(1)` holds: the hero is in
-        # the command zone, not the grid.
-        for _ in range(render.grid_columns(1) + 1):
+        # One more than a row of `grid_columns(1)` holds beside the
+        # worker card, which takes the first cell: the hero is in the
+        # command zone, not the grid.
+        for _ in range(render.grid_columns(1)):
             match.new_instance("older_brother", 1)
         panel = render.render_panel(match, 1, "a", self.engine.catalog)
         self.assertEqual(panel.height, self.panel_height(2))
