@@ -2401,7 +2401,7 @@ class RulesEngine:
         """Why nothing in the patrol zone holds this attacker."""
         other = 2 if match.active == 1 else 1
         if not match.player(other).patrollers():
-            return "nothing is patrolling"
+            return "no patrol"
         sneaking = self.ignores_patrollers(match, attacker)
         if sneaking == "unstoppable":
             return "it is unstoppable"

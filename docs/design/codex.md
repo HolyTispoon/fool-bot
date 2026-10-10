@@ -1881,7 +1881,7 @@ too, asked with `gate` for the two kinds a turn may open on
   `history.undo_targets` says are open. The attacker is named the same
   way over the defender's buttons, and each is labelled with why it is
   legal -- "squad
-  leader", "patroller", "nothing is patrolling" -- which is the engine's
+  leader", "patroller", "no patrol", in brackets after its name -- which is the engine's
   (`defender_rows`, carried as `DefenderOptions.why`), not the view's.
   **Nothing the turn panel asks is a menu any more**: the tower's
   detection and the three choices inside an attack -- obliterate's tie,

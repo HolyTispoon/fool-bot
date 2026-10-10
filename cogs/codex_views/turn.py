@@ -653,7 +653,7 @@ class TurnPanelView(PanelView):
         whys = options.why or ("",) * len(options.defenders)
         defenders = [
             self.make_button(
-                f"{self.label(ref, other)} -- {why}" if why else self.label(ref, other),
+                f"{self.label(ref, other)} ({why})" if why else self.label(ref, other),
                 discord.ButtonStyle.primary, self._answer(self.defend, ref),
                 choice=("defend", ref),
             )

@@ -1485,7 +1485,7 @@ the undos and resume.
    A click by anybody but the active player is refused ephemerally.
    CHOOSE_DEFENDER renders as a select of DefenderOptions -- each legal
    defender labelled with why it is legal ("squad leader", "patroller",
-   "nothing is patrolling") -- in the same panel, with Cancel back to
+   "no patrol") -- in the same panel, with Cancel back to
    the actions. The panel is the view for MAIN_ACTION and
    CHOOSE_DEFENDER in view_for_prompt; render_prompt gives neither a
    picture. My hand on the turn message creates the panel afresh for the

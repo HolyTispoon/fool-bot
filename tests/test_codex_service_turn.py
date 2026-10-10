@@ -65,7 +65,7 @@ class PromptReadingTests(unittest.TestCase):
         engine = svc.engine
         self.assertEqual(
             {why for _, why in engine.defender_rows(match, attacker.ref)},
-            {"nothing is patrolling"},
+            {"no patrol"},
         )
         put(match, 2 if seat == 1 else 1, "tenderfoot", patrol="elite")
         self.assertEqual([why for _, why in engine.defender_rows(match, attacker.ref)], ["patroller"])
