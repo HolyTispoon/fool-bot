@@ -200,8 +200,10 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
+        from codex.flow.board import armor_gain
+
         for body in (*side.play, *side.heroes):
-            body.armor = SQUAD_LEADER_ARMOR if body.patrol_slot == "squad_leader" else 0
+            body.armor = armor_gain(body, SQUAD_LEADER_ARMOR) if body.patrol_slot == "squad_leader" else 0
             change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
             if change is not None and body.patrol_slot is not None and side.seat != seat:
                 # Ironbark Treant's +2 armor, new on each opponent's turn
@@ -460,6 +462,20 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
                 card.damage += 1
                 result.narration.append(f"{tokens.card(card.slug)} takes 1 damage.")
         board.settle(engine, match, result)
+    elif kind == "nest":
+        card = player.instance(int(ident))
+        if card is not None:
+            match.resolving.insert(0, resolve.frame(
+                "birds_nest_upkeep", seat, tokens.card(card.slug), source=card.ref, origin=card.slug,
+            ))
+    elif kind == "setsuki":
+        # Setsuki at 6: "Upkeep: Draw 2 cards." (step 13)
+        drawn = draw_cards(engine, match, seat, 2, result)
+        if drawn:
+            result.narration.append(
+                f"{tokens.hero('setsuki_hiruki')} draws {tokens.player(seat)} {drawn} card"
+                f"{'' if drawn == 1 else 's'}."
+            )
     elif kind == "owl":
         owls = sum(1 for card in player.play if engine.text_slug(card) in effects.UPKEEP_GOLD)
         gained = gain_gold(match, seat, owls)

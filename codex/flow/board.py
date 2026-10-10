@@ -742,6 +742,8 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        if engine.text_slug(card) in effects.TWINS and not is_token(engine, card.slug):
+            _twin_home(engine, match, card, result)
         if witnesses["retellers"].get(seat) and not is_token(engine, card.slug) \
                 and engine.is_illusion(match, card):
             _retell(engine, match, seat, card, witnesses["retellers"][seat], result)
@@ -759,6 +761,21 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
+
+
+def _twin_home(engine: "RulesEngine", match: MatchState, card: CardInstance,
+               result: Optional[StepResult]) -> None:
+    """Rambasa Twin: "The first time a Rambasa Twin dies each turn, return
+    him to his owner's codex." -- from wherever his death put him (step 13)."""
+    owner = match.player(card.owner)
+    if any(entry.get("kind") == "twin_home" for entry in owner.lasting):
+        return
+    owner.lasting.append({"kind": "twin_home", "until": "end_of_turn"})
+    _take_back(engine, match, card)
+    owner.codex[card.slug] = owner.codex.get(card.slug, 0) + 1
+    match.record_event("to_codex", slug=card.slug, owner=card.owner)
+    if result is not None:
+        result.narration.append(f"{tokens.card(card.slug)} returns to {tokens.player(card.owner)}'s codex.")
 
 
 def _retell(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
@@ -1396,10 +1413,53 @@ def lethal(engine: "RulesEngine", match: MatchState, body) -> bool:
 _lethal = lethal
 
 
+def armor_gain(body, amount: int) -> int:
+    """What `amount` armor gained is for `body`: double for a Doubling
+    Barbarbarian with his text (his rulings, step 13)."""
+    if (isinstance(body, CardInstance) and (body.copy_of or body.slug) in effects.DOUBLERS
+            and "polymorph" not in (body.printed or {})):
+        return amount * 2
+    return amount
+
+
+def focus_prevents(engine: "RulesEngine", match: MatchState, body, amount: int, *,
+                   piercing: bool = False, deathtouch: bool = False,
+                   redirected: bool = False, result: Optional[StepResult] = None) -> int:
+    """
+    Focus Master: "Whenever a friendly unit or hero would take exactly
+    lethal damage, remove a focus rune to prevent 1 damage." -- exactly
+    what destroys it after armor, a deathtouch damage of one counting and
+    more not, and never a patroller whose excess overpower or Stampede
+    carries on (its rulings, the Card FAQ). The damage left to deal.
+    """
+    if amount <= 0 or redirected:
+        return amount
+    seat = engine.seat_of(match, body)
+    if seat is None:
+        return amount
+    master = next((card for card in match.player(seat).play
+                   if engine.text_slug(card) in effects.FOCUS_MASTERS and card.runes.get(effects.FOCUS)), None)
+    if master is None:
+        return amount
+    landed = amount if piercing else max(0, amount - body.armor)
+    left = engine.body_stats(match, body)[1] - body.damage
+    exact = landed == 1 if deathtouch else (landed > 0 and landed == left)
+    if not exact:
+        return amount
+    master.runes[effects.FOCUS] -= 1
+    if result is not None:
+        ref = hero_ref(body.slug) if isinstance(body, HeroState) else body.ref
+        result.narration.append(
+            f"{tokens.card(master.slug)} spends a focus rune: 1 damage to {named(match, seat, ref)} is prevented."
+        )
+    return amount - 1
+
+
 def grant_armor(body, amount: int) -> None:
     """Temporary armor (Rampant Growth, Dinosize, Stampede, Argagarg):
     onto the body's armor now, and taken off what is left at the end of
-    the turn (UMR p. 16)."""
+    the turn (UMR p. 16) -- doubled for a Doubling Barbarbarian (step 13)."""
+    amount = armor_gain(body, amount)
     body.armor += amount
     body.modifiers.append({"kind": "armor", "amount": amount, "until": "end_of_turn"})
 
@@ -1476,6 +1536,15 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
                 f"{named(match, twin.controller, twin.ref)} is a second copy of a legendary card."
             )
             destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause, forced=True)
+            continue
+        orphan = next((card for player in match.players for card in player.play
+                       if card.slug == effects.DAIGO and card.made_by is not None
+                       and match.instance(card.made_by) is None), None)
+        if orphan is not None:
+            # Hero's Monument: "Trash him when this leaves play." (step 13)
+            result.narration.append(f"{named(match, orphan.controller, orphan.ref)} is trashed with its Monument.")
+            match.player(orphan.controller).play.remove(orphan)
+            match.record_event("trashed", slug=orphan.slug, owner=orphan.owner)
             continue
         mox = next((card for player in match.players for card in player.play
                     if engine.text_slug(card) in effects.TRASHED_BY_TECH_II

@@ -499,6 +499,13 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             body.modifiers.append({"kind": "readied_once", "until": "end_of_turn"})
             rampaged = True
 
+    safe = 0
+    if isinstance(body, CardInstance) and engine.catalog.cards[body.slug].is_unit and engine.tech_level(body) <= 1:
+        # Safe Attacking: "+1 armor while they attack" -- each copy, lost
+        # after the attack if still there (its rulings, step 13).
+        copies = sum(1 for card in match.player(seat).play if engine.text_slug(card) in effects.SAFE_ATTACKING)
+        safe = board.armor_gain(body, copies)
+        body.armor += safe
     dealt = engine.attack_value(match, seat, attacker, against=defender)
     back = engine.damage_back(match, attacker, defender)
     excess = engine.overpower_excess(match, attacker, defender) if state["overpower"] else 0
@@ -587,10 +594,17 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 continue
             source = hit.source.body if hit.source is not None else None
             piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
-            hit.landed = _take(hit.target, hit.amount, piercing,
+            # Focus Master: 1 of exactly lethal damage prevented, never on a
+            # patroller whose excess overpower or Stampede carries on.
+            amount = board.focus_prevents(
+                engine, match, hit.target.body, hit.amount, piercing=piercing,
+                deathtouch=source is not None and engine.has_keyword(source, "Deathtouch", match),
+                redirected=hit.kind == "attack" and bool(excess or stampeded), result=result,
+            )
+            hit.landed = _take(hit.target, amount, piercing,
                                runes=source is not None and engine.rune_damage(match, source))
             if (
-                hit.amount > 0 and source is not None
+                amount > 0 and source is not None
                 and engine.has_keyword(source, "Deathtouch", match)
                 and not engine.is_building_ref(match, hit.target.seat, hit.target.ref)
             ):
@@ -608,6 +622,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
 
+    if safe:
+        body.armor = max(0, body.armor - safe)
     result.narration.append(_damage_line(engine, match, hitting, taking, hits[0], defence, swift_attacker))
     for hit in hits[1:]:
         if hit.kind == "sparkshot" and not hit.skipped:

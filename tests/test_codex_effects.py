@@ -82,7 +82,8 @@ def _handled(slug: str) -> list[str]:
         "LONG_RANGE_AT_ONE", "UNSTOPPABLE_ATTACKING_BASE", "UNSTOPPABLE_ATTACKING_BUILDINGS",
         "UNSTOPPABLE_BY_WEAK", "UNSTOPPABLE_WITH_NINJA", "UNATTACKABLE_WITH_CUTE_ANIMAL", "LIBERTY",
         "JAILS", "CENSORS", "NEWSMEN", "INSPECTORS", "PASSES", "FLYING_BASE", "MINDPARRY",
-        "REVEALS_HANDS", "OATHKEEPERS",
+        "REVEALS_HANDS", "OATHKEEPERS", "BIRDS_NESTS", "DOUBLERS", "FOCUS_MASTERS", "MONUMENTS",
+        "INVERSE", "MYTHMAKING", "TWINS", "SAFE_ATTACKING", "PER_TURN",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -105,6 +106,8 @@ def _handled(slug: str) -> list[str]:
         found.append("FLYING_ON_OWN_TURN")
     if any(key[0] == slug for key in effects.UNSTOPPABLE_BY_LONE_PATROLLER):
         found.append("UNSTOPPABLE_BY_LONE_PATROLLER")
+    if any(key[0] == slug for key in effects.UPKEEP_HERO_DRAW):
+        found.append("UPKEEP_HERO_DRAW")
     if effects.ILLUSION in (getattr(card, "subtype", None) or "").split():
         # "(Illusions die when targeted ...)": the subtype, which the
         # engine reads (`RulesEngine.is_illusion`).
@@ -116,22 +119,12 @@ def _handled(slug: str) -> list[str]:
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
-    "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "boot_camp", "brave_knight", "community_service",
-    "debilitator_alpha", "doubling_barbarbarian", "drill_sergeant", "earthquake",
-    "elite_training", "entangling_vines", "flagstone_garrison", "flagstone_spy",
-    "focus_master", "foxs_den_school", "foxs_den_students", "general_onimaru",
-    "generals_hammer", "grappling_hook", "grave_stormborne", "guardian_of_the_gates",
-    "heros_monument", "hidden_ninja", "injunction", "insurance_agent",
-    "inverse_power_ninja", "jade_fox_dens_headmistress",
-    "jefferson_degrey_ghostly_diplomat", "judgment_day", "jurisdiction",
-    "lawful_search", "martial_mastery", "mind_control", "mythmaking",
-    "patriot_gryphon", "porkhand_magistrate", "rambasa_twin", "reversal",
-    "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
-    "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
-    "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",
-    "true_power_of_storms", "versatile_style", "whitestar_grappler",
-    "young_lightning_dragon",
+    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "boot_camp",
+    "brave_knight", "community_service", "debilitator_alpha", "drill_sergeant",
+    "elite_training", "flagstone_garrison", "flagstone_spy", "general_onimaru",
+    "generals_hammer", "guardian_of_the_gates", "injunction", "insurance_agent",
+    "judgment_day", "jurisdiction", "lawful_search", "mind_control", "patriot_gryphon",
+    "porkhand_magistrate", "scribe", "sirus_quince", "tax_collector", "the_art_of_war",
 })
 
 

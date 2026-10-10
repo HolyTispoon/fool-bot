@@ -551,6 +551,11 @@ class RulesEngine:
                 elif lasting.get("kind") == "ferocity":
                     found.extend((keyword, None) for keyword in effects.FEROCITY_KEYWORDS)
                     ability = True
+                elif lasting.get("kind") == effects.DEN_STUDENTS and self.is_ninja(card):
+                    # Fox's Den Students: "your Ninja units have haste and
+                    # stealth" this turn (step 13).
+                    found.extend((("Haste", None), ("Stealth", None)))
+                    ability = True
         changed_atk, changed_hp = self._changes(card)
         atk += changed_atk
         hp += changed_hp
@@ -570,6 +575,28 @@ class RulesEngine:
                     hp += change[1]
         if texted and self.text_slug(card) in effects.ATK_PER_DAMAGE:
             atk += card.damage
+        if match is not None and texted and self.text_slug(card) in effects.INVERSE:
+            # Inverse Power Ninja: -1/-1 for each other unit or hero of its
+            # controller's in play (its ruling).
+            others = sum(1 for other in match.player(card.controller).play
+                         if other is not card and self.catalog.cards[other.slug].is_unit)
+            others += len(match.player(card.controller).heroes_in_play)
+            atk -= others
+            hp -= others
+        if match is not None and "Legendary" in (printed.type or ""):
+            # Mythmaking: +2/+2 to its controller's legendary units, +2 HP to
+            # their legendary buildings, -1/-1 to the opponents' legendary
+            # units (step 13).
+            for owner in match.players:
+                for other in owner.play:
+                    if self.text_slug(other) not in effects.MYTHMAKING:
+                        continue
+                    if owner.seat == card.controller:
+                        atk += 2 if printed.is_unit else 0
+                        hp += 2
+                    elif printed.is_unit:
+                        atk -= 1
+                        hp -= 1
         profile = Profile(atk, hp, found, ability)
         if match is None or not printed.is_unit:
             return profile
@@ -582,6 +609,11 @@ class RulesEngine:
         if texted:
             profile.keywords.extend(self._conditioned_keywords(match, card, card.controller))
         self._apply_grants(match, card, profile)
+        if self.text_slug(card) in effects.DOUBLERS:
+            # Doubling Barbarbarian: what he gains, doubled -- runes and
+            # temporary effects too (his rulings, the Card FAQ).
+            profile.atk += max(0, profile.atk - (printed.atk or 0))
+            profile.hp += max(0, profile.hp - (printed.hp or 0))
         if self.text_slug(card) in effects.LONG_RANGE_AT_ONE and profile.atk == 1:
             # Bluecoat Musketeer: "While this has exactly 1 ATK, it has
             # long-range." -- after every effect and rune (its ruling).
@@ -732,6 +764,13 @@ class RulesEngine:
                 # invisible." -- a unit its ability made a Ninja too.
                 if self.is_ninja(card) or effects.CUTE_ANIMAL in self.subtype_of(card):
                     profile.grant("Invisible")
+            elif grant == "jade_ninjas":
+                # Jade Fox: "Your Ninjas have flying and swift strike." --
+                # herself included, never Setsuki, who is no Ninja (its
+                # rulings).
+                if self.is_ninja(card):
+                    profile.grant("Flying")
+                    profile.grant("Swift strike")
             elif grant == "illusions":
                 # Macciatus: "Your Illusion units get +1/+1."
                 if self.is_illusion(match, card):
@@ -775,6 +814,13 @@ class RulesEngine:
             elif grant == "growth" and card.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
                 profile.atk += effects.GROWTH_BONUS
                 profile.hp += effects.GROWTH_BONUS
+            elif grant == "training":
+                # Training Grounds: "Your heroes get +1 ATK." (step 13)
+                profile.atk += 1
+            elif grant == "monument":
+                # Hero's Monument: "Your heroes get +1/+1."
+                profile.atk += 1
+                profile.hp += 1
             elif grant == "showdown" and card.attached_hero == f"{seat}:{hero_ref(hero.slug)}":
                 # Final Showdown: "He gets +3/+3, readiness, resist 1, and
                 # draws a card when he attacks."
@@ -1127,6 +1173,12 @@ class RulesEngine:
         """Gargoyle's ability: it can attack and patrol until its
         controller's next upkeep."""
         return any(m.get("kind") == "unbound" for m in getattr(body, "modifiers", ()))
+
+    def entangled(self, match: Optional[MatchState], card: CardInstance) -> bool:
+        """Entangling Vines on it: "It can't attack or patrol." (step 13)"""
+        return match is not None and any(
+            spell.slug == effects.VINES and card.id in spell.attached for spell in match.instances()
+        )
 
     def shackled(self, match: Optional[MatchState], card: CardInstance) -> bool:
         """Terras Q: "can't attack or patrol while any of those tokens are
@@ -1720,6 +1772,11 @@ class RulesEngine:
                 and not self.unbound(body):
             return False
         if isinstance(body, CardInstance) and self.shackled(match, body):
+            return False
+        if any(m.get("kind") == effects.CANT_ATTACK_MODIFIER for m in body.modifiers):
+            # Sparring Partner readied to spar (step 13).
+            return False
+        if isinstance(body, CardInstance) and self.entangled(match, body):
             return False
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return False
@@ -2766,6 +2823,48 @@ class RulesEngine:
                 if side == seat:
                     found += [(side, card.ref) for card in units
                               if not self.is_demon(card) and self.may_sacrifice(match, card)]
+            elif choose == "friendly_unit_or_hero":
+                if side == seat:
+                    found += [(side, card.ref) for card in units] + [(side, ref) for ref in hero]
+            elif choose == "own_unit_or_hero_atk_4":
+                # Hidden Ninja: "your units and/or heroes with 4 ATK or less".
+                if side == seat:
+                    found += [(side, card.ref) for card in units if self.unit_stats(card, match)[0] <= 4]
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                              if self.hero_stats(one, match)[0] <= 4]
+            elif choose == "opponent_hand_look":
+                # A look and nothing to choose (Martial Mastery, Lawful
+                # Search): what is seen is the prompt's `shown`.
+                pass
+            elif choose == "opposing_hero":
+                if side != seat:
+                    found += [(side, ref) for ref in hero]
+            elif choose == "snapped_command_hero":
+                # Snapback: another hero of the command zone the first went
+                # to -- summoning runes or none -- or the same one where there
+                # is no other (its rulings).
+                snapped = frame.get("snapped")
+                if snapped and side == snapped[0]:
+                    others = [one for one in player.heroes
+                              if not one.in_play and hero_ref(one.slug) != snapped[1]]
+                    if not others:
+                        others = [one for one in player.heroes if hero_ref(one.slug) == snapped[1]
+                                  and not one.in_play]
+                    found += [(side, hero_ref(one.slug)) for one in others]
+            elif choose == "own_ninjutsu_hero":
+                if side == seat:
+                    found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                              if (self.hero_card(one).spec or "").lower() == "ninjutsu"]
+            elif choose == "cheap_ground_unit":
+                # Thunderclap: units without flying that cost 2 or less -- a
+                # token 0, unless it copies a dearer card (its rulings).
+                found += [(side, card.ref) for card in units
+                          if not self.has_keyword(card, "Flying", match)
+                          and (0 if self.catalog.cards[card.slug].kind == "token" and not card.copy_of
+                               else self.card_of(card).cost or 0) <= 2]
+            elif choose == "upgrade":
+                found += [(side, card.ref) for card in player.play
+                          if self.catalog.cards[card.slug].is_upgrade]
             elif choose == "other_unit_tech_0_1":
                 # Manufactured Truth's original: another tech 0 or I unit,
                 # either side's.
@@ -2901,6 +3000,11 @@ class RulesEngine:
                     if cards[slug].is_unit and 1 <= level(slug) <= 2 and (cards[slug].cost or 0) <= 5
                     and self.tech_building_active(player, level(slug))
                     and not self._why_not_spec(player, cards[slug])]
+        if choose == "codex_rambasa":
+            return [CODEX + slug for slug in codex if slug in effects.TWINS]
+        if choose == "hand_cost_3":
+            # True Power of Storms: "two other cards that cost {gold:3}".
+            return [HAND + slug for slug in hand if (cards[slug].cost or 0) == 3]
         if choose == "hand_unit_tech_0_2":
             return [HAND + slug for slug in hand if cards[slug].is_unit and level(slug) <= 2]
         if choose == "hand_unit_built":
@@ -3062,6 +3166,15 @@ class RulesEngine:
             allowed = True
             if key == "workers":
                 allowed = match.player(seat).workers >= 2
+            elif key in ("upgrade", "flier", "repair"):
+                # Versatile Style: a mode with nothing to do is not offered
+                # where another can be done (step 13).
+                choose = {"upgrade": "upgrade", "flier": "flier", "repair": "other_building"}[key]
+                probe = next(one for one in effects.EFFECTS[frame["effect"]].parts if one.choose == choose)
+                allowed = bool(self.target_rows(match, seat, probe, frame=frame))
+            elif key == "detector":
+                allowed = any((self.hero_card(hero).spec or "").lower() == "discipline"
+                              for hero in match.player(seat).heroes_in_play)
             elif key == "boosted":
                 # The Graveyard's buried unit, boosted where it has a boost
                 # and its controller can pay for both (the boost ruling).
@@ -3184,9 +3297,12 @@ class RulesEngine:
             return f"it needs {cost.discard} cards in hand to discard"
         if cost.needs_spell and not player.spells_played:
             return "you have not played a spell this turn"
-        if cost.once and any(m.get("kind") == "once" and m.get("effect") == effect
-                             for m in getattr(body, "modifiers", ())):
-            return "it has been used this turn"
+        if cost.once and sum(1 for m in getattr(body, "modifiers", ())
+                             if m.get("kind") == "once" and m.get("effect") == effect) >= \
+                effects.PER_TURN.get(effect, 1):
+            # Once-per-turn, or Young Lightning Dragon's thrice (step 13).
+            return "it has been used this turn" if effects.PER_TURN.get(effect, 1) == 1 \
+                else f"it has been used {effects.PER_TURN[effect]} times this turn"
         if cost.skeletons and len(self.ready_skeletons(match, seat)) < cost.skeletons:
             return f"it needs {cost.skeletons} ready Skeletons"
         if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
@@ -3224,6 +3340,13 @@ class RulesEngine:
             found.append("galina")
         if self.healing(player):
             found.append("healing")
+        # White's (step 13): Bird's Nest's lost Birds, Setsuki's two cards.
+        found += [f"nest:{card.id}" for card in player.play if self.text_slug(card) in effects.BIRDS_NESTS]
+        if match is not None and not player.silenced and any(
+            hero.slug == slug and hero.level >= level
+            for hero in player.heroes_in_play for (slug, level) in effects.UPKEEP_HERO_DRAW
+        ):
+            found.append("setsuki")
         if any(slug in effects.UPKEEP_SELF_DAMAGE for slug in texts):
             found.append("starlet")
         # One each: Land Octopus's choice, Dothram Horselord's side.
@@ -3305,6 +3428,7 @@ class RulesEngine:
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
             and (self.text_slug(card) not in effects.CANT_PATROL or self.unbound(card))
             and not self.shackled(match, card) and not player.peace
+            and not self.entangled(match, card)
         ]
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted
@@ -3540,6 +3664,8 @@ _PRIVATE_FILTERS = frozenset({
     "hand_unit", "codex_demonology_spell", "discard_tech_1_2_cheap",
     "deck_top", "hand_card_with_deck", "deck_top_playable", "discard_fading_unit",
     "codex_tech_1_2_unit", "codex_distortion",
+    # White and blue's (step 13).
+    "codex_rambasa", "hand_cost_3",
 })
 
 

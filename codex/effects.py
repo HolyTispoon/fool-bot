@@ -217,22 +217,12 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE 
 #: Porcupine, Savior Monk, Fuzz Cuddles, the Bird and the Soldier are
 #: read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
-    "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "boot_camp", "brave_knight", "community_service",
-    "debilitator_alpha", "doubling_barbarbarian", "drill_sergeant", "earthquake",
-    "elite_training", "entangling_vines", "flagstone_garrison", "flagstone_spy",
-    "focus_master", "foxs_den_school", "foxs_den_students", "general_onimaru",
-    "generals_hammer", "grappling_hook", "grave_stormborne", "guardian_of_the_gates",
-    "heros_monument", "hidden_ninja", "injunction", "insurance_agent",
-    "inverse_power_ninja", "jade_fox_dens_headmistress",
-    "jefferson_degrey_ghostly_diplomat", "judgment_day", "jurisdiction",
-    "lawful_search", "martial_mastery", "mind_control", "mythmaking",
-    "patriot_gryphon", "porkhand_magistrate", "rambasa_twin", "reversal",
-    "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
-    "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
-    "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",
-    "true_power_of_storms", "versatile_style", "whitestar_grappler",
-    "young_lightning_dragon",
+    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "boot_camp",
+    "brave_knight", "community_service", "debilitator_alpha", "drill_sergeant",
+    "elite_training", "flagstone_garrison", "flagstone_spy", "general_onimaru",
+    "generals_hammer", "guardian_of_the_gates", "injunction", "insurance_agent",
+    "judgment_day", "jurisdiction", "lawful_search", "mind_control", "patriot_gryphon",
+    "porkhand_magistrate", "scribe", "sirus_quince", "tax_collector", "the_art_of_war",
 })
 
 
@@ -1996,4 +1986,227 @@ TEXT.update({
 COSTS.update({
     "oathkeeper_sideline": Cost(gold=2),
     "eyes_of_the_chancellor": Cost(exhaust=True),
+})
+
+# -- White's effects (step 13, commit 4) ----------------------------------------
+
+#: "Thrice-per-turn" and the like (step 13): the most an ability is used a
+#: turn, where it is more than once -- Young Lightning Dragon's three.
+PER_TURN = {"young_lightning_dragon": 3}
+#: Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2).
+#: Upkeep: Re-summon lost birds (limit: 2)." -- a second Nest gains two
+#: more at once (the Card FAQ), and the upkeep brings them back only to
+#: two, every Nest seeing the two (its ruling).
+BIRDS_NESTS = frozenset({"birds_nest"})
+BIRD = "bird"
+BIRD_LIMIT = 2
+CHANNELING = {**CHANNELING, "birds_nest": "strength"}
+#: Doubling Barbarbarian: "Whenever he would gain ATK, HP, or armor, he
+#: gains double that much instead." -- runes, squad leader's armor and
+#: temporary effects too, never healing (his rulings).
+DOUBLERS = frozenset({"doubling_barbarbarian"})
+#: Entangling Vines: "Attach to a patrolling unit. Sideline the unit. It
+#: can't attack or patrol."
+VINES = "entangling_vines"
+ATTACHING = ATTACHING | {VINES}
+#: Focus Master: "Arrives: Put three focus runes on this. Whenever a
+#: friendly unit or hero would take exactly lethal damage, remove a focus
+#: rune to prevent 1 damage."
+FOCUS_MASTERS = frozenset({"focus_master"})
+FOCUS = "focus"
+#: Fox's Den Students: "This turn, your Ninja units have haste and
+#: stealth." -- continuous, on the caster's side (`PlayerState.lasting`).
+DEN_STUDENTS = "den_students"
+#: Hero's Monument: "Arrives: Summon ... Daigo Stormborne ... Trash him
+#: when this leaves play. Your heroes get +1/+1."
+MONUMENTS = frozenset({"heros_monument"})
+DAIGO = "daigo_stormborne"
+#: Inverse Power Ninja: "Gets -1/-1 for each other unit or hero you have."
+INVERSE = frozenset({"inverse_power_ninja"})
+#: Jade Fox: "Your Ninjas have flying and swift strike." -- herself too.
+UNIT_GRANTS.update({"jade_fox_dens_headmistress": "jade_ninjas"})
+#: Mythmaking: "Your legendary units get +2/+2 and your legendary
+#: buildings get +2 HP. Opponents' legendary units get -1/-1."
+MYTHMAKING = frozenset({"mythmaking"})
+#: Rambasa Twin: "The first time a Rambasa Twin dies each turn, return him
+#: to his owner's codex."
+TWINS = frozenset({"rambasa_twin"})
+#: Safe Attacking: "Your tech 0 and I units get +1 armor while they
+#: attack." -- lost after each attack, again on a second (its rulings).
+SAFE_ATTACKING = frozenset({"safe_attacking"})
+#: Setsuki at 6: "Upkeep: Draw 2 cards."
+UPKEEP_HERO_DRAW = {("setsuki_hiruki", 6): 2}
+#: Training Grounds and Hero's Monument: what they give their
+#: controller's heroes.
+HERO_GRANTS.update({"training_grounds": "training", "heros_monument": "monument"})
+#: Sparring Partner's "he can't attack this turn".
+CANT_ATTACK_MODIFIER = "cant_attack"
+
+for _effect_row in (
+    # Aged Sensei: "{exhaust} -> Give a friendly unit or hero +1 ATK/+1
+    # armor this turn." {target}
+    _effect("aged_sensei", Part("buff", "friendly_unit_or_hero", 1,
+                                "give a friendly unit or hero +1 ATK and +1 armor this turn")),
+    # Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2)."
+    _effect("birds_nest", Part("token", None, 2, targeted=False, token="bird")),
+    _effect("birds_nest_upkeep", Part("birds", None, 2, targeted=False)),
+    # Earthquake: "Deal 4 damage to all an opponent's damaged buildings.
+    # Deal 1 damage to all their undamaged buildings." -- read sentence by
+    # sentence (its ruling).
+    _effect("earthquake", Part("earthquake", None, 4, targeted=False)),
+    # Entangling Vines: "Attach to a patrolling unit." {target}
+    _effect("entangling_vines", Part("attach", "patrolling_unit", 0, "attach to a patrolling unit")),
+    # Focus Master: "Arrives: Put three focus runes on this."
+    _effect("focus_master", Part("rune_on_self", None, 3, targeted=False, token="focus")),
+    # Fox's Den School: "{gold:2}, {exhaust} -> One of your units becomes a
+    # Ninja (in addition to its other types.)" {target}
+    _effect("foxs_den_school", Part("make_ninja", "own_unit", 0, "make one of your units a Ninja")),
+    # Fox's Den Students: "Summon four 1/1 white Ninja tokens. This turn,
+    # your Ninja units have haste and stealth."
+    _effect("foxs_den_students", Part("token", None, 4, targeted=False, token="ninja"),
+            Part("den_students", None, 0, targeted=False)),
+    # Grappling Hook: "Pull a patroller to an empty slot in its patrol zone."
+    # {target} -- over any between (the Card FAQ).
+    _effect("grappling_hook", Part("shove", "patroller", 0, "pull a patroller"),
+            Part("shove_slot", "empty_slot", 0, "choose the empty slot it is pulled to",
+                 targeted=False)),
+    # Grave at 7: "Max Level: Put a sword rune on this." and "{exhaust},
+    # Remove a sword rune -> Destroy a unit or hero. {target}"
+    _effect("grave_stormborne_rune", Part("rune_on_self", None, 1, targeted=False, token="sword")),
+    _effect("grave_stormborne", Part("destroy", "unit_or_hero", 0, "destroy a unit or hero")),
+    # Hero's Monument: "Arrives: Summon an 8/8 legendary white Ghost token
+    # named "Daigo Stormborne."" -- remembered by the Monument.
+    _effect("heros_monument", Part("daigo", None, 1, targeted=False, token="daigo_stormborne")),
+    # Hidden Ninja: "Up to two of your units and/or heroes with 4 ATK or
+    # less have stealth this turn. If either is a Ninja or Ninjutsu hero,
+    # draw a card." {target}
+    _effect("hidden_ninja",
+            Part("hidden", "own_unit_or_hero_atk_4", 0,
+                 "give one of your units or heroes with 4 ATK or less stealth this turn",
+                 most=2, least=0),
+            Part("ninja_draw", None, 1, targeted=False)),
+    # Jade Fox: "Arrives: Summon four 1/1 white Ninja tokens."
+    _effect("jade_fox_dens_headmistress", Part("token", None, 4, targeted=False, token="ninja")),
+    # Jefferson DeGrey: "Arrives: Destroy all tokens."
+    _effect("jefferson_degrey_ghostly_diplomat", Part("destroy_tokens", None, 0, targeted=False)),
+    # Martial Mastery: "Discard a card, draw two cards, then look at the
+    # opponent's hand." -- it is not discarded until done (its ruling).
+    _effect("martial_mastery",
+            Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+            Part("draw", None, 2, targeted=False),
+            Part("look_at", "opponent_hand_look", 0, "look at their hand", targeted=False, least=0)),
+    # Rambasa Twin: "Arrives: You may put a Rambasa Twin from your codex into
+    # play."
+    _effect("rambasa_twin", Part("put_into_play", "codex_rambasa", 0,
+                                 "put a Rambasa Twin from your codex into play",
+                                 targeted=False, least=0)),
+    # Reversal: "Deal 3 damage to a patroller, then disable it." {target}
+    _effect("reversal", Part("damage", "patroller", 3, "deal 3 damage to a patroller"),
+            Part("disable_picked", None, 0, targeted=False, follows=True)),
+    # Sensei's Advice: "Give up to two of your units +1 ATK/+1 armor this
+    # turn." {target}
+    _effect("senseis_advice", Part("buff", "own_unit", 1, "give one of your units +1 ATK and +1 armor this turn",
+                                   most=2, least=0)),
+    # Setsuki at 4: "Attacks: Swift strike this turn."
+    _effect("setsuki_hiruki", Part("keyword_self", None, 0, targeted=False, token="Swift strike")),
+    # Shuriken Hail: "Deal 1 damage to each patroller."
+    _effect("shuriken_hail", Part("hail", None, 1, targeted=False)),
+    # Snapback: "Return an opposing hero to its command zone. It can't be
+    # summoned until after its owner's next turn. Put another hero from that
+    # command zone into play, or the same hero if there isn't another."
+    # {target}
+    _effect("snapback",
+            Part("snapback", "opposing_hero", 0, "return an opposing hero to its command zone"),
+            Part("snapback_in", "snapped_command_hero", 0,
+                 "choose the hero of that command zone that comes into play",
+                 targeted=False, follows=True)),
+    # Sparring Partner: "{exhaust} -> Put a +1/+1 rune on a friendly unit or
+    # hero that doesn't have a +1/+1 rune." {target} and "{gold:2} -> Ready
+    # Sparring Partner, but he can't attack this turn (he can only spar)."
+    _effect("sparring_partner", Part("plus_rune", "friendly_unbloomed", 1,
+                                     "put a +1/+1 rune on a friendly unit or hero without one")),
+    _effect("sparring_partner_ready", Part("spar", None, 0, targeted=False),
+            says="ready him to spar again"),
+    # Speed of the Fox: "Your Ninjutsu hero gets haste, readiness, armor
+    # piercing, and +1 ATK this turn." {target}
+    _effect("speed_of_the_fox", Part("fox_speed", "own_ninjutsu_hero", 1,
+                                     "give your Ninjutsu hero haste, readiness, armor piercing and +1 ATK")),
+    # Thunderclap: "Sideline up to three units without flying that cost
+    # {gold:2} or less." {target}
+    _effect("thunderclap", Part("sideline", "cheap_ground_unit", 0,
+                                "sideline a unit without flying that costs 2 or less", most=3, least=0)),
+    # Training Grounds: "{exhaust} -> Level up a hero to max level."
+    _effect("training_grounds", Part("max_level", "hero_in_play", 0, "level a hero up to its max level",
+                                     targeted=False)),
+    # True Power of Storms: "Reveal and discard two other cards that cost
+    # {gold:3}. If you do, deal 10 damage to a unit, hero, or building."
+    # {target} -- nothing targeted unless both are discarded (its ruling).
+    _effect("true_power_of_storms",
+            Part("storm_discard", "hand_cost_3", 0, "reveal and discard a card that costs 3",
+                 targeted=False, most=2, least=2),
+            Part("damage", "unit_hero_or_building", 10, "deal 10 damage to a unit, hero or building",
+                 when="stormed")),
+    # Versatile Style: "Choose one of the following: Destroy an upgrade.
+    # Disable a unit or hero with flying. Repair 2 damage from a building.
+    # Your Discipline hero is a detector this turn." {target}
+    _effect(
+        "versatile_style",
+        Part("mode", modes=(("upgrade", "destroy an upgrade"),
+                            ("flier", "disable a unit or hero with flying"),
+                            ("repair", "repair 2 damage from a building"),
+                            ("detector", "your Discipline hero is a detector this turn")),
+             says="choose one"),
+        Part("destroy_card", "upgrade", 0, "destroy an upgrade", only="upgrade"),
+        Part("disable", "flier", 0, "disable a unit or hero with flying", only="flier"),
+        Part("repair", "other_building", 2, "repair 2 damage from a building", only="repair"),
+        Part("detector", None, 0, targeted=False, only="detector"),
+    ),
+    # Whitestar Grappler: "{exhaust} -> Deal 4 damage to a unit. If it's
+    # still alive, it deals its ATK to Whitestar Grappler. Sideline it if it
+    # was patrolling." {target}
+    _effect("whitestar_grappler", Part("grapple", "unit", 4, "deal 4 damage to a unit")),
+    # Young Lightning Dragon: "{gold:1} -> Gets +1 ATK this turn.
+    # Thrice-per-turn."
+    _effect("young_lightning_dragon", Part("atk_self", None, 1, targeted=False), says="get +1 ATK this turn"),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "aged_sensei": (("ability", "aged_sensei"),),
+    "birds_nest": (("play", "birds_nest"),),
+    "earthquake": (("play", "earthquake"),),
+    "entangling_vines": (("play", "entangling_vines"),),
+    "focus_master": (("arrives", "focus_master"),),
+    "foxs_den_school": (("ability", "foxs_den_school"),),
+    "foxs_den_students": (("play", "foxs_den_students"),),
+    "grappling_hook": (("play", "grappling_hook"),),
+    ("grave_stormborne", 7): (("max_level", "grave_stormborne_rune"), ("ability", "grave_stormborne")),
+    "heros_monument": (("arrives", "heros_monument"),),
+    "hidden_ninja": (("play", "hidden_ninja"),),
+    "jade_fox_dens_headmistress": (("arrives", "jade_fox_dens_headmistress"),),
+    "jefferson_degrey_ghostly_diplomat": (("arrives", "jefferson_degrey_ghostly_diplomat"),),
+    "martial_mastery": (("play", "martial_mastery"),),
+    "rambasa_twin": (("arrives", "rambasa_twin"),),
+    "reversal": (("play", "reversal"),),
+    "senseis_advice": (("play", "senseis_advice"),),
+    ("setsuki_hiruki", 4): (("attacks", "setsuki_hiruki"),),
+    "shuriken_hail": (("play", "shuriken_hail"),),
+    "snapback": (("play", "snapback"),),
+    "sparring_partner": (("ability", "sparring_partner"), ("ability", "sparring_partner_ready")),
+    "speed_of_the_fox": (("play", "speed_of_the_fox"),),
+    "thunderclap": (("play", "thunderclap"),),
+    "training_grounds": (("ability", "training_grounds"),),
+    "true_power_of_storms": (("play", "true_power_of_storms"),),
+    "versatile_style": (("play", "versatile_style"),),
+    "whitestar_grappler": (("ability", "whitestar_grappler"),),
+    "young_lightning_dragon": (("ability", "young_lightning_dragon"),),
+})
+COSTS.update({
+    "aged_sensei": Cost(exhaust=True),
+    "foxs_den_school": Cost(gold=2, exhaust=True),
+    "grave_stormborne": Cost(exhaust=True, runes=("sword", 1)),
+    "sparring_partner": Cost(exhaust=True),
+    "sparring_partner_ready": Cost(gold=2),
+    "training_grounds": Cost(exhaust=True),
+    "whitestar_grappler": Cost(exhaust=True),
+    "young_lightning_dragon": Cost(gold=1, once=True),
 })

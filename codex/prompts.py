@@ -634,7 +634,7 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
 
 
 #: The parts that look at a hidden pile while they choose from it.
-LOOKS = frozenset({"opponent_hand_nonunit"})
+LOOKS = frozenset({"opponent_hand_nonunit", "opponent_hand_look"})
 
 
 def _divide_options(engine, game, match, prompt) -> DivideOptions:
