@@ -178,10 +178,10 @@ class FlyingTests(KeywordCase):
         defenders = engine.legal_defenders(match, flier)
         self.assertIn("base", defenders)
         self.assertIn(guard, defenders, "it may take the patroller if it prefers")
-        self.assertEqual(
-            dict(engine.defender_rows(match, flier))["base"],
-            "it flies over the patrol zone",
-        )
+        rows = dict(engine.defender_rows(match, flier))
+        self.assertEqual(rows["base"], "it flies over the patrol zone")
+        # The squad leader it takes is where it flies to, not over.
+        self.assertEqual(rows[guard], "squad leader")
 
     def test_flying_3(self) -> None:
         """Fliers cannot ignore flying patrollers. The usual rules of the
