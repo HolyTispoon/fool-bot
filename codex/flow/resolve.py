@@ -634,13 +634,14 @@ def _base_damage(engine, match, top, part, target, result) -> None:
 
 
 def band_name(engine, slug: str, first: int) -> str:
-    """A hero's band by where it is on the card -- "first", "middle" or
-    "max" -- from the first level of the band (the author, 2026-10-10:
-    "Troq Bashar's middle band's ability")."""
+    """A hero's band by where it is on the card -- "first level", "middle
+    level" or "max level" -- from the first level of the band (the
+    author, 2026-10-10: every hero ability is a first level band, middle
+    level band or max level band one)."""
     starts = [band.min_level for band in engine.catalog.heroes[slug].bands]
     if first == starts[-1]:
-        return "max"
-    return "first" if first == starts[0] else "middle"
+        return "max level"
+    return "first level" if first == starts[0] else "middle level"
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
