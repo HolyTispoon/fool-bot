@@ -2703,6 +2703,23 @@ class BlackRulingTests(unittest.TestCase):
         self.assertEqual(engine.unit_stats(mine, match), (4, 4))
         self.assertEqual(engine.unit_stats(theirs, match), (5, 6))
 
+    def test_blackhand_resurrector_holds_to_the_hero_limit(self) -> None:
+        """The author, 2026-10-10: "you can't summon a hero if you're at your
+        limit. however, you can summon a hero with runes using the
+        resurrector." """
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        hero_in_play(match, 2, slug="garth_torken")
+        self.assertEqual(engine.hero_limit(match.player(2)), 1)
+        rez = put(match, 2, "blackhand_resurrector")
+        self.assertFalse(option(engine, match, "blackhand_resurrector", rez.ref).allowed)
+        run = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "ability",
+                                                       {"ability": "blackhand_resurrector",
+                                                        "source": rez.ref}))
+        self.assertIsInstance(run, driver.Refusal)
+        self.assertFalse(match.player(2).hero_of("vandy_anadrose").in_play)
+
     def test_crypt_crawler_1(self) -> None:
         """"Flier" means anything with flying, even a building or hero."""
         engine, game, match = black()
@@ -3452,6 +3469,17 @@ class PurpleRulingTests(unittest.TestCase):
         self.assertEqual((back.damage, back.plus_runes, back.exhausted), (0, 0, False))
         self.assertNotIn(back.ref, engine.attackers(match))
 
+    def test_max_geiger_returns_a_token_too(self) -> None:
+        """The author, 2026-10-10: a token Max Geiger trashes comes back."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="max_geiger", level=4)
+        skeleton = put(match, 1, "skeleton")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="max_geiger", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{skeleton.ref}")
+        back = next(card for card in match.player(1).play if card.slug == "skeleton")
+        self.assertNotEqual(back.id, skeleton.id)
+
     def test_nebula_1(self) -> None:
         """You can use the ability the turn Nebula arrives because it doesn't
         have exhaust as part of the cost."""
@@ -4014,6 +4042,31 @@ class PurpleRulingTests(unittest.TestCase):
         self.assertEqual(golgort.time_runes, 2)
 
 
+def upkeep_ordered_by(engine, game, match, seat: int):
+    """Turns with nothing done until `seat`'s upkeep asks its order: the
+    kind it stops on."""
+    from test_codex_keywords import next_upkeep
+
+    next_upkeep(engine, game, match, 2 if seat == 1 else 1)
+    for _ in range(4):
+        prompt = pending_prompt(engine, game, match)
+        if prompt is None:
+            begin(engine, game, match)
+            continue
+        if prompt.kind is PromptKind.UPKEEP_ORDER or (match.active == seat and match.phase == "main"):
+            return prompt.kind
+        if prompt.kind is PromptKind.MAIN_ACTION:
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        elif prompt.kind is PromptKind.PATROL:
+            apply(engine, game, match, PromptKind.PATROL, assignment={})
+        elif prompt.kind is PromptKind.TECH_CHOICE:
+            apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                  picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+        else:
+            apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+    return pending_prompt(engine, game, match).kind
+
+
 def upkeep_of(engine, game, match, seat: int) -> None:
     """`seat`'s next upkeep and main phase, nothing done in between."""
     turn_round(engine, game, match, seat)
@@ -4133,14 +4186,28 @@ class UpkeepRulingTests(unittest.TestCase):
         can't play cards or activate abilities (such as Merfolk Prospector
         and Rickety Mine) until your Main phase, so they can't help you pay
         the cost."""
-        engine, game, match = purple()
-        put(match, 1, "gemscout_owl")
-        match.player(1).debt = 5
-        match.player(1).gold = 0
-        match.player(1).workers = 4
-        upkeep_of(engine, game, match, 1)
-        self.assertIsNone(match.winner)
-        self.assertEqual((match.player(1).gold, match.player(1).debt), (0, 0))
+        for owl_first in (True, False):
+            with self.subTest(owl_first=owl_first):
+                engine, game, match = purple()
+                put(match, 1, "gemscout_owl")
+                match.player(1).debt = 5
+                match.player(1).gold = 0
+                match.player(1).workers = 4
+                self.assertIs(upkeep_ordered_by(engine, game, match, 1), PromptKind.UPKEEP_ORDER)
+                prompt = asked(engine, game, match)
+                self.assertIn("debt", prompt.options.effects)
+                gains = [e for e in prompt.options.effects if e != "debt"]
+                self.assertEqual(gains, ["owl"])
+                first = gains[0] if owl_first else "debt"
+                apply(engine, game, match, PromptKind.UPKEEP_ORDER, first=first)
+                if owl_first:
+                    # The Owl's gold makes 5 with the workers' 4.
+                    self.assertIsNone(match.winner)
+                    self.assertEqual((match.player(1).gold, match.player(1).debt), (0, 0))
+                else:
+                    # The active player's order: the debt first is 4 gold
+                    # against 5, and the game is lost.
+                    self.assertEqual((match.winner, match.lost_by_debt), (2, 1))
 
     def test_promise_of_payment_2(self) -> None:
         """You still have to pay any additional costs of that card as you

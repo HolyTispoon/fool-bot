@@ -824,8 +824,12 @@ black's, and the rest waits for step 13.
   **Graveyard** building keeps `buried` entries, each `{slug, owner}`,
   addressed `buried:<id>:<n>`, its limit read off the card, and the
   board counts them on its card ("Buried 3"). Playing a buried unit is
-  `why_not_play_buried`; Vir's top-of-deck play `why_not_play_top`. The
-  Graveyard's boost is a mode choice.
+  `why_not_play_buried`; Vir's top-of-deck play `why_not_play_top`. A
+  buried unit with Boost may be played boosted, its boost paid on top
+  (the Graveyard says "play", and the boost ruling lets a played card be
+  boosted): after the pick a `MODE_CHOICE` asks "play it" or "play it
+  boosted", the second disabled where the unit has no boost or the gold
+  does not cover both -- put to the author in step 12's PR.
 - **The weakest** (UMR p. 18) is `engine.weakest`: the lowest tech unit
   with the least ATK, passing over what the effect cannot take -- one
   that can't be sacrificed, or, to destroy, one that is indestructible or
@@ -854,8 +858,11 @@ black's, and the rest waits for step 13.
   or a spell another card casts in between -- costs 0, and its printed
   gold cost becomes `debt` (`actions.spend_promise`): never reduced by
   anything and never the boost, which is still paid. A hire, a build or
-  an ability is not playing a card. The debt is the upkeep's last item,
-  after the workers' gold and every other gain; unpaid, the game is lost
+  an ability is not playing a card. The debt is paid in the upkeep, after
+  the workers' gold, in the order the active player chooses among the
+  upkeep's effects -- asked wherever anything else is due beside it (the
+  author, 2026-10-10: "upkeep abilities can be done in any order
+  according to the active player's choice"); unpaid, the game is lost
   -- `lost_by_debt`, GAME_OVER's third way beside a destroyed base and a
   concession. A promise spent on nothing is cleared in `begin_tech`.
 - **The upkeep's new items**, in the order the active player asks
@@ -863,7 +870,8 @@ black's, and the rest waits for step 13.
   Banefire Golem (asked beside Plague Lord, since its sacrifice may
   change Plague Lord's count), Plague Lord (every -1/-1 rune on either
   side, during its controller's upkeep alone, its own base included),
-  the Shrine of Forbidden Knowledge's damage, and the debt last.
+  the Shrine of Forbidden Knowledge's damage, and the debt, ordered
+  against all of them.
   Golgort counts any damage its controller's cards deal a building (the
   FAQ over the card's combat wording).
 - **The subtypes and the colour are rules.** Demons (`is_demon`), Buffs
@@ -875,13 +883,16 @@ black's, and the rest waits for step 13.
   Chances' "choose randomly" is `engine.pick`, journalled as
   `["@pick", slug]` beside the coin and the shuffles, so a replay returns
   the same unit (`test_second_chances_random_return_is_replayed_byte_for_byte`).
+- **As the author answered** (2026-10-10): Blackhand Resurrector
+  summons a hero that still has summoning runes, but never past the
+  hero limit -- a dead hero is no target while the side is at it; Soul
+  Stone applies before indestructible; Rememberer is always the first
+  sacrificed; a token Max Geiger trashes comes back like any unit;
+  Carrion Curse shows the hand even where nothing in it may be
+  discarded.
 - **Built as the default and put to the author** (step 12's PR, until
-  answered): Blackhand Resurrector ignores the hero limit; Soul Stone
-  applies before indestructible; Rememberer is always the first
-  sacrificed; Geiger's trashed tokens do not come back; Carrion Curse
-  shows the hand even where nothing in it may be discarded; the
-  Graveyard's boost is a mode choice; Banefire Golem is ordered beside
-  Plague Lord, and the debt is always the upkeep's last item.
+  answered): Golgort counts any damage its controller's cards deal a
+  building; a unit played from the Graveyard may be boosted.
 
 ### The saved fields
 

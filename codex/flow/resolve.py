@@ -1753,10 +1753,12 @@ def _resurrect(engine, match, top, part, target, result) -> None:
     """Blackhand Resurrector: a hero that died this game summoned from the
     command zone at its maximum level -- level 1 against an opposing
     Chronofixer -- its summoning runes gone and its max level effect
-    resolved (its rulings)."""
+    resolved (its rulings); never past the hero limit (the author,
+    2026-10-10)."""
     seat, ref = target
-    hero = match.player(seat).hero_by_ref(ref)
-    if hero is None or hero.in_play:
+    player = match.player(seat)
+    hero = player.hero_by_ref(ref)
+    if hero is None or hero.in_play or len(player.heroes_in_play) >= engine.hero_limit(player):
         return
     hero.zone = "play"
     hero.level = 1
@@ -1791,7 +1793,8 @@ def _exhaust(engine, match, top, part, target, result) -> None:
 def _geiger(engine, match, top, part, target, result) -> None:
     """Max Geiger at 5: a friendly unit trashed, then back in play fresh
     under the same controller, with arrival fatigue (his rulings) -- a
-    token, which cannot come back once it leaves, is simply gone."""
+    token too: the ability returns what it trashed (the author,
+    2026-10-10)."""
     seat, ref = target
     card = board.body_of(match, seat, ref)
     if card is None:
@@ -1804,8 +1807,6 @@ def _geiger(engine, match, top, part, target, result) -> None:
     board._empty_graveyard(match, card)
     match.record_event("trashed", slug=card.slug, owner=card.owner)
     result.narration.append(f"{top['by']} trashes {named}.")
-    if board.is_token(engine, card.slug):
-        return
     board.return_fresh(engine, match, card.slug, card.controller, card.owner, result)
 
 

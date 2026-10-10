@@ -800,14 +800,24 @@ class TurnPanelView(PanelView):
     UPKEEP_LABELS = {
         "healing": "Heal first",
         "starlet": "Star-Crossed Starlet takes her damage first",
+        "debt": "Pay Promise of Payment's debt first",
+        "draw": "Draw the add-on's card first",
+        "owl": "Take Gemscout Owl's gold first",
+        "galina": "Take Galina Glimmer's gold first",
+        "doom": "Vandy's doomed units die first",
     }
 
     def upkeep_label(self, effect: str) -> str:
-        """An upkeep effect's button: the two the basic set orders by
-        their own words, and red and green's by the card whose it is."""
+        """An upkeep effect's button: the plain ones by their own words,
+        the rest by the card or hero whose it is -- a hero's fading by
+        the hero, a forecast by the card in the future (step 12)."""
         if effect in self.UPKEEP_LABELS:
             return self.UPKEEP_LABELS[effect]
         kind, _, ident = effect.partition(":")
+        if kind == "fade_hero":
+            return f"{self.label(f'hero:{ident}')} first"
+        if kind == "forecast":
+            return f"{self.label(f'future:{ident}')} first"
         if ident:
             return f"{self.label(f'unit:{ident}')} first"
         return effect

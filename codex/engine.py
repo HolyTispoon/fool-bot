@@ -2493,8 +2493,9 @@ class RulesEngine:
                           if self.has_keyword(one, "Flying", match)]
             elif choose == "dead_hero":
                 # Blackhand Resurrector: a hero of yours in the command zone
-                # that died this game -- summoning runes or none (its ruling).
-                if side == seat:
+                # that died this game -- summoning runes or none (its ruling),
+                # but never past the hero limit (the author, 2026-10-10).
+                if side == seat and len(player.heroes_in_play) < self.hero_limit(player):
                     died = {event.get("slug") for event in match.events
                             if event.get("kind") == "hero_died" and event.get("owner") == seat}
                     found += [(side, hero_ref(one.slug)) for one in player.heroes
@@ -2967,6 +2968,12 @@ class RulesEngine:
         lords = [name for name in due if name.startswith("plague_lord:")]
         if banefires and lords:
             found |= set(banefires) | set(lords)
+        # Promise of Payment's debt beside anything else due: the upkeep's
+        # order is the active player's (the author, 2026-10-10), and what
+        # comes before the debt -- a gain, or a death that frees Gilded
+        # Glaxx's gold -- decides whether it can be paid.
+        if "debt" in due and len(due) > 1:
+            found |= set(due)
         return tuple(name for name in due if name in found)
 
     def upkeep_order_matters(self, player: PlayerState) -> bool:

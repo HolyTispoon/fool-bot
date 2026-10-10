@@ -299,12 +299,13 @@ def upkeep_frame(engine: "RulesEngine", match: MatchState, seat: int) -> dict:
     """
     due = list(engine.upkeep_effects(match.player(seat), match))
     ordered = list(engine.upkeep_ordered(due))
-    first = [name for name in due if name not in ordered and name != "debt"]
-    # Promise of Payment's debt is paid last: "Before paying the loan
-    # during your upkeep, you can resolve any other upkeep effects" (the
-    # Card FAQ), so the order that serves the player is the one taken.
-    last = ["debt"] if "debt" in due else []
-    return {"kind": UPKEEP, "seat": seat, "due": first + ordered + last, "ordered": ordered}
+    first = [name for name in due if name not in ordered]
+    # Promise of Payment's debt is ordered like any other upkeep effect
+    # where anything else is due (`upkeep_ordered`): "Before paying the
+    # loan during your upkeep, you can resolve any other upkeep effects"
+    # (the Card FAQ) -- and the order is the active player's (the author,
+    # 2026-10-10).
+    return {"kind": UPKEEP, "seat": seat, "due": first + ordered, "ordered": ordered}
 
 
 def _legacy_upkeep(engine: "RulesEngine", match: MatchState, frame: dict) -> None:
