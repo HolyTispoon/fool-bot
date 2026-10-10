@@ -304,7 +304,9 @@ python3 scripts/render_maneuver_cards.py --hands   # every prompt image the bot 
   runs out of. The face and the back are now `CARD_FACE` white, the maneuver's
   colour is a `EDGE_WIDTH` outline, and `BACK_COLOR` is white with a grey
   edge. **`FACE_COLOR` is still cream**, for the hand image alone, and is
-  deliberately not the cards'. The printed boards, the rulebooks and their
+  deliberately not the cards'. Each card in the hand is cut out at its
+  outline (`screen_cutout`), so its rounded corners show the cream rather
+  than the white square around them. The printed boards, the rulebooks and their
   figures used to share it and went white on 2026-09-27: they are `PAPER`,
   with `PAPER_PANEL` and `PAPER_EDGE`, beside it in `cards.py`; see
   printed-boards.md.
@@ -562,6 +564,13 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   The badge is the ability band's own (`draw_species_badge`), smaller, so
   the corner and the band say the species with one picture -- and filled,
   for the band's reason: Slime green does not read on white.
+  The panel sits `INDEX_SHIFT` (24px) further in than it did under the
+  old 40px corner, at the same size, with its top-left corner cut to the
+  card's curve (`Pen.rect_in_card`, 8px inside the outline), so the
+  Avery cut leaves the numbers whole; the name's room narrows by the
+  same on both sides to stay centred (`NAME_INSET`). The author chose
+  this over a smaller index lower down and over a taller header
+  (2026-10-10).
   It is there for a card whose face is covered -- a bench is three cards
   cascaded so only each one's left edge shows, and a fanned hand shows the
   same corner -- so it is the stats row said again, not instead: the row
@@ -646,10 +655,17 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   `duplex_order`'s reversed rows still land each back behind its front;
   the printer flips it on the **short** edge, the landscape page's
   equivalent of the portrait sheets' long-edge flip. A card with a
-  bleed is centred on its die cut, so the bleed runs into the gap. The
-  die cut's corner is a 0.375in radius where the card draws its own
-  outline at `CORNER`, a tighter one, so the cut takes a sliver off
-  each drawn corner. The player cards, nine a team, stay on
+  bleed is centred on its die cut, so the bleed runs into the gap.
+  **The card's corner is the die cut's** (the author, 2026-10-10): the
+  cut's corner is a 0.375in radius, 112.5px on the trim, and `CORNER`
+  is 106 -- that less `FRAME` -- so the outline drawn `FRAME` inside
+  the trim is concentric with the cut and keeps its inset round the
+  corner as along the sides. It was 40, and printed on the stock the cut
+  took the drawn corner and the header's coloured corner off every card.
+  A header band is cut to the outline (`Pen.rect_in_card`) rather than
+  drawn as its own rounded rectangle, which Pillow clamps to half a
+  short band's height and so stood outside the outline. The player
+  cards, nine a team, stay on
   `print_sheet`, and come as Avery pages as well, beside the sheets
   rather than instead of them (the author, 2026-09-28):
   `avery_95328_pages` cuts any number of cards into pages of six, and

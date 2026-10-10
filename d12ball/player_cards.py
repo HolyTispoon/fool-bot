@@ -200,19 +200,8 @@ def draw_header(
     kept symmetric about the card's centre, so the empty left corner
     does not pull the name off-centre.
     """
-    pen.rect(
-        (FRAME, FRAME, CARD_WIDTH - FRAME, FRAME + HEADER_HEIGHT),
-        radius=CORNER,
-        fill=color,
-    )
-    pen.rect(
-        (
-            FRAME,
-            FRAME + HEADER_HEIGHT - CORNER,
-            CARD_WIDTH - FRAME,
-            FRAME + HEADER_HEIGHT,
-        ),
-        fill=color,
+    pen.rect_in_card(
+        (FRAME, FRAME, CARD_WIDTH - FRAME, FRAME + HEADER_HEIGHT), color
     )
 
     emoji = corner_mark(team, color)
@@ -226,8 +215,8 @@ def draw_header(
     # Black on Slime green and white on every other band (the author,
     # 2026-09-27): white on Slime could not be read.
     ink = high_contrast_ink(color)
-    name_left = FRAME + 132
-    name_right = CARD_WIDTH - FRAME - 132
+    name_left = FRAME + NAME_INSET
+    name_right = CARD_WIDTH - FRAME - NAME_INSET
     pen.text(
         ((name_left + name_right) / 2, FRAME + 50),
         player.name,
@@ -254,9 +243,15 @@ def draw_header(
 # The corner index in the header's left-hand corner (the author,
 # 2026-10-03): the offence over the defence, and beside them the role's
 # initials over the species' badge, on one white panel. The panel
-# ends short of the name's room (`FRAME + 132`), which stays symmetric.
-INDEX_LEFT = FRAME + 18
-INDEX_RIGHT = FRAME + 126
+# ends short of the name's room (`NAME_INSET`), which stays symmetric.
+# It sits INDEX_SHIFT in from where it was drawn under the old 40px
+# corner, and its top-left corner is cut to the card's curve
+# (`Pen.rect_in_card`), so the Avery die cut's 0.375in corner leaves
+# the numbers whole (the author, 2026-10-10: the same size, moved in).
+INDEX_SHIFT = 24
+INDEX_LEFT = FRAME + 18 + INDEX_SHIFT
+INDEX_RIGHT = FRAME + 126 + INDEX_SHIFT
+NAME_INSET = INDEX_RIGHT - FRAME + 6
 INDEX_PAD = 8
 INDEX_VALUE_SIZE = 44
 INDEX_ROLE_SIZE = 28
@@ -305,10 +300,11 @@ def draw_corner_index(
     top = FRAME + INDEX_PAD
     bottom = FRAME + HEADER_HEIGHT - INDEX_PAD
     width = INDEX_RIGHT - INDEX_LEFT
-    pen.rect(
+    pen.rect_in_card(
         (INDEX_LEFT, top, INDEX_RIGHT, bottom),
+        CARD_FACE,
         radius=18,
-        fill=CARD_FACE,
+        inset=INDEX_PAD,
     )
     value_face = font(INDEX_VALUE_SIZE, bold=True)
     skills_x = INDEX_LEFT + width * INDEX_SKILLS_X
