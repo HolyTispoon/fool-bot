@@ -209,6 +209,13 @@ class TurnsMixin:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:
             files = [await hand_file(self.engine, match, prompt.asked_player)]
+        elif prompt.kind is PromptKind.TECH_CONFIRM:
+            # The hand, then the picks: My hand opens the confirmation
+            # at once (the author, 2026-10-10), and always shows the hand
+            # (2026-10-09).
+            picture = await self.render_prompt(game, prompt)
+            files = [await hand_file(self.engine, match, prompt.asked_player),
+                     *([] if picture is None else [picture])]
         else:
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
@@ -247,10 +254,11 @@ class TurnsMixin:
         """
         Put up what `seat` is asked: **made afresh** as an ephemeral
         message (`edit=False` -- My hand, Tech, `/codex resume`) -- for a
-        turn that waits on its player's tech, the hand pictured with
-        **Tech** alone under it (`TechGateView`) until it is opened, or
-        the tech itself at once where **Tech** was pressed (`open_tech`)
-        -- in
+        turn that waits on a tech choice its player never made, the hand
+        pictured with **Tech** alone under it (`TechGateView`) until it
+        is opened, or the picker at once where **Tech** was pressed
+        (`open_tech`); saved picks open on their confirmation either way
+        (the author, 2026-10-10) -- in
         place of the panel clicked (`edit=True`), or **in its stead,
         under the turn message just posted again** (`replace=True`,
         `put_panel`). The cog never looks for an old panel: an ephemeral
@@ -267,7 +275,7 @@ class TurnsMixin:
                 await self.send_hand(interaction, game, match, seat)
             return
         fresh = not edit and not replace
-        gate = fresh and not standing and not open_tech and prompt.kind in TECH_GATE_KINDS
+        gate = fresh and not standing and not open_tech and prompt.kind is PromptKind.TECH_CHOICE
         started = time.perf_counter()
         content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
         drawn = elapsed_ms(started)

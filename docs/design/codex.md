@@ -241,7 +241,7 @@ on the other player's turn, a dozen actions in one turn, and undo.
 | `MAIN_ACTION` | the active player | hire, summon, level, play, build, attack, detect with the tower (step 5), use an ability (step 6), or end the main phase -- the options are the engine's `legal_actions`, each card in the hand with its cost and why it may not be played, each ability with why it may not be used |
 | `CHOOSE_DEFENDER` | the active player | which of `legal_defenders` the declared attacker takes, or `cancel` to take the attacker back; asked after the attacker, so a misclick costs nothing (decision 11) |
 | `PATROL` | the active player | slot to unit or hero, any left empty; ends the main phase (UMR p. 10) |
-| `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5) |
+| `TECH_CHOICE` | the choice's owner | the picks from their codex, within the bounds -- two, or none to two at ten workers (UMR p. 5), which the ask says with the worker count; Asked in the main phase too, before its actions, where an undo to the turn's start took the turn's tech back |
 | `TECH_CONFIRM` | the choice's owner | `confirm` or `change`; the turn begins only once it is answered |
 | `OBLITERATE_CHOICE`, `SPARKSHOT_TARGET`, `OVERPOWER_TARGET` | the active player | the three choices inside an attack, each asked only where there is something to choose ("The keywords", below) |
 | `TARGET` | the effect's controller -- the active player | what a part of a spell, a trigger or an ability chooses, asked as the part resolves and only where there is more than one thing it could choose ("Targeting and the effects", below); since step 11 a part that picks *up to* some number offers `done`, and a pick from the asked player's own hand or codex is a private ref (`hand:<slug>`, `codex:<slug>`) the bot pictures to them alone ("Red and green", below) |
@@ -325,8 +325,34 @@ snapshot it led to already holds its effects.
   `undo_to_turn_start` restores this turn's snapshot and
   `undo_to_previous_turn` the one before, trimming the later ones.
   `undo_targets` says which are open. Who may ask for which -- the
-  opponent's consent for the second -- is step 4's frontend. A tech
-  answer the other player gave during an undone turn goes with it.
+  opponent's consent for the second -- is step 4's frontend. **An
+  undo to a turn's start clears every tech choice, a confirmed one
+  too, and asks it again** (the author, 2026-10-10: "undo should clear
+  the choices and make them choose again", and "including confirmed
+  one"). `start_tech_over` does it inside `_restore`, for either undo:
+  - **The active player's picks** went into the discard pile in the
+    ready phase, before the snapshot, which on its own does not say
+    which cards they were. So the ready phase keeps them on the player
+    as **`teched`** (`[]` for a choice of none, `None` where no tech was
+    owed) -- a saved field added for this, `None` in an older save,
+    whose undo leaves the confirmed picks be. The undo takes them back
+    out of the discard pile (the latest copy; the deck, then the hand,
+    where an upkeep draw shuffled them in) and into the codex, and the
+    choice is owed again. `pending` asks it **in the main phase**,
+    before the turn's actions, and its confirmation settles it there
+    (`turn.settle_tech`, the ready phase's own code, saying the count
+    again): rolling back to before the ready phase instead would run
+    the upkeep twice.
+  - **The other player's picks**, never confirmed before their own
+    turn, are cleared, even one made before the turn's start and so in
+    its snapshot.
+  - **The snapshot is replaced** with the position the choice is asked
+    again on, so a second undo, and a replay of the journal (Appel
+    Stomp's cancel), start there.
+  The service's undo says `history.tech_again` on the turn message for
+  each seat asked again, addressed to them -- said whether or not they
+  had picked, so it tells nobody that they had. In a test game nothing
+  is said: one person plays both sides, and the panel is the picker.
 
 ### The vanilla engine and `UNIMPLEMENTED`
 
@@ -1924,8 +1950,32 @@ their tech (below) -- all through the opponent's turn; each **Save tech**
 replaces the last, privately: **nothing is said in the channel** -- not
 the cards, and not that a choice was made. The choice is announced in
 its owner's ready phase alone, as "puts 2 tech cards into their discard
-pile" (the author, 2026-10-08). The menu has a line per
-copy left in the codex, so two copies of one card can be picked.
+pile" (the author, 2026-10-08).
+
+**One card at a time, each card once** (the author, 2026-10-10). The
+menu offers each card the shown view holds once, whatever its copies,
+and takes one pick a click: "Choose your first card of 2...", then
+"...second...". A second copy is the same card picked again while the
+codex has another left; the caption counts it ("Iron Man ×2"), and
+**Clear** starts the picks over. Once every pick is made the menu is
+closed, saying so. The first reading had a line per copy and cut the
+menu at Discord's 25 -- which, under Everything, left most of a
+standard game's thirty-six card codex unreachable; a view of more
+cards than one menu holds is now split over as many menus as it needs
+(`MENU_ROWS`, three, each labelled with the cards it runs from and to),
+none cut short. **Save tech** is held to the bounds, and where ten
+workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
+the model's ask says so and why: "Teching is optional with 10 or more
+workers, and you have 11." The ask carries no dash (the author,
+2026-10-10).
+
+**The picker says nothing of whether a card could be played now.** A line
+per card saying what it needed ("needs tech II building", "needs River
+Montoya in play"), in the menu and under each card in the picture, was
+built and looked at, and taken out (the author, 2026-10-10).
+
+The caption counts the deck the picks join by tech level
+("Your deck: 12 cards: 10 tech 0, 2 tech I."), off `own_deck`.
 
 **The picker is narrowed by a Show menu** (the author, 2026-10-09: the
 whole codex at once is too much to pick from -- "need a way to filter
@@ -1938,12 +1988,8 @@ and rebuilds the cards' menu from that view alone
 prompt's list, narrowed by the engine, and computes nothing). **The
 picks are kept across views**: a card picked under Tech I stays picked
 while Tech II is shown; the caption says which view is shown and lists
-every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship."); the
-shown menu offers only the places the hidden picks leave, and once they
-fill the choice it is a closed menu saying the picks are in other views.
-Within a narrowed view the menu forces no minimum, since a pick may come
-from any view; under Everything it holds the choice to its bounds as
-before, and Save is held to them by the driver either way. A change of
+every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship.").
+Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and
 spends nothing public, like a pick before saving. Save sends the picks
 whatever view is shown. After Save, or from **Tech**, the picker opens
@@ -1960,8 +2006,13 @@ turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
 pick tech"); at any other point in their own turn it says the tech is
-not theirs to press now. **My hand** sends the hand pictured with
-`TechGateView` under it, whose Tech opens the same view in place.
+not theirs to press now. **My hand** opens the confirmation at once
+where the picks were saved, the hand pictured and then the picks, two
+pictures on the one panel (the author, 2026-10-10: the step between
+was a click every turn for nothing; 2026-10-09, "clicking my hand
+should always show a player their hand"). Where nothing was picked it
+sends the hand pictured with `TechGateView` under it, whose Tech opens
+the picker in place.
 Confirm runs the ready phase and the upkeep, and the panel becomes the
 turn's actions, the hand pictured on it, under the turn message posted
 again. The prompt asked for the

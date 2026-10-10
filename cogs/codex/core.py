@@ -97,9 +97,10 @@ PROMPT_VIEWS = {
 }
 
 #: The prompts a turn may open on before its actions, its player's
-#: tech: the panel **My hand** sends is the hand pictured with
-#: `TechGateView` under it, **Tech** alone, until it is answered
-#: (`show_panel`).
+#: tech, which **Tech** on the turn message opens. **My hand** opens the
+#: confirmation at once, the hand pictured above the picks, and puts the
+#: picker -- a choice never made -- behind `TechGateView`, the hand with
+#: **Tech** alone under it (`show_panel`; the author, 2026-10-10).
 TECH_GATE_KINDS = (PromptKind.TECH_CONFIRM, PromptKind.TECH_CHOICE)
 
 #: What the turn message says while the new turn waits on its player's
@@ -266,11 +267,11 @@ class CoreMixin:
         """**The only place a `PromptKind` becomes a view**: the panel the
         prompt is answered from, shown to its asked player alone, or
         `None` for a kind nobody answers (a finished game). With `gate`,
-        a turn's tech is **Tech** alone (`TechGateView`), the hand's
-        panel until it is opened."""
+        a turn's tech choice never made is **Tech** alone
+        (`TechGateView`), the hand's panel until it is opened."""
         if prompt is None:
             return None
-        if gate and prompt.kind in TECH_GATE_KINDS:
+        if gate and prompt.kind is PromptKind.TECH_CHOICE:
             return TechGateView(self, game.game_id, prompt, match)
         view = PROMPT_VIEWS[prompt.kind]
         return None if view is None else view(self, game.game_id, prompt, match)

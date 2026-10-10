@@ -8,27 +8,32 @@ choice's owner** and built from the prompt's options alone:
   the Codex button offers, Everything, one tech level, the spells, in
   the standard game one spec (the engine's `codex_views`), since the
   whole codex at once is too much to pick from (the author, 2026-10-09)
-  -- then a menu of the cards the view shows, a line per copy still in
-  the codex, so two copies of one card can be picked, whose bounds are
-  `TechOptions.minimum` and `maximum`, and **Save tech** in its own
-  row with **My deck** beside it -- what the picks are added to, sent
-  as a message of its own so the picker stays up. **The picks are kept across views**: a card picked in Tech I
-  stays picked while Tech II is shown, the caption lists every pick,
-  and the shown menu offers only the room the hidden picks leave.
-  Which cards a view holds is the engine's answer (`codex_view_rows`);
-  the view computes nothing. Offered as the follow-up to the owner's
-  own Lock patrol, and reachable all through the opponent's turn from
-  **Tech** on the turn message; each save replaces the last.
-- `TechConfirmView`, for `TECH_CONFIRM`: the picks pictured as a hand
-  (`render_hand`), **Confirm**, **Change** and **My deck**. The ready
-  phase runs on Confirm; Change reopens the picker.
+  -- then **one card at a time** (the author, 2026-10-10): a menu of
+  the cards the view shows, **each card once** whatever its copies, and
+  a pick of it is one copy, so a second copy is the same card picked
+  again while the codex has one left. A view of more cards than a menu
+  holds is split over as many menus as it needs, a row each, never cut
+  short. Then **Save tech**, **Tech nothing** where
+  none is allowed (ten workers), **Clear** once anything is picked, and
+  **My deck** -- what the picks are added to, sent as a message of its
+  own so the picker stays up; the caption counts the deck by tech
+  level. **The picks are kept across views**: a card picked in Tech I
+  stays picked while Tech II is shown, and the caption lists every
+  pick, a second copy as "×2". Which cards a view holds is the engine's
+  answer (`codex_view_rows`); the view computes nothing. Offered as the
+  follow-up to the owner's own Lock patrol, and reachable all through
+  the opponent's turn from **Tech** on the turn message; each save
+  replaces the last.
+- `TechConfirmView`, for `TECH_CONFIRM`: the hand and the picks
+  pictured (the panel's two pictures), **Confirm**, **Change** and
+  **My deck**. The ready phase runs on Confirm; Change reopens the
+  picker. **My hand** opens it at once where the picks were saved (the
+  author, 2026-10-10).
 - `TechGateView`, on the hand **My hand** sends while the active
-  player's turn waits on their tech -- the confirmation, or the picker
-  where nothing was picked: the hand pictured, with **Tech** and **My
-  deck** in place of the turn's actions (the author, 2026-10-09:
-  "clicking my hand should always show a player their hand"). Tech
-  turns it, in place, into whichever of the two views above the turn
-  waits on.
+  player's turn waits on a tech choice never made: the hand pictured,
+  with **Tech** and **My deck** in place of the turn's actions (the
+  author, 2026-10-09: "clicking my hand should always show a player
+  their hand"). Tech turns it, in place, into the picker.
 
 Nothing about a tech choice is said publicly while it is made -- not
 the cards, not that one was made; the owner's ready phase says how many
@@ -48,10 +53,46 @@ from cogs.codex_views.base import kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
 from cogs.codex_views.turn_message import codex_view_menu, deck_button
 
+#: The most menus a view of the codex is split over: rows 1 to 3, the
+#: Show menu above and the buttons below. Three specs' thirty-six cards
+#: take two.
+MENU_ROWS = 3
+
+#: The picks in order, as the ask counts them.
+ORDINALS = ("first", "second", "third", "fourth")
+
+TECH_LEVELS = ("tech 0", "tech I", "tech II", "tech III")
+
 
 def picks_listed(picks) -> str:
-    """The picks in words, for their owner's eyes: "Iron Man, Iron Man"."""
-    return ", ".join(card_name(slug) for slug in picks) if picks else "no cards"
+    """The picks in words, for their owner's eyes, a card picked twice
+    once with its count: "Iron Man ×2, Spark"."""
+    if not picks:
+        return "no cards"
+    counted = Counter(picks)
+    return ", ".join(
+        card_name(slug) + (f" ×{count}" if count > 1 else "") for slug, count in counted.items()
+    )
+
+
+def deck_counted(engine, match, seat: int) -> str:
+    """`seat`'s deck counted by tech level, the spells apart -- "Your
+    deck: 12 cards: 10 tech 0, 2 tech I." -- what a tech choice is
+    added to (the author, 2026-10-10). Counted over `own_deck`, whose
+    cards are already the deck's: a count, no rule."""
+    cards = engine.catalog.cards
+    by_level: Counter = Counter()
+    spells = total = 0
+    for slug, copies in engine.own_deck(match, seat).cards:
+        total += copies
+        if cards[slug].is_spell:
+            spells += copies
+        else:
+            by_level[cards[slug].tech_level or 0] += copies
+    parts = [f"{by_level[level]} {TECH_LEVELS[level]}" for level in sorted(by_level)]
+    if spells:
+        parts.append(f"{spells} spell" + ("s" if spells > 1 else ""))
+    return f"Your deck: {total} cards: {', '.join(parts)}." if parts else "Your deck: no cards."
 
 
 class TechChoiceView(PanelView):
@@ -68,65 +109,80 @@ class TechChoiceView(PanelView):
         views.callback = self.show
         self.views = views
         self.add_item(views)
-        # Row 1: the shown cards, a line per copy left. A pick made in
-        # another view is kept, unseen here, and takes a place.
-        shown = engine.codex_view_rows(options.codex, view)
-        shown_slugs = {slug for slug, _ in shown}
-        self.hidden = [slug for slug in self.picks if slug not in shown_slugs]
-        chosen = Counter(slug for slug in self.picks if slug in shown_slugs)
-        choices = []
-        for slug, left in shown:
-            for copy in range(1, left + 1):
-                choices.append(discord.SelectOption(
-                    label=_cut(card_label(catalog.cards[slug]) + (f" -- copy {copy}" if left > 1 else ""), 100),
-                    value=f"{slug}#{copy}",
-                    default=copy <= chosen.get(slug, 0),
-                ))
-        choices = choices[:SELECT_LIMIT]
-        room = options.maximum - len(self.hidden)
-        most = min(room, len(choices))
-        self.select = None
-        if most > 0:
-            # The whole codex shown: the menu holds the choice to its
-            # bounds. A part of it: a pick may come from any part, so
-            # nothing is forced here, and Save is held to the bounds.
-            least = min(options.minimum, most) if view == "everything" else 0
-            select = discord.ui.Select(
-                placeholder=self.bounds(), row=1, options=choices,
-                min_values=least, max_values=most,
+        # Rows 1 to 3: the shown cards, each once, while a copy is left
+        # beside the picks -- one pick a click.
+        picked = Counter(self.picks)
+        choices = [
+            discord.SelectOption(
+                label=_cut(card_label(catalog.cards[slug]), 100), value=slug,
             )
-            select.callback = self.choose
-            self.select = select
-            self.add_item(select)
-        else:
-            empty = self.nothing_to_offer(bool(choices))
+            for slug, copies in engine.codex_view_rows(options.codex, view)
+            if copies > picked[slug]
+        ]
+        self.menus: list[discord.ui.Select] = []
+        full = len(self.picks) >= options.maximum
+        if full or not choices:
+            closed = self.closed_placeholder() if full else "Nothing here to tech"
             self.add_item(discord.ui.Select(
-                placeholder=empty, row=1, disabled=True,
-                options=[discord.SelectOption(label=empty[:100], value="none")],
+                placeholder=closed, row=1, disabled=True,
+                options=[discord.SelectOption(label=closed[:100], value="none")],
             ))
-        save = discord.ui.Button(label="Save tech", style=discord.ButtonStyle.success, row=2)
+        else:
+            chunks = [choices[at:at + SELECT_LIMIT] for at in range(0, len(choices), SELECT_LIMIT)]
+            for row, chunk in enumerate(chunks[:MENU_ROWS], start=1):
+                placeholder = self.placeholder()
+                if len(chunks) > 1:
+                    placeholder += f" ({card_name(chunk[0].value)} to {card_name(chunk[-1].value)})"
+                menu = discord.ui.Select(placeholder=_cut(placeholder, 150), row=row,
+                                         options=chunk, min_values=1, max_values=1)
+                menu.callback = self.chooser(menu)
+                self.menus.append(menu)
+                self.add_item(menu)
+        # The last row: save, skip where allowed, clear, and the deck.
+        last = len(self.menus) + 1 if self.menus else 2
+        save = discord.ui.Button(
+            label="Save tech", style=discord.ButtonStyle.success, row=last,
+            disabled=not (max(options.minimum, 1) <= len(self.picks) <= options.maximum),
+        )
         save.callback = self.save
         self.add_item(save)
-        self.add_item(deck_button(self.open_deck, row=2))
+        if options.minimum == 0:
+            skip = discord.ui.Button(label="Tech nothing", style=discord.ButtonStyle.secondary, row=last)
+            skip.callback = self.skip
+            self.add_item(skip)
+        if self.picks:
+            clear = discord.ui.Button(label="Clear", style=discord.ButtonStyle.secondary, row=last)
+            clear.callback = self.clear
+            self.add_item(clear)
+        self.add_item(deck_button(self.open_deck, row=last))
 
-    def bounds(self) -> str:
+    def placeholder(self) -> str:
+        """The menu's ask: which pick this is, of how many."""
         options = self.prompt.options
-        if options.minimum == options.maximum:
-            return f"Choose {options.maximum} cards to tech..."
-        return f"Choose {options.minimum} to {options.maximum} cards to tech..."
+        count = len(self.picks)
+        nth = ORDINALS[count] if count < len(ORDINALS) else f"#{count + 1}"
+        if options.maximum == 1:
+            return "Choose the card to tech..."
+        return f"Choose your {nth} card of {options.maximum}..."
 
-    def nothing_to_offer(self, cards_shown: bool) -> str:
-        """Why the shown menu is closed: the picks already fill the
-        choice from other views, or the view holds no card."""
-        if cards_shown:
-            count = len(self.hidden)
-            if count == 1:
-                return "Your pick is in another view: change it there"
-            return f"Your {count} picks are in other views: change them there"
-        return "Nothing here to tech"
+    def closed_placeholder(self) -> str:
+        """Why the menu is closed: every pick is made."""
+        if self.prompt.options.maximum == 1:
+            return "Card chosen: Save tech, or Clear to start over"
+        return f"All {self.prompt.options.maximum} cards chosen: Save tech, or Clear to start over"
 
     def caption(self) -> str:
-        return f"Showing: {codex_view_name(self.view)}. Picked so far: {picks_listed(self.picks)}."
+        deck = deck_counted(self.cog.engine, self.match, self.seat)
+        return (f"Showing: {codex_view_name(self.view)}. Picked so far: {picks_listed(self.picks)}.\n"
+                f"{deck}")
+
+    def chooser(self, menu: discord.ui.Select):
+        async def choose(interaction: discord.Interaction) -> None:
+            game, match = await self.mine(interaction)
+            if game is None:
+                return
+            await self.redraw(interaction, game, self.picks + [menu.values[0]], self.view)
+        return choose
 
     async def redraw(self, interaction: discord.Interaction, game, picks, view: str) -> None:
         """The picker again, in place: the picks and the view given,
@@ -145,16 +201,22 @@ class TechChoiceView(PanelView):
             return
         await self.redraw(interaction, game, self.picks, self.views.values[0])
 
-    async def choose(self, interaction: discord.Interaction) -> None:
+    async def clear(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
         if game is None:
             return
-        picks = self.hidden + [value.split("#", 1)[0] for value in self.select.values]
-        await self.redraw(interaction, game, picks, self.view)
+        await self.redraw(interaction, game, [], self.view)
 
     async def save(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(
             PromptKind.TECH_CHOICE, "", {"player": self.seat, "picks": list(self.picks)},
+        ))
+
+    async def skip(self, interaction: discord.Interaction) -> None:
+        """**Tech nothing**: the choice saved empty, which ten workers
+        allow (UMR p. 5)."""
+        await self.act(interaction, Action(
+            PromptKind.TECH_CHOICE, "", {"player": self.seat, "picks": []},
         ))
 
 
@@ -170,7 +232,9 @@ class TechConfirmView(PanelView):
         self.add_item(deck_button(self.open_deck))
 
     def caption(self) -> str:
-        return f"Your tech: {picks_listed(self.prompt.options.picks)}."
+        if not self.prompt.options.picks:
+            return "Your tech: no cards."
+        return f"Your hand, then your tech: {picks_listed(self.prompt.options.picks)}."
 
     async def confirm(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.TECH_CONFIRM, "confirm", {"player": self.seat}))
@@ -181,9 +245,9 @@ class TechConfirmView(PanelView):
 
 class TechGateView(PanelView):
     """**Tech** and **My deck** under the hand's picture, the panel
-    while the turn waits on its player's tech: Tech opens the
-    confirmation or the picker in place -- the prompt's own view,
-    `show_panel`'s edit."""
+    while the turn waits on a tech choice its player never made: Tech
+    opens the picker in place -- the prompt's own view, `show_panel`'s
+    edit. Saved picks skip it: My hand opens their confirmation at once."""
 
     def __init__(self, cog, game_id: str, prompt, match) -> None:
         super().__init__(cog, game_id, prompt, match)
@@ -193,7 +257,7 @@ class TechGateView(PanelView):
         self.add_item(deck_button(self.open_deck))
 
     def caption(self) -> str:
-        return "**Tech** opens it; the turn's actions come once it is confirmed."
+        return "**Tech** opens it; the turn's actions come after it."
 
     async def open_tech(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
