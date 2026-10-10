@@ -24,8 +24,8 @@ from unittest import mock
 
 from codex import effects, rulings
 from codex.components import AddOnState
-from codex.effects import BASIC_SET, BLACK, GREEN, PURPLE, RED
-from codex.flow import board, driver
+from codex.effects import BASIC_SET, BLACK, BLUE, GREEN, PURPLE, RED, WHITE
+from codex.flow import StepResult, board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import TROQ, begin, built, hand, hero, hero_in_play, new_game, put
@@ -4410,6 +4410,189 @@ class UpkeepRulingTests(unittest.TestCase):
         self.assertEqual(ancient.plus_runes, before + 1)
 
 
+# -- White and blue (step 13) ---------------------------------------------------
+
+#: Step 13: the rulings on white's and blue's cards, heroes and tokens --
+#: 79 on the cards and 13 on the six heroes.
+WHITE_BLUE_RULINGS = 92
+
+WB_TEAMS = (("discipline", "ninjutsu", "strength"), ("law", "peace", "truth"))
+
+
+def wb(first: int = 1, teams=WB_TEAMS):
+    """White (seat 1) against blue (seat 2), a standard game, in `first`'s
+    first main phase."""
+    engine, game, match = new_game(first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def wb_hero(match, seat: int, slug: str, level: int = 1, **kwargs):
+    hero_in_play(match, seat, slug=slug, level=level, **kwargs)
+    return match.player(seat).hero_of(slug)
+
+
+def answer_target(engine, game, match, key: str):
+    return apply(engine, game, match, PromptKind.TARGET, target=key)
+
+
+class WhiteBlueKeywordRulingTests(unittest.TestCase):
+    """Commit 2's cards: the keywords and the copies."""
+
+    def test_bluecoat_musketeer_1(self) -> None:
+        """This effect checks what his ATK is after applying all effects and
+        runes. It doesn't just check his printed or "base" ATK."""
+        engine, game, match = wb(first=2)
+        musketeer = put(match, 2, "bluecoat_musketeer")
+        self.assertTrue(engine.has_keyword(musketeer, "Long-range", match))
+        musketeer.modifiers.append({"kind": "atk", "amount": 1, "until": "end_of_turn"})
+        self.assertFalse(engine.has_keyword(musketeer, "Long-range", match))
+        musketeer.minus_runes = 1
+        self.assertTrue(engine.has_keyword(musketeer, "Long-range", match))
+
+    def test_liberty_gryphon_1(self) -> None:
+        """If you control a Liberty Gryphon and Mirror Illusion copy of
+        Liberty Gryphon, those both have the name "Liberty Gryphon." If you
+        don't control any Illusions other than those, then your Liberty
+        Gryphons do not get the keywords: unstoppable, unattackable,
+        untargetable."""
+        engine, game, match = wb(first=2)
+        gryphon = put(match, 2, "liberty_gryphon")
+        mirror = put(match, 2, "mirror_illusion")
+        mirror.copy_of = "liberty_gryphon"
+        mirror.modifiers.append({"kind": "illusion", "until": None})
+        for body in (gryphon, mirror):
+            for keyword in ("Unstoppable", "Unattackable", "Untargetable"):
+                self.assertFalse(engine.has_keyword(body, keyword, match))
+        put(match, 2, "spectral_hound")
+        self.assertTrue(engine.has_keyword(gryphon, "Untargetable", match))
+
+    def test_manufactured_truth_1(self) -> None:
+        """Copying something copies the printed version of the card and
+        does not copy any modifiers. For example, if you copy a 2/2 that has
+        a +1/+1 rune on it and Spirit of the Panda attached to it, the copy
+        will just be a 2/2."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        mine = put(match, 2, "spectral_hound")
+        theirs = put(match, 1, "fox_viper")
+        theirs.plus_runes = 1
+        theirs.modifiers.append({"kind": "atk", "amount": 3, "until": "end_of_turn"})
+        cast(engine, game, match, "manufactured_truth")
+        self.assertEqual(mine.copy_of, "fox_viper")
+        self.assertEqual(engine.unit_stats(mine, match), (2, 1))
+        self.assertEqual((mine.plus_runes, mine.modifiers[0]["kind"]), (0, "copy"))
+
+    def test_manufactured_truth_2(self) -> None:
+        """If an effect changes the "printed" values of a card, the new
+        values will be used. This includes Chaos Mirror and transformation
+        effects such as Polymorph: Squirrel."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        mine = put(match, 2, "spectral_hound")
+        theirs = put(match, 1, "fox_viper")
+        theirs.printed = {"atk": 6}
+        cast(engine, game, match, "manufactured_truth")
+        self.assertEqual(engine.unit_stats(mine, match), (6, 1))
+        theirs.printed = {"polymorph": 1}
+        other = put(match, 2, "bluecoat_musketeer")
+        cast(engine, game, match, "manufactured_truth")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{other.ref}")
+        answer_target(engine, game, match, f"1:{theirs.ref}")
+        self.assertEqual(engine.unit_stats(other, match), (1, 1))
+        self.assertFalse(engine.texted(other))
+
+    def test_justice_juggernaut_1(self) -> None:
+        """If this doesn't have a crumbling rune on it and it would die, it
+        doesn't actually die so nothing that triggers on "dies" will happen.
+        For example, it won't draw a card if it "would die" in the
+        technician slot, only when it really does die after it has a
+        crumbling rune on it."""
+        engine, game, match = wb()
+        juggernaut = put(match, 2, "justice_juggernaut", patrol="technician")
+        hand_before = len(match.player(2).hand)
+        juggernaut.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertEqual(len(match.player(2).hand), hand_before)
+        self.assertEqual(juggernaut.runes, {"crumbling": 1})
+        juggernaut.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertIsNone(match.player(2).instance(juggernaut.id))
+        self.assertEqual(len(match.player(2).hand), hand_before + 1)
+
+    def test_garus_rook_1(self) -> None:
+        """If this doesn't have a crumbling rune on it and it would die, it
+        doesn't actually die so nothing that triggers on "dies" will happen.
+        For example, it won't draw a card if it "would die" in the
+        technician slot, only when it really does die after it has a
+        crumbling rune on it."""
+        engine, game, match = wb(first=2)
+        rook = wb_hero(match, 1, "garus_rook", level=8, patrol="technician")
+        hand_before = len(match.player(1).hand)
+        rook.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertTrue(rook.in_play)
+        self.assertEqual(len(match.player(1).hand), hand_before)
+        rook.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertFalse(rook.in_play)
+        self.assertEqual(rook.summoning_runes, 2)
+
+    def test_reteller_of_truths_1(self) -> None:
+        """The ability triggers from a unit dying, so it means that unit
+        really did die. Anything that triggers from a unit dying really will
+        trigger, such as drawing a card if the unit died when it was in the
+        technician slot."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        put(match, 2, "reteller_of_truths")
+        hound = put(match, 2, "spectral_hound", patrol="technician")
+        hand_before = len(match.player(2).hand)
+        cast(engine, game, match, "wither", f"2:{hound.ref}")
+        self.assertIn("spectral_hound", match.player(2).hand)
+        # The technician's card, and the Hound back: two more.
+        self.assertEqual(len(match.player(2).hand), hand_before + 2)
+
+    def test_spectral_flagbearer_1(self) -> None:
+        """If you aren't able to target an opposing Flagbearer for any
+        reason, you don't have to. That includes if the Flagbearer has
+        "resist 1" and you have no gold. In that case, you can't target it
+        with a spell or ability because you can't afford to pay the cost for
+        resist, so you can ignore the Flagbearer and target something
+        else."""
+        engine, game, match = wb()
+        wb_hero(match, 1, "grave_stormborne")
+        flag = put(match, 2, "spectral_flagbearer", patrol="lookout")
+        other = put(match, 2, "scribe", patrol="elite")
+        hand(match, 1, "spark")
+        match.player(1).gold = 1
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        self.assertEqual(other.damage, 1)
+        self.assertIsNotNone(match.player(2).instance(flag.id))
+        # With the gold for its resist, the flagbearer is the one target --
+        # an Illusion, which dies of it.
+        flag2 = put(match, 2, "spectral_flagbearer", patrol="scavenger")
+        hand(match, 1, "spark")
+        match.player(1).gold = 3
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        prompt = asked(engine, game, match)
+        self.assertTrue(prompt.options.forced)
+        answer_target(engine, game, match, f"2:{flag2.ref}")
+        self.assertIsNone(match.player(2).instance(flag2.id))
+
+    def test_smoker_1(self) -> None:
+        """When Smoker is targeted by something, he immediately returns to
+        hand, even before the rest of the spell or ability that targeted him
+        resolves."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        smoker = put(match, 1, "smoker", patrol="elite")
+        cast(engine, game, match, "wither", f"1:{smoker.ref}")
+        self.assertIsNone(match.player(1).instance(smoker.id))
+        self.assertIn("smoker", match.player(1).hand)
+        self.assertEqual(smoker.minus_runes, 0)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""
@@ -4494,6 +4677,27 @@ class EveryPurpleAndBlackRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
         self.assertEqual(
             total, PURPLE_BLACK_RULINGS,
             f"purple's and black's cards carry {total} rulings, not {PURPLE_BLACK_RULINGS}: "
+            "a re-import changed them, and each needs its test",
+        )
+
+
+class EveryWhiteAndBlueRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
+    """Step 13's ratchet: the same three checks over every white and blue
+    card, hero and token whose text is played -- every one once
+    `UNIMPLEMENTED` is empty."""
+
+    def _rulings(self) -> dict:
+        return {
+            slug: rulings.rulings_for(slug)
+            for slug in sorted((WHITE | BLUE) - effects.UNIMPLEMENTED)
+            if rulings.rulings_for(slug)
+        }
+
+    def test_the_count_is_pinned(self) -> None:
+        total = sum(len(rulings.rulings_for(slug)) for slug in WHITE | BLUE)
+        self.assertEqual(
+            total, WHITE_BLUE_RULINGS,
+            f"white's and blue's cards carry {total} rulings, not {WHITE_BLUE_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
 

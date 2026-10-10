@@ -196,6 +196,17 @@ def mode_choice():
     return engine, game, match
 
 
+def stash():
+    """Bigby Hayes in play as the patrol locks: the draw asks which card
+    his stash keeps (step 13)."""
+    engine, game, match = new_game(teams=(("law",), ("growth",)))
+    begin(engine, game, match)
+    hero_in_play(match, 1)
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+    driver.apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))
+    return engine, game, match
+
+
 def game_over():
     engine, game, match = _main()
     match.winner = 2
@@ -217,6 +228,7 @@ PROMPT_FIXTURES = {
     PromptKind.LEVEL_GAIN: level_gain,
     PromptKind.DIVIDE_DAMAGE: divide_damage,
     PromptKind.MODE_CHOICE: mode_choice,
+    PromptKind.STASH: stash,
     PromptKind.GAME_OVER: game_over,
 }
 

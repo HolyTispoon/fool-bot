@@ -217,6 +217,8 @@ class TurnPanelView(PanelView):
             self.build_divide(options)
         elif prompt.kind is PromptKind.MODE_CHOICE:
             self.build_mode(options)
+        elif prompt.kind is PromptKind.STASH:
+            self.build_stash(options)
         elif mode == "attack":
             self.build_attack(options)
         elif mode == "hire":
@@ -778,6 +780,23 @@ class TurnPanelView(PanelView):
 
     async def cancel_mode(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.MODE_CHOICE, "cancel"))
+
+    def build_stash(self, options) -> None:
+        """Stash (step 13): a button per card of the hand to keep through
+        the draw, as the picture above numbers it, and **Keep none**."""
+        buttons = [
+            self.make_button(f"Keep {card_name(slug)}", discord.ButtonStyle.primary,
+                             self._answer(self.stash, slug), choice=("stash", slug))
+            for slug in options.hand
+        ]
+        row = self.place(buttons, 0, until=ROWS - 1)
+        self.button("Keep none", discord.ButtonStyle.secondary, self.stash_none, row=row)
+
+    async def stash(self, interaction: discord.Interaction, slug: str) -> None:
+        await self.act(interaction, Action(PromptKind.STASH, "keep", {"slug": slug}))
+
+    async def stash_none(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.STASH, "none"))
 
     async def target(self, interaction: discord.Interaction, key: str) -> None:
         await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))

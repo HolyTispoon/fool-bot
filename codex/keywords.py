@@ -27,13 +27,14 @@ from codex.effects import LANDED_SET
 
 #: The keywords the landed cards' texts open with, as the rulings'
 #: `General` group names them -- the basic set's, red and green's (step
-#: 11): deathtouch, long-range, ephemeral, boost and untargetable -- and
-#: purple and black's (step 12): fading, forecast and indestructible.
+#: 11): deathtouch, long-range, ephemeral, boost and untargetable --
+#: purple and black's (step 12): fading, forecast and indestructible --
+#: and white and blue's (step 13): detector, stash and two lives.
 KEYWORDS = (
-    "Anti-air", "Boost", "Channeling", "Deathtouch", "Ephemeral", "Fading", "Flying",
-    "Forecast", "Frenzy", "Haste", "Healing", "Indestructible", "Invisible", "Long-range",
-    "Obliterate", "Overpower", "Readiness", "Resist", "Sparkshot", "Stealth",
-    "Swift strike", "Unstoppable", "Untargetable",
+    "Anti-air", "Boost", "Channeling", "Deathtouch", "Detector", "Ephemeral", "Fading",
+    "Flying", "Forecast", "Frenzy", "Haste", "Healing", "Indestructible", "Invisible",
+    "Long-range", "Obliterate", "Overpower", "Readiness", "Resist", "Sparkshot", "Stash",
+    "Stealth", "Swift strike", "Two Lives", "Unstoppable", "Untargetable",
 )
 
 #: One keyword with its X: a number, or -- for boost -- the gold it
@@ -83,6 +84,11 @@ EXTRA_KEYWORDS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
     # Pestering Haunt: "Unstoppable but can't patrol" -- the "can't
     # patrol" is `codex.effects.CANT_PATROL`'s (step 12).
     "pestering_haunt": (("Unstoppable", None),),
+    # Justice Juggernaut: "Unstoppable but can't patrol." and Daigo
+    # Stormborne: "Indestructible, untargetable, unstoppable, can't
+    # patrol." -- the "can't patrol" `codex.effects.CANT_PATROL`'s (step 13).
+    "justice_juggernaut": (("Unstoppable", None),),
+    "daigo_stormborne": (("Indestructible", None), ("Untargetable", None), ("Unstoppable", None)),
 }
 
 

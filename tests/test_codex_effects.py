@@ -77,6 +77,10 @@ def _handled(slug: str) -> list[str]:
         "NO_OPPOSING_LEVELS", "CANT_LEAVE_WITH_GOLD", "TRASHED_BY_TECH_II", "PER_TIME_RUNE",
         "SECOND_CHANCES", "SENTRIES", "SLOWTIME", "GOLGORTS", "REMEMBERERS",
         "UPKEEP_SACRIFICE", "PLAGUE_UPKEEP", "SELF_BASE_UPKEEP",
+        # White and blue's (step 13).
+        "DREAMSCAPE", "ILLUSION_GUARDS", "RETELLERS", "RETURNS_WHEN_TARGETED",
+        "LONG_RANGE_AT_ONE", "UNSTOPPABLE_ATTACKING_BASE", "UNSTOPPABLE_ATTACKING_BUILDINGS",
+        "UNSTOPPABLE_BY_WEAK", "UNSTOPPABLE_WITH_NINJA", "UNATTACKABLE_WITH_CUTE_ANIMAL", "LIBERTY",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -97,6 +101,12 @@ def _handled(slug: str) -> list[str]:
         found.append("KILL_BONUSES")
     if any(key[0] == slug for key in effects.FLYING_ON_OWN_TURN):
         found.append("FLYING_ON_OWN_TURN")
+    if any(key[0] == slug for key in effects.UNSTOPPABLE_BY_LONE_PATROLLER):
+        found.append("UNSTOPPABLE_BY_LONE_PATROLLER")
+    if effects.ILLUSION in (getattr(card, "subtype", None) or "").split():
+        # "(Illusions die when targeted ...)": the subtype, which the
+        # engine reads (`RulesEngine.is_illusion`).
+        found.append("ILLUSION")
     return found
 
 
@@ -105,28 +115,24 @@ def _handled(slug: str) -> list[str]:
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
     "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "bluecoat_musketeer", "boot_camp", "brave_knight",
-    "building_inspector", "censorship_council", "colossus", "community_service",
-    "daigo_stormborne", "debilitator_alpha", "doubling_barbarbarian", "dreamscape",
-    "drill_sergeant", "earthquake", "elite_training", "entangling_vines",
-    "eyes_of_the_chancellor", "flagstone_garrison", "flagstone_spy", "focus_master",
-    "foxs_den_school", "foxs_den_students", "free_speech", "garus_rook",
-    "general_onimaru", "generals_hammer", "grappling_hook", "grave_stormborne",
-    "guardian_of_the_gates", "hallucination", "heros_monument", "hidden_ninja",
+    "birds_nest", "boot_camp", "brave_knight", "building_inspector",
+    "censorship_council", "community_service", "debilitator_alpha",
+    "doubling_barbarbarian", "drill_sergeant", "earthquake", "elite_training",
+    "entangling_vines", "eyes_of_the_chancellor", "flagstone_garrison",
+    "flagstone_spy", "focus_master", "foxs_den_school", "foxs_den_students",
+    "free_speech", "general_onimaru", "generals_hammer", "grappling_hook",
+    "grave_stormborne", "guardian_of_the_gates", "heros_monument", "hidden_ninja",
     "injunction", "insurance_agent", "inverse_power_ninja",
     "jade_fox_dens_headmistress", "jail", "jefferson_degrey_ghostly_diplomat",
-    "judgment_day", "jurisdiction", "justice_juggernaut", "lawbringer_gryphon",
-    "lawful_search", "liberty_gryphon", "macciatus_the_whisperer",
-    "manufactured_truth", "martial_mastery", "masked_raccoon", "mind_control",
-    "mindparry_monk", "morningstar_flagbearer", "morningstar_pass", "mythmaking",
-    "oathkeeper_of_kor_mountain", "patriot_gryphon", "porkhand_magistrate",
-    "rambasa_twin", "reputable_newsman", "reteller_of_truths", "reversal",
+    "judgment_day", "jurisdiction", "lawbringer_gryphon", "lawful_search",
+    "martial_mastery", "mind_control", "mindparry_monk", "morningstar_pass",
+    "mythmaking", "oathkeeper_of_kor_mountain", "patriot_gryphon",
+    "porkhand_magistrate", "rambasa_twin", "reputable_newsman", "reversal",
     "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
-    "sirus_quince", "smoker", "snapback", "sparring_partner", "spectral_aven",
-    "spectral_flagbearer", "spectral_hound", "spectral_roc", "spectral_tiger",
-    "speed_of_the_fox", "tax_collector", "the_art_of_war", "thunderclap",
-    "traffic_director", "training_grounds", "true_power_of_storms", "versatile_style",
-    "whitestar_grappler", "young_lightning_dragon",
+    "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
+    "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",
+    "true_power_of_storms", "versatile_style", "whitestar_grappler",
+    "young_lightning_dragon",
 })
 
 

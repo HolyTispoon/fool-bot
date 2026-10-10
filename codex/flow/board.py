@@ -355,6 +355,7 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
     hero.bands = {}
     hero.time_runes = 0
     hero.disabled = False
+    hero.runes = {}
     hero.max_level_since_turn_began = False
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
     match.record_event("hero_died", slug=hero.slug, owner=seat)
@@ -385,6 +386,7 @@ def to_command_zone(engine: "RulesEngine", match: MatchState, seat: int, hero: H
     hero.bands = {}
     hero.time_runes = 0
     hero.disabled = False
+    hero.runes = {}
     hero.max_level_since_turn_began = False
     match.record_event("hero_returned", slug=hero.slug, owner=seat)
     hero_left(engine, match, seat, hero, result)
@@ -434,6 +436,10 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     for seat, ref in things:
         if is_hero_ref(ref):
             hero = match.player(seat).hero_by_ref(ref)
+            if hero is not None and hero.in_play and not forced and two_lives_saves(
+                engine, match, hero, result,
+            ):
+                continue
             if hero is not None and hero.in_play:
                 _destroy_hero(engine, match, seat, hero, result, by)
                 heroes.append(seat)
@@ -447,6 +453,10 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
         if card is not None and not forced and engine.catalog.cards[card.slug].is_unit and \
                 soul_stone_saves(engine, match, card, result):
             continue
+        if card is not None and not forced and two_lives_saves(engine, match, card, result):
+            # Two Lives: it doesn't actually die, so nothing that triggers
+            # on "dies" happens (its rulings).
+            continue
         if card is not None and not forced and engine.indestructible(match, card):
             # Indestructible: it doesn't leave play -- exhausted, its
             # damage and attachments gone, its runes kept (UMR p. 17).
@@ -456,7 +466,7 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
             _destroy_unit(engine, match, seat, card, result, by)
             if engine.catalog.cards[card.slug].is_unit:
                 dead_units.append(card)
-    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat)
+    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat, result=result)
     if not combat:
         second_chances(engine, match, dead_units, result)
     for seat in heroes:
@@ -598,11 +608,15 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
         return
     if engine.catalog.cards[card.slug].is_unit and soul_stone_saves(engine, match, card, result):
         return
+    if two_lives_saves(engine, match, card, result):
+        # Sacrificed without a crumbling rune, it takes the rune instead;
+        # what the sacrifice paid for still happens (step 13).
+        return
     witnesses = _witnesses(engine, match)
     leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
     if engine.catalog.cards[card.slug].is_unit:
-        _deaths(engine, match, [card], [], witnesses)
+        _deaths(engine, match, [card], [], witnesses, result=result)
         second_chances(engine, match, [card], result)
 
 
@@ -614,22 +628,26 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     Captured Bugblatter that dies with the others still counts them, and
     itself (its ruling), and Pirategang Commander's units that die with
     it still had its "Dies:"."""
-    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}}
+    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}, "retellers": {}}
     for player in match.players:
         for card in player.play:
-            if not engine.texted(card):
+            slug = engine.text_slug(card)
+            if slug is None:
                 continue
-            if card.slug in effects.SKELETON_ON_DEATH:
+            if slug in effects.SKELETON_ON_DEATH:
                 found["necromancers"].setdefault(player.seat, []).append(card.id)
-            if card.slug in effects.ON_ANY_DEATH:
-                found["bugblatters"].append((player.seat, card.slug))
-            if card.slug in effects.GRANTS_DIES:
-                found["pirategang"][player.seat] = card.slug
+            if slug in effects.ON_ANY_DEATH:
+                found["bugblatters"].append((player.seat, slug))
+            if slug in effects.GRANTS_DIES:
+                found["pirategang"][player.seat] = slug
+            if slug in effects.RETELLERS:
+                found["retellers"][player.seat] = found["retellers"].get(player.seat, 0) + 1
     return found
 
 
 def _deaths(engine: "RulesEngine", match: MatchState, units: list,
-            heroes: list, witnesses: dict, combat: bool = False) -> None:
+            heroes: list, witnesses: dict, combat: bool = False,
+            result: Optional[StepResult] = None) -> None:
     """
     The triggers a death sets off, each a frame onto the stack -- which
     whoever destroyed or sacrificed them runs -- or, where nothing is
@@ -691,6 +709,9 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        if witnesses["retellers"].get(seat) and not is_token(engine, card.slug) \
+                and engine.is_illusion(match, card):
+            _retell(engine, match, seat, card, witnesses["retellers"][seat], result)
         if any(lasting.get("kind") == effects.DEATH_RITES
                for lasting in match.player(seat).lasting):
             # Death Rites: "Whenever one of your units dies this turn,
@@ -703,6 +724,33 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
+
+
+def _retell(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
+            retellers: int, result: Optional[StepResult]) -> None:
+    """
+    Reteller of Truths: "The first two times each turn one of your
+    non-token Illusion units dies (including this one), return it to its
+    owner's hand." -- it really died, so what triggers on a death has
+    triggered (its ruling); then it goes from where it went to its
+    owner's hand, two a turn for each Reteller that saw it die.
+    """
+    player = match.player(seat)
+    count = next((entry for entry in player.lasting if entry.get("kind") == "retold"), None)
+    if count is None:
+        count = {"kind": "retold", "count": 0, "until": "end_of_turn"}
+        player.lasting.append(count)
+    if count["count"] >= effects.RETELLER_LIMIT * retellers:
+        return
+    count["count"] += 1
+    _take_back(engine, match, card)
+    match.player(card.owner).hand.append(card.slug)
+    match.record_event("retold", slug=card.slug, owner=card.owner)
+    if result is not None:
+        result.narration.append(
+            f"{tokens.card('reteller_of_truths')} returns {tokens.card(card.slug)} to "
+            f"{tokens.player(card.owner)}'s hand."
+        )
 
 
 def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
@@ -1061,6 +1109,31 @@ def _spareable(match: MatchState, card: CardInstance) -> bool:
         spell.slug != effects.TWO_STEP and card.id in spell.attached for spell in match.instances()
     )
     return bool(card.damage) or attached or not card.exhausted
+
+
+def two_lives_saves(engine: "RulesEngine", match: MatchState, body,
+                    result: Optional[StepResult]) -> bool:
+    """
+    Two Lives (Garus Rook at 8, Justice Juggernaut): "If this would die,
+    heal all damage on it and put a crumbling rune on it instead. While it
+    has a crumbling rune, it can really die." -- it does not die, so
+    nothing that triggers on "dies" happens, the technician's card among
+    them (its rulings). Whether Two Lives saved it.
+    """
+    if not engine.has_keyword(body, effects.TWO_LIVES, match):
+        return False
+    if body.runes.get(effects.CRUMBLING):
+        return False
+    body.runes[effects.CRUMBLING] = 1
+    body.damage = 0
+    if result is not None:
+        seat = engine.seat_of(match, body)
+        ref = hero_ref(body.slug) if isinstance(body, HeroState) else body.ref
+        result.narration.append(
+            f"{named(match, seat, ref)} would die: Two Lives heals it and puts a crumbling "
+            "rune on it instead."
+        )
+    return True
 
 
 def soul_stone_saves(engine: "RulesEngine", match: MatchState, card: CardInstance,

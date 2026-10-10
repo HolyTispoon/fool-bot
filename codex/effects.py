@@ -218,28 +218,24 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE 
 #: read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
     "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "bluecoat_musketeer", "boot_camp", "brave_knight",
-    "building_inspector", "censorship_council", "colossus", "community_service",
-    "daigo_stormborne", "debilitator_alpha", "doubling_barbarbarian", "dreamscape",
-    "drill_sergeant", "earthquake", "elite_training", "entangling_vines",
-    "eyes_of_the_chancellor", "flagstone_garrison", "flagstone_spy", "focus_master",
-    "foxs_den_school", "foxs_den_students", "free_speech", "garus_rook",
-    "general_onimaru", "generals_hammer", "grappling_hook", "grave_stormborne",
-    "guardian_of_the_gates", "hallucination", "heros_monument", "hidden_ninja",
+    "birds_nest", "boot_camp", "brave_knight", "building_inspector",
+    "censorship_council", "community_service", "debilitator_alpha",
+    "doubling_barbarbarian", "drill_sergeant", "earthquake", "elite_training",
+    "entangling_vines", "eyes_of_the_chancellor", "flagstone_garrison",
+    "flagstone_spy", "focus_master", "foxs_den_school", "foxs_den_students",
+    "free_speech", "general_onimaru", "generals_hammer", "grappling_hook",
+    "grave_stormborne", "guardian_of_the_gates", "heros_monument", "hidden_ninja",
     "injunction", "insurance_agent", "inverse_power_ninja",
     "jade_fox_dens_headmistress", "jail", "jefferson_degrey_ghostly_diplomat",
-    "judgment_day", "jurisdiction", "justice_juggernaut", "lawbringer_gryphon",
-    "lawful_search", "liberty_gryphon", "macciatus_the_whisperer",
-    "manufactured_truth", "martial_mastery", "masked_raccoon", "mind_control",
-    "mindparry_monk", "morningstar_flagbearer", "morningstar_pass", "mythmaking",
-    "oathkeeper_of_kor_mountain", "patriot_gryphon", "porkhand_magistrate",
-    "rambasa_twin", "reputable_newsman", "reteller_of_truths", "reversal",
+    "judgment_day", "jurisdiction", "lawbringer_gryphon", "lawful_search",
+    "martial_mastery", "mind_control", "mindparry_monk", "morningstar_pass",
+    "mythmaking", "oathkeeper_of_kor_mountain", "patriot_gryphon",
+    "porkhand_magistrate", "rambasa_twin", "reputable_newsman", "reversal",
     "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
-    "sirus_quince", "smoker", "snapback", "sparring_partner", "spectral_aven",
-    "spectral_flagbearer", "spectral_hound", "spectral_roc", "spectral_tiger",
-    "speed_of_the_fox", "tax_collector", "the_art_of_war", "thunderclap",
-    "traffic_director", "training_grounds", "true_power_of_storms", "versatile_style",
-    "whitestar_grappler", "young_lightning_dragon"
+    "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
+    "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",
+    "true_power_of_storms", "versatile_style", "whitestar_grappler",
+    "young_lightning_dragon",
 })
 
 
@@ -1843,3 +1839,97 @@ UPKEEP_SACRIFICE = {"banefire_golem": "banefire_golem"}
 PLAGUE_UPKEEP = frozenset({"plague_lord"})
 #: Shrine of Forbidden Knowledge: "Upkeep: Your base takes 1 damage."
 SELF_BASE_UPKEEP = {"shrine_of_forbidden_knowledge": 1}
+
+# -- White and blue: the keywords and the copies (step 13, commit 2) ---------
+
+#: Two Lives (Garus Rook at 8, Justice Juggernaut): "If this would die,
+#: heal all damage on it and put a crumbling rune on it instead. While it
+#: has a crumbling rune, it can really die." -- the keyword, and the rune.
+TWO_LIVES = "Two Lives"
+CRUMBLING = "crumbling"
+#: Stash (Bigby Hayes): "You may keep a card during the draw/discard
+#: step. If you do, draw one card less."
+STASH = "Stash"
+#: Illusion is a subtype, not an ability (the illusion ruling): "Illusions
+#: die when they're {target} by spells or abilities."
+ILLUSION = "Illusion"
+#: Dreamscape: "All tech 0, I, and II units are Illusions." -- every one,
+#: either side's, while it is in play.
+DREAMSCAPE = frozenset({"dreamscape"})
+#: Macciatus, The Whisperer: "Your Illusion units get +1/+1 and no longer
+#: die when they are {target} by spells or abilities."
+ILLUSION_GUARDS = frozenset({"macciatus_the_whisperer"})
+#: Reteller of Truths: "The first two times each turn one of your
+#: non-token Illusion units dies (including this one), return it to its
+#: owner's hand." -- each Reteller its two.
+RETELLERS = frozenset({"reteller_of_truths"})
+RETELLER_LIMIT = 2
+#: Smoker: "When Smoker is {target} by a spell or ability, return him to
+#: his owner's hand." -- before the rest of it resolves (his ruling).
+RETURNS_WHEN_TARGETED = frozenset({"smoker"})
+#: A detector (UMR p. 16): "Opposing stealth and invisible forces are
+#: visible to you." -- Eyes of the Chancellor's keyword, Versatile
+#: Style's for a turn.
+DETECTOR = "Detector"
+#: Bluecoat Musketeer: "While this has exactly 1 ATK, it has long-range."
+#: -- its ATK after every effect and rune (its ruling).
+LONG_RANGE_AT_ONE = frozenset({"bluecoat_musketeer"})
+#: Garus Rook at 5: "Unstoppable by patrol zones with only one patroller."
+UNSTOPPABLE_BY_LONE_PATROLLER = {("garus_rook", 5)}
+#: Colossus: "Unstoppable when attacking a base."
+UNSTOPPABLE_ATTACKING_BASE = frozenset({"colossus"})
+#: Traffic Director: "Unstoppable when attacking a building."
+UNSTOPPABLE_ATTACKING_BUILDINGS = frozenset({"traffic_director"})
+#: Patriot Gryphon: "Unstoppable by units with 2 ATK or less."
+UNSTOPPABLE_BY_WEAK = {"patriot_gryphon": 2}
+#: Masked Raccoon: "Unstoppable by units if you have another Ninja.
+#: Unattackable by units if you have another Cute Animal."
+UNSTOPPABLE_WITH_NINJA = frozenset({"masked_raccoon"})
+UNATTACKABLE_WITH_CUTE_ANIMAL = frozenset({"masked_raccoon"})
+NINJA = "Ninja"
+CUTE_ANIMAL = "Cute Animal"
+#: Liberty Gryphon: "Unstoppable, unattackable, and untargetable while you
+#: control an Illusion with any other name than Liberty Gryphon."
+LIBERTY = frozenset({"liberty_gryphon"})
+LIBERTY_KEYWORDS = ("Unstoppable", "Unattackable", "Untargetable")
+#: Fox's Den School: "Your Ninjas and Cute Animals are invisible."
+UNIT_GRANTS.update({
+    "foxs_den_school": "den_invisible",
+    "macciatus_the_whisperer": "illusions",
+})
+#: Justice Juggernaut's and Daigo Stormborne's "can't patrol".
+CANT_PATROL = CANT_PATROL | {"justice_juggernaut", "daigo_stormborne"}
+#: Dreamscape is channeled on the Truth hero.
+CHANNELING = {**CHANNELING, "dreamscape": "truth"}
+for _effect_row in (
+    # Dreamscape's text is what it does in play (`DREAMSCAPE`).
+    _effect("dreamscape"),
+    # Hallucination: "Up to two tech 0, I, or II units are Illusions this
+    # turn." -- {target}, so an Illusion already dies of it.
+    _effect("hallucination", Part("illusion", "unit_tech_upto_2", 0,
+                                  "make a tech 0, I or II unit an Illusion this turn",
+                                  most=2, least=0)),
+    # Manufactured Truth: "One of your tech 0 or I units becomes a copy of
+    # another tech 0 or I unit until end of turn." -- no {target}, so a
+    # flagbearer forces nothing (the flagbearer ruling).
+    _effect(
+        "manufactured_truth",
+        Part("copier", "own_unit_tech_0_1", 0, "choose one of your tech 0 or I units to become a copy",
+             targeted=False),
+        Part("copy", "other_unit_tech_0_1", 0, "choose another tech 0 or I unit for it to copy",
+             targeted=False, follows=True),
+        says="make one of your tech 0 or I units a copy of another",
+    ),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "dreamscape": (("play", "dreamscape"),),
+    "hallucination": (("play", "hallucination"),),
+    "manufactured_truth": (("play", "manufactured_truth"),),
+})
+#: Oathkeeper of Kor Mountain: "Arrives: Choose an oath: 'I won't play
+#: cards from my hand besides workers' or 'I will skip my draw/discard
+#: phase.'" -- the oath chosen kept on him (`CardInstance.oath`).
+OATHKEEPERS = frozenset({"oathkeeper_of_kor_mountain"})
+OATH_HAND = "hand"
+OATH_DRAW = "draw"

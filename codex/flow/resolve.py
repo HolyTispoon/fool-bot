@@ -384,11 +384,42 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
     top.setdefault("picks", []).append(row.key)
     top["chose"] = True
     top["picked"] = row.key
-    if part.does != "divide":
+    if part.targeted and _targeted_away(engine, match, top, row, result):
+        # Smoker went home, or an Illusion died, the moment it was
+        # targeted: the rest of the part does not resolve on it.
+        board.settle(engine, match, result, cause=top["seat"])
+    elif part.does != "divide":
         DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
     if len(top["picks"]) >= pick_limit(engine, match, top, part):
         _end_picks(engine, match, top, part, result)
+
+
+def _targeted_away(engine: "RulesEngine", match: MatchState, top: dict, row,
+                   result: StepResult) -> bool:
+    """
+    What being targeted does by itself (step 13), before the part does
+    anything to it: Smoker returns to his owner's hand (his ruling), and an
+    Illusion dies -- "At the moment they are targeted, they die (and go to
+    their owner's discard pile)", so the damage or the rune never lands
+    (the illusion ruling) -- unless its controller has a Macciatus. Whether
+    the target went.
+    """
+    body = board.body_of(match, row.seat, row.ref)
+    if not isinstance(body, CardInstance) or not engine.catalog.cards[body.slug].is_unit:
+        return False
+    named = _thing(match, (row.seat, row.ref))
+    if engine.text_slug(body) in effects.RETURNS_WHEN_TARGETED and not engine.cant_leave_play(match, body):
+        result.narration.append(f"{named} is targeted, and returns to {tokens.player(body.owner)}'s hand.")
+        board.leave_play(engine, match, body, "hand")
+        match.record_event("returned", slug=body.slug, owner=body.owner)
+        board.second_chances(engine, match, [body], result)
+        return True
+    if engine.illusion_dies(match, body):
+        result.narration.append(f"{named} is an Illusion: targeted by {top['by']}, it dies.")
+        board.destroy(engine, match, [(row.seat, row.ref)], result, cause=top["seat"])
+        return True
+    return False
 
 
 def _end_picks(engine: "RulesEngine", match: MatchState, top: dict, part,
@@ -2090,6 +2121,52 @@ def _banefire(engine, match, top, part, target, result) -> None:
     board.damage_building(match, other, "base", amount, result, by=seat)
 
 
+# -- White and blue's handlers (step 13) -----------------------------------------
+
+
+def _illusion(engine, match, top, part, target, result) -> None:
+    """Hallucination: the unit is an Illusion this turn."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.modifiers.append({"kind": "illusion", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} makes {_thing(match, target)} an Illusion this turn.")
+
+
+def _copier(engine, match, top, part, target, result) -> None:
+    """Manufactured Truth, first: the unit of the caster's that becomes a
+    copy, kept for the part that names what it copies."""
+
+
+def make_copy(engine, match, card: CardInstance, original: CardInstance) -> None:
+    """`card` becomes a copy of `original` (the glossary's Copy): the
+    printed card -- the one `original` is read as, its printed override
+    read first (Manufactured Truth's rulings) -- and none of its runes,
+    attachments or modifiers. Nothing arrives."""
+    card.copy_of = original.copy_of or original.slug
+    card.printed = dict(original.printed) if original.printed else None
+
+
+def _copy(engine, match, top, part, target, result) -> None:
+    """Manufactured Truth: the unit chosen first becomes a copy of this
+    one until the end of the turn -- its own printed override kept on the
+    modifier, to come back with it."""
+    if not top["taken"]:
+        return
+    copier_key = top["taken"][0]
+    card = board.body_of(match, *parse_target(copier_key))
+    original = board.body_of(match, *target)
+    if card is None or original is None or card is original:
+        return
+    card.modifiers.append({"kind": "copy", "until": "end_of_turn", "printed": card.printed,
+                           "copy_of": card.copy_of})
+    make_copy(engine, match, card, original)
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, parse_target(copier_key))} a copy of "
+        f"{_thing(match, target)} until the end of the turn."
+    )
+
+
 #: The parts `run` works itself rather than a handler: "choose one" and
 #: divided damage.
 STRUCTURAL = frozenset({"mode", "divide"})
@@ -2205,6 +2282,10 @@ DOES = {
     "promise": _promise,
     "extra_turn": _extra_turn,
     "banefire": _banefire,
+    # White and blue (step 13).
+    "illusion": _illusion,
+    "copier": _copier,
+    "copy": _copy,
 }
 
 

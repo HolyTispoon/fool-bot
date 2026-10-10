@@ -46,9 +46,10 @@ PANEL_NOTE = "*Only you can see this.*"
 
 #: The prompts whose panel is pictured with the asked player's hand, as
 #: the main phase's is: Appel Stomp's place, which is about their own
-#: draw pile.
+#: draw pile, and the card a stash keeps (step 13) -- its owner's alone.
 PANEL_HAND_KINDS = (
     PromptKind.APPEL_STOMP_TOP,
+    PromptKind.STASH,
 )
 #: The prompts whose panel is pictured with a side of the board rather
 #: than the hand (the author, 2026-10-09): what is chosen from is on the

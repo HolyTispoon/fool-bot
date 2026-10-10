@@ -476,9 +476,24 @@ class RulesEngine:
         return not (printed and printed.get("polymorph") is not None)
 
     def text_slug(self, card) -> Optional[str]:
-        """The slug whose text a card in play has -- its own, or `None`
-        while Polymorph: Squirrel has taken its abilities."""
-        return card.slug if self.texted(card) else None
+        """The slug whose text a card in play has -- its own, the card it
+        is a copy of (step 13), or `None` while Polymorph: Squirrel has
+        taken its abilities."""
+        if not self.texted(card):
+            return None
+        return getattr(card, "copy_of", None) or card.slug
+
+    def card_of(self, card):
+        """The printed card a card in play is read as: its own, or the one
+        it is a copy of (step 13) -- "copying something copies the printed
+        version of the card" (Manufactured Truth's ruling)."""
+        return self.catalog.cards[getattr(card, "copy_of", None) or card.slug]
+
+    def tech_level(self, card) -> int:
+        """A card in play's tech level -- a token's 0 (UMR p. 13) -- or,
+        for a copy, the copied card's (Sirus Quince's ruling: "If your
+        Mirror Illusion copies a Tech 1 unit, it becomes Tech 1")."""
+        return self.card_of(card).tech_level or 0
 
     def _profile(self, body, match: Optional[MatchState]) -> "Profile":
         """
@@ -501,12 +516,15 @@ class RulesEngine:
         return self._unit_profile(body, match)
 
     def _unit_profile(self, card: CardInstance, match: Optional[MatchState]) -> "Profile":
-        printed = self.catalog.cards[card.slug]
+        printed = self.card_of(card)
         texted = self.texted(card)
         replaced = card.printed or {}
         atk, hp = ((printed.atk or 0), (printed.hp or 0)) if texted else effects.SQUIRREL_STATS
-        found = list(keywords.keywords(card.slug)) if texted else []
-        ability = texted and bool(printed.text)
+        found = list(keywords.keywords(self.text_slug(card))) if texted else []
+        # A line that is reminder text alone -- an Illusion's "(Illusions
+        # die when targeted ...)" -- is no ability: Illusion is a subtype
+        # (the illusion ruling), so Midori's +1/+1 reaches Spectral Hound.
+        ability = texted and any(line.split("(", 1)[0].strip() for line in printed.text)
         if match is not None and card.runes.get("feather") and any(
             other.slug == effects.FAIRIE_DRAGON and self.texted(other) for other in match.instances()
         ):
@@ -536,7 +554,7 @@ class RulesEngine:
         changed_atk, changed_hp = self._changes(card)
         atk += changed_atk
         hp += changed_hp
-        per_rune = effects.PER_TIME_RUNE.get(card.slug) if texted else None
+        per_rune = effects.PER_TIME_RUNE.get(self.text_slug(card) or "") if texted else None
         if per_rune:
             # Ebbflow Archon's -1/-1 and Tricycloid's +1/+1 for each time
             # rune on it.
@@ -546,11 +564,11 @@ class RulesEngine:
             # Abomination: "All other units get -1/-1." -- both sides,
             # stacking (its ruling).
             for other in match.instances():
-                change = effects.ALL_OTHER_UNITS.get(other.slug)
+                change = effects.ALL_OTHER_UNITS.get(self.text_slug(other) or "")
                 if change is not None and other.id != card.id and self.texted(other):
                     atk += change[0]
                     hp += change[1]
-        if texted and card.slug in effects.ATK_PER_DAMAGE:
+        if texted and self.text_slug(card) in effects.ATK_PER_DAMAGE:
             atk += card.damage
         profile = Profile(atk, hp, found, ability)
         if match is None or not printed.is_unit:
@@ -564,6 +582,10 @@ class RulesEngine:
         if texted:
             profile.keywords.extend(self._conditioned_keywords(match, card, card.controller))
         self._apply_grants(match, card, profile)
+        if self.text_slug(card) in effects.LONG_RANGE_AT_ONE and profile.atk == 1:
+            # Bluecoat Musketeer: "While this has exactly 1 ATK, it has
+            # long-range." -- after every effect and rune (its ruling).
+            profile.keywords.append(("Long-range", None))
         self._lose_keywords(card, profile)
         ceiling = effects.ATK_CEILING.get(self.text_slug(card) or "")
         if ceiling is not None:
@@ -589,7 +611,7 @@ class RulesEngine:
         for other in match.player(seat).play:
             if not self.texted(other):
                 continue
-            grant = effects.UNIT_GRANTS.get(other.slug)
+            grant = effects.UNIT_GRANTS.get(self.text_slug(other) or "")
             if grant == "guide" and other.id == card.id:
                 continue  # "Your *other* units"
             if grant is not None:
@@ -616,7 +638,7 @@ class RulesEngine:
             if grant == "guide":
                 # Grounded Guide: +1 ATK, or +2/+1 for a Virtuoso,
                 # stacking (Sirlin, 2016-03-02).
-                if self.is_virtuoso(card.slug):
+                if self.is_virtuoso(self.text_slug(card) or ""):
                     profile.atk += 2
                     profile.hp += 1
                 else:
@@ -627,7 +649,7 @@ class RulesEngine:
             elif grant == "swift_strike":
                 profile.grant("Swift strike")
             elif grant == "virtuoso_haste":
-                if self.is_virtuoso(card.slug):
+                if self.is_virtuoso(self.text_slug(card) or ""):
                     profile.grant("Haste")
             elif grant == "war_drums":
                 # "+X ATK where X is the number of units you have" -- in
@@ -703,6 +725,16 @@ class RulesEngine:
                 profile.atk += effects.PANDA_BONUS
                 profile.hp += effects.PANDA_BONUS
                 profile.ability = True
+            elif grant == "den_invisible":
+                # Fox's Den School: "Your Ninjas and Cute Animals are
+                # invisible." -- a unit its ability made a Ninja too.
+                if self.is_ninja(card) or effects.CUTE_ANIMAL in self.subtype_of(card):
+                    profile.grant("Invisible")
+            elif grant == "illusions":
+                # Macciatus: "Your Illusion units get +1/+1."
+                if self.is_illusion(match, card):
+                    profile.atk += 1
+                    profile.hp += 1
         if midori and profile.ability:
             # "If a unit gets an ability ... then it loses +2/+2 from
             # Midori" (his ruling).
@@ -727,12 +759,12 @@ class RulesEngine:
         if seat is None:
             return profile
         mine = match.player(seat).play
-        if any(card.slug in effects.GRANTS_SWIFT_STRIKE and self.texted(card) for card in mine):
+        if any(self.text_slug(card) in effects.GRANTS_SWIFT_STRIKE for card in mine):
             profile.grant("Swift strike")
         for card in mine:
             if not self.texted(card):
                 continue
-            grant = effects.HERO_GRANTS.get(card.slug)
+            grant = effects.HERO_GRANTS.get(self.text_slug(card) or "")
             if grant == "rune_overpower" and hero.plus_runes > 0:
                 profile.grant("Overpower")
             elif grant == "growth" and card.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
@@ -844,10 +876,60 @@ class RulesEngine:
         attached to (step 12)."""
         if not isinstance(body, CardInstance):
             return False
-        if self.texted(body) and self.is_flagbearer(body.slug):
+        if self.texted(body) and self.is_flagbearer(self.text_slug(body)):
             return True
         return any(spell.slug == effects.VORTOSS_EMBLEM and body.id in spell.attached
                    for spell in match.instances())
+
+    # -- Illusions, Ninjas and the copies (step 13) -----------------------
+
+    def is_illusion(self, match: Optional[MatchState], body) -> bool:
+        """
+        An Illusion: a unit whose subtype says so -- a copy's, the copied
+        card's (`subtype_of`) -- one Sirus Quince's copy keeps as one
+        (`{kind: "illusion"}`), one Hallucination made one this turn, or,
+        while a Dreamscape is in play, any tech 0, I or II unit. A subtype,
+        not an ability (the illusion ruling); heroes are not units.
+        """
+        if not isinstance(body, CardInstance) or not self.catalog.cards[body.slug].is_unit:
+            return False
+        if effects.ILLUSION in self.subtype_of(body).split():
+            return True
+        if any(m.get("kind") == "illusion" for m in body.modifiers):
+            return True
+        if match is not None and self.tech_level(body) <= 2 and any(
+            self.text_slug(card) in effects.DREAMSCAPE for card in match.instances()
+        ):
+            return True
+        return False
+
+    def illusion_dies(self, match: MatchState, body) -> bool:
+        """Whether a unit dies the moment a spell or ability targets it: an
+        Illusion whose controller has no Macciatus -- "Your Illusion units
+        ... no longer die when they are {target}"."""
+        if not self.is_illusion(match, body):
+            return False
+        return not any(self.text_slug(card) in effects.ILLUSION_GUARDS
+                       for card in match.player(body.controller).play)
+
+    def _other_illusion(self, match: MatchState, seat: int, body) -> bool:
+        """Whether `seat` controls an Illusion with any other name than
+        `body`'s -- Liberty Gryphon's condition."""
+        name = self.catalog.name(self.text_slug(body) or body.slug)
+        return any(
+            other is not body and self.is_illusion(match, other)
+            and self.catalog.name(self.text_slug(other) or other.slug) != name
+            for other in match.player(seat).play
+        )
+
+    def is_ninja(self, card) -> bool:
+        """A Ninja: its subtype says so, or Fox's Den School's ability made
+        it one -- for good, while it is in play (its ruling)."""
+        if not isinstance(card, CardInstance):
+            return False
+        return effects.NINJA in self.subtype_of(card).split() or any(
+            m.get("kind") == "ninja" for m in card.modifiers
+        )
 
     def seat_of(self, match: MatchState, body) -> Optional[int]:
         """Who controls a unit or a hero in play."""
@@ -918,8 +1000,17 @@ class RulesEngine:
         seat = self.seat_of(match, hero)
         if seat is None:
             return False
-        return any(card.slug in effects.NO_OPPOSING_LEVELS and self.texted(card)
+        return any(self.text_slug(card) in effects.NO_OPPOSING_LEVELS
                    for card in match.opponent(seat).play)
+
+    def hero_texted(self, match: Optional[MatchState], hero: HeroState) -> bool:
+        """Whether a hero has its abilities -- printed, a band's, granted --
+        which a silenced player's heroes lose until after that player's
+        next turn (Free Speech, step 13); their numbers stay."""
+        if match is None:
+            return True
+        seat = self.seat_of(match, hero)
+        return seat is None or not getattr(match.player(seat), "silenced", False)
 
     def rune_damage(self, match: Optional[MatchState], body) -> bool:
         """Whether `body` deals its damage to units and heroes in the form
@@ -948,8 +1039,8 @@ class RulesEngine:
                      else self.may_be_destroyed(match, card))]
         if not units:
             return []
-        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
-        units = [card for card in units if (self.catalog.cards[card.slug].tech_level or 0) == lowest]
+        lowest = min(self.tech_level(card) for card in units)
+        units = [card for card in units if self.tech_level(card) == lowest]
         least = min(self.unit_stats(card, match)[0] for card in units)
         return [card for card in units if self.unit_stats(card, match)[0] == least]
 
@@ -959,8 +1050,8 @@ class RulesEngine:
         units = [card for card in self._units_of(match, seat) if self.may_be_destroyed(match, card)]
         if not units:
             return []
-        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
-        return [card for card in units if (self.catalog.cards[card.slug].tech_level or 0) == lowest]
+        lowest = min(self.tech_level(card) for card in units)
+        return [card for card in units if self.tech_level(card) == lowest]
 
     def graveyards(self, player: PlayerState) -> list[CardInstance]:
         """The Graveyards a player controls, their text in play."""
@@ -976,7 +1067,7 @@ class RulesEngine:
         """Twilight Baron: "You can't play tech II or III units." --
         playing alone; putting into play is untouched (its rulings)."""
         return (card.tech_level or 0) >= 2 and any(
-            other.slug in effects.NO_HIGH_TECH_UNITS and self.texted(other) for other in player.play
+            self.text_slug(other) in effects.NO_HIGH_TECH_UNITS for other in player.play
         )
 
     def why_not_play_buried(self, player: PlayerState, slug: str) -> str:
@@ -1073,7 +1164,7 @@ class RulesEngine:
                 if self.catalog.cards[other.slug].is_unit and self.color_of(other) == "green"
             )
         if self.is_virtuoso(slug) and any(
-            other.slug in effects.MAESTROS and self.texted(other) for other in player.play
+            self.text_slug(other) in effects.MAESTROS for other in player.play
         ):
             return 0
         if not (card.tech_level or 0):
@@ -1105,13 +1196,13 @@ class RulesEngine:
     def color_of(self, card: CardInstance) -> str:
         """A card in play's colour, lowered: "green" -- a Squirrel's while
         Polymorph: Squirrel has it."""
-        slug = card.slug if self.texted(card) else effects.POLYMORPH_INTO
+        slug = self.text_slug(card) or effects.POLYMORPH_INTO
         return (self.catalog.cards[slug].color or "neutral").lower()
 
     def subtype_of(self, card: CardInstance) -> str:
         """A card in play's subtype: "Pirate", "Tiger" -- "Squirrel" while
         Polymorph: Squirrel has it."""
-        slug = card.slug if self.texted(card) else effects.POLYMORPH_INTO
+        slug = self.text_slug(card) or effects.POLYMORPH_INTO
         return self.catalog.cards[slug].subtype or ""
 
     def printed_atk(self, body) -> int:
@@ -1125,7 +1216,7 @@ class RulesEngine:
             return self.hero_band(body).atk
         if not self.texted(body):
             return effects.SQUIRREL_STATS[0]
-        return self.catalog.cards[body.slug].atk or 0
+        return self.card_of(body).atk or 0
 
     def builds_instantly(self, player: PlayerState) -> bool:
         """Whether this player's tech buildings build instantly this turn
@@ -1234,9 +1325,29 @@ class RulesEngine:
         each Shrine of Forbidden Knowledge its player has a card more and a
         hand of one more (its ruling and the Card FAQ)."""
         more = 0 if player is None else sum(
-            1 for card in player.play if card.slug in effects.DRAW_MORE and self.texted(card)
+            1 for card in player.play if self.text_slug(card) in effects.DRAW_MORE
         )
         return min(discarded + 2 + more, HAND_SIZE + more)
+
+    def stash_owed(self, match: MatchState) -> bool:
+        """Whether the draw phase asks which card to keep: the active
+        player has stash -- Bigby Hayes in play with it, unsilenced -- a
+        card in hand to keep, and a draw phase to keep it through (step
+        13)."""
+        if match.phase != "draw" or match.winner is not None:
+            return False
+        player = match.active_player
+        if not player.hand or player.skip_draw or self.skips_draw(match, match.active):
+            return False
+        return any(self.has_keyword(hero, effects.STASH, match) for hero in player.heroes_in_play)
+
+    def skips_draw(self, match: MatchState, seat: int) -> bool:
+        """Oathkeeper's second oath, "I will skip my draw/discard phase",
+        while he is in play under that player (step 13)."""
+        return any(
+            self.text_slug(card) in effects.OATHKEEPERS and getattr(card, "oath", None) == effects.OATH_DRAW
+            for card in match.player(seat).play
+        )
 
     def tech_bounds(self, player: PlayerState) -> tuple[int, int]:
         """
@@ -1658,7 +1769,7 @@ class RulesEngine:
             return found
         if not isinstance(body, CardInstance):
             return found
-        slug = body.slug
+        slug = self.text_slug(body) or body.slug
         spec = effects.INVISIBLE_WITH_HERO.get(slug)
         if spec is not None and seat is not None and any(
             (self.hero_card(hero).spec or "").lower() == spec
@@ -1679,10 +1790,16 @@ class RulesEngine:
                 defender = self.body(match, 2 if seat == 1 else 1, state.get("defender") or "")
             if isinstance(defender, CardInstance):
                 found.append(("Stealth", None))
+        if self.text_slug(body) in effects.LIBERTY and seat is not None and self._other_illusion(
+            match, seat, body,
+        ):
+            # Liberty Gryphon, beside an Illusion of another name (its
+            # ruling: a copy of Liberty Gryphon is named Liberty Gryphon).
+            found.extend((keyword, None) for keyword in effects.LIBERTY_KEYWORDS)
         if slug == effects.MIMIC:
             others = [
                 other for other in self._bodies_in_play(match)
-                if not (isinstance(other, CardInstance) and other.slug == effects.MIMIC)
+                if not (isinstance(other, CardInstance) and self.text_slug(other) == effects.MIMIC)
             ]
             for keyword in effects.MIMICKED:
                 if any(self.has_keyword(other, keyword, match) for other in others):
@@ -1768,12 +1885,23 @@ class RulesEngine:
         (`tower_detects`). On its owner's own turn a tower sees only what
         it has detected, which is the `detect` action's to name.
         """
+        if self.has_detector(match, watcher):
+            return True
         tower = self.tower(match.player(watcher))
         if tower is None:
             return False
         if tower.detected == ref:
             return True
         return tower.detected is None and watcher != match.active
+
+    def has_detector(self, match: MatchState, seat: int) -> bool:
+        """Whether `seat` has a detector in play (UMR p. 16, step 13): a
+        card or a hero with the keyword -- Eyes of the Chancellor, the
+        Discipline hero Versatile Style made one this turn -- which sees
+        every stealth and invisible card of the opponent's."""
+        player = match.player(seat)
+        return any(self.has_keyword(body, effects.DETECTOR, match)
+                   for body in (*player.play, *player.heroes_in_play))
 
     def tower_detects(self, match: MatchState, attacker: str) -> bool:
         """
@@ -1875,6 +2003,18 @@ class RulesEngine:
         ):
             # "Tiny Basilisk is unattackable ... by tech 0 units."
             return False
+        if self.has_keyword(body, "Unattackable", match):
+            # Liberty Gryphon beside an Illusion of another name (step 13).
+            return False
+        if (
+            isinstance(body, CardInstance) and self.text_slug(body) in effects.UNATTACKABLE_WITH_CUTE_ANIMAL
+            and isinstance(self.body(match, seat, attacker), CardInstance)
+            and any(unit is not body and effects.CUTE_ANIMAL in self.subtype_of(unit)
+                    for unit in self._units_of(match, other))
+        ):
+            # Masked Raccoon: "Unattackable by units if you have another
+            # Cute Animal." -- a hero may still attack it.
+            return False
         return True
 
     def is_tech_0_unit(self, body) -> bool:
@@ -1882,8 +2022,7 @@ class RulesEngine:
         hero, which is no unit."""
         if not isinstance(body, CardInstance):
             return False
-        card = self.catalog.cards[body.slug]
-        return card.is_unit and not (card.tech_level or 0)
+        return self.catalog.cards[body.slug].is_unit and not self.tech_level(body)
 
     def ignores_patrollers(self, match: MatchState, attacker: str) -> str:
         """
@@ -1963,9 +2102,30 @@ class RulesEngine:
         if slug in effects.UNSTOPPABLE_BY_RUNED and unit and patroller.minus_runes > 0:
             return True
         if unit and self.is_demon(body) and any(
-            card.slug in effects.DEMONS_UNSTOPPABLE and self.texted(card)
+            self.text_slug(card) in effects.DEMONS_UNSTOPPABLE
             for card in match.player(match.active).play
         ):
+            return True
+        # Step 13's conditional unstoppables.
+        if isinstance(body, HeroState) and any(
+            body.slug == hero and body.level >= level and self.hero_texted(match, body)
+            for hero, level in effects.UNSTOPPABLE_BY_LONE_PATROLLER
+        ):
+            # Garus Rook at 5: "Unstoppable by patrol zones with only one
+            # patroller."
+            other = 2 if match.active == 1 else 1
+            if len(match.player(other).patrollers()) == 1:
+                return True
+        most = effects.UNSTOPPABLE_BY_WEAK.get(slug or "")
+        if most is not None and unit and self.attack_value(
+            match, 2 if match.active == 1 else 1, patroller.ref,
+        ) <= most:
+            # Patriot Gryphon: "Unstoppable by units with 2 ATK or less."
+            return True
+        if slug in effects.UNSTOPPABLE_WITH_NINJA and unit and any(
+            other is not body and self.is_ninja(other) for other in self._units_of(match, match.active)
+        ):
+            # Masked Raccoon: "Unstoppable by units if you have another Ninja."
             return True
         return False
 
@@ -1999,6 +2159,19 @@ class RulesEngine:
                     for card in self._units_of(match, other)
                     if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref)
                 ]
+            past = self._unstoppable_to_buildings(match, attacker)
+            if past:
+                # Colossus: "Unstoppable when attacking a base."; Traffic
+                # Director: "... when attacking a building." (step 13).
+                taken = {ref for ref, _ in rows}
+                why = ("it is unstoppable when attacking a base" if past == "base"
+                       else "it is unstoppable when attacking a building")
+                rows += [
+                    (ref, why) for ref in self._standing(match, other)
+                    if ref not in taken and self.is_building_ref(match, other, ref)
+                    and (past != "base" or ref == "base")
+                    and self.may_be_attacked(match, attacker, ref)
+                ]
             if self._unstoppable_to_heroes(match, attacker):
                 # Wight: "Unstoppable when attacking heroes" -- any of their
                 # heroes, past the patrol zone (step 12).
@@ -2026,6 +2199,17 @@ class RulesEngine:
         other = 2 if match.active == 1 else 1
         return not self.detected_by(match, other, attacker)
 
+    def _unstoppable_to_buildings(self, match: MatchState, attacker: str) -> str:
+        """`"base"` for Colossus, `"buildings"` for Traffic Director, or
+        `""`: what this attacker may reach past the patrol zone (step 13)."""
+        body = self.body(match, match.active, attacker)
+        slug = self.text_slug(body) if isinstance(body, CardInstance) else None
+        if slug in effects.UNSTOPPABLE_ATTACKING_BASE:
+            return "base"
+        if slug in effects.UNSTOPPABLE_ATTACKING_BUILDINGS:
+            return "buildings"
+        return ""
+
     def _unstoppable_to_heroes(self, match: MatchState, attacker: str) -> bool:
         body = self.body(match, match.active, attacker)
         return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_ATTACKING_HEROES
@@ -2044,7 +2228,7 @@ class RulesEngine:
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_RUNED:
             return "it is unstoppable by units with -1/-1 runes"
         if self.is_demon(body) and any(
-            card.slug in effects.DEMONS_UNSTOPPABLE for card in match.active_player.play
+            self.text_slug(card) in effects.DEMONS_UNSTOPPABLE for card in match.active_player.play
         ):
             return "its Demons are unstoppable by units"
         if sneaking:
@@ -2235,11 +2419,8 @@ class RulesEngine:
         ]
         if not units:
             return ()
-        lowest = min(self.catalog.cards[card.slug].tech_level or 0 for card in units)
-        return tuple(
-            card.ref for card in units
-            if (self.catalog.cards[card.slug].tech_level or 0) == lowest
-        )
+        lowest = min(self.tech_level(card) for card in units)
+        return tuple(card.ref for card in units if self.tech_level(card) == lowest)
 
     # -- Targeting ----------------------------------------------------------------
     #
@@ -2308,7 +2489,7 @@ class RulesEngine:
         found: list[tuple[int, str]] = []
 
         def tech(card: CardInstance) -> int:
-            return self.catalog.cards[card.slug].tech_level or 0
+            return self.tech_level(card)
 
         for side in (other, seat):
             player = match.player(side)
@@ -2489,6 +2670,12 @@ class RulesEngine:
                 if side == seat:
                     found += [(side, card.ref) for card in units
                               if not self.is_demon(card) and self.may_sacrifice(match, card)]
+            elif choose == "other_unit_tech_0_1":
+                # Manufactured Truth's original: another tech 0 or I unit,
+                # either side's.
+                first = (frame.get("taken") or [None])[0]
+                found += [(side, card.ref) for card in units
+                          if tech(card) <= 1 and target_key(side, card.ref) != first]
             elif choose in ("own_unit_tech_0_1", "opposing_unit_tech_0_1"):
                 if (side == seat) == choose.startswith("own"):
                     found += [(side, card.ref) for card in units if tech(card) <= 1]
@@ -2807,9 +2994,9 @@ class RulesEngine:
             for when, effect in effects.rows(hero.slug, hero.level):
                 if when == "ability":
                     found.append(self._ability(match, seat, hero, hero_ref(hero.slug), effect))
-        if any(card.slug in effects.MAESTROS and self.texted(card) for card in player.play):
+        if any(self.text_slug(card) in effects.MAESTROS for card in player.play):
             for card in player.play:
-                if self.catalog.cards[card.slug].is_unit and self.is_virtuoso(card.slug):
+                if self.catalog.cards[card.slug].is_unit and self.is_virtuoso(self.text_slug(card) or ""):
                     found.append(self._ability(match, seat, card, card.ref, "maestro"))
         # Red and green's: the abilities printed on a card in play -- a
         # unit's, a building card's, an upgrade's (step 11).

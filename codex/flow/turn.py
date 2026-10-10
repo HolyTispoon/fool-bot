@@ -614,12 +614,19 @@ def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
 
 def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
-               lead_in: str = "") -> StepResult:
+               lead_in: str = "", stash: Optional[str] = None) -> StepResult:
     """The hand to the discard face-down, then two more drawn than were
-    discarded, to at most five (UMR p. 5)."""
+    discarded, to at most five (UMR p. 5). Where the player has stash
+    (Bigby Hayes, step 13) the draw first asks which card is kept
+    (`STASH`), and `stash` is the answer -- a slug, or "" for none: the
+    card kept and one card fewer drawn, so the hand ends the size it
+    would have (the stash ruling). The card kept is never named."""
     seat = match.active
     player = match.active_player
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
+    if stash is None and engine.stash_owed(match):
+        result.next = pending(engine, game, match)
+        return result
     if player.skip_draw:
         # Prynn died from fading: "Opponents skip their next draw/discard
         # step (they keep their hand cards)."
@@ -634,16 +641,21 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             return result
         result.next = FollowOn(FollowOnStep.BEGIN_TECH)
         return result
+    held = len(player.hand)
+    kept = stash if stash and stash in player.hand else None
+    if kept is not None:
+        player.hand.remove(kept)
     discarded = len(player.hand)
     player.discard.extend(player.hand)
-    player.hand = []
-    owed = engine.draw_count(discarded, player)
+    player.hand = [kept] if kept is not None else []
+    owed = engine.draw_count(held, player) - (1 if kept is not None else 0)
     # The count goes first, though it is only known after the draw: a
     # reshuffle the draw needed is said beneath it.
     at = len(result.narration)
     drawn = draw_cards(engine, match, seat, owed, result)
+    keeps = f"keeps a card, " if kept is not None else ""
     result.narration.insert(
-        at, f"{tokens.player(seat)} discards {discarded} and draws {drawn}.",
+        at, f"{tokens.player(seat)} {keeps}discards {discarded} and draws {drawn}.",
     )
     match.enter_phase("tech")
     end_of_turn(engine, match, result)
@@ -736,6 +748,12 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     for side in match.players:
         side.lasting = [lasting for lasting in side.lasting if lasting.get("until") != "end_of_turn"]
         for body in (*side.play, *side.heroes):
+            for copied in [m for m in body.modifiers
+                           if m.get("kind") == "copy" and m.get("until") == "end_of_turn"]:
+                # Manufactured Truth's copy ends: the card is itself again,
+                # its own printed override back (step 13).
+                body.copy_of = copied.get("copy_of")
+                body.printed = copied.get("printed")
             # Temporary armor not used up goes with the turn (UMR p. 16).
             lent = sum(m.get("amount", 0) for m in body.modifiers
                        if m.get("kind") == "armor" and m.get("until") == "end_of_turn")

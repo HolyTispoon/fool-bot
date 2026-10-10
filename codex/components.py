@@ -159,6 +159,10 @@ class HeroState:
     #: `{slug, owner, controller, id}`, returned to play when she leaves it.
     #: Empty for every other hero, and in an older save.
     trashed: list[dict] = field(default_factory=list)
+    #: The runes on the hero besides +1/+1, -1/-1 and time runes, by kind
+    #: (step 13): Garus Rook's "crumbling" from Two Lives, Grave
+    #: Stormborne's "sword". Empty in an older save.
+    runes: dict[str, int] = field(default_factory=dict)
 
     @property
     def in_play(self) -> bool:
@@ -185,6 +189,7 @@ HERO_SAVED_FIELDS = (
     SavedField("time_runes", default=0),
     SavedField("disabled", default=False),
     SavedField("trashed", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("runes", factory=dict, write=dict, read=dict),
 )
 
 
@@ -307,6 +312,13 @@ class CardInstance:
     #: matters (step 12): Terras Q's four Warlocks shackle him alone. `None`
     #: otherwise, and in an older save.
     made_by: Optional[int] = None
+    #: The slug of the card this one is a copy of (step 13, the glossary's
+    #: Copy): Manufactured Truth's until the end of the turn, Sirus
+    #: Quince's Mirror Illusions. The engine reads the card as that one --
+    #: its type, subtype, ATK, HP, abilities and tech level -- while it
+    #: stands; its own runes, damage and arrival fatigue stay its own.
+    #: `None` otherwise, and in an older save.
+    copy_of: Optional[str] = None
 
     @property
     def ref(self) -> str:
@@ -339,6 +351,7 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("disabled", default=False),
     SavedField("buried", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("made_by"),
+    SavedField("copy_of"),
 )
 
 
@@ -779,6 +792,8 @@ class MatchState:
                     fail(f"card {card.id} has time runes below zero")
             for card in player.play:
                 known(card.slug, f"{where}'s play zone")
+                if card.copy_of is not None:
+                    known(card.copy_of, f"card {card.id}'s copy")
                 for name in ("damage", "plus_runes", "minus_runes", "armor", "time_runes"):
                     if getattr(card, name) < 0:
                         fail(f"card {card.id} has {name} below zero")

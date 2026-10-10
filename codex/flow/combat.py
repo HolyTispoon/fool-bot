@@ -356,7 +356,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Duck's rulings: arrives *and* attacks, no choosing).
             state["triggered"] = True
             state["stage"] = AFTER_TRIGGERS
-            resolve.push(match, *_attack_frames(match, state["attacker"]))
+            resolve.push(match, *_attack_frames(engine, match, state["attacker"]))
             if not resolve.run(engine, match, result):
                 result.next = pending(engine, game, match)
                 return result
@@ -422,7 +422,7 @@ def _defender_is_gone(match: MatchState, state: dict) -> bool:
     )
 
 
-def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
+def _attack_frames(engine: "RulesEngine", match: MatchState, attacker: str) -> list[dict]:
     """The attacker's attacks triggers, as frames to resolve: a unit's
     printed ones, and a hero's from the bands it has reached (Troq at 5)."""
     seat = match.active
@@ -435,7 +435,7 @@ def _attack_frames(match: MatchState, attacker: str) -> list[dict]:
         host = hero.slug
     else:
         card = player.instance(unit_ref(attacker))
-        found = effects.triggers(card.slug, "attacks") if "polymorph" not in (card.printed or {}) else ()
+        found = effects.triggers(engine.text_slug(card) or "", "attacks")
         by = tokens.card(card.slug)
         origin = card.slug
         host = card.id

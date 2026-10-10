@@ -101,6 +101,10 @@ class PromptKind(Enum):
     #: "Choose one" -- Feral Strike's, Murkwood Allies', Land Octopus's
     #: upkeep -- asked only where there is a choice (step 11).
     MODE_CHOICE = "mode_choice"
+    #: Stash (Bigby Hayes, step 13): which card of the hand the draw phase
+    #: keeps, or none -- asked where the active player has stash, before
+    #: the draw it changes.
+    STASH = "stash"
     #: A base is destroyed (UMR p. 2), or a player conceded.
     GAME_OVER = "game_over"
 
@@ -362,6 +366,18 @@ class LevelGainOptions:
 
 
 @dataclass(frozen=True)
+class StashOptions:
+    """The hand a stash keeps one card of, each card once in the hand's
+    order -- its owner's alone, as the hand is."""
+
+    seat: int
+    hand: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "hand": list(self.hand)}
+
+
+@dataclass(frozen=True)
 class GameOverOptions:
     """Who won, and who conceded where the game ended that way. Nothing
     answers a finished game: playing it again is a new record
@@ -383,7 +399,7 @@ PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
     TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
     TargetOptions, AppelOptions, UpkeepOrderOptions, LevelGainOptions, GameOverOptions,
-    DivideOptions, ModeOptions,
+    DivideOptions, ModeOptions, StashOptions,
 ]
 
 
@@ -457,6 +473,7 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LEVEL_GAIN: ("",),
     PromptKind.DIVIDE_DAMAGE: ("", "cancel"),
     PromptKind.MODE_CHOICE: ("", "cancel"),
+    PromptKind.STASH: ("keep", "none"),
     PromptKind.GAME_OVER: (),
 }
 
@@ -531,6 +548,13 @@ def _upkeep_ask(seat: int, effects_due=("healing", "starlet")) -> str:
 def _level_ask(seat: int, owner: int) -> str:
     whose = "your" if seat == owner else f"{tokens.player(owner)}'s"
     return f"{tokens.player(seat)}, a hero was destroyed: choose which of {whose} heroes gains the 2 levels."
+
+
+def _stash_ask(seat: int) -> str:
+    return (
+        f"{tokens.player(seat)}, your draw: stash lets you keep a card of your hand and draw "
+        "one less -- choose it, or keep none."
+    )
 
 
 def _confirm_ask(seat: int) -> str:
@@ -676,6 +700,11 @@ def _confirm_options(engine, game, match, prompt) -> TechConfirmOptions:
     return TechConfirmOptions(prompt.asked_player, tuple(player.tech_choice or ()))
 
 
+def _stash_options(engine, game, match, prompt) -> StashOptions:
+    player = match.player(prompt.asked_player)
+    return StashOptions(prompt.asked_player, tuple(dict.fromkeys(player.hand)))
+
+
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
     return GameOverOptions(match.winner, match.conceded, match.lost_by_debt)
 
@@ -695,6 +724,7 @@ OPTIONS = {
     PromptKind.LEVEL_GAIN: _level_options,
     PromptKind.DIVIDE_DAMAGE: _divide_options,
     PromptKind.MODE_CHOICE: _mode_options,
+    PromptKind.STASH: _stash_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -801,6 +831,9 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             seat,
         )
     if match.phase == "draw":
+        if engine.stash_owed(match):
+            # Stash (step 13): the draw waits on which card is kept.
+            return PendingPrompt(PromptKind.STASH, _stash_ask(seat), seat)
         return FollowOn(FollowOnStep.DRAW_PHASE)
     if match.phase == "tech":
         return FollowOn(FollowOnStep.BEGIN_TECH)
