@@ -117,9 +117,8 @@ def _handled(slug: str) -> list[str]:
     return found
 
 
-#: What step 13 has still to land: every white and blue card, hero and
-#: token whose text is more than keywords the engine reads, written out
-#: so each commit that gives one its handler takes it out here too.
+#: What step 13 had still to land, emptied commit by commit: nothing now
+#: (`test_unimplemented_is_empty_over_every_card`).
 REMAINING = frozenset({
 })
 
@@ -184,6 +183,23 @@ class UnimplementedTests(unittest.TestCase):
         numbers, and empties it commit by commit."""
         self.assertEqual(effects.UNIMPLEMENTED, REMAINING)
         self.assertTrue(effects.UNIMPLEMENTED <= effects.WHITE | effects.BLUE)
+
+    def test_unimplemented_is_empty_over_every_card(self) -> None:
+        """Step 13 emptied it for good: every card, hero and token of the
+        data is in one of the sets -- the basic set and the six colours'
+        -- and the sets add up to the whole catalog but for the two worker
+        counters, which are no cards, and the Mercenary token, which no
+        card of the data summons and which has no text."""
+        self.assertEqual(effects.UNIMPLEMENTED, frozenset())
+        cards = catalog()
+        everything = set(cards.cards) | set(cards.heroes)
+        workers = {slug for slug, card in cards.cards.items() if card.kind == "worker"}
+        self.assertEqual(everything - effects.LANDED_SET - workers, {"mercenary"})
+        self.assertFalse(_has_text("mercenary"))
+        groups = (effects.BASIC_SET, effects.RED, effects.GREEN, effects.PURPLE, effects.BLACK,
+                  effects.WHITE, effects.BLUE)
+        self.assertEqual(sum(len(group) for group in groups), len(effects.LANDED_SET))
+        self.assertEqual(len(effects.LANDED_SET) + len(workers) + 1, len(everything))
 
     def test_unimplemented_is_exactly_the_pairs_unread_text(self) -> None:
         """Every white or blue card with text the keyword table does not

@@ -7,7 +7,7 @@ Each checks its own legality against the engine's answer -- the same
 answer the prompt's options were built from -- and refuses with
 `RuleRefusal`, citing the page, where the position says no. A card the
 engine plays for its numbers alone is said to be (`effects.UNIMPLEMENTED`,
-empty since step 6): nothing is ignored silently.
+empty for good since step 13): nothing is ignored silently.
 
 A card's text runs through `codex.flow.resolve`: a spell's when it is
 cast, a unit's arrives trigger when it is played, an ability's when it is

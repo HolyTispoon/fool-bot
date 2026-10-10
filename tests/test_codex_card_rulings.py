@@ -8,9 +8,11 @@ below, named `test_<the card's slug>_<its number in the file>` with the
 ruling as its docstring, and `EveryCardRulingIsPinnedTests` holds the
 two together -- it fails if a ruling has no test, if a test's docstring
 is not its ruling's words, or if a re-import changes how many rulings
-the set's cards carry. **There are 28 at the pinned import**: the step's
-prompt counted 26, before the Dancer and the Angry Dancer were counted as
-the two records their one shared ruling names.
+the set's cards carry. **There were 28 on the basic set at the pinned
+import**: step 6's prompt counted 26, before the Dancer and the Angry
+Dancer were counted as the two records their one shared ruling names.
+Steps 11 to 13 added each colour's, and since step 13 the ratchet counts
+every ruling the data holds on a card, a hero or a token -- 343.
 
 Positions are staged by slug (`tests/codex_positions.py`), and every
 action goes through `codex.flow.driver.apply`, the one door.
@@ -30,9 +32,12 @@ from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import TROQ, begin, built, hand, hero, hero_in_play, new_game, put
 
-#: How many rulings the basic set's cards carry at the pinned import
-#: (`SOURCE_SHA` in `scripts/import_codex_cards.py`).
-CARD_RULINGS = 28
+#: How many rulings the cards, heroes and tokens carry at the pinned
+#: import (`SOURCE_SHA` in `scripts/import_codex_cards.py`): every ruling
+#: of `rulings.json` but the `General` group's, which
+#: `tests/test_codex_keywords.py` pins -- the basic set's 28, red's and
+#: green's 101, purple's and black's 122 and white's and blue's 92.
+CARD_RULINGS = 343
 
 #: Step 11: the rulings on red's and green's cards, heroes and tokens --
 #: 88 on the cards and 13 on the four heroes.
@@ -6110,8 +6115,9 @@ class BlueEffectRulingTests(unittest.TestCase):
 
 
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
-    """The ratchet: every ruling on a card of the basic set has a test
-    named for it, whose docstring is the ruling's own words."""
+    """The ratchet: every ruling the data holds on a card, a hero or a
+    token has a test named for it, whose docstring is the ruling's own
+    words -- so a re-import that adds one fails here (step 13)."""
 
     def _collect(self) -> dict:
         import test_codex_card_rulings as module
@@ -6126,18 +6132,18 @@ class EveryCardRulingIsPinnedTests(unittest.TestCase):
         return found
 
     def _rulings(self) -> dict:
-        return {
-            slug: rulings.rulings_for(slug)
-            for slug in sorted(BASIC_SET) if rulings.rulings_for(slug)
-        }
+        everything = rulings._load()[1]
+        return {slug: entry.rulings for slug, entry in sorted(everything.items()) if entry.rulings}
 
     def test_the_count_is_pinned(self) -> None:
         total = sum(len(found) for found in self._rulings().values())
         self.assertEqual(
             total, CARD_RULINGS,
-            f"the basic set's cards carry {total} rulings, not {CARD_RULINGS}: "
+            f"the cards carry {total} rulings, not {CARD_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
+        basic = sum(len(rulings.rulings_for(slug)) for slug in BASIC_SET)
+        self.assertEqual(basic, 28, "the basic set's own count")
 
     def test_every_ruling_has_a_test(self) -> None:
         found = self._collect()

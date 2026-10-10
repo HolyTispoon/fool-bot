@@ -1,8 +1,8 @@
 """
 What each card's text does -- the table the engine reads -- and the
-list of the cards whose text the engine does not do yet: empty from
-step 6 to step 9, red and green's in step 10, and empty again since
-step 11.
+list of the cards whose text the engine did not do yet: empty from
+step 6 to step 9, red and green's in step 10, empty again in step 11,
+and **empty for good since step 13**, when every printed card plays.
 
 **`UNIMPLEMENTED` is the vanilla engine's honesty** (docs/codex-bot.md,
 decision 7, and docs/design/codex.md, "The vanilla engine"). Every card
@@ -215,7 +215,8 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE 
 #: more than keywords the engine reads -- the six heroes' bands among
 #: them. Fox Primus, Fox Viper, Flying Fox, Glorious Ninja, Vigor Adept,
 #: Porcupine, Savior Monk, Fuzz Cuddles, the Bird and the Soldier are
-#: read whole, and play in full.
+#: read whole, and play in full. Step 13 emptied it for good: there is no
+#: next spec for the table to wait for.
 UNIMPLEMENTED: frozenset = frozenset({
 })
 
