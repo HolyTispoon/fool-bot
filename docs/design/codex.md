@@ -1198,17 +1198,19 @@ else the bot shows is ephemeral.
     board need not be so wide when it is empty -- as wide as the play
     mat, the building column, three heroes and five patrol slots): the
     building column, then the command zone and the patrol zone side by
-    side, and the grid under those two with as many columns as fit --
-    six in the standard game, four in the basic (`grid_columns`) --
-    read from how many heroes a player has, so the picture's width
-    holds from turn to turn: 2004 wide, or 1580. It was seven columns
-    and 2203 in the standard game, the three command-zone plates taking
-    three cells of the first row, and five and 1625 in the basic. Rows
-    are added as the position needs them, so the height follows it --
-    about 740 a panel with one row, 289 more a row -- which the gate
-    already allows for. A basic game's units fill rows of four rather
-    than five, which costs a row sooner; the width is the mat's either
-    way.
+    side, and the grid under those two with as many columns as fit, and
+    never fewer than five (`grid_columns`, `MIN_GRID_COLUMNS`) -- six in
+    the standard game, five in the basic -- read from how many heroes a
+    player has, so the picture's width holds from turn to turn: 2004
+    wide, or 1625. It was seven columns and 2203 in the standard game,
+    the three command-zone plates taking three cells of the first row.
+    The basic game's top row fits only four cells; four was tried and
+    put a mid-game side's fifth card on a second row, 289 taller for 45
+    narrower, so the basic grid stays five and runs 45 past its last
+    patrol slot (the author, 2026-10-10, from the two pictured side by
+    side). Rows are added as the position needs them, so the height
+    follows it -- about 740 a panel with one row, 289 more a row --
+    which the gate already allows for.
   - **On the left, the buildings**, 136 wide, bottom-aligned, top to
     bottom: the add-on slot (a dashed outline, or the add-on's card at
     136 by 193, as wide as the tiles and aligned with them), Tech III,

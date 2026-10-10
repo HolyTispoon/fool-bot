@@ -23,7 +23,7 @@ A panel (`render_panel`), top to bottom and left to right:
   each on its own holder of the mat's blue, packed side by side, a
   patroller's card over its slot. That row sets the panel's width;
 - the grid under it: square cells of 273, as many columns as fit under
-  the top row -- six in the standard game, four in the basic, fixed
+  the top row -- six in the standard game, five in the basic, fixed
   when it starts -- the heroes on the field, then the units, each its
   card at 200 by 273 with its chits, and on its side at full size when
   exhausted; rows added as the position needs them;
@@ -192,6 +192,10 @@ FIGURE_STRETCH = 1.2
 COMMAND_SLOT_GAP = PATROL_SLOT_GAP
 #: Between the command zone and the patrol zone.
 ZONE_GAP = CELL_GAP
+#: The fewest columns a grid has: the basic game's top row fits four
+#: cells, and a fifth card wrapped to a second row cost 289 of height
+#: for 45 of width saved (the author, 2026-10-10: five columns).
+MIN_GRID_COLUMNS = 5
 
 # -- The palette, the canvas's.
 
@@ -869,11 +873,14 @@ def top_row_width(hero_count: int) -> int:
 
 
 def grid_columns(hero_count: int) -> int:
-    """The grid's column count: as many cells as fit under the top row
-    -- six in the standard game, four in the basic. Fixed by how many
+    """The grid's column count: as many cells as fit under the top row,
+    never fewer than `MIN_GRID_COLUMNS` -- six in the standard game,
+    five in the basic, whose grid runs 45 past its top row rather than
+    wrapping a fifth card (the author, 2026-10-10). Fixed by how many
     heroes the game gives a player, so the picture's width holds from
     turn to turn (the author, 2026-10-08)."""
-    return max(1, (top_row_width(hero_count) + CELL_GAP) // (CELL + CELL_GAP))
+    fit = (top_row_width(hero_count) + CELL_GAP) // (CELL + CELL_GAP)
+    return max(MIN_GRID_COLUMNS, fit)
 
 
 def panel_columns(player: PlayerState) -> int:
