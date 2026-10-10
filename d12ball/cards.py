@@ -28,7 +28,7 @@ from io import BytesIO
 from math import ceil, cos, radians, sin
 from typing import NamedTuple, Optional, Sequence
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from d12ball.components import (
     MANEUVER_TIER_BASIC,
@@ -73,7 +73,12 @@ MARGIN = 34
 # and the first thing a home printer runs out of. The colour is now
 # the outline and the header band; the rest is paper.
 FRAME = 6
-CORNER = 40
+# The outline's corner is concentric with the Avery Presta 95328 die
+# cut's (0.375in, 112.5px at 300dpi, on the 750 x 1050 trim): drawn
+# FRAME inside the trim, its radius is the cut's less FRAME, so the
+# outline keeps the same inset round the corner as along the sides.
+# At 40 the cut took the drawn corners off (the author, 2026-10-10).
+CORNER = 106
 # The rounded edge, drawn in the maneuver's colour, is also the cut
 # line: it is what says where the card ends now that the face and the
 # sheet are the same white.
@@ -278,6 +283,39 @@ class Pen:
 
     def polygon(self, points: list[tuple[float, float]], fill: str) -> None:
         self.draw.polygon([(px(x), px(y)) for x, y in points], fill=fill)
+
+    def rect_in_card(
+        self,
+        box: tuple[float, float, float, float],
+        fill: str,
+        radius: float = 0,
+        inset: float = 0,
+    ) -> None:
+        """
+        A filled rectangle cut to the card's rounded outline, `inset`
+        further in and concentric with it, so whatever reaches a corner
+        follows the card's curve at the same distance from the cut as
+        along the sides. A header band is one -- `rounded_rectangle`
+        clamps a radius to half a short band's height, which would
+        stand the band's corners outside the outline -- and so is the
+        player card's corner index.
+        """
+        shape = Image.new("L", self.image.size, 0)
+        ImageDraw.Draw(shape).rounded_rectangle(
+            tuple(px(value) for value in box), radius=px(radius), fill=255
+        )
+        card = Image.new("L", self.image.size, 0)
+        ImageDraw.Draw(card).rounded_rectangle(
+            (
+                px(FRAME + inset),
+                px(FRAME + inset),
+                px(CARD_WIDTH - FRAME - inset),
+                px(CARD_HEIGHT - FRAME - inset),
+            ),
+            radius=px(CORNER - inset),
+            fill=255,
+        )
+        self.image.paste(fill, mask=ImageChops.multiply(shape, card))
 
     def paste(
         self,
@@ -1351,19 +1389,9 @@ def draw_card_header(
     # follow the card's own.
     header_top = FRAME
     header_height = CARD_HEADER_HEIGHT
-    pen.rect(
+    pen.rect_in_card(
         (FRAME, header_top, CARD_WIDTH - FRAME, header_top + header_height),
-        radius=CORNER,
-        fill=color,
-    )
-    pen.rect(
-        (
-            FRAME,
-            header_top + header_height - CORNER,
-            CARD_WIDTH - FRAME,
-            header_top + header_height,
-        ),
-        fill=color,
+        color,
     )
 
     rank_label = f"{'O' if is_offense else 'D'}{maneuver.rank}"
@@ -2472,8 +2500,12 @@ def lay_out_hand(
     for index, block in enumerate(blocks):
         rows: list[list[Image.Image]] = []
         for row in block:
+            # Cut out at the outline, so a card's rounded corner shows
+            # the cream rather than a white square behind it.
             sized = [
-                card.resize((HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS)
+                screen_cutout(card).resize(
+                    (HAND_CARD_WIDTH, height), Image.Resampling.LANCZOS
+                )
                 for card in row
             ]
             rows.extend(
@@ -2512,6 +2544,7 @@ def lay_out_hand(
                 canvas.paste(
                     card,
                     (HAND_MARGIN + column * (HAND_CARD_WIDTH + HAND_GAP), y),
+                    card,
                 )
             y += height + HAND_GAP
 
