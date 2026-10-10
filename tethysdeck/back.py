@@ -24,8 +24,8 @@ def back(icon_set: IconSet) -> Image.Image:
     img = Image.new("RGBA", (W * S, H * S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle((0, 0, W * S - 1, H * S - 1), RADIUS * S, fill="#FFFFFF")
-    d.rounded_rectangle((18 * S, 18 * S, (W - 19) * S, (H - 19) * S), (RADIUS - 12) * S, outline=VIOLET, width=5 * S)
-    d.rounded_rectangle((30 * S, 30 * S, (W - 31) * S, (H - 31) * S), (RADIUS - 20) * S, outline=ORANGE_INK, width=2 * S)
+    d.rounded_rectangle((18 * S, 18 * S, (W - 19) * S, (H - 19) * S), (RADIUS - 18) * S, outline=VIOLET, width=5 * S)
+    d.rounded_rectangle((30 * S, 30 * S, (W - 31) * S, (H - 31) * S), (RADIUS - 30) * S, outline=ORANGE_INK, width=2 * S)
 
     # A fine lattice of violet diagonals inside the frame, kept light.
     lattice = Image.new("RGBA", (W * S, H * S), (0, 0, 0, 0))
@@ -35,7 +35,7 @@ def back(icon_set: IconSet) -> Image.Image:
         ld.line([(k, 0), (k + H * S, H * S)], fill=(28, 74, 79, 60), width=S)
         ld.line([(k, H * S), (k + H * S, 0)], fill=(28, 74, 79, 60), width=S)
     mask = Image.new("L", (W * S, H * S), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((48 * S, 48 * S, (W - 49) * S, (H - 49) * S), (RADIUS - 28) * S, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle((48 * S, 48 * S, (W - 49) * S, (H - 49) * S), (RADIUS - 48) * S, fill=255)
     lattice.putalpha(Image.fromarray(np.minimum(np.asarray(lattice.getchannel("A")), np.asarray(mask))))
     img.alpha_composite(lattice)
 

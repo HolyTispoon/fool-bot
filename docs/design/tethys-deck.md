@@ -288,6 +288,18 @@ fronts, so a duplex print puts a back behind each front:
   Avery poker-card template found only 95272 business-card stock with
   no published layout.
 
+**The card's corner is the die cut's** (the author, 2026-10-10):
+`cards.RADIUS` is 112 px, the 95328 cut's 0.375 in at 300 dpi, and each
+frame inside it -- the two lines on a face and the back, and the back's
+lattice -- is drawn at `RADIUS - inset`, concentric with the cut, so a
+line keeps the same inset round the corner as along the sides. The
+corner was 36 px with the frames at 24 and 16, and printed on the stock
+the double frame ran out past the cut at every corner. The grid sheet's
+crop marks are square, so its cards are trimmed at whatever corner the
+cutter gives; the drawn corner is the Avery's because that stock's cut is
+fixed. The D12 Ball cards keep their tighter `CORNER` and lose a sliver to
+the same cut ([cards.md](cards.md)).
+
 ## Running it
 
 ```bash
