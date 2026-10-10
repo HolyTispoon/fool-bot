@@ -291,7 +291,7 @@
 --- board changed
 === action 45: TARGET '' {"target": "1:tech1"}
 --- narration
-{card:brick_thief} deals 1 to {player:1}'s Tech I building; it has 4 left.
+{card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 4/5.
 --- prompt TARGET (player 2)
 {player:2}, {card:brick_thief}: repair 1 damage from another building.
 --- standing TECH_CHOICE (player 1)
@@ -337,7 +337,7 @@
 === action 52: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:river_montoya} attacks {player:1}'s base.
-{hero:river_montoya} deals 2 to {player:1}'s base; it has 18 left.
+{hero:river_montoya} deals 2 to {player:1}'s base, now at 18/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:0} and 7 workers.
 --- standing TECH_CHOICE (player 1)
@@ -475,7 +475,7 @@
 === action 73: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:tenderfoot} attacks {player:1}'s base.
-{card:tenderfoot} deals 1 to {player:1}'s base; it has 17 left.
+{card:tenderfoot} deals 1 to {player:1}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
@@ -487,7 +487,7 @@
 === action 75: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:river_montoya} attacks {player:1}'s base.
-{hero:river_montoya} deals 3 to {player:1}'s base; it has 14 left.
+{hero:river_montoya} deals 3 to {player:1}'s base, now at 14/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:0} and 8 workers.
 --- standing TECH_CHOICE (player 1)
@@ -745,7 +745,7 @@
 --- board changed
 === action 114: TARGET '' {"target": "1:tech1"}
 --- narration
-{card:brick_thief} deals 1 to {player:1}'s Tech I building; it has 3 left.
+{card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 3/5.
 --- prompt TARGET (player 2)
 {player:2}, {card:brick_thief}: repair 1 damage from another building.
 --- standing TECH_CHOICE (player 1)
@@ -841,7 +841,7 @@
 === action 128: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:sneaky_pig} attacks {player:2}'s base.
-{card:sneaky_pig} deals 3 to {player:2}'s base; it has 17 left.
+{card:sneaky_pig} deals 3 to {player:2}'s base, now at 17/20.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:1} and 10 workers.
 --- standing TECH_CHOICE (player 2)
@@ -853,8 +853,8 @@
 === action 130: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s base.
-{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 16 left.
-{hero:troq_bashar} deals 4 to {player:2}'s base; it has 12 left.
+{hero:troq_bashar}'s middle band's ability deals 1 to {player:2}'s base, now at 16/20.
+{hero:troq_bashar} deals 4 to {player:2}'s base, now at 12/20.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:1} and 10 workers.
 --- standing TECH_CHOICE (player 2)
@@ -949,7 +949,7 @@
 === action 145: CHOOSE_DEFENDER '' {"defender": "unit:16"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s {card:leaping_lizard}.
-{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 11 left.
+{hero:troq_bashar}'s middle band's ability deals 1 to {player:2}'s base, now at 11/20.
 {hero:troq_bashar} deals 4; {player:2}'s {card:leaping_lizard} deals 3.
 {player:2}'s {card:leaping_lizard} is destroyed.
 --- prompt MAIN_ACTION (player 1)
@@ -1043,7 +1043,7 @@
 --- narration
 {player:1} puts 2 tech cards into their discard pile.
 {player:1} collects {gold:10} from 10 workers: {gold:16}.
-{player:1} heals 1 damage from each of their units and heroes.
+{card:helpful_turtle}'s healing 1 heals {player:1}'s {hero:troq_bashar} 1, now at 3/5.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:16} and 10 workers.
 --- standing TECH_CHOICE (player 2)
@@ -1095,7 +1095,7 @@
 === action 167: CHOOSE_DEFENDER '' {"defender": "unit:20"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s {card:granfalloon_flagbearer}.
-{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 10 left.
+{hero:troq_bashar}'s middle band's ability deals 1 to {player:2}'s base, now at 10/20.
 {hero:troq_bashar} deals 4; {player:2}'s {card:granfalloon_flagbearer} deals 3.
 {player:2}'s {card:granfalloon_flagbearer} is destroyed.
 {player:1}'s {hero:troq_bashar} dies and returns to the command zone with 2 summoning runes.
@@ -1372,7 +1372,7 @@
 === action 209: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:sneaky_pig} attacks {player:2}'s base.
-{card:sneaky_pig} deals 3 to {player:2}'s base; it has 7 left.
+{card:sneaky_pig} deals 3 to {player:2}'s base, now at 7/20.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:7} and 10 workers.
 --- standing TECH_CHOICE (player 2)
@@ -1450,7 +1450,7 @@
 === action 221: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base; it has 13 left.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 13/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:17} and 10 workers.
 --- standing TECH_CHOICE (player 1)
@@ -1494,7 +1494,7 @@
 === action 228: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:sneaky_pig} attacks {player:2}'s base.
-{card:sneaky_pig} deals 3 to {player:2}'s base; it has 4 left.
+{card:sneaky_pig} deals 3 to {player:2}'s base, now at 4/20.
 --- prompt MAIN_ACTION (player 1)
 {player:1}, your main phase: {gold:13} and 10 workers.
 --- standing TECH_CHOICE (player 2)
@@ -1560,7 +1560,7 @@
 === action 238: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {card:timely_messenger} attacks {player:1}'s base.
-{card:timely_messenger} deals 1 to {player:1}'s base; it has 12 left.
+{card:timely_messenger} deals 1 to {player:1}'s base, now at 12/20.
 --- prompt MAIN_ACTION (player 2)
 {player:2}, your main phase: {gold:12} and 10 workers.
 --- standing TECH_CHOICE (player 1)
@@ -1693,7 +1693,7 @@
 --- board changed
 === action 258: TARGET '' {"target": "1:tech1"}
 --- narration
-{card:brick_thief} deals 1 to {player:1}'s Tech I building; it has 2 left.
+{card:brick_thief} deals 1 to {player:1}'s Tech I building, now at 2/5.
 --- prompt TARGET (player 2)
 {player:2}, {card:brick_thief}: repair 1 damage from another building.
 --- standing TECH_CHOICE (player 1)
@@ -1796,7 +1796,7 @@
 === action 275: CHOOSE_DEFENDER '' {"defender": "base"}
 --- narration
 {hero:troq_bashar} attacks {player:2}'s base.
-{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 3 left.
+{hero:troq_bashar}'s middle band's ability deals 1 to {player:2}'s base, now at 3/20.
 {hero:troq_bashar} deals 4 to {player:2}'s base.
 **{player:2}'s base is destroyed. {player:1} wins!**
 --- prompt GAME_OVER (player None)

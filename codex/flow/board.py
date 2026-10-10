@@ -131,7 +131,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
             result.narration.append(
                 f"{tokens.player(seat)}'s {building_name(ref)} building is destroyed, "
                 f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
-                f"{left_after(match, seat, 'base', BUILDING_DESTROYED_DAMAGE, 'their base')}."
+                f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE)}."
             )
             match.record_event("building_destroyed", owner=seat, building=ref)
             damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
@@ -143,7 +143,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(add_on.slug)} is destroyed, "
             f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
-            f"{left_after(match, seat, 'base', BUILDING_DESTROYED_DAMAGE, 'their base')}."
+            f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE)}."
         )
         match.record_event("building_destroyed", owner=seat, building=add_on.slug)
         damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
@@ -167,13 +167,34 @@ def building_hp(match: MatchState, seat: int, ref: str) -> int:
     return player.buildings[ref].hp
 
 
-def left_after(match: MatchState, seat: int, ref: str, amount: int,
-               subject: str = "it") -> str:
+def left_after(engine: "RulesEngine", match: MatchState, seat: int, ref: str,
+               amount: int) -> str:
     """What a damage line about a building says of what is left, before
-    the damage lands: "; it has 17 left", or nothing where the damage
-    destroys it -- the next line says so (the author, 2026-10-09)."""
+    the damage lands: ", now at 2/5", or nothing where the damage
+    destroys it -- the next line says so (the author, 2026-10-10)."""
+    if ref == "base":
+        return base_left_after(match, seat, amount)
     left = max(0, building_hp(match, seat, ref) - amount)
-    return f"; {subject} has {left} left" if left else ""
+    return _now_at(left, building_max_hp(engine, match, seat, ref))
+
+
+def base_left_after(match: MatchState, seat: int, amount: int) -> str:
+    """`left_after` for the base: ", now at 17/20"."""
+    return _now_at(max(0, match.player(seat).base_hp - amount), BASE_HP)
+
+
+def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str:
+    """Where a building or a building card stands now -- ", now at 5/5"
+    -- for a line that repairs it."""
+    if is_building(ref):
+        return _now_at(building_hp(match, seat, ref), building_max_hp(engine, match, seat, ref))
+    card = body_of(match, seat, ref)
+    most = engine.body_stats(match, card)[1]
+    return _now_at(most - card.damage, most)
+
+
+def _now_at(left: int, most: int) -> str:
+    return f", now at {left}/{most}" if left > 0 else ""
 
 
 def card_left(engine: "RulesEngine", match: MatchState, body) -> str:
@@ -182,8 +203,8 @@ def card_left(engine: "RulesEngine", match: MatchState, body) -> str:
     or a hero, or for a building card the damage destroyed."""
     if not isinstance(body, CardInstance) or not engine.catalog.cards[body.slug].is_building_card:
         return ""
-    left = engine.body_stats(match, body)[1] - body.damage
-    return f"; it has {left} left" if left > 0 else ""
+    most = engine.body_stats(match, body)[1]
+    return _now_at(most - body.damage, most)
 
 
 def repair_building(engine: "RulesEngine", match: MatchState, seat: int, ref: str,

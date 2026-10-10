@@ -519,8 +519,9 @@ the sentence it was built from; `TEXT` says which card has which and
 when -- `play`, `arrives`, `attacks`, `ability` -- a hero's keyed by the
 band that prints it and read the way its keywords are (Troq's attacks
 trigger from 5, River's ability from 3; `printing_band` reads the key
-back, so Troq's base damage is said as his "level 5-7 ability" with what
-the base has left -- the author, 2026-10-09); and the static texts are a
+back, so Troq's base damage is said as his "middle band's ability" --
+`band_name`, "first", "middle" or "max" by where the band is on the
+card -- the author, 2026-10-10); and the static texts are a
 handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
 `GRANTS_SWIFT_STRIKE`, `TECH_0_DISCOUNT`, ...).
 
@@ -854,16 +855,27 @@ checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
 
-**A line that damages a building or the base says what it has left**
-("deals 3 to {player:2}'s base; it has 17 left") -- an attack, overpower's
+**A line that damages a building or the base says where it now stands,
+out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
 or Stampede's excess, a spell's, a trigger's or an ability's damage, a
-destroyed building's 2 to its base ("; their base has 18 left"), and a
-building card's damage ("deals 3; it has 1 left"). A line whose damage
-destroys it says no count: the next line says it is destroyed (the
-author, 2026-10-09). `board.left_after` is the one wording for the base,
-a tech building and the add-on, asked before the damage lands, since
+destroyed building's 2 to its base ("deals 2 to their base, now at
+18/20"), and a building card's damage ("deals 3, now at 1/4"). A line
+whose damage destroys it says no count: the next line says it is
+destroyed (the author, 2026-10-09; the "now at" wording 2026-10-10).
+`board.left_after` is the one wording for a tech building and the
+add-on, `base_left_after` for the base, asked before the damage lands, since
 their damage in combat lands after the lines are said; `board.card_left`
 is a building card's, asked after, since a card's damage lands first.
+**Combat names a building as every other line does** (`board.named`):
+"{player:2}'s Tech I building", and the add-on by its card,
+"{player:2}'s {card:surplus}" -- never "add-on" (the author,
+2026-10-10). The fighter takes its name when the fight begins, while the
+add-on is still there to name.
+**Healing and repair are said the same way.** The upkeep's healing names
+its source and each card it healed, with where it now stands --
+"{card:helpful_turtle}'s healing 1 heals {player:1}'s {hero:troq_bashar}
+1, now at 4/4" -- and says nothing where nothing was damaged; a repair
+ends "now at 4/5" (`board.now_at`) (the author, 2026-10-10).
 
 ### Naming by slug in the tests
 

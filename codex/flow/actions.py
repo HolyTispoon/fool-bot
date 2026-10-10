@@ -391,7 +391,7 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         result.narration.append(
             f"It replaces their {tokens.card(replaced.slug)}, which is destroyed "
             f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
-            f"{board.left_after(match, seat, 'base', BUILDING_DESTROYED_DAMAGE, 'their base')}."
+            f"{board.base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE)}."
         )
         match.record_event("building_destroyed", owner=seat, building=replaced.slug)
         damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)

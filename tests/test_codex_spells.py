@@ -326,7 +326,7 @@ class TriggerTests(unittest.TestCase):
         self.assertEqual(match.player(2).base_hp, 20 - 2 - 8)
         self.assertIsNone(match.combat)
 
-    def test_troq_at_5_names_the_band_and_what_the_base_has_left(self) -> None:
+    def test_troq_at_5_names_his_middle_band_and_the_base_now(self) -> None:
         engine, game, match = bashing()
         hero_in_play(match, 1, level=5)
         match.player(2).base_hp = 18
@@ -334,7 +334,7 @@ class TriggerTests(unittest.TestCase):
         run = apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
         said = [line for group in run.groups for line in group.lines] + list(run.result.narration)
         self.assertIn(
-            "{hero:troq_bashar}'s level 5-7 ability deals 1 to {player:2}'s base; it has 17 left.", said,
+            "{hero:troq_bashar}'s middle band's ability deals 1 to {player:2}'s base, now at 17/20.", said,
         )
 
     def test_troq_at_5_can_win_the_game_before_the_damage(self) -> None:

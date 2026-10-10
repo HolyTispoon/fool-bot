@@ -481,7 +481,7 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     if board.is_building(ref):
         result.narration.append(
             f"{top['by']} deals {amount} to {_thing(match, target)}"
-            f"{board.left_after(match, seat, ref, amount)}."
+            f"{board.left_after(engine, match, seat, ref, amount)}."
         )
         board.damage_building(match, seat, ref, amount, result)
         return amount
@@ -501,7 +501,10 @@ def _repair(engine, match, top, part, target, result) -> None:
     seat, ref = target
     repaired = board.repair_building(engine, match, seat, ref, part.amount)
     if repaired:
-        result.narration.append(f"{top['by']} repairs {repaired} damage on {_thing(match, target)}.")
+        result.narration.append(
+            f"{top['by']} repairs {repaired} damage on {_thing(match, target)}"
+            f"{board.now_at(engine, match, seat, ref)}."
+        )
     else:
         # The repair ruling: an undamaged building is a legal choice,
         # and nothing happens to it.
@@ -622,20 +625,22 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     source = top["by"]
     printed = effects.printing_band(top["effect"])
     if printed is not None:
-        source = f"{top['by']}'s level {band_levels(engine, *printed)} ability"
+        source = f"{top['by']}'s {band_name(engine, *printed)} band's ability"
     result.narration.append(
         f"{source} deals {amount} to {tokens.player(other)}'s base"
-        f"{board.left_after(match, other, 'base', amount)}."
+        f"{board.base_left_after(match, other, amount)}."
     )
     damage_base(match, other, amount, result)
 
 
-def band_levels(engine, slug: str, first: int) -> str:
-    """A hero's band as the levels it covers -- "5-7", or "8" for the
-    top band."""
-    later = [band.min_level for band in engine.catalog.heroes[slug].bands if band.min_level > first]
-    last = later[0] - 1 if later else first
-    return f"{first}-{last}" if last > first else str(first)
+def band_name(engine, slug: str, first: int) -> str:
+    """A hero's band by where it is on the card -- "first", "middle" or
+    "max" -- from the first level of the band (the author, 2026-10-10:
+    "Troq Bashar's middle band's ability")."""
+    starts = [band.min_level for band in engine.catalog.heroes[slug].bands]
+    if first == starts[-1]:
+        return "max"
+    return "first" if first == starts[0] else "middle"
 
 
 def _dancer(engine, match, top, part, target, result) -> None:
@@ -712,7 +717,7 @@ def _coin(engine, match, top, part, target, result) -> None:
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
         f"{tokens.player(seat)}'s base takes {amount} damage"
-        f"{board.left_after(match, seat, 'base', amount)}."
+        f"{board.base_left_after(match, seat, amount)}."
     )
     if mine is not None:
         board.sacrifice(engine, match, mine)
@@ -732,7 +737,7 @@ def _pillage(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, steal)
     result.narration.append(
         f"{top['by']} deals {amount} to {tokens.player(other)}'s base"
-        f"{board.left_after(match, other, 'base', amount)}."
+        f"{board.base_left_after(match, other, amount)}."
     )
     damage_base(match, other, amount, result)
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
@@ -790,7 +795,7 @@ def _own_base_damage(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} deals {amount} to {tokens.player(seat)}'s own base"
-        f"{board.left_after(match, seat, 'base', amount)}."
+        f"{board.base_left_after(match, seat, amount)}."
     )
     damage_base(match, seat, amount, result)
 
@@ -802,7 +807,7 @@ def _active_base_damage(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} deals {amount} to {tokens.player(seat)}'s base"
-        f"{board.left_after(match, seat, 'base', amount)}."
+        f"{board.base_left_after(match, seat, amount)}."
     )
     damage_base(match, seat, amount, result)
 

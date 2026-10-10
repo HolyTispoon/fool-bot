@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Optional
 
 from codex import effects, tokens
 from codex.components import CardInstance, HeroState, MatchState, is_hero_ref
-from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, building_name, unit_ref
+from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, unit_ref
 from codex.flow import board, resolve
 from codex.flow.result import StepResult
 from codex.game import RuleRefusal
@@ -67,6 +67,10 @@ class _Fighter:
     ref: str
     card: Optional[CardInstance] = None
     hero: Optional[HeroState] = None
+    #: A building's name in a line, as every other line names it
+    #: (`board.named`): "{player:2}'s Tech I building", the add-on by its
+    #: card -- taken when the fight begins, while the add-on is there.
+    building: str = ""
 
     @property
     def body(self):
@@ -87,7 +91,7 @@ class _Fighter:
             return f"{owner}{tokens.card(self.card.slug)}"
         if self.hero is not None:
             return f"{owner}{tokens.hero(self.hero.slug)}"
-        return f"{tokens.player(self.seat)}'s {building_name(self.ref)}"
+        return self.building
 
 
 @dataclass
@@ -112,7 +116,7 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     instance_id = unit_ref(ref)
     if instance_id is not None:
         return _Fighter(seat, ref, card=player.instance(instance_id))
-    return _Fighter(seat, ref)
+    return _Fighter(seat, ref, building=board.named(match, seat, ref))
 
 
 def _take(fighter: _Fighter, amount: int, piercing: bool = False) -> int:
@@ -550,8 +554,10 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 f"Sparkshot deals {hit.amount} to {hit.target.named()}."
             )
         elif hit.kind in ("overpower", "stampede") and not hit.skipped:
-            left = (board.left_after(match, hit.target.seat, hit.target.ref, hit.amount)
-                    if hit.target.is_building else board.card_left(engine, match, hit.target.body))
+            if hit.target.is_building:
+                left = board.left_after(engine, match, hit.target.seat, hit.target.ref, hit.amount)
+            else:
+                left = board.card_left(engine, match, hit.target.body)
             result.narration.append(
                 f"{hit.kind.title()} carries {hit.amount} over to {hit.target.named()}{left}."
             )
@@ -651,7 +657,7 @@ def _damage_line(engine: "RulesEngine", match: MatchState, hitting: _Fighter, ta
         said = f"{hitting.named(whose=False)} deals {attack.amount} to {taking.named()}"
         if swift:
             said += " with swift strike"
-        return said + board.left_after(match, taking.seat, taking.ref, attack.amount) + "."
+        return said + board.left_after(engine, match, taking.seat, taking.ref, attack.amount) + "."
     said = f"{hitting.named(whose=False)} deals {attack.landed}"
     if attack.landed < attack.amount:
         said += f" (armor takes {attack.amount - attack.landed})"
