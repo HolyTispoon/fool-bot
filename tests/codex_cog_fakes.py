@@ -28,6 +28,7 @@ from unittest import mock
 
 import discord
 
+from codex.cards import catalog
 from codex.engine import RulesEngine
 from cogs import d12ball_boards
 from cogs.codex import Codex
@@ -310,8 +311,8 @@ class Table:
         """The real lobby -- opened in the game's own channel -- two seats,
         Start: the opening position. `teams` are the two seats' heroes, as
         specs; three each plays a standard game, chosen with the lobby's
-        **Standard game** first, each on its first hero's colour where
-        the deck is the player's to choose."""
+        **Standard game** first, then a colour's deck button or **Mixed
+        colours** (`pick_team`) -- the first hero's colour the deck."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
@@ -321,11 +322,9 @@ class Table:
             await next(item for item in lobby.children
                        if ":mode_standard:" in item.custom_id).callback(click)
             lobby = LobbyView(self.cog, game.game_id)
-        await self.pick_heroes(lobby, self.basher, *teams[0])
-        await self.pick_heroes(lobby, self.fencer, *teams[1])
-        for seat, who in ((1, self.basher), (2, self.fencer)):
-            if seat not in game.player_decks:
-                self.cog.service.choose_deck(game.game_id, who.id, game.deck_choices(seat)[0])
+        pick = self.pick_team if len(teams[0]) == 3 else self.pick_heroes
+        await pick(lobby, self.basher, *teams[0])
+        await pick(lobby, self.fencer, *teams[1])
         click = self.interaction(self.fencer)
         await next(item for item in lobby.children if ":start:" in item.custom_id).callback(click)
         self.game = game
@@ -338,6 +337,29 @@ class Table:
         call = self.interaction(who)
         call.data = {"custom_id": select.custom_id, "component_type": 3, "values": list(specs)}
         await lobby._scheduled_task(select, call)
+        return call
+
+    async def pick_team(self, lobby, who, *specs: str, seat: Optional[int] = None) -> FakeInteraction:
+        """A standard game's team, as a player picks it: a colour's deck
+        button where `specs` are its three heroes, otherwise **Mixed
+        colours** and its two menus -- `specs[0]` first, the deck's.
+        `seat` names a test game's side."""
+        suffix = "" if seat is None else str(seat)
+        color = catalog().color_deck_of(specs)
+        call = self.interaction(who)
+        if color is not None:
+            button = next(item for item in lobby.children
+                          if f":team{suffix}_{color}:" in (item.custom_id or ""))
+            await button.callback(call)
+            return call
+        button = next(item for item in lobby.children
+                      if f":mixed{suffix}:" in (item.custom_id or ""))
+        await button.callback(call)
+        picker = call.view()
+        for select, values in ((picker.first_menu, [specs[0]]), (picker.others_menu, list(specs[1:]))):
+            call = self.interaction(who)
+            call.data = {"custom_id": select.custom_id, "component_type": 3, "values": values}
+            await picker._scheduled_task(select, call)
         return call
 
     @property

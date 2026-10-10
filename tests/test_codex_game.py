@@ -12,6 +12,8 @@ from codex.engine import RulesEngine
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from d12ball.game import D12BallGame
 
+from codex_positions import hero_in_play
+
 
 class LobbyTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -142,18 +144,43 @@ class StandardLobbyTests(unittest.TestCase):
         with self.assertRaises(RuleRefusal):
             self.game.take_seat(1, "a", ["fire", "fire", "blood"])
 
-    def test_a_multicolour_team_chooses_its_deck(self) -> None:
+    def test_the_first_hero_names_the_deck(self) -> None:
         """"Use the 10 starting cards that match one of your three
-        heroes' colors" (UMR p. 3) -- the neutral heroes' colour among
-        them."""
+        heroes' colors" (UMR p. 3) -- the first hero chosen names it,
+        the neutral heroes' colour among those it may be (the author,
+        2026-10-10)."""
         self.game.take_seat(1, "a", ["fire", "feral", "bashing"])
         self.assertEqual(self.game.deck_choices(1), ("red", "green", "neutral"))
-        self.assertNotIn(1, self.game.player_decks)
-        self.game.take_seat(2, "b", self.GREEN)
-        self.assertFalse(self.game.may_start())
-        self.game.choose_deck(1, "neutral")
+        self.assertEqual(self.game.player_decks[1], "red")
+        self.game.take_seat(1, "a", ["bashing", "fire", "feral"])
         self.assertEqual(self.game.player_decks[1], "neutral")
+        self.game.take_seat(2, "b", self.GREEN)
         self.assertTrue(self.game.may_start())
+
+    def test_choosing_a_deck_puts_its_hero_first(self) -> None:
+        self.game.take_seat(1, "a", ["fire", "feral", "bashing"])
+        self.game.choose_deck(1, "neutral")
+        self.assertEqual(self.game.player_specs[1], ["bashing", "fire", "feral"])
+        self.assertEqual(self.game.player_decks[1], "neutral")
+
+    def test_a_mixed_team_pays_the_multicolour_costs_and_a_colour_deck_does_not(self) -> None:
+        """Through the lobby to the opening position: a team of two
+        colours pays 1 more for its first tech building (UMR p. 8) and
+        for a starting spell with no hero of its colour in play (p. 4);
+        a colour's own three pay neither."""
+        self.game.take_seat(1, "a", ["feral", "fire", "bashing"])
+        self.game.take_seat(2, "b", self.RED)
+        self.game.start(RulesEngine(seed=4))
+        engine = RulesEngine()
+        match = MatchState.from_dict(self.game.match_state)
+        mixed, mono = match.player(1), match.player(2)
+        self.assertEqual(mixed.deck_color, "green")
+        self.assertEqual(engine.build_option(mixed, "tech1").cost, 2)
+        self.assertEqual(engine.build_option(mono, "tech1").cost, 1)
+        hero_in_play(match, 1, slug="calamandra_moss")
+        hero_in_play(match, 2, slug="jaina_stormborne")
+        self.assertEqual(engine.effective_cost(mixed, "scorch"), 3 + 1)
+        self.assertEqual(engine.effective_cost(mono, "scorch"), 3)
 
     def test_a_deck_of_a_colour_nobody_plays_is_refused(self) -> None:
         self.game.take_seat(1, "a", ["fire", "feral", "anarchy"])
@@ -165,7 +192,6 @@ class StandardLobbyTests(unittest.TestCase):
 
     def test_start_before_the_seats_are_complete_is_refused(self) -> None:
         self.game.take_seat(1, "a", ["fire", "feral", "anarchy"])
-        self.game.take_seat(2, "b", self.GREEN)
         with self.assertRaises(RuleRefusal):
             self.game.start(RulesEngine())
         self.assertIs(self.game.status, GameStatus.LOBBY)
@@ -198,10 +224,10 @@ class StandardLobbyTests(unittest.TestCase):
         self.game.status = GameStatus.FINISHED
         rematch = self.game.rematch("g9", 9)
         self.assertEqual(rematch.mode, "standard")
-        self.assertEqual(rematch.player_specs, {1: self.GREEN, 2: ["fire", "feral", "bashing"]})
+        self.assertEqual(rematch.player_specs, {1: self.GREEN, 2: ["feral", "fire", "bashing"]})
         self.assertEqual(rematch.player_decks, {1: "green", 2: "green"})
         self.assertTrue(rematch.may_start())
         rematch.keep_heroes(1)
         rematch.keep_heroes(2)
-        self.assertEqual(rematch.player_specs[1], ["fire", "feral", "bashing"])
+        self.assertEqual(rematch.player_specs[1], ["feral", "fire", "bashing"])
         self.assertEqual(rematch.player_decks, {1: "green", 2: "green"})

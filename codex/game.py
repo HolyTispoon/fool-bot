@@ -98,9 +98,10 @@ class CodexGame:
     #: has no other kind; a save older than step 10 holds one spec as a
     #: string, read as a list of one.
     player_specs: dict[int, list[str]] = field(default_factory=dict)
-    #: Seat number to its starting deck's colour ("neutral", "red"),
-    #: once settled: by the rule where the seat's heroes are of one
-    #: colour, by the player's choice where they differ (UMR pp. 3-4).
+    #: Seat number to its starting deck's colour ("neutral", "red"):
+    #: the first hero's, as soon as the seat has heroes (UMR pp. 3-4;
+    #: `_settle_deck`). A lobby saved before 2026-10-10 may hold a
+    #: player's choice of another of their heroes' colours, which stands.
     #: A save older than step 10 has none, and every seat it seats
     #: plays the neutral deck.
     player_decks: dict[int, str] = field(default_factory=dict)
@@ -244,13 +245,17 @@ class CodexGame:
         return tuple(found)
 
     def _settle_deck(self, seat: int) -> None:
-        """The deck the rule settles: the one colour a seat's heroes
-        share; otherwise the player's choice where it still fits, and
-        none until they make it."""
+        """
+        The deck the rule settles: **the first hero's colour** -- a
+        team's heroes are held in the order chosen, and the first chosen
+        names the starting deck among their colours (UMR p. 3; the
+        author, 2026-10-10: which hero is first decides the deck, and
+        the lobby says so). None while the seat has no heroes.
+        """
         choices = self.deck_choices(seat)
-        if len(choices) == 1:
+        if choices:
             self.player_decks[seat] = choices[0]
-        elif self.player_decks.get(seat) not in choices:
+        else:
             self.player_decks.pop(seat, None)
 
     def take_seat(self, user_id: int, user_name: Optional[str], specs,
@@ -300,7 +305,9 @@ class CodexGame:
         `user_id`'s seat -- or `seat`, one of theirs in a test game --
         takes the starting deck of `color`, one of its heroes' colours
         (UMR p. 3: "the 10 starting cards that match one of your three
-        heroes' colors"). Returns the seat.
+        heroes' colors"): the first hero of that colour moves to the
+        front of the team, since the first hero names the deck
+        (`_settle_deck`). Returns the seat.
         """
         self._require_lobby()
         seats = self.seats_of(user_id)
@@ -313,7 +320,13 @@ class CodexGame:
             raise RuleRefusal(
                 "Your starting deck is the colour of one of your heroes.", cite="UMR p. 3",
             )
-        self.player_decks[seat] = color
+        from codex.cards import catalog
+
+        specs = self.player_specs[seat]
+        first = next(spec for spec in specs
+                     if (catalog().hero_for(spec).color or "neutral").lower() == color)
+        self.player_specs[seat] = [first, *(spec for spec in specs if spec != first)]
+        self._settle_deck(seat)
         return seat
 
     def seat_complete(self, seat: int) -> bool:

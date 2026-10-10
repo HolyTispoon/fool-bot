@@ -22,7 +22,7 @@ from cogs.codex import Codex
 # extension (test_codex_bot) drops `cogs.codex.*` from sys.modules, and a
 # patch by name would then reach a fresh copy the `Codex` here never reads.
 from cogs.codex import core as codex_core
-from cogs.codex_views import CodexBrowser, LobbyView, TurnMessageView, TurnPanelView
+from cogs.codex_views import CodexBrowser, LobbyView, MixedTeamView, TurnMessageView, TurnPanelView
 from save_patches import suppressed_cog_saves
 
 GUILD, LOBBY_CHANNEL, GAME_CHANNEL = 1, 10, 20  # typed in; the game's own
@@ -183,10 +183,11 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
 
 
 class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
-    """The standard game from the lobby: the mode, three heroes from the
-    menu, the deck buttons for a team of more than one colour."""
+    """The standard game from the lobby: the mode, a colour's deck by
+    its name or **Mixed colours** and its two menus, the first hero's
+    colour the starting deck."""
 
-    async def test_a_standard_team_through_the_menu_and_the_deck_buttons(self) -> None:
+    async def test_a_colour_deck_and_a_mixed_team(self) -> None:
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.open_lobby()
@@ -195,35 +196,72 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(game.mode, "standard")
             self.assertIn("three heroes a side", mode.response.edit_message.call_args.kwargs["content"])
             lobby = mode.response.edit_message.call_args.kwargs["view"]
-            menu = next(item for item in lobby.children if ":heroes:" in (item.custom_id or ""))
-            self.assertEqual((menu.min_values, menu.max_values), (3, 3))
-            offered = {option.value for option in menu.options}
+            # No hero menu: a button per colour's deck, named, and Mixed.
+            self.assertFalse([item for item in lobby.children if ":heroes" in (item.custom_id or "")])
+            # Six decks and Mixed: five to a row, as Discord allows.
+            self.assertEqual(
+                [[item.label for item in lobby.children if item.row == row] for row in (1, 2)],
+                [["Blood Anarchs", "Moss Sentinels", "Vortoss Conclave", "Blackhand Scourge",
+                  "Whitestar Order"],
+                 ["Flagstone Dominion", "Mixed colours"]],
+            )
+            chose = await table.click(lobby, "team_green", table.fencer)
+            self.assertEqual(game.player_specs[1], ["balance", "feral", "growth"])
+            self.assertEqual(game.player_decks[1], "green")
+            self.assertIn("**Moss Sentinels**", chose.response.edit_message.call_args.kwargs["content"])
+
+            mixed = await table.click(lobby, "mixed", table.basher)
+            self.assertTrue(mixed.response.send_message.call_args.kwargs["ephemeral"])
+            picker = mixed.response.send_message.call_args.kwargs["view"]
+            self.assertIsInstance(picker, MixedTeamView)
+            offered = {option.value for option in picker.first_menu.options}
             self.assertEqual(offered, {"bashing", "finesse", "anarchy", "blood", "fire",
                                        "balance", "feral", "growth",
                                        "past", "present", "future",
                                        "demonology", "disease", "necromancy",
                                        "discipline", "ninjutsu", "strength",
                                        "law", "peace", "truth"})
-            # No deck buttons while nobody's heroes span two colours.
-            self.assertFalse([item for item in lobby.children if ":deck" in (item.custom_id or "")])
-            picked = await table.pick(lobby, ["fire", "feral", "bashing"], table.basher)
-            lobby = picked.response.edit_message.call_args.kwargs["view"]
-            text = picked.response.edit_message.call_args.kwargs["content"]
-            self.assertIn("Jaina Stormborne, Calamandra Moss, Troq Bashar", text)
-            self.assertIn("choosing a starting deck", text)
-            decks = [item for item in lobby.children if ":deck1_" in (item.custom_id or "")]
-            self.assertEqual([item.label for item in decks],
-                             ["basher: Red deck", "basher: Green deck", "basher: Neutral deck"])
-            await table.pick(lobby, ["fire", "anarchy", "blood"], table.fencer)
-            refused = await table.click(lobby, "deck1_green", table.fencer)
-            self.assertTrue(refused.response.send_message.call_args.kwargs["ephemeral"])
-            chose = await table.click(lobby, "deck1_green", table.basher)
-            self.assertEqual(game.player_decks, {1: "green", 2: "red"})
-            self.assertIn("the Green starting deck", chose.response.edit_message.call_args.kwargs["content"])
+            self.assertIn("starting deck", picker.first_menu.placeholder)
+            self.assertEqual((picker.others_menu.min_values, picker.others_menu.max_values), (2, 2))
+
+            first = interaction(table.basher, GAME_CHANNEL, guild=table.guild)
+            picker.first_menu._values = ["feral"]
+            await picker.first_menu.callback(first)
+            self.assertIsNone(game.seat_of(table.basher.id))
+            self.assertIn("Calamandra Moss", first.response.edit_message.call_args.kwargs["content"])
+            others = interaction(table.basher, GAME_CHANNEL, guild=table.guild)
+            picker.others_menu._values = ["fire", "bashing"]
+            await picker.others_menu.callback(others)
+            self.assertEqual(game.player_specs[2], ["feral", "fire", "bashing"])
+            self.assertEqual(game.player_decks[2], "green")
+            self.assertIn("Feral/Fire/Bashing", others.response.edit_message.call_args.kwargs["content"])
+            # The lobby, edited through the channel, says who is first.
+            edit = table.game_channel.get_partial_message.return_value.edit
+            text = edit.call_args.kwargs["content"]
+            self.assertIn("**Feral/Fire/Bashing** (Calamandra Moss first, then Jaina Stormborne, "
+                          "Troq Bashar); the Green starting deck", text)
             await table.click(lobby, "start", table.fencer)
         self.assertIs(game.status, GameStatus.PLAYING)
         match = table.cog.service.load(game)
         self.assertEqual(sum(match.player(1).codex.values()), 72)
+        self.assertEqual(match.player(2).deck_color, "green")
+
+    async def test_the_mixed_picker_shows_the_records_refusal(self) -> None:
+        """A hero twice -- first and among the other two -- is the
+        record's to refuse, and the picker says so."""
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.open_lobby()
+            await table.click(LobbyView(table.cog, game.game_id), "mode_standard", table.basher)
+            mixed = await table.click(LobbyView(table.cog, game.game_id), "mixed", table.basher)
+            picker = mixed.response.send_message.call_args.kwargs["view"]
+            picker.first_menu._values = ["fire"]
+            await picker.first_menu.callback(interaction(table.basher, GAME_CHANNEL, guild=table.guild))
+            call = interaction(table.basher, GAME_CHANNEL, guild=table.guild)
+            picker.others_menu._values = ["fire", "feral"]
+            await picker.others_menu.callback(call)
+        self.assertIsNone(game.seat_of(table.basher.id))
+        self.assertIn("three different heroes", call.response.edit_message.call_args.kwargs["content"])
 
     async def test_a_watcher_cannot_change_the_game_once_somebody_sits(self) -> None:
         with suppressed_cog_saves():
@@ -348,6 +386,32 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
 
 
 class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_standard_test_game_picks_each_side_by_its_own_buttons(self) -> None:
+        """One person, two sides: a row of deck buttons for each, the
+        side written in front and its team lit, and Mixed for each."""
+        with suppressed_cog_saves():
+            table = Table()
+            call = interaction(table.basher, guild=table.guild)
+            await table.cog.lobby.callback(table.cog, call, test_game=True)
+            (game,) = table.cog.games.values()
+            await table.click(LobbyView(table.cog, game.game_id), "mode_standard", table.basher)
+            await table.click(LobbyView(table.cog, game.game_id), "team1_red", table.basher)
+            await table.click(LobbyView(table.cog, game.game_id), "team2_purple", table.basher)
+            lobby = LobbyView(table.cog, game.game_id)
+        self.assertEqual(game.player_specs, {1: ["anarchy", "blood", "fire"],
+                                             2: ["future", "past", "present"]})
+        # Each side's six decks and Mixed take two rows: P1's rows 1 and
+        # 2, P2's 3 and 4.
+        rows = {row: [item for item in lobby.children if item.row == row] for row in (1, 2, 3, 4)}
+        self.assertEqual([item.label for item in rows[1] + rows[2]],
+                         ["P1: Blood Anarchs", "P1: Moss Sentinels", "P1: Vortoss Conclave",
+                          "P1: Blackhand Scourge", "P1: Whitestar Order",
+                          "P1: Flagstone Dominion", "P1: Mixed colours"])
+        self.assertEqual([item.label for item in rows[3] + rows[4]
+                          if item.style is discord.ButtonStyle.success],
+                         ["P2: Vortoss Conclave"])
+        self.assertTrue(game.may_start())
+
     async def test_one_person_plays_both_sides_and_sees_the_active_sides_hand(self) -> None:
         with suppressed_cog_saves():
             table = Table()

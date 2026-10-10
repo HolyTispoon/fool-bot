@@ -5,7 +5,7 @@ Plain-text formatting over the cards, with nothing that touches Discord.
 from __future__ import annotations
 
 from codex import tokens
-from codex.cards import Card, Hero, catalog
+from codex.cards import COLOR_DECK_NAMES, Card, Hero, catalog
 
 #: How a token reads where nothing draws it.
 PLAIN_WORDS = {
@@ -151,10 +151,25 @@ def deck_name(specs) -> str:
     return "/".join(spec.replace("_", " ").title() for spec in specs)
 
 
+def team_name(specs) -> str:
+    """
+    A team by its name: a colour's three heroes by the colour's deck,
+    "Blood Anarchs"; any other team by its specs in the order chosen,
+    "Fire/Feral/Bashing", the first the starting deck's -- never its
+    heroes' names (the author, 2026-10-10) -- and the basic game's one
+    hero by its spec, "Bashing".
+    """
+    color = catalog().color_deck_of(specs)
+    if color is not None:
+        return COLOR_DECK_NAMES[color]
+    return deck_name(specs)
+
+
 def turn_heading(match) -> str:
     """
     **The turn's heading, in the model's words**: "**Turn 7** --
-    {to:1} (Bashing)" -- the turn, whose it is, addressed, and their deck.
+    {to:1} (Bashing)" -- the turn, whose it is, addressed, and their
+    team (`team_name`).
     A frontend heads each turn with it (the Discord turn message's first
     line, a mention that the post pings); it is not narration, so it is
     never said twice and a restart that lost the turn's lines still has
@@ -163,5 +178,5 @@ def turn_heading(match) -> str:
     seat = match.active
     return (
         f"**Turn {match.turn}** -- {tokens.addressed(seat)} "
-        f"({deck_name(match.player(seat).specs)})"
+        f"({team_name(match.player(seat).specs)})"
     )

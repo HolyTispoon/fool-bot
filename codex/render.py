@@ -17,16 +17,18 @@ A panel (`render_panel`), top to bottom and left to right:
 
 - a column of buildings on the left, 136 wide -- the add-on slot, Tech
   III, II and I, and the base, each heart carrying the HP it has now;
-- the patrol zone across the top of the grid: the mat's own five slots
-  with their bonuses under them, each on its own holder of the mat's
-  blue, packed side by side, a patroller's card over its slot;
-- the grid: square cells of 273, five columns in the basic game -- the
-  count is the game's, fixed when it starts -- the command zone first
-  as a plate per hero, then the heroes on the field, then the units,
-  each its card at 200 by 273 with its chits, and on its side at full
-  size when exhausted; rows added as the position needs them;
-- the nameplate along the panel's outer edge: the player, the spec and
-  hero, and the counts.
+- across the top, as on the mat, the command zone -- one plate, a slot
+  per hero, the hero lying in it while off the field -- and then the
+  patrol zone: the mat's own five slots with their bonuses under them,
+  each on its own holder of the mat's blue, packed side by side, a
+  patroller's card over its slot. That row sets the panel's width;
+- the grid under it: square cells of 273, as many columns as fit under
+  the top row -- six in the standard game, five in the basic, fixed
+  when it starts -- the heroes on the field, then the units, each its
+  card at 200 by 273 with its chits, and on its side at full size when
+  exhausted; rows added as the position needs them;
+- the nameplate along the panel's outer edge: the player, their team
+  (`codex.formatting.team_name`), and the counts.
 
 `render_board` composes two: stacked, the default -- the active
 player's below, the other player's above it turned round whole so the
@@ -68,6 +70,7 @@ from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
 from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
+from codex.formatting import team_name
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
 #: (docs/design/board-image.md): Roboto Slab for every word and number.
@@ -148,8 +151,6 @@ PATROL_PADDING = 10
 PATROL_SLOT_GAP = 12
 #: A patrol holder's width.
 PATROL_HOLDER = CARD[0] + 2 * PATROL_PADDING
-#: A command-zone plate's hero, which lies on the plate in full.
-PLATE_HERO = (184, 251)
 #: The nameplate along the panel's outer edge, and the gap between it
 #: and the rest.
 NAMEPLATE_HEIGHT = 56
@@ -182,12 +183,19 @@ FIGURE_AREA = (0.05, 0.22, 0.95, 0.8)
 #: stretched across by this.
 FIGURE_STRETCH = 1.2
 
-#: The columns of a panel's grid, by how many heroes the game gives a
-#: player: five in the basic game, seven in the standard one (three
-#: plates and four cards in the first row). The count is the game's,
-#: fixed when it starts, so the picture's width holds from turn to turn
-#: (the author, 2026-10-08).
-COLUMNS = {1: 5, 3: 7}
+#: The command zone: one plate beside the patrol zone, as on the mat,
+#: with a slot per hero -- three in the standard game, one in the basic
+#: -- rather than a plate per hero in the grid (the author, 2026-10-10).
+#: A slot is a card's size, padded as a patrol holder is, the plate as
+#: tall as the patrol zone, its name in the strip where a slot's bonus
+#: would be.
+COMMAND_SLOT_GAP = PATROL_SLOT_GAP
+#: Between the command zone and the patrol zone.
+ZONE_GAP = CELL_GAP
+#: The fewest columns a grid has: the basic game's top row fits four
+#: cells, and a fifth card wrapped to a second row cost 289 of height
+#: for 45 of width saved (the author, 2026-10-10: five columns).
+MIN_GRID_COLUMNS = 5
 
 # -- The palette, the canvas's.
 
@@ -633,30 +641,47 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     return tile
 
 
-def command_zone_plate(hero: Optional[HeroState], cards: CardCatalog) -> Image.Image:
+def command_zone_width(count: int) -> int:
+    """The command zone's plate, for `count` heroes."""
+    return 2 * PATROL_PADDING + count * CARD[0] + (count - 1) * COMMAND_SLOT_GAP
+
+
+def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
+                 cards: CardCatalog) -> Image.Image:
     """
-    A command-zone plate filling its cell, on the same square as
-    `lying_card`: dark, edged, labelled -- with the hero lying on it in
-    full while off the field, and its time-rune chit for its summoning
-    runes; empty while the hero is on the field.
+    The command zone: one dark, edged plate as tall as the patrol zone,
+    a slot per hero -- the hero lying in it in full while off the field,
+    with its time-rune chit for its summoning runes; the slot empty,
+    marked HERO as the mat marks it, while the hero is on the field --
+    and COMMAND ZONE along its foot. Drawn with `OVERHANG` round it for
+    the chits.
     """
     margin = OVERHANG
-    tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
+    width = command_zone_width(len(heroes_in_zone))
+    tile = Image.new("RGBA", (width + 2 * margin, PATROL_HEIGHT + 2 * margin), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tile)
-    draw.rounded_rectangle((margin, margin, margin + CELL - 1, margin + CELL - 1), radius=14,
-                           fill=PLATE_FILL, outline=PLATE_EDGE, width=2)
-    face = font(12, bold=False)
+    draw.rounded_rectangle((margin, margin, margin + width - 1, margin + PATROL_HEIGHT - 1),
+                           radius=14, fill=PLATE_FILL, outline=PLATE_EDGE, width=2)
+    face = font(13, bold=False)
     label = "COMMAND ZONE"
-    spaced_text(draw, (margin + (CELL - spaced_width(label, face, 1.5)) / 2, margin + 15),
+    strip_top = margin + PATROL_PADDING + CARD[1] + BONUS_GAP
+    spaced_text(draw, (margin + (width - spaced_width(label, face, 1.5)) / 2,
+                       strip_top + (BONUS[1] - 13) / 2 - 2),
                 label, face, PLATE_INK, 1.5)
-    if hero is None:
-        return tile
-    picture = card_face(hero.slug, cards, PLATE_HERO)
-    left = margin + (CELL - PLATE_HERO[0]) // 2
-    top = margin + (CELL - PLATE_HERO[1]) // 2 + 9
-    tile.alpha_composite(picture, (left, top))
-    if hero.summoning_runes:
-        lay_row(tile, [time_rune_chit(hero.summoning_runes)], 54, (margin - 8, margin - 8))
+    top = margin + PATROL_PADDING
+    for index, hero in enumerate(heroes_in_zone):
+        left = margin + PATROL_PADDING + index * (CARD[0] + COMMAND_SLOT_GAP)
+        if hero is None:
+            dashed_box(draw, (left, top, left + CARD[0], top + CARD[1]), PLATE_EDGE)
+            word = "HERO"
+            hero_face = font(18, bold=False)
+            spaced_text(draw, (left + (CARD[0] - spaced_width(word, hero_face, 2)) / 2,
+                               top + CARD[1] / 2 - 11),
+                        word, hero_face, FAINT_INK, 2)
+            continue
+        tile.alpha_composite(card_face(hero.slug, cards, CARD), (left, top))
+        if hero.summoning_runes:
+            lay_row(tile, [time_rune_chit(hero.summoning_runes)], 54, (left - 8, top - 8))
     return tile
 
 
@@ -858,24 +883,45 @@ def heroes(player: PlayerState) -> list[HeroState]:
     return list(player.heroes)
 
 
+def top_row_width(hero_count: int) -> int:
+    """The command zone, then the five patrol holders: the mat's top
+    row, which sets the panel's width (the author, 2026-10-10: the
+    board as wide as the mat -- the building column, three heroes, five
+    patrol slots)."""
+    patrol = len(PATROL_SLOTS) * PATROL_HOLDER + (len(PATROL_SLOTS) - 1) * PATROL_SLOT_GAP
+    return command_zone_width(hero_count) + ZONE_GAP + patrol
+
+
+def grid_columns(hero_count: int) -> int:
+    """The grid's column count: as many cells as fit under the top row,
+    never fewer than `MIN_GRID_COLUMNS` -- six in the standard game,
+    five in the basic, whose grid runs 45 past its top row rather than
+    wrapping a fifth card (the author, 2026-10-10). Fixed by how many
+    heroes the game gives a player, so the picture's width holds from
+    turn to turn (the author, 2026-10-08)."""
+    fit = (top_row_width(hero_count) + CELL_GAP) // (CELL + CELL_GAP)
+    return max(MIN_GRID_COLUMNS, fit)
+
+
 def panel_columns(player: PlayerState) -> int:
-    """The grid's column count, the game's -- by how many heroes it gives
-    a player, so it is fixed when the game starts."""
-    return COLUMNS.get(len(heroes(player)), COLUMNS[3])
+    """The grid's column count, the game's (`grid_columns`)."""
+    return grid_columns(len(heroes(player)))
 
 
-def panel_width(columns: int) -> int:
-    return (2 * PADDING + BUILDING_WIDTH + BUILDING_GAP
-            + columns * CELL + (columns - 1) * CELL_GAP)
+def panel_width(hero_count: int) -> int:
+    """A panel's width for a game of `hero_count` heroes a side: the
+    building column and the top row, which the grid fits under."""
+    columns = grid_columns(hero_count)
+    grid = columns * CELL + (columns - 1) * CELL_GAP
+    return 2 * PADDING + BUILDING_WIDTH + BUILDING_GAP + max(top_row_width(hero_count), grid)
 
 
 def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
-    """The grid, in order: a command-zone plate per hero, then the
-    heroes on the field, then the units, every one not patrolling, then
-    the building cards and upgrades, which never patrol (step 10), then
-    the cards in the future, greyed with their time runes (step 12)."""
-    plates = [command_zone_plate(None if hero.in_play else hero, cards)
-              for hero in heroes(player)]
+    """The grid, in order: the heroes on the field, then the units,
+    every one not patrolling, then the building cards and upgrades,
+    which never patrol (step 10), then the cards in the future, greyed
+    with their time runes (step 12). The heroes off the field are in
+    the command zone, above."""
     field = [lying_card(hero_lying(hero, cards), cards)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
@@ -883,7 +929,7 @@ def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
     units = [lying_card(unit_lying(card, card.id in partners, cards), cards) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
-    return plates + field + units + future
+    return field + units + future
 
 
 PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]
@@ -905,7 +951,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     player = match.player(seat)
     columns = panel_columns(player)
     cells = grid_cells(player, cards)
-    inner_width = panel_width(columns) - 2 * PADDING
+    inner_width = panel_width(len(heroes(player))) - 2 * PADDING
     height = body_height(len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
@@ -915,7 +961,10 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     draw = ImageDraw.Draw(body)
     partners = partner_ids(player)
     card_top = o + PATROL_PADDING
-    holder_left = grid_left - PATROL_PADDING
+    # The command zone first, beside the buildings, as on the mat.
+    zone = command_zone([None if hero.in_play else hero for hero in heroes(player)], cards)
+    body.alpha_composite(zone, (grid_left - OVERHANG, o - OVERHANG))
+    holder_left = grid_left + command_zone_width(len(heroes(player))) + ZONE_GAP
     for slot in PATROL_SLOTS:
         # Each slot on its own holder, packed against the last.
         draw.rounded_rectangle(
@@ -948,10 +997,6 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         cell_top = top + row * (CELL + CELL_GAP)
         body.alpha_composite(cell, (left - OVERHANG, cell_top - OVERHANG))
     return body
-
-
-def hero_name(hero: HeroState, cards: CardCatalog) -> str:
-    return cards.heroes[hero.slug].name
 
 
 def turn_label(match: MatchState, name: str) -> str:
@@ -987,7 +1032,9 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
                      width: int, rule_at_top: bool,
                      ground: Optional[Image.Image] = None) -> Image.Image:
     """
-    The nameplate, 56 tall: the player, the spec and hero, then gold
+    The nameplate, 56 tall: the player, their team (`team_name`: a
+    colour's deck by its name, "Blood Anarchs", any other team by its
+    specs, "Fire/Feral/Bashing"), then gold
     (the gold emoji's picture), workers, hand, deck, discard and codex,
     a word and a count each. The active player's carries a rule and
     "<name>'s turn <n>" in a pill, both in its first hero's colour
@@ -1009,9 +1056,7 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     x = 0
     draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
     x += font(26).getlength(name) + 18
-    spec = f"{player.deck_color.title()} · " + ", ".join(
-        hero_name(hero, cards) for hero in player.heroes
-    )
+    spec = team_name(player.specs)
     draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
     x += font(18, bold=False).getlength(spec) + 18
     if colors:
