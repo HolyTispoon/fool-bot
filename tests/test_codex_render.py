@@ -164,6 +164,36 @@ class RenderTests(unittest.TestCase):
             shown = [slug for slug, _ in engine.codex_remaining(match, 1, view)]
             self.assertEqual(shown, [slug for slug in whole if slug in shown], view)
 
+    def test_the_tech_ii_view_is_a_line_per_spec(self) -> None:
+        """Tech II alone puts each spec on a line of its own, the grid as
+        wide as its longest line (the author, 2026-10-10); no other view
+        breaks its rows."""
+        engine = RulesEngine(seed=7)
+        match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
+                                 first=1)
+        rows = engine.codex_remaining(match, 1, "tech2")
+        starts = engine.codex_row_starts(rows, "tech2")
+        bounds = [0, *starts, len(rows)]
+        lines = [rows[start:end] for start, end in zip(bounds, bounds[1:])]
+        self.assertEqual(len(lines), 3)
+        for line in lines:
+            self.assertEqual(len({engine.catalog.cards[slug].spec for slug, _ in line}), 1)
+        for view in engine.codex_views(match.player(1)):
+            if view != "tech2":
+                self.assertEqual(engine.codex_row_starts(engine.codex_remaining(match, 1, view), view),
+                                 ())
+        png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],
+                                  engine.catalog, None, starts)
+        widest = max(len(line) for line in lines)
+        self.assertEqual(size(png), (widest * (render.CODEX_CARD[0] + 14) + 14,
+                                     3 * (render.CODEX_CARD[1] + 14) + 14))
+
+    def test_a_line_longer_than_the_columns_wraps_within_itself(self) -> None:
+        slugs = [slug for slug, _ in self.engine.codex_remaining(self.match, 1)][:9]
+        png = render.render_codex(slugs, [2] * 9, self.engine.catalog, None, (7,))
+        self.assertEqual(size(png), (6 * (render.CODEX_CARD[0] + 14) + 14,
+                                     3 * (render.CODEX_CARD[1] + 14) + 14))
+
     def test_a_codex_view(self) -> None:
         rows = self.engine.codex_remaining(self.match, 1)
         png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],

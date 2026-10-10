@@ -334,7 +334,7 @@ class CodexBrowser(SafeView):
         rows = self.cog.engine.codex_remaining(match, self.seat, view)
         webp = await asyncio.to_thread(
             render_codex, [slug for slug, _ in rows], [count for _, count in rows],
-            self.cog.engine.catalog,
+            self.cog.engine.catalog, None, self.cog.engine.codex_row_starts(rows, view),
         )
         return picture_file(webp, f"codex-{view}")
 
