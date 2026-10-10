@@ -57,6 +57,7 @@ it, a file at a time (docs/design/codex.md, "The board on Discord").
 from __future__ import annotations
 
 import io
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -473,14 +474,13 @@ def time_rune_chit(runes: int) -> Image.Image:
     return board_piece("time_runes", f"{min(runes, 6)}.png")
 
 
-def arrived_tag(canvas: Image.Image, card_left: int, card_bottom: int) -> None:
-    """ARRIVED on a green tag against the card's left edge, 44 above its
-    foot: what came this turn."""
+def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
+    """ARRIVED on a green tag against the card's left edge, standing on
+    `bottom` -- the foot of its art: what came this turn."""
     draw = ImageDraw.Draw(canvas)
     face = font(14)
     width = spaced_width("ARRIVED", face, 0.5) + 20
     height = 24
-    bottom = card_bottom - 44
     box = (card_left, bottom - height, card_left + width, bottom)
     draw.rounded_rectangle(box, radius=8, fill=ARRIVED_FILL,
                            corners=(False, True, True, False))
@@ -583,7 +583,7 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     with `OVERHANG` round it, the card's centre the square's: its own
     art at 200 by 273, a level chit top left (a hero), its rune chits
     top right, its damage chits on the foot of its art, Two Step's chit on
-    a dance partner, ARRIVED the turn it came -- and, exhausted, the
+    a dance partner, ARRIVED on its art's foot the turn it came -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner, the right way up.
     """
@@ -623,7 +623,9 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
         draw = ImageDraw.Draw(upright)
         pill(draw, (margin + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
     if lying.arrived:
-        arrived_tag(upright, margin, bottom)
+        # On its art's foot, opposite the damage chits, clear of the
+        # card's text (the author, 2026-10-10).
+        arrived_tag(upright, margin, margin + ART_FOOT)
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
@@ -754,6 +756,40 @@ def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
                    round(10 * BUILDING_SCALE))
 
 
+#: The strip across a building under construction and a destroyed one,
+#: beside the house chit, so neither is read from the chit alone (the
+#: author, 2026-10-10): its word, fill and ink.
+CONSTRUCTION_STRIP = ("UNDER CONSTRUCTION", GOLD, SHADOW)
+DESTROYED_STRIP = ("DESTROYED", DISABLED_FILL, WORD)
+#: A strip's height, how far it runs past the picture's edges on either
+#: side, as tape wrapped round it, and its slope: rising from the
+#: bottom left to the top right, close to level with a little slant (the author,
+#: 2026-10-10), long enough for UNDER CONSTRUCTION in a type that reads
+#: at Discord's scale.
+STRIP_HEIGHT = 22
+STRIP_OUT = 5
+STRIP_ANGLE = 10
+
+
+def lay_strip(canvas: Image.Image, box: tuple[int, int, int, int],
+              strip: tuple[str, tuple, tuple]) -> None:
+    """A strip across the middle of the picture at `box`, rising to the
+    right by `STRIP_ANGLE`, past its edges by `STRIP_OUT`, edged dark,
+    its word centred along it."""
+    word, fill, ink = strip
+    left, top, right, bottom = box
+    length = round((right - left) / math.cos(math.radians(STRIP_ANGLE))) + 2 * STRIP_OUT
+    band = Image.new("RGBA", (length, STRIP_HEIGHT), fill + (255,))
+    draw = ImageDraw.Draw(band)
+    draw.rectangle((0, 0, length - 1, STRIP_HEIGHT - 1), outline=SHADOW, width=2)
+    face = font(11)
+    width = spaced_width(word, face, 0.3)
+    spaced_text(draw, ((length - width) / 2, STRIP_HEIGHT / 2), word, face, ink, 0.3)
+    band = band.rotate(STRIP_ANGLE, resample=Image.BICUBIC, expand=True)
+    canvas.alpha_composite(band, ((left + right - band.width) // 2,
+                                  (top + bottom - band.height) // 2))
+
+
 def damaged(hp: int, full: int) -> Optional[int]:
     """The HP a building's heart carries in place of its printed one:
     none while it is whole."""
@@ -767,8 +803,10 @@ def draw_building_column(body: Image.Image, player: PlayerState,
     bottom: the add-on slot (`draw_add_on`), Tech III, II and I, the
     base. A tech
     building is greyed and half seen until built, in colour once built,
-    the house chit on a top corner while under construction (UMR p. 8),
-    dark with the house chit when destroyed. A damaged one's heart
+    the house chit on a top corner and UNDER CONSTRUCTION across it while
+    under construction (UMR p. 8), dark with the house chit and
+    DESTROYED across it when destroyed -- the base too, on a finished
+    game's board. A damaged one's heart
     carries the HP it has now in place of the full HP it prints.
     """
     house = board_piece("chits", "house.png")
@@ -795,10 +833,16 @@ def draw_building_column(body: Image.Image, player: PlayerState,
                                         y + TILE[1] - SPEC_ON_TILE[1] + 2))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
+            lay_strip(body, (left, y, left + TILE[0], y + TILE[1]),
+                      DESTROYED_STRIP if state.destroyed else CONSTRUCTION_STRIP)
         y += TILE[1] + TILE_GAP
 
     base = building_tile("base", damaged(player.base_hp, building_hp["base"]))
+    if player.base_hp <= 0:
+        base = greyed(base, 0.35)
     body.alpha_composite(base, (left, y))
+    if player.base_hp <= 0:
+        lay_strip(body, (left, y, left + TILE[0], y + TILE[1]), DESTROYED_STRIP)
 
 
 #: A building's house chit, and how far it hangs over its corner, at
@@ -814,8 +858,8 @@ def draw_add_on(body: Image.Image, player: PlayerState,
                 building_hp: Mapping[str, int], left: int, top: int) -> None:
     """
     The add-on slot, its top left at (`left`, `top`): a dashed outline,
-    or the add-on's card -- the house chit on its top corner while under
-    construction, and on a damaged one the HP it has now in its heart,
+    or the add-on's card -- the house chit on its top corner and UNDER
+    CONSTRUCTION across it while under construction, and on a damaged one the HP it has now in its heart,
     as a tech building's.
     """
     slot = (left, top, left + ADD_ON[0], top + ADD_ON[1])
@@ -838,6 +882,7 @@ def draw_add_on(body: Image.Image, player: PlayerState,
     if add_on.under_construction:
         lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
                 (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
+        lay_strip(body, slot, CONSTRUCTION_STRIP)
 
 
 #: A chosen spec's card as it lies on the tech II tile and on a tech
