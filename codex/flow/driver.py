@@ -92,6 +92,9 @@ class DriverRun:
     stopped_on: Optional[FollowOn] = None
     board_changed: bool = False
     drawn: tuple[tuple[str, ...], ...] = ()
+    #: Whether a card left the top of a deck anywhere along the run
+    #: (`StepResult.drew`).
+    drew: bool = False
 
     @property
     def ran(self) -> bool:
@@ -129,6 +132,7 @@ def advance(
     headlines = result.headlines
     board_changed = result.board_changed
     drawn = [tuple(order) for order in result.drawn]
+    drew = result.drew
     last = result
     following = result.next
     stopped_on: Optional[FollowOn] = None
@@ -144,6 +148,7 @@ def advance(
         headlines = (*headlines, *ran.headlines)
         board_changed = board_changed or ran.board_changed
         drawn.extend(tuple(order) for order in ran.drawn)
+        drew = drew or ran.drew
         last = ran
         following = ran.next
         if step.step in stops or ran.new_play:
@@ -173,6 +178,7 @@ def advance(
         stopped_on=stopped_on,
         board_changed=board_changed,
         drawn=tuple(drawn),
+        drew=drew,
     )
 
 

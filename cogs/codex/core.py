@@ -241,6 +241,11 @@ class CoreMixin:
         """A sentence of the model's, its tokens drawn once, here."""
         return self.tokens.render(text, game)
 
+    def plain_text(self, text: str, game: Optional[CodexGame] = None) -> str:
+        """A sentence of the model's as a label -- a menu's option --
+        its tokens as words and its markup gone."""
+        return self.tokens.plain(text, game).replace("**", "")
+
     # -- The service --------------------------------------------------------
 
     @property

@@ -22,7 +22,7 @@ far as the opening position: the service and its file, `/codex create_game`,
 the game's channel, the board, and each player's hand shown to them
 alone. Step 4 put the whole turn there -- the panel, the turn message
 rolled over at the turn's end, the tech choice during the opponent's
-turn, the two undos and the resume -- so two people can finish a game
+turn, the undos and the resume -- so two people can finish a game
 on the vanilla engine. Step 5 gave the engine the combat keywords, so
 every card whose text is a keyword plays in full and the tower is worth
 building. Step 6 gave it the rest: the spells, the arrives and attacks
@@ -367,6 +367,35 @@ snapshot it led to already holds its effects.
   each seat asked again, addressed to them -- said whether or not they
   had picked, so it tells nobody that they had. In a test game nothing
   is said: one person plays both sides, and the panel is the picker.
+- **The fine undo is over the journal** (the author, 2026-10-10:
+  "points between actions only"). `undo_points` replays this turn's
+  journal once from its snapshot (`replay`'s `each`) and names each
+  point the active player may go back to: before each action of theirs
+  that began where the position asked the main phase's menu or the
+  patrol's (`BETWEEN_ACTIONS`) and changed the position -- not inside
+  a spell or an attack, which the cancel covers; not before a tech
+  answer (`TECH_KINDS`: the other player's choice, which is theirs, or
+  the active player's own asked again after an undo to the turn's
+  start), which is no action of the turn and numbers none; and not an
+  attacker declared and taken back, which changed nothing. Each point
+  carries the lines the action said, to be named by, and the journal's
+  length it was offered at, so a pick from a menu the turn has moved on
+  from is refused. `undo_to` replays the journal cut at the point
+  (`cut`: the prefix plus the other player's tech answers after it --
+  the same cut a spell's cancel makes, so one function makes both) and
+  returns what the turn now says: the kept actions' lines, then the
+  undone line (`undone_to`). It starts nobody's tech over, so the
+  service says nothing to the other player (`_undo`'s
+  `restarts_tech`). **A card off the top of a deck closes every point
+  before it** -- a card seen cannot be unseen, the rule the cancel
+  already keeps -- read off the replay as `StepResult.drew`, set at the
+  three doors a card leaves a deck's top by (`draw_cards`, Vir's
+  exchange and his play off the top), while **the start of the turn
+  stays open as it was** (the author, 2026-10-10: "closed, but keep the
+  start of turn as is"). A journal the rules no longer replay -- a game
+  saved before a rule changed -- closes the fine undo and leaves the
+  snapshots' two standing. Nothing into the previous turn: the journal
+  is this turn's (the author, 2026-10-10).
 
 ### The vanilla engine and `UNIMPLEMENTED`
 
@@ -2202,6 +2231,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
 | Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
 | Undo to the start of the turn | **2** | 3 |
+| Undo to a point of the turn (the menu) | **2** | 3 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
 The gate's full-image link adds one settling edit after a burst of
@@ -2211,11 +2241,12 @@ table counts the board's own writes. A turn of a dozen clicks is a
 dozen posts and a dozen deletes, one of each per click as it comes --
 the price of the board at the foot of the channel (above).
 
-### The two undos, and who may take each
+### The undos, and who may take each
 
 **Undo** on the panel offers what `history.undo_targets` says is open
-(`GameService.undo_targets`); the cog decides nothing about what a
-snapshot holds. **The patrol lock carries it too** (`PatrolView`,
+(`GameService.undo_targets`) under the fine undo's menu, the points
+`history.undo_points` offers (`GameService.undo_points`); the cog
+decides nothing about what a snapshot or the journal holds. **The patrol lock carries it too** (`PatrolView`,
 beside **Clear**): **End main phase** is the one click that leaves the
 main phase without locking anything, and a player who pressed it too
 soon had no way back -- the snapshot is the main phase's start, so the
@@ -2241,6 +2272,25 @@ what it costs from the panel (the table above).
   and "Undone to the start of the turn." (`history.UNDONE`) and the
   restored board, and the panel is sent under it from the restored
   prompt.
+- **To before an action of this turn** -- the fine undo's menu, above
+  the two buttons wherever they are offered (the panel's undo mode, the
+  patrol lock's, the turn message's `UndoView`), one option a point,
+  newest first and at most a select's worth (`undo_menu`) -- is the
+  active player's alone too, since nothing it takes back exceeds what
+  the start of the turn takes back unasked. An option is labelled by
+  the cog, `Codex.undo_choices`: the action's number and the first line
+  it said with its tokens as words, since a select's option carries no
+  markup (`CodexTokens.plain`: the seat's name, a card's name bare) --
+  "2. perrytom plays Timely Messenger for (1): 1/1." -- or, for the one
+  main-phase action that says nothing, its button's own name (**End
+  main phase**, `SILENT_ACTIONS`). Its value names the point and the
+  journal's length it was offered at, and the model refuses a pick the
+  turn has moved on from. `GameService.undo_to` saves once and the cog
+  does what the turn-start undo does (`_own_undo`): the turn message
+  posted again -- its first lines, then `result.lines`, which for this
+  undo are the kept actions' lines and "Undone to before action 2 of
+  the turn." (`history.undone_to`), so the message reads as the turn now
+  stands -- and the panel sent under it.
 - **To the start of the previous turn** unwinds the opponent's turn
   too, so it posts a public question naming them (`UndoConfirmView`):
   **Agree** is the opponent's -- or a game helper's, behind the helper's
@@ -2288,7 +2338,7 @@ way and nothing is written from it.
   whoever's turn it is; refused once the game is over.
 - **A concession is not an action the journal records.** It answers no
   prompt -- it is open to both players at any moment -- so it is a door
-  of the service's own, `GameService.concede`, as the two undos are,
+  of the service's own, `GameService.concede`, as the undos are,
   rather than a `PromptKind`. Nothing is undone past a finished game
   (`history.undo_targets`), so there is nothing for the journal to
   replay.

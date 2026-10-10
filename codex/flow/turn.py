@@ -56,6 +56,8 @@ def draw_cards(engine: "RulesEngine", match: MatchState, seat: int, count: int,
             )
         player.hand.append(player.deck.pop())
         drawn += 1
+    if drawn:
+        result.drew = True
     return drawn
 
 

@@ -459,13 +459,34 @@ class GameService:
         self.announce(game, result)
         return "a choice, put back up", result
 
-    # -- The two undos ----------------------------------------------------
+    # -- The undos --------------------------------------------------------
 
     def undo_targets(self, game_id: str) -> dict[str, int]:
         """The undos open on this game's position, each with the turn it
         goes back to (`history.undo_targets`) -- the one reading a
-        frontend builds its Undo choices from."""
+        frontend builds its Undo choices from, with `undo_points`."""
         return history.undo_targets(self.load(self.game(game_id)))
+
+    def undo_points(self, game_id: str) -> tuple[history.UndoPoint, ...]:
+        """The points of this turn the fine undo may go back to
+        (`history.undo_points`), oldest first, each with what the action
+        there said -- the one reading a frontend builds its menu from."""
+        game = self.game(game_id)
+        return history.undo_points(self.engine, game, self.load(game))
+
+    def undo_to(self, game_id: str, index: int, *, of: Optional[int] = None) -> GameResult:
+        """Put the match back to before one of this turn's actions -- a
+        point `undo_points` offered, by its `index`, and `of` the
+        journal's length then -- save once, and return the turn as it
+        now reads: the kept actions' lines, then the undone line. Refused
+        with `RuleRefusal` for a point not offered or a turn that has
+        moved on. Who may ask is the frontend's: the active player, with
+        nobody's consent, as for the start of the turn."""
+        game = self.game(game_id)
+        return self._undo(
+            game_id, lambda match: history.undo_to(self.engine, game, match, index, of=of),
+            restarts_tech=False,
+        )
 
     def undo_to_turn_start(self, game_id: str) -> GameResult:
         """Put the match back to the start of this turn's main phase,
@@ -480,19 +501,27 @@ class GameService:
         the opponent (or a helper) agree before it calls this."""
         return self._undo(game_id, history.undo_to_previous_turn)
 
-    def _undo(self, game_id: str, undo: Callable[[MatchState], MatchState]) -> GameResult:
+    def _undo(self, game_id: str, undo: Callable[[MatchState], tuple[str, ...]],
+              *, restarts_tech: bool = True) -> GameResult:
+        """One undo: `undo` changes the match and returns what it says,
+        which the result carries as its narration -- for the fine undo
+        the kept actions' lines before the undone line, so a frontend's
+        record of the turn is `result.lines` after the turn's first
+        lines, whichever undo it was. `restarts_tech` is the snapshot
+        undos', which start every tech choice over; the fine undo keeps
+        the other player's (`history.cut`), so it says nothing to them."""
         game = self.game(game_id)
         match = self.load(game)
-        undo(match)
+        said = undo(match)
         self.persist(game, match)
         # The tech choices the undo started over, said only where a
         # choice stands through the other player's turn: in a test game
         # it is made in its owner's ready phase (`tech_stands`).
         again = ()
-        if tech_stands(game):
+        if restarts_tech and tech_stands(game):
             again = tuple(history.tech_again(seat) for seat in history.tech_started_over(match))
         result = GameResult(
-            narration=(history.UNDONE, *again),
+            narration=(*said, *again),
             prompt=self.waiting_on(game, match),
             standing=self.standing(game, match),
             board_changed=True,

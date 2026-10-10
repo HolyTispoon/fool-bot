@@ -181,8 +181,10 @@ class TurnMessageView(SafeView):
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return
         targets = self.cog.service.undo_targets(game.game_id)
+        points = self.cog.undo_choices(game)
         await interaction.response.send_message(
-            "Undo -- to where?", view=UndoView(self.cog, game.game_id, seat, match.turn, targets),
+            "Undo -- to where?",
+            view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points),
             ephemeral=True,
         )
 

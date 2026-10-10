@@ -3,7 +3,8 @@ What step 4 asked of the Codex model and service for the turn on
 Discord (docs/codex-bot.md, step 4): the panel's readings carried on
 the prompt -- the hand the picture numbers, why each defender is legal
 -- the end of the turn closed as its own group with its own position
-(`draw_after`), and the two undos as service methods that save once.
+(`draw_after`), and the undos as service methods that save once -- the
+fine undo's result the turn as it now reads.
 """
 
 from __future__ import annotations
@@ -202,6 +203,59 @@ class ServiceUndoTests(unittest.TestCase):
         svc, saves, game = started()
         with self.assertRaises(RuleRefusal):
             svc.undo_to_previous_turn(game.game_id)
+        self.assertEqual(saves.calls, 0)
+
+    def test_undo_to_a_point_saves_once_and_says_the_turn_so_far(self) -> None:
+        """The hire kept, the main phase's end taken back: the result's
+        lines are the hire's and the undone line -- the turn as it now
+        reads, which a frontend puts under the turn's first lines."""
+        svc, saves, game = started()
+        hired = svc.apply_action(
+            game.game_id, Action(PromptKind.MAIN_ACTION, "hire", {"slug": svc.load(game).active_player.hand[0]}),
+        )
+        svc.apply_action(game.game_id, Action(PromptKind.MAIN_ACTION, "end_main"))
+        (point,) = svc.undo_points(game.game_id)
+        self.assertEqual((point.index, point.number, point.choice, point.of), (1, 2, "end_main", 2))
+        saves.calls = 0
+        result = svc.undo_to(game.game_id, point.index, of=point.of)
+        self.assertEqual(saves.calls, 1)
+        self.assertEqual(result.narration, (*hired.lines, history.undone_to(2)))
+        self.assertIs(result.prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertTrue(result.board_changed)
+        self.assertEqual(svc.load(game).phase, "main")
+
+    def test_the_fine_undo_keeps_the_other_players_tech_and_says_nothing_to_them(self) -> None:
+        """The player whose turn just ended saves a tech choice during
+        this turn; the active player undoes to before their last action:
+        the choice stands (`history.cut`) and no line asks them to choose
+        again -- unlike an undo to the turn's start."""
+        svc, _, game = started()
+        end_turn(svc, game.game_id)
+        match = svc.load(game)
+        other = 2 if match.active == 1 else 1
+        picks = [slug for slug, count in svc.engine.codex_counts(match.player(other)) if count][:1] * 2
+        svc.apply_action(game.game_id, Action(PromptKind.MAIN_ACTION, "hire", {"slug": match.active_player.hand[0]}))
+        svc.apply_action(game.game_id, Action(PromptKind.TECH_CHOICE, "", {"player": other, "picks": picks}))
+        svc.apply_action(game.game_id, Action(PromptKind.MAIN_ACTION, "end_main"))
+        (point,) = svc.undo_points(game.game_id)
+        self.assertEqual(point.choice, "end_main")
+        result = svc.undo_to(game.game_id, point.index, of=point.of)
+        self.assertEqual(result.narration[-1], history.undone_to(2))
+        self.assertFalse(any("tech" in line for line in result.narration), result.narration)
+        self.assertEqual(svc.load(game).player(other).tech_choice, picks)
+        # The turn-start undo, by contrast, starts it over and says so.
+        result = svc.undo_to_turn_start(game.game_id)
+        self.assertIn(history.tech_again(other), result.narration)
+        self.assertIsNone(svc.load(game).player(other).tech_choice)
+
+    def test_a_stale_undo_point_saves_nothing(self) -> None:
+        from codex.game import RuleRefusal
+
+        svc, saves, game = started()
+        svc.apply_action(game.game_id, Action(PromptKind.MAIN_ACTION, "end_main"))
+        saves.calls = 0
+        with self.assertRaises(RuleRefusal):
+            svc.undo_to(game.game_id, 1, of=3)
         self.assertEqual(saves.calls, 0)
 
 

@@ -2,8 +2,11 @@
 The groundwork for undo (docs/codex-bot.md, decision 11): a snapshot at
 every turn start, the turn's journal written at `driver.apply`, a replay
 that reproduces a position byte for byte -- the recorded shuffles handed
-back, so an undo past a draw deals the same cards -- and the two undos
-over the snapshots.
+back, so an undo past a draw deals the same cards -- the two undos over
+the snapshots, and the fine undo over the journal: the points between
+the turn's actions, a card off a deck's top closing every point before
+it, and the other player's tech answer kept through the cut
+(docs/design/codex.md, "The undos").
 """
 
 from __future__ import annotations
@@ -14,9 +17,10 @@ import unittest
 from codex import history
 from codex.engine import RulesEngine
 from codex.flow import driver
+from codex.game import RuleRefusal
 from codex.prompts import Action, PromptKind, pending_prompt, standing_prompts
 
-from codex_positions import begin, new_game
+from codex_positions import begin, hand, hero_in_play, new_game, put
 
 
 def apply(engine, game, match, *args, **kwargs):
@@ -188,6 +192,152 @@ class HistoryTests(unittest.TestCase):
     def test_no_undo_once_the_game_is_over(self) -> None:
         self.match.winner = 1
         self.assertEqual(history.undo_targets(self.match), {})
+        self.assertEqual(history.undo_points(self.engine, self.game, self.match), ())
+
+    # -- The fine undo -------------------------------------------------------
+
+    def test_the_points_are_between_the_active_players_actions(self) -> None:
+        """Turn 3's journal: the hire, the other player's tech answer, the
+        play with its targets, their tech answer again. One point is
+        open: before the play -- not before the tech answer, which is
+        theirs, nor inside the spell, nor at the start, which
+        `undo_targets` offers."""
+        self.play_turn_3()
+        engine, game, match = self.engine, self.game, self.match
+        (point,) = history.undo_points(engine, game, match)
+        self.assertEqual((point.index, point.number, point.choice, point.of), (2, 2, "play", len(match.journal)))
+        self.assertIn("plays", point.said[0])
+        self.assertIn("{card:", point.said[0])
+
+    def test_undo_to_a_point_keeps_what_came_before_and_the_other_players_tech(self) -> None:
+        self.play_turn_3()
+        engine, game, match = self.engine, self.game, self.match
+        journal = list(match.journal)
+        said = history.undo_to(engine, game, match, 2, of=len(journal))
+        # The hire kept, the play gone, the tech answer saved after the
+        # cut kept too (`cut`), and the position the replay of exactly
+        # that reaches.
+        self.assertEqual(match.player(1).workers, 5)
+        self.assertEqual(match.player(2).tech_choice, ["maestro", "cloud_sprite"])
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        kept = history.cut(journal, 2)
+        self.assertEqual([entry["action"]["kind"] for entry in kept], ["main_action", "tech_choice", "tech_choice"])
+        again = history.replay(RulesEngine(seed=5), game, match.turn_snapshots[-1], kept,
+                               history=match.turn_snapshots)
+        self.assertEqual(history.position(match), history.position(again))
+        self.assertEqual(len(match.journal), len(kept))
+        # What the turn says now: the hire's line, then the undone line.
+        self.assertEqual(len(said), 2)
+        self.assertIn("hires a worker", said[0])
+        self.assertEqual(said[-1], history.undone_to(2))
+
+    def test_a_point_not_offered_is_refused(self) -> None:
+        self.play_turn_3()
+        engine, game, match = self.engine, self.game, self.match
+        before = match.to_dict()
+        for index in (0, 1, len(match.journal)):
+            with self.assertRaises(RuleRefusal):
+                history.undo_to(engine, game, match, index)
+        # The turn has moved on since the menu was built.
+        with self.assertRaises(RuleRefusal):
+            history.undo_to(engine, game, match, 2, of=len(match.journal) + 1)
+        self.assertEqual(match.to_dict(), before)
+
+    def test_the_tech_asked_again_after_a_turn_start_undo_is_no_action(self) -> None:
+        """After an undo to the turn's start the active player's tech is
+        asked again in the main phase, and its choice and confirmation
+        open the journal: no action of the turn, so the hire after them
+        is action 1 and the play action 2 -- and the point before the
+        hire is a point of its own, the main phase with the tech
+        settled, which the turn's start is not."""
+        self.play_turn_3()
+        engine, game, match = self.engine, self.game, self.match
+        history.undo_to_turn_start(match)
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.TECH_CHOICE)
+        apply(engine, game, match, PromptKind.TECH_CHOICE,
+              arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
+        self.assertEqual(history.undo_points(engine, game, match), ())
+        player = match.player(1)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": player.hand[0]})
+        cheapest = min(
+            (row for row in pending_prompt(engine, game, match).options.playable if row.allowed),
+            key=lambda row: row.cost,
+        )
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": cheapest.slug})
+        while (asked := pending_prompt(engine, game, match)).kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET,
+                  arguments={"target": asked.options.targets[0].key})
+        points = history.undo_points(engine, game, match)
+        self.assertEqual([(p.index, p.number, p.choice) for p in points], [(2, 1, "hire"), (3, 2, "play")])
+
+    def test_a_turn_that_no_longer_replays_offers_no_points(self) -> None:
+        """A journal entry the rules now refuse -- a game saved before a
+        rule changed -- closes the fine undo; the snapshots' undos still
+        stand."""
+        self.play_turn_3()
+        engine, game, match = self.engine, self.game, self.match
+        match.journal[0]["action"]["arguments"]["slug"] = "appel_stomp"
+        self.assertEqual(history.undo_points(engine, game, match), ())
+        with self.assertRaises(RuleRefusal):
+            history.undo_to(engine, game, match, 2)
+        self.assertIn(history.TURN_START, history.undo_targets(match))
+
+
+def staged(match) -> None:
+    """The hand-staged position as the turn's start, as the spell tests
+    stage a cancel: the fine undo replays the turn from its snapshot,
+    which staging by hand would bypass."""
+    match.turn_snapshots[-1] = history.position(match)
+    match.journal = []
+
+
+class FineUndoTests(unittest.TestCase):
+    """Finesse (seat 2) going first, its position staged by hand."""
+
+    def setUp(self) -> None:
+        engine, game, match = new_game(seed=3, first=2)
+        begin(engine, game, match)
+        self.engine, self.game, self.match = engine, game, match
+        match.player(2).gold = 20
+
+    def test_a_card_off_a_decks_top_closes_every_point_before_it(self) -> None:
+        """Appel Stomp draws its caster a card: a card seen cannot be
+        unseen, so no point before the cast is open -- the start of the
+        turn aside -- while the point after it is."""
+        engine, game, match = self.engine, self.game, self.match
+        hero_in_play(match, 2, level=5)
+        match.player(2).hero.max_level_since_turn_began = True
+        put(match, 1, "iron_man", patrol="squad_leader")
+        hand(match, 2, "appel_stomp", "timely_messenger")
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": "timely_messenger"})
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": "appel_stomp"})
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.APPEL_STOMP_TOP)
+        apply(engine, game, match, PromptKind.APPEL_STOMP_TOP, "top")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        (point,) = history.undo_points(engine, game, match)
+        self.assertEqual((point.index, point.number, point.choice, point.said), (3, 3, "end_main", ()))
+        with self.assertRaises(RuleRefusal):
+            history.undo_to(engine, game, match, 1)
+        self.assertEqual(history.undo_to(engine, game, match, 3)[-1], history.undone_to(3))
+        self.assertEqual(match.phase, "main")
+        self.assertIn(history.TURN_START, history.undo_targets(match))
+
+    def test_an_action_that_changed_nothing_is_no_point(self) -> None:
+        """An attacker declared and taken back before its defender left
+        the position as it was: no point of its own, and no number."""
+        engine, game, match = self.engine, self.game, self.match
+        unit = put(match, 2, "timely_messenger")
+        hand(match, 2, "spark", "tenderfoot")
+        staged(match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": "spark"})
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", {"attacker": f"unit:{unit.id}"})
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, "cancel")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", {"slug": "tenderfoot"})
+        self.assertEqual(len(match.journal), 4)
+        (point,) = history.undo_points(engine, game, match)
+        self.assertEqual((point.index, point.number, point.choice), (3, 2, "play"))
 
 
 if __name__ == "__main__":

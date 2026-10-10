@@ -339,13 +339,9 @@ def cancel(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepR
     top = match.resolving[0]
     by, seat = top["by"], top["seat"]
     played = top["cancel_from"]
-    later = [
-        entry for entry in match.journal[played + 1:]
-        if entry["action"]["kind"] == "tech_choice"
-    ]
-    kept = [*match.journal[:played], *later]
     rebuilt = history.replay(
-        engine, game, history.latest_snapshot(match), kept, history=match.turn_snapshots,
+        engine, game, history.latest_snapshot(match), history.cut(match.journal, played),
+        history=match.turn_snapshots,
     )
     # Nothing is written to the event log: it would be the one trace of
     # the cast the replay has taken away, and a later replay of the turn
@@ -1970,6 +1966,7 @@ def _exchange(engine, match, top, part, target, result) -> None:
     player.hand.remove(slug)
     player.deck.append(slug)
     player.hand.append(top_card)
+    result.drew = True
     result.narration.append(f"{tokens.player(seat)} exchanges the top card of their draw pile with a card from their hand.")
 
 
@@ -1991,6 +1988,7 @@ def _play_top(engine, match, top, part, target, result) -> None:
         return
     boosted = top.get("mode") == "boosted"
     player.deck.pop()
+    result.drew = True
     actions.put_card_into_play(engine, match, seat, slug, boosted, result, where="draw pile")
 
 

@@ -21,7 +21,9 @@ attackers as buttons.
 Three modes are the view's own and change nothing: **Attack...** opens
 what may attack, **Hire worker** the hand's cards to hire with, **Undo**
 the undos `history.undo_targets` says are open
-(`GameService.undo_targets`); a mode's question, and the attacker over
+(`GameService.undo_targets`) under the fine undo's menu, the points of
+the turn `history.undo_points` offers (`Codex.undo_choices`, each with
+its label); a mode's question, and the attacker over
 the defender's buttons, go under the prompt's ask (`caption`), where the
 menus' placeholders used to carry them.
 
@@ -64,6 +66,39 @@ NOT_YOUR_PANEL = "This panel is the active player's: only they can act from it."
 
 def _cut(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+#: What the fine undo's menu asks.
+UNDO_MENU = "To before an action of this turn..."
+
+
+def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
+    """
+    The fine undo's menu: the points of this turn `history.undo_points`
+    offers, each with its label (`Codex.undo_choices`), newest first and
+    at most a select's worth -- or `None` with nothing to offer. An
+    option's value names the point and the journal's length it was
+    offered at, so a pick from a menu the turn has moved on from is
+    refused by the model (`history.undo_to`).
+    """
+    if not choices:
+        return None
+    menu = discord.ui.Select(
+        placeholder=UNDO_MENU, row=row,
+        options=[
+            discord.SelectOption(label=_cut(label, 100), value=f"{point.index}:{point.of}")
+            for point, label in reversed(list(choices)[-SELECT_LIMIT:])
+        ],
+    )
+    menu.callback = callback
+    return menu
+
+
+def undo_pick(menu: discord.ui.Select) -> tuple[int, int]:
+    """The point a menu's pick names: its index, and the journal's
+    length it was offered at."""
+    index, of = menu.values[0].split(":")
+    return int(index), int(of)
 
 
 def building_label(building: str) -> str:
@@ -186,7 +221,7 @@ class TurnPanelView(PanelView):
     """
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
-                 undo_targets: dict | None = None, building: str | None = None,
+                 undo_targets: dict | None = None, undo_points=(), building: str | None = None,
                  spec: str | None = None, slug: str | None = None,
                  back_to: discord.ui.View | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
@@ -235,7 +270,7 @@ class TurnPanelView(PanelView):
         elif mode == "detect":
             self.build_detect(options)
         elif mode == "undo":
-            self.build_undo(undo_targets or {})
+            self.build_undo(undo_targets or {}, undo_points)
         elif mode == "spec":
             self.build_spec(options)
         elif mode == "boost":
@@ -910,18 +945,31 @@ class TurnPanelView(PanelView):
     async def open_undo(self, interaction: discord.Interaction) -> None:
         await _open_undo(self, interaction)
 
-    def build_undo(self, targets: dict) -> None:
-        """The undos open on this position, as `history.undo_targets`
-        names them, and **Back**."""
+    def build_undo(self, targets: dict, points=()) -> None:
+        """The undos open on this position: the fine undo's menu over
+        the turn's actions (`undo_menu`, where any point is open), the
+        two `history.undo_targets` names, and **Back**."""
+        self.points_menu = undo_menu(points, self.undo_point, row=0)
+        row = 0
+        if self.points_menu is not None:
+            self.add_item(self.points_menu)
+            row = 1
         if history.TURN_START in targets:
             self.button("To the start of my turn", discord.ButtonStyle.danger,
-                        self.undo_turn_start, row=0)
+                        self.undo_turn_start, row=row)
         if history.PREVIOUS_TURN in targets:
             self.button("To the start of the previous turn (asks your opponent)",
-                        discord.ButtonStyle.danger, self.undo_previous_turn, row=0)
+                        discord.ButtonStyle.danger, self.undo_previous_turn, row=row)
         if not targets:
-            self.button("Nothing to undo", discord.ButtonStyle.secondary, None, row=0, disabled=True)
-        self.button("Back", discord.ButtonStyle.secondary, self.back, row=1)
+            self.button("Nothing to undo", discord.ButtonStyle.secondary, None, row=row, disabled=True)
+        self.button("Back", discord.ButtonStyle.secondary, self.back, row=row + 1)
+
+    async def undo_point(self, interaction: discord.Interaction) -> None:
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        index, of = undo_pick(self.points_menu)
+        await self.cog.undo_to(interaction, game, self.seat, index, of)
 
     async def undo_turn_start(self, interaction: discord.Interaction) -> None:
         game, _ = await self.mine(interaction)
@@ -946,28 +994,33 @@ async def _open_undo(panel: PanelView, interaction: discord.Interaction,
     if game is None:
         return
     targets = panel.cog.service.undo_targets(game.game_id)
+    points = panel.cog.undo_choices(game)
     await panel.show(interaction, TurnPanelView(
         panel.cog, panel.game_id, panel.prompt, panel.match, mode="undo",
-        undo_targets=targets, back_to=back_to,
+        undo_targets=targets, undo_points=points, back_to=back_to,
     ))
 
 
 class UndoView(SafeView):
     """
-    **Undo** on the turn message: the undos `history.undo_targets` says
-    are open, sent to the active player alone, the same two as the
-    panel's undo mode. It holds the seat and the turn it was opened on,
-    so a click after the game has moved on is refused rather than
-    undoing a turn it was not opened on. Not persistent: after a
-    restart, **Undo** again.
+    **Undo** on the turn message: the undos open, sent to the active
+    player alone -- the fine undo's menu over the turn's actions and the
+    two `history.undo_targets` says are open, the same as the panel's
+    undo mode. It holds the seat and the turn it was opened on, so a
+    click after the game has moved on is refused rather than undoing a
+    turn it was not opened on. Not persistent: after a restart, **Undo**
+    again.
     """
 
-    def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict) -> None:
+    def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict, points=()) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
         self.game_id = game_id
         self.seat = seat
         self.turn = turn
+        self.points_menu = undo_menu(points, self.undo_point)
+        if self.points_menu is not None:
+            self.add_item(self.points_menu)
         for label, target, callback in (
             ("To the start of my turn", history.TURN_START, self.undo_turn_start),
             ("To the start of the previous turn (asks your opponent)",
@@ -998,6 +1051,13 @@ class UndoView(SafeView):
             )
             return None, None
         return game, match
+
+    async def undo_point(self, interaction: discord.Interaction) -> None:
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        index, of = undo_pick(self.points_menu)
+        await self.cog.undo_to(interaction, game, self.seat, index, of)
 
     async def undo_turn_start(self, interaction: discord.Interaction) -> None:
         game, _ = await self.mine(interaction)
@@ -1077,5 +1137,6 @@ class UndoConfirmView(SafeView):
 
 __all__ = [
     "NOT_YOUR_PANEL", "PANEL_TIMEOUT", "PanelButton", "PanelView", "TurnPanelView",
-    "UndoConfirmView", "UndoView", "building_label", "hand_numbers",
+    "UNDO_MENU", "UndoConfirmView", "UndoView", "building_label", "hand_numbers", "undo_menu",
+    "undo_pick",
 ]

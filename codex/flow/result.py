@@ -11,7 +11,10 @@ naming the step the driver runs next, or `None`.
 Codex's addition is `drawn`: **the random outcomes the step consumed**
 (a reshuffle's order), which `codex.flow.driver.apply` writes into the
 journal beside the action, so a replay deals exactly what was dealt
-(docs/codex-bot.md, decision 11).
+(docs/codex-bot.md, decision 11). Beside it, `drew`: whether a card
+left the top of a deck during the step -- a draw, Vir's exchange, his
+play off the top -- which closes the fine undo to every point before
+the action, since a card seen cannot be unseen (`codex.history`).
 """
 
 from __future__ import annotations
@@ -92,6 +95,10 @@ class StepResult:
     headlines: tuple[Headline, ...] = ()
     #: Each shuffle's resulting order, in the order they were made.
     drawn: list[list[str]] = field(default_factory=list)
+    #: Whether a card left the top of a deck: drawn into a hand, or
+    #: taken off the top by Vir. Not on the wire; the fine undo reads
+    #: it off a replay (`codex.history.undo_points`).
+    drew: bool = False
 
     def to_dict(self) -> dict:
         """
