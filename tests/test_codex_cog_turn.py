@@ -29,8 +29,10 @@ from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.game import GameStatus
 from codex.prompts import PromptKind
-from codex_cog_fakes import Table
+from codex_cog_fakes import Table, find_select
 from codex_positions import hero_in_play, put
+from cogs.codex_helpers import card_name
+from cogs.codex_views.turn import UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     PatrolView,
@@ -67,6 +69,14 @@ def reposted(table: Table, old: int) -> list[tuple[str, int]]:
 
 def playable(view) -> list[str]:
     return [row.slug for row in view.prompt.options.playable if row.allowed]
+
+
+def buttons(view) -> list[str]:
+    return [item.label for item in view.children if isinstance(item, discord.ui.Button)]
+
+
+def menus(view) -> list[discord.ui.Select]:
+    return [item for item in view.children if isinstance(item, discord.ui.Select)]
 
 
 def cards_pictured(call) -> int:
@@ -653,13 +663,16 @@ class TurnEndTests(TurnTestCase):
         self.assertIn("Your deck: ", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
 
-    async def test_an_undo_to_the_turn_start_asks_the_confirmed_tech_again(self) -> None:
+    async def test_an_undo_to_the_turn_start_offers_the_confirmation_and_redoes_the_ready_phase(self) -> None:
         """The turn's tech confirmed and the main phase open, an undo to
-        the turn's start takes the picks back out of the discard pile
-        and asks the choice again, before the turn's actions (the
-        author, 2026-10-10); confirmed again, they go back in."""
+        the turn's start puts the hand-over back: the picks stand and
+        their confirmation is offered again, the discard pile is as it
+        was before the confirm, nobody is told to choose again, and
+        Confirm runs the ready phase again -- its lines once in the turn
+        message, after the undone line (the author, 2026-10-10)."""
         first, _ = await self.reach_turn_three()
         seat = self.game.seat_of(first.id)
+        texts = self.table.game_channel.texts
         _, view = await self.table.panel(first)
         panel = (await self.table.press(view, "Confirm")).view()
         self.assertIsInstance(panel, TurnPanelView)
@@ -667,28 +680,32 @@ class TurnEndTests(TurnTestCase):
         teched = list(player.teched)
         self.assertEqual(len(teched), 2)
         discard, codex = list(player.discard), dict(player.codex)
+        opened = history.position(self.table.match)
+        self.assertEqual(texts[self.game.turn_message_id].count("tech card"), 1)
 
         undo = (await self.table.press(panel, "Undo")).view()
         call = await self.table.press(undo, "To the start of my turn")
         self.assertNothingWentWrong(call)
-        picker = call.view()
-        self.assertIsInstance(picker, TechChoiceView)
-        player = self.table.match.player(seat)
-        self.assertEqual(self.table.match.phase, "main")
+        confirm = call.view()
+        self.assertIsInstance(confirm, TechConfirmView)
+        match = self.table.match
+        self.assertEqual(match.phase, "ready")
+        player = match.player(seat)
+        self.assertEqual(player.tech_choice, teched)
         self.assertEqual(len(player.discard), len(discard) - 2)
         self.assertEqual(sum(player.codex.values()), sum(codex.values()) + 2)
-        line = self.table.cog.render_text(history.tech_again(seat), self.game)
-        self.assertIn(line, self.table.game_channel.texts[self.game.turn_message_id])
+        text = texts[self.game.turn_message_id]
+        self.assertIn(history.UNDONE, text)
+        self.assertNotIn("tech card", text)
+        self.assertNotIn(self.table.cog.render_text(history.tech_again(seat), self.game), text)
 
-        saved = await self.table.press((await pick_tech(self.table, picker)).view(), "Save tech")
-        confirm = saved.view()
-        self.assertIsInstance(confirm, TechConfirmView)
         confirmed = await self.table.press(confirm, "Confirm")
         self.assertNothingWentWrong(confirmed)
         self.assertIsInstance(confirmed.view(), TurnPanelView)
-        player = self.table.match.player(seat)
-        self.assertEqual(len(player.discard), len(discard))
-        self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
+        self.assertEqual(history.position(self.table.match), opened)
+        text = texts[self.game.turn_message_id]
+        self.assertEqual(text.count("tech card"), 1)
+        self.assertLess(text.index(history.UNDONE), text.index("tech card"))
 
     async def test_ten_workers_allow_teching_nothing(self) -> None:
         """At ten workers the ask says teching is optional and why, and
@@ -1327,7 +1344,7 @@ class UndoTests(TurnTestCase):
         patrol = (await self.table.press(view, "End main phase")).view()
         self.assertIsInstance(patrol, PatrolView)
         undo = (await self.table.press(patrol, "Undo...")).view()
-        self.assertIn("To the start of my turn", [item.label for item in undo.children])
+        self.assertIn("To the start of my turn", buttons(undo))
         call = await self.table.press(undo, "To the start of my turn")
         self.assertNothingWentWrong(call)
         self.assertEqual(history.position(self.table.match), start)
@@ -1403,10 +1420,78 @@ class UndoTests(TurnTestCase):
         """On the first turn only the start of this turn is open."""
         _, view = await self.table.panel()
         undo = (await self.table.press(view, "Undo")).view()
-        labels = [item.label for item in undo.children]
+        labels = buttons(undo)
         self.assertIn("To the start of my turn", labels)
         self.assertFalse(any(label.startswith("To the start of the previous") for label in labels))
         self.assertEqual(set(self.table.cog.service.undo_targets(self.game.game_id)), {history.TURN_START})
+        # No action yet to go back to before: no menu.
+        self.assertEqual(menus(undo), [])
+
+    async def hire_then_play(self):
+        """Two actions from a fresh panel -- a worker hired, then the first
+        playable card -- returning the panel, the position after the hire
+        and the turn message's text then."""
+        _, view = await self.table.panel()
+        hire = (await self.table.press(view, "Hire worker")).view()
+        view = (await self.table.press(hire, ("hire", hire.prompt.options.hand[0].slug))).view()
+        after_hire = history.position(self.table.match)
+        hired_text = self.table.game_channel.texts[self.game.turn_message_id]
+        slug = playable(view)[0]
+        view = (await self.table.press(view, ("play", slug))).view()
+        return view, after_hire, hired_text, slug
+
+    async def test_undo_to_a_point_of_the_turn_keeps_what_came_before(self) -> None:
+        """The fine undo from the panel: the menu names the play by its
+        number and first line, with the card's name plain; picking it
+        puts the position back to after the hire, posts the turn message
+        again with the hire's line kept and the undone line under it,
+        and sends the panel under that -- the turn-start undo's cost."""
+        view, after_hire, hired_text, slug = await self.hire_then_play()
+        played = self.game.turn_message_id
+        undo = (await self.table.press(view, "Undo")).view()
+        (menu,) = menus(undo)
+        self.assertEqual(menu.placeholder, UNDO_MENU)
+        (option,) = menu.options
+        self.assertTrue(option.label.startswith("2. "), option.label)
+        self.assertIn(card_name(slug), option.label)
+        self.assertNotIn("**", option.label)
+        self.assertNotIn("{", option.label)
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.choose(undo, UNDO_MENU, option.value)
+        self.assertNothingWentWrong(call)
+        self.assertEqual(history.position(self.table.match), after_hire)
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertIsInstance(call.view(), TurnPanelView)
+        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, played))
+        self.assertEqual(
+            self.table.game_channel.texts[self.game.turn_message_id],
+            hired_text + "\n" + history.undone_to(2),
+        )
+
+    async def test_the_turn_messages_undo_offers_the_points_too(self) -> None:
+        _, after_hire, _, _ = await self.hire_then_play()
+        undo = (await self.table.turn_button("undo", self.table.active)).view()
+        (menu,) = menus(undo)
+        self.assertEqual(len(menu.options), 1)
+        call = await self.table.choose(undo, UNDO_MENU, menu.options[0].value)
+        self.assertNothingWentWrong(call)
+        self.assertEqual(history.position(self.table.match), after_hire)
+        self.assertIsInstance(call.view(), TurnPanelView)
+
+    async def test_a_menu_the_turn_has_moved_on_from_is_refused(self) -> None:
+        """A point picked from a menu built before another action was
+        taken: refused in the model's words, nothing undone."""
+        view, _, _, _ = await self.hire_then_play()
+        undo = (await self.table.press(view, "Undo")).view()
+        (menu,) = menus(undo)
+        _, fresh = await self.table.panel()
+        await self.table.press(fresh, "End main phase")
+        before = self.table.match.to_dict()
+        call = await self.table.choose(undo, UNDO_MENU, menu.options[0].value)
+        kind, args, kwargs = call.last()
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertIn("moved on", args[0])
+        self.assertEqual(self.table.match.to_dict(), before)
 
 
 if __name__ == "__main__":

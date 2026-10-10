@@ -56,6 +56,8 @@ def draw_cards(engine: "RulesEngine", match: MatchState, seat: int, count: int,
             )
         player.hand.append(player.deck.pop())
         drawn += 1
+    if drawn:
+        result.drew = True
     return drawn
 
 
@@ -168,8 +170,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                lead_in: str = "") -> StepResult:
     """
     The ready phase and the upkeep (UMR p. 5), then the turn-start
-    snapshot. Refused while the active player's tech choice still waits
-    on its confirmation: the ready phase is where it is settled.
+    snapshot where the turn has none yet (`_open_main`). Refused while
+    the active player's tech choice still waits on its confirmation:
+    the ready phase is where it is settled.
     """
     seat = match.active
     player = match.active_player
@@ -657,11 +660,20 @@ def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult)
 
 def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                result: StepResult) -> StepResult:
-    """The main phase opens: the turn-start snapshot is taken here, once
-    the upkeep is done."""
+    """
+    The main phase opens. The turn-start snapshot is taken here, once
+    the upkeep is done, **where the turn has none yet**: a turn that
+    opened on its player's tech choice took it at the hand-over
+    (`begin_tech`), so that the confirmation and the ready phase it
+    runs are the journal's first entries and an undo to the turn's
+    start offers the confirmation and runs the ready phase again (the
+    author, 2026-10-10).
+    """
     match.enter_phase("main")
     match.record_event("turn_began")
-    history.snapshot(match)
+    latest = history.latest_snapshot(match)
+    if latest is None or latest.get("turn") != match.turn:
+        history.snapshot(match)
     result.next = pending(engine, game, match)
     return result
 
@@ -860,6 +872,11 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         match.active = 2 if seat == 1 else 1
     match.turn += 1
     match.enter_phase("ready")
+    if tech_is_owed(match, match.active):
+        # The turn waits on its player's tech: its start is this
+        # hand-over, before the confirmation and the ready phase it
+        # runs, which the journal then records (`_open_main`).
+        history.snapshot(match)
     result.next = pending(engine, game, match)
     return result
 

@@ -241,6 +241,11 @@ class CoreMixin:
         """A sentence of the model's, its tokens drawn once, here."""
         return self.tokens.render(text, game)
 
+    def plain_text(self, text: str, game: Optional[CodexGame] = None) -> str:
+        """A sentence of the model's as a label -- a menu's option --
+        its tokens as words and its markup gone."""
+        return self.tokens.plain(text, game).replace("**", "")
+
     # -- The service --------------------------------------------------------
 
     @property
@@ -365,8 +370,11 @@ class CoreMixin:
             self.turn_lines.setdefault(game.game_id, []).extend(result.lines)
 
     def note_turn_head(self, game: CodexGame, match) -> None:
-        """Keep this turn's lines so far as its first lines -- called
-        when its main phase has just opened."""
+        """Keep this turn's lines so far as its first lines: what it
+        said before its snapshot was taken, which the journal does not
+        hold and an undo puts back above what it says -- called when the
+        turn's message first goes up, and where the bot's own step
+        opened the main phase of a turn that owed no tech."""
         heads = self.turn_heads.setdefault(game.game_id, {})
         heads[match.turn] = list(self.turn_lines.get(game.game_id, []))
         for turn in sorted(heads)[:-3]:

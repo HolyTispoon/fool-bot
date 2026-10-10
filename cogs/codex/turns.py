@@ -22,13 +22,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 import discord
 
 from codex.formatting import team_name
 from codex.components import MatchState
 from codex.flow.result import FollowOnStep
+from codex import history
 from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
@@ -42,6 +43,10 @@ from cogs.game_auth import send_new_prompt
 from gamesaves.codex.service import GameResult
 
 LOGGER = logging.getLogger(__name__)
+
+#: What the fine undo's menu calls an action that said nothing, by the
+#: answer that began it (`UndoPoint.choice`): its button's own name.
+SILENT_ACTIONS = {"end_main": "End main phase"}
 
 PANEL_NOTE = "*Only you can see this.*"
 
@@ -396,8 +401,7 @@ class TurnsMixin:
             return True
         return bool(result.lines or result.board_changed)
 
-    async def present(self, game: CodexGame, result: GameResult,
-                      before: Optional[tuple[int, str]] = None) -> None:
+    async def present(self, game: CodexGame, result: GameResult) -> None:
         """
         **The whole of the Discord side of a result.** What it said joins
         the turn's lines and the turn message is posted again at the foot
@@ -408,8 +412,7 @@ class TurnsMixin:
         a base fell, the game's last line. Hidden information never
         reaches here: a result's lines are public (docs/design/codex.md,
         "What the narration may say"), and its prompts go to their asked
-        player through the panel. `before` is the turn and phase the click
-        found, which says whether the turn's main phase has just opened.
+        player through the panel.
         """
         match = result.match
         # The turn ended where the model's own end-of-turn step closed a
@@ -422,8 +425,6 @@ class TurnsMixin:
         if match is not None and match.winner is not None:
             await self.finish_game(game, result)
             return
-        if match is not None and match.phase == "main" and before is not None and before[1] != "main":
-            self.note_turn_head(game, match)
         if result.lines or result.board_changed:
             await self.repost_turn_message(game, match)
 
@@ -486,8 +487,10 @@ class TurnsMixin:
                 )
             await self.stand_turn_message(channel, game, game.turn_message_id, png, text)
         self.turn_lines[game.game_id] = opening
-        if match.phase == "main":
-            self.note_turn_head(game, match)
+        # The turn's first lines: what it said before its snapshot, which
+        # the journal does not hold -- the ready phase's where no tech
+        # was owed, nothing where the turn waits on its tech.
+        self.note_turn_head(game, match)
         await self.post_turn_message(channel, game, match)
 
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:
@@ -528,6 +531,22 @@ class TurnsMixin:
 
     # -- The undos ---------------------------------------------------------------
 
+    def undo_choices(self, game: CodexGame) -> list[tuple[history.UndoPoint, str]]:
+        """
+        The points of this turn the fine undo may go back to
+        (`GameService.undo_points`), oldest first, each with the label
+        its menu option carries: the action's number and the first line
+        it said, its tokens as words since a select's option carries no
+        markup (`plain_text`) -- or, for an action that said nothing,
+        what its button is called (`SILENT_ACTIONS`).
+        """
+        choices = []
+        for point in self.service.undo_points(game.game_id):
+            said = next((line for line in point.said if line), "")
+            text = self.plain_text(said, game) if said else SILENT_ACTIONS.get(point.choice, "An action")
+            choices.append((point, f"{point.number}. {text}"))
+        return choices
+
     async def undo_to_turn_start(self, interaction: discord.Interaction, game: CodexGame,
                                  seat: int) -> None:
         """
@@ -536,12 +555,31 @@ class TurnsMixin:
         start of the turn" and the restored board, the panel sent under it
         from the new prompt. Nobody's consent is asked.
         """
+        await self._own_undo(interaction, game, seat, lambda: self.service.undo_to_turn_start(game.game_id))
+
+    async def undo_to(self, interaction: discord.Interaction, game: CodexGame, seat: int,
+                      index: int, of: int) -> None:
+        """
+        The fine undo, the active player's own as the turn's start is:
+        the match replayed to before one of this turn's actions
+        (`GameService.undo_to`, a point `undo_choices` offered), the turn
+        message posted again with its first lines, the kept actions'
+        lines and the undone line, and the restored board, the panel
+        sent under it. Refused in the model's words for a point no
+        longer offered.
+        """
+        await self._own_undo(interaction, game, seat, lambda: self.service.undo_to(game.game_id, index, of=of))
+
+    async def _own_undo(self, interaction: discord.Interaction, game: CodexGame, seat: int,
+                        undo: Callable[[], GameResult]) -> None:
+        """An undo of the active player's own: `undo` through the
+        service, then the turn message and the panel from the result."""
         match = self.service.load(game)
         if seat != match.active:
             await send_ephemeral(interaction, "Only the player whose turn it is can undo it.")
             return
         try:
-            result = self.service.undo_to_turn_start(game.game_id)
+            result = undo()
         except RuleRefusal as refused:
             await send_ephemeral(interaction, str(refused))
             return

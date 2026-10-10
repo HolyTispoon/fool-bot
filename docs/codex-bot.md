@@ -597,7 +597,15 @@ and the step's prompt is rewritten rather than argued with.
     cannot be used to redraw. Hidden information is in the save
     already, so a snapshot exposes nothing new. The finer undo -- to
     any action of a turn -- is a view and a service method over the
-    same journal, and it is on the list of what is not built yet.
+    same journal; it was built on 2026-10-10 as the author decided it:
+    points between actions only, a card off a deck's top closing the
+    points before it while the start of the turn stays open, and
+    nothing into the previous turn (docs/design/codex.md, "The undos").
+    The same day the author asked that an undo to the start of the turn
+    "offer to confirm tech but also redo the ready phase": where a turn
+    opens on its player's tech, its snapshot is the hand-over, so the
+    confirmation and the ready phase are the journal's first entries
+    and run again after the undo.
     **What it costs:** two saved fields from the first commit, a
     shuffle that can take a recorded order back, and every frontend
     surface -- the panel, the turn message, the board -- re-rendering
@@ -3148,11 +3156,12 @@ heroes and nothing refused that the rulebook allows.
   for this bot. The event log stays in the save, a finished channel is
   moved to the Codex Archive category, and nothing is written from it
   or read out of it.
-- **The finer undo, to any action of a turn.** Its infrastructure --
+- ~~**The finer undo, to any action of a turn.** Its infrastructure --
   the turn-start snapshots and the journal with its recorded random
   outcomes -- is in from step 2, and the two coarse undos are step 4;
   the finer one is a view and a service method over the same journal,
-  later.
+  later.~~ Built on 2026-10-10, outside the steps: docs/design/codex.md,
+  "The undos".
 - ~~**A cloud routine for the series.** Eight steps; claim by hand.~~
   The author asked for one on 2026-10-08; "Claiming a step" has it.
 - **A test of how the board looks.** The author's rule for everything

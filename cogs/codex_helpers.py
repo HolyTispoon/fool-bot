@@ -166,6 +166,22 @@ class CodexTokens:
         """Every token in `text`, drawn once, at the cog's door."""
         return tokens.render(text, lambda kind, arguments: self.resolve(kind, arguments, game))
 
+    def plain(self, text: str, game: "Optional[CodexGame]" = None) -> str:
+        """
+        Every token in `text` as a word, for a label that carries no
+        markup -- a menu's option, a button: the seat's name on `game`'s
+        record for `{player:n}` and `{to:n}`, a card's or a hero's name
+        bare, the rest as `plain_token` words them.
+        """
+        def resolve(kind: str, arguments: tuple[str, ...]) -> str:
+            if kind in ("player", "to") and game is not None:
+                name = game.seat_name(int(arguments[0]))
+                if name:
+                    return name
+            return plain_token(kind, arguments)
+
+        return tokens.render(text, resolve)
+
 
 def card_name(slug: str) -> str:
     """A card's name, for a list of the player's own cards."""
