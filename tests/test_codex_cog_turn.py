@@ -145,8 +145,7 @@ class PanelTests(TurnTestCase):
         self.assertNotIn("view", kwargs)
         self.assertTrue(kwargs["file"].filename.startswith("codex-deck-"))
         deck = self.table.cog.engine.own_deck(self.table.match, seat)
-        self.assertTrue(call.text().startswith(f"Your deck: {deck.size} cards"), call.text())
-        self.assertIn("The cards in your hand are framed in gold.", call.text())
+        self.assertEqual(call.text(), f"Total cards in deck: {deck.size}.")
         self.assertEqual(channel_requests(self.table, mark), [])
 
         # On the turn message, for either player, whoever's turn it is.

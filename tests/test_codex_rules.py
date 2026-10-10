@@ -118,15 +118,25 @@ class OwnDeckTests(unittest.TestCase):
         self.assertEqual((deck.size, deck.hand, deck.draw_pile, deck.discard, deck.in_play),
                          (10, 5, 5, 0, 0))
 
-    def test_the_hands_copies_are_counted_beside_each_card(self) -> None:
-        """`in_hand` runs beside `cards`: each card's copies in the
-        hand, which My deck marks."""
+    def test_the_deck_is_split_into_the_hand_the_discard_and_the_rest(self) -> None:
+        """`held`, `discarded` and `elsewhere` split `cards`: a card with
+        copies in two places is in both, each with its own count."""
         engine, game, match = main_phase()
-        hand(match, 1, "spark", "spark", "tenderfoot")
+        player = match.player(1)
+        hand(match, 1, "spark", "tenderfoot")
+        player.deck = ["tenderfoot", "brick_thief"]
+        player.discard = ["spark", "older_brother"]
         deck = engine.own_deck(match, 1)
-        self.assertEqual(len(deck.in_hand), len(deck.cards))
-        held = {slug: copies for (slug, _), copies in zip(deck.cards, deck.in_hand) if copies}
-        self.assertEqual(held, {"spark": 2, "tenderfoot": 1})
+        self.assertEqual(dict(deck.held), {"spark": 1, "tenderfoot": 1})
+        self.assertEqual(dict(deck.discarded), {"spark": 1, "older_brother": 1})
+        self.assertEqual(dict(deck.elsewhere), {"tenderfoot": 1, "brick_thief": 1})
+        self.assertEqual(dict(deck.cards),
+                         {"spark": 2, "tenderfoot": 2, "brick_thief": 1, "older_brother": 1})
+        # The deck's order in each part, as in the whole.
+        order = [slug for slug, _ in deck.cards]
+        for part in (deck.held, deck.discarded, deck.elsewhere):
+            slugs = [slug for slug, _ in part]
+            self.assertEqual(slugs, sorted(slugs, key=order.index))
 
     def test_tech_joins_it_and_a_hired_card_leaves_it(self) -> None:
         engine, game, match = main_phase()
