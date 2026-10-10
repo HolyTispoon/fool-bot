@@ -79,10 +79,15 @@ EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
 #: regular for the quiet words.
 FONT_FILES = ("RobotoSlab-Bold.ttf", "RobotoSlab-Regular.ttf")
 
-#: What the composed board is scaled by before it is saved: big enough
-#: to read a card's name on a phone through the full-image link, small
-#: enough to upload quickly on every edit.
-BOARD_SCALE = 0.6
+#: What the composed board is scaled by before it is saved: 1, the
+#: canvas's own pixels, so a card on the board is 200 by 273 and its
+#: text reads when the picture is zoomed -- at 0.6 (until 2026-10-09)
+#: a card's name read but not its rules or a hero's level bands, and
+#: at 0.8 they were still soft (the author asked for "a bit higher res
+#: to be able to see" Troq Bashar's card). It costs about two and a
+#: half times the bytes: the staged mid-game board 137 KB to 332
+#: stacked, 144 to 343 side by side, drawn in the same quarter-second.
+BOARD_SCALE = 1.0
 #: The WebP quality every picture is saved at. Each is mostly card art,
 #: which PNG spends four to eight times the bytes on, the two hard to
 #: tell apart at 1:1: the board on the mat it used to be about 2 MB
