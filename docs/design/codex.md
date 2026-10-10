@@ -533,7 +533,11 @@ always.
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
   panel's buttons can say why a defender is legal ("it flies over the patrol
-  zone", "it sneaks past the patrol zone", "it is unstoppable").
+  zone", "it sneaks past the patrol zone", "it is unstoppable"). That
+  reason is about getting past the zone, so a patroller the attacker
+  takes anyway is said as what it is -- "squad leader" or "patroller" --
+  never "it flies over the patrol zone" beside the squad leader it is
+  attacking.
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
   every ground patroller when it attacks something not patrolling, and the

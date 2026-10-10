@@ -2323,7 +2323,8 @@ class RulesEngine:
         makes it so (UMR p. 10), for a frontend to say beside it: the
         squad leader alone while one stops this attacker, then any
         patroller that stops it, then anything of theirs with HP it can
-        attack, with why the patrol zone does not hold it.
+        attack, with why the patrol zone does not hold it -- or, for a
+        patroller it may take anyway, its place in the zone.
         """
         other = 2 if match.active == 1 else 1
         blocking = self.blocking_patrollers(match, attacker)
@@ -2366,11 +2367,19 @@ class RulesEngine:
                     and self.may_be_attacked(match, attacker, hero_ref(hero.slug))
                 ]
             return tuple(rows)
+        # A patroller it may take is said as one, as above: it neither
+        # flew over nor sneaked past the zone it is standing in.
         why = self._open_why(match, attacker)
+        slot_of = {ref: slot for slot, ref in match.player(other).patrollers().items()}
         return tuple(
-            (ref, why) for ref in self._standing(match, other)
+            (ref, self._patroller_why(slot_of[ref]) if ref in slot_of else why)
+            for ref in self._standing(match, other)
             if self.may_be_attacked(match, attacker, ref)
         )
+
+    @staticmethod
+    def _patroller_why(slot: str) -> str:
+        return "squad leader" if slot == "squad_leader" else "patroller"
 
     def _sneaks_to_units(self, match: MatchState, attacker: str) -> bool:
         """Whether this attacker has stealth while attacking a unit
