@@ -518,7 +518,11 @@ it does (`Part.does`, a handler in `codex.flow.resolve.DOES`), beside
 the sentence it was built from; `TEXT` says which card has which and
 when -- `play`, `arrives`, `attacks`, `ability` -- a hero's keyed by the
 band that prints it and read the way its keywords are (Troq's attacks
-trigger from 5, River's ability from 3); and the static texts are a
+trigger from 5, River's ability from 3; `printing_band` reads the key
+back, so Troq's base damage is said as his "middle level band's
+ability" -- `band_name`, "first level", "middle level" or "max level" by
+where the band is on the
+card -- the author, 2026-10-10); and the static texts are a
 handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
 `GRANTS_SWIFT_STRIKE`, `TECH_0_DISCOUNT`, ...).
 
@@ -987,6 +991,28 @@ checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
 
+**A line that damages a building or the base says where it now stands,
+out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
+or Stampede's excess, a spell's, a trigger's or an ability's damage, a
+destroyed building's 2 to its base ("deals 2 to their base, now at
+18/20"), and a building card's damage ("deals 3, now at 1/4"). A line
+whose damage destroys it says no count: the next line says it is
+destroyed (the author, 2026-10-09; the "now at" wording 2026-10-10).
+`board.left_after` is the one wording for a tech building and the
+add-on, `base_left_after` for the base, asked before the damage lands, since
+their damage in combat lands after the lines are said; `board.card_left`
+is a building card's, asked after, since a card's damage lands first.
+**Combat names a building as every other line does** (`board.named`):
+"{player:2}'s Tech I building", and the add-on by its card,
+"{player:2}'s {card:surplus}" -- never "add-on" (the author,
+2026-10-10). The fighter takes its name when the fight begins, while the
+add-on is still there to name.
+**Healing and repair are said the same way.** The upkeep's healing names
+its source and each card it healed, with where it now stands --
+"{card:helpful_turtle}'s healing 1 heals {player:1}'s {hero:troq_bashar}
+1, now at 4/4" -- and says nothing where nothing was damaged; a repair
+ends "now at 4/5" (`board.now_at`) (the author, 2026-10-10).
+
 ### Naming by slug in the tests
 
 `tests/codex_positions.py` stages a position by card slug --
@@ -1256,10 +1282,17 @@ else the bot shows is ephemeral.
     bytes -- 70 KB to 86 KB for the opening, 111 KB to 133 KB for a
     busy mid-game board -- a few hundredths of a second on a phone's
     connection, and still well under the 220 KB the mat board was.
-  - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
-    WebP at quality 85 (`WEBP_QUALITY`), about 85 to 165 KB -- the
-    encoding every picture the bot uploads has, the hand, the codex and
-    the tech picker since 2026-10-09 (below).
+  - Composed at those pixels, scaled by `BOARD_SCALE` (1, the canvas's
+    own pixels, since 2026-10-09; 0.6 before) and saved as WebP at
+    quality 85 (`WEBP_QUALITY`), about 200 to 350 KB -- the encoding
+    every picture the bot uploads has, the hand, the codex and the
+    tech picker since 2026-10-09 (below). At 0.6 a card's name read
+    when the picture was zoomed but not its rules text or a hero's
+    level bands, and at 0.8 they were still soft; at 1 a card on the
+    board is 200 by 273 and reads like one in the hand (the author,
+    2026-10-09). It is two and a half times the bytes -- the staged
+    mid-game board 137 KB to 332 stacked, 144 to 343 side by side --
+    and no slower to draw.
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for

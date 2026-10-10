@@ -16,7 +16,7 @@ from __future__ import annotations
 import unittest
 
 from codex.components import AddOnState
-from codex.flow import board, driver
+from codex.flow import board, driver, resolve
 from codex.prompts import Action, PromptKind, pending_prompt
 
 from codex_positions import RIVER, TROQ, built, hand, hero_in_play, put
@@ -325,6 +325,24 @@ class TriggerTests(unittest.TestCase):
         # The trigger fired once: 2 for the building, 8 for the Duck.
         self.assertEqual(match.player(2).base_hp, 20 - 2 - 8)
         self.assertIsNone(match.combat)
+
+    def test_troq_at_5_names_his_middle_band_and_the_base_now(self) -> None:
+        engine, game, match = bashing()
+        hero_in_play(match, 1, level=5)
+        match.player(2).base_hp = 18
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=TROQ)
+        run = apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        said = [line for group in run.groups for line in group.lines] + list(run.result.narration)
+        self.assertIn(
+            "{hero:troq_bashar}'s middle level band's ability deals 1 to {player:2}'s base, now at 17/20.", said,
+        )
+
+    def test_a_band_is_first_middle_or_max_level(self) -> None:
+        engine, game, match = bashing()
+        self.assertEqual(
+            [resolve.band_name(engine, "troq_bashar", first) for first in (1, 5, 8)],
+            ["first level", "middle level", "max level"],
+        )
 
     def test_troq_at_5_can_win_the_game_before_the_damage(self) -> None:
         engine, game, match = bashing()
