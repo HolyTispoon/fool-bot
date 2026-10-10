@@ -39,6 +39,8 @@ from cogs.codex_views.turn_message import (
     deck_file,
     hand_caption,
     hand_file,
+    revealed_caption,
+    revealed_files,
     side_label,
     swap_label,
 )
@@ -73,6 +75,8 @@ __all__ = [
     "hand_caption",
     "hand_file",
     "hand_numbers",
+    "revealed_caption",
+    "revealed_files",
     "hero_options",
     "kept_pictures",
     "next_empty",

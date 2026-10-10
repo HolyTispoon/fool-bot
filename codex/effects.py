@@ -1,8 +1,8 @@
 """
 What each card's text does -- the table the engine reads -- and the
-list of the cards whose text the engine does not do yet: empty from
-step 6 to step 9, red and green's in step 10, and empty again since
-step 11.
+list of the cards whose text the engine did not do yet: empty from
+step 6 to step 9, red and green's in step 10, empty again in step 11,
+and **empty for good since step 13**, when every printed card plays.
 
 **`UNIMPLEMENTED` is the vanilla engine's honesty** (docs/codex-bot.md,
 decision 7, and docs/design/codex.md, "The vanilla engine"). Every card
@@ -137,16 +137,56 @@ BLACK = frozenset({
     "zombie"
 })
 
+#: White, landed at step 13 (docs/codex-bot.md): its ten starters, the
+#: twelve of Discipline, Ninjutsu and Strength, its three heroes and its
+#: three tokens -- the Bird, the Ninja and Daigo Stormborne.
+WHITE = frozenset({
+    "aged_sensei", "ardras_boulder", "bird", "birds_nest", "colossus",
+    "daigo_stormborne", "doubling_barbarbarian", "earthquake", "entangling_vines",
+    "flying_fox", "focus_master", "fox_primus", "fox_viper", "foxs_den_school",
+    "foxs_den_students", "fuzz_cuddles", "garus_rook", "glorious_ninja",
+    "grappling_hook", "grave_stormborne", "heros_monument", "hidden_ninja",
+    "inverse_power_ninja", "jade_fox_dens_headmistress",
+    "jefferson_degrey_ghostly_diplomat", "martial_mastery", "masked_raccoon",
+    "mindparry_monk", "morningstar_flagbearer", "morningstar_pass", "mythmaking",
+    "ninja", "oathkeeper_of_kor_mountain", "porcupine", "rambasa_twin", "reversal",
+    "safe_attacking", "savior_monk", "senseis_advice", "setsuki_hiruki",
+    "shuriken_hail", "smoker", "snapback", "sparring_partner", "speed_of_the_fox",
+    "thunderclap", "training_grounds", "true_power_of_storms", "versatile_style",
+    "vigor_adept", "whitestar_grappler", "young_lightning_dragon"
+})
+
+#: Blue, landed with white: its ten starters, the twelve of Law, Peace
+#: and Truth, its three heroes and its four tokens -- the Mirror
+#: Illusion, the Soldier, and the Shark and the Water Elemental red and
+#: green borrowed (`BORROWED_TOKENS`).
+BLUE = frozenset({
+    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "bluecoat_musketeer",
+    "boot_camp", "brave_knight", "building_inspector", "censorship_council",
+    "community_service", "debilitator_alpha", "dreamscape", "drill_sergeant",
+    "elite_training", "eyes_of_the_chancellor", "flagstone_garrison", "flagstone_spy",
+    "free_speech", "general_onimaru", "generals_hammer", "guardian_of_the_gates",
+    "hallucination", "injunction", "insurance_agent", "jail", "judgment_day",
+    "jurisdiction", "justice_juggernaut", "lawbringer_gryphon", "lawful_search",
+    "liberty_gryphon", "macciatus_the_whisperer", "manufactured_truth", "mind_control",
+    "mirror_illusion", "overeager_cadet", "patriot_gryphon", "porkhand_magistrate",
+    "reputable_newsman", "reteller_of_truths", "scribe", "shark", "sirus_quince",
+    "soldier", "spectral_aven", "spectral_flagbearer", "spectral_hound",
+    "spectral_roc", "spectral_tiger", "tax_collector", "the_art_of_war",
+    "traffic_director", "water_elemental"
+})
+
 #: The tokens of another colour that red and green summon: Surprise
 #: Attack's Sharks and Argagarg's Water Elemental, both blue. Landed with
-#: the cards that make them, so their keywords are read.
+#: the cards that make them, so their keywords are read -- and part of
+#: `BLUE` once blue landed (step 13).
 BORROWED_TOKENS = frozenset({"shark", "water_elemental"})
 
 #: **Every card the engine reads** -- the keyword table and the
 #: static tables below are read over it, and the lobby offers the
 #: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
 #: step adds its two.
-LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
+LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE | BLUE
 
 #: Every landed slug whose text the engine plays for its numbers alone.
 #: Written out rather than computed, so the commit that takes a card out
@@ -168,8 +208,17 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 #: numbers: every purple or black card, hero and token with text that is
 #: more than keywords the engine reads -- the six heroes' bands among
 #: them. Argonaut's readiness, the Stinger's flying and the Horror's
-#: deathtouch are read whole, and play in full.
-UNIMPLEMENTED: frozenset = frozenset()
+#: deathtouch are read whole, and play in full. Step 12 emptied it again.
+#:
+#: **Step 13 fills it a last time** with white and blue, played for their
+#: numbers: every white or blue card, hero and token with text that is
+#: more than keywords the engine reads -- the six heroes' bands among
+#: them. Fox Primus, Fox Viper, Flying Fox, Glorious Ninja, Vigor Adept,
+#: Porcupine, Savior Monk, Fuzz Cuddles, the Bird and the Soldier are
+#: read whole, and play in full. Step 13 emptied it for good: there is no
+#: next spec for the table to wait for.
+UNIMPLEMENTED: frozenset = frozenset({
+})
 
 
 # -- What a text does, part by part ------------------------------------------
@@ -1772,3 +1821,579 @@ UPKEEP_SACRIFICE = {"banefire_golem": "banefire_golem"}
 PLAGUE_UPKEEP = frozenset({"plague_lord"})
 #: Shrine of Forbidden Knowledge: "Upkeep: Your base takes 1 damage."
 SELF_BASE_UPKEEP = {"shrine_of_forbidden_knowledge": 1}
+
+# -- White and blue: the keywords and the copies (step 13, commit 2) ---------
+
+#: Two Lives (Garus Rook at 8, Justice Juggernaut): "If this would die,
+#: heal all damage on it and put a crumbling rune on it instead. While it
+#: has a crumbling rune, it can really die." -- the keyword, and the rune.
+TWO_LIVES = "Two Lives"
+CRUMBLING = "crumbling"
+#: Stash (Bigby Hayes): "You may keep a card during the draw/discard
+#: step. If you do, draw one card less."
+STASH = "Stash"
+#: Illusion is a subtype, not an ability (the illusion ruling): "Illusions
+#: die when they're {target} by spells or abilities."
+ILLUSION = "Illusion"
+#: Dreamscape: "All tech 0, I, and II units are Illusions." -- every one,
+#: either side's, while it is in play.
+DREAMSCAPE = frozenset({"dreamscape"})
+#: Macciatus, The Whisperer: "Your Illusion units get +1/+1 and no longer
+#: die when they are {target} by spells or abilities."
+ILLUSION_GUARDS = frozenset({"macciatus_the_whisperer"})
+#: Reteller of Truths: "The first two times each turn one of your
+#: non-token Illusion units dies (including this one), return it to its
+#: owner's hand." -- each Reteller its two.
+RETELLERS = frozenset({"reteller_of_truths"})
+RETELLER_LIMIT = 2
+#: Smoker: "When Smoker is {target} by a spell or ability, return him to
+#: his owner's hand." -- before the rest of it resolves (his ruling).
+RETURNS_WHEN_TARGETED = frozenset({"smoker"})
+#: A detector (UMR p. 16): "Opposing stealth and invisible forces are
+#: visible to you." -- Eyes of the Chancellor's keyword, Versatile
+#: Style's for a turn.
+DETECTOR = "Detector"
+#: Bluecoat Musketeer: "While this has exactly 1 ATK, it has long-range."
+#: -- its ATK after every effect and rune (its ruling).
+LONG_RANGE_AT_ONE = frozenset({"bluecoat_musketeer"})
+#: Garus Rook at 5: "Unstoppable by patrol zones with only one patroller."
+UNSTOPPABLE_BY_LONE_PATROLLER = {("garus_rook", 5)}
+#: Colossus: "Unstoppable when attacking a base."
+UNSTOPPABLE_ATTACKING_BASE = frozenset({"colossus"})
+#: Traffic Director: "Unstoppable when attacking a building."
+UNSTOPPABLE_ATTACKING_BUILDINGS = frozenset({"traffic_director"})
+#: Patriot Gryphon: "Unstoppable by units with 2 ATK or less."
+UNSTOPPABLE_BY_WEAK = {"patriot_gryphon": 2}
+#: Masked Raccoon: "Unstoppable by units if you have another Ninja.
+#: Unattackable by units if you have another Cute Animal."
+UNSTOPPABLE_WITH_NINJA = frozenset({"masked_raccoon"})
+UNATTACKABLE_WITH_CUTE_ANIMAL = frozenset({"masked_raccoon"})
+NINJA = "Ninja"
+CUTE_ANIMAL = "Cute Animal"
+#: Liberty Gryphon: "Unstoppable, unattackable, and untargetable while you
+#: control an Illusion with any other name than Liberty Gryphon."
+LIBERTY = frozenset({"liberty_gryphon"})
+LIBERTY_KEYWORDS = ("Unstoppable", "Unattackable", "Untargetable")
+#: Fox's Den School: "Your Ninjas and Cute Animals are invisible."
+UNIT_GRANTS.update({
+    "foxs_den_school": "den_invisible",
+    "macciatus_the_whisperer": "illusions",
+})
+#: Justice Juggernaut's and Daigo Stormborne's "can't patrol".
+CANT_PATROL = CANT_PATROL | {"justice_juggernaut", "daigo_stormborne"}
+#: Dreamscape is channeled on the Truth hero.
+CHANNELING = {**CHANNELING, "dreamscape": "truth"}
+for _effect_row in (
+    # Dreamscape's text is what it does in play (`DREAMSCAPE`).
+    _effect("dreamscape"),
+    # Hallucination: "Up to two tech 0, I, or II units are Illusions this
+    # turn." -- {target}, so an Illusion already dies of it.
+    _effect("hallucination", Part("illusion", "unit_tech_upto_2", 0,
+                                  "make a tech 0, I or II unit an Illusion this turn",
+                                  most=2, least=0)),
+    # Manufactured Truth: "One of your tech 0 or I units becomes a copy of
+    # another tech 0 or I unit until end of turn." -- no {target}, so a
+    # flagbearer forces nothing (the flagbearer ruling).
+    _effect(
+        "manufactured_truth",
+        Part("copier", "own_unit_tech_0_1", 0, "choose one of your tech 0 or I units to become a copy",
+             targeted=False),
+        Part("copy", "other_unit_tech_0_1", 0, "choose another tech 0 or I unit for it to copy",
+             targeted=False, follows=True),
+        says="make one of your tech 0 or I units a copy of another",
+    ),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "dreamscape": (("play", "dreamscape"),),
+    "hallucination": (("play", "hallucination"),),
+    "manufactured_truth": (("play", "manufactured_truth"),),
+})
+#: Oathkeeper of Kor Mountain: "Arrives: Choose an oath: 'I won't play
+#: cards from my hand besides workers' or 'I will skip my draw/discard
+#: phase.'" -- the oath chosen kept on him (`CardInstance.oath`).
+OATHKEEPERS = frozenset({"oathkeeper_of_kor_mountain"})
+OATH_HAND = "hand"
+OATH_DRAW = "draw"
+
+# -- The zones and the rules a player is put under (step 13, commit 3) -------
+
+#: Jail: "Opposing units played from hand go to jail instead of arriving.
+#: When a unit enters jail, any unit already there is released and
+#: arrives in play. (Jailed units aren't in play. They're discarded if
+#: Jail is destroyed.)" -- never a forecast unit (its ruling).
+JAILS = frozenset({"jail"})
+#: Censorship Council: "Opponents can't play more than one card from hand
+#: during their turns. (This doesn't include hiring workers.)" -- nor an
+#: effect's "put into play" (its ruling).
+CENSORS = frozenset({"censorship_council"})
+#: Reputable Newsman: "Arrives: Choose a number. Opponents can't play
+#: spells or upgrades that cost that amount." -- 0 to 20, the gold cap.
+NEWSMEN = frozenset({"reputable_newsman"})
+NUMBER_MOST = 20
+#: Building Inspector: "The first building each opponent builds each turn
+#: costs {gold:1} more to build." -- tech buildings, add-ons and building
+#: cards, a rebuild's 0 becoming 1 (its ruling); each Inspector its 1.
+INSPECTORS = frozenset({"building_inspector"})
+#: Morningstar Pass: "Prevent all damage that would be dealt to your other
+#: buildings. Opponents must pay {gold:1} each time they would attack
+#: Morningstar Pass." -- the base is a building.
+PASSES = frozenset({"morningstar_pass"})
+#: Setsuki at 1: "While Setsuki isn't patrolling, opponents must pay
+#: {gold:1} each time they would attack her."
+SETSUKI_TOLL = ("setsuki_hiruki", 1)
+ATTACK_TOLL = 1
+#: Lawbringer Gryphon: "Your base gains flying." -- gone when he leaves
+#: (his ruling).
+FLYING_BASE = frozenset({"lawbringer_gryphon"})
+#: Mind-Parry Monk: "Opponents can't {target} your units or heroes with
+#: spells or abilities."
+MINDPARRY = frozenset({"mindparry_monk"})
+#: Eyes of the Chancellor: "Opponents play with their hands revealed." --
+#: the one standing reveal, to the Eyes' controller alone.
+REVEALS_HANDS = frozenset({"eyes_of_the_chancellor"})
+
+for _effect_row in (
+    # Reputable Newsman: "Arrives: Choose a number." (`CHOOSE_NUMBER`).
+    _effect("reputable_newsman", Part("number", None, 0, "choose a number", targeted=False)),
+    # Oathkeeper: "Arrives: Choose an oath." (`OATH`).
+    _effect("oathkeeper_of_kor_mountain", Part("oath", None, 0, "choose an oath", targeted=False)),
+    # Oathkeeper: "{gold:2} -> Sideline all patrolling units." -- both
+    # sides' units; heroes aren't units.
+    _effect("oathkeeper_sideline", Part("sideline_all", None, 0, targeted=False),
+            says="sideline all patrolling units"),
+    # Free Speech: "Silence an opponent." -- no {target}.
+    _effect("free_speech", Part("silence", None, 0, targeted=False)),
+    # Eyes of the Chancellor: "{exhaust} -> Make a friendly unit invisible
+    # until your next upkeep." -- no {target} on the card.
+    _effect("eyes_of_the_chancellor", Part("unphase", "own_unit", 0,
+                                           "make a friendly unit invisible until your next upkeep",
+                                           targeted=False)),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "reputable_newsman": (("arrives", "reputable_newsman"),),
+    "oathkeeper_of_kor_mountain": (("arrives", "oathkeeper_of_kor_mountain"),
+                                   ("ability", "oathkeeper_sideline")),
+    "free_speech": (("play", "free_speech"),),
+    "eyes_of_the_chancellor": (("ability", "eyes_of_the_chancellor"),),
+})
+COSTS.update({
+    "oathkeeper_sideline": Cost(gold=2),
+    "eyes_of_the_chancellor": Cost(exhaust=True),
+})
+
+# -- White's effects (step 13, commit 4) ----------------------------------------
+
+#: "Thrice-per-turn" and the like (step 13): the most an ability is used a
+#: turn, where it is more than once -- Young Lightning Dragon's three.
+PER_TURN = {"young_lightning_dragon": 3}
+#: Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2).
+#: Upkeep: Re-summon lost birds (limit: 2)." -- two Birds at most however
+#: many Nests: each Nest, played or at its upkeep, sees the Birds in play
+#: and puts none past the two (its ruling; the author, 2026-10-10: the
+#: database's ruling over the Card FAQ).
+BIRDS_NESTS = frozenset({"birds_nest"})
+BIRD = "bird"
+BIRD_LIMIT = 2
+CHANNELING = {**CHANNELING, "birds_nest": "strength"}
+#: Doubling Barbarbarian: "Whenever he would gain ATK, HP, or armor, he
+#: gains double that much instead." -- runes, squad leader's armor and
+#: temporary effects too, never healing (his rulings).
+DOUBLERS = frozenset({"doubling_barbarbarian"})
+#: Entangling Vines: "Attach to a patrolling unit. Sideline the unit. It
+#: can't attack or patrol."
+VINES = "entangling_vines"
+ATTACHING = ATTACHING | {VINES}
+#: Focus Master: "Arrives: Put three focus runes on this. Whenever a
+#: friendly unit or hero would take exactly lethal damage, remove a focus
+#: rune to prevent 1 damage."
+FOCUS_MASTERS = frozenset({"focus_master"})
+FOCUS = "focus"
+#: Fox's Den Students: "This turn, your Ninja units have haste and
+#: stealth." -- continuous, on the caster's side (`PlayerState.lasting`).
+DEN_STUDENTS = "den_students"
+#: Hero's Monument: "Arrives: Summon ... Daigo Stormborne ... Trash him
+#: when this leaves play. Your heroes get +1/+1."
+MONUMENTS = frozenset({"heros_monument"})
+DAIGO = "daigo_stormborne"
+#: Inverse Power Ninja: "Gets -1/-1 for each other unit or hero you have."
+INVERSE = frozenset({"inverse_power_ninja"})
+#: Jade Fox: "Your Ninjas have flying and swift strike." -- herself too.
+UNIT_GRANTS.update({"jade_fox_dens_headmistress": "jade_ninjas"})
+#: Mythmaking: "Your legendary units get +2/+2 and your legendary
+#: buildings get +2 HP. Opponents' legendary units get -1/-1."
+MYTHMAKING = frozenset({"mythmaking"})
+#: Rambasa Twin: "The first time a Rambasa Twin dies each turn, return him
+#: to his owner's codex."
+TWINS = frozenset({"rambasa_twin"})
+#: Safe Attacking: "Your tech 0 and I units get +1 armor while they
+#: attack." -- lost after each attack, again on a second (its rulings).
+SAFE_ATTACKING = frozenset({"safe_attacking"})
+#: Setsuki at 6: "Upkeep: Draw 2 cards."
+UPKEEP_HERO_DRAW = {("setsuki_hiruki", 6): 2}
+#: Training Grounds and Hero's Monument: what they give their
+#: controller's heroes.
+HERO_GRANTS.update({"training_grounds": "training", "heros_monument": "monument"})
+#: Sparring Partner's "he can't attack this turn".
+CANT_ATTACK_MODIFIER = "cant_attack"
+
+for _effect_row in (
+    # Aged Sensei: "{exhaust} -> Give a friendly unit or hero +1 ATK/+1
+    # armor this turn." {target}
+    _effect("aged_sensei", Part("buff", "friendly_unit_or_hero", 1,
+                                "give a friendly unit or hero +1 ATK and +1 armor this turn")),
+    # Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2)."
+    _effect("birds_nest", Part("birds", None, 2, targeted=False)),
+    _effect("birds_nest_upkeep", Part("birds", None, 2, targeted=False)),
+    # Earthquake: "Deal 4 damage to all an opponent's damaged buildings.
+    # Deal 1 damage to all their undamaged buildings." -- read sentence by
+    # sentence (its ruling).
+    _effect("earthquake", Part("earthquake", None, 4, targeted=False)),
+    # Entangling Vines: "Attach to a patrolling unit." {target}
+    _effect("entangling_vines", Part("attach", "patrolling_unit", 0, "attach to a patrolling unit")),
+    # Focus Master: "Arrives: Put three focus runes on this."
+    _effect("focus_master", Part("rune_on_self", None, 3, targeted=False, token="focus")),
+    # Fox's Den School: "{gold:2}, {exhaust} -> One of your units becomes a
+    # Ninja (in addition to its other types.)" {target}
+    _effect("foxs_den_school", Part("make_ninja", "own_unit", 0, "make one of your units a Ninja")),
+    # Fox's Den Students: "Summon four 1/1 white Ninja tokens. This turn,
+    # your Ninja units have haste and stealth."
+    _effect("foxs_den_students", Part("token", None, 4, targeted=False, token="ninja"),
+            Part("den_students", None, 0, targeted=False)),
+    # Grappling Hook: "Pull a patroller to an empty slot in its patrol zone."
+    # {target} -- over any between (the Card FAQ).
+    _effect("grappling_hook", Part("shove", "patroller", 0, "pull a patroller"),
+            Part("shove_slot", "empty_slot", 0, "choose the empty slot it is pulled to",
+                 targeted=False)),
+    # Grave at 7: "Max Level: Put a sword rune on this." and "{exhaust},
+    # Remove a sword rune -> Destroy a unit or hero. {target}"
+    _effect("grave_stormborne_rune", Part("rune_on_self", None, 1, targeted=False, token="sword")),
+    _effect("grave_stormborne", Part("destroy", "unit_or_hero", 0, "destroy a unit or hero")),
+    # Hero's Monument: "Arrives: Summon an 8/8 legendary white Ghost token
+    # named "Daigo Stormborne."" -- remembered by the Monument.
+    _effect("heros_monument", Part("daigo", None, 1, targeted=False, token="daigo_stormborne")),
+    # Hidden Ninja: "Up to two of your units and/or heroes with 4 ATK or
+    # less have stealth this turn. If either is a Ninja or Ninjutsu hero,
+    # draw a card." {target}
+    _effect("hidden_ninja",
+            Part("hidden", "own_unit_or_hero_atk_4", 0,
+                 "give one of your units or heroes with 4 ATK or less stealth this turn",
+                 most=2, least=0),
+            Part("ninja_draw", None, 1, targeted=False)),
+    # Jade Fox: "Arrives: Summon four 1/1 white Ninja tokens."
+    _effect("jade_fox_dens_headmistress", Part("token", None, 4, targeted=False, token="ninja")),
+    # Jefferson DeGrey: "Arrives: Destroy all tokens."
+    _effect("jefferson_degrey_ghostly_diplomat", Part("destroy_tokens", None, 0, targeted=False)),
+    # Martial Mastery: "Discard a card, draw two cards, then look at the
+    # opponent's hand." -- it is not discarded until done (its ruling).
+    _effect("martial_mastery",
+            Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+            Part("draw", None, 2, targeted=False),
+            Part("look_at", "opponent_hand_look", 0, "look at their hand", targeted=False, least=0)),
+    # Rambasa Twin: "Arrives: You may put a Rambasa Twin from your codex into
+    # play."
+    _effect("rambasa_twin", Part("put_into_play", "codex_rambasa", 0,
+                                 "put a Rambasa Twin from your codex into play",
+                                 targeted=False, least=0)),
+    # Reversal: "Deal 3 damage to a patroller, then disable it." {target}
+    _effect("reversal", Part("damage", "patroller", 3, "deal 3 damage to a patroller"),
+            Part("disable_picked", None, 0, targeted=False, follows=True)),
+    # Sensei's Advice: "Give up to two of your units +1 ATK/+1 armor this
+    # turn." {target}
+    _effect("senseis_advice", Part("buff", "own_unit", 1, "give one of your units +1 ATK and +1 armor this turn",
+                                   most=2, least=0)),
+    # Setsuki at 4: "Attacks: Swift strike this turn."
+    _effect("setsuki_hiruki", Part("keyword_self", None, 0, targeted=False, token="Swift strike")),
+    # Shuriken Hail: "Deal 1 damage to each patroller."
+    _effect("shuriken_hail", Part("hail", None, 1, targeted=False)),
+    # Snapback: "Return an opposing hero to its command zone. It can't be
+    # summoned until after its owner's next turn. Put another hero from that
+    # command zone into play, or the same hero if there isn't another."
+    # {target}
+    _effect("snapback",
+            Part("snapback", "opposing_hero", 0, "return an opposing hero to its command zone"),
+            Part("snapback_in", "snapped_command_hero", 0,
+                 "choose the hero of that command zone that comes into play",
+                 targeted=False, follows=True)),
+    # Sparring Partner: "{exhaust} -> Put a +1/+1 rune on a friendly unit or
+    # hero that doesn't have a +1/+1 rune." {target} and "{gold:2} -> Ready
+    # Sparring Partner, but he can't attack this turn (he can only spar)."
+    _effect("sparring_partner", Part("plus_rune", "friendly_unbloomed", 1,
+                                     "put a +1/+1 rune on a friendly unit or hero without one")),
+    _effect("sparring_partner_ready", Part("spar", None, 0, targeted=False),
+            says="ready him to spar again"),
+    # Speed of the Fox: "Your Ninjutsu hero gets haste, readiness, armor
+    # piercing, and +1 ATK this turn." {target}
+    _effect("speed_of_the_fox", Part("fox_speed", "own_ninjutsu_hero", 1,
+                                     "give your Ninjutsu hero haste, readiness, armor piercing and +1 ATK")),
+    # Thunderclap: "Sideline up to three units without flying that cost
+    # {gold:2} or less." {target}
+    _effect("thunderclap", Part("sideline", "cheap_ground_unit", 0,
+                                "sideline a unit without flying that costs 2 or less", most=3, least=0)),
+    # Training Grounds: "{exhaust} -> Level up a hero to max level." -- one
+    # of its controller's, never an opponent's (the author, 2026-10-10).
+    _effect("training_grounds", Part("max_level", "own_hero_in_play", 0, "level one of your heroes up to its max level",
+                                     targeted=False)),
+    # True Power of Storms: "Reveal and discard two other cards that cost
+    # {gold:3}. If you do, deal 10 damage to a unit, hero, or building."
+    # {target} -- nothing targeted unless both are discarded (its ruling).
+    # It may be played with fewer than two such cards, or discard only one,
+    # and then does nothing (the author, 2026-10-10).
+    _effect("true_power_of_storms",
+            Part("storm_discard", "hand_cost_3", 0, "reveal and discard a card that costs 3",
+                 targeted=False, most=2, least=0),
+            Part("damage", "unit_hero_or_building", 10, "deal 10 damage to a unit, hero or building",
+                 when="stormed")),
+    # Versatile Style: "Choose one of the following: Destroy an upgrade.
+    # Disable a unit or hero with flying. Repair 2 damage from a building.
+    # Your Discipline hero is a detector this turn." {target}
+    _effect(
+        "versatile_style",
+        Part("mode", modes=(("upgrade", "destroy an upgrade"),
+                            ("flier", "disable a unit or hero with flying"),
+                            ("repair", "repair 2 damage from a building"),
+                            ("detector", "your Discipline hero is a detector this turn")),
+             says="choose one"),
+        Part("destroy_card", "upgrade", 0, "destroy an upgrade", only="upgrade"),
+        Part("disable", "flier", 0, "disable a unit or hero with flying", only="flier"),
+        Part("repair", "other_building", 2, "repair 2 damage from a building", only="repair"),
+        Part("detector", None, 0, targeted=False, only="detector"),
+    ),
+    # Whitestar Grappler: "{exhaust} -> Deal 4 damage to a unit. If it's
+    # still alive, it deals its ATK to Whitestar Grappler. Sideline it if it
+    # was patrolling." {target}
+    _effect("whitestar_grappler", Part("grapple", "unit", 4, "deal 4 damage to a unit")),
+    # Young Lightning Dragon: "{gold:1} -> Gets +1 ATK this turn.
+    # Thrice-per-turn."
+    _effect("young_lightning_dragon", Part("atk_self", None, 1, targeted=False), says="get +1 ATK this turn"),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "aged_sensei": (("ability", "aged_sensei"),),
+    "birds_nest": (("play", "birds_nest"),),
+    "earthquake": (("play", "earthquake"),),
+    "entangling_vines": (("play", "entangling_vines"),),
+    "focus_master": (("arrives", "focus_master"),),
+    "foxs_den_school": (("ability", "foxs_den_school"),),
+    "foxs_den_students": (("play", "foxs_den_students"),),
+    "grappling_hook": (("play", "grappling_hook"),),
+    ("grave_stormborne", 7): (("max_level", "grave_stormborne_rune"), ("ability", "grave_stormborne")),
+    "heros_monument": (("arrives", "heros_monument"),),
+    "hidden_ninja": (("play", "hidden_ninja"),),
+    "jade_fox_dens_headmistress": (("arrives", "jade_fox_dens_headmistress"),),
+    "jefferson_degrey_ghostly_diplomat": (("arrives", "jefferson_degrey_ghostly_diplomat"),),
+    "martial_mastery": (("play", "martial_mastery"),),
+    "rambasa_twin": (("arrives", "rambasa_twin"),),
+    "reversal": (("play", "reversal"),),
+    "senseis_advice": (("play", "senseis_advice"),),
+    ("setsuki_hiruki", 4): (("attacks", "setsuki_hiruki"),),
+    "shuriken_hail": (("play", "shuriken_hail"),),
+    "snapback": (("play", "snapback"),),
+    "sparring_partner": (("ability", "sparring_partner"), ("ability", "sparring_partner_ready")),
+    "speed_of_the_fox": (("play", "speed_of_the_fox"),),
+    "thunderclap": (("play", "thunderclap"),),
+    "training_grounds": (("ability", "training_grounds"),),
+    "true_power_of_storms": (("play", "true_power_of_storms"),),
+    "versatile_style": (("play", "versatile_style"),),
+    "whitestar_grappler": (("ability", "whitestar_grappler"),),
+    "young_lightning_dragon": (("ability", "young_lightning_dragon"),),
+})
+COSTS.update({
+    "aged_sensei": Cost(exhaust=True),
+    "foxs_den_school": Cost(gold=2, exhaust=True),
+    "grave_stormborne": Cost(exhaust=True, runes=("sword", 1)),
+    "sparring_partner": Cost(exhaust=True),
+    "sparring_partner_ready": Cost(gold=2),
+    "training_grounds": Cost(exhaust=True),
+    "whitestar_grappler": Cost(exhaust=True),
+    "young_lightning_dragon": Cost(gold=1, once=True),
+})
+
+# -- Blue's effects (step 13, commit 5) -----------------------------------------
+
+#: Air Hammer: "+2 ATK when attacking damaged buildings."
+DAMAGED_BUILDINGS_ATK = {"air_hammer": 2}
+#: Brave Knight: "Whenever Brave Knight would die from combat damage, return
+#: him to his owner's hand instead." -- a -1/-1 rune dealt as combat damage,
+#: the tower's, sparkshot's and overpower's too (his rulings).
+BRAVE = frozenset({"brave_knight"})
+#: Debilitator Alpha: "As squad leader: Units attacking Debilitator Alpha
+#: get -1 ATK."
+DEBILITATORS = {"debilitator_alpha": 1}
+#: Drill Sergeant and Flagstone Garrison: "Whenever you play a unit from
+#: your hand, ..." -- never a spell that summons, nor a unit put into play
+#: from the hand (their rulings).
+ON_UNIT_FROM_HAND = {"drill_sergeant": "rune", "flagstone_garrison": "draw"}
+#: Flagstone Spy: "Whenever Flagstone Spy deals combat damage to a building,
+#: look at that player's hand and steal {gold:1} from them."
+SPIES = {"flagstone_spy": 1}
+#: Guardian of the Gates: "Can't attack. Whenever Guardian of the Gates
+#: deals combat damage to a unit, disable it." -- armor's share counts (its
+#: ruling).
+GUARDIANS = frozenset({"guardian_of_the_gates"})
+CANT_ATTACK = CANT_ATTACK | GUARDIANS
+#: Insurance Agent: "Arrives: Put an insurance rune on a unit. When that
+#: insured unit dies, gain gold equal to its gold cost and draw a card." --
+#: the Agent remembers the unit (its modifier `insures`), and the rune is a
+#: marker alone (its rulings).
+INSURERS = frozenset({"insurance_agent"})
+INSURANCE = "insurance"
+#: Judgment Day: "Your max level Law hero can cast this no matter when he
+#: arrived or maxed."
+ANY_TIME_ULTIMATES = ANY_TIME_ULTIMATES | {"judgment_day"}
+#: Mind Control: "Attach to a tech 0, I, or II unit. You control it." --
+#: control follows the spell's controller (Assimilate's ruling), and goes
+#: back to whoever had the unit when the spell leaves play.
+MIND_CONTROL = "mind_control"
+ATTACHING = ATTACHING | {MIND_CONTROL}
+#: Patriot Gryphon: "Whenever Patriot Gryphon destroys a building, he also
+#: deals his ATK to that opponent's base."
+BASE_ON_BUILDING_KILL = frozenset({"patriot_gryphon"})
+#: Sirus Quince's Mirror Illusions (limit: 2), the copies counting (his
+#: rulings).
+QUINCE = "sirus_quince"
+MIRROR = "mirror_illusion"
+MIRROR_LIMIT = 2
+#: The two tokens of copying Quince's two abilities leave on a Mirror: the
+#: middle's trashed at the end of the turn, the max level's when Quince or
+#: its original leaves.
+QUINCE_TURN_COPY = "quince_turn_copy"
+QUINCE_COPY = "quince_copy"
+#: The Art of War and Elite Training: "until your next upkeep", the armor
+#: new as each turn begins until then (UMR p. 10's refresh).
+LASTING_ARMOR = "lasting_armor"
+#: The parts that show a pile to the caster before they choose from it --
+#: asked, and so a card worth playing, with nothing in it to choose
+#: (Community Service).
+LOOK_FIRST = frozenset({"opponent_hand_unit_1_2", "opponent_discard_unit_1_2"})
+
+for _effect_row in (
+    # Arrest: "Disable a patrolling unit."
+    _effect("arrest", Part("disable", "patrolling_unit", 0, "disable a patrolling unit")),
+    # Arresting Constable: "{exhaust} -> Disable a tech 0, I, or II unit."
+    _effect("arresting_constable", Part("disable", "unit_tech_upto_2", 0, "disable a tech 0, I or II unit")),
+    # Bigby at 3: "{exhaust} -> Sideline a tech 0 or I patroller." {target}
+    _effect("bigby_hayes", Part("sideline", "patroller_tech_0_1", 0, "sideline a tech 0 or I patroller")),
+    # Bigby at 5: "{exhaust} -> Draw a card."
+    _effect("bigby_hayes_draw", Part("draw", None, 1, targeted=False), says="draw a card"),
+    # Boot Camp: "Exhaust a unit or non-Peace hero and put a +1/+1 rune on
+    # it. Draw a card." -- one already exhausted too (its ruling).
+    _effect("boot_camp", Part("boot_camp", "unit_or_non_peace_hero", 1,
+                              "exhaust a unit or non-Peace hero and put a +1/+1 rune on it"),
+            Part("draw", None, 1, targeted=False)),
+    # Community Service: "Look at an opponent's discard pile or hand. You
+    # may put a tech I or II unit from there into play under your control."
+    # -- free, its tech unmet (its ruling).
+    _effect(
+        "community_service",
+        Part("mode", modes=(("hand", "look at their hand"), ("discard", "look at their discard pile")),
+             says="choose one"),
+        Part("conscript", "opponent_hand_unit_1_2", 0,
+             "put a tech I or II unit from their hand into play under your control",
+             targeted=False, least=0, only="hand"),
+        Part("conscript", "opponent_discard_unit_1_2", 0,
+             "put a tech I or II unit from their discard pile into play under your control",
+             targeted=False, least=0, only="discard"),
+    ),
+    # Drill Sergeant: "Remove a +1/+1 rune -> Put a +1/+1 rune on another
+    # unit."
+    _effect("drill_sergeant", Part("plus_rune", "other_unit", 1, "put a +1/+1 rune on another unit")),
+    # Elite Training: "Up to two of your units and/or heroes get +1 ATK, +1
+    # armor, anti-air, and sparkshot until your next upkeep."
+    _effect("elite_training", Part("elite", "friendly_unit_or_hero", 1,
+                                   "give one of your units or heroes +1 ATK, +1 armor, anti-air and sparkshot",
+                                   most=2, least=0)),
+    # Onimaru at 8: "Max Level: Summon three 1/1 blue soldier tokens with
+    # sparkshot."
+    _effect("general_onimaru", Part("token", None, 3, targeted=False, token="soldier")),
+    # General's Hammer: "Deal 3 damage to a building."
+    _effect("generals_hammer", Part("damage", "building", 3, "deal 3 damage to a building")),
+    # Injunction: "Disable a level I or II tech building and all of that
+    # player's units of the same tech level."
+    _effect("injunction", Part("injunction", "tech_building_1_2", 0,
+                               "disable a level I or II tech building")),
+    # Insurance Agent: "Arrives: Put an insurance rune on a unit."
+    _effect("insurance_agent", Part("insure", "unit", 0, "put an insurance rune on a unit")),
+    # Judgment Day: "Destroy all tech 0, I, and II units."
+    _effect("judgment_day", Part("judgment", None, 0, targeted=False)),
+    # Jurisdiction: "Play any non-ultimate spell from your codex. (You still
+    # pay its cost to play it, then discard it.)"
+    _effect("jurisdiction", Part("codex_spell", "codex_nonultimate_spell", 0,
+                                 "play a non-ultimate spell from your codex", targeted=False)),
+    # Lawful Search: "Draw a card, then choose one: Look at an opponent's
+    # hand. Look at an opponent's discard pile."
+    _effect(
+        "lawful_search",
+        Part("draw", None, 1, targeted=False),
+        Part("mode", modes=(("hand", "look at their hand"), ("discard", "look at their discard pile")),
+             says="choose one"),
+        Part("look_at", "opponent_hand_look", 0, "look at their hand", targeted=False, least=0, only="hand"),
+        Part("look_at", "opponent_discard_look", 0, "look at their discard pile", targeted=False,
+             least=0, only="discard"),
+    ),
+    # Mind Control: "Attach to a tech 0, I, or II unit."
+    _effect("mind_control", Part("attach", "unit_tech_upto_2", 0, "attach to a tech 0, I or II unit")),
+    # Porkhand Magistrate: "{gold:1}, {exhaust} -> Disable a unit or hero.
+    # Its controller draws a card." -- never himself (its ruling).
+    _effect("porkhand_magistrate", Part("magistrate", "other_unit_or_hero", 0,
+                                        "disable a unit or hero; its controller draws a card")),
+    # Scribe: "Arrives: Draw a card."
+    _effect("scribe", Part("draw", None, 1, targeted=False)),
+    # Quince at 1: "Arrives: Summon a 0/1 blue Mirror Illusion token." and
+    # "{gold:2} -> Summon another (limit: 2)."
+    _effect("sirus_quince", Part("mirror_token", None, 1, targeted=False)),
+    _effect("sirus_quince_summon", Part("mirror_token", None, 1, targeted=False),
+            says="summon another Mirror Illusion"),
+    # Quince at 3: "{gold:2} -> One of your Mirror Illusions becomes a copy
+    # of another tech 0, I, or II unit. It's still an Illusion. Trash it at
+    # end of turn."
+    _effect("sirus_quince_copy",
+            Part("copier", "own_plain_mirror", 0, "choose one of your Mirror Illusions", targeted=False),
+            Part("quince_copy", "other_unit_tech_0_2", 0, "choose the tech 0, I or II unit it copies",
+                 targeted=False, follows=True)),
+    # Quince at 5: "Whenever a non-token unit of yours arrives, you may make
+    # one of your Mirrors an Illusion copy of it."
+    _effect("sirus_quince_max", Part("quince_mirror", "own_plain_mirror", 0,
+                                     "make one of your Mirror Illusions an Illusion copy of it",
+                                     targeted=False, least=0)),
+    # Tax Collector: "Arrives: Steal {gold:1} from an opponent."
+    _effect("tax_collector", Part("steal_gold", None, 1, targeted=False)),
+    # The Art of War: "Your Peace Hero is unstoppable, has swift strike, and
+    # gets +2 ATK/+2 armor until your next upkeep."
+    _effect("the_art_of_war", Part("art_of_war", None, 2, targeted=False)),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "arrest": (("play", "arrest"),),
+    "arresting_constable": (("ability", "arresting_constable"),),
+    ("bigby_hayes", 3): (("ability", "bigby_hayes"),),
+    ("bigby_hayes", 5): (("ability", "bigby_hayes_draw"),),
+    "boot_camp": (("play", "boot_camp"),),
+    "community_service": (("play", "community_service"),),
+    "drill_sergeant": (("ability", "drill_sergeant"),),
+    "elite_training": (("play", "elite_training"),),
+    ("general_onimaru", 8): (("max_level", "general_onimaru"),),
+    "generals_hammer": (("play", "generals_hammer"),),
+    "injunction": (("play", "injunction"),),
+    "insurance_agent": (("arrives", "insurance_agent"),),
+    "judgment_day": (("play", "judgment_day"),),
+    "jurisdiction": (("play", "jurisdiction"),),
+    "lawful_search": (("play", "lawful_search"),),
+    "mind_control": (("play", "mind_control"),),
+    "porkhand_magistrate": (("ability", "porkhand_magistrate"),),
+    "scribe": (("arrives", "scribe"),),
+    ("sirus_quince", 1): (("arrives", "sirus_quince"), ("ability", "sirus_quince_summon")),
+    ("sirus_quince", 3): (("ability", "sirus_quince_copy"),),
+    "tax_collector": (("arrives", "tax_collector"),),
+    "the_art_of_war": (("play", "the_art_of_war"),),
+})
+COSTS.update({
+    "arresting_constable": Cost(exhaust=True),
+    "bigby_hayes": Cost(exhaust=True),
+    "bigby_hayes_draw": Cost(exhaust=True),
+    "drill_sergeant": Cost(runes=("plus", 1)),
+    "porkhand_magistrate": Cost(gold=1, exhaust=True),
+    "sirus_quince_summon": Cost(gold=2),
+    "sirus_quince_copy": Cost(gold=2),
+})

@@ -217,6 +217,12 @@ class TurnPanelView(PanelView):
             self.build_divide(options)
         elif prompt.kind is PromptKind.MODE_CHOICE:
             self.build_mode(options)
+        elif prompt.kind is PromptKind.STASH:
+            self.build_stash(options)
+        elif prompt.kind is PromptKind.CHOOSE_NUMBER:
+            self.build_number(options)
+        elif prompt.kind is PromptKind.OATH:
+            self.build_oath(options)
         elif mode == "attack":
             self.build_attack(options)
         elif mode == "hire":
@@ -778,6 +784,52 @@ class TurnPanelView(PanelView):
 
     async def cancel_mode(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.MODE_CHOICE, "cancel"))
+
+    def build_stash(self, options) -> None:
+        """Stash (step 13): a button per card of the hand to keep through
+        the draw, as the picture above numbers it, and **Keep none**."""
+        buttons = [
+            self.make_button(f"Keep {card_name(slug)}", discord.ButtonStyle.primary,
+                             self._answer(self.stash, slug), choice=("stash", slug))
+            for slug in options.hand
+        ]
+        row = self.place(buttons, 0, until=ROWS - 1)
+        self.button("Keep none", discord.ButtonStyle.secondary, self.stash_none, row=row)
+
+    async def stash(self, interaction: discord.Interaction, slug: str) -> None:
+        await self.act(interaction, Action(PromptKind.STASH, "keep", {"slug": slug}))
+
+    async def stash_none(self, interaction: discord.Interaction) -> None:
+        await self.act(interaction, Action(PromptKind.STASH, "none"))
+
+    def build_number(self, options) -> None:
+        """Reputable Newsman's number (step 13): a menu, since twenty-one
+        numbers do not fit two rows of buttons."""
+        menu = discord.ui.Select(
+            placeholder="Choose a number",
+            options=[discord.SelectOption(label=str(number), value=str(number))
+                     for number in range(options.least, options.most + 1)],
+            row=0,
+        )
+
+        async def chosen(interaction: discord.Interaction) -> None:
+            await self.act(interaction, Action(PromptKind.CHOOSE_NUMBER, "",
+                                               {"number": int(menu.values[0])}))
+
+        menu.callback = chosen
+        self.add_item(menu)
+
+    def build_oath(self, options) -> None:
+        """Oathkeeper's two oaths, a button each in the card's words."""
+        buttons = [
+            self.make_button(_cut(f"\"{words}\"", 80), discord.ButtonStyle.primary,
+                             self._answer(self.oath, key), choice=("oath", key))
+            for key, words in options.oaths
+        ]
+        self.place(buttons, 0)
+
+    async def oath(self, interaction: discord.Interaction, key: str) -> None:
+        await self.act(interaction, Action(PromptKind.OATH, "", {"oath": key}))
 
     async def target(self, interaction: discord.Interaction, key: str) -> None:
         await self.act(interaction, Action(PromptKind.TARGET, "", {"target": key}))

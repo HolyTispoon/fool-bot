@@ -231,6 +231,32 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
     return picture_file(webp, "codex-hand")
 
 
+async def revealed_files(engine, match, seat: int) -> list[discord.File]:
+    """The hands `seat` sees besides their own -- the opponent's, while
+    `seat` controls an Eyes of the Chancellor (`RulesEngine.hands_visible_to`,
+    step 13) -- pictured as a hand is: shown to `seat` alone, under their
+    own, and nowhere else."""
+    files = []
+    for other in engine.hands_visible_to(match, seat):
+        slugs = list(match.player(other).hand)
+        webp = await asyncio.to_thread(
+            render_hand, slugs, [False] * len(slugs),
+            [engine.catalog.cards[slug].cost or 0 for slug in slugs], engine.catalog,
+        )
+        files.append(picture_file(webp, "codex-revealed-hand"))
+    return files
+
+
+def revealed_caption(engine, match, seat: int) -> str:
+    """The line beneath a hand that shows the opponent's too, or ""."""
+    lines = []
+    for other in engine.hands_visible_to(match, seat):
+        count = len(match.player(other).hand)
+        lines.append(f"Their hand, revealed by Eyes of the Chancellor: {count} card"
+                     + ("" if count == 1 else "s") + ".")
+    return "\n".join(lines)
+
+
 def deck_caption(deck, side: str = "") -> str:
     """What the deck picture is sent with: its size alone (the author,
     2026-10-09: "cut down on text") -- where the cards are is the

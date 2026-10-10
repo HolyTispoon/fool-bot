@@ -12,7 +12,8 @@ hand, their codex through every view, and the tech picker's codex with
 two picks marked; and beside them a standard game's -- red against
 green, three heroes a side, the specs chosen at Tech II and on a tech
 lab, a heroes' hall -- board, hand and codex, every view of its
-seventy-two cards (`standard-*`):
+seventy-two cards (`standard-*`); purple against black's states
+(`purple-black-*`) and white against blue's (`white-blue-*`):
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
 
@@ -236,6 +237,49 @@ def staged_purple_black(engine: RulesEngine) -> MatchState:
     return match
 
 
+def staged_white_blue(engine: RulesEngine) -> MatchState:
+    """White (Discipline, Ninjutsu, Strength) against blue (Law, Peace,
+    Truth) in a standard game's middle (docs/codex-bot.md, step 13): a
+    Jail holding a unit, Reputable Newsman with his number, Oathkeeper
+    with his oath, a Mirror Illusion copying a unit, Justice Juggernaut
+    with its crumbling rune and Grave Stormborne with his sword rune."""
+    match = engine.new_match(
+        (("discipline", "ninjutsu", "strength"), ("law", "peace", "truth")),
+        first=1, decks=("white", "blue"),
+    )
+    match.turn, match.phase = 14, "main"
+    one, two = match.player(1), match.player(2)
+    one.gold, one.workers, one.base_hp = 5, 10, 15
+    two.gold, two.workers, two.base_hp = 2, 9, 12
+    grave = one.hero_of("grave_stormborne")
+    grave.zone, grave.level, grave.runes = "play", 7, {"sword": 1}
+    quince = two.hero_of("sirus_quince")
+    quince.zone, quince.level = "play", 3
+    for player, spec in ((one, "strength"), (two, "law")):
+        for building in ("tech1", "tech2", "tech3"):
+            player.buildings[building] = BuildingState(hp=5, under_construction=False)
+        player.tech2_spec = spec
+        player.constructed_once = True
+
+    def put(seat, slug, *, patrol=None, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.exhausted, card.arrived_this_turn = patrol, exhausted, arrived
+        return card
+
+    put(1, "oathkeeper_of_kor_mountain", patrol="squad_leader").oath = "draw"
+    put(1, "fox_viper", patrol="elite")
+    put(1, "morningstar_pass")
+    jail = put(2, "jail")
+    jail.jailed = {"slug": "colossus", "owner": 1, "controller": 1, "boosted": False}
+    put(2, "reputable_newsman").number = 3
+    put(2, "justice_juggernaut").runes = {"crumbling": 1}
+    mirror = put(2, "mirror_illusion")
+    mirror.copy_of = "fox_primus"
+    put(2, "spectral_roc", patrol="squad_leader")
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -316,6 +360,10 @@ def main() -> None:
     # Step 12: purple against black -- time runes, the future, disabled
     # cards and a Graveyard's buried count.
     render_all(engine, staged_purple_black(engine), names, args.out, "purple-black")
+
+    # Step 13: white against blue -- a Jail's prisoner, Reputable
+    # Newsman's number, Oathkeeper's oath, a copy, crumbling and sword runes.
+    render_all(engine, staged_white_blue(engine), names, args.out, "white-blue")
 
     # The standard game: three heroes a side, a codex of seventy-two.
     standard = staged_standard(engine)

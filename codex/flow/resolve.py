@@ -105,6 +105,12 @@ def current_part(match: MatchState):
 ASKS_TARGET = "target"
 ASKS_MODE = "mode"
 ASKS_DIVIDE = "divide"
+#: Reputable Newsman's number and Oathkeeper's oath (step 13): a part
+#: whose answer is a choice of the card's own, kept on the frame under
+#: the part's name until the part is done.
+ASKS_NUMBER = "number"
+ASKS_OATH = "oath"
+ASKED_PARTS = (ASKS_NUMBER, ASKS_OATH)
 
 
 def asking(match: MatchState) -> str:
@@ -115,6 +121,8 @@ def asking(match: MatchState) -> str:
     part = current_part(match)
     if part is not None and part.does == "mode" and "mode" not in top:
         return ASKS_MODE
+    if part is not None and part.does in ASKED_PARTS and part.does not in top:
+        return part.does
     if top.get("split") is not None:
         return ASKS_DIVIDE
     return ASKS_TARGET
@@ -175,6 +183,9 @@ def _applies(part, top: dict) -> bool:
         return False
     if part.follows and not top.get("chose"):
         return False
+    if part.when == "stormed" and len(top.get("stormed") or []) < 2:
+        # True Power of Storms: "If you do" -- both cards discarded.
+        return False
     return True
 
 
@@ -223,6 +234,15 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
                     top["mode"] = possible[0]
             _next_part(top)
             continue
+        if part.does in ASKED_PARTS and part.does not in top:
+            # The number or the oath is asked (`CHOOSE_NUMBER`, `OATH`).
+            return False
+        if (part.does == "look_at" or part.choose in effects.LOOK_FIRST) and top.get("looked") != top["part"]:
+            # A look with nothing to choose (Martial Mastery): asked once,
+            # what is seen pictured to the asker alone, and Done (step 13).
+            top["looked"] = top["part"]
+            top["picks"] = []
+            return False
         if top.get("split") is not None:
             if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
                 return False
@@ -384,11 +404,42 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
     top.setdefault("picks", []).append(row.key)
     top["chose"] = True
     top["picked"] = row.key
-    if part.does != "divide":
+    if part.targeted and _targeted_away(engine, match, top, row, result):
+        # Smoker went home, or an Illusion died, the moment it was
+        # targeted: the rest of the part does not resolve on it.
+        board.settle(engine, match, result, cause=top["seat"])
+    elif part.does != "divide":
         DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
     if len(top["picks"]) >= pick_limit(engine, match, top, part):
         _end_picks(engine, match, top, part, result)
+
+
+def _targeted_away(engine: "RulesEngine", match: MatchState, top: dict, row,
+                   result: StepResult) -> bool:
+    """
+    What being targeted does by itself (step 13), before the part does
+    anything to it: Smoker returns to his owner's hand (his ruling), and an
+    Illusion dies -- "At the moment they are targeted, they die (and go to
+    their owner's discard pile)", so the damage or the rune never lands
+    (the illusion ruling) -- unless its controller has a Macciatus. Whether
+    the target went.
+    """
+    body = board.body_of(match, row.seat, row.ref)
+    if not isinstance(body, CardInstance) or not engine.catalog.cards[body.slug].is_unit:
+        return False
+    named = _thing(match, (row.seat, row.ref))
+    if engine.text_slug(body) in effects.RETURNS_WHEN_TARGETED and not engine.cant_leave_play(match, body):
+        result.narration.append(f"{named} is targeted, and returns to {tokens.player(body.owner)}'s hand.")
+        board.leave_play(engine, match, body, "hand")
+        match.record_event("returned", slug=body.slug, owner=body.owner)
+        board.second_chances(engine, match, [body], result)
+        return True
+    if engine.illusion_dies(match, body):
+        result.narration.append(f"{named} is an Illusion: targeted by {top['by']}, it dies.")
+        board.destroy(engine, match, [(row.seat, row.ref)], result, cause=top["seat"])
+        return True
+    return False
 
 
 def _end_picks(engine: "RulesEngine", match: MatchState, top: dict, part,
@@ -452,6 +503,28 @@ def choose_mode(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return carry_on(engine, game, match, StepResult(board_changed=True))
 
 
+def choose_number(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                  number) -> StepResult:
+    """The answer to `CHOOSE_NUMBER`: Reputable Newsman's number, 0 to 20."""
+    if not match.resolving or asking(match) != ASKS_NUMBER:
+        raise RuleRefusal("Nothing is waiting on a number.")
+    if not isinstance(number, int) or isinstance(number, bool) or not 0 <= number <= effects.NUMBER_MOST:
+        raise RuleRefusal(f"Choose a number from 0 to {effects.NUMBER_MOST}.", cite="reputable_newsman")
+    match.resolving[0][ASKS_NUMBER] = number
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
+def choose_oath(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                oath: str) -> StepResult:
+    """The answer to `OATH`: one of Oathkeeper's two oaths."""
+    if not match.resolving or asking(match) != ASKS_OATH:
+        raise RuleRefusal("Nothing is waiting on an oath.")
+    if oath not in (effects.OATH_HAND, effects.OATH_DRAW):
+        raise RuleRefusal("That is not one of the oaths.", cite="oathkeeper_of_kor_mountain")
+    match.resolving[0][ASKS_OATH] = oath
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
 def done_choosing(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
     """**Done** on a `TARGET` that offers it: the part chooses nothing
     more -- "up to two", "you may"."""
@@ -500,8 +573,13 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     if body is None:
         return 0
     named = _thing(match, target)
+    if (isinstance(body, CardInstance) and engine.catalog.cards[body.slug].is_building_card
+            and board.pass_prevents(match, seat, body)):
+        result.narration.append(f"{top['by']} deals {amount} to {named}{board._PREVENTED}.")
+        return 0
     if board.sentry_shields(engine, match, [body], result):
         return 0
+    amount = board.focus_prevents(engine, match, body, amount, result=result)
     landed = board.take_damage(body, amount)
     line = f"{top['by']} deals {landed} to {named}"
     if landed < amount:
@@ -1467,7 +1545,8 @@ def _decay(engine, match, top, part, target, result) -> None:
         ref for ref in ("tech1", "tech2", "tech3", "add_on")
         if board.still_there(match, other, ref) and not engine._under_construction(player, ref)
     ]
-    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]
+    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card
+             and not board.pass_prevents(match, other, card)]
     for card in cards:
         board.take_damage(card, damage_amount(engine, match, top, part.amount))
     for ref in buildings:
@@ -2079,7 +2158,8 @@ def _banefire(engine, match, top, part, target, result) -> None:
     for body in bodies:
         if body not in shielded:
             board.take_damage(body, amount)
-    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]:
+    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card
+                 and not board.pass_prevents(match, other, card)]:
         board.take_damage(card, amount)
     result.narration.append(
         f"{top['by']} deals {amount} to each unit, hero and building {tokens.player(other)} controls."
@@ -2088,6 +2168,602 @@ def _banefire(engine, match, top, part, target, result) -> None:
         if board.still_there(match, other, ref) and not engine._under_construction(player, ref):
             board.damage_building(match, other, ref, amount, result, by=seat)
     board.damage_building(match, other, "base", amount, result, by=seat)
+
+
+# -- White and blue's handlers (step 13) -----------------------------------------
+
+
+def _illusion(engine, match, top, part, target, result) -> None:
+    """Hallucination: the unit is an Illusion this turn."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.modifiers.append({"kind": "illusion", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} makes {_thing(match, target)} an Illusion this turn.")
+
+
+def _copier(engine, match, top, part, target, result) -> None:
+    """Manufactured Truth, first: the unit of the caster's that becomes a
+    copy, kept for the part that names what it copies."""
+
+
+def make_copy(engine, match, card: CardInstance, original: CardInstance) -> None:
+    """`card` becomes a copy of `original` (the glossary's Copy): the
+    printed card -- the one `original` is read as, its printed override
+    read first (Manufactured Truth's rulings) -- and none of its runes,
+    attachments or modifiers. Nothing arrives."""
+    card.copy_of = original.copy_of or original.slug
+    card.printed = dict(original.printed) if original.printed else None
+
+
+def _copy(engine, match, top, part, target, result) -> None:
+    """Manufactured Truth: the unit chosen first becomes a copy of this
+    one until the end of the turn -- its own printed override kept on the
+    modifier, to come back with it."""
+    if not top["taken"]:
+        return
+    copier_key = top["taken"][0]
+    card = board.body_of(match, *parse_target(copier_key))
+    original = board.body_of(match, *target)
+    if card is None or original is None or card is original:
+        return
+    card.modifiers.append({"kind": "copy", "until": "end_of_turn", "printed": card.printed,
+                           "copy_of": card.copy_of})
+    make_copy(engine, match, card, original)
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, parse_target(copier_key))} a copy of "
+        f"{_thing(match, target)} until the end of the turn."
+    )
+
+
+def _birds(engine, match, top, part, target, result) -> None:
+    """Bird's Nest, played or at its upkeep: Birds summoned up to two in all
+    -- every Nest sees the two in play and puts no more (its ruling)."""
+    seat = top["seat"]
+    have = sum(1 for card in match.player(seat).play if card.slug == effects.BIRD)
+    lost = max(0, effects.BIRD_LIMIT - have)
+    if lost:
+        board.summon(engine, match, effects.BIRD, seat, lost, result, by=top["by"])
+    elif top.get("spell"):
+        result.narration.append(
+            f"{tokens.player(seat)} has {effects.BIRD_LIMIT} {tokens.card(effects.BIRD)} tokens: "
+            f"{top['by']} summons no more."
+        )
+
+
+def _building_targets(engine, match, seat: int) -> list:
+    """Every building of `seat`'s that can be dealt damage now: the base,
+    the tech buildings and add-on not started this turn, and the building
+    cards."""
+    player = match.player(seat)
+    refs = [ref for ref in ("tech1", "tech2", "tech3", "add_on")
+            if board.still_there(match, seat, ref) and not engine._under_construction(player, ref)]
+    refs.append("base")
+    refs += [card.ref for card in player.play if engine.catalog.cards[card.slug].is_building_card]
+    return refs
+
+
+def _damaged(engine, match, seat: int, ref: str) -> bool:
+    if board.is_building(ref):
+        return board.building_hp(match, seat, ref) < board.building_max_hp(engine, match, seat, ref)
+    card = board.body_of(match, seat, ref)
+    return card is not None and card.damage > 0
+
+
+def _earthquake(engine, match, top, part, target, result) -> None:
+    """Earthquake: 4 to each of the opponent's damaged buildings, then 1 to
+    each undamaged one -- the second sentence read after the first, so a
+    base the first damaged is damaged by then (its ruling)."""
+    other = _against(top)
+    damaged = [ref for ref in _building_targets(engine, match, other) if _damaged(engine, match, other, ref)]
+    for ref in damaged:
+        if board.still_there(match, other, ref):
+            _deal(engine, match, top, (other, ref), damage_amount(engine, match, top, part.amount), result)
+    if match.winner is not None:
+        return
+    for ref in _building_targets(engine, match, other):
+        if ref not in damaged and not _damaged(engine, match, other, ref) and board.still_there(match, other, ref):
+            _deal(engine, match, top, (other, ref), damage_amount(engine, match, top, 1), result)
+
+
+def _make_ninja(engine, match, top, part, target, result) -> None:
+    """Fox's Den School: a Ninja for good, while it is in play (its ruling)."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.modifiers.append({"kind": "ninja", "until": None})
+    result.narration.append(f"{top['by']} makes {_thing(match, target)} a Ninja.")
+
+
+def _den_students(engine, match, top, part, target, result) -> None:
+    seat = top["seat"]
+    match.player(seat).lasting.append({"kind": effects.DEN_STUDENTS, "until": "end_of_turn"})
+    result.narration.append(f"This turn, {tokens.player(seat)}'s Ninja units have haste and stealth.")
+
+
+def _daigo(engine, match, top, part, target, result) -> None:
+    """Hero's Monument: Daigo Stormborne, remembered by the Monument that
+    made him, trashed when it leaves play (`board.settle`)."""
+    source = board.body_of(match, top["seat"], top.get("source") or "")
+    board.summon(engine, match, part.token, top["seat"], 1, result, by=top["by"],
+                 made_by=source.id if isinstance(source, CardInstance) else None)
+
+
+def _hidden(engine, match, top, part, target, result) -> None:
+    """Hidden Ninja: stealth this turn, kept past 4 ATK (its ruling) -- and
+    a Ninja or the Ninjutsu hero among them draws its card after."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.modifiers.append({"kind": "keyword", "keyword": "Stealth", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gives {_thing(match, target)} stealth this turn.")
+    ninja = engine.is_ninja(body) if isinstance(body, CardInstance) else (
+        (engine.hero_card(body).spec or "").lower() == "ninjutsu")
+    if ninja:
+        top["ninja"] = True
+
+
+def _ninja_draw(engine, match, top, part, target, result) -> None:
+    if top.get("ninja"):
+        _draw(engine, match, top, part, target, result)
+
+
+def _destroy_tokens(engine, match, top, part, target, result) -> None:
+    """Jefferson DeGrey: "Destroy all tokens." -- both sides'."""
+    tokens_now = [(player.seat, card.ref) for player in match.players for card in player.play
+                  if board.is_token(engine, card.slug)]
+    if not tokens_now:
+        result.narration.append(f"{top['by']} finds no token to destroy.")
+        return
+    result.narration.append(f"{top['by']} destroys every token.")
+    board.destroy(engine, match, tokens_now, result, cause=top["seat"])
+
+
+def _look_at(engine, match, top, part, target, result) -> None:
+    """A look: what was seen was pictured to the asker alone."""
+
+
+def _disable_picked(engine, match, top, part, target, result) -> None:
+    """Reversal: the patroller it damaged, then disabled -- where it lives."""
+    key = top.get("picked")
+    if key is None:
+        return
+    body = board.body_of(match, *parse_target(key))
+    if body is None:
+        return
+    board.disable(body)
+    result.narration.append(f"{top['by']} disables {_thing(match, parse_target(key))}.")
+
+
+def _hail(engine, match, top, part, target, result) -> None:
+    """Shuriken Hail: 1 to each patroller, both sides', at once."""
+    hit = [(player.seat, ref) for player in match.players for ref in player.patrollers().values()]
+    bodies = [board.body_of(match, *one) for one in hit]
+    shielded = board.sentry_shields(engine, match, [body for body in bodies if body is not None], result)
+    for one, body in zip(hit, bodies):
+        if body is not None and body not in shielded:
+            _deal(engine, match, top, one, damage_amount(engine, match, top, part.amount), result)
+
+
+def _snapback(engine, match, top, part, target, result) -> None:
+    """Snapback: the opposing hero to its command zone -- no death -- with
+    two summoning runes, which keep it there until after its owner's next
+    turn (the Card FAQ)."""
+    seat, ref = target
+    hero = board.body_of(match, seat, ref)
+    if hero is None:
+        top["chose"] = False
+        return
+    result.narration.append(f"{top['by']} returns {_thing(match, target)} to the command zone.")
+    board.to_command_zone(engine, match, seat, hero, result)
+    hero.summoning_runes = 2
+    top["snapped"] = [seat, ref]
+
+
+def _snapback_in(engine, match, top, part, target, result) -> None:
+    """Snapback: another hero of that command zone into play, its summoning
+    runes removed -- or the same one, where there is no other (its
+    rulings)."""
+    seat, ref = target
+    hero = match.player(seat).hero_by_ref(ref)
+    if hero is None or hero.in_play:
+        return
+    hero.zone = "play"
+    hero.level = 1
+    hero.damage = 0
+    hero.summoning_runes = 0
+    hero.arrived_this_turn = True
+    hero.exhausted = False
+    hero.patrol_slot = None
+    hero.bands = {str(engine.hero_card(hero).bands[0].min_level): match.next_sequence()}
+    match.record_event("summoned", slug=hero.slug, seat=seat, by="snapback")
+    result.narration.append(f"{tokens.hero(hero.slug)} comes into play for {tokens.player(seat)}.")
+    board.hero_arrives(engine, match, seat, hero)
+
+
+def _spar(engine, match, top, part, target, result) -> None:
+    """Sparring Partner: readied, but no attack for him this turn."""
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.exhausted = False
+    body.modifiers.append({"kind": effects.CANT_ATTACK_MODIFIER, "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} readies to spar: it can't attack this turn.")
+
+
+def _fox_speed(engine, match, top, part, target, result) -> None:
+    """Speed of the Fox: haste, readiness, armor piercing and +1 ATK this
+    turn, for the Ninjutsu hero."""
+    hero = board.body_of(match, *target)
+    if hero is None:
+        return
+    for keyword in ("Haste", "Readiness", "Armor piercing"):
+        hero.modifiers.append({"kind": "keyword", "keyword": keyword, "until": "end_of_turn"})
+    hero.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} haste, readiness, armor piercing and +1 ATK this turn."
+    )
+
+
+def _max_level(engine, match, top, part, target, result) -> None:
+    """Training Grounds: a hero levelled to its max -- healed at a new band,
+    its max level text resolving."""
+    seat, ref = target
+    hero = board.body_of(match, seat, ref)
+    if hero is None:
+        return
+    before = hero.level
+    reached = board.raise_level(engine, hero, engine.hero_card(hero).max_level, match)
+    if hero.level == before:
+        result.narration.append(f"{_thing(match, target)} gains no level.")
+        return
+    result.narration.append(
+        f"{top['by']} levels {_thing(match, target)} to {hero.level}"
+        + (", a new band, and healed." if reached else ".")
+    )
+    board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _storm_discard(engine, match, top, part, target, result) -> None:
+    """True Power of Storms: a card that costs 3, revealed -- and so named --
+    and discarded."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if slug not in player.hand:
+        return
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    top.setdefault("stormed", []).append(slug)
+    result.narration.append(f"{tokens.player(seat)} reveals and discards {tokens.card(slug)} for {top['by']}.")
+
+
+def _detector(engine, match, top, part, target, result) -> None:
+    """Versatile Style: the Discipline hero a detector this turn."""
+    seat = top["seat"]
+    for hero in match.player(seat).heroes_in_play:
+        if (engine.hero_card(hero).spec or "").lower() == "discipline":
+            hero.modifiers.append({"kind": "keyword", "keyword": effects.DETECTOR, "until": "end_of_turn"})
+            result.narration.append(f"{top['by']} makes {tokens.hero(hero.slug)} a detector this turn.")
+            return
+
+
+def _grapple(engine, match, top, part, target, result) -> None:
+    """Whitestar Grappler: 4 to a unit; one that lives deals its ATK back to
+    the Grappler; and it is sidelined if it was patrolling."""
+    seat, ref = target
+    body = board.body_of(match, seat, ref)
+    if body is None:
+        return
+    _damage(engine, match, top, part, target, result)
+    alive = board.body_of(match, seat, ref) is not None and not board.lethal(engine, match, body)
+    grappler = board.body_of(match, top["seat"], top.get("source") or "")
+    if alive and grappler is not None:
+        back = engine.unit_stats(body, match)[0]
+        landed = board.take_damage(grappler, back)
+        result.narration.append(f"{_thing(match, target)} deals {landed} back to {top['by']}.")
+    if alive and body.patrol_slot is not None:
+        board.sideline(body)
+        result.narration.append(f"{top['by']} sidelines {_thing(match, target)}.")
+
+
+def _atk_self(engine, match, top, part, target, result) -> None:
+    """Young Lightning Dragon: +1 ATK this turn."""
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gets +{part.amount} ATK this turn.")
+
+
+def _boot_camp(engine, match, top, part, target, result) -> None:
+    """Boot Camp: exhausted -- one already exhausted too, as much as can be
+    done (its ruling) -- sidelined if it patrolled, and a +1/+1 rune."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.exhausted = True
+    if body.patrol_slot is not None:
+        board.sideline(body)
+    result.narration.append(f"{top['by']} exhausts {_thing(match, target)}.")
+    _plus_rune(engine, match, top, part, target, result)
+
+
+def _conscript(engine, match, top, part, target, result) -> None:
+    """Community Service: a tech I or II unit from the opponent's hand or
+    discard pile into play under the caster's control -- theirs still --
+    free and its tech unmet (its ruling)."""
+    from codex.engine import DISCARD
+
+    seat, ref = target
+    slug = _private_slug(ref)
+    owner = match.player(seat)
+    pile, where = (owner.discard, "discard pile") if ref.startswith(DISCARD) else (owner.hand, "hand")
+    if slug not in pile:
+        return
+    pile.remove(slug)
+    card = board.put_into_play(engine, match, slug, top["seat"], from_hand=False, owner=seat)
+    result.narration.append(
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s {where} into play "
+        f"under {tokens.player(top['seat'])}'s control" + _arrived(engine, match, card, slug)
+    )
+
+
+def _elite(engine, match, top, part, target, result) -> None:
+    """Elite Training: +1 ATK, +1 armor, anti-air and sparkshot until the
+    caster's next upkeep -- the armor new as each turn begins till then."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    until = {"until": "upkeep", "seat": top["seat"]}
+    amount = part.amount
+    body.modifiers += [
+        {"kind": "atk", "amount": amount, **until},
+        {"kind": "keyword", "keyword": "Anti-air", **until},
+        {"kind": "keyword", "keyword": "Sparkshot", "amount": 1, **until},
+        {"kind": effects.LASTING_ARMOR, "amount": amount, **until},
+    ]
+    body.armor += board.armor_gain(body, amount)
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +1 ATK, +1 armor, anti-air and sparkshot "
+        f"until {tokens.player(top['seat'])}'s next upkeep."
+    )
+
+
+def _injunction(engine, match, top, part, target, result) -> None:
+    """Injunction: the tech building disabled, and every unit of its
+    player's of that tech level, whatever its spec (its rulings)."""
+    seat, ref = target
+    player = match.player(seat)
+    building = player.buildings.get(ref)
+    if building is None or building.destroyed:
+        return
+    building.disabled = True
+    level = {"tech1": 1, "tech2": 2}[ref]
+    hit = [card for card in player.play
+           if engine.catalog.cards[card.slug].is_unit and engine.tech_level(card) == level]
+    for card in hit:
+        board.disable(card)
+    name = {1: "Tech I", 2: "Tech II"}[level]
+    line = f"{top['by']} disables {tokens.player(seat)}'s {name} building"
+    if hit:
+        line += f" and their {len(hit)} tech {'I' * level} unit{'' if len(hit) == 1 else 's'}"
+    result.narration.append(line + ".")
+
+
+def _insure(engine, match, top, part, target, result) -> None:
+    """Insurance Agent: the rune on the unit, which this Agent remembers --
+    "that insured unit" is his alone (its rulings)."""
+    body = board.body_of(match, *target)
+    agent = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.runes[effects.INSURANCE] = body.runes.get(effects.INSURANCE, 0) + 1
+    if isinstance(agent, CardInstance):
+        agent.modifiers.append({"kind": "insures", "id": body.id, "until": None})
+    result.narration.append(f"{top['by']} puts an insurance rune on {_thing(match, target)}.")
+
+
+def _judgment(engine, match, top, part, target, result) -> None:
+    """Judgment Day: every tech 0, I and II unit destroyed -- tokens are
+    tech 0 -- and so dying (its ruling)."""
+    hit = [(player.seat, card.ref) for player in match.players for card in player.play
+           if engine.catalog.cards[card.slug].is_unit and engine.tech_level(card) <= 2]
+    if not hit:
+        result.narration.append(f"{top['by']} finds no tech 0, I or II unit to destroy.")
+        return
+    result.narration.append(f"{top['by']} destroys every tech 0, I and II unit.")
+    board.destroy(engine, match, hit, result, cause=top["seat"])
+
+
+def _codex_spell(engine, match, top, part, target, result) -> None:
+    """Jurisdiction: a non-ultimate spell from the codex, paid for and then
+    discarded, its hero not needed -- a channeling spell with no hero to
+    channel it discarded at once (its ruling)."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if player.codex.get(slug, 0) <= 0:
+        return
+    cost = engine.effective_cost(player, slug, match)
+    if player.gold < cost:
+        return
+    player.codex[slug] -= 1
+    player.gold -= cost
+    player.spells_played += 1
+    match.record_event("played", slug=slug, cost=cost, **{"from": "codex"})
+    from codex.flow.actions import spend_promise
+
+    spend_promise(engine, match, seat, slug, result)
+    result.narration.append(
+        f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their codex "
+        f"for {tokens.gold(cost)}."
+    )
+    spell = frame(slug, seat, tokens.card(slug), spell=slug, origin=slug)
+    harmonies = [
+        frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+        for harmony in player.play if harmony.slug == effects.HARMONY
+    ]
+    match.resolving[1:1] = [spell, *harmonies]
+
+
+def _magistrate(engine, match, top, part, target, result) -> None:
+    """Porkhand Magistrate: disabled -- exhausted already, or his own
+    controller's, alike (its rulings) -- and its controller draws."""
+    seat, ref = target
+    body = board.body_of(match, seat, ref)
+    if body is None:
+        return
+    board.disable(body)
+    drawn = draw_cards(engine, match, seat, 1, result)
+    result.narration.append(
+        f"{top['by']} disables {_thing(match, target)}"
+        + (f"; {tokens.player(seat)} draws a card." if drawn else ".")
+    )
+
+
+def _mirror_token(engine, match, top, part, target, result) -> None:
+    """Quince: a Mirror Illusion, to the limit of two -- those copying
+    something counted (his ruling)."""
+    seat = top["seat"]
+    have = sum(1 for card in match.player(seat).play if card.slug == effects.MIRROR)
+    if have >= effects.MIRROR_LIMIT:
+        result.narration.append(
+            f"{tokens.player(seat)} has {effects.MIRROR_LIMIT} {tokens.card(effects.MIRROR)} tokens: "
+            "no more is summoned."
+        )
+        return
+    board.summon(engine, match, effects.MIRROR, seat, 1, result, by=top["by"])
+
+
+def _illusion_copy(engine, match, card: CardInstance, original: CardInstance, mark: dict) -> None:
+    """A Mirror Illusion made an Illusion copy of `original` -- still an
+    Illusion, of the copied card's types (Quince's rulings) -- marked with
+    what trashes it."""
+    make_copy(engine, match, card, original)
+    card.modifiers.append({"kind": "illusion", "until": None})
+    card.modifiers.append(mark)
+
+
+def _quince_copy(engine, match, top, part, target, result) -> None:
+    """Quince at 3: the Mirror chosen first copies this unit, trashed at the
+    end of the turn (once, his ruling)."""
+    if not top["taken"]:
+        return
+    mirror_key = top["taken"][0]
+    card = board.body_of(match, *parse_target(mirror_key))
+    original = board.body_of(match, *target)
+    if card is None or original is None or card is original:
+        return
+    _illusion_copy(engine, match, card, original, {"kind": effects.QUINCE_TURN_COPY, "until": None})
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, parse_target(mirror_key))} an Illusion copy of "
+        f"{_thing(match, target)}, trashed at the end of the turn."
+    )
+
+
+def _quince_mirror(engine, match, top, part, target, result) -> None:
+    """Quince at 5: a Mirror made an Illusion copy of the unit that arrived,
+    trashed when Quince or that unit leaves (`board.settle`)."""
+    card = board.body_of(match, *target)
+    original = match.instance(top.get("original") or -1)
+    if card is None or original is None:
+        return
+    _illusion_copy(engine, match, card, original,
+                   {"kind": effects.QUINCE_COPY, "original": original.id, "until": None})
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, target)} an Illusion copy of {tokens.card(original.slug)}."
+    )
+
+
+def _steal_gold(engine, match, top, part, target, result) -> None:
+    """Tax Collector: {gold:1} stolen -- nothing from a player with none
+    (its ruling)."""
+    seat = top["seat"]
+    other = _against(top)
+    taken = steal_gold(match, seat, other, part.amount)
+    if taken:
+        result.narration.append(
+            f"{top['by']}: {tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
+        )
+    else:
+        result.narration.append(f"{tokens.player(other)} has no gold for {top['by']} to steal.")
+
+
+def _art_of_war(engine, match, top, part, target, result) -> None:
+    """The Art of War: the caster's Peace hero unstoppable, with swift
+    strike and +2 ATK/+2 armor until their next upkeep."""
+    seat = top["seat"]
+    hero = next((one for one in match.player(seat).heroes_in_play
+                 if (engine.hero_card(one).spec or "").lower() == "peace"), None)
+    if hero is None:
+        result.narration.append(f"{tokens.player(seat)} has no Peace hero in play for {top['by']}.")
+        return
+    until = {"until": "upkeep", "seat": seat}
+    hero.modifiers += [
+        {"kind": "keyword", "keyword": "Unstoppable", **until},
+        {"kind": "keyword", "keyword": "Swift strike", **until},
+        {"kind": "atk", "amount": part.amount, **until},
+        {"kind": effects.LASTING_ARMOR, "amount": part.amount, **until},
+    ]
+    hero.armor += part.amount
+    result.narration.append(
+        f"{top['by']}: {tokens.hero(hero.slug)} is unstoppable, has swift strike and gets +2 ATK and "
+        f"+2 armor until {tokens.player(seat)}'s next upkeep."
+    )
+
+
+def _number(engine, match, top, part, target, result) -> None:
+    """Reputable Newsman's number, kept on him while he is in play."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.number = top[ASKS_NUMBER]
+    other = 2 if top["seat"] == 1 else 1
+    result.narration.append(
+        f"{top['by']} chooses {card.number}: {tokens.player(other)} can't play spells or upgrades "
+        f"that cost {card.number} while it is in play."
+    )
+
+
+#: Each oath in the card's words.
+OATHS = {
+    effects.OATH_HAND: "I won't play cards from my hand besides workers",
+    effects.OATH_DRAW: "I will skip my draw/discard phase",
+}
+
+
+def _oath(engine, match, top, part, target, result) -> None:
+    """Oathkeeper's oath, kept on him while he is in play -- "You can't
+    break that oath while Oathkeeper is in play"."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.oath = top[ASKS_OATH]
+    result.narration.append(f"{tokens.player(top['seat'])} swears: \"{OATHS[card.oath]}.\"")
+
+
+def _sideline_all(engine, match, top, part, target, result) -> None:
+    """Oathkeeper: "Sideline all patrolling units." -- both sides'."""
+    sidelined = [card for player in match.players for card in player.play
+                 if engine.catalog.cards[card.slug].is_unit and card.patrol_slot is not None]
+    for card in sidelined:
+        board.sideline(card)
+    result.narration.append(
+        f"{top['by']} sidelines every patrolling unit." if sidelined
+        else f"{top['by']} finds no patrolling unit to sideline."
+    )
+
+
+def _silence(engine, match, top, part, target, result) -> None:
+    """Free Speech: "Silence an opponent." -- until after that opponent's
+    next turn (`PlayerState.silenced`)."""
+    other = _against(top)
+    match.player(other).silenced = True
+    result.narration.append(
+        f"{top['by']} silences {tokens.player(other)}: their heroes cast no spells and have no "
+        "abilities until after their next turn."
+    )
 
 
 #: The parts `run` works itself rather than a handler: "choose one" and
@@ -2205,6 +2881,47 @@ DOES = {
     "promise": _promise,
     "extra_turn": _extra_turn,
     "banefire": _banefire,
+    # White and blue (step 13).
+    "illusion": _illusion,
+    "copier": _copier,
+    "copy": _copy,
+    "number": _number,
+    "boot_camp": _boot_camp,
+    "conscript": _conscript,
+    "elite": _elite,
+    "injunction": _injunction,
+    "insure": _insure,
+    "judgment": _judgment,
+    "codex_spell": _codex_spell,
+    "magistrate": _magistrate,
+    "mirror_token": _mirror_token,
+    "quince_copy": _quince_copy,
+    "quince_mirror": _quince_mirror,
+    "steal_gold": _steal_gold,
+    "art_of_war": _art_of_war,
+    "birds": _birds,
+    "earthquake": _earthquake,
+    "make_ninja": _make_ninja,
+    "den_students": _den_students,
+    "daigo": _daigo,
+    "hidden": _hidden,
+    "ninja_draw": _ninja_draw,
+    "destroy_tokens": _destroy_tokens,
+    "look_at": _look_at,
+    "disable_picked": _disable_picked,
+    "hail": _hail,
+    "snapback": _snapback,
+    "snapback_in": _snapback_in,
+    "spar": _spar,
+    "fox_speed": _fox_speed,
+    "max_level": _max_level,
+    "storm_discard": _storm_discard,
+    "detector": _detector,
+    "grapple": _grapple,
+    "atk_self": _atk_self,
+    "oath": _oath,
+    "sideline_all": _sideline_all,
+    "silence": _silence,
 }
 
 
@@ -2238,6 +2955,23 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
         else:
             card.attached_hero = host
         result.narration.append(f"{tokens.card(spell)} is attached to {board.named(match, side, ref)}.")
+        if spell == effects.MIND_CONTROL:
+            # Mind Control: "You control it." -- back to whoever had it when
+            # the spell leaves play (`board.settle`).
+            host_card = board.body_of(match, side, ref)
+            if host_card is not None:
+                before = host_card.controller
+                if board.gain_control(match, host_card, seat):
+                    host_card.modifiers.append({"kind": "mind_controlled", "before": before, "until": None})
+                    result.narration.append(
+                        f"{tokens.player(seat)} gains control of {tokens.card(host_card.slug)}."
+                    )
+        if spell == effects.VINES:
+            # Entangling Vines: "Sideline the unit." (step 13)
+            host_card = board.body_of(match, side, ref)
+            if host_card is not None and host_card.patrol_slot is not None:
+                board.sideline(host_card)
+                result.narration.append(f"{board.named(match, side, ref)} is sidelined.")
         return
     if spell in effects.CHANNELING:
         card = match.new_instance(spell, seat)

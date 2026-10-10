@@ -196,6 +196,49 @@ def mode_choice():
     return engine, game, match
 
 
+def stash():
+    """Bigby Hayes in play as the patrol locks: the draw asks which card
+    his stash keeps (step 13)."""
+    engine, game, match = new_game(teams=(("law",), ("growth",)))
+    begin(engine, game, match)
+    hero_in_play(match, 1)
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "end_main"))
+    driver.apply(engine, game, match, Action(PromptKind.PATROL, arguments={"assignment": {}}))
+    return engine, game, match
+
+
+def _blue_main():
+    engine, game, match = new_game(teams=(("law",), ("growth",)))
+    begin(engine, game, match)
+    hero_in_play(match, 1)
+    match.player(1).gold = 20
+    return engine, game, match
+
+
+def choose_number():
+    """Reputable Newsman arrives: his number is asked (step 13)."""
+    engine, game, match = _blue_main()
+    from codex_positions import hand
+    hand(match, 1, "reputable_newsman")
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "reputable_newsman"}))
+    return engine, game, match
+
+
+def oath():
+    """Oathkeeper arrives: his oath is asked (step 13)."""
+    engine, game, match = new_game(teams=(("strength",), ("growth",)))
+    begin(engine, game, match)
+    from codex_positions import built, hand
+    built(match, 1, "tech1")
+    built(match, 1, "tech2")
+    built(match, 1, "tech3")
+    hand(match, 1, "oathkeeper_of_kor_mountain")
+    match.player(1).gold = 20
+    driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                             {"slug": "oathkeeper_of_kor_mountain"}))
+    return engine, game, match
+
+
 def game_over():
     engine, game, match = _main()
     match.winner = 2
@@ -217,6 +260,9 @@ PROMPT_FIXTURES = {
     PromptKind.LEVEL_GAIN: level_gain,
     PromptKind.DIVIDE_DAMAGE: divide_damage,
     PromptKind.MODE_CHOICE: mode_choice,
+    PromptKind.STASH: stash,
+    PromptKind.CHOOSE_NUMBER: choose_number,
+    PromptKind.OATH: oath,
     PromptKind.GAME_OVER: game_over,
 }
 

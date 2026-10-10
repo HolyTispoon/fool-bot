@@ -3,13 +3,15 @@
 Design notes for fool-bot; the map is [CLAUDE.md](../../CLAUDE.md), the rules are [living-rules.md](../living-rules.md).
 
 This repository runs two Discord bots. fool-bot plays D12 Ball; the
-**Codex bot** plays Sirlin Games' *Codex: Card-Time Strategy*, starting
-from the basic game -- one hero a side, Bashing (Troq Bashar) against
-Finesse (River Montoya), the ten neutral starters as both decks, the
-tower and the surplus as the only add-ons. It is modelled on the D12
-Ball bot and built from [../codex-bot.md](../codex-bot.md), the
-worksheet whose steps it is; this note is what those steps settled, one
-section per decision as it lands.
+**Codex bot** plays Sirlin Games' *Codex: Card-Time Strategy* whole:
+every printed card of the seven colours, all twenty heroes, the basic
+game -- one hero a side, Bashing (Troq Bashar) against Finesse (River
+Montoya), the ten neutral starters as both decks, the tower and the
+surplus as the only add-ons -- and the standard one, three heroes a side
+from any colours, with the heroes' hall and the tech lab. It is modelled
+on the D12 Ball bot and built from [../codex-bot.md](../codex-bot.md),
+the worksheet whose steps it is; this note is what those steps settled,
+one section per decision as it lands.
 
 Step 1 stood it up: the entry point, the shared bot class, the card
 data and its import, `/codex card` and `/codex rules`, the runner.
@@ -35,7 +37,9 @@ Step 9 moved what the two games turned out to share to one home,
 standard game playable -- three heroes a side, the hero limit, the spec
 at Tech II, the heroes' hall and the tech lab, the multicolour costs --
 and landed red and green, played for their numbers ("The standard
-game"). The model's
+game"); steps 11 to 13 gave every colour its text, two at a time ("Red
+and green", "Purple and black", "White and blue"), and after step 13
+`UNIMPLEMENTED` is empty for good. The model's
 purity rules hold for `codex/` and `gamesaves/codex/`
 (`tests/test_model_purity.py`): no `discord`, no `async def`, Pillow
 only in `codex/render.py`.
@@ -139,7 +143,9 @@ its source.
   card's, `keyword_rulings(keyword)` for the `General` group's -- each
   with its author and date. A ruling that names two records ("Dancer /
   Angry Dancer") rules on each. Where the rulebook's text and a ruling
-  differ, the ruling governs.
+  differ, the ruling governs -- the Card FAQ's included: **the database's
+  rulings come before everything else** (the author, 2026-10-10, on Bird's
+  Nest's limit of two).
 - **The copyright question** was the author's, answered on 2026-10-07:
   the texts, the rulings and the art are Sirlin Games' words and
   pictures, reproduced in this public repository as the fan database
@@ -900,6 +906,118 @@ black's, and the rest waits for step 13.
   Carrion Curse shows the hand even where nothing in it may be
   discarded.
 
+### White and blue
+
+Step 13 made every white (the Whitestar Order: Discipline, Ninjutsu,
+Strength) and blue (the Flagstone Dominion: Law, Peace, Truth) card,
+hero and token do what it says, in six commits -- the colours landed for
+their numbers, the keywords and the copies, the zones and the rules a
+player is put under, white's effects, blue's, and the last of the tables
+-- and after it every printed card plays and the lobby offers all twenty
+heroes. `UNIMPLEMENTED` is empty for good: `tests/test_codex_effects.py`
+asserts it over every card the data holds, and that the seven sets add
+up to the whole catalog but for the two worker counters and the
+Mercenary token, which no card summons and which has no text. The
+General rulings of the keywords it added -- illusion, stash, arrival
+fatigue, detector, flagbearer -- are pinned in
+`tests/test_codex_keywords.py`, whose tables now cover the whole General
+group; the 92 rulings on the pair's cards and heroes (79 and 13) in
+`tests/test_codex_card_rulings.py`, whose ratchet now counts every
+ruling the data holds on a card, a hero or a token (343), so a
+re-import that adds one fails loudly.
+
+- **The illusion and the copy.** An Illusion is read off the subtype
+  (`RulesEngine.is_illusion`) or an `illusion` modifier -- Hallucination's
+  this turn, a Quince copy's for good -- and dies the moment it is
+  targeted, before the rest of the effect (`resolve._targeted_away`, with
+  Smoker's return to the hand beside it). A **copy** is
+  `CardInstance.copy_of`: the copied card's slug, read wherever the
+  engine asks what a card *is* (`text_slug`, `card_of`, `tech_level`) --
+  the printed card, its printed override read first and none of its
+  runes, attachments or modifiers, and nothing arrives (the copy
+  rulings). Manufactured Truth's ends with the turn, a `copy` modifier
+  keeping what the card was; Quince's middle ability trashes its copy at
+  the end of the turn, once; his max level's copy is trashed when he or
+  its original leaves (`board.settle`). A Mirror Illusion that copies
+  something is no longer a "Mirror Illusion" for his abilities, and still
+  counts to his limit of two (his rulings).
+- **The jail.** A unit its opponent's Jail catches goes from the hand
+  to the Jail's `jailed` slot -- `{slug, owner, boosted}`, not in play
+  and not arriving -- and is released, arriving then, boost and all,
+  when the next one takes its place; it is discarded with the Jail.
+  Forecast units never go there (the jail rulings).
+- **The rules a player is put under** are reasons a card may not be
+  played, read in `why_not_playable` so the panel and the refusal say
+  the same: Censorship Council's one card a turn from the hand (a "put
+  into play" is no play), Reputable Newsman's `number` (the spells and
+  upgrades of that printed cost), Oathkeeper's `oath` (no card from the hand
+  but workers, or no draw/discard phase, while he is in play) and Building
+  Inspector's surcharge on the first building of a turn
+  (`built_this_turn`). **The silence** is `PlayerState.silenced`: Free
+  Speech's, until after that player's next turn; their heroes cast no
+  spells, lose their band texts and keywords, and one summoned or levelled
+  meanwhile arrives with nothing (its rulings).
+- **The stash.** Bigby's keyword: at the draw phase the `STASH` prompt
+  asks whether to keep a card, the hand's cards as its options; one kept
+  is one fewer drawn, so the hand ends the size it would have without
+  it. The kept card is pictured to its owner alone and never named.
+- **The one standing reveal.** Eyes of the Chancellor's "Opponents play
+  with their hands revealed" is `RulesEngine.hands_visible_to(match,
+  seat)`: the hands `seat` sees. The cog pictures them on that player's
+  own panel and hand message (`revealed_files`), never in the channel,
+  and `tests/test_codex_cog_turn.py` holds that the channel hears
+  nothing. A look -- Martial Mastery's, Lawful Search's, Community
+  Service's -- is a `TARGET` whose `shown` is the pile, as Carrion
+  Curse's was, asked even with nothing to pick; Flagstone Spy's look,
+  which no prompt carries, stands on its player's panel for the rest of
+  the turn (`looked_hand`).
+- **The attack that costs gold.** Morningstar Pass and Setsuki while
+  she does not patrol: `attack_toll` names the gold, the defenders a
+  player cannot pay for are not offered, and `declare_attack` charges it.
+- **The base that flies.** Lawbringer Gryphon: the base is attacked as
+  a flier is, only by fliers and anti-air (`may_be_attacked`).
+- **Two Birds, however many Nests.** Bird's Nest summons Birds up to two
+  in all, whether it is played or re-summons at its upkeep: each Nest
+  sees the Birds in play and puts none past the limit (its ruling). The
+  author settled it on 2026-10-10 over the Card FAQ, which reads as a
+  second Nest summoning two more: **where the database's rulings and the
+  Card FAQ differ, the database governs.**
+- **Prevention and doubling.** Morningstar Pass prevents all damage to
+  its controller's other buildings, the base among them (the card calls
+  it a building); Focus Master spends a rune on exactly lethal damage --
+  1 of deathtouch's, never a patroller whose excess overpower or Stampede
+  carries on; Doubling Barbarbarian doubles every gain of ATK, HP and
+  armor, runes and the squad leader's included, never healing; Safe
+  Attacking's armor is given per attack and taken back after it.
+- **Control that follows a card.** Mind Control's unit is controlled by
+  whoever controls the spell (Assimilate's ruling), and goes back to
+  whoever had it before when the spell leaves play -- a
+  `mind_controlled` modifier on the unit, worked in `board.settle`.
+- **The building that is disabled.** Injunction disables a tech
+  building through its owner's next turn: no card of its level, no
+  building above it built, a tech III already standing untouched (its
+  rulings).
+- **The saved fields**, each with its fallback: on a card `copy_of`
+  (`None`), `jailed` (`None`: the Jail's slot), `oath` (`None`) and
+  `number` (`None`); on a hero `runes` (`{}`: Grave's sword and Two
+  Lives' crumbling rune); on a side `silenced` (false),
+  `played_from_hand` (0) and `built_this_turn` (false); and on a tech
+  building `disabled` (false). The crumbling, focus, insurance and sword
+  runes on a card are kinds in its `runes` (step 11's field); Insurance
+  Agent remembers the unit he insured as an `insures` modifier, so a
+  second rune is a marker and a copy insures nothing. The golden's final
+  match was re-recorded for these keys alone, every one at its default;
+  the transcript did not change.
+- **As the author answered** (2026-10-10): Training Grounds levels one
+  of its controller's heroes, never an opponent's; True Power of Storms
+  may be played with fewer than two cards that cost 3, or discard just
+  one, and then does nothing (its ruling: nothing is targeted);
+  Jurisdiction's spell needs no hero of its spec.
+- **Still open, built as the card reads** and listed in the PR: Reputable
+  Newsman's number is compared with a card's printed cost, and Mind
+  Control may be attached to any tech 0, I or II unit, its caster's own
+  included.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -977,6 +1095,13 @@ match as its saved dict, as D12 Ball's record does; its file,
   Payment); and on the match `extra_turns` (`[]`, Double Time) and
   `lost_by_debt` (`None`). The golden's final match was re-recorded for
   these keys alone -- every one at its default, nothing else changed.
+
+- **Step 13 added eight**, each with its fallback ("White and blue",
+  above): on a card `copy_of`, `jailed`, `oath` and `number` (each
+  `None`); on a hero `runes` (`{}`); on a side `silenced` (false),
+  `played_from_hand` (0) and `built_this_turn` (false); and `disabled`
+  (false) on a tech building. The golden's final match was re-recorded
+  for these keys alone.
 
 ### What the narration may say
 
@@ -2244,13 +2369,14 @@ it, by the mode:
   Mixed colours** (the author, 2026-10-10: instead of the menu of every
   hero). A colour's deck is its three heroes played together -- red's
   the **Blood Anarchs**, green's the **Moss Sentinels**, purple's the
-  **Vortoss Conclave**, black's the **Blackhand Scourge**, and once
-  they land white's the **Whitestar Order** and blue's the **Flagstone
-  Dominion** (`COLOR_DECK_NAMES`; `CardCatalog.color_decks`, every
-  landed colour with three heroes, so neutral's two make none). Red and
-  green's names are on Sirlin's own site; the other four are the names
-  the worksheet has used since it was written. One click seats the
-  clicker with the three. **Mixed colours** answers the clicker alone,
+  **Vortoss Conclave**, black's the **Blackhand Scourge**, white's the
+  **Whitestar Order** and blue's the **Flagstone Dominion**
+  (`COLOR_DECK_NAMES`; `CardCatalog.color_decks`, every landed colour
+  with three heroes, so neutral's two make none) -- six since step 13,
+  so with **Mixed colours** they take two rows, five to a row as
+  Discord allows, and a test game's two sides four. Red and green's
+  names are on Sirlin's own site; the author confirmed all six
+  (2026-10-10). One click seats the clicker with the three. **Mixed colours** answers the clicker alone,
   ephemerally (`MixedTeamView`), with two menus: **the first hero --
   "its colour is your starting deck"** -- and the other two. Both
   filled, the seat is taken through the service as the buttons take it,

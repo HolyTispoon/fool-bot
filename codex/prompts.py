@@ -101,6 +101,15 @@ class PromptKind(Enum):
     #: "Choose one" -- Feral Strike's, Murkwood Allies', Land Octopus's
     #: upkeep -- asked only where there is a choice (step 11).
     MODE_CHOICE = "mode_choice"
+    #: Stash (Bigby Hayes, step 13): which card of the hand the draw phase
+    #: keeps, or none -- asked where the active player has stash, before
+    #: the draw it changes.
+    STASH = "stash"
+    #: Reputable Newsman's arrival (step 13): a number from 0 to 20 --
+    #: no opposing spell or upgrade of that cost while he is in play.
+    CHOOSE_NUMBER = "choose_number"
+    #: Oathkeeper's arrival (step 13): which of its two oaths is sworn.
+    OATH = "oath"
     #: A base is destroyed (UMR p. 2), or a player conceded.
     GAME_OVER = "game_over"
 
@@ -362,6 +371,43 @@ class LevelGainOptions:
 
 
 @dataclass(frozen=True)
+class StashOptions:
+    """The hand a stash keeps one card of, each card once in the hand's
+    order -- its owner's alone, as the hand is."""
+
+    seat: int
+    hand: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "hand": list(self.hand)}
+
+
+@dataclass(frozen=True)
+class NumberOptions:
+    """Reputable Newsman's number: anything from `least` to `most`."""
+
+    seat: int
+    source: str
+    least: int = 0
+    most: int = 20
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "source": self.source, "least": self.least, "most": self.most}
+
+
+@dataclass(frozen=True)
+class OathOptions:
+    """Oathkeeper's two oaths, each `(key, its words)`."""
+
+    seat: int
+    source: str
+    oaths: tuple[tuple[str, str], ...]
+
+    def to_dict(self) -> dict:
+        return {"seat": self.seat, "source": self.source, "oaths": [list(row) for row in self.oaths]}
+
+
+@dataclass(frozen=True)
 class GameOverOptions:
     """Who won, and who conceded where the game ended that way. Nothing
     answers a finished game: playing it again is a new record
@@ -383,7 +429,7 @@ PromptOptions = Union[
     MainActionOptions, DefenderOptions, PatrolOptions, TechOptions,
     TechConfirmOptions, ObliterateOptions, SparkshotOptions, OverpowerOptions,
     TargetOptions, AppelOptions, UpkeepOrderOptions, LevelGainOptions, GameOverOptions,
-    DivideOptions, ModeOptions,
+    DivideOptions, ModeOptions, StashOptions, NumberOptions, OathOptions,
 ]
 
 
@@ -457,6 +503,9 @@ CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.LEVEL_GAIN: ("",),
     PromptKind.DIVIDE_DAMAGE: ("", "cancel"),
     PromptKind.MODE_CHOICE: ("", "cancel"),
+    PromptKind.STASH: ("keep", "none"),
+    PromptKind.CHOOSE_NUMBER: ("",),
+    PromptKind.OATH: ("",),
     PromptKind.GAME_OVER: (),
 }
 
@@ -533,6 +582,13 @@ def _level_ask(seat: int, owner: int) -> str:
     return f"{tokens.player(seat)}, a hero was destroyed: choose which of {whose} heroes gains the 2 levels."
 
 
+def _stash_ask(seat: int) -> str:
+    return (
+        f"{tokens.player(seat)}, your draw: stash lets you keep a card of your hand and draw "
+        "one less -- choose it, or keep none."
+    )
+
+
 def _confirm_ask(seat: int) -> str:
     return f"{tokens.player(seat)}, your turn: confirm your tech choice, or change it."
 
@@ -570,6 +626,11 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
         # caster alone.
         other = 2 if top["seat"] == 1 else 1
         shown = tuple(match.player(other).hand)
+    elif part.choose in DISCARD_LOOKS:
+        # Community Service, Lawful Search: the opponent's discard pile,
+        # public, pictured all the same (step 13).
+        other = 2 if top["seat"] == 1 else 1
+        shown = tuple(match.player(other).discard)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
@@ -578,7 +639,9 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
 
 
 #: The parts that look at a hidden pile while they choose from it.
-LOOKS = frozenset({"opponent_hand_nonunit"})
+LOOKS = frozenset({"opponent_hand_nonunit", "opponent_hand_look", "opponent_hand_unit_1_2"})
+#: And those that look at the opponent's discard pile.
+DISCARD_LOOKS = frozenset({"opponent_discard_look", "opponent_discard_unit_1_2"})
 
 
 def _divide_options(engine, game, match, prompt) -> DivideOptions:
@@ -676,6 +739,23 @@ def _confirm_options(engine, game, match, prompt) -> TechConfirmOptions:
     return TechConfirmOptions(prompt.asked_player, tuple(player.tech_choice or ()))
 
 
+def _number_options(engine, game, match, prompt) -> NumberOptions:
+    top = match.resolving[0]
+    return NumberOptions(top["seat"], top["by"], 0, effects.NUMBER_MOST)
+
+
+def _oath_options(engine, game, match, prompt) -> OathOptions:
+    from codex.flow.resolve import OATHS
+
+    top = match.resolving[0]
+    return OathOptions(top["seat"], top["by"], tuple(OATHS.items()))
+
+
+def _stash_options(engine, game, match, prompt) -> StashOptions:
+    player = match.player(prompt.asked_player)
+    return StashOptions(prompt.asked_player, tuple(dict.fromkeys(player.hand)))
+
+
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
     return GameOverOptions(match.winner, match.conceded, match.lost_by_debt)
 
@@ -695,6 +775,9 @@ OPTIONS = {
     PromptKind.LEVEL_GAIN: _level_options,
     PromptKind.DIVIDE_DAMAGE: _divide_options,
     PromptKind.MODE_CHOICE: _mode_options,
+    PromptKind.STASH: _stash_options,
+    PromptKind.CHOOSE_NUMBER: _number_options,
+    PromptKind.OATH: _oath_options,
     PromptKind.GAME_OVER: _game_over_options,
 }
 
@@ -770,9 +853,23 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
         if kind == "level_gain":
             asked = top.get("asked", seat)
             return PendingPrompt(PromptKind.LEVEL_GAIN, _level_ask(asked, top["seat"]), asked)
-        from codex.flow.resolve import ASKS_DIVIDE, ASKS_MODE, asking, current_part, damage_amount
+        from codex.flow.resolve import (
+            ASKS_DIVIDE, ASKS_MODE, ASKS_NUMBER, ASKS_OATH, asking, current_part, damage_amount,
+        )
 
         asks = asking(match)
+        if asks == ASKS_NUMBER:
+            return PendingPrompt(
+                PromptKind.CHOOSE_NUMBER,
+                f"{tokens.player(top['seat'])}, {top['by']}: choose a number from 0 to "
+                f"{effects.NUMBER_MOST} -- your opponent can't play spells or upgrades of that cost.",
+                top["seat"],
+            )
+        if asks == ASKS_OATH:
+            return PendingPrompt(
+                PromptKind.OATH, f"{tokens.player(top['seat'])}, {top['by']}: choose an oath.",
+                top["seat"],
+            )
         if asks == ASKS_MODE:
             return PendingPrompt(PromptKind.MODE_CHOICE, _mode_ask(top), top["seat"])
         if asks == ASKS_DIVIDE:
@@ -801,6 +898,9 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             seat,
         )
     if match.phase == "draw":
+        if engine.stash_owed(match):
+            # Stash (step 13): the draw waits on which card is kept.
+            return PendingPrompt(PromptKind.STASH, _stash_ask(seat), seat)
         return FollowOn(FollowOnStep.DRAW_PHASE)
     if match.phase == "tech":
         return FollowOn(FollowOnStep.BEGIN_TECH)

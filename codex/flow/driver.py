@@ -213,6 +213,9 @@ STALE_CLICK: Mapping[PromptKind, str] = {
     PromptKind.LEVEL_GAIN: "Those levels have already been gained.",
     PromptKind.DIVIDE_DAMAGE: "That damage has already been divided.",
     PromptKind.MODE_CHOICE: "That choice has already been made.",
+    PromptKind.STASH: "That draw has already been made.",
+    PromptKind.CHOOSE_NUMBER: "That number has already been chosen.",
+    PromptKind.OATH: "That oath has already been sworn.",
     PromptKind.GAME_OVER: "The game is not over.",
 }
 
@@ -350,6 +353,24 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None) -> Ste
     return resolve.carry_on(engine, game, match, result)
 
 
+def _answer_stash(engine, game, match, prompt, choice, *, slug=None) -> StepResult:
+    """Stash's card, or none, and the draw it changes (step 13)."""
+    if choice == "none":
+        return turn.draw_phase(engine, game, match, stash="")
+    slug = _required(slug, "slug")
+    if slug not in prompt.options.hand:
+        raise RuleRefusal("That card is not in your hand.", cite="bigby_hayes")
+    return turn.draw_phase(engine, game, match, stash=slug)
+
+
+def _answer_number(engine, game, match, prompt, choice, *, number=None) -> StepResult:
+    return resolve.choose_number(engine, game, match, _required(number, "number"))
+
+
+def _answer_oath(engine, game, match, prompt, choice, *, oath=None) -> StepResult:
+    return resolve.choose_oath(engine, game, match, _required(oath, "oath"))
+
+
 def _answer_game_over(engine, game, match, prompt, choice) -> StepResult:
     raise RuleRefusal("The game is over.")
 
@@ -370,6 +391,9 @@ ANSWERS: Mapping[PromptKind, Callable[..., StepResult]] = {
     PromptKind.LEVEL_GAIN: _answer_level_gain,
     PromptKind.DIVIDE_DAMAGE: _answer_divide,
     PromptKind.MODE_CHOICE: _answer_mode,
+    PromptKind.STASH: _answer_stash,
+    PromptKind.CHOOSE_NUMBER: _answer_number,
+    PromptKind.OATH: _answer_oath,
     PromptKind.GAME_OVER: _answer_game_over,
 }
 
@@ -392,6 +416,9 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.LEVEL_GAIN: frozenset({"hero"}),
     PromptKind.DIVIDE_DAMAGE: frozenset({"target"}),
     PromptKind.MODE_CHOICE: frozenset({"mode"}),
+    PromptKind.STASH: frozenset({"slug"}),
+    PromptKind.CHOOSE_NUMBER: frozenset({"number"}),
+    PromptKind.OATH: frozenset({"oath"}),
     PromptKind.GAME_OVER: frozenset(),
 }
 

@@ -99,6 +99,12 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         return Action(kind, arguments={"target": options.targets[0].key})
     if kind is PromptKind.DIVIDE_DAMAGE:
         return Action(kind, arguments={"target": options.split[0][0]})
+    if kind is PromptKind.STASH:
+        return Action(kind, "none")
+    if kind is PromptKind.CHOOSE_NUMBER:
+        return Action(kind, arguments={"number": 3})
+    if kind is PromptKind.OATH:
+        return Action(kind, arguments={"oath": "draw"})
     if kind is PromptKind.MODE_CHOICE:
         return Action(kind, arguments={"mode": options.modes[0][0]})
     if kind is PromptKind.APPEL_STOMP_TOP:
@@ -154,6 +160,9 @@ STANDARD_SEED = 20261009
 #: Step 12's third game: three purple heroes against three black.
 PURPLE_BLACK_TEAMS = (["past", "present", "future"], ["demonology", "disease", "necromancy"])
 PURPLE_BLACK_SEED = 20261010
+#: Step 13's fourth game: three white heroes against three blue.
+WHITE_BLUE_TEAMS = (["discipline", "ninjutsu", "strength"], ["law", "peace", "truth"])
+WHITE_BLUE_SEED = 20261011
 
 
 def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
@@ -371,6 +380,46 @@ class CodexPurpleBlackGameTests(unittest.TestCase):
 
         played = {event["slug"] for event in self.match.events if event["kind"] == "played"}
         self.assertTrue(played & effects.PURPLE and played & effects.BLACK)
+
+    def test_nothing_hidden_is_said(self) -> None:
+        for line in self.transcript:
+            if "hires a worker" in line or "their tech" in line:
+                for slug in self.engine.catalog.cards:
+                    name = self.engine.catalog.name(slug)
+                    self.assertNotIn(f" {name} ", f" {line} ")
+
+
+class CodexWhiteBlueGameTests(unittest.TestCase):
+    """
+    Step 13's fourth game: three white heroes against three blue -- the
+    Whitestar Order against the Flagstone Dominion -- through the driver
+    alone, to a destroyed base.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        cls.engine, cls.game, cls.match, cls.transcript = play(
+            WHITE_BLUE_SEED, teams=WHITE_BLUE_TEAMS, say=print if verbose else None,
+        )
+
+    def test_a_base_is_destroyed_within_the_bound(self) -> None:
+        self.assertIsNotNone(self.match.winner)
+        self.assertLessEqual(self.match.turn, TURN_LIMIT)
+        loser = self.match.opponent(self.match.winner)
+        self.assertTrue(loser.base_hp == 0)
+
+    def test_three_heroes_a_side_on_their_colours(self) -> None:
+        for player, team in zip(self.match.players, WHITE_BLUE_TEAMS):
+            self.assertEqual(player.specs, tuple(team))
+        self.assertEqual(self.match.player(1).deck_color, "white")
+        self.assertEqual(self.match.player(2).deck_color, "blue")
+
+    def test_white_and_blue_cards_were_played(self) -> None:
+        from codex import effects
+
+        played = {event["slug"] for event in self.match.events if event["kind"] == "played"}
+        self.assertTrue(played & effects.WHITE and played & effects.BLUE)
 
     def test_nothing_hidden_is_said(self) -> None:
         for line in self.transcript:

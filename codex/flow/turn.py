@@ -74,6 +74,12 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
     that is known: Blackhand Dozer's floor holds an opposing base at 6
     against any damage its controller deals (`base_floor`)."""
     player = match.player(seat)
+    from codex.flow.board import pass_prevents
+
+    if pass_prevents(match, seat, "base"):
+        # Morningstar Pass: the base is one of "your other buildings"
+        # (step 13).
+        return
     floor = base_floor(match, seat, by)
     if floor is not None and player.base_hp - amount < floor:
         kept = min(player.base_hp, floor)
@@ -179,6 +185,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     player.hired_this_turn = False
     player.spells_played = 0
     player.arrived_from_hand = False
+    # Censorship Council's and Building Inspector's counts (step 13).
+    player.played_from_hand = 0
+    player.built_this_turn = False
     # Moment's Peace holds "until your next turn" (step 11).
     player.peace = False
     # Readiness attacks once a turn and a tower detects once a turn
@@ -191,8 +200,17 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Armor refreshes at the start of every turn (UMR p. 10); only the
     # other player's patrollers are standing in their slots now.
     for side in match.players:
+        from codex.flow.board import armor_gain
+
         for body in (*side.play, *side.heroes):
-            body.armor = SQUAD_LEADER_ARMOR if body.patrol_slot == "squad_leader" else 0
+            body.armor = armor_gain(body, SQUAD_LEADER_ARMOR) if body.patrol_slot == "squad_leader" else 0
+            lasting = sum(m.get("amount", 0) for m in body.modifiers
+                          if m.get("kind") == effects.LASTING_ARMOR
+                          and not (m.get("until") == "upkeep" and m.get("seat") == seat))
+            if lasting:
+                # Elite Training's and The Art of War's armor, new each turn
+                # until the caster's upkeep (step 13).
+                body.armor += armor_gain(body, lasting)
             change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
             if change is not None and body.patrol_slot is not None and side.seat != seat:
                 # Ironbark Treant's +2 armor, new on each opponent's turn
@@ -273,6 +291,12 @@ def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
                 result.narration.append(f"{tokens.card(card.slug)} is itself again.")
             card.modifiers = [
                 m for m in card.modifiers
+                if not (m.get("until") == "upkeep" and m.get("seat") == seat)
+            ]
+        for hero in side.heroes:
+            # The Art of War's, Elite Training's on a hero (step 13).
+            hero.modifiers = [
+                m for m in hero.modifiers
                 if not (m.get("until") == "upkeep" and m.get("seat") == seat)
             ]
         side.lasting = [
@@ -451,6 +475,20 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
                 card.damage += 1
                 result.narration.append(f"{tokens.card(card.slug)} takes 1 damage.")
         board.settle(engine, match, result)
+    elif kind == "nest":
+        card = player.instance(int(ident))
+        if card is not None:
+            match.resolving.insert(0, resolve.frame(
+                "birds_nest_upkeep", seat, tokens.card(card.slug), source=card.ref, origin=card.slug,
+            ))
+    elif kind == "setsuki":
+        # Setsuki at 6: "Upkeep: Draw 2 cards." (step 13)
+        drawn = draw_cards(engine, match, seat, 2, result)
+        if drawn:
+            result.narration.append(
+                f"{tokens.hero('setsuki_hiruki')} draws {tokens.player(seat)} {drawn} card"
+                f"{'' if drawn == 1 else 's'}."
+            )
     elif kind == "owl":
         owls = sum(1 for card in player.play if engine.text_slug(card) in effects.UPKEEP_GOLD)
         gained = gain_gold(match, seat, owls)
@@ -614,17 +652,29 @@ def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
 
 def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
-               lead_in: str = "") -> StepResult:
+               lead_in: str = "", stash: Optional[str] = None) -> StepResult:
     """The hand to the discard face-down, then two more drawn than were
-    discarded, to at most five (UMR p. 5)."""
+    discarded, to at most five (UMR p. 5). Where the player has stash
+    (Bigby Hayes, step 13) the draw first asks which card is kept
+    (`STASH`), and `stash` is the answer -- a slug, or "" for none: the
+    card kept and one card fewer drawn, so the hand ends the size it
+    would have (the stash ruling). The card kept is never named."""
     seat = match.active
     player = match.active_player
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
-    if player.skip_draw:
+    if stash is None and engine.stash_owed(match):
+        result.next = pending(engine, game, match)
+        return result
+    oath = engine.skips_draw(match, seat)
+    if player.skip_draw or oath:
         # Prynn died from fading: "Opponents skip their next draw/discard
-        # step (they keep their hand cards)."
+        # step (they keep their hand cards)." Oathkeeper's second oath:
+        # "you simply keep your same remaining cards" (its ruling).
         player.skip_draw = False
-        result.narration.append(f"{tokens.player(seat)} skips their draw and discard, keeping their hand.")
+        why = f", as {tokens.card('oathkeeper_of_kor_mountain')}'s oath says" if oath else ""
+        result.narration.append(
+            f"{tokens.player(seat)} skips their draw and discard, keeping their hand{why}."
+        )
         match.enter_phase("tech")
         end_of_turn(engine, match, result)
         from codex.flow import resolve
@@ -634,16 +684,21 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             return result
         result.next = FollowOn(FollowOnStep.BEGIN_TECH)
         return result
+    held = len(player.hand)
+    kept = stash if stash and stash in player.hand else None
+    if kept is not None:
+        player.hand.remove(kept)
     discarded = len(player.hand)
     player.discard.extend(player.hand)
-    player.hand = []
-    owed = engine.draw_count(discarded, player)
+    player.hand = [kept] if kept is not None else []
+    owed = engine.draw_count(held, player) - (1 if kept is not None else 0)
     # The count goes first, though it is only known after the draw: a
     # reshuffle the draw needed is said beneath it.
     at = len(result.narration)
     drawn = draw_cards(engine, match, seat, owed, result)
+    keeps = f"keeps a card, " if kept is not None else ""
     result.narration.insert(
-        at, f"{tokens.player(seat)} discards {discarded} and draws {drawn}.",
+        at, f"{tokens.player(seat)} {keeps}discards {discarded} and draws {drawn}.",
     )
     match.enter_phase("tech")
     end_of_turn(engine, match, result)
@@ -731,11 +786,29 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)} is finished."
         )
+    for side in match.players:
+        for card in [one for one in side.play
+                     if any(m.get("kind") == effects.QUINCE_TURN_COPY for m in one.modifiers)]:
+            # Quince at 3: "Trash it at end of turn." (step 13)
+            side.play.remove(card)
+            match.record_event("trashed", slug=card.slug, owner=card.owner)
+            result.narration.append(f"{tokens.card(card.slug)}, Quince's copy, is trashed.")
+    for building in player.buildings.values():
+        if building is not None and building.disabled:
+            # Injunction: not operational through this, its owner's next
+            # turn (step 13).
+            building.disabled = False
     # This turn's effects end (Intimidate, Discord, Sneaky Pig's
     # stealth), on both sides, heroes too.
     for side in match.players:
         side.lasting = [lasting for lasting in side.lasting if lasting.get("until") != "end_of_turn"]
         for body in (*side.play, *side.heroes):
+            for copied in [m for m in body.modifiers
+                           if m.get("kind") == "copy" and m.get("until") == "end_of_turn"]:
+                # Manufactured Truth's copy ends: the card is itself again,
+                # its own printed override back (step 13).
+                body.copy_of = copied.get("copy_of")
+                body.printed = copied.get("printed")
             # Temporary armor not used up goes with the turn (UMR p. 16).
             lent = sum(m.get("amount", 0) for m in body.modifiers
                        if m.get("kind") == "armor" and m.get("until") == "end_of_turn")
@@ -759,6 +832,10 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.record_event("turn_ended")
     match.attacking = None
     player.promised = False
+    if player.silenced:
+        # Free Speech: "until after that opponent's next turn" -- this one.
+        player.silenced = False
+        result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
     if match.extra_turns and match.extra_turns[0] == seat:
         # Double Time: "Take an extra turn after this one" -- the turn passes
         # to the same player, with every phase (its ruling).

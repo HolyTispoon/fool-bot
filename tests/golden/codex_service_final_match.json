@@ -1725,20 +1725,24 @@
       "buildings": {
         "tech1": {
           "destroyed": false,
+          "disabled": false,
           "hp": 2,
           "under_construction": false
         },
         "tech2": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech3": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         }
       },
+      "built_this_turn": false,
       "codex": {
         "eggship": 0,
         "final_smash": 0,
@@ -1809,6 +1813,7 @@
           "patrol_slot": null,
           "plus_runes": 0,
           "printed": null,
+          "runes": {},
           "slug": "troq_bashar",
           "summoning_runes": 0,
           "time_runes": 0,
@@ -1828,14 +1833,18 @@
           "attacked_this_turn": true,
           "buried": [],
           "controller": 1,
+          "copy_of": null,
           "damage": 2,
           "disabled": false,
           "exhausted": true,
           "flipped": false,
           "id": 36,
+          "jailed": null,
           "made_by": null,
           "minus_runes": 0,
           "modifiers": [],
+          "number": null,
+          "oath": null,
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
@@ -1854,14 +1863,18 @@
           "attacked_this_turn": true,
           "buried": [],
           "controller": 1,
+          "copy_of": null,
           "damage": 4,
           "disabled": false,
           "exhausted": true,
           "flipped": false,
           "id": 37,
+          "jailed": null,
           "made_by": null,
           "minus_runes": 0,
           "modifiers": [],
+          "number": null,
+          "oath": null,
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
@@ -1880,14 +1893,18 @@
           "attacked_this_turn": false,
           "buried": [],
           "controller": 1,
+          "copy_of": null,
           "damage": 0,
           "disabled": false,
           "exhausted": false,
           "flipped": false,
           "id": 40,
+          "jailed": null,
           "made_by": null,
           "minus_runes": 0,
           "modifiers": [],
+          "number": null,
+          "oath": null,
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
@@ -1906,14 +1923,18 @@
           "attacked_this_turn": false,
           "buried": [],
           "controller": 1,
+          "copy_of": null,
           "damage": 0,
           "disabled": false,
           "exhausted": false,
           "flipped": false,
           "id": 41,
+          "jailed": null,
           "made_by": null,
           "minus_runes": 0,
           "modifiers": [],
+          "number": null,
+          "oath": null,
           "owner": 1,
           "patrol_slot": null,
           "plus_runes": 0,
@@ -1925,9 +1946,11 @@
           "time_runes": 0
         }
       ],
+      "played_from_hand": 2,
       "promised": false,
       "reshuffled_this_phase": false,
       "seat": 1,
+      "silenced": false,
       "skip_draw": false,
       "specs": [
         "bashing"
@@ -1946,20 +1969,24 @@
       "buildings": {
         "tech1": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech2": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech3": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         }
       },
+      "built_this_turn": false,
       "codex": {
         "appel_stomp": 0,
         "backstabber": 0,
@@ -2034,6 +2061,7 @@
           "patrol_slot": null,
           "plus_runes": 0,
           "printed": null,
+          "runes": {},
           "slug": "river_montoya",
           "summoning_runes": 0,
           "time_runes": 0,
@@ -2045,9 +2073,11 @@
       "lasting": [],
       "peace": false,
       "play": [],
+      "played_from_hand": 2,
       "promised": false,
       "reshuffled_this_phase": false,
       "seat": 2,
+      "silenced": false,
       "skip_draw": false,
       "specs": [
         "finesse"
@@ -3515,20 +3545,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 3,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "eggship": 0,
             "final_smash": 2,
@@ -3597,6 +3631,7 @@
               "patrol_slot": null,
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -3616,14 +3651,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 30,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
@@ -3635,9 +3674,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 0,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "bashing"
@@ -3656,20 +3697,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "appel_stomp": 0,
             "backstabber": 0,
@@ -3740,6 +3785,7 @@
               "patrol_slot": "elite",
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -3759,14 +3805,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": true,
               "flipped": false,
               "id": 31,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 2,
               "patrol_slot": null,
               "plus_runes": 0,
@@ -3785,14 +3835,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 34,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 2,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
@@ -3804,9 +3858,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 2,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 2,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "finesse"
@@ -5355,20 +5411,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 3,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "eggship": 0,
             "final_smash": 2,
@@ -5439,6 +5499,7 @@
               "patrol_slot": "technician",
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -5458,14 +5519,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 35,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
@@ -5484,14 +5549,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 36,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": "elite",
               "plus_runes": 0,
@@ -5510,14 +5579,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 37,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": "scavenger",
               "plus_runes": 0,
@@ -5529,9 +5602,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 3,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "bashing"
@@ -5553,20 +5628,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "appel_stomp": 0,
             "backstabber": 0,
@@ -5640,6 +5719,7 @@
               "patrol_slot": null,
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -5659,14 +5739,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
+              "copy_of": null,
               "damage": 2,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 34,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 2,
               "patrol_slot": null,
               "plus_runes": 0,
@@ -5678,9 +5762,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 0,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 2,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "finesse"
@@ -7287,20 +7373,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 2,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "eggship": 0,
             "final_smash": 0,
@@ -7374,6 +7464,7 @@
               "patrol_slot": null,
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "troq_bashar",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -7393,14 +7484,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 36,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
@@ -7419,14 +7514,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 1,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 37,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 1,
               "patrol_slot": null,
               "plus_runes": 0,
@@ -7438,9 +7537,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 0,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "bashing"
@@ -7459,20 +7560,24 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
           },
+          "built_this_turn": false,
           "codex": {
             "appel_stomp": 0,
             "backstabber": 0,
@@ -7545,6 +7650,7 @@
               "patrol_slot": null,
               "plus_runes": 0,
               "printed": null,
+              "runes": {},
               "slug": "river_montoya",
               "summoning_runes": 0,
               "time_runes": 0,
@@ -7564,14 +7670,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 38,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 2,
               "patrol_slot": "squad_leader",
               "plus_runes": 0,
@@ -7590,14 +7700,18 @@
               "attacked_this_turn": false,
               "buried": [],
               "controller": 2,
+              "copy_of": null,
               "damage": 0,
               "disabled": false,
               "exhausted": false,
               "flipped": false,
               "id": 39,
+              "jailed": null,
               "made_by": null,
               "minus_runes": 0,
               "modifiers": [],
+              "number": null,
+              "oath": null,
               "owner": 2,
               "patrol_slot": "elite",
               "plus_runes": 0,
@@ -7609,9 +7723,11 @@
               "time_runes": 0
             }
           ],
+          "played_from_hand": 2,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 2,
+          "silenced": false,
           "skip_draw": false,
           "specs": [
             "finesse"

@@ -1,6 +1,7 @@
 """
-The keyword table: which keywords each card of the basic set has, and
-its X where it takes one, read off the card texts in `codex/data/`.
+The keyword table: which keywords each card has, and its X where it
+takes one, read off the card texts in `codex/data/` -- every printed
+card since step 13.
 
 **Present and inert in step 2**: nothing reads it to decide a rule yet,
 and every card that has a keyword is in `codex.effects.UNIMPLEMENTED`.
@@ -27,13 +28,14 @@ from codex.effects import LANDED_SET
 
 #: The keywords the landed cards' texts open with, as the rulings'
 #: `General` group names them -- the basic set's, red and green's (step
-#: 11): deathtouch, long-range, ephemeral, boost and untargetable -- and
-#: purple and black's (step 12): fading, forecast and indestructible.
+#: 11): deathtouch, long-range, ephemeral, boost and untargetable --
+#: purple and black's (step 12): fading, forecast and indestructible --
+#: and white and blue's (step 13): detector, stash and two lives.
 KEYWORDS = (
-    "Anti-air", "Boost", "Channeling", "Deathtouch", "Ephemeral", "Fading", "Flying",
-    "Forecast", "Frenzy", "Haste", "Healing", "Indestructible", "Invisible", "Long-range",
-    "Obliterate", "Overpower", "Readiness", "Resist", "Sparkshot", "Stealth",
-    "Swift strike", "Unstoppable", "Untargetable",
+    "Anti-air", "Boost", "Channeling", "Deathtouch", "Detector", "Ephemeral", "Fading",
+    "Flying", "Forecast", "Frenzy", "Haste", "Healing", "Indestructible", "Invisible",
+    "Long-range", "Obliterate", "Overpower", "Readiness", "Resist", "Sparkshot", "Stash",
+    "Stealth", "Swift strike", "Two Lives", "Unstoppable", "Untargetable",
 )
 
 #: One keyword with its X: a number, or -- for boost -- the gold it
@@ -83,6 +85,11 @@ EXTRA_KEYWORDS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
     # Pestering Haunt: "Unstoppable but can't patrol" -- the "can't
     # patrol" is `codex.effects.CANT_PATROL`'s (step 12).
     "pestering_haunt": (("Unstoppable", None),),
+    # Justice Juggernaut: "Unstoppable but can't patrol." and Daigo
+    # Stormborne: "Indestructible, untargetable, unstoppable, can't
+    # patrol." -- the "can't patrol" `codex.effects.CANT_PATROL`'s (step 13).
+    "justice_juggernaut": (("Unstoppable", None),),
+    "daigo_stormborne": (("Indestructible", None), ("Untargetable", None), ("Unstoppable", None)),
 }
 
 
@@ -90,11 +97,10 @@ EXTRA_KEYWORDS: dict[str, tuple[tuple[str, Optional[int]], ...]] = {
 def keyword_table(catalog: Optional[CardCatalog] = None) -> dict:
     """
     Slug to its keywords, for every landed card that has any
-    (`codex.effects.LANDED_SET`: the basic set, and red and green from
-    step 10). A hero's are keyed `(slug, band's first level)`, since they
+    (`codex.effects.LANDED_SET`: every card since step 13). A hero's are keyed `(slug, band's first level)`, since they
     come with its bands. A line that opens with a keyword the table does
-    not know -- deathtouch, long-range, ephemeral -- is read as nothing,
-    and its card is in `UNIMPLEMENTED`: not half-read.
+    not know is read as nothing -- never half-read -- and fails
+    `tests/test_codex_effects.py` until the card's text is handled.
     """
     catalog = catalog or load_catalog()
     table: dict = {}

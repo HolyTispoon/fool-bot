@@ -125,12 +125,13 @@ class StandardLobbyTests(unittest.TestCase):
         match = MatchState.from_dict(self.game.match_state)
         self.assertEqual(sum(match.player(1).codex.values()), 72)
 
-    def test_a_hero_of_a_colour_not_landed_is_refused(self) -> None:
-        with self.assertRaises(RuleRefusal) as refused:
-            self.game.take_seat(1, "a", ["fire", "anarchy", "law"])
-        self.assertIn("not in this bot yet", str(refused.exception))
-        self.assertIsNone(refused.exception.cite)
-        self.assertIsNone(self.game.player_1_id)
+    def test_a_hero_of_every_colour_may_be_taken(self) -> None:
+        """Step 13 landed the last two colours: no hero is refused for its
+        colour now, a team of three colours included."""
+        self.game.take_seat(1, "a", ["fire", "past", "law"])
+        self.assertEqual(self.game.player_1_id, 1)
+        self.game.take_seat(2, "b", ["discipline", "ninjutsu", "strength"])
+        self.assertEqual(self.game.player_decks[2], "white")
 
     def test_a_fourth_hero_is_refused(self) -> None:
         with self.assertRaises(RuleRefusal) as refused:

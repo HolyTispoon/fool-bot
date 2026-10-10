@@ -78,6 +78,20 @@ STEP_12_KEYWORDS = {
     "Indestructible": 4,
 }
 
+#: The keywords white and blue bring (step 13), and the two the General
+#: group rules on that no step pinned before -- arrival fatigue and the
+#: flagbearer -- with how many rulings each carried at the pinned import.
+#: With them the tables cover the whole General group
+#: (`test_the_tables_cover_the_general_group`).
+STEP_13_KEYWORDS = {
+    "Illusion": 3,
+    "Stash": 1,
+    "Arrival Fatigue": 2,
+    "Flagbearer": 4,
+}
+
+ALL_KEYWORDS = {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS, **STEP_12_KEYWORDS, **STEP_13_KEYWORDS}
+
 
 @contextmanager
 def printed(**pairs):
@@ -1891,6 +1905,385 @@ class PurpleBlackStaticKeywordTests(KeywordCase):
         self.assertFalse(engine.has_keyword(argonaut, "Invisible", match))
 
 
+# -- White and blue (step 13) ------------------------------------------------
+
+
+def white_blue(seed: int = 7, first: int = 1,
+               teams=(("discipline", "ninjutsu", "strength"), ("law", "peace", "truth"))):
+    """White (seat 1) against blue (seat 2), a standard game, standing in
+    `first`'s main phase."""
+    engine, game, match = new_game(seed=seed, first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def cast_now(engine, game, match, slug, *targets, gold: int = 20):
+    """`slug` from the active player's hand, each target answered as it is
+    asked; the run of the last answer."""
+    seat = match.active
+    match.player(seat).hand = [slug]
+    match.player(seat).gold = gold
+    run = apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+    for target in targets:
+        prompt = pending_prompt(engine, game, match)
+        assert prompt.kind is PromptKind.TARGET, prompt
+        run = apply_ok(engine, game, match, PromptKind.TARGET, target=target)
+    return run
+
+
+class IllusionTests(KeywordCase):
+    def test_illusion_1(self) -> None:
+        """Illusions die immediately if they are targeted by a spell or
+        ability. At the moment they are targeted, they die (and go to their
+        owner's discard pile). That means if an effect would target an
+        illusion and deal 3 damage to it, or target it and put a rune on
+        it, the illusion is already dead and gone before the effect
+        happens. It never actually takes the 3 damage or gets the rune in
+        those examples."""
+        engine, game, match = fresh()
+        hero_in_play(match, 1)
+        hound = put(match, 2, "spectral_hound", patrol="elite")
+        run = cast_now(engine, game, match, "wither", f"2:{hound.ref}")
+        self.assertIsNone(match.player(2).instance(hound.id))
+        self.assertIn("spectral_hound", match.player(2).discard)
+        self.assertIn("is an Illusion: targeted by", " ".join(run.result.narration))
+        self.assertNotIn("-1/-1 rune", " ".join(run.result.narration))
+
+    def test_illusion_2(self) -> None:
+        """Attacking an Illusion does not automatically kill it. Illusions
+        only immediately die if they are targeted by a spell or ability."""
+        engine, game, match = fresh()
+        brother = put(match, 1, "older_brother")
+        hound = put(match, 2, "spectral_hound", patrol="squad_leader")
+        hound.armor = 0
+        self.attack(engine, game, match, brother.ref, hound.ref)
+        self.assertIsNotNone(match.player(2).instance(hound.id))
+        self.assertEqual(hound.damage, 2)
+
+    def test_illusion_3(self) -> None:
+        """"Illusion" is a subtype that a unit can have, it's not an
+        ability. That means Spectral Hound, for example, does not have any
+        abilities if Midori's middle ability checks for things "with no
+        abilities"."""
+        engine, game, match = fresh(teams=(("balance",), ("truth",)))
+        hero_in_play(match, 1, level=5)
+        hound = put(match, 1, "spectral_hound")
+        self.assertEqual(engine.unit_stats(hound, match), (4, 4))
+        self.assertTrue(engine.is_illusion(match, hound))
+
+    def test_dreamscape_makes_every_low_tech_unit_an_illusion(self) -> None:
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        brother = put(match, 1, "older_brother", patrol="elite")
+        put(match, 2, "dreamscape")
+        self.assertTrue(engine.is_illusion(match, brother))
+        cast_now(engine, game, match, "spark")
+        self.assertIsNone(match.player(1).instance(brother.id))
+
+    def test_macciatus_keeps_his_illusions_alive_and_grows_them(self) -> None:
+        engine, game, match = new_game(first=2, teams=(("bashing",), ("truth",)))
+        begin(engine, game, match)
+        hero_in_play(match, 2)
+        put(match, 2, "macciatus_the_whisperer")
+        hound = put(match, 2, "spectral_hound")
+        self.assertEqual(engine.unit_stats(hound, match), (4, 4))
+        cast_now(engine, game, match, "wither", f"2:{hound.ref}")
+        self.assertIsNotNone(match.player(2).instance(hound.id))
+        self.assertEqual(hound.minus_runes, 1)
+
+    def test_hallucination_makes_two_units_illusions_this_turn(self) -> None:
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        brother = put(match, 1, "older_brother")
+        tender = put(match, 1, "tenderfoot")
+        cast_now(engine, game, match, "hallucination", f"1:{brother.ref}", f"1:{tender.ref}")
+        self.assertTrue(engine.is_illusion(match, brother) and engine.is_illusion(match, tender))
+        cast_now(engine, game, match, "wither", f"1:{brother.ref}")
+        self.assertIsNone(match.player(1).instance(brother.id))
+
+    def test_reteller_returns_the_first_two_illusions_each_turn(self) -> None:
+        engine, game, match = fresh(teams=(("bashing",), ("truth",)))
+        hero_in_play(match, 1)
+        put(match, 2, "reteller_of_truths")
+        hounds = [put(match, 2, "spectral_hound", patrol=slot)
+                  for slot in ("squad_leader", "elite", "scavenger")]
+        for hound in hounds:
+            cast_now(engine, game, match, "wither", f"2:{hound.ref}")
+        self.assertEqual(match.player(2).hand.count("spectral_hound"), 2)
+        self.assertEqual(match.player(2).discard.count("spectral_hound"), 1)
+
+    def test_smoker_goes_home_when_targeted(self) -> None:
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        smoker = put(match, 1, "smoker", patrol="elite")
+        cast_now(engine, game, match, "spark")
+        self.assertIsNone(match.player(1).instance(smoker.id))
+        self.assertIn("smoker", match.player(1).hand)
+        self.assertEqual(smoker.damage, 0)
+
+
+class StashTests(KeywordCase):
+    def test_stash_1(self) -> None:
+        """An example of how stash works. Normally (without stash), if you
+        have 2 cards left in hand when you reach the discard/draw phase,
+        you'd discard both cards and then draw 4 cards (you draw 2 more
+        than you discard). If you have stash, instead of discarding both
+        cards, you can choose to keep one of them in your hand. If you do,
+        you will STILL end up with 4 cards total, but you'll be drawing 3
+        cards rather than 4 (the 4th card is the one you kept)."""
+        engine, game, match = fresh(teams=(("law",), ("growth",)))
+        hero_in_play(match, 1)
+        match.player(1).hand = ["arrest", "jail"]
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply_ok(engine, game, match, PromptKind.PATROL, assignment={})
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.STASH)
+        self.assertEqual(prompt.options.hand, ("arrest", "jail"))
+        deck = len(match.player(1).deck)
+        run = apply_ok(engine, game, match, PromptKind.STASH, "keep", slug="jail")
+        player = match.player(1)
+        self.assertEqual(len(player.hand), 4)
+        self.assertIn("jail", player.hand)
+        self.assertEqual(player.discard[-1], "arrest")
+        self.assertEqual(deck - len(player.deck), 3)
+        line = " ".join(run.result.narration)
+        self.assertIn("keeps a card, discards 1 and draws 3", line)
+        self.assertNotIn("Jail", line)
+
+    def test_no_stash_draws_as_ever(self) -> None:
+        engine, game, match = fresh(teams=(("law",), ("growth",)))
+        hero_in_play(match, 1)
+        match.player(1).hand = ["arrest", "jail"]
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply_ok(engine, game, match, PromptKind.PATROL, assignment={})
+        apply_ok(engine, game, match, PromptKind.STASH, "none")
+        self.assertEqual(match.player(1).discard[-2:], ["arrest", "jail"])
+        self.assertEqual(len(match.player(1).hand), 4)
+
+
+class ArrivalFatigueTests(KeywordCase):
+    def test_arrival_fatigue_1(self) -> None:
+        """Simplified, it means if the card is not under your control since
+        the very beginning of your turn, it has arrival fatigue."""
+        engine, game, match = fresh()
+        mine = put(match, 1, "iron_man")
+        taken = put(match, 2, "older_brother")
+        board.gain_control(match, taken, 1)
+        attackers = engine.attackers(match)
+        self.assertIn(mine.ref, attackers)
+        self.assertNotIn(taken.ref, attackers)
+
+    def test_arrival_fatigue_2(self) -> None:
+        """Arrival fatigue is tied to the card itself, so if a Sirus
+        Quince's Mirror Illusion has been under your control since the
+        beginning of your turn and it copies something, even if the copied
+        card has arrival fatigue, the Mirror Illusion doesn't. The opposite
+        is also true, if you summon a Mirror Illusion and copy something
+        doesn't have arrival fatigue with Sirus Quince's midband, the
+        Mirror Illusion still has arrival fatigue."""
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        mirror = put(match, 2, "mirror_illusion")
+        new = put(match, 1, "tenderfoot", arrived=True)
+        fresh_mirror = put(match, 2, "mirror_illusion", arrived=True)
+        old = put(match, 1, "older_brother")
+        cast_now(engine, game, match, "manufactured_truth")
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"2:{mirror.ref}")
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"1:{new.ref}")
+        cast_now(engine, game, match, "manufactured_truth")
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"2:{fresh_mirror.ref}")
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"1:{old.ref}")
+        self.assertEqual((mirror.copy_of, fresh_mirror.copy_of), ("tenderfoot", "older_brother"))
+        attackers = engine.attackers(match)
+        self.assertIn(mirror.ref, attackers)
+        self.assertNotIn(fresh_mirror.ref, attackers)
+
+
+class FlagbearerTests(KeywordCase):
+    def test_flagbearer_1(self) -> None:
+        """Only spells and abilities that use the [target] symbol interact
+        with a flagbearer. For example, Manufactured Truth does NOT have
+        the [target] symbol, so it can copy a unit other than a flagbearer
+        even if the opponent has a flagbearer."""
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        mine = put(match, 2, "bluecoat_musketeer")
+        put(match, 1, "morningstar_flagbearer")
+        other = put(match, 1, "tenderfoot")
+        cast_now(engine, game, match, "manufactured_truth")
+        prompt = pending_prompt(engine, game, match)
+        self.assertFalse(prompt.options.forced)
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"1:{other.ref}")
+        self.assertEqual(mine.copy_of, "tenderfoot")
+
+    def test_flagbearer_2(self) -> None:
+        """This has nothing to do with attacking. The flagbearer effect only
+        interacts with spells and abilities that use the [target] symbol,
+        not with declaring attacks. You don't have to attack a flagbearer
+        before you attack other things."""
+        engine, game, match = white_blue(first=2)
+        attacker = put(match, 2, "bluecoat_musketeer")
+        put(match, 1, "morningstar_flagbearer")
+        self.assertIn("base", engine.legal_defenders(match, attacker.ref))
+
+    def test_flagbearer_3(self) -> None:
+        """If you cannot target a flagbearer for some reason, then you don't
+        have to and you can ignore it. For example, if a flagbearer has
+        resist 1 (which requires you to pay 1 gold to target it) and you
+        have 0 gold, you don't have to target it. Or in other words, if you
+        have a spell that costs 4 and that targets, and you have exactly 4
+        gold, you CAN ignore a flagbearer with resist 1 because it's
+        impossible for you to pay the resist cost in this case, and thus
+        impossible to target the flagbearer."""
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        flag = put(match, 1, "morningstar_flagbearer", patrol="lookout")
+        other = put(match, 1, "tenderfoot", patrol="elite")
+        match.player(2).hand = ["spark"]
+        match.player(2).gold = 1
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="spark")
+        self.assertEqual(other.damage, 1)
+        self.assertEqual(flag.damage, 0)
+
+    def test_flagbearer_4(self) -> None:
+        """If a spell can target multiple things, such as Ember Sparks, and
+        it can target a flagbearer, it only needs to target that flagbearer
+        once. For example, you might split Ember Sparks to do 1 damage to a
+        Frog, 1 damage to a Skeleton, and 1 damage to a Flagbearer. That's
+        legal and still obeys the flagbearer's effect."""
+        engine, game, match = fresh(teams=(("fire",), ("discipline",)))
+        hero_in_play(match, 1)
+        flag = put(match, 2, "morningstar_flagbearer", patrol="squad_leader")
+        first = put(match, 2, "tenderfoot", patrol="elite")
+        second = put(match, 2, "older_brother", patrol="scavenger")
+        match.player(1).hand = ["ember_sparks"]
+        match.player(1).gold = 5
+        # The flagbearer is the only first pick the rule allows, so it is
+        # taken unasked; after it, anything.
+        apply_ok(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="ember_sparks")
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual(prompt.options.picked, (f"2:{flag.ref}",))
+        self.assertFalse(prompt.options.forced)
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"2:{first.ref}")
+        apply_ok(engine, game, match, PromptKind.TARGET, target=f"2:{second.ref}")
+        self.assertEqual((flag.damage, first.damage, second.damage), (1, 1, 1))
+
+
+class WhiteBlueKeywordTests(KeywordCase):
+    def test_two_lives_heals_once_then_dies(self) -> None:
+        engine, game, match = white_blue(first=2)
+        juggernaut = put(match, 2, "justice_juggernaut", patrol=None)
+        juggernaut.damage = 6
+        result = StepResult()
+        board.settle(engine, match, result)
+        self.assertIsNotNone(match.player(2).instance(juggernaut.id))
+        self.assertEqual((juggernaut.damage, juggernaut.runes.get("crumbling")), (0, 1))
+        juggernaut.damage = 6
+        board.settle(engine, match, result)
+        self.assertIsNone(match.player(2).instance(juggernaut.id))
+        self.assertIn("justice_juggernaut", match.player(2).discard)
+
+    def test_two_lives_sacrificed_takes_the_rune(self) -> None:
+        engine, game, match = white_blue(first=2)
+        juggernaut = put(match, 2, "justice_juggernaut")
+        board.sacrifice(engine, match, juggernaut, StepResult())
+        self.assertIsNotNone(match.player(2).instance(juggernaut.id))
+        self.assertEqual(juggernaut.runes.get("crumbling"), 1)
+
+    def test_garus_rook_has_two_lives_at_eight(self) -> None:
+        engine, game, match = white_blue()
+        hero_in_play(match, 1, slug="garus_rook", level=8)
+        rook = match.player(1).hero_of("garus_rook")
+        rook.damage = 6
+        board.settle(engine, match, StepResult())
+        self.assertTrue(rook.in_play)
+        self.assertEqual(rook.runes, {"crumbling": 1})
+
+    def test_rook_is_unstoppable_by_a_lone_patroller(self) -> None:
+        engine, game, match = white_blue()
+        hero_in_play(match, 1, slug="garus_rook", level=5)
+        put(match, 2, "tenderfoot", patrol="elite")
+        self.assertIn("base", engine.legal_defenders(match, hero_ref("garus_rook")))
+        put(match, 2, "older_brother", patrol="scavenger")
+        self.assertNotIn("base", engine.legal_defenders(match, hero_ref("garus_rook")))
+
+    def test_bluecoat_is_long_range_at_exactly_one_atk(self) -> None:
+        engine, game, match = white_blue(first=2)
+        musketeer = put(match, 2, "bluecoat_musketeer")
+        self.assertTrue(engine.has_keyword(musketeer, "Long-range", match))
+        musketeer.plus_runes = 1
+        self.assertFalse(engine.has_keyword(musketeer, "Long-range", match))
+
+    def test_colossus_reaches_the_base_past_patrollers(self) -> None:
+        engine, game, match = white_blue()
+        colossus = put(match, 1, "colossus")
+        put(match, 2, "tenderfoot", patrol="squad_leader")
+        defenders = engine.legal_defenders(match, colossus.ref)
+        self.assertIn("base", defenders)
+        self.assertNotIn("tech1", defenders)
+
+    def test_traffic_director_reaches_every_building(self) -> None:
+        engine, game, match = white_blue(first=2)
+        director = put(match, 2, "traffic_director")
+        put(match, 1, "tenderfoot", patrol="squad_leader")
+        built(match, 1, "tech1")
+        defenders = engine.legal_defenders(match, director.ref)
+        self.assertIn("base", defenders)
+        self.assertIn("tech1", defenders)
+
+    def test_patriot_gryphon_ignores_small_units(self) -> None:
+        engine, game, match = white_blue(first=2)
+        gryphon = put(match, 2, "patriot_gryphon")
+        put(match, 1, "bird", patrol="squad_leader")
+        self.assertIn("base", engine.legal_defenders(match, gryphon.ref))
+        put(match, 1, "flying_fox", patrol="elite")
+        self.assertNotIn("base", engine.legal_defenders(match, gryphon.ref))
+
+    def test_masked_raccoon_beside_a_ninja_and_a_cute_animal(self) -> None:
+        engine, game, match = white_blue()
+        raccoon = put(match, 1, "masked_raccoon")
+        put(match, 2, "tenderfoot", patrol="squad_leader")
+        self.assertNotIn("base", engine.legal_defenders(match, raccoon.ref))
+        put(match, 1, "fox_viper")
+        self.assertIn("base", engine.legal_defenders(match, raccoon.ref))
+        match.active = 2
+        hero_in_play(match, 2, slug="bigby_hayes")
+        brother = put(match, 2, "older_brother")
+        put(match, 1, "porcupine")
+        self.assertNotIn(raccoon.ref, engine.legal_defenders(match, brother.ref))
+        self.assertIn(raccoon.ref, engine.legal_defenders(match, hero_ref("bigby_hayes")))
+
+    def test_liberty_gryphon_beside_another_illusion(self) -> None:
+        engine, game, match = white_blue(first=2)
+        gryphon = put(match, 2, "liberty_gryphon")
+        self.assertFalse(engine.has_keyword(gryphon, "Untargetable", match))
+        put(match, 2, "spectral_hound")
+        for keyword in ("Unstoppable", "Unattackable", "Untargetable"):
+            self.assertTrue(engine.has_keyword(gryphon, keyword, match))
+
+    def test_eyes_of_the_chancellor_is_a_detector(self) -> None:
+        engine, game, match = white_blue(first=2)
+        spy = put(match, 1, "smoker")
+        self.assertFalse(engine.detected_by(match, 2, spy.ref))
+        put(match, 2, "eyes_of_the_chancellor")
+        self.assertTrue(engine.detected_by(match, 2, spy.ref))
+
+    def test_manufactured_truth_copies_the_printed_card_until_the_turn_ends(self) -> None:
+        engine, game, match = white_blue(first=2)
+        hero_in_play(match, 2, slug="sirus_quince")
+        mine = put(match, 2, "bluecoat_musketeer")
+        theirs = put(match, 1, "fox_primus")
+        theirs.plus_runes = 1
+        # One unit of theirs to copy, one of hers to copy it: nothing asked.
+        cast_now(engine, game, match, "manufactured_truth")
+        self.assertEqual(mine.copy_of, "fox_primus")
+        self.assertEqual(engine.unit_stats(mine, match), (2, 2))
+        self.assertTrue(engine.has_keyword(mine, "Anti-air", match))
+        turn.begin_tech(engine, game, match)
+        self.assertIsNone(mine.copy_of)
+        self.assertEqual(engine.unit_stats(mine, match), (1, 2))
+
+
 class EveryRulingIsPinnedTests(unittest.TestCase):
     """
     The ratchet: every `General` ruling on a keyword this step implements
@@ -1911,9 +2304,17 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
                     found[method] = getattr(case, method)
         return found
 
+    def test_the_tables_cover_the_general_group(self) -> None:
+        """Step 13: every keyword the General group rules on is in one of
+        the tables, so every ruling the data holds is pinned, and a
+        re-import that adds a keyword fails here."""
+        pinned = {rulings.keyword_slug(keyword) for keyword in ALL_KEYWORDS}
+        general = {entry.slug for entry in rulings.keywords()}
+        self.assertEqual(general - pinned, set())
+
     def test_every_ruling_has_a_test(self) -> None:
         found = self._collect()
-        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS, **STEP_12_KEYWORDS}.items():
+        for keyword, count in ALL_KEYWORDS.items():
             slug = rulings.keyword_slug(keyword)
             with self.subTest(keyword=keyword):
                 self.assertEqual(
@@ -1925,7 +2326,7 @@ class EveryRulingIsPinnedTests(unittest.TestCase):
 
     def test_each_test_says_the_ruling_it_pins(self) -> None:
         found = self._collect()
-        for keyword, count in {**STEP_5_KEYWORDS, **STEP_11_KEYWORDS, **STEP_12_KEYWORDS}.items():
+        for keyword, count in ALL_KEYWORDS.items():
             slug = rulings.keyword_slug(keyword)
             for number, ruling in enumerate(rulings.keyword_rulings(keyword), start=1):
                 with self.subTest(keyword=keyword, ruling=number):
