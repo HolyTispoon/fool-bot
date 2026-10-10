@@ -39,6 +39,7 @@ from codex import tokens
 from codex.components import PATROL_SLOTS, MatchState
 from codex import effects
 from codex.engine import (
+    TECH_FREE_WORKERS,
     AbilityOption,
     BuildOption,
     DetectOption,
@@ -521,8 +522,22 @@ def _main_ask(match: MatchState) -> str:
     )
 
 
-def _tech_ask(seat: int) -> str:
-    return f"{tokens.player(seat)}, choose your tech: the cards go to your discard pile when your next turn begins."
+_COUNTED = {1: "one card", 2: "two cards"}
+
+
+def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
+    """The tech choice's ask, with how many cards it takes -- and, where
+    none is allowed, why: the player's workers (UMR p. 5; the author,
+    2026-10-10)."""
+    player = match.player(seat)
+    minimum, maximum = engine.tech_bounds(player)
+    cards = _COUNTED.get(maximum, f"{maximum} cards")
+    if minimum:
+        return (f"{tokens.player(seat)}, choose {cards} to tech from your codex. "
+                "They go to your discard pile when your next turn begins.")
+    return (f"{tokens.player(seat)}, choose up to {cards} to tech from your codex, or none. "
+            f"Teching is optional with {TECH_FREE_WORKERS} or more workers, and you have {player.workers}. "
+            "The cards go to your discard pile when your next turn begins.")
 
 
 def _obliterate_ask(seat: int) -> str:
@@ -793,12 +808,12 @@ def with_options(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 # -- The one reading -------------------------------------------------------
 
 
-def tech_prompt(seat: int, match: MatchState) -> PendingPrompt:
+def tech_prompt(engine: "RulesEngine", seat: int, match: MatchState) -> PendingPrompt:
     """The tech prompt `seat` is owed: the confirmation once they have
     picked, the picker until then."""
     player = match.player(seat)
     if player.tech_choice is None:
-        return PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(seat), seat)
+        return PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, seat), seat)
     return PendingPrompt(PromptKind.TECH_CONFIRM, _confirm_ask(seat), seat)
 
 
@@ -878,9 +893,14 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
         return PendingPrompt(PromptKind.TARGET, _target_ask(engine, match, top), top["seat"])
     if match.phase == "ready":
         if tech_is_owed(match, seat):
-            return tech_prompt(seat, match)
+            return tech_prompt(engine, seat, match)
         return FollowOn(FollowOnStep.BEGIN_TURN)
     if match.phase == "main":
+        if tech_is_owed(match, seat):
+            # An undo to the turn's start took the turn's tech back
+            # (`codex.history.start_tech_over`): it is asked again before
+            # anything else, and settled in the main phase.
+            return tech_prompt(engine, seat, match)
         if match.combat is not None and match.combat["stage"] in COMBAT_PROMPTS:
             kind, ask = COMBAT_PROMPTS[match.combat["stage"]]
             return PendingPrompt(kind, ask(seat), seat)
@@ -941,7 +961,7 @@ def standing_prompts(engine: "RulesEngine", match: MatchState,
     other = 2 if match.active == 1 else 1
     if not tech_is_owed(match, other):
         return ()
-    prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(other), other)
+    prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other), other)
     return (with_options(engine, game, match, prompt),)
 
 

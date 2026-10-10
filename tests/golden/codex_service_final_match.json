@@ -1960,6 +1960,10 @@
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
+      "teched": [
+        "final_smash",
+        "final_smash"
+      ],
       "workers": 10
     },
     {
@@ -2087,6 +2091,10 @@
       "tech_choice": null,
       "tech_confirmed": false,
       "tech_owed": false,
+      "teched": [
+        "two_step",
+        "two_step"
+      ],
       "workers": 10
     }
   ],
@@ -3688,6 +3696,10 @@
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
+          "teched": [
+            "the_boot",
+            "the_boot"
+          ],
           "workers": 10
         },
         {
@@ -3875,6 +3887,10 @@
           ],
           "tech_confirmed": false,
           "tech_owed": true,
+          "teched": [
+            "harmony",
+            "harmony"
+          ],
           "workers": 10
         }
       ],
@@ -5619,6 +5635,10 @@
           ],
           "tech_confirmed": false,
           "tech_owed": true,
+          "teched": [
+            "the_boot",
+            "the_boot"
+          ],
           "workers": 10
         },
         {
@@ -5776,6 +5796,10 @@
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
+          "teched": [
+            "two_step",
+            "two_step"
+          ],
           "workers": 10
         }
       ],
@@ -7551,6 +7575,10 @@
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
+          "teched": [
+            "final_smash",
+            "final_smash"
+          ],
           "workers": 10
         },
         {
@@ -7737,6 +7765,10 @@
           "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": false,
+          "teched": [
+            "two_step",
+            "two_step"
+          ],
           "workers": 10
         }
       ],

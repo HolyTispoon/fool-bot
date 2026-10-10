@@ -84,6 +84,20 @@ def cards_pictured(call) -> int:
     return (width - 14) // (CODEX_CARD[0] + 14)
 
 
+async def pick_tech(table: Table, picker, count=None, who=None):
+    """Picks made the way the picker takes them, one card a click (the
+    author, 2026-10-10): the first card its first menu offers, `count`
+    times -- the prompt's most by default -- each the picker's own
+    edit. The last click is returned, whose view is the picker with
+    every pick made."""
+    count = picker.prompt.options.maximum if count is None else count
+    call, view = None, picker
+    for _ in range(count):
+        call = await table.choose(view, "Choose", view.menus[0].options[0].value, who=who)
+        view = call.view()
+    return call
+
+
 class TurnTestCase(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.table = Table()
@@ -407,8 +421,7 @@ class PanelTests(TurnTestCase):
         await self.end_turn()
         tech = await self.table.turn_button("tech", self.table.waiting)
         picker = tech.view()
-        values = [option.value for option in picker.select.options[:2]]
-        await self.table.choose(picker, "Choose", *values)
+        await pick_tech(self.table, picker)
         rendered = {self.table.cog.render_text(line, self.game) for line in self.table.said}
         lobby = self.game.message_id
         texts = [kwargs["content"] for kind, message_id, kwargs in self.table.game_channel.requests
@@ -472,8 +485,7 @@ class TurnEndTests(TurnTestCase):
         first = self.table.active
         lock = await self.end_turn()
         picker = lock.answers[1][2]["view"]
-        values = [option.value for option in picker.select.options[:2]]
-        picked = await self.table.choose(picker, "Choose", *values)
+        picked = await pick_tech(self.table, picker)
         saved = await self.table.press(picked.view(), "Save tech")
         self.assertNothingWentWrong(saved)
         self.assertIn("Saved", saved.text())
@@ -486,10 +498,10 @@ class TurnEndTests(TurnTestCase):
     async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
         """From turn 3 on, the new turn opens on its player's tech
         confirmation: the turn message says it waits on them, and My hand
-        is still the hand, with **Tech** under it in place of the turn's
-        actions (the author, 2026-10-09); Tech opens the confirmation in
-        place, and Confirm runs the ready phase and turns the panel into
-        the turn's actions."""
+        opens the confirmation at once -- the hand pictured, then the
+        picks (the author, 2026-10-09 and 2026-10-10) -- and Confirm
+        runs the ready phase and turns the panel into the turn's
+        actions."""
         first, picker = await self.reach_turn_three()
         text = self.table.game_channel.texts[self.game.turn_message_id]
         self.assertIn("waits on", text)
@@ -499,15 +511,11 @@ class TurnEndTests(TurnTestCase):
         call, view = await self.table.panel(first)
         self.assertNothingWentWrong(call)
         self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
-        self.assertTrue(call.last()[2]["files"][0].filename.startswith("codex-hand-"))
-        self.assertIsInstance(view, TechGateView)
-        self.assertEqual([item.label for item in view.children], ["Tech", "My deck"])
-        mark = len(self.table.game_channel.requests)
-        opened = await self.table.press(view, "Tech")
-        self.assertNothingWentWrong(opened)
-        self.assertEqual([answer[0] for answer in opened.answers], ["response.edit"])
-        self.assertEqual(channel_requests(self.table, mark), [])
-        view = opened.view()
+        names = [file.filename for file in call.last()[2]["files"]]
+        self.assertEqual(len(names), 2)
+        self.assertTrue(names[0].startswith("codex-hand-"))
+        self.assertTrue(names[1].startswith("codex-tech-"))
+        self.assertIn("Your hand, then your tech: ", call.text())
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)
@@ -541,8 +549,7 @@ class TurnEndTests(TurnTestCase):
         tech = await self.table.turn_button("tech", self.table.waiting)
         picker = tech.view()
         self.assertIsInstance(picker, TechChoiceView)
-        values = [option.value for option in picker.select.options[:2]]
-        picked = await self.table.choose(picker, "Choose", *values)
+        picked = await pick_tech(self.table, picker)
         mark = len(self.table.game_channel.requests)
         saved = await self.table.press(picked.view(), "Save tech")
         self.assertNothingWentWrong(saved)
@@ -560,9 +567,10 @@ class TurnEndTests(TurnTestCase):
         **Show...** on the picker narrows the menu and the picture to one
         view -- a tech level, the spells -- and the picks are kept across
         views: one picked under Tech I stays picked while Tech II is
-        shown, both are saved. Each change of view is the picker's own
-        edit and spends nothing public (the author, 2026-10-09: the
-        whole codex at once is too much to pick from).
+        shown, both are saved. Each card is offered once, one pick a
+        click (the author, 2026-10-10). Each change of view is the
+        picker's own edit and spends nothing public (the author,
+        2026-10-09: the whole codex at once is too much to pick from).
         """
         await self.end_turn()
         engine = self.table.cog.engine
@@ -572,7 +580,10 @@ class TurnEndTests(TurnTestCase):
         self.assertIsInstance(picker, TechChoiceView)
         self.assertEqual(picker.view, "everything")
         codex = picker.prompt.options.codex
-        self.assertEqual(len(picker.select.options), sum(left for _, left in codex))
+        self.assertEqual([option.value for menu in picker.menus for option in menu.options],
+                         [slug for slug, _ in codex])
+        self.assertTrue(all((menu.min_values, menu.max_values) == (1, 1) for menu in picker.menus))
+        self.assertTrue(picker.menus[0].placeholder.startswith("Choose your first card of 2"))
 
         # The picture is drawn for real here, and its width counts the
         # cards shown (`render_codex` lays one column per card, up to
@@ -583,34 +594,31 @@ class TurnEndTests(TurnTestCase):
         self.assertEqual([answer[0] for answer in shown.answers], ["response.edit"])
         narrowed = shown.view()
         tech1 = engine.codex_view_rows(codex, "tech1")
-        self.assertEqual({option.value.split("#")[0] for option in narrowed.select.options},
-                         {slug for slug, _ in tech1})
-        self.assertEqual(narrowed.select.min_values, 0)
+        self.assertEqual([option.value for option in narrowed.menus[0].options],
+                         [slug for slug, _ in tech1])
         self.assertEqual(cards_pictured(shown), len(tech1))
         self.assertLess(len(tech1), len(codex))
         self.assertIn("Showing: Tech I.", shown.text())
 
-        first = narrowed.select.options[0].value
+        first = narrowed.menus[0].options[0].value
         picked = (await self.table.choose(narrowed, "Choose", first, who=self.table.waiting)).view()
-        self.assertEqual(picked.picks, [first.split("#")[0]])
+        self.assertEqual(picked.picks, [first])
+        self.assertTrue(picked.menus[0].placeholder.startswith("Choose your second card of 2"))
 
-        # Tech II shown: the Tech I pick is kept, unseen, and leaves one
-        # place in the menu.
+        # Tech II shown: the Tech I pick is kept, unseen.
         switched = await self.table.choose(picked, "Show", "tech2", who=self.table.waiting)
         later = switched.view()
         self.assertEqual(later.picks, picked.picks)
-        self.assertEqual(later.hidden, picked.picks)
-        self.assertEqual(later.select.max_values, later.prompt.options.maximum - 1)
         self.assertEqual(cards_pictured(switched), len(engine.codex_view_rows(codex, "tech2")))
-        self.assertIn("Picked so far: " + engine.catalog.name(picked.picks[0]), switched.text())
-        second = later.select.options[0].value
+        self.assertIn("Picked so far: " + engine.catalog.name(first), switched.text())
+        second = later.menus[0].options[0].value
         both = (await self.table.choose(later, "Choose", second, who=self.table.waiting)).view()
-        self.assertEqual(both.picks, [first.split("#")[0], second.split("#")[0]])
+        self.assertEqual(both.picks, [first, second])
 
-        # Every pick elsewhere: the spells' menu is closed, and says so.
+        # Every pick made: the menu is closed, and says so.
         full = (await self.table.choose(both, "Show", "spells", who=self.table.waiting)).view()
-        self.assertIsNone(full.select)
-        self.assertTrue(any(getattr(item, "disabled", False) and "other views" in (item.placeholder or "")
+        self.assertEqual(full.menus, [])
+        self.assertTrue(any(getattr(item, "disabled", False) and "cards chosen" in (item.placeholder or "")
                             for item in full.children))
         self.assertEqual(full.picks, both.picks)
 
@@ -618,6 +626,85 @@ class TurnEndTests(TurnTestCase):
         self.assertNothingWentWrong(saved)
         self.assertEqual(self.table.match.player(picker.seat).tech_choice, both.picks)
         self.assertEqual(channel_requests(self.table, mark), [])
+
+    async def test_a_second_copy_is_the_same_card_picked_again(self) -> None:
+        """A card is offered once, and picked again while the codex has
+        another copy: the caption names it once, with its count; Clear
+        starts over (the author, 2026-10-10)."""
+        await self.end_turn()
+        picker = (await self.table.turn_button("tech", self.table.waiting)).view()
+        engine = self.table.cog.engine
+        slug, copies = next(row for row in picker.prompt.options.codex if row[1] > 1)
+        once = await self.table.choose(picker, "Choose", slug, who=self.table.waiting)
+        self.assertIn(slug, [option.value for option in once.view().menus[0].options])
+        twice = await self.table.choose(once.view(), "Choose", slug, who=self.table.waiting)
+        self.assertEqual(twice.view().picks, [slug, slug])
+        self.assertIn(f"Picked so far: {engine.catalog.name(slug)} ×2.", twice.text())
+        cleared = await self.table.press(twice.view(), "Clear", who=self.table.waiting)
+        self.assertEqual(cleared.view().picks, [])
+        self.assertTrue(cleared.view().menus)
+
+    async def test_the_picker_counts_the_deck(self) -> None:
+        """The caption counts the deck the picks join, by tech level
+        (the author, 2026-10-10)."""
+        await self.end_turn()
+        picker = (await self.table.turn_button("tech", self.table.waiting)).view()
+        self.assertIn("Your deck: ", picker.caption())
+        self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
+
+    async def test_an_undo_to_the_turn_start_asks_the_confirmed_tech_again(self) -> None:
+        """The turn's tech confirmed and the main phase open, an undo to
+        the turn's start takes the picks back out of the discard pile
+        and asks the choice again, before the turn's actions (the
+        author, 2026-10-10); confirmed again, they go back in."""
+        first, _ = await self.reach_turn_three()
+        seat = self.game.seat_of(first.id)
+        _, view = await self.table.panel(first)
+        panel = (await self.table.press(view, "Confirm")).view()
+        self.assertIsInstance(panel, TurnPanelView)
+        player = self.table.match.player(seat)
+        teched = list(player.teched)
+        self.assertEqual(len(teched), 2)
+        discard, codex = list(player.discard), dict(player.codex)
+
+        undo = (await self.table.press(panel, "Undo")).view()
+        call = await self.table.press(undo, "To the start of my turn")
+        self.assertNothingWentWrong(call)
+        picker = call.view()
+        self.assertIsInstance(picker, TechChoiceView)
+        player = self.table.match.player(seat)
+        self.assertEqual(self.table.match.phase, "main")
+        self.assertEqual(len(player.discard), len(discard) - 2)
+        self.assertEqual(sum(player.codex.values()), sum(codex.values()) + 2)
+        line = self.table.cog.render_text(history.tech_again(seat), self.game)
+        self.assertIn(line, self.table.game_channel.texts[self.game.turn_message_id])
+
+        saved = await self.table.press((await pick_tech(self.table, picker)).view(), "Save tech")
+        confirm = saved.view()
+        self.assertIsInstance(confirm, TechConfirmView)
+        confirmed = await self.table.press(confirm, "Confirm")
+        self.assertNothingWentWrong(confirmed)
+        self.assertIsInstance(confirmed.view(), TurnPanelView)
+        player = self.table.match.player(seat)
+        self.assertEqual(len(player.discard), len(discard))
+        self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
+
+    async def test_ten_workers_allow_teching_nothing(self) -> None:
+        """At ten workers the ask says teching is optional and why, and
+        **Tech nothing** saves an empty choice (UMR p. 5)."""
+        match = self.table.match
+        waiting = match.active  # the one whose tech the turn's end owes
+        match.player(waiting).workers = 10
+        self.table.cog.service.persist(self.game, match)
+        await self.end_turn()
+        picker = (await self.table.turn_button("tech", self.table.waiting)).view()
+        self.assertIn("Teching is optional with 10 or more workers, and you have 10.", picker.prompt.ask)
+        self.assertNotIn("--", picker.prompt.ask)
+        save = next(item for item in picker.children if getattr(item, "label", None) == "Save tech")
+        self.assertTrue(save.disabled)
+        skipped = await self.table.press(picker, "Tech nothing", who=self.table.waiting)
+        self.assertNothingWentWrong(skipped)
+        self.assertEqual(self.table.match.player(waiting).tech_choice, [])
 
     async def test_tech_is_the_other_players_alone(self) -> None:
         call = await self.table.turn_button("tech", self.table.active)
@@ -694,8 +781,7 @@ class WholeGameTests(TurnTestCase):
             # Choosing redraws the picker in place and spends nothing
             # public; only the save is said.
             who = table.seated(view.seat)
-            values = [option.value for option in view.select.options[:view.prompt.options.maximum]]
-            picked = (await table.choose(view, "Choose", *values, who=who)).view()
+            picked = (await pick_tech(table, view, who=who)).view()
             return await table.press(picked, "Save tech", who=who)
         if isinstance(view, PatrolView):
             return await table.press(view, "Lock patrol")
@@ -1058,8 +1144,7 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         picker = (await table.press(gate, "Tech")).view()
         self.assertIsInstance(picker, TechChoiceView)
         self.assertEqual(picker.seat, first)
-        values = [option.value for option in picker.select.options[:2]]
-        picked = await table.choose(picker, "Choose", *values)
+        picked = await pick_tech(table, picker)
         old = game.turn_message_id
         mark = len(table.game_channel.requests)
         saved = await table.press(picked.view(), "Save tech")
@@ -1203,6 +1288,33 @@ class UndoTests(TurnTestCase):
         confirmed = await self.table.press(confirm_view, "Confirm", who=helper)
         self.assertNothingWentWrong(confirmed)
         self.assertEqual(self.table.match.turn, 1)
+
+    async def test_an_undo_starts_the_other_players_tech_over(self) -> None:
+        """The player whose tech stands picks and saves it; the active
+        player undoes to the start of their turn: the picks are cleared,
+        and the turn message calls on the other player to choose again,
+        in words that say nothing of whether they had picked (the
+        author, 2026-10-10)."""
+        first = self.table.active
+        lock = await self.end_turn()
+        picker = lock.answers[1][2]["view"]
+        picked = await pick_tech(self.table, picker)
+        await self.table.press(picked.view(), "Save tech")
+        seat = picker.seat
+        self.assertIsNotNone(self.table.match.player(seat).tech_choice)
+
+        _, view = await self.table.panel()
+        view = (await self.table.press(view, "Undo")).view()
+        call = await self.table.press(view, "To the start of my turn")
+        self.assertNothingWentWrong(call)
+        self.assertIsNone(self.table.match.player(seat).tech_choice)
+        line = self.table.cog.render_text(history.tech_again(seat), self.game)
+        self.assertIn(f"<@{first.id}>", line)
+        self.assertTrue(self.table.game_channel.texts[self.game.turn_message_id].endswith(
+            history.UNDONE + "\n" + line))
+        again = (await self.table.turn_button("tech", first)).view()
+        self.assertIsInstance(again, TechChoiceView)
+        self.assertEqual(again.picks, [])
 
     async def test_the_undo_choices_are_the_models(self) -> None:
         """On the first turn only the start of this turn is open."""
@@ -1367,6 +1479,24 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         after = [item for item in call.view().children if (item.choice or ("",))[0] == "summon"]
         self.assertTrue(all(item.disabled for item in after))
         self.assertTrue(all("hero limit is 1" in item.label for item in after))
+
+    async def test_the_tech_picker_offers_the_whole_standard_codex(self) -> None:
+        """Three specs' codex is more cards than one menu holds: shown
+        whole, it is split over as many menus as it needs, each card in
+        exactly one, none cut short (the author, 2026-10-10)."""
+        from codex.prompts import tech_prompt, with_options
+
+        match = self.table.match
+        seat = match.active
+        engine = self.table.cog.engine
+        prompt = with_options(engine, self.game, match, tech_prompt(engine, seat, match))
+        picker = TechChoiceView(self.table.cog, self.game.game_id, prompt, match)
+        offered = [option.value for menu in picker.menus for option in menu.options]
+        self.assertGreater(len(prompt.options.codex), 25)
+        self.assertGreater(len(picker.menus), 1)
+        self.assertEqual(offered, [slug for slug, _ in prompt.options.codex])
+        self.assertTrue(all(len(menu.options) <= 25 for menu in picker.menus))
+        self.assertLessEqual(max(item.row for item in picker.children), 4)
 
     async def test_build_tech_ii_asks_its_spec_in_the_panel(self) -> None:
         match = self.table.match

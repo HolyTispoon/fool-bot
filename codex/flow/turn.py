@@ -140,6 +140,30 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     )
 
 
+def settle_tech(match: MatchState, seat: int, result: StepResult) -> None:
+    """
+    `seat`'s confirmed picks out of their codex and into their discard
+    pile, said as a count -- in the ready phase, or in the main phase
+    where an undo to the turn's start asked the choice again
+    (`codex.history.start_tech_over`) -- and kept as `teched`, which
+    that undo takes back.
+    """
+    player = match.player(seat)
+    picks = list(player.tech_choice or ())
+    for slug in picks:
+        player.codex[slug] -= 1
+        player.discard.append(slug)
+    if picks:
+        result.narration.append(
+            f"{tokens.player(seat)} puts {_plural(len(picks), 'tech card')} "
+            "into their discard pile."
+        )
+    player.teched = picks
+    player.tech_choice = None
+    player.tech_owed = False
+    player.tech_confirmed = False
+
+
 def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                lead_in: str = "") -> StepResult:
     """
@@ -162,18 +186,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Ready.
     match.enter_phase("ready")
     if player.tech_owed:
-        picks = list(player.tech_choice or ())
-        for slug in picks:
-            player.codex[slug] -= 1
-            player.discard.append(slug)
-        if picks:
-            result.narration.append(
-                f"{tokens.player(seat)} puts {_plural(len(picks), 'tech card')} "
-                "into their discard pile."
-            )
-        player.tech_choice = None
-        player.tech_owed = False
-        player.tech_confirmed = False
+        settle_tech(match, seat, result)
+    else:
+        player.teched = None
     for card in player.play:
         card.exhausted = _stays_exhausted(engine, match, card)
         card.arrived_this_turn = False

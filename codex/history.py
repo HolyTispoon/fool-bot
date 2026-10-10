@@ -28,6 +28,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Iterable, Optional, Sequence
 
+from codex import tokens
 from codex.components import MatchState
 from codex.game import RuleRefusal
 
@@ -47,6 +48,13 @@ PREVIOUS_TURN = "previous_turn"
 
 #: What an undo says, on the turn message it takes back.
 UNDONE = "Undone to the start of the turn."
+
+
+def tech_again(seat: int) -> str:
+    """What an undo says to a player whose tech choice it started over
+    -- said whether or not they had picked, so it tells nobody that
+    they had."""
+    return f"{tokens.addressed(seat)}, the undo starts your tech choice over: choose it again."
 
 
 def position(match: MatchState) -> dict:
@@ -83,6 +91,54 @@ def _restore(match: MatchState, data: dict, snapshots: list[dict]) -> None:
     restored.turn_snapshots = snapshots
     restored.journal = []
     match.__dict__.update(restored.__dict__)
+    start_tech_over(match)
+    # The turn's start is now the position with its tech asked again,
+    # so a later undo, and a replay of the journal, start from there.
+    match.turn_snapshots[-1] = position(match)
+
+
+def start_tech_over(match: MatchState) -> None:
+    """
+    **An undo to a turn's start clears every tech choice, a confirmed
+    one too, and asks it again** (the author, 2026-10-10). The active
+    player's picks, which the ready phase put into the discard pile
+    (`teched`), go back into their codex and the choice is owed again,
+    asked before the main phase's actions and settled in it
+    (`codex.flow.turn.settle_tech`), the upkeep not run twice. The other
+    player's picks, never confirmed before their own turn, are cleared,
+    whatever the restored position held -- one made before the turn's
+    start as surely as one made during it.
+    """
+    active = match.active_player
+    if active.teched is not None and not active.tech_owed:
+        for slug in active.teched:
+            _take_back(active, slug)
+            active.codex[slug] = active.codex.get(slug, 0) + 1
+        active.teched = None
+        active.tech_owed = True
+        active.tech_confirmed = False
+    for seat in tech_started_over(match):
+        match.player(seat).tech_choice = None
+
+
+def _take_back(player, slug: str) -> None:
+    """One teched copy of `slug` out of the pile it went into: the
+    discard pile, the latest copy first -- or, where the upkeep drew and
+    shuffled the discard pile into the deck, the deck, then the hand."""
+    for pile in (player.discard, player.deck, player.hand):
+        if slug in pile:
+            del pile[len(pile) - 1 - pile[::-1].index(slug)]
+            return
+
+
+def tech_started_over(match: MatchState) -> tuple[int, ...]:
+    """The seats whose tech choice is asked again: whoever owes one not
+    yet confirmed -- after an undo, everyone whose choice it started
+    over."""
+    return tuple(
+        player.seat for player in match.players
+        if player.tech_owed and not player.tech_confirmed
+    )
 
 
 def replay(
