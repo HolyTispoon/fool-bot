@@ -1,7 +1,9 @@
 """
-`/codex lobby` and what Start does (docs/codex-bot.md, decision 10): the
-lobby is posted in the channel the command is called in, and Start
-makes the game's channel, deals, and posts the first turn's message.
+`/codex lobby` and what Start does (docs/design/codex.md, "The lobby and
+the channel"): the lobby is posted in the game's own channel -- or, where
+the bot may not make one, a thread, or else the channel the command was
+typed in -- and Start names that place for the players, deals, and posts
+the first turn's message.
 """
 
 from __future__ import annotations
@@ -18,6 +20,16 @@ from codex.game import CodexGame, GameStatus, RuleRefusal
 from cogs.codex_views import LobbyView, send_ephemeral
 
 LOGGER = logging.getLogger(__name__)
+
+#: What the person who asked for the lobby is told, by where it opened.
+LOBBY_OPENED = {
+    "channel": "Lobby open: {place}",
+    "thread": ("Lobby open in a thread: {place}. I could not create a channel for the game "
+               "(that needs **Manage Channels**), so it is played in the thread."),
+    "here": ("Lobby open here. I could not create a channel or a thread for the game "
+             "(those need **Manage Channels** or **Create Public Threads**), so it is "
+             "played in this channel."),
+}
 
 class LobbyMixin:
     def lobby_text(self, game: CodexGame) -> str:
@@ -103,15 +115,17 @@ class LobbyMixin:
             f"both players press **Keep heroes**.{tail}"
         )
 
-    @app_commands.command(name="lobby", description="Open a Codex lobby in a channel of its own: two seats, then Start.")
+    @app_commands.command(name="lobby", description="Open a Codex lobby: in a channel of its own, else a thread, else here.")
     @app_commands.describe(test_game="A test game: you may take both seats and play both sides")
     async def lobby(self, interaction: discord.Interaction, test_game: bool = False) -> None:
         """
-        Open the game's channel, `codex-<n>` under Codex Games, and post
-        the lobby in it: the game is played where its lobby was, as D12
-        Ball's are. The person who asked is told where, privately.
-        `test_game` lets one person take both seats and play both sides,
-        as D12 Ball's test games do.
+        Open the game's place and post the lobby in it: the game is
+        played where its lobby was, as D12 Ball's are. That is a channel
+        of its own, `codex-<n>` under Codex Games; where the bot may not
+        make one, a thread of that name in this channel; where it may
+        make neither, this channel (`open_game_place`). The person who
+        asked is told where, privately. `test_game` lets one person take
+        both seats and play both sides, as D12 Ball's test games do.
         """
         if interaction.guild is None:
             await send_ephemeral(interaction, "A Codex game is played in a server's channel.")
@@ -120,23 +134,14 @@ class LobbyMixin:
         await self.tokens.refresh()
         game = self.service.create_game(guild_id=interaction.guild.id, test_game=test_game)
         try:
-            channel = await self.create_game_channel(interaction.guild, game)
+            place, venue, message = await self.open_game_place(interaction, game)
         except ValueError as error:
             self.service.discard_game(game.game_id)
             await interaction.followup.send(str(error), ephemeral=True)
             return
-        try:
-            message = await channel.send(self.lobby_text(game), view=LobbyView(self, game.game_id))
-        except discord.HTTPException:
-            self.service.discard_game(game.game_id)
-            try:
-                await channel.delete(reason="The Codex lobby could not be posted")
-            except discord.HTTPException:
-                pass
-            raise
-        game.channel_id, game.message_id = channel.id, message.id
+        game.channel_id, game.venue, game.message_id = place.id, venue, message.id
         self.service.save()
-        await interaction.followup.send(f"Lobby open: {channel.mention}", ephemeral=True)
+        await interaction.followup.send(LOBBY_OPENED[venue].format(place=place.mention), ephemeral=True)
 
     async def start_game(self, interaction: discord.Interaction, game: CodexGame) -> None:
         """

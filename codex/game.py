@@ -65,6 +65,13 @@ HEROES_PER_SEAT = {"basic": 1, "standard": 3}
 #: the same picture (docs/codex-bot.md, decision 5).
 BOARD_LAYOUTS = ("stacked", "side_by_side")
 
+#: Where on Discord the game is played (docs/design/codex.md, "The lobby
+#: and the channel"): a channel of its own under Codex Games, which the
+#: bot renames and archives; a thread it opened in the channel the lobby
+#: was asked for in, where it may not make channels; or that channel
+#: itself, where it may make neither, which it never renames or moves.
+VENUES = ("channel", "thread", "here")
+
 
 @dataclass
 class CodexGame:
@@ -80,6 +87,9 @@ class CodexGame:
     #: an undo to the start of the previous turn edits back and pins
     #: again. `None` in a save older than step 4, and after that undo.
     previous_turn_message_id: Optional[int] = field(default=None, kw_only=True)
+    #: One of `VENUES`: what `channel_id` is. "channel" in a save older
+    #: than the thread and the in-place lobby, which knew no other.
+    venue: str = field(default="channel", kw_only=True)
 
     player_1_id: Optional[int] = None
     player_2_id: Optional[int] = None
@@ -424,6 +434,7 @@ class CodexGame:
             game_number=game_number,
             guild_id=self.guild_id,
             channel_id=self.channel_id,
+            venue=self.venue,
             player_1_id=self.player_1_id,
             player_2_id=self.player_2_id,
             player_1_name=self.player_1_name,
@@ -517,6 +528,8 @@ class CodexGame:
         else:
             data["rematch_decks"] = {seat: "neutral" for seat in data["rematch_specs"]}
         data["kept_heroes"] = [int(seat) for seat in (data.get("kept_heroes") or [])]
+        if data.get("venue") not in VENUES:
+            data["venue"] = "channel"
         if data.get("board_layout") not in BOARD_LAYOUTS:
             data["board_layout"] = "stacked"
         return cls(**data)

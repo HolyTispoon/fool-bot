@@ -3,7 +3,8 @@ A game's end on Discord (docs/codex-bot.md, step 8; docs/design/codex.md,
 "The end of a game"): **Concede** -- on the turn message and as
 `/codex concede`, the clicker's own side alone, behind a second click --
 `/codex abandon` -- a player's own game, or any game for a helper -- **Rematch** under the finished game's last
-line, the channel moved to **Codex Archive**, and `/codex admin
+line, the channel moved to **Codex Archive** -- a game's thread archived,
+a channel it was only opened in left where it is -- and `/codex admin
 reset_channels` for the test server.
 
 A finished or abandoned game's channel is moved aside and left as it is:
@@ -36,6 +37,12 @@ from cogs.debug import delete_channel_with_retries
 LOGGER = logging.getLogger(__name__)
 
 NOT_PLAYING_HERE = "No Codex game is being played in this channel."
+#: `/codex abandon`'s private answer, by where the game was played.
+ABANDONED = {
+    "channel": "Abandoned, and the channel archived.",
+    "thread": "Abandoned, and the thread archived.",
+    "here": "Abandoned.",
+}
 HELPERS_ONLY = "Only a helper with Manage Channels can do that."
 
 
@@ -74,10 +81,35 @@ class EndingMixin:
     async def archive_channel(self, channel, game: CodexGame) -> None:
         """A finished or abandoned game's channel, moved to Codex
         Archive and left as it is: its messages are the game's record,
-        and nothing is exported from it."""
-        await self.move_channel(
-            channel, codex_archive_category, f"Codex game {game.game_number} is over", game,
-        )
+        and nothing is exported from it. A game's thread is archived
+        instead; a channel the game was only opened in is not the bot's
+        to move, and stays where it is."""
+        if game.venue == "thread":
+            await self.set_thread_archived(channel, True, game)
+        elif game.venue == "channel":
+            await self.move_channel(
+                channel, codex_archive_category, f"Codex game {game.game_number} is over", game,
+            )
+
+    async def reopen_channel(self, channel, game: CodexGame) -> None:
+        """A rematch's place opened again for its lobby: the channel back
+        under Codex Games, the thread out of the archive."""
+        if game.venue == "thread":
+            await self.set_thread_archived(channel, False, game)
+        elif game.venue == "channel":
+            await self.move_channel(
+                channel, codex_games_category, f"Codex game {game.game_number}: a rematch", game,
+            )
+
+    async def set_thread_archived(self, thread, archived: bool, game: CodexGame) -> None:
+        """A game's thread archived, or taken out of the archive. A
+        failure is logged and nothing else waits on it: a post in an
+        archived thread takes it out again anyway."""
+        try:
+            await thread.edit(archived=archived)
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not %s the thread of Codex game %s: %s",
+                           "archive" if archived else "reopen", game.game_id, error)
 
     # -- Concede -------------------------------------------------------------
 
@@ -182,7 +214,7 @@ class EndingMixin:
             except discord.HTTPException as error:
                 LOGGER.warning("Could not say Codex game %s was abandoned: %s", game.game_id, error)
             await self.archive_channel(channel, game)
-        await interaction.followup.send("Abandoned, and the channel archived.", ephemeral=True)
+        await interaction.followup.send(ABANDONED[game.venue], ephemeral=True)
 
     # -- Rematch -------------------------------------------------------------
 
@@ -196,6 +228,13 @@ class EndingMixin:
         finds the lobby already open.
         """
         opened = game.rematch_game_id is not None and game.rematch_game_id in self.games
+        if not opened and self.open_game_for_channel(game.channel_id) is not None:
+            # A channel holds one game at a time: one may have been opened
+            # where this one was played, since it ended.
+            await send_ephemeral(
+                interaction, "A Codex game is already open here: finish or abandon it first.",
+            )
+            return
         try:
             rematch = self.service.rematch(game.game_id)
         except RuleRefusal as refused:
@@ -204,14 +243,17 @@ class EndingMixin:
         if opened and rematch.message_id is not None:
             await send_ephemeral(interaction, "The rematch's lobby is already open, below.")
             return
-        await interaction.response.edit_message(view=None)
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else interaction.channel
         if channel is None:
             await send_ephemeral(interaction, "I cannot find this game's channel.")
             return
-        await self.move_channel(
-            channel, codex_games_category, f"Codex game {rematch.game_number}: a rematch", rematch,
-        )
+        if rematch.venue == "thread":
+            # Out of the archive first: a message in an archived thread
+            # cannot be edited, the button's own among them.
+            await self.reopen_channel(channel, rematch)
+        await interaction.response.edit_message(view=None)
+        if rematch.venue != "thread":
+            await self.reopen_channel(channel, rematch)
         try:
             message = await channel.send(self.lobby_text(rematch), view=LobbyView(self, rematch.game_id))
         except discord.HTTPException as error:
@@ -235,10 +277,12 @@ class EndingMixin:
     async def reset_channels(self, interaction: discord.Interaction, confirm: str) -> None:
         """
         For the test server: every Codex channel outside Codex Archive
-        deleted -- lobbies and games being played alike -- and every
-        game of this server not in an archived channel dropped, after
-        the confirmation word, as `/debug reset_channels` does for D12
-        Ball's. The gate is `/debug`'s -- in a server, Manage Channels
+        deleted -- lobbies and games being played alike -- and the thread
+        of every game still open in one; and every game of this server
+        dropped but the archived -- a channel's in Codex Archive, and a
+        game over in a thread or in a channel it was only opened in.
+        After the confirmation word, as `/debug reset_channels` does for
+        D12 Ball's. The gate is `/debug`'s -- in a server, Manage Channels
         -- read at run time, since Discord carries a default permission
         on a top-level command alone.
         """
@@ -279,10 +323,33 @@ class EndingMixin:
                 deleted += 1
             else:
                 failed.append((channel.name, error))
+        ended = (GameStatus.FINISHED, GameStatus.ABANDONED)
+
+        def kept_game(game: CodexGame) -> bool:
+            # A channel of its own is kept where it was archived; a game in
+            # a thread, or in a channel it was only opened in, once it is
+            # over -- its thread is archived, and that channel not the bot's.
+            if game.venue == "channel":
+                return game.channel_id in kept
+            return game.status in ended
+
         dropped = [
             game_id for game_id, game in self.games.items()
-            if game.guild_id == guild.id and game.channel_id not in kept
+            if game.guild_id == guild.id and not kept_game(game)
         ]
+        threads = 0
+        for game_id in dropped:
+            game = self.games[game_id]
+            thread = self.bot.get_channel(game.channel_id) if game.venue == "thread" else None
+            if thread is None:
+                continue
+            error = await delete_channel_with_retries(
+                thread, reason=f"Codex channel reset requested by {interaction.user}",
+            )
+            if error is None:
+                threads += 1
+            else:
+                failed.append((thread.name, error))
         for game_id in dropped:
             game = self.games[game_id]
             self.boards.forget(game)
@@ -290,11 +357,12 @@ class EndingMixin:
             self.turn_heads.pop(game_id, None)
         self.service.drop_games(dropped)
         report = (
-            f"Deleted {deleted} Codex channel(s) and dropped {len(dropped)} game(s). "
+            f"Deleted {deleted} Codex channel(s) and {threads} thread(s), "
+            f"and dropped {len(dropped)} game(s). "
             f"The next Codex game will be number {self.service.next_game_number(guild.id)}."
         )
         if failed:
-            report += "\n\nI could not delete these channels:\n" + "\n".join(
+            report += "\n\nI could not delete these channels and threads:\n" + "\n".join(
                 f"- {name}: {error}" for name, error in failed
             )
         try:
