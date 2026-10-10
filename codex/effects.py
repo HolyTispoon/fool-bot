@@ -1989,9 +1989,10 @@ COSTS.update({
 #: turn, where it is more than once -- Young Lightning Dragon's three.
 PER_TURN = {"young_lightning_dragon": 3}
 #: Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2).
-#: Upkeep: Re-summon lost birds (limit: 2)." -- a second Nest gains two
-#: more at once (the Card FAQ), and the upkeep brings them back only to
-#: two, every Nest seeing the two (its ruling).
+#: Upkeep: Re-summon lost birds (limit: 2)." -- two Birds at most however
+#: many Nests: each Nest, played or at its upkeep, sees the Birds in play
+#: and puts none past the two (its ruling; the author, 2026-10-10: the
+#: database's ruling over the Card FAQ).
 BIRDS_NESTS = frozenset({"birds_nest"})
 BIRD = "bird"
 BIRD_LIMIT = 2
@@ -2043,7 +2044,7 @@ for _effect_row in (
     _effect("aged_sensei", Part("buff", "friendly_unit_or_hero", 1,
                                 "give a friendly unit or hero +1 ATK and +1 armor this turn")),
     # Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2)."
-    _effect("birds_nest", Part("token", None, 2, targeted=False, token="bird")),
+    _effect("birds_nest", Part("birds", None, 2, targeted=False)),
     _effect("birds_nest_upkeep", Part("birds", None, 2, targeted=False)),
     # Earthquake: "Deal 4 damage to all an opponent's damaged buildings.
     # Deal 1 damage to all their undamaged buildings." -- read sentence by

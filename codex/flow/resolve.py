@@ -2217,13 +2217,18 @@ def _copy(engine, match, top, part, target, result) -> None:
 
 
 def _birds(engine, match, top, part, target, result) -> None:
-    """Bird's Nest's upkeep: lost Birds re-summoned, to two in all -- every
-    Nest sees the two (its ruling)."""
+    """Bird's Nest, played or at its upkeep: Birds summoned up to two in all
+    -- every Nest sees the two in play and puts no more (its ruling)."""
     seat = top["seat"]
     have = sum(1 for card in match.player(seat).play if card.slug == effects.BIRD)
     lost = max(0, effects.BIRD_LIMIT - have)
     if lost:
         board.summon(engine, match, effects.BIRD, seat, lost, result, by=top["by"])
+    elif top.get("spell"):
+        result.narration.append(
+            f"{tokens.player(seat)} has {effects.BIRD_LIMIT} {tokens.card(effects.BIRD)} tokens: "
+            f"{top['by']} summons no more."
+        )
 
 
 def _building_targets(engine, match, seat: int) -> list:

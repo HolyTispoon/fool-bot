@@ -143,7 +143,9 @@ its source.
   card's, `keyword_rulings(keyword)` for the `General` group's -- each
   with its author and date. A ruling that names two records ("Dancer /
   Angry Dancer") rules on each. Where the rulebook's text and a ruling
-  differ, the ruling governs.
+  differ, the ruling governs -- the Card FAQ's included: **the database's
+  rulings come before everything else** (the author, 2026-10-10, on Bird's
+  Nest's limit of two).
 - **The copyright question** was the author's, answered on 2026-10-07:
   the texts, the rulings and the art are Sirlin Games' words and
   pictures, reproduced in this public repository as the fan database
@@ -974,6 +976,12 @@ re-import that adds one fails loudly.
   player cannot pay for are not offered, and `declare_attack` charges it.
 - **The base that flies.** Lawbringer Gryphon: the base is attacked as
   a flier is, only by fliers and anti-air (`may_be_attacked`).
+- **Two Birds, however many Nests.** Bird's Nest summons Birds up to two
+  in all, whether it is played or re-summons at its upkeep: each Nest
+  sees the Birds in play and puts none past the limit (its ruling). The
+  author settled it on 2026-10-10 over the Card FAQ, which reads as a
+  second Nest summoning two more: **where the database's rulings and the
+  Card FAQ differ, the database governs.**
 - **Prevention and doubling.** Morningstar Pass prevents all damage to
   its controller's other buildings, the base among them (the card calls
   it a building); Focus Master spends a rune on exactly lethal damage --
@@ -1001,9 +1009,7 @@ re-import that adds one fails loudly.
   match was re-recorded for these keys alone, every one at its default;
   the transcript did not change.
 - **Readings the rulings did not settle**, built as the card reads and
-  put to the author in the PR: a second Bird's Nest summons its two
-  Birds (the Card FAQ), its upkeep bringing them back only to two;
-  Newsman's number is a printed cost; Training Grounds may level any
+  put to the author in the PR: Newsman's number is a printed cost; Training Grounds may level any
   hero in play; True Power of Storms with a single card that costs 3
   discards it and deals nothing; Jurisdiction's spell needs no hero
   (its ruling about channeling says as much); Mind Control may take any

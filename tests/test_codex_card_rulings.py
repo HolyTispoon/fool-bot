@@ -4931,6 +4931,11 @@ class WhiteEffectRulingTests(unittest.TestCase):
         cast(engine, game, match, "birds_nest")
         nests = [card for card in match.player(1).play if card.slug == "birds_nest"]
         self.assertEqual(len(nests), 2)
+        # The second Nest sees the two and summons none.
+        self.assertEqual(len(birds(match, 1)), 2)
+        board.destroy(engine, match, [(1, birds(match, 1)[0].ref)], StepResult())
+        cast(engine, game, match, "birds_nest")
+        self.assertEqual(len(birds(match, 1)), 2)
         for bird in birds(match, 1):
             match.player(1).play.remove(bird)
         upkeep_of(engine, game, match, 1)
