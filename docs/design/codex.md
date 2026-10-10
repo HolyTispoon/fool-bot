@@ -1365,19 +1365,24 @@ being trashed when it leaves), and a spell of theirs being cast -- an
 effect frame's `spell`, or Appel Stomp waiting on its place. A tech
 choice joins it at the ready phase, when the picks reach the discard
 pile, and not before; a hired card is trashed and so gone. It is
-pictured by `render_deck` in three parts: **the cards in the hand
-together in a box at the top**, headed "In your hand", **the discard
-pile's in a box under it**, headed "In your discard pile" (the author,
-2026-10-09: "also show which cards in the discard"), and the rest of
-the deck -- the draw pile and what is in play -- under both, each part
-in the deck's order -- the starting cards
-first and then each tech level -- and each card once per part with its
-copies there on its badge, so a card with one copy in the hand and
-another in the draw pile shows in both (the author, 2026-10-09: "I want
-the cards in hand to appear together. A second copy of the same card
-would show up again outside of the box"). The hand's box is drawn in
-the neutral white the words are and the discard pile's in the quiet
-grey, not gold: the author asked for no gold there, gold being the tech picker's mark (its first day, the deck was
+pictured by `render_deck` as one picture of three parts **side by
+side, each in a frame headed with its name** -- "Hand", "Discard pile"
+and "Rest of deck" (the draw pile and what is in play) -- left to
+right, a frame starting a new row only where it would make the picture
+wider than eight cards (`DECK_COLUMNS`), and every frame in a row
+stretched to the row's height so the edges line up (the author,
+2026-10-10: "one image but with the frames around separating the
+different parts"; the day before, the parts were stacked as bands with
+the rest unframed, each starting a new row, which read as three
+pictures). Each part is in the deck's order -- the starting cards first
+and then each tech level -- and shows each card once with its copies
+there on its badge, so a card with one copy in the hand and another in
+the draw pile shows in both (the author, 2026-10-09: "I want the cards
+in hand to appear together. A second copy of the same card would show
+up again outside of the box"; "also show which cards in the discard").
+The hand's frame is drawn in the neutral white the words are and the
+other two in the quiet grey, not gold: the author asked for no gold
+there, gold being the tech picker's mark (its first day, the deck was
 the codex grid with the hand's copies framed in gold on each card,
 which left a hand's cards scattered through the deck). The split is
 the engine's, `OwnDeck.held`, `discarded` and `elsewhere` beside the

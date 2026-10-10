@@ -24,8 +24,8 @@ opponent's turn; in a test game, where nothing stands
 otherwise. **Codex** pictures the clicker's own
 codex through a menu of views. **My deck** -- on the turn message,
 under the hand, on the panel and on the tech picker -- answers with
-every card the clicker owns, wherever it is, those in their hand and
-their discard pile boxed apart (`send_deck`). What a hand
+every card the clicker owns, wherever it is, in three frames -- the
+hand, the discard pile, the rest (`send_deck`). What a hand
 may play, what a codex still holds and what a deck is are the engine's
 answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
 nothing.
@@ -242,11 +242,11 @@ def deck_caption(deck, side: str = "") -> str:
 
 
 async def deck_file(engine, deck) -> discord.File:
-    """A deck pictured in three parts (`render_deck`): the cards in the
-    hand boxed at the top, those in the discard pile boxed under them,
-    and the rest under both, each card once per part with its copies
-    there on its badge -- the engine's split (`OwnDeck.held`,
-    `discarded`, `elsewhere`)."""
+    """A deck pictured in three framed parts side by side
+    (`render_deck`): the cards in the hand, those in the discard pile,
+    and the rest, each card once per part with its copies there on its
+    badge -- the engine's split (`OwnDeck.held`, `discarded`,
+    `elsewhere`)."""
     webp = await asyncio.to_thread(
         render_deck, deck.held, deck.discarded, deck.elsewhere, engine.catalog,
     )
