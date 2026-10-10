@@ -188,7 +188,11 @@ FIGURE_STRETCH = 1.2
 
 #: The worker card (the Screentop module's, "workers/"): the seat that
 #: went first holds x4, printed "Player 1", the other x5, "Player 2"
-#: (UMR p. 3), and the count printed on it -- rosy, edged dark, in a
+#: (UMR p. 3), in the colour of the starting deck -- the first hero's
+#: whose colour the deck is, `PlayerState.deck_color` (the author,
+#: 2026-10-10) -- `worker_x4_red.png`, the neutral `worker_x4.png`
+#: for the basic game and for a colour whose face is not imported yet
+#: (`worker_face`). The count printed on it -- rosy, edged dark, in a
 #: pale box at its foot -- is wiped and the workers the player has now
 #: written in its place (the author, 2026-10-10: the count on the card
 #: under the command zone, not in the nameplate). The box is the
@@ -704,14 +708,25 @@ def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
     return tile
 
 
-@lru_cache(maxsize=2)
-def wiped_workers(went_first: bool) -> tuple[Image.Image, int, int, tuple[int, int, int]]:
+def worker_face(color: str, went_first: bool) -> str:
+    """The worker card's file under `workers/`: the starting deck's
+    colour's, or the neutral one where that colour's is not imported."""
+    count = 4 if went_first else 5
+    coloured = f"worker_x{count}_{color}.png"
+    if color != "neutral" and bundled(BOARD_IMAGE_DIR / "workers" / coloured):
+        return coloured
+    return f"worker_x{count}.png"
+
+
+@lru_cache(maxsize=16)
+def wiped_workers(face: str) -> tuple[Image.Image, int, int, tuple[int, int, int]]:
     """
-    The worker card's face with its printed count wiped -- the pixels
-    round its rosy figures blended into the box -- the left of those
-    figures, their top, and their ink, at the picture's own size.
+    The worker card's face, `face` under `workers/`, with its printed
+    count wiped -- the pixels round its rosy figures blended into the
+    box -- the left of those figures, their top, and their ink, at the
+    picture's own size.
     """
-    picture = board_piece("workers", f"worker_x{4 if went_first else 5}.png")
+    picture = board_piece("workers", face)
     red, green, _ = picture.convert("RGB").split()
     rosy = ImageChops.multiply(ImageChops.subtract(red, green).point(lambda v: 255 if v >= 20 else 0),
                                red.point(lambda v: 255 if v > 90 else 0))
@@ -729,11 +744,12 @@ def wiped_workers(went_first: bool) -> tuple[Image.Image, int, int, tuple[int, i
     return wiped, left, top, tuple(round(v) for v in ink)
 
 
-@lru_cache(maxsize=16)
-def worker_card(workers: int, went_first: bool) -> Image.Image:
-    """The worker card at a card's size, with `workers` -- "x8" -- where
-    the print has its starting count."""
-    wiped, left, top, ink = wiped_workers(went_first)
+@lru_cache(maxsize=32)
+def worker_card(workers: int, color: str, went_first: bool) -> Image.Image:
+    """The worker card in `color`, the starting deck's, at a card's
+    size, with `workers` -- "x8" -- where the print has its starting
+    count."""
+    wiped, left, top, ink = wiped_workers(worker_face(color, went_first))
     picture = wiped.copy()
     text = f"x{workers}"
     _, glyph_top, _, glyph_bottom = font(100, bold=False).getbbox("4", anchor="ls")
@@ -1095,7 +1111,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
 
     top = o + PATROL_HEIGHT + CELL_GAP
     # The worker card in the grid's first cell, under the command zone.
-    paste_centred(body, worker_card(player.workers, seat == match.first),
+    paste_centred(body, worker_card(player.workers, player.deck_color, seat == match.first),
                   (grid_left, top, grid_left + CELL, top + CELL))
     for index, cell in enumerate(cells, start=1):
         row, column = divmod(index, columns)

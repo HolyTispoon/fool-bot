@@ -1394,7 +1394,15 @@ else the bot shows is ephemeral.
   - **The grid**: first the worker card, under the command zone (the
     author, 2026-10-10: the count off the nameplate and onto the
     Screentop module's worker card): x4, printed "Player 1", for the
-    seat that went first, x5, "Player 2", for the other (UMR p. 3), its
+    seat that went first, x5, "Player 2", for the other (UMR p. 3), in
+    the colour of the first hero whose colour the starting deck is --
+    `PlayerState.deck_color`, since the first hero names the deck
+    (the author, 2026-10-10) -- so the basic game's is the neutral,
+    brown card. The module has a worker card per colour; `worker_face`
+    takes `workers/worker_x4_<colour>.png` where it is imported and the
+    neutral one where it is not, and only the neutral sheet is imported
+    so far (the colour sheets' cells are still to be pinned in
+    `BOARD_SHEETS`). Its
     printed count wiped -- the rosy figures and their dark edge blended
     into the box by `wiped_workers`, as a building's heart is -- and the
     workers the player has now written in their place, "x8", in Roboto

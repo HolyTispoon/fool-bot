@@ -59,6 +59,18 @@ class RenderTests(unittest.TestCase):
         one_row = render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
         self.assertEqual(render.BUILDING_COLUMN_HEIGHT, one_row)
 
+    def test_the_worker_card_is_the_starting_decks_colour(self) -> None:
+        """x4 for the seat that went first and x5 for the other, in the
+        starting deck's colour where that face is imported, and the
+        neutral card where it is not."""
+        self.assertEqual(render.worker_face("neutral", True), "worker_x4.png")
+        self.assertEqual(render.worker_face("neutral", False), "worker_x5.png")
+        with mock.patch.object(render, "bundled", return_value=False):
+            self.assertEqual(render.worker_face("red", True), "worker_x4.png")
+        with mock.patch.object(render, "bundled", return_value=True) as bundled:
+            self.assertEqual(render.worker_face("red", False), "worker_x5_red.png")
+        self.assertEqual(bundled.call_args.args[0].name, "worker_x5_red.png")
+
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)
         # One more than a row of `grid_columns(1)` holds beside the
