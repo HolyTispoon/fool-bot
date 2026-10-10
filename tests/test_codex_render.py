@@ -116,6 +116,39 @@ class RenderTests(unittest.TestCase):
         cheaper = [max(0, costs[0] - 1)] + costs[1:] if costs[0] else [1] + costs[1:]
         self.assertNotEqual(render.render_hand(slugs, allowed, cheaper, self.engine.catalog), first)
 
+    def test_a_standard_codex_is_by_tech_level(self) -> None:
+        """Every Tech I card, then II, then III, then the spells with the
+        ultimates last, each group spec by spec as the deck names them
+        and then by cost (the author, 2026-10-10)."""
+        engine = RulesEngine(seed=7)
+        specs = ("fire", "anarchy", "blood")
+        match = engine.new_match((specs, ("bashing", "finesse", "necromancy")), first=1)
+        cards = [engine.catalog.cards[slug] for slug, _ in engine.codex_remaining(match, 1)]
+        self.assertEqual(len(cards), 36)
+        keys = [(5 if "Ultimate" in card.type else 4 if card.is_spell else card.tech_level,
+                 specs.index(card.spec.strip().lower()), card.cost) for card in cards]
+        self.assertEqual(keys, sorted(keys))
+        self.assertEqual([key[0] for key in keys][-3:], [5, 5, 5])
+
+    def test_the_codex_keeps_its_places_as_cards_are_taken(self) -> None:
+        """A card with no copies left keeps its place, at 0, so the grid
+        stands still while a codex empties; and a view of one spec or one
+        tech level is the whole codex's order narrowed, never re-sorted
+        (the author, 2026-10-10)."""
+        engine = RulesEngine(seed=7)
+        match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
+                                 first=1)
+        player = match.player(1)
+        whole = [slug for slug, _ in engine.codex_remaining(match, 1)]
+        player.codex[whole[3]] = 0
+        del player.codex[whole[10]]
+        rows = engine.codex_remaining(match, 1)
+        self.assertEqual([slug for slug, _ in rows], whole)
+        self.assertEqual((rows[3][1], rows[10][1]), (0, 0))
+        for view in engine.codex_views(player):
+            shown = [slug for slug, _ in engine.codex_remaining(match, 1, view)]
+            self.assertEqual(shown, [slug for slug in whole if slug in shown], view)
+
     def test_a_codex_view(self) -> None:
         rows = self.engine.codex_remaining(self.match, 1)
         png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],

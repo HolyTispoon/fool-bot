@@ -3010,11 +3010,30 @@ class RulesEngine:
         return tuple(found)
 
     def codex_counts(self, player: PlayerState) -> tuple[tuple[str, int], ...]:
-        """The player's codex, as (slug, copies left), in the data's order."""
-        order = list(dict.fromkeys(
-            slug for spec in player.specs for slug in self.catalog.codex_for(spec)
-        ))
+        """
+        The player's codex, as (slug, copies left), by tech level (the
+        author, 2026-10-10): every Tech I card, then Tech II, then
+        Tech III, then the spells together -- the ultimates last -- each
+        group spec by spec as the deck names them, then by cost and name
+        (`codex_order`).
+        """
+        found: dict[str, int] = {}
+        for index, spec in enumerate(player.specs):
+            for slug in self.catalog.codex_for(spec):
+                found.setdefault(slug, index)
+        order = sorted(found, key=lambda slug: self.codex_order(slug, found[slug]))
         return tuple((slug, player.codex.get(slug, 0)) for slug in order)
+
+    def codex_order(self, slug: str, spec: int = 0) -> tuple:
+        """Where a card sits in a codex: its tech level, the spells after
+        every level and an ultimate after them, then its spec's place in
+        the deck (`spec`), its cost and its name."""
+        card = self.catalog.cards[slug]
+        if card.is_spell:
+            group = 5 if "Ultimate" in card.type else 4
+        else:
+            group = card.tech_level or 0
+        return group, spec, card.cost or 0, card.name
 
     # -- What a player is shown of their own cards ------------------------
 

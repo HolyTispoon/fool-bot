@@ -2359,11 +2359,23 @@ slot draws the heroes' hall's and the tech lab's cards from
 (`specs/<spec>.png`, cut at step 1), small, hanging off the tile's right
 edge so the tile's own words stay readable, and a lab's spec card lies
 on the lab's. Building cards and upgrades lie in the grid after the
-units. The codex is three binders: the Everything view of seventy-two
-(36 cards, two copies each) at `CODEX_COLUMNS` measured 477 KB as WebP,
-1154 by 1538 (591 KiB and 1286 by 1718 before the cards were made a bit
-smaller, "The board on Discord") -- far under Discord's upload limit, so it is not narrowed
--- and each spec has its view. `scripts/render_codex_sample.py` renders
+units. The codex is three binders, but it is shown by tech level (the
+author, 2026-10-10, who first asked for it spec by spec and then
+"organizing by tech level rather than spec"): `codex_counts` lists every
+Tech I card, then Tech II, then Tech III, then the spells together with
+the ultimates last, each group spec by spec as the deck names them and
+then by cost and name (`RulesEngine.codex_order`). Every view, the tech
+picker's too, narrows that one list, so all of them read in the same
+order; a spec's own view is its twelve in the same order. A card with
+no copies left keeps its place, faint at x0, so the grid stands still
+while a codex empties (the author: "keep this structure steady even if
+some cards are taken in the middle"). The
+Everything view of seventy-two (36 cards, two copies each) at
+`CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
+measured 495 KB as WebP, 1154 by 1538 (477 KB in the data's order; 591 KiB and 1286 by 1718 before
+the cards were made a bit smaller, "The board on Discord") -- far under
+Discord's upload limit, so it is not narrowed -- and each spec has its
+view. `scripts/render_codex_sample.py` renders
 a standard game's board, hand and codex beside the basic game's.
 
 The six heroes' faces are emoji like Troq's and River's: `FACES` in
