@@ -218,19 +218,16 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE 
 #: read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
     "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "boot_camp", "brave_knight", "building_inspector",
-    "censorship_council", "community_service", "debilitator_alpha",
-    "doubling_barbarbarian", "drill_sergeant", "earthquake", "elite_training",
-    "entangling_vines", "eyes_of_the_chancellor", "flagstone_garrison",
-    "flagstone_spy", "focus_master", "foxs_den_school", "foxs_den_students",
-    "free_speech", "general_onimaru", "generals_hammer", "grappling_hook",
-    "grave_stormborne", "guardian_of_the_gates", "heros_monument", "hidden_ninja",
-    "injunction", "insurance_agent", "inverse_power_ninja",
-    "jade_fox_dens_headmistress", "jail", "jefferson_degrey_ghostly_diplomat",
-    "judgment_day", "jurisdiction", "lawbringer_gryphon", "lawful_search",
-    "martial_mastery", "mind_control", "mindparry_monk", "morningstar_pass",
-    "mythmaking", "oathkeeper_of_kor_mountain", "patriot_gryphon",
-    "porkhand_magistrate", "rambasa_twin", "reputable_newsman", "reversal",
+    "birds_nest", "boot_camp", "brave_knight", "community_service",
+    "debilitator_alpha", "doubling_barbarbarian", "drill_sergeant", "earthquake",
+    "elite_training", "entangling_vines", "flagstone_garrison", "flagstone_spy",
+    "focus_master", "foxs_den_school", "foxs_den_students", "general_onimaru",
+    "generals_hammer", "grappling_hook", "grave_stormborne", "guardian_of_the_gates",
+    "heros_monument", "hidden_ninja", "injunction", "insurance_agent",
+    "inverse_power_ninja", "jade_fox_dens_headmistress",
+    "jefferson_degrey_ghostly_diplomat", "judgment_day", "jurisdiction",
+    "lawful_search", "martial_mastery", "mind_control", "mythmaking",
+    "patriot_gryphon", "porkhand_magistrate", "rambasa_twin", "reversal",
     "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
     "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
     "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",
@@ -1933,3 +1930,70 @@ TEXT.update({
 OATHKEEPERS = frozenset({"oathkeeper_of_kor_mountain"})
 OATH_HAND = "hand"
 OATH_DRAW = "draw"
+
+# -- The zones and the rules a player is put under (step 13, commit 3) -------
+
+#: Jail: "Opposing units played from hand go to jail instead of arriving.
+#: When a unit enters jail, any unit already there is released and
+#: arrives in play. (Jailed units aren't in play. They're discarded if
+#: Jail is destroyed.)" -- never a forecast unit (its ruling).
+JAILS = frozenset({"jail"})
+#: Censorship Council: "Opponents can't play more than one card from hand
+#: during their turns. (This doesn't include hiring workers.)" -- nor an
+#: effect's "put into play" (its ruling).
+CENSORS = frozenset({"censorship_council"})
+#: Reputable Newsman: "Arrives: Choose a number. Opponents can't play
+#: spells or upgrades that cost that amount." -- 0 to 20, the gold cap.
+NEWSMEN = frozenset({"reputable_newsman"})
+NUMBER_MOST = 20
+#: Building Inspector: "The first building each opponent builds each turn
+#: costs {gold:1} more to build." -- tech buildings, add-ons and building
+#: cards, a rebuild's 0 becoming 1 (its ruling); each Inspector its 1.
+INSPECTORS = frozenset({"building_inspector"})
+#: Morningstar Pass: "Prevent all damage that would be dealt to your other
+#: buildings. Opponents must pay {gold:1} each time they would attack
+#: Morningstar Pass." -- the base is a building.
+PASSES = frozenset({"morningstar_pass"})
+#: Setsuki at 1: "While Setsuki isn't patrolling, opponents must pay
+#: {gold:1} each time they would attack her."
+SETSUKI_TOLL = ("setsuki_hiruki", 1)
+ATTACK_TOLL = 1
+#: Lawbringer Gryphon: "Your base gains flying." -- gone when he leaves
+#: (his ruling).
+FLYING_BASE = frozenset({"lawbringer_gryphon"})
+#: Mind-Parry Monk: "Opponents can't {target} your units or heroes with
+#: spells or abilities."
+MINDPARRY = frozenset({"mindparry_monk"})
+#: Eyes of the Chancellor: "Opponents play with their hands revealed." --
+#: the one standing reveal, to the Eyes' controller alone.
+REVEALS_HANDS = frozenset({"eyes_of_the_chancellor"})
+
+for _effect_row in (
+    # Reputable Newsman: "Arrives: Choose a number." (`CHOOSE_NUMBER`).
+    _effect("reputable_newsman", Part("number", None, 0, "choose a number", targeted=False)),
+    # Oathkeeper: "Arrives: Choose an oath." (`OATH`).
+    _effect("oathkeeper_of_kor_mountain", Part("oath", None, 0, "choose an oath", targeted=False)),
+    # Oathkeeper: "{gold:2} -> Sideline all patrolling units." -- both
+    # sides' units; heroes aren't units.
+    _effect("oathkeeper_sideline", Part("sideline_all", None, 0, targeted=False),
+            says="sideline all patrolling units"),
+    # Free Speech: "Silence an opponent." -- no {target}.
+    _effect("free_speech", Part("silence", None, 0, targeted=False)),
+    # Eyes of the Chancellor: "{exhaust} -> Make a friendly unit invisible
+    # until your next upkeep." -- no {target} on the card.
+    _effect("eyes_of_the_chancellor", Part("unphase", "own_unit", 0,
+                                           "make a friendly unit invisible until your next upkeep",
+                                           targeted=False)),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "reputable_newsman": (("arrives", "reputable_newsman"),),
+    "oathkeeper_of_kor_mountain": (("arrives", "oathkeeper_of_kor_mountain"),
+                                   ("ability", "oathkeeper_sideline")),
+    "free_speech": (("play", "free_speech"),),
+    "eyes_of_the_chancellor": (("ability", "eyes_of_the_chancellor"),),
+})
+COSTS.update({
+    "oathkeeper_sideline": Cost(gold=2),
+    "eyes_of_the_chancellor": Cost(exhaust=True),
+})

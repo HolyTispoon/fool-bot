@@ -70,13 +70,15 @@ class Card:
     def is_building_card(self) -> bool:
         """A building played from the hand -- Verdant Tree, Firehouse --
         as against the base, the tech buildings and the add-ons: it has
-        HP and may be attacked (UMR p. 7)."""
-        return self.kind == KIND_CARD and self.type == "Building"
+        HP and may be attacked (UMR p. 7) -- a Legendary Building as much
+        as any (white's three, step 13)."""
+        return self.kind == KIND_CARD and self.type in ("Building", "Legendary Building")
 
     @property
     def is_upgrade(self) -> bool:
-        """An upgrade: no HP, so it is never attacked (UMR p. 7)."""
-        return self.kind == KIND_CARD and self.type == "Upgrade"
+        """An upgrade: no HP, so it is never attacked (UMR p. 7) -- a
+        Legendary Upgrade too (Mythmaking, step 13)."""
+        return self.kind == KIND_CARD and self.type in ("Upgrade", "Legendary Upgrade")
 
     @property
     def is_permanent(self) -> bool:

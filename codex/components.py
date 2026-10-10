@@ -319,6 +319,19 @@ class CardInstance:
     #: stands; its own runes, damage and arrival fatigue stay its own.
     #: `None` otherwise, and in an older save.
     copy_of: Optional[str] = None
+    #: The unit in a Jail (step 13): `{slug, owner, controller, boosted}`
+    #: -- played from its controller's hand, not in play, released when
+    #: the next arrives, discarded with the Jail. `None` for anything
+    #: else, and in an older save.
+    jailed: Optional[dict] = None
+    #: Oathkeeper of Kor Mountain's oath (step 13): "hand" -- no card from
+    #: the hand but workers -- or "draw", no draw/discard phase. `None`
+    #: otherwise, and in an older save.
+    oath: Optional[str] = None
+    #: Reputable Newsman's number (step 13), 0 to 20: opponents play no
+    #: spell or upgrade of that cost while he is in play. `None`
+    #: otherwise, and in an older save.
+    number: Optional[int] = None
 
     @property
     def ref(self) -> str:
@@ -352,6 +365,9 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("buried", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("made_by"),
     SavedField("copy_of"),
+    SavedField("jailed", write=_copy_optional_dict, read=_copy_optional_dict),
+    SavedField("oath"),
+    SavedField("number"),
 )
 
 
@@ -484,6 +500,18 @@ class PlayerState:
     #: upkeep, after its other effects, or the game is lost. 0 in an older
     #: save.
     debt: int = 0
+    #: Free Speech (step 13): this player is silenced -- their heroes cast
+    #: no spells and have no abilities -- until their next turn has ended.
+    #: False in an older save.
+    silenced: bool = False
+    #: The cards this player has played from their hand this turn, hires
+    #: aside (step 13): what Censorship Council counts. 0 in an older
+    #: save.
+    played_from_hand: int = 0
+    #: Whether this player has built a building this turn (step 13): what
+    #: Building Inspector's "first building each turn" reads. False in an
+    #: older save.
+    built_this_turn: bool = False
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -579,6 +607,9 @@ PLAYER_SAVED_FIELDS = (
     SavedField("skip_draw", default=False),
     SavedField("promised", default=False),
     SavedField("debt", default=0),
+    SavedField("silenced", default=False),
+    SavedField("played_from_hand", default=0),
+    SavedField("built_this_turn", default=False),
 )
 
 
@@ -794,6 +825,8 @@ class MatchState:
                 known(card.slug, f"{where}'s play zone")
                 if card.copy_of is not None:
                     known(card.copy_of, f"card {card.id}'s copy")
+                if card.jailed is not None:
+                    known(card.jailed.get("slug", ""), f"card {card.id}'s jail")
                 for name in ("damage", "plus_runes", "minus_runes", "armor", "time_runes"):
                     if getattr(card, name) < 0:
                         fail(f"card {card.id} has {name} below zero")

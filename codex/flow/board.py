@@ -136,12 +136,29 @@ def take_damage(body, amount: int, piercing: bool = False) -> int:
     return landed
 
 
+def pass_prevents(match: MatchState, seat: int, target) -> bool:
+    """
+    Morningstar Pass: "Prevent all damage that would be dealt to your other
+    buildings." -- `seat`'s base, tech buildings, add-on and building cards
+    but the Pass itself, while it is in play with its text (step 13).
+    `target` is a ref or a card in play.
+    """
+    ref = target.ref if isinstance(target, CardInstance) else target
+    return any(
+        card.slug in effects.PASSES and "polymorph" not in (card.printed or {}) and card.ref != ref
+        for card in match.player(seat).play
+    )
+
+
 def damage_building(match: MatchState, seat: int, ref: str, amount: int,
                     result: StepResult, by: Optional[int] = None) -> None:
     """Damage onto a building: the base (at 0 the game ends), a tech
     building or the add-on, a destroyed one dealing its 2 to its base
-    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor."""
+    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor. None of
+    it where Morningstar Pass prevents it (step 13)."""
     player = match.player(seat)
+    if pass_prevents(match, seat, ref):
+        return
     if ref == "base":
         damage_base(match, seat, amount, result, by=by)
         return
@@ -197,6 +214,8 @@ def left_after(engine: "RulesEngine", match: MatchState, seat: int, ref: str,
     destroys it -- the next line says so (the author, 2026-10-10)."""
     if ref == "base":
         return base_left_after(match, seat, amount, by=by)
+    if pass_prevents(match, seat, ref):
+        return _PREVENTED
     left = max(0, building_hp(match, seat, ref) - amount)
     return _now_at(left, building_max_hp(engine, match, seat, ref))
 
@@ -208,6 +227,8 @@ def base_left_after(match: MatchState, seat: int, amount: int,
     damage), what the floor leaves (step 12)."""
     from codex.flow.turn import base_floor
 
+    if pass_prevents(match, seat, "base"):
+        return _PREVENTED
     left = max(0, match.player(seat).base_hp - amount)
     floor = base_floor(match, seat, by)
     if floor is not None:
@@ -223,6 +244,10 @@ def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str
     card = body_of(match, seat, ref)
     most = engine.body_stats(match, card)[1]
     return _now_at(most - card.damage, most)
+
+
+#: What a damage line says where Morningstar Pass prevents the damage.
+_PREVENTED = f", which {tokens.card('morningstar_pass')} prevents"
 
 
 def _now_at(left: int, most: int) -> str:
@@ -307,10 +332,14 @@ def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
 
 def _empty_graveyard(match: MatchState, card: CardInstance) -> None:
     """A Graveyard leaving play discards what is buried in it, each to its
-    owner's discard pile."""
+    owner's discard pile -- and a Jail the unit it holds (step 13: "They're
+    discarded if Jail is destroyed")."""
     for buried in card.buried:
         match.player(buried["owner"]).discard.append(buried["slug"])
     card.buried = []
+    if card.jailed is not None:
+        match.player(card.jailed["owner"]).discard.append(card.jailed["slug"])
+        card.jailed = None
 
 
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
@@ -555,6 +584,10 @@ def max_level_reached(engine: "RulesEngine", match: MatchState, seat: int, hero:
     if mark is None:
         return
     hero.modifiers.remove(mark)
+    if match.player(seat).silenced:
+        # Silenced: its max level text is an ability it does not have
+        # (Free Speech, step 13).
+        return
     for effect in effects.triggers(hero.slug, "max_level", hero.level):
         asks = any(part.choose is not None for part in effects.EFFECTS[effect].parts)
         if asks and seat != match.active:
@@ -721,6 +754,8 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 origin=effects.DEATH_RITES,
             ))
     for seat, hero in heroes:
+        if match.player(seat).silenced:
+            continue
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
@@ -758,6 +793,8 @@ def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
     has not been spent -- spending it."""
     slug, level = effects.ORPAL_MAX
     for player in match.players:
+        if player.silenced:
+            continue
         for hero in player.heroes_in_play:
             if hero.slug == slug and hero.level >= level:
                 if any(m.get("kind") == "once" and m.get("effect") == "orpal_gloor_max"
@@ -837,7 +874,8 @@ def _first_from_hand(engine: "RulesEngine", match: MatchState, seat: int, card: 
         return
     player.arrived_from_hand = True
     slug, level = effects.FIRST_FROM_HAND_HASTE
-    if any(hero.slug == slug and hero.level >= level for hero in player.heroes_in_play):
+    if not player.silenced and any(hero.slug == slug and hero.level >= level
+                                   for hero in player.heroes_in_play):
         card.modifiers.append({"kind": "keyword", "keyword": "Haste", "until": None})
 
 
@@ -850,6 +888,11 @@ def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: Hero
     if fading:
         # Prynn Pasternaak's fading 4: she arrives with four time runes.
         hero.time_runes = fading
+    if match.player(seat).silenced:
+        # A hero summoned while its player is silenced arrives with no
+        # abilities (Free Speech's ruling).
+        _grow_on_arrival(match, seat, hero)
+        return
     resolve.push(match, *(
         resolve.frame(effect, seat, tokens.hero(hero.slug), source=hero_ref(hero.slug),
                       origin=hero.slug)
@@ -1372,7 +1415,7 @@ def kill_bonus(engine: "RulesEngine", match: MatchState, seat: int, killer: Opti
     if killer is None or slot is None:
         return
     hero = match.player(seat).hero_of(killer)
-    if hero is None:
+    if hero is None or match.player(seat).silenced:
         return
     for (slug, level), bonuses in effects.KILL_BONUSES.items():
         if slug != killer or hero.level < level:

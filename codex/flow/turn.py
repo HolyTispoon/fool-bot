@@ -74,6 +74,12 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
     that is known: Blackhand Dozer's floor holds an opposing base at 6
     against any damage its controller deals (`base_floor`)."""
     player = match.player(seat)
+    from codex.flow.board import pass_prevents
+
+    if pass_prevents(match, seat, "base"):
+        # Morningstar Pass: the base is one of "your other buildings"
+        # (step 13).
+        return
     floor = base_floor(match, seat, by)
     if floor is not None and player.base_hp - amount < floor:
         kept = min(player.base_hp, floor)
@@ -179,6 +185,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     player.hired_this_turn = False
     player.spells_played = 0
     player.arrived_from_hand = False
+    # Censorship Council's and Building Inspector's counts (step 13).
+    player.played_from_hand = 0
+    player.built_this_turn = False
     # Moment's Peace holds "until your next turn" (step 11).
     player.peace = False
     # Readiness attacks once a turn and a tower detects once a turn
@@ -627,11 +636,16 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if stash is None and engine.stash_owed(match):
         result.next = pending(engine, game, match)
         return result
-    if player.skip_draw:
+    oath = engine.skips_draw(match, seat)
+    if player.skip_draw or oath:
         # Prynn died from fading: "Opponents skip their next draw/discard
-        # step (they keep their hand cards)."
+        # step (they keep their hand cards)." Oathkeeper's second oath:
+        # "you simply keep your same remaining cards" (its ruling).
         player.skip_draw = False
-        result.narration.append(f"{tokens.player(seat)} skips their draw and discard, keeping their hand.")
+        why = f", as {tokens.card('oathkeeper_of_kor_mountain')}'s oath says" if oath else ""
+        result.narration.append(
+            f"{tokens.player(seat)} skips their draw and discard, keeping their hand{why}."
+        )
         match.enter_phase("tech")
         end_of_turn(engine, match, result)
         from codex.flow import resolve
@@ -777,6 +791,10 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.record_event("turn_ended")
     match.attacking = None
     player.promised = False
+    if player.silenced:
+        # Free Speech: "until after that opponent's next turn" -- this one.
+        player.silenced = False
+        result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
     if match.extra_turns and match.extra_turns[0] == seat:
         # Double Time: "Take an extra turn after this one" -- the turn passes
         # to the same player, with every phase (its ruling).

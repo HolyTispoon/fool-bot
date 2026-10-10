@@ -4593,6 +4593,322 @@ class WhiteBlueKeywordRulingTests(unittest.TestCase):
         self.assertEqual(smoker.minus_runes, 0)
 
 
+def end_turn_of(engine, game, match, seat: int) -> None:
+    """End `seat`'s main phase with nothing patrolling, then run what the
+    bot owes into the next player's turn -- tech confirmed where asked."""
+    from codex_positions import begin as run_owed_steps
+
+    apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+    apply(engine, game, match, PromptKind.PATROL, assignment={})
+    while True:
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.STASH:
+            apply(engine, game, match, PromptKind.STASH, "none")
+            continue
+        if prompt is not None and prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+            player = prompt.asked_player
+            if prompt.kind is PromptKind.TECH_CHOICE:
+                picks = [slug for slug, left in prompt.options.codex for _ in range(left)][:prompt.options.maximum]
+                apply(engine, game, match, PromptKind.TECH_CHOICE, player=player,
+                      picks=picks[:prompt.options.minimum] or picks[:prompt.options.maximum])
+            else:
+                apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=player)
+            continue
+        run_owed_steps(engine, game, match)
+        prompt = asked(engine, game, match)
+        if prompt is None or prompt.kind not in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM,
+                                                  PromptKind.STASH):
+            return
+
+
+class WhiteBlueRuleRulingTests(unittest.TestCase):
+    """Commit 3's cards: the zones and the rules a player is put under."""
+
+    def jail_against(self, attacker_spec: str = "necromancy"):
+        """`attacker_spec`'s seat 1 against blue's seat 2, a Jail of seat 2's
+        in play, seat 1 on its main phase with the buildings to play its
+        tech I and II units."""
+        engine, game, match = new_game(teams=((attacker_spec,), ("law",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        jail = put(match, 2, "jail")
+        return engine, game, match, jail
+
+    def test_jail_1(self) -> None:
+        """When a unit goes from hand to Jail, that unit does not "enter
+        play" or arrive. It goes directly to the Jail zone and it's not
+        considered in play. When it's released from Jail (from another unit
+        entering), it will arrive and trigger any "arrive" effects at that
+        time."""
+        engine, game, match, jail = self.jail_against()
+        weak = put(match, 2, "tenderfoot")
+        hand(match, 1, "hooded_executioner", "older_brother")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertEqual(jail.jailed["slug"], "hooded_executioner")
+        self.assertTrue(jail.jailed["boosted"])
+        self.assertFalse(any(card.slug == "hooded_executioner" for card in match.player(1).play))
+        self.assertIsNotNone(match.player(2).instance(weak.id))
+        # A boosted unit jailed and released: its boost was paid as it was
+        # played, and resolves as it leaves -- the weakest unit destroyed.
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
+        self.assertEqual(jail.jailed["slug"], "older_brother")
+        released = next(card for card in match.player(1).play if card.slug == "hooded_executioner")
+        self.assertTrue(released.arrived_this_turn)
+        self.assertIsNone(match.player(2).instance(weak.id))
+
+    def test_jail_2(self) -> None:
+        """Forecasted units don't go to Jail when played. They also don't go
+        there when they later arrive."""
+        engine, game, match, jail = self.jail_against("past")
+        hand(match, 1, "plasmodium")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="plasmodium")
+        self.assertIsNone(jail.jailed)
+        future = match.player(1).future[0]
+        future.time_runes = 1
+        board.remove_time_rune(engine, match, 1, f"future:{future.id}", StepResult())
+        self.assertIsNone(jail.jailed)
+        self.assertTrue(any(card.slug == "plasmodium" for card in match.player(1).play))
+
+    def test_a_jailed_unit_is_discarded_with_the_jail(self) -> None:
+        engine, game, match, jail = self.jail_against()
+        hand(match, 1, "older_brother")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="older_brother")
+        board.destroy(engine, match, [(2, jail.ref)], StepResult())
+        self.assertIn("older_brother", match.player(1).discard)
+
+    def test_censorship_council_1(self) -> None:
+        """The restriction doesn't apply to effects that would "put a card
+        into play" such as from Feral Strike or Sanatorium."""
+        engine, game, match = new_game(teams=(("feral",), ("law",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        put(match, 2, "censorship_council")
+        hand(match, 1, "tiger_cub", "feral_strike", "young_treant")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="tiger_cub")
+        refused = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play",
+                                                             {"slug": "feral_strike"}))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertIn("Censorship Council", refused.reason)
+        # An effect's "put into play" is not playing a card from the hand.
+        frame = {"kind": "effect", "effect": "feral_strike", "seat": 1, "by": "{card:feral_strike}",
+                 "source": None, "spell": None, "part": 0, "taken": [], "flagbearer": False,
+                 "partners": [], "cancel_from": None, "drew": False, "mode": "put"}
+        match.resolving.append(frame)
+        from codex.flow import resolve
+        resolve.run(engine, match, StepResult())
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:young_treant")
+        self.assertTrue(any(card.slug == "young_treant" for card in match.player(1).play))
+
+    def test_reputable_newsman_1(self) -> None:
+        """When Newsman leaves play, his effect ends."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "bigby_hayes")
+        hand(match, 2, "reputable_newsman")
+        match.player(2).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="reputable_newsman")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.CHOOSE_NUMBER)
+        apply(engine, game, match, PromptKind.CHOOSE_NUMBER, number=1)
+        newsman = next(card for card in match.player(2).play if card.slug == "reputable_newsman")
+        self.assertEqual(newsman.number, 1)
+        match.active = 1
+        wb_hero(match, 1, "grave_stormborne")
+        hand(match, 1, "senseis_advice")
+        match.player(1).gold = 5
+        put(match, 1, "fox_viper")
+        why = engine.why_not_playable(match.player(1), "senseis_advice", match)
+        self.assertIn("Reputable Newsman", why)
+        board.destroy(engine, match, [(2, newsman.ref)], StepResult())
+        self.assertEqual(engine.why_not_playable(match.player(1), "senseis_advice", match), "")
+
+    def test_building_inspector_1(self) -> None:
+        """This effect applies to tech buildings and add-ons as well as
+        building cards. This effect also applies to rebuilding tech
+        buildings (if it's the first thing they build/rebuild in a turn, it
+        will cost 1 instead of 0.)"""
+        engine, game, match = wb()
+        put(match, 2, "building_inspector")
+        player = match.player(1)
+        player.workers = 6
+        built(match, 1, "tech1").destroyed = True
+        match.player(1).buildings["tech1"].hp = 0
+        self.assertEqual(engine.build_option(player, "tech1", match).cost, 1)
+        self.assertEqual(engine.build_option(player, "tower", match).cost, 4)
+        player.gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "build", building="tech1")
+        self.assertEqual(player.gold, 9)
+        self.assertEqual(engine.build_option(player, "tower", match).cost, 3)
+        # A building card is a building too.
+        player.built_this_turn = False
+        self.assertEqual(engine.effective_cost(player, "training_grounds", match), 2)
+
+    def test_free_speech_1(self) -> None:
+        """Opponents can still level up their heroes even if they are
+        silenced. Heroes that reach the next band of levels still heal their
+        damage even if their controller is silenced."""
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "grave_stormborne", level=2, damage=2)
+        match.player(1).silenced = True
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="grave_stormborne", levels=1)
+        self.assertEqual((grave.level, grave.damage), (3, 0))
+        self.assertFalse(engine.has_keyword(grave, "Readiness", match))
+        self.assertFalse(engine.has_keyword(grave, "Sparkshot", match))
+
+    def test_free_speech_2(self) -> None:
+        """If you use Free Speech on an opponent and that opponent plays a
+        new hero on their next turn (in which they are still silenced), that
+        new hero loses all abilities and can't cast spells."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        cast(engine, game, match, "free_speech")
+        self.assertTrue(match.player(1).silenced)
+        end_turn_of(engine, game, match, 2)
+        self.assertEqual(match.active, 1)
+        player = match.player(1)
+        player.gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "summon", hero="grave_stormborne")
+        grave = player.hero_of("grave_stormborne")
+        self.assertFalse(engine.has_keyword(grave, "Sparkshot", match))
+        hand(match, 1, "senseis_advice")
+        self.assertIn("silenced", engine.why_not_playable(player, "senseis_advice", match))
+        # And after that turn, the silence ends.
+        end_turn_of(engine, game, match, 1)
+        self.assertFalse(player.silenced)
+        self.assertTrue(engine.has_keyword(grave, "Sparkshot", match))
+
+    def test_free_speech_3(self) -> None:
+        """A hero that "loses all abilities" from the silence effect can't
+        get new abilities either. For example, it can't be granted anti-air
+        or sparkshot from Elite Training, though it can be granted +1 ATK
+        and 1 armor from that same spell because those are stats and not
+        "abilities." """
+        engine, game, match = wb()
+        grave = wb_hero(match, 1, "garus_rook")
+        match.player(1).silenced = True
+        grave.modifiers += [
+            {"kind": "keyword", "keyword": "Anti-air", "until": "end_of_turn"},
+            {"kind": "atk", "amount": 1, "until": "end_of_turn"},
+        ]
+        self.assertFalse(engine.has_keyword(grave, "Anti-air", match))
+        self.assertEqual(engine.hero_stats(grave, match), (3, 4))
+
+    def test_free_speech_4(self) -> None:
+        """When the silence effect ends, that players heroes are now able to
+        have abilities again. (Imagine the abilities written on their
+        character card are erased during the silence effect, then appear
+        again when the duration ends.)"""
+        engine, game, match = wb()
+        rook = wb_hero(match, 1, "garus_rook", level=5)
+        put(match, 2, "tenderfoot", patrol="elite")
+        match.player(1).silenced = True
+        self.assertNotIn("base", engine.legal_defenders(match, hero(match, 1, "garus_rook")))
+        match.player(1).silenced = False
+        self.assertIn("base", engine.legal_defenders(match, hero(match, 1, "garus_rook")))
+        self.assertTrue(rook.in_play)
+
+    def test_free_speech_5(self) -> None:
+        """A silenced opponent can still play spells using Cinderblast Dragon
+        or Guargum, Eternal Sentinel"""
+        engine, game, match = new_game(teams=(("growth",), ("truth",)))
+        begin(engine, game, match)
+        hero_in_play(match, 1)
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        built(match, 1, "tech3")
+        put(match, 1, "guargum_eternal_sentinel")
+        match.player(1).silenced = True
+        self.assertEqual(engine.why_not_playable(match.player(1), "dinosize", match), "")
+        self.assertIn("silenced", engine.why_not_playable(match.player(1), "spark", match))
+
+    def test_oathkeeper_of_kor_mountain_1(self) -> None:
+        """If you choose the first oath, you can still "put cards into play"
+        with an effect that has that wording, such as Sanatorium, without
+        breaking the oath."""
+        engine, game, match = wb()
+        keeper = put(match, 1, "oathkeeper_of_kor_mountain")
+        keeper.oath = "hand"
+        hand(match, 1, "fox_viper", "smoker")
+        match.player(1).gold = 20
+        self.assertIn("oath", engine.why_not_playable(match.player(1), "fox_viper", match))
+        self.assertTrue(engine.hire_option(match.player(1)).allowed)
+        card = board.put_into_play(engine, match, "smoker", 1, from_hand=True)
+        self.assertIsNotNone(card)
+
+    def test_oathkeeper_of_kor_mountain_2(self) -> None:
+        """Choosing the second oath means that instead of discarding your
+        hand and drawing new cards during the discard/draw phase, you simply
+        keep your same remaining cards in hand for the next turn."""
+        engine, game, match = wb()
+        built(match, 1, "tech1")
+        built(match, 1, "tech2")
+        built(match, 1, "tech3")
+        match.player(1).tech2_spec = "strength"
+        hand(match, 1, "oathkeeper_of_kor_mountain", "fox_viper", "smoker")
+        match.player(1).gold = 20
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="oathkeeper_of_kor_mountain")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.OATH)
+        apply(engine, game, match, PromptKind.OATH, oath="draw")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        run = apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(sorted(match.player(1).hand), ["fox_viper", "smoker"])
+        self.assertIn("keeping their hand", said(run))
+
+    def test_morningstar_pass_1(self) -> None:
+        """If they can't pay 1, they can't attack Morningstar Pass."""
+        engine, game, match = wb(first=2)
+        attacker = put(match, 2, "scribe")
+        morningstar = put(match, 1, "morningstar_pass")
+        match.player(2).gold = 0
+        self.assertNotIn(morningstar.ref, engine.legal_defenders(match, attacker.ref))
+        match.player(2).gold = 1
+        self.assertIn(morningstar.ref, engine.legal_defenders(match, attacker.ref))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=attacker.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=morningstar.ref)
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(morningstar.damage, 1)
+
+    def test_morningstar_pass_prevents_damage_to_the_other_buildings(self) -> None:
+        engine, game, match = wb(first=2)
+        attacker = put(match, 2, "scribe")
+        put(match, 1, "morningstar_pass")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=attacker.ref)
+        run = apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender="base")
+        self.assertEqual(match.player(1).base_hp, 20)
+        self.assertIn("prevents", said(run))
+
+    def test_lawbringer_gryphon_1(self) -> None:
+        """Your base is no longer flying if you lose Lawbringer Gryphon."""
+        engine, game, match = wb()
+        attacker = put(match, 1, "fox_viper")
+        gryphon = put(match, 2, "lawbringer_gryphon")
+        self.assertNotIn("base", engine.legal_defenders(match, attacker.ref))
+        flier = put(match, 1, "flying_fox")
+        self.assertIn("base", engine.legal_defenders(match, flier.ref))
+        board.trash(engine, match, gryphon)
+        self.assertIn("base", engine.legal_defenders(match, attacker.ref))
+
+    def test_mindparry_monk_1(self) -> None:
+        """This means that opponents can't use spells or abilities to target
+        any units or heroes you control."""
+        engine, game, match = wb(first=2)
+        wb_hero(match, 2, "sirus_quince")
+        put(match, 1, "mindparry_monk")
+        viper = put(match, 1, "fox_viper", patrol="elite")
+        hand(match, 2, "spark")
+        self.assertIn("nothing it could target", engine.why_not_playable(match.player(2), "spark", match))
+        put(match, 2, "scribe", patrol="elite")
+        cast(engine, game, match, "spark")
+        self.assertEqual(viper.damage, 0)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""

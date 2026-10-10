@@ -81,6 +81,8 @@ def _handled(slug: str) -> list[str]:
         "DREAMSCAPE", "ILLUSION_GUARDS", "RETELLERS", "RETURNS_WHEN_TARGETED",
         "LONG_RANGE_AT_ONE", "UNSTOPPABLE_ATTACKING_BASE", "UNSTOPPABLE_ATTACKING_BUILDINGS",
         "UNSTOPPABLE_BY_WEAK", "UNSTOPPABLE_WITH_NINJA", "UNATTACKABLE_WITH_CUTE_ANIMAL", "LIBERTY",
+        "JAILS", "CENSORS", "NEWSMEN", "INSPECTORS", "PASSES", "FLYING_BASE", "MINDPARRY",
+        "REVEALS_HANDS", "OATHKEEPERS",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -115,19 +117,16 @@ def _handled(slug: str) -> list[str]:
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
     "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
-    "birds_nest", "boot_camp", "brave_knight", "building_inspector",
-    "censorship_council", "community_service", "debilitator_alpha",
-    "doubling_barbarbarian", "drill_sergeant", "earthquake", "elite_training",
-    "entangling_vines", "eyes_of_the_chancellor", "flagstone_garrison",
-    "flagstone_spy", "focus_master", "foxs_den_school", "foxs_den_students",
-    "free_speech", "general_onimaru", "generals_hammer", "grappling_hook",
-    "grave_stormborne", "guardian_of_the_gates", "heros_monument", "hidden_ninja",
-    "injunction", "insurance_agent", "inverse_power_ninja",
-    "jade_fox_dens_headmistress", "jail", "jefferson_degrey_ghostly_diplomat",
-    "judgment_day", "jurisdiction", "lawbringer_gryphon", "lawful_search",
-    "martial_mastery", "mind_control", "mindparry_monk", "morningstar_pass",
-    "mythmaking", "oathkeeper_of_kor_mountain", "patriot_gryphon",
-    "porkhand_magistrate", "rambasa_twin", "reputable_newsman", "reversal",
+    "birds_nest", "boot_camp", "brave_knight", "community_service",
+    "debilitator_alpha", "doubling_barbarbarian", "drill_sergeant", "earthquake",
+    "elite_training", "entangling_vines", "flagstone_garrison", "flagstone_spy",
+    "focus_master", "foxs_den_school", "foxs_den_students", "general_onimaru",
+    "generals_hammer", "grappling_hook", "grave_stormborne", "guardian_of_the_gates",
+    "heros_monument", "hidden_ninja", "injunction", "insurance_agent",
+    "inverse_power_ninja", "jade_fox_dens_headmistress",
+    "jefferson_degrey_ghostly_diplomat", "judgment_day", "jurisdiction",
+    "lawful_search", "martial_mastery", "mind_control", "mythmaking",
+    "patriot_gryphon", "porkhand_magistrate", "rambasa_twin", "reversal",
     "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
     "sirus_quince", "snapback", "sparring_partner", "speed_of_the_fox",
     "tax_collector", "the_art_of_war", "thunderclap", "training_grounds",

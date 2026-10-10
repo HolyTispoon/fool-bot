@@ -101,6 +101,10 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
         return Action(kind, arguments={"target": options.split[0][0]})
     if kind is PromptKind.STASH:
         return Action(kind, "none")
+    if kind is PromptKind.CHOOSE_NUMBER:
+        return Action(kind, arguments={"number": 3})
+    if kind is PromptKind.OATH:
+        return Action(kind, arguments={"oath": "draw"})
     if kind is PromptKind.MODE_CHOICE:
         return Action(kind, arguments={"mode": options.modes[0][0]})
     if kind is PromptKind.APPEL_STOMP_TOP:

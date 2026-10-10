@@ -33,6 +33,8 @@ from cogs.codex_views import (
     deck_file,
     hand_caption,
     hand_file,
+    revealed_caption,
+    revealed_files,
     side_label,
 )
 
@@ -222,17 +224,23 @@ class PresentationMixin:
         to them alone** -- the first hidden thing the bot shows -- with
         **My deck** under it."""
         started = time.perf_counter()
-        file = await hand_file(self.engine, match, seat)
+        files = [await hand_file(self.engine, match, seat),
+                 *await revealed_files(self.engine, match, seat)]
         drawn = elapsed_ms(started)
         started = time.perf_counter()
+        caption = hand_caption(match, seat, side_label(game, match, seat))
+        revealed = revealed_caption(self.engine, match, seat)
+        # One picture as ever; two where Eyes of the Chancellor shows the
+        # opponent's hand beneath (step 13).
+        pictures = {"file": files[0]} if len(files) == 1 else {"files": files}
         await interaction.response.send_message(
-            hand_caption(match, seat, side_label(game, match, seat)),
-            file=file,
+            caption + (f"\n{revealed}" if revealed else ""),
+            **pictures,
             view=HandView(self, game.game_id, seat),
             ephemeral=True,
         )
         LOGGER.info("Codex game #%s: the hand drawn in %d ms (%d KB), sent in %d ms",
-                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
+                    game.game_number, drawn, pictures_size(files) // 1024, elapsed_ms(started))
 
     async def send_deck(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:

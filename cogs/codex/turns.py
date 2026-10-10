@@ -33,7 +33,8 @@ from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
-    RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, send_ephemeral,
+    RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, revealed_caption,
+    revealed_files, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, pictures_size
@@ -197,7 +198,13 @@ class TurnsMixin:
         if private:
             files = [await self.choices_file(private)]
         elif prompt.kind is PromptKind.MAIN_ACTION:
-            files = [await hand_file(self.engine, match, prompt.asked_player, prompt.options.hand)]
+            # The opponent's hand under one's own where Eyes of the
+            # Chancellor reveals it -- to this player alone (step 13).
+            files = [await hand_file(self.engine, match, prompt.asked_player, prompt.options.hand),
+                     *await revealed_files(self.engine, match, prompt.asked_player)]
+            revealed = revealed_caption(self.engine, match, prompt.asked_player)
+            if revealed:
+                extra.append(revealed)
         elif prompt.kind in PANEL_SIDE_KINDS:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:

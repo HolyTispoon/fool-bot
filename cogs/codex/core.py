@@ -88,6 +88,8 @@ PROMPT_VIEWS = {
     PromptKind.DIVIDE_DAMAGE: TurnPanelView,
     PromptKind.MODE_CHOICE: TurnPanelView,
     PromptKind.STASH: TurnPanelView,
+    PromptKind.CHOOSE_NUMBER: TurnPanelView,
+    PromptKind.OATH: TurnPanelView,
     PromptKind.PATROL: PatrolView,
     PromptKind.TECH_CHOICE: TechChoiceView,
     PromptKind.TECH_CONFIRM: TechConfirmView,

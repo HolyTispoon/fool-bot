@@ -177,6 +177,14 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             cite="UMR p. 10",
         )
     result = StepResult(board_changed=True)
+    toll = engine.attack_toll(match, defender)
+    if toll:
+        # Morningstar Pass, Setsuki Hiruki: "opponents must pay {gold:1}
+        # each time they would attack" (step 13).
+        match.player(seat).gold -= toll
+        result.narration.append(
+            f"{tokens.player(seat)} pays {tokens.gold(toll)} to attack {_fighter(match, other, defender).named()}."
+        )
     if state is None:
         match.combat = {
             "attacker": attacker,
@@ -429,7 +437,7 @@ def _attack_frames(engine: "RulesEngine", match: MatchState, attacker: str) -> l
     player = match.player(seat)
     if is_hero_ref(attacker):
         hero = player.hero_by_ref(attacker)
-        found = effects.triggers(hero.slug, "attacks", hero.level)
+        found = effects.triggers(hero.slug, "attacks", hero.level) if not player.silenced else ()
         by = tokens.hero(hero.slug)
         origin = hero.slug
         host = hero.slug
@@ -571,6 +579,11 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 # nobody, so their damage lands after the narration, in
                 # the order the lines read.
                 hit.landed = hit.amount
+                continue
+            if (hit.target.card is not None and engine.catalog.cards[hit.target.card.slug].is_building_card
+                    and board.pass_prevents(match, hit.target.seat, hit.target.card)):
+                # Morningstar Pass prevents it (step 13).
+                hit.landed = 0
                 continue
             source = hit.source.body if hit.source is not None else None
             piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)

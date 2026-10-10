@@ -623,6 +623,8 @@ class RulesEngine:
             if spell.slug == effects.TWO_STEP and self.partnered(match, card, both_held=True) is spell:
                 found.append((spell.sequence, "two_step", spell))
         for hero in match.player(seat).heroes_in_play:
+            if not self.hero_texted(match, hero):
+                continue
             for (slug, level), grant in effects.BAND_GRANTS.items():
                 if hero.slug == slug and hero.level >= level:
                     found.append((hero.bands.get(str(level), 0), grant, hero))
@@ -747,10 +749,13 @@ class RulesEngine:
         if hero.printed and "atk" in hero.printed:
             atk = hero.printed["atk"]
         changed_atk, changed_hp = self._changes(hero)
-        found = list(keywords.hero_keywords(hero.slug, hero.level))
+        silenced = not self.hero_texted(match, hero)
+        # A silenced player's hero "loses all abilities" and "can't get new
+        # abilities either" -- its numbers stay (Free Speech's rulings).
+        found = [] if silenced else list(keywords.hero_keywords(hero.slug, hero.level))
         found.extend(keywords.PATROL_GRANTS.get(hero.patrol_slot or "", ()))
         for modifier in hero.modifiers:
-            if modifier.get("kind") == "keyword":
+            if modifier.get("kind") == "keyword" and not silenced:
                 found.append((modifier["keyword"], modifier.get("amount")))
         profile = Profile(atk + changed_atk, hp + changed_hp, found, True)
         if match is None:
@@ -779,6 +784,8 @@ class RulesEngine:
                 profile.grant("Resist", 1)
         profile.keywords.extend(self._conditioned_keywords(match, hero, seat))
         self._lose_keywords(hero, profile)
+        if silenced:
+            profile.keywords = list(keywords.PATROL_GRANTS.get(hero.patrol_slot or "", ()))
         return profile
 
     def _hero_raw(self, hero: HeroState, match: Optional[MatchState] = None) -> tuple[int, int]:
@@ -1012,13 +1019,20 @@ class RulesEngine:
         seat = self.seat_of(match, hero)
         return seat is None or not getattr(match.player(seat), "silenced", False)
 
+    def texted_heroes(self, match: MatchState, seat: int) -> list[HeroState]:
+        """`seat`'s heroes in play that have their abilities: none while
+        that player is silenced (Free Speech, step 13)."""
+        player = match.player(seat)
+        return [] if player.silenced else list(player.heroes_in_play)
+
     def rune_damage(self, match: Optional[MatchState], body) -> bool:
         """Whether `body` deals its damage to units and heroes in the form
         of -1/-1 runes (UMR p. 13): Plague Spitter, Orpal Gloor from his
         first band, Poisonblade Rogue while it attacks."""
         if isinstance(body, HeroState):
-            return any(body.slug == slug and body.level >= level
-                       for slug, level in effects.RUNE_DAMAGE_BANDS)
+            return self.hero_texted(match, body) and any(
+                body.slug == slug and body.level >= level for slug, level in effects.RUNE_DAMAGE_BANDS
+            )
         if not isinstance(body, CardInstance):
             return False
         if any(m.get("kind") == "rune_damage" for m in body.modifiers):
@@ -1060,8 +1074,8 @@ class RulesEngine:
     def why_not_play_top(self, match: MatchState, player: PlayerState, slug: str) -> str:
         """Why Vir may not play the top card of his draw pile now, or "":
         "You still pay for it and must meet the reqs for it" -- the reqs a
-        card played from the hand has."""
-        return self.why_not_playable(player, slug, match)
+        card played from the hand has, and none of the hand's own limits."""
+        return self.why_not_playable(player, slug, match, from_hand=False)
 
     def no_high_tech(self, player: PlayerState, card) -> bool:
         """Twilight Baron: "You can't play tech II or III units." --
@@ -1133,7 +1147,8 @@ class RulesEngine:
             return not any(band.text for band in card.bands)
         return not card.text
 
-    def effective_cost(self, player: PlayerState, slug: str) -> int:
+    def effective_cost(self, player: PlayerState, slug: str,
+                       match: Optional[MatchState] = None) -> int:
         """
         What a card costs this player now: its printed cost, then the
         reductions they hold -- a Maestro makes their Virtuosos cost 0,
@@ -1152,6 +1167,9 @@ class RulesEngine:
                 return 0
             return cost + self.wrong_color_surcharge(player, slug)
         if not card.is_unit:
+            if card.is_building_card and match is not None:
+                # Building Inspector: a building card is a building built.
+                cost += self.inspector_surcharge(match, player)
             return cost
         if self.free_unit(player, card):
             return 0
@@ -1167,12 +1185,22 @@ class RulesEngine:
             self.text_slug(other) in effects.MAESTROS for other in player.play
         ):
             return 0
-        if not (card.tech_level or 0):
+        if not (card.tech_level or 0) and not player.silenced:
             for hero in player.heroes_in_play:
                 for (hero_slug, level), amount in effects.TECH_0_DISCOUNT.items():
                     if hero.slug == hero_slug and hero.level >= level:
                         cost -= amount
         return max(cost, 0)
+
+    def inspector_surcharge(self, match: Optional[MatchState], player: PlayerState) -> int:
+        """Building Inspector: "The first building each opponent builds each
+        turn costs {gold:1} more to build." -- a tech building, an add-on or
+        a building card, a rebuild included (its ruling); each Inspector of
+        the opponent's its 1, until this player has built this turn."""
+        if match is None or player.built_this_turn:
+            return 0
+        return sum(1 for card in match.opponent(player.seat).play
+                   if self.text_slug(card) in effects.INSPECTORS)
 
     def free_unit(self, player: PlayerState, card) -> bool:
         """Pirategang Commander's "You may play tech I or II Blood units
@@ -1371,7 +1399,8 @@ class RulesEngine:
         building = player.buildings.get(TECH_LEVEL_BUILDING[level])
         return building is not None and building.active
 
-    def building_cost(self, player: PlayerState, building: str) -> int:
+    def building_cost(self, player: PlayerState, building: str,
+                      match: Optional[MatchState] = None) -> int:
         """What constructing `building` costs now: its printed cost, 0 to
         rebuild a destroyed tech building (UMR p. 8), and a multicolour
         team's +1 on the first tech building or add-on it constructs, a
@@ -1384,7 +1413,7 @@ class RulesEngine:
                 cost = self.catalog.building(TECH_BUILDING_SLUGS[building]).cost or 0
         else:
             cost = self.catalog.building(building).cost or 0
-        return cost + self.multicolor_surcharge(player)
+        return cost + self.multicolor_surcharge(player) + self.inspector_surcharge(match, player)
 
     def multicolor_surcharge(self, player: PlayerState) -> int:
         """
@@ -1452,8 +1481,9 @@ class RulesEngine:
         slug = TECH_BUILDING_SLUGS.get(building, building)
         return self.catalog.building(slug).hp or 0
 
-    def build_option(self, player: PlayerState, building: str) -> BuildOption:
-        cost = self.building_cost(player, building)
+    def build_option(self, player: PlayerState, building: str,
+                     match: Optional[MatchState] = None) -> BuildOption:
+        cost = self.building_cost(player, building, match)
         specs, lab_specs = self.spec_choices(player, building)
         if building in TECH_BUILDINGS:
             workers, below = TECH_REQUIREMENTS[building]
@@ -1540,13 +1570,20 @@ class RulesEngine:
         return HeroOption(hero.slug, LEVEL, LEVEL_COST, levels)
 
     def why_not_playable(self, player: PlayerState, slug: str,
-                         match: Optional[MatchState] = None) -> str:
+                         match: Optional[MatchState] = None, from_hand: bool = True) -> str:
         """Why `player` may not play `slug` from their hand now, or "".
         Given the match, a spell with a {target} and nothing it could
         target is not playable -- "do as much as you can" plays a spell
-        any of whose parts can resolve (Final Smash's ruling)."""
+        any of whose parts can resolve (Final Smash's ruling). Step 13's
+        rules a player is put under are read here too: Oathkeeper's oath,
+        Censorship Council (both from the hand alone), Reputable Newsman's
+        number and a silenced player's heroes."""
         card = self.catalog.cards[slug]
-        cost = self.effective_cost(player, slug)
+        cost = self.effective_cost(player, slug, match)
+        if match is not None:
+            why = self._why_not_under_rules(match, player, card, from_hand)
+            if why:
+                return why
         if card.is_unit and self.free_unit(player, card):
             pass  # no tech building, and so no spec, needed
         elif card.is_spell and self.free_spell(player, card):
@@ -1562,6 +1599,9 @@ class RulesEngine:
         elif card.is_spell:
             if not player.heroes_in_play:
                 return "a spell needs a hero in play"
+            if player.silenced:
+                # Free Speech: "Their heroes can't cast spells" (step 13).
+                return "your heroes are silenced: they cast no spells"
             if card.spec:
                 hero = self.caster(player, slug)
                 if hero is None:
@@ -1580,6 +1620,26 @@ class RulesEngine:
             match, player.seat, slug, player.gold - cost,
         ):
             return "it has nothing it could target"
+        return ""
+
+    def _why_not_under_rules(self, match: MatchState, player: PlayerState, card,
+                             from_hand: bool) -> str:
+        """The rules step 13's cards put a player under, as a reason a card
+        may not be played now, or ""."""
+        opponent = match.opponent(player.seat)
+        if from_hand and any(self.text_slug(other) in effects.OATHKEEPERS
+                             and other.oath == effects.OATH_HAND for other in player.play):
+            # "I won't play cards from my hand besides workers."
+            return "your Oathkeeper's oath: no card from your hand but workers"
+        if from_hand and player.played_from_hand >= 1 and any(
+            self.text_slug(other) in effects.CENSORS for other in opponent.play
+        ):
+            return "Censorship Council: one card from your hand a turn"
+        if card.is_spell or card.is_upgrade:
+            numbers = {other.number for other in opponent.play
+                       if self.text_slug(other) in effects.NEWSMEN and other.number is not None}
+            if (card.cost or 0) in numbers:
+                return f"Reputable Newsman forbids spells and upgrades that cost {card.cost or 0}"
         return ""
 
     def _why_not_spec(self, player: PlayerState, card) -> str:
@@ -1631,15 +1691,16 @@ class RulesEngine:
             if slug in seen:
                 continue
             seen.append(slug)
-            rows.append(self._playable_row(player, slug, self.why_not_playable(player, slug, match)))
+            rows.append(self._playable_row(player, slug, self.why_not_playable(player, slug, match), match))
         return tuple(rows)
 
     def boost_cost(self, slug: str) -> Optional[int]:
         """A card's boost X -- "Boost {gold:4}" -- or `None`."""
         return next((x for name, x in keywords.keywords(slug) if name == "Boost"), None)
 
-    def _playable_row(self, player: PlayerState, slug: str, why: str) -> PlayableCard:
-        cost = self.effective_cost(player, slug)
+    def _playable_row(self, player: PlayerState, slug: str, why: str,
+                      match: Optional[MatchState] = None) -> PlayableCard:
+        cost = self.effective_cost(player, slug, match)
         boost = self.boost_cost(slug)
         boost_why = ""
         if boost is not None and player.gold < cost + boost:
@@ -1694,7 +1755,7 @@ class RulesEngine:
             heroes=self.hero_options(player, match),
             playable=self.playable(player, match),
             buildings=tuple(
-                self.build_option(player, building)
+                self.build_option(player, building, match)
                 for building in (*TECH_BUILDINGS, *self.add_ons(player))
             ),
             attackers=self.attackers(match),
@@ -1984,6 +2045,12 @@ class RulesEngine:
         seat = match.active
         other = 2 if seat == 1 else 1
         body = self.body(match, other, target)
+        if target == "base" and self.base_flies(match, other):
+            # Lawbringer Gryphon: "Your base gains flying. (Ground forces
+            # without anti-air can't attack it.)" (step 13)
+            hitting = self.body(match, seat, attacker)
+            return (self.has_keyword(hitting, "Flying", match)
+                    or self.has_keyword(hitting, "Anti-air", match))
         if body is None:
             return True
         if (
@@ -2016,6 +2083,28 @@ class RulesEngine:
             # Cute Animal." -- a hero may still attack it.
             return False
         return True
+
+    def base_flies(self, match: MatchState, seat: int) -> bool:
+        """Lawbringer Gryphon: `seat`'s base has flying while he is in play
+        under them -- not once he leaves (his ruling)."""
+        return any(self.text_slug(card) in effects.FLYING_BASE for card in match.player(seat).play)
+
+    def attack_toll(self, match: MatchState, target: str) -> int:
+        """
+        What the active player pays to attack `target` on the other side
+        (step 13): Morningstar Pass's 1, and Setsuki Hiruki's 1 while she
+        isn't patrolling -- charged as the attack is declared, and an
+        attacker that can't pay can't take it (the Pass's ruling).
+        """
+        other = 2 if match.active == 1 else 1
+        body = self.body(match, other, target)
+        if isinstance(body, CardInstance) and self.text_slug(body) in effects.PASSES:
+            return effects.ATTACK_TOLL
+        slug, level = effects.SETSUKI_TOLL
+        if (isinstance(body, HeroState) and body.slug == slug and body.level >= level
+                and body.patrol_slot is None and self.hero_texted(match, body)):
+            return effects.ATTACK_TOLL
+        return 0
 
     def is_tech_0_unit(self, body) -> bool:
         """A unit of tech 0 -- a token is one (UMR p. 13) -- and never a
@@ -2135,6 +2224,13 @@ class RulesEngine:
         return tuple(ref for ref, _ in self.defender_rows(match, attacker))
 
     def defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
+        """`_defender_rows`, less what the active player can't pay the toll
+        to attack (`attack_toll`, step 13)."""
+        gold = match.active_player.gold
+        return tuple(row for row in self._defender_rows(match, attacker)
+                     if self.attack_toll(match, row[0]) <= gold)
+
+    def _defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
         """
         `legal_defenders`, each with why it is legal -- the priority that
         makes it so (UMR p. 10), for a frontend to say beside it: the
@@ -2888,6 +2984,10 @@ class RulesEngine:
                 continue
             if self._shielded_from(match, side, ref, frame):
                 continue
+            if side != seat and self._mind_parried(match, side, ref):
+                # Mind-Parry Monk: "Opponents can't {target} your units or
+                # heroes with spells or abilities." (step 13)
+                continue
             resist = self.resist_cost(match, side, ref) if side != seat else 0
             if resist > gold:
                 continue
@@ -2897,6 +2997,21 @@ class RulesEngine:
         if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
             return tuple(row for row in rows if row.flagbearer)
         return tuple(TargetRow(row.key, row.seat, row.ref, row.resist, False) for row in rows)
+
+    def _mind_parried(self, match: MatchState, side: int, ref: str) -> bool:
+        body = self.body(match, side, ref)
+        if body is None or (isinstance(body, CardInstance) and not self.catalog.cards[body.slug].is_unit):
+            return False
+        return any(self.text_slug(card) in effects.MINDPARRY for card in match.player(side).play)
+
+    def hands_visible_to(self, match: MatchState, seat: int) -> tuple[int, ...]:
+        """The seats whose hand `seat` sees (step 13): the opponent's, while
+        `seat` controls an Eyes of the Chancellor -- "Opponents play with
+        their hands revealed" -- the one standing reveal, and `seat`'s
+        alone to be shown."""
+        if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
+            return (2 if seat == 1 else 1,)
+        return ()
 
     def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
         """Nullcraft: "Can't be the {target} of Buff or Debuff spells" --
@@ -2990,7 +3105,7 @@ class RulesEngine:
         for card in player.play:
             if card.slug == effects.HARMONY:
                 found.append(AbilityOption("stop_the_music", card.ref, pays=self.cost_words("stop_the_music")))
-        for hero in player.heroes_in_play:
+        for hero in self.texted_heroes(match, seat):
             for when, effect in effects.rows(hero.slug, hero.level):
                 if when == "ability":
                     found.append(self._ability(match, seat, hero, hero_ref(hero.slug), effect))
@@ -3276,7 +3391,7 @@ class RulesEngine:
         rows = []
         for slug in player.hand:
             why = self.why_not_playable(player, slug, match) if mine else "it is not your main phase"
-            rows.append(self._playable_row(player, slug, why))
+            rows.append(self._playable_row(player, slug, why, match))
         return tuple(rows)
 
     def own_deck(self, match: MatchState, seat: int) -> "OwnDeck":

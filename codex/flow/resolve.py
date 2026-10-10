@@ -105,6 +105,12 @@ def current_part(match: MatchState):
 ASKS_TARGET = "target"
 ASKS_MODE = "mode"
 ASKS_DIVIDE = "divide"
+#: Reputable Newsman's number and Oathkeeper's oath (step 13): a part
+#: whose answer is a choice of the card's own, kept on the frame under
+#: the part's name until the part is done.
+ASKS_NUMBER = "number"
+ASKS_OATH = "oath"
+ASKED_PARTS = (ASKS_NUMBER, ASKS_OATH)
 
 
 def asking(match: MatchState) -> str:
@@ -115,6 +121,8 @@ def asking(match: MatchState) -> str:
     part = current_part(match)
     if part is not None and part.does == "mode" and "mode" not in top:
         return ASKS_MODE
+    if part is not None and part.does in ASKED_PARTS and part.does not in top:
+        return part.does
     if top.get("split") is not None:
         return ASKS_DIVIDE
     return ASKS_TARGET
@@ -223,6 +231,9 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
                     top["mode"] = possible[0]
             _next_part(top)
             continue
+        if part.does in ASKED_PARTS and part.does not in top:
+            # The number or the oath is asked (`CHOOSE_NUMBER`, `OATH`).
+            return False
         if top.get("split") is not None:
             if sum(top["split"].values()) < damage_amount(engine, match, top, part.amount):
                 return False
@@ -483,6 +494,28 @@ def choose_mode(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     return carry_on(engine, game, match, StepResult(board_changed=True))
 
 
+def choose_number(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                  number) -> StepResult:
+    """The answer to `CHOOSE_NUMBER`: Reputable Newsman's number, 0 to 20."""
+    if not match.resolving or asking(match) != ASKS_NUMBER:
+        raise RuleRefusal("Nothing is waiting on a number.")
+    if not isinstance(number, int) or isinstance(number, bool) or not 0 <= number <= effects.NUMBER_MOST:
+        raise RuleRefusal(f"Choose a number from 0 to {effects.NUMBER_MOST}.", cite="reputable_newsman")
+    match.resolving[0][ASKS_NUMBER] = number
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
+def choose_oath(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                oath: str) -> StepResult:
+    """The answer to `OATH`: one of Oathkeeper's two oaths."""
+    if not match.resolving or asking(match) != ASKS_OATH:
+        raise RuleRefusal("Nothing is waiting on an oath.")
+    if oath not in (effects.OATH_HAND, effects.OATH_DRAW):
+        raise RuleRefusal("That is not one of the oaths.", cite="oathkeeper_of_kor_mountain")
+    match.resolving[0][ASKS_OATH] = oath
+    return carry_on(engine, game, match, StepResult(board_changed=True))
+
+
 def done_choosing(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
     """**Done** on a `TARGET` that offers it: the part chooses nothing
     more -- "up to two", "you may"."""
@@ -531,6 +564,10 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     if body is None:
         return 0
     named = _thing(match, target)
+    if (isinstance(body, CardInstance) and engine.catalog.cards[body.slug].is_building_card
+            and board.pass_prevents(match, seat, body)):
+        result.narration.append(f"{top['by']} deals {amount} to {named}{board._PREVENTED}.")
+        return 0
     if board.sentry_shields(engine, match, [body], result):
         return 0
     landed = board.take_damage(body, amount)
@@ -1498,7 +1535,8 @@ def _decay(engine, match, top, part, target, result) -> None:
         ref for ref in ("tech1", "tech2", "tech3", "add_on")
         if board.still_there(match, other, ref) and not engine._under_construction(player, ref)
     ]
-    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]
+    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card
+             and not board.pass_prevents(match, other, card)]
     for card in cards:
         board.take_damage(card, damage_amount(engine, match, top, part.amount))
     for ref in buildings:
@@ -2110,7 +2148,8 @@ def _banefire(engine, match, top, part, target, result) -> None:
     for body in bodies:
         if body not in shielded:
             board.take_damage(body, amount)
-    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]:
+    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card
+                 and not board.pass_prevents(match, other, card)]:
         board.take_damage(card, amount)
     result.narration.append(
         f"{top['by']} deals {amount} to each unit, hero and building {tokens.player(other)} controls."
@@ -2164,6 +2203,59 @@ def _copy(engine, match, top, part, target, result) -> None:
     result.narration.append(
         f"{top['by']} makes {_thing(match, parse_target(copier_key))} a copy of "
         f"{_thing(match, target)} until the end of the turn."
+    )
+
+
+def _number(engine, match, top, part, target, result) -> None:
+    """Reputable Newsman's number, kept on him while he is in play."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.number = top[ASKS_NUMBER]
+    other = 2 if top["seat"] == 1 else 1
+    result.narration.append(
+        f"{top['by']} chooses {card.number}: {tokens.player(other)} can't play spells or upgrades "
+        f"that cost {card.number} while it is in play."
+    )
+
+
+#: Each oath in the card's words.
+OATHS = {
+    effects.OATH_HAND: "I won't play cards from my hand besides workers",
+    effects.OATH_DRAW: "I will skip my draw/discard phase",
+}
+
+
+def _oath(engine, match, top, part, target, result) -> None:
+    """Oathkeeper's oath, kept on him while he is in play -- "You can't
+    break that oath while Oathkeeper is in play"."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.oath = top[ASKS_OATH]
+    result.narration.append(f"{tokens.player(top['seat'])} swears: \"{OATHS[card.oath]}.\"")
+
+
+def _sideline_all(engine, match, top, part, target, result) -> None:
+    """Oathkeeper: "Sideline all patrolling units." -- both sides'."""
+    sidelined = [card for player in match.players for card in player.play
+                 if engine.catalog.cards[card.slug].is_unit and card.patrol_slot is not None]
+    for card in sidelined:
+        board.sideline(card)
+    result.narration.append(
+        f"{top['by']} sidelines every patrolling unit." if sidelined
+        else f"{top['by']} finds no patrolling unit to sideline."
+    )
+
+
+def _silence(engine, match, top, part, target, result) -> None:
+    """Free Speech: "Silence an opponent." -- until after that opponent's
+    next turn (`PlayerState.silenced`)."""
+    other = _against(top)
+    match.player(other).silenced = True
+    result.narration.append(
+        f"{top['by']} silences {tokens.player(other)}: their heroes cast no spells and have no "
+        "abilities until after their next turn."
     )
 
 
@@ -2286,6 +2378,10 @@ DOES = {
     "illusion": _illusion,
     "copier": _copier,
     "copy": _copy,
+    "number": _number,
+    "oath": _oath,
+    "sideline_all": _sideline_all,
+    "silence": _silence,
 }
 
 

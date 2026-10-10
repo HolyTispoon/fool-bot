@@ -169,7 +169,7 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
     if why:
         raise RuleRefusal(f"You can't play {engine.name(slug)}: {why}.", cite="UMR p. 7")
     card = engine.catalog.cards[slug]
-    cost = engine.effective_cost(player, slug)
+    cost = engine.effective_cost(player, slug, match)
     if boost:
         # Boost X: paid as the card is played from the hand, never where
         # an effect puts it into play (UMR p. 16; the boost rulings).
@@ -180,6 +180,8 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             raise RuleRefusal(f"You can't boost {engine.name(slug)}: not enough gold.", cite="UMR p. 16")
         cost += extra
     player.hand.remove(slug)
+    # What Censorship Council counts: a card played from the hand (step 13).
+    player.played_from_hand += 1
     result = StepResult(board_changed=True)
     _played(engine, match, seat, slug, cost, boost, result)
     return resolve.carry_on(engine, game, match, result)
@@ -191,7 +193,7 @@ def put_card_into_play(engine: "RulesEngine", match: MatchState, seat: int, slug
     draw pile: paid as a card played from the hand is, boost and all (the
     boost ruling), and then everything playing it does."""
     player = match.player(seat)
-    cost = engine.effective_cost(player, slug) + ((engine.boost_cost(slug) or 0) if boost else 0)
+    cost = engine.effective_cost(player, slug, match) + ((engine.boost_cost(slug) or 0) if boost else 0)
     _played(engine, match, seat, slug, cost, boost, result, where=where)
 
 
@@ -244,6 +246,9 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
                 for harmony in player.play if harmony.slug == effects.HARMONY
             ))
         return
+    if card.is_unit and where == "hand" and _jail_of(engine, match, seat) is not None:
+        _to_jail(engine, match, seat, slug, cost, boost, result, note)
+        return
     if card.is_unit:
         instance = match.new_instance(slug, seat)
         atk, hp = engine.unit_stats(instance, match)
@@ -254,6 +259,9 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
         )
         board.arrive(engine, match, instance, from_hand=True, boosted=boost)
     elif card.is_permanent:
+        if card.is_building_card:
+            # Building Inspector's "first building each turn" (step 13).
+            player.built_this_turn = True
         board.arrive(engine, match, match.new_instance(slug, seat), from_hand=True)
         what = f"a building, {card.hp} HP" if card.is_building_card else "an upgrade"
         result.narration.append(
@@ -282,6 +290,51 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
             resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
             for harmony in player.play if harmony.slug == effects.HARMONY
         ))
+
+
+def _jail_of(engine: "RulesEngine", match: MatchState, seat: int):
+    """The opponent's Jail a unit `seat` plays from the hand goes to, or
+    `None` (step 13)."""
+    return next((card for card in match.opponent(seat).play
+                 if engine.text_slug(card) in effects.JAILS), None)
+
+
+def _to_jail(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost: int,
+             boost: bool, result: StepResult, note: str) -> None:
+    """
+    Jail: "Opposing units played from hand go to jail instead of arriving.
+    When a unit enters jail, any unit already there is released and
+    arrives in play." -- the unit played, paid and its boost with it, goes
+    into the Jail's slot, not in play and not arriving (its ruling); the
+    one there before arrives for whoever played it, its arrives effects
+    then, a boost paid resolving as it leaves.
+    """
+    jail = _jail_of(engine, match, seat)
+    boosted = ", boosted" if boost else ""
+    held = jail.jailed
+    jail.jailed = {"slug": slug, "owner": seat, "controller": seat, "boosted": bool(boost)}
+    match.record_event("jailed", slug=slug, seat=seat)
+    result.narration.append(
+        f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted}: it goes to "
+        f"{board.named(match, jail.controller, jail.ref)} instead of arriving.{note}"
+    )
+    if held is not None:
+        release(engine, match, held, result, by=jail)
+
+
+def release(engine: "RulesEngine", match: MatchState, held: dict, result: StepResult, by) -> None:
+    """A jailed unit released: it arrives for its controller, with arrival
+    fatigue, its arrives effects resolving now -- boosted where it was
+    played boosted (Jail's ruling)."""
+    card = match.new_instance(held["slug"], held["controller"])
+    card.owner = held["owner"]
+    match.record_event("released", slug=held["slug"], seat=held["controller"])
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{tokens.card(held['slug'])} is released from {tokens.card(by.slug)} and arrives for "
+        f"{tokens.player(held['controller'])}: {atk}/{hp}."
+    )
+    board.arrive(engine, match, card, from_hand=True, boosted=bool(held.get("boosted")))
 
 
 def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -404,7 +457,7 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
     player = match.active_player
     if building not in (*TECH_BUILDING_SLUGS, *ADD_ONS):
         raise RuleRefusal(f"There is no building called {building!r}.")
-    option = engine.build_option(player, building)
+    option = engine.build_option(player, building, match)
     if not option.allowed:
         page = "UMR p. 8" if building in TECH_BUILDING_SLUGS else "UMR p. 9"
         if option.why_not.startswith("the basic game"):
@@ -419,6 +472,7 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         raise RuleRefusal("A tech lab unlocks a spec besides the Tech II's.", cite="UMR p. 9")
     player.gold -= option.cost
     player.constructed_once = True
+    player.built_this_turn = True
     hp = engine.building_hp(building)
     if building in TECH_BUILDING_SLUGS:
         rebuilt = player.buildings[building] is not None
