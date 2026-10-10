@@ -1008,12 +1008,15 @@ re-import that adds one fails loudly.
   second rune is a marker and a copy insures nothing. The golden's final
   match was re-recorded for these keys alone, every one at its default;
   the transcript did not change.
-- **Readings the rulings did not settle**, built as the card reads and
-  put to the author in the PR: Newsman's number is a printed cost; Training Grounds may level any
-  hero in play; True Power of Storms with a single card that costs 3
-  discards it and deals nothing; Jurisdiction's spell needs no hero
-  (its ruling about channeling says as much); Mind Control may take any
-  tech 0, I or II unit.
+- **As the author answered** (2026-10-10): Training Grounds levels one
+  of its controller's heroes, never an opponent's; True Power of Storms
+  may be played with fewer than two cards that cost 3, or discard just
+  one, and then does nothing (its ruling: nothing is targeted);
+  Jurisdiction's spell needs no hero of its spec.
+- **Still open, built as the card reads** and listed in the PR: Reputable
+  Newsman's number is compared with a card's printed cost, and Mind
+  Control may be attached to any tech 0, I or II unit, its caster's own
+  included.
 
 ### The saved fields
 

@@ -1356,6 +1356,7 @@ class WhiteSpellTests(unittest.TestCase):
         self.match.player(1).gold = 10
         apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
         apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:hand:focus_master")
+        apply(self.engine, self.game, self.match, PromptKind.TARGET, target="1:hand:young_lightning_dragon")
         apply(self.engine, self.game, self.match, PromptKind.TARGET, target=f"2:{target.ref}")
         self.assertIsNone(self.match.player(2).instance(target.id))
 

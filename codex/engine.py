@@ -2837,6 +2837,11 @@ class RulesEngine:
                         continue
                     for kind in rune_kinds(body):
                         found.append((side, f"{ref}#{kind}"))
+            elif choose == "own_hero_in_play":
+                # Training Grounds: a hero of its controller's (the author,
+                # 2026-10-10).
+                if side == seat:
+                    found += [(side, ref) for ref in hero]
             elif choose in ("hero_in_play", "other_hero_in_play"):
                 first = (frame.get("taken") or [None])[0]
                 found += [(side, ref) for ref in hero

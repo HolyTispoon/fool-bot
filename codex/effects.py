@@ -2131,15 +2131,18 @@ for _effect_row in (
     # {gold:2} or less." {target}
     _effect("thunderclap", Part("sideline", "cheap_ground_unit", 0,
                                 "sideline a unit without flying that costs 2 or less", most=3, least=0)),
-    # Training Grounds: "{exhaust} -> Level up a hero to max level."
-    _effect("training_grounds", Part("max_level", "hero_in_play", 0, "level a hero up to its max level",
+    # Training Grounds: "{exhaust} -> Level up a hero to max level." -- one
+    # of its controller's, never an opponent's (the author, 2026-10-10).
+    _effect("training_grounds", Part("max_level", "own_hero_in_play", 0, "level one of your heroes up to its max level",
                                      targeted=False)),
     # True Power of Storms: "Reveal and discard two other cards that cost
     # {gold:3}. If you do, deal 10 damage to a unit, hero, or building."
     # {target} -- nothing targeted unless both are discarded (its ruling).
+    # It may be played with fewer than two such cards, or discard only one,
+    # and then does nothing (the author, 2026-10-10).
     _effect("true_power_of_storms",
             Part("storm_discard", "hand_cost_3", 0, "reveal and discard a card that costs 3",
-                 targeted=False, most=2, least=2),
+                 targeted=False, most=2, least=0),
             Part("damage", "unit_hero_or_building", 10, "deal 10 damage to a unit, hero or building",
                  when="stormed")),
     # Versatile Style: "Choose one of the following: Destroy an upgrade.

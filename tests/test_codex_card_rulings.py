@@ -5385,19 +5385,47 @@ class WhiteEffectRulingTests(unittest.TestCase):
         grave = wb_hero(match, 1, "grave_stormborne", level=7)
         grave.max_level_since_turn_began = True
         target = put(match, 2, "scribe")
-        hand(match, 1, "true_power_of_storms", "young_lightning_dragon")
+        # Played with no card that costs 3: it does nothing (the author,
+        # 2026-10-10).
+        hand(match, 1, "true_power_of_storms")
         match.player(1).gold = 10
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
         self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
         self.assertIsNotNone(match.player(2).instance(target.id))
+        # With one: it may be discarded, and nothing is targeted.
+        hand(match, 1, "true_power_of_storms", "young_lightning_dragon")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        answer_target(engine, game, match, "1:hand:young_lightning_dragon")
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertIn("young_lightning_dragon", match.player(1).discard)
+        self.assertIsNotNone(match.player(2).instance(target.id))
+        # Or kept: Done with none discarded.
+        hand(match, 1, "true_power_of_storms", "young_lightning_dragon")
+        match.player(1).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).hand, ["young_lightning_dragon"])
+        # With two discarded, it deals its 10.
         hand(match, 1, "true_power_of_storms", "young_lightning_dragon", "focus_master")
         match.player(1).gold = 10
         apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="true_power_of_storms")
-        # The first chosen, the second is the one left it must discard.
         answer_target(engine, game, match, "1:hand:young_lightning_dragon")
+        answer_target(engine, game, match, "1:hand:focus_master")
         answer_target(engine, game, match, f"2:{target.ref}")
         self.assertIn("focus_master", match.player(1).discard)
         self.assertIsNone(match.player(2).instance(target.id))
+
+    def test_training_grounds_levels_its_controllers_hero_alone(self) -> None:
+        """The author, 2026-10-10: never an opponent's hero."""
+        engine, game, match = wb()
+        grounds = put(match, 1, "training_grounds")
+        grave = wb_hero(match, 1, "grave_stormborne", level=2)
+        wb_hero(match, 2, "bigby_hayes", level=2)
+        ability(engine, game, match, "training_grounds", grounds.ref)
+        self.assertEqual(grave.level, 7)
+        self.assertEqual(match.player(2).hero_of("bigby_hayes").level, 2)
+        self.assertEqual(engine.target_candidates(match, 1, "own_hero_in_play"), [(1, "hero:grave_stormborne")])
 
     def test_young_lightning_dragon_1(self) -> None:
         """Thrice-per-turn means three times per turn."""
@@ -5839,6 +5867,21 @@ class BlueEffectRulingTests(unittest.TestCase):
         self.assertFalse(any(card.slug == "dreamscape" for card in match.player(2).play))
         self.assertIn("dreamscape", match.player(2).discard)
         self.assertEqual(match.player(2).gold, 10 - 2 - engine.catalog.cards["dreamscape"].cost)
+
+    def test_jurisdiction_plays_a_spell_of_another_spec(self) -> None:
+        """The author, 2026-10-10: Jurisdiction's spell needs no hero of its
+        spec -- a Peace spell, with Bigby the Law hero alone in play."""
+        engine, game, match = blue()
+        wb_hero(match, 2, "bigby_hayes")
+        unit = put(match, 2, "tenderfoot")
+        match.player(2).codex = {"elite_training": 1}
+        cast(engine, game, match, "jurisdiction", gold=10)
+        answer_target(engine, game, match, f"2:{unit.ref}")
+        prompt = asked(engine, game, match)
+        if prompt is not None and prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertTrue(engine.has_keyword(unit, "Anti-air", match))
+        self.assertIn("elite_training", match.player(2).discard)
 
     def mind_controlled(self):
         engine, game, match = blue()
