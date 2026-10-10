@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
-from codex.formatting import deck_name
+from codex.formatting import team_name
 from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -754,7 +754,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # of its own.
     result.narration.append(
         f"**End of turn {match.turn}** -- {tokens.player(seat)} "
-        f"({deck_name(player.specs)})."
+        f"({team_name(player.specs)})."
     )
     match.record_event("turn_ended")
     match.attacking = None

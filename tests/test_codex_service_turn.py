@@ -95,6 +95,20 @@ class TurnHeadingTests(unittest.TestCase):
         self.assertEqual(deck_name(("bashing",)), "Bashing")
         self.assertEqual(deck_name(("anarchy", "blood", "fire")), "Anarchy/Blood/Fire")
 
+    def test_a_team_is_named_by_its_faction_or_its_specs(self) -> None:
+        """A colour's own three heroes by the faction's name, any other
+        team by its specs in the order chosen, never by its heroes'
+        names (the author, 2026-10-10) -- what the heading, the end of a
+        turn and a test game's sides all say."""
+        from codex.formatting import team_name
+
+        self.assertEqual(team_name(("necromancy", "disease", "demonology")), "Blackhand Scourge")
+        self.assertEqual(team_name(("present", "past", "future")), "Vortoss Conclave")
+        self.assertEqual(team_name(("fire", "anarchy", "blood")), "Blood Anarchs")
+        self.assertEqual(team_name(("balance", "feral", "growth")), "Moss Sentinels")
+        self.assertEqual(team_name(("feral", "fire", "bashing")), "Feral/Fire/Bashing")
+        self.assertEqual(team_name(("bashing",)), "Bashing")
+
     def test_no_line_of_the_models_opens_a_turn(self) -> None:
         """The heading is not narration, so it is never said twice."""
         svc, _, game = started()

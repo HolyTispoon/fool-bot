@@ -1110,7 +1110,8 @@ in its own ready phase, from My hand, and nothing stands during the
 other side's turn ("The standing prompt", above). On Discord the Lock
 closes the panel with "Patrol locked: Bashing's turn is over. **My
 hand** opens Finesse's turn, its tech choice first." -- the sides named
-by their decks, since both are the one person -- and sends no picker
+by their teams (`team_name`: "Blackhand Scourge", "Feral/Fire/Bashing"),
+since both are the one person -- and sends no picker
 (the channel's two requests; on the webhook, that line sent under the
 new turn message and the panel clicked deleted), **Tech** says where
 the choice is made, and Save tech in the ready phase turns the panel
