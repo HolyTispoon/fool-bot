@@ -952,6 +952,66 @@ async def _open_undo(panel: PanelView, interaction: discord.Interaction,
     ))
 
 
+class UndoView(SafeView):
+    """
+    **Undo** on the turn message: the undos `history.undo_targets` says
+    are open, sent to the active player alone, the same two as the
+    panel's undo mode. It holds the seat and the turn it was opened on,
+    so a click after the game has moved on is refused rather than
+    undoing a turn it was not opened on. Not persistent: after a
+    restart, **Undo** again.
+    """
+
+    def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict) -> None:
+        super().__init__(timeout=PANEL_TIMEOUT)
+        self.cog = cog
+        self.game_id = game_id
+        self.seat = seat
+        self.turn = turn
+        for label, target, callback in (
+            ("To the start of my turn", history.TURN_START, self.undo_turn_start),
+            ("To the start of the previous turn (asks your opponent)",
+             history.PREVIOUS_TURN, self.undo_previous_turn),
+        ):
+            if target in targets:
+                button = discord.ui.Button(label=label, style=discord.ButtonStyle.danger)
+                button.callback = callback
+                self.add_item(button)
+        if not targets:
+            self.add_item(discord.ui.Button(
+                label="Nothing to undo", style=discord.ButtonStyle.secondary, disabled=True,
+            ))
+
+    async def mine(self, interaction: discord.Interaction):
+        """`(game, match)` for the seat's own click on the turn it was
+        opened on, or `(None, None)`, told why."""
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return None, None
+        if self.seat not in game.seats_of(interaction.user.id):
+            await send_ephemeral(interaction, NOT_YOUR_PANEL)
+            return None, None
+        if match.turn != self.turn or match.active != self.seat:
+            await interaction.response.edit_message(
+                content="The game has moved on since: press **Undo** on the turn message again.",
+                view=None,
+            )
+            return None, None
+        return game, match
+
+    async def undo_turn_start(self, interaction: discord.Interaction) -> None:
+        game, _ = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.undo_to_turn_start(interaction, game, self.seat)
+
+    async def undo_previous_turn(self, interaction: discord.Interaction) -> None:
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.ask_undo_to_previous_turn(interaction, game, self.seat, match.turn)
+
+
 class UndoConfirmView(SafeView):
     """
     The opponent's agreement to an undo to the previous turn, posted
@@ -1017,5 +1077,5 @@ class UndoConfirmView(SafeView):
 
 __all__ = [
     "NOT_YOUR_PANEL", "PANEL_TIMEOUT", "PanelButton", "PanelView", "TurnPanelView",
-    "UndoConfirmView", "building_label", "hand_numbers",
+    "UndoConfirmView", "UndoView", "building_label", "hand_numbers",
 ]

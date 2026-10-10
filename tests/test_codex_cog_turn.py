@@ -41,6 +41,7 @@ from cogs.codex_views import (
     TurnMessageView,
     TurnPanelView,
     UndoConfirmView,
+    UndoView,
     hand_numbers,
 )
 
@@ -1345,6 +1346,58 @@ class UndoTests(TurnTestCase):
         self.assertEqual(back.assignment, patrol.assignment)
         self.assertIn(ref, back.assignment.values())
         self.assertEqual(self.table.match.phase, "patrol")
+
+    async def test_the_turn_messages_undo_puts_everything_back(self) -> None:
+        """**Undo** on the public turn message: the undos open, to the
+        active player alone, with no panel open; the turn's start
+        restored as from the panel."""
+        start = history.position(self.table.match)
+        _, view = await self.table.panel()
+        await self.table.press(view, ("play", playable(view)[0]))
+        call = await self.table.turn_button("undo", self.table.active)
+        kind, _, kwargs = call.last()
+        self.assertEqual(kind, "response.send")
+        self.assertTrue(kwargs["ephemeral"])
+        undo = call.view()
+        self.assertIsInstance(undo, UndoView)
+        self.assertEqual([item.label for item in undo.children], ["To the start of my turn"])
+        mark = len(self.table.game_channel.requests)
+        undone = await self.table.press(undo, "To the start of my turn")
+        self.assertNothingWentWrong(undone)
+        self.assertEqual(history.position(self.table.match), start)
+        self.assertIsInstance(undone.view(), TurnPanelView)
+        self.assertTrue(self.table.game_channel.texts[self.game.turn_message_id].endswith(history.UNDONE))
+        self.assertTrue(channel_requests(self.table, mark))
+
+    async def test_the_turn_messages_undo_asks_for_the_previous_turn(self) -> None:
+        first = self.table.active
+        await self.end_turn()
+        undo = (await self.table.turn_button("undo", self.table.active)).view()
+        mark = len(self.table.game_channel.requests)
+        asked = await self.table.press(undo, "To the start of the previous turn")
+        self.assertNothingWentWrong(asked)
+        (kind, _, kwargs), = self.table.game_channel.since(mark)
+        self.assertIsInstance(kwargs["view"], UndoConfirmView)
+        self.assertIn(f"<@{first.id}>", kwargs["content"])
+        self.assertEqual(self.table.match.turn, 2)
+
+    async def test_the_turn_messages_undo_is_the_active_players(self) -> None:
+        before = self.table.match.to_dict()
+        call = await self.table.turn_button("undo", self.table.waiting)
+        kind, args, kwargs = call.last()
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertEqual(args[0], "Only the player whose turn it is can undo.")
+        self.assertEqual(self.table.match.to_dict(), before)
+
+    async def test_an_undo_opened_on_a_turn_since_ended_is_refused(self) -> None:
+        undo = (await self.table.turn_button("undo", self.table.active)).view()
+        await self.end_turn()
+        before = self.table.match.to_dict()
+        call = await self.table.press(undo, "To the start of my turn")
+        kind, _, kwargs = call.last()
+        self.assertEqual(kind, "response.edit")
+        self.assertIn("moved on", kwargs["content"])
+        self.assertEqual(self.table.match.to_dict(), before)
 
     async def test_the_undo_choices_are_the_models(self) -> None:
         """On the first turn only the start of this turn is open."""

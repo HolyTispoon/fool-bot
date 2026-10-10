@@ -2223,6 +2223,17 @@ undo to the start of the turn reopens it. Both panels open the same
 undo mode (`_open_undo`); from the patrol lock, **Back** puts up the
 patrol as it was assigned so far (`back_to`) rather than the position's
 fresh one, since the assignment is the view's alone until it is locked.
+**The turn message carries Undo as well** (`TurnMessageView`, between
+**Codex** and **Swap view**; the author, 2026-10-10), so an undo needs
+no panel open: it answers the active player alone, ephemerally, with
+`UndoView` -- the same two choices, no **Back**, since there is no
+panel to go back to -- and tells the other player it is not theirs.
+`UndoView` holds the seat and the turn it was opened on and refuses a
+click once the game has moved on, since an ephemeral message outlives
+the turn it was asked on and **To the start of my turn** would
+otherwise undo a turn it was not opened on. Opening it is the click's
+own response and spends nothing in the channel; each undo then costs
+what it costs from the panel (the table above).
 
 - **To the start of my turn** is the active player's alone, with nobody's
   consent: `GameService.undo_to_turn_start` restores the turn's snapshot

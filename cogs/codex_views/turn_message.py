@@ -1,7 +1,7 @@
 """
 The buttons on the current turn's public message (docs/codex-bot.md,
 decisions 4 and 5): **My hand**, **My deck**, **Tech**, **Codex**,
-**Swap view** and **Concede**
+**Undo**, **Swap view** and **Concede**
 -- persistent, so a restart re-arms them from `turn_message_id`.
 
 Hidden information is answered **ephemerally**, to the clicker alone and
@@ -27,6 +27,9 @@ hand, the discard pile, the rest (`send_deck`). What a hand
 may play, what a codex still holds and what a deck is are the engine's
 answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
 nothing.
+**Undo** answers the active player with the undos open on the position
+(`UndoView`, the panel's undo mode without a panel), so an undo needs
+no panel open; the other player is told it is the active player's.
 **Concede** gives up the clicker's own side, behind a second click on an
 ephemeral confirmation (`ConcedeConfirmView`).
 """
@@ -43,6 +46,7 @@ from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import card_name, elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
+from cogs.codex_views.turn import UndoView
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +89,7 @@ class TurnMessageView(SafeView):
             ("My deck", "deck", discord.ButtonStyle.secondary),
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
+            ("Undo", "undo", discord.ButtonStyle.secondary),
             (swap_label(layout), "swap", discord.ButtonStyle.secondary),
             ("Concede", "concede", discord.ButtonStyle.danger),
         ):
@@ -166,6 +171,20 @@ class TurnMessageView(SafeView):
         )
         LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
                     game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
+
+    async def undo(self, interaction: discord.Interaction) -> None:
+        """The undos open on the position, to the active player alone."""
+        game, match, seat = await self._seat(interaction)
+        if seat is None:
+            return
+        if seat != match.active or match.winner is not None:
+            await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
+            return
+        targets = self.cog.service.undo_targets(game.game_id)
+        await interaction.response.send_message(
+            "Undo -- to where?", view=UndoView(self.cog, game.game_id, seat, match.turn, targets),
+            ephemeral=True,
+        )
 
     async def concede(self, interaction: discord.Interaction) -> None:
         """The clicker's own side given up, behind a second click
