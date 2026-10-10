@@ -84,6 +84,8 @@ def _handled(slug: str) -> list[str]:
         "JAILS", "CENSORS", "NEWSMEN", "INSPECTORS", "PASSES", "FLYING_BASE", "MINDPARRY",
         "REVEALS_HANDS", "OATHKEEPERS", "BIRDS_NESTS", "DOUBLERS", "FOCUS_MASTERS", "MONUMENTS",
         "INVERSE", "MYTHMAKING", "TWINS", "SAFE_ATTACKING", "PER_TURN",
+        "DAMAGED_BUILDINGS_ATK", "BRAVE", "DEBILITATORS", "ON_UNIT_FROM_HAND", "SPIES", "GUARDIANS",
+        "INSURERS", "BASE_ON_BUILDING_KILL",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -119,12 +121,6 @@ def _handled(slug: str) -> list[str]:
 #: token whose text is more than keywords the engine reads, written out
 #: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset({
-    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "boot_camp",
-    "brave_knight", "community_service", "debilitator_alpha", "drill_sergeant",
-    "elite_training", "flagstone_garrison", "flagstone_spy", "general_onimaru",
-    "generals_hammer", "guardian_of_the_gates", "injunction", "insurance_agent",
-    "judgment_day", "jurisdiction", "lawful_search", "mind_control", "patriot_gryphon",
-    "porkhand_magistrate", "scribe", "sirus_quince", "tax_collector", "the_art_of_war",
 })
 
 

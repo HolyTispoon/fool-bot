@@ -482,6 +482,15 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
         if card is not None and not forced and engine.catalog.cards[card.slug].is_unit and \
                 soul_stone_saves(engine, match, card, result):
             continue
+        if card is not None and combat and not forced and engine.text_slug(card) in effects.BRAVE \
+                and engine.texted(card):
+            # Brave Knight: "Whenever Brave Knight would die from combat
+            # damage, return him to his owner's hand instead." (step 13)
+            line = f"{named(match, seat, card.ref)} returns to {tokens.player(card.owner)}'s hand instead."
+            leave_play(engine, match, card, "hand")
+            match.record_event("returned", slug=card.slug, owner=card.owner)
+            result.narration.append(line)
+            continue
         if card is not None and not forced and two_lives_saves(engine, match, card, result):
             # Two Lives: it doesn't actually die, so nothing that triggers
             # on "dies" happens (its rulings).
@@ -661,7 +670,7 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     Captured Bugblatter that dies with the others still counts them, and
     itself (its ruling), and Pirategang Commander's units that die with
     it still had its "Dies:"."""
-    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}, "retellers": {}}
+    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}, "retellers": {}, "insurers": []}
     for player in match.players:
         for card in player.play:
             slug = engine.text_slug(card)
@@ -675,6 +684,10 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
                 found["pirategang"][player.seat] = slug
             if slug in effects.RETELLERS:
                 found["retellers"][player.seat] = found["retellers"].get(player.seat, 0) + 1
+            if slug in effects.INSURERS and engine.texted(card):
+                # Insurance Agent: the unit he insured, his alone (step 13).
+                found["insurers"] += [(player.seat, m["id"]) for m in card.modifiers
+                                      if m.get("kind") == "insures"]
     return found
 
 
@@ -742,6 +755,9 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        for insurer, insured in witnesses["insurers"]:
+            if insured == card.id:
+                _pay_insurance(engine, match, insurer, card, result)
         if engine.text_slug(card) in effects.TWINS and not is_token(engine, card.slug):
             _twin_home(engine, match, card, result)
         if witnesses["retellers"].get(seat) and not is_token(engine, card.slug) \
@@ -761,6 +777,20 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
+
+
+def _pay_insurance(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
+                   result: Optional[StepResult]) -> None:
+    """Insurance Agent: "gain gold equal to its gold cost and draw a card"
+    -- a token's cost 0 (step 13)."""
+    cost = 0 if is_token(engine, card.slug) and not card.copy_of else (engine.card_of(card).cost or 0)
+    gained = gain_gold(match, seat, cost)
+    drawn = draw_cards(engine, match, seat, 1, result) if result is not None else 0
+    if result is not None:
+        result.narration.append(
+            f"{tokens.card('insurance_agent')} pays out on {tokens.card(card.slug)}: {tokens.player(seat)} "
+            f"gains {tokens.gold(gained)}" + (" and draws a card." if drawn else ".")
+        )
 
 
 def _twin_home(engine: "RulesEngine", match: MatchState, card: CardInstance,
@@ -876,6 +906,27 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
         lasting_armor(match, card)
         if from_hand:
             _first_from_hand(engine, match, seat, card)
+        _quince_sees(engine, match, seat, card)
+
+
+def _quince_sees(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance) -> None:
+    """Quince at 5: "Whenever a non-token unit of yours arrives, you may make
+    one of your Mirrors an Illusion copy of it." -- asked where a Mirror
+    that copies nothing is there to be made one (step 13)."""
+    from codex.flow import resolve
+
+    player = match.player(seat)
+    if is_token(engine, card.slug) or player.silenced:
+        return
+    quince = player.hero_of(effects.QUINCE)
+    if quince is None or not quince.in_play or quince.level < engine.hero_card(quince).max_level:
+        return
+    if not any(one.slug == effects.MIRROR and one.copy_of is None for one in player.play):
+        return
+    one = resolve.frame("sirus_quince_max", seat, tokens.hero(effects.QUINCE),
+                        source=hero_ref(effects.QUINCE), origin=effects.QUINCE)
+    one["original"] = card.id
+    resolve.push(match, one)
 
 
 def _first_from_hand(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance) -> None:
@@ -1537,6 +1588,18 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
             )
             destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause, forced=True)
             continue
+        held = _mind_control_moves(match, result)
+        if held:
+            continue
+        copy = next((card for player in match.players for card in player.play
+                     if _quince_copy_orphaned(engine, match, card)), None)
+        if copy is not None:
+            # Quince at 5: "Trash that token when Quince or its original
+            # leaves." (step 13)
+            result.narration.append(f"{named(match, copy.controller, copy.ref)}, Quince's copy, is trashed.")
+            match.player(copy.controller).play.remove(copy)
+            match.record_event("trashed", slug=copy.slug, owner=copy.owner)
+            continue
         orphan = next((card for player in match.players for card in player.play
                        if card.slug == effects.DAIGO and card.made_by is not None
                        and match.instance(card.made_by) is None), None)
@@ -1578,6 +1641,44 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         line = f"{named(match, card.controller, card.ref)} is sacrificed: {why}."
         sacrifice(engine, match, card)
         result.narration.append(line)
+
+
+def _mind_control_moves(match: MatchState, result: StepResult) -> bool:
+    """
+    Mind Control's unit under whoever controls the spell -- Assimilate's
+    ruling: take the spell and you control the unit -- and back to whoever
+    had it before once the spell has left play. Whether anything moved.
+    """
+    for player in match.players:
+        for card in list(player.play):
+            held = next((m for m in card.modifiers if m.get("kind") == "mind_controlled"), None)
+            if held is None:
+                continue
+            spell = next((one for side in match.players for one in side.play
+                          if one.slug == effects.MIND_CONTROL and card.id in one.attached), None)
+            if spell is None:
+                card.modifiers.remove(held)
+                if gain_control(match, card, held["before"]):
+                    result.narration.append(
+                        f"{tokens.card(card.slug)} goes back to {tokens.player(held['before'])}'s control."
+                    )
+                return True
+            if spell.controller != card.controller:
+                gain_control(match, card, spell.controller)
+                result.narration.append(
+                    f"{tokens.player(spell.controller)} controls {tokens.card(card.slug)} with "
+                    f"{tokens.card(effects.MIND_CONTROL)}."
+                )
+                return True
+    return False
+
+
+def _quince_copy_orphaned(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
+    mark = next((m for m in card.modifiers if m.get("kind") == effects.QUINCE_COPY), None)
+    if mark is None:
+        return False
+    quince = match.player(card.controller).hero_of(effects.QUINCE)
+    return quince is None or not quince.in_play or match.instance(mark["original"]) is None
 
 
 def _legendary_twin(engine: "RulesEngine", match: MatchState) -> Optional[CardInstance]:

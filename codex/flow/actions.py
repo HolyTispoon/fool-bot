@@ -35,7 +35,7 @@ from codex.engine import (
 from codex.flow import board, resolve
 from codex.flow.board import raise_level
 from codex.flow.result import FollowOn, FollowOnStep, StepResult
-from codex.flow.turn import damage_base
+from codex.flow.turn import damage_base, draw_cards
 from codex.game import RuleRefusal
 from codex.prompts import pending
 
@@ -246,6 +246,8 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
                 for harmony in player.play if harmony.slug == effects.HARMONY
             ))
         return
+    if card.is_unit and where == "hand":
+        _unit_from_hand(engine, match, seat, result)
     if card.is_unit and where == "hand" and _jail_of(engine, match, seat) is not None:
         _to_jail(engine, match, seat, slug, cost, boost, result, note)
         return
@@ -290,6 +292,21 @@ def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost
             resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
             for harmony in player.play if harmony.slug == effects.HARMONY
         ))
+
+
+def _unit_from_hand(engine: "RulesEngine", match: MatchState, seat: int, result: StepResult) -> None:
+    """Drill Sergeant's +1/+1 rune and Flagstone Garrison's card: "Whenever
+    you play a unit from your hand" -- played, never put into play, and
+    never a spell that summons (their rulings; step 13)."""
+    for card in list(match.player(seat).play):
+        does = effects.ON_UNIT_FROM_HAND.get(engine.text_slug(card) or "")
+        if does is None or not engine.texted(card):
+            continue
+        if does == "rune":
+            board.add_plus_rune(card)
+            result.narration.append(f"{tokens.card(card.slug)} gets a +1/+1 rune.")
+        elif draw_cards(engine, match, seat, 1, result):
+            result.narration.append(f"{tokens.card(card.slug)} draws {tokens.player(seat)} a card.")
 
 
 def _jail_of(engine: "RulesEngine", match: MatchState, seat: int):

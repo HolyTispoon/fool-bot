@@ -901,11 +901,37 @@ class RulesEngine:
             bonus = effects.ATTACKING_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
             if bonus and self.is_building_ref(match, 2 if seat == 1 else 1, against):
                 atk += bonus
+            damaged = effects.DAMAGED_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
+            if damaged and self.texted(body) and self._damaged_building(match, 2 if seat == 1 else 1, against):
+                # Air Hammer: "+2 ATK when attacking damaged buildings."
+                atk += damaged
+        if against is not None:
+            target = self.body(match, 2 if seat == 1 else 1, against)
+            if isinstance(target, CardInstance) and target.patrol_slot == "squad_leader" \
+                    and self.texted(target):
+                # Debilitator Alpha: "As squad leader: Units attacking
+                # Debilitator Alpha get -1 ATK." -- a unit, never a hero.
+                if isinstance(body, CardInstance):
+                    atk -= effects.DEBILITATORS.get(self.text_slug(target) or "", 0)
         if isinstance(body, CardInstance):
             ceiling = effects.ATK_CEILING.get(self.text_slug(body) or "")
             if ceiling is not None:
                 atk = min(atk, ceiling)
         return max(atk, 0)
+
+    def _damaged_building(self, match: MatchState, seat: int, ref: str) -> bool:
+        """Whether `ref` on `seat`'s side is a building with damage on it."""
+        player = match.player(seat)
+        if ref == "base":
+            return player.base_hp < BASE_HP
+        if ref in TECH_BUILDINGS:
+            building = player.buildings.get(ref)
+            return building is not None and building.hp < self.building_hp(ref)
+        if ref == "add_on":
+            return player.add_on is not None and player.add_on.hp < self.building_hp(player.add_on.slug)
+        card = self.body(match, seat, ref)
+        return (isinstance(card, CardInstance) and self.catalog.cards[card.slug].is_building_card
+                and card.damage > 0)
 
     def is_building_ref(self, match: MatchState, seat: int, ref: str) -> bool:
         """Whether `ref` on `seat`'s side is a building: the base, a tech
@@ -1723,12 +1749,16 @@ class RulesEngine:
             return len(self.target_rows(match, seat, first, gold=gold)) >= len(effect.parts)
         if frame is None and slug in self.catalog.cards:
             frame = {"spell": slug}
+        if frame is not None:
+            # The gold left once it is paid for, for a filter that spends
+            # it (Jurisdiction's spell, step 13).
+            frame = {**frame, "gold": gold}
         for part in effect.parts:
             if part.does == "mode" or part.follows:
                 # A choice of modes, or a part acting on an earlier part's
                 # pick, does nothing by itself (step 12).
                 continue
-            if part.choose is None:
+            if part.choose is None or part.choose in effects.LOOK_FIRST:
                 return True
             if self.target_rows(match, seat, part, gold=gold, frame=frame):
                 return True
@@ -2930,6 +2960,46 @@ class RulesEngine:
                 if shoved is not None and int(shoved.split(":", 1)[0]) == side:
                     filled = player.patrollers()
                     found += [(side, f"{SLOT}{slot}") for slot in PATROL_SLOTS if slot not in filled]
+            elif choose == "unit_or_non_peace_hero":
+                # Boot Camp: "a unit or non-Peace hero".
+                found += [(side, card.ref) for card in units]
+                found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
+                          if (self.hero_card(one).spec or "").lower() != "peace"]
+            elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
+                # Community Service: a tech I or II unit of the opponent's
+                # hand -- looked at by the caster alone -- or discard pile.
+                if side != seat:
+                    pile, prefix = ((player.hand, HAND) if choose == "opponent_hand_unit_1_2"
+                                    else (player.discard, DISCARD))
+                    found += [(side, prefix + slug) for slug in dict.fromkeys(pile)
+                              if self.catalog.cards[slug].is_unit
+                              and 1 <= (self.catalog.cards[slug].tech_level or 0) <= 2]
+            elif choose == "opponent_discard_look":
+                # Lawful Search: a look and nothing to choose.
+                pass
+            elif choose == "tech_building_1_2":
+                # Injunction: a level I or II tech building standing --
+                # which a player without one can't be dealt (its ruling).
+                if side != seat:
+                    found += [(side, ref) for ref in ("tech1", "tech2")
+                              if player.buildings.get(ref) is not None
+                              and not player.buildings[ref].destroyed]
+            elif choose == "other_unit_or_hero":
+                # Porkhand Magistrate: never himself (its ruling).
+                found += [(side, card.ref) for card in units if card.ref != frame.get("source")]
+                found += [(side, ref) for ref in hero if ref != frame.get("source")]
+            elif choose == "own_plain_mirror":
+                # Quince: a Mirror Illusion of his controller's that copies
+                # nothing yet -- one that does is no Mirror Illusion (his
+                # rulings).
+                if side == seat:
+                    found += [(side, card.ref) for card in units
+                              if card.slug == effects.MIRROR and card.copy_of is None]
+            elif choose == "other_unit_tech_0_2":
+                # Quince at 3: another tech 0, I or II unit, either side's.
+                first = (frame.get("taken") or [None])[0]
+                found += [(side, card.ref) for card in units
+                          if tech(card) <= 2 and target_key(side, card.ref) != first]
             elif side == seat and choose in _PRIVATE_FILTERS:
                 found += [(side, ref) for ref in self._private_candidates(match, seat, choose, frame)]
             elif choose in _PRIVATE_FILTERS:
@@ -3000,6 +3070,13 @@ class RulesEngine:
                     if cards[slug].is_unit and 1 <= level(slug) <= 2 and (cards[slug].cost or 0) <= 5
                     and self.tech_building_active(player, level(slug))
                     and not self._why_not_spec(player, cards[slug])]
+        if choose == "codex_nonultimate_spell":
+            # Jurisdiction: any non-ultimate spell of the codex its caster
+            # can pay for, its hero not needed (its ruling).
+            gold = frame.get("gold", match.player(seat).gold)
+            return [CODEX + slug for slug in codex
+                    if cards[slug].is_spell and "Ultimate" not in (cards[slug].type or "")
+                    and self.effective_cost(match.player(seat), slug, match) <= gold]
         if choose == "codex_rambasa":
             return [CODEX + slug for slug in codex if slug in effects.TWINS]
         if choose == "hand_cost_3":
@@ -3114,6 +3191,9 @@ class RulesEngine:
         their hands revealed" -- the one standing reveal, and `seat`'s
         alone to be shown."""
         if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
+            return (2 if seat == 1 else 1,)
+        if any(lasting.get("kind") == "looked_hand" for lasting in match.player(seat).lasting):
+            # Flagstone Spy's look, this turn's.
             return (2 if seat == 1 else 1,)
         return ()
 
@@ -3305,6 +3385,11 @@ class RulesEngine:
                 else f"it has been used {effects.PER_TURN[effect]} times this turn"
         if cost.skeletons and len(self.ready_skeletons(match, seat)) < cost.skeletons:
             return f"it needs {cost.skeletons} ready Skeletons"
+        if effect == "sirus_quince_summon" and sum(
+            1 for card in player.play if card.slug == effects.MIRROR
+        ) >= effects.MIRROR_LIMIT:
+            # "Summon another (limit: 2)" -- the copies count (his ruling).
+            return f"you have {effects.MIRROR_LIMIT} Mirror Illusions"
         if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
                                       {"source": source}):
             return "there is nothing it could target"
@@ -3665,7 +3750,7 @@ _PRIVATE_FILTERS = frozenset({
     "deck_top", "hand_card_with_deck", "deck_top_playable", "discard_fading_unit",
     "codex_tech_1_2_unit", "codex_distortion",
     # White and blue's (step 13).
-    "codex_rambasa", "hand_cost_3",
+    "codex_rambasa", "hand_cost_3", "codex_nonultimate_spell",
 })
 
 

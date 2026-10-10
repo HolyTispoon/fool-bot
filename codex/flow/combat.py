@@ -653,6 +653,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     if rampaged:
         result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
+    standing = _standing(engine, match, other)
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
             board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result,
@@ -666,6 +667,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             board.golgort(engine, match, hit.source.seat, result)
     killed = any(fighter.body is taking.body for fighter in dead)
     _destroy(engine, match, dead, result, combat=True)
+    _blue_triggers(engine, match, hitting, hits, standing, result)
     _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.
@@ -682,6 +684,66 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.attacking = None
     match.combat = None
     return resolve.carry_on(engine, game, match, result)
+
+
+def _standing(engine: "RulesEngine", match: MatchState, seat: int) -> set:
+    """`seat`'s buildings standing now, but the base: what Patriot Gryphon
+    may destroy."""
+    player = match.player(seat)
+    found = {ref for ref in ("tech1", "tech2", "tech3")
+             if player.buildings.get(ref) is not None and not player.buildings[ref].destroyed}
+    if player.add_on is not None:
+        found.add("add_on")
+    found |= {card.ref for card in player.play if engine.catalog.cards[card.slug].is_building_card}
+    return found
+
+
+def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, hits: list,
+                   standing: set, result: StepResult) -> None:
+    """
+    Blue's combat damage triggers (step 13): Guardian of the Gates disables
+    a unit he dealt combat damage to -- armor's share counting (his
+    ruling); Flagstone Spy, dealing combat damage to a building, looks at
+    its player's hand and steals {gold:1}; and Patriot Gryphon, destroying
+    a building, deals his ATK to that player's base.
+    """
+    for hit in hits:
+        source = hit.source
+        if source is None or hit.skipped or hit.amount <= 0 or source.card is None:
+            continue
+        slug = engine.text_slug(source.card)
+        if not engine.texted(source.card):
+            continue
+        target = hit.target.card
+        if slug in effects.GUARDIANS and target is not None and engine.catalog.cards[target.slug].is_unit \
+                and board.still_there(match, hit.target.seat, hit.target.ref):
+            board.disable(target)
+            result.narration.append(f"{source.named()} disables {hit.target.named()}.")
+    if hitting.card is None or not engine.texted(hitting.card):
+        return
+    slug = engine.text_slug(hitting.card)
+    seat = hitting.seat
+    other = 2 if seat == 1 else 1
+    on_buildings = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0
+                    and (hit.target.is_building or hit.target.ref in standing)]
+    if slug in effects.SPIES and on_buildings:
+        taken = resolve.steal_gold(match, seat, other, effects.SPIES[slug])
+        match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn"})
+        result.narration.append(
+            f"{tokens.card(slug)} looks at {tokens.player(other)}'s hand"
+            + (f" and steals {tokens.gold(taken)}." if taken else "; they have no gold to steal.")
+        )
+    if slug in effects.BASE_ON_BUILDING_KILL and match.winner is None:
+        gone = standing - _standing(engine, match, other)
+        for _ in gone:
+            atk = engine.unit_stats(hitting.card, match)[0]
+            result.narration.append(
+                f"{tokens.card(slug)} destroyed a building: it deals {atk} to {tokens.player(other)}'s base"
+                f"{board.base_left_after(match, other, atk, by=seat)}."
+            )
+            board.damage_base(match, other, atk, result, by=seat)
+            if match.winner is not None:
+                return
 
 
 def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,

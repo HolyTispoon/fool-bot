@@ -237,7 +237,7 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if part.does in ASKED_PARTS and part.does not in top:
             # The number or the oath is asked (`CHOOSE_NUMBER`, `OATH`).
             return False
-        if part.does == "look_at" and top.get("looked") != top["part"]:
+        if (part.does == "look_at" or part.choose in effects.LOOK_FIRST) and top.get("looked") != top["part"]:
             # A look with nothing to choose (Martial Mastery): asked once,
             # what is seen pictured to the asker alone, and Done (step 13).
             top["looked"] = top["part"]
@@ -2471,6 +2471,243 @@ def _atk_self(engine, match, top, part, target, result) -> None:
     result.narration.append(f"{top['by']} gets +{part.amount} ATK this turn.")
 
 
+def _boot_camp(engine, match, top, part, target, result) -> None:
+    """Boot Camp: exhausted -- one already exhausted too, as much as can be
+    done (its ruling) -- sidelined if it patrolled, and a +1/+1 rune."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.exhausted = True
+    if body.patrol_slot is not None:
+        board.sideline(body)
+    result.narration.append(f"{top['by']} exhausts {_thing(match, target)}.")
+    _plus_rune(engine, match, top, part, target, result)
+
+
+def _conscript(engine, match, top, part, target, result) -> None:
+    """Community Service: a tech I or II unit from the opponent's hand or
+    discard pile into play under the caster's control -- theirs still --
+    free and its tech unmet (its ruling)."""
+    from codex.engine import DISCARD
+
+    seat, ref = target
+    slug = _private_slug(ref)
+    owner = match.player(seat)
+    pile, where = (owner.discard, "discard pile") if ref.startswith(DISCARD) else (owner.hand, "hand")
+    if slug not in pile:
+        return
+    pile.remove(slug)
+    card = board.put_into_play(engine, match, slug, top["seat"], from_hand=False, owner=seat)
+    result.narration.append(
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s {where} into play "
+        f"under {tokens.player(top['seat'])}'s control" + _arrived(engine, match, card, slug)
+    )
+
+
+def _elite(engine, match, top, part, target, result) -> None:
+    """Elite Training: +1 ATK, +1 armor, anti-air and sparkshot until the
+    caster's next upkeep -- the armor new as each turn begins till then."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    until = {"until": "upkeep", "seat": top["seat"]}
+    amount = part.amount
+    body.modifiers += [
+        {"kind": "atk", "amount": amount, **until},
+        {"kind": "keyword", "keyword": "Anti-air", **until},
+        {"kind": "keyword", "keyword": "Sparkshot", "amount": 1, **until},
+        {"kind": effects.LASTING_ARMOR, "amount": amount, **until},
+    ]
+    body.armor += board.armor_gain(body, amount)
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +1 ATK, +1 armor, anti-air and sparkshot "
+        f"until {tokens.player(top['seat'])}'s next upkeep."
+    )
+
+
+def _injunction(engine, match, top, part, target, result) -> None:
+    """Injunction: the tech building disabled, and every unit of its
+    player's of that tech level, whatever its spec (its rulings)."""
+    seat, ref = target
+    player = match.player(seat)
+    building = player.buildings.get(ref)
+    if building is None or building.destroyed:
+        return
+    building.disabled = True
+    level = {"tech1": 1, "tech2": 2}[ref]
+    hit = [card for card in player.play
+           if engine.catalog.cards[card.slug].is_unit and engine.tech_level(card) == level]
+    for card in hit:
+        board.disable(card)
+    name = {1: "Tech I", 2: "Tech II"}[level]
+    line = f"{top['by']} disables {tokens.player(seat)}'s {name} building"
+    if hit:
+        line += f" and their {len(hit)} tech {'I' * level} unit{'' if len(hit) == 1 else 's'}"
+    result.narration.append(line + ".")
+
+
+def _insure(engine, match, top, part, target, result) -> None:
+    """Insurance Agent: the rune on the unit, which this Agent remembers --
+    "that insured unit" is his alone (its rulings)."""
+    body = board.body_of(match, *target)
+    agent = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.runes[effects.INSURANCE] = body.runes.get(effects.INSURANCE, 0) + 1
+    if isinstance(agent, CardInstance):
+        agent.modifiers.append({"kind": "insures", "id": body.id, "until": None})
+    result.narration.append(f"{top['by']} puts an insurance rune on {_thing(match, target)}.")
+
+
+def _judgment(engine, match, top, part, target, result) -> None:
+    """Judgment Day: every tech 0, I and II unit destroyed -- tokens are
+    tech 0 -- and so dying (its ruling)."""
+    hit = [(player.seat, card.ref) for player in match.players for card in player.play
+           if engine.catalog.cards[card.slug].is_unit and engine.tech_level(card) <= 2]
+    if not hit:
+        result.narration.append(f"{top['by']} finds no tech 0, I or II unit to destroy.")
+        return
+    result.narration.append(f"{top['by']} destroys every tech 0, I and II unit.")
+    board.destroy(engine, match, hit, result, cause=top["seat"])
+
+
+def _codex_spell(engine, match, top, part, target, result) -> None:
+    """Jurisdiction: a non-ultimate spell from the codex, paid for and then
+    discarded, its hero not needed -- a channeling spell with no hero to
+    channel it discarded at once (its ruling)."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if player.codex.get(slug, 0) <= 0:
+        return
+    cost = engine.effective_cost(player, slug, match)
+    if player.gold < cost:
+        return
+    player.codex[slug] -= 1
+    player.gold -= cost
+    player.spells_played += 1
+    match.record_event("played", slug=slug, cost=cost, **{"from": "codex"})
+    from codex.flow.actions import spend_promise
+
+    spend_promise(engine, match, seat, slug, result)
+    result.narration.append(
+        f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their codex "
+        f"for {tokens.gold(cost)}."
+    )
+    spell = frame(slug, seat, tokens.card(slug), spell=slug, origin=slug)
+    harmonies = [
+        frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+        for harmony in player.play if harmony.slug == effects.HARMONY
+    ]
+    match.resolving[1:1] = [spell, *harmonies]
+
+
+def _magistrate(engine, match, top, part, target, result) -> None:
+    """Porkhand Magistrate: disabled -- exhausted already, or his own
+    controller's, alike (its rulings) -- and its controller draws."""
+    seat, ref = target
+    body = board.body_of(match, seat, ref)
+    if body is None:
+        return
+    board.disable(body)
+    drawn = draw_cards(engine, match, seat, 1, result)
+    result.narration.append(
+        f"{top['by']} disables {_thing(match, target)}"
+        + (f"; {tokens.player(seat)} draws a card." if drawn else ".")
+    )
+
+
+def _mirror_token(engine, match, top, part, target, result) -> None:
+    """Quince: a Mirror Illusion, to the limit of two -- those copying
+    something counted (his ruling)."""
+    seat = top["seat"]
+    have = sum(1 for card in match.player(seat).play if card.slug == effects.MIRROR)
+    if have >= effects.MIRROR_LIMIT:
+        result.narration.append(
+            f"{tokens.player(seat)} has {effects.MIRROR_LIMIT} {tokens.card(effects.MIRROR)} tokens: "
+            "no more is summoned."
+        )
+        return
+    board.summon(engine, match, effects.MIRROR, seat, 1, result, by=top["by"])
+
+
+def _illusion_copy(engine, match, card: CardInstance, original: CardInstance, mark: dict) -> None:
+    """A Mirror Illusion made an Illusion copy of `original` -- still an
+    Illusion, of the copied card's types (Quince's rulings) -- marked with
+    what trashes it."""
+    make_copy(engine, match, card, original)
+    card.modifiers.append({"kind": "illusion", "until": None})
+    card.modifiers.append(mark)
+
+
+def _quince_copy(engine, match, top, part, target, result) -> None:
+    """Quince at 3: the Mirror chosen first copies this unit, trashed at the
+    end of the turn (once, his ruling)."""
+    if not top["taken"]:
+        return
+    mirror_key = top["taken"][0]
+    card = board.body_of(match, *parse_target(mirror_key))
+    original = board.body_of(match, *target)
+    if card is None or original is None or card is original:
+        return
+    _illusion_copy(engine, match, card, original, {"kind": effects.QUINCE_TURN_COPY, "until": None})
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, parse_target(mirror_key))} an Illusion copy of "
+        f"{_thing(match, target)}, trashed at the end of the turn."
+    )
+
+
+def _quince_mirror(engine, match, top, part, target, result) -> None:
+    """Quince at 5: a Mirror made an Illusion copy of the unit that arrived,
+    trashed when Quince or that unit leaves (`board.settle`)."""
+    card = board.body_of(match, *target)
+    original = match.instance(top.get("original") or -1)
+    if card is None or original is None:
+        return
+    _illusion_copy(engine, match, card, original,
+                   {"kind": effects.QUINCE_COPY, "original": original.id, "until": None})
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, target)} an Illusion copy of {tokens.card(original.slug)}."
+    )
+
+
+def _steal_gold(engine, match, top, part, target, result) -> None:
+    """Tax Collector: {gold:1} stolen -- nothing from a player with none
+    (its ruling)."""
+    seat = top["seat"]
+    other = _against(top)
+    taken = steal_gold(match, seat, other, part.amount)
+    if taken:
+        result.narration.append(
+            f"{top['by']}: {tokens.player(seat)} steals {tokens.gold(taken)} from {tokens.player(other)}."
+        )
+    else:
+        result.narration.append(f"{tokens.player(other)} has no gold for {top['by']} to steal.")
+
+
+def _art_of_war(engine, match, top, part, target, result) -> None:
+    """The Art of War: the caster's Peace hero unstoppable, with swift
+    strike and +2 ATK/+2 armor until their next upkeep."""
+    seat = top["seat"]
+    hero = next((one for one in match.player(seat).heroes_in_play
+                 if (engine.hero_card(one).spec or "").lower() == "peace"), None)
+    if hero is None:
+        result.narration.append(f"{tokens.player(seat)} has no Peace hero in play for {top['by']}.")
+        return
+    until = {"until": "upkeep", "seat": seat}
+    hero.modifiers += [
+        {"kind": "keyword", "keyword": "Unstoppable", **until},
+        {"kind": "keyword", "keyword": "Swift strike", **until},
+        {"kind": "atk", "amount": part.amount, **until},
+        {"kind": effects.LASTING_ARMOR, "amount": part.amount, **until},
+    ]
+    hero.armor += part.amount
+    result.narration.append(
+        f"{top['by']}: {tokens.hero(hero.slug)} is unstoppable, has swift strike and gets +2 ATK and "
+        f"+2 armor until {tokens.player(seat)}'s next upkeep."
+    )
+
+
 def _number(engine, match, top, part, target, result) -> None:
     """Reputable Newsman's number, kept on him while he is in play."""
     card = board.body_of(match, top["seat"], top.get("source") or "")
@@ -2644,6 +2881,19 @@ DOES = {
     "copier": _copier,
     "copy": _copy,
     "number": _number,
+    "boot_camp": _boot_camp,
+    "conscript": _conscript,
+    "elite": _elite,
+    "injunction": _injunction,
+    "insure": _insure,
+    "judgment": _judgment,
+    "codex_spell": _codex_spell,
+    "magistrate": _magistrate,
+    "mirror_token": _mirror_token,
+    "quince_copy": _quince_copy,
+    "quince_mirror": _quince_mirror,
+    "steal_gold": _steal_gold,
+    "art_of_war": _art_of_war,
     "birds": _birds,
     "earthquake": _earthquake,
     "make_ninja": _make_ninja,
@@ -2700,6 +2950,17 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
         else:
             card.attached_hero = host
         result.narration.append(f"{tokens.card(spell)} is attached to {board.named(match, side, ref)}.")
+        if spell == effects.MIND_CONTROL:
+            # Mind Control: "You control it." -- back to whoever had it when
+            # the spell leaves play (`board.settle`).
+            host_card = board.body_of(match, side, ref)
+            if host_card is not None:
+                before = host_card.controller
+                if board.gain_control(match, host_card, seat):
+                    host_card.modifiers.append({"kind": "mind_controlled", "before": before, "until": None})
+                    result.narration.append(
+                        f"{tokens.player(seat)} gains control of {tokens.card(host_card.slug)}."
+                    )
         if spell == effects.VINES:
             # Entangling Vines: "Sideline the unit." (step 13)
             host_card = board.body_of(match, side, ref)

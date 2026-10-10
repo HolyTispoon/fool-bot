@@ -1725,16 +1725,19 @@
       "buildings": {
         "tech1": {
           "destroyed": false,
+          "disabled": false,
           "hp": 2,
           "under_construction": false
         },
         "tech2": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech3": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         }
@@ -1966,16 +1969,19 @@
       "buildings": {
         "tech1": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech2": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         },
         "tech3": {
           "destroyed": false,
+          "disabled": false,
           "hp": 5,
           "under_construction": false
         }
@@ -3539,16 +3545,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 3,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
@@ -3688,16 +3697,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
@@ -5399,16 +5411,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 3,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
@@ -5613,16 +5628,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
@@ -7355,16 +7373,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 2,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }
@@ -7539,16 +7560,19 @@
           "buildings": {
             "tech1": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech2": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             },
             "tech3": {
               "destroyed": false,
+              "disabled": false,
               "hp": 5,
               "under_construction": false
             }

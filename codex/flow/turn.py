@@ -204,6 +204,13 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
         for body in (*side.play, *side.heroes):
             body.armor = armor_gain(body, SQUAD_LEADER_ARMOR) if body.patrol_slot == "squad_leader" else 0
+            lasting = sum(m.get("amount", 0) for m in body.modifiers
+                          if m.get("kind") == effects.LASTING_ARMOR
+                          and not (m.get("until") == "upkeep" and m.get("seat") == seat))
+            if lasting:
+                # Elite Training's and The Art of War's armor, new each turn
+                # until the caster's upkeep (step 13).
+                body.armor += armor_gain(body, lasting)
             change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
             if change is not None and body.patrol_slot is not None and side.seat != seat:
                 # Ironbark Treant's +2 armor, new on each opponent's turn
@@ -284,6 +291,12 @@ def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
                 result.narration.append(f"{tokens.card(card.slug)} is itself again.")
             card.modifiers = [
                 m for m in card.modifiers
+                if not (m.get("until") == "upkeep" and m.get("seat") == seat)
+            ]
+        for hero in side.heroes:
+            # The Art of War's, Elite Training's on a hero (step 13).
+            hero.modifiers = [
+                m for m in hero.modifiers
                 if not (m.get("until") == "upkeep" and m.get("seat") == seat)
             ]
         side.lasting = [
@@ -773,6 +786,18 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)} is finished."
         )
+    for side in match.players:
+        for card in [one for one in side.play
+                     if any(m.get("kind") == effects.QUINCE_TURN_COPY for m in one.modifiers)]:
+            # Quince at 3: "Trash it at end of turn." (step 13)
+            side.play.remove(card)
+            match.record_event("trashed", slug=card.slug, owner=card.owner)
+            result.narration.append(f"{tokens.card(card.slug)}, Quince's copy, is trashed.")
+    for building in player.buildings.values():
+        if building is not None and building.disabled:
+            # Injunction: not operational through this, its owner's next
+            # turn (step 13).
+            building.disabled = False
     # This turn's effects end (Intimidate, Discord, Sneaky Pig's
     # stealth), on both sides, heroes too.
     for side in match.players:

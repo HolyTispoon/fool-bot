@@ -217,12 +217,6 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE 
 #: Porcupine, Savior Monk, Fuzz Cuddles, the Bird and the Soldier are
 #: read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset({
-    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "boot_camp",
-    "brave_knight", "community_service", "debilitator_alpha", "drill_sergeant",
-    "elite_training", "flagstone_garrison", "flagstone_spy", "general_onimaru",
-    "generals_hammer", "guardian_of_the_gates", "injunction", "insurance_agent",
-    "judgment_day", "jurisdiction", "lawful_search", "mind_control", "patriot_gryphon",
-    "porkhand_magistrate", "scribe", "sirus_quince", "tax_collector", "the_art_of_war",
 })
 
 
@@ -2209,4 +2203,192 @@ COSTS.update({
     "training_grounds": Cost(exhaust=True),
     "whitestar_grappler": Cost(exhaust=True),
     "young_lightning_dragon": Cost(gold=1, once=True),
+})
+
+# -- Blue's effects (step 13, commit 5) -----------------------------------------
+
+#: Air Hammer: "+2 ATK when attacking damaged buildings."
+DAMAGED_BUILDINGS_ATK = {"air_hammer": 2}
+#: Brave Knight: "Whenever Brave Knight would die from combat damage, return
+#: him to his owner's hand instead." -- a -1/-1 rune dealt as combat damage,
+#: the tower's, sparkshot's and overpower's too (his rulings).
+BRAVE = frozenset({"brave_knight"})
+#: Debilitator Alpha: "As squad leader: Units attacking Debilitator Alpha
+#: get -1 ATK."
+DEBILITATORS = {"debilitator_alpha": 1}
+#: Drill Sergeant and Flagstone Garrison: "Whenever you play a unit from
+#: your hand, ..." -- never a spell that summons, nor a unit put into play
+#: from the hand (their rulings).
+ON_UNIT_FROM_HAND = {"drill_sergeant": "rune", "flagstone_garrison": "draw"}
+#: Flagstone Spy: "Whenever Flagstone Spy deals combat damage to a building,
+#: look at that player's hand and steal {gold:1} from them."
+SPIES = {"flagstone_spy": 1}
+#: Guardian of the Gates: "Can't attack. Whenever Guardian of the Gates
+#: deals combat damage to a unit, disable it." -- armor's share counts (its
+#: ruling).
+GUARDIANS = frozenset({"guardian_of_the_gates"})
+CANT_ATTACK = CANT_ATTACK | GUARDIANS
+#: Insurance Agent: "Arrives: Put an insurance rune on a unit. When that
+#: insured unit dies, gain gold equal to its gold cost and draw a card." --
+#: the Agent remembers the unit (its modifier `insures`), and the rune is a
+#: marker alone (its rulings).
+INSURERS = frozenset({"insurance_agent"})
+INSURANCE = "insurance"
+#: Judgment Day: "Your max level Law hero can cast this no matter when he
+#: arrived or maxed."
+ANY_TIME_ULTIMATES = ANY_TIME_ULTIMATES | {"judgment_day"}
+#: Mind Control: "Attach to a tech 0, I, or II unit. You control it." --
+#: control follows the spell's controller (Assimilate's ruling), and goes
+#: back to whoever had the unit when the spell leaves play.
+MIND_CONTROL = "mind_control"
+ATTACHING = ATTACHING | {MIND_CONTROL}
+#: Patriot Gryphon: "Whenever Patriot Gryphon destroys a building, he also
+#: deals his ATK to that opponent's base."
+BASE_ON_BUILDING_KILL = frozenset({"patriot_gryphon"})
+#: Sirus Quince's Mirror Illusions (limit: 2), the copies counting (his
+#: rulings).
+QUINCE = "sirus_quince"
+MIRROR = "mirror_illusion"
+MIRROR_LIMIT = 2
+#: The two tokens of copying Quince's two abilities leave on a Mirror: the
+#: middle's trashed at the end of the turn, the max level's when Quince or
+#: its original leaves.
+QUINCE_TURN_COPY = "quince_turn_copy"
+QUINCE_COPY = "quince_copy"
+#: The Art of War and Elite Training: "until your next upkeep", the armor
+#: new as each turn begins until then (UMR p. 10's refresh).
+LASTING_ARMOR = "lasting_armor"
+#: The parts that show a pile to the caster before they choose from it --
+#: asked, and so a card worth playing, with nothing in it to choose
+#: (Community Service).
+LOOK_FIRST = frozenset({"opponent_hand_unit_1_2", "opponent_discard_unit_1_2"})
+
+for _effect_row in (
+    # Arrest: "Disable a patrolling unit."
+    _effect("arrest", Part("disable", "patrolling_unit", 0, "disable a patrolling unit")),
+    # Arresting Constable: "{exhaust} -> Disable a tech 0, I, or II unit."
+    _effect("arresting_constable", Part("disable", "unit_tech_upto_2", 0, "disable a tech 0, I or II unit")),
+    # Bigby at 3: "{exhaust} -> Sideline a tech 0 or I patroller." {target}
+    _effect("bigby_hayes", Part("sideline", "patroller_tech_0_1", 0, "sideline a tech 0 or I patroller")),
+    # Bigby at 5: "{exhaust} -> Draw a card."
+    _effect("bigby_hayes_draw", Part("draw", None, 1, targeted=False), says="draw a card"),
+    # Boot Camp: "Exhaust a unit or non-Peace hero and put a +1/+1 rune on
+    # it. Draw a card." -- one already exhausted too (its ruling).
+    _effect("boot_camp", Part("boot_camp", "unit_or_non_peace_hero", 1,
+                              "exhaust a unit or non-Peace hero and put a +1/+1 rune on it"),
+            Part("draw", None, 1, targeted=False)),
+    # Community Service: "Look at an opponent's discard pile or hand. You
+    # may put a tech I or II unit from there into play under your control."
+    # -- free, its tech unmet (its ruling).
+    _effect(
+        "community_service",
+        Part("mode", modes=(("hand", "look at their hand"), ("discard", "look at their discard pile")),
+             says="choose one"),
+        Part("conscript", "opponent_hand_unit_1_2", 0,
+             "put a tech I or II unit from their hand into play under your control",
+             targeted=False, least=0, only="hand"),
+        Part("conscript", "opponent_discard_unit_1_2", 0,
+             "put a tech I or II unit from their discard pile into play under your control",
+             targeted=False, least=0, only="discard"),
+    ),
+    # Drill Sergeant: "Remove a +1/+1 rune -> Put a +1/+1 rune on another
+    # unit."
+    _effect("drill_sergeant", Part("plus_rune", "other_unit", 1, "put a +1/+1 rune on another unit")),
+    # Elite Training: "Up to two of your units and/or heroes get +1 ATK, +1
+    # armor, anti-air, and sparkshot until your next upkeep."
+    _effect("elite_training", Part("elite", "friendly_unit_or_hero", 1,
+                                   "give one of your units or heroes +1 ATK, +1 armor, anti-air and sparkshot",
+                                   most=2, least=0)),
+    # Onimaru at 8: "Max Level: Summon three 1/1 blue soldier tokens with
+    # sparkshot."
+    _effect("general_onimaru", Part("token", None, 3, targeted=False, token="soldier")),
+    # General's Hammer: "Deal 3 damage to a building."
+    _effect("generals_hammer", Part("damage", "building", 3, "deal 3 damage to a building")),
+    # Injunction: "Disable a level I or II tech building and all of that
+    # player's units of the same tech level."
+    _effect("injunction", Part("injunction", "tech_building_1_2", 0,
+                               "disable a level I or II tech building")),
+    # Insurance Agent: "Arrives: Put an insurance rune on a unit."
+    _effect("insurance_agent", Part("insure", "unit", 0, "put an insurance rune on a unit")),
+    # Judgment Day: "Destroy all tech 0, I, and II units."
+    _effect("judgment_day", Part("judgment", None, 0, targeted=False)),
+    # Jurisdiction: "Play any non-ultimate spell from your codex. (You still
+    # pay its cost to play it, then discard it.)"
+    _effect("jurisdiction", Part("codex_spell", "codex_nonultimate_spell", 0,
+                                 "play a non-ultimate spell from your codex", targeted=False)),
+    # Lawful Search: "Draw a card, then choose one: Look at an opponent's
+    # hand. Look at an opponent's discard pile."
+    _effect(
+        "lawful_search",
+        Part("draw", None, 1, targeted=False),
+        Part("mode", modes=(("hand", "look at their hand"), ("discard", "look at their discard pile")),
+             says="choose one"),
+        Part("look_at", "opponent_hand_look", 0, "look at their hand", targeted=False, least=0, only="hand"),
+        Part("look_at", "opponent_discard_look", 0, "look at their discard pile", targeted=False,
+             least=0, only="discard"),
+    ),
+    # Mind Control: "Attach to a tech 0, I, or II unit."
+    _effect("mind_control", Part("attach", "unit_tech_upto_2", 0, "attach to a tech 0, I or II unit")),
+    # Porkhand Magistrate: "{gold:1}, {exhaust} -> Disable a unit or hero.
+    # Its controller draws a card." -- never himself (its ruling).
+    _effect("porkhand_magistrate", Part("magistrate", "other_unit_or_hero", 0,
+                                        "disable a unit or hero; its controller draws a card")),
+    # Scribe: "Arrives: Draw a card."
+    _effect("scribe", Part("draw", None, 1, targeted=False)),
+    # Quince at 1: "Arrives: Summon a 0/1 blue Mirror Illusion token." and
+    # "{gold:2} -> Summon another (limit: 2)."
+    _effect("sirus_quince", Part("mirror_token", None, 1, targeted=False)),
+    _effect("sirus_quince_summon", Part("mirror_token", None, 1, targeted=False),
+            says="summon another Mirror Illusion"),
+    # Quince at 3: "{gold:2} -> One of your Mirror Illusions becomes a copy
+    # of another tech 0, I, or II unit. It's still an Illusion. Trash it at
+    # end of turn."
+    _effect("sirus_quince_copy",
+            Part("copier", "own_plain_mirror", 0, "choose one of your Mirror Illusions", targeted=False),
+            Part("quince_copy", "other_unit_tech_0_2", 0, "choose the tech 0, I or II unit it copies",
+                 targeted=False, follows=True)),
+    # Quince at 5: "Whenever a non-token unit of yours arrives, you may make
+    # one of your Mirrors an Illusion copy of it."
+    _effect("sirus_quince_max", Part("quince_mirror", "own_plain_mirror", 0,
+                                     "make one of your Mirror Illusions an Illusion copy of it",
+                                     targeted=False, least=0)),
+    # Tax Collector: "Arrives: Steal {gold:1} from an opponent."
+    _effect("tax_collector", Part("steal_gold", None, 1, targeted=False)),
+    # The Art of War: "Your Peace Hero is unstoppable, has swift strike, and
+    # gets +2 ATK/+2 armor until your next upkeep."
+    _effect("the_art_of_war", Part("art_of_war", None, 2, targeted=False)),
+):
+    EFFECTS[_effect_row.key] = _effect_row
+TEXT.update({
+    "arrest": (("play", "arrest"),),
+    "arresting_constable": (("ability", "arresting_constable"),),
+    ("bigby_hayes", 3): (("ability", "bigby_hayes"),),
+    ("bigby_hayes", 5): (("ability", "bigby_hayes_draw"),),
+    "boot_camp": (("play", "boot_camp"),),
+    "community_service": (("play", "community_service"),),
+    "drill_sergeant": (("ability", "drill_sergeant"),),
+    "elite_training": (("play", "elite_training"),),
+    ("general_onimaru", 8): (("max_level", "general_onimaru"),),
+    "generals_hammer": (("play", "generals_hammer"),),
+    "injunction": (("play", "injunction"),),
+    "insurance_agent": (("arrives", "insurance_agent"),),
+    "judgment_day": (("play", "judgment_day"),),
+    "jurisdiction": (("play", "jurisdiction"),),
+    "lawful_search": (("play", "lawful_search"),),
+    "mind_control": (("play", "mind_control"),),
+    "porkhand_magistrate": (("ability", "porkhand_magistrate"),),
+    "scribe": (("arrives", "scribe"),),
+    ("sirus_quince", 1): (("arrives", "sirus_quince"), ("ability", "sirus_quince_summon")),
+    ("sirus_quince", 3): (("ability", "sirus_quince_copy"),),
+    "tax_collector": (("arrives", "tax_collector"),),
+    "the_art_of_war": (("play", "the_art_of_war"),),
+})
+COSTS.update({
+    "arresting_constable": Cost(exhaust=True),
+    "bigby_hayes": Cost(exhaust=True),
+    "bigby_hayes_draw": Cost(exhaust=True),
+    "drill_sergeant": Cost(runes=("plus", 1)),
+    "porkhand_magistrate": Cost(gold=1, exhaust=True),
+    "sirus_quince_summon": Cost(gold=2),
+    "sirus_quince_copy": Cost(gold=2),
 })

@@ -202,16 +202,22 @@ class BuildingState:
     hp: int
     under_construction: bool = True
     destroyed: bool = False
+    #: Disabled by Injunction (step 13): not operational through its
+    #: owner's next turn, and so no tech card of its level played and no
+    #: building above it constructed until then (its rulings). False in a
+    #: save older than step 13.
+    disabled: bool = False
 
     @property
     def active(self) -> bool:
-        return not self.under_construction and not self.destroyed
+        return not self.under_construction and not self.destroyed and not self.disabled
 
 
 BUILDING_SAVED_FIELDS = (
     SavedField("hp", default=0),
     SavedField("under_construction", default=False),
     SavedField("destroyed", default=False),
+    SavedField("disabled", default=False),
 )
 
 

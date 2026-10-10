@@ -626,6 +626,11 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
         # caster alone.
         other = 2 if top["seat"] == 1 else 1
         shown = tuple(match.player(other).hand)
+    elif part.choose in DISCARD_LOOKS:
+        # Community Service, Lawful Search: the opponent's discard pile,
+        # public, pictured all the same (step 13).
+        other = 2 if top["seat"] == 1 else 1
+        shown = tuple(match.player(other).discard)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
@@ -634,7 +639,9 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
 
 
 #: The parts that look at a hidden pile while they choose from it.
-LOOKS = frozenset({"opponent_hand_nonunit", "opponent_hand_look"})
+LOOKS = frozenset({"opponent_hand_nonunit", "opponent_hand_look", "opponent_hand_unit_1_2"})
+#: And those that look at the opponent's discard pile.
+DISCARD_LOOKS = frozenset({"opponent_discard_look", "opponent_discard_unit_1_2"})
 
 
 def _divide_options(engine, game, match, prompt) -> DivideOptions:
