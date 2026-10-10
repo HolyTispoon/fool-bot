@@ -11,7 +11,11 @@ from tethysdeck import icons
 from tethysdeck.deck import RANKS, SUITS, VARIANTS, fate_of, money_coins, pieces
 from tethysdeck.relief import IconSet
 
-W, H, RADIUS = 750, 1050, 36
+# The corner is the Avery 95328 die cut's own, 0.375in at 300 dpi, and every frame
+# inside it is concentric with it (`RADIUS - inset`), so a line keeps its inset round
+# the corner as along the sides and the cut never takes a corner off it (the author,
+# 2026-10-10: at 36 the frames' corners ran out past the cut).
+W, H, RADIUS = 750, 1050, 112
 
 # Fortune is violet paired with a light grey, Doom is coal and a dark orange (the author,
 # 2026-10-09; before: teal, and black and gold).
@@ -73,8 +77,8 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle((0, 0, W - 1, H - 1), RADIUS, fill=p["paper"])
-    d.rounded_rectangle((18, 18, W - 19, H - 19), RADIUS - 12, outline=p["ink"], width=5)
-    d.rounded_rectangle((30, 30, W - 31, H - 31), RADIUS - 20, outline=p["ink2"], width=2)
+    d.rounded_rectangle((18, 18, W - 19, H - 19), RADIUS - 18, outline=p["ink"], width=5)
+    d.rounded_rectangle((30, 30, W - 31, H - 31), RADIUS - 30, outline=p["ink2"], width=2)
 
     short = {"Left": "L", "Right": "R"}.get(rank, rank)
     corner = Image.new("RGBA", (130, 150), (0, 0, 0, 0))
