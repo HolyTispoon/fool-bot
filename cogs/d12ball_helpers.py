@@ -1033,7 +1033,8 @@ def codex_lobby_prompt(path: Optional[Path] = None) -> str:
     """
     return (
         f"Click {codex_lobby_mention(path)}, then press Enter: the Codex bot "
-        "opens a lobby in a channel of its own. Add `test_game: True` to "
+        "opens a lobby in a channel of its own -- or, where it may not make "
+        "one, in a thread or in this channel. Add `test_game: True` to "
         "play both sides yourself."
     )
 
