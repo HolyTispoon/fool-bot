@@ -118,7 +118,7 @@ class PresentationMixin:
 
     async def open_game_place(self, interaction: discord.Interaction, game: CodexGame):
         """
-        Where `/codex start_game`'s game is played, with its lobby posted
+        Where `/codex create_game`'s game is played, with its lobby posted
         there -- the first of three the bot may make and post in (the
         author, 2026-10-10):
 

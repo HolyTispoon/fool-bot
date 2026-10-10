@@ -32,7 +32,7 @@ class SlashCommandsMixin:
             key=lambda game: game.game_number,
         )
         if not games:
-            await send_ephemeral(interaction, "No Codex games in this server yet: `/codex start_game` opens one.")
+            await send_ephemeral(interaction, "No Codex games in this server yet: `/codex create_game` opens one.")
             return
         lines = []
         for game in games[-20:]:

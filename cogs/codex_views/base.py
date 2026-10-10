@@ -27,7 +27,7 @@ from typing import Optional, Sequence, Union
 import discord
 
 from codex.components import MatchState
-from codex.game import CodexGame, GameStatus, RuleRefusal
+from codex.game import CodexGame, RuleRefusal
 from codex.prompts import Action
 from cogs.game_auth import (
     HELPER_CONFIRMED_EXTRA,
@@ -103,22 +103,12 @@ class SafeView(GameLockedView):
     confirms_helper_clicks = True
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        """
-        Every click on a game played in a thread first takes the thread
-        out of the archive, where it has sat idle long enough to be
-        archived (a week, `open_game_place`): a message in an archived
-        thread cannot be edited, the click's own answer among them, and
-        the turn message is posted again in it. One request, and only
-        then -- a thread not archived costs nothing. A lobby's clicks
-        and a game's alike; a finished game's **Rematch** reopens it
-        itself (`open_rematch`). Never refuses the click.
-        """
+        """Every click on a game played in a thread first takes the
+        thread out of the archive, where Discord archived it after a
+        week idle (`Codex.wake_thread`). Never refuses the click."""
         thread = interaction.channel
         if isinstance(thread, discord.Thread) and thread.archived:
-            game = self.cog.games.get(self.game_id)
-            if (game is not None and game.venue == "thread"
-                    and game.status in (GameStatus.LOBBY, GameStatus.PLAYING)):
-                await self.cog.set_thread_archived(thread, False, game)
+            await self.cog.wake_thread(thread, self.cog.games.get(self.game_id))
         return True
 
     async def on_error(self, interaction: discord.Interaction, error: Exception,

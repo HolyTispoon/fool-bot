@@ -66,7 +66,7 @@ class NewGameHubView(SafeView):
     **Codex's button cannot open a Codex lobby**: Discord delivers a
     click only to the application that posted the button, and the Codex
     bot is another application. It answers privately with the command
-    mention, `</codex start_game:ID>`, which puts the command in the clicker's
+    mention, `</codex create_game:ID>`, which puts the command in the clicker's
     message box when clicked (docs/design/codex.md, "fool-bot's hub points
     at the lobby").
     """

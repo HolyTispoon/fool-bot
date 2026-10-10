@@ -101,6 +101,33 @@ class EndingMixin:
                 channel, codex_games_category, f"Codex game {game.game_number}: a rematch", game,
             )
 
+    async def wake_thread(self, thread, game: Optional[CodexGame]) -> None:
+        """
+        A game's thread taken out of the archive before a click or a
+        command on it is answered, where Discord archived it after a
+        week idle: a message in an archived thread cannot be edited, the
+        click's own answer among them, and the turn message is posted
+        again in it. One request, and only then -- a thread not archived
+        costs nothing. An open game's or lobby's alone; a finished
+        game's **Rematch** reopens it itself (`open_rematch`).
+        """
+        if (isinstance(thread, discord.Thread) and thread.archived and game is not None
+                and game.venue == "thread"
+                and game.status in (GameStatus.LOBBY, GameStatus.PLAYING)):
+            await self.set_thread_archived(thread, False, game)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """
+        Every `/codex` command first wakes the thread it is typed in
+        (`wake_thread`), whichever game is open there -- discord.py
+        runs a cog's `interaction_check` before each of its slash
+        commands and subcommands, autocomplete aside. Never refuses.
+        """
+        thread = interaction.channel
+        if isinstance(thread, discord.Thread) and thread.archived:
+            await self.wake_thread(thread, self.open_game_for_channel(thread.id))
+        return True
+
     async def set_thread_archived(self, thread, archived: bool, game: CodexGame) -> None:
         """A game's thread archived, or taken out of the archive. A
         failure is logged and nothing else waits on it: a post in an

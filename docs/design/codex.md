@@ -18,7 +18,7 @@ data and its import, `/codex card` and `/codex rules`, the runner.
 Step 2 wrote the model whole -- the state, the record, the engine, the
 prompts, the flow and the driver -- and a test that plays a game to a
 destroyed base through the driver alone. Step 3 put it on Discord as
-far as the opening position: the service and its file, `/codex start_game`,
+far as the opening position: the service and its file, `/codex create_game`,
 the game's channel, the board, and each player's hand shown to them
 alone. Step 4 put the whole turn there -- the panel, the turn message
 rolled over at the turn's end, the tech choice during the opponent's
@@ -1206,11 +1206,12 @@ wherever a test builds one. The first save makes it.
 
 ## The lobby and the channel
 
-**`/codex start_game` opens the game's channel and posts the lobby in it**
+**`/codex create_game` opens the game's channel and posts the lobby in it**
 (the author, 2026-10-08, on trying step 3: the lobby belongs in the
 channel the game is played in). The command was `/codex lobby` until the
-author renamed it, 2026-10-10; the cog's method is still `lobby`, since
-`start_game` is the lobby's **Start**. The worksheet's decision 10 had it
+author renamed it `/codex create_game`, 2026-10-10 (by way of
+`/codex start_game` the same day, never released); the cog's method is
+still `lobby`, since `start_game` is the lobby's **Start**. The worksheet's decision 10 had it
 posted where the command is typed; the author's later word governs.
 The channel is `codex-<n>` under **Codex Games**, created if missing,
 and open to the whole server -- anyone can look in, talk and take a
@@ -1227,12 +1228,13 @@ cannot be posted is deleted and the next tried. The record says which it
 is, `venue` -- "channel", "thread" or "here" (`codex.game.VENUES`;
 "channel" in an older save) -- since what is done to the place depends
 on whose it is: a thread is the bot's, renamed at Start and archived at
-the end, a rematch taking it out of the archive, and so does **any click on
-an open game or lobby** in a thread Discord archived after a week idle
-(the author, 2026-10-10; `SafeView.interaction_check` -- one request,
-before the click is answered, only while the thread is archived), since
-a message in an archived thread cannot be edited; a channel the game was
-only opened in is not, and is never renamed or moved. Any failure to
+the end, a rematch taking it out of the archive, and so does **any click or
+`/codex` command on an open game or lobby** in a thread Discord archived
+after a week idle (the author, 2026-10-10; `wake_thread`, called from
+`SafeView.interaction_check` and the cog's own, which discord.py runs
+before every slash command -- one request, before the answer, only while
+the thread is archived), since a message in an archived thread cannot
+be edited; a channel the game was only opened in is not, and is never renamed or moved. Any failure to
 make the channel falls through, not only a refused permission -- a full
 category is as much a reason to use a thread. **A channel holds one game
 at a time**: the third place is refused while a Codex game or lobby is
@@ -1254,7 +1256,7 @@ spends nothing from the channel's edit bucket. Start is either seated
 player's, or a game helper's -- the lobby asks no confirmation, as
 D12 Ball's does not.
 
-**A test game seats one person on both sides** (`/codex start_game
+**A test game seats one person on both sides** (`/codex create_game
 test_game:True`, the author, 2026-10-08), as D12 Ball's test games do.
 The record's rules are what change: `take_seat` sits a person already
 seated down on the other side too rather than moving them, `leave`
@@ -1297,7 +1299,7 @@ fifty-channel cap is D12 Ball's.
   writes its top-level command ids to `data/codex_command_ids.json`
   after each sync -- or, on a start that skipped the sync, once from a
   fetch when the file is missing -- and `codex_lobby_mention` reads it
-  for `</codex start_game:ID>`, falling back to the command's name in plain
+  for `</codex create_game:ID>`, falling back to the command's name in plain
   text. It is the one file read across the line, and fool-bot only
   reads it. The mention is the button's reply, below, and not in the
   message: the hub's Codex block is a general description of the game,
@@ -1316,7 +1318,7 @@ fifty-channel cap is D12 Ball's.
   that posted the button. And no bot can type into somebody's message
   box -- a link button only opens a URL, and no URL prefills the
   composer. So the button answers ephemerally with
-  `codex_lobby_prompt()`: the `</codex start_game:ID>` mention, which puts
+  `codex_lobby_prompt()`: the `</codex create_game:ID>` mention, which puts
   the command in the clicker's box when clicked, one Enter from a lobby
   (the author asked for the button, 2026-10-08). A hub posted before
   it gains the button at the next `/d12ball setup_hub`.

@@ -1,5 +1,5 @@
 """
-`/codex start_game` and what Start does (docs/design/codex.md, "The lobby and
+`/codex create_game` and what Start does (docs/design/codex.md, "The lobby and
 the channel"): the lobby is posted in the game's own channel -- or, where
 the bot may not make one, a thread, or else the channel the command was
 typed in -- and Start names that place for the players, deals, and posts
@@ -115,7 +115,7 @@ class LobbyMixin:
             f"both players press **Keep heroes**.{tail}"
         )
 
-    @app_commands.command(name="start_game", description="Open a Codex lobby: in a channel of its own, else a thread, else here.")
+    @app_commands.command(name="create_game", description="Open a Codex lobby: in a channel of its own, else a thread, else here.")
     @app_commands.describe(test_game="A test game: you may take both seats and play both sides")
     async def lobby(self, interaction: discord.Interaction, test_game: bool = False) -> None:
         """

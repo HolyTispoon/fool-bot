@@ -1,5 +1,5 @@
 """
-The Codex cog from `/codex start_game` to the opening board (docs/codex-bot.md,
+The Codex cog from `/codex create_game` to the opening board (docs/codex-bot.md,
 step 3), driven with Discord faked: the lobby posted in a channel of its
 own, two seats taken, Start setting that channel up for the game and
 posting the first turn's message pinned with its buttons, and **My hand** answered ephemerally with the clicker's own
@@ -292,6 +292,30 @@ class LobbyPlaceTests(unittest.IsolatedAsyncioTestCase):
             await view._scheduled_task(item, asleep)
         table.thread.edit.assert_awaited_once_with(archived=False)
         asleep.response.defer.assert_awaited_once()
+
+    async def test_a_slash_command_takes_the_thread_out_of_the_archive(self) -> None:
+        """Every `/codex` command typed in the game's archived thread
+        wakes it first: discord.py runs the cog's `interaction_check`
+        before the command."""
+        with suppressed_cog_saves():
+            table = Table()
+            table.guild.create_text_channel.side_effect = forbidden()
+            game, _ = await table.started()
+            board = next(command for command in table.cog.walk_app_commands()
+                         if command.name == "board")
+            table.thread.archived = False
+            table.thread.edit.reset_mock()
+            call = interaction(table.fencer, THREAD, guild=table.guild, channel=table.thread)
+            self.assertTrue(await board._check_can_run(call))
+            table.thread.edit.assert_not_awaited()
+            table.thread.archived = True
+            self.assertTrue(await board._check_can_run(call))
+            table.thread.edit.assert_awaited_once_with(archived=False)
+            # A thread holding no open game is left as it is.
+            game.status = GameStatus.FINISHED
+            table.thread.edit.reset_mock()
+            self.assertTrue(await board._check_can_run(call))
+        table.thread.edit.assert_not_awaited()
 
     async def test_start_here_leaves_the_channel_as_it_is(self) -> None:
         with suppressed_cog_saves():

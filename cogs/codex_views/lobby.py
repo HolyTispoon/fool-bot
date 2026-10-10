@@ -1,5 +1,5 @@
 """
-`LobbyView`: the lobby `/codex start_game` posts, rebuilt from the record on
+`LobbyView`: the lobby `/codex create_game` posts, rebuilt from the record on
 every change (docs/design/codex.md, "The standard game"):
 
 - **Basic game** / **Standard game** -- one hero a side or three (UMR
