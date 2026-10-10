@@ -59,11 +59,26 @@ class RenderTests(unittest.TestCase):
         one_row = render.PATROL_HEIGHT + render.CELL_GAP + render.CELL
         self.assertEqual(render.BUILDING_COLUMN_HEIGHT, one_row)
 
+    def test_the_worker_card_is_the_starting_decks_colour(self) -> None:
+        """x4 for the seat that went first and x5 for the other, in the
+        starting deck's colour where that face is imported, and the
+        neutral card where it is not."""
+        self.assertEqual(render.worker_face("neutral", True), ("workers", "worker_x4.png"))
+        self.assertEqual(render.worker_face("neutral", False), ("workers", "worker_x5.png"))
+        with mock.patch.object(render, "bundled", return_value=False):
+            self.assertEqual(render.worker_face("red", True), ("workers", "worker_x4.png"))
+        # Every colour's two are imported.
+        for color in ("black", "blue", "green", "purple", "red", "white"):
+            self.assertEqual((render.worker_face(color, True), render.worker_face(color, False)),
+                             (("worker_colors", f"{color}_x4.png"),
+                              ("worker_colors", f"{color}_x5.png")))
+
     def test_a_row_more_is_a_taller_panel(self) -> None:
         match = self.engine.new_match(("bashing", "finesse"), first=1)
-        # One more than a row of `grid_columns(1)` holds: the hero is in
-        # the command zone, not the grid.
-        for _ in range(render.grid_columns(1) + 1):
+        # One more than a row of `grid_columns(1)` holds beside the
+        # worker card, which takes the first cell: the hero is in the
+        # command zone, not the grid.
+        for _ in range(render.grid_columns(1)):
             match.new_instance("older_brother", 1)
         panel = render.render_panel(match, 1, "a", self.engine.catalog)
         self.assertEqual(panel.height, self.panel_height(2))
