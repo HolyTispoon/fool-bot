@@ -601,6 +601,11 @@ and the step's prompt is rewritten rather than argued with.
     points between actions only, a card off a deck's top closing the
     points before it while the start of the turn stays open, and
     nothing into the previous turn (docs/design/codex.md, "The undos").
+    The same day the author asked that an undo to the start of the turn
+    "offer to confirm tech but also redo the ready phase": where a turn
+    opens on its player's tech, its snapshot is the hand-over, so the
+    confirmation and the ready phase are the journal's first entries
+    and run again after the undo.
     **What it costs:** two saved fields from the first commit, a
     shuffle that can take a recorded order back, and every frontend
     surface -- the panel, the turn message, the board -- re-rendering

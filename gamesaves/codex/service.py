@@ -489,10 +489,13 @@ class GameService:
         )
 
     def undo_to_turn_start(self, game_id: str) -> GameResult:
-        """Put the match back to the start of this turn's main phase,
-        save once, and return what it is waiting on now. Refused with
-        `RuleRefusal` where there is no such start. Who may ask is the
-        frontend's: the active player, with nobody's consent."""
+        """Put the match back to the start of this turn -- its hand-over
+        where it opened on its player's tech, so the confirmation is
+        offered again and the ready phase runs again on it; the main
+        phase's opening otherwise -- save once, and return what it is
+        waiting on now. Refused with `RuleRefusal` where there is no
+        such start. Who may ask is the frontend's: the active player,
+        with nobody's consent."""
         return self._undo(game_id, history.undo_to_turn_start)
 
     def undo_to_previous_turn(self, game_id: str) -> GameResult:

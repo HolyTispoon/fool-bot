@@ -169,21 +169,20 @@ class PanelView(SafeView):
         is edited in place and the channel is left alone
         (docs/design/codex.md, "The turn message, posted again").
         """
-        game, match = await self.mine(interaction)
+        game, _ = await self.mine(interaction)
         if game is None:
             return
-        before = (match.turn, match.phase)
         result = await self.apply(interaction, game, action)
         if result is None:
             return
         if not self.cog.goes_public(result):
             await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
-            await self.cog.present(game, result, before)
+            await self.cog.present(game, result)
             return
         # The acknowledgement and the board go out together: the defer
         # is a round trip of its own that neither the board's render nor
         # its post waits on, and the panel is sent after both.
-        await asyncio.gather(interaction.response.defer(), self.cog.present(game, result, before))
+        await asyncio.gather(interaction.response.defer(), self.cog.present(game, result))
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
     async def open_deck(self, interaction: discord.Interaction) -> None:

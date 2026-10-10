@@ -3,18 +3,24 @@ The turn-start snapshots and the turn's journal: what undo is made of
 (docs/codex-bot.md, decision 11; docs/design/codex.md, "Undo's
 groundwork").
 
-`begin_turn` calls `snapshot`, which keeps the position the turn's main
-phase opens on -- the last three, oldest first -- and empties the
-journal. `codex.flow.driver.apply`, the one door every action goes
-through, calls `record` with the action and the random outcomes it
-consumed (a reshuffle's order, from `StepResult.drawn`). So any point in
-a turn is a snapshot plus a prefix of the journal, and `replay` rebuilds
-it byte for byte -- the recorded shuffles are handed back rather than
-drawn again, so **an undo past a draw deals the same cards**: undo
-cannot be used to redraw.
+`snapshot` keeps the position a turn starts on -- the last three,
+oldest first -- and empties the journal. **The turn's start is its
+hand-over where the turn waits on its player's tech** (`begin_tech`),
+before the confirmation and the ready phase it runs, which the journal
+then records as the turn's first entries; it is the main phase's opening
+where no tech is owed (`begin_turn`, a player's first turn), after the
+ready phase and the upkeep. `codex.flow.driver.apply`, the one door
+every action goes through, calls `record` with the action and the
+random outcomes it consumed (a reshuffle's order, from
+`StepResult.drawn`). So any point in a turn is a snapshot plus a prefix
+of the journal, and `replay` rebuilds it byte for byte -- the recorded
+shuffles are handed back rather than drawn again, so **an undo past a
+draw deals the same cards**: undo cannot be used to redraw.
 
 Two undos are over the snapshots alone: `undo_to_turn_start` (the
-active player's own) and `undo_to_previous_turn` (which unwinds the
+active player's own: where the turn opened on their tech, the
+confirmation is offered again and the ready phase runs again on it --
+the author, 2026-10-10) and `undo_to_previous_turn` (which unwinds the
 opponent's turn too, so a frontend asks the opponent first). The third,
 **the fine undo**, is over the journal: `undo_points` reads the turn as
 it replays and names each point between two actions of the active
@@ -70,12 +76,13 @@ def undone_to(number: int) -> str:
 #: player takes back.
 KEPT_KINDS = frozenset({"tech_choice"})
 
-#: The journal entries that are no action of the turn: a tech answer --
-#: the other player's choice, or the active player's own choice and its
-#: confirmation, asked again in the main phase after an undo to the
-#: turn's start. None begins an action, and a stretch of them alone is
-#: no action to number.
-TECH_KINDS = frozenset({"tech_choice", "tech_confirm"})
+#: The journal entries that are no action of the turn: the turn's
+#: opening, where its snapshot is the hand-over -- the active player's
+#: tech choice and its confirmation, which runs the ready phase, and the
+#: upkeep's order where it was asked -- and the other player's tech
+#: choice whenever it comes. None begins an action, and a stretch of
+#: them alone is no action to number.
+OPENING_KINDS = frozenset({"tech_choice", "tech_confirm", "upkeep_order"})
 
 #: What a position between two actions asks: the main phase's menu, or
 #: the patrol's once the main phase has ended -- nothing of an action
@@ -171,16 +178,24 @@ def _restore(match: MatchState, data: dict, snapshots: list[dict]) -> None:
 
 def start_tech_over(match: MatchState) -> None:
     """
-    **An undo to a turn's start clears every tech choice, a confirmed
-    one too, and asks it again** (the author, 2026-10-10). The active
-    player's picks, which the ready phase put into the discard pile
-    (`teched`), go back into their codex and the choice is owed again,
+    An undo to a turn's start asks the tech again. Where the turn's
+    snapshot is its hand-over (phase `ready`: a turn that opened on its
+    player's tech, since 2026-10-10), the restored position asks it by
+    itself -- the active player's standing picks wait for their
+    confirmation, which runs the ready phase again, and the other
+    player's picks are not yet made -- so there is nothing to take back
+    or clear. **Where the snapshot is the main phase's opening** -- a
+    turn that owed no tech, or a game saved before the hand-over became
+    the start -- the picks the ready phase put into the discard pile
+    (`teched`) go back into their codex and the choice is owed again,
     asked before the main phase's actions and settled in it
-    (`codex.flow.turn.settle_tech`), the upkeep not run twice. The other
-    player's picks, never confirmed before their own turn, are cleared,
-    whatever the restored position held -- one made before the turn's
-    start as surely as one made during it.
+    (`codex.flow.turn.settle_tech`), the upkeep not run twice; and the
+    other player's picks are cleared, whatever the restored position
+    held (the author, 2026-10-10: "undo should clear the choices and
+    make them choose again").
     """
+    if match.phase != "main":
+        return
     active = match.active_player
     if active.teched is not None and not active.tech_owed:
         for slug in active.teched:
@@ -204,12 +219,13 @@ def _take_back(player, slug: str) -> None:
 
 
 def tech_started_over(match: MatchState) -> tuple[int, ...]:
-    """The seats whose tech choice is asked again: whoever owes one not
-    yet confirmed -- after an undo, everyone whose choice it started
-    over."""
+    """The seats whose tech choice is asked again from nothing: whoever
+    owes one with no picks standing -- after an undo, everyone whose
+    choice it started over. Not a player whose standing picks wait for
+    their confirmation: the undo offers them as they were."""
     return tuple(
         player.seat for player in match.players
-        if player.tech_owed and not player.tech_confirmed
+        if player.tech_owed and not player.tech_confirmed and player.tech_choice is None
     )
 
 
@@ -273,8 +289,10 @@ def undo_targets(match: MatchState) -> dict[str, int]:
 
 
 def undo_to_turn_start(match: MatchState) -> tuple[str, ...]:
-    """Put the match back to the start of this turn's main phase, and
-    say so (`UNDONE`)."""
+    """Put the match back to the start of this turn -- its hand-over,
+    where it opened on its player's tech, with the confirmation offered
+    again and the ready phase to run again on it; the main phase's
+    opening otherwise -- and say so (`UNDONE`)."""
     index = _snapshot_index(match, match.turn)
     if index is None or match.winner is not None:
         raise RuleRefusal("There is no start of this turn to go back to.")
@@ -325,7 +343,7 @@ def _replayed(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Op
         waiting = run.result.next
         between = isinstance(waiting, PendingPrompt) and waiting.kind in BETWEEN_ACTIONS
         last = index + 1 == len(journal)
-        boundary = last or (between and journal[index + 1]["action"]["kind"] not in TECH_KINDS)
+        boundary = last or (between and journal[index + 1]["action"]["kind"] not in OPENING_KINDS)
         records.append(_Replayed(
             tuple(line for group in run.groups for line in group.lines) + tuple(run.result.narration),
             run.drew,
@@ -352,7 +370,7 @@ def _points(match: MatchState, records: Sequence[_Replayed]) -> tuple[UndoPoint,
     starts = [0] + [
         index for index in range(1, len(journal))
         if records[index - 1].position_after is not None
-        and journal[index]["action"]["kind"] not in TECH_KINDS
+        and journal[index]["action"]["kind"] not in OPENING_KINDS
     ]
     boundaries = [*starts, len(journal)]
 
@@ -368,7 +386,7 @@ def _points(match: MatchState, records: Sequence[_Replayed]) -> tuple[UndoPoint,
     points = []
     number = 0
     for start, end in zip(boundaries, boundaries[1:]):
-        if all(entry["action"]["kind"] in TECH_KINDS for entry in journal[start:end]):
+        if all(entry["action"]["kind"] in OPENING_KINDS for entry in journal[start:end]):
             continue
         if _comparable(position_at(start)) == _comparable(position_at(end)):
             continue

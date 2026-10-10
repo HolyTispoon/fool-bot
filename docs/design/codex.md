@@ -318,10 +318,19 @@ codex.
 ### Undo's groundwork: the snapshots and the journal
 
 Decision 11's two saved fields are in the first commit of the model.
-`begin_turn` ends by taking a **snapshot** -- the position as saved,
-without the snapshots and the journal themselves, at the start of the
-main phase, once the gold is collected -- keeping the last three, and
-emptying the **journal**. `driver.apply`, the one door every action
+A turn starts with a **snapshot** -- the position as saved, without the
+snapshots and the journal themselves -- keeping the last three, and
+emptying the **journal**. **Where the turn opens on its player's tech,
+the snapshot is the hand-over** (`begin_tech`, since 2026-10-10), before
+the confirmation and the ready phase it runs, which the journal then
+records as the turn's first entries -- so an undo to the turn's start
+offers the confirmation again and the ready phase runs again on it (the
+author, 2026-10-10: "offer to confirm tech but also redo the ready
+phase"). Where no tech is owed -- a player's first turn -- `begin_turn`
+takes it at the start of the main phase, once the gold is collected,
+after the ready phase and the upkeep (`_open_main`, which takes none
+where the turn has one). Either way the patrol lock that ends the turn
+before is not journalled: the snapshot it led to holds its draw. `driver.apply`, the one door every action
 goes through, records each applied action with the random outcomes it
 consumed: every shuffle's order, which a step hands back in
 `StepResult.drawn` and nobody else ever sees (it is left out of the
@@ -339,11 +348,23 @@ snapshot it led to already holds its effects.
   `undo_to_turn_start` restores this turn's snapshot and
   `undo_to_previous_turn` the one before, trimming the later ones.
   `undo_targets` says which are open. Who may ask for which -- the
-  opponent's consent for the second -- is step 4's frontend. **An
-  undo to a turn's start clears every tech choice, a confirmed one
-  too, and asks it again** (the author, 2026-10-10: "undo should clear
-  the choices and make them choose again", and "including confirmed
-  one"). `start_tech_over` does it inside `_restore`, for either undo:
+  opponent's consent for the second -- is step 4's frontend. **An undo
+  to a turn's start asks the tech again.** Where the turn's snapshot
+  is its hand-over, the restored position asks it by itself: the
+  active player's standing picks wait for their confirmation, offered
+  again (`TECH_CONFIRM`, with **Change** to pick anew), and the other
+  player's picks, made during the turn, are gone with it; the
+  confirmation runs the ready phase and the upkeep again -- the
+  upkeep's order asked again where it was asked -- and a reshuffle in
+  that upkeep shuffles afresh, since the tech may have changed what the
+  discard pile holds. Nobody is told to choose again but a player with
+  no picks standing (`tech_started_over`). **Where the snapshot is the
+  main phase's opening** -- a turn that owed no tech, or a game saved
+  before the hand-over became the start -- the undo clears every tech
+  choice, a confirmed one too, and asks it again (the author,
+  2026-10-10: "undo should clear the choices and make them choose
+  again", and "including confirmed one"): `start_tech_over` does it
+  inside `_restore`, for either undo:
   - **The active player's picks** went into the discard pile in the
     ready phase, before the snapshot, which on its own does not say
     which cards they were. So the ready phase keeps them on the player
@@ -374,10 +395,12 @@ snapshot it led to already holds its effects.
   that began where the position asked the main phase's menu or the
   patrol's (`BETWEEN_ACTIONS`) and changed the position -- not inside
   a spell or an attack, which the cancel covers; not before a tech
-  answer (`TECH_KINDS`: the other player's choice, which is theirs, or
-  the active player's own asked again after an undo to the turn's
-  start), which is no action of the turn and numbers none; and not an
-  attacker declared and taken back, which changed nothing. Each point
+  answer or the upkeep's order (`OPENING_KINDS`: the active player's
+  own choice and confirmation, which open a turn's journal where its
+  snapshot is the hand-over, the upkeep's order where it was asked, and
+  the other player's choice whenever it comes), which is no action of
+  the turn and numbers none; and not an attacker declared and taken
+  back, which changed nothing. Each point
   carries the lines the action said, to be named by, and the journal's
   length it was offered at, so a pick from a menu the turn has moved on
   from is refused. `undo_to` replays the journal cut at the point
@@ -727,10 +750,13 @@ control.
   and Star-Crossed Starlet's damage both due, so healing her first or
   after decides whether she survives (Starlet's ruling). `begin_turn`
   then stops in the upkeep with an `UPKEEP_ORDER` frame on the stack, and
-  the answer runs the effects in that order and opens the main phase --
-  **the turn-start snapshot is taken there, after the upkeep**, so an undo
-  to the start of the turn never asks the order again. The surplus's card
-  is drawn first, since nothing it does is ordered against the others.
+  the answer runs the effects in that order and opens the main phase.
+  The answer is journalled like any action where the turn's snapshot is
+  its hand-over (a turn that opened on its tech), so an undo to the
+  turn's start runs the upkeep again and asks the order again; where
+  the snapshot is the main phase's opening, after the upkeep, it never
+  does. The surplus's card is drawn first, since nothing it does is
+  ordered against the others.
 
 Every line is the model's, with tokens: "{card:spark} deals 1 to
 {player:2}'s {card:iron_man}", "{player:1} pays {gold:1} for its resist",
@@ -2209,8 +2235,11 @@ carries the position.
   line -- the model's "wins" sentence -- with the final board,
   rendered once and uploaded twice.
 - **What the cog remembers**, in memory only: the turn's lines, and
-  each recent turn's *first lines* -- what its message said when its
-  main phase opened -- which is what an undo puts back. After a restart
+  each recent turn's *first lines* -- what its message said when it
+  first went up, before the turn's snapshot: the ready phase's lines
+  where the turn owed no tech, nothing where it waited on its tech,
+  since the confirmation's lines are the journal's then -- which is what
+  an undo puts back above what it says. After a restart
   neither is known: the gate leaves the message's text alone until the
   turn ends or `/codex resume` re-posts the table.
 
@@ -2271,7 +2300,9 @@ what it costs from the panel (the table above).
   and saves once; the turn message is posted again with its first lines
   and "Undone to the start of the turn." (`history.UNDONE`) and the
   restored board, and the panel is sent under it from the restored
-  prompt.
+  prompt -- the tech confirmation where the turn opened on its tech,
+  whose **Confirm** runs the ready phase again and posts its lines
+  under the undone line (the author, 2026-10-10).
 - **To before an action of this turn** -- the fine undo's menu, above
   the two buttons wherever they are offered (the panel's undo mode, the
   patrol lock's, the turn message's `UndoView`), one option a point,

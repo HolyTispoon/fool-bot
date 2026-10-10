@@ -401,8 +401,7 @@ class TurnsMixin:
             return True
         return bool(result.lines or result.board_changed)
 
-    async def present(self, game: CodexGame, result: GameResult,
-                      before: Optional[tuple[int, str]] = None) -> None:
+    async def present(self, game: CodexGame, result: GameResult) -> None:
         """
         **The whole of the Discord side of a result.** What it said joins
         the turn's lines and the turn message is posted again at the foot
@@ -413,8 +412,7 @@ class TurnsMixin:
         a base fell, the game's last line. Hidden information never
         reaches here: a result's lines are public (docs/design/codex.md,
         "What the narration may say"), and its prompts go to their asked
-        player through the panel. `before` is the turn and phase the click
-        found, which says whether the turn's main phase has just opened.
+        player through the panel.
         """
         match = result.match
         # The turn ended where the model's own end-of-turn step closed a
@@ -427,8 +425,6 @@ class TurnsMixin:
         if match is not None and match.winner is not None:
             await self.finish_game(game, result)
             return
-        if match is not None and match.phase == "main" and before is not None and before[1] != "main":
-            self.note_turn_head(game, match)
         if result.lines or result.board_changed:
             await self.repost_turn_message(game, match)
 
@@ -491,8 +487,10 @@ class TurnsMixin:
                 )
             await self.stand_turn_message(channel, game, game.turn_message_id, png, text)
         self.turn_lines[game.game_id] = opening
-        if match.phase == "main":
-            self.note_turn_head(game, match)
+        # The turn's first lines: what it said before its snapshot, which
+        # the journal does not hold -- the ready phase's where no tech
+        # was owed, nothing where the turn waits on its tech.
+        self.note_turn_head(game, match)
         await self.post_turn_message(channel, game, match)
 
     async def finish_game(self, game: CodexGame, result: GameResult) -> None:

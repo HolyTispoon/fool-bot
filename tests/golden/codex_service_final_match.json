@@ -1636,6 +1636,16 @@
     {
       "action": {
         "arguments": {
+          "player": 1
+        },
+        "choice": "confirm",
+        "kind": "tech_confirm"
+      },
+      "outcomes": []
+    },
+    {
+      "action": {
+        "arguments": {
           "slug": "granfalloon_flagbearer"
         },
         "choice": "play",
@@ -3533,22 +3543,17 @@
           "kind": "turn_ended",
           "seat": 2,
           "turn": 23
-        },
-        {
-          "kind": "turn_began",
-          "seat": 1,
-          "turn": 24
         }
       ],
       "extra_turns": [],
       "first": 2,
       "lost_by_debt": null,
       "next_instance_id": 35,
-      "phase": "main",
+      "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 12,
           "buildings": {
             "tech1": {
@@ -3581,7 +3586,7 @@
             "regularsized_rhinoceros": 0,
             "revolver_ocelot": 0,
             "sneaky_pig": 0,
-            "the_boot": 0,
+            "the_boot": 2,
             "trojan_duck": 0,
             "wrecking_ball": 0
           },
@@ -3611,13 +3616,11 @@
           ],
           "deck_color": "neutral",
           "discard": [
-            "eggship",
-            "the_boot",
-            "the_boot"
+            "eggship"
           ],
           "discards_at_main_end": false,
           "future": [],
-          "gold": 20,
+          "gold": 13,
           "hand": [
             "hired_stomper",
             "iron_man",
@@ -3641,7 +3644,7 @@
               "printed": null,
               "runes": {},
               "slug": "troq_bashar",
-              "summoning_runes": 0,
+              "summoning_runes": 1,
               "time_runes": 0,
               "trashed": [],
               "zone": "command"
@@ -3662,7 +3665,7 @@
               "copy_of": null,
               "damage": 0,
               "disabled": false,
-              "exhausted": false,
+              "exhausted": true,
               "flipped": false,
               "id": 30,
               "jailed": null,
@@ -3682,7 +3685,7 @@
               "time_runes": 0
             }
           ],
-          "played_from_hand": 0,
+          "played_from_hand": 1,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
@@ -3693,12 +3696,15 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": null,
-          "tech_confirmed": false,
-          "tech_owed": false,
-          "teched": [
+          "tech_choice": [
             "the_boot",
             "the_boot"
+          ],
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "intimidate",
+            "intimidate"
           ],
           "workers": 10
         },
@@ -3814,7 +3820,7 @@
               "arrived_this_turn": false,
               "attached": [],
               "attached_hero": null,
-              "attacked_this_turn": false,
+              "attacked_this_turn": true,
               "buried": [],
               "controller": 2,
               "copy_of": null,
@@ -3840,7 +3846,7 @@
               "time_runes": 0
             },
             {
-              "armor": 1,
+              "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -3881,10 +3887,7 @@
           ],
           "spells_played": 1,
           "tech2_spec": null,
-          "tech_choice": [
-            "two_step",
-            "two_step"
-          ],
+          "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
@@ -5407,18 +5410,13 @@
           "kind": "turn_ended",
           "seat": 1,
           "turn": 24
-        },
-        {
-          "kind": "turn_began",
-          "seat": 2,
-          "turn": 25
         }
       ],
       "extra_turns": [],
       "first": 2,
       "lost_by_debt": null,
       "next_instance_id": 38,
-      "phase": "main",
+      "phase": "ready",
       "players": [
         {
           "add_on": null,
@@ -5528,7 +5526,7 @@
           "peace": false,
           "play": [
             {
-              "armor": 1,
+              "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
@@ -5629,10 +5627,7 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": [
-            "final_smash",
-            "final_smash"
-          ],
+          "tech_choice": null,
           "tech_confirmed": false,
           "tech_owed": true,
           "teched": [
@@ -5643,7 +5638,7 @@
         },
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 4,
           "buildings": {
             "tech1": {
@@ -5678,7 +5673,7 @@
             "maestro": 0,
             "nimble_fencer": 0,
             "starcrossed_starlet": 0,
-            "two_step": 0
+            "two_step": 2
           },
           "constructed_once": true,
           "debt": 0,
@@ -5708,13 +5703,11 @@
             "harmony",
             "spark",
             "cloud_sprite",
-            "timely_messenger",
-            "two_step",
-            "two_step"
+            "timely_messenger"
           ],
           "discards_at_main_end": false,
           "future": [],
-          "gold": 20,
+          "gold": 12,
           "hand": [
             "backstabber",
             "brick_thief"
@@ -5722,7 +5715,7 @@
           "heroes": [
             {
               "armor": 0,
-              "arrived_this_turn": false,
+              "arrived_this_turn": true,
               "attacked_this_turn": false,
               "bands": {
                 "1": 47,
@@ -5733,10 +5726,10 @@
               "disabled": false,
               "exhausted": false,
               "level": 5,
-              "max_level_since_turn_began": true,
+              "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
-              "patrol_slot": null,
+              "patrol_slot": "elite",
               "plus_runes": 0,
               "printed": null,
               "runes": {},
@@ -5753,7 +5746,7 @@
           "play": [
             {
               "armor": 0,
-              "arrived_this_turn": false,
+              "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
               "attacked_this_turn": false,
@@ -5772,7 +5765,7 @@
               "number": null,
               "oath": null,
               "owner": 2,
-              "patrol_slot": null,
+              "patrol_slot": "squad_leader",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
@@ -5782,7 +5775,7 @@
               "time_runes": 0
             }
           ],
-          "played_from_hand": 0,
+          "played_from_hand": 2,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 2,
@@ -5791,14 +5784,17 @@
           "specs": [
             "finesse"
           ],
-          "spells_played": 0,
+          "spells_played": 1,
           "tech2_spec": null,
-          "tech_choice": null,
-          "tech_confirmed": false,
-          "tech_owed": false,
-          "teched": [
+          "tech_choice": [
             "two_step",
             "two_step"
+          ],
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "harmony",
+            "harmony"
           ],
           "workers": 10
         }
@@ -7377,22 +7373,17 @@
           "kind": "turn_ended",
           "seat": 2,
           "turn": 25
-        },
-        {
-          "kind": "turn_began",
-          "seat": 1,
-          "turn": 26
         }
       ],
       "extra_turns": [],
       "first": 2,
       "lost_by_debt": null,
       "next_instance_id": 40,
-      "phase": "main",
+      "phase": "ready",
       "players": [
         {
           "add_on": null,
-          "arrived_from_hand": false,
+          "arrived_from_hand": true,
           "base_hp": 12,
           "buildings": {
             "tech1": {
@@ -7417,7 +7408,7 @@
           "built_this_turn": false,
           "codex": {
             "eggship": 0,
-            "final_smash": 0,
+            "final_smash": 2,
             "harvest_reaper": 0,
             "hired_stomper": 0,
             "intimidate": 0,
@@ -7457,13 +7448,11 @@
             "the_boot",
             "the_boot",
             "sneaky_pig",
-            "iron_man",
-            "final_smash",
-            "final_smash"
+            "iron_man"
           ],
           "discards_at_main_end": false,
           "future": [],
-          "gold": 10,
+          "gold": 0,
           "hand": [
             "regularsized_rhinoceros",
             "granfalloon_flagbearer"
@@ -7471,7 +7460,7 @@
           "heroes": [
             {
               "armor": 0,
-              "arrived_this_turn": false,
+              "arrived_this_turn": true,
               "attacked_this_turn": false,
               "bands": {
                 "1": 51,
@@ -7482,10 +7471,10 @@
               "disabled": false,
               "exhausted": false,
               "level": 8,
-              "max_level_since_turn_began": true,
+              "max_level_since_turn_began": false,
               "minus_runes": 0,
               "modifiers": [],
-              "patrol_slot": null,
+              "patrol_slot": "technician",
               "plus_runes": 0,
               "printed": null,
               "runes": {},
@@ -7502,7 +7491,7 @@
           "play": [
             {
               "armor": 0,
-              "arrived_this_turn": false,
+              "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
               "attacked_this_turn": false,
@@ -7521,7 +7510,7 @@
               "number": null,
               "oath": null,
               "owner": 1,
-              "patrol_slot": null,
+              "patrol_slot": "elite",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
@@ -7532,7 +7521,7 @@
             },
             {
               "armor": 0,
-              "arrived_this_turn": false,
+              "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,
               "attacked_this_turn": false,
@@ -7551,7 +7540,7 @@
               "number": null,
               "oath": null,
               "owner": 1,
-              "patrol_slot": null,
+              "patrol_slot": "scavenger",
               "plus_runes": 0,
               "printed": null,
               "returns_to": null,
@@ -7561,7 +7550,7 @@
               "time_runes": 0
             }
           ],
-          "played_from_hand": 0,
+          "played_from_hand": 3,
           "promised": false,
           "reshuffled_this_phase": false,
           "seat": 1,
@@ -7572,12 +7561,15 @@
           ],
           "spells_played": 0,
           "tech2_spec": null,
-          "tech_choice": null,
-          "tech_confirmed": false,
-          "tech_owed": false,
-          "teched": [
+          "tech_choice": [
             "final_smash",
             "final_smash"
+          ],
+          "tech_confirmed": false,
+          "tech_owed": true,
+          "teched": [
+            "the_boot",
+            "the_boot"
           ],
           "workers": 10
         },
@@ -7662,7 +7654,7 @@
             {
               "armor": 0,
               "arrived_this_turn": false,
-              "attacked_this_turn": false,
+              "attacked_this_turn": true,
               "bands": {
                 "1": 47,
                 "3": 49,
@@ -7691,7 +7683,7 @@
           "peace": false,
           "play": [
             {
-              "armor": 1,
+              "armor": 0,
               "arrived_this_turn": true,
               "attached": [],
               "attached_hero": null,

@@ -663,13 +663,16 @@ class TurnEndTests(TurnTestCase):
         self.assertIn("Your deck: ", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
 
-    async def test_an_undo_to_the_turn_start_asks_the_confirmed_tech_again(self) -> None:
+    async def test_an_undo_to_the_turn_start_offers_the_confirmation_and_redoes_the_ready_phase(self) -> None:
         """The turn's tech confirmed and the main phase open, an undo to
-        the turn's start takes the picks back out of the discard pile
-        and asks the choice again, before the turn's actions (the
-        author, 2026-10-10); confirmed again, they go back in."""
+        the turn's start puts the hand-over back: the picks stand and
+        their confirmation is offered again, the discard pile is as it
+        was before the confirm, nobody is told to choose again, and
+        Confirm runs the ready phase again -- its lines once in the turn
+        message, after the undone line (the author, 2026-10-10)."""
         first, _ = await self.reach_turn_three()
         seat = self.game.seat_of(first.id)
+        texts = self.table.game_channel.texts
         _, view = await self.table.panel(first)
         panel = (await self.table.press(view, "Confirm")).view()
         self.assertIsInstance(panel, TurnPanelView)
@@ -677,28 +680,32 @@ class TurnEndTests(TurnTestCase):
         teched = list(player.teched)
         self.assertEqual(len(teched), 2)
         discard, codex = list(player.discard), dict(player.codex)
+        opened = history.position(self.table.match)
+        self.assertEqual(texts[self.game.turn_message_id].count("tech card"), 1)
 
         undo = (await self.table.press(panel, "Undo")).view()
         call = await self.table.press(undo, "To the start of my turn")
         self.assertNothingWentWrong(call)
-        picker = call.view()
-        self.assertIsInstance(picker, TechChoiceView)
-        player = self.table.match.player(seat)
-        self.assertEqual(self.table.match.phase, "main")
+        confirm = call.view()
+        self.assertIsInstance(confirm, TechConfirmView)
+        match = self.table.match
+        self.assertEqual(match.phase, "ready")
+        player = match.player(seat)
+        self.assertEqual(player.tech_choice, teched)
         self.assertEqual(len(player.discard), len(discard) - 2)
         self.assertEqual(sum(player.codex.values()), sum(codex.values()) + 2)
-        line = self.table.cog.render_text(history.tech_again(seat), self.game)
-        self.assertIn(line, self.table.game_channel.texts[self.game.turn_message_id])
+        text = texts[self.game.turn_message_id]
+        self.assertIn(history.UNDONE, text)
+        self.assertNotIn("tech card", text)
+        self.assertNotIn(self.table.cog.render_text(history.tech_again(seat), self.game), text)
 
-        saved = await self.table.press((await pick_tech(self.table, picker)).view(), "Save tech")
-        confirm = saved.view()
-        self.assertIsInstance(confirm, TechConfirmView)
         confirmed = await self.table.press(confirm, "Confirm")
         self.assertNothingWentWrong(confirmed)
         self.assertIsInstance(confirmed.view(), TurnPanelView)
-        player = self.table.match.player(seat)
-        self.assertEqual(len(player.discard), len(discard))
-        self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
+        self.assertEqual(history.position(self.table.match), opened)
+        text = texts[self.game.turn_message_id]
+        self.assertEqual(text.count("tech card"), 1)
+        self.assertLess(text.index(history.UNDONE), text.index("tech card"))
 
     async def test_ten_workers_allow_teching_nothing(self) -> None:
         """At ten workers the ask says teching is optional and why, and
