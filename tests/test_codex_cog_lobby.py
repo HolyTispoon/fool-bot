@@ -1,5 +1,5 @@
 """
-The Codex cog from `/codex lobby` to the opening board (docs/codex-bot.md,
+The Codex cog from `/codex start_game` to the opening board (docs/codex-bot.md,
 step 3), driven with Discord faked: the lobby posted in a channel of its
 own, two seats taken, Start setting that channel up for the game and
 posting the first turn's message pinned with its buttons, and **My hand** answered ephemerally with the clicker's own
@@ -270,6 +270,28 @@ class LobbyPlaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(game.status, GameStatus.PLAYING)
         self.assertEqual(table.thread.edit.call_args.kwargs["name"], "codex-1-basher-vs-fencer")
         self.assertEqual(game.turn_message_id, TURN_MESSAGE)
+
+    async def test_a_click_takes_the_thread_out_of_the_archive(self) -> None:
+        """A thread idle long enough is archived by Discord; a click on
+        its game first takes it out, so the click's answer can be
+        written there. A thread not archived costs nothing."""
+        with suppressed_cog_saves():
+            table = Table()
+            table.guild.create_text_channel.side_effect = forbidden()
+            game, _ = await table.started()
+            view = TurnMessageView(table.cog, game.game_id)
+            item = button(view, "swap")
+            table.cog.boards.refresh = mock.AsyncMock()
+            table.thread.archived = False
+            table.thread.edit.reset_mock()
+            awake = interaction(table.fencer, THREAD, guild=table.guild, channel=table.thread)
+            await view._scheduled_task(item, awake)
+            table.thread.edit.assert_not_awaited()
+            table.thread.archived = True
+            asleep = interaction(table.fencer, THREAD, guild=table.guild, channel=table.thread)
+            await view._scheduled_task(item, asleep)
+        table.thread.edit.assert_awaited_once_with(archived=False)
+        asleep.response.defer.assert_awaited_once()
 
     async def test_start_here_leaves_the_channel_as_it_is(self) -> None:
         with suppressed_cog_saves():

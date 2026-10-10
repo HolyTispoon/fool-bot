@@ -62,7 +62,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(group.description), 100)
             self.assertEqual(
                 {command.name for command in group.commands},
-                {"card", "rules", "lobby", "games", "board", "hand", "resume",
+                {"card", "rules", "start_game", "games", "board", "hand", "resume",
                  "concede", "abandon", "admin"},
             )
             self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])
@@ -306,7 +306,7 @@ if __name__ == "__main__":
 
 class CommandIdsTests(unittest.IsolatedAsyncioTestCase):
     """`data/codex_command_ids.json`: written by the Codex bot after a
-    sync, read by fool-bot's hub for `</codex lobby:ID>`."""
+    sync, read by fool-bot's hub for `</codex start_game:ID>`."""
 
     async def test_a_sync_writes_the_ids_and_the_hub_mentions_the_lobby(self) -> None:
         import tempfile
@@ -315,7 +315,7 @@ class CommandIdsTests(unittest.IsolatedAsyncioTestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "codex_command_ids.json"
-            self.assertEqual(codex_lobby_mention(path), "`/codex lobby`")
+            self.assertEqual(codex_lobby_mention(path), "`/codex start_game`")
             bot = codex_bot()
             bot.command_ids_file = path
             group, other = mock.Mock(id=1234), mock.Mock(id=99)
@@ -335,7 +335,7 @@ class CommandIdsTests(unittest.IsolatedAsyncioTestCase):
             path = Path(folder) / "codex_command_ids.json"
             gamebot.write_command_ids([command], path)
             self.assertEqual(gamebot.read_command_ids(path), {"codex": 1234})
-            self.assertEqual(codex_lobby_mention(path), "</codex lobby:1234>")
+            self.assertEqual(codex_lobby_mention(path), "</codex start_game:1234>")
 
     async def test_a_skipped_sync_fetches_only_when_the_file_is_missing(self) -> None:
         import tempfile
@@ -376,7 +376,7 @@ class HubCodexButtonTests(unittest.IsolatedAsyncioTestCase):
         await codex.callback(interaction)
         (text,), kwargs = interaction.response.send_message.call_args
         self.assertTrue(kwargs["ephemeral"])
-        self.assertIn("/codex lobby", text)
+        self.assertIn("/codex start_game", text)
 
     def test_the_prompt_carries_the_mention_once_the_ids_are_written(self) -> None:
         import tempfile
@@ -387,6 +387,6 @@ class HubCodexButtonTests(unittest.IsolatedAsyncioTestCase):
         command.name = "codex"
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "codex_command_ids.json"
-            self.assertIn("`/codex lobby`", codex_lobby_prompt(path))
+            self.assertIn("`/codex start_game`", codex_lobby_prompt(path))
             gamebot.write_command_ids([command], path)
-            self.assertIn("</codex lobby:1234>", codex_lobby_prompt(path))
+            self.assertIn("</codex start_game:1234>", codex_lobby_prompt(path))

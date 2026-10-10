@@ -12,7 +12,7 @@ does bar naming specific opponents up front). Two pieces:
   messages: the **games message**, with a **D12 Ball** button and a
   **Codex** button beside it (`NewGameHubView`, in
   `cogs/d12ball_views/lobby.py`; the Codex one answers privately with
-  the `/codex lobby` command mention, since the Codex bot is another
+  the `/codex start_game` command mention, since the Codex bot is another
   application -- see "The lobby and the channel" in [codex.md](codex.md)),
   and under it the
   **roles message**, with a toggle button per role (`HubRolesView`, same

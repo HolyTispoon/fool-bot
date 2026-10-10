@@ -134,7 +134,7 @@ class CodexGame:
     #: The finished game this lobby is the rematch of, and the teams it
     #: was played with by seat -- each seat's heroes as specs -- and
     #: their decks: what **Keep heroes** keeps. Empty for a lobby
-    #: `/codex lobby` opened.
+    #: `/codex start_game` opened.
     rematch_of: Optional[str] = None
     rematch_specs: dict[int, list[str]] = field(default_factory=dict)
     rematch_decks: dict[int, str] = field(default_factory=dict)

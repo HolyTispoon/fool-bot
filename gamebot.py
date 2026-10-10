@@ -139,7 +139,7 @@ def read_command_ids(path: Path) -> dict[str, int]:
     Another bot's top-level command ids, by name, as it wrote them after
     its last sync -- `{}` where there is no file or it cannot be read.
     fool-bot reads the Codex bot's, the one file read across the line,
-    to mention `</codex lobby:ID>` in its hub (docs/design/codex.md,
+    to mention `</codex start_game:ID>` in its hub (docs/design/codex.md,
     "fool-bot's hub points at the lobby").
     """
     try:
