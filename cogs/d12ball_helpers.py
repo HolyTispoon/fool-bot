@@ -1012,7 +1012,7 @@ CODEX_COMMAND_IDS_FILE = (
 
 def codex_lobby_mention(path: Optional[Path] = None) -> str:
     """
-    `</codex lobby:ID>` -- a chip that puts the Codex bot's command in
+    `</codex create_game:ID>` -- a chip that puts the Codex bot's command in
     the clicker's composer -- once the Codex bot has written its id, and
     the command's name in plain text until then. A button cannot do it:
     Discord delivers a component's click only to the application that
@@ -1020,20 +1020,21 @@ def codex_lobby_mention(path: Optional[Path] = None) -> str:
     """
     ids = read_command_ids(CODEX_COMMAND_IDS_FILE if path is None else path)
     if "codex" in ids:
-        return f"</codex lobby:{ids['codex']}>"
-    return "`/codex lobby`"
+        return f"</codex create_game:{ids['codex']}>"
+    return "`/codex create_game`"
 
 
 def codex_lobby_prompt(path: Optional[Path] = None) -> str:
     """
     What the hub's **Codex** button answers, privately: the command to
-    send. Clicking the mention puts `/codex lobby` in the clicker's
+    send. Clicking the mention puts `/codex create_game` in the clicker's
     message box, one Enter from a lobby -- the nearest Discord comes to a
     button that types it for them.
     """
     return (
         f"Click {codex_lobby_mention(path)}, then press Enter: the Codex bot "
-        "opens a lobby in a channel of its own. Add `test_game: True` to "
+        "opens a lobby in a channel of its own -- or, where it may not make "
+        "one, in a thread or in this channel. Add `test_game: True` to "
         "play both sides yourself."
     )
 

@@ -401,7 +401,7 @@ class PanelTests(TurnTestCase):
         labels = [item.label for item in defending.children if getattr(item, "choice", None)]
         self.assertTrue(labels)
         self.assertFalse([item for item in defending.children if isinstance(item, discord.ui.Select)])
-        self.assertTrue(all(label.endswith("-- nothing is patrolling") for label in labels))
+        self.assertTrue(all(label.endswith(" (no patrol)") for label in labels))
         cancelled = await self.table.press(defending, "Cancel the attack")
         self.assertIs(cancelled.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertIsNone(self.table.match.attacking)

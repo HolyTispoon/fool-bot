@@ -1,9 +1,10 @@
 """
-The board and the channel: the board rendered off the thread
+The board and the game's place: the board rendered off the event loop
 (`codex/render.py` through `asyncio.to_thread`), the gate's one
-forwarder, the game's channel, the turn message posted -- for a new
-turn, or again at the foot of the channel after an action -- and a
-player's hand and their whole deck sent to them alone.
+forwarder, where the game is played -- its own channel, else a Discord
+thread, else the channel the lobby was asked for in -- the turn message
+posted -- for a new turn, or again at the foot of the channel after an
+action -- and a player's hand and their whole deck sent to them alone.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from cogs.codex_helpers import (
 )
 from cogs.codex_views import (
     HandView,
+    LobbyView,
     TurnMessageView,
     deck_caption,
     deck_file,
@@ -114,12 +116,93 @@ class PresentationMixin:
         except discord.HTTPException as error:
             raise ValueError(f"Discord could not create the channel: {error}")
 
-    async def name_game_channel(self, channel: discord.TextChannel, game: CodexGame) -> None:
+    async def open_game_place(self, interaction: discord.Interaction, game: CodexGame):
         """
-        At Start, the lobby's channel is renamed for its players,
-        `codex-<n>-<p1>-vs-<p2>`; its permissions stand. A failure is
-        logged and the game goes on in the channel either way.
+        Where `/codex create_game`'s game is played, with its lobby posted
+        there -- the first of three the bot may make and post in (the
+        author, 2026-10-10):
+
+        1. **a channel of its own**, `codex-<n>` under Codex Games
+           (`create_game_channel`);
+        2. where it may not, **a public thread of that name** in the
+           channel the command was typed in;
+        3. where it may make neither, **that channel itself** -- unless a
+           Codex game or lobby is already open in it, since a channel
+           holds one game at a time (`game_for_channel`).
+
+        A place made whose lobby cannot be posted is deleted and the next
+        tried. Returns `(place, venue, lobby message)`, the venue one of
+        `codex.game.VENUES`; raises `ValueError` carrying the sentence to
+        show when there is nowhere.
         """
+        here = interaction.channel or self.bot.get_channel(interaction.channel_id)
+        try:
+            channel = await self.create_game_channel(interaction.guild, game)
+        except ValueError as error:
+            LOGGER.info("Codex game %s: no channel of its own, so a thread or here (%s)",
+                        game.game_id, error)
+        else:
+            message = await self.post_lobby(channel, game)
+            if message is not None:
+                return channel, "channel", message
+            await self.delete_place(channel, game)
+        if isinstance(here, discord.TextChannel):
+            try:
+                thread = await here.create_thread(
+                    name=channel_name(game),
+                    type=discord.ChannelType.public_thread,
+                    # A week, the longest: a game may sit a few days
+                    # between turns, and a post wakes it either way.
+                    auto_archive_duration=10080,
+                    reason=f"Codex game {game.game_number}",
+                )
+            except discord.HTTPException as error:
+                LOGGER.info("Codex game %s: no thread either, so here (%s)", game.game_id, error)
+            else:
+                message = await self.post_lobby(thread, game)
+                if message is not None:
+                    return thread, "thread", message
+                await self.delete_place(thread, game)
+        if here is None:
+            raise ValueError("I could not create a channel or a thread for the game, "
+                             "and I cannot find this channel to open it here.")
+        if self.open_game_for_channel(here.id) is not None:
+            raise ValueError(
+                "I could not create a channel or a thread for the game, and a Codex game "
+                "is already open in this channel: finish or abandon it first."
+            )
+        message = await self.post_lobby(here, game)
+        if message is None:
+            raise ValueError("I could not create a channel or a thread for the game, "
+                             "nor post its lobby in this channel.")
+        return here, "here", message
+
+    async def post_lobby(self, place, game: CodexGame) -> Optional[discord.Message]:
+        """The lobby posted in `place`, or `None` where Discord refused it."""
+        try:
+            return await place.send(self.lobby_text(game), view=LobbyView(self, game.game_id))
+        except discord.HTTPException as error:
+            LOGGER.info("Could not post the lobby of Codex game %s: %s", game.game_id, error)
+            return None
+
+    async def delete_place(self, place, game: CodexGame) -> None:
+        """A channel or thread made for a lobby that could not be posted."""
+        try:
+            await place.delete(reason="The Codex lobby could not be posted")
+        except discord.HTTPException as error:
+            LOGGER.warning("Could not delete the empty place of Codex game %s: %s",
+                           game.game_id, error)
+
+    async def name_game_channel(self, channel, game: CodexGame) -> None:
+        """
+        At Start, the lobby's channel -- or thread -- is renamed for its
+        players, `codex-<n>-<p1>-vs-<p2>`; its permissions stand. A
+        channel the game was only opened in (venue "here") is not the
+        bot's to rename. A failure is logged and the game goes on either
+        way.
+        """
+        if game.venue == "here":
+            return
         try:
             await channel.edit(
                 name=channel_name(game), reason=f"Codex game {game.game_number} started",

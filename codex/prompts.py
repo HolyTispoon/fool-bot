@@ -153,7 +153,7 @@ class DefenderOptions:
     attacker: str
     defenders: tuple[str, ...]
     #: Why each of `defenders` is legal, in the same order: "squad
-    #: leader", "patroller", "nothing is patrolling" (`defender_rows`).
+    #: leader", "patroller", "no patrol" (`defender_rows`).
     why: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:

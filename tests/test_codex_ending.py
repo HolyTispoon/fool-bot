@@ -178,9 +178,13 @@ class ServiceEndingTests(unittest.TestCase):
         again = CodexGame.from_dict(json.loads(json.dumps(rematch.to_dict())))
         self.assertEqual(again, rematch)
         older = game.to_dict()
-        for key in ("final_message_id", "rematch_game_id", "rematch_of", "rematch_specs", "kept_heroes"):
+        for key in ("final_message_id", "rematch_game_id", "rematch_of", "rematch_specs", "kept_heroes",
+                    "venue"):
             older.pop(key)
         self.assertEqual(CodexGame.from_dict(older).rematch_specs, {})
+        # A save older than the thread and the in-place lobby knew only
+        # a channel of the game's own.
+        self.assertEqual(CodexGame.from_dict(older).venue, "channel")
 
 
 class EndingCogTests(unittest.IsolatedAsyncioTestCase):
@@ -352,6 +356,75 @@ class EndingCogTests(unittest.IsolatedAsyncioTestCase):
         find_button(view, "Concede")
 
 
+class EndingElsewhereTests(unittest.IsolatedAsyncioTestCase):
+    """A game played in a thread, where the bot could not make a channel,
+    ends with the thread archived and a rematch takes it out again; one
+    played in the channel its lobby was asked for in, where it could make
+    neither, leaves that channel where it is (the author, 2026-10-10)."""
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started()
+
+    async def concede(self) -> list:
+        loser = self.table.basher
+        call = await self.table.turn_button("concede", loser)
+        mark = len(self.table.game_channel.requests)
+        await self.table.press(call.view(), "Concede the game", who=loser)
+        return self.table.game_channel.since(mark)
+
+    async def test_a_threads_game_ends_with_the_thread_archived(self) -> None:
+        self.game.venue = "thread"
+        self.table.guild.create_category.reset_mock()
+        requests = await self.concede()
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send", "channel.edit"])
+        self.assertEqual(requests[3][2], {"archived": True})
+        self.table.guild.create_category.assert_not_awaited()
+        mark = len(self.table.game_channel.requests)
+        rematch_view = RematchView(self.table.cog, self.game.game_id)
+        await rematch_view._scheduled_task(rematch_view.children[0],
+                                           self.table.interaction(self.table.fencer))
+        requests = self.table.game_channel.since(mark)
+        self.assertEqual([kind for kind, _, _ in requests], ["channel.edit", "send"])
+        self.assertEqual(requests[0][2], {"archived": False})
+        self.assertEqual(self.table.cog.games[self.game.rematch_game_id].venue, "thread")
+
+    async def test_a_game_played_here_leaves_the_channel_where_it_is(self) -> None:
+        self.game.venue = "here"
+        self.table.guild.create_category.reset_mock()
+        requests = await self.concede()
+        self.assertEqual([kind for kind, _, _ in requests], ["edit", "pin", "send"])
+        mark = len(self.table.game_channel.requests)
+        rematch_view = RematchView(self.table.cog, self.game.game_id)
+        await rematch_view._scheduled_task(rematch_view.children[0],
+                                           self.table.interaction(self.table.fencer))
+        self.assertEqual([kind for kind, _, _ in self.table.game_channel.since(mark)], ["send"])
+        self.table.guild.create_category.assert_not_awaited()
+
+    async def test_no_rematch_where_another_game_is_open(self) -> None:
+        self.game.venue = "here"
+        await self.concede()
+        other = CodexGame("other", 9, guild_id=self.table.guild.id,
+                          channel_id=self.game.channel_id, venue="here")
+        self.table.cog.games[other.game_id] = other
+        mark = len(self.table.game_channel.requests)
+        call = self.table.interaction(self.table.fencer)
+        rematch_view = RematchView(self.table.cog, self.game.game_id)
+        await rematch_view._scheduled_task(rematch_view.children[0], call)
+        self.assertIn("already open here", call.text())
+        self.assertIsNone(self.game.rematch_game_id)
+        self.assertEqual(self.table.game_channel.since(mark), [])
+
+    async def test_abandon_says_what_became_of_the_place(self) -> None:
+        self.game.venue = "here"
+        call = self.table.interaction(self.table.fencer)
+        await self.table.cog.abandon_command.callback(self.table.cog, call)
+        self.assertIs(self.game.status, GameStatus.ABANDONED)
+        self.assertNotIn("channel.edit", [kind for kind, _, _ in self.table.game_channel.requests[-3:]])
+        self.assertEqual(call.text(), "Abandoned.")
+
+
 class ResetChannelsTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.table = Table()
@@ -383,6 +456,23 @@ class ResetChannelsTests(unittest.IsolatedAsyncioTestCase):
         other.delete.assert_not_awaited()
         self.assertEqual(set(cog.games), {"old"})
         self.assertIn("next Codex game will be number 8", call.text())
+
+    async def test_a_thread_still_open_goes_and_one_over_stays(self) -> None:
+        cog = self.table.cog
+        self.game.venue = "thread"
+        thread = mock.MagicMock(spec=discord.Thread)
+        thread.name, thread.delete = "codex-1-basher-vs-fencer", mock.AsyncMock()
+        self.table.bot.get_channel.side_effect = {self.game.channel_id: thread}.get
+        over = CodexGame("over", 7, guild_id=self.table.guild.id, channel_id=31, venue="thread",
+                         status=GameStatus.FINISHED)
+        here = CodexGame("here", 8, guild_id=self.table.guild.id, channel_id=40, venue="here")
+        cog.games.update({over.game_id: over, here.game_id: here})
+        self.table.guild.fetch_channels = mock.AsyncMock(return_value=[])
+        call = self.table.interaction(user(303, "helper", helper=True))
+        await cog.reset_channels.callback(cog, call, "confirm")
+        thread.delete.assert_awaited_once()
+        self.assertEqual(set(cog.games), {"over"})
+        self.assertIn("0 Codex channel(s) and 1 thread(s), and dropped 2 game(s)", call.text())
 
     async def test_the_word_and_the_gate(self) -> None:
         cog = self.table.cog
