@@ -1147,10 +1147,17 @@ else the bot shows is ephemeral.
     bytes -- 70 KB to 86 KB for the opening, 111 KB to 133 KB for a
     busy mid-game board -- a few hundredths of a second on a phone's
     connection, and still well under the 220 KB the mat board was.
-  - Composed at those pixels, scaled by `BOARD_SCALE` (0.6) and saved as
-    WebP at quality 85 (`WEBP_QUALITY`), about 85 to 165 KB -- the
-    encoding every picture the bot uploads has, the hand, the codex and
-    the tech picker since 2026-10-09 (below).
+  - Composed at those pixels, scaled by `BOARD_SCALE` (1, the canvas's
+    own pixels, since 2026-10-09; 0.6 before) and saved as WebP at
+    quality 85 (`WEBP_QUALITY`), about 200 to 350 KB -- the encoding
+    every picture the bot uploads has, the hand, the codex and the
+    tech picker since 2026-10-09 (below). At 0.6 a card's name read
+    when the picture was zoomed but not its rules text or a hero's
+    level bands, and at 0.8 they were still soft; at 1 a card on the
+    board is 200 by 273 and reads like one in the hand (the author,
+    2026-10-09). It is two and a half times the bytes -- the staged
+    mid-game board 137 KB to 332 stacked, 144 to 343 side by side --
+    and no slower to draw.
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
