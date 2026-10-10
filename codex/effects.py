@@ -101,6 +101,42 @@ GREEN = frozenset({
     "young_treant"
 })
 
+#: Purple, landed at step 12 (docs/codex-bot.md): its ten starters, the
+#: twelve of Past, Present and Future, its three heroes and its two
+#: tokens, the Stinger and the Mech.
+PURPLE = frozenset({
+    "argonaut", "assimilate", "battle_suits", "chronofixer", "double_time",
+    "ebbflow_archon", "fading_argonaut", "forgotten_fighter", "gilded_glaxx",
+    "hardened_mox", "hive", "hyperion", "immortal", "knight_of_the_conclave",
+    "max_geiger", "mech", "nebula", "neo_plexus", "now", "nullcraft", "octavian",
+    "omegacron", "origin_story", "plasmodium", "promise_of_payment",
+    "prynn_pasternaak", "ready_or_not", "reaver", "rememberer",
+    "research__development", "rewind", "second_chances", "seer", "sentry",
+    "shimmer_ray", "slowtime_generator", "stewardess_of_the_undone", "stinger",
+    "temporal_distortion", "temporal_research", "time_spiral", "tinkerer",
+    "tricycloid", "undo", "unphase", "vir_garbarean", "void_star", "vortoss_emblem",
+    "warp_gate_disciple", "xenostalker", "yesterdays_golgort"
+})
+
+#: Black, landed with purple: its ten starters, the twelve of
+#: Demonology, Disease and Necromancy, its three heroes and its four
+#: tokens -- the Skeleton, the Zombie, the Horror and the Warlock.
+BLACK = frozenset({
+    "abomination", "banefire_golem", "blackhand_dozer", "blackhand_resurrector",
+    "bone_collector", "carrion_curse", "corpse_catapult", "crypt_crawler",
+    "cursed_crow", "cursed_ghoul", "dark_pact", "death_and_decay", "death_rites",
+    "deteriorate", "doom_grasp", "gargoyle", "garth_torken", "gorgon", "graveyard",
+    "hooded_executioner", "horror", "jandra_the_negator", "lichs_bargain",
+    "lord_of_shadows", "metamorphosis", "necromancer", "nether_drain", "orpal_gloor",
+    "pestering_haunt", "plague_lab", "plague_lord", "plague_spitter",
+    "poisonblade_rogue", "sacrifice_the_weak", "shadow_blade",
+    "shrine_of_forbidden_knowledge", "sickness", "skeletal_archery", "skeletal_lord",
+    "skeleton", "skeleton_javelineer", "soul_stone", "spreading_plague",
+    "summon_skeletons", "terras_q_the_shackled", "thieving_imp", "twilight_baron",
+    "vandy_anadrose", "voidblocker", "warlock", "wight", "zarramonde_the_obliterator",
+    "zombie"
+})
+
 #: The tokens of another colour that red and green summon: Surprise
 #: Attack's Sharks and Argagarg's Water Elemental, both blue. Landed with
 #: the cards that make them, so their keywords are read.
@@ -110,7 +146,7 @@ BORROWED_TOKENS = frozenset({"shark", "water_elemental"})
 #: static tables below are read over it, and the lobby offers the
 #: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
 #: step adds its two.
-LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
+LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 
 #: Every landed slug whose text the engine plays for its numbers alone.
 #: Written out rather than computed, so the commit that takes a card out
@@ -127,6 +163,12 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS
 #: (docs/design/codex.md, "Red and green"). The heroes' hall's and the
 #: tech lab's text is the engine's own (`RulesEngine.hero_limit`,
 #: `chosen_specs`).
+#:
+#: **Step 12 fills it again** with purple and black, played for their
+#: numbers: every purple or black card, hero and token with text that is
+#: more than keywords the engine reads -- the six heroes' bands among
+#: them. Argonaut's readiness, the Stinger's flying and the Horror's
+#: deathtouch are read whole, and play in full.
 UNIMPLEMENTED: frozenset = frozenset()
 
 
@@ -161,6 +203,11 @@ class Part:
       that belong to one mode.
     - `when="boosted"`: a part done only where the card was boosted.
     - `token`: the token a summoning part makes.
+
+    Step 12 added `follows`: a part that acts on what an earlier part of
+    the same frame chose -- Time Spiral's add or remove, Omegacron's rune
+    -- and so is done only where something was chosen, and never makes
+    a spell playable by itself.
     """
 
     does: str
@@ -175,6 +222,7 @@ class Part:
     modes: tuple = ()
     when: Optional[str] = None
     token: Optional[str] = None
+    follows: bool = False
 
 
 @dataclass(frozen=True)
@@ -223,6 +271,11 @@ class Cost:
     runes: tuple = ()
     discard: int = 0
     needs_spell: bool = False
+    #: "Once-per-turn" (step 12): used at most once each turn.
+    once: bool = False
+    #: Skeletal Lord's "Exhaust five of your Skeletons": ready Skeletons of
+    #: its controller's, arrival fatigue no bar (its ruling).
+    skeletons: int = 0
 
 
 EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
@@ -599,6 +652,467 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # the Ferns, War Drums, and the upgrade Hotter Fire's.
     _effect("behind_the_ferns"),
     _effect("war_drums"),
+
+    # -- Purple and black: the forms of death (step 12) --------------------
+    # Sacrifice the Weak: "Each player sacrifices their weakest unit." --
+    # the lowest tech, then the least ATK; its caster chooses a tie, and
+    # what can't be sacrificed is passed over (its rulings).
+    _effect(
+        "sacrifice_the_weak",
+        Part("sacrifice", "weakest_own_to_sacrifice", 0, "choose your weakest unit to sacrifice",
+             targeted=False),
+        Part("sacrifice", "weakest_opposing_to_sacrifice", 0,
+             "choose their weakest unit, which they sacrifice", targeted=False),
+    ),
+    # Hooded Executioner: "If you boosted, destroy each opponent's weakest
+    # unit." -- indestructible units passed over (its rulings).
+    _effect("hooded_executioner", Part("destroy", "weakest_opposing_to_destroy", 0,
+                                       "choose their weakest unit to destroy", targeted=False,
+                                       when="boosted")),
+    # Death Rites: "Whenever one of your units dies this turn, destroy one of
+    # an opponent's lowest tech units." -- the trigger set on its caster.
+    _effect("death_rites", Part("rites", None, 0, targeted=False)),
+    _effect("death_rites_destroy", Part("destroy", "lowest_opposing_to_destroy", 0,
+                                        "choose one of their lowest tech units to destroy",
+                                        targeted=False)),
+    # Doom Grasp: "Sacrifice a unit. If you do, destroy a tech 0, I, or II
+    # unit or hero." -- the sacrifice no {target}, the destroy one.
+    _effect(
+        "doom_grasp",
+        Part("sacrifice", "own_unit_to_sacrifice", 0, "sacrifice one of your units",
+             targeted=False),
+        Part("destroy", "unit_or_hero_tech_0_2", 0, "destroy a tech 0, I or II unit or hero",
+             follows=True),
+    ),
+    # Spreading Plague: "Destroy all tech 0, I, or II units and heroes that
+    # have -1/-1 runes."
+    _effect("spreading_plague", Part("plague", None, 0, targeted=False)),
+    # Death and Decay: "Give all an opponent's units and heroes -3/-3 this
+    # turn. Deal 3 damage to all their buildings."
+    _effect("death_and_decay", Part("decay", None, 3, targeted=False)),
+    # Shadow Blade: "Deal 3 damage to a patroller. If it dies from Shadow
+    # Blade, its controller discards a card at random."
+    _effect("shadow_blade", Part("shadow_blade", "patroller", 3, "deal 3 damage to a patroller")),
+    # Soul Stone: "Attach to a unit."
+    _effect("soul_stone", Part("attach", "unit", 0, "attach to a unit")),
+    # Poisonblade Rogue: "Attacks: Gets armor piercing and deals damage to
+    # units and heroes in the form of -1/-1 runes this turn."
+    _effect("poisonblade_rogue", Part("poison", None, 0, targeted=False)),
+    # The Graveyard: "{exhaust} -> Play a buried unit. (You still pay for it
+    # and must meet the tech reqs for it.)" -- and boost it, which playing
+    # allows (the boost ruling).
+    _effect(
+        "graveyard",
+        Part("pick_buried", "buried_playable", 0, "choose a buried unit to play", targeted=False),
+        Part("mode", modes=(("plain", "play it"), ("boosted", "play it boosted")),
+             says="boost it or not", follows=True),
+        Part("play_buried", None, 0, targeted=False, follows=True),
+        says="play a buried unit",
+    ),
+
+    # -- Black's effects (step 12, commit 4) -------------------------------
+    # Thieving Imp: "Arrives: An opponent discards a card at random."
+    _effect("thieving_imp", Part("random_discard", None, 0, targeted=False)),
+    # Plague Lab: "Arrives: Put a -1/-1 rune on all of an opponent's units."
+    _effect("plague_lab", Part("runes_on_opposing", None, 1, targeted=False)),
+    # Plague Lab: "{gold:2}, {exhaust} -> For any number of cards with
+    # runes, add another rune of a kind already there." -- one rune a card,
+    # of a kind it has, never a card in the future (its rulings, the FAQ).
+    _effect("plague_lab_runes", Part("lab_rune", "runed_card", 0,
+                                     "add another rune of a kind already on a card",
+                                     targeted=False, most=99, least=0),
+            says="add another rune to any number of cards with runes"),
+    # Plague Lord: "Arrives or attacks: Put a -1/-1 rune on each opposing
+    # unit and hero."
+    _effect("plague_lord", Part("runes_on_opposing", None, 1, targeted=False, token="heroes")),
+    # Cursed Ghoul: "Arrives: Put a -1/-1 rune on a unit."
+    _effect("cursed_ghoul", Part("minus_rune", "unit", 1, "put a -1/-1 rune on a unit")),
+    # Skeleton Javelineer: "Arrives: Put a javelin rune on this." and
+    # "Remove a javelin rune -> This gets long-range this turn."
+    _effect("skeleton_javelineer", Part("rune_on_self", None, 1, targeted=False, token="javelin")),
+    _effect("skeleton_javelineer_throw", Part("keyword_self", None, 0, targeted=False,
+                                              token="Long-range"),
+            says="get long-range this turn"),
+    # Zarramonde: "Arrives: If you played Zarramonde from your hand, destroy
+    # a unit, hero, worker, upgrade, or ongoing spell."
+    _effect("zarramonde_the_obliterator", Part("destroy_any", "anything_destroyable", 0,
+                                               "destroy a unit, hero, worker, upgrade or ongoing spell",
+                                               targeted=False, when="from_hand")),
+    # Terras Q: "Arrives: Summon four 0/1 black Warlock tokens for an
+    # opponent." -- each remembering the Terras Q that made it.
+    _effect("terras_q_the_shackled", Part("token_for_opponent", None, 4, targeted=False,
+                                          token="warlock")),
+    # Bone Collector: "Attacks: Summon a 1/1 black Skeleton token."
+    _effect("bone_collector", Part("token", None, 1, targeted=False, token="skeleton")),
+    # Gorgon: "Dies: Draw a card."
+    _effect("gorgon", Part("draw", None, 1, targeted=False)),
+    # Jandra: "Dies from combat damage: Destroy all your units except for
+    # Demons."
+    _effect("jandra_the_negator", Part("negate", None, 0, targeted=False)),
+    # Blackhand Dozer: "Dies: Active player destroys one of your lowest tech
+    # units." -- asked of the active player, whoever's the Dozer was.
+    _effect("blackhand_dozer", Part("destroy", "lowest_against_to_destroy", 0,
+                                    "choose one of their lowest tech units to destroy",
+                                    targeted=False)),
+    # Necromancer: "Whenever another non-token unit of yours dies, summon a
+    # 1/1 black Skeleton token."
+    _effect("necromancer", Part("token", None, 1, targeted=False, token="skeleton")),
+    # Cursed Crow: "Damages a base: Defending player discards a card at
+    # random." -- the base itself, not a building's 2 (its ruling).
+    _effect("cursed_crow", Part("random_discard", None, 0, targeted=False)),
+    # Deteriorate: "Give a unit -1/-1 this turn."
+    _effect("deteriorate", Part("debuff", "unit", 1, "give a unit -1/-1 this turn")),
+    # Sickness: "Put a -1/-1 rune on up to two units and/or heroes." -- one
+    # or two (its ruling).
+    _effect("sickness", Part("minus_rune", "unit_or_hero", 1,
+                             "put a -1/-1 rune on a unit or hero", most=2, least=1)),
+    # Summon Skeletons: "Summon two 1/1 black Skeleton tokens."
+    _effect("summon_skeletons", Part("token", None, 2, targeted=False, token="skeleton")),
+    # Dark Pact: "Deal 2 damage to a base, then that player draws 2 cards."
+    _effect("dark_pact", Part("dark_pact", "base", 2, "deal 2 damage to a base")),
+    # Carrion Curse: "Look at an opponent's hand. Choose up to two non-unit
+    # cards for them to discard." -- the hand pictured to the caster alone.
+    _effect("carrion_curse", Part("curse_discard", "opponent_hand_nonunit", 0,
+                                  "choose a non-unit card of theirs to discard",
+                                  targeted=False, most=2, least=0)),
+    # Nether Drain: "One hero loses two levels and can't level up this
+    # turn. Another hero gains two levels." -- any player's heroes.
+    _effect(
+        "nether_drain",
+        Part("drain", "hero_in_play", 2, "choose a hero to lose two levels"),
+        Part("gain_levels", "other_hero_in_play", 2, "choose another hero to gain two levels"),
+    ),
+    # Lich's Bargain: "Sacrifice a worker. Your base takes 4 damage. Summon
+    # three black tokens: a 1/1 Skeleton, a 2/2 Zombie, a 3/3 Horror with
+    # deathtouch"
+    _effect(
+        "lichs_bargain",
+        Part("sacrifice", "own_workers", 0, "sacrifice a worker", targeted=False),
+        Part("own_base_damage", None, 4, targeted=False),
+        Part("token", None, 1, targeted=False, token="skeleton"),
+        Part("token", None, 1, targeted=False, token="zombie"),
+        Part("token", None, 1, targeted=False, token="horror"),
+    ),
+    # Metamorphosis: "Sacrifice all units you control. Your non-Demon heroes
+    # level to max and become Demons. Put two +1/+1 runes on each, they get
+    # readiness, and are invisible until they leave play."
+    _effect("metamorphosis", Part("metamorphosis", None, 2, targeted=False)),
+    # Garth at 1: "{gold:1} -> Summon a 1/1 black Skeleton token.
+    # Once-per-turn."
+    _effect("garth_torken", Part("token", None, 1, "summon a Skeleton", targeted=False,
+                                 token="skeleton")),
+    # Garth at 4: "Sacrifice a Skeleton -> Draw a card."
+    _effect(
+        "garth_torken_draw",
+        Part("sacrifice", "own_skeleton", 0, "sacrifice a Skeleton", targeted=False),
+        Part("draw", None, 1, targeted=False, follows=True),
+        says="draw a card",
+    ),
+    # Garth at 7: "Max Level: You may put a tech I or II unit that costs
+    # {gold:5} or less from your discard pile into play if you meet the tech
+    # reqs for it." -- free (his rulings), the discard pictured to him.
+    _effect("garth_torken_max", Part("put_into_play", "discard_tech_1_2_cheap", 0,
+                                     "put a tech I or II unit costing 5 or less from your discard "
+                                     "pile into play", targeted=False, least=0)),
+    # Orpal at 4: "Sacrifice a non-Demon unit -> Put a -1/-1 rune on a unit.
+    # {target} Once-per-turn."
+    _effect(
+        "orpal_gloor",
+        Part("sacrifice", "own_non_demon_to_sacrifice", 0, "sacrifice a non-Demon unit",
+             targeted=False),
+        Part("minus_rune", "unit", 1, "put a -1/-1 rune on a unit", follows=True),
+        says="put a -1/-1 rune on a unit",
+    ),
+    # Orpal at 6: "The first time a unit with a -1/-1 rune dies each turn,
+    # the active player puts a -1/-1 rune on two units friendly to the dead
+    # unit. {target}"
+    _effect("orpal_gloor_max", Part("minus_rune", "units_of_against", 1,
+                                    "put a -1/-1 rune on a unit friendly to the dead unit",
+                                    most=2, least=2)),
+    # Vandy at 3: "{gold:1}, {exhaust}, Discard a card -> Fetch a
+    # Demonology spell from your codex, reveal it, then put it in your hand."
+    _effect(
+        "vandy_anadrose",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("fetch", "codex_demonology_spell", 0, "fetch a Demonology spell from your codex",
+             targeted=False),
+        says="fetch a Demonology spell",
+    ),
+    # Vandy at 5: "Max Level: Give +2/+2 to one friendly and one opposing
+    # tech 0 or I unit. They lose +2/+2 and die at your next upkeep.
+    # {target}" -- mandatory as far as it goes (her rulings).
+    _effect(
+        "vandy_anadrose_max",
+        Part("doom_buff", "own_unit_tech_0_1", 2, "give one of your tech 0 or I units +2/+2"),
+        Part("doom_buff", "opposing_unit_tech_0_1", 2, "give an opposing tech 0 or I unit +2/+2"),
+    ),
+    # Gargoyle: "{gold:1} -> Until your next upkeep, Gargoyle isn't
+    # indestructible, gains flying, +3 ATK, and it can attack and patrol.
+    # Once-per-turn."
+    _effect("gargoyle", Part("gargoyle", None, 3, targeted=False),
+            says="lose indestructible and gain flying, +3 ATK, attack and patrol"),
+    # Corpse Catapult: "{exhaust}, Remove two corpse runes -> Deal 6 damage
+    # to a building."
+    _effect("corpse_catapult", Part("damage", "building", 6, "deal 6 damage to a building")),
+    # Crypt Crawler: "{gold:1} -> A flier loses flying this turn."
+    _effect("crypt_crawler", Part("ground", "flier", 0, "make a flier lose flying this turn")),
+    # Skeletal Lord: "Exhaust five of your Skeletons -> Put a unit from your
+    # hand into play." -- no requirements, fatigued Skeletons too (its
+    # rulings).
+    _effect(
+        "skeletal_lord",
+        Part("exhaust_skeletons", None, 5, targeted=False),
+        Part("put_into_play", "hand_unit", 0, "put a unit from your hand into play",
+             targeted=False),
+        says="put a unit from your hand into play",
+    ),
+    # Blackhand Resurrector: "{exhaust}, Sacrifice Blackhand Resurrector ->
+    # Summon a hero from your command zone that died previously this game.
+    # It arrives at max level."
+    _effect("blackhand_resurrector", Part("resurrect", "dead_hero", 0,
+                                          "summon a hero that died this game, at max level",
+                                          targeted=False)),
+
+    # -- Purple's effects (step 12, commit 5) -----------------------------
+    # Max Geiger at 3: "{exhaust}, Discard a card -> Draw a card."
+    _effect(
+        "max_geiger",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("draw", None, 1, targeted=False),
+        says="draw a card",
+    ),
+    # Max Geiger at 5: "Max Level: You may trash a friendly unit then return
+    # it to play. {target}" -- fresh, under the same controller, with
+    # arrival fatigue (his rulings).
+    _effect("max_geiger_max", Part("geiger", "own_unit", 0, "trash a friendly unit and return it",
+                                   least=0)),
+    # Prynn at 1: "Attacks: Put a time rune on this."
+    _effect("prynn_pasternaak", Part("time_rune_self", None, 1, targeted=False)),
+    # Prynn at 7: "Remove two time runes -> Trash a unit. {target}" -- at two
+    # runes she may, and dies at once, not from fading (her rulings).
+    _effect(
+        "prynn_pasternaak_max",
+        Part("prynn_trash", "unit", 0, "trash a unit"),
+        Part("fade_check", None, 0, targeted=False),
+        says="trash a unit",
+    ),
+    # Vir at 1: "{gold:0} -> Look at the top card of your draw pile." --
+    # pictured to him alone; nothing on an empty pile (his rulings).
+    _effect("vir_garbarean", Part("look", "deck_top", 0, "look at the top card of your draw pile",
+                                  targeted=False, least=0),
+            says="look at the top card of your draw pile"),
+    # Vir at 1: "{gold:1} -> Exchange the top card of your draw pile with a
+    # card from your hand."
+    _effect("vir_garbarean_exchange", Part("exchange", "hand_card_with_deck", 0,
+                                           "choose a card from your hand to put on top",
+                                           targeted=False),
+            says="exchange the top card of your draw pile with a card from your hand"),
+    # Vir at 5: "{exhaust} -> Play the top card of your draw pile. (You still
+    # pay for it and must meet the reqs for it.)"
+    _effect(
+        "vir_garbarean_play",
+        Part("pick_top", "deck_top_playable", 0, "play the top card of your draw pile",
+             targeted=False),
+        Part("mode", modes=(("plain", "play it"), ("boosted", "play it boosted")),
+             says="boost it or not", follows=True),
+        Part("play_top", None, 0, targeted=False, follows=True),
+        says="play the top card of your draw pile",
+    ),
+    # Vir at 7: "Max Level: Summon a 6/7 purple Mech token with forecast 2
+    # that's untargetable."
+    _effect("vir_garbarean_max", Part("token", None, 1, targeted=False, token="mech")),
+    # Forgotten Fighter: "Return a patrolling tech 0 or I unit with 2 ATK or
+    # less to its owner's hand."
+    _effect("forgotten_fighter", Part("return", "patrolling_weak_unit", 0,
+                                      "return a patrolling tech 0 or I unit with 2 ATK or less")),
+    # Undo: "Return a tech 0, I, or II unit to its owner's hand."
+    _effect("undo", Part("return", "unit_tech_upto_2", 0, "return a tech 0, I or II unit")),
+    # Stewardess of the Undone: "Arrives: You may return a tech 0 unit to
+    # its owner's hand."
+    _effect("stewardess_of_the_undone", Part("return", "unit_tech_0", 0, "return a tech 0 unit",
+                                             least=0)),
+    # Origin Story: "Return a hero to its command zone." -- no death, its
+    # levels and runes gone, and no summoning runes (the author,
+    # 2026-10-09).
+    _effect("origin_story", Part("to_command_zone", "hero_in_play", 0,
+                                 "return a hero to its command zone")),
+    # Assimilate: "Gain control of an upgrade, ongoing spell, or building
+    # card (not add-on)."
+    _effect("assimilate", Part("steal", "opposing_upgrade_spell_or_building_card", 0,
+                               "gain control of an upgrade, ongoing spell or building card")),
+    # Temporal Distortion: "Return a tech I or II unit of yours to its
+    # owner's hand. If you do, you may put a unit of the same tech level and
+    # the same cost or less from your codex into play. (Even if you don't
+    # meet the tech reqs for it.)"
+    _effect(
+        "temporal_distortion",
+        Part("distort", "own_unit_tech_1_2", 0, "return a tech I or II unit of yours",
+             targeted=False),
+        Part("put_into_play", "codex_distortion", 0,
+             "put a unit of that tech level costing no more from your codex into play",
+             targeted=False, least=0, follows=True),
+    ),
+    # Ready or Not: "Ready one of your units. Opposing exhausted units don't
+    # ready during their next ready step."
+    _effect(
+        "ready_or_not",
+        Part("ready", "own_unit", 0, "ready one of your units"),
+        Part("hold_down", None, 0, targeted=False),
+    ),
+    # Rewind: "Return all tech 0, I, and II units to their owner's hands."
+    _effect("rewind", Part("rewind", None, 0, targeted=False)),
+    # Research & Development: "Draw five cards."
+    _effect("research__development", Part("draw", None, 5, targeted=False)),
+    # Now: "Give a unit or hero haste this turn."
+    _effect("now", Part("keyword", "unit_or_hero", 0, "give a unit or hero haste this turn",
+                        token="Haste")),
+    # Unphase: "Make a unit or hero invisible until your next upkeep."
+    _effect("unphase", Part("unphase", "unit_or_hero", 0,
+                            "make a unit or hero invisible until your next upkeep")),
+    # Hive: "Arrives: Summon five 1/1 purple Stinger tokens with flying." and
+    # "{gold:1} -> Re-summon a lost Stinger (limit: 5 per Hive.)"
+    _effect("hive", Part("stingers", None, 5, targeted=False)),
+    _effect("hive_resummon", Part("stingers", None, 1, targeted=False),
+            says="re-summon a lost Stinger"),
+    # The Stingers past five a Hive, sacrificed -- the active player choosing
+    # which (Hive's rulings).
+    _effect("hive_excess", Part("sacrifice", "stingers_of_against", 0,
+                                "choose a Stinger to sacrifice", targeted=False, most=99, least=99)),
+    # Ebbflow Archon: "Remove a time rune -> Return a unit to its owner's
+    # hand or a hero to its command zone."
+    _effect(
+        "ebbflow_archon",
+        Part("bounce", "unit_or_hero", 0, "return a unit to its owner's hand or a hero to its command zone"),
+        Part("fade_check", None, 0, targeted=False),
+        says="return a unit or a hero",
+    ),
+    # Nebula: "{gold:0} -> Destroy a tech 0, I, or II unit. Once-per-turn."
+    _effect("nebula", Part("destroy", "unit_tech_upto_2", 0, "destroy a tech 0, I or II unit")),
+    # Octavian: "{gold:8}, {exhaust} -> Ready Octavian and disable up to eight
+    # units and/or heroes."
+    _effect(
+        "octavian",
+        Part("ready_self", None, 0, targeted=False),
+        Part("disable", "unit_or_hero", 0, "disable a unit or hero", most=8, least=0),
+        says="ready it and disable up to eight units and heroes",
+    ),
+    # Reaver: "{gold:1}, {exhaust}, Discard a card -> Choose one: Trash 2
+    # workers. Deal 6 damage to up to 2 units and/or heroes."
+    _effect(
+        "reaver",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("mode", modes=(("workers", "trash 2 workers"),
+                            ("damage", "deal 6 damage to up to 2 units and heroes")),
+             says="choose one"),
+        Part("trash", "workers", 0, "trash a worker", targeted=False, most=2, least=2,
+             only="workers"),
+        Part("damage", "unit_or_hero", 6, "deal 6 damage to a unit or hero", targeted=False,
+             most=2, least=1, only="damage"),
+        says="trash 2 workers, or deal 6 to up to 2 units and heroes",
+    ),
+    # Rememberer: "Whenever you remove a time rune from Rememberer, you may
+    # put a unit with fading from your discard pile into play if you meet
+    # the tech requirements for it."
+    _effect("rememberer", Part("put_into_play", "discard_fading_unit", 0,
+                               "put a unit with fading from your discard pile into play",
+                               targeted=False, least=0)),
+    # Tricycloid: "Arrives: Put three time runes on this." and "Remove a time
+    # rune -> Deal 1 damage to a unit, hero, or building."
+    _effect("tricycloid", Part("time_rune_self", None, 3, targeted=False)),
+    _effect("tricycloid_shot", Part("damage", "unit_hero_or_building", 1,
+                                    "deal 1 damage to a unit, hero or building"),
+            says="deal 1 damage to a unit, hero or building"),
+    # Void Star: "{gold:4} -> Gets +4 ATK until your next upkeep.
+    # Once-per-turn."
+    _effect("void_star", Part("void_star", None, 4, targeted=False), says="get +4 ATK"),
+    # Vortoss Emblem: "Attach to a unit. That unit is a flagbearer."
+    _effect("vortoss_emblem", Part("attach", "unit", 0, "attach to a unit")),
+    # Warp Gate Disciple: "{gold:1}, {exhaust} -> Put a tech I or II unit from
+    # your codex into play. (You don't have to meet the tech reqs for it.)"
+    _effect("warp_gate_disciple", Part("put_into_play", "codex_tech_1_2_unit", 0,
+                                       "put a tech I or II unit from your codex into play",
+                                       targeted=False)),
+    # Xenostalker: "Attacks: Deal 1 damage to up to four patrollers without
+    # flying."
+    _effect("xenostalker", Part("damage", "ground_patroller", 1,
+                                "deal 1 damage to a patroller without flying", most=4, least=0)),
+    # Hyperion: "Attacks: Draw a card."
+    _effect("hyperion", Part("draw", None, 1, targeted=False)),
+
+    # -- The upkeep, the extra turn and the debt (step 12, commit 6) --------
+    # Promise of Payment: "The next card you play this turn costs {gold:0}.
+    # Pay its gold cost during your next upkeep or lose the game."
+    _effect("promise_of_payment", Part("promise", None, 0, targeted=False)),
+    # Double Time: "Take an extra turn after this one, then trash this
+    # card." -- as it resolves from the future.
+    _effect("double_time", Part("extra_turn", None, 0, targeted=False), trash_after=True),
+    # Banefire Golem: "Upkeep: Sacrifice a unit. If you do, deal 1 damage to
+    # each opposing unit, hero, and building." -- itself where nothing else,
+    # mandatory (its ruling).
+    _effect(
+        "banefire_golem",
+        Part("sacrifice", "own_unit_to_sacrifice", 0, "sacrifice one of your units", targeted=False),
+        Part("banefire", None, 1, targeted=False, follows=True),
+    ),
+
+    # -- Purple and black: time (step 12) ----------------------------------
+    # Time Spiral: "Add or remove a time rune from a card (or forcasted
+    # card) with at least one time rune." -- any player's (its ruling), no
+    # {target}. The card first, then which.
+    _effect(
+        "time_spiral",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+        says="add or remove a time rune",
+    ),
+    # Tinkerer: "{exhaust} -> Add or remove a time rune from a card (or
+    # forcasted card) with at least one time rune."
+    _effect(
+        "tinkerer",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+        says="add or remove a time rune",
+    ),
+    # Seer: "Arrives: You may add or remove a time rune from a card (or
+    # forcasted card) with at least one time rune."
+    _effect(
+        "seer",
+        Part("time_target", "timed", 0, "choose a card with a time rune", targeted=False, least=0),
+        Part("mode", modes=(("add", "add a time rune"), ("remove", "remove a time rune")),
+             says="add or remove", follows=True),
+        Part("time_rune", None, 0, targeted=False, follows=True),
+    ),
+    # Shimmer Ray: "Discard a card -> Add a time rune to this." -- in the
+    # main phase alone (its ruling): an ability action.
+    _effect(
+        "shimmer_ray",
+        Part("discard", "hand_card", 0, "discard a card", targeted=False, most=1, least=1),
+        Part("time_rune_self", None, 1, targeted=False),
+        says="add a time rune to it",
+    ),
+    # Omegacron: "Sacrifice a unit, hero, worker, or upgrade -> Remove a
+    # time rune from Omegacron while it's forecasted." -- the one ability
+    # used from the future.
+    _effect(
+        "omegacron",
+        Part("sacrifice", "own_sacrificable", 0, "sacrifice a unit, hero, worker or upgrade",
+             targeted=False),
+        Part("time_rune_self", None, -1, targeted=False, follows=True),
+        says="remove a time rune from it",
+    ),
+    # Temporal Research: "Draw a card. If you have 3 or more time runes,
+    # draw another card. If you have 10 or more time runes, draw another
+    # card." -- every time rune on what its caster controls, the future
+    # included (its rulings).
+    _effect(
+        "temporal_research",
+        Part("draw", None, 1, targeted=False),
+        Part("research", None, 0, targeted=False),
+    ),
 )}
 
 
@@ -697,6 +1211,88 @@ TEXT: dict = {
     ("argagarg_garg", 5): (("max_level", "argagarg_garg_max"),),
     ("calamandra_moss", 1): (("ability", "calamandra_moss"),),
     ("calamandra_moss", 5): (("ability", "calamandra_moss_max"),),
+    # Purple and black (step 12). `future_ability` is an ability used
+    # while the card is in the future: Omegacron's alone.
+    "time_spiral": (("play", "time_spiral"),),
+    "tinkerer": (("ability", "tinkerer"),),
+    "seer": (("arrives", "seer"),),
+    "shimmer_ray": (("ability", "shimmer_ray"),),
+    "omegacron": (("future_ability", "omegacron"),),
+    "temporal_research": (("play", "temporal_research"),),
+    "sacrifice_the_weak": (("play", "sacrifice_the_weak"),),
+    "hooded_executioner": (("arrives", "hooded_executioner"),),
+    "death_rites": (("play", "death_rites"),),
+    "doom_grasp": (("play", "doom_grasp"),),
+    "spreading_plague": (("play", "spreading_plague"),),
+    "death_and_decay": (("play", "death_and_decay"),),
+    "shadow_blade": (("play", "shadow_blade"),),
+    "soul_stone": (("play", "soul_stone"),),
+    "poisonblade_rogue": (("attacks", "poisonblade_rogue"),),
+    "graveyard": (("ability", "graveyard"),),
+    # Black's (commit 4).
+    "thieving_imp": (("arrives", "thieving_imp"),),
+    "plague_lab": (("arrives", "plague_lab"), ("ability", "plague_lab_runes")),
+    "plague_lord": (("arrives", "plague_lord"), ("attacks", "plague_lord")),
+    "cursed_ghoul": (("arrives", "cursed_ghoul"),),
+    "skeleton_javelineer": (("arrives", "skeleton_javelineer"),
+                            ("ability", "skeleton_javelineer_throw")),
+    "zarramonde_the_obliterator": (("arrives", "zarramonde_the_obliterator"),),
+    "terras_q_the_shackled": (("arrives", "terras_q_the_shackled"),),
+    "bone_collector": (("attacks", "bone_collector"),),
+    "gorgon": (("dies", "gorgon"),),
+    "jandra_the_negator": (("dies_from_combat", "jandra_the_negator"),),
+    "blackhand_dozer": (("dies", "blackhand_dozer"),),
+    "deteriorate": (("play", "deteriorate"),),
+    "sickness": (("play", "sickness"),),
+    "summon_skeletons": (("play", "summon_skeletons"),),
+    "dark_pact": (("play", "dark_pact"),),
+    "carrion_curse": (("play", "carrion_curse"),),
+    "nether_drain": (("play", "nether_drain"),),
+    "lichs_bargain": (("play", "lichs_bargain"),),
+    "metamorphosis": (("play", "metamorphosis"),),
+    "gargoyle": (("ability", "gargoyle"),),
+    "corpse_catapult": (("ability", "corpse_catapult"),),
+    "crypt_crawler": (("ability", "crypt_crawler"),),
+    "skeletal_lord": (("ability", "skeletal_lord"),),
+    "blackhand_resurrector": (("ability", "blackhand_resurrector"),),
+    ("garth_torken", 1): (("ability", "garth_torken"),),
+    ("garth_torken", 4): (("ability", "garth_torken_draw"),),
+    ("garth_torken", 7): (("max_level", "garth_torken_max"),),
+    ("orpal_gloor", 4): (("ability", "orpal_gloor"),),
+    ("vandy_anadrose", 3): (("ability", "vandy_anadrose"),),
+    ("vandy_anadrose", 5): (("max_level", "vandy_anadrose_max"),),
+    # Purple's (commit 5).
+    ("max_geiger", 3): (("ability", "max_geiger"),),
+    ("max_geiger", 5): (("max_level", "max_geiger_max"),),
+    ("prynn_pasternaak", 1): (("attacks", "prynn_pasternaak"),),
+    ("prynn_pasternaak", 7): (("ability", "prynn_pasternaak_max"),),
+    ("vir_garbarean", 1): (("ability", "vir_garbarean"), ("ability", "vir_garbarean_exchange")),
+    ("vir_garbarean", 5): (("ability", "vir_garbarean_play"),),
+    ("vir_garbarean", 7): (("max_level", "vir_garbarean_max"),),
+    "forgotten_fighter": (("play", "forgotten_fighter"),),
+    "undo": (("play", "undo"),),
+    "stewardess_of_the_undone": (("arrives", "stewardess_of_the_undone"),),
+    "origin_story": (("play", "origin_story"),),
+    "assimilate": (("play", "assimilate"),),
+    "temporal_distortion": (("play", "temporal_distortion"),),
+    "ready_or_not": (("play", "ready_or_not"),),
+    "rewind": (("play", "rewind"),),
+    "research__development": (("play", "research__development"),),
+    "now": (("play", "now"),),
+    "unphase": (("play", "unphase"),),
+    "vortoss_emblem": (("play", "vortoss_emblem"),),
+    "hive": (("arrives", "hive"), ("ability", "hive_resummon")),
+    "ebbflow_archon": (("ability", "ebbflow_archon"),),
+    "nebula": (("ability", "nebula"),),
+    "octavian": (("ability", "octavian"),),
+    "reaver": (("ability", "reaver"),),
+    "tricycloid": (("arrives", "tricycloid"), ("ability", "tricycloid_shot")),
+    "void_star": (("ability", "void_star"),),
+    "warp_gate_disciple": (("ability", "warp_gate_disciple"),),
+    "xenostalker": (("attacks", "xenostalker"),),
+    "promise_of_payment": (("play", "promise_of_payment"),),
+    "double_time": (("play", "double_time"),),
+    "hyperion": (("attacks", "hyperion"),),
 }
 
 #: What each ability action costs (`Cost`), by its effect.
@@ -724,6 +1320,37 @@ COSTS: dict[str, Cost] = {
     "argagarg_garg": Cost(exhaust=True),
     "calamandra_moss": Cost(discard=2),
     "calamandra_moss_max": Cost(gold=4, exhaust=True),
+    # Purple and black (step 12).
+    "tinkerer": Cost(exhaust=True),
+    "shimmer_ray": Cost(discard=1),
+    "omegacron": Cost(),
+    "graveyard": Cost(exhaust=True),
+    # Black's (commit 4).
+    "plague_lab_runes": Cost(gold=2, exhaust=True),
+    "skeleton_javelineer_throw": Cost(runes=("javelin", 1)),
+    "gargoyle": Cost(gold=1, once=True),
+    "corpse_catapult": Cost(exhaust=True, runes=("corpse", 2)),
+    "crypt_crawler": Cost(gold=1),
+    "skeletal_lord": Cost(skeletons=5),
+    "blackhand_resurrector": Cost(exhaust=True, sacrifice=True),
+    "garth_torken": Cost(gold=1, once=True),
+    "garth_torken_draw": Cost(),
+    "orpal_gloor": Cost(once=True),
+    "vandy_anadrose": Cost(gold=1, exhaust=True, discard=1),
+    # Purple's (commit 5).
+    "max_geiger": Cost(exhaust=True, discard=1),
+    "prynn_pasternaak_max": Cost(runes=("time", 2)),
+    "vir_garbarean": Cost(),
+    "vir_garbarean_exchange": Cost(gold=1),
+    "vir_garbarean_play": Cost(exhaust=True),
+    "hive_resummon": Cost(gold=1),
+    "ebbflow_archon": Cost(runes=("time", 1)),
+    "nebula": Cost(once=True),
+    "octavian": Cost(gold=8, exhaust=True),
+    "reaver": Cost(gold=1, exhaust=True, discard=1),
+    "tricycloid_shot": Cost(runes=("time", 1)),
+    "void_star": Cost(gold=4, once=True),
+    "warp_gate_disciple": Cost(gold=1, exhaust=True),
 }
 
 
@@ -977,3 +1604,171 @@ RETURNS_AT_END = frozenset({"chameleon_lizzo"})
 POLYMORPH_INTO = "squirrel"
 #: The attacks lines an attached spell gives what it is on.
 ATTACHED_ATTACKS = {"spirit_of_the_panda": "panda_gold", "final_showdown": "showdown_draw"}
+
+# -- Purple and black's static texts (step 12) --------------------------------
+
+#: "Can't have more than 1 ATK." -- Pestering Haunt, after everything
+#: else is added.
+ATK_CEILING = {"pestering_haunt": 1}
+#: "Can't be sacrificed." -- ignored completely when choosing what to
+#: sacrifice (its ruling); an indestructible card can't be either (UMR
+#: p. 17), which the engine reads off the keyword.
+CANT_BE_SACRIFICED = frozenset({"pestering_haunt"})
+#: Cursed Ghoul: "Unstoppable by units with -1/-1 runes."
+UNSTOPPABLE_BY_RUNED = frozenset({"cursed_ghoul"})
+#: Shrine of Forbidden Knowledge: "Your Demons are unstoppable by units."
+DEMONS_UNSTOPPABLE = frozenset({"shrine_of_forbidden_knowledge"})
+DEMON = "Demon"
+#: Wight: "Unstoppable when attacking heroes. Deathtouch when attacking
+#: heroes." -- it may ignore the patrol zone to attack a hero, and its
+#: combat damage to the hero it attacks is deathtouch.
+UNSTOPPABLE_ATTACKING_HEROES = frozenset({"wight"})
+WHEN_ATTACKING_HEROES = {"wight": ("Deathtouch",)}
+#: Nullcraft: "Can't be the {target} of Buff or Debuff spells." -- a
+#: spell whose subtype says Buff or Debuff, or both (its ruling).
+UNTARGETABLE_BY_BUFFS = frozenset({"nullcraft"})
+BUFF_SUBTYPES = ("Buff", "Debuff")
+#: Battle Suits: "Your non-token Soldiers and Mystics get +1 ATK." -- the
+#: subtypes it reads.
+SUITED = ("Soldier", "Mystic")
+#: Lord of Shadows: "Your black units are invisible." -- himself included
+#: (his ruling).
+INVISIBLE_COLOR = {"lord_of_shadows": "black"}
+UNIT_GRANTS.update({
+    "battle_suits": "battle_suits",
+    "lord_of_shadows": "black_invisible",
+})
+#: Pestering Haunt's "can't patrol" beside red and green's.
+CANT_PATROL = CANT_PATROL | {"pestering_haunt"}
+
+# -- The forms of death (step 12, commit 3) -------------------------------------
+
+#: What a random choice a journal records looks like beside the shuffles:
+#: `[PICK, slug]` -- a card discarded at random (Thieving Imp, Cursed Crow,
+#: Shadow Blade), a unit Second Chances returns. No slug begins with "@".
+PICK = "@pick"
+#: "Deals damage to units and heroes in the form of -1/-1 runes." --
+#: Plague Spitter's, Orpal Gloor's from his first band, and Poisonblade
+#: Rogue's while it attacks (a modifier of the turn).
+RUNE_DAMAGE = frozenset({"plague_spitter"})
+RUNE_DAMAGE_BANDS = {("orpal_gloor", 1)}
+#: Blackhand Dozer: "Damage you deal can reduce opposing bases' HP to 6,
+#: but not lower." -- any damage its controller deals, on any turn (its
+#: ruling and the Card FAQ).
+BASE_FLOOR = {"blackhand_dozer": 6}
+#: The Graveyard: "Whenever your non-token units die, bury them here.
+#: Sacrifice Graveyard when four or more units are buried in it."
+GRAVEYARD = "graveyard"
+GRAVEYARD_LIMIT = 4
+#: Soul Stone: "Attached unit gets +1/+1. If it would die, instead remove
+#: all damage from it and sacrifice all Soul Stones on it."
+SOUL_STONE = "soul_stone"
+ATTACHING = ATTACHING | {SOUL_STONE}
+ATTACHED_UNIT_GRANTS = {**ATTACHED_UNIT_GRANTS, SOUL_STONE: "soul_stone"}
+#: Death Rites: "Whenever one of your units dies this turn, destroy one of
+#: an opponent's lowest tech units." -- a this-turn trigger on its caster.
+DEATH_RITES = "death_rites"
+
+# -- Black's static texts (step 12, commit 4) -------------------------------------
+
+#: Abomination: "All other units get -1/-1." -- both sides, stacking, two
+#: giving each other -1/-1 (its ruling).
+ALL_OTHER_UNITS = {"abomination": (-1, -1)}
+#: Corpse Catapult: "Whenever one of your units dies, put a corpse rune on
+#: this."
+CORPSE_RUNES = frozenset({"corpse_catapult"})
+#: Necromancer: "Whenever another non-token unit of yours dies, summon a
+#: 1/1 black Skeleton token."
+SKELETON_ON_DEATH = frozenset({"necromancer"})
+#: Cursed Crow: "Damages a base: Defending player discards a card at
+#: random."
+ON_DAMAGING_A_BASE = {"cursed_crow": "cursed_crow"}
+#: Gargoyle: "Can't attack or patrol." -- until its own ability frees it.
+CANT_ATTACK = CANT_ATTACK | {"gargoyle"}
+CANT_PATROL = CANT_PATROL | {"gargoyle"}
+#: Terras Q: "Terras Q can't attack or patrol while any of those tokens are
+#: in play." -- the four his arrival made, by lineage (`made_by`).
+SHACKLED = frozenset({"terras_q_the_shackled"})
+#: Twilight Baron: "You can't play tech II or III units."
+NO_HIGH_TECH_UNITS = frozenset({"twilight_baron"})
+#: Voidblocker: "Whenever an opponent attacks Voidblocker, they exhaust
+#: another of their ready units or heroes."
+VOIDBLOCKERS = frozenset({"voidblocker"})
+_effect_voidblocker = _effect("voidblocker", Part("exhaust", "own_ready_other", 0,
+                                                  "exhaust another of your ready units or heroes",
+                                                  targeted=False))
+EFFECTS[_effect_voidblocker.key] = _effect_voidblocker
+#: Shrine of Forbidden Knowledge: "Draw/Discard phase: Card draw +1, hand
+#: size +1" -- each Shrine (the Card FAQ: two, +2 and a hand of seven).
+DRAW_MORE = frozenset({"shrine_of_forbidden_knowledge"})
+#: Skeletal Lord's +1/+1 and Skeletal Archery's long-range and anti-air,
+#: to their controller's Skeletons.
+SKELETON = "Skeleton"
+UNIT_GRANTS.update({
+    "skeletal_lord": "skeletons",
+    "skeletal_archery": "skeleton_archery",
+})
+#: Orpal at 6, once a turn: the first unit with a -1/-1 rune to die.
+ORPAL_MAX = ("orpal_gloor", 6)
+#: Metamorphosis's grants to a hero, until it leaves play.
+METAMORPHOSIS_KEYWORDS = ("Readiness", "Invisible")
+
+# -- Purple's static texts (step 12, commit 5) ------------------------------------
+
+#: Chronofixer: "Opposing heroes can't level up." -- by any means (its
+#: rulings).
+NO_OPPOSING_LEVELS = frozenset({"chronofixer"})
+#: Gilded Glaxx: "While you have gold in your gold pile, you can't
+#: sacrifice Gilded Glaxx and he can't leave play unless he dies from
+#: combat damage."
+CANT_LEAVE_WITH_GOLD = frozenset({"gilded_glaxx"})
+#: Hardened Mox: "When you have a tech II unit (even a forecasted one),
+#: trash Hardened Mox."
+TRASHED_BY_TECH_II = frozenset({"hardened_mox"})
+#: Ebbflow Archon's "Gets -1/-1 for each time rune on it", Tricycloid's
+#: "+1/+1".
+PER_TIME_RUNE = {"ebbflow_archon": -1, "tricycloid": 1}
+#: Nebula: "Your other units are invisible."
+UNIT_GRANTS.update({"nebula": "others_invisible"})
+#: Second Chances: "Whenever one of your non-token units leaves play from
+#: something other than combat damage, return it to play. Once-per-turn."
+SECOND_CHANCES = frozenset({"second_chances"})
+#: Sentry: "Prevent the first damage per turn that a spell or ability would
+#: deal to one of your patrollers."
+SENTRIES = frozenset({"sentry"})
+#: Slowtime Generator: "Each player's workers can't produce more than
+#: {gold:4} total during their upkeep."
+SLOWTIME = {"slowtime_generator": 4}
+#: Yesterday's Golgort: "Whenever you deal combat damage to a building, put
+#: a time rune on this." -- any card or effect of its controller's, spells
+#: included (the Card FAQ).
+GOLGORTS = frozenset({"yesterdays_golgort"})
+#: Vortoss Emblem: "Attach to a unit. That unit is a flagbearer."
+VORTOSS_EMBLEM = "vortoss_emblem"
+ATTACHING = ATTACHING | {VORTOSS_EMBLEM}
+#: Rewind: "Your max level Past hero can cast this no matter when she
+#: arrived or maxed."
+ANY_TIME_ULTIMATES = frozenset({"rewind"})
+#: Hive: "limit: 5 per Hive", and the Stinger.
+HIVE = "hive"
+STINGER = "stinger"
+STINGERS_PER_HIVE = 5
+#: Rememberer: "Whenever you remove a time rune from Rememberer".
+REMEMBERERS = frozenset({"rememberer"})
+#: Prynn at 4: "Dies from fading: Opponents skip their next draw/discard
+#: step (they keep their hand cards)."; at 7, "Leaves: Return all cards to
+#: play that Pasternaak trashed."
+PRYNN = "prynn_pasternaak"
+PRYNN_FADES = ("prynn_pasternaak", 4)
+PRYNN_RETURNS = ("prynn_pasternaak", 7)
+
+# -- The upkeep's own (step 12, commit 6) ------------------------------------------
+
+#: Banefire Golem: "Upkeep: Sacrifice a unit." -- the effect it asks.
+UPKEEP_SACRIFICE = {"banefire_golem": "banefire_golem"}
+#: Plague Lord: "Upkeep: Each player's base takes 1 damage for each -1/-1
+#: rune on their units and heroes." -- its controller's upkeep alone, its
+#: own base included (its ruling).
+PLAGUE_UPKEEP = frozenset({"plague_lord"})
+#: Shrine of Forbidden Knowledge: "Upkeep: Your base takes 1 damage."
+SELF_BASE_UPKEEP = {"shrine_of_forbidden_knowledge": 1}

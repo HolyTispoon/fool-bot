@@ -151,6 +151,9 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
 #: against three green, each on its own colour's deck.
 STANDARD_TEAMS = (["fire", "anarchy", "blood"], ["feral", "growth", "balance"])
 STANDARD_SEED = 20261009
+#: Step 12's third game: three purple heroes against three black.
+PURPLE_BLACK_TEAMS = (["past", "present", "future"], ["demonology", "disease", "necromancy"])
+PURPLE_BLACK_SEED = 20261010
 
 
 def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
@@ -164,8 +167,8 @@ def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexG
         game.take_seat(202, "fencer", "finesse")
     else:
         game.set_mode("standard")
-        game.take_seat(101, "red", teams[0])
-        game.take_seat(202, "green", teams[1])
+        game.take_seat(101, "first", teams[0])
+        game.take_seat(202, "second", teams[1])
     game.start(engine)
     match = MatchState.from_dict(game.match_state)
     transcript: list[str] = []
@@ -328,6 +331,46 @@ class CodexStandardGameTests(unittest.TestCase):
 
         self.assertTrue(played & effects.RED and played & effects.GREEN)
         self.assertFalse(any("(its text is not played yet)" in line for line in self.transcript))
+
+    def test_nothing_hidden_is_said(self) -> None:
+        for line in self.transcript:
+            if "hires a worker" in line or "their tech" in line:
+                for slug in self.engine.catalog.cards:
+                    name = self.engine.catalog.name(slug)
+                    self.assertNotIn(f" {name} ", f" {line} ")
+
+
+class CodexPurpleBlackGameTests(unittest.TestCase):
+    """
+    Step 12's third game: three purple heroes against three black -- the
+    Vortoss Conclave against the Blackhand Scourge -- through the driver
+    alone, to a destroyed base.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        cls.engine, cls.game, cls.match, cls.transcript = play(
+            PURPLE_BLACK_SEED, teams=PURPLE_BLACK_TEAMS, say=print if verbose else None,
+        )
+
+    def test_a_base_is_destroyed_within_the_bound(self) -> None:
+        self.assertIsNotNone(self.match.winner)
+        self.assertLessEqual(self.match.turn, TURN_LIMIT)
+        loser = self.match.opponent(self.match.winner)
+        self.assertTrue(loser.base_hp == 0)
+
+    def test_three_heroes_a_side_on_their_colours(self) -> None:
+        for player, team in zip(self.match.players, PURPLE_BLACK_TEAMS):
+            self.assertEqual(player.specs, tuple(team))
+        self.assertEqual(self.match.player(1).deck_color, "purple")
+        self.assertEqual(self.match.player(2).deck_color, "black")
+
+    def test_purple_and_black_cards_were_played(self) -> None:
+        from codex import effects
+
+        played = {event["slug"] for event in self.match.events if event["kind"] == "played"}
+        self.assertTrue(played & effects.PURPLE and played & effects.BLACK)
 
     def test_nothing_hidden_is_said(self) -> None:
         for line in self.transcript:

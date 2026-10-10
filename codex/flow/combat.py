@@ -119,10 +119,23 @@ def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     return _Fighter(seat, ref, building=board.named(match, seat, ref))
 
 
-def _take(fighter: _Fighter, amount: int, piercing: bool = False) -> int:
+def _take(fighter: _Fighter, amount: int, piercing: bool = False, runes: bool = False) -> int:
     """Combat damage onto a unit or hero, armor first unless it pierces;
-    what landed."""
-    return board.take_damage(fighter.body, amount, piercing)
+    what landed -- as -1/-1 runes where the source deals its damage so
+    (UMR p. 13: "This counts as combat damage, so it can be prevented by
+    armor"), each cancelling a +1/+1 rune first."""
+    if not runes:
+        return board.take_damage(fighter.body, amount, piercing)
+    body = fighter.body
+    absorbed = 0 if piercing else min(body.armor, amount)
+    body.armor -= absorbed
+    landed = amount - absorbed
+    for _ in range(landed):
+        if body.plus_runes:
+            body.plus_runes -= 1
+        else:
+            body.minus_runes += 1
+    return landed
 
 
 def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -> bool:
@@ -131,10 +144,13 @@ def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -
 
 
 def _destroy(engine: "RulesEngine", match: MatchState, fighters: list[_Fighter],
-             result: StepResult) -> None:
+             result: StepResult, combat: bool = False) -> None:
     """Destroy each of these, and give the kill's two levels to the
-    opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`."""
-    board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result)
+    opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`;
+    `combat` where combat damage killed them, which "dies from combat
+    damage" reads (step 12)."""
+    board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result,
+                  combat=combat)
 
 
 # -- Declaring the attack ---------------------------------------------------
@@ -187,6 +203,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 f"{hitting.named(whose=False)}."
             )
             match.record_event("detected", card=attacker, by=other)
+        _voidblocker(engine, match, seat, attacker, defender, result)
     else:
         # The defender obliterate or a trigger took, chosen again: the
         # attack goes on from where it stood -- its triggers, once.
@@ -198,6 +215,21 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(f"They have chosen {taking.named(whose=False)}.")
         match.record_event("attacked", attacker=state["attacker"], defender=defender)
     return carry_on(engine, game, match, result)
+
+
+def _voidblocker(engine: "RulesEngine", match: MatchState, seat: int, attacker: str,
+                 defender: str, result: StepResult) -> None:
+    """
+    Voidblocker: "Whenever an opponent attacks Voidblocker, they exhaust
+    another of their ready units or heroes" -- the attacker's controller
+    chooses which, and with none to exhaust the attack goes on: it is no
+    cost to attack (its ruling, the Card FAQ).
+    """
+    other = 2 if seat == 1 else 1
+    body = board.body_of(match, other, defender)
+    if not isinstance(body, CardInstance) or engine.text_slug(body) not in effects.VOIDBLOCKERS:
+        return
+    resolve.push(match, resolve.frame("voidblocker", seat, tokens.card(body.slug), origin=body.slug))
 
 
 def cancel_attack_allowed(match: MatchState) -> bool:
@@ -507,6 +539,14 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         tower = _Hit(0 if first else 1, None, hitting, TOWER_DAMAGE, "tower")
         hits.append(tower)
 
+    # Sentry: the first spell or ability damage to one of its controller's
+    # patrollers each turn -- sparkshot's included (its ruling).
+    sparks = [hit for hit in hits if hit.kind == "sparkshot" and not hit.target.is_building]
+    if sparks:
+        shielded = board.sentry_shields(engine, match, [hit.target.body for hit in sparks], result)
+        for hit in sparks:
+            if any(hit.target.body is body for body in shielded):
+                hit.amount = 0
     bodies = [hit.target for hit in hits if not hit.target.is_building]
     bodies += [hit.source for hit in hits if hit.source is not None]
     seen: list[_Fighter] = []
@@ -534,7 +574,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 continue
             source = hit.source.body if hit.source is not None else None
             piercing = source is not None and engine.has_keyword(source, "Armor piercing", match)
-            hit.landed = _take(hit.target, hit.amount, piercing)
+            hit.landed = _take(hit.target, hit.amount, piercing,
+                               runes=source is not None and engine.rune_damage(match, source))
             if (
                 hit.amount > 0 and source is not None
                 and engine.has_keyword(source, "Deathtouch", match)
@@ -543,6 +584,13 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 touched.append(hit.target.body)
         for fighter in seen:
             if any(fighter.body is one.body for one in dead):
+                continue
+            if engine.cant_leave_play(match, fighter.body) and not any(
+                hit.target.body is fighter.body and (hit.landed > 0 or fighter.body in touched)
+                for hit in hits if not hit.target.is_building
+            ):
+                # Gilded Glaxx with gold dies only when combat damage is
+                # dealt to him (his rulings).
                 continue
             if _is_destroyed(engine, match, fighter) or any(fighter.body is one for one in touched):
                 dead.append(fighter)
@@ -555,7 +603,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
         elif hit.kind in ("overpower", "stampede") and not hit.skipped:
             if hit.target.is_building:
-                left = board.left_after(engine, match, hit.target.seat, hit.target.ref, hit.amount)
+                left = board.left_after(engine, match, hit.target.seat, hit.target.ref, hit.amount,
+                                        by=hit.source.seat if hit.source is not None else None)
             else:
                 left = board.card_left(engine, match, hit.target.body)
             result.narration.append(
@@ -577,11 +626,17 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
     for hit in hits:
         if hit.target.is_building and not hit.skipped:
-            board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result)
+            board.damage_building(match, hit.target.seat, hit.target.ref, hit.amount, result,
+                                  by=hit.source.seat if hit.source is not None else None)
 
     mine_hits = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0]
+    for hit in hits:
+        if (hit.source is not None and not hit.skipped and hit.amount > 0
+                and engine.is_building_ref(match, hit.target.seat, hit.target.ref)):
+            # Yesterday's Golgort: combat damage to a building.
+            board.golgort(engine, match, hit.source.seat, result)
     killed = any(fighter.body is taking.body for fighter in dead)
-    _destroy(engine, match, dead, result)
+    _destroy(engine, match, dead, result, combat=True)
     _fight_triggers(engine, match, hitting, taking, slot_attacked, mine_hits, killed, result)
     # What the deaths change -- a Grounded Guide gone, a Finesse hero gone
     # with Harmony channeled on it, a dance partner lost.
@@ -629,6 +684,12 @@ def _fight_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter,
             result.narration.append(
                 f"{tokens.card(slug)} trashes a worker at {tokens.player(other)}'s base."
             )
+    crow = effects.ON_DAMAGING_A_BASE.get(slug or "")
+    if crow is not None and any(hit.target.ref == "base" for hit in on_buildings):
+        # Cursed Crow: the base itself, not a building's 2 (its ruling).
+        frame = resolve.frame(crow, seat, tokens.card(slug), source=hitting.ref, origin=slug)
+        frame["against"] = other
+        resolve.push(match, frame)
     if slug in effects.ON_DAMAGING_A_BUILDING and on_buildings:
         firebird = resolve.frame(effects.ON_DAMAGING_A_BUILDING[slug], seat, tokens.card(slug),
                                  source=hitting.ref, origin=slug)
@@ -657,7 +718,8 @@ def _damage_line(engine: "RulesEngine", match: MatchState, hitting: _Fighter, ta
         said = f"{hitting.named(whose=False)} deals {attack.amount} to {taking.named()}"
         if swift:
             said += " with swift strike"
-        return said + board.left_after(engine, match, taking.seat, taking.ref, attack.amount) + "."
+        return said + board.left_after(engine, match, taking.seat, taking.ref, attack.amount,
+                                  by=hitting.seat) + "."
     said = f"{hitting.named(whose=False)} deals {attack.landed}"
     if attack.landed < attack.amount:
         said += f" (armor takes {attack.amount - attack.landed})"

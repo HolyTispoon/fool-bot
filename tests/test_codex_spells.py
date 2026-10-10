@@ -981,3 +981,192 @@ class ContinuousYourUnitsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+#: The hero each purple and black spec's spells ask for (step 12), and the
+#: seat that side sits in under `pb`.
+SPEC_HEROES = {
+    "Past": (1, "prynn_pasternaak"), "Present": (1, "max_geiger"),
+    "Future": (1, "vir_garbarean"), "Demonology": (2, "vandy_anadrose"),
+    "Disease": (2, "orpal_gloor"), "Necromancy": (2, "garth_torken"),
+}
+
+
+def _spells(*, ultimate: bool):
+    from codex import effects
+    from codex.cards import catalog
+
+    cards = catalog()
+    for slug in sorted(effects.PURPLE | effects.BLACK):
+        card = cards.by_slug(slug)
+        kind = str(getattr(card, "type", ""))
+        if "Spell" in kind and card.spec and ("Ultimate" in kind) == ultimate:
+            yield slug, card.spec
+
+
+class PurpleAndBlackRefusalTests(unittest.TestCase):
+    """Each purple and black spell refused where the UMR refuses it (p. 7):
+    a spec spell without its spec's hero, an ultimate before its hero has
+    stood at its maximum since the turn began, a minor spell with no hero
+    at all (step 12)."""
+
+    def test_a_spec_spell_needs_its_specs_hero(self) -> None:
+        from test_codex_card_rulings import pb
+
+        for slug, spec in _spells(ultimate=False):
+            with self.subTest(spell=slug):
+                seat, wanted = SPEC_HEROES[spec]
+                engine, game, match = pb(first=seat)
+                other = next(h.slug for h in match.player(seat).heroes if h.slug != wanted)
+                hero_in_play(match, seat, slug=other)
+                hand(match, seat, slug)
+                match.player(seat).gold = 20
+                self.assertIn(f"{spec} hero", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+    def test_an_ultimate_waits_for_its_hero_at_the_maximum(self) -> None:
+        from test_codex_card_rulings import pb
+
+        for slug, spec in _spells(ultimate=True):
+            with self.subTest(spell=slug):
+                seat, wanted = SPEC_HEROES[spec]
+                engine, game, match = pb(first=seat)
+                hero_in_play(match, seat, slug=wanted, level=3)
+                hand(match, seat, slug)
+                match.player(seat).gold = 20
+                self.assertIn("maximum level", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+    def test_a_minor_spell_needs_a_hero_in_play(self) -> None:
+        from test_codex_card_rulings import pb
+
+        for slug in ("deteriorate", "forgotten_fighter", "sacrifice_the_weak",
+                     "summon_skeletons", "temporal_research", "time_spiral"):
+            with self.subTest(spell=slug):
+                engine, game, match = pb()
+                hand(match, 1, slug)
+                match.player(1).gold = 20
+                self.assertIn("needs a hero in play", why(engine, match, slug))
+                refused(engine, game, match, PromptKind.MAIN_ACTION, "play", slug=slug)
+
+
+class PurpleSpellTests(unittest.TestCase):
+    """Each purple spell's happy path (step 12)."""
+
+    def setUp(self) -> None:
+        from test_codex_card_rulings import pb
+
+        self.engine, self.game, self.match = pb()
+        for spec in ("Past", "Present", "Future"):
+            hero_in_play(self.match, 1, slug=SPEC_HEROES[spec][1])
+
+    def cast(self, slug, *targets) -> None:
+        cast(self.engine, self.game, self.match, slug, *targets)
+
+    def test_now_gives_haste(self) -> None:
+        unit = put(self.match, 1, "argonaut", arrived=True)
+        self.cast("now", f"1:{unit.ref}")
+        self.assertTrue(self.engine.has_keyword(unit, "Haste", self.match))
+
+    def test_undo_returns_a_unit_to_its_owners_hand(self) -> None:
+        unit = put(self.match, 2, "skeleton")
+        target = put(self.match, 2, "hooded_executioner")
+        del unit
+        self.cast("undo", f"2:{target.ref}")
+        self.assertIn("hooded_executioner", self.match.player(2).hand)
+
+    def test_origin_story_sends_a_hero_home(self) -> None:
+        hero_in_play(self.match, 2, slug="garth_torken")
+        self.cast("origin_story", "2:hero:garth_torken")
+        self.assertEqual(self.match.player(2).hero_of("garth_torken").zone, "command")
+
+    def test_promise_of_payment_makes_the_next_card_free_and_owed(self) -> None:
+        built(self.match, 1, "tech1")
+        self.cast("promise_of_payment")
+        hand(self.match, 1, "argonaut")
+        self.match.player(1).gold = 0
+        apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "play", slug="argonaut")
+        self.assertEqual(self.match.player(1).debt, 3)
+
+    def test_temporal_research_draws_by_the_time_runes(self) -> None:
+        player = self.match.player(1)
+        player.deck = ["argonaut"] * 5
+        for _ in range(3):
+            put(self.match, 1, "fading_argonaut").time_runes = 1
+        self.cast("temporal_research")
+        self.assertEqual(player.hand, ["argonaut"] * 2, "3 time runes: a second card, not a third")
+
+    def test_research_and_development_draws_five(self) -> None:
+        from test_codex_card_rulings import at_max
+
+        at_max(self.engine, self.match, 1, "max_geiger")
+        player = self.match.player(1)
+        player.deck = ["argonaut"] * 8
+        self.cast("research__development")
+        self.assertEqual(player.hand, ["argonaut"] * 5)
+
+    def test_rewind_returns_every_low_tech_unit(self) -> None:
+        from test_codex_card_rulings import at_max
+
+        at_max(self.engine, self.match, 1, "prynn_pasternaak")
+        put(self.match, 1, "argonaut")
+        put(self.match, 2, "hooded_executioner")
+        self.cast("rewind")
+        self.assertIn("argonaut", self.match.player(1).hand)
+        self.assertIn("hooded_executioner", self.match.player(2).hand)
+
+
+class BlackSpellTests(unittest.TestCase):
+    """Each black spell's happy path (step 12)."""
+
+    def setUp(self) -> None:
+        from test_codex_card_rulings import pb
+
+        self.engine, self.game, self.match = pb(first=2)
+        for spec in ("Demonology", "Disease", "Necromancy"):
+            hero_in_play(self.match, 2, slug=SPEC_HEROES[spec][1])
+
+    def cast(self, slug, *targets) -> None:
+        cast(self.engine, self.game, self.match, slug, *targets)
+
+    def test_dark_pact_hurts_a_base_and_draws_its_player_two(self) -> None:
+        player = self.match.player(1)
+        player.deck = ["argonaut"] * 4
+        before = len(player.hand)
+        prompt_target = "1:base"
+        hand(self.match, 2, "dark_pact")
+        self.match.player(2).gold = 0
+        apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "play", slug="dark_pact")
+        prompt = asked(self.engine, self.game, self.match)
+        if prompt.kind is PromptKind.TARGET:
+            apply(self.engine, self.game, self.match, PromptKind.TARGET, target=prompt_target)
+        self.assertEqual(player.base_hp, 18)
+        self.assertEqual(len(player.hand), before + 2)
+
+    def test_sickness_puts_two_minus_runes(self) -> None:
+        a = put(self.match, 1, "argonaut")
+        b = put(self.match, 1, "neo_plexus")
+        self.cast("sickness", f"1:{a.ref}", f"1:{b.ref}")
+        self.assertEqual((a.minus_runes, b.minus_runes), (1, 1))
+
+    def test_summon_skeletons_summons_two(self) -> None:
+        self.cast("summon_skeletons")
+        self.assertEqual(sum(card.slug == "skeleton" for card in self.match.player(2).play), 2)
+
+    def test_spreading_plague_destroys_the_runed(self) -> None:
+        runed = put(self.match, 1, "argonaut")
+        runed.minus_runes = 1
+        clean = put(self.match, 1, "neo_plexus")
+        self.cast("spreading_plague")
+        self.assertIsNone(self.match.player(1).instance(runed.id))
+        self.assertIsNotNone(self.match.player(1).instance(clean.id))
+
+    def test_death_and_decay_weakens_and_burns(self) -> None:
+        from test_codex_card_rulings import at_max
+
+        at_max(self.engine, self.match, 2, "orpal_gloor")
+        put(self.match, 1, "neo_plexus")
+        before = self.match.player(1).base_hp
+        self.cast("death_and_decay")
+        self.assertFalse(any(card.slug == "neo_plexus" for card in self.match.player(1).play))
+        self.assertEqual(self.match.player(1).base_hp, before - 3)

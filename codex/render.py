@@ -231,6 +231,7 @@ ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 #: A named rune's tag on a card (step 11): Bloodburn's, Might of Leaf and
 #: Claw's, a feather rune.
 MARK_FILL = (122, 74, 160)       # #7a4aa0
+DISABLED_FILL = (150, 40, 40)    # #962828
 FIGURE_EDGE = (15, 10, 10)
 
 # The hand's and the codex's.
@@ -496,6 +497,15 @@ class Lying:
     #: The runes besides +1/+1 and -1/-1 (step 11) -- "Blood 2",
     #: "Growth 5", "Feather" -- as tags under the rune chits.
     marks: tuple[str, ...] = ()
+    #: Its time runes (step 12): fading on a card in play, Prynn's on
+    #: her, forecast on a card in the future -- the module's chit.
+    time_runes: int = 0
+    #: Disabled (step 12): a mark beside where the exhaust glyph goes.
+    disabled: bool = False
+    #: A card in the future (step 12): greyed, not yet in play.
+    future: bool = False
+    #: The units buried in a Graveyard (step 12), counted on its card.
+    buried: int = 0
 
 
 #: What Polymorph: Squirrel shows a unit as while it lasts.
@@ -517,13 +527,21 @@ def unit_lying(card: CardInstance, partnered: bool) -> Lying:
     return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
-                 marks=rune_marks(card))
+                 marks=rune_marks(card), time_runes=card.time_runes,
+                 disabled=card.disabled, buried=len(card.buried or ()))
+
+
+def future_lying(card: CardInstance) -> Lying:
+    """A card in the future (step 12, UMR p. 17) as it waits: greyed, its
+    time runes on it."""
+    return Lying(card.slug, time_runes=card.time_runes, future=True)
 
 
 def hero_lying(hero: HeroState, cards: CardCatalog) -> Lying:
     return Lying(hero.slug, level=level_chit(hero, cards), damage=hero.damage,
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
-                 arrived=hero.arrived_this_turn, exhausted=hero.exhausted)
+                 arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
+                 time_runes=hero.time_runes, disabled=hero.disabled)
 
 
 def card_face(slug: str, cards: CardCatalog, size: tuple[int, int] = CARD) -> Image.Image:
@@ -546,10 +564,16 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
     face = card_face(lying.slug, cards)
     if lying.exhausted:
         face = dimmed(face, 0.75)
+    if lying.future:
+        face = greyed(face, 0.7)
     upright.alpha_composite(face, (margin, margin))
     right, bottom = margin + CARD[0], margin + CARD[1]
     if lying.level is not None:
         lay_row(upright, [lying.level], 62, (margin - 10, margin - 10))
+    if lying.time_runes:
+        # Under a hero's level chit, or in its place on a card.
+        top = margin - 10 + (66 if lying.level is not None else 0)
+        lay_row(upright, [time_rune_chit(lying.time_runes)], 62, (margin - 10, top))
     runes = rune_chits(lying.plus_runes, lying.minus_runes)
     if runes:
         lay_row(upright, runes, 50, (right + 8, margin - 8), leftward=True)
@@ -563,17 +587,29 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
         draw = ImageDraw.Draw(upright)
         for index, mark in enumerate(lying.marks):
             pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
+    if lying.buried:
+        draw = ImageDraw.Draw(upright)
+        pill(draw, (margin + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
+             20, MARK_FILL, anchor="mt")
+    if lying.future:
+        draw = ImageDraw.Draw(upright)
+        pill(draw, (margin + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
     if lying.arrived:
         arrived_tag(upright, margin, bottom)
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
         paste_centred(tile, upright, (0, 0, tile.width, tile.height))
-        return tile
-    # Turned a quarter clockwise, as a card is exhausted on a table.
-    paste_centred(tile, upright.transpose(Image.ROTATE_270), (0, 0, tile.width, tile.height))
-    glyph = by_width(image(EMOJI_DIR / "exhaust.png"), 48)
-    tile.alpha_composite(glyph, (margin + 8, margin + 8))
+    else:
+        # Turned a quarter clockwise, as a card is exhausted on a table.
+        paste_centred(tile, upright.transpose(Image.ROTATE_270), (0, 0, tile.width, tile.height))
+        glyph = by_width(image(EMOJI_DIR / "exhaust.png"), 48)
+        tile.alpha_composite(glyph, (margin + 8, margin + 8))
+    if lying.disabled:
+        # Beside the exhaust glyph's corner, where it would be.
+        draw = ImageDraw.Draw(tile)
+        pill(draw, (margin + (64 if lying.exhausted else 8), margin + 16), "DISABLED", 16,
+             DISABLED_FILL, anchor="lt")
     return tile
 
 
@@ -816,7 +852,8 @@ def panel_width(columns: int) -> int:
 def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     """The grid, in order: a command-zone plate per hero, then the
     heroes on the field, then the units, every one not patrolling, then
-    the building cards and upgrades, which never patrol (step 10)."""
+    the building cards and upgrades, which never patrol (step 10), then
+    the cards in the future, greyed with their time runes (step 12)."""
     plates = [command_zone_plate(None if hero.in_play else hero, cards)
               for hero in heroes(player)]
     field = [lying_card(hero_lying(hero, cards), cards)
@@ -825,7 +862,8 @@ def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
     units = [lying_card(unit_lying(card, card.id in partners), cards) for card in lying]
-    return plates + field + units
+    future = [lying_card(future_lying(card), cards) for card in player.future]
+    return plates + field + units + future
 
 
 PATROL_HEIGHT = 2 * PATROL_PADDING + CARD[1] + BONUS_GAP + BONUS[1]

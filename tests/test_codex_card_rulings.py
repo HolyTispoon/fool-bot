@@ -24,7 +24,7 @@ from unittest import mock
 
 from codex import effects, rulings
 from codex.components import AddOnState
-from codex.effects import BASIC_SET, GREEN, RED
+from codex.effects import BASIC_SET, BLACK, GREEN, PURPLE, RED
 from codex.flow import board, driver
 from codex.prompts import Action, PromptKind, pending_prompt
 
@@ -2150,6 +2150,2266 @@ class UpkeepAndEndOfTurnRulingTests(unittest.TestCase):
         self.assertIs(asked(engine, game, match).kind, PromptKind.MAIN_ACTION)
 
 
+# -- Purple and black (step 12) ------------------------------------------------------
+
+#: Step 12: the rulings on purple's and black's cards, heroes and tokens --
+#: 107 on the cards and 15 on the six heroes.
+PURPLE_BLACK_RULINGS = 122
+
+PB_TEAMS = (("past", "present", "future"), ("demonology", "disease", "necromancy"))
+
+
+def pb(first: int = 1, teams=PB_TEAMS):
+    """Three purple heroes (seat 1) against three black, standing in the
+    first player's main phase."""
+    engine, game, match = new_game(first=first, teams=teams)
+    begin(engine, game, match)
+    return engine, game, match
+
+
+def turn_round(engine, game, match, seat: int) -> None:
+    """Turns with nothing done until `seat`'s main phase opens again."""
+    from test_codex_keywords import next_upkeep
+
+    next_upkeep(engine, game, match, 2 if seat == 1 else 1)
+    next_upkeep(engine, game, match, seat)
+
+
+def tech(match, seat: int, level: int, spec=None) -> None:
+    """`seat`'s tech buildings up to `level`, the Tech II's spec `spec`."""
+    for building in ("tech1", "tech2", "tech3")[:level]:
+        built(match, seat, building)
+    if level >= 2:
+        match.player(seat).tech2_spec = spec or match.player(seat).specs[0]
+
+
+class TimeRulingTests(unittest.TestCase):
+    def test_time_spiral_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        argonaut = put(match, 2, "fading_argonaut")
+        argonaut.time_runes = 2
+        hand(match, 1, "time_spiral")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="time_spiral")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="add")
+        self.assertEqual(argonaut.time_runes, 3)
+
+    def test_tinkerer_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        tinkerer = put(match, 1, "tinkerer")
+        board.to_future(engine, match, "plasmodium", 2)
+        future = match.player(2).future[0]
+        ability(engine, game, match, "tinkerer", tinkerer.ref)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        self.assertEqual(future.time_runes, 2)
+        self.assertTrue(tinkerer.exhausted)
+
+    def test_seer_1(self) -> None:
+        """You can add or remove time runes from things opponents control,
+        if you want."""
+        engine, game, match = pb()
+        tech(match, 1, 1)
+        board.to_future(engine, match, "plasmodium", 2)
+        future = match.player(2).future[0]
+        future.time_runes = 1
+        hand(match, 1, "seer")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="seer")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertTrue(prompt.options.done, "you may")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:future:{future.id}")
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        self.assertEqual(match.player(2).future, [])
+        self.assertTrue(any(card.slug == "plasmodium" for card in match.player(2).play),
+                        "its last rune gone, it arrives")
+
+    def test_shimmer_ray_1(self) -> None:
+        """You can't discard a card DURING your upkeep to save it from dying
+        from fading. You can only use abilities during your own main phase
+        unless they are specifically marked otherwise, such as "upkeep"
+        abilities."""
+        engine, game, match = pb()
+        ray = put(match, 1, "shimmer_ray")
+        ray.time_runes = 1
+        hand(match, 1, "neo_plexus")
+        self.assertTrue(option(engine, match, "shimmer_ray", ray.ref).allowed)
+        turn_round(engine, game, match, 1)
+        self.assertIsNone(match.player(1).instance(ray.id), "it faded in the upkeep, unasked")
+        self.assertIn("shimmer_ray", match.player(1).discard)
+
+    def test_omegacron_1(self) -> None:
+        """Sacrificed units and upgrades always go to their owner's discard
+        pile. Sacrificed workers are always trashed. Sacrificed heroes
+        always go to their owner's command zone."""
+        engine, game, match = pb()
+        board.to_future(engine, match, "omegacron", 1)
+        omega = match.player(1).future[0]
+        source = f"future:{omega.id}"
+        stolen = put(match, 2, "neo_plexus")
+        board.gain_control(match, stolen, 1)
+        hero_in_play(match, 1)
+        workers = match.player(1).workers
+        for target in (f"1:{stolen.ref}", "1:workers", f"1:{hero(match, 1)}"):
+            ability(engine, game, match, "omegacron", source)
+            apply(engine, game, match, PromptKind.TARGET, target=target)
+        self.assertIn("neo_plexus", match.player(2).discard)
+        self.assertEqual(match.player(1).workers, workers - 1)
+        self.assertEqual(match.player(1).hero.zone, "command")
+        self.assertEqual(omega.time_runes, 3)
+
+    def test_omegacron_arrives_when_its_last_rune_goes(self) -> None:
+        engine, game, match = pb()
+        board.to_future(engine, match, "omegacron", 1)
+        omega = match.player(1).future[0]
+        omega.time_runes = 1
+        filler = put(match, 1, "neo_plexus")
+        ability(engine, game, match, "omegacron", f"future:{omega.id}")
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{filler.ref}")
+        self.assertIsNone(match.player(1).instance(filler.id))
+        arrived = next(card for card in match.player(1).play if card.slug == "omegacron")
+        self.assertIn(arrived.ref, engine.attackers(match), "haste")
+
+    def test_temporal_research_1(self) -> None:
+        """The time runes on your forecasted cards count too, even though
+        those are "in the future" and not in play. Time runes from fading
+        or from Tricycloid also count."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        board.to_future(engine, match, "plasmodium", 1)
+        tricycloid = put(match, 1, "tricycloid")
+        tricycloid.time_runes = 3
+        put(match, 1, "fading_argonaut").time_runes = 4
+        self.assertEqual(engine.time_runes_of(match, 1), 10)
+        match.player(1).deck = ["neo_plexus"] * 5
+        cast(engine, game, match, "temporal_research")
+        self.assertEqual(len(match.player(1).hand), 3)
+
+    def test_temporal_research_2(self) -> None:
+        """You resolve a spell's effect before discarding it, so Temporal
+        Research cannot draw itself from its own effect. You first draw
+        cards from Temporal Research's effect, and you reshuffle your
+        discard pile into your draw pile if you would draw from empty draw
+        pile. Then, you discard Temporal Research when you have finished
+        resolving its effect."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        match.player(1).deck = []
+        match.player(1).discard = ["neo_plexus"]
+        cast(engine, game, match, "temporal_research")
+        self.assertEqual(match.player(1).hand, ["neo_plexus"])
+        self.assertEqual(match.player(1).discard, ["temporal_research"])
+
+    def test_nullcraft_1(self) -> None:
+        """"Buff or Debuff" spells are spells that have the subtype "Buff"
+        or "Debuff" (or both!)."""
+        engine, game, match = pb()
+        craft = put(match, 2, "nullcraft")
+        part = effects.EFFECTS["wither"].parts[0]
+        for spell, offered in (("deteriorate", False), ("unphase", False), ("spark", True)):
+            with self.subTest(spell=spell):
+                rows = engine.target_rows(match, 1, part, frame={"spell": spell})
+                self.assertEqual(any(row.ref == craft.ref for row in rows), offered)
+
+    def test_lord_of_shadows_1(self) -> None:
+        """Lord of Shadows himself is invisible because he is a black unit."""
+        engine, game, match = pb()
+        lord = put(match, 2, "lord_of_shadows")
+        self.assertTrue(engine.has_keyword(lord, "Invisible", match))
+        attacker = put(match, 1, "argonaut")
+        self.assertNotIn(lord.ref, engine.legal_defenders(match, attacker.ref))
+
+
+class DeathRulingTests(unittest.TestCase):
+    """The forms of death (step 12, commit 3)."""
+
+    def test_plague_spitter_1(self) -> None:
+        """Even though this deals damage in the form of -1/-1 runes, it still
+        counts as "dealing combat damage" and anything that checks if it
+        died to combat damage, such as Brave Knight, see getting hit by
+        this and immediately dying as "dying from combat damage." """
+        engine, game, match = pb(first=2)
+        spitter = put(match, 2, "plague_spitter")
+        target = put(match, 1, "argonaut")
+        target.plus_runes = 1
+        from codex.flow import combat
+
+        run = combat.declare_attack(engine, game, match, spitter.ref, target.ref)
+        # 3 damage as runes: the +1/+1 cancelled, two -1/-1 runes, no chits.
+        self.assertEqual((target.plus_runes, target.minus_runes, target.damage), (0, 2, 0))
+        self.assertEqual(engine.unit_stats(target, match), (1, 2))
+        del run
+
+    def test_poisonblade_rogue_1(self) -> None:
+        """Even though this deals damage in the form of -1/-1 runes, it
+        still counts as "dealing combat damage" and anything that checks if
+        it died to combat damage, such as Brave Knight, see getting hit by
+        this and immediately dying as "dying from combat damage." """
+        engine, game, match = pb()
+        rogue = put(match, 1, "poisonblade_rogue")
+        guard = put(match, 2, "neo_plexus", patrol="squad_leader")
+        from codex.flow import combat
+
+        combat.declare_attack(engine, game, match, rogue.ref, guard.ref)
+        # Armor piercing: the squad leader's armor prevents nothing, and two
+        # -1/-1 runes kill a 2/2.
+        self.assertIsNone(match.player(2).instance(guard.id))
+        self.assertTrue(any(event["kind"] == "destroyed" and event["slug"] == "neo_plexus"
+                            for event in match.events))
+
+    def test_graveyard_1(self) -> None:
+        """While a unit is buried in Graveyard, that unit is not in play;
+        it's in a special Graveyard zone. It loses all properties such as
+        attachments, +1/+1 runes, damage, etc. when it goes there. When you
+        later play it from Graveyard, it will arrive and trigger any
+        "arrive" effects at that time."""
+        engine, game, match = pb(first=2)
+        yard = put(match, 2, "graveyard")
+        imp = put(match, 2, "thieving_imp")
+        imp.plus_runes = 2
+        board.destroy(engine, match, [(2, imp.ref)], board.StepResult())
+        self.assertEqual(yard.buried, [{"slug": "thieving_imp", "owner": 2}])
+        self.assertNotIn("thieving_imp", match.player(2).discard)
+        match.player(2).gold = 10
+        hand(match, 1, "neo_plexus")
+        ability(engine, game, match, "graveyard", yard.ref)
+        played = next(card for card in match.player(2).play if card.slug == "thieving_imp")
+        self.assertEqual((played.plus_runes, played.damage), (0, 0))
+        self.assertTrue(played.arrived_this_turn)
+        self.assertEqual(match.player(2).gold, 7)
+        self.assertEqual(yard.buried, [])
+
+    def test_a_unit_played_from_the_graveyard_may_be_boosted(self) -> None:
+        """The author, 2026-10-10: "yes you can boost off of graveyard
+        because the rulebook says that boost applies when you 'play' a card
+        and that's what graveyard does." """
+        engine, game, match = pb(first=2)
+        built(match, 2, "tech1")
+        yard = put(match, 2, "graveyard")
+        executioner = put(match, 2, "hooded_executioner")
+        board.destroy(engine, match, [(2, executioner.ref)], board.StepResult())
+        victim = put(match, 1, "neo_plexus")
+        match.player(2).gold = 10
+        ability(engine, game, match, "graveyard", yard.ref)
+        # One unit buried, so it is the pick; the play asks boosted or not.
+        self.assertIs(asked(engine, game, match).kind, PromptKind.MODE_CHOICE)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="boosted")
+        self.assertTrue(any(card.slug == "hooded_executioner" for card in match.player(2).play))
+        self.assertEqual(match.player(2).gold, 10 - 2 - 3, "its cost and its boost")
+        self.assertIsNone(match.player(1).instance(victim.id), "the boost's weakest destroyed")
+
+    def test_a_graveyard_with_four_units_is_sacrificed(self) -> None:
+        engine, game, match = pb()
+        yard = put(match, 1, "graveyard")
+        yard.buried = [{"slug": "neo_plexus", "owner": 1}] * 3
+        board.destroy(engine, match, [(1, put(match, 1, "argonaut").ref)], board.StepResult())
+        board.settle(engine, match, board.StepResult())
+        self.assertIsNone(match.player(1).instance(yard.id))
+        self.assertEqual(sorted(match.player(1).discard),
+                         ["argonaut", "graveyard", "neo_plexus", "neo_plexus", "neo_plexus"])
+
+    def test_sacrifice_the_weak_1(self) -> None:
+        """"Lowest tech unit with least ATK" means first you look at the set
+        of units the lowest tech, such as "tech 0." Tech 0 is below I is
+        below II is below III. Next, choose the unit in that set with the
+        least ATK."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        mine = put(match, 1, "neo_plexus")
+        put(match, 1, "argonaut")
+        theirs_strong_tech0 = put(match, 2, "thieving_imp")
+        put(match, 2, "bone_collector")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(1).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(theirs_strong_tech0.id),
+                          "a tech 0 unit with more ATK is weaker than a tech I one")
+
+    def test_sacrifice_the_weak_2(self) -> None:
+        """If there are any units that are indestructible or that can't be
+        sacrificed, ignore them when looking for the weakest unit. If such a
+        thing would be your "weakest unit" then instead sacrifice your next
+        weakest."""
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "hardened_mox")
+        put(match, 1, "pestering_haunt")
+        argonaut = put(match, 1, "argonaut")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNone(match.player(1).instance(argonaut.id))
+        self.assertEqual(sorted(card.slug for card in match.player(1).play),
+                         ["hardened_mox", "pestering_haunt"])
+
+    def test_pestering_haunt_1(self) -> None:
+        """"Can't be sacrificed" means you ignore it completely when
+        choosing things to sacrifice. If you would sacrifice your "weakest"
+        thing and this is it, then you sacrifice your second weakest thing,
+        not sacrifice nothing."""
+        engine, game, match = pb(first=2)
+        hero_in_play(match, 2)
+        haunt = put(match, 2, "pestering_haunt")
+        imp = put(match, 2, "thieving_imp")
+        cast(engine, game, match, "sacrifice_the_weak")
+        self.assertIsNotNone(match.player(2).instance(haunt.id))
+        self.assertIsNone(match.player(2).instance(imp.id))
+
+    def test_a_tie_for_the_weakest_is_its_casters_to_choose(self) -> None:
+        engine, game, match = pb()
+        hero_in_play(match, 1)
+        put(match, 1, "argonaut")
+        first = put(match, 2, "neo_plexus")
+        second = put(match, 2, "neo_plexus")
+        hand(match, 1, "sacrifice_the_weak")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="sacrifice_the_weak")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {first.ref, second.ref})
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{second.ref}")
+        self.assertIsNotNone(match.player(2).instance(first.id))
+
+    def test_hooded_executioner_1(self) -> None:
+        """"Lowest tech unit with least ATK" means first you look at the set
+        of units the lowest tech, such as "tech 0." Tech 0 is below I is
+        below II is below III. Next, choose the unit in that set with the
+        least ATK."""
+        engine, game, match = pb(first=2)
+        tech(match, 2, 1)
+        put(match, 1, "argonaut")
+        weak = put(match, 1, "fading_argonaut")
+        strong = put(match, 1, "plasmodium")
+        hand(match, 2, "hooded_executioner")
+        match.player(2).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertIsNone(match.player(1).instance(weak.id))
+        self.assertIsNotNone(match.player(1).instance(strong.id))
+        self.assertEqual(match.player(2).gold, 10 - 5)
+
+    def test_hooded_executioner_2(self) -> None:
+        """If there are any units that are indestructible or that can't
+        leave play, ignore them when looking for the weakest unit. If such
+        a thing would be their "weakest unit" then instead destroy their
+        next weakest."""
+        engine, game, match = pb(first=2)
+        tech(match, 2, 1)
+        mox = put(match, 1, "hardened_mox")
+        next_weakest = put(match, 1, "argonaut")
+        hand(match, 2, "hooded_executioner")
+        match.player(2).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+        self.assertIsNone(match.player(1).instance(next_weakest.id))
+
+    def test_death_rites_1(self) -> None:
+        """If there are any units that are indestructible or that can't
+        leave play, ignore them when looking for the weakest unit. If such
+        a thing would be their "lowest tech unit" then instead destroy their
+        next weakest."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        put(match, 1, "hardened_mox")
+        lowest = put(match, 1, "argonaut")
+        mine = put(match, 2, "neo_plexus")
+        cast(engine, game, match, "death_rites")
+        board.destroy(engine, match, [(2, mine.ref)], board.StepResult())
+        from codex.flow import resolve
+
+        resolve.run(engine, match, board.StepResult())
+        self.assertIsNone(match.player(1).instance(lowest.id))
+
+    def test_doom_grasp_1(self) -> None:
+        """The "if you do" clause is not satisfied if you try to sacrifice
+        something that can't be sacrificed such a Gilded Glaxx that "can't
+        leave play." You can't even get close to satisfying "if you do" on
+        something like Pestering Haunt or Immortal that "can't be
+        sacrificed" because you can't even attempt to sacrifice those in
+        the first place, so the "if you do" clause is also not satisfied."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        put(match, 2, "pestering_haunt")
+        put(match, 2, "hardened_mox")
+        victim = put(match, 1, "argonaut")
+        hand(match, 2, "doom_grasp")
+        self.assertIn("nothing it could target",
+                      engine.why_not_playable(match.player(2), "doom_grasp", match),
+                      "nothing of theirs can be sacrificed, so nothing can be done")
+        del victim
+
+    def test_doom_grasp_2(self) -> None:
+        """The "if you do" clause is satisfied by attempting to sacrifice
+        something with a Soul Stone or something with Two Lives (Rook or
+        Justice Juggernaut). In these cases, the Soul Stone will fall off and
+        Rook or Justice Juggernaut will get a crumbling rune, then "if you
+        do" is satisfied."""
+        # Two Lives is the Whitestar Order's (step 13); the Soul Stone half
+        # is pinned here.
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "garth_torken")
+        mine = put(match, 2, "neo_plexus")
+        stone = put(match, 2, "soul_stone")
+        stone.attached = [mine.id]
+        victim = put(match, 1, "argonaut")
+        cast(engine, game, match, "doom_grasp", f"1:{victim.ref}")
+        self.assertIsNotNone(match.player(2).instance(mine.id))
+        self.assertIsNone(match.player(2).instance(stone.id))
+        self.assertIsNone(match.player(1).instance(victim.id))
+
+    def test_death_and_decay_1(self) -> None:
+        """Giving -3/-3 to an X/3 unit or hero will cause it to die (because
+        it has 0 HP) even if it had armor."""
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "orpal_gloor")
+        armored = put(match, 1, "thieving_imp", patrol="squad_leader")
+        armored.armor = 1
+        survivor = put(match, 1, "argonaut")
+        cast(engine, game, match, "death_and_decay")
+        self.assertIsNone(match.player(1).instance(armored.id))
+        self.assertIsNotNone(match.player(1).instance(survivor.id))
+        self.assertEqual(match.player(1).base_hp, 17)
+
+    def test_soul_stone_1(self) -> None:
+        """When the attached unit "would die," it doesn't actually die so
+        things that trigger on "dies" such as drawing a card in the
+        technician slot don't happen."""
+        engine, game, match = pb(first=2)
+        plexus = put(match, 2, "neo_plexus", patrol="technician", damage=1)
+        hero_in_play(match, 2)
+        cast(engine, game, match, "soul_stone")
+        stone = next(card for card in match.player(2).play if card.slug == "soul_stone")
+        self.assertEqual(stone.attached, [plexus.id])
+        self.assertEqual(engine.unit_stats(plexus, match), (3, 3))
+        before = len(match.player(2).hand)
+        board.destroy(engine, match, [(2, plexus.ref)], board.StepResult())
+        self.assertIsNotNone(match.player(2).instance(plexus.id))
+        self.assertEqual(plexus.damage, 0)
+        self.assertIsNone(match.player(2).instance(stone.id))
+        self.assertEqual(len(match.player(2).hand), before, "the technician draws nothing")
+
+    def test_soul_stone_2(self) -> None:
+        """If you Soul Stone something with Two Lives such as Justice
+        Juggernaut or Garus Rook, then the first time it would die, it gets
+        a crumbling rune from the Two Lives ability instead. The second time
+        it would die, Soul Stone's ability triggers (effectively giving it a
+        third life)"""
+        # Two Lives is step 13's; today the Soul Stone saves once, and the
+        # next death is a death.
+        engine, game, match = pb()
+        plexus = put(match, 1, "neo_plexus")
+        stone = put(match, 1, "soul_stone")
+        stone.attached = [plexus.id]
+        board.destroy(engine, match, [(1, plexus.ref)], board.StepResult())
+        self.assertIsNotNone(match.player(1).instance(plexus.id))
+        board.destroy(engine, match, [(1, plexus.ref)], board.StepResult())
+        self.assertIsNone(match.player(1).instance(plexus.id))
+
+    def test_shadow_blade_1(self) -> None:
+        """If you destroy an Illusion because you targeted it with Shadow
+        Blade, its controller discards a card."""
+        # Illusions are the Whitestar Order's (step 13): pinned here is the
+        # discard where Shadow Blade kills.
+        engine, game, match = pb(first=2)
+        at_max(engine, match, 2, "vandy_anadrose")
+        guard = put(match, 1, "neo_plexus", patrol="squad_leader")
+        hand(match, 1, "argonaut", "plasmodium")
+        cast(engine, game, match, "shadow_blade")
+        self.assertIsNone(match.player(1).instance(guard.id))
+        self.assertEqual(len(match.player(1).hand), 1)
+
+
+def black(first: int = 2):
+    """Three black heroes (seat 2) against three purple, black to play,
+    with tech up to II for Demonology."""
+    engine, game, match = pb(first=first)
+    return engine, game, match
+
+
+def attack(engine, game, match, attacker: str, defender: str):
+    from codex.flow import combat
+
+    return combat.declare_attack(engine, game, match, attacker, defender)
+
+
+def resolve_all(engine, match):
+    from codex.flow import resolve
+
+    result = board.StepResult()
+    resolve.run(engine, match, result)
+    return result
+
+
+class BlackRulingTests(unittest.TestCase):
+    """Black's effects (step 12, commit 4)."""
+
+    def test_abomination_1(self) -> None:
+        """Even your own units other than Abomination himself get -1/-1. If
+        you have two Abominations, they each give the other -1/-1 and
+        everything else -2/-2."""
+        engine, game, match = black()
+        one = put(match, 2, "abomination")
+        mine = put(match, 2, "bone_collector")
+        theirs = put(match, 1, "argonaut")
+        self.assertEqual(engine.unit_stats(one, match), (6, 6))
+        self.assertEqual(engine.unit_stats(mine, match), (2, 2))
+        self.assertEqual(engine.unit_stats(theirs, match), (2, 3))
+        two = put(match, 1, "abomination")
+        self.assertEqual(engine.unit_stats(one, match), (5, 5))
+        self.assertEqual(engine.unit_stats(two, match), (5, 5))
+        self.assertEqual(engine.unit_stats(theirs, match), (1, 2))
+
+    def test_blackhand_dozer_1(self) -> None:
+        """"Damage you deal" means any damage you cause to be dealt. This
+        includes combat damage your units do and damage from spells and
+        abilities you control. If you destroy an opponent's tech building,
+        and it would deal 2 damage, that also won't happen if it would
+        reduce their base to below 6 HP. "You" can even deal damage when
+        it's not your turn, such as if Crash Bomber dies on another player's
+        turn. That also can't bring an opposing base below 6 HP if you have
+        Blackhand Dozer."""
+        engine, game, match = black()
+        put(match, 2, "blackhand_dozer")
+        match.player(1).base_hp = 7
+        built(match, 1, "tech1", hp=1)
+        brute = put(match, 2, "bone_collector")
+        attack(engine, game, match, brute.ref, "tech1")
+        self.assertTrue(match.player(1).buildings["tech1"].destroyed)
+        self.assertEqual(match.player(1).base_hp, 6, "the building's 2 stops at 6")
+        board.damage_building(match, 1, "base", 3, board.StepResult(), by=2)
+        self.assertEqual(match.player(1).base_hp, 6)
+        board.damage_building(match, 1, "base", 3, board.StepResult(), by=1)
+        self.assertEqual(match.player(1).base_hp, 3, "its owner's own damage is not held")
+
+    def test_the_dozers_death_is_the_active_players_to_choose(self) -> None:
+        """Blackhand Dozer: "Dies: Active player destroys one of your lowest
+        tech units." -- asked of the active player, on either side's turn."""
+        engine, game, match = black(first=1)
+        dozer = put(match, 2, "blackhand_dozer")
+        put(match, 2, "bone_collector")
+        first = put(match, 2, "neo_plexus")
+        second = put(match, 2, "neo_plexus")
+        board.destroy(engine, match, [(2, dozer.ref)], board.StepResult(), cause=1)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual(prompt.asked_player, 1)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {first.ref, second.ref})
+
+    def test_blackhand_resurrector_1(self) -> None:
+        """If the hero in question is on cooldown from dying this turn or
+        last turn, you can still summon it with this ability."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        vandy = match.player(2).hero_of("vandy_anadrose")
+        self.assertEqual(vandy.summoning_runes, 2)
+        rez = put(match, 2, "blackhand_resurrector")
+        ability(engine, game, match, "blackhand_resurrector", rez.ref)
+        self.assertTrue(vandy.in_play)
+        self.assertEqual((vandy.level, vandy.summoning_runes), (5, 0))
+
+    def test_blackhand_resurrector_2(self) -> None:
+        """If the hero has an ability that triggers at max level, it WILL
+        trigger."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        mine = put(match, 2, "neo_plexus")
+        theirs = put(match, 1, "argonaut")
+        rez = put(match, 2, "blackhand_resurrector")
+        ability(engine, game, match, "blackhand_resurrector", rez.ref)
+        self.assertEqual(engine.unit_stats(mine, match), (4, 4))
+        self.assertEqual(engine.unit_stats(theirs, match), (5, 6))
+
+    def test_blackhand_resurrector_holds_to_the_hero_limit(self) -> None:
+        """The author, 2026-10-10: "you can't summon a hero if you're at your
+        limit. however, you can summon a hero with runes using the
+        resurrector." """
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        hero_in_play(match, 2, slug="garth_torken")
+        self.assertEqual(engine.hero_limit(match.player(2)), 1)
+        rez = put(match, 2, "blackhand_resurrector")
+        self.assertFalse(option(engine, match, "blackhand_resurrector", rez.ref).allowed)
+        run = driver.apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "ability",
+                                                       {"ability": "blackhand_resurrector",
+                                                        "source": rez.ref}))
+        self.assertIsInstance(run, driver.Refusal)
+        self.assertFalse(match.player(2).hero_of("vandy_anadrose").in_play)
+
+    def test_crypt_crawler_1(self) -> None:
+        """"Flier" means anything with flying, even a building or hero."""
+        engine, game, match = black()
+        crawler = put(match, 2, "crypt_crawler")
+        stinger = put(match, 1, "stinger")
+        hero_in_play(match, 1, slug="prynn_pasternaak")
+        match.player(1).hero.modifiers.append({"kind": "keyword", "keyword": "Flying", "until": None})
+        ability(engine, game, match, "crypt_crawler", crawler.ref)
+        prompt = asked(engine, game, match)
+        self.assertEqual({row.ref for row in prompt.options.targets},
+                         {stinger.ref, hero(match, 1, "prynn_pasternaak")})
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{stinger.ref}")
+        self.assertFalse(engine.has_keyword(stinger, "Flying", match))
+
+    def test_cursed_crow_1(self) -> None:
+        """It has to damage the base directly to get the effect. Destroying
+        a building and causing its owner to take 2 damage doesn't count."""
+        engine, game, match = black()
+        crow = put(match, 2, "cursed_crow")
+        built(match, 1, "tech1", hp=1)
+        hand(match, 1, "argonaut", "neo_plexus")
+        attack(engine, game, match, crow.ref, "tech1")
+        resolve_all(engine, match)
+        self.assertEqual(len(match.player(1).hand), 2)
+        crow.exhausted = False
+        crow.attacked_this_turn = False
+        attack(engine, game, match, crow.ref, "base")
+        resolve_all(engine, match)
+        self.assertEqual(len(match.player(1).hand), 1)
+
+    def test_deteriorate_1(self) -> None:
+        """If you give -1/-1 to an X/1 unit, that will unit will die (because
+        it has 0 HP) even if it had armor."""
+        engine, game, match = black()
+        hero_in_play(match, 2)
+        victim = put(match, 1, "stinger", patrol="squad_leader")
+        victim.armor = 1
+        cast(engine, game, match, "deteriorate")
+        self.assertIsNone(match.player(1).instance(victim.id))
+
+    def test_gargoyle_1(self) -> None:
+        """Gargoyle's activated ability that lets it attack and patrol and
+        abilities that stop Gargoyle specifically from attacking or
+        patrolling are applied in the order of their creation to find out if
+        the Gargoyle can attack or patrol. So if your Gargoyle has
+        Entangling Vines attached, you can activate the ability and attack
+        with it. On the other hand, if you use Entangling Vines and then
+        Kidnapping on your opponent's patrolling Gargoyle, the "Can't attack
+        or patrol" from Entangling Vines is newer than the "Can attack and
+        patrol" from Gargoyle's activated ability, so you cannot attack with
+        it unless you activate the ability yourself."""
+        # Entangling Vines is the Flagstone Dominion's (step 13): pinned here
+        # is the ability freeing its own "Can't attack or patrol".
+        engine, game, match = black()
+        gargoyle = put(match, 2, "gargoyle")
+        self.assertNotIn(gargoyle.ref, engine.attackers(match))
+        self.assertNotIn(gargoyle.ref, engine.patrol_candidates(match))
+        match.player(2).gold = 3
+        ability(engine, game, match, "gargoyle", gargoyle.ref)
+        self.assertIn(gargoyle.ref, engine.attackers(match))
+        self.assertTrue(engine.has_keyword(gargoyle, "Flying", match))
+        self.assertFalse(engine.indestructible(match, gargoyle))
+        self.assertEqual(engine.unit_stats(gargoyle, match)[0], 3)
+        self.assertFalse(option(engine, match, "gargoyle", gargoyle.ref).allowed, "once per turn")
+
+    def test_garth_torken_1(self) -> None:
+        """"Meeting the tech reqs for it" means that you control the correct
+        tech building. For example, if you want to put a Disease tech II
+        unit into play using the max level ability, you must have a Disease
+        tech II building."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="garth_torken", level=6)
+        match.player(2).discard = ["plague_spitter", "gorgon", "cursed_ghoul"]
+        tech(match, 2, 2, "disease")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="garth_torken", levels=1)
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.ref for row in prompt.options.targets},
+                         {"discard:plague_spitter", "discard:gorgon", "discard:cursed_ghoul"})
+        match.player(2).tech2_spec = "necromancy"
+        prompt = asked(engine, game, match)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {"discard:plague_spitter"})
+
+    def test_garth_torken_2(self) -> None:
+        """When you put a unit into play using the max level ability, you
+        don't pay for the unit."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="garth_torken", level=6)
+        match.player(2).discard = ["plague_spitter"]
+        tech(match, 2, 1)
+        match.player(2).gold = 1
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="garth_torken", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target="2:discard:plague_spitter")
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertTrue(any(card.slug == "plague_spitter" for card in match.player(2).play))
+
+    def test_jandra_the_negator_1(self) -> None:
+        """When something "deals damage in the form of" something else, such
+        as -1/-1 runes from Plague Spitter, Orpal Gloor, or Poisonblade
+        Rogue, they really did "deal combat damage." Immediately after their
+        form of damage is dealt, check if their victim would die. If yes,
+        that victim counts as "dying from combat damage." Jandra causes you
+        to destroy all your non-Demon units in that case."""
+        engine, game, match = black(first=1)
+        jandra = put(match, 2, "jandra_the_negator", patrol="squad_leader")
+        demon = put(match, 2, "thieving_imp")
+        plain = put(match, 2, "bone_collector")
+        rogue = put(match, 1, "poisonblade_rogue")
+        rogue.plus_runes = 2
+        attack(engine, game, match, rogue.ref, jandra.ref)
+        resolve_all(engine, match)
+        self.assertIsNone(match.player(2).instance(jandra.id))
+        self.assertIsNotNone(match.player(2).instance(demon.id))
+        self.assertIsNone(match.player(2).instance(plain.id))
+
+    def test_jandra_dies_otherwise_and_nothing_happens(self) -> None:
+        engine, game, match = black()
+        hero_in_play(match, 2)
+        jandra = put(match, 2, "jandra_the_negator")
+        plain = put(match, 2, "bone_collector")
+        board.destroy(engine, match, [(2, jandra.ref)], board.StepResult(), cause=2)
+        resolve_all(engine, match)
+        self.assertIsNotNone(match.player(2).instance(plain.id))
+
+    def test_lichs_bargain_1(self) -> None:
+        """It is legal to sacrifice one of your starting 4 or 5 workers. If
+        you do, your worker count goes down by 1 (not by 4 or 5) and you can
+        mark that however you want. The game will surely be over pretty
+        quickly anyway!"""
+        engine, game, match = black()
+        at_max(engine, match, 2, "garth_torken")
+        workers = match.player(2).workers
+        cast(engine, game, match, "lichs_bargain")
+        self.assertEqual(match.player(2).workers, workers - 1)
+        self.assertEqual(match.player(2).base_hp, 16)
+        self.assertEqual(sorted(card.slug for card in match.player(2).play),
+                         ["horror", "skeleton", "zombie"])
+
+    def test_metamorphosis_1(self) -> None:
+        """Heroes generally don't have types, so your Demonology hero is NOT
+        a Demon until Metamorphosis makes her a Demon. Once she is a Demon,
+        playing a second Metamorphosis will not affect her. If she leaves
+        play, she stops being a Demon."""
+        engine, game, match = black()
+        at_max(engine, match, 2, "vandy_anadrose")
+        vandy = match.player(2).hero_of("vandy_anadrose")
+        self.assertFalse(engine.is_demon(vandy))
+        put(match, 2, "bone_collector")
+        cast(engine, game, match, "metamorphosis")
+        self.assertTrue(engine.is_demon(vandy))
+        self.assertEqual(vandy.plus_runes, 2)
+        self.assertEqual(match.player(2).play, [])
+        cast(engine, game, match, "metamorphosis")
+        self.assertEqual(vandy.plus_runes, 2, "a second does nothing to a Demon")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        self.assertFalse(engine.is_demon(vandy))
+
+    def test_metamorphosis_2(self) -> None:
+        """Whenever a hero leaves play, it always loses all properties such
+        as levels, damage on it, +1/+1 runes on it, etc. So it also loses
+        all buffs it got from Metamorphosis."""
+        engine, game, match = black()
+        at_max(engine, match, 2, "vandy_anadrose")
+        vandy = match.player(2).hero_of("vandy_anadrose")
+        cast(engine, game, match, "metamorphosis")
+        self.assertTrue(engine.has_keyword(vandy, "Readiness", match))
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        self.assertEqual((vandy.level, vandy.plus_runes, vandy.modifiers), (1, 0, []))
+
+    def test_nether_drain_1(self) -> None:
+        """It doesn't matter if you control the heroes this this targets or
+        not. It works on your own heroes and/or opposing heroes."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="garth_torken", level=4)
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=3)
+        cast(engine, game, match, "nether_drain", f"2:{hero(match, 2, 'garth_torken')}")
+        self.assertEqual(match.player(2).hero_of("garth_torken").level, 2)
+        self.assertEqual(match.player(1).hero_of("prynn_pasternaak").level, 5)
+
+    def test_nether_drain_2(self) -> None:
+        """If you level up another player's hero and an ability that
+        triggers from that requires another player to make a decision on
+        your turn, instead that ability fizzles. For example, if you level
+        up an opposing Necromancy hero to max level on YOUR turn, then its
+        controller doesn't get to search their discard pile for a unit
+        costing 5 or less."""
+        engine, game, match = pb(first=1, teams=(("necromancy", "disease", "demonology"),
+                                                 ("necromancy", "past", "future")))
+        at_max(engine, match, 1, "garth_torken")
+        hero_in_play(match, 2, slug="garth_torken", level=5)
+        match.player(2).discard = ["bone_collector"]
+        built(match, 2, "tech1")
+        cast(engine, game, match, "nether_drain", f"1:{hero(match, 1, 'garth_torken')}")
+        theirs = match.player(2).hero_of("garth_torken")
+        self.assertEqual(theirs.level, 7)
+        self.assertEqual(match.player(1).hero_of("garth_torken").level, 5)
+        self.assertNotIn("bone_collector", [card.slug for card in match.player(2).play])
+        self.assertEqual(match.resolving, [])
+
+    def test_orpal_gloor_1(self) -> None:
+        """Even though this deals damage in the form of -1/-1 runes, it still
+        counts as "dealing combat damage" and anything that checks if it
+        died to combat damage, such as Brave Knight, see getting hit by this
+        and immediately dying as "dying from combat damage." """
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="orpal_gloor")
+        jandra = put(match, 1, "jandra_the_negator", patrol="squad_leader")
+        jandra.armor = 0
+        plain = put(match, 1, "argonaut")
+        match.player(2).hero_of("orpal_gloor").modifiers.append(
+            {"kind": "atk", "amount": 2, "until": "end_of_turn"})
+        attack(engine, game, match, hero(match, 2, "orpal_gloor"), jandra.ref)
+        resolve_all(engine, match)
+        self.assertIsNone(match.player(1).instance(jandra.id))
+        self.assertIsNone(match.player(1).instance(plain.id), "Jandra died from combat damage")
+
+    def test_sickness_1(self) -> None:
+        """You can target two units, two heroes, or one unit and one hero.
+        You can also choose to have just one target if you want: just one
+        unit or just one hero."""
+        engine, game, match = black()
+        at_max(engine, match, 2, "orpal_gloor")
+        hero_in_play(match, 1, slug="prynn_pasternaak")
+        unit = put(match, 1, "argonaut")
+        hand(match, 2, "sickness")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="sickness")
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{hero(match, 1, 'prynn_pasternaak')}")
+        prompt = asked(engine, game, match)
+        self.assertTrue(prompt.options.done, "one is enough")
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{unit.ref}")
+        self.assertEqual((match.player(1).hero.minus_runes, unit.minus_runes), (1, 1))
+
+    def test_skeletal_lord_1(self) -> None:
+        """When you put a unit into play with this ability, you don't have
+        to pay for it and you don't have to meet the tech requirements for
+        it either. It even allows you to put a tech III unit into play."""
+        engine, game, match = black()
+        lord = put(match, 2, "skeletal_lord")
+        for _ in range(5):
+            put(match, 2, "skeleton")
+        hand(match, 2, "zarramonde_the_obliterator")
+        match.player(2).gold = 0
+        ability(engine, game, match, "skeletal_lord", lord.ref)
+        self.assertTrue(any(card.slug == "zarramonde_the_obliterator" for card in match.player(2).play))
+        self.assertFalse(lord.exhausted, "the Skeletons exhaust, not the Lord")
+
+    def test_skeletal_lord_2(self) -> None:
+        """You can pay the cost for Skeletal Lord's ability using skeletons
+        that came under your control this turn."""
+        engine, game, match = black()
+        lord = put(match, 2, "skeletal_lord")
+        for _ in range(5):
+            put(match, 2, "skeleton", arrived=True)
+        hand(match, 2, "bone_collector")
+        self.assertTrue(option(engine, match, "skeletal_lord", lord.ref).allowed)
+        self.assertEqual(engine.unit_stats(match.player(2).play[-1], match), (2, 2))
+
+    def test_terras_q_the_shackled_1(self) -> None:
+        """The Warlock tokens are controlled by the chosen opponent. That
+        opponent can sacrifice them, patrol with them, attack with them,
+        etc."""
+        engine, game, match = black()
+        tech(match, 2, 2, "demonology")
+        hand(match, 2, "terras_q_the_shackled")
+        match.player(2).gold = 10
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="terras_q_the_shackled")
+        warlocks = [card for card in match.player(1).play if card.slug == "warlock"]
+        self.assertEqual(len(warlocks), 4)
+        self.assertTrue(all(card.controller == 1 for card in warlocks))
+
+    def test_terras_q_the_shackled_2(self) -> None:
+        """A particular copy of Terras Q is only shackled by the Warlocks
+        that HE put into play. For example, if player1 plays Terras Q
+        (summoning 4 warlocks) and player 2 also plays their own copy of
+        Terras Q (which also summons 4 Warlocks), player1's Terras Q is NOT
+        shackled by the Warlocks that player2's Terras Q summoned."""
+        engine, game, match = black()
+        terras = put(match, 2, "terras_q_the_shackled")
+        other = put(match, 1, "terras_q_the_shackled")
+        warlock = put(match, 2, "warlock")
+        warlock.made_by = other.id
+        self.assertTrue(engine.shackled(match, other))
+        self.assertFalse(engine.shackled(match, terras))
+        self.assertIn(terras.ref, engine.attackers(match))
+
+    def test_terras_q_the_shackled_3(self) -> None:
+        """If Terras Q leaves play and comes back, for example because of
+        Geiger or Pasternaak's max level abilities, he comes back as a fresh
+        copy that's treated as a totally new object. He will arrive again
+        and summon new Warlocks, but the OLD Warlocks he summoned earlier
+        are no longer shackling him."""
+        engine, game, match = black()
+        terras = put(match, 2, "terras_q_the_shackled")
+        old = put(match, 1, "warlock")
+        old.made_by = terras.id
+        self.assertTrue(engine.shackled(match, terras))
+        fresh = put(match, 2, "terras_q_the_shackled")
+        board.trash(engine, match, terras)
+        self.assertFalse(engine.shackled(match, fresh))
+
+    def test_terras_q_the_shackled_4(self) -> None:
+        """If something in play becomes a copy of Terras Q, no "arrives"
+        triggers happen so he doesn't get new Warlocks. Any Warlocks already
+        in play do NOT shackle that copy; they only shackle the specific
+        Terras Q whose arrives trigger summoned them."""
+        engine, game, match = black()
+        terras = put(match, 2, "terras_q_the_shackled")
+        copy = put(match, 2, "terras_q_the_shackled")
+        warlock = put(match, 1, "warlock")
+        warlock.made_by = terras.id
+        self.assertFalse(engine.shackled(match, copy))
+        self.assertTrue(engine.shackled(match, terras))
+
+    def test_twilight_baron_1(self) -> None:
+        """If you already have tech II units in play, it's ok to play
+        Twilight Baron. It's just that while he is in play, you cannot play
+        any more tech II units."""
+        engine, game, match = black()
+        tech(match, 2, 2, "demonology")
+        put(match, 2, "voidblocker")
+        player = match.player(2)
+        player.gold = 10
+        self.assertEqual(engine.why_not_playable(player, "twilight_baron"), "")
+        put(match, 2, "twilight_baron")
+        self.assertIn("Twilight Baron", engine.why_not_playable(player, "voidblocker"))
+
+    def test_twilight_baron_2(self) -> None:
+        """Though you can't "play" tech II units, you can still "put them
+        into play" by any effect that's worded that way."""
+        engine, game, match = black()
+        put(match, 2, "twilight_baron")
+        board.put_into_play(engine, match, "voidblocker", 2, from_hand=False)
+        self.assertTrue(any(card.slug == "voidblocker" for card in match.player(2).play))
+
+    def test_twilight_baron_3(self) -> None:
+        """You can play tech II buildings and upgrades; those are not
+        units."""
+        engine, game, match = black()
+        tech(match, 2, 2, "demonology")
+        put(match, 2, "twilight_baron")
+        match.player(2).gold = 10
+        self.assertEqual(engine.why_not_playable(match.player(2), "shrine_of_forbidden_knowledge"), "")
+
+    def test_twilight_baron_4(self) -> None:
+        """If a tech II unit has forecast, such as Reaver, you still can't
+        play it while you have Twilight Baron. You can play Reaver first,
+        then play Twilight Baron, then have Reaver's forecast ability cause
+        it to enter play though."""
+        engine, game, match = pb(first=1, teams=(("future", "present", "past"),
+                                                 ("demonology", "disease", "necromancy")))
+        tech(match, 1, 2, "future")
+        put(match, 1, "twilight_baron")
+        match.player(1).gold = 10
+        self.assertIn("Twilight Baron", engine.why_not_playable(match.player(1), "reaver"))
+        board.to_future(engine, match, "reaver", 1)
+        match.player(1).future[0].time_runes = 1
+        board.remove_time_rune(engine, match, 1, f"future:{match.player(1).future[0].id}",
+                               board.StepResult())
+        self.assertTrue(any(card.slug == "reaver" for card in match.player(1).play))
+
+    def test_vandy_anadrose_1(self) -> None:
+        """The max level ability is not optional, so you must try to do as
+        much as you can when she reaches max level. If you don't have a
+        friendly tech 0 or I unit, you still must try to give the bonus to an
+        opposing tech 0 or I unit, and vice versa."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose", level=4)
+        theirs = put(match, 1, "argonaut")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="vandy_anadrose", levels=1)
+        self.assertEqual(engine.unit_stats(theirs, match), (5, 6))
+
+    def test_vandy_anadrose_2(self) -> None:
+        """The units targeted by the max level ability will still lose the
+        bonus and die during Vandy's owner's next upkeep, even if Vandy isn't
+        around."""
+        engine, game, match = black()
+        hero_in_play(match, 2, slug="vandy_anadrose", level=4)
+        mine = put(match, 2, "bone_collector")
+        theirs = put(match, 1, "argonaut")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="vandy_anadrose", levels=1)
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        turn_round(engine, game, match, 2)
+        self.assertIsNone(match.player(2).instance(mine.id))
+        self.assertIsNone(match.player(1).instance(theirs.id))
+
+    def test_vandys_max_reached_on_the_opponents_turn_does_not_resolve(self) -> None:
+        """UMR p. 14: "If she reaches max level during an opponent's turn ...
+        the effect doesn't resolve, because Vandy's controller can't choose
+        which units gain the bonus." """
+        engine, game, match = black(first=1)
+        hero_in_play(match, 2, slug="vandy_anadrose", level=3)
+        hero_in_play(match, 1, slug="prynn_pasternaak")
+        theirs = put(match, 1, "argonaut")
+        mine = put(match, 2, "bone_collector")
+        board.destroy(engine, match, [(1, hero(match, 1, "prynn_pasternaak"))], board.StepResult(), cause=2)
+        resolve_all(engine, match)
+        self.assertEqual(match.player(2).hero_of("vandy_anadrose").level, 5)
+        self.assertEqual(engine.unit_stats(theirs, match), (3, 4))
+        self.assertEqual(engine.unit_stats(mine, match), (3, 3))
+
+    def test_voidblocker_1(self) -> None:
+        """If they don't have any other ready units or heroes, they can still
+        attack Voidblocker."""
+        engine, game, match = black(first=1)
+        blocker = put(match, 2, "voidblocker")
+        attacker = put(match, 1, "argonaut")
+        self.assertIn(blocker.ref, engine.legal_defenders(match, attacker.ref))
+        attack(engine, game, match, attacker.ref, blocker.ref)
+        self.assertEqual(blocker.damage, 3)
+
+    def test_voidblocker_exhausts_another_of_theirs(self) -> None:
+        engine, game, match = black(first=1)
+        blocker = put(match, 2, "voidblocker")
+        attacker = put(match, 1, "neo_plexus")
+        bystander = put(match, 1, "argonaut")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "attack", attacker=attacker.ref)
+        apply(engine, game, match, PromptKind.CHOOSE_DEFENDER, defender=blocker.ref)
+        self.assertTrue(bystander.exhausted)
+
+    def test_plague_lab_1(self) -> None:
+        """If a given card has two kinds of runes, Plague Lab can still only
+        add one rune to that card. You choose which kind of rune to add from
+        among the kinds of runes it already has."""
+        engine, game, match = black()
+        lab = put(match, 2, "plague_lab")
+        target = put(match, 1, "fading_argonaut")
+        target.minus_runes = 1
+        target.time_runes = 2
+        match.player(2).gold = 5
+        ability(engine, game, match, "plague_lab_runes", lab.ref)
+        prompt = asked(engine, game, match)
+        self.assertEqual({row.ref for row in prompt.options.targets},
+                         {f"{target.ref}#minus", f"{target.ref}#time"})
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{target.ref}#time")
+        self.assertEqual((target.minus_runes, target.time_runes), (1, 3))
+        prompt = asked(engine, game, match)
+        self.assertFalse(prompt is not None and prompt.kind is PromptKind.TARGET
+                         and prompt.options.targets, "one rune a card")
+
+    def test_plague_lab_2(self) -> None:
+        """You do not have to add any runes to any cards you don't want to
+        add runes to."""
+        engine, game, match = black()
+        lab = put(match, 2, "plague_lab")
+        target = put(match, 1, "argonaut")
+        target.minus_runes = 1
+        match.player(2).gold = 5
+        ability(engine, game, match, "plague_lab_runes", lab.ref)
+        prompt = asked(engine, game, match)
+        self.assertTrue(prompt.options.done)
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(target.minus_runes, 1)
+        self.assertEqual(match.player(2).gold, 3)
+
+    def test_plague_lab_never_reaches_the_future(self) -> None:
+        engine, game, match = black()
+        board.to_future(engine, match, "plasmodium", 1)
+        put(match, 2, "plague_lab")
+        from codex import effects as table
+
+        rows = engine.target_rows(match, 2, table.EFFECTS["plague_lab_runes"].parts[0])
+        self.assertEqual(rows, ())
+
+    def test_carrion_curse_looks_at_the_hand_for_the_caster_alone(self) -> None:
+        """Carrion Curse: the opponent's whole hand shown to the caster, the
+        non-units offered, and the discard said as a count."""
+        engine, game, match = black()
+        at_max(engine, match, 2, "orpal_gloor")
+        hand(match, 1, "argonaut", "time_spiral", "now")
+        hand(match, 2, "carrion_curse")
+        match.player(2).gold = 5
+        run = apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="carrion_curse")
+        prompt = asked(engine, game, match)
+        self.assertEqual(prompt.asked_player, 2)
+        self.assertEqual(prompt.options.shown, ("argonaut", "time_spiral", "now"))
+        self.assertEqual({row.ref for row in prompt.options.targets}, {"hand:time_spiral", "hand:now"})
+        run = apply(engine, game, match, PromptKind.TARGET, target="1:hand:now")
+        self.assertEqual(match.player(1).hand, ["argonaut", "time_spiral"])
+        self.assertNotIn("now", said(run).lower().replace("{card:now}", ""))
+
+
+def purple(first: int = 1):
+    """Three purple heroes (seat 1), purple to play."""
+    return pb(first=first)
+
+
+class PurpleRulingTests(unittest.TestCase):
+    """Purple's effects (step 12, commit 5)."""
+
+    def test_assimilate_1(self) -> None:
+        """You gain control of the card as long as it remains in play, for
+        the rest of the game. If it's destroyed, it will go to its owner's
+        discard pile, not (necessarily) yours. If something "returns" it to
+        play such as Geiger or Pasternaak's max level abilities, it
+        "returns" to play under your control because you were the one who
+        last controlled it."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        yard = put(match, 2, "graveyard")
+        cast(engine, game, match, "assimilate")
+        self.assertEqual(yard.controller, 1)
+        board.destroy(engine, match, [(1, yard.ref)], board.StepResult())
+        board.settle(engine, match, board.StepResult())
+        yard.damage = 3
+        board.settle(engine, match, board.StepResult())
+        self.assertIn("graveyard", match.player(2).discard)
+
+    def test_assimilate_2(self) -> None:
+        """A "building card" does not mean a base, an add-on (such as the
+        Tower or Surplus), and it does not mean your tech I, II, or III
+        buildings. It does mean building cards that players can have in
+        their decks such as Rickety Mine, Graveyard, Firehouse, etc."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        match.player(2).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+        built(match, 2, "tech1")
+        hand(match, 1, "assimilate")
+        self.assertIn("nothing it could target",
+                      engine.why_not_playable(match.player(1), "assimilate", match))
+
+    def test_assimilate_3(self) -> None:
+        """If an enemy unit has Spirit of the Panda attached and you
+        Assimilate Spirit of the Panda, you now control it. It remains
+        attached to the enemy unit and that unit still gets +2/+2 and gives
+        its ctonroller 1 gold when it attacks. But now during YOUR upkeep,
+        YOU get the Healing 1 effect."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        unit = put(match, 2, "bone_collector")
+        panda = put(match, 2, "spirit_of_the_panda")
+        panda.attached = [unit.id]
+        cast(engine, game, match, "assimilate")
+        self.assertEqual(panda.controller, 1)
+        self.assertEqual(panda.attached, [unit.id])
+        self.assertEqual(engine.unit_stats(unit, match), (5, 5))
+
+    def test_assimilate_4(self) -> None:
+        """If you use this to steal an ongoing channeling spell such as Two
+        Step, but you don't control the appropriate hero to channel that
+        spell, it's immediately discarded."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        put(match, 2, "two_step")
+        cast(engine, game, match, "assimilate")
+        self.assertFalse(any(card.slug == "two_step" for card in match.instances()))
+        self.assertIn("two_step", match.player(2).discard)
+
+    def test_assimilate_5(self) -> None:
+        """If you use this to steal your opponent's Graveyard, you will be
+        able to play units owned by your opponent from the Graveyard. You
+        can always play tech 0 units from the Graveyard. If you have a tech I
+        building, you can play any tech I units from the Graveyard. To play a
+        tech II unit owned by your opponent from the Graveyard, you must have
+        a tech II building with a matching spec. This is only possible if you
+        are playing some of the same specs as your opponent. You cannot name
+        a spec other than your three specs when building your tech II
+        building or tech lab."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        yard = put(match, 2, "graveyard")
+        yard.buried = [{"slug": "thieving_imp", "owner": 2}, {"slug": "bone_collector", "owner": 2},
+                       {"slug": "gorgon", "owner": 2}]
+        cast(engine, game, match, "assimilate")
+        yard.arrived_this_turn = False
+        match.player(1).gold = 10
+        rows = engine.target_candidates(match, 1, "buried_playable")
+        self.assertEqual([ref for _, ref in rows], [f"buried:{yard.id}:0"])
+        tech(match, 1, 2, "past")
+        rows = engine.target_candidates(match, 1, "buried_playable")
+        self.assertEqual([ref for _, ref in rows], [f"buried:{yard.id}:0", f"buried:{yard.id}:1"])
+        ability(engine, game, match, "graveyard", yard.ref)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:buried:{yard.id}:1")
+        played = next(card for card in match.player(1).play if card.slug == "bone_collector")
+        self.assertEqual((played.owner, played.controller), (2, 1))
+
+    def test_chronofixer_1(self) -> None:
+        """This prevents opposing heroes from gaining levels by any means.
+        That includes killing another player's hero, and effects like
+        Training Grounds."""
+        engine, game, match = purple(first=2)
+        put(match, 1, "chronofixer")
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        hero_in_play(match, 1, slug="prynn_pasternaak")
+        self.assertIn("Chronofixer", option(engine, match, "", "").why_not if False else
+                      engine.hero_option(match.player(2), match.player(2).hero_of("vandy_anadrose"),
+                                         match).why_not)
+        board.destroy(engine, match, [(1, hero(match, 1, "prynn_pasternaak"))], board.StepResult())
+        self.assertEqual(match.player(2).hero_of("vandy_anadrose").level, 1)
+
+    def test_chronofixer_2(self) -> None:
+        """Blackhand Resurrector's ability puts a hero into play a level 1,
+        rather than max level, if an opponent has Chronofixer."""
+        engine, game, match = purple(first=2)
+        put(match, 1, "chronofixer")
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        board.destroy(engine, match, [(2, hero(match, 2, "vandy_anadrose"))], board.StepResult(), cause=1)
+        rez = put(match, 2, "blackhand_resurrector")
+        ability(engine, game, match, "blackhand_resurrector", rez.ref)
+        vandy = match.player(2).hero_of("vandy_anadrose")
+        self.assertTrue(vandy.in_play)
+        self.assertEqual(vandy.level, 1)
+
+    def test_gilded_glaxx_1(self) -> None:
+        """You only check if he "died from combat damage" when combat damage
+        is actually dealt to him, not at other times. For example, if the
+        Sickness spell puts a -1/-1 rune on him (that's not combat damage)
+        and this causes him to have 0 HP, he will not die. The next time he
+        is dealt combat damage by something though, he WILL die. So the
+        steps are 1) was any combat damage dealt to him? 2) if yes, then see
+        if he has 0 HP or less, 3) if yes, then he dies."""
+        engine, game, match = purple(first=2)
+        glaxx = put(match, 1, "gilded_glaxx")
+        match.player(1).gold = 3
+        glaxx.minus_runes = 4
+        board.settle(engine, match, board.StepResult())
+        self.assertIsNotNone(match.player(1).instance(glaxx.id))
+        attacker = put(match, 2, "bone_collector")
+        attack(engine, game, match, attacker.ref, glaxx.ref)
+        self.assertIsNone(match.player(1).instance(glaxx.id))
+
+    def test_gilded_glaxx_2(self) -> None:
+        """If something "deals combat damage in the form of" something else,
+        such as Plague Spitter, Poisonblade Rogue, or Orpal Gloor, then that
+        CAN count as Glaxx "dying from combat damage". After those things
+        deal combat damage (in the form of -1/-1 runes or whatever else),
+        check if Glaxx has 0 or less HP to see if he dies."""
+        engine, game, match = purple(first=2)
+        glaxx = put(match, 1, "gilded_glaxx")
+        match.player(1).gold = 3
+        spitter = put(match, 2, "plague_spitter")
+        spitter.plus_runes = 1
+        attack(engine, game, match, spitter.ref, glaxx.ref)
+        self.assertIsNone(match.player(1).instance(glaxx.id))
+
+    def test_gilded_glaxx_3(self) -> None:
+        """If Glaxx has 0 or less HP, and he has 1 point of armor, then he
+        takes 1 combat damage, he doesn't die, unless it was 1 point of
+        damage from something with deathtouch, then he does die. Damage that
+        merely removes armor doesn't quality as "dying to combat damage" but
+        deathtouch specifically says that deathtouch-type combat damage DOES
+        kill things merely by hitting their armor."""
+        engine, game, match = purple(first=2)
+        glaxx = put(match, 1, "gilded_glaxx", patrol="squad_leader")
+        glaxx.armor = 1
+        glaxx.minus_runes = 4
+        match.player(1).gold = 3
+        stinger = put(match, 2, "skeleton")
+        attack(engine, game, match, stinger.ref, glaxx.ref)
+        self.assertIsNotNone(match.player(1).instance(glaxx.id), "the armor took it")
+        glaxx.armor = 1
+        horror = put(match, 2, "horror")
+        horror.minus_runes = 2
+        attack(engine, game, match, horror.ref, glaxx.ref)
+        self.assertIsNone(match.player(1).instance(glaxx.id), "deathtouch kills through armor")
+
+    def test_gilded_glaxx_4(self) -> None:
+        """Some effects like Obliterate, Sacrifice the Weak, and Death Rites
+        ask a player to destroy or sacrifice the unit that is the least
+        according to some ordering. These effects skip units with
+        Indestructible and units that cannot leave play."""
+        engine, game, match = purple(first=2)
+        glaxx = put(match, 1, "gilded_glaxx")
+        other = put(match, 1, "argonaut")
+        match.player(1).gold = 1
+        self.assertEqual(engine.weakest(match, 1, sacrifice=False), [other])
+        match.player(1).gold = 0
+        self.assertEqual(engine.weakest(match, 1, sacrifice=False), [glaxx, other])
+
+    def test_hardened_mox_1(self) -> None:
+        """You only have to trash Hardened Mox if you have one or more tech
+        II units in play and/or forecasted. It doesn't care about Tech III
+        units, Tech II buildings or upgrades, or units in Jail/Graveyard."""
+        engine, game, match = purple()
+        mox = put(match, 1, "hardened_mox")
+        put(match, 1, "octavian")
+        put(match, 1, "second_chances")
+        built(match, 1, "tech2")
+        board.settle(engine, match, board.StepResult())
+        self.assertIsNotNone(match.player(1).instance(mox.id))
+        board.to_future(engine, match, "reaver", 1)
+        board.settle(engine, match, board.StepResult())
+        self.assertIsNone(match.player(1).instance(mox.id))
+        self.assertNotIn("hardened_mox", match.player(1).discard)
+
+    def test_hive_1(self) -> None:
+        """If you have two Hives, you can have up to 10 Stingers."""
+        engine, game, match = purple()
+        tech(match, 1, 2, "future")
+        match.player(1).gold = 20
+        hand(match, 1, "hive", "hive")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hive")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hive")
+        stingers = [card for card in match.player(1).play if card.slug == "stinger"]
+        self.assertEqual(len(stingers), 10)
+
+    def test_hive_2(self) -> None:
+        """If you have two Hives and more than 5 Stingers and you lose a
+        Hive, the active player chooses which 5 Stingers you sacrifice."""
+        engine, game, match = purple(first=2)
+        first = put(match, 1, "hive")
+        put(match, 1, "hive")
+        match.record_event("summoned_token", slug="stinger", seat=1)
+        stingers = [put(match, 1, "stinger") for _ in range(7)]
+        board.destroy(engine, match, [(1, first.ref)], board.StepResult(), cause=2)
+        board.settle(engine, match, board.StepResult())
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual(prompt.asked_player, 2)
+        for stinger in stingers[:2]:
+            apply(engine, game, match, PromptKind.TARGET, target=f"1:{stinger.ref}")
+        left = [card for card in match.player(1).play if card.slug == "stinger"]
+        self.assertEqual(left, stingers[2:])
+
+    def test_max_geiger_1(self) -> None:
+        """When his max level ability returns a unit to play, it returns
+        under the control of whoever controlled it when it was trashed."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="max_geiger", level=4)
+        stolen = put(match, 2, "bone_collector")
+        board.gain_control(match, stolen, 1)
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="max_geiger", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{stolen.ref}")
+        back = next(card for card in match.player(1).play if card.slug == "bone_collector")
+        self.assertNotEqual(back.id, stolen.id)
+        self.assertEqual((back.owner, back.controller), (2, 1))
+
+    def test_max_geiger_2(self) -> None:
+        """When his max level ability returns a unit to play, it returns in a
+        "fresh" state. It's a new object, and no longer has any properties of
+        the old object such as +1/+1 runes, damage, being a dance partner
+        from Two Step, etc. It also returns ready (not exhausted) and it
+        can't attack or use exhaust abilities unless it has haste."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="max_geiger", level=4)
+        unit = put(match, 1, "argonaut", damage=2, exhausted=True)
+        unit.plus_runes = 1
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="max_geiger", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{unit.ref}")
+        back = next(card for card in match.player(1).play if card.slug == "argonaut")
+        self.assertNotEqual(back.id, unit.id)
+        self.assertEqual((back.damage, back.plus_runes, back.exhausted), (0, 0, False))
+        self.assertNotIn(back.ref, engine.attackers(match))
+
+    def test_max_geiger_returns_a_token_too(self) -> None:
+        """The author, 2026-10-10: a token Max Geiger trashes comes back."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="max_geiger", level=4)
+        skeleton = put(match, 1, "skeleton")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="max_geiger", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{skeleton.ref}")
+        back = next(card for card in match.player(1).play if card.slug == "skeleton")
+        self.assertNotEqual(back.id, skeleton.id)
+
+    def test_nebula_1(self) -> None:
+        """You can use the ability the turn Nebula arrives because it doesn't
+        have exhaust as part of the cost."""
+        engine, game, match = purple()
+        nebula = put(match, 1, "nebula", arrived=True)
+        victim = put(match, 2, "bone_collector")
+        ability(engine, game, match, "nebula", nebula.ref)
+        self.assertIsNone(match.player(2).instance(victim.id))
+        self.assertFalse(option(engine, match, "nebula", nebula.ref).allowed, "once per turn")
+
+    def test_origin_story_1(self) -> None:
+        """Whenever heroes enter a command zone, they lose all levels (become
+        level 1) and other properties. They lose any damage on them, lose
+        +1/+1 runes, lose any attachments, etc."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "prynn_pasternaak")
+        hero_in_play(match, 2, slug="vandy_anadrose", level=4, damage=1)
+        vandy = match.player(2).hero_of("vandy_anadrose")
+        vandy.plus_runes = 1
+        cast(engine, game, match, "origin_story", f"2:{hero(match, 2, 'vandy_anadrose')}")
+        self.assertEqual((vandy.zone, vandy.level, vandy.damage, vandy.plus_runes),
+                         ("command", 1, 0, 0))
+        self.assertEqual(vandy.summoning_runes, 0, "no death, so no summoning runes")
+        self.assertFalse(any(event["kind"] == "hero_died" for event in match.events))
+
+    def test_prynn_pasternaak_1(self) -> None:
+        """She fades away when her last time rune is removed for any reason.
+        Removing the last rune with the Time Spiral spell or her own max
+        level ability will cause her to die."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak")
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        board.remove_time_rune(engine, match, 1, hero(match, 1, "prynn_pasternaak"), board.StepResult())
+        self.assertEqual(prynn.zone, "command")
+
+    def test_prynn_pasternaak_2(self) -> None:
+        """"Dies from fading" means that the last time rune she had was
+        removed because the fading ability said to do that during the upkeep.
+        It doesn't trigger if something else removed her last time rune."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=4)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 1
+        board.remove_time_rune(engine, match, 1, hero(match, 1, "prynn_pasternaak"), board.StepResult())
+        self.assertFalse(match.player(2).skip_draw)
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=4)
+        prynn.time_runes = 1
+        turn_round(engine, game, match, 1)
+        self.assertEqual(prynn.zone, "command")
+        self.assertTrue(match.player(2).skip_draw)
+
+    def test_prynn_pasternaak_3(self) -> None:
+        """If she has exactly two time runes, she CAN use her max level
+        ability to trash a unit. If she does, she then immediately dies
+        because of hanving no fading runes, then the trashed unit returns to
+        play. This does not count as "dies from fading" on her middle
+        ability, because that only triggers if fading itself removed the
+        last time rune."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 2
+        victim = put(match, 2, "bone_collector", damage=1)
+        ability(engine, game, match, "prynn_pasternaak_max", hero(match, 1, "prynn_pasternaak"))
+        self.assertEqual(prynn.zone, "command")
+        back = next(card for card in match.player(2).play if card.slug == "bone_collector")
+        self.assertNotEqual(back.id, victim.id)
+        self.assertFalse(match.player(2).skip_draw)
+
+    def test_prynn_pasternaak_4(self) -> None:
+        """When her max level ability returns a unit to play, it returns
+        under the control of whoever controlled it when it was trashed."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 3
+        stolen = put(match, 2, "bone_collector")
+        board.gain_control(match, stolen, 1)
+        ability(engine, game, match, "prynn_pasternaak_max", hero(match, 1, "prynn_pasternaak"))
+        self.assertEqual(len(prynn.trashed), 1)
+        board.destroy(engine, match, [(1, hero(match, 1, "prynn_pasternaak"))], board.StepResult(), cause=2)
+        back = next(card for card in match.player(1).play if card.slug == "bone_collector")
+        self.assertEqual((back.owner, back.controller), (2, 1))
+
+    def test_prynn_pasternaak_5(self) -> None:
+        """When her max level ability returns a unit to play, it returns in a
+        "fresh" state. It's a new object, and no longer has any properties of
+        the old object such as +1/+1 runes, damage, being a dance partner
+        from Two Step, etc. It also returns ready (not exhausted) and it
+        can't attack or use exhaust abilities unless it has haste."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="prynn_pasternaak", level=7)
+        prynn = match.player(1).hero_of("prynn_pasternaak")
+        prynn.time_runes = 2
+        unit = put(match, 1, "argonaut", damage=1, exhausted=True)
+        unit.plus_runes = 2
+        ability(engine, game, match, "prynn_pasternaak_max", hero(match, 1, "prynn_pasternaak"))
+        back = next(card for card in match.player(1).play if card.slug == "argonaut")
+        self.assertEqual((back.damage, back.plus_runes, back.exhausted), (0, 0, False))
+        self.assertNotIn(back.ref, engine.attackers(match))
+
+    def test_ready_or_not_1(self) -> None:
+        """Readying one of your units CAN allow it to attack twice in a turn.
+        (Attack with a unit, which will exhaust it. Play Ready or Not on that
+        unit to ready it, then you can attack with it again.)"""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "max_geiger")
+        unit = put(match, 1, "neo_plexus")
+        attack(engine, game, match, unit.ref, "base")
+        self.assertNotIn(unit.ref, engine.attackers(match))
+        cast(engine, game, match, "ready_or_not")
+        self.assertIn(unit.ref, engine.attackers(match))
+
+    def test_ready_or_not_2(self) -> None:
+        """If a unit has the readiness keyword, using Ready or Not on it
+        won't let you attack twice in a turn with it because readiness
+        specifically says you can't do that."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "max_geiger")
+        unit = put(match, 1, "argonaut")
+        attack(engine, game, match, unit.ref, "base")
+        unit.exhausted = True
+        cast(engine, game, match, "ready_or_not")
+        self.assertNotIn(unit.ref, engine.attackers(match))
+
+    def test_ready_or_nots_second_clause_holds_exhausted_units_down(self) -> None:
+        engine, game, match = purple()
+        at_max(engine, match, 1, "max_geiger")
+        put(match, 1, "neo_plexus")
+        tired = put(match, 2, "bone_collector", exhausted=True)
+        fresh = put(match, 2, "gorgon")
+        cast(engine, game, match, "ready_or_not")
+        turn_round(engine, game, match, 2)
+        self.assertTrue(tired.exhausted)
+        self.assertFalse(fresh.exhausted)
+
+    def test_reaver_1(self) -> None:
+        """If you choose the to "Deal 6 damage to up to 2 units and/or
+        heroes", that means you can hit two units for 6 damage each, two
+        heroes for 6 damage each, or one unit for 6 damage AND one hero for 6
+        damage. You could also choose to hit just one thing if you want: one
+        unit for 6 damage or one hero for 6 damage."""
+        engine, game, match = purple()
+        reaver = put(match, 1, "reaver")
+        hero_in_play(match, 2, slug="vandy_anadrose", level=5)
+        unit = put(match, 2, "gorgon")
+        hand(match, 1, "neo_plexus")
+        match.player(1).gold = 3
+        ability(engine, game, match, "reaver", reaver.ref)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="damage")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{unit.ref}")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{hero(match, 2, 'vandy_anadrose')}")
+        self.assertIsNone(match.player(2).instance(unit.id))
+        self.assertFalse(match.player(2).hero_of("vandy_anadrose").in_play)
+
+    def test_reaver_2(self) -> None:
+        """When you trash an opponent's worker, you don't get to choose which
+        worker to destroy (because they're alll considered identical) and you
+        don't get to see the front of the destroyed worker."""
+        engine, game, match = purple()
+        reaver = put(match, 1, "reaver")
+        hand(match, 1, "neo_plexus")
+        match.player(1).gold = 3
+        workers = match.player(2).workers
+        ability(engine, game, match, "reaver", reaver.ref)
+        run = apply(engine, game, match, PromptKind.MODE_CHOICE, mode="workers")
+        apply(engine, game, match, PromptKind.TARGET, target="2:workers")
+        apply(engine, game, match, PromptKind.TARGET, target="2:workers")
+        self.assertEqual(match.player(2).workers, workers - 2)
+        del run
+
+    def test_rememberer_1(self) -> None:
+        """When you "return a unit with fading to play" this way, you don't
+        pay for it."""
+        engine, game, match = purple()
+        rememberer = put(match, 1, "rememberer")
+        rememberer.time_runes = 3
+        match.player(1).discard = ["fading_argonaut"]
+        match.player(1).gold = 0
+        board.remove_time_rune(engine, match, 1, rememberer.ref, board.StepResult())
+        apply(engine, game, match, PromptKind.TARGET, target="1:discard:fading_argonaut")
+        argonaut = next(card for card in match.player(1).play if card.slug == "fading_argonaut")
+        self.assertEqual(argonaut.time_runes, 3)
+
+    def test_rememberer_2(self) -> None:
+        """If the reason you remove a time rune from Rememberer isn't because
+        of the fading ability, but rather something else such as Time Spiral,
+        Seer, or Tinkerer, then Remember's ability to give you a unit with
+        fading from your discard pile still DOES trigger."""
+        engine, game, match = purple()
+        rememberer = put(match, 1, "rememberer")
+        rememberer.time_runes = 3
+        tinkerer = put(match, 1, "tinkerer")
+        match.player(1).discard = ["fading_argonaut"]
+        ability(engine, game, match, "tinkerer", tinkerer.ref)
+        apply(engine, game, match, PromptKind.MODE_CHOICE, mode="remove")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual([row.ref for row in prompt.options.targets], ["discard:fading_argonaut"])
+
+    def test_rememberer_3(self) -> None:
+        """If you have just one Rememberer and you remove the last time rune,
+        you CAN return her to play with her own ability. In this situation,
+        the "dies from fading" effect and the "remember" ability trigger
+        simultaneously, so as the active player you can choose the order."""
+        engine, game, match = purple()
+        tech(match, 1, 2, "past")
+        rememberer = put(match, 1, "rememberer")
+        rememberer.time_runes = 1
+        match.player(1).discard = []
+        board.remove_time_rune(engine, match, 1, rememberer.ref, board.StepResult())
+        apply(engine, game, match, PromptKind.TARGET, target="1:discard:rememberer")
+        back = next(card for card in match.player(1).play if card.slug == "rememberer")
+        self.assertEqual(back.time_runes, 3)
+
+    def test_rememberer_4(self) -> None:
+        """You CAN return a tech III unit to play with this (for free!) but in
+        order to do so, you must have the appropriate spec tech III building
+        fully constructed."""
+        engine, game, match = purple()
+        rememberer = put(match, 1, "rememberer")
+        rememberer.time_runes = 3
+        match.player(1).discard = ["ebbflow_archon"]
+        rows = engine.target_candidates(match, 1, "discard_fading_unit")
+        self.assertEqual(rows, [])
+        tech(match, 1, 3, "past")
+        rows = engine.target_candidates(match, 1, "discard_fading_unit")
+        self.assertEqual([ref for _, ref in rows], ["discard:ebbflow_archon"])
+
+    def test_research__development_1(self) -> None:
+        """You resolve a spell's effect before discarding it, so a given copy
+        of Research & Development cannot draw itself from its own effect. You
+        first draw cards from its effect, and you reshuffle your discard pile
+        into your draw pile if you would draw from empty draw pile. Then, you
+        discard Research & Development when you have finished resolving its
+        effect."""
+        engine, game, match = purple(first=1)
+        at_max(engine, match, 1, "max_geiger")
+        match.player(1).deck = ["neo_plexus"] * 2
+        match.player(1).discard = ["argonaut"] * 4
+        cast(engine, game, match, "research__development")
+        self.assertEqual(len(match.player(1).hand), 5)
+        self.assertEqual(match.player(1).discard, ["research__development"])
+
+    def test_research__development_2(self) -> None:
+        """As a gamewide rule, you can only reshuffle your discard pile into
+        your draw pile once per main phase. The help text on this card is
+        there because it's very possible to "try" to do it more times using
+        this card. If drawing cards during your main phase causes you to
+        reshuffle your discard pile into your draw pile once, then later that
+        same main phase you would draw when you have an empty draw pile,
+        instead you don't. You can't draw any more cards until your
+        draw/discard step."""
+        engine, game, match = purple(first=1)
+        at_max(engine, match, 1, "max_geiger")
+        match.player(1).deck = []
+        match.player(1).discard = ["argonaut"] * 2
+        match.player(1).reshuffled_this_phase = False
+        cast(engine, game, match, "research__development")
+        self.assertEqual(len(match.player(1).hand), 2)
+
+    def test_rewind_1(self) -> None:
+        """This doesn't cause the units to "die", so the opponent won't draw
+        a card if a returned unit was in the technician slot."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "prynn_pasternaak")
+        match.player(1).hero.max_level_since_turn_began = False
+        tech_unit = put(match, 2, "bone_collector", patrol="technician")
+        before = len(match.player(2).hand)
+        cast(engine, game, match, "rewind")
+        self.assertIsNone(match.player(2).instance(tech_unit.id))
+        self.assertEqual(len(match.player(2).hand), before + 1, "the card itself, nothing drawn")
+
+    def test_second_chances_1(self) -> None:
+        """When this returns a unit to play, it returns in a "fresh" state.
+        It's a new object, and no longer has any properties of the old object
+        such as +1/+1 runes, damage, being a dance partner from Two Step,
+        etc. It also returns ready (not exhausted) and it can't attack or use
+        exhaust abilities unless it has haste."""
+        engine, game, match = purple()
+        put(match, 1, "second_chances")
+        unit = put(match, 1, "argonaut", damage=1)
+        unit.plus_runes = 1
+        board.destroy(engine, match, [(1, unit.ref)], board.StepResult(), cause=2)
+        back = next(card for card in match.player(1).play if card.slug == "argonaut")
+        self.assertEqual((back.damage, back.plus_runes, back.exhausted), (0, 0, False))
+        self.assertNotIn("argonaut", match.player(1).discard)
+
+    def test_second_chances_2(self) -> None:
+        """This does trigger on opponent's turns. So it can trigger once on
+        your own turn, again on an opponent's turn, then again when it's your
+        following turn, etc."""
+        engine, game, match = purple(first=2)
+        put(match, 1, "second_chances")
+        unit = put(match, 1, "argonaut")
+        board.destroy(engine, match, [(1, unit.ref)], board.StepResult(), cause=2)
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+        again = next(card for card in match.player(1).play if card.slug == "argonaut")
+        board.destroy(engine, match, [(1, again.ref)], board.StepResult(), cause=2)
+        self.assertFalse(any(card.slug == "argonaut" for card in match.player(1).play),
+                         "once per turn")
+
+    def test_second_chances_3(self) -> None:
+        """If you steal a unit with Kidnapping, and this would then "return it
+        to play," it returns under your control, not the original owner's
+        control. "Return" effects check the last controller, rather than the
+        owner."""
+        engine, game, match = purple()
+        put(match, 1, "second_chances")
+        stolen = put(match, 2, "bone_collector")
+        board.gain_control(match, stolen, 1)
+        board.destroy(engine, match, [(1, stolen.ref)], board.StepResult(), cause=1)
+        back = next(card for card in match.player(1).play if card.slug == "bone_collector")
+        self.assertEqual((back.owner, back.controller), (2, 1))
+
+    def test_second_chances_4(self) -> None:
+        """If one of your TOKEN units leaves play, then it's destroyed as
+        usual. (Tokens can't go to other zones than in play.) This does not
+        use up the "once-per-turn" of Second Chances, so Second Chances will
+        still trigger later than turn if one of your non-token units dies
+        from something other than combat damage."""
+        engine, game, match = purple()
+        put(match, 1, "second_chances")
+        token = put(match, 1, "stinger")
+        unit = put(match, 1, "argonaut")
+        board.destroy(engine, match, [(1, token.ref)], board.StepResult(), cause=2)
+        self.assertFalse(any(card.slug == "stinger" for card in match.player(1).play))
+        board.destroy(engine, match, [(1, unit.ref)], board.StepResult(), cause=2)
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+
+    def test_second_chances_5(self) -> None:
+        """The sparkshot ability and the Tower add-on deal combat damage, so
+        if these kill one of your units, Second Chances won't save it. Second
+        Chances will save units affected by Undo, Rewind, Doom Grasp (whether
+        it was the sacrifice effect OR destroy effect!), Hooded Executioner's
+        ability, the obliterate ability, damage from Flame Arrow or Shadow
+        Blade, to name a few."""
+        engine, game, match = purple(first=2)
+        put(match, 1, "second_chances")
+        guard = put(match, 1, "neo_plexus", patrol="squad_leader")
+        side = put(match, 1, "argonaut", patrol="elite")
+        side.damage = 3
+        crawler = put(match, 2, "crypt_crawler")
+        attack(engine, game, match, crawler.ref, guard.ref)
+        self.assertFalse(any(card.slug == "argonaut" for card in match.player(1).play),
+                         "sparkshot is combat damage")
+        unit = put(match, 1, "gorgon")
+        from codex.flow import combat as fight
+
+        match.combat = None
+        del fight
+        board.destroy(engine, match, [(1, unit.ref)], board.StepResult(), cause=2)
+        self.assertTrue(any(card.slug == "gorgon" for card in match.player(1).play),
+                        "a destroy effect is no combat damage")
+
+    def test_sentry_1(self) -> None:
+        """The damage done by the sparkshot ability and by the Tower add-on
+        are both combat damage. But they are also both "abilities" so Sentry
+        CAN prevent their damage."""
+        engine, game, match = purple(first=2)
+        put(match, 1, "sentry")
+        guard = put(match, 1, "neo_plexus", patrol="squad_leader")
+        side = put(match, 1, "argonaut", patrol="elite", damage=3)
+        crawler = put(match, 2, "crypt_crawler")
+        attack(engine, game, match, crawler.ref, guard.ref)
+        self.assertIsNotNone(match.player(1).instance(side.id))
+        self.assertEqual(side.damage, 3)
+
+    def test_slowtime_generator_1(self) -> None:
+        """For example, if a player had 7 workers, they would get a total of
+        4 gold from their workers, rather than 7 gold."""
+        engine, game, match = purple()
+        put(match, 2, "slowtime_generator")
+        match.player(1).workers = 7
+        match.player(1).gold = 0
+        turn_round(engine, game, match, 1)
+        self.assertEqual(match.player(1).gold, 4)
+
+    def test_stewardess_of_the_undone_1(self) -> None:
+        """This doesn't cause the unit to "die", so the opponent won't draw a
+        card if it was in the technician slot."""
+        engine, game, match = purple()
+        tech(match, 1, 1)
+        victim = put(match, 2, "neo_plexus", patrol="technician")
+        before = len(match.player(2).hand)
+        hand(match, 1, "stewardess_of_the_undone")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="stewardess_of_the_undone")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{victim.ref}")
+        self.assertIsNone(match.player(2).instance(victim.id))
+        self.assertEqual(len(match.player(2).hand), before + 1)
+
+    def test_temporal_distortion_1(self) -> None:
+        """The "if you do" clause of Temporal Distortion is not satisfied if
+        you try to return a unit to your hand, but it can't be returned, such
+        as a Gilded Glaxx that "can't leave play." """
+        engine, game, match = purple()
+        at_max(engine, match, 1, "max_geiger")
+        put(match, 1, "gilded_glaxx")
+        cast(engine, game, match, "temporal_distortion")
+        self.assertTrue(any(card.slug == "gilded_glaxx" for card in match.player(1).play))
+        self.assertEqual(match.resolving, [])
+
+    def test_temporal_distortion_2(self) -> None:
+        """Tokens are generally tech 0, so they usually can't be returned to
+        your hand for this effect. However, if you have a token that's
+        copying a tech I or II unit, you CAN choose to return it to your hand
+        for this spell. It will be destroyed as it would go into your hand,
+        but the "if you do" clause of Temporal Distortion is satisfied. You
+        really can still put a unit from your codex into play (based on the
+        cost and tech level of the unit that token was copying)."""
+        # Copies are the Whitestar Order's (step 13): pinned here is that a
+        # token, tech 0, is never offered.
+        engine, game, match = purple()
+        at_max(engine, match, 1, "max_geiger")
+        put(match, 1, "stinger")
+        hand(match, 1, "temporal_distortion")
+        self.assertIn("nothing it could target",
+                      engine.why_not_playable(match.player(1), "temporal_distortion", match))
+
+    def test_tricycloid_1(self) -> None:
+        """Whenever anything leaves play then comes back into play, it's
+        treated as a fresh copy. So if this is trashed then returns to play
+        with Geiger's or Pasternaak's max level abilities, it will get three
+        new time runes when it returns. Also, if you can return it to your
+        hand with Temporal Distortion, then replay it to have it arrive with
+        three new times runes as well."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="max_geiger", level=4)
+        tricycloid = put(match, 1, "tricycloid")
+        tricycloid.time_runes = 1
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="max_geiger", levels=1)
+        apply(engine, game, match, PromptKind.TARGET, target=f"1:{tricycloid.ref}")
+        back = next(card for card in match.player(1).play if card.slug == "tricycloid")
+        self.assertEqual(back.time_runes, 3)
+        self.assertEqual(engine.unit_stats(back, match), (6, 6))
+
+    def test_undo_1(self) -> None:
+        """This doesn't cause the unit to "die", so the opponent won't draw a
+        card if it was in the technician slot."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "prynn_pasternaak")
+        victim = put(match, 2, "neo_plexus", patrol="technician")
+        before = len(match.player(2).hand)
+        cast(engine, game, match, "undo")
+        self.assertIsNone(match.player(2).instance(victim.id))
+        self.assertEqual(len(match.player(2).hand), before + 1)
+
+    def test_vir_garbarean_1(self) -> None:
+        """If you have no draw pile, looking at the top card of your draw
+        pile does nothing. It does NOT cause you to shuffle your discard pile
+        into your draw pile."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean")
+        match.player(1).deck = []
+        match.player(1).discard = ["argonaut"]
+        self.assertFalse(option(engine, match, "vir_garbarean", hero(match, 1, "vir_garbarean")).allowed)
+        match.player(1).deck = ["neo_plexus"]
+        ability(engine, game, match, "vir_garbarean", hero(match, 1, "vir_garbarean"))
+        prompt = asked(engine, game, match)
+        self.assertEqual([row.ref for row in prompt.options.targets], ["deck:neo_plexus"])
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).deck, ["neo_plexus"])
+
+    def test_vir_garbarean_2(self) -> None:
+        """If you have no draw pile, you can't "exchange the top card of your
+        draw pile with a card from your hand." Nothing happens."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean")
+        match.player(1).deck = []
+        hand(match, 1, "argonaut")
+        match.player(1).gold = 3
+        self.assertFalse(option(engine, match, "vir_garbarean_exchange",
+                                hero(match, 1, "vir_garbarean")).allowed)
+        match.player(1).deck = ["neo_plexus"]
+        ability(engine, game, match, "vir_garbarean_exchange", hero(match, 1, "vir_garbarean"))
+        self.assertEqual((match.player(1).deck, match.player(1).hand), (["argonaut"], ["neo_plexus"]))
+
+    def test_vir_garbarean_3(self) -> None:
+        """The max level ability summons a Mech token that has two time runes
+        on it. Remove one time rune each of your upkeeps. When you remove the
+        last, th Mech arrives. The Mech does not have haste so it can't attack
+        the turn it arrives."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=6)
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "level", hero="vir_garbarean", levels=1)
+        self.assertEqual([(card.slug, card.time_runes) for card in match.player(1).future], [("mech", 2)])
+        turn_round(engine, game, match, 1)
+        turn_round(engine, game, match, 1)
+        mech = next(card for card in match.player(1).play if card.slug == "mech")
+        self.assertNotIn(mech.ref, engine.attackers(match))
+
+    def test_vir_plays_the_top_card(self) -> None:
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        match.player(1).deck = ["argonaut"]
+        tech(match, 1, 1)
+        match.player(1).gold = 5
+        ability(engine, game, match, "vir_garbarean_play", hero(match, 1, "vir_garbarean"))
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+        self.assertEqual(match.player(1).gold, 2)
+
+    def test_vortoss_emblem_1(self) -> None:
+        """You can attach this to an enemy unit. If you do, you still control
+        Vortoss Emblem itself, so the time runes on it still count toward
+        your Temporal Research."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "prynn_pasternaak")
+        enemy = put(match, 2, "bone_collector")
+        cast(engine, game, match, "vortoss_emblem")
+        emblem = next(card for card in match.player(1).play if card.slug == "vortoss_emblem")
+        self.assertEqual((emblem.attached, emblem.time_runes), ([enemy.id], 3))
+        self.assertEqual(engine.time_runes_of(match, 1), 3)
+        self.assertTrue(engine.is_flagbearer_body(match, enemy))
+
+    def test_warp_gate_disciple_1(self) -> None:
+        """When you put units into play with this ability, you don't have to
+        pay for them and you don't have to meet the tech requirements for
+        them either, so you can still do it even if you don't have a tech I
+        or II building at all."""
+        engine, game, match = purple()
+        disciple = put(match, 1, "warp_gate_disciple")
+        match.player(1).gold = 1
+        ability(engine, game, match, "warp_gate_disciple", disciple.ref)
+        prompt = asked(engine, game, match)
+        target = next(row.key for row in prompt.options.targets if row.ref == "codex:argonaut")
+        apply(engine, game, match, PromptKind.TARGET, target=target)
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+        self.assertEqual(match.player(1).gold, 0)
+
+    def test_xenostalker_1(self) -> None:
+        """If multiple patrollers die simultaneously and the order they die
+        would matter for some reason, then you as the active player choose
+        that order."""
+        engine, game, match = purple()
+        xeno = put(match, 1, "xenostalker")
+        one = put(match, 2, "skeleton", patrol="squad_leader")
+        two = put(match, 2, "skeleton", patrol="elite")
+        flier = put(match, 2, "cursed_crow", patrol="lookout")
+        attack(engine, game, match, xeno.ref, "base")
+        prompt = asked(engine, game, match)
+        self.assertNotIn(flier.ref, [row.ref for row in prompt.options.targets])
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{one.ref}")
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{two.ref}")
+        self.assertIsNone(match.player(2).instance(one.id))
+        self.assertIsNone(match.player(2).instance(two.id))
+
+    def test_yesterdays_golgort_1(self) -> None:
+        """The Golgort's ability to gain a time rune triggers even if "you"
+        deal combat damage to a building with another unit, or with a hero.
+        It doesn't have to be with the Golgort itself."""
+        engine, game, match = purple()
+        golgort = put(match, 1, "yesterdays_golgort")
+        golgort.time_runes = 1
+        unit = put(match, 1, "argonaut")
+        attack(engine, game, match, unit.ref, "base")
+        self.assertEqual(golgort.time_runes, 2)
+
+    def test_yesterdays_golgort_counts_combat_damage_alone(self) -> None:
+        """The author, 2026-10-10: "Whenever you deal combat damage to a
+        building" is combat damage -- a spell's damage to a base gives no
+        rune."""
+        engine, game, match = black()
+        golgort = put(match, 2, "yesterdays_golgort")
+        golgort.time_runes = 1
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        match.player(1).deck = ["argonaut"] * 4
+        hand(match, 2, "dark_pact")
+        match.player(2).gold = 0
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="dark_pact")
+        prompt = asked(engine, game, match)
+        if prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, target="1:base")
+        self.assertEqual(match.player(1).base_hp, 18)
+        self.assertEqual(golgort.time_runes, 1)
+
+
+def upkeep_ordered_by(engine, game, match, seat: int):
+    """Turns with nothing done until `seat`'s upkeep asks its order: the
+    kind it stops on."""
+    from test_codex_keywords import next_upkeep
+
+    next_upkeep(engine, game, match, 2 if seat == 1 else 1)
+    for _ in range(4):
+        prompt = pending_prompt(engine, game, match)
+        if prompt is None:
+            begin(engine, game, match)
+            continue
+        if prompt.kind is PromptKind.UPKEEP_ORDER or (match.active == seat and match.phase == "main"):
+            return prompt.kind
+        if prompt.kind is PromptKind.MAIN_ACTION:
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        elif prompt.kind is PromptKind.PATROL:
+            apply(engine, game, match, PromptKind.PATROL, assignment={})
+        elif prompt.kind is PromptKind.TECH_CHOICE:
+            apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                  picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+        else:
+            apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+    return pending_prompt(engine, game, match).kind
+
+
+def upkeep_of(engine, game, match, seat: int) -> None:
+    """`seat`'s next upkeep and main phase, nothing done in between."""
+    turn_round(engine, game, match, seat)
+
+
+class UpkeepRulingTests(unittest.TestCase):
+    """The upkeep, the extra turn and the debt (step 12, commit 6)."""
+
+    def test_banefire_golem_1(self) -> None:
+        """You can sacrifice him for his own effect. If you control no other
+        units, you MUST sacrifice him since the effect isn't optional. You'll
+        still deal the damage."""
+        engine, game, match = black()
+        golem = put(match, 2, "banefire_golem")
+        victim = put(match, 1, "neo_plexus")
+        upkeep_of(engine, game, match, 2)
+        self.assertIsNone(match.player(2).instance(golem.id))
+        self.assertEqual(victim.damage, 1)
+        self.assertEqual(match.player(1).base_hp, 19)
+
+    def test_banefire_golem_asks_which_unit_where_there_are_two(self) -> None:
+        engine, game, match = black()
+        golem = put(match, 2, "banefire_golem")
+        fodder = put(match, 2, "skeleton")
+        match.active = 1
+        match.enter_phase("ready")
+        match.player(1).tech_owed = False
+        begin(engine, game, match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        begin(engine, game, match)
+        for standing in __import__("codex.prompts", fromlist=["x"]).standing_prompts(engine, match, game):
+            del standing
+        prompt = asked(engine, game, match)
+        while prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+            if prompt.kind is PromptKind.TECH_CHOICE:
+                apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                      picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+            else:
+                apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+            begin(engine, game, match)
+            prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual({row.ref for row in prompt.options.targets}, {golem.ref, fodder.ref})
+        apply(engine, game, match, PromptKind.TARGET, target=f"2:{fodder.ref}")
+        self.assertIsNotNone(match.player(2).instance(golem.id))
+
+    def test_plague_lord_1(self) -> None:
+        """The upkeep ability only triggers during your upkeep, not each
+        other player's. When it triggers, even your own base takes damage if
+        you have any -1/-1 runes on your units or heroes."""
+        from test_codex_keywords import next_upkeep
+
+        engine, game, match = black()
+        put(match, 2, "plague_lord")
+        mine = put(match, 2, "argonaut")
+        mine.minus_runes = 1
+        theirs = put(match, 1, "argonaut")
+        theirs.minus_runes = 2
+        next_upkeep(engine, game, match, 1)
+        self.assertEqual((match.player(1).base_hp, match.player(2).base_hp), (20, 20))
+        next_upkeep(engine, game, match, 2)
+        self.assertEqual((match.player(1).base_hp, match.player(2).base_hp), (18, 19))
+
+    def test_shrine_of_forbidden_knowledge_1(self) -> None:
+        """"Card draw +1, hand size +1" means that instead of discarding your
+        hand and drawing that many cards +2, capped at 5, you instead discard
+        your hand and draw that many cards +3, capped at 6."""
+        engine, game, match = black()
+        put(match, 2, "shrine_of_forbidden_knowledge")
+        player = match.player(2)
+        self.assertEqual(engine.draw_count(1, player), 4)
+        self.assertEqual(engine.draw_count(5, player), 6)
+        put(match, 2, "shrine_of_forbidden_knowledge")
+        self.assertEqual(engine.draw_count(5, player), 7)
+        before = player.base_hp
+        upkeep_of(engine, game, match, 2)
+        self.assertEqual(player.base_hp, before - 2, "each Shrine's 1 at its upkeep")
+
+    def test_double_time_1(self) -> None:
+        """If you would take multiple extra turns, they do stack so you can
+        potentially take 3 turns in a row."""
+        engine, game, match = purple()
+        for _ in range(2):
+            board.to_future(engine, match, "double_time", 1)
+        for card in match.player(1).future:
+            card.time_runes = 1
+        turn = match.turn
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual(match.extra_turns, [1, 1])
+        self.assertNotIn("double_time", match.player(1).discard, "trashed once it resolves")
+        from test_codex_keywords import next_upkeep
+
+        for _ in range(2):
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+            apply(engine, game, match, PromptKind.PATROL, assignment={})
+            begin(engine, game, match)
+            prompt = asked(engine, game, match)
+            while prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM):
+                if prompt.kind is PromptKind.TECH_CHOICE:
+                    apply(engine, game, match, prompt.kind, player=prompt.asked_player,
+                          picks=[slug for slug, n in prompt.options.codex if n][:prompt.options.minimum])
+                else:
+                    apply(engine, game, match, prompt.kind, "confirm", player=prompt.asked_player)
+                begin(engine, game, match)
+                prompt = asked(engine, game, match)
+            self.assertEqual(match.active, 1)
+        self.assertEqual(match.extra_turns, [])
+        self.assertEqual(match.turn, turn + 4)
+        del next_upkeep
+
+    def test_promise_of_payment_1(self) -> None:
+        """You will get gold from your workers before you have to pay the
+        cost. Also, since you as the active player decide in what order your
+        upkeep effects happen, you can collect gold from upkeep effects like
+        Galina Glimmer and Gemscout Owl before you have to pay. HOWEVER, you
+        can't play cards or activate abilities (such as Merfolk Prospector
+        and Rickety Mine) until your Main phase, so they can't help you pay
+        the cost."""
+        for owl_first in (True, False):
+            with self.subTest(owl_first=owl_first):
+                engine, game, match = purple()
+                put(match, 1, "gemscout_owl")
+                match.player(1).debt = 5
+                match.player(1).gold = 0
+                match.player(1).workers = 4
+                self.assertIs(upkeep_ordered_by(engine, game, match, 1), PromptKind.UPKEEP_ORDER)
+                prompt = asked(engine, game, match)
+                self.assertIn("debt", prompt.options.effects)
+                gains = [e for e in prompt.options.effects if e != "debt"]
+                self.assertEqual(gains, ["owl"])
+                first = gains[0] if owl_first else "debt"
+                apply(engine, game, match, PromptKind.UPKEEP_ORDER, first=first)
+                if owl_first:
+                    # The Owl's gold makes 5 with the workers' 4.
+                    self.assertIsNone(match.winner)
+                    self.assertEqual((match.player(1).gold, match.player(1).debt), (0, 0))
+                else:
+                    # The active player's order: the debt first is 4 gold
+                    # against 5, and the game is lost.
+                    self.assertEqual((match.winner, match.lost_by_debt), (2, 1))
+
+    def test_promise_of_payment_2(self) -> None:
+        """You still have to pay any additional costs of that card as you
+        play it. For example, if your opponent has a Building Inspector, you
+        pay 1 even if Promise of Payment makes the first building you build
+        cost 0."""
+        # Building Inspector is the Flagstone Dominion's (step 13): pinned
+        # here is that the promise is a card's cost, not what the card asks
+        # on top -- a boost is still paid.
+        engine, game, match = purple(first=2)
+        at_max(engine, match, 2, "vandy_anadrose")
+        tech(match, 2, 1)
+        match.player(2).promised = True
+        match.player(2).gold = 3
+        hand(match, 2, "hooded_executioner")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="hooded_executioner", boost=True)
+        self.assertEqual(match.player(2).gold, 0)
+        self.assertEqual(match.player(2).debt, 2)
+
+    def test_promise_of_payment_3(self) -> None:
+        """Hiring a worker is not playing a card. Building a Tech Building or
+        Add-on isn't playing a card. Using an ability of a card or putting a
+        card into play is not playing a card. Promise of Payment doesn't
+        apply to any of those things."""
+        engine, game, match = purple()
+        player = match.player(1)
+        player.promised = True
+        player.gold = 10
+        hand(match, 1, "neo_plexus")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug="neo_plexus")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "build", building="tower")
+        self.assertEqual(player.gold, 10 - 1 - 3)
+        self.assertTrue(player.promised)
+        self.assertEqual(player.debt, 0)
+
+    def test_promise_of_payment_4(self) -> None:
+        """You CAN use Promise of Payment to play a unit from Graveyard or to
+        play the top card of your draw pile with Vir's middle ability."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        tech(match, 1, 1)
+        match.player(1).deck = ["argonaut"]
+        match.player(1).promised = True
+        match.player(1).gold = 0
+        ability(engine, game, match, "vir_garbarean_play", hero(match, 1, "vir_garbarean"))
+        self.assertTrue(any(card.slug == "argonaut" for card in match.player(1).play))
+        self.assertEqual(match.player(1).debt, 3)
+
+    def test_promise_of_payment_5(self) -> None:
+        """Be sure to play Promise of Payment JUST before you play the card
+        you want to pay 0 for. If you play another card in between (even with
+        an effect like Cinderblast Dragon's attack effect), you have to apply
+        Promise of Payment's effect to that card instead."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        hero_in_play(match, 1, slug="max_geiger")
+        tech(match, 1, 2, "future")
+        hand(match, 1, "promise_of_payment", "now", "reaver")
+        match.player(1).gold = 1
+        put(match, 1, "argonaut")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="promise_of_payment")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="now")
+        self.assertEqual(match.player(1).debt, 1, "Now took the promise")
+        self.assertIn("not enough gold", engine.why_not_playable(match.player(1), "reaver", match))
+
+    def test_promise_of_payment_6(self) -> None:
+        """The gold cost you have to pay during your next upkeep is the
+        printed gold cost on the card. You don't get to apply any effects
+        that would reduce its cost (even Gigadon's effect that's on the card
+        itself)."""
+        engine, game, match = purple()
+        built(match, 1, "tech1")
+        match.player(1).promised = True
+        hand(match, 1, "argonaut")
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="argonaut")
+        self.assertEqual(match.player(1).debt, 3)
+
+    def test_promise_of_payment_7(self) -> None:
+        """If for some reason you play Promise of Payment and then don't play
+        any other cards that turn, nothing happens during your next upkeeep."""
+        engine, game, match = purple()
+        at_max(engine, match, 1, "vir_garbarean")
+        cast(engine, game, match, "promise_of_payment")
+        self.assertTrue(match.player(1).promised)
+        upkeep_of(engine, game, match, 1)
+        self.assertFalse(match.player(1).promised)
+        self.assertEqual(match.player(1).debt, 0)
+        self.assertIsNone(match.winner)
+
+    def test_promise_of_payment_8(self) -> None:
+        """Promise of Payment does not help you pay for Boost. If you play
+        Promise of Payment and then Murkwood Allies, you only get one kind of
+        token unless you pay 4 gold."""
+        engine, game, match = purple(first=2)
+        tech(match, 2, 1)
+        match.player(2).promised = True
+        match.player(2).gold = 2
+        hand(match, 2, "hooded_executioner")
+        row = next(row for row in engine.playable(match.player(2), match) if row.slug == "hooded_executioner")
+        self.assertEqual(row.cost, 0)
+        self.assertEqual(row.boost_why_not, "not enough gold to boost")
+
+    def test_promise_unpaid_loses_the_game(self) -> None:
+        """Promise of Payment: "Pay its gold cost during your next upkeep or
+        lose the game." -- GAME_OVER's third way."""
+        engine, game, match = purple()
+        match.player(1).debt = 9
+        match.player(1).gold = 0
+        upkeep_of(engine, game, match, 1)
+        self.assertEqual((match.winner, match.lost_by_debt), (2, 1))
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.GAME_OVER)
+        self.assertIn("could not pay", prompt.ask)
+        self.assertEqual(prompt.options.lost_by_debt, 1)
+
+    def test_second_chances_random_return_is_replayed_byte_for_byte(self) -> None:
+        """Second Chances: "Choose randomly if multiples leave at once" --
+        `engine.pick`, journalled beside the shuffles, so a replay by an
+        engine of another seed returns the same one."""
+        import json
+
+        from codex import history
+        from codex.engine import RulesEngine
+
+        for seed in range(6):
+            engine, game, match = new_game(seed=seed, first=1, teams=PB_TEAMS)
+            put(match, 1, "second_chances")
+            put(match, 1, "argonaut")
+            put(match, 1, "neo_plexus")
+            put(match, 1, "fading_argonaut")
+            at_max(engine, match, 1, "prynn_pasternaak")
+            hand(match, 1, "rewind")
+            match.player(1).gold = 10
+            begin(engine, game, match)
+            match.player(1).hero.max_level_since_turn_began = True
+            apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="rewind")
+            outcome = match.journal[-1]["outcomes"]
+            self.assertEqual(outcome[0][0], "@pick")
+            replayed = history.replay(
+                RulesEngine(seed=seed + 100), game, match.turn_snapshots[-1],
+                match.journal, history=match.turn_snapshots,
+            )
+            self.assertEqual(json.dumps(replayed.to_dict(), sort_keys=True),
+                             json.dumps(match.to_dict(), sort_keys=True))
+
+    def test_a_forecast_unit_arrives_with_its_triggers_after_its_building_is_gone(self) -> None:
+        """Forecast X: "A card in the future can arrive even if you lose the
+        relevant spec or tech building" -- and it arrives as any unit does,
+        what reads an arrival reading it."""
+        engine, game, match = pb(first=1, teams=(("future", "past", "present"),
+                                                 ("demonology", "disease", "necromancy")))
+        tech(match, 1, 2, "future")
+        put(match, 1, "blooming_ancient")
+        hand(match, 1, "reaver")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="reaver")
+        match.player(1).buildings["tech2"].destroyed = True
+        ancient = match.player(1).play[0]
+        before = ancient.plus_runes
+        upkeep_of(engine, game, match, 1)
+        upkeep_of(engine, game, match, 1)
+        self.assertTrue(any(card.slug == "reaver" for card in match.player(1).play))
+        self.assertEqual(ancient.plus_runes, before + 1)
+
+
 class EveryCardRulingIsPinnedTests(unittest.TestCase):
     """The ratchet: every ruling on a card of the basic set has a test
     named for it, whose docstring is the ruling's own words."""
@@ -2216,6 +4476,27 @@ class EveryRedAndGreenRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
             f"red's and green's cards carry {total} rulings, not {RED_GREEN_RULINGS}: "
             "a re-import changed them, and each needs its test",
         )
+
+class EveryPurpleAndBlackRulingIsPinnedTests(EveryCardRulingIsPinnedTests):
+    """Step 12's ratchet: the same three checks over every purple and
+    black card, hero and token whose text is played -- every one once
+    `UNIMPLEMENTED` is empty."""
+
+    def _rulings(self) -> dict:
+        return {
+            slug: rulings.rulings_for(slug)
+            for slug in sorted((PURPLE | BLACK) - effects.UNIMPLEMENTED)
+            if rulings.rulings_for(slug)
+        }
+
+    def test_the_count_is_pinned(self) -> None:
+        total = sum(len(rulings.rulings_for(slug)) for slug in PURPLE | BLACK)
+        self.assertEqual(
+            total, PURPLE_BLACK_RULINGS,
+            f"purple's and black's cards carry {total} rulings, not {PURPLE_BLACK_RULINGS}: "
+            "a re-import changed them, and each needs its test",
+        )
+
 
 def _collapse(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()

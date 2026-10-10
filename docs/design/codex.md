@@ -778,6 +778,128 @@ ruling's own words and a ratchet counting them.
   frame finishes, so a second copy of a legendary unit played with
   nothing to resolve -- a second Galina -- is destroyed on arrival.
 
+### Purple and black
+
+Step 12 made every purple (the Vortoss Conclave: Past, Present, Future)
+and black (the Blackhand Scourge: Demonology, Disease, Necromancy) card,
+hero and token do what it says, in six commits -- the colours landed for
+their numbers, time and the keywords, the forms of death, black's
+effects, purple's, and the upkeep, the extra turn and the tokens --
+`UNIMPLEMENTED` filled by the first and empty at the last, which
+`tests/test_codex_effects.py` now asserts. The General rulings of the
+three keywords it added are pinned in `tests/test_codex_keywords.py`
+(ten), and every ruling on the pair's cards and heroes in
+`tests/test_codex_card_rulings.py` (122: 107 on the cards, 15 on the
+heroes), each test's docstring the ruling's own words and a ratchet
+counting them. The Forecast X ruling about three time runes and the
+Two Lives, Illusion and Entangling Vines rulings name cards of colours
+not yet landed: each is pinned for the part that is purple's or
+black's, and the rest waits for step 13.
+
+- **Time and the future** (UMR p. 17). A time rune is a count on a card
+  (`time_runes`) or a hero (Prynn). **Fading X** puts X on a card as it
+  arrives and takes one off at each of its controller's upkeeps; the last
+  one gone, the card is sacrificed (`board.remove_time_rune`, which also
+  carries Rememberer, always sacrificed first). **Forecast X** never
+  plays a card into play: `board.to_future` puts it in its player's
+  `future` with X runes and its id, and the last rune gone it arrives
+  (`arrive_from_future`) -- a unit with arrival fatigue and its arrives
+  trigger, needing nothing it needed to be played, so it arrives even
+  after its tech building is destroyed (the ruling, and
+  `test_a_forecast_unit_arrives_with_its_triggers_after_its_building_is_gone`);
+  a spell resolves. A card in the future is untargetable and unaffected
+  by everything but what names time runes -- Time Spiral, Temporal
+  Research's count -- and is addressed `future:<id>`. The board draws it
+  greyed after the units, its rune chit on it.
+- **The forms of death.** *Destroyed*, *sacrificed* and *dies* stay one
+  path (`board.destroy`, with `forced` for a sacrifice and `combat` for
+  combat damage), and three things stand in its way, in this order:
+  **Soul Stone** saves first (its damage removed, the stones sacrificed,
+  nothing that pays on a death paying), then **indestructible**
+  (`board.spare`: exhausted, its damage gone, the cards attached to it
+  discarded, its runes kept, and never sacrificed at all), then **can't
+  leave play** (Gilded Glaxx while its controller has gold). **Disable**
+  (UMR p. 16) exhausts and sidelines a card and keeps it from readying
+  at its next ready phase (`disabled`, cleared there). Rune damage --
+  Plague Spitter's -1/-1 runes -- is still combat damage for anything
+  that asks (its ruling). Blackhand Dozer's base damage has a floor
+  (`damage_base(by=)`).
+- **The graveyard.** The discard is a pile, as before; Black's
+  **Graveyard** building keeps `buried` entries, each `{slug, owner}`,
+  addressed `buried:<id>:<n>`, its limit read off the card, and the
+  board counts them on its card ("Buried 3"). Playing a buried unit is
+  `why_not_play_buried`; Vir's top-of-deck play `why_not_play_top`. A
+  buried unit with Boost may be played boosted, its boost paid on top
+  (the Graveyard says "play", and the boost ruling lets a played card be
+  boosted): after the pick a `MODE_CHOICE` asks "play it" or "play it
+  boosted", the second disabled where the unit has no boost or the gold
+  does not cover both (the author, 2026-10-10: "boost applies when you
+  'play' a card and that's what graveyard does").
+- **The weakest** (UMR p. 18) is `engine.weakest`: the lowest tech unit
+  with the least ATK, passing over what the effect cannot take -- one
+  that can't be sacrificed, or, to destroy, one that is indestructible or
+  can't leave play -- and whoever resolves the effect chooses among the
+  tied -- Sacrifice the Weak's caster for both sides. `lowest_tech` is
+  Death Rites' and the Dozer's.
+- **A decision the active player cannot make.** On an opponent's turn
+  an effect that asks a decision does not resolve (UMR p. 14), so a
+  "Max level:" text reached there that chooses is lost
+  (`board.max_level_reached`); a choice that is the opponent's own --
+  Banefire Golem's sacrifice, Carrion Curse's discards -- is asked of
+  whoever the card says. **A look at hidden cards** (Carrion Curse's at
+  the opponent's hand, Vir's at the top of the deck, the discard) is a
+  `TARGET` whose `shown` lists everything seen and whose rows are what
+  may be picked; `private_choices` pictures `shown` to the asker alone,
+  and `tests/test_codex_cog_turn.py`'s `CarrionCurseTests` holds that
+  the channel hears none of it until a card is discarded.
+- **The extra turn.** Double Time appends its caster to
+  `MatchState.extra_turns`; `begin_tech` gives the next turn to the
+  first seat waiting there instead of the other player, so two Double
+  Times are two extra turns, three turns in a row (its ruling). The
+  tech choice in an extra turn is the standing prompt as in any turn,
+  asked in the ready phase and confirmed there.
+- **The debt.** Promise of Payment sets `promised`; the next card
+  played that turn -- from hand, from a Graveyard, off the deck with Vir,
+  or a spell another card casts in between -- costs 0, and its printed
+  gold cost becomes `debt` (`actions.spend_promise`): never reduced by
+  anything and never the boost, which is still paid. A hire, a build or
+  an ability is not playing a card. The debt is paid in the upkeep, after
+  the workers' gold, in the order the active player chooses among the
+  upkeep's effects -- asked wherever anything else is due beside it (the
+  author, 2026-10-10: "upkeep abilities can be done in any order
+  according to the active player's choice"); unpaid, the game is lost
+  -- `lost_by_debt`, GAME_OVER's third way beside a destroyed base and a
+  concession. A promise spent on nothing is cleared in `begin_tech`.
+- **The upkeep's new items**, in the order the active player asks
+  where it decides something: fading (cards and Prynn), forecast, Doom,
+  Banefire Golem (asked beside Plague Lord, since its sacrifice may
+  change Plague Lord's count), Plague Lord (every -1/-1 rune on either
+  side, during its controller's upkeep alone, its own base included),
+  the Shrine of Forbidden Knowledge's damage, and the debt, ordered
+  against all of them.
+  Yesterday's Golgort counts combat damage to a building alone, dealt by
+  any of its controller's units or heroes (its ruling; the card's
+  wording, as the author confirmed on 2026-10-10).
+- **The subtypes and the colour are rules.** Demons (`is_demon`), Buffs
+  and Debuffs (`BUFF_SUBTYPES`, which Vandy's Sentries and the
+  untargetable-by-buffs readings ask) and a card's colour (`color_of`,
+  for black invisibility and the Graveyard) are read off the catalog
+  and the printed override, never off a name. Metamorphosis turns heroes
+  into Demons by a modifier; Skeletons are black tokens; Second
+  Chances' "choose randomly" is `engine.pick`, journalled as
+  `["@pick", slug]` beside the coin and the shuffles, so a replay returns
+  the same unit (`test_second_chances_random_return_is_replayed_byte_for_byte`).
+- **As the author answered** (2026-10-10): Blackhand Resurrector
+  summons a hero that still has summoning runes, but never past the
+  hero limit -- a dead hero is no target while the side is at it; Soul
+  Stone applies before indestructible; Rememberer is always the first
+  sacrificed; a token Max Geiger trashes comes back like any unit;
+  Yesterday's Golgort counts combat damage alone; the upkeep's effects,
+  Promise of Payment's debt among them, go in the active player's order;
+  a unit played from the Graveyard may be boosted;
+  Carrion Curse shows the hand even where nothing in it may be
+  discarded.
+
 ### The saved fields
 
 **The save format is the contract from step 2 on.** Every class saved
@@ -842,6 +964,19 @@ match as its saved dict, as D12 Ball's record does; its file,
   units); and `sequence` (0) on the match. A save made before step 11
   reads every card and band as having entered at 0, so its grants apply
   in the order the ids give.
+
+- **Step 12 added thirteen**, each with its fallback: on a hero
+  `time_runes` (0), `disabled` (false) and `trashed` (`[]`: what Prynn's
+  max level ability trashed, each `{slug, owner, controller, id}`,
+  returned to play when she leaves it); on a card `time_runes` (0), `disabled`
+  (false), `buried` (`[]`: a Graveyard's units, each `{slug, owner}`)
+  and `made_by` (`None`: the card whose arrival summoned a token -- Terras
+  Q's Warlocks shackle him alone); on a side `future`
+  (`[]`: the forecast cards, saved as a card in play is), `skip_draw`
+  (false, Prynn's fading), `promised` (false) and `debt` (0, Promise of
+  Payment); and on the match `extra_turns` (`[]`, Double Time) and
+  `lost_by_debt` (`None`). The golden's final match was re-recorded for
+  these keys alone -- every one at its default, nothing else changed.
 
 ### What the narration may say
 

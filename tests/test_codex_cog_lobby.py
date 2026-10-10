@@ -196,7 +196,9 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((menu.min_values, menu.max_values), (3, 3))
             offered = {option.value for option in menu.options}
             self.assertEqual(offered, {"bashing", "finesse", "anarchy", "blood", "fire",
-                                       "balance", "feral", "growth"})
+                                       "balance", "feral", "growth",
+                                       "past", "present", "future",
+                                       "demonology", "disease", "necromancy"})
             # No deck buttons while nobody's heroes span two colours.
             self.assertFalse([item for item in lobby.children if ":deck" in (item.custom_id or "")])
             picked = await table.pick(lobby, ["fire", "feral", "bashing"], table.basher)

@@ -699,7 +699,7 @@ starting.
 | ~~9~~ | ~~The look back: what turned out identical moves to one home~~ -- landed; what it settled is in docs/design/codex.md, "What the two games share" | small | nothing copied in steps 1 to 8 remains byte-identical in two places |
 | ~~10~~ | ~~The standard game's rules, over the red and green data~~ -- landed; what it settled is in docs/design/codex.md, "The standard game" and "The vanilla engine and `UNIMPLEMENTED`" | large | three heroes a side, a spec chosen at Tech II, the heroes' hall and the tech lab built, a red team against a green one with every card still played for its numbers |
 | ~~11~~ | ~~Red and green: every card does what it says~~ -- landed; what it settled is in docs/design/codex.md, "Red and green" | large | `UNIMPLEMENTED` empty again; Calamandra against Jaina, the Core Set's own first game |
-| 12 | Purple and black | large | the same for the Vortoss Conclave and the Blackhand Scourge |
+| ~~12~~ | ~~Purple and black~~ -- landed; what it settled is in docs/design/codex.md, "Purple and black" | large | the same for the Vortoss Conclave and the Blackhand Scourge |
 | 13 | White and blue | large | the same for the Whitestar Order and the Flagstone Dominion; every printed card plays |
 | -- | Later, and not now | -- | |
 
@@ -2540,6 +2540,12 @@ rulebook allows.
 ```
 
 ### 12. Purple and black
+
+**Landed** (2026-10-09, by the cloud routine): every purple and black
+card, hero and token does what it says, in six commits; `UNIMPLEMENTED`
+is empty, 122 rulings and ten General ones are pinned, and the board
+draws the future, time runes, a disabled card and a Graveyard's buried
+count. What it settled is in docs/design/codex.md, "Purple and black".
 
 The Vortoss Conclave and the Blackhand Scourge, ninety-two cards,
 six heroes, six tokens. Purple is time: runes that count down on a card

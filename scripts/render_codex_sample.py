@@ -190,6 +190,52 @@ def staged_standard(engine: RulesEngine) -> MatchState:
     return match
 
 
+def staged_purple_black(engine: RulesEngine) -> MatchState:
+    """Purple (Past, Present, Future) against black (Demonology, Disease,
+    Necromancy) in a standard game's middle (docs/codex-bot.md, step 12):
+    a card fading with its time runes, two in the future greyed with
+    theirs, Prynn with hers, a disabled unit exhausted and one ready, and
+    a Graveyard with three units buried."""
+    match = engine.new_match(
+        (("past", "present", "future"), ("demonology", "disease", "necromancy")),
+        first=1, decks=("purple", "black"),
+    )
+    match.turn, match.phase = 12, "main"
+    one, two = match.player(1), match.player(2)
+    one.gold, one.workers, one.base_hp = 4, 9, 16
+    two.gold, two.workers, two.base_hp = 3, 9, 13
+    prynn = one.hero_of("prynn_pasternaak")
+    prynn.zone, prynn.level, prynn.time_runes = "play", 5, 2
+    garth = two.hero_of("garth_torken")
+    garth.zone, garth.level = "play", 3
+    for player, spec in ((one, "future"), (two, "necromancy")):
+        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+        player.buildings["tech2"] = BuildingState(hp=5, under_construction=False)
+        player.tech2_spec = spec
+        player.constructed_once = True
+
+    def put(seat, slug, *, patrol=None, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.exhausted, card.arrived_this_turn = patrol, exhausted, arrived
+        return card
+
+    put(1, "fading_argonaut").time_runes = 2
+    put(1, "neo_plexus", patrol="squad_leader")
+    put(1, "argonaut", exhausted=True).disabled = True
+    put(2, "skeleton", patrol="elite").minus_runes = 0
+    put(2, "hooded_executioner").disabled = True
+    graveyard = put(2, "graveyard")
+    graveyard.buried = [{"slug": "argonaut", "owner": 1}, {"slug": "skeleton", "owner": 2},
+                        {"slug": "neo_plexus", "owner": 1}]
+    for slug, runes in (("reaver", 1), ("double_time", 3)):
+        card = match.new_instance(slug, 1)
+        one.play.remove(card)
+        card.time_runes = runes
+        one.future.append(card)
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -266,6 +312,10 @@ def main() -> None:
         [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
         [picks.get(slug, 0) for slug, _ in rows],
     ))
+
+    # Step 12: purple against black -- time runes, the future, disabled
+    # cards and a Graveyard's buried count.
+    render_all(engine, staged_purple_black(engine), names, args.out, "purple-black")
 
     # The standard game: three heroes a side, a codex of seventy-two.
     standard = staged_standard(engine)

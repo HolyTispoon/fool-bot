@@ -69,6 +69,14 @@ def _handled(slug: str) -> list[str]:
         "UNIT_GRANTS", "HERO_GRANTS", "ATTACHED_UNIT_GRANTS",
         "UPKEEP_GOLD", "UPKEEP_GREEN_GOLD", "UPKEEP_CHOICE", "JOINS_THE_STRONGER",
         "RETURNS_IF_IDLE", "RETURNS_AT_END",
+        # Purple and black's (step 12).
+        "ATK_CEILING", "CANT_BE_SACRIFICED", "UNSTOPPABLE_BY_RUNED", "DEMONS_UNSTOPPABLE",
+        "UNSTOPPABLE_ATTACKING_HEROES", "UNTARGETABLE_BY_BUFFS", "INVISIBLE_COLOR",
+        "RUNE_DAMAGE", "ALL_OTHER_UNITS", "CORPSE_RUNES", "SKELETON_ON_DEATH",
+        "ON_DAMAGING_A_BASE", "SHACKLED", "NO_HIGH_TECH_UNITS", "VOIDBLOCKERS", "DRAW_MORE",
+        "NO_OPPOSING_LEVELS", "CANT_LEAVE_WITH_GOLD", "TRASHED_BY_TECH_II", "PER_TIME_RUNE",
+        "SECOND_CHANCES", "SENTRIES", "SLOWTIME", "GOLGORTS", "REMEMBERERS",
+        "UPKEEP_SACRIFICE", "PLAGUE_UPKEEP", "SELF_BASE_UPKEEP",
     ):
         if slug in getattr(effects, name):
             found.append(name)
@@ -92,9 +100,19 @@ def _handled(slug: str) -> list[str]:
     return found
 
 
-#: What step 11 has still to land: nothing. The set emptied commit by
-#: commit as each gave its cards their handlers.
+#: What step 12 has still to land: every purple and black card, hero and
+#: token whose text is more than keywords the engine reads, written out
+#: so each commit that gives one its handler takes it out here too.
 REMAINING = frozenset()
+
+
+#: The purple and black cards whose whole text is keywords the engine
+#: reads, so they play in full from step 12's first commit.
+STEP_12_PLAYED = {
+    "argonaut": ("Readiness",),
+    "stinger": ("Flying",),
+    "horror": ("Deathtouch",),
+}
 
 
 #: The red and green cards whose whole text is keywords the engine
@@ -110,6 +128,13 @@ STEP_10_PLAYED = {
 }
 
 
+def _handled_now() -> list[str]:
+    """The purple and black cards with unread text a commit of step 12
+    has already given their handlers."""
+    return sorted(slug for slug in (effects.PURPLE | effects.BLACK) - effects.UNIMPLEMENTED
+                  if _lines(slug) and _handled(slug))
+
+
 def _lines(slug: str) -> list[str]:
     card = catalog().by_slug(slug)
     if isinstance(card, Hero):
@@ -118,12 +143,30 @@ def _lines(slug: str) -> list[str]:
 
 
 class UnimplementedTests(unittest.TestCase):
-    def test_unimplemented_is_empty(self) -> None:
+    def test_unimplemented_is_pinned(self) -> None:
         """Step 11 emptied the set step 10 filled with red and green's
-        text: every red and green card, hero and token does what it
-        says."""
+        text; step 12 filled it with purple's and black's, played for
+        their numbers, and emptied it commit by commit: every landed
+        card's text plays."""
         self.assertEqual(effects.UNIMPLEMENTED, REMAINING)
         self.assertEqual(effects.UNIMPLEMENTED, frozenset())
+        self.assertTrue(effects.UNIMPLEMENTED <= effects.PURPLE | effects.BLACK)
+
+    def test_unimplemented_is_exactly_the_pairs_unread_text(self) -> None:
+        """Every purple or black card with text the keyword table does
+        not read whole is listed until it is handled, and none other."""
+        unread = set()
+        for slug in effects.PURPLE | effects.BLACK:
+            lines = _lines(slug)
+            if lines and not all(keywords.read_keywords([line]) for line in lines):
+                unread.add(slug)
+        self.assertEqual(unread - effects.UNIMPLEMENTED, set(_handled_now()))
+
+    def test_purple_and_blacks_keyword_cards_play_in_full(self) -> None:
+        for slug, printed in STEP_12_PLAYED.items():
+            with self.subTest(card=slug):
+                self.assertNotIn(slug, effects.UNIMPLEMENTED)
+                self.assertEqual(tuple(name for name, _ in keywords.keywords(slug)), printed)
 
     def test_the_landed_set_is_the_basic_set_and_red_and_green(self) -> None:
         cards = catalog()
@@ -138,8 +181,21 @@ class UnimplementedTests(unittest.TestCase):
         self.assertEqual(len(effects.GREEN), 10 + 36 + 3 + 5)
         self.assertEqual(
             effects.LANDED_SET,
-            effects.BASIC_SET | effects.RED | effects.GREEN | effects.BORROWED_TOKENS,
+            effects.BASIC_SET | effects.RED | effects.GREEN | effects.BORROWED_TOKENS
+            | effects.PURPLE | effects.BLACK,
         )
+
+    def test_purple_and_black_landed(self) -> None:
+        """Step 12: each colour's ten starters, its three specs'
+        thirty-six, its three heroes and its tokens."""
+        cards = catalog()
+        for color, group, tokens in (("purple", effects.PURPLE, 2), ("black", effects.BLACK, 4)):
+            self.assertTrue(set(cards.starting_deck(color)) <= group)
+            for hero in cards.heroes.values():
+                if (hero.color or "").lower() == color:
+                    self.assertIn(hero.slug, group)
+                    self.assertTrue(set(cards.codex_for(hero.spec)) <= group)
+            self.assertEqual(len(group), 10 + 36 + 3 + tokens)
         self.assertEqual(effects.BORROWED_TOKENS, {"shark", "water_elemental"})
 
     def test_red_and_greens_keyword_cards_play_in_full(self) -> None:

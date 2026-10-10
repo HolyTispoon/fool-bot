@@ -70,8 +70,19 @@ def gain_gold(match: MatchState, seat: int, amount: int) -> int:
 def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
                 by: Optional[int] = None) -> None:
     """Damage onto `seat`'s base; at 0 it is destroyed and the game ends
-    (UMR p. 2)."""
+    (UMR p. 2). `by` is the seat whose card or effect deals it, where
+    that is known: Blackhand Dozer's floor holds an opposing base at 6
+    against any damage its controller deals (`base_floor`)."""
     player = match.player(seat)
+    floor = base_floor(match, seat, by)
+    if floor is not None and player.base_hp - amount < floor:
+        kept = min(player.base_hp, floor)
+        if player.base_hp - amount < kept:
+            result.narration.append(
+                f"{tokens.card('blackhand_dozer')} holds {tokens.player(seat)}'s base at {kept}."
+            )
+        player.base_hp = kept
+        return
     player.base_hp = max(0, player.base_hp - amount)
     if player.base_hp == 0 and match.winner is None:
         match.winner = 2 if seat == 1 else 1
@@ -79,6 +90,22 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
+
+
+def base_floor(match: MatchState, seat: int, by: Optional[int]) -> Optional[int]:
+    """
+    Blackhand Dozer: "Damage you deal can reduce opposing bases' HP to 6,
+    but not lower." -- any damage the Dozer's controller deals, combat or
+    a spell or an ability, on any turn, a destroyed tech building's 2
+    included (its ruling, the Card FAQ). `None` where nothing holds it.
+    """
+    if by is None or by == seat:
+        return None
+    floors = [
+        effects.BASE_FLOOR[card.slug] for card in match.player(by).play
+        if card.slug in effects.BASE_FLOOR and "polymorph" not in (card.printed or {})
+    ]
+    return max(floors) if floors else None
 
 
 def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -142,11 +169,11 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         player.tech_owed = False
         player.tech_confirmed = False
     for card in player.play:
-        card.exhausted = False
+        card.exhausted = _stays_exhausted(engine, match, card)
         card.arrived_this_turn = False
         card.patrol_slot = None
     for hero in player.heroes:
-        hero.exhausted = False
+        hero.exhausted = _stays_exhausted(engine, match, hero)
         hero.arrived_this_turn = False
         hero.patrol_slot = None
     player.hired_this_turn = False
@@ -180,12 +207,22 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # Upkeep.
     match.enter_phase("upkeep")
     _until_upkeep_ends(engine, match, seat, result)
-    gained = gain_gold(match, seat, player.workers)
+    produced = player.workers
+    caps = [limit for side in match.players for card in side.play
+            if (limit := effects.SLOWTIME.get(engine.text_slug(card) or "")) is not None]
+    if caps:
+        # Slowtime Generator: "Each player's workers can't produce more than
+        # {gold:4} total during their upkeep."
+        produced = min(produced, min(caps))
+    gained = gain_gold(match, seat, produced)
     collected = (
         f"{tokens.player(seat)} collects {tokens.gold(gained)} from "
         f"{_plural(player.workers, 'worker')}"
     )
-    if gained < player.workers:
+    if produced < player.workers:
+        collected += f", held to {tokens.gold(produced)} by {tokens.card('slowtime_generator')}: "
+        collected += f"{tokens.gold(player.gold)}."
+    elif gained < player.workers:
         # Said where it bites, so a short income is not read as a slip
         # (the author, 2026-10-08).
         collected += f" and hits the gold cap: {tokens.gold(player.gold)}."
@@ -205,6 +242,21 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # death's target, the order itself -- stands where a restart finds it.
     match.resolving.append(upkeep_frame(engine, match, seat))
     return carry_on_upkeep(engine, game, match, result)
+
+
+def _stays_exhausted(engine: "RulesEngine", match: MatchState, body) -> bool:
+    """
+    Whether the ready phase leaves `body` exhausted (step 12): disabled --
+    "it doesn't ready during its next ready step" (UMR p. 16), which this
+    ready phase uses up -- or indestructible at 0 HP from its runes,
+    "exhausted forever" (the indestructible ruling).
+    """
+    if body.disabled:
+        body.disabled = False
+        return True
+    if engine.indestructible(match, body) and engine.body_stats(match, body)[1] <= 0:
+        return True
+    return False
 
 
 def _until_upkeep_ends(engine: "RulesEngine", match: MatchState, seat: int,
@@ -245,9 +297,14 @@ def upkeep_frame(engine: "RulesEngine", match: MatchState, seat: int) -> dict:
     a death can change (step 11). Pure gains -- the surplus's card, the
     Owl's and Galina's gold -- resolve unasked.
     """
-    due = list(engine.upkeep_effects(match.player(seat)))
+    due = list(engine.upkeep_effects(match.player(seat), match))
     ordered = list(engine.upkeep_ordered(due))
     first = [name for name in due if name not in ordered]
+    # Promise of Payment's debt is ordered like any other upkeep effect
+    # where anything else is due (`upkeep_ordered`): "Before paying the
+    # loan during your upkeep, you can resolve any other upkeep effects"
+    # (the Card FAQ) -- and the order is the active player's (the author,
+    # 2026-10-10).
     return {"kind": UPKEEP, "seat": seat, "due": first + ordered, "ordered": ordered}
 
 
@@ -360,7 +417,9 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
 
     player = match.player(seat)
     kind, _, ident = name.partition(":")
-    if kind == "draw":
+    if kind in ("fade", "fade_hero", "forecast"):
+        _lose_time_rune(engine, match, seat, kind, ident, result)
+    elif kind == "draw":
         if draw_cards(engine, match, seat, 1, result):
             result.narration.append(
                 f"{tokens.player(seat)} draws a card from their {tokens.card('surplus')}."
@@ -416,11 +475,102 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
                 effects.UPKEEP_CHOICE[card.slug], seat, tokens.card(card.slug),
                 source=card.ref, origin=card.slug,
             ))
+    elif kind == "banefire":
+        card = player.instance(int(ident))
+        if card is not None:
+            match.resolving.insert(0, resolve.frame(
+                effects.UPKEEP_SACRIFICE[card.slug], seat, tokens.card(card.slug),
+                source=card.ref, origin=card.slug,
+            ))
+    elif kind == "plague_lord":
+        card = player.instance(int(ident))
+        if card is not None:
+            _plague_lord(engine, match, seat, card, result)
+    elif kind == "shrine":
+        card = player.instance(int(ident))
+        if card is not None:
+            amount = effects.SELF_BASE_UPKEEP[card.slug]
+            result.narration.append(f"{tokens.card(card.slug)} deals {amount} to {tokens.player(seat)}'s base.")
+            damage_base(match, seat, amount, result, by=seat)
+    elif kind == "debt":
+        _pay_debt(match, seat, result)
+    elif kind == "doom":
+        doomed = engine.doomed_by(match, seat)
+        for card in doomed:
+            card.modifiers = [m for m in card.modifiers
+                              if not (m.get("until") == "doom" and m.get("seat") == seat)]
+        if doomed:
+            result.narration.append(
+                f"{tokens.hero('vandy_anadrose')}'s doom comes due: "
+                + ", ".join(board.named(match, card.controller, card.ref) for card in doomed)
+                + " lose +2/+2 and die."
+            )
+            board.destroy(engine, match, [(card.controller, card.ref) for card in doomed], result,
+                          cause=seat)
     elif kind == "dothram":
         card = player.instance(int(ident))
         if card is not None:
             _dothram(engine, match, card, result)
     board.settle(engine, match, result)
+
+
+def _lose_time_rune(engine: "RulesEngine", match: MatchState, seat: int, kind: str,
+                    ident: str, result: StepResult) -> None:
+    """The upkeep's time rune off a fading card or hero, or a card in the
+    future (UMR p. 17): the last one sacrifices the fading thing -- "from
+    fading", which Prynn reads -- or brings the forecast card in."""
+    from codex.components import hero_ref
+    from codex.engine import FUTURE
+    from codex.flow import board
+
+    ref = {"fade": f"unit:{ident}", "fade_hero": hero_ref(ident), "forecast": f"{FUTURE}{ident}"}[kind]
+    thing = board.timed(match, seat, ref)
+    if thing is None or thing.time_runes <= 0:
+        return
+    left = thing.time_runes - 1
+    if left:
+        what = board.named(match, seat, ref, whose=False)
+        result.narration.append(f"{what} loses a time rune: {left} left.")
+    board.remove_time_rune(engine, match, seat, ref, result, by_fading=kind != "forecast")
+
+
+def _plague_lord(engine: "RulesEngine", match: MatchState, seat: int, card,
+                 result: StepResult) -> None:
+    """Plague Lord: "Each player's base takes 1 damage for each -1/-1 rune on
+    their units and heroes." -- its controller's own base included (its
+    ruling)."""
+    for player in match.players:
+        runes = sum(body.minus_runes for body in (*player.play, *player.heroes_in_play))
+        if runes:
+            result.narration.append(
+                f"{tokens.card(card.slug)} deals {runes} to {tokens.player(player.seat)}'s base: "
+                f"{runes} -1/-1 rune{'' if runes == 1 else 's'}."
+            )
+            damage_base(match, player.seat, runes, result, by=seat)
+
+
+def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
+    """Promise of Payment's debt, paid out of the gold the upkeep brought --
+    or the game is lost: GAME_OVER's third way (`MatchState.lost_by_debt`)."""
+    player = match.player(seat)
+    owed, player.debt = player.debt, 0
+    if player.gold >= owed:
+        player.gold -= owed
+        result.narration.append(
+            f"{tokens.player(seat)} pays {tokens.gold(owed)} for {tokens.card('promise_of_payment')}."
+        )
+        return
+    if match.winner is not None:
+        return
+    match.winner = 2 if seat == 1 else 1
+    match.lost_by_debt = seat
+    match.record_event("lost_by_debt", loser=seat, winner=match.winner, owed=owed)
+    text = (
+        f"{tokens.player(seat)} can't pay the {tokens.gold(owed)} {tokens.card('promise_of_payment')} "
+        f"promised. {tokens.player(match.winner)} wins!"
+    )
+    result.narration.append(f"**{text}**")
+    result.headlines = (*result.headlines, Headline(text, seat=match.winner))
 
 
 def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult) -> None:
@@ -470,10 +620,24 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat = match.active
     player = match.active_player
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
+    if player.skip_draw:
+        # Prynn died from fading: "Opponents skip their next draw/discard
+        # step (they keep their hand cards)."
+        player.skip_draw = False
+        result.narration.append(f"{tokens.player(seat)} skips their draw and discard, keeping their hand.")
+        match.enter_phase("tech")
+        end_of_turn(engine, match, result)
+        from codex.flow import resolve
+
+        if not resolve.run(engine, match, result):
+            result.next = pending(engine, game, match)
+            return result
+        result.next = FollowOn(FollowOnStep.BEGIN_TECH)
+        return result
     discarded = len(player.hand)
     player.discard.extend(player.hand)
     player.hand = []
-    owed = engine.draw_count(discarded)
+    owed = engine.draw_count(discarded, player)
     # The count goes first, though it is only known after the draw: a
     # reshuffle the draw needed is said beneath it.
     at = len(result.narration)
@@ -594,7 +758,14 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     )
     match.record_event("turn_ended")
     match.attacking = None
-    match.active = 2 if seat == 1 else 1
+    player.promised = False
+    if match.extra_turns and match.extra_turns[0] == seat:
+        # Double Time: "Take an extra turn after this one" -- the turn passes
+        # to the same player, with every phase (its ruling).
+        match.extra_turns.pop(0)
+        result.narration.append(f"{tokens.player(seat)} takes an extra turn.")
+    else:
+        match.active = 2 if seat == 1 else 1
     match.turn += 1
     match.enter_phase("ready")
     result.next = pending(engine, game, match)

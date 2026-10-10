@@ -77,12 +77,28 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
     player = match.player(seat)
     if ref == "workers":
         return f"Workers ({player.workers})"
-    for prefix, where in (("slot:", "slot"), ("hand:", "from the hand"), ("codex:", "from the codex")):
+    if "#" in ref:
+        # Plague Lab: one kind of rune on a card.
+        ref, _, kind = ref.partition("#")
+        rune = {"plus": "+1/+1", "minus": "-1/-1"}.get(kind, kind)
+        return f"{ref_label(engine, match, seat, ref)}: another {rune} rune"
+    if ref.startswith("buried:"):
+        from codex.engine import buried_entry
+
+        found = buried_entry(match, ref)
+        if found is not None:
+            return f"{catalog().name(found[1]['slug'])} (buried)"
+    for prefix, where in (("slot:", "slot"), ("hand:", "from the hand"), ("codex:", "from the codex"),
+                          ("discard:", "from the discard pile"), ("deck:", "on top of the draw pile")):
         if ref.startswith(prefix):
             name = ref[len(prefix):]
             if prefix == "slot:":
                 return f"The {slot_name(name)} slot"
             return f"{catalog().name(name)} ({where})"
+    if ref.startswith("future:"):
+        card = next((one for one in player.future if f"future:{one.id}" == ref), None)
+        if card is not None:
+            return f"{catalog().name(card.slug)} (in the future, {card.time_runes} time runes)"
     hero = player.hero_by_ref(ref) if is_hero_ref(ref) else None
     if hero is not None:
         atk, hp = engine.hero_stats(hero)

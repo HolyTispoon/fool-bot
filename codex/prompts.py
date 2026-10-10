@@ -266,6 +266,10 @@ class TargetOptions:
     done: bool = False
     #: What the part has chosen so far, as target keys.
     picked: tuple[str, ...] = ()
+    #: Cards shown to the asked player alone beside the choice, by slug
+    #: (step 12): Carrion Curse's whole look at an opponent's hand, of
+    #: which only the non-units may be chosen. Empty for every other part.
+    shown: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         found = jsonable({
@@ -276,6 +280,8 @@ class TargetOptions:
         if self.done or self.picked:
             found["done"] = self.done
             found["picked"] = list(self.picked)
+        if self.shown:
+            found["shown"] = list(self.shown)
         return found
 
 
@@ -363,9 +369,14 @@ class GameOverOptions:
 
     winner: int
     conceded: Optional[int] = None
+    #: The seat that could not pay Promise of Payment's debt (step 12).
+    lost_by_debt: Optional[int] = None
 
     def to_dict(self) -> dict:
-        return {"winner": self.winner, "conceded": self.conceded}
+        found = {"winner": self.winner, "conceded": self.conceded}
+        if self.lost_by_debt is not None:
+            found["lost_by_debt"] = self.lost_by_debt
+        return found
 
 
 PromptOptions = Union[
@@ -553,11 +564,21 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
     top = match.resolving[0]
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     rows = rows_for(engine, match, top)
+    shown: tuple[str, ...] = ()
+    if part.choose in LOOKS:
+        # Carrion Curse: "Look at an opponent's hand" -- all of it, to the
+        # caster alone.
+        other = 2 if top["seat"] == 1 else 1
+        shown = tuple(match.player(other).hand)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
-        offers_done(top, part), tuple(top.get("picks") or ()),
+        offers_done(top, part), tuple(top.get("picks") or ()), shown,
     )
+
+
+#: The parts that look at a hidden pile while they choose from it.
+LOOKS = frozenset({"opponent_hand_nonunit"})
 
 
 def _divide_options(engine, game, match, prompt) -> DivideOptions:
@@ -656,7 +677,7 @@ def _confirm_options(engine, game, match, prompt) -> TechConfirmOptions:
 
 
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
-    return GameOverOptions(match.winner, match.conceded)
+    return GameOverOptions(match.winner, match.conceded, match.lost_by_debt)
 
 
 OPTIONS = {
@@ -726,10 +747,12 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
 
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
-        how = (
-            "the opposing base is destroyed." if match.conceded is None
-            else f"{tokens.player(match.conceded)} conceded."
-        )
+        if match.conceded is not None:
+            how = f"{tokens.player(match.conceded)} conceded."
+        elif match.lost_by_debt is not None:
+            how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
+        else:
+            how = "the opposing base is destroyed."
         return PendingPrompt(PromptKind.GAME_OVER, f"{tokens.player(match.winner)} wins: {how}")
     seat = match.active
     if match.resolving:

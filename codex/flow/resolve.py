@@ -165,10 +165,15 @@ def damage_amount(engine: "RulesEngine", match: MatchState, top: dict, amount: i
 
 def _applies(part, top: dict) -> bool:
     """Whether the frame does `part` at all: a part of one mode only in
-    that mode or both, a boosted part only where it was boosted."""
+    that mode or both, a boosted part only where it was boosted, and a
+    part that follows an earlier pick only where one was made (step 12)."""
     if part.only is not None and top.get("mode") not in (part.only, "both"):
         return False
     if part.when == "boosted" and not top.get("boosted"):
+        return False
+    if part.when == "from_hand" and not top.get("from_hand"):
+        return False
+    if part.follows and not top.get("chose"):
         return False
     return True
 
@@ -377,6 +382,8 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
         top["flagbearer"] = True
     top["taken"].append(row.key)
     top.setdefault("picks", []).append(row.key)
+    top["chose"] = True
+    top["picked"] = row.key
     if part.does != "divide":
         DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
@@ -406,8 +413,12 @@ def _deal_split(engine: "RulesEngine", match: MatchState, top: dict, part,
                 result: StepResult) -> None:
     """The divided damage, dealt at once to every target as split."""
     split = top["split"]
+    bodies = [board.body_of(match, *parse_target(key)) for key in split]
+    shielded = board.sentry_shields(engine, match, [body for body in bodies if body is not None], result)
     for key, amount in split.items():
         target = parse_target(key)
+        if board.body_of(match, *target) in shielded:
+            continue
         _deal(engine, match, top, target, amount, result)
     board.settle(engine, match, result, cause=top["seat"])
     _next_part(top)
@@ -481,14 +492,16 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     if board.is_building(ref):
         result.narration.append(
             f"{top['by']} deals {amount} to {_thing(match, target)}"
-            f"{board.left_after(engine, match, seat, ref, amount)}."
+            f"{board.left_after(engine, match, seat, ref, amount, by=top['seat'])}."
         )
-        board.damage_building(match, seat, ref, amount, result)
+        board.damage_building(match, seat, ref, amount, result, by=top["seat"])
         return amount
     body = board.body_of(match, seat, ref)
     if body is None:
         return 0
     named = _thing(match, target)
+    if board.sentry_shields(engine, match, [body], result):
+        return 0
     landed = board.take_damage(body, amount)
     line = f"{top['by']} deals {landed} to {named}"
     if landed < amount:
@@ -548,13 +561,23 @@ def _weaken(engine, match, top, part, target, result) -> None:
     )
 
 
-def _return(engine, match, top, part, target, result) -> None:
+def _return(engine, match, top, part, target, result) -> bool:
+    """A unit to its owner's hand -- not a death (Undo's, Rewind's and the
+    Stewardess's rulings) -- unless it can't leave play (Gilded Glaxx with
+    gold); whether it went."""
     seat, ref = target
     card = board.body_of(match, seat, ref)
+    if card is None:
+        return False
+    if engine.cant_leave_play(match, card):
+        result.narration.append(f"{_thing(match, target)} can't leave play.")
+        return False
     line = f"{top['by']} returns {_thing(match, target)} to {tokens.player(card.owner)}'s hand."
     board.leave_play(engine, match, card, "hand")
     match.record_event("returned", slug=card.slug, owner=card.owner)
     result.narration.append(line)
+    board.second_chances(engine, match, [card], result)
+    return True
 
 
 def _steal(engine, match, top, part, target, result) -> None:
@@ -583,7 +606,8 @@ def _draw(engine, match, top, part, target, result) -> None:
     top["drew"] = True
     drawn = draw_cards(engine, match, seat, part.amount or 1, result)
     if drawn:
-        result.narration.append(f"{tokens.player(seat)} draws a card.")
+        what = "a card" if drawn == 1 else f"{drawn} cards"
+        result.narration.append(f"{tokens.player(seat)} draws {what}.")
 
 
 def _discord(engine, match, top, part, target, result) -> None:
@@ -628,9 +652,9 @@ def _base_damage(engine, match, top, part, target, result) -> None:
         source = f"{top['by']}'s {band_name(engine, *printed)} band's ability"
     result.narration.append(
         f"{source} deals {amount} to {tokens.player(other)}'s base"
-        f"{board.base_left_after(match, other, amount)}."
+        f"{board.base_left_after(match, other, amount, by=top['seat'])}."
     )
-    damage_base(match, other, amount, result)
+    damage_base(match, other, amount, result, by=top["seat"])
 
 
 def band_name(engine, slug: str, first: int) -> str:
@@ -721,7 +745,7 @@ def _coin(engine, match, top, part, target, result) -> None:
         f"{board.base_left_after(match, seat, amount)}."
     )
     if mine is not None:
-        board.sacrifice(engine, match, mine)
+        board.sacrifice(engine, match, mine, result)
     damage_base(match, seat, amount, result)
 
 
@@ -738,9 +762,9 @@ def _pillage(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, steal)
     result.narration.append(
         f"{top['by']} deals {amount} to {tokens.player(other)}'s base"
-        f"{board.base_left_after(match, other, amount)}."
+        f"{board.base_left_after(match, other, amount, by=top['seat'])}."
     )
-    damage_base(match, other, amount, result)
+    damage_base(match, other, amount, result, by=top["seat"])
     taken = steal_gold(match, seat, other, steal) if other != seat else 0
     if taken:
         result.narration.append(
@@ -762,8 +786,12 @@ def _trash(engine, match, top, part, target, result) -> None:
     card = board.body_of(match, seat, ref)
     if card is None:
         return
-    result.narration.append(f"{top['by']} trashes {_thing(match, target)}.")
-    board.trash(engine, match, card)
+    named = _thing(match, target)
+    if engine.cant_leave_play(match, card):
+        result.narration.append(f"{named} can't leave play.")
+        return
+    result.narration.append(f"{top['by']} trashes {named}.")
+    board.trash(engine, match, card, result)
 
 
 def _desperation(engine, match, top, part, target, result) -> None:
@@ -808,9 +836,9 @@ def _active_base_damage(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} deals {amount} to {tokens.player(seat)}'s base"
-        f"{board.base_left_after(match, seat, amount)}."
+        f"{board.base_left_after(match, seat, amount, by=top['seat'])}."
     )
-    damage_base(match, seat, amount, result)
+    damage_base(match, seat, amount, result, by=top["seat"])
 
 
 def _damage_ready(engine, match, top, part, target, result) -> None:
@@ -902,11 +930,20 @@ def _from_hand(engine, match, top, target, result):
         return None
     player.hand.remove(slug)
     card = board.put_into_play(engine, match, slug, seat, from_hand=True)
-    atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s hand into play: {atk}/{hp}."
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s hand into play"
+        + _arrived(engine, match, card, slug)
     )
     return card
+
+
+def _arrived(engine, match, card, slug: str) -> str:
+    """The end of a line that puts a card into play: its numbers, or --
+    a forecast card -- that it went into the future instead (step 12)."""
+    if card is None:
+        return f", which goes into the future with {engine.forecast(slug)} time runes."
+    atk, hp = engine.unit_stats(card, match)
+    return f": {atk}/{hp}."
 
 
 def _put_into_play(engine, match, top, part, target, result) -> None:
@@ -916,6 +953,21 @@ def _put_into_play(engine, match, top, part, target, result) -> None:
     seat, ref = target
     from codex.engine import CODEX
 
+    from codex.engine import DISCARD
+
+    if ref.startswith(DISCARD):
+        # Garth at 7: from the discard pile, free, its tech met.
+        slug = _private_slug(ref)
+        player = match.player(seat)
+        if slug not in player.discard:
+            return
+        player.discard.remove(slug)
+        card = board.put_into_play(engine, match, slug, seat, from_hand=False)
+        result.narration.append(
+            f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s discard pile into play"
+            + _arrived(engine, match, card, slug)
+        )
+        return
     if not ref.startswith(CODEX):
         _from_hand(engine, match, top, target, result)
         return
@@ -925,9 +977,9 @@ def _put_into_play(engine, match, top, part, target, result) -> None:
         return
     player.codex[slug] -= 1
     card = board.put_into_play(engine, match, slug, seat, from_hand=False)
-    atk, hp = engine.unit_stats(card, match)
     result.narration.append(
-        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s codex into play: {atk}/{hp}."
+        f"{top['by']} puts {tokens.card(slug)} from {tokens.player(seat)}'s codex into play"
+        + _arrived(engine, match, card, slug)
     )
 
 
@@ -957,7 +1009,8 @@ def _discard(engine, match, top, part, target, result) -> None:
     player.hand.remove(slug)
     player.discard.append(slug)
     if len(top.get("picks") or []) == part.most:
-        result.narration.append(f"{tokens.player(seat)} discards {part.most} cards for {top['by']}.")
+        what = "a card" if part.most == 1 else f"{part.most} cards"
+        result.narration.append(f"{tokens.player(seat)} discards {what} for {top['by']}.")
 
 
 def _token(engine, match, top, part, target, result) -> None:
@@ -968,7 +1021,9 @@ def _token_for_opponent(engine, match, top, part, target, result) -> None:
     """Final Showdown's Hunters: summoned for the opponent, who controls
     them, in their play zone and never their patrol zone (the Card FAQ)."""
     other = 2 if top["seat"] == 1 else 1
-    board.summon(engine, match, part.token, other, part.amount, result, by=top["by"])
+    source = board.body_of(match, top["seat"], top.get("source") or "")
+    made_by = source.id if isinstance(source, CardInstance) and source.slug in effects.SHACKLED else None
+    board.summon(engine, match, part.token, other, part.amount, result, by=top["by"], made_by=made_by)
 
 
 def _exhaust_self(engine, match, top, part, target, result) -> None:
@@ -1007,7 +1062,8 @@ def _destroy_any(engine, match, top, part, target, result) -> None:
         _trash(engine, match, top, part, target, result)
         return
     card = board.body_of(match, seat, ref)
-    if card is not None and engine.catalog.cards[card.slug].is_upgrade:
+    if isinstance(card, CardInstance) and not engine.catalog.cards[card.slug].is_unit:
+        # An upgrade or an ongoing spell (Zarramonde).
         _destroy_card(engine, match, top, part, target, result)
         return
     _destroy(engine, match, top, part, target, result)
@@ -1046,6 +1102,12 @@ def _free_spell(engine, match, top, part, target, result) -> None:
         where = "hand"
     player.spells_played += 1
     match.record_event("played", slug=slug, cost=0, free=True)
+    from codex.flow.actions import spend_promise
+
+    # "If you play another card in between (even with an effect like
+    # Cinderblast Dragon's attack effect), you have to apply Promise of
+    # Payment's effect to that card instead" (its ruling).
+    spend_promise(engine, match, seat, slug, result)
     result.narration.append(
         f"{top['by']}: {tokens.player(seat)} plays {tokens.card(slug)} from their {where}, free."
     )
@@ -1122,7 +1184,7 @@ def _circle_sacrifice(engine, match, top, part, target, result) -> None:
     card = board.body_of(match, *target)
     top["sacrificed_tech"] = engine.catalog.cards[card.slug].tech_level or 0
     result.narration.append(f"{tokens.player(top['seat'])} sacrifices {_thing(match, target)}.")
-    board.sacrifice(engine, match, card)
+    board.sacrifice(engine, match, card, result)
 
 
 def _stampede(engine, match, top, part, target, result) -> None:
@@ -1228,7 +1290,7 @@ def _sacrifice_self(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     result.narration.append(f"{tokens.player(top['seat'])} sacrifices {top['by']}.")
-    board.sacrifice(engine, match, card)
+    board.sacrifice(engine, match, card, result)
 
 
 def _shove(engine, match, top, part, target, result) -> None:
@@ -1266,6 +1328,766 @@ def _damage_shoved(engine, match, top, part, target, result) -> None:
     _deal(engine, match, top, shoved, damage_amount(engine, match, top, part.amount), result)
     if board.lethal(engine, match, body):
         board.kill_bonus(engine, match, top["seat"], top.get("origin"), slot, result)
+
+
+# -- Purple and black's handlers (step 12) --------------------------------------
+
+
+def _time_target(engine, match, top, part, target, result) -> None:
+    """Time Spiral, Tinkerer, Seer: the card whose time runes change,
+    kept for the part that adds or removes one."""
+    top["time_target"] = target_key(*target)
+
+
+def _time_rune(engine, match, top, part, target, result) -> None:
+    """A time rune added to or removed from the card chosen: one in the
+    future arriving, a fading card sacrificed, as its last goes."""
+    key = top.get("time_target")
+    if key is None:
+        return
+    seat, ref = parse_target(key)
+    thing = board.timed(match, seat, ref)
+    if thing is None:
+        return
+    named = board.named(match, seat, ref)
+    if top.get("mode") == "add":
+        board.add_time_rune(thing)
+        result.narration.append(f"{top['by']} adds a time rune to {named}: {thing.time_runes}.")
+        return
+    result.narration.append(
+        f"{top['by']} removes a time rune from {named}: {max(thing.time_runes - 1, 0)}."
+    )
+    board.remove_time_rune(engine, match, seat, ref, result)
+
+
+def _time_rune_self(engine, match, top, part, target, result) -> None:
+    """A time rune onto the card the ability is on (Shimmer Ray), or off
+    it (Omegacron, from the future): `part.amount` says which."""
+    seat, source = top["seat"], top.get("source")
+    thing = board.timed(match, seat, source) if source else None
+    if thing is None:
+        return
+    if part.amount > 0:
+        board.add_time_rune(thing, part.amount)
+        result.narration.append(f"{top['by']} gets a time rune: {thing.time_runes}.")
+        return
+    result.narration.append(f"{top['by']} loses a time rune: {max(thing.time_runes - 1, 0)} left.")
+    board.remove_time_rune(engine, match, seat, source, result)
+
+
+def _sacrifice(engine, match, top, part, target, result) -> None:
+    """A sacrifice as a cost or an effect (step 12): a unit or an upgrade
+    to its owner's discard pile -- or the Graveyard -- a hero to its
+    command zone, a worker trashed (Omegacron's ruling)."""
+    seat, ref = target
+    if ref == WORKERS:
+        if board.trash_worker(match, seat):
+            result.narration.append(
+                f"{tokens.player(top['seat'])} sacrifices a worker: {match.player(seat).workers} left."
+            )
+        return
+    named = _thing(match, target)
+    from codex.components import is_hero_ref
+
+    if is_hero_ref(ref):
+        result.narration.append(f"{tokens.player(top['seat'])} sacrifices {named}.")
+        board.destroy(engine, match, [target], result, cause=seat)
+        return
+    card = board.body_of(match, seat, ref)
+    if card is None:
+        return
+    result.narration.append(f"{tokens.player(top['seat'])} sacrifices {named}.")
+    board.sacrifice(engine, match, card, result)
+
+
+def _research(engine, match, top, part, target, result) -> None:
+    """Temporal Research's further cards: one more at three time runes,
+    another at ten -- every rune on what its caster controls (its
+    rulings)."""
+    seat = top["seat"]
+    runes = engine.time_runes_of(match, seat)
+    more = (1 if runes >= 3 else 0) + (1 if runes >= 10 else 0)
+    if not more:
+        return
+    top["drew"] = True
+    drawn = draw_cards(engine, match, seat, more, result)
+    if drawn:
+        result.narration.append(
+            f"{tokens.player(seat)} has {runes} time runes, and draws "
+            f"{drawn} more card{'' if drawn == 1 else 's'}."
+        )
+
+
+def _rites(engine, match, top, part, target, result) -> None:
+    """Death Rites: the trigger set on its caster for the rest of the
+    turn."""
+    seat = top["seat"]
+    match.player(seat).lasting.append({"kind": effects.DEATH_RITES, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']}: this turn, whenever one of {tokens.player(seat)}'s units dies, one of "
+        f"{tokens.player(2 if seat == 1 else 1)}'s lowest tech units is destroyed."
+    )
+
+
+def _plague(engine, match, top, part, target, result) -> None:
+    """Spreading Plague: every tech 0, I or II unit and every hero with a
+    -1/-1 rune, either side's, destroyed."""
+    doomed = [
+        (player.seat, card.ref) for player in match.players for card in player.play
+        if engine.catalog.cards[card.slug].is_unit and card.minus_runes > 0
+        and (engine.catalog.cards[card.slug].tech_level or 0) <= 2
+    ] + [
+        (player.seat, hero_ref(hero.slug)) for player in match.players
+        for hero in player.heroes_in_play if hero.minus_runes > 0
+    ]
+    if not doomed:
+        result.narration.append(f"{top['by']} finds nothing with a -1/-1 rune.")
+        return
+    result.narration.append(f"{top['by']} destroys every tech 0, I and II unit and hero with a -1/-1 rune.")
+    board.destroy(engine, match, doomed, result, cause=top["seat"])
+
+
+def _decay(engine, match, top, part, target, result) -> None:
+    """Death and Decay: -3/-3 this turn to every unit and hero the opponent
+    has, and 3 damage to each of their buildings -- one being built this
+    turn excepted (UMR p. 8)."""
+    seat = top["seat"]
+    other = 2 if seat == 1 else 1
+    player = match.player(other)
+    for body in [*(card for card in player.play if engine.catalog.cards[card.slug].is_unit),
+                 *player.heroes_in_play]:
+        body.modifiers.append({"kind": "atk", "amount": -part.amount, "until": "end_of_turn"})
+        body.modifiers.append({"kind": "hp", "amount": -part.amount, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives every unit and hero {tokens.player(other)} controls -3/-3 this turn, "
+        "and deals 3 to each of their buildings."
+    )
+    board.settle(engine, match, result, cause=seat)
+    buildings = [
+        ref for ref in ("tech1", "tech2", "tech3", "add_on")
+        if board.still_there(match, other, ref) and not engine._under_construction(player, ref)
+    ]
+    cards = [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]
+    for card in cards:
+        board.take_damage(card, damage_amount(engine, match, top, part.amount))
+    for ref in buildings:
+        if board.still_there(match, other, ref):
+            board.damage_building(match, other, ref, damage_amount(engine, match, top, part.amount),
+                                  result, by=seat)
+    board.damage_building(match, other, "base", damage_amount(engine, match, top, part.amount),
+                          result, by=seat)
+
+
+def _shadow_blade(engine, match, top, part, target, result) -> None:
+    """Shadow Blade: 3 to a patroller, and where that kills it, its
+    controller discards a card at random."""
+    seat, ref = target
+    body = board.body_of(match, seat, ref)
+    _damage(engine, match, top, part, target, result)
+    if body is not None and board.lethal(engine, match, body):
+        board.settle(engine, match, result, cause=top["seat"])
+        if board.body_of(match, seat, ref) is None:
+            board.random_discard(engine, match, seat, result, top["by"])
+
+
+def _poison(engine, match, top, part, target, result) -> None:
+    """Poisonblade Rogue, as it attacks: armor piercing, and its damage to
+    units and heroes as -1/-1 runes, this turn."""
+    card = board.body_of(match, top["seat"], top.get("source") or "")
+    if card is None:
+        return
+    card.modifiers.append({"kind": "keyword", "keyword": "Armor piercing", "until": "end_of_turn"})
+    card.modifiers.append({"kind": "rune_damage", "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gets armor piercing and deals its damage as -1/-1 runes this turn."
+    )
+
+
+def _pick_buried(engine, match, top, part, target, result) -> None:
+    """The Graveyard: the buried unit to play, kept for the play."""
+
+
+def _play_buried(engine, match, top, part, target, result) -> None:
+    """
+    A buried unit played from the Graveyard: "You still pay for it and
+    must meet the tech reqs for it" -- its cost, boosted where the mode
+    says, its owner still its owner -- and it arrives, its arrives effects
+    with it (the Graveyard's ruling).
+    """
+    from codex.engine import buried_entry
+
+    seat = top["seat"]
+    found = buried_entry(match, top.get("picked") or "")
+    if found is None:
+        return
+    yard, entry = found
+    slug = entry["slug"]
+    player = match.player(seat)
+    why = engine.why_not_play_buried(player, slug)
+    if why:
+        result.narration.append(f"{tokens.card(slug)} can't be played: {why}.")
+        return
+    boosted = top.get("mode") == "boosted"
+    cost = engine.effective_cost(player, slug) + (engine.boost_cost(slug) or 0 if boosted else 0)
+    if player.gold < cost:
+        result.narration.append(f"{tokens.card(slug)} can't be played: not enough gold.")
+        return
+    yard.buried.remove(entry)
+    player.gold -= cost
+    match.record_event("played", slug=slug, cost=cost, buried=True,
+                       **({"boosted": True} if boosted else {}))
+    from codex.flow.actions import spend_promise
+
+    spend_promise(engine, match, seat, slug, result)
+    card = match.new_instance(slug, seat)
+    card.owner = entry["owner"]
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{tokens.player(seat)} plays {tokens.card(slug)} from their {tokens.card(effects.GRAVEYARD)} "
+        f"for {tokens.gold(cost)}{', boosted' if boosted else ''}: {atk}/{hp}."
+    )
+    board.arrive(engine, match, card, boosted=boosted)
+
+
+# -- Black's handlers (step 12, commit 4) ---------------------------------------
+
+
+def _against(top: dict) -> int:
+    """The other player of a frame -- or the one it names, where the active
+    player resolves something about another's cards."""
+    return top.get("against") or (2 if top["seat"] == 1 else 1)
+
+
+def _random_discard(engine, match, top, part, target, result) -> None:
+    """Thieving Imp, Cursed Crow: the opponent -- the defending player --
+    discards a card at random."""
+    board.random_discard(engine, match, _against(top), result, top["by"])
+
+
+def _runes_on_opposing(engine, match, top, part, target, result) -> None:
+    """Plague Lab: a -1/-1 rune on each of an opponent's units; Plague Lord
+    on each opposing unit and hero too (`part.token` "heroes")."""
+    other = _against(top)
+    player = match.player(other)
+    bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    if part.token == "heroes":
+        bodies += player.heroes_in_play
+    for body in bodies:
+        board.add_minus_rune(body)
+    what = "unit and hero" if part.token == "heroes" else "unit"
+    result.narration.append(f"{top['by']} puts a -1/-1 rune on each {what} {tokens.player(other)} controls.")
+
+
+def _lab_rune(engine, match, top, part, target, result) -> None:
+    """Plague Lab: another rune of a kind already on the card -- one a
+    card."""
+    seat, ref = target
+    ref, _, kind = ref.partition("#")
+    body = board.body_of(match, seat, ref)
+    if body is None:
+        return
+    top.setdefault("lab_done", []).append(target_key(seat, ref))
+    if kind == "plus":
+        board.add_plus_rune(body)
+    elif kind == "minus":
+        board.add_minus_rune(body)
+    elif kind == "time":
+        board.add_time_rune(body)
+    else:
+        body.runes[kind] = body.runes.get(kind, 0) + 1
+        limit = effects.BLOOD_RUNES.get(body.slug) if kind == "blood" else None
+        if limit is not None:
+            body.runes[kind] = min(limit, body.runes[kind])
+    rune = {"plus": "+1/+1", "minus": "-1/-1"}.get(kind, kind)
+    result.narration.append(f"{top['by']} adds a {rune} rune to {_thing(match, (seat, ref))}.")
+
+
+def _rune_on_self(engine, match, top, part, target, result) -> None:
+    """Skeleton Javelineer: "Put a javelin rune on this." """
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.runes[part.token] = body.runes.get(part.token, 0) + part.amount
+    result.narration.append(f"{top['by']} gets a {part.token} rune.")
+
+
+def _keyword_self(engine, match, top, part, target, result) -> None:
+    """A keyword for the turn on the card the ability is on: the
+    Javelineer's long-range."""
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is None:
+        return
+    body.modifiers.append({"kind": "keyword", "keyword": part.token, "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gets {part.token.lower()} this turn.")
+
+
+def _negate(engine, match, top, part, target, result) -> None:
+    """Jandra: "Destroy all your units except for Demons." """
+    seat = top["seat"]
+    doomed = [(seat, card.ref) for card in match.player(seat).play
+              if engine.catalog.cards[card.slug].is_unit and not engine.is_demon(card)]
+    result.narration.append(f"{top['by']} destroys every unit of {tokens.player(seat)}'s but its Demons.")
+    if doomed:
+        board.destroy(engine, match, doomed, result, cause=seat)
+
+
+def _debuff(engine, match, top, part, target, result) -> None:
+    """-X/-X this turn (Deteriorate)."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": -part.amount, "until": "end_of_turn"})
+    body.modifiers.append({"kind": "hp", "amount": -part.amount, "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} -{part.amount}/-{part.amount} this turn."
+    )
+
+
+def _dark_pact(engine, match, top, part, target, result) -> None:
+    """Dark Pact: 2 to a base, then that player draws 2."""
+    seat, _ = target
+    amount = damage_amount(engine, match, top, part.amount)
+    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
+    damage_base(match, seat, amount, result, by=top["seat"])
+    if match.winner is not None:
+        return
+    drawn = draw_cards(engine, match, seat, 2, result)
+    if seat == top["seat"]:
+        top["drew"] = True
+    if drawn:
+        result.narration.append(f"{tokens.player(seat)} draws {drawn} card{'' if drawn == 1 else 's'}.")
+
+
+def _curse_discard(engine, match, top, part, target, result) -> None:
+    """Carrion Curse: a non-unit card the caster chose from the opponent's
+    hand, discarded by them -- counted, never named."""
+    seat, ref = target
+    slug = _private_slug(ref)
+    player = match.player(seat)
+    if slug not in player.hand:
+        return
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    match.record_event("discarded", seat=seat, slug=slug, by=top["effect"])
+    result.narration.append(f"{tokens.player(seat)} discards a card for {top['by']}.")
+
+
+def _drain(engine, match, top, part, target, result) -> None:
+    """Nether Drain: two levels off a hero, never below 1, and no levels for
+    it this turn."""
+    hero = board.body_of(match, *target)
+    if hero is None:
+        return
+    before = hero.level
+    hero.level = max(1, hero.level - part.amount)
+    if hero.level < engine.hero_card(hero).max_level:
+        hero.max_level_since_turn_began = False
+    hero.modifiers.append({"kind": "no_level", "until": "end_of_turn"})
+    result.narration.append(
+        f"{top['by']} drains {_thing(match, target)} from level {before} to {hero.level}: "
+        "it can't level up this turn."
+    )
+
+
+def _gain_levels(engine, match, top, part, target, result) -> None:
+    """Nether Drain: two levels for another hero, to its maximum -- its max
+    level effect, where reached on another player's turn, not resolving
+    where it asks a choice (UMR p. 14)."""
+    seat, ref = target
+    hero = board.body_of(match, seat, ref)
+    if hero is None:
+        return
+    before = hero.level
+    reached = board.raise_level(engine, hero, part.amount, match)
+    if hero.level == before:
+        result.narration.append(f"{_thing(match, target)} gains no level.")
+        return
+    line = f"{top['by']} raises {_thing(match, target)} to level {hero.level}"
+    result.narration.append(line + (", a new band, and healed." if reached else "."))
+    board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _metamorphosis(engine, match, top, part, target, result) -> None:
+    """Metamorphosis: every unit its caster controls sacrificed; each of
+    their heroes not yet a Demon to its maximum level, a Demon until it
+    leaves play, two +1/+1 runes, readiness and invisibility."""
+    seat = top["seat"]
+    player = match.player(seat)
+    units = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    result.narration.append(f"{tokens.player(seat)} sacrifices every unit they control for {top['by']}.")
+    for card in units:
+        if player.instance(card.id) is not None:
+            board.sacrifice(engine, match, card, result)
+    board.settle(engine, match, result, cause=seat)
+    for hero in player.heroes_in_play:
+        if engine.is_demon(hero):
+            continue
+        board.raise_level(engine, hero, engine.hero_card(hero).max_level, match)
+        hero.modifiers.append({"kind": "demon", "until": None})
+        for keyword in effects.METAMORPHOSIS_KEYWORDS:
+            hero.modifiers.append({"kind": "keyword", "keyword": keyword, "until": None})
+        board.add_plus_rune(hero, part.amount)
+        result.narration.append(
+            f"{tokens.hero(hero.slug)} becomes a Demon at level {hero.level}: two +1/+1 runes, "
+            "readiness and invisibility."
+        )
+        board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _doom_buff(engine, match, top, part, target, result) -> None:
+    """Vandy at 5: +2/+2, and death at her controller's next upkeep -- with
+    or without her (her rulings)."""
+    seat = top["seat"]
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "doom", "seat": seat})
+    body.modifiers.append({"kind": "hp", "amount": part.amount, "until": "doom", "seat": seat})
+    body.modifiers.append({"kind": "doomed", "seat": seat, "until": "doom"})
+    result.narration.append(
+        f"{top['by']} gives {_thing(match, target)} +2/+2: it dies at {tokens.player(seat)}'s next upkeep."
+    )
+
+
+def _gargoyle(engine, match, top, part, target, result) -> None:
+    """Gargoyle: until its controller's next upkeep, not indestructible,
+    flying, +3 ATK, and free to attack and patrol."""
+    seat = top["seat"]
+    body = board.body_of(match, seat, top.get("source") or "")
+    if body is None:
+        return
+    until = {"until": "upkeep", "seat": seat}
+    body.modifiers += [
+        {"kind": "lose_keyword", "keyword": "Indestructible", **until},
+        {"kind": "keyword", "keyword": "Flying", **until},
+        {"kind": "atk", "amount": part.amount, **until},
+        {"kind": "unbound", **until},
+    ]
+    result.narration.append(
+        f"{top['by']} wakes: until {tokens.player(seat)}'s next upkeep it is not indestructible, "
+        "flies, has +3 ATK and may attack and patrol."
+    )
+
+
+def _ground(engine, match, top, part, target, result) -> None:
+    """Crypt Crawler: a flier loses flying this turn."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "lose_keyword", "keyword": "Flying", "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} grounds {_thing(match, target)}: it loses flying this turn.")
+
+
+def _exhaust_skeletons(engine, match, top, part, target, result) -> None:
+    """Skeletal Lord's cost: five of its controller's ready Skeletons,
+    exhausted -- fatigued ones too (its ruling)."""
+    seat = top["seat"]
+    skeletons = engine.ready_skeletons(match, seat)[:part.amount]
+    for card in skeletons:
+        card.exhausted = True
+    result.narration.append(f"{tokens.player(seat)} exhausts {len(skeletons)} Skeletons for {top['by']}.")
+
+
+def _resurrect(engine, match, top, part, target, result) -> None:
+    """Blackhand Resurrector: a hero that died this game summoned from the
+    command zone at its maximum level -- level 1 against an opposing
+    Chronofixer -- its summoning runes gone and its max level effect
+    resolved (its rulings); never past the hero limit (the author,
+    2026-10-10)."""
+    seat, ref = target
+    player = match.player(seat)
+    hero = player.hero_by_ref(ref)
+    if hero is None or hero.in_play or len(player.heroes_in_play) >= engine.hero_limit(player):
+        return
+    hero.zone = "play"
+    hero.level = 1
+    hero.damage = 0
+    hero.summoning_runes = 0
+    hero.arrived_this_turn = True
+    hero.exhausted = False
+    hero.patrol_slot = None
+    hero.bands = {str(engine.hero_card(hero).bands[0].min_level): match.next_sequence()}
+    match.record_event("summoned", slug=hero.slug, seat=seat, by="blackhand_resurrector")
+    board.raise_level(engine, hero, engine.hero_card(hero).max_level, match)
+    result.narration.append(
+        f"{top['by']} summons {tokens.hero(hero.slug)} back from the command zone at level {hero.level}."
+    )
+    board.hero_arrives(engine, match, seat, hero)
+    board.max_level_reached(engine, match, seat, hero, result)
+
+
+def _exhaust(engine, match, top, part, target, result) -> None:
+    """Voidblocker: another of the attacker's ready units or heroes,
+    exhausted."""
+    body = board.body_of(match, *target)
+    if body is None:
+        return
+    body.exhausted = True
+    result.narration.append(f"{tokens.player(top['seat'])} exhausts {_thing(match, target)} for {top['by']}.")
+
+
+# -- Purple's handlers (step 12, commit 5) --------------------------------------
+
+
+def _geiger(engine, match, top, part, target, result) -> None:
+    """Max Geiger at 5: a friendly unit trashed, then back in play fresh
+    under the same controller, with arrival fatigue (his rulings) -- a
+    token too: the ability returns what it trashed (the author,
+    2026-10-10)."""
+    seat, ref = target
+    card = board.body_of(match, seat, ref)
+    if card is None:
+        return
+    named = _thing(match, target)
+    if engine.cant_leave_play(match, card):
+        result.narration.append(f"{named} can't leave play.")
+        return
+    match.player(card.controller).play.remove(card)
+    board._empty_graveyard(match, card)
+    match.record_event("trashed", slug=card.slug, owner=card.owner)
+    result.narration.append(f"{top['by']} trashes {named}.")
+    board.return_fresh(engine, match, card.slug, card.controller, card.owner, result)
+
+
+def _prynn_trash(engine, match, top, part, target, result) -> None:
+    """Prynn at 7: a unit trashed -- remembered on her, to come back when
+    she leaves play."""
+    seat, ref = target
+    card = board.body_of(match, seat, ref)
+    prynn = match.player(top["seat"]).hero_of(effects.PRYNN)
+    if card is None:
+        return
+    named = _thing(match, target)
+    entry = {"slug": card.slug, "owner": card.owner, "controller": card.controller, "id": card.id}
+    if not board.trash(engine, match, card):
+        result.narration.append(f"{named} can't leave play.")
+        return
+    result.narration.append(f"{top['by']} trashes {named}.")
+    if prynn is not None and prynn.in_play and not board.is_token(engine, entry["slug"]):
+        prynn.trashed.append(entry)
+    board.second_chances(engine, match, [card], result)
+
+
+def _fade_check(engine, match, top, part, target, result) -> None:
+    """After an ability whose cost took time runes: a fading card or hero
+    left with none is sacrificed now -- Prynn dies at once, "not from
+    fading" (her rulings), and what she trashed comes back."""
+    seat, source = top["seat"], top.get("source")
+    thing = board.body_of(match, seat, source) if source else None
+    if thing is None or thing.time_runes > 0 or not engine.fading(thing):
+        return
+    thing.time_runes = 1
+    board.remove_time_rune(engine, match, seat, source, result)
+
+
+def _look(engine, match, top, part, target, result) -> None:
+    """Vir: the top card looked at -- pictured to him alone by the question
+    that offered it; nothing changes."""
+
+
+def _exchange(engine, match, top, part, target, result) -> None:
+    """Vir: the top card of the draw pile and a card from the hand trade
+    places -- unseen by anybody else."""
+    seat, ref = target
+    player = match.player(seat)
+    slug = _private_slug(ref)
+    if not player.deck or slug not in player.hand:
+        return
+    top_card = player.deck.pop()
+    player.hand.remove(slug)
+    player.deck.append(slug)
+    player.hand.append(top_card)
+    result.narration.append(f"{tokens.player(seat)} exchanges the top card of their draw pile with a card from their hand.")
+
+
+def _pick_top(engine, match, top, part, target, result) -> None:
+    """Vir at 5: the top card chosen to play, kept for the play."""
+
+
+def _play_top(engine, match, top, part, target, result) -> None:
+    """Vir at 5: the top card of the draw pile played -- paid and its
+    requirements met, boosted where the mode says (the boost ruling)."""
+    from codex.flow import actions
+
+    seat = top["seat"]
+    player = match.player(seat)
+    if not player.deck:
+        return
+    slug = player.deck[-1]
+    if engine.why_not_play_top(match, player, slug):
+        return
+    boosted = top.get("mode") == "boosted"
+    player.deck.pop()
+    actions.put_card_into_play(engine, match, seat, slug, boosted, result, where="draw pile")
+
+
+def _to_command_zone(engine, match, top, part, target, result) -> None:
+    """Origin Story: a hero to its command zone, without dying."""
+    seat, ref = target
+    hero = board.body_of(match, seat, ref)
+    if hero is None:
+        return
+    result.narration.append(f"{top['by']} returns {_thing(match, target)} to the command zone.")
+    board.to_command_zone(engine, match, seat, hero, result)
+
+
+def _bounce(engine, match, top, part, target, result) -> None:
+    """Ebbflow Archon: a unit to its owner's hand, or a hero to its command
+    zone."""
+    from codex.components import is_hero_ref
+
+    if is_hero_ref(target[1]):
+        _to_command_zone(engine, match, top, part, target, result)
+    else:
+        _return(engine, match, top, part, target, result)
+
+
+def _distort(engine, match, top, part, target, result) -> None:
+    """Temporal Distortion: a tech I or II unit of the caster's to its
+    owner's hand -- "If you do", the second part may put in a unit of that
+    level costing no more (its rulings: not where it can't leave play)."""
+    seat, ref = target
+    card = board.body_of(match, seat, ref)
+    if card is None:
+        return
+    printed = engine.catalog.cards[card.slug]
+    if _return(engine, match, top, part, target, result):
+        top["distorted"] = {"tech": printed.tech_level or 0, "cost": printed.cost or 0}
+    else:
+        top["chose"] = False
+
+
+def _ready(engine, match, top, part, target, result) -> None:
+    """Ready one of your units: it may attack again, where it has no
+    readiness (Ready or Not's rulings)."""
+    body = board.body_of(match, *target)
+    body.exhausted = False
+    result.narration.append(f"{top['by']} readies {_thing(match, target)}.")
+
+
+def _hold_down(engine, match, top, part, target, result) -> None:
+    """Ready or Not: "Opposing exhausted units don't ready during their next
+    ready step." """
+    other = _against(top)
+    held = [card for card in match.player(other).play
+            if engine.catalog.cards[card.slug].is_unit and card.exhausted]
+    for card in held:
+        card.disabled = True
+    if held:
+        result.narration.append(
+            f"{tokens.player(other)}'s exhausted units don't ready at their next ready phase."
+        )
+
+
+def _rewind(engine, match, top, part, target, result) -> None:
+    """Rewind: every tech 0, I and II unit to its owner's hand -- no deaths
+    (its ruling); one that can't leave play stays."""
+    going = [card for player in match.players for card in list(player.play)
+             if engine.catalog.cards[card.slug].is_unit
+             and (engine.catalog.cards[card.slug].tech_level or 0) <= 2
+             and not engine.cant_leave_play(match, card)]
+    result.narration.append(f"{top['by']} returns every tech 0, I and II unit to its owner's hand.")
+    for card in going:
+        board.leave_play(engine, match, card, "hand")
+        match.record_event("returned", slug=card.slug, owner=card.owner)
+    board.second_chances(engine, match, going, result)
+
+
+def _keyword(engine, match, top, part, target, result) -> None:
+    """A keyword for the turn on a unit or hero: Now's haste."""
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "keyword", "keyword": part.token, "until": "end_of_turn"})
+    result.narration.append(f"{top['by']} gives {_thing(match, target)} {part.token.lower()} this turn.")
+
+
+def _unphase(engine, match, top, part, target, result) -> None:
+    """Unphase: invisible until its caster's next upkeep."""
+    seat = top["seat"]
+    body = board.body_of(match, *target)
+    body.modifiers.append({"kind": "keyword", "keyword": "Invisible", "until": "upkeep", "seat": seat})
+    result.narration.append(
+        f"{top['by']} makes {_thing(match, target)} invisible until {tokens.player(seat)}'s next upkeep."
+    )
+
+
+def _stingers(engine, match, top, part, target, result) -> None:
+    """Hive: Stingers summoned for its controller, to five for each Hive of
+    theirs in play (Hive's limit and rulings)."""
+    seat = top["seat"]
+    player = match.player(seat)
+    hives = sum(1 for card in player.play if card.slug == effects.HIVE and engine.texted(card))
+    have = sum(1 for card in player.play if card.slug == effects.STINGER)
+    room = max(0, effects.STINGERS_PER_HIVE * hives - have)
+    count = min(part.amount, room)
+    if not count:
+        result.narration.append(f"{tokens.player(seat)} has as many Stingers as their Hives allow.")
+        return
+    board.summon(engine, match, effects.STINGER, seat, count, result, by=top["by"])
+
+
+def _ready_self(engine, match, top, part, target, result) -> None:
+    """Octavian: "Ready Octavian." """
+    body = board.body_of(match, top["seat"], top.get("source") or "")
+    if body is not None:
+        body.exhausted = False
+        result.narration.append(f"{top['by']} readies.")
+
+
+def _disable(engine, match, top, part, target, result) -> None:
+    """Disable (UMR p. 16): exhausted, sidelined if patrolling, not readied
+    at its next ready phase."""
+    body = board.body_of(match, *target)
+    board.disable(body)
+    result.narration.append(f"{top['by']} disables {_thing(match, target)}.")
+
+
+def _void_star(engine, match, top, part, target, result) -> None:
+    """Void Star: +4 ATK until its controller's next upkeep."""
+    seat = top["seat"]
+    body = board.body_of(match, seat, top.get("source") or "")
+    if body is None:
+        return
+    body.modifiers.append({"kind": "atk", "amount": part.amount, "until": "upkeep", "seat": seat})
+    result.narration.append(f"{top['by']} gets +4 ATK until {tokens.player(seat)}'s next upkeep.")
+
+
+# -- The upkeep, the extra turn and the debt (step 12, commit 6) -------------
+
+
+def _promise(engine, match, top, part, target, result) -> None:
+    """Promise of Payment: the next card played this turn costs 0."""
+    seat = top["seat"]
+    match.player(seat).promised = True
+    result.narration.append(
+        f"The next card {tokens.player(seat)} plays this turn costs {tokens.gold(0)}; its cost is owed "
+        "at their next upkeep."
+    )
+
+
+def _extra_turn(engine, match, top, part, target, result) -> None:
+    """Double Time: an extra turn after this one -- two copies, two turns
+    (its ruling, the Card FAQ)."""
+    seat = top["seat"]
+    match.extra_turns.append(seat)
+    result.narration.append(f"{tokens.player(seat)} takes an extra turn after this one.")
+
+
+def _banefire(engine, match, top, part, target, result) -> None:
+    """Banefire Golem, having sacrificed: 1 damage to each opposing unit,
+    hero and building -- one being built this turn excepted (UMR p. 8)."""
+    seat = top["seat"]
+    other = _against(top)
+    player = match.player(other)
+    amount = damage_amount(engine, match, top, part.amount)
+    bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+    bodies += player.heroes_in_play
+    shielded = board.sentry_shields(engine, match, bodies, result)
+    for body in bodies:
+        if body not in shielded:
+            board.take_damage(body, amount)
+    for card in [card for card in player.play if engine.catalog.cards[card.slug].is_building_card]:
+        board.take_damage(card, amount)
+    result.narration.append(
+        f"{top['by']} deals {amount} to each unit, hero and building {tokens.player(other)} controls."
+    )
+    for ref in ("tech1", "tech2", "tech3", "add_on"):
+        if board.still_there(match, other, ref) and not engine._under_construction(player, ref):
+            board.damage_building(match, other, ref, amount, result, by=seat)
+    board.damage_building(match, other, "base", amount, result, by=seat)
 
 
 #: The parts `run` works itself rather than a handler: "choose one" and
@@ -1331,6 +2153,58 @@ DOES = {
     "polymorph": _polymorph,
     "shove_slot": _shove_slot,
     "damage_shoved": _damage_shoved,
+    "time_target": _time_target,
+    "time_rune": _time_rune,
+    "time_rune_self": _time_rune_self,
+    "sacrifice": _sacrifice,
+    "research": _research,
+    "rites": _rites,
+    "plague": _plague,
+    "decay": _decay,
+    "shadow_blade": _shadow_blade,
+    "poison": _poison,
+    "pick_buried": _pick_buried,
+    "play_buried": _play_buried,
+    "random_discard": _random_discard,
+    "runes_on_opposing": _runes_on_opposing,
+    "lab_rune": _lab_rune,
+    "rune_on_self": _rune_on_self,
+    "keyword_self": _keyword_self,
+    "negate": _negate,
+    "debuff": _debuff,
+    "dark_pact": _dark_pact,
+    "curse_discard": _curse_discard,
+    "drain": _drain,
+    "gain_levels": _gain_levels,
+    "metamorphosis": _metamorphosis,
+    "doom_buff": _doom_buff,
+    "gargoyle": _gargoyle,
+    "ground": _ground,
+    "exhaust_skeletons": _exhaust_skeletons,
+    "resurrect": _resurrect,
+    "exhaust": _exhaust,
+    "geiger": _geiger,
+    "prynn_trash": _prynn_trash,
+    "fade_check": _fade_check,
+    "look": _look,
+    "exchange": _exchange,
+    "pick_top": _pick_top,
+    "play_top": _play_top,
+    "to_command_zone": _to_command_zone,
+    "bounce": _bounce,
+    "distort": _distort,
+    "ready": _ready,
+    "hold_down": _hold_down,
+    "rewind": _rewind,
+    "keyword": _keyword,
+    "unphase": _unphase,
+    "stingers": _stingers,
+    "ready_self": _ready_self,
+    "disable": _disable,
+    "void_star": _void_star,
+    "promise": _promise,
+    "extra_turn": _extra_turn,
+    "banefire": _banefire,
 }
 
 
@@ -1356,6 +2230,8 @@ def _finish(engine: "RulesEngine", match: MatchState, top: dict, result: StepRes
             return
         card = match.new_instance(spell, seat)
         card.arrived_this_turn = True
+        # Vortoss Emblem's fading 3: it arrives with its runes.
+        card.time_runes = engine.fading(card)
         side, ref = parse_target(host)
         if ref.startswith("unit:"):
             card.attached = [int(ref.split(":", 1)[1])]

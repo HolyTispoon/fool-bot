@@ -35,7 +35,7 @@ NEUTRAL = "neutral"
 #: The data holds all seven since step 1; a colour lands when the engine
 #: has read its cards -- neutral from step 2, red and green from step 10,
 #: and each pair after it adds its two (docs/codex-bot.md, steps 10-13).
-LANDED_COLORS = ("neutral", "red", "green")
+LANDED_COLORS = ("neutral", "red", "green", "purple", "black")
 
 
 @dataclass(frozen=True)

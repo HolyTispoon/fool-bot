@@ -28,7 +28,9 @@ from codex.engine import (
     SCAVENGER_GOLD,
     SUMMONING_RUNES_ON_DEATH,
     TECHNICIAN_CARDS,
+    FUTURE,
     building_name,
+    future_ref,
     unit_ref,
 )
 from codex.flow.result import StepResult
@@ -57,6 +59,9 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
         card = player.instance(instance_id)
         if card is not None:
             return f"{owner}{tokens.card(card.slug)}"
+    future = future_card(match, seat, ref)
+    if future is not None:
+        return f"{owner}{tokens.card(future.slug)} in the future"
     if ref == "add_on" and player.add_on is not None:
         return f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)}"
     if ref in TECH_BUILDINGS:
@@ -73,6 +78,24 @@ def body_of(match: MatchState, seat: int, ref: str):
         return hero if hero is not None and hero.in_play else None
     instance_id = unit_ref(ref)
     return None if instance_id is None else player.instance(instance_id)
+
+
+def future_card(match: MatchState, seat: int, ref: str) -> Optional[CardInstance]:
+    """The card `ref` names in `seat`'s future (step 12), or `None`."""
+    if not isinstance(ref, str) or not ref.startswith(FUTURE):
+        return None
+    try:
+        ident = int(ref[len(FUTURE):])
+    except ValueError:
+        return None
+    return next((card for card in match.player(seat).future if card.id == ident), None)
+
+
+def timed(match: MatchState, seat: int, ref: str):
+    """What carries time runes that `ref` names on `seat`'s side: a card in
+    play, a hero in play, or a card in the future."""
+    found = body_of(match, seat, ref)
+    return found if found is not None else future_card(match, seat, ref)
 
 
 def is_building(ref: str) -> bool:
@@ -114,13 +137,13 @@ def take_damage(body, amount: int, piercing: bool = False) -> int:
 
 
 def damage_building(match: MatchState, seat: int, ref: str, amount: int,
-                    result: StepResult) -> None:
+                    result: StepResult, by: Optional[int] = None) -> None:
     """Damage onto a building: the base (at 0 the game ends), a tech
     building or the add-on, a destroyed one dealing its 2 to its base
-    (UMR p. 8, 9)."""
+    (UMR p. 8, 9) -- dealt by `by`, for Blackhand Dozer's floor."""
     player = match.player(seat)
     if ref == "base":
-        damage_base(match, seat, amount, result)
+        damage_base(match, seat, amount, result, by=by)
         return
     if ref in TECH_BUILDINGS:
         building = player.buildings[ref]
@@ -131,10 +154,10 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
             result.narration.append(
                 f"{tokens.player(seat)}'s {building_name(ref)} building is destroyed, "
                 f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
-                f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE)}."
+                f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE, by=by)}."
             )
             match.record_event("building_destroyed", owner=seat, building=ref)
-            damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
+            damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result, by=by)
         return
     add_on = player.add_on
     add_on.hp = max(0, add_on.hp - amount)
@@ -143,10 +166,10 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
         result.narration.append(
             f"{tokens.player(seat)}'s {tokens.card(add_on.slug)} is destroyed, "
             f"and deals {BUILDING_DESTROYED_DAMAGE} to their base"
-            f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE)}."
+            f"{base_left_after(match, seat, BUILDING_DESTROYED_DAMAGE, by=by)}."
         )
         match.record_event("building_destroyed", owner=seat, building=add_on.slug)
-        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result)
+        damage_base(match, seat, BUILDING_DESTROYED_DAMAGE, result, by=by)
 
 
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
@@ -168,19 +191,28 @@ def building_hp(match: MatchState, seat: int, ref: str) -> int:
 
 
 def left_after(engine: "RulesEngine", match: MatchState, seat: int, ref: str,
-               amount: int) -> str:
+               amount: int, by: Optional[int] = None) -> str:
     """What a damage line about a building says of what is left, before
     the damage lands: ", now at 2/5", or nothing where the damage
     destroys it -- the next line says so (the author, 2026-10-10)."""
     if ref == "base":
-        return base_left_after(match, seat, amount)
+        return base_left_after(match, seat, amount, by=by)
     left = max(0, building_hp(match, seat, ref) - amount)
     return _now_at(left, building_max_hp(engine, match, seat, ref))
 
 
-def base_left_after(match: MatchState, seat: int, amount: int) -> str:
-    """`left_after` for the base: ", now at 17/20"."""
-    return _now_at(max(0, match.player(seat).base_hp - amount), BASE_HP)
+def base_left_after(match: MatchState, seat: int, amount: int,
+                    by: Optional[int] = None) -> str:
+    """`left_after` for the base: ", now at 17/20" -- where Blackhand
+    Dozer's floor holds it (`turn.base_floor`, `by` the seat dealing the
+    damage), what the floor leaves (step 12)."""
+    from codex.flow.turn import base_floor
+
+    left = max(0, match.player(seat).base_hp - amount)
+    floor = base_floor(match, seat, by)
+    if floor is not None:
+        left = max(left, min(match.player(seat).base_hp, floor))
+    return _now_at(left, BASE_HP)
 
 
 def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str:
@@ -244,13 +276,41 @@ def leave_play(engine: "RulesEngine", match: MatchState, card: CardInstance, to:
     discard pile.
     """
     match.player(card.controller).play.remove(card)
+    _empty_graveyard(match, card)
     if is_token(engine, card.slug):
         return
     owner = match.player(card.owner)
     if to == "hand":
         owner.hand.append(card.slug)
+    elif to == "died" and _bury(engine, match, card):
+        return
     else:
         owner.discard.append(card.slug)
+
+
+def _bury(engine: "RulesEngine", match: MatchState, card: CardInstance) -> bool:
+    """
+    The Graveyard: "Whenever your non-token units die, bury them here" --
+    a unit dying under the control of a player with a Graveyard in play
+    goes into it, out of play and out of the discard pile, its runes and
+    effects gone (its ruling). Whether it was buried.
+    """
+    if not engine.catalog.cards[card.slug].is_unit:
+        return False
+    yards = engine.graveyards(match.player(card.controller))
+    if not yards:
+        return False
+    yards[0].buried.append({"slug": card.slug, "owner": card.owner})
+    match.record_event("buried", slug=card.slug, owner=card.owner)
+    return True
+
+
+def _empty_graveyard(match: MatchState, card: CardInstance) -> None:
+    """A Graveyard leaving play discards what is buried in it, each to its
+    owner's discard pile."""
+    for buried in card.buried:
+        match.player(buried["owner"]).discard.append(buried["slug"])
+    card.buried = []
 
 
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
@@ -259,7 +319,7 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
         line = f"{by} destroys {named(match, seat, card.ref)}."
     else:
         line = f"{named(match, seat, card.ref)} is destroyed."
-    leave_play(engine, match, card, "discard")
+    leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
     if card.patrol_slot == "scavenger":
         gained = gain_gold(match, card.controller, SCAVENGER_GOLD)
@@ -271,8 +331,8 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
     result.narration.append(line)
 
 
-def _destroy_hero(match: MatchState, seat: int, hero: HeroState, result: StepResult,
-                  by: str = "") -> None:
+def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
+                  result: StepResult, by: str = "") -> None:
     ref = hero_ref(hero.slug)
     line = (
         f"{named(match, seat, ref)} dies and returns to the command zone with "
@@ -293,14 +353,59 @@ def _destroy_hero(match: MatchState, seat: int, hero: HeroState, result: StepRes
     hero.modifiers = []
     hero.printed = None
     hero.bands = {}
+    hero.time_runes = 0
+    hero.disabled = False
     hero.max_level_since_turn_began = False
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
     match.record_event("hero_died", slug=hero.slug, owner=seat)
     result.narration.append(line)
+    hero_left(engine, match, seat, hero, result)
+
+
+def to_command_zone(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
+                    result: StepResult) -> None:
+    """
+    A hero returned to its command zone without dying -- Origin Story,
+    Ebbflow Archon: no death effect, its levels, damage, runes and effects
+    gone as any hero's are, and no summoning runes, so its owner may summon
+    it again on their next turn (the author, 2026-10-09; its ruling).
+    """
+    hero.zone = "command"
+    hero.level = 1
+    hero.damage = 0
+    hero.exhausted = False
+    hero.arrived_this_turn = False
+    hero.attacked_this_turn = False
+    hero.patrol_slot = None
+    hero.armor = 0
+    hero.plus_runes = 0
+    hero.minus_runes = 0
+    hero.modifiers = []
+    hero.printed = None
+    hero.bands = {}
+    hero.time_runes = 0
+    hero.disabled = False
+    hero.max_level_since_turn_began = False
+    match.record_event("hero_returned", slug=hero.slug, owner=seat)
+    hero_left(engine, match, seat, hero, result)
+
+
+def hero_left(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
+              result: StepResult) -> None:
+    """Prynn at 7: "Leaves: Return all cards to play that Pasternaak
+    trashed." -- each fresh, under whoever controlled it when it went (her
+    rulings)."""
+    trashed, hero.trashed = list(hero.trashed), []
+    for entry in trashed:
+        result.narration.append(
+            f"{tokens.card(entry['slug'])} returns to play as {tokens.hero(hero.slug)} leaves it."
+        )
+        return_fresh(engine, match, entry["slug"], entry["controller"], entry["owner"], result)
 
 
 def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int, str]],
-            result: StepResult, by: str = "", cause: Optional[int] = None) -> None:
+            result: StepResult, by: str = "", cause: Optional[int] = None,
+            forced: bool = False, combat: bool = False) -> None:
     """
     Destroy each of these units and heroes -- a unit face-down to its
     owner's discard pile, a hero to the command zone -- and give the
@@ -316,6 +421,10 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     play it gains them at once, with none nobody does, and with more
     than one the active player is asked (`level_gain_owed`, a frame put
     at the front of the stack, so nothing else resolves before it).
+
+    An indestructible unit is spared instead (`spare`, step 12) unless
+    `forced` -- the second copy of a legendary card, which no rule saves
+    (UMR p. 15).
     """
     things = list(things)
     witnesses = _witnesses(engine, match)
@@ -326,16 +435,30 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
         if is_hero_ref(ref):
             hero = match.player(seat).hero_by_ref(ref)
             if hero is not None and hero.in_play:
-                _destroy_hero(match, seat, hero, result, by)
+                _destroy_hero(engine, match, seat, hero, result, by)
                 heroes.append(seat)
                 dead_heroes.append((seat, hero))
             continue
         card = body_of(match, seat, ref)
+        if card is not None and not forced and not combat and engine.cant_leave_play(match, card):
+            # Gilded Glaxx with gold: only combat damage kills him.
+            result.narration.append(f"{named(match, seat, card.ref)} can't leave play.")
+            continue
+        if card is not None and not forced and engine.catalog.cards[card.slug].is_unit and \
+                soul_stone_saves(engine, match, card, result):
+            continue
+        if card is not None and not forced and engine.indestructible(match, card):
+            # Indestructible: it doesn't leave play -- exhausted, its
+            # damage and attachments gone, its runes kept (UMR p. 17).
+            spare(engine, match, card, result)
+            continue
         if card is not None:
             _destroy_unit(engine, match, seat, card, result, by)
             if engine.catalog.cards[card.slug].is_unit:
                 dead_units.append(card)
-    _deaths(engine, match, dead_units, dead_heroes, witnesses)
+    _deaths(engine, match, dead_units, dead_heroes, witnesses, combat=combat)
+    if not combat:
+        second_chances(engine, match, dead_units, result)
     for seat in heroes:
         if cause == seat:
             continue
@@ -386,6 +509,12 @@ def raise_level(engine: "RulesEngine", hero: HeroState, levels: int,
     hero now at its maximum that was not is marked `max_reached`, for
     its "Max level:" trigger (`max_level_reached`)."""
     card = engine.hero_card(hero)
+    if engine.levels_frozen(match, hero) or any(
+        m.get("kind") == "no_level" for m in hero.modifiers
+    ):
+        # Chronofixer: "Opposing heroes can't level up" -- by any means;
+        # Nether Drain's drained hero "can't level up this turn".
+        return False
     before = card.band(hero.level).min_level
     was_max = hero.level >= card.max_level
     hero.level = min(card.max_level, hero.level + levels)
@@ -429,12 +558,19 @@ def max_level_reached(engine: "RulesEngine", match: MatchState, seat: int, hero:
         ))
 
 
-def trash(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
+def trash(engine: "RulesEngine", match: MatchState, card: CardInstance,
+          result: Optional[StepResult] = None) -> bool:
     """`card` out of play and out of the game (UMR p. 13): in no pile and
     in no count, never returning -- not a death, so nothing that pays on
-    one pays."""
+    one pays. A Gilded Glaxx with gold stays; whether it went."""
+    if engine.cant_leave_play(match, card):
+        return False
     match.player(card.controller).play.remove(card)
+    _empty_graveyard(match, card)
     match.record_event("trashed", slug=card.slug, owner=card.owner)
+    if result is not None and engine.catalog.cards[card.slug].is_unit:
+        second_chances(engine, match, [card], result)
+    return True
 
 
 def trash_worker(match: MatchState, seat: int) -> bool:
@@ -448,7 +584,8 @@ def trash_worker(match: MatchState, seat: int) -> bool:
     return True
 
 
-def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
+def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance,
+              result: Optional[StepResult] = None) -> None:
     """
     A card of yours out of play to its owner's discard pile. A unit
     sacrificed **dies** -- "Dies: A card dies when it is destroyed or
@@ -456,11 +593,17 @@ def sacrifice(engine: "RulesEngine", match: MatchState, card: CardInstance) -> N
     Bombaster, Land Octopus, Circle of Life); a spell or a building card
     is no unit, and nothing pays.
     """
+    if engine.catalog.cards[card.slug].is_unit and not engine.may_sacrifice(match, card):
+        # "You can't sacrifice this card" (UMR p. 17): nothing happens.
+        return
+    if engine.catalog.cards[card.slug].is_unit and soul_stone_saves(engine, match, card, result):
+        return
     witnesses = _witnesses(engine, match)
-    leave_play(engine, match, card, "discard")
+    leave_play(engine, match, card, "died")
     match.record_event("sacrificed", slug=card.slug, owner=card.owner)
     if engine.catalog.cards[card.slug].is_unit:
         _deaths(engine, match, [card], [], witnesses)
+        second_chances(engine, match, [card], result)
 
 
 # -- What pays on a death (step 11) -------------------------------------------
@@ -471,11 +614,13 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
     Captured Bugblatter that dies with the others still counts them, and
     itself (its ruling), and Pirategang Commander's units that die with
     it still had its "Dies:"."""
-    found = {"bugblatters": [], "pirategang": {}}
+    found = {"bugblatters": [], "pirategang": {}, "necromancers": {}}
     for player in match.players:
         for card in player.play:
             if not engine.texted(card):
                 continue
+            if card.slug in effects.SKELETON_ON_DEATH:
+                found["necromancers"].setdefault(player.seat, []).append(card.id)
             if card.slug in effects.ON_ANY_DEATH:
                 found["bugblatters"].append((player.seat, card.slug))
             if card.slug in effects.GRANTS_DIES:
@@ -484,7 +629,7 @@ def _witnesses(engine: "RulesEngine", match: MatchState) -> dict:
 
 
 def _deaths(engine: "RulesEngine", match: MatchState, units: list,
-            heroes: list, witnesses: dict) -> None:
+            heroes: list, witnesses: dict, combat: bool = False) -> None:
     """
     The triggers a death sets off, each a frame onto the stack -- which
     whoever destroyed or sacrificed them runs -- or, where nothing is
@@ -513,6 +658,30 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 effects.GRANTS_DIES[granted], seat, f"{by} (from {tokens.card(granted)})",
                 origin=card.slug,
             ))
+        for when in ("dies", *(("dies_from_combat",) if combat else ())):
+            for effect in effects.triggers(engine.text_slug(card) or "", when):
+                one = resolve.frame(effect, seat, by, origin=card.slug)
+                if effect == "blackhand_dozer":
+                    # "Active player destroys one of your lowest tech units."
+                    one["seat"], one["against"] = match.active, seat
+                frames.append(one)
+        for catapult in match.player(seat).play:
+            if catapult.slug in effects.CORPSE_RUNES and engine.texted(catapult):
+                catapult.runes["corpse"] = catapult.runes.get("corpse", 0) + 1
+        if not is_token(engine, card.slug):
+            for watcher in witnesses["necromancers"].get(seat, ()):
+                if watcher != card.id:
+                    frames.append(resolve.frame(
+                        "necromancer", seat, tokens.card("necromancer"), origin="necromancer",
+                    ))
+        if card.minus_runes and _orpal_unspent(engine, match):
+            # Orpal at 6: "The first time a unit with a -1/-1 rune dies each
+            # turn, the active player puts a -1/-1 rune on two units
+            # friendly to the dead unit."
+            one = resolve.frame("orpal_gloor_max", match.active, tokens.hero("orpal_gloor"),
+                                origin="orpal_gloor")
+            one["against"] = seat
+            frames.append(one)
         for watcher, slug in witnesses["bugblatters"]:
             frames.append(resolve.frame(
                 effects.ON_ANY_DEATH[slug], watcher, tokens.card(slug), origin=slug,
@@ -522,13 +691,47 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
                 limit = effects.BLOOD_RUNES.get(upgrade.slug)
                 if limit is not None:
                     upgrade.runes["blood"] = min(limit, upgrade.runes.get("blood", 0) + 1)
+        if any(lasting.get("kind") == effects.DEATH_RITES
+               for lasting in match.player(seat).lasting):
+            # Death Rites: "Whenever one of your units dies this turn,
+            # destroy one of an opponent's lowest tech units."
+            frames.append(resolve.frame(
+                "death_rites_destroy", seat, tokens.card(effects.DEATH_RITES),
+                origin=effects.DEATH_RITES,
+            ))
     for seat, hero in heroes:
         for effect in effects.triggers(hero.slug, "dies", 1):
             frames.append(resolve.frame(effect, seat, tokens.hero(hero.slug), origin=hero.slug))
     resolve.push(match, *frames)
 
 
+def _orpal_unspent(engine: "RulesEngine", match: MatchState) -> bool:
+    """Whether an Orpal Gloor at 6 is in play whose "first time each turn"
+    has not been spent -- spending it."""
+    slug, level = effects.ORPAL_MAX
+    for player in match.players:
+        for hero in player.heroes_in_play:
+            if hero.slug == slug and hero.level >= level:
+                if any(m.get("kind") == "once" and m.get("effect") == "orpal_gloor_max"
+                       for m in hero.modifiers):
+                    return False
+                hero.modifiers.append({"kind": "once", "effect": "orpal_gloor_max",
+                                       "until": "end_of_turn"})
+                return True
+    return False
+
+
 # -- Arriving (step 11) ---------------------------------------------------------
+
+
+def add_minus_rune(body, count: int = 1) -> None:
+    """-1/-1 runes onto a unit or hero, each cancelling a +1/+1 rune first
+    (UMR p. 13)."""
+    for _ in range(count):
+        if body.plus_runes:
+            body.plus_runes -= 1
+        else:
+            body.minus_runes += 1
 
 
 def add_plus_rune(body, count: int = 1) -> None:
@@ -552,11 +755,20 @@ def arrive(engine: "RulesEngine", match: MatchState, card: CardInstance, *,
     from codex.flow import resolve
 
     seat = card.controller
-    resolve.push(match, *(
+    fading = engine.fading(card)
+    if fading:
+        # Fading X: "Arrives with X time runes" (UMR p. 17).
+        card.time_runes = fading
+    frames = [
         resolve.frame(effect, seat, tokens.card(card.slug), source=card.ref, boosted=boosted,
                       origin=card.slug)
         for effect in effects.triggers(card.slug, "arrives")
-    ))
+    ]
+    for one in frames:
+        if from_hand:
+            # Zarramonde's "If you played Zarramonde from your hand".
+            one["from_hand"] = True
+    resolve.push(match, *frames)
     if engine.catalog.cards[card.slug].is_unit:
         _grow_on_arrival(match, seat, card)
         lasting_armor(match, card)
@@ -586,6 +798,10 @@ def hero_arrives(engine: "RulesEngine", match: MatchState, seat: int, hero: Hero
     Argagarg's Wisp -- and Blooming Ancient's rune."""
     from codex.flow import resolve
 
+    fading = engine.fading(hero)
+    if fading:
+        # Prynn Pasternaak's fading 4: she arrives with four time runes.
+        hero.time_runes = fading
     resolve.push(match, *(
         resolve.frame(effect, seat, tokens.hero(hero.slug), source=hero_ref(hero.slug),
                       origin=hero.slug)
@@ -601,27 +817,47 @@ def _grow_on_arrival(match: MatchState, seat: int, body) -> None:
 
 
 def summon(engine: "RulesEngine", match: MatchState, slug: str, seat: int,
-           count: int, result: StepResult, by: str = "") -> list[CardInstance]:
+           count: int, result: StepResult, by: str = "",
+           made_by: Optional[int] = None) -> list[CardInstance]:
     """`count` tokens of `slug` summoned for `seat` -- theirs, arriving
     as any unit does (UMR p. 13, 15) -- said in one line."""
     made = []
     for _ in range(count):
+        if engine.forecast(slug):
+            # A forecast token -- Vir's Mech -- goes to the future instead
+            # (the forecast ruling).
+            to_future(engine, match, slug, seat)
+            match.record_event("summoned_token", slug=slug, seat=seat)
+            continue
         card = match.new_instance(slug, seat)
+        card.made_by = made_by
         match.record_event("summoned_token", slug=slug, seat=seat)
         arrive(engine, match, card)
         made.append(card)
-    if made:
+    if count:
         what = (f"a {tokens.card(slug)} token" if count == 1
                 else f"{count} {tokens.card(slug)} tokens")
-        result.narration.append(f"{by} summons {what} for {tokens.player(seat)}.")
+        line = f"{by} summons {what} for {tokens.player(seat)}"
+        if engine.forecast(slug):
+            line += f", into the future with {engine.forecast(slug)} time runes"
+        result.narration.append(line + ".")
     return made
 
 
 def put_into_play(engine: "RulesEngine", match: MatchState, slug: str, seat: int, *,
-                  from_hand: bool) -> CardInstance:
+                  from_hand: bool, owner: Optional[int] = None) -> Optional[CardInstance]:
     """A card put into play by an effect (UMR p. 15): no cost paid, no
-    tech building needed, no boost -- and it arrives."""
+    tech building needed, no boost -- and it arrives. A forecast card goes
+    to the future instead, with its time runes ("When it would come into
+    play from something other than forecast, instead it goes to the
+    'future' zone", the forecast ruling): `None` then."""
+    if engine.forecast(slug):
+        to_future(engine, match, slug, seat, owner=owner)
+        match.record_event("put_into_play", slug=slug, seat=seat, future=True)
+        return None
     card = match.new_instance(slug, seat)
+    if owner is not None:
+        card.owner = owner
     match.record_event("put_into_play", slug=slug, seat=seat)
     arrive(engine, match, card, from_hand=from_hand)
     return card
@@ -672,6 +908,364 @@ def sideline(body) -> None:
     """Out of the patrol zone, and with it the squad leader's armor."""
     body.patrol_slot = None
     body.armor = 0
+
+
+# -- Time, the future, indestructible and disable (step 12) --------------------
+
+
+def to_future(engine: "RulesEngine", match: MatchState, slug: str, seat: int,
+              owner: Optional[int] = None) -> CardInstance:
+    """
+    `slug` into `seat`'s future with its forecast X time runes (UMR p. 17):
+    not in play -- untargetable, unaffected -- until its last rune goes.
+    It is given its id now, never reused.
+    """
+    card = CardInstance(
+        id=match.next_instance_id, slug=slug, owner=seat if owner is None else owner,
+        controller=seat, arrived_this_turn=False, time_runes=engine.forecast(slug) or 1,
+    )
+    match.next_instance_id += 1
+    match.player(seat).future.append(card)
+    return card
+
+
+def arrive_from_future(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
+                       result: StepResult) -> None:
+    """
+    A forecast card whose last time rune is gone: a unit arrives and
+    enters play -- with arrival fatigue and its arrives trigger then,
+    needing nothing it needed to be played (the forecast rulings) -- and a
+    spell resolves (Double Time).
+    """
+    from codex.flow import resolve
+
+    player = match.player(seat)
+    if card in player.future:
+        player.future.remove(card)
+    printed = engine.catalog.cards[card.slug]
+    if printed.is_spell:
+        result.narration.append(f"{tokens.card(card.slug)} resolves from the future.")
+        if card.slug not in effects.EFFECTS:
+            match.player(card.owner).discard.append(card.slug)
+            return
+        match.record_event("from_future", slug=card.slug, seat=seat)
+        resolve.push(match, resolve.frame(
+            card.slug, seat, tokens.card(card.slug), spell=card.slug, origin=card.slug,
+        ))
+        return
+    card.controller = seat
+    card.time_runes = 0
+    card.arrived_this_turn = True
+    card.exhausted = False
+    card.sequence = match.next_sequence()
+    player.play.append(card)
+    match.record_event("from_future", slug=card.slug, seat=seat)
+    atk, hp = engine.unit_stats(card, match)
+    result.narration.append(
+        f"{tokens.player(seat)}'s {tokens.card(card.slug)} arrives from the future: {atk}/{hp}."
+    )
+    arrive(engine, match, card)
+
+
+def add_time_rune(thing, count: int = 1) -> None:
+    thing.time_runes += count
+
+
+def remove_time_rune(engine: "RulesEngine", match: MatchState, seat: int, ref: str,
+                     result: StepResult, *, by_fading: bool = False) -> bool:
+    """
+    A time rune off what `ref` names on `seat`'s side -- a card in play, a
+    hero, or a card in the future -- and what its last one does: a card in
+    the future arrives (or resolves); a fading card or hero is sacrificed,
+    "for any reason" (the fading ruling). `by_fading` says the upkeep's
+    fading took it, which Prynn's "dies from fading" alone counts. Whether
+    a rune was there to remove.
+    """
+    thing = timed(match, seat, ref)
+    if thing is None or thing.time_runes <= 0:
+        return False
+    thing.time_runes -= 1
+    remembers = (
+        isinstance(thing, CardInstance) and engine.text_slug(thing) in effects.REMEMBERERS
+        and seat == match.active and future_card(match, seat, ref) is None
+    )
+    if thing.time_runes > 0:
+        if remembers:
+            _remember(match, seat, thing)
+        return True
+    if future_card(match, seat, ref) is not None:
+        arrive_from_future(engine, match, seat, thing, result)
+        return True
+    if not engine.fading(thing):
+        return True
+    if isinstance(thing, HeroState):
+        result.narration.append(f"{tokens.hero(thing.slug)} loses her last time rune and fades away.")
+        died_from_fading(engine, match, seat, thing, result, by_fading)
+        destroy(engine, match, [(seat, hero_ref(thing.slug))], result, cause=seat)
+        return True
+    result.narration.append(f"{named(match, seat, thing.ref)} loses its last time rune and is sacrificed.")
+    sacrifice(engine, match, thing, result)
+    if remembers:
+        # Rememberer: the sacrifice and the return trigger at once, and the
+        # active player sacrifices first, so she may return herself (the
+        # Card FAQ) -- which costs no choice, since the return is "may".
+        _remember(match, seat, thing)
+    return True
+
+
+def _remember(match: MatchState, seat: int, card: CardInstance) -> None:
+    """Rememberer: "you may put a unit with fading from your discard pile
+    into play if you meet the tech requirements for it" -- on its
+    controller's own turn, where the choice is theirs to make (UMR p. 14)."""
+    from codex.flow import resolve
+
+    resolve.push(match, resolve.frame("rememberer", seat, tokens.card(card.slug), origin=card.slug))
+
+
+def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
+                     result: StepResult, by_fading: bool) -> None:
+    """
+    Prynn at 4: "Dies from fading: Opponents skip their next draw/discard
+    step (they keep their hand cards)." -- only where the upkeep's fading
+    took her last rune, never Time Spiral or her own ability (her rulings).
+    """
+    slug, level = effects.PRYNN_FADES
+    if not by_fading or hero.slug != slug or hero.level < level:
+        return
+    other = match.opponent(seat)
+    other.skip_draw = True
+    result.narration.append(
+        f"{tokens.hero(hero.slug)} died from fading: {tokens.player(other.seat)} skips their next "
+        "draw and discard."
+    )
+
+
+def spare(engine: "RulesEngine", match: MatchState, card: CardInstance,
+          result: StepResult) -> None:
+    """An indestructible card that would die: exhausted, its damage and
+    the cards attached to it gone, its runes kept (UMR p. 17)."""
+    card.exhausted = True
+    card.damage = 0
+    for spell in list(match.instances()):
+        if spell.slug != effects.TWO_STEP and card.id in spell.attached:
+            leave_play(engine, match, spell, "discard")
+    result.narration.append(
+        f"{named(match, card.controller, card.ref)} is indestructible: it is exhausted instead."
+    )
+
+
+def _spareable(match: MatchState, card: CardInstance) -> bool:
+    """Whether sparing an indestructible card would change anything: damage
+    or an attachment to take off, or it is not yet exhausted."""
+    attached = any(
+        spell.slug != effects.TWO_STEP and card.id in spell.attached for spell in match.instances()
+    )
+    return bool(card.damage) or attached or not card.exhausted
+
+
+def soul_stone_saves(engine: "RulesEngine", match: MatchState, card: CardInstance,
+                     result: Optional[StepResult]) -> bool:
+    """
+    Soul Stone: "If it would die, instead remove all damage from it and
+    sacrifice all Soul Stones on it." -- it does not die, so nothing that
+    pays on a death pays (its rulings). Whether a Soul Stone saved it.
+    """
+    stones = [spell for spell in match.instances()
+              if spell.slug == effects.SOUL_STONE and card.id in spell.attached]
+    if not stones:
+        return False
+    card.damage = 0
+    for stone in stones:
+        leave_play(engine, match, stone, "discard")
+        match.record_event("sacrificed", slug=stone.slug, owner=stone.owner)
+    if result is not None:
+        result.narration.append(
+            f"{named(match, card.controller, card.ref)} would die: its "
+            f"{tokens.card(effects.SOUL_STONE)} is sacrificed instead, and its damage removed."
+        )
+    return True
+
+
+def random_discard(engine: "RulesEngine", match: MatchState, seat: int,
+                   result: StepResult, by: str) -> bool:
+    """
+    `seat` discards a card at random (Thieving Imp, Cursed Crow, Shadow
+    Blade): picked by `engine.pick`, recorded beside the shuffles so a
+    replay discards the same one -- and said as a count, never by name.
+    """
+    player = match.player(seat)
+    if not player.hand:
+        return False
+    slug = engine.pick(player.hand)
+    result.drawn.append([effects.PICK, slug])
+    player.hand.remove(slug)
+    player.discard.append(slug)
+    match.record_event("discarded_at_random", seat=seat, slug=slug)
+    result.narration.append(f"{tokens.player(seat)} discards a card at random for {by}.")
+    return True
+
+
+def _has_tech_ii_unit(engine: "RulesEngine", player) -> bool:
+    """A tech II unit in play or in the future -- never tech III, a tech II
+    building or upgrade, or a buried unit (Hardened Mox's ruling)."""
+    for card in (*player.play, *player.future):
+        printed = engine.catalog.cards[card.slug]
+        if printed.is_unit and (printed.tech_level or 0) == 2:
+            return True
+    return False
+
+
+def _stinger_excess(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
+    """
+    Hive: "limit: 5 per Hive" -- a player with more Stingers than five for
+    each Hive of theirs in play sacrifices the rest; with no Hive, all of
+    them, and otherwise the active player chooses which (Hive's rulings),
+    asked as a frame. Whether anything was done or asked.
+    """
+    from codex.flow import resolve
+
+    if any(frame.get("effect") == "hive_excess" for frame in match.resolving):
+        return False
+    for player in match.players:
+        stingers = [card for card in player.play if card.slug == effects.STINGER]
+        hives = [card for card in player.play if card.slug == effects.HIVE and engine.texted(card)]
+        made = any(event.get("kind") == "summoned_token" and event.get("slug") == effects.STINGER
+                   and event.get("seat") == player.seat for event in match.events)
+        if not made:
+            continue
+        excess = len(stingers) - effects.STINGERS_PER_HIVE * len(hives)
+        if excess <= 0:
+            continue
+        if not hives or excess == len(stingers):
+            result.narration.append(f"{tokens.player(player.seat)}'s Stingers go with their Hive.")
+            for card in stingers:
+                sacrifice(engine, match, card, result)
+            return True
+        frame = resolve.frame("hive_excess", match.active, tokens.card(effects.HIVE), origin=effects.HIVE)
+        frame["against"] = player.seat
+        match.resolving.insert(0, frame)
+        return True
+    return False
+
+
+def golgort(engine: "RulesEngine", match: MatchState, seat: int, result: StepResult) -> None:
+    """Yesterday's Golgort: a time rune each time its controller deals
+    combat damage to a building -- with any unit or hero (its ruling), and
+    combat damage alone, as the card says (the author, 2026-10-10): a
+    spell's or an ability's damage gives none."""
+    for card in match.player(seat).play:
+        if engine.text_slug(card) in effects.GOLGORTS:
+            card.time_runes += 1
+            result.narration.append(f"{tokens.card(card.slug)} gets a time rune: {card.time_runes}.")
+
+
+def return_fresh(engine: "RulesEngine", match: MatchState, slug: str, controller: int,
+                 owner: int, result: StepResult) -> Optional[CardInstance]:
+    """A card back into play "fresh" -- a new object, under the player who
+    controlled it when it left, with arrival fatigue and none of what it
+    had (Max Geiger's, Prynn's and Second Chances' rulings); a forecast
+    card goes to the future."""
+    card = put_into_play(engine, match, slug, controller, from_hand=False, owner=owner)
+    if card is not None:
+        atk, hp = engine.unit_stats(card, match)
+        result.narration.append(f"{tokens.card(slug)} returns to play under {tokens.player(controller)}: {atk}/{hp}.")
+    return card
+
+
+def second_chances(engine: "RulesEngine", match: MatchState, cards, result: Optional[StepResult]) -> None:
+    """
+    Second Chances: "Whenever one of your non-token units leaves play from
+    something other than combat damage, return it to play. Once-per-turn.
+    (Choose randomly if multiples leave at once.)" -- under its last
+    controller, fresh, taken back from wherever it went: the discard pile,
+    the hand, the Graveyard, the trash (its rulings). A token is gone and
+    uses nothing up. The random choice is `engine.pick`, recorded.
+    """
+    if result is None:
+        return
+    by_seat: dict[int, list] = {}
+    for card in cards:
+        if is_token(engine, card.slug) or not engine.catalog.cards[card.slug].is_unit:
+            continue
+        by_seat.setdefault(card.controller, []).append(card)
+    for seat, gone in by_seat.items():
+        upgrade = next((other for other in match.player(seat).play
+                        if other.slug in effects.SECOND_CHANCES and engine.texted(other)
+                        and not any(m.get("kind") == "once" and m.get("effect") == "second_chances"
+                                    for m in other.modifiers)), None)
+        if upgrade is None:
+            continue
+        if len(gone) > 1:
+            key = engine.pick([str(card.id) for card in gone])
+            result.drawn.append([effects.PICK, key])
+            card = next(card for card in gone if str(card.id) == key)
+        else:
+            card = gone[0]
+        upgrade.modifiers.append({"kind": "once", "effect": "second_chances", "until": "end_of_turn"})
+        _take_back(engine, match, card)
+        result.narration.append(f"{tokens.card('second_chances')} returns {tokens.card(card.slug)}.")
+        return_fresh(engine, match, card.slug, seat, card.owner, result)
+
+
+def _take_back(engine: "RulesEngine", match: MatchState, card: CardInstance) -> None:
+    """A card that left play, taken back from wherever it went, so it can
+    return: the newest copy in its owner's discard pile or hand, a
+    Graveyard, or Prynn's list of the trashed."""
+    owner = match.player(card.owner)
+    for pile in (owner.discard, owner.hand):
+        if card.slug in pile:
+            index = len(pile) - 1 - pile[::-1].index(card.slug)
+            pile.pop(index)
+            return
+    for player in match.players:
+        for yard in engine.graveyards(player):
+            for entry in yard.buried:
+                if entry["slug"] == card.slug and entry["owner"] == card.owner:
+                    yard.buried.remove(entry)
+                    return
+        for hero in player.heroes:
+            hero.trashed = [entry for entry in hero.trashed if entry.get("id") != card.id]
+
+
+def sentry_shields(engine: "RulesEngine", match: MatchState, bodies, result: StepResult) -> list:
+    """
+    Sentry: "Prevent the first damage per turn that a spell or ability
+    would deal to one of your patrollers. (Choose randomly if multiple
+    patrollers are damaged at once.)" -- sparkshot's and the tower's too
+    (its ruling). `bodies` are what is about to be damaged at once; the
+    one shielded, as a list of none or one.
+    """
+    for seat in (1, 2):
+        sentry = next((card for card in match.player(seat).play
+                       if card.slug in effects.SENTRIES and engine.texted(card)
+                       and not any(m.get("kind") == "once" and m.get("effect") == "sentry"
+                                   for m in card.modifiers)), None)
+        if sentry is None:
+            continue
+        mine = [body for body in bodies
+                if engine.seat_of(match, body) == seat and getattr(body, "patrol_slot", None)]
+        if not mine:
+            continue
+        if len(mine) > 1:
+            keys = [getattr(body, "ref", None) or hero_ref(body.slug) for body in mine]
+            key = engine.pick(keys)
+            result.drawn.append([effects.PICK, key])
+            shielded = mine[keys.index(key)]
+        else:
+            shielded = mine[0]
+        sentry.modifiers.append({"kind": "once", "effect": "sentry", "until": "end_of_turn"})
+        name = tokens.hero(shielded.slug) if isinstance(shielded, HeroState) else tokens.card(shielded.slug)
+        result.narration.append(f"{tokens.card('sentry')} prevents the damage to {name}.")
+        return [shielded]
+    return []
+
+
+def disable(body) -> None:
+    """Disable (UMR p. 16): exhausted, sidelined if it was patrolling, and
+    not readied at its next ready phase."""
+    body.exhausted = True
+    sideline(body)
+    body.disabled = True
 
 
 # -- The position's own consequences ----------------------------------------------
@@ -743,6 +1337,14 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
         for player in match.players:
             for card in player.play:
                 if engine.has_hp(card) and _lethal(engine, match, card):
+                    if engine.cant_leave_play(match, card):
+                        # Gilded Glaxx with gold: 0 HP alone does not kill
+                        # him (his rulings).
+                        continue
+                    if engine.indestructible(match, card) and not _spareable(match, card):
+                        # At 0 HP from its runes it stays exhausted for good
+                        # (the indestructible ruling): nothing more to do.
+                        continue
                     dead.append((player.seat, card.ref))
             for hero in player.heroes_in_play:
                 if _lethal(engine, match, hero):
@@ -757,7 +1359,32 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
             result.narration.append(
                 f"{named(match, twin.controller, twin.ref)} is a second copy of a legendary card."
             )
-            destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause)
+            destroy(engine, match, [(twin.controller, twin.ref)], result, cause=cause, forced=True)
+            continue
+        mox = next((card for player in match.players for card in player.play
+                    if engine.text_slug(card) in effects.TRASHED_BY_TECH_II
+                    and _has_tech_ii_unit(engine, match.player(card.controller))), None)
+        if mox is not None:
+            # Hardened Mox: "When you have a tech II unit (even a
+            # forecasted one), trash Hardened Mox."
+            result.narration.append(
+                f"{named(match, mox.controller, mox.ref)} is trashed: its controller has a tech II unit."
+            )
+            match.player(mox.controller).play.remove(mox)
+            match.record_event("trashed", slug=mox.slug, owner=mox.owner)
+            continue
+        if _stinger_excess(engine, match, result):
+            continue
+        full = next((yard for player in match.players for yard in engine.graveyards(player)
+                     if len(yard.buried) >= effects.GRAVEYARD_LIMIT), None)
+        if full is not None:
+            # "Sacrifice Graveyard when four or more units are buried in it
+            # (and discard those units)."
+            result.narration.append(
+                f"{named(match, full.controller, full.ref)} holds {len(full.buried)} units: it is "
+                "sacrificed, and they are discarded."
+            )
+            sacrifice(engine, match, full)
             continue
         gone = _sacrifice_due(engine, match)
         if gone is None:

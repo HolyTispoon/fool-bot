@@ -95,7 +95,7 @@ def summon_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     seat = match.active
     player = match.active_player
     hero = _hero(match, slug)
-    option = engine.hero_option(player, hero)
+    option = engine.hero_option(player, hero, match)
     if option.action != "summon" or option.why_not:
         why = option.why_not or "it is already in play"
         raise RuleRefusal(f"You can't summon {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
@@ -124,7 +124,7 @@ def level_hero(engine: "RulesEngine", game: "CodexGame", match: MatchState, leve
     seat = match.active
     player = match.active_player
     hero = _hero(match, slug)
-    option = engine.hero_option(player, hero)
+    option = engine.hero_option(player, hero, match)
     if option.action != "level" or option.why_not:
         why = option.why_not or "it is not in play"
         raise RuleRefusal(f"You can't level {engine.name(hero.slug)}: {why}.", cite="UMR p. 6")
@@ -180,10 +180,70 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             raise RuleRefusal(f"You can't boost {engine.name(slug)}: not enough gold.", cite="UMR p. 16")
         cost += extra
     player.hand.remove(slug)
-    player.gold -= cost
-    match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}))
-    note = _vanilla_note(engine, slug)
     result = StepResult(board_changed=True)
+    _played(engine, match, seat, slug, cost, boost, result)
+    return resolve.carry_on(engine, game, match, result)
+
+
+def put_card_into_play(engine: "RulesEngine", match: MatchState, seat: int, slug: str,
+                       boost: bool, result: StepResult, where: str = "hand") -> None:
+    """A card played from somewhere other than the hand -- the top of Vir's
+    draw pile: paid as a card played from the hand is, boost and all (the
+    boost ruling), and then everything playing it does."""
+    player = match.player(seat)
+    cost = engine.effective_cost(player, slug) + ((engine.boost_cost(slug) or 0) if boost else 0)
+    _played(engine, match, seat, slug, cost, boost, result, where=where)
+
+
+def spend_promise(engine: "RulesEngine", match: MatchState, seat: int, slug: str,
+                  result: StepResult) -> None:
+    """
+    A card played while Promise of Payment stands took its discount: its
+    printed gold cost is owed at the next upkeep -- never reduced by
+    anything, never the boost (the rulings) -- and the promise is spent on
+    it alone.
+    """
+    player = match.player(seat)
+    if not player.promised:
+        return
+    player.promised = False
+    owed = engine.catalog.cards[slug].cost or 0
+    player.debt += owed
+    if owed:
+        result.narration.append(
+            f"{tokens.player(seat)} owes {tokens.gold(owed)} for {tokens.card(slug)} at their next upkeep."
+        )
+
+
+def _played(engine: "RulesEngine", match: MatchState, seat: int, slug: str, cost: int,
+            boost: bool, result: StepResult, where: str = "hand") -> None:
+    """A card played, paid for: into the future, into play, or cast."""
+    player = match.player(seat)
+    card = engine.catalog.cards[slug]
+    player.gold -= cost
+    match.record_event("played", slug=slug, cost=cost, **({"boosted": True} if boost else {}),
+                       **({"from": where} if where != "hand" else {}))
+    spend_promise(engine, match, seat, slug, result)
+    note = _vanilla_note(engine, slug)
+    if where != "hand":
+        note += f" (from their {where})"
+    if engine.forecast(slug):
+        # Forecast X: played from the hand, paid and its requirements met
+        # now, into the future with X time runes -- not in play (UMR
+        # p. 17). A spell is played, so a Harmony still pays for it.
+        board.to_future(engine, match, slug, seat)
+        boosted = ", boosted" if boost else ""
+        result.narration.append(
+            f"{tokens.player(seat)} plays {tokens.card(slug)} for {tokens.gold(cost)}{boosted} "
+            f"into the future, with {engine.forecast(slug)} time runes.{note}"
+        )
+        if card.is_spell:
+            player.spells_played += 1
+            resolve.push(match, *(
+                resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
+                for harmony in player.play if harmony.slug == effects.HARMONY
+            ))
+        return
     if card.is_unit:
         instance = match.new_instance(slug, seat)
         atk, hp = engine.unit_stats(instance, match)
@@ -222,7 +282,6 @@ def play_card(engine: "RulesEngine", game: "CodexGame", match: MatchState, slug:
             resolve.frame("harmony_dancer", seat, tokens.card(effects.HARMONY), source=harmony.ref)
             for harmony in player.play if harmony.slug == effects.HARMONY
         ))
-    return resolve.carry_on(engine, game, match, result)
 
 
 def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -243,9 +302,7 @@ def use_ability(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if not option.allowed:
         raise RuleRefusal(f"You can't use that ability: {option.why_not}.", cite="UMR p. 7")
     result = StepResult(board_changed=True)
-    body = board.body_of(match, seat, source) if is_hero_ref(source) else player.instance(
-        int(source.split(":", 1)[1]),
-    )
+    body = board.timed(match, seat, source)
     if effect == "stop_the_music":
         board.sacrifice(engine, match, body)
         result.narration.append(
@@ -280,6 +337,11 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
         if kind == "plus":
             body.plus_runes -= count
             rune = "+1/+1"
+        elif kind == "time":
+            # A time rune paid as a cost: a fading card left with none is
+            # sacrificed once the ability has resolved (`fade_check`).
+            body.time_runes -= count
+            rune = "time"
         else:
             body.runes[kind] = body.runes.get(kind, 0) - count
             rune = kind
@@ -291,6 +353,9 @@ def _pay(engine: "RulesEngine", match: MatchState, seat: int, body, effect: str,
     if cost.sacrifice:
         board.sacrifice(engine, match, body)
         said.append(f"sacrifices {by}")
+    if cost.once:
+        # Once-per-turn (step 12).
+        body.modifiers.append({"kind": "once", "effect": effect, "until": "end_of_turn"})
     if not said:
         # A cost the effect's own parts pay -- Calamandra's discards.
         said.append(f"uses {by}")
