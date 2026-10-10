@@ -973,7 +973,6 @@ class ContinuousYourUnitsTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.PATROL, assignment={})
         picks = [slug for slug, _ in asked(engine, game, match).options.codex[:2]]
         apply(engine, game, match, PromptKind.TECH_CHOICE, player=1, picks=picks)
-        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", player=1)
         self.assertEqual((match.active, match.phase), (1, "main"))
         self.assertFalse(engine.has_keyword(later, "Swift strike", match))
         self.assertEqual(match.player(1).lasting, [])

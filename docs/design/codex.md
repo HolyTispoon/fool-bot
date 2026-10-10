@@ -290,6 +290,16 @@ to run until the picks are confirmed; the confirmed cards go face-down
 into the discard pile in the ready phase, and only then leave the
 codex.
 
+- **A pick made in its owner's own ready phase is confirmed as it is
+  made** (the author, 2026-10-10: "they just picked it"). Where the
+  turn opens on `TECH_CHOICE` -- they never picked during the other's
+  turn, or pressed **Change** on the confirmation -- the save is the
+  choice and the turn begins on it, picks or none: only a choice made
+  earlier, during the other player's turn, is shown back for
+  confirming. `_answer_tech_choice` reads it off the seat: the active
+  player's tech prompt is always their ready phase's, since only the
+  other player's stands.
+
 - **A tech action names its seat** (`arguments["player"]`), because
   both players can have one open at once -- the player whose turn
   begins confirms theirs while the one whose turn just ended picks.
@@ -322,9 +332,11 @@ A turn starts with a **snapshot** -- the position as saved, without the
 snapshots and the journal themselves -- keeping the last three, and
 emptying the **journal**. **Where the turn opens on its player's tech,
 the snapshot is the hand-over** (`begin_tech`, since 2026-10-10), before
-the confirmation and the ready phase it runs, which the journal then
-records as the turn's first entries -- so an undo to the turn's start
-offers the confirmation again and the ready phase runs again on it (the
+the choice or its confirmation and the ready phase it runs, which the
+journal then records as the turn's first entries -- so an undo to the
+turn's start asks the tech again -- the confirmation where the picks
+were made during the other's turn, the picker otherwise -- and the
+ready phase runs again on the answer (the
 author, 2026-10-10: "offer to confirm tech but also redo the ready
 phase"). Where no tech is owed -- a player's first turn -- `begin_turn`
 takes it at the start of the main phase, once the gold is collected,
@@ -396,7 +408,7 @@ snapshot it led to already holds its effects.
   patrol's (`BETWEEN_ACTIONS`) and changed the position -- not inside
   a spell or an attack, which the cancel covers; not before a tech
   answer or the upkeep's order (`OPENING_KINDS`: the active player's
-  own choice and confirmation, which open a turn's journal where its
+  own choice or confirmation, which opens a turn's journal where its
   snapshot is the hand-over, the upkeep's order where it was asked, and
   the other player's choice whenever it comes), which is no action of
   the turn and numbers none; and not an attacker declared and taken
@@ -2132,7 +2144,7 @@ never picked, or because the game is a test game) and points at
 turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
-pick tech"); at any other point in their own turn it says the tech is
+pick tech"), whose save begins the turn with nothing to confirm; at any other point in their own turn it says the tech is
 not theirs to press now. **My hand** opens the confirmation at once
 where the picks were saved, the hand pictured and then the picks, two
 pictures on the one panel (the author, 2026-10-10: the step between
@@ -2238,7 +2250,7 @@ carries the position.
   each recent turn's *first lines* -- what its message said when it
   first went up, before the turn's snapshot: the ready phase's lines
   where the turn owed no tech, nothing where it waited on its tech,
-  since the confirmation's lines are the journal's then -- which is what
+  since the tech answer's lines are the journal's then -- which is what
   an undo puts back above what it says. After a restart
   neither is known: the gate leaves the message's text alone until the
   turn ends or `/codex resume` re-posts the table.
@@ -2300,9 +2312,10 @@ what it costs from the panel (the table above).
   and saves once; the turn message is posted again with its first lines
   and "Undone to the start of the turn." (`history.UNDONE`) and the
   restored board, and the panel is sent under it from the restored
-  prompt -- the tech confirmation where the turn opened on its tech,
-  whose **Confirm** runs the ready phase again and posts its lines
-  under the undone line (the author, 2026-10-10).
+  prompt -- the tech confirmation where the turn opened on picks made
+  during the other's turn, the picker where it opened on the picker,
+  whose answer runs the ready phase again and posts its lines under
+  the undone line (the author, 2026-10-10).
 - **To before an action of this turn** -- the fine undo's menu, above
   the two buttons wherever they are offered (the panel's undo mode, the
   patrol lock's, the turn message's `UndoView`), one option a point,
