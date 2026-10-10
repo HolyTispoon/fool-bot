@@ -178,7 +178,13 @@ committed. Two sources:
   cards the sheet stores on their side, so they read upright as the
   playmat prints them. `--cut-only` cuts them again from the committed
   sheets with no network, so a change to a pin is made and checked
-  anywhere.
+  anywhere. A sheet not pinned yet comes in whole first, from a machine
+  that can reach Screentop (the cloud sessions' network policy refuses
+  it): `--list-sheets` names every sheet the module has, and
+  `--fetch-sheet NAME` keeps one under `sheets/` and cuts nothing, so
+  its cells are looked at, pinned in `BOARD_SHEETS` and cut with
+  `--cut-only` like the rest -- the colours' card sheets, for their
+  worker cards, are the first.
 
 What is under `codex/images/board/`, and what each is named by:
 
