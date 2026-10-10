@@ -1352,7 +1352,16 @@ else the bot shows is ephemeral.
     height); a test holds the two equal. A tech building is greyed and
     half seen until built, in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
-    turn) and is dark with the house chit when destroyed. Every
+    turn) and is dark with the house chit when destroyed. Beside the
+    chit, a strip runs level across the middle of the tile -- UNDER
+    CONSTRUCTION on gold, DESTROYED on red -- a little past its edges,
+    as tape wrapped round it (`lay_strip`; the author, 2026-10-10: the
+    chit alone did not make either clear). The add-on under
+    construction carries the same strip, and a destroyed base -- seen
+    only on a finished game's board -- goes dark with DESTROYED across
+    it. Level rather than slanted: a slant falling to the right ran
+    its first word under the house chit, and one rising ran over the
+    heart, which still matters on a building being built. Every
     building's picture prints its full HP in a heart; a damaged one's
     heart carries the HP it has now instead, rather than a damage chit
     beside it (the author, 2026-10-09). The heart is the picture's own:
@@ -1387,7 +1396,10 @@ else the bot shows is ephemeral.
     its damage chits on the foot of its art (`ART_FOOT`), clear of the
     ATK and HP the card prints, which a chit over the stats hid (the
     author, 2026-10-09), its rune chits top right, Two Step's
-    chit on a dance partner and ARRIVED the turn it came.
+    chit on a dance partner and ARRIVED the turn it came, on the
+    foot of its art against the left edge, opposite the damage chits
+    (the author, 2026-10-10: it sat over the card's text, 44 above its
+    foot).
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     their team by `codex.formatting.team_name` -- a colour's three heroes
     by the deck's own name, "Blood Anarchs", any other team by its specs
