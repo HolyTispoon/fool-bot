@@ -5,29 +5,41 @@ every change (docs/design/codex.md, "The standard game"):
 - **Basic game** / **Standard game** -- one hero a side or three (UMR
   p. 3) -- **Leave** and **Start**, and in a rematch's lobby **Keep
   heroes**;
-- a menu of the heroes this bot plays (`CardCatalog.landed_heroes`),
-  one pick in a basic game and three in a standard one, which seats the
-  clicker with those heroes -- two menus in a test game, one per side,
-  since one person plays both;
-- for each seat whose heroes span more than one colour, a button per
-  colour for its starting deck.
+- in a basic game, a menu of the heroes this bot plays
+  (`CardCatalog.landed_heroes`), one pick, which seats the clicker with
+  that hero;
+- in a standard game, a button per colour's deck by its name --
+  **Blood Anarchs**, the colour's three heroes (`CardCatalog.color_decks`)
+  -- which seats the clicker with that team, and **Mixed colours**, which
+  opens `MixedTeamView` for them alone: the first hero, whose colour is
+  the starting deck, and the other two;
+- a test game's picks twice, one set per side, since one person plays
+  both.
 
-A menu because twenty heroes do not fit two rows of buttons. Persistent,
-so a restart re-arms it (docs/codex-bot.md, decision 10). Every move is
-a service method over the record's rule; the view changes nothing itself
-and saves nothing.
+A menu for the heroes because twenty do not fit two rows of buttons.
+Persistent, so a restart re-arms it (docs/codex-bot.md, decision 10);
+`MixedTeamView` is ephemeral and is not. Every move is a service method
+over the record's rule; the view changes nothing itself and saves
+nothing.
 """
 
 from typing import Optional
 
 import discord
 
-from codex.cards import catalog
+from codex.cards import COLOR_DECK_NAMES, catalog
+from codex.formatting import team_name
 from codex.game import MODES, CodexGame, GameStatus, RuleRefusal
 from cogs.codex_views.base import SafeView, send_ephemeral
 
 #: The mode buttons' labels.
 MODE_LABELS = {"basic": "Basic game", "standard": "Standard game"}
+
+#: A row of buttons, as Discord allows.
+ROW_WIDTH = 5
+
+#: How long the ephemeral mixed-team picker waits for its two menus.
+MIXED_TEAM_TIMEOUT = 600
 
 
 def hero_options(game: CodexGame, seat: Optional[int]) -> list[discord.SelectOption]:
@@ -84,41 +96,61 @@ class LobbyView(SafeView):
             self.add_item(button)
         if game is None:
             return
-        count = game.heroes_per_seat
-        menus = [(None, "heroes")] if not game.test_game else [(1, "heroes1"), (2, "heroes2")]
-        for row, (seat, key) in enumerate(menus, start=1):
-            if seat is None:
-                placeholder = "Choose your hero" if count == 1 else f"Choose your {count} heroes"
-            else:
-                placeholder = (
-                    f"Player {seat}'s hero" if count == 1 else f"Player {seat}'s {count} heroes"
-                )
+        seats = (None,) if not game.test_game else (1, 2)
+        if game.mode == "basic":
+            self._hero_menus(game, seats)
+        else:
+            self._team_buttons(game, seats)
+
+    def _hero_menus(self, game: CodexGame, seats) -> None:
+        """The basic game's pick: a menu of the heroes, one a side."""
+        for row, seat in enumerate(seats, start=1):
+            key = "heroes" if seat is None else f"heroes{seat}"
             select = discord.ui.Select(
-                custom_id=f"codex:lobby:{key}:{game_id}",
-                placeholder=placeholder,
-                min_values=count, max_values=count,
+                custom_id=f"codex:lobby:{key}:{self.game_id}",
+                placeholder="Choose your hero" if seat is None else f"Player {seat}'s hero",
+                min_values=1, max_values=1,
                 options=hero_options(game, seat),
                 row=row,
             )
             select.callback = self._pick(select, seat)
             self.add_item(select)
-        row = len(menus) + 1
-        for seat in (1, 2):
-            choices = game.deck_choices(seat)
-            if len(choices) < 2:
-                continue
-            who = game.seat_name(seat) or f"Player {seat}"
-            for color in choices:
-                chosen = game.player_decks.get(seat) == color
+
+    def _team_buttons(self, game: CodexGame, seats) -> None:
+        """
+        The standard game's picks: a button per colour's deck, named,
+        and **Mixed colours** -- for each side in a test game, the side
+        written in front and its team lit.
+        """
+        row = 1
+        for seat in seats:
+            suffix = "" if seat is None else str(seat)
+            prefix = "" if seat is None else f"P{seat}: "
+            chosen = game.player_specs.get(seat) if seat is not None else None
+            chosen_color = catalog().color_deck_of(chosen) if chosen else None
+            items = []
+            for color in catalog().color_decks(game.heroes_per_seat):
                 button = discord.ui.Button(
-                    label=f"{who}: {color.title()} deck"[:80],
-                    style=discord.ButtonStyle.success if chosen else discord.ButtonStyle.secondary,
-                    custom_id=f"codex:lobby:deck{seat}_{color}:{game_id}",
-                    row=row,
+                    label=f"{prefix}{COLOR_DECK_NAMES[color]}"[:80],
+                    style=(discord.ButtonStyle.success if color == chosen_color
+                           else discord.ButtonStyle.secondary),
+                    custom_id=f"codex:lobby:team{suffix}_{color}:{self.game_id}",
                 )
-                button.callback = self._deck(seat, color)
-                self.add_item(button)
-            row += 1
+                button.callback = self._team(color, seat)
+                items.append(button)
+            mixed = discord.ui.Button(
+                label=f"{prefix}Mixed colours",
+                style=(discord.ButtonStyle.success if chosen and chosen_color is None
+                       else discord.ButtonStyle.primary),
+                custom_id=f"codex:lobby:mixed{suffix}:{self.game_id}",
+            )
+            mixed.callback = self._mixed(seat)
+            items.append(mixed)
+            for start in range(0, len(items), ROW_WIDTH):
+                for item in items[start:start + ROW_WIDTH]:
+                    item.row = row
+                    self.add_item(item)
+                row += 1
 
     def _callback(self, action: str):
         async def callback(interaction: discord.Interaction) -> None:
@@ -141,11 +173,32 @@ class LobbyView(SafeView):
                 self.game_id, interaction.user.id, interaction.user.display_name, specs, seat))
         return callback
 
-    def _deck(self, seat: int, color: str):
+    def _team(self, color: str, seat: Optional[int]):
+        """A colour's deck: its three heroes, the seat's team."""
         async def callback(interaction: discord.Interaction) -> None:
-            await self.move(interaction, lambda: self.cog.service.choose_deck(
-                self.game_id, interaction.user.id, color, seat))
+            specs = list(catalog().color_decks()[color])
+            await self.move(interaction, lambda: self.cog.service.take_seat(
+                self.game_id, interaction.user.id, interaction.user.display_name, specs, seat))
         return callback
+
+    def _mixed(self, seat: Optional[int]):
+        """**Mixed colours**: the two menus, for the clicker alone."""
+        async def callback(interaction: discord.Interaction) -> None:
+            game = self.cog.games.get(self.game_id)
+            if game is None or game.status is not GameStatus.LOBBY:
+                await send_ephemeral(interaction, "This lobby is closed.")
+                return
+            picker = MixedTeamView(self.cog, self.game_id, seat,
+                                   game.player_specs.get(self._seat_for(game, interaction, seat)))
+            await interaction.response.send_message(picker.text(), view=picker, ephemeral=True)
+        return callback
+
+    @staticmethod
+    def _seat_for(game: CodexGame, interaction: discord.Interaction,
+                  seat: Optional[int]) -> Optional[int]:
+        """The seat a pick is for: the one named, in a test game, or the
+        clicker's own."""
+        return seat if seat is not None else game.seat_of(interaction.user.id)
 
     async def set_mode(self, interaction: discord.Interaction, mode: str) -> None:
         """The basic game or the standard one: either seated player's, a
@@ -191,3 +244,119 @@ class LobbyView(SafeView):
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         await self.cog.start_game(interaction, game)
+
+
+class MixedTeamView(discord.ui.View):
+    """
+    **Mixed colours**, for the one who clicked it, ephemeral: a menu
+    for the first hero -- **its colour is the starting deck** (UMR p. 3;
+    `CodexGame._settle_deck`) -- and one for the other two. Both filled,
+    the seat is taken through the service as the lobby's buttons take
+    it, and the lobby is edited to show it -- through the channel, since
+    the click answered is the picker's (`refresh_lobby`). Each menu starts on the
+    seat's team where it has one, so changing the first hero alone is
+    one pick.
+    """
+
+    def __init__(self, cog, game_id: str, seat: Optional[int],
+                 team: Optional[list[str]] = None) -> None:
+        super().__init__(timeout=MIXED_TEAM_TIMEOUT)
+        self.cog = cog
+        self.game_id = game_id
+        self.seat = seat
+        team = list(team or ())
+        self.first: Optional[str] = team[0] if len(team) == 3 else None
+        self.others: list[str] = team[1:] if len(team) == 3 else []
+        self.refusal: Optional[str] = None
+        heroes = catalog().landed_heroes()
+        self.first_menu = discord.ui.Select(
+            placeholder="First hero: its colour is your starting deck",
+            min_values=1, max_values=1, row=0,
+            options=[
+                discord.SelectOption(
+                    label=f"{hero.name} ({hero.spec})",
+                    value=(hero.spec or "").lower(),
+                    description=f"{hero.color} hero: the {hero.color} starting deck",
+                    default=(hero.spec or "").lower() == self.first,
+                )
+                for hero in heroes
+            ],
+        )
+        self.first_menu.callback = self.pick_first
+        self.add_item(self.first_menu)
+        self.others_menu = discord.ui.Select(
+            placeholder="Your other two heroes",
+            min_values=2, max_values=2, row=1,
+            options=[
+                discord.SelectOption(
+                    label=f"{hero.name} ({hero.spec})",
+                    value=(hero.spec or "").lower(),
+                    description=f"{hero.color} hero",
+                    default=(hero.spec or "").lower() in self.others,
+                )
+                for hero in heroes
+            ],
+        )
+        self.others_menu.callback = self.pick_others
+        self.add_item(self.others_menu)
+
+    def text(self) -> str:
+        """What the picker says: the team so far, the first hero and the
+        deck it names, and what is still to choose."""
+        cards = catalog()
+        lines = ["**Mixed colours**: your first hero's colour is your starting deck."]
+        if self.first is not None:
+            hero = cards.hero_for(self.first)
+            lines.append(f"First: **{hero.name}** ({hero.spec}) -- the {hero.color} starting deck.")
+        if self.others:
+            lines.append("Then: " + ", ".join(
+                f"{cards.hero_for(spec).name} ({cards.hero_for(spec).spec})" for spec in self.others
+            ) + ".")
+        if self.refusal:
+            lines.append(self.refusal)
+        elif self.first is None or not self.others:
+            lines.append("Choose " + " and ".join(
+                part for part, missing in (("your first hero", self.first is None),
+                                           ("the other two", not self.others)) if missing
+            ) + ".")
+        return "\n".join(lines)
+
+    async def pick_first(self, interaction: discord.Interaction) -> None:
+        self.first = self.first_menu.values[0]
+        await self.settle(interaction)
+
+    async def pick_others(self, interaction: discord.Interaction) -> None:
+        self.others = list(self.others_menu.values)
+        await self.settle(interaction)
+
+    async def settle(self, interaction: discord.Interaction) -> None:
+        """Either menu picked: once both are, the seat is taken -- or
+        the record's refusal shown -- and the lobby edited."""
+        for menu, picked in ((self.first_menu, {self.first}), (self.others_menu, set(self.others))):
+            for option in menu.options:
+                option.default = option.value in picked
+        self.refusal = None
+        if self.first is None or not self.others:
+            await interaction.response.edit_message(content=self.text(), view=self)
+            return
+        game = self.cog.games.get(self.game_id)
+        if game is None or game.status is not GameStatus.LOBBY:
+            await interaction.response.edit_message(content="This lobby is closed.", view=None)
+            return
+        specs = [self.first, *self.others]
+        try:
+            self.cog.service.take_seat(
+                self.game_id, interaction.user.id, interaction.user.display_name, specs, self.seat,
+            )
+        except RuleRefusal as refused:
+            self.refusal = str(refused)
+            await interaction.response.edit_message(content=self.text(), view=self)
+            return
+        first = catalog().hero_for(self.first)
+        await interaction.response.edit_message(
+            content=(f"Seated as **{team_name(specs)}**: {first.name} first, "
+                     f"so the {first.color} starting deck."),
+            view=None,
+        )
+        self.stop()
+        await self.cog.refresh_lobby(game)

@@ -33,11 +33,23 @@ class RenderTests(unittest.TestCase):
         body = render.PATROL_HEIGHT + render.CELL_GAP + rows * render.CELL + (rows - 1) * render.CELL_GAP
         return 2 * render.PADDING + body + render.NAMEPLATE_GAP + render.NAMEPLATE_HEIGHT
 
-    def test_the_panel_is_the_canvas_size(self) -> None:
-        """Five columns in the basic game, seven in the standard one."""
-        self.assertEqual((render.panel_width(5), render.panel_width(7)), (1625, 2203))
+    def test_the_panel_is_the_mats_width(self) -> None:
+        """The building column, the command zone -- a slot per hero --
+        and the five patrol slots: 1580 in the basic game, 2004 in the
+        standard one, the grid four and six columns under them."""
+        self.assertEqual((render.panel_width(1), render.panel_width(3)), (1580, 2004))
+        self.assertEqual((render.grid_columns(1), render.grid_columns(3)), (4, 6))
         panel = render.render_panel(self.match, 1, "a", self.engine.catalog)
-        self.assertEqual(panel.size, (1625, self.panel_height(1)))
+        self.assertEqual(panel.size, (1580, self.panel_height(1)))
+
+    def test_the_heroes_share_one_command_zone(self) -> None:
+        """A standard panel is as wide empty as the mat, and its heroes
+        in the command zone take no cell of the grid."""
+        match = self.engine.new_match((("anarchy", "blood", "fire"),
+                                       ("balance", "feral", "growth")), first=1)
+        panel = render.render_panel(match, 1, "a", self.engine.catalog)
+        self.assertEqual(panel.size, (2004, self.panel_height(1)))
+        self.assertEqual(render.grid_cells(match.player(1), self.engine.catalog), [])
 
     def test_the_building_column_is_one_rows_height(self) -> None:
         """The add-on, the three tech buildings and the base stand as
@@ -57,7 +69,7 @@ class RenderTests(unittest.TestCase):
         png = render.render_board(self.match, "stacked", {1: "a", 2: "b"}, self.engine.catalog)
         self.assertEqual((png[:4], png[8:12]), (b"RIFF", b"WEBP"))
         height = 2 * self.panel_height(1) + render.DIVIDER_HEIGHT
-        self.assertEqual(size(png), (round(1625 * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round(1580 * render.BOARD_SCALE),
                                      round(height * render.BOARD_SCALE)))
 
     def test_the_stacked_board_is_seen_from_the_active_players_side(self) -> None:
@@ -93,7 +105,7 @@ class RenderTests(unittest.TestCase):
 
     def test_the_opening_board_side_by_side(self) -> None:
         png = render.render_board(self.match, "side_by_side", {1: "a", 2: "b"}, self.engine.catalog)
-        self.assertEqual(size(png), (round((1625 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
+        self.assertEqual(size(png), (round((1580 * 2 + render.DIVIDER_WIDTH) * render.BOARD_SCALE),
                                      round(self.panel_height(1) * render.BOARD_SCALE)))
 
     def test_a_hand(self) -> None:

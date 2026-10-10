@@ -13,7 +13,7 @@ from discord import app_commands
 
 from codex import tokens
 from codex.cards import catalog
-from codex.formatting import deck_name
+from codex.formatting import team_name
 from codex.game import CodexGame, GameStatus, RuleRefusal
 from cogs.codex_views import LobbyView, send_ephemeral
 
@@ -34,22 +34,30 @@ class LobbyMixin:
             if not specs:
                 rows.append(f"**Player {seat}**: {name} -- *choosing heroes*")
                 continue
-            heroes = ", ".join(cards.hero_for(spec).name for spec in specs)
-            row = f"**Player {seat}**: {name} -- {heroes} ({deck_name(specs)})"
+            heroes = [cards.hero_for(spec) for spec in specs]
+            row = f"**Player {seat}**: {name} -- **{team_name(specs)}**"
+            if len(heroes) == 1:
+                row += f" ({heroes[0].name})"
+            elif cards.color_deck_of(specs) is not None:
+                row += f" ({', '.join(hero.name for hero in heroes)})"
+            else:
+                # The first hero names the deck: said, so it is clear.
+                row += f" ({heroes[0].name} first, then " + ", ".join(
+                    hero.name for hero in heroes[1:]) + ")"
             if len(specs) < game.heroes_per_seat:
                 row += " -- *choosing heroes*"
             deck = game.player_decks.get(seat)
             if deck in game.deck_choices(seat):
                 row += f"; the {deck.title()} starting deck"
-            else:
-                row += "; *choosing a starting deck*"
             rows.append(row)
         if game.status is not GameStatus.LOBBY:
             waiting = "The game has started."
         elif game.may_start():
             waiting = "Both seats are ready: either player may **Start**."
         else:
-            waiting = "Choose your heroes to take a seat."
+            waiting = ("Choose your hero to take a seat." if game.mode == "basic" else
+                       "Choose a colour's deck, or **Mixed colours** for any three heroes "
+                       "-- the first hero's colour is the starting deck -- to take a seat.")
         if game.mode == "standard":
             kind = "a standard game, three heroes a side"
         else:
@@ -61,6 +69,21 @@ class LobbyMixin:
         if game.rematch_specs:
             lines.append(self.rematch_line(game))
         return "\n".join([*lines, waiting])
+
+    async def refresh_lobby(self, game: CodexGame) -> None:
+        """The lobby edited to show a change made from somewhere else --
+        the mixed-team picker, whose click answers the picker -- through
+        the channel: one edit, in a channel where nothing else is being
+        edited before Start."""
+        channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
+        if channel is None or game.message_id is None:
+            return
+        try:
+            await channel.get_partial_message(game.message_id).edit(
+                content=self.lobby_text(game), view=LobbyView(self, game.game_id),
+            )
+        except discord.HTTPException:
+            pass
 
     def rematch_line(self, game: CodexGame) -> str:
         """What a rematch's lobby says about its heroes: swapped from

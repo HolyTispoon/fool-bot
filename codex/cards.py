@@ -37,6 +37,19 @@ NEUTRAL = "neutral"
 #: and each pair after it adds its two (docs/codex-bot.md, steps 10-13).
 LANDED_COLORS = ("neutral", "red", "green", "purple", "black")
 
+#: Each colour's deck by its own name -- the three heroes of one colour
+#: played together, the deck the lobby offers as one button and the
+#: board names by this rather than by its specs (the author, 2026-10-10).
+#: Neutral has two heroes and no deck of three, so no name.
+COLOR_DECK_NAMES = {
+    "red": "Blood Anarchs",
+    "green": "Moss Sentinels",
+    "blue": "Flagstone Dominion",
+    "black": "Blackhand Scourge",
+    "white": "Whitestar Order",
+    "purple": "Vortoss Conclave",
+}
+
 
 @dataclass(frozen=True)
 class Card:
@@ -208,6 +221,31 @@ class CardCatalog:
              if (hero.color or "").lower() in LANDED_COLORS),
             key=lambda hero: (LANDED_COLORS.index((hero.color or "").lower()), hero.name),
         )
+
+    def color_decks(self, size: int = 3) -> dict[str, tuple[str, ...]]:
+        """
+        Each landed colour whose heroes make a team of `size` alone --
+        the mono-colour decks, red's "Blood Anarchs" -- to its heroes'
+        specs, lowered, by spec. In `LANDED_COLORS` order; neutral, with
+        two heroes, makes none.
+        """
+        found: dict[str, list[str]] = {}
+        for hero in self.landed_heroes():
+            color = (hero.color or "").lower()
+            if color in COLOR_DECK_NAMES and hero.spec:
+                found.setdefault(color, []).append(hero.spec.lower())
+        return {color: tuple(sorted(specs)) for color, specs in found.items()
+                if len(specs) == size}
+
+    def color_deck_of(self, specs) -> Optional[str]:
+        """The colour whose mono-colour deck `specs` is -- its three
+        heroes, in any order -- or `None` for a mixed team or a basic
+        game's one hero."""
+        wanted = sorted(_spec_key(spec) for spec in specs)
+        for color, deck in self.color_decks().items():
+            if sorted(_spec_key(spec) for spec in deck) == wanted:
+                return color
+        return None
 
     def hero_for(self, spec: str) -> Hero:
         key = _spec_key(spec)

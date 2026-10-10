@@ -1087,7 +1087,8 @@ seat -- as D12 Ball's lobby channels are; the person who typed the
 command is told where it is, privately. A channel that cannot be made
 opens no lobby. The lobby is a line per seat and, since step 10,
 **Basic game** / **Standard game**, **Leave**, **Start**, a menu of the
-heroes and the deck buttons ("The standard game", below) -- **Play
+heroes or the colours' decks and **Mixed colours** ("The standard
+game", below) -- **Play
 Bashing** and **Play Finesse** until then -- persistent (fixed custom ids
 carrying the game id), re-armed on startup. A seat taken or given up
 edits the lobby in place through the click's own response, which
@@ -1192,13 +1193,21 @@ else the bot shows is ephemeral.
     full size, turned a quarter clockwise with the exhaust glyph on the
     cell's top corner (the author, 2026-10-08: A of the canvas's three
     ways -- dimmed in place, and a smaller card, were the others).
-  - **The column count is the game's**: five in the basic game, seven in
-    the standard one (three command-zone plates and four cards in the
-    first row), read from how many heroes a player has
-    (`panel_columns`), so the picture's width holds from turn to turn:
-    1625 wide, or 2203. Rows are added as the position needs them, so
-    the height follows it -- about 740 a panel with one row, 289 more a
-    row -- which the gate already allows for.
+  - **The width is the mat's top row** (the author, 2026-10-10: the
+    board need not be so wide when it is empty -- as wide as the play
+    mat, the building column, three heroes and five patrol slots): the
+    building column, then the command zone and the patrol zone side by
+    side, and the grid under those two with as many columns as fit --
+    six in the standard game, four in the basic (`grid_columns`) --
+    read from how many heroes a player has, so the picture's width
+    holds from turn to turn: 2004 wide, or 1580. It was seven columns
+    and 2203 in the standard game, the three command-zone plates taking
+    three cells of the first row, and five and 1625 in the basic. Rows
+    are added as the position needs them, so the height follows it --
+    about 740 a panel with one row, 289 more a row -- which the gate
+    already allows for. A basic game's units fill rows of four rather
+    than five, which costs a row sooner; the width is the mat's either
+    way.
   - **On the left, the buildings**, 136 wide, bottom-aligned, top to
     bottom: the add-on slot (a dashed outline, or the add-on's card at
     136 by 193, as wide as the tiles and aligned with them), Tech III,
@@ -1226,10 +1235,18 @@ else the bot shows is ephemeral.
     new number there, white edged black in Roboto Slab stretched to the
     print's broader figures. The print's face is not bundled; that
     stretch is the nearest the bundled one comes.
-  - **Across the top, the patrol zone**: the mat's own five slots with
+  - **Across the top, the command zone and then the patrol zone**, in
+    the mat's order. **The command zone is one plate** (`command_zone`,
+    the author, 2026-10-10: the three heroes one command zone rather
+    than three), as tall as the patrol zone, a card-sized slot per hero
+    in the team's order: the hero lying in it at 200 by 273 with its
+    time-rune chit while off the field, the slot a dashed outline marked
+    HERO, as the mat marks it, while the hero is on the field, and
+    COMMAND ZONE in the strip where a patrol slot's bonus would be. The
+    patrol zone is the mat's own five slots with
     their bonus strips under them, cut from the playmat ("The cards are
     data"), **each on its own holder** of the mat's blue, packed side by
-    side 12 apart from the grid's left edge; a patroller's card covers
+    side 12 apart, 16 after the command zone; a patroller's card covers
     its slot, chits and all, and the bonus stays under it. They were
     one blue band the grid's width, each slot centred in a 273 column
     (the author, 2026-10-09: the holders individually, to save the
@@ -1237,18 +1254,19 @@ else the bot shows is ephemeral.
     stays empty. A slot needs only a card's width, not a
     cell's, because a patroller is never exhausted: exhausting one
     sidelines it.
-  - **The grid**: a command-zone plate per hero first -- the hero lying
-    on it in full at 184 by 251 with its time-rune chit while off the
-    field, the plate empty while it is on the field -- then the heroes
-    on the field (the level chit top left), then the units, each with
+  - **The grid**: the heroes on the field (the level chit top left),
+    then the units, each with
     its damage chits on the foot of its art (`ART_FOOT`), clear of the
     ATK and HP the card prints, which a chit over the stats hid (the
     author, 2026-10-09), its rune chits top right, Two Step's
     chit on a dance partner and ARRIVED the turn it came.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
-    the deck's colour and its heroes' names ("Red · Jaina Stormborne,
-    Captain Zane, Drakk Ramhorn", step 10; the spec and the hero until
-    then), then gold (the gold emoji's picture), workers,
+    their team by `codex.formatting.team_name` -- a colour's three heroes
+    by the deck's own name, "Blood Anarchs", any other team by its specs
+    in the order chosen, "Fire/Feral/Bashing", and the basic game's one
+    hero by its spec, "Bashing" (the author, 2026-10-10: never the
+    heroes' names; "Red · Jaina Stormborne, Captain Zane, Drakk Ramhorn"
+    from step 10 until then) -- then gold (the gold emoji's picture), workers,
     hand, deck, discard and codex, a word and a count each. The active
     player's carries a rule and "<name>'s turn <n>" in a pill, both in
     its first hero's colour (`turn_colors`, below), the player by the
@@ -1863,9 +1881,10 @@ carries the position.
   2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
   `codex.formatting.turn_heading(match)`: the turn, its player
   *addressed* -- `{to:n}`, a token the cog draws as a mention and plain
-  text as the name -- and their deck, `deck_name(player.specs)`, one
-  spec in the basic game and "Anarchy/Blood/Fire" for the standard
-  game's three. The cog puts it at the head of every turn message and
+  text as the name -- and their team, `team_name(player.specs)`, as the
+  nameplate names it: one spec in the basic game, a colour's deck by its
+  name ("Blood Anarchs") and a mixed team by its specs
+  ("Fire/Feral/Bashing"). The cog puts it at the head of every turn message and
   never folds it, so it reads even while the turn waits on its tech, and
   after a restart that lost the turn's lines. The model used to open
   each turn with a narration line of its own as well ("**Turn 7** --
@@ -2207,35 +2226,76 @@ landed hero from this step on: the Core Set's first game is a basic
 game of Calamandra against Jaina (p. 3), and a seat picked from a menu
 of heroes makes no distinction the rules do not.
 
-### The lobby's picks, and why a menu
+### The lobby's picks: the colours' decks, Mixed colours, and the first hero
 
 The lobby is rebuilt from the record on every change
 (`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
 game** -- either seated player's, a helper's, or anyone's while nobody
-sits -- **Leave** and **Start** (and a rematch's **Keep heroes**); its
-second a **menu of the landed heroes**, one pick in a basic game and
-three in a standard one, which seats the clicker with those heroes; and
-for each seat whose heroes span more than one colour, a row of buttons
-for its starting deck. A menu because twenty heroes, when all six
-colours have landed, do not fit two rows of buttons. A **test game**
-shows two menus, one per side, since one person plays both. Changing the
-mode keeps every seat's player and clears its heroes -- a team of one is
-no team of three -- and in a rematch's lobby drops the last game's teams
-and **Keep heroes** with them. The lobby's line per seat names its
-heroes, its deck and what it is still choosing; the catalog names the
+sits -- **Leave** and **Start** (and a rematch's **Keep heroes**). Under
+it, by the mode:
+
+- **The basic game: a menu of the landed heroes**, one pick, which
+  seats the clicker with that hero. A menu because twenty heroes, when
+  all six colours have landed, do not fit two rows of buttons.
+- **The standard game: a button per colour's deck, by its name, and
+  Mixed colours** (the author, 2026-10-10: instead of the menu of every
+  hero). A colour's deck is its three heroes played together -- red's
+  the **Blood Anarchs**, green's the **Moss Sentinels**, purple's the
+  **Vortoss Conclave**, black's the **Blackhand Scourge**, and once
+  they land white's the **Whitestar Order** and blue's the **Flagstone
+  Dominion** (`COLOR_DECK_NAMES`; `CardCatalog.color_decks`, every
+  landed colour with three heroes, so neutral's two make none). Red and
+  green's names are on Sirlin's own site; the other four are the names
+  the worksheet has used since it was written. One click seats the
+  clicker with the three. **Mixed colours** answers the clicker alone,
+  ephemerally (`MixedTeamView`), with two menus: **the first hero --
+  "its colour is your starting deck"** -- and the other two. Both
+  filled, the seat is taken through the service as the buttons take it,
+  the picker says the team, the first hero and the deck, and the lobby
+  is edited through the channel (`refresh_lobby`), since the click
+  answered is the picker's -- one edit, in a channel where nothing else
+  is edited before Start. Each menu opens on the seat's team where it
+  has one, so changing the first hero is one pick. A record refusal --
+  a hero twice -- is shown in the picker. Discord's multi-select menu
+  does not say which value was picked first, which is why the first
+  hero is a menu of its own.
+
+**The first hero names the starting deck** (the author, 2026-10-10:
+make it clear which hero is first, and so the deck). UMR p. 3 lets a
+player take the starting cards of any of their heroes' colours; the
+record holds a team in the order chosen and settles the deck as the
+first hero's colour (`CodexGame._settle_deck`), neutral included, so the
+choice is made by choosing the order and there are no deck buttons any
+more. `choose_deck`, still the service's, puts the first hero of that
+colour at the front. The lobby's line per seat says it: "**Fire/Feral/
+Bashing** (Jaina Stormborne first, then Calamandra Moss, Troq Bashar);
+the Red starting deck". A lobby saved before this with a deck chosen
+from another of its heroes' colours keeps it -- `seat_complete` reads
+any of them -- since a half-set lobby outlives the commit.
+
+A **test game** shows the picks twice, one set per side, since one
+person plays both: the basic game's two menus, or a row of deck buttons
+and **Mixed colours** per side, "P1: Blood Anarchs", its team lit.
+Changing the mode keeps every seat's player and clears its heroes -- a
+team of one is no team of three -- and in a rematch's lobby drops the
+last game's teams and **Keep heroes** with them. The catalog names the
 heroes, and the cog's old `SPEC_HEROES` table went.
+
+**The multicolour costs are the engine's and stay so** ("The multicolour
+costs, and where the surcharge is remembered", below): the lobby
+changes how a team is picked, not what it pays, and a test plays a mixed
+team picked in the lobby to its opening position and checks both costs
+against a colour's own three.
 
 The rules are the record's (`CodexGame`, refusing with `RuleRefusal`,
 UMR pp. 3-4): as many heroes as the game takes, no hero twice, every one
 of a colour the bot has landed -- refused "not in this bot yet" with no
 page, since the rulebook allows it and the bot does not play it yet. A
-basic game's deck is its hero's colour; a standard game's one of its
-three heroes' colours, settled by the rule where they share one and the
-player's choice where they differ, neutral among them. Both seats may
-choose the same hero -- **mirror games are fine** (the author,
-2026-10-09). Start waits on both seats complete --
-heroes and deck. A rematch swaps the two teams whole, heroes and decks,
-in the same game.
+basic game's deck is its hero's colour; a standard game's the first
+hero's. Both seats may choose the same hero, or the same colour's
+deck -- **mirror games are fine** (the author, 2026-10-09). Start waits
+on both seats complete -- heroes and deck. A rematch swaps the two
+teams whole, heroes and decks, in the same game.
 
 ### The record's keys, the match's fields, and the hero refs
 
@@ -2349,11 +2409,11 @@ Their text waits in `UNIMPLEMENTED` with the rest of red and green's.
 
 ### What the board draws for all of it
 
-`render.heroes` reads `player.heroes`, so a standard panel is seven
-columns with three command-zone plates, as step 7 drew it. The
-nameplate reads the deck's colour and the heroes' names -- "Red · Jaina
-Stormborne, Captain Zane, Drakk Ramhorn", "Neutral · Troq Bashar" in the
-basic game -- and its mark is still the first hero's colour. The add-on
+`render.heroes` reads `player.heroes`, so a standard panel's command
+zone has three slots and its grid six columns ("The board on Discord").
+The nameplate names the team (`team_name`) -- "Blood Anarchs",
+"Fire/Feral/Bashing", "Bashing" in the basic game -- and its mark is
+still the first hero's colour, which is the starting deck's. The add-on
 slot draws the heroes' hall's and the tech lab's cards from
 `buildings/`; the spec chosen at Tech II is its spec card
 (`specs/<spec>.png`, cut at step 1), small, hanging off the tile's right
