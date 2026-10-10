@@ -18,7 +18,7 @@ load_dotenv()
 
 STATE_FILE = botstate.REPO_DIR / "data" / "codex_bot_state.json"
 # The top-level command ids, written after each sync: fool-bot reads it
-# to mention </codex lobby:ID> in its hub (docs/design/codex.md).
+# to mention </codex create_game:ID> in its hub (docs/design/codex.md).
 COMMAND_IDS_FILE = botstate.REPO_DIR / "data" / "codex_command_ids.json"
 
 # Each CODEX_LOG_* falls back to its FOOLBOT_LOG_* value, so one .env

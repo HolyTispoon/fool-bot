@@ -18,7 +18,7 @@ data and its import, `/codex card` and `/codex rules`, the runner.
 Step 2 wrote the model whole -- the state, the record, the engine, the
 prompts, the flow and the driver -- and a test that plays a game to a
 destroyed base through the driver alone. Step 3 put it on Discord as
-far as the opening position: the service and its file, `/codex lobby`,
+far as the opening position: the service and its file, `/codex create_game`,
 the game's channel, the board, and each player's hand shown to them
 alone. Step 4 put the whole turn there -- the panel, the turn message
 rolled over at the turn's end, the tech choice during the opponent's
@@ -1103,6 +1103,10 @@ match as its saved dict, as D12 Ball's record does; its file,
   (false) on a tech building. The golden's final match was re-recorded
   for these keys alone.
 
+- **The thread and the in-place lobby added one on the record**, `venue`
+  ("channel" where the key is missing or unknown): where the game is
+  played ("The lobby and the channel", below).
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1202,15 +1206,46 @@ wherever a test builds one. The first save makes it.
 
 ## The lobby and the channel
 
-**`/codex lobby` opens the game's channel and posts the lobby in it**
+**`/codex create_game` opens the game's channel and posts the lobby in it**
 (the author, 2026-10-08, on trying step 3: the lobby belongs in the
-channel the game is played in). The worksheet's decision 10 had it
+channel the game is played in). The command was `/codex lobby` until the
+author renamed it `/codex create_game`, 2026-10-10 (by way of
+`/codex start_game` the same day, never released); the cog's method is
+still `lobby`, since `start_game` is the lobby's **Start**. The worksheet's decision 10 had it
 posted where the command is typed; the author's later word governs.
 The channel is `codex-<n>` under **Codex Games**, created if missing,
 and open to the whole server -- anyone can look in, talk and take a
 seat -- as D12 Ball's lobby channels are; the person who typed the
-command is told where it is, privately. A channel that cannot be made
-opens no lobby. The lobby is a line per seat and, since step 10,
+command is told where it is, privately.
+
+**Where the bot may not make a channel, the game is played in a thread;
+where it may make neither, in the channel the command was typed in**
+(the author, 2026-10-10). `open_game_place` tries the three in turn:
+the channel under Codex Games; a public thread named `codex-<n>` in the
+typed-in channel (a week's auto-archive, the longest, since a post
+wakes it anyway); and that channel itself. A place made whose lobby
+cannot be posted is deleted and the next tried. The record says which it
+is, `venue` -- "channel", "thread" or "here" (`codex.game.VENUES`;
+"channel" in an older save) -- since what is done to the place depends
+on whose it is: a thread is the bot's, renamed at Start and archived at
+the end, a rematch taking it out of the archive, and so does **any click or
+`/codex` command on an open game or lobby** in a thread Discord archived
+after a week idle (the author, 2026-10-10; `wake_thread`, called from
+`SafeView.interaction_check` and the cog's own, which discord.py runs
+before every slash command -- one request, before the answer, only while
+the thread is archived), since a message in an archived thread cannot
+be edited; a channel the game was only opened in is not, and is never renamed or moved. Any failure to
+make the channel falls through, not only a refused permission -- a full
+category is as much a reason to use a thread. **A channel holds one game
+at a time**: the third place is refused while a Codex game or lobby is
+open in it (`open_game_for_channel`), since every command finds its game
+by the channel it is typed in. Nowhere to post opens no lobby, and the
+asker is told what the first two places need (Manage Channels, Create
+Public Threads). The pins in a thread or a borrowed channel need Manage
+Messages there; a pin refused is logged and the game goes on, as past
+the pin cap.
+
+The lobby is a line per seat and, since step 10,
 **Basic game** / **Standard game**, **Leave**, **Start**, a menu of the
 heroes or the colours' decks and **Mixed colours** ("The standard
 game", below) -- **Play
@@ -1221,7 +1256,7 @@ spends nothing from the channel's edit bucket. Start is either seated
 player's, or a game helper's -- the lobby asks no confirmation, as
 D12 Ball's does not.
 
-**A test game seats one person on both sides** (`/codex lobby
+**A test game seats one person on both sides** (`/codex create_game
 test_game:True`, the author, 2026-10-08), as D12 Ball's test games do.
 The record's rules are what change: `take_seat` sits a person already
 seated down on the other side too rather than moving them, `leave`
@@ -1244,7 +1279,8 @@ into the turn's actions, under the turn message posted again.
 
 **Start turns that channel into the game's**, in one edit: renamed
 `codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
-left as the lobby's. The service deals and runs the
+left as the lobby's -- a thread renamed the same way, a channel the game
+was only opened in left alone. The service deals and runs the
 first turn's ready phase and upkeep in one save, the lobby is edited
 once to say the game has started, its buttons gone, and the first
 turn's message goes up under it. The categories are the Codex
@@ -1263,7 +1299,7 @@ fifty-channel cap is D12 Ball's.
   writes its top-level command ids to `data/codex_command_ids.json`
   after each sync -- or, on a start that skipped the sync, once from a
   fetch when the file is missing -- and `codex_lobby_mention` reads it
-  for `</codex lobby:ID>`, falling back to the command's name in plain
+  for `</codex create_game:ID>`, falling back to the command's name in plain
   text. It is the one file read across the line, and fool-bot only
   reads it. The mention is the button's reply, below, and not in the
   message: the hub's Codex block is a general description of the game,
@@ -1282,7 +1318,7 @@ fifty-channel cap is D12 Ball's.
   that posted the button. And no bot can type into somebody's message
   box -- a link button only opens a URL, and no URL prefills the
   composer. So the button answers ephemerally with
-  `codex_lobby_prompt()`: the `</codex lobby:ID>` mention, which puts
+  `codex_lobby_prompt()`: the `</codex create_game:ID>` mention, which puts
   the command in the clicker's box when clicked, one Enter from a lobby
   (the author asked for the button, 2026-10-08). A hub posted before
   it gains the button at the next `/d12ball setup_hub`.
@@ -2168,9 +2204,11 @@ way and nothing is written from it.
   **Rematch** (`RematchView`, persistent, its message kept on the record
   as `final_message_id`) -- and then **the channel moved to Codex
   Archive** (`archive_channel`), its name and permissions left as they
-  are. The move is a request on the channel's own route, not the
-  messages' edit bucket, so the end spends three from the bucket: the
-  edit, the pin and the line.
+  are -- a game's thread archived instead, and a channel it was only
+  opened in left where it is ("The lobby and the channel"). The move is
+  a request on the channel's own route, not the messages' edit bucket,
+  so the end spends three from the bucket: the edit, the pin and the
+  line.
 - **`/codex abandon` is either player's own, or a helper's** (the
   author, 2026-10-09: "any player should be able to abandon their own
   game"): the game played in the channel, or the lobby open in it, ends
@@ -2197,9 +2235,9 @@ way and nothing is written from it.
   game, basic or standard --
   (each seat plays the spec the other played), the finished game's specs
   kept as `rematch_specs`. The button comes off its line in the click's
-  own response, the channel moves back under Codex Games, since a game
-  is about to be played in it, and the lobby is posted there with
-  **Keep heroes** beside its buttons. The finished record remembers its
+  own response, the channel moves back under Codex Games -- a thread
+  comes out of the archive -- since a game is about to be played in it,
+  and the lobby is posted there with **Keep heroes** beside its buttons. The finished record remembers its
   rematch (`rematch_game_id`), so a second press finds the lobby. **Keep
   heroes** (`CodexGame.keep_heroes`) is each seat's toggle; the heroes are
   the last game's while both have pressed it, and swapped otherwise -- the
@@ -2211,6 +2249,8 @@ way and nothing is written from it.
   `delete_channel_with_retries`, with its backoff -- and every game of the
   server not in an archived channel dropped (`GameService.drop_games`),
   after the word "confirm", as `/debug reset_channels` does for D12 Ball.
+  A game in a thread or in a borrowed channel is dropped while it is open
+  -- its thread deleted -- and kept once over, its thread archived.
   The gate is `/debug`'s, guild only and Manage Channels, read at run time
   for the reason above.
 - **The startup sweep** re-arms an open lobby's buttons, the current turn

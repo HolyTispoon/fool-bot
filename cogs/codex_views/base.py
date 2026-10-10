@@ -102,6 +102,15 @@ class SafeView(GameLockedView):
     #: confirmation, a view that would ask lets the players alone through.
     confirms_helper_clicks = True
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Every click on a game played in a thread first takes the
+        thread out of the archive, where Discord archived it after a
+        week idle (`Codex.wake_thread`). Never refuses the click."""
+        thread = interaction.channel
+        if isinstance(thread, discord.Thread) and thread.archived:
+            await self.cog.wake_thread(thread, self.cog.games.get(self.game_id))
+        return True
+
     async def on_error(self, interaction: discord.Interaction, error: Exception,
                        item: discord.ui.Item) -> None:
         if isinstance(error, HelperConfirmationRequired):
