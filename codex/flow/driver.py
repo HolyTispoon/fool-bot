@@ -287,10 +287,24 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
         # now, so there is nothing earlier to review: no confirmation is
         # asked, and the turn begins on the pick (`codex.prompts.tech_stands`).
         owner.tech_confirmed = True
+        return _settled_in_main(engine, game, match, owner.seat)
     # Said nothing: a tech choice is announced only in its owner's ready
     # phase, as the count of cards into the discard (the author,
     # 2026-10-08) -- not while the other player's turn is going on.
     return StepResult(next=pending(engine, game, match))
+
+
+def _settled_in_main(engine, game, match, seat: int) -> StepResult:
+    """A tech choice confirmed: where the main phase is already open --
+    an undo to the turn's start asked it again -- its picks go into the
+    discard pile now, as the ready phase would have put them; otherwise
+    the ready phase does, once the bot runs it."""
+    result = StepResult()
+    if match.phase == "main" and seat == match.active:
+        turn.settle_tech(match, seat, result)
+        result.board_changed = True
+    result.next = pending(engine, game, match)
+    return result
 
 
 def _answer_tech_confirm(engine, game, match, prompt, choice, *, player=None) -> StepResult:
@@ -299,7 +313,7 @@ def _answer_tech_confirm(engine, game, match, prompt, choice, *, player=None) ->
         owner.tech_choice = None
         return StepResult(next=pending(engine, game, match))
     owner.tech_confirmed = True
-    return StepResult(next=pending(engine, game, match))
+    return _settled_in_main(engine, game, match, owner.seat)
 
 
 def _answer_obliterate(engine, game, match, prompt, choice, *, unit=None) -> StepResult:

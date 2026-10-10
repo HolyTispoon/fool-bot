@@ -454,6 +454,12 @@ class PlayerState:
     tech_owed: bool = False
     #: Set by TECH_CONFIRM, cleared when the picks reach the discard.
     tech_confirmed: bool = False
+    #: The picks this player's latest ready phase put into the discard
+    #: pile -- `[]` for a choice of none -- or `None` where it owed no
+    #: tech. Read by an undo to the turn's start alone, which takes them
+    #: back out and asks the choice again (the author, 2026-10-10).
+    #: `None` in an older save, whose undo leaves the confirmed picks be.
+    teched: Optional[list[str]] = None
     buildings: dict[str, Optional[BuildingState]] = field(default_factory=_no_buildings)
     add_on: Optional[AddOnState] = None
     play: list[CardInstance] = field(default_factory=list)
@@ -595,6 +601,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("tech_choice", write=_copy_optional_list, read=_copy_optional_list),
     SavedField("tech_owed", default=False),
     SavedField("tech_confirmed", default=False),
+    SavedField("teched", write=_copy_optional_list, read=_copy_optional_list),
     SavedField(
         "buildings", factory=_no_buildings,
         write=_write_buildings, read=_read_buildings,
@@ -811,6 +818,8 @@ class MatchState:
                     fail(f"{where}'s codex holds {count} of {slug}")
             for slug in player.tech_choice or ():
                 known(slug, f"{where}'s tech choice")
+            for slug in player.teched or ():
+                known(slug, f"{where}'s tech")
             slots = []
             for hero in player.heroes:
                 for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes",

@@ -44,7 +44,7 @@ from codex.engine import RulesEngine
 from codex.flow import driver, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import CodexGame, GameStatus, RuleRefusal
-from codex.prompts import PendingPrompt, pending, pending_prompt, standing_prompts
+from codex.prompts import PendingPrompt, pending, pending_prompt, standing_prompts, tech_stands
 from codex.wire import jsonable
 from gamekit.service import StopHandling
 from gamesaves.codex.storage import save_games
@@ -485,8 +485,14 @@ class GameService:
         match = self.load(game)
         undo(match)
         self.persist(game, match)
+        # The tech choices the undo started over, said only where a
+        # choice stands through the other player's turn: in a test game
+        # it is made in its owner's ready phase (`tech_stands`).
+        again = ()
+        if tech_stands(game):
+            again = tuple(history.tech_again(seat) for seat in history.tech_started_over(match))
         result = GameResult(
-            narration=(history.UNDONE,),
+            narration=(history.UNDONE, *again),
             prompt=self.waiting_on(game, match),
             standing=self.standing(game, match),
             board_changed=True,
