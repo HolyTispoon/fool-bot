@@ -187,9 +187,14 @@ class TurnPanelView(PanelView):
 
     def __init__(self, cog, game_id: str, prompt, match, mode: str = "actions",
                  undo_targets: dict | None = None, building: str | None = None,
-                 spec: str | None = None, slug: str | None = None) -> None:
+                 spec: str | None = None, slug: str | None = None,
+                 back_to: discord.ui.View | None = None) -> None:
         super().__init__(cog, game_id, prompt, match)
         self.mode = mode
+        #: The view **Back** puts up again where the panel was opened
+        #: from another view than this one's actions -- the patrol lock's
+        #: **Undo...**, which keeps the patrol made so far.
+        self.back_to = back_to
         #: The spec choice's building, and the Tech II spec chosen so far
         #: where a tech lab waits on its own (`build_spec`).
         self.building = building
@@ -642,6 +647,9 @@ class TurnPanelView(PanelView):
         game, match = await self.mine(interaction)
         if game is None:
             return
+        if self.back_to is not None:
+            await self.show(interaction, self.back_to)
+            return
         await self.cog.show_panel(interaction, game, match, self.seat, edit=True)
 
     # -- The defender ------------------------------------------------------
@@ -900,13 +908,7 @@ class TurnPanelView(PanelView):
     # -- Undo ----------------------------------------------------------------
 
     async def open_undo(self, interaction: discord.Interaction) -> None:
-        game, _ = await self.mine(interaction)
-        if game is None:
-            return
-        targets = self.cog.service.undo_targets(game.game_id)
-        await self.show(interaction, TurnPanelView(
-            self.cog, self.game_id, self.prompt, self.match, mode="undo", undo_targets=targets,
-        ))
+        await _open_undo(self, interaction)
 
     def build_undo(self, targets: dict) -> None:
         """The undos open on this position, as `history.undo_targets`
@@ -932,6 +934,22 @@ class TurnPanelView(PanelView):
         if game is None:
             return
         await self.cog.ask_undo_to_previous_turn(interaction, game, self.seat, match.turn)
+
+
+async def _open_undo(panel: PanelView, interaction: discord.Interaction,
+                    back_to: discord.ui.View | None = None) -> None:
+    """**Undo...** on any panel -- the main phase's or the patrol lock's:
+    the panel turned to the undos `history.undo_targets` says are open,
+    in place, with **Back** to `back_to` or, without one, to whatever
+    the position asks."""
+    game, _ = await panel.mine(interaction)
+    if game is None:
+        return
+    targets = panel.cog.service.undo_targets(game.game_id)
+    await panel.show(interaction, TurnPanelView(
+        panel.cog, panel.game_id, panel.prompt, panel.match, mode="undo",
+        undo_targets=targets, back_to=back_to,
+    ))
 
 
 class UndoConfirmView(SafeView):

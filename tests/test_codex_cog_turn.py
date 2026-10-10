@@ -1316,6 +1316,36 @@ class UndoTests(TurnTestCase):
         self.assertIsInstance(again, TechChoiceView)
         self.assertEqual(again.picks, [])
 
+    async def test_the_patrol_lock_offers_undo(self) -> None:
+        """Past **End main phase** the patrol lock carries **Undo...**
+        too: to the start of the turn, which reopens the main phase with
+        the card played taken back."""
+        start = history.position(self.table.match)
+        _, view = await self.table.panel()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
+        patrol = (await self.table.press(view, "End main phase")).view()
+        self.assertIsInstance(patrol, PatrolView)
+        undo = (await self.table.press(patrol, "Undo...")).view()
+        self.assertIn("To the start of my turn", [item.label for item in undo.children])
+        call = await self.table.press(undo, "To the start of my turn")
+        self.assertNothingWentWrong(call)
+        self.assertEqual(history.position(self.table.match), start)
+        self.assertEqual(self.table.match.phase, "main")
+        self.assertIsInstance(call.view(), TurnPanelView)
+
+    async def test_back_from_the_patrols_undo_keeps_the_patrol_made_so_far(self) -> None:
+        _, view = await self.table.panel()
+        view = (await self.table.press(view, ("play", playable(view)[0]))).view()
+        patrol = (await self.table.press(view, "End main phase")).view()
+        ref = patrol.prompt.options.candidates[0]
+        patrol = (await self.table.choose(patrol, "Who patrols", ref)).view()
+        undo = (await self.table.press(patrol, "Undo...")).view()
+        back = (await self.table.press(undo, "Back")).view()
+        self.assertIsInstance(back, PatrolView)
+        self.assertEqual(back.assignment, patrol.assignment)
+        self.assertIn(ref, back.assignment.values())
+        self.assertEqual(self.table.match.phase, "patrol")
+
     async def test_the_undo_choices_are_the_models(self) -> None:
         """On the first turn only the start of this turn is open."""
         _, view = await self.table.panel()

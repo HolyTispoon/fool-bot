@@ -2215,7 +2215,14 @@ the price of the board at the foot of the channel (above).
 
 **Undo** on the panel offers what `history.undo_targets` says is open
 (`GameService.undo_targets`); the cog decides nothing about what a
-snapshot holds.
+snapshot holds. **The patrol lock carries it too** (`PatrolView`,
+beside **Clear**): **End main phase** is the one click that leaves the
+main phase without locking anything, and a player who pressed it too
+soon had no way back -- the snapshot is the main phase's start, so the
+undo to the start of the turn reopens it. Both panels open the same
+undo mode (`_open_undo`); from the patrol lock, **Back** puts up the
+patrol as it was assigned so far (`back_to`) rather than the position's
+fresh one, since the assignment is the view's alone until it is locked.
 
 - **To the start of my turn** is the active player's alone, with nobody's
   consent: `GameService.undo_to_turn_start` restores the turn's snapshot

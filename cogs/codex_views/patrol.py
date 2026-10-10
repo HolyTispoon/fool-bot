@@ -8,7 +8,10 @@ which stands alone in its row so it is never pressed by mistake
 (decision 11). So the first menu picks a slot -- each named with what
 holds it so far -- and the second what patrols it: the candidates not
 placed in another slot, or nobody. Choosing moves on to the next empty
-slot. **Clear** empties all five. The assignment is the view's alone
+slot. **Clear** empties all five, and **Undo...** beside it offers the
+same undos as the main phase's panel -- to the start of the turn, which
+reopens the main phase, or of the previous one -- with **Back** to the
+patrol as it was. The assignment is the view's alone
 until **Lock patrol** answers with it; nothing is applied before then.
 """
 
@@ -18,7 +21,7 @@ import discord
 
 from codex.formatting import slot_name
 from codex.prompts import Action, PromptKind
-from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
+from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut, _open_undo
 
 EMPTY = "__empty__"
 
@@ -74,6 +77,9 @@ class PatrolView(PanelView):
         clear = discord.ui.Button(label="Clear", style=discord.ButtonStyle.secondary, row=2)
         clear.callback = self.clear
         self.add_item(clear)
+        undo = discord.ui.Button(label="Undo...", style=discord.ButtonStyle.secondary, row=2)
+        undo.callback = self.open_undo
+        self.add_item(undo)
         lock = discord.ui.Button(label="Lock patrol", style=discord.ButtonStyle.danger, row=3)
         lock.callback = self.lock
         self.add_item(lock)
@@ -117,6 +123,11 @@ class PatrolView(PanelView):
 
     async def clear(self, interaction: discord.Interaction) -> None:
         await self.redraw(interaction, {}, None)
+
+    async def open_undo(self, interaction: discord.Interaction) -> None:
+        await _open_undo(self, interaction, back_to=PatrolView(
+            self.cog, self.game_id, self.prompt, self.match, self.assignment, self.slot,
+        ))
 
     async def lock(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(
