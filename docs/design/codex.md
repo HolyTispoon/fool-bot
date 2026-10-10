@@ -1353,15 +1353,15 @@ else the bot shows is ephemeral.
     half seen until built, in colour once built, carries the module's house chit while under
     construction (UMR p. 8: from when it is paid for to the end of the
     turn) and is dark with the house chit when destroyed. Beside the
-    chit, a strip runs level across the middle of the tile -- UNDER
+    chit, a strip runs across the middle of the tile, rising from its bottom left to its top right at 10 degrees -- UNDER
     CONSTRUCTION on gold, DESTROYED on red -- a little past its edges,
     as tape wrapped round it (`lay_strip`; the author, 2026-10-10: the
     chit alone did not make either clear). The add-on under
     construction carries the same strip, and a destroyed base -- seen
     only on a finished game's board -- goes dark with DESTROYED across
-    it. Level rather than slanted: a slant falling to the right ran
-    its first word under the house chit, and one rising ran over the
-    heart, which still matters on a building being built. Every
+    it. It was level for its first hour; the author asked for the slant,
+    just off level, top right to bottom left -- falling to the right instead
+    would run its first word under the house chit. Every
     building's picture prints its full HP in a heart; a damaged one's
     heart carries the HP it has now instead, rather than a damage chit
     beside it (the author, 2026-10-09). The heart is the picture's own:

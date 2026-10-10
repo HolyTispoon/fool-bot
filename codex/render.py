@@ -57,6 +57,7 @@ it, a file at a time (docs/design/codex.md, "The board on Discord").
 from __future__ import annotations
 
 import io
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -760,28 +761,33 @@ def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
 #: author, 2026-10-10): its word, fill and ink.
 CONSTRUCTION_STRIP = ("UNDER CONSTRUCTION", GOLD, SHADOW)
 DESTROYED_STRIP = ("DESTROYED", DISABLED_FILL, WORD)
-#: A strip's height, and how far it runs past the picture's edges on
-#: either side, as tape wrapped round it: level across the middle, clear
-#: of the house chit's corner and the heart's, and long enough for
-#: UNDER CONSTRUCTION in a type that reads at Discord's scale.
+#: A strip's height, how far it runs past the picture's edges on either
+#: side, as tape wrapped round it, and its slope: rising from the
+#: bottom left to the top right, close to level with a little slant (the author,
+#: 2026-10-10), long enough for UNDER CONSTRUCTION in a type that reads
+#: at Discord's scale.
 STRIP_HEIGHT = 22
 STRIP_OUT = 5
+STRIP_ANGLE = 10
 
 
 def lay_strip(canvas: Image.Image, box: tuple[int, int, int, int],
               strip: tuple[str, tuple, tuple]) -> None:
-    """A strip level across the middle of the picture at `box`, past its
-    edges by `STRIP_OUT`, edged dark, its word centred along it."""
+    """A strip across the middle of the picture at `box`, rising to the
+    right by `STRIP_ANGLE`, past its edges by `STRIP_OUT`, edged dark,
+    its word centred along it."""
     word, fill, ink = strip
     left, top, right, bottom = box
-    middle = (top + bottom) // 2
-    band = (left - STRIP_OUT, middle - STRIP_HEIGHT // 2,
-            right + STRIP_OUT, middle + STRIP_HEIGHT // 2)
-    draw = ImageDraw.Draw(canvas)
-    draw.rectangle(band, fill=fill, outline=SHADOW, width=2)
+    length = round((right - left) / math.cos(math.radians(STRIP_ANGLE))) + 2 * STRIP_OUT
+    band = Image.new("RGBA", (length, STRIP_HEIGHT), fill + (255,))
+    draw = ImageDraw.Draw(band)
+    draw.rectangle((0, 0, length - 1, STRIP_HEIGHT - 1), outline=SHADOW, width=2)
     face = font(11)
     width = spaced_width(word, face, 0.3)
-    spaced_text(draw, ((left + right - width) / 2, middle), word, face, ink, 0.3)
+    spaced_text(draw, ((length - width) / 2, STRIP_HEIGHT / 2), word, face, ink, 0.3)
+    band = band.rotate(STRIP_ANGLE, resample=Image.BICUBIC, expand=True)
+    canvas.alpha_composite(band, ((left + right - band.width) // 2,
+                                  (top + bottom - band.height) // 2))
 
 
 def damaged(hp: int, full: int) -> Optional[int]:
