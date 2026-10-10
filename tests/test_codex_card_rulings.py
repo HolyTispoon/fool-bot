@@ -4041,6 +4041,24 @@ class PurpleRulingTests(unittest.TestCase):
         attack(engine, game, match, unit.ref, "base")
         self.assertEqual(golgort.time_runes, 2)
 
+    def test_yesterdays_golgort_counts_combat_damage_alone(self) -> None:
+        """The author, 2026-10-10: "Whenever you deal combat damage to a
+        building" is combat damage -- a spell's damage to a base gives no
+        rune."""
+        engine, game, match = black()
+        golgort = put(match, 2, "yesterdays_golgort")
+        golgort.time_runes = 1
+        hero_in_play(match, 2, slug="vandy_anadrose")
+        match.player(1).deck = ["argonaut"] * 4
+        hand(match, 2, "dark_pact")
+        match.player(2).gold = 0
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="dark_pact")
+        prompt = asked(engine, game, match)
+        if prompt.kind is PromptKind.TARGET:
+            apply(engine, game, match, PromptKind.TARGET, target="1:base")
+        self.assertEqual(match.player(1).base_hp, 18)
+        self.assertEqual(golgort.time_runes, 1)
+
 
 def upkeep_ordered_by(engine, game, match, seat: int):
     """Turns with nothing done until `seat`'s upkeep asks its order: the

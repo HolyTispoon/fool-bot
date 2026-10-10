@@ -872,8 +872,9 @@ black's, and the rest waits for step 13.
   side, during its controller's upkeep alone, its own base included),
   the Shrine of Forbidden Knowledge's damage, and the debt, ordered
   against all of them.
-  Golgort counts any damage its controller's cards deal a building (the
-  FAQ over the card's combat wording).
+  Yesterday's Golgort counts combat damage to a building alone, dealt by
+  any of its controller's units or heroes (its ruling; the card's
+  wording, as the author confirmed on 2026-10-10).
 - **The subtypes and the colour are rules.** Demons (`is_demon`), Buffs
   and Debuffs (`BUFF_SUBTYPES`, which Vandy's Sentries and the
   untargetable-by-buffs readings ask) and a card's colour (`color_of`,
@@ -888,11 +889,12 @@ black's, and the rest waits for step 13.
   hero limit -- a dead hero is no target while the side is at it; Soul
   Stone applies before indestructible; Rememberer is always the first
   sacrificed; a token Max Geiger trashes comes back like any unit;
+  Yesterday's Golgort counts combat damage alone; the upkeep's effects,
+  Promise of Payment's debt among them, go in the active player's order;
   Carrion Curse shows the hand even where nothing in it may be
   discarded.
 - **Built as the default and put to the author** (step 12's PR, until
-  answered): Golgort counts any damage its controller's cards deal a
-  building; a unit played from the Graveyard may be boosted.
+  answered): a unit played from the Graveyard may be boosted.
 
 ### The saved fields
 

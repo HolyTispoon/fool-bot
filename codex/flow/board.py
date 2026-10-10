@@ -1098,8 +1098,10 @@ def _stinger_excess(engine: "RulesEngine", match: MatchState, result: StepResult
 
 
 def golgort(engine: "RulesEngine", match: MatchState, seat: int, result: StepResult) -> None:
-    """Yesterday's Golgort: a time rune each time a card or effect of its
-    controller's deals damage to a building (the Card FAQ)."""
+    """Yesterday's Golgort: a time rune each time its controller deals
+    combat damage to a building -- with any unit or hero (its ruling), and
+    combat damage alone, as the card says (the author, 2026-10-10): a
+    spell's or an ability's damage gives none."""
     for card in match.player(seat).play:
         if engine.text_slug(card) in effects.GOLGORTS:
             card.time_runes += 1

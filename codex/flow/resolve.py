@@ -491,8 +491,6 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     seat, ref = target
     if board.is_building(ref):
         result.narration.append(f"{top['by']} deals {amount} to {_thing(match, target)}.")
-        if amount > 0:
-            board.golgort(engine, match, top["seat"], result)
         board.damage_building(match, seat, ref, amount, result, by=top["seat"])
         return amount
     body = board.body_of(match, seat, ref)
@@ -501,8 +499,6 @@ def _deal(engine, match, top, target, amount: int, result) -> int:
     named = _thing(match, target)
     if board.sentry_shields(engine, match, [body], result):
         return 0
-    if engine.is_building_ref(match, seat, ref) and amount > 0:
-        board.golgort(engine, match, top["seat"], result)
     landed = board.take_damage(body, amount)
     line = f"{top['by']} deals {landed} to {named}"
     if landed < amount:
@@ -2051,7 +2047,6 @@ def _banefire(engine, match, top, part, target, result) -> None:
     result.narration.append(
         f"{top['by']} deals {amount} to each unit, hero and building {tokens.player(other)} controls."
     )
-    board.golgort(engine, match, seat, result)
     for ref in ("tech1", "tech2", "tech3", "add_on"):
         if board.still_there(match, other, ref) and not engine._under_construction(player, ref):
             board.damage_building(match, other, ref, amount, result, by=seat)
