@@ -22,8 +22,8 @@ opponent's turn; in a test game, where nothing stands
 otherwise. **Codex** pictures the clicker's own
 codex through a menu of views. **My deck** -- on the turn message,
 under the hand, on the panel and on the tech picker -- answers with
-every card the clicker owns, wherever it is, those in their hand marked
-(`send_deck`). What a hand
+every card the clicker owns, wherever it is, in three frames -- the
+hand, the discard pile, the rest (`send_deck`). What a hand
 may play, what a codex still holds and what a deck is are the engine's
 answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
 nothing.
@@ -40,7 +40,7 @@ import discord
 
 from codex.formatting import codex_view_name, deck_name
 from codex.game import GameStatus, RuleRefusal
-from codex.render import render_codex, render_hand
+from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import card_name, elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 
@@ -232,32 +232,20 @@ async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
 
 
 def deck_caption(deck, side: str = "") -> str:
-    """What the deck picture is sent with: its size and where its cards
-    are -- the places holding none left out -- which is its owner's to
-    know; the draw pile is a count, never an order. Where the hand holds
-    any, it says how the picture marks them."""
-    places = [
-        f"{count} {where}" for count, where in (
-            (deck.hand, "in your hand"), (deck.draw_pile, "in your draw pile"),
-            (deck.discard, "in your discard pile"), (deck.in_play, "in play"),
-        ) if count
-    ]
-    size = f"{deck.size} card" + ("" if deck.size == 1 else "s")
-    marked = "The cards in your hand are framed in gold. " if deck.hand else ""
-    return (
-        f"Your deck{side}: {size}" + (": " + ", ".join(places) if places else "") + ". "
-        + marked + "Only you can see this."
-    )
+    """What the deck picture is sent with: its size alone (the author,
+    2026-10-09: "cut down on text") -- where the cards are is the
+    picture's."""
+    return f"Total cards in deck{side}: {deck.size}."
 
 
 async def deck_file(engine, deck) -> discord.File:
-    """A deck pictured as a codex is, each card once with its copies on
-    its badge (`render_codex`), and the cards in the hand framed in gold
-    with how many copies are there (`OwnDeck.in_hand`, the engine's), as
-    the tech picker marks its picks (the author, 2026-10-09)."""
+    """A deck pictured in three framed parts side by side
+    (`render_deck`): the cards in the hand, those in the discard pile,
+    and the rest, each card once per part with its copies there on its
+    badge -- the engine's split (`OwnDeck.held`, `discarded`,
+    `elsewhere`)."""
     webp = await asyncio.to_thread(
-        render_codex, [slug for slug, _ in deck.cards], [count for _, count in deck.cards],
-        engine.catalog, deck.in_hand, "{} in hand",
+        render_deck, deck.held, deck.discarded, deck.elsewhere, engine.catalog,
     )
     return picture_file(webp, "codex-deck")
 

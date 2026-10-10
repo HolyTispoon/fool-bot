@@ -1226,7 +1226,7 @@ def _scaled_card(slug: str, size: tuple[int, int], cards: CardCatalog) -> Image.
 
 
 #: How many hands and codex pictures are kept, drawn, for the next click
-#: that asks for the same one (`render_hand`, `render_codex`).
+#: that asks for the same one (`render_hand`, `render_codex`, `render_deck`).
 RENDERED_KEPT = 32
 
 
@@ -1270,26 +1270,38 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
 
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
-                 picked: Optional[Sequence[int]] = None,
-                 mark: str = "picked {}") -> bytes:
+                 picked: Optional[Sequence[int]] = None) -> bytes:
     """
     A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
     Sized so the standard game's thirty-six stay well under Discord's
-    upload limit. `picked`, where given, is how many copies of each are
-    marked: such a card is framed in gold with the count on a pill over
-    its art, worded by `mark` -- "picked 2", the tech picker's picture,
-    or "2 in hand", **My deck**'s. The same picture asked again is the
-    bytes already drawn (`RENDERED_KEPT`).
+    upload limit. `picked`, where given, is how many copies of each the
+    tech choice has taken so far: such a card is framed in gold with
+    the count on a pill over its art -- the tech picker's picture. The
+    same picture asked again is the bytes already drawn (`RENDERED_KEPT`).
     """
     return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
-                         None if picked is None else tuple(picked), mark)
+                         None if picked is None else tuple(picked))
+
+
+def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
+    """One card of a codex or a deck: its picture with a badge of its
+    copies, faint where none are left."""
+    picture = scaled_card(slug, CODEX_CARD, cards)
+    if count <= 0:
+        picture = faint(picture)
+    badge = ImageDraw.Draw(picture)
+    size = 56
+    x0, y0 = CODEX_CARD[0] - size - 6, 6
+    badge.ellipse((x0, y0, x0 + size, y0 + size), fill=INK, outline=SHADOW, width=3)
+    badge.text((x0 + size // 2, y0 + size // 2), f"x{count}", font=font(26),
+               fill=SHADOW, anchor="mm")
+    return picture
 
 
 @lru_cache(maxsize=RENDERED_KEPT)
 def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
-                  cards: CardCatalog, picked: Optional[tuple[int, ...]],
-                  mark: str = "picked {}") -> bytes:
+                  cards: CardCatalog, picked: Optional[tuple[int, ...]]) -> bytes:
     count = max(1, len(cards_in_codex))
     columns = min(count, CODEX_COLUMNS)
     rows = -(-count // columns)
@@ -1304,19 +1316,103 @@ def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
         row, column = divmod(index, columns)
         left = gap + column * (CODEX_CARD[0] + gap)
         top = gap + row * (CODEX_CARD[1] + gap)
-        picture = scaled_card(slug, CODEX_CARD, cards)
-        if counts[index] <= 0:
-            picture = faint(picture)
-        badge = ImageDraw.Draw(picture)
-        size = 56
-        x0, y0 = CODEX_CARD[0] - size - 6, 6
-        badge.ellipse((x0, y0, x0 + size, y0 + size), fill=INK, outline=SHADOW, width=3)
-        badge.text((x0 + size // 2, y0 + size // 2), f"x{counts[index]}", font=font(26),
-                   fill=SHADOW, anchor="mm")
+        picture = codex_tile(slug, counts[index], cards)
         taken = picked[index] if picked is not None else 0
         if taken:
+            badge = ImageDraw.Draw(picture)
             badge.rectangle((0, 0, CODEX_CARD[0] - 1, CODEX_CARD[1] - 1), outline=GOLD, width=8)
-            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), mark.format(taken), 26,
+            pill(badge, (CODEX_CARD[0] // 2, CODEX_CARD[1] * 2 // 5), f"picked {taken}", 26,
                  ACTIVE_FILL, anchor="mm")
         canvas.alpha_composite(picture, (left, top))
+    return _webp(canvas)
+
+
+def render_deck(held: Sequence[tuple[str, int]], discarded: Sequence[tuple[str, int]],
+                elsewhere: Sequence[tuple[str, int]],
+                cards: Optional[CardCatalog] = None) -> bytes:
+    """
+    A player's whole deck as WebP bytes -- **My deck**'s picture: three
+    parts **side by side**, each in a frame headed with its name -- the
+    cards in the hand, those in the discard pile, and the rest of the
+    deck -- a part going to a new row only where it would make the
+    picture wider than `DECK_COLUMNS` cards (the author, 2026-10-10:
+    "one image but with the frames around separating the different
+    parts"). Each card shows once per part with its copies there on its
+    badge, so a card with copies in two places shows in both (the
+    author, 2026-10-09). The hand's frame is the neutral white the words
+    are, the others the quiet grey -- never gold, which is the tech
+    picker's mark and the currency's. A part with no cards is left out.
+    The same deck asked again is the bytes already drawn
+    (`RENDERED_KEPT`).
+    """
+    return _render_deck(tuple(held), tuple(discarded), tuple(elsewhere),
+                        cards or load_catalog())
+
+
+#: The deck picture's height above a frame's cards, for its name.
+DECK_HEADING = 44
+#: The room inside a frame around its cards.
+DECK_BOX_PAD = 14
+#: The widest the deck picture grows, in cards: a part that would pass
+#: it starts a new row of frames, and no one part is wider.
+DECK_COLUMNS = 8
+
+
+@lru_cache(maxsize=RENDERED_KEPT)
+def _render_deck(held: tuple[tuple[str, int], ...], discarded: tuple[tuple[str, int], ...],
+                 elsewhere: tuple[tuple[str, int], ...], cards: CardCatalog) -> bytes:
+    gap, pad = 14, DECK_BOX_PAD
+    card_w, card_h = CODEX_CARD
+    face = font(26)
+    limit = DECK_COLUMNS * (card_w + gap) + gap
+    # Each frame: its name, its cards, its edge, and its size, cards
+    # in as many columns as it has cards up to the limit.
+    frames = []
+    for title, rows, edge in (
+        ("Hand", held, WORD), ("Discard pile", discarded, QUIET), ("Rest of deck", elsewhere, QUIET),
+    ):
+        if not rows:
+            continue
+        columns = min(len(rows), DECK_COLUMNS)
+        lines = -(-len(rows) // columns)
+        grid = columns * card_w + (columns - 1) * gap
+        width = max(grid, round(face.getlength(title))) + 2 * pad
+        height = DECK_HEADING + lines * card_h + (lines - 1) * gap + pad
+        frames.append((title, rows, edge, columns, width, height))
+    # Frames placed left to right, a new row where the next would pass
+    # the limit; a row is as tall as its tallest frame, and every frame
+    # in it is stretched to that height so the edges line up.
+    placed, row, x = [], [], gap
+    for frame in frames:
+        if row and x + frame[4] + gap > limit:
+            placed.append(row)
+            row, x = [], gap
+        row.append((x, frame))
+        x += frame[4] + gap
+    if row:
+        placed.append(row)
+    width = max((left + frame[4] for row in placed for left, frame in [row[-1]]), default=0) + gap
+    heights = [max(frame[5] for _, frame in row) for row in placed]
+    height = gap + sum(row_height + gap for row_height in heights)
+    if not frames:
+        width, height = card_w * 2, card_h // 2
+    canvas = Image.new("RGBA", (width, height), STRIP_FILL)
+    draw = ImageDraw.Draw(canvas)
+    if not frames:
+        text_centred(draw, (width // 2, height // 2), "Nothing here", 32)
+    top = gap
+    for row, row_height in zip(placed, heights):
+        for left, (title, rows, edge, columns, frame_width, _) in row:
+            draw.rounded_rectangle((left, top, left + frame_width - 1, top + row_height - 1),
+                                   radius=12, fill=PANEL, outline=edge, width=3)
+            draw.text((left + pad, top + DECK_HEADING // 2), title, font=face,
+                      fill=edge, anchor="lm")
+            for index, (slug, count) in enumerate(rows):
+                line, column = divmod(index, columns)
+                canvas.alpha_composite(
+                    codex_tile(slug, count, cards),
+                    (left + pad + column * (card_w + gap),
+                     top + DECK_HEADING + line * (card_h + gap)),
+                )
+        top += row_height + gap
     return _webp(canvas)
