@@ -51,6 +51,9 @@ EMOJI_NAMES = (
     # Purple's and black's, landed at step 12.
     "max_geiger", "prynn_pasternaak", "vir_garbarean",
     "garth_torken", "orpal_gloor", "vandy_anadrose",
+    # White's and blue's, landed at step 13.
+    "garus_rook", "grave_stormborne", "setsuki_hiruki",
+    "bigby_hayes", "general_onimaru", "sirus_quince",
 )
 
 #: The token kinds an emoji stands for; `arrow` stays a character.

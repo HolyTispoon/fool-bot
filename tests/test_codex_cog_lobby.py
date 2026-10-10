@@ -145,16 +145,19 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game.player_1_id, 101)
         self.assertIn("basher", call.response.edit_message.call_args.kwargs["content"])
 
-    async def test_a_hero_not_in_this_bot_yet_is_refused_privately(self) -> None:
+    async def test_every_hero_is_offered_and_taken(self) -> None:
+        """Step 13: the menu offers all twenty heroes, and a blue one takes
+        the seat like any other."""
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.open_lobby()
             lobby = LobbyView(table.cog, game.game_id)
+            menu = next(item for item in lobby.children if ":heroes" in (item.custom_id or ""))
+            self.assertEqual(len(menu.options), 20)
             await table.pick(lobby, "bashing", table.basher)
             call = await table.pick(lobby, "law", table.fencer)
-        self.assertTrue(call.response.send_message.call_args.kwargs["ephemeral"])
-        self.assertIn("not in this bot yet", call.response.send_message.call_args.args[0])
-        self.assertIsNone(game.player_2_id)
+        self.assertIn("fencer", call.response.edit_message.call_args.kwargs["content"])
+        self.assertEqual(game.player_2_id, 202)
 
     async def test_start_waits_for_both_seats(self) -> None:
         with suppressed_cog_saves():
@@ -198,7 +201,9 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(offered, {"bashing", "finesse", "anarchy", "blood", "fire",
                                        "balance", "feral", "growth",
                                        "past", "present", "future",
-                                       "demonology", "disease", "necromancy"})
+                                       "demonology", "disease", "necromancy",
+                                       "discipline", "ninjutsu", "strength",
+                                       "law", "peace", "truth"})
             # No deck buttons while nobody's heroes span two colours.
             self.assertFalse([item for item in lobby.children if ":deck" in (item.custom_id or "")])
             picked = await table.pick(lobby, ["fire", "feral", "bashing"], table.basher)

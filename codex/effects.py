@@ -137,16 +137,56 @@ BLACK = frozenset({
     "zombie"
 })
 
+#: White, landed at step 13 (docs/codex-bot.md): its ten starters, the
+#: twelve of Discipline, Ninjutsu and Strength, its three heroes and its
+#: three tokens -- the Bird, the Ninja and Daigo Stormborne.
+WHITE = frozenset({
+    "aged_sensei", "ardras_boulder", "bird", "birds_nest", "colossus",
+    "daigo_stormborne", "doubling_barbarbarian", "earthquake", "entangling_vines",
+    "flying_fox", "focus_master", "fox_primus", "fox_viper", "foxs_den_school",
+    "foxs_den_students", "fuzz_cuddles", "garus_rook", "glorious_ninja",
+    "grappling_hook", "grave_stormborne", "heros_monument", "hidden_ninja",
+    "inverse_power_ninja", "jade_fox_dens_headmistress",
+    "jefferson_degrey_ghostly_diplomat", "martial_mastery", "masked_raccoon",
+    "mindparry_monk", "morningstar_flagbearer", "morningstar_pass", "mythmaking",
+    "ninja", "oathkeeper_of_kor_mountain", "porcupine", "rambasa_twin", "reversal",
+    "safe_attacking", "savior_monk", "senseis_advice", "setsuki_hiruki",
+    "shuriken_hail", "smoker", "snapback", "sparring_partner", "speed_of_the_fox",
+    "thunderclap", "training_grounds", "true_power_of_storms", "versatile_style",
+    "vigor_adept", "whitestar_grappler", "young_lightning_dragon"
+})
+
+#: Blue, landed with white: its ten starters, the twelve of Law, Peace
+#: and Truth, its three heroes and its four tokens -- the Mirror
+#: Illusion, the Soldier, and the Shark and the Water Elemental red and
+#: green borrowed (`BORROWED_TOKENS`).
+BLUE = frozenset({
+    "air_hammer", "arrest", "arresting_constable", "bigby_hayes", "bluecoat_musketeer",
+    "boot_camp", "brave_knight", "building_inspector", "censorship_council",
+    "community_service", "debilitator_alpha", "dreamscape", "drill_sergeant",
+    "elite_training", "eyes_of_the_chancellor", "flagstone_garrison", "flagstone_spy",
+    "free_speech", "general_onimaru", "generals_hammer", "guardian_of_the_gates",
+    "hallucination", "injunction", "insurance_agent", "jail", "judgment_day",
+    "jurisdiction", "justice_juggernaut", "lawbringer_gryphon", "lawful_search",
+    "liberty_gryphon", "macciatus_the_whisperer", "manufactured_truth", "mind_control",
+    "mirror_illusion", "overeager_cadet", "patriot_gryphon", "porkhand_magistrate",
+    "reputable_newsman", "reteller_of_truths", "scribe", "shark", "sirus_quince",
+    "soldier", "spectral_aven", "spectral_flagbearer", "spectral_hound",
+    "spectral_roc", "spectral_tiger", "tax_collector", "the_art_of_war",
+    "traffic_director", "water_elemental"
+})
+
 #: The tokens of another colour that red and green summon: Surprise
 #: Attack's Sharks and Argagarg's Water Elemental, both blue. Landed with
-#: the cards that make them, so their keywords are read.
+#: the cards that make them, so their keywords are read -- and part of
+#: `BLUE` once blue landed (step 13).
 BORROWED_TOKENS = frozenset({"shark", "water_elemental"})
 
 #: **Every card the engine reads** -- the keyword table and the
 #: static tables below are read over it, and the lobby offers the
 #: heroes of `codex.cards.LANDED_COLORS`, the same colours. Each pair's
 #: step adds its two.
-LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
+LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK | WHITE | BLUE
 
 #: Every landed slug whose text the engine plays for its numbers alone.
 #: Written out rather than computed, so the commit that takes a card out
@@ -168,8 +208,39 @@ LANDED_SET = BASIC_SET | RED | GREEN | BORROWED_TOKENS | PURPLE | BLACK
 #: numbers: every purple or black card, hero and token with text that is
 #: more than keywords the engine reads -- the six heroes' bands among
 #: them. Argonaut's readiness, the Stinger's flying and the Horror's
-#: deathtouch are read whole, and play in full.
-UNIMPLEMENTED: frozenset = frozenset()
+#: deathtouch are read whole, and play in full. Step 12 emptied it again.
+#:
+#: **Step 13 fills it a last time** with white and blue, played for their
+#: numbers: every white or blue card, hero and token with text that is
+#: more than keywords the engine reads -- the six heroes' bands among
+#: them. Fox Primus, Fox Viper, Flying Fox, Glorious Ninja, Vigor Adept,
+#: Porcupine, Savior Monk, Fuzz Cuddles, the Bird and the Soldier are
+#: read whole, and play in full.
+UNIMPLEMENTED: frozenset = frozenset({
+    "aged_sensei", "air_hammer", "arrest", "arresting_constable", "bigby_hayes",
+    "birds_nest", "bluecoat_musketeer", "boot_camp", "brave_knight",
+    "building_inspector", "censorship_council", "colossus", "community_service",
+    "daigo_stormborne", "debilitator_alpha", "doubling_barbarbarian", "dreamscape",
+    "drill_sergeant", "earthquake", "elite_training", "entangling_vines",
+    "eyes_of_the_chancellor", "flagstone_garrison", "flagstone_spy", "focus_master",
+    "foxs_den_school", "foxs_den_students", "free_speech", "garus_rook",
+    "general_onimaru", "generals_hammer", "grappling_hook", "grave_stormborne",
+    "guardian_of_the_gates", "hallucination", "heros_monument", "hidden_ninja",
+    "injunction", "insurance_agent", "inverse_power_ninja",
+    "jade_fox_dens_headmistress", "jail", "jefferson_degrey_ghostly_diplomat",
+    "judgment_day", "jurisdiction", "justice_juggernaut", "lawbringer_gryphon",
+    "lawful_search", "liberty_gryphon", "macciatus_the_whisperer",
+    "manufactured_truth", "martial_mastery", "masked_raccoon", "mind_control",
+    "mindparry_monk", "morningstar_flagbearer", "morningstar_pass", "mythmaking",
+    "oathkeeper_of_kor_mountain", "patriot_gryphon", "porkhand_magistrate",
+    "rambasa_twin", "reputable_newsman", "reteller_of_truths", "reversal",
+    "safe_attacking", "scribe", "senseis_advice", "setsuki_hiruki", "shuriken_hail",
+    "sirus_quince", "smoker", "snapback", "sparring_partner", "spectral_aven",
+    "spectral_flagbearer", "spectral_hound", "spectral_roc", "spectral_tiger",
+    "speed_of_the_fox", "tax_collector", "the_art_of_war", "thunderclap",
+    "traffic_director", "training_grounds", "true_power_of_storms", "versatile_style",
+    "whitestar_grappler", "young_lightning_dragon"
+})
 
 
 # -- What a text does, part by part ------------------------------------------

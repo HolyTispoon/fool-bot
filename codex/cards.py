@@ -34,8 +34,9 @@ NEUTRAL = "neutral"
 #: them, lowered: the lobby offers their heroes and refuses the rest.
 #: The data holds all seven since step 1; a colour lands when the engine
 #: has read its cards -- neutral from step 2, red and green from step 10,
-#: and each pair after it adds its two (docs/codex-bot.md, steps 10-13).
-LANDED_COLORS = ("neutral", "red", "green", "purple", "black")
+#: purple and black from step 12, white and blue from step 13, so every
+#: colour now (docs/codex-bot.md, steps 10-13).
+LANDED_COLORS = ("neutral", "red", "green", "purple", "black", "white", "blue")
 
 
 @dataclass(frozen=True)
