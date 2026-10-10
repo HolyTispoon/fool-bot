@@ -3,7 +3,7 @@ The Codex bot's `discord.ui.View` classes, one module per prompt a
 player can be shown: `base` (`SafeView`, which imports no sibling, so the
 package is a DAG), `lobby`, `turn_message`, `ending` (`ConcedeConfirmView`,
 `RematchView`), and the panel's: `turn`
-(`TurnPanelView`, `UndoConfirmView`), `patrol` (`PatrolView`) and `tech`
+(`TurnPanelView`, `UndoView`, `UndoConfirmView`), `patrol` (`PatrolView`) and `tech`
 (`TechChoiceView`, `TechConfirmView`, `TechGateView`). Every name is re-exported here.
 """
 
@@ -27,6 +27,7 @@ from cogs.codex_views.turn import (
     PanelView,
     TurnPanelView,
     UndoConfirmView,
+    UndoView,
     building_label,
     hand_numbers,
 )
@@ -69,6 +70,7 @@ __all__ = [
     "TurnMessageView",
     "TurnPanelView",
     "UndoConfirmView",
+    "UndoView",
     "building_label",
     "codex_view_menu",
     "deck_button",
