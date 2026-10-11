@@ -73,7 +73,7 @@ from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
 from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
-from codex.formatting import team_name
+from codex.formatting import copy_number, team_name
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
 #: (docs/design/board-image.md): Roboto Slab for every word and number.
@@ -262,6 +262,9 @@ ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 #: Claw's, a feather rune.
 MARK_FILL = (122, 74, 160)       # #7a4aa0
 DISABLED_FILL = (150, 40, 40)    # #962828
+#: A copy's number on a card, "#2" (the author, 2026-10-11): white with
+#: dark words, as the divider's pill is, so it reads on any art.
+COPY_FILL, COPY_INK = WORD, (24, 18, 14)
 FIGURE_EDGE = (15, 10, 10)
 
 # The hand's and the codex's.
@@ -495,6 +498,24 @@ def time_rune_chit(runes: int) -> Image.Image:
     return board_piece("time_runes", f"{min(runes, 6)}.png")
 
 
+def copy_tag(canvas: Image.Image, centre: int, top: int, number: int, turned: bool) -> None:
+    """A copy's number, "#2", on a white tag centred on `centre` just
+    inside the card's top edge `top`, the right way up whether the card
+    stands or lies exhausted -- and on the far side of the table,
+    `turned`, drawn upside down here so it reads the right way up once
+    the panel is turned round: a number is matched to its button, so
+    nobody should have to read it upside down."""
+    face = font(26)
+    text = f"#{number}"
+    width, height = round(face.getlength(text)) + 22, 36
+    tag = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(tag)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=10, fill=COPY_FILL,
+                           outline=SHADOW, width=2)
+    draw.text((width / 2, height / 2), text, font=face, fill=COPY_INK, anchor="mm")
+    canvas.alpha_composite(tag.rotate(180) if turned else tag, (centre - width // 2, top + 6))
+
+
 def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
     """ARRIVED on a green tag against the card's left edge, standing on
     `bottom` -- the foot of its art: what came this turn."""
@@ -535,6 +556,10 @@ class Lying:
     future: bool = False
     #: The units buried in a Graveyard (step 12), counted on its card.
     buried: int = 0
+    #: Which of its player's copies in play it is, "#2" on its top edge
+    #: -- the number its buttons carry (`formatting.copy_number`); 0
+    #: where it is the only one.
+    copy: int = 0
 
 
 #: What Polymorph: Squirrel shows a unit as while it lasts.
@@ -569,15 +594,17 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[str, ...]:
     return tuple(found)
 
 
-def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None) -> Lying:
+def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
+               copy: int = 0) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
-    Squirrel has it (step 11)."""
+    Squirrel has it (step 11) -- and `copy`, its number among its
+    player's copies."""
     slug = POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
     return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
                  marks=rune_marks(card, cards), time_runes=card.time_runes,
-                 disabled=card.disabled, buried=len(card.buried or ()))
+                 disabled=card.disabled, buried=len(card.buried or ()), copy=copy)
 
 
 def future_lying(card: CardInstance) -> Lying:
@@ -598,13 +625,14 @@ def card_face(slug: str, cards: CardCatalog, size: tuple[int, int] = CARD) -> Im
                    round(size[0] / 20))
 
 
-def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
+def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.Image:
     """
     One card as it lies in a cell, on a transparent square of `CELL`
     with `OVERHANG` round it, the card's centre the square's: its own
     art at 200 by 273, a level chit top left (a hero), its rune chits
     top right, its damage chits on the foot of its art, Two Step's chit on
-    a dance partner, ARRIVED on its art's foot the turn it came -- and, exhausted, the
+    a dance partner, ARRIVED on its art's foot the turn it came, a
+    copy's number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
     with the exhaust glyph on the cell's top corner, the right way up.
     """
@@ -650,10 +678,14 @@ def lying_card(lying: Lying, cards: CardCatalog) -> Image.Image:
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
-        paste_centred(tile, upright, (0, 0, tile.width, tile.height))
+        laid = upright
     else:
         # Turned a quarter clockwise, as a card is exhausted on a table.
-        paste_centred(tile, upright.transpose(Image.ROTATE_270), (0, 0, tile.width, tile.height))
+        laid = upright.transpose(Image.ROTATE_270)
+    left, top = paste_centred(tile, laid, (0, 0, tile.width, tile.height))
+    if lying.copy:
+        copy_tag(tile, left + laid.width // 2, top + margin, lying.copy, turned)
+    if lying.exhausted:
         glyph = by_width(image(EMOJI_DIR / "exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))
     if lying.disabled:
@@ -1052,7 +1084,7 @@ def panel_width(hero_count: int) -> int:
     return 2 * PADDING + BUILDING_WIDTH + BUILDING_GAP + max(top_row_width(hero_count), grid)
 
 
-def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
+def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False) -> list[Image.Image]:
     """The grid, in order: the heroes on the field, then the units,
     every one not patrolling, then the building cards and upgrades,
     which never patrol (step 10), then the cards in the future, greyed
@@ -1063,7 +1095,8 @@ def grid_cells(player: PlayerState, cards: CardCatalog) -> list[Image.Image]:
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
-    units = [lying_card(unit_lying(card, card.id in partners, cards), cards) for card in lying]
+    units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card)),
+                        cards, turned) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return field + units + future
 
@@ -1078,15 +1111,16 @@ def body_height(cells: int, columns: int) -> int:
 
 
 def render_body(match: MatchState, seat: int, cards: CardCatalog,
-                building_hp: Mapping[str, int]) -> Image.Image:
+                building_hp: Mapping[str, int], turned: bool = False) -> Image.Image:
     """
     One panel's body, the nameplate aside, on a transparent ground with
     `OVERHANG` round it for the chits that hang over an edge -- so the
-    far panel's is turned round whole about its own centre.
+    far panel's is turned round whole about its own centre. `turned`,
+    it is about to be: a copy's number is drawn to read upright after.
     """
     player = match.player(seat)
     columns = panel_columns(player)
-    cells = grid_cells(player, cards)
+    cells = grid_cells(player, cards, turned)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
@@ -1120,10 +1154,11 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             lying = hero_lying(player.hero_by_ref(ref), cards)
         else:
             instance_id = int(ref.split(":", 1)[1])
-            lying = unit_lying(match.instance(instance_id), instance_id in partners, cards)
+            card = match.instance(instance_id)
+            lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
-        paste_centred(body, lying_card(lying, cards),
+        paste_centred(body, lying_card(lying, cards, turned),
                       (card_left, card_top, card_left + CARD[0], card_top + CARD[1]))
 
     top = o + PATROL_HEIGHT + CELL_GAP
@@ -1240,7 +1275,7 @@ def render_panel(match: MatchState, seat: int, name: str,
     """
     cards = cards or load_catalog()
     building_hp = building_hp or default_building_hp(cards)
-    body = render_body(match, seat, cards, building_hp)
+    body = render_body(match, seat, cards, building_hp, turned)
     width = body.width - 2 * OVERHANG + 2 * PADDING
     natural = (2 * PADDING + body.height - 2 * OVERHANG + NAMEPLATE_GAP + NAMEPLATE_HEIGHT)
     total = max(natural, height or 0)

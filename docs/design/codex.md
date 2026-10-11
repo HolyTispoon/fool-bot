@@ -2086,6 +2086,23 @@ too, asked with `gate` for the two kinds a turn may open on
   The abilities are buttons on the board's row, only those that may be
   used now -- they shared the last row's menu with the hero's levels
   until 2026-10-09. The panel's picture stays the hand.
+- **Copies of one card are numbered, on the button and on the board**
+  (the author, 2026-10-11, over two buttons both reading "Your Bone
+  Collector 3/3"). Wherever a player has more than one copy of a card
+  in play, `formatting.copy_number` counts them from 1 in the order
+  the play zone holds them -- the order they came into play, since
+  nothing reorders it -- patrolling or not; `ref_label` writes the
+  number after the name, "Bone Collector #2 3/3", so every menu that
+  names a unit carries it, and the board draws the same "#2" on a
+  white tag just inside the card's top edge (`Lying.copy`,
+  `copy_tag`). A copy keeps its number while the ones before it stay
+  in play. The far panel is turned round whole, so its tags are drawn
+  upside down before the turn and read upright after (`turned`, passed
+  down from `render_panel`): a number is matched to its button, so
+  unlike ARRIVED it must read the right way up. A board with no copies
+  is byte-identical to before. A first try named copies by their place
+  and state ("2nd, arrived") from what the picture already showed; the
+  author chose plain numbers marked on the board instead.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard
