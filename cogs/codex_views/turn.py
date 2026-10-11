@@ -39,7 +39,7 @@ import asyncio
 import discord
 
 from codex import effects, history
-from codex.engine import TECH_BUILDINGS, building_name
+from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
 from codex.formatting import deck_name, ref_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
@@ -210,8 +210,10 @@ class TurnPanelView(PanelView):
     up by one level a click -- then the hand, a button per card numbered
     as the picture numbers it and disabled where it may not be played,
     then the board's row -- **Build** per building that may be built,
-    **Detect...** where there is a tower, and each ability that may be
-    used -- and always last, in this order, **My deck**, **Undo...** and
+    the next tech building up disabled with why where it may not,
+    **Detect...** where there is a tower, and each ability, disabled
+    with its reason where it may not be used and its card is neither
+    exhausted nor arrived this turn -- and always last, in this order, **My deck**, **Undo...** and
     **End main phase** (the author, 2026-10-09). A control the engine says no to is disabled with its
     reason as its label. **Attack...** turns the panel into what may
     attack, one button each, and **Back**; **Hire worker** into the
@@ -321,8 +323,21 @@ class TurnPanelView(PanelView):
                 choice=("build", row.building),
             )
             for row in options.buildings if row.allowed
-        ] or [self.make_button("Nothing can be built now", discord.ButtonStyle.secondary, None,
-                               disabled=True)]
+        ]
+        # The next tech building up, refused, says why -- "not enough
+        # workers (needs 8)", "Tech I is destroyed" (the author,
+        # 2026-10-11) -- after everything that may be done, so a full row
+        # gives it up first.
+        refused_builds = [
+            self.make_button(
+                f"Build {building_label(row.building)} ({row.cost} gold): {row.why_not}",
+                discord.ButtonStyle.secondary, None, disabled=True,
+            )
+            for row in options.buildings if not row.allowed and row.next_up
+        ]
+        if not board and not refused_builds:
+            board = [self.make_button("Nothing can be built now", discord.ButtonStyle.secondary,
+                                      None, disabled=True)]
         detect = options.detect
         if detect.tower:
             # Only a player with a finished tower is offered its
@@ -338,6 +353,19 @@ class TurnPanelView(PanelView):
                 choice=("ability", ability.effect, ability.source),
             )
             for ability in options.abilities if ability.allowed
+        ]
+        board += refused_builds
+        # An ability the engine says no to is there and disabled with its
+        # reason, after every one that may be used, so a full row gives
+        # these up first -- except a card's that is exhausted or arrived
+        # this turn, which the board already shows (the author, 2026-10-11).
+        board += [
+            self.make_button(
+                self.ability_refused_label(ability), discord.ButtonStyle.secondary,
+                None, disabled=True,
+            )
+            for ability in options.abilities
+            if not ability.allowed and ability.why_not not in (EXHAUSTED, ARRIVED)
         ]
         # **My deck**, **Undo...** and **End main phase** are always the
         # panel's last three buttons, in that order (the author,
@@ -478,9 +506,22 @@ class TurnPanelView(PanelView):
         card's own words (`codex.effects.EFFECTS`)."""
         if ability.effect == "stop_the_music":
             return f"Sacrifice {card_name(effects.HARMONY)}: stop the music"
+        return f"{self.label(ability.source)}: {ability.pays} to {self.ability_says(ability)}"
+
+    def ability_refused_label(self, ability) -> str:
+        """A refused ability's button, its reason before what it does so
+        the cut to 80 characters never takes the reason: "Vir Garbarean
+        (your draw pile is empty): look at the top card of your draw
+        pile"."""
+        return f"{self.label(ability.source)} ({ability.why_not}): {self.ability_says(ability)}"
+
+    @staticmethod
+    def ability_says(ability) -> str:
+        """What an ability does, in the card's own words."""
+        if ability.effect == "stop_the_music":
+            return "stop the music"
         effect = effects.EFFECTS[ability.effect]
-        says = effect.says or effect.parts[0].says
-        return f"{self.label(ability.source)}: {ability.pays} to {says}"
+        return effect.says or effect.parts[0].says
 
     async def level(self, interaction: discord.Interaction, hero: str) -> None:
         """One level for a gold: a level a click."""

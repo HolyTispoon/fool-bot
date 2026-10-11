@@ -1405,7 +1405,7 @@ class AbilityAndArrivalRulingTests(unittest.TestCase):
         cub = put(match, 2, "tiger_cub")
         cub.plus_runes = 2
         self.assertEqual(option(engine, match, "spore_shambler_gold", shambler.ref).why_not,
-                         "it needs 1 +1/+1 rune")
+                         "no +1/+1 runes left")
         shambler.plus_runes = 2
         match.player(2).gold = 1
         ability(engine, game, match, "spore_shambler_gold", shambler.ref)
@@ -2539,7 +2539,7 @@ class DeathRulingTests(unittest.TestCase):
         put(match, 2, "hardened_mox")
         victim = put(match, 1, "argonaut")
         hand(match, 2, "doom_grasp")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(2), "doom_grasp", match),
                       "nothing of theirs can be sacrificed, so nothing can be done")
         del victim
@@ -3325,7 +3325,7 @@ class PurpleRulingTests(unittest.TestCase):
         match.player(2).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
         built(match, 2, "tech1")
         hand(match, 1, "assimilate")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(1), "assimilate", match))
 
     def test_assimilate_3(self) -> None:
@@ -3982,7 +3982,7 @@ class PurpleRulingTests(unittest.TestCase):
         at_max(engine, match, 1, "max_geiger")
         put(match, 1, "stinger")
         hand(match, 1, "temporal_distortion")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(1), "temporal_distortion", match))
 
     def test_tricycloid_1(self) -> None:
@@ -4022,7 +4022,8 @@ class PurpleRulingTests(unittest.TestCase):
         hero_in_play(match, 1, slug="vir_garbarean")
         match.player(1).deck = []
         match.player(1).discard = ["argonaut"]
-        self.assertFalse(option(engine, match, "vir_garbarean", hero(match, 1, "vir_garbarean")).allowed)
+        self.assertEqual(option(engine, match, "vir_garbarean", hero(match, 1, "vir_garbarean")).why_not,
+                         "your draw pile is empty")
         match.player(1).deck = ["neo_plexus"]
         ability(engine, game, match, "vir_garbarean", hero(match, 1, "vir_garbarean"))
         prompt = asked(engine, game, match)
@@ -4038,8 +4039,8 @@ class PurpleRulingTests(unittest.TestCase):
         match.player(1).deck = []
         hand(match, 1, "argonaut")
         match.player(1).gold = 3
-        self.assertFalse(option(engine, match, "vir_garbarean_exchange",
-                                hero(match, 1, "vir_garbarean")).allowed)
+        self.assertEqual(option(engine, match, "vir_garbarean_exchange",
+                                hero(match, 1, "vir_garbarean")).why_not, "your draw pile is empty")
         match.player(1).deck = ["neo_plexus"]
         ability(engine, game, match, "vir_garbarean_exchange", hero(match, 1, "vir_garbarean"))
         self.assertEqual((match.player(1).deck, match.player(1).hand), (["argonaut"], ["neo_plexus"]))
@@ -4058,6 +4059,20 @@ class PurpleRulingTests(unittest.TestCase):
         turn_round(engine, game, match, 1)
         mech = next(card for card in match.player(1).play if card.slug == "mech")
         self.assertNotIn(mech.ref, engine.attackers(match))
+
+    def test_vir_says_why_he_may_not_play_the_top_card(self) -> None:
+        """An empty pile says so; a top card that can't be played says
+        that much and no more -- the card is hidden."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        match.player(1).deck = []
+        source = hero(match, 1, "vir_garbarean")
+        self.assertEqual(option(engine, match, "vir_garbarean_play", source).why_not,
+                         "your draw pile is empty")
+        match.player(1).deck = ["argonaut"]
+        match.player(1).gold = 0
+        self.assertEqual(option(engine, match, "vir_garbarean_play", source).why_not,
+                         "the top card of your draw pile can't be played now")
 
     def test_vir_plays_the_top_card(self) -> None:
         engine, game, match = purple()
@@ -4968,7 +4983,7 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         put(match, 1, "mindparry_monk")
         viper = put(match, 1, "fox_viper", patrol="elite")
         hand(match, 2, "spark")
-        self.assertIn("nothing it could target", engine.why_not_playable(match.player(2), "spark", match))
+        self.assertIn("no target", engine.why_not_playable(match.player(2), "spark", match))
         put(match, 2, "scribe", patrol="elite")
         cast(engine, game, match, "spark")
         self.assertEqual(viper.damage, 0)
@@ -6089,7 +6104,7 @@ class BlueEffectRulingTests(unittest.TestCase):
         cub = put(match, 1, "tiger_cub")
         self.quince_copies(engine, game, match, mirror, cub)
         self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not,
-                         "there is nothing it could target")
+                         "no target")
         other = put(match, 2, "mirror_illusion")
         self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not, "")
         self.assertIsNone(other.copy_of)

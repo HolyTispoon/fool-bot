@@ -237,6 +237,10 @@ class BuildOption:
     why_not: str = ""
     specs: tuple[str, ...] = ()
     lab_specs: tuple[str, ...] = ()
+    #: A tech building next up: not standing, and the first or the one
+    #: above a building its player has had -- which the panel shows even
+    #: refused, with why (the author, 2026-10-11).
+    next_up: bool = False
 
     @property
     def allowed(self) -> bool:
@@ -250,6 +254,8 @@ class BuildOption:
         if self.specs or self.lab_specs:
             found["specs"] = list(self.specs)
             found["lab_specs"] = list(self.lab_specs)
+        if self.next_up:
+            found["next_up"] = True
         return found
 
 
@@ -1566,18 +1572,19 @@ class RulesEngine:
         if building in TECH_BUILDINGS:
             workers, below = TECH_REQUIREMENTS[building]
             existing = player.buildings[building]
+            under = player.buildings[below] if below is not None else None
+            standing = existing is not None and not existing.destroyed
             why = ""
-            if existing is not None and not existing.destroyed:
+            if standing:
                 why = "it is already built"
             elif player.workers < workers:
-                why = f"it needs {workers} workers"
-            elif below is not None and not (
-                player.buildings[below] is not None and player.buildings[below].active
-            ):
-                why = f"it needs a finished {_building_name(below)} building"
+                why = f"not enough workers (needs {workers})"
+            elif below is not None and not (under is not None and under.active):
+                why = self._why_not_below(below, under)
             elif player.gold < cost:
                 why = "not enough gold"
-            return BuildOption(building, cost, workers, why, specs, lab_specs)
+            next_up = not standing and (below is None or under is not None)
+            return BuildOption(building, cost, workers, why, specs, lab_specs, next_up)
         # A new add-on replaces the one in the slot, which deals its 2 to
         # the base (UMR p. 9; the author, 2026-10-08) -- the same one again
         # is no replacement.
@@ -1589,6 +1596,19 @@ class RulesEngine:
         elif player.gold < cost:
             why = "not enough gold"
         return BuildOption(building, cost, 0, why, specs, lab_specs)
+
+    @staticmethod
+    def _why_not_below(below: str, under) -> str:
+        """Why the tech building under one may not carry it: never built,
+        destroyed -- rebuilt first (UMR p. 8) -- unfinished, or disabled."""
+        name = _building_name(below)
+        if under is None:
+            return f"it needs a finished {name} building"
+        if under.destroyed:
+            return f"{name} is destroyed"
+        if under.under_construction:
+            return f"{name} is not finished"
+        return f"{name} is disabled"
 
     # -- The main phase -----------------------------------------------------
 
@@ -1697,7 +1717,7 @@ class RulesEngine:
         if match is not None and card.is_spell and not self.spell_can_resolve(
             match, player.seat, slug, player.gold - cost,
         ):
-            return "it has nothing it could target"
+            return NO_TARGET
         return ""
 
     def _why_not_under_rules(self, match: MatchState, player: PlayerState, card,
@@ -3293,9 +3313,9 @@ class RulesEngine:
         unit at the start of your turn or if it has haste" (Maestro's
         ruling)."""
         if body.exhausted:
-            return "it is exhausted"
+            return EXHAUSTED
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
-            return "it arrived this turn"
+            return ARRIVED
         return ""
 
     def abilities(self, match: MatchState) -> tuple[AbilityOption, ...]:
@@ -3385,8 +3405,7 @@ class RulesEngine:
             have = (body.plus_runes if kind == "plus"
                     else body.time_runes if kind == "time" else body.runes.get(kind, 0))
             if have < count:
-                rune = "+1/+1" if kind == "plus" else kind
-                return f"it needs {count} {rune} rune{'' if count == 1 else 's'}"
+                return RUNES_SHORT.get(effect, "not enough runes")
         if cost.discard and len(player.hand) < cost.discard:
             return f"it needs {cost.discard} cards in hand to discard"
         if cost.needs_spell and not player.spells_played:
@@ -3404,9 +3423,18 @@ class RulesEngine:
         ) >= effects.MIRROR_LIMIT:
             # "Summon another (limit: 2)" -- the copies count (his ruling).
             return f"you have {effects.MIRROR_LIMIT} Mirror Illusions"
+        deck_parts = {part.choose for part in getattr(effects.EFFECTS.get(effect), "parts", ())
+                      if part.choose in _DECK_TOP_FILTERS}
+        if deck_parts and not player.deck:
+            # Vir's three: nothing on an empty pile, and no reshuffle (his
+            # rulings) -- said, so the player is not left guessing.
+            return "your draw pile is empty"
         if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
                                       {"source": source}):
-            return "there is nothing it could target"
+            if "deck_top_playable" in deck_parts:
+                # Not which card, nor why: the top card is hidden.
+                return "the top card of your draw pile can't be played now"
+            return NO_TARGET
         return ""
 
     # -- The upkeep -------------------------------------------------------------------
@@ -3787,6 +3815,36 @@ WORKERS = "workers"
 SLOT = "slot:"
 HAND = "hand:"
 CODEX = "codex:"
+#: Why a card may not exhaust: already exhausted, or arrived this turn
+#: without haste -- which the board shows, so the panel leaves such an
+#: ability off rather than say so (the author, 2026-10-11).
+EXHAUSTED = "it is exhausted"
+ARRIVED = "it arrived this turn"
+#: Why a spell or an ability may not be used: nothing it could choose.
+NO_TARGET = "no target"
+#: Why a rune-costing ability may not be used, card by card (the author,
+#: 2026-10-11): how many a card that keeps gaining them needs, and that
+#: a card given them once has spent them. A test holds it to every
+#: ability with a rune cost (`effects.COSTS`).
+RUNES_SHORT = {
+    # Gained over the game: a unit dies, a unit of yours dies, she attacks.
+    "bloodburn": "needs 2 blood runes",
+    "corpse_catapult": "needs 2 corpse runes",
+    "prynn_pasternaak_max": "needs 2 time runes",
+    # One each time another of yours arrives, or a unit is played from
+    # the hand.
+    "blooming_ancient": "no +1/+1 rune",
+    "drill_sergeant": "no +1/+1 rune",
+    # Given once, on arrival or at max level.
+    "spore_shambler_gold": "no +1/+1 runes left",
+    "spore_shambler_exhaust": "no +1/+1 runes left",
+    "tricycloid_shot": "no time runes left",
+    "ebbflow_archon": "no time runes left",
+    "skeleton_javelineer_throw": "javelin already thrown",
+    "grave_stormborne": "sword rune already used",
+}
+#: The filters that read the top of the controller's draw pile: Vir's.
+_DECK_TOP_FILTERS = frozenset({"deck_top", "hand_card_with_deck", "deck_top_playable"})
 #: The filters whose candidates are in the controller's hand or codex.
 _PRIVATE_FILTERS = frozenset({
     "hand_card", "hand_unit_tech_0_2", "hand_unit_built", "codex_unit", "codex_tiger",

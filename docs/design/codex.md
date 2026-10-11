@@ -655,8 +655,8 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   (Final Smash's ruling), and **asked only where there is a choice**: a
   part with one thing it could choose takes it, and a part with nothing
   is skipped and said nothing about -- "do as much as you can". A spell
-  is playable when one of its parts can resolve, and refused with "it
-  has nothing it could target" when none can.
+  is playable when one of its parts can resolve, and refused with "no
+  target" when none can.
 - **A target is on either side of the table**, so an answer names it
   `"<seat>:<ref>"` (`2:unit:7`, `1:base`) -- a hero and a building are not
   unique by ref alone. Every effect may choose what its text allows,
@@ -2041,10 +2041,19 @@ too, asked with `gate` for the two kinds a turn may open on
   be played now, as the picture greys it, so the row and the picture
   agree card for card -- at most two rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
-  building that may be built now ("Build Tower (3 gold)"),
-  **Detect...** where there is a tower, and each ability that may be
-  used now, in the card's own words ("Sacrifice Harmony: stop the
-  music") -- and always last, in this order, **My deck**, **Undo...**
+  building that may be built now ("Build Tower (3 gold)"), and the
+  next tech building up where it may not, disabled with why ("Build
+  Tech II (4 gold): Tech I is destroyed", "...: not enough workers
+  (needs 8)") -- `BuildOption.next_up`, the engine's: a tech building
+  not standing that is the first, or the one above a building its
+  player has had, so a destroyed Tech I is rebuilt first and Tech II
+  says so, where Tech III at the opening says nothing (the author,
+  2026-10-11); placed after everything that may be done, so a full row
+  gives it up first --
+  **Detect...** where there is a tower, and each ability, in the
+  card's own words ("Sacrifice Harmony: stop the music"), disabled with
+  its reason where it may not be used now, unless its card is exhausted
+  or arrived this turn -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
   first. **Hire worker** and every **Build** are green and **Attack...**
@@ -2069,7 +2078,8 @@ too, asked with `gate` for the two kinds a turn may open on
 - **Built from the options and nothing else.** A control the engine
   says no to is disabled with its reason as its label ("Hire: a worker
   has been hired this turn"); a group with nothing to offer is one
-  disabled button saying why ("Nothing can be built now"), so the
+  disabled button saying why ("Nothing can be built now", unless a
+  next tech building already says why), so the
   panel keeps its shape. **Hire worker** turns the panel into the hand, a button
   per card numbered as the picture (the one hired with is trashed
   unseen), the question the menu's placeholder used to carry written
@@ -2095,9 +2105,27 @@ too, asked with `gate` for the two kinds a turn may open on
   with whose it is, what it costs in resist and whether the flagbearer
   rule forces it, under the ask, which says what the part does; Appel
   Stomp's place and the upkeep's order are buttons too.
-  The abilities are buttons on the board's row, only those that may be
-  used now -- they shared the last row's menu with the hero's levels
-  until 2026-10-09. The panel's picture stays the hand.
+  The abilities are buttons on the board's row -- they shared the last
+  row's menu with the hero's levels until 2026-10-09. One the engine
+  says no to is there too, disabled, its reason in brackets before what
+  it does ("Vir Garbarean (your draw pile is empty): look at the top
+  card of your draw pile"), so the cut to 80 characters never takes the
+  reason, and placed after every one that may be used, so a full row
+  gives these up first: an ability that vanished without a word left
+  the player guessing why (the author, 2026-10-11). **Except a card
+  that is exhausted or arrived this turn**: the board already shows
+  it, so its ability is left off rather than greyed (`EXHAUSTED` and
+  `ARRIVED`, the two reasons the panel reads); every other cost still
+  shows. The reasons are short (the author, 2026-10-11): "no target"
+  (`NO_TARGET`, a spell in the hand's too), "not enough gold", and for
+  runes a note card by card (`RUNES_SHORT`): how many a card that keeps
+  gaining them needs ("needs 2 blood runes"), and that one given them
+  once has spent them ("javelin already thrown", "no +1/+1 runes
+  left"). Vir's three deck
+  abilities say "your draw pile is empty" rather than "no target", and
+  his middle one, on a top card that can't be played, says that much
+  and not which card or why -- the card is hidden. The panel's picture
+  stays the hand.
 - **Copies of one card are numbered, on the button and on the board**
   (the author, 2026-10-11, over two buttons both reading "Your Bone
   Collector 3/3"). Wherever a player has more than one copy of a card

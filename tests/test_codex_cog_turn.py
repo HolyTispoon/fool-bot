@@ -303,6 +303,22 @@ class PanelTests(TurnTestCase):
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
 
+    async def test_the_next_tech_building_says_why_it_waits(self) -> None:
+        """A refused next tech building is on the board's row, disabled
+        with why; one further up is not."""
+        match = self.table.match
+        seat = match.active
+        match.player(seat).workers = 5
+        match.player(seat).gold = 9
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        labels = [item.label for item in view.children]
+        waiting = [item for item in view.children if item.label.startswith("Build Tech")]
+        self.assertEqual([item.label for item in waiting],
+                         ["Build Tech I (1 gold): not enough workers (needs 6)"], labels)
+        self.assertTrue(waiting[0].disabled)
+        self.assertNotIn("Nothing can be built now", labels)
+
     async def test_a_panel_edited_in_place_keeps_its_hand_picture(self) -> None:
         """**Back** from hiring puts the main phase up again over the
         same hand: the picture the message already carries is kept, not
@@ -1591,6 +1607,63 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
         for kind, args, kwargs in call.answers:
             text = kwargs.get("content") or (args[0] if args else "") or ""
             self.assertNotIn("Something went wrong", text)
+
+
+class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
+    """An ability the engine says no to is on the panel, disabled with its
+    reason, after the ones that may be used -- Vir's on an empty draw
+    pile say so rather than vanishing."""
+
+    PURPLE = ("past", "present", "future")
+    BLACK = ("demonology", "disease", "necromancy")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.PURPLE, self.BLACK))
+
+    async def test_vir_on_an_empty_draw_pile_says_why(self) -> None:
+        match = self.table.match
+        match.active = 1
+        hero_in_play(match, 1, slug="vir_garbarean")
+        match.player(1).deck = []
+        match.player(1).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        refused = [item for item in view.children
+                   if item.label.startswith("Vir Garbarean")
+                   and "(your draw pile is empty): " in item.label]
+        self.assertEqual(len(refused), 2, [item.label for item in view.children])
+        self.assertTrue(all(item.disabled for item in refused))
+        self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
+        self.assertEqual([item.label for item in view.children[-3:]],
+                         ["My deck", "Undo...", "End main phase"])
+        # An exhausted card's ability is left off: the board shows it.
+        match = self.table.match
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        match.player(1).hero_of("vir_garbarean").exhausted = True
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if "exhausted" in item.label],
+                         [item.label for item in view.children])
+        # And one that arrived this turn without haste, the same.
+        match = self.table.match
+        vir = match.player(1).hero_of("vir_garbarean")
+        vir.exhausted, vir.arrived_this_turn = False, True
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if "arrived" in item.label],
+                         [item.label for item in view.children])
+        self.assertEqual(len([item for item in view.children
+                              if "(your draw pile is empty): " in item.label]), 2)
+        # With a card on the pile, both are buttons again.
+        match = self.table.match
+        match.player(1).deck = ["argonaut"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertEqual(
+            sorted(item.choice[1] for item in view.children if (item.choice or ("",))[0] == "ability"),
+            ["vir_garbarean", "vir_garbarean_exchange"])
 
 
 class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
