@@ -26,9 +26,9 @@ swallowed.
 import re
 import socket
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import botstate
 from botlog import settings
@@ -47,6 +47,17 @@ STATE_FILE = botstate.STATE_FILE
 
 # The key in that file holding the sha of the build already announced.
 LAST_SHA_KEY = "deploy_notice_sha"
+
+# The file both bots share, beside their own state files in data/: the
+# newest build whose changes either of them has listed in #logs, and
+# which bot listed them. Each bot's own record says what *it* last
+# announced; this one says how far the channel has been told, so a bot
+# restarted after the other has listed a pull lists only what came
+# after (the author, 2026-10-11). A file of its own rather than a key in
+# either bot's, so neither writes the other's state.
+LISTED_FILE_NAME = "deploy_notice.json"
+LISTED_SHA_KEY = "listed_sha"
+LISTED_BY_KEY = "listed_by"
 
 # A local git log is milliseconds; this is only here so a hung git can
 # never hold up startup.
@@ -110,6 +121,29 @@ class Changes:
     commits: tuple[Commit, ...]
     pull_requests: tuple[int, ...] = ()
     previous_short: str = ""
+    # The bot whose notice the range starts from, when it is the other
+    # bot's list rather than this bot's last build; the heading says so.
+    since_by: str = ""
+
+
+@dataclass(frozen=True)
+class Listed:
+    """The newest build whose changes are in #logs, and who listed them."""
+
+    sha: str
+    by: str = ""
+
+
+class Notice(NamedTuple):
+    """
+    What to post, and the sha to record once it has landed. `listed` is
+    whether the message lists the changes up to that sha, so the shared
+    record moves with it.
+    """
+
+    sha: str
+    message: str
+    listed: bool = False
 
 
 def notices_enabled() -> bool:
@@ -409,7 +443,11 @@ def _heading(changes: Changes) -> str:
     """
     total = len(changes.commits)
     label = "commit" if total == 1 else "commits"
-    heading = f"Changes in this deploy ({total} {label}"
+    heading = (
+        f"Changes since {changes.since_by}'s notice ({total} {label}"
+        if changes.since_by
+        else f"Changes in this deploy ({total} {label}"
+    )
 
     if changes.pull_requests:
         numbers = ", ".join(f"#{number}" for number in changes.pull_requests)
@@ -442,6 +480,58 @@ def restart_message(host: str = "", bot_name: str = "") -> str:
     is only noise (the author, 2026-10-10).
     """
     return _restarted(host, bot_name)[:MAX_MESSAGE_LENGTH]
+
+
+def already_listed_message(
+    build: Build, by: str, host: str = "", bot_name: str = "",
+) -> str:
+    """
+    A new build for this bot whose changes the other bot has already
+    listed in #logs: which build it is, and no list.
+    """
+    return (
+        f"{_restarted(host, bot_name)} -- now running `{build.short}` "
+        f"{_clean(build.subject)}; {by or 'the other bot'}'s notice listed "
+        "its changes"
+    )[:MAX_MESSAGE_LENGTH]
+
+
+def _is_ancestor(ancestor: str, descendant: str, repo_dir: Path) -> bool:
+    """Whether `ancestor` is in `descendant`'s history (or is it)."""
+    return _git(
+        repo_dir, "merge-base", "--is-ancestor", ancestor, descendant,
+    ) is not None
+
+
+def list_start(
+    previous: Optional[str],
+    listed: Optional[Listed],
+    head_sha: str,
+    repo_dir: Path = REPO_DIR,
+) -> tuple[Optional[str], str]:
+    """
+    Where this bot's change list starts, and whose notice that is ("" for
+    its own): the shared record when it is further on than this bot's
+    own and still in HEAD's history, otherwise this bot's own.
+
+    The shared record is passed over when it is not in HEAD's history --
+    a rollback or a -Branch deploy left it behind -- and when this bot's
+    own build is not in its history -- this bot is further on, or on
+    another line -- so a list never skips a commit the channel has not
+    been told about.
+    """
+    if listed is None or listed.sha == previous:
+        return previous, ""
+
+    if not _is_ancestor(listed.sha, head_sha, repo_dir):
+        return previous, ""
+
+    if previous is not None and not _is_ancestor(
+        previous, listed.sha, repo_dir,
+    ):
+        return previous, ""
+
+    return listed.sha, listed.by
 
 
 def deploy_message(
@@ -510,9 +600,10 @@ def notice_for(
     repo_dir: Path = REPO_DIR,
     restarted: bool = False,
     list_changes: bool = True,
-) -> Optional[tuple[str, str]]:
+    listed: Optional[Listed] = None,
+) -> Optional[Notice]:
     """
-    (sha, message) when the running build is not `previous` -- the sha
+    A Notice when the running build is not `previous` -- the sha
     last announced, or None if none ever was -- and None otherwise.
 
     `restarted` is the process's first start, as against a gateway
@@ -529,6 +620,10 @@ def notice_for(
     recorded, so the Codex bot's next restart on its own lists only what
     landed after it. A reconnect stays silent: a line saying it
     restarted would be untrue.
+
+    `listed` is the shared record (last_listed): the list starts from it
+    rather than `previous` when the other bot has listed further
+    (list_start), and a build it has listed all of is named with no list.
 
     None covers every silent case: the feature switched off, an
     unreadable checkout, and a reconnect on the same commit. The caller
@@ -550,16 +645,26 @@ def notice_for(
         if not restarted:
             return None
 
-        return build.sha, restart_message(
+        return Notice(build.sha, restart_message(
             host=host_name(), bot_name=settings.bot_name(),
-        )
+        ))
 
-    changes = None if previous is None else commits_since(previous, repo_dir)
+    start, by = list_start(previous, listed, build.sha, repo_dir)
 
-    return build.sha, deploy_message(
-        build, changes, first_run=previous is None, host=host_name(),
+    if start == build.sha:
+        return Notice(build.sha, already_listed_message(
+            build, by, host=host_name(), bot_name=settings.bot_name(),
+        ))
+
+    changes = None if start is None else commits_since(start, repo_dir)
+
+    if changes is not None and by:
+        changes = replace(changes, since_by=by)
+
+    return Notice(build.sha, deploy_message(
+        build, changes, first_run=start is None, host=host_name(),
         bot_name=settings.bot_name(),
-    )
+    ), listed=True)
 
 
 def last_announced(state_file: Optional[Path] = None) -> Optional[str]:
@@ -576,3 +681,30 @@ def mark_announced(sha: str, state_file: Optional[Path] = None) -> None:
     Record `sha` as announced, so the next restart on it says nothing.
     """
     botstate.write_key(LAST_SHA_KEY, sha, state_file or settings.state_file())
+
+
+def listed_file(state_file: Optional[Path] = None) -> Path:
+    """The shared record, beside this bot's own state file."""
+    return (state_file or settings.state_file()).parent / LISTED_FILE_NAME
+
+
+def last_listed(state_file: Optional[Path] = None) -> Optional[Listed]:
+    """
+    The newest build either bot has listed the changes up to, or None
+    when neither has since the record began -- each bot's own record
+    then decides, as it did before there was one.
+    """
+    path = listed_file(state_file)
+    sha = botstate.read_key(LISTED_SHA_KEY, path)
+
+    if sha is None:
+        return None
+
+    return Listed(sha, botstate.read_key(LISTED_BY_KEY, path) or "")
+
+
+def mark_listed(sha: str, by: str, state_file: Optional[Path] = None) -> None:
+    """Record that `by`'s notice has listed the changes up to `sha`."""
+    path = listed_file(state_file)
+    botstate.write_key(LISTED_SHA_KEY, sha, path)
+    botstate.write_key(LISTED_BY_KEY, by, path)

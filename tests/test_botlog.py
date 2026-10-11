@@ -931,12 +931,9 @@ class DeployNoticeDedupTests(unittest.TestCase):
                 pending = deploy_notice.notice_for("a" * 40, restarted=True)
 
         commits_since.assert_not_called()
-        sha, message = pending
-        self.assertEqual(sha, "a" * 40)
-        self.assertEqual(
-            message,
-            "**Bot restarted** on `K`",
-        )
+        self.assertEqual(pending.sha, "a" * 40)
+        self.assertEqual(pending.message, "**Bot restarted** on `K`")
+        self.assertFalse(pending.listed)
 
     def test_a_new_build_announces_once(self) -> None:
         with environment():
@@ -951,9 +948,9 @@ class DeployNoticeDedupTests(unittest.TestCase):
                     pending = deploy_notice.notice_for("b" * 40)
 
         self.assertIsNotNone(pending)
-        sha, message = pending
-        self.assertEqual(sha, "a" * 40)
-        self.assertIn("aaaaaaa", message)
+        self.assertEqual(pending.sha, "a" * 40)
+        self.assertIn("aaaaaaa", pending.message)
+        self.assertTrue(pending.listed)
 
     def test_a_new_build_beside_fool_bot_is_one_line(self) -> None:
         # The Codex bot started by deploy.ps1: fool-bot lists the
@@ -974,8 +971,75 @@ class DeployNoticeDedupTests(unittest.TestCase):
                 )
 
         commits_since.assert_not_called()
-        self.assertEqual(pending, ("a" * 40, "**Bot restarted** on `K`"))
+        self.assertEqual(
+            pending, ("a" * 40, "**Bot restarted** on `K`", False),
+        )
         self.assertIsNone(reconnect)
+
+    def test_a_list_starts_where_the_other_bot_left_off(self) -> None:
+        # The Codex bot restarted alone and listed up to c; fool-bot,
+        # last on b, lists from c and says whose list it follows.
+        listed = deploy_notice.Listed("c" * 40, "Codex bot")
+
+        with environment(), mock.patch.object(
+            deploy_notice, "head_build", return_value=self.build(),
+        ), mock.patch.object(
+            deploy_notice, "_is_ancestor", return_value=True,
+        ), mock.patch.object(
+            deploy_notice, "commits_since",
+            return_value=deploy_notice.Changes(
+                (deploy_notice.Commit("ddddddd", "Later work"),),
+            ),
+        ) as commits_since:
+            pending = deploy_notice.notice_for(
+                "b" * 40, restarted=True, listed=listed,
+            )
+
+        commits_since.assert_called_once_with("c" * 40, deploy_notice.REPO_DIR)
+        self.assertIn("Changes since Codex bot's notice (1 commit)", pending.message)
+        self.assertTrue(pending.listed)
+
+    def test_a_build_the_other_bot_listed_is_named_without_a_list(self) -> None:
+        listed = deploy_notice.Listed("a" * 40, "Codex bot")
+
+        with environment(FOOLBOT_HOST_NAME="K"), mock.patch.object(
+            deploy_notice, "head_build", return_value=self.build(),
+        ), mock.patch.object(
+            deploy_notice, "_is_ancestor", return_value=True,
+        ), mock.patch.object(
+            deploy_notice, "commits_since",
+        ) as commits_since:
+            pending = deploy_notice.notice_for(
+                "b" * 40, restarted=True, listed=listed,
+            )
+
+        commits_since.assert_not_called()
+        self.assertEqual(
+            pending.message,
+            "**Bot restarted** on `K` -- now running `aaaaaaa` Latest work; "
+            "Codex bot's notice listed its changes",
+        )
+        self.assertFalse(pending.listed)
+
+    def test_a_shared_record_off_this_history_is_passed_over(self) -> None:
+        # A rollback or a -Branch deploy: the other bot's list is not
+        # in HEAD's history, so this bot lists from its own build.
+        listed = deploy_notice.Listed("c" * 40, "Codex bot")
+
+        with environment(), mock.patch.object(
+            deploy_notice, "head_build", return_value=self.build(),
+        ), mock.patch.object(
+            deploy_notice, "_is_ancestor", return_value=False,
+        ), mock.patch.object(
+            deploy_notice, "commits_since",
+            return_value=deploy_notice.Changes(()),
+        ) as commits_since:
+            pending = deploy_notice.notice_for(
+                "b" * 40, restarted=True, listed=listed,
+            )
+
+        commits_since.assert_called_once_with("b" * 40, deploy_notice.REPO_DIR)
+        self.assertNotIn("Codex bot", pending.message)
 
     def test_a_checkout_without_git_announces_nothing(self) -> None:
         with environment():
@@ -1002,6 +1066,20 @@ class DeployNoticeStateTests(unittest.TestCase):
         self.state_file = Path(self.directory.name) / "state" / "bot.json"
 
     def test_a_machine_that_has_never_posted_reads_as_none(self) -> None:
+        self.assertIsNone(deploy_notice.last_announced(self.state_file))
+        self.assertIsNone(deploy_notice.last_listed(self.state_file))
+
+    def test_the_shared_record_sits_beside_the_state_file(self) -> None:
+        deploy_notice.mark_listed("c" * 40, "Codex bot", self.state_file)
+
+        self.assertEqual(
+            deploy_notice.last_listed(self.state_file),
+            deploy_notice.Listed("c" * 40, "Codex bot"),
+        )
+        self.assertTrue(
+            (self.state_file.parent / "deploy_notice.json").exists(),
+        )
+        # Neither bot's own record is touched.
         self.assertIsNone(deploy_notice.last_announced(self.state_file))
 
     def test_a_recorded_sha_survives_a_restart(self) -> None:
@@ -1213,6 +1291,10 @@ class StartupWiringTests(unittest.TestCase):
         ), mock.patch.object(
             deploy_notice, "last_announced", return_value="a" * 40,
         ), mock.patch.object(
+            deploy_notice, "last_listed", return_value=None,
+        ), mock.patch.object(
+            deploy_notice, "mark_listed",
+        ), mock.patch.object(
             deploy_notice, "head_build",
             return_value=deploy_notice.Build("a" * 40, "aaaaaaa", "Work"),
         ), mock.patch.object(
@@ -1238,6 +1320,10 @@ class StartupWiringTests(unittest.TestCase):
         ), mock.patch.object(
             deploy_notice, "last_announced", return_value="b" * 40,
         ), mock.patch.object(
+            deploy_notice, "last_listed", return_value=None,
+        ), mock.patch.object(
+            deploy_notice, "mark_listed",
+        ) as mark_listed, mock.patch.object(
             deploy_notice, "head_build",
             return_value=deploy_notice.Build("a" * 40, "aaaaaaa", "Work"),
         ), mock.patch.object(
@@ -1255,6 +1341,34 @@ class StartupWiringTests(unittest.TestCase):
         self.assertTrue(channel.sent[0].startswith("**Bot restarted**"))
         self.assertNotIn("aaaaaaa", channel.sent[0])
         mark_announced.assert_called_once_with("a" * 40, None)
+        mark_listed.assert_not_called()
+
+    def test_a_posted_list_moves_the_shared_record(self) -> None:
+        channel = FakeTextChannel(name="logs", channel_id=7)
+
+        with environment(FOOLBOT_LOG_MIRROR="on"), mock.patch.object(
+            botlog, "_startup_announced", False,
+        ), mock.patch.object(
+            deploy_notice, "last_announced", return_value="b" * 40,
+        ), mock.patch.object(
+            deploy_notice, "last_listed", return_value=None,
+        ), mock.patch.object(
+            deploy_notice, "notice_for",
+            return_value=deploy_notice.Notice("a" * 40, "list", listed=True),
+        ), mock.patch.object(
+            deploy_notice, "mark_announced",
+        ), mock.patch.object(
+            deploy_notice, "mark_listed",
+        ) as mark_listed, mock.patch.object(
+            botlog.settings, "bot_name", return_value="Codex bot",
+        ), mock.patch.object(
+            botlog, "ensure_log_channel",
+            mock.AsyncMock(return_value=channel),
+        ):
+            asyncio.run(botlog.announce_startup(FakeClient()))
+
+        self.assertEqual(channel.sent, ["list"])
+        mark_listed.assert_called_once_with("a" * 40, "Codex bot", None)
 
     def test_binding_is_skipped_when_there_is_no_mirror(self) -> None:
         asyncio.run(botlog.start_mirror(FakeClient(), None))
