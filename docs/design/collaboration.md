@@ -257,7 +257,9 @@ no logic of their own -- no new process matching, no new pid file. It
 takes `update_main_bot`'s options (`-Branch`, `-SkipPull`) and passes
 them through, and passes `-SkipPull` to the Codex bot's and the web
 app's scripts whatever it was given: the updater has just pulled, and
-their own pull, of `main` by default, would undo a `-Branch` deploy. `$ErrorActionPreference = 'Stop'` means a failed
+their own pull, of `main` by default, would undo a `-Branch` deploy.
+It passes the Codex bot `-WithFoolBot` as well, so the change list in
+#logs is fool-bot's alone ([logging.md](logging.md)). `$ErrorActionPreference = 'Stop'` means a failed
 pull, install or bot start stops it before the web app is touched, so
 the web app is never restarted onto a tree the first half failed to
 update. The tunnel goes last: it serves nothing until the web app is

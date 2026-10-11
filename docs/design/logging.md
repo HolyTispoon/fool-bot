@@ -102,6 +102,21 @@ Things to know before changing any of it:
   The line is spent on the first try, posted or not, so a failed one is
   not repeated on a reconnect hours later; a new build's change list is
   still retried until it lands.
+- **When both bots restart together, only fool-bot lists the changes.**
+  Each bot keeps its own record of the build it announced, so a deploy
+  that pulled used to post the same change list twice, once per bot.
+  `deploy.ps1` restarts fool-bot first and then tells the Codex bot so
+  (`run_codex_bot.ps1 -WithFoolBot`, which starts `codexbot.py
+  --with-fool-bot`), and the Codex bot posts only its restart line even
+  on a new build (`announce_startup(list_changes=False)`, the author,
+  2026-10-10). It still records the build, so restarted on its own
+  later it lists only what landed after. A flag from the deploy rather
+  than a look at fool-bot's state file, because the two start seconds
+  apart and fool-bot records its build only once its post has landed:
+  reading the file would race it. Restarted alone --
+  `run_codex_bot.cmd`, which pulls -- the Codex bot lists its changes as
+  before. If fool-bot cannot post (its mirror off, the channel closed to
+  it), a deploy's changes go unlisted; the Codex bot does not stand in.
 - **The notices are one stream per machine, not one per repository.** That
   state file is local, so when two opted-in hosts deploy into the same
   `#logs` the posts interleave: the same commit gets announced once by each,

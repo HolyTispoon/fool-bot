@@ -332,6 +332,7 @@ async def announce_gateway_recovery(client: discord.Client) -> None:
 async def announce_startup(
     client: discord.Client,
     state_file: Optional[Path] = None,
+    list_changes: bool = True,
 ) -> None:
     """
     Post the "now running this build" notice, if this build has not been
@@ -353,6 +354,9 @@ async def announce_startup(
 
     state_file is where the announced sha is kept; by default the one
     configure_logging named, which is fool-bot's unless it named another.
+    list_changes False posts the one line for a new build too: the
+    Codex bot restarted beside fool-bot, whose notice lists the same
+    changes (deploy_notice.notice_for).
     """
     global _startup_announced
 
@@ -370,6 +374,7 @@ async def announce_startup(
         # git is a subprocess; keep it off the event loop.
         pending = await asyncio.to_thread(
             deploy_notice.notice_for, previous, restarted=restarted,
+            list_changes=list_changes,
         )
 
         if pending is None:

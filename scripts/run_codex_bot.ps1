@@ -10,6 +10,12 @@ param(
     # second pull of main here would undo).
     [switch]$SkipPull,
 
+    # fool-bot was restarted in the same run, so its notice in #logs
+    # lists the changes and this bot's says only that it restarted
+    # (codexbot.py --with-fool-bot). deploy.ps1 passes it; alone, the
+    # Codex bot lists what it pulled.
+    [switch]$WithFoolBot,
+
     # Stop it and start nothing -- the way to take the Codex bot down on
     # purpose, since it has no Ctrl+C once it is running hidden. No pull
     # and no install either: there is nothing to start them for.
@@ -169,10 +175,15 @@ if (-not $hasToken) {
 Remove-Item -LiteralPath $stdoutLog -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $stderrLog -Force -ErrorAction SilentlyContinue
 
+$codexArguments = @('-u', ('"{0}"' -f $codexBotScript))
+if ($WithFoolBot) {
+    $codexArguments += '--with-fool-bot'
+}
+
 Write-Host 'Starting the Codex bot...'
 $codexProcess = Start-Process `
     -FilePath $venvPython `
-    -ArgumentList @('-u', ('"{0}"' -f $codexBotScript)) `
+    -ArgumentList $codexArguments `
     -WorkingDirectory $resolvedRepoPath `
     -WindowStyle Hidden `
     -RedirectStandardOutput $stdoutLog `
