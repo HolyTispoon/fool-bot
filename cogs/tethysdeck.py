@@ -1,9 +1,13 @@
+import asyncio
+import io
 import random
 from typing import Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+from tethysdeck.strips import Faces
 
 from gamesaves.tethysdeck.storage import (
     ChannelDeck,
@@ -18,6 +22,7 @@ from cogs.tethysdeck_helpers import (
     format_cards,
     format_discard_text,
     format_hand_text,
+    parse_card,
     send_error_fallback,
 )
 from cogs.tethysdeck_views import (
@@ -33,11 +38,21 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         self.bot = bot
         self.decks: dict[str, ChannelDeck] = load_decks()
         self.deck_status_view = DeckStatusView(self)
+        # The deck's faces, drawn once as the cog loads; None until then,
+        # or if they could not be drawn, and the commands answer in words.
+        self.faces: Optional[Faces] = None
 
     async def cog_load(self) -> None:
         # Stateless, so one instance covers every channel's status
         # message and survives a restart.
         self.bot.add_view(self.deck_status_view)
+        try:
+            self.faces = await asyncio.to_thread(Faces)
+        except Exception:
+            LOGGER.exception(
+                "Could not draw the Tethys deck's faces; the cards are "
+                "shown as text until the bot restarts."
+            )
 
     async def cog_app_command_error(
         self,
@@ -110,13 +125,28 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         content: str,
         *,
         view: Optional[discord.ui.View] = None,
+        cards: Optional[list[str]] = None,
     ) -> None:
+        kwargs = {"ephemeral": True}
+        if view is not None:
+            kwargs["view"] = view
+        picture = await self.cards_picture(cards or [])
+        if picture is not None:
+            kwargs["file"] = picture
         if interaction.response.is_done():
-            await interaction.followup.send(content, view=view, ephemeral=True)
+            await interaction.followup.send(content, **kwargs)
         else:
-            await interaction.response.send_message(
-                content, view=view, ephemeral=True,
-            )
+            await interaction.response.send_message(content, **kwargs)
+
+    async def cards_picture(self, cards: list[str]) -> Optional[discord.File]:
+        """The cards as a row of the deck's own faces, or None for no cards
+        or no faces."""
+        if not cards or self.faces is None:
+            return None
+        png = await asyncio.to_thread(
+            self.faces.row_png, [parse_card(card) for card in cards],
+        )
+        return discord.File(io.BytesIO(png), filename="tethys_cards.png")
 
     async def update_status_message(
         self,
@@ -199,7 +229,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         if target_user.id == interaction.user.id and hand:
             view = HandView(self, channel_id, str(target_user.id))
 
-        await self.reply(interaction, text, view=view)
+        await self.reply(interaction, text, view=view, cards=hand)
 
     async def show_hand(
         self,
@@ -256,8 +286,10 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
                 "There is no deck in this channel yet.", ephemeral=True,
             )
             return
-        await interaction.response.send_message(
-            format_discard_text(state.discard), ephemeral=True,
+        await self.reply(
+            interaction,
+            format_discard_text(state.discard),
+            cards=state.discard,
         )
 
     async def prompt_reset(self, interaction: discord.Interaction) -> None:

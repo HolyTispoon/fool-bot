@@ -274,6 +274,33 @@ is (the author, 2026-10-09). `sets.py` is the rule and the count;
   on a log scale, because they run from half of all hands to a few in a
   hundred million.
 
+## On Discord
+
+The `/tethyscards` commands deal the deck by name -- `"7 of ⚔ Might"`,
+`cogs/tethysdeck_helpers.build_deck` -- and since 2026-10-11 show the
+cards as the deck's own faces (the author: "add the card pictures to
+existing tethys deck commands"). A draw, a hand (yours, or another's
+by `/tethyscards hand`) and the discard each answer with their text as
+before and a picture of the cards under it, left to right in the
+order the text lists them; an empty hand or discard is text alone.
+
+- **The faces are drawn once.** `tethysdeck/strips.Faces` draws all 72
+  through `cards.deck_cards` and keeps them at 180 x 252 -- the printed
+  card at 0.24, where the rank and the pieces still read -- and the cog
+  builds it in `cog_load` through `asyncio.to_thread` (about two
+  seconds on the Mac). A picture after that is only pasting: a hand of
+  seven in about 20 ms, the whole deck in about a quarter of a second
+  and a megabyte. A row is nine cards, so a usual hand is one row and
+  the whole deck eight; the cards sit on transparency, their white
+  paper reading on either Discord theme.
+- **The saved names are not changed.** A channel's deck in progress is
+  saved as those strings in `data/tethysdeck_decks.json`, and
+  `tethysdeck_helpers.parse_card` is the one way from a name to the
+  deck's `(suit, rank)`; a test reads every name `build_deck` makes.
+- **If the faces cannot be drawn**, the cog logs it at ERROR (it
+  reaches #logs: somebody must look) and every command answers in
+  words, as it did before, until the bot restarts.
+
 ## Print sheets
 
 Two PDFs, both at 300 dpi with a page of backs after every page of

@@ -40,6 +40,14 @@ def build_deck() -> list[str]:
     ]
 
 
+def parse_card(card: str) -> tuple[str, str]:
+    """A saved card's name -- "7 of ⚔ Might" -- as the deck's (suit, rank),
+    which `tethysdeck` draws. The names are what a channel's deck saves,
+    so they stay as `build_deck` writes them and are read here."""
+    rank, suit = card.split(" of ", 1)
+    return suit.split()[-1].lower(), rank
+
+
 def format_cards(cards: list[str]) -> str:
     return ", ".join(cards) if cards else "none"
 
