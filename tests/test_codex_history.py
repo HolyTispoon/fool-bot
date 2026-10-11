@@ -49,11 +49,11 @@ class HistoryTests(unittest.TestCase):
         player.deck = player.deck[:1]
         end_turn(engine, game, match)
         # Seat 1 now opens turn 3 on its tech choice: the hand-over is the
-        # turn's start, and the choice and its confirmation -- which runs
-        # the ready phase -- are the journal's first two entries.
+        # turn's start, and the choice -- made in the ready phase, so
+        # confirmed as it is made, which runs the ready phase -- is the
+        # journal's first entry.
         apply(engine, game, match, PromptKind.TECH_CHOICE,
               arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
-        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
         self.turn_3 = match.to_dict()
 
     def play_turn_3(self) -> None:
@@ -81,20 +81,20 @@ class HistoryTests(unittest.TestCase):
         """Turns 1 and 2 owed no tech: each snapshot is the main phase's
         opening, after the ready phase, and the journal is empty there.
         Turn 3 opened on seat 1's tech: its snapshot is the hand-over,
-        before it, and the choice and its confirmation -- which ran the
-        ready phase -- are the journal's first entries (the author,
-        2026-10-10: an undo to the turn's start offers the confirmation
-        and redoes the ready phase)."""
+        before it, and the choice -- made in the ready phase, so
+        confirmed as made, which ran the ready phase -- is the journal's
+        first entry (the author, 2026-10-10: an undo to the turn's start
+        asks the tech again and redoes the ready phase)."""
         self.assertEqual([s["turn"] for s in self.match.turn_snapshots], [1, 2, 3])
         self.assertEqual([s["phase"] for s in self.match.turn_snapshots], ["main", "main", "ready"])
         self.assertEqual(self.turn_2["journal"], [])
         self.assertEqual([entry["action"]["kind"] for entry in self.turn_3["journal"]],
-                         ["tech_choice", "tech_confirm"])
+                         ["tech_choice"])
         self.assertEqual(self.turn_3["phase"], "main")
 
     def test_replaying_the_journal_reproduces_the_position(self) -> None:
-        """The turn's opening -- the tech choice and its confirmation,
-        which ran the ready phase -- then its actions -- a hire, a card,
+        """The turn's opening -- the tech choice, which ran the ready
+        phase -- then its actions -- a hire, a card,
         the other player's tech answered twice, the main phase ended --
         replayed from the turn-start snapshot by an engine with another
         seed give the same position, byte for byte. The turn's end is
@@ -103,7 +103,7 @@ class HistoryTests(unittest.TestCase):
         self.play_turn_3()
         apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "end_main")
         journal = self.match.journal
-        self.assertEqual(len(journal), 7 + self.targets)
+        self.assertEqual(len(journal), 6 + self.targets)
         original = json.dumps(self.match.to_dict(), sort_keys=True)
         replayed = history.replay(
             RulesEngine(seed=999), self.game, self.match.turn_snapshots[-1],
@@ -114,10 +114,10 @@ class HistoryTests(unittest.TestCase):
     def test_a_prefix_of_the_journal_is_a_point_in_the_turn(self) -> None:
         self.play_turn_3()
         replayed = history.replay(RulesEngine(seed=5), self.game,
-                                  self.match.turn_snapshots[-1], self.match.journal[:4])
-        after_four = history.position(replayed)
-        self.assertEqual(after_four["players"][0]["workers"], 5)
-        self.assertEqual(after_four["players"][1]["tech_choice"], ["leaping_lizard", "cloud_sprite"])
+                                  self.match.turn_snapshots[-1], self.match.journal[:3])
+        after_three = history.position(replayed)
+        self.assertEqual(after_three["players"][0]["workers"], 5)
+        self.assertEqual(after_three["players"][1]["tech_choice"], ["leaping_lizard", "cloud_sprite"])
 
     def test_undo_to_the_start_of_this_turn(self) -> None:
         self.play_turn_3()
@@ -135,11 +135,10 @@ class HistoryTests(unittest.TestCase):
         # ... and the other player's tech answer went with the turn.
         self.assertIsNone(self.match.player(2).tech_choice)
         self.assertEqual(self.match.turn_snapshots[-1], history.position(self.match))
-        # The same picks confirmed again run the ready phase again: the
-        # main phase opens on the turn's start as it was, byte for byte.
+        # The same picks made again run the ready phase again: the main
+        # phase opens on the turn's start as it was, byte for byte.
         apply(self.engine, self.game, self.match, PromptKind.TECH_CHOICE,
               arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
-        apply(self.engine, self.game, self.match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
         start = {key: value for key, value in self.turn_3.items()
                  if key not in ("turn_snapshots", "journal")}
         self.assertEqual(history.position(self.match), start)
@@ -205,7 +204,6 @@ class HistoryTests(unittest.TestCase):
               arguments={"player": 2, "picks": ["leaping_lizard", "cloud_sprite"]})
         apply(engine, game, match, PromptKind.TECH_CHOICE,
               arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
-        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
         self.assertEqual(history.latest_snapshot(match)["phase"], "ready")
         self.assertIsNone(history.latest_snapshot(match)["players"][1]["tech_choice"])
         self.assertEqual(match.journal[0]["action"]["arguments"]["player"], 2)
@@ -243,8 +241,8 @@ class HistoryTests(unittest.TestCase):
     # -- The fine undo -------------------------------------------------------
 
     def test_the_points_are_between_the_active_players_actions(self) -> None:
-        """Turn 3's journal: its opening (the tech choice and its
-        confirmation, no action of the turn), the hire, the other
+        """Turn 3's journal: its opening (the tech choice, no action of
+        the turn), the hire, the other
         player's tech answer, the play with its targets, their tech
         answer again. Two points are open: before the hire -- the main
         phase with the tech settled, which the turn's start is not --
@@ -254,7 +252,7 @@ class HistoryTests(unittest.TestCase):
         engine, game, match = self.engine, self.game, self.match
         points = history.undo_points(engine, game, match)
         self.assertEqual([(p.index, p.number, p.choice, p.of) for p in points],
-                         [(2, 1, "hire", len(match.journal)), (4, 2, "play", len(match.journal))])
+                         [(1, 1, "hire", len(match.journal)), (3, 2, "play", len(match.journal))])
         self.assertIn("hires", points[0].said[0])
         self.assertIn("plays", points[1].said[0])
         self.assertIn("{card:", points[1].said[0])
@@ -263,16 +261,16 @@ class HistoryTests(unittest.TestCase):
         self.play_turn_3()
         engine, game, match = self.engine, self.game, self.match
         journal = list(match.journal)
-        said = history.undo_to(engine, game, match, 4, of=len(journal))
+        said = history.undo_to(engine, game, match, 3, of=len(journal))
         # The opening and the hire kept, the play gone, the tech answer
         # saved after the cut kept too (`cut`), and the position the
         # replay of exactly that reaches.
         self.assertEqual(match.player(1).workers, 5)
         self.assertEqual(match.player(2).tech_choice, ["maestro", "cloud_sprite"])
         self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
-        kept = history.cut(journal, 4)
+        kept = history.cut(journal, 3)
         self.assertEqual([entry["action"]["kind"] for entry in kept],
-                         ["tech_choice", "tech_confirm", "main_action", "tech_choice", "tech_choice"])
+                         ["tech_choice", "main_action", "tech_choice", "tech_choice"])
         again = history.replay(RulesEngine(seed=5), game, match.turn_snapshots[-1], kept,
                                history=match.turn_snapshots)
         self.assertEqual(history.position(match), history.position(again))
@@ -288,21 +286,19 @@ class HistoryTests(unittest.TestCase):
         self.play_turn_3()
         engine, game, match = self.engine, self.game, self.match
         before = match.to_dict()
-        # The start, before the confirmation, before the other player's
-        # tech answer, and now.
-        for index in (0, 1, 3, len(match.journal)):
+        # The start, before the other player's tech answer, and now.
+        for index in (0, 2, len(match.journal)):
             with self.assertRaises(RuleRefusal):
                 history.undo_to(engine, game, match, index)
         # The turn has moved on since the menu was built.
         with self.assertRaises(RuleRefusal):
-            history.undo_to(engine, game, match, 4, of=len(match.journal) + 1)
+            history.undo_to(engine, game, match, 3, of=len(match.journal) + 1)
         self.assertEqual(match.to_dict(), before)
 
     def test_the_tech_asked_again_after_a_turn_start_undo_is_no_action(self) -> None:
         """After an undo to the turn's start the active player's tech is
-        asked again at the hand-over, and its choice and confirmation --
-        which runs the ready phase again -- open the journal: no action
-        of the turn, so the hire after them is action 1 and the play
+        asked again at the hand-over, and its choice -- which runs the
+        ready phase again -- opens the journal: no action of the turn, so the hire after them is action 1 and the play
         action 2 -- and the point before the hire is a point of its own,
         the main phase with the tech settled, which the turn's start is
         not."""
@@ -312,7 +308,6 @@ class HistoryTests(unittest.TestCase):
         self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.TECH_CHOICE)
         apply(engine, game, match, PromptKind.TECH_CHOICE,
               arguments={"player": 1, "picks": ["iron_man", "iron_man"]})
-        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 1})
         self.assertEqual(history.undo_points(engine, game, match), ())
         player = match.player(1)
         apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": player.hand[0]})
@@ -325,7 +320,7 @@ class HistoryTests(unittest.TestCase):
             apply(engine, game, match, PromptKind.TARGET,
                   arguments={"target": asked.options.targets[0].key})
         points = history.undo_points(engine, game, match)
-        self.assertEqual([(p.index, p.number, p.choice) for p in points], [(2, 1, "hire"), (3, 2, "play")])
+        self.assertEqual([(p.index, p.number, p.choice) for p in points], [(1, 1, "hire"), (2, 2, "play")])
 
     def test_a_turn_that_no_longer_replays_offers_no_points(self) -> None:
         """A journal entry the rules now refuse -- a game saved before a

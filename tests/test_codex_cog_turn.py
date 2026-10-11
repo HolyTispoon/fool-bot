@@ -554,6 +554,23 @@ class TurnEndTests(TurnTestCase):
         self.assertIsInstance(panel["view"], TurnPanelView)
         self.assertEqual(self.table.match.phase, "main")
 
+    async def test_tech_picked_in_the_ready_phase_begins_the_turn(self) -> None:
+        """Change, then Save tech: the pick was made just now, so it is
+        not confirmed again -- the turn's actions come up on the save
+        (the author, 2026-10-10)."""
+        first, _ = await self.reach_turn_three()
+        view = (await self.table.turn_button("tech", first)).view()
+        changed = await self.table.press(view, "Change")
+        self.assertNothingWentWrong(changed)
+        self.assertIsInstance(changed.view(), TechChoiceView)
+        picked = await pick_tech(self.table, changed.view())
+        saved = await self.table.press(picked.view(), "Save tech")
+        self.assertNothingWentWrong(saved)
+        self.assertEqual([answer[0] for answer in saved.answers], PANEL_REPLACED)
+        self.assertIsInstance(saved.last("followup.send")[2]["view"], TurnPanelView)
+        self.assertEqual(self.table.match.phase, "main")
+        self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
+
     async def test_the_tech_choice_is_answerable_while_the_other_panel_is_open(self) -> None:
         await self.end_turn()
         _, active_panel = await self.table.panel()

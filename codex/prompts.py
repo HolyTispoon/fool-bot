@@ -18,7 +18,8 @@ lists what the other player may answer meanwhile -- in this set only
 `TECH_CHOICE`, answerable again and again until their turn begins, each
 answer replacing the picks. Their turn then opens on `TECH_CONFIRM` (or
 on `TECH_CHOICE` itself, if they never picked), and `begin_turn` runs
-only once the picks are confirmed. **In a test game nothing stands**
+only once the picks are confirmed -- which a pick made there, in their
+own ready phase, is at once: they just picked it. **In a test game nothing stands**
 (`tech_stands`): one person plays both sides, and their tech is chosen
 in each side's own ready phase instead.
 
@@ -806,7 +807,9 @@ def with_options(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
 def tech_prompt(engine: "RulesEngine", seat: int, match: MatchState) -> PendingPrompt:
     """The tech prompt `seat` is owed: the confirmation once they have
-    picked, the picker until then."""
+    picked during the other's turn, the picker until then -- whose
+    answer in their own ready phase is confirmed as it is made
+    (`codex.flow.driver._answer_tech_choice`)."""
     player = match.player(seat)
     if player.tech_choice is None:
         return PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, seat), seat)

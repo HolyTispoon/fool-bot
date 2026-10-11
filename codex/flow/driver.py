@@ -288,10 +288,13 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
         left[slug] -= 1
     owner = match.player(prompt.asked_player)
     owner.tech_choice = picks
-    if not tech_stands(game):
-        # A test game's choice is made in its owner's ready phase, just
-        # now, so there is nothing earlier to review: no confirmation is
-        # asked, and the turn begins on the pick (`codex.prompts.tech_stands`).
+    if owner.seat == match.active or not tech_stands(game):
+        # A choice made in its owner's own ready phase -- they never
+        # picked during the other's turn, or pressed Change, or it is a
+        # test game's (`codex.prompts.tech_stands`) -- was made just now,
+        # so there is nothing earlier to review: no confirmation is
+        # asked, even for none, and the turn begins on the pick (the
+        # author, 2026-10-10).
         owner.tech_confirmed = True
         return _settled_in_main(engine, game, match, owner.seat)
     # Said nothing: a tech choice is announced only in its owner's ready
