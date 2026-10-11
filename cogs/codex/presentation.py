@@ -4,7 +4,8 @@ The board and the game's place: the board rendered off the event loop
 forwarder, where the game is played -- its own channel, else a Discord
 thread, else the channel the lobby was asked for in -- the turn message
 posted -- for a new turn, or again at the foot of the channel after an
-action -- and a player's hand and their whole deck sent to them alone.
+action -- and a player's hand, their whole deck and their codex sent
+to them alone.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from cogs.codex_helpers import (
     pictures_size,
 )
 from cogs.codex_views import (
+    CodexBrowser,
     HandView,
     LobbyView,
     TurnMessageView,
@@ -345,4 +347,21 @@ class PresentationMixin:
             ephemeral=True,
         )
         LOGGER.info("Codex game #%s: the deck drawn in %d ms (%d KB), sent in %d ms",
+                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
+
+    async def send_codex(self, interaction: discord.Interaction, game: CodexGame, match,
+                         seat: int) -> None:
+        """`seat`'s codex under its menu of views (`CodexBrowser`),
+        **ephemeral to them alone** -- from **Codex** on the turn message,
+        under the hand and on the panel. A message of its own, as
+        `send_deck`'s is, so whatever it was pressed under stays up."""
+        view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat))
+        started = time.perf_counter()
+        file = await view.picture(match, "everything")
+        drawn = elapsed_ms(started)
+        started = time.perf_counter()
+        await interaction.response.send_message(
+            view.caption("everything"), file=file, view=view, ephemeral=True,
+        )
+        LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
                     game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))

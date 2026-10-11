@@ -2053,10 +2053,14 @@ too, asked with `gate` for the two kinds a turn may open on
   **Detect...** where there is a tower, and each ability, in the
   card's own words ("Sacrifice Harmony: stop the music"), disabled with
   its reason where it may not be used now, unless its card is exhausted
-  or arrived this turn -- and always last, in this order, **My deck**, **Undo...**
-  and **End main phase** (the author, 2026-10-09), which `place`'s
-  `last` never crowds out: a board's button gives up its place to them
-  first. **Hire worker** and every **Build** are green and **Attack...**
+  or arrived this turn -- and always last, in this order, **My deck**,
+  **Codex**, **Undo...** and **End main phase** (the author, 2026-10-09;
+  **Codex** 2026-10-10: "need to have the codex button in my hand's
+  menu"), which `place`'s `last` never crowds out: a board's button
+  gives up its place to them first. **Codex** answers as the turn
+  message's does, in a message of its own beside the panel
+  (`Codex.send_codex`), and so do the **Codex** under the other
+  player's hand (`HandView`) and under the tech gate's. **Hire worker** and every **Build** are green and **Attack...**
   red, beside **End main phase**'s red (the author, 2026-10-09), so the
   panel's three kinds of spending read apart at a glance; the rest
   stay blurple or grey. **Level up** buys one
@@ -2068,7 +2072,7 @@ too, asked with `gate` for the two kinds a turn may open on
   Undo's. What does not fit the five rows is left out, the groups
   placed first having the earlier claim -- in practice rarely: the hand
   is cut at ten distinct cards, and the board's row loses what passes
-  two -- the last three take the rest of it -- where the hand needs a
+  two -- the last four take the rest of it -- where the hand needs a
   second row
   (`test_the_main_phase_is_rows_of_buttons`,
   `test_a_big_hand_leaves_the_boards_row`). Every button that answers

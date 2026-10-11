@@ -35,6 +35,7 @@ from cogs.codex_helpers import card_name
 from cogs.codex_views.turn import UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
+    CodexBrowser,
     PatrolView,
     RematchView,
     TechChoiceView,
@@ -147,10 +148,10 @@ class PanelTests(TurnTestCase):
         self.assertTrue(kwargs["ephemeral"])
         self.assertIsInstance(view, TurnPanelView)
         self.assertTrue(kwargs["files"][0].filename.startswith("codex-hand-"))
-        # The other player's My hand is their hand, with My deck alone
-        # to press.
+        # The other player's My hand is their hand, with My deck and
+        # Codex to press.
         theirs = await self.table.turn_button("hand", self.table.waiting)
-        self.assertEqual([item.label for item in theirs.view().children], ["My deck"])
+        self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
@@ -191,6 +192,29 @@ class PanelTests(TurnTestCase):
         call = await self.table.press(picker, "My deck")
         self.assertNothingWentWrong(call)
         self.assertTrue(call.last()[2]["file"].filename.startswith("codex-deck-"))
+
+    async def test_codex_answers_beside_the_hand_and_the_panel(self) -> None:
+        """**Codex** -- on the panel and under the other player's hand --
+        answers as the turn message's does: the clicker's codex in a
+        message of its own, ephemeral, under its menu, and spends nothing
+        public; the panel it was pressed on is left as it is."""
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        call = await self.table.press(view, "Codex")
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
+        kwargs = call.last()[2]
+        self.assertTrue(kwargs["ephemeral"])
+        self.assertIsInstance(kwargs["view"], CodexBrowser)
+        self.assertTrue(kwargs["file"].filename.startswith("codex-everything-"))
+        self.assertEqual(channel_requests(self.table, mark), [])
+
+        theirs = (await self.table.turn_button("hand", self.table.waiting)).view()
+        call = await self.table.press(theirs, "Codex")
+        self.assertNothingWentWrong(call)
+        self.assertIsInstance(call.last()[2]["view"], CodexBrowser)
+        self.assertNotEqual(call.last()[2]["view"].seat, self.table.match.active)
+        self.assertEqual(channel_requests(self.table, mark), [])
 
     async def test_an_action_reposts_the_turn_message_and_the_panel_under_it(self) -> None:
         """**The count per click**: the turn message posted again at the
@@ -287,10 +311,11 @@ class PanelTests(TurnTestCase):
             self.assertTrue(item.label.startswith(f"{numbers[item.choice[1]]}. "), item.label)
         builds = [item.choice[1] for item in view.children if (item.choice or ("",))[0] == "build"]
         self.assertEqual(builds, [row.building for row in options.buildings if row.allowed])
-        # My deck, Undo... and End main phase are the panel's last three
-        # buttons, in that order (the author, 2026-10-09).
-        self.assertEqual([item.label for item in view.children[-3:]],
-                         ["My deck", "Undo...", "End main phase"])
+        # My deck, Codex, Undo... and End main phase are the panel's last
+        # four buttons, in that order (the author, 2026-10-09; Codex
+        # 2026-10-10).
+        self.assertEqual([item.label for item in view.children[-4:]],
+                         ["My deck", "Codex", "Undo...", "End main phase"])
         self.assertEqual(view.children[-1].row, max(item.row for item in view.children))
         mark = len(self.table.game_channel.requests)
         opened = await self.table.press(view, "Attack...")
@@ -397,20 +422,21 @@ class PanelTests(TurnTestCase):
         self.assertEqual([item.row for item in view.children if (item.choice or ("",))[0] == "summon"], [0])
         self.assertTrue([item for item in view.children
                          if item.label.startswith(("Build ", "Nothing can be built"))])
-        self.assertEqual([item.label for item in view.children[-3:]],
-                         ["My deck", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-4:]],
+                         ["My deck", "Codex", "Undo...", "End main phase"])
 
-    async def test_the_last_three_are_never_crowded_out(self) -> None:
+    async def test_the_last_four_are_never_crowded_out(self) -> None:
         """A board's row fuller than its room gives buttons up, never My
-        deck, Undo... or End main phase, which stay last in that order."""
+        deck, Codex, Undo... or End main phase, which stay last in that
+        order."""
         view = TurnPanelView.__new__(TurnPanelView)
         discord.ui.View.__init__(view)
         buttons = [view.make_button(str(n), discord.ButtonStyle.primary, None) for n in range(8)]
         last = [view.make_button(label, discord.ButtonStyle.secondary, None)
-                for label in ("My deck", "Undo...", "End main phase")]
+                for label in ("My deck", "Codex", "Undo...", "End main phase")]
         view.place(buttons, 4, last=last)
         self.assertEqual(len(view.children), 5)
-        self.assertEqual(view.children[-3:], last)
+        self.assertEqual(view.children[-4:], last)
 
     async def test_an_attack_asks_its_defender_in_the_same_panel(self) -> None:
         """The attacker first, then the legal defenders, each with why it
@@ -1636,8 +1662,8 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(refused), 2, [item.label for item in view.children])
         self.assertTrue(all(item.disabled for item in refused))
         self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
-        self.assertEqual([item.label for item in view.children[-3:]],
-                         ["My deck", "Undo...", "End main phase"])
+        self.assertEqual([item.label for item in view.children[-4:]],
+                         ["My deck", "Codex", "Undo...", "End main phase"])
         # An exhausted card's ability is left off: the board shows it.
         match = self.table.match
         hero_in_play(match, 1, slug="vir_garbarean", level=5)
