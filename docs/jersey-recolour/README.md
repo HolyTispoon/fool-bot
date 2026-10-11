@@ -71,6 +71,7 @@ against Bulwark's 33.1/−21.1/−1.6.
 ```
 kit/kit.py          the recolour functions (below)
 kit/refs.pkl        the kit colour models: orange, teal, purple, black
+kit/generic.py      one player recoloured from polygons given on the command line (both versions run it for Gearclaw)
 kit/grid.py         a portrait with a coordinate grid, for drawing polygons
 kit/zoom.py         a gridded before/after crop, in the portrait's own coordinates
 kit/sheet.py        draws v1_vs_v2.png from v1/out/ and v2/out/
