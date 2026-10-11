@@ -335,8 +335,8 @@ async def announce_startup(
 ) -> None:
     """
     Post the "now running this build" notice, if this build has not been
-    announced already, and the one-line "same build as before" if it
-    has and this is the process's first call -- a restart on its own
+    announced already, and the one line "restarted" if it has and
+    this is the process's first call -- a restart on its own
     tree. Silent on every later call, which is a gateway reconnect, not
     a restart. See deploy_notice for why the change list is keyed on the
     commit.

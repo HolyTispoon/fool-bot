@@ -433,16 +433,15 @@ def _restarted(host: str, bot_name: str) -> str:
     return f"**{bot_name or 'Bot'} restarted**{f' on `{where}`' if where else ''}"
 
 
-def restart_message(build: Build, host: str = "", bot_name: str = "") -> str:
+def restart_message(host: str = "", bot_name: str = "") -> str:
     """
     The one line a restart on a build already announced posts: the
-    process came back, on the code it was already running. No change
-    list -- there is none, and the build's own notice already gave it.
+    process came back, on the code it was already running. Nothing
+    about the build -- the build's own notice already named it and gave
+    its change list, and repeating its sha and subject on every restart
+    is only noise (the author, 2026-10-10).
     """
-    return (
-        f"{_restarted(host, bot_name)} -- same build as before, "
-        f"`{build.short}` {_clean(build.subject)}"
-    )[:MAX_MESSAGE_LENGTH]
+    return _restarted(host, bot_name)[:MAX_MESSAGE_LENGTH]
 
 
 def deploy_message(
@@ -543,7 +542,7 @@ def notice_for(
             return None
 
         return build.sha, restart_message(
-            build, host=host_name(), bot_name=settings.bot_name(),
+            host=host_name(), bot_name=settings.bot_name(),
         )
 
     changes = None if previous is None else commits_since(previous, repo_dir)
