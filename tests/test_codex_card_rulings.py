@@ -2539,7 +2539,7 @@ class DeathRulingTests(unittest.TestCase):
         put(match, 2, "hardened_mox")
         victim = put(match, 1, "argonaut")
         hand(match, 2, "doom_grasp")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(2), "doom_grasp", match),
                       "nothing of theirs can be sacrificed, so nothing can be done")
         del victim
@@ -3265,7 +3265,7 @@ class PurpleRulingTests(unittest.TestCase):
         match.player(2).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
         built(match, 2, "tech1")
         hand(match, 1, "assimilate")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(1), "assimilate", match))
 
     def test_assimilate_3(self) -> None:
@@ -3922,7 +3922,7 @@ class PurpleRulingTests(unittest.TestCase):
         at_max(engine, match, 1, "max_geiger")
         put(match, 1, "stinger")
         hand(match, 1, "temporal_distortion")
-        self.assertIn("nothing it could target",
+        self.assertIn("no target",
                       engine.why_not_playable(match.player(1), "temporal_distortion", match))
 
     def test_tricycloid_1(self) -> None:
@@ -4923,7 +4923,7 @@ class WhiteBlueRuleRulingTests(unittest.TestCase):
         put(match, 1, "mindparry_monk")
         viper = put(match, 1, "fox_viper", patrol="elite")
         hand(match, 2, "spark")
-        self.assertIn("nothing it could target", engine.why_not_playable(match.player(2), "spark", match))
+        self.assertIn("no target", engine.why_not_playable(match.player(2), "spark", match))
         put(match, 2, "scribe", patrol="elite")
         cast(engine, game, match, "spark")
         self.assertEqual(viper.damage, 0)

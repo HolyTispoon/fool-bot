@@ -643,8 +643,8 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   (Final Smash's ruling), and **asked only where there is a choice**: a
   part with one thing it could choose takes it, and a part with nothing
   is skipped and said nothing about -- "do as much as you can". A spell
-  is playable when one of its parts can resolve, and refused with "it
-  has nothing it could target" when none can.
+  is playable when one of its parts can resolve, and refused with "no
+  target" when none can.
 - **A target is on either side of the table**, so an answer names it
   `"<seat>:<ref>"` (`2:unit:7`, `1:base`) -- a hero and a building are not
   unique by ref alone. Every effect may choose what its text allows,
@@ -2005,7 +2005,7 @@ too, asked with `gate` for the two kinds a turn may open on
   **Detect...** where there is a tower, and each ability, in the
   card's own words ("Sacrifice Harmony: stop the music"), disabled with
   its reason where it may not be used now, unless its card is exhausted
-  -- and always last, in this order, **My deck**, **Undo...**
+  or arrived this turn -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
   first. **Hire worker** and every **Build** are green and **Attack...**
@@ -2063,11 +2063,13 @@ too, asked with `gate` for the two kinds a turn may open on
   card of your draw pile"), so the cut to 80 characters never takes the
   reason, and placed after every one that may be used, so a full row
   gives these up first: an ability that vanished without a word left
-  the player guessing why (the author, 2026-10-11). **Except an
-  exhausted card's**: the board already shows it exhausted, so its
-  ability is left off rather than greyed (`EXHAUSTED`, the one reason
-  the panel reads). The reasons are short (the author, 2026-10-11):
-  "no target", "not enough gold", "not enough runes". Vir's three deck
+  the player guessing why (the author, 2026-10-11). **Except a card
+  that is exhausted or arrived this turn**: the board already shows
+  it, so its ability is left off rather than greyed (`EXHAUSTED` and
+  `ARRIVED`, the two reasons the panel reads); every other cost still
+  shows. The reasons are short (the author, 2026-10-11): "no target"
+  (`NO_TARGET`, a spell in the hand's too), "not enough gold", "not
+  enough runes". Vir's three deck
   abilities say "your draw pile is empty" rather than "no target", and
   his middle one, on a top card that can't be played, says that much
   and not which card or why -- the card is hidden. The panel's picture

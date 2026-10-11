@@ -66,8 +66,8 @@ class PlayingASpellTests(unittest.TestCase):
         hero_in_play(match, 1)
         hand(match, 1, "spark", "the_boot")
         match.player(1).gold = 10
-        self.assertIn("nothing it could target", why(engine, match, "spark"))
-        self.assertIn("nothing it could target", why(engine, match, "the_boot"))
+        self.assertIn("no target", why(engine, match, "spark"))
+        self.assertIn("no target", why(engine, match, "the_boot"))
         put(match, 2, "tenderfoot")
         self.assertEqual(why(engine, match, "the_boot"), "")
 
@@ -630,7 +630,7 @@ class TwoStepNeedsTwoTests(unittest.TestCase):
         put(match, 2, "tenderfoot")
         hand(match, 2, "two_step")
         match.player(2).gold = 5
-        self.assertIn("nothing it could target", why(engine, match, "two_step"))
+        self.assertIn("no target", why(engine, match, "two_step"))
         put(match, 2, "older_brother")
         self.assertEqual(why(engine, match, "two_step"), "")
 

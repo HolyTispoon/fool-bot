@@ -1587,6 +1587,14 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
         _, view = await self.table.panel()
         self.assertFalse([item for item in view.children if "exhausted" in item.label],
                          [item.label for item in view.children])
+        # And one that arrived this turn without haste, the same.
+        match = self.table.match
+        vir = match.player(1).hero_of("vir_garbarean")
+        vir.exhausted, vir.arrived_this_turn = False, True
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if "arrived" in item.label],
+                         [item.label for item in view.children])
         self.assertEqual(len([item for item in view.children
                               if "(your draw pile is empty): " in item.label]), 2)
         # With a card on the pile, both are buttons again.
