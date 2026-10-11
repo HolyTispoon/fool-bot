@@ -23,11 +23,13 @@ choice's owner** and built from the prompt's options alone:
   answer (`codex_view_rows`); the view computes nothing. Offered as the
   follow-up to the owner's own Lock patrol, and reachable all through
   the opponent's turn from **Tech** on the turn message; each save
-  replaces the last.
+  replaces the last. Saved in the owner's own ready phase -- **Tech
+  nothing** too -- it is the choice, confirmed as made, and the turn
+  begins on it (the author, 2026-10-10).
 - `TechConfirmView`, for `TECH_CONFIRM`: the hand and the picks
   pictured (the panel's two pictures), **Confirm**, **Change** and
   **My deck**. The ready phase runs on Confirm; Change reopens the
-  picker. **My hand** opens it at once where the picks were saved (the
+  picker, whose save then begins the turn with no second confirmation. **My hand** opens it at once where the picks were saved (the
   author, 2026-10-10).
 - `TechGateView`, on the hand **My hand** sends while the active
   player's turn waits on a tech choice never made: the hand pictured,
@@ -46,7 +48,7 @@ from collections import Counter
 
 import discord
 
-from codex.formatting import card_label, codex_view_name
+from codex.formatting import card_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import kept_pictures
@@ -173,8 +175,7 @@ class TechChoiceView(PanelView):
 
     def caption(self) -> str:
         deck = deck_counted(self.cog.engine, self.match, self.seat)
-        return (f"Showing: {codex_view_name(self.view)}. Picked so far: {picks_listed(self.picks)}.\n"
-                f"{deck}")
+        return f"{deck}\nPicked so far: {picks_listed(self.picks)}."
 
     def chooser(self, menu: discord.ui.Select):
         async def choose(interaction: discord.Interaction) -> None:

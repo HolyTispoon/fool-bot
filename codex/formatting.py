@@ -37,17 +37,17 @@ def plain_text(text: str) -> str:
 
 def card_label(card: Card | Hero) -> str:
     """
-    A card the way a list names it: "Trojan Duck (7) 8/9" -- the cost
-    in brackets, a unit's ATK/HP after it; a spell "Spark (1)"; a hero
-    "Troq Bashar (2) 2/3" at its first band.
+    A card the way a list names it: "Trojan Duck 8/9" -- a unit's ATK/HP
+    after its name; a spell "Spark"; a hero "Troq Bashar 2/3" at its
+    first band. No gold cost: the author took it out of the tech
+    picker's menu, the one list that names a card this way (2026-10-11).
     """
     if isinstance(card, Hero):
         band = card.bands[0]
-        return f"{card.name} ({card.cost}) {band.atk}/{band.hp}"
-    label = card.name if card.cost is None else f"{card.name} ({card.cost})"
+        return f"{card.name} {band.atk}/{band.hp}"
     if card.atk is not None and card.hp is not None:
-        return f"{label} {card.atk}/{card.hp}"
-    return label
+        return f"{card.name} {card.atk}/{card.hp}"
+    return card.name
 
 
 #: The patrol slots in words, as a line or a menu names them.
@@ -112,13 +112,30 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
                 return catalog().name(player.add_on.slug)
             return building_name(ref)
         atk, hp = engine.unit_stats(card, match)
+        name = catalog().name(card.slug)
+        number = copy_number(player, card)
+        if number:
+            name += f" #{number}"
         if catalog().cards[card.slug].is_permanent:
             # A building card has HP and no ATK; an upgrade neither.
-            label = catalog().name(card.slug) + (f" ({hp} HP)" if hp else "")
+            label = name + (f" ({hp} HP)" if hp else "")
         else:
-            label = f"{catalog().name(card.slug)} {atk}/{hp}"
+            label = f"{name} {atk}/{hp}"
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
+
+
+def copy_number(player, card) -> int:
+    """
+    Which of `player`'s copies in play `card` is, counted in the order
+    they came into play from 1 -- 0 where it is the only one. Two Bone
+    Collectors 3/3 read alike on two buttons, so each is labelled
+    "Bone Collector #1 3/3" and carries its number on the board's
+    picture (the author, 2026-10-11). A copy keeps its number while the
+    ones before it stay in play. A name, never a rule.
+    """
+    copies = [one.id for one in player.play if one.slug == card.slug]
+    return copies.index(card.id) + 1 if len(copies) > 1 and card.id in copies else 0
 
 
 #: What the built-in codex views are called (`RulesEngine.codex_views`).

@@ -178,9 +178,12 @@ class TurnsMixin:
     # -- The panel -------------------------------------------------------------
 
     def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "") -> str:
-        """The panel's text: the model's ask, rendered, what the view
-        adds beneath it, and that it is the clicker's alone."""
+        """The panel's text: the model's ask, rendered, what it tells
+        the asked player alone (`PendingPrompt.told` -- the cards an
+        effect discarded from their hand), what the view adds beneath
+        it, and that it is the clicker's alone."""
         lines = [self.render_text(prompt.ask, game)]
+        lines.extend(self.render_text(line, game) for line in prompt.told)
         if extra:
             lines.append(extra)
         lines.append(PANEL_NOTE)

@@ -110,6 +110,30 @@ class TurnHeadingTests(unittest.TestCase):
         self.assertEqual(team_name(("feral", "fire", "bashing")), "Feral/Fire/Bashing")
         self.assertEqual(team_name(("bashing",)), "Bashing")
 
+    def test_copies_of_one_card_are_numbered_in_the_order_they_came(self) -> None:
+        """Two Bone Collectors 3/3 read alike on two buttons, so each
+        copy carries its number, as the board's picture marks it (the
+        author, 2026-10-11): counted in the order they came into play,
+        patrolling or not; a card with no copy has no number, and a copy
+        keeps its number while the ones before it stay."""
+        from codex.formatting import copy_number, ref_label
+        from codex_positions import new_game
+
+        engine, _, match = new_game()
+        first = put(match, 1, "bone_collector")
+        second = put(match, 1, "bone_collector", patrol="squad_leader")
+        third = put(match, 1, "bone_collector", exhausted=True)
+        alone = put(match, 1, "iron_man")
+        theirs = put(match, 2, "bone_collector")
+        label = lambda card, seat=1: ref_label(engine, match, seat, f"unit:{card.id}")
+        self.assertEqual(label(first), "Bone Collector #1 3/3")
+        self.assertEqual(label(second), "Bone Collector #2 3/3")
+        self.assertEqual(label(third), "Bone Collector #3 3/3")
+        self.assertEqual(label(alone), "Iron Man 3/4")
+        self.assertEqual(label(theirs, 2), "Bone Collector 3/3")
+        match.player(1).play.remove(third)
+        self.assertEqual(copy_number(match.player(1), second), 2)
+
     def test_no_line_of_the_models_opens_a_turn(self) -> None:
         """The heading is not narration, so it is never said twice."""
         svc, _, game = started()

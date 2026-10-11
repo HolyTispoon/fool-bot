@@ -108,7 +108,9 @@ def staged_states(engine: RulesEngine) -> MatchState:
     and a damaged Surplus; a patroller with damage over its slot; a
     hero on the field at level 1, and one at level 3, damaged and
     summoned this turn; a unit ready, one with a +1/+1 rune and damage,
-    a token arrived this turn, and one exhausted."""
+    a token arrived this turn, and one exhausted; and copies of one
+    card numbered, "#1" and "#2" -- two Older Brothers, the second
+    exhausted, and a Helpful Turtle patrolling beside one arrived."""
     match = engine.new_match(("bashing", "finesse"), first=1)
     match.turn, match.phase = 7, "main"
     one, two = match.player(1), match.player(2)
@@ -136,6 +138,8 @@ def staged_states(engine: RulesEngine) -> MatchState:
     put(1, "brick_thief", exhausted=True)
     put(2, "helpful_turtle", patrol="squad_leader")
     put(2, "spectral_aven", exhausted=True)
+    put(1, "older_brother", exhausted=True)
+    put(2, "helpful_turtle", arrived=True)
     match.validate(engine.catalog)
     return match
 

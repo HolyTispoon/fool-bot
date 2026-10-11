@@ -377,6 +377,30 @@ class StandingPromptTests(unittest.TestCase):
         driver.apply(engine, game, match, Action(PromptKind.TECH_CONFIRM, "change", {"player": 1}))
         self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.TECH_CHOICE)
 
+    def test_a_pick_in_the_owners_ready_phase_is_not_confirmed_again(self) -> None:
+        """Picked in their own ready phase -- after Change, or never
+        picked during the other's turn, or picking nothing -- the pick
+        is the choice and the turn begins on it (the author, 2026-10-10)."""
+        engine, game, match = tech_confirm()
+        driver.apply(engine, game, match, Action(PromptKind.TECH_CONFIRM, "change", {"player": 1}))
+        driver.apply(engine, game, match, Action(
+            PromptKind.TECH_CHOICE, arguments={"player": 1, "picks": ["iron_man", "revolver_ocelot"]},
+        ))
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(1).discard[-2:], ["iron_man", "revolver_ocelot"])
+
+        engine, game, match = _main()
+        match.player(1).workers = 10
+        _end_turn(engine, game, match)
+        _end_turn(engine, game, match)
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.TECH_CHOICE)
+        discard_before = list(match.player(1).discard)
+        driver.apply(engine, game, match, Action(
+            PromptKind.TECH_CHOICE, arguments={"player": 1, "picks": []},
+        ))
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(match.player(1).discard, discard_before)
+
     def test_a_tech_answer_names_its_seat(self) -> None:
         engine, game, match = _main()
         _end_turn(engine, game, match)

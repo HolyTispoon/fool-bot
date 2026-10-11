@@ -290,6 +290,16 @@ to run until the picks are confirmed; the confirmed cards go face-down
 into the discard pile in the ready phase, and only then leave the
 codex.
 
+- **A pick made in its owner's own ready phase is confirmed as it is
+  made** (the author, 2026-10-10: "they just picked it"). Where the
+  turn opens on `TECH_CHOICE` -- they never picked during the other's
+  turn, or pressed **Change** on the confirmation -- the save is the
+  choice and the turn begins on it, picks or none: only a choice made
+  earlier, during the other player's turn, is shown back for
+  confirming. `_answer_tech_choice` reads it off the seat: the active
+  player's tech prompt is always their ready phase's, since only the
+  other player's stands.
+
 - **A tech action names its seat** (`arguments["player"]`), because
   both players can have one open at once -- the player whose turn
   begins confirms theirs while the one whose turn just ended picks.
@@ -322,9 +332,11 @@ A turn starts with a **snapshot** -- the position as saved, without the
 snapshots and the journal themselves -- keeping the last three, and
 emptying the **journal**. **Where the turn opens on its player's tech,
 the snapshot is the hand-over** (`begin_tech`, since 2026-10-10), before
-the confirmation and the ready phase it runs, which the journal then
-records as the turn's first entries -- so an undo to the turn's start
-offers the confirmation again and the ready phase runs again on it (the
+the choice or its confirmation and the ready phase it runs, which the
+journal then records as the turn's first entries -- so an undo to the
+turn's start asks the tech again -- the confirmation where the picks
+were made during the other's turn, the picker otherwise -- and the
+ready phase runs again on the answer (the
 author, 2026-10-10: "offer to confirm tech but also redo the ready
 phase"). Where no tech is owed -- a player's first turn -- `begin_turn`
 takes it at the start of the main phase, once the gold is collected,
@@ -396,7 +408,7 @@ snapshot it led to already holds its effects.
   patrol's (`BETWEEN_ACTIONS`) and changed the position -- not inside
   a spell or an attack, which the cancel covers; not before a tech
   answer or the upkeep's order (`OPENING_KINDS`: the active player's
-  own choice and confirmation, which open a turn's journal where its
+  own choice or confirmation, which opens a turn's journal where its
   snapshot is the hand-over, the upkeep's order where it was asked, and
   the other player's choice whenever it comes), which is no action of
   the turn and numbers none; and not an attacker declared and taken
@@ -1206,6 +1218,11 @@ match as its saved dict, as D12 Ball's record does; its file,
   ("channel" where the key is missing or unknown): where the game is
   played ("The lobby and the channel", below).
 
+- **The discard told added one on the side**, `discards_untold` (`[]`):
+  the cards an effect discarded from that hand, each `{slug, by}`
+  ("What the narration may say", below). The golden's final match was
+  re-recorded for this key alone, at its default.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1218,6 +1235,29 @@ owner's ready phase, as a count of cards into the discard (the author,
 checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
+
+**A card an effect discards from a hand is a count in public and a name
+to its owner** (the author, 2026-10-11: "it should let you know which
+card was discarded at the start of your turn"). Thieving Imp, Cursed
+Crow and Shadow Blade discard at random, and Carrion Curse's caster
+chooses, so the owner either never saw which card went or saw only the
+caster pick it; the channel hears "{player:1} discards a card at random
+for {card:thieving_imp}" and no more. The card is kept on the side as
+`PlayerState.discards_untold` (`{slug, by}`, `by` the effect's token)
+and `pending` puts a line per card -- "{card:thieving_imp} made you
+discard {card:argonaut}." -- on the prompt's `told` where the question
+is the active player's own, so it reaches them on **every panel of
+their own turn**, under the ask (`panel_caption`), and is emptied as
+that turn ends (`begin_tech`) -- the author, 2026-10-11: "keep the note
+for the whole turn instead". The first version spent it on the turn's
+first answer, so it was said once; the author preferred it standing
+through the turn. It is not on a question
+asked of them during the opponent's turn: the ask was for their own.
+It is state rather than a reading of the event log because the log
+decides nothing; the turn-start snapshot holds it, so an undo or a
+cancel, which rebuild the turn from its snapshot, bring it back with
+the rest. Discards the player chooses themselves --
+Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
@@ -2086,6 +2126,23 @@ too, asked with `gate` for the two kinds a turn may open on
   his middle one, on a top card that can't be played, says that much
   and not which card or why -- the card is hidden. The panel's picture
   stays the hand.
+- **Copies of one card are numbered, on the button and on the board**
+  (the author, 2026-10-11, over two buttons both reading "Your Bone
+  Collector 3/3"). Wherever a player has more than one copy of a card
+  in play, `formatting.copy_number` counts them from 1 in the order
+  the play zone holds them -- the order they came into play, since
+  nothing reorders it -- patrolling or not; `ref_label` writes the
+  number after the name, "Bone Collector #2 3/3", so every menu that
+  names a unit carries it, and the board draws the same "#2" on a
+  white tag just inside the card's top edge (`Lying.copy`,
+  `copy_tag`). A copy keeps its number while the ones before it stay
+  in play. The far panel is turned round whole, so its tags are drawn
+  upside down before the turn and read upright after (`turned`, passed
+  down from `render_panel`): a number is matched to its button, so
+  unlike ARRIVED it must read the right way up. A board with no copies
+  is byte-identical to before. A first try named copies by their place
+  and state ("2nd, arrived") from what the picture already showed; the
+  author chose plain numbers marked on the board instead.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard
@@ -2112,8 +2169,9 @@ its owner's ready phase alone, as "puts 2 tech cards into their discard
 pile" (the author, 2026-10-08).
 
 **One card at a time, each card once** (the author, 2026-10-10). The
-menu offers each card the shown view holds once, whatever its copies,
-and takes one pick a click: "Choose your first card of 2...", then
+menu names each card by `card_label` -- "Centaur 3/4", no gold cost
+(the author, 2026-10-11) -- offers each card the shown view holds
+once, whatever its copies, and takes one pick a click: "Choose your first card of 2...", then
 "...second...". A second copy is the same card picked again while the
 codex has another left; the caption counts it ("Iron Man ×2"), and
 **Clear** starts the picks over. Once every pick is made the menu is
@@ -2124,9 +2182,15 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the model's ask says so and why: "Teching is optional with 10 or more
-workers, and you have 11." The ask carries no dash (the author,
-2026-10-10).
+the ask says so by its range. **The ask is the count and nothing
+else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
+allow none (the author, 2026-10-11). The first reading named the
+player, said the cards came from the codex, said when they reach the
+discard pile and, where none was allowed, why; read at the start of the
+player's own turn, "when your next turn begins" was confusing, and the
+rest was more text than the choice needed: the panel is the player's
+alone, the turn message names whose it is, and **Tech nothing** is the
+button for none. The ask carries no dash (the author, 2026-10-10).
 
 **The picker says nothing of whether a card could be played now.** A line
 per card saying what it needed ("needs tech II building", "needs River
@@ -2147,7 +2211,9 @@ and rebuilds the cards' menu from that view alone
 prompt's list, narrowed by the engine, and computes nothing). **The
 picks are kept across views**: a card picked under Tech I stays picked
 while Tech II is shown; the caption says which view is shown and lists
-every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship.").
+every pick on its last line, under the deck's count ("Picked so far:
+Iron Man, Eggship."). It does not say which view is shown: the Show
+menu above the cards already does (the author, 2026-10-11).
 Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and
 spends nothing public, like a pick before saving. Save sends the picks
@@ -2164,7 +2230,7 @@ never picked, or because the game is a test game) and points at
 turn it is while the turn waits on their tech, opens it at once:
 `TechConfirmView` -- the picks pictured, **Confirm** and **Change** --
 or the picker (the author, 2026-10-09: "clicking tech should let them
-pick tech"); at any other point in their own turn it says the tech is
+pick tech"), whose save begins the turn with nothing to confirm; at any other point in their own turn it says the tech is
 not theirs to press now. **My hand** opens the confirmation at once
 where the picks were saved, the hand pictured and then the picks, two
 pictures on the one panel (the author, 2026-10-10: the step between
@@ -2270,7 +2336,7 @@ carries the position.
   each recent turn's *first lines* -- what its message said when it
   first went up, before the turn's snapshot: the ready phase's lines
   where the turn owed no tech, nothing where it waited on its tech,
-  since the confirmation's lines are the journal's then -- which is what
+  since the tech answer's lines are the journal's then -- which is what
   an undo puts back above what it says. After a restart
   neither is known: the gate leaves the message's text alone until the
   turn ends or `/codex resume` re-posts the table.
@@ -2332,9 +2398,10 @@ what it costs from the panel (the table above).
   and saves once; the turn message is posted again with its first lines
   and "Undone to the start of the turn." (`history.UNDONE`) and the
   restored board, and the panel is sent under it from the restored
-  prompt -- the tech confirmation where the turn opened on its tech,
-  whose **Confirm** runs the ready phase again and posts its lines
-  under the undone line (the author, 2026-10-10).
+  prompt -- the tech confirmation where the turn opened on picks made
+  during the other's turn, the picker where it opened on the picker,
+  whose answer runs the ready phase again and posts its lines under
+  the undone line (the author, 2026-10-10).
 - **To before an action of this turn** -- the fine undo's menu, above
   the two buttons wherever they are offered (the panel's undo mode, the
   patrol lock's, the turn message's `UndoView`), one option a point,

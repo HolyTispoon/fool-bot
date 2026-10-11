@@ -6,8 +6,8 @@ groundwork").
 `snapshot` keeps the position a turn starts on -- the last three,
 oldest first -- and empties the journal. **The turn's start is its
 hand-over where the turn waits on its player's tech** (`begin_tech`),
-before the confirmation and the ready phase it runs, which the journal
-then records as the turn's first entries; it is the main phase's opening
+before the choice or its confirmation and the ready phase it runs,
+which the journal then records as the turn's first entries; it is the main phase's opening
 where no tech is owed (`begin_turn`, a player's first turn), after the
 ready phase and the upkeep. `codex.flow.driver.apply`, the one door
 every action goes through, calls `record` with the action and the
@@ -18,9 +18,10 @@ shuffles are handed back rather than drawn again, so **an undo past a
 draw deals the same cards**: undo cannot be used to redraw.
 
 Two undos are over the snapshots alone: `undo_to_turn_start` (the
-active player's own: where the turn opened on their tech, the
-confirmation is offered again and the ready phase runs again on it --
-the author, 2026-10-10) and `undo_to_previous_turn` (which unwinds the
+active player's own: where the turn opened on their tech, it is asked
+again -- the confirmation of picks made during the other's turn, the
+picker otherwise -- and the ready phase runs again on the answer -- the
+author, 2026-10-10) and `undo_to_previous_turn` (which unwinds the
 opponent's turn too, so a frontend asks the opponent first). The third,
 **the fine undo**, is over the journal: `undo_points` reads the turn as
 it replays and names each point between two actions of the active
@@ -78,7 +79,7 @@ KEPT_KINDS = frozenset({"tech_choice"})
 
 #: The journal entries that are no action of the turn: the turn's
 #: opening, where its snapshot is the hand-over -- the active player's
-#: tech choice and its confirmation, which runs the ready phase, and the
+#: tech choice or its confirmation, which runs the ready phase, and the
 #: upkeep's order where it was asked -- and the other player's tech
 #: choice whenever it comes. None begins an action, and a stretch of
 #: them alone is no action to number.
@@ -290,8 +291,8 @@ def undo_targets(match: MatchState) -> dict[str, int]:
 
 def undo_to_turn_start(match: MatchState) -> tuple[str, ...]:
     """Put the match back to the start of this turn -- its hand-over,
-    where it opened on its player's tech, with the confirmation offered
-    again and the ready phase to run again on it; the main phase's
+    where it opened on its player's tech, with that tech asked again
+    and the ready phase to run again on the answer; the main phase's
     opening otherwise -- and say so (`UNDONE`)."""
     index = _snapshot_index(match, match.turn)
     if index is None or match.winner is not None:
