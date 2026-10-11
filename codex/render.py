@@ -176,10 +176,15 @@ ART_FOOT = 122
 #: is taken off -- on a pill at the card's top right, read before
 #: anything else on it (the author, 2026-10-11). The cost the card
 #: prints top left is no question once it is in play, but stays, as the
-#: level chit does on a hero. 46 tall, its two numbers in Roboto Slab
-#: at 30, each half at least as wide as it is tall.
-STAT_HEIGHT = 46
-STAT_SIZE = 30
+#: level chit does on a hero. 38 tall, its two numbers in Roboto Slab
+#: at 25, each half about as wide as it is tall.
+STAT_HEIGHT = 38
+STAT_SIZE = 25
+#: How far the pill hangs over the card's top and right edges, as the
+#: chits do, so that it covers less of the art (the author, 2026-10-11:
+#: higher up, and a tad smaller, than the first build's 46 inside the
+#: corner).
+STAT_OVERHANG = 10
 #: The rune chits hang over the card's right edge by this, centred this
 #: far down it -- a little below the card's middle, on the end of its
 #: name's banner, clear of the stats above and of the damage chits that
@@ -527,22 +532,24 @@ def time_rune_chit(runes: int) -> Image.Image:
     return board_piece("time_runes", f"{min(runes, 6)}.png")
 
 
-def copy_tag(canvas: Image.Image, centre: int, top: int, number: int, turned: bool) -> None:
-    """A copy's number, "#2", on a white tag centred on `centre` just
-    inside the card's top edge `top`, the right way up whether the card
-    stands or lies exhausted -- and on the far side of the table,
-    `turned`, drawn upside down here so it reads the right way up once
-    the panel is turned round: a number is matched to its button, so
-    nobody should have to read it upside down."""
-    face = font(26)
+def copy_tag(canvas: Image.Image, centre: int, middle: int, number: int, turned: bool) -> None:
+    """A copy's number, "#2", on a white tag centred on `centre` and on
+    `middle` -- the stats pill's line, across the card's top edge (the
+    author, 2026-10-11: on one line with the pill, and smaller) -- the
+    right way up whether the card stands or lies exhausted, and on the
+    far side of the table, `turned`, drawn upside down here so it reads
+    the right way up once the panel is turned round: a number is matched
+    to its button, so nobody should have to read it upside down."""
+    face = font(21)
     text = f"#{number}"
-    width, height = round(face.getlength(text)) + 22, 36
+    width, height = round(face.getlength(text)) + 18, 30
     tag = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tag)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=10, fill=COPY_FILL,
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=8, fill=COPY_FILL,
                            outline=SHADOW, width=2)
     draw.text((width / 2, height / 2), text, font=face, fill=COPY_INK, anchor="mm")
-    canvas.alpha_composite(tag.rotate(180) if turned else tag, (centre - width // 2, top + 6))
+    canvas.alpha_composite(tag.rotate(180) if turned else tag,
+                           (centre - width // 2, middle - height // 2))
 
 
 def stat_pill(stats: "Stats") -> Image.Image:
@@ -555,7 +562,7 @@ def stat_pill(stats: "Stats") -> Image.Image:
     2026-10-11)."""
     face = font(STAT_SIZE)
     height = STAT_HEIGHT
-    atk_width, hp_width = (max(round(face.getlength(str(value))) + 20, 40)
+    atk_width, hp_width = (max(round(face.getlength(str(value))) + 16, height - 4)
                            for value in (stats.atk, stats.hp))
     width = atk_width + hp_width
     atk_fill = STAT_ATK_CHANGED if stats.atk_changed else STAT_ATK
@@ -569,7 +576,7 @@ def stat_pill(stats: "Stats") -> Image.Image:
     draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, outline=STAT_EDGE, width=2)
     for centre, value in ((atk_width / 2 + 2, stats.atk), (atk_width + hp_width / 2 - 2, stats.hp)):
         draw.text((centre, height / 2), str(value), font=face, fill=WORD, anchor="mm",
-                  stroke_width=3, stroke_fill=SHADOW)
+                  stroke_width=2, stroke_fill=SHADOW)
     return tag
 
 
@@ -787,7 +794,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         arrived_tag(upright, side, margin + ART_FOOT)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
-        upright.alpha_composite(stats, (right + 6 - stats.width, margin + 2))
+        upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
+                                        margin - STAT_OVERHANG))
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
@@ -801,14 +809,16 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # Level with the table, on the turned card's top right -- over
         # its cost, the card's own top left once turned.
         card_right = left + margin + CARD[1]
-        tile.alpha_composite(stats, (card_right + 6 - stats.width, card_top + 2))
+        tile.alpha_composite(stats, (card_right + STAT_OVERHANG - stats.width,
+                                     card_top - STAT_OVERHANG))
     copy_centre = left + laid.width // 2
     if stats is not None and not lying.exhausted:
         # A standing card's top edge holds the cost top left and the
         # stats top right: its copy's number goes between them.
-        copy_centre = left + side + (COST_WIDTH + CARD[0] + 6 - stats.width) // 2
+        copy_centre = left + side + (COST_WIDTH + CARD[0] + STAT_OVERHANG - stats.width) // 2
     if lying.copy:
-        copy_tag(tile, copy_centre, card_top, lying.copy, turned)
+        copy_tag(tile, copy_centre, card_top - STAT_OVERHANG + STAT_HEIGHT // 2, lying.copy,
+                 turned)
     if lying.exhausted:
         glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))

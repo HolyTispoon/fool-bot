@@ -1609,8 +1609,10 @@ else the bot shows is ephemeral.
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
-  - **A unit's and a hero's ATK and HP as they stand, on a pill at the
-    card's top right** (`stat_pill`, the author, 2026-10-11): what the
+  - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
+    over the card's top right corner** (`stat_pill`, the author,
+    2026-10-11; `STAT_OVERHANG`, since inside the corner it covered
+    too much of the art): what the
     card prints is not what it fights with once Two Step, a Grounded
     Guide, a rune or its own text has had its say, and the board was
     the one place a player could not read the difference. The numbers
@@ -2182,8 +2184,9 @@ too, asked with `gate` for the two kinds a turn may open on
   nothing reorders it -- patrolling or not; `ref_label` writes the
   number after the name, "Bone Collector #2 3/3", so every menu that
   names a unit carries it, and the board draws the same "#2" on a
-  white tag just inside the card's top edge (`Lying.copy`,
-  `copy_tag`). A copy keeps its number while the ones before it stay
+  white tag across the card's top edge, on one line with the stats
+  pill and a little smaller than it (`Lying.copy`, `copy_tag`; the
+  author, 2026-10-11). A copy keeps its number while the ones before it stay
   in play. The far panel is turned round whole, so its tags are drawn
   upside down before the turn and read upright after (`turned`, passed
   down from `render_panel`): a number is matched to its button, so
