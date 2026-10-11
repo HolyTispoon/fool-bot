@@ -626,7 +626,6 @@ class TurnEndTests(TurnTestCase):
                          [slug for slug, _ in tech1])
         self.assertEqual(cards_pictured(shown), len(tech1))
         self.assertLess(len(tech1), len(codex))
-        self.assertIn("Showing: Tech I.", shown.text())
 
         first = narrowed.menus[0].options[0].value
         picked = (await self.table.choose(narrowed, "Choose", first, who=self.table.waiting)).view()
@@ -673,11 +672,16 @@ class TurnEndTests(TurnTestCase):
         self.assertTrue(cleared.view().menus)
 
     async def test_the_picker_counts_the_deck(self) -> None:
-        """The caption counts the deck the picks join, by tech level
-        (the author, 2026-10-10)."""
+        """The ask is the count alone, and the caption counts the deck
+        the picks join, by tech level, the picks on the last line (the
+        author, 2026-10-10, 2026-10-11)."""
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
-        self.assertIn("Your deck: ", picker.caption())
+        self.assertEqual(picker.prompt.ask, "Tech 2 cards.")
+        deck, picks = picker.caption().split("\n")
+        self.assertTrue(deck.startswith("Your deck: "))
+        self.assertEqual(picks, "Picked so far: no cards.")
+        self.assertNotIn("Showing", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
 
     async def test_an_undo_to_the_turn_start_offers_the_confirmation_and_redoes_the_ready_phase(self) -> None:
@@ -725,7 +729,7 @@ class TurnEndTests(TurnTestCase):
         self.assertLess(text.index(history.UNDONE), text.index("tech card"))
 
     async def test_ten_workers_allow_teching_nothing(self) -> None:
-        """At ten workers the ask says teching is optional and why, and
+        """At ten workers the ask allows none ("Tech 0-2 cards.") and
         **Tech nothing** saves an empty choice (UMR p. 5)."""
         match = self.table.match
         waiting = match.active  # the one whose tech the turn's end owes
@@ -733,7 +737,7 @@ class TurnEndTests(TurnTestCase):
         self.table.cog.service.persist(self.game, match)
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
-        self.assertIn("Teching is optional with 10 or more workers, and you have 10.", picker.prompt.ask)
+        self.assertEqual(picker.prompt.ask, "Tech 0-2 cards.")
         self.assertNotIn("--", picker.prompt.ask)
         save = next(item for item in picker.children if getattr(item, "label", None) == "Save tech")
         self.assertTrue(save.disabled)
@@ -1560,6 +1564,28 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
             self.assertNothingWentWrong(call)
         self.assertEqual(sorted(self.table.match.player(2).hand), ["argonaut", "undo"])
         self.assertIn("now", self.table.match.player(2).discard)
+
+    async def test_the_discarded_card_is_told_on_its_owners_panel_alone(self) -> None:
+        """A card an effect discarded is named on its owner's panels
+        through their turn, and nowhere in the channel."""
+        match = self.table.match
+        match.active = 2
+        match.player(2).hand = ["argonaut"]
+        match.player(2).discards_untold = [{"slug": "now", "by": "{card:carrion_curse}"}]
+        self.table.cog.service.persist(self.game, match)
+        mark = len(self.table.game_channel.requests)
+        call, view = await self.table.panel()
+        _, args, kwargs = call.last()
+        self.assertTrue(kwargs.get("ephemeral"))
+        self.assertIn("**Carrion Curse** made you discard **Now!**.", args[0])
+        channel = [kwargs.get("content") or "" for _, _, kwargs in self.table.game_channel.requests[mark:]]
+        self.assertFalse(any("Now" in text for text in channel))
+        call = await self.table.press(view, "End main phase")
+        self.assertNothingWentWrong(call)
+        texts = [kwargs.get("content") or (args[0] if args else "") or "" for _, args, kwargs in call.answers]
+        self.assertTrue(any("**Carrion Curse** made you discard **Now!**." in text for text in texts))
+        channel = [kwargs.get("content") or "" for _, _, kwargs in self.table.game_channel.requests[mark:]]
+        self.assertFalse(any("Now!" in text for text in channel))
 
     def assertNothingWentWrong(self, call) -> None:
         for kind, args, kwargs in call.answers:

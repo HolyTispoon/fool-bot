@@ -40,7 +40,6 @@ from codex import tokens
 from codex.components import PATROL_SLOTS, MatchState
 from codex import effects
 from codex.engine import (
-    TECH_FREE_WORKERS,
     AbilityOption,
     BuildOption,
     DetectOption,
@@ -444,6 +443,10 @@ class PendingPrompt:
     ask: str
     asked_player: Optional[int] = None
     options: Optional[PromptOptions] = None
+    #: What the asked player alone is told beside the question: the cards
+    #: an effect discarded from their hand, on their own turn
+    #: (`discard_notes`).
+    told: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -451,6 +454,7 @@ class PendingPrompt:
             "ask": self.ask,
             "asked_player": self.asked_player,
             "options": None if self.options is None else self.options.to_dict(),
+            "told": list(self.told),
         }
 
 
@@ -523,22 +527,14 @@ def _main_ask(match: MatchState) -> str:
     )
 
 
-_COUNTED = {1: "one card", 2: "two cards"}
-
-
 def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
-    """The tech choice's ask, with how many cards it takes -- and, where
-    none is allowed, why: the player's workers (UMR p. 5; the author,
-    2026-10-10)."""
-    player = match.player(seat)
-    minimum, maximum = engine.tech_bounds(player)
-    cards = _COUNTED.get(maximum, f"{maximum} cards")
-    if minimum:
-        return (f"{tokens.player(seat)}, choose {cards} to tech from your codex. "
-                "They go to your discard pile when your next turn begins.")
-    return (f"{tokens.player(seat)}, choose up to {cards} to tech from your codex, or none. "
-            f"Teching is optional with {TECH_FREE_WORKERS} or more workers, and you have {player.workers}. "
-            "The cards go to your discard pile when your next turn begins.")
+    """The tech choice's ask, as short as the count: "Tech 2 cards.",
+    and "Tech 0-2 cards." where the player's workers allow none (UMR
+    p. 5). The panel is the player's alone and the turn message says
+    whose it is, so the ask names nobody (the author, 2026-10-11)."""
+    minimum, maximum = engine.tech_bounds(match.player(seat))
+    count = str(maximum) if minimum == maximum else f"{minimum}-{maximum}"
+    return f"Tech {count} card{'' if count == '1' else 's'}."
 
 
 def _obliterate_ask(seat: int) -> str:
@@ -938,7 +934,25 @@ def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Unio
     waiting = _pending(engine, game, match)
     if isinstance(waiting, FollowOn):
         return waiting
+    if waiting.asked_player is not None and waiting.asked_player == match.active:
+        told = discard_notes(match, waiting.asked_player)
+        if told:
+            waiting = replace(waiting, told=told)
     return with_options(engine, game, match, waiting)
+
+
+def discard_notes(match: MatchState, seat: int) -> tuple[str, ...]:
+    """
+    The cards an effect discarded from `seat`'s hand, a line each, for
+    them alone: the channel heard "discards a card at random" and no
+    more, and its owner is told which on every question of their own
+    turn (the author, 2026-10-11) -- `PlayerState.discards_untold`,
+    emptied as that turn ends (`codex.flow.turn.begin_tech`).
+    """
+    return tuple(
+        f"{told['by']} made you discard {tokens.card(told['slug'])}."
+        for told in match.player(seat).discards_untold
+    )
 
 
 def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:

@@ -545,7 +545,11 @@ always.
   third answer -- unstoppable, or stealth and invisible while no detector
   sees it -- and `defender_rows` says which of the three it was, so the
   panel's buttons can say why a defender is legal ("it flies over the patrol
-  zone", "it sneaks past the patrol zone", "it is unstoppable").
+  zone", "it sneaks past the patrol zone", "it is unstoppable"). That
+  reason is about getting past the zone, so a patroller the attacker
+  takes anyway is said as what it is -- "squad leader" or "patroller" --
+  never "it flies over the patrol zone" beside the squad leader it is
+  attacking.
 - **A flier flew over the patrollers it had to get past**
   (`flown_over`), and each of those with anti-air deals its ATK to it:
   every ground patroller when it attacks something not patrolling, and the
@@ -1214,6 +1218,11 @@ match as its saved dict, as D12 Ball's record does; its file,
   ("channel" where the key is missing or unknown): where the game is
   played ("The lobby and the channel", below).
 
+- **The discard told added one on the side**, `discards_untold` (`[]`):
+  the cards an effect discarded from that hand, each `{slug, by}`
+  ("What the narration may say", below). The golden's final match was
+  re-recorded for this key alone, at its default.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1226,6 +1235,29 @@ owner's ready phase, as a count of cards into the discard (the author,
 checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
+
+**A card an effect discards from a hand is a count in public and a name
+to its owner** (the author, 2026-10-11: "it should let you know which
+card was discarded at the start of your turn"). Thieving Imp, Cursed
+Crow and Shadow Blade discard at random, and Carrion Curse's caster
+chooses, so the owner either never saw which card went or saw only the
+caster pick it; the channel hears "{player:1} discards a card at random
+for {card:thieving_imp}" and no more. The card is kept on the side as
+`PlayerState.discards_untold` (`{slug, by}`, `by` the effect's token)
+and `pending` puts a line per card -- "{card:thieving_imp} made you
+discard {card:argonaut}." -- on the prompt's `told` where the question
+is the active player's own, so it reaches them on **every panel of
+their own turn**, under the ask (`panel_caption`), and is emptied as
+that turn ends (`begin_tech`) -- the author, 2026-10-11: "keep the note
+for the whole turn instead". The first version spent it on the turn's
+first answer, so it was said once; the author preferred it standing
+through the turn. It is not on a question
+asked of them during the opponent's turn: the ask was for their own.
+It is state rather than a reading of the event log because the log
+decides nothing; the turn-start snapshot holds it, so an undo or a
+cancel, which rebuild the turn from its snapshot, bring it back with
+the rest. Discards the player chooses themselves --
+Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's
@@ -2066,6 +2098,23 @@ too, asked with `gate` for the two kinds a turn may open on
   The abilities are buttons on the board's row, only those that may be
   used now -- they shared the last row's menu with the hero's levels
   until 2026-10-09. The panel's picture stays the hand.
+- **Copies of one card are numbered, on the button and on the board**
+  (the author, 2026-10-11, over two buttons both reading "Your Bone
+  Collector 3/3"). Wherever a player has more than one copy of a card
+  in play, `formatting.copy_number` counts them from 1 in the order
+  the play zone holds them -- the order they came into play, since
+  nothing reorders it -- patrolling or not; `ref_label` writes the
+  number after the name, "Bone Collector #2 3/3", so every menu that
+  names a unit carries it, and the board draws the same "#2" on a
+  white tag just inside the card's top edge (`Lying.copy`,
+  `copy_tag`). A copy keeps its number while the ones before it stay
+  in play. The far panel is turned round whole, so its tags are drawn
+  upside down before the turn and read upright after (`turned`, passed
+  down from `render_panel`): a number is matched to its button, so
+  unlike ARRIVED it must read the right way up. A board with no copies
+  is byte-identical to before. A first try named copies by their place
+  and state ("2nd, arrived") from what the picture already showed; the
+  author chose plain numbers marked on the board instead.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard
@@ -2092,8 +2141,9 @@ its owner's ready phase alone, as "puts 2 tech cards into their discard
 pile" (the author, 2026-10-08).
 
 **One card at a time, each card once** (the author, 2026-10-10). The
-menu offers each card the shown view holds once, whatever its copies,
-and takes one pick a click: "Choose your first card of 2...", then
+menu names each card by `card_label` -- "Centaur 3/4", no gold cost
+(the author, 2026-10-11) -- offers each card the shown view holds
+once, whatever its copies, and takes one pick a click: "Choose your first card of 2...", then
 "...second...". A second copy is the same card picked again while the
 codex has another left; the caption counts it ("Iron Man ×2"), and
 **Clear** starts the picks over. Once every pick is made the menu is
@@ -2104,9 +2154,15 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the model's ask says so and why: "Teching is optional with 10 or more
-workers, and you have 11." The ask carries no dash (the author,
-2026-10-10).
+the ask says so by its range. **The ask is the count and nothing
+else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
+allow none (the author, 2026-10-11). The first reading named the
+player, said the cards came from the codex, said when they reach the
+discard pile and, where none was allowed, why; read at the start of the
+player's own turn, "when your next turn begins" was confusing, and the
+rest was more text than the choice needed: the panel is the player's
+alone, the turn message names whose it is, and **Tech nothing** is the
+button for none. The ask carries no dash (the author, 2026-10-10).
 
 **The picker says nothing of whether a card could be played now.** A line
 per card saying what it needed ("needs tech II building", "needs River
@@ -2127,7 +2183,9 @@ and rebuilds the cards' menu from that view alone
 prompt's list, narrowed by the engine, and computes nothing). **The
 picks are kept across views**: a card picked under Tech I stays picked
 while Tech II is shown; the caption says which view is shown and lists
-every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship.").
+every pick on its last line, under the deck's count ("Picked so far:
+Iron Man, Eggship."). It does not say which view is shown: the Show
+menu above the cards already does (the author, 2026-10-11).
 Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and
 spends nothing public, like a pick before saving. Save sends the picks

@@ -1733,7 +1733,8 @@ def _dark_pact(engine, match, top, part, target, result) -> None:
 
 def _curse_discard(engine, match, top, part, target, result) -> None:
     """Carrion Curse: a non-unit card the caster chose from the opponent's
-    hand, discarded by them -- counted, never named."""
+    hand, discarded by them -- counted, never named, and told to them
+    alone (`PlayerState.discards_untold`)."""
     seat, ref = target
     slug = _private_slug(ref)
     player = match.player(seat)
@@ -1741,6 +1742,7 @@ def _curse_discard(engine, match, top, part, target, result) -> None:
         return
     player.hand.remove(slug)
     player.discard.append(slug)
+    player.discards_untold.append({"slug": slug, "by": top["by"]})
     match.record_event("discarded", seat=seat, slug=slug, by=top["effect"])
     result.narration.append(f"{tokens.player(seat)} discards a card for {top['by']}.")
 

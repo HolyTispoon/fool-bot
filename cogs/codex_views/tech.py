@@ -48,7 +48,7 @@ from collections import Counter
 
 import discord
 
-from codex.formatting import card_label, codex_view_name
+from codex.formatting import card_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import kept_pictures
@@ -175,8 +175,7 @@ class TechChoiceView(PanelView):
 
     def caption(self) -> str:
         deck = deck_counted(self.cog.engine, self.match, self.seat)
-        return (f"Showing: {codex_view_name(self.view)}. Picked so far: {picks_listed(self.picks)}.\n"
-                f"{deck}")
+        return f"{deck}\nPicked so far: {picks_listed(self.picks)}."
 
     def chooser(self, menu: discord.ui.Select):
         async def choose(interaction: discord.Interaction) -> None:
