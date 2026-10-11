@@ -1,5 +1,14 @@
 # Two games on the Tethys deck: Tethys Hold 'em and Tethys Gang
 
+> **Parked, 2026-10-11.** The author: "stash all the work on tethys hold 'em
+> and the gang. I don't want it in the bot, we'll have to revisit it later."
+> This worksheet lives only on the `tethys-games-plan` branch and draft PR
+> #545; nothing of it is on `main` or in the bot. The one step that was
+> built -- step 1, the `/tethyscards` commands drawn as pictures -- landed on
+> its own in PR #546 and is no longer part of this plan. The sample behind
+> "Six of eight" is `docs/tethys-games/best_of_n.py`. To pick it up: merge
+> `main` into the branch, re-read the answered questions, and start at step 2.
+
 **This is a worksheet, not a specification.** It was written on
 2026-10-11 from the author's ask: "for the Tethys deck -- use the card
 images we made for the Tethys deck commands. Make a plan for two games
@@ -62,8 +71,7 @@ cards there are. In Texas Hold 'em a hand is the best five of seven
 of rarity of **six cards dealt**; choosing the best six from more cards
 changes how often each set comes up, and if it changes it enough a set
 ends up ranked above one that is rarer than it. A sample of 40,000
-hands for each deal (a script in the session's scratchpad, not
-committed) gave:
+hands for each deal (`docs/tethys-games/best_of_n.py`) gave:
 
 | Set | 6 dealt | best 6 of 8 (3 + 5) | best 6 of 9 (3 + 6) | 3 pocket + exactly 3 of 5 |
 | --- | ---: | ---: | ---: | ---: |
@@ -475,7 +483,7 @@ before the next step is worth starting.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
-| 1 | The `/tethyscards` commands show the cards as pictures | small | a draw, a hand and the discard in a server, each a row of the deck's own faces; an old channel's deck still loads |
+| ~~1~~ | ~~The `/tethyscards` commands show the cards as pictures~~ -- landed on its own in #546; see docs/design/tethys-deck.md, "On Discord" | small | a draw, a hand and the discard in a server, each a row of the deck's own faces; an old channel's deck still loads |
 | 2 | The evaluator: the order within a set, the best six of eight | small | the tie-break table in the PR, as pictures of pairs of hands and which wins; the best-of-eight chances by a large sample, beside the dealt-six census |
 | 3 | Tethys Hold 'em through the driver, with no frontend | large | a seeded test plays a sit-and-go from the first deal to one seat holding every dinky, through side pots and a split pot; the Hold 'em golden |
 | 4 | Tethys Hold 'em on Discord | large | three people play to a winner: the lobby, the channel, the table posted again, My cards, the panel, the showdown's picture, Nudge |
