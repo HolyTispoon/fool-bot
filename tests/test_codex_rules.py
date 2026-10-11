@@ -214,6 +214,18 @@ class HeroTests(unittest.TestCase):
         self.assertEqual(river.summoning_runes, 1)
 
 
+class RuneNoteTests(unittest.TestCase):
+    def test_every_rune_cost_has_its_own_note(self) -> None:
+        """Each ability that costs runes says, card by card, why it may
+        not be used (the author, 2026-10-11) -- none falls back to the
+        generic "not enough runes"."""
+        from codex import effects
+        from codex.engine import RUNES_SHORT
+
+        costing = {effect for effect, cost in effects.COSTS.items() if cost.runes}
+        self.assertEqual(set(RUNES_SHORT), costing)
+
+
 class BuildingTests(unittest.TestCase):
     def test_each_tech_buildings_cost_and_workers(self) -> None:
         """Tech I for 1 at six workers, Tech II for 4 at eight, Tech III

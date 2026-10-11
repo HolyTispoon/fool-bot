@@ -3405,7 +3405,7 @@ class RulesEngine:
             have = (body.plus_runes if kind == "plus"
                     else body.time_runes if kind == "time" else body.runes.get(kind, 0))
             if have < count:
-                return "not enough runes"
+                return RUNES_SHORT.get(effect, "not enough runes")
         if cost.discard and len(player.hand) < cost.discard:
             return f"it needs {cost.discard} cards in hand to discard"
         if cost.needs_spell and not player.spells_played:
@@ -3822,6 +3822,27 @@ EXHAUSTED = "it is exhausted"
 ARRIVED = "it arrived this turn"
 #: Why a spell or an ability may not be used: nothing it could choose.
 NO_TARGET = "no target"
+#: Why a rune-costing ability may not be used, card by card (the author,
+#: 2026-10-11): how many a card that keeps gaining them needs, and that
+#: a card given them once has spent them. A test holds it to every
+#: ability with a rune cost (`effects.COSTS`).
+RUNES_SHORT = {
+    # Gained over the game: a unit dies, a unit of yours dies, she attacks.
+    "bloodburn": "needs 2 blood runes",
+    "corpse_catapult": "needs 2 corpse runes",
+    "prynn_pasternaak_max": "needs 2 time runes",
+    # One each time another of yours arrives, or a unit is played from
+    # the hand.
+    "blooming_ancient": "no +1/+1 rune",
+    "drill_sergeant": "no +1/+1 rune",
+    # Given once, on arrival or at max level.
+    "spore_shambler_gold": "no +1/+1 runes left",
+    "spore_shambler_exhaust": "no +1/+1 runes left",
+    "tricycloid_shot": "no time runes left",
+    "ebbflow_archon": "no time runes left",
+    "skeleton_javelineer_throw": "javelin already thrown",
+    "grave_stormborne": "sword rune already used",
+}
 #: The filters that read the top of the controller's draw pile: Vir's.
 _DECK_TOP_FILTERS = frozenset({"deck_top", "hand_card_with_deck", "deck_top_playable"})
 #: The filters whose candidates are in the controller's hand or codex.

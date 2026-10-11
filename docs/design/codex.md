@@ -2077,8 +2077,11 @@ too, asked with `gate` for the two kinds a turn may open on
   it, so its ability is left off rather than greyed (`EXHAUSTED` and
   `ARRIVED`, the two reasons the panel reads); every other cost still
   shows. The reasons are short (the author, 2026-10-11): "no target"
-  (`NO_TARGET`, a spell in the hand's too), "not enough gold", "not
-  enough runes". Vir's three deck
+  (`NO_TARGET`, a spell in the hand's too), "not enough gold", and for
+  runes a note card by card (`RUNES_SHORT`): how many a card that keeps
+  gaining them needs ("needs 2 blood runes"), and that one given them
+  once has spent them ("javelin already thrown", "no +1/+1 runes
+  left"). Vir's three deck
   abilities say "your draw pile is empty" rather than "no target", and
   his middle one, on a top card that can't be played, says that much
   and not which card or why -- the card is hidden. The panel's picture

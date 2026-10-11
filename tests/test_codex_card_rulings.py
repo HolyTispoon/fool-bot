@@ -1405,7 +1405,7 @@ class AbilityAndArrivalRulingTests(unittest.TestCase):
         cub = put(match, 2, "tiger_cub")
         cub.plus_runes = 2
         self.assertEqual(option(engine, match, "spore_shambler_gold", shambler.ref).why_not,
-                         "not enough runes")
+                         "no +1/+1 runes left")
         shambler.plus_runes = 2
         match.player(2).gold = 1
         ability(engine, game, match, "spore_shambler_gold", shambler.ref)
