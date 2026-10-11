@@ -2084,8 +2084,9 @@ its owner's ready phase alone, as "puts 2 tech cards into their discard
 pile" (the author, 2026-10-08).
 
 **One card at a time, each card once** (the author, 2026-10-10). The
-menu offers each card the shown view holds once, whatever its copies,
-and takes one pick a click: "Choose your first card of 2...", then
+menu names each card by `card_label` -- "Centaur 3/4", no gold cost
+(the author, 2026-10-11) -- offers each card the shown view holds
+once, whatever its copies, and takes one pick a click: "Choose your first card of 2...", then
 "...second...". A second copy is the same card picked again while the
 codex has another left; the caption counts it ("Iron Man ×2"), and
 **Clear** starts the picks over. Once every pick is made the menu is
