@@ -1609,8 +1609,10 @@ else the bot shows is ephemeral.
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
-  - **A unit's and a hero's ATK and HP as they stand, on a pill at the
-    card's top right** (`stat_pill`, the author, 2026-10-11): what the
+  - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
+    over the card's top right corner** (`stat_pill`, the author,
+    2026-10-11; `STAT_OVERHANG`, since inside the corner it covered
+    too much of the art): what the
     card prints is not what it fights with once Two Step, a Grounded
     Guide, a rune or its own text has had its say, and the board was
     the one place a player could not read the difference. The numbers
