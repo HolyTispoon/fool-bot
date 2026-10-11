@@ -63,7 +63,12 @@ def format_hand_text(
     user: discord.abc.User,
     hand: list[str],
     header: str | None = None,
+    *,
+    listed: bool = True,
 ) -> str:
+    """The hand in words. With `listed` False the line is the caption over
+    the hand's picture -- whose hand and how many -- and names no card:
+    the picture shows them, so the words would say it twice."""
     lines = []
     if header:
         lines.append(header)
@@ -71,24 +76,22 @@ def format_hand_text(
     possessive = f"{user.display_name}'s"
     if hand:
         card_word = "card" if len(hand) == 1 else "cards"
-        lines.append(
-            f"{possessive} hand ({len(hand)} {card_word}): "
-            f"{format_cards(hand)}"
-        )
+        count = f"{possessive} hand ({len(hand)} {card_word}):"
+        lines.append(f"{count} {format_cards(hand)}" if listed else count)
     else:
         lines.append(f"{possessive} hand is empty.")
 
     return "\n".join(lines)
 
 
-def format_discard_text(discard: list[str]) -> str:
+def format_discard_text(discard: list[str], *, listed: bool = True) -> str:
+    """The discard pile in words, or with `listed` False the caption over
+    its picture, which names no card."""
     if not discard:
         return "The discard pile is empty."
     card_word = "card" if len(discard) == 1 else "cards"
-    return (
-        f"Discard pile ({len(discard)} {card_word}): "
-        f"{format_cards(discard)}"
-    )
+    count = f"Discard pile ({len(discard)} {card_word}):"
+    return f"{count} {format_cards(discard)}" if listed else count
 
 
 async def send_error_fallback(
