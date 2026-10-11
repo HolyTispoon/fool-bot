@@ -39,7 +39,6 @@ from codex import tokens
 from codex.components import PATROL_SLOTS, MatchState
 from codex import effects
 from codex.engine import (
-    TECH_FREE_WORKERS,
     AbilityOption,
     BuildOption,
     DetectOption,
@@ -527,22 +526,14 @@ def _main_ask(match: MatchState) -> str:
     )
 
 
-_COUNTED = {1: "one card", 2: "two cards"}
-
-
 def _tech_ask(engine: "RulesEngine", match: MatchState, seat: int) -> str:
-    """The tech choice's ask, with how many cards it takes -- and, where
-    none is allowed, why: the player's workers (UMR p. 5; the author,
-    2026-10-10)."""
-    player = match.player(seat)
-    minimum, maximum = engine.tech_bounds(player)
-    cards = _COUNTED.get(maximum, f"{maximum} cards")
-    if minimum:
-        return (f"{tokens.player(seat)}, choose {cards} to tech from your codex. "
-                "They go to your discard pile when your next turn begins.")
-    return (f"{tokens.player(seat)}, choose up to {cards} to tech from your codex, or none. "
-            f"Teching is optional with {TECH_FREE_WORKERS} or more workers, and you have {player.workers}. "
-            "The cards go to your discard pile when your next turn begins.")
+    """The tech choice's ask, as short as the count: "Tech 2 cards.",
+    and "Tech 0-2 cards." where the player's workers allow none (UMR
+    p. 5). The panel is the player's alone and the turn message says
+    whose it is, so the ask names nobody (the author, 2026-10-11)."""
+    minimum, maximum = engine.tech_bounds(match.player(seat))
+    count = str(maximum) if minimum == maximum else f"{minimum}-{maximum}"
+    return f"Tech {count} card{'' if count == '1' else 's'}."
 
 
 def _obliterate_ask(seat: int) -> str:

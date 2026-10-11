@@ -37,17 +37,17 @@ def plain_text(text: str) -> str:
 
 def card_label(card: Card | Hero) -> str:
     """
-    A card the way a list names it: "Trojan Duck (7) 8/9" -- the cost
-    in brackets, a unit's ATK/HP after it; a spell "Spark (1)"; a hero
-    "Troq Bashar (2) 2/3" at its first band.
+    A card the way a list names it: "Trojan Duck 8/9" -- a unit's ATK/HP
+    after its name; a spell "Spark"; a hero "Troq Bashar 2/3" at its
+    first band. No gold cost: the author took it out of the tech
+    picker's menu, the one list that names a card this way (2026-10-11).
     """
     if isinstance(card, Hero):
         band = card.bands[0]
-        return f"{card.name} ({card.cost}) {band.atk}/{band.hp}"
-    label = card.name if card.cost is None else f"{card.name} ({card.cost})"
+        return f"{card.name} {band.atk}/{band.hp}"
     if card.atk is not None and card.hp is not None:
-        return f"{label} {card.atk}/{card.hp}"
-    return label
+        return f"{card.name} {card.atk}/{card.hp}"
+    return card.name
 
 
 #: The patrol slots in words, as a line or a menu names them.

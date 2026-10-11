@@ -163,8 +163,8 @@ class CodexCardDataTests(unittest.TestCase):
         self.assertNotIn("{", plain_text(line))
 
     def test_card_label(self):
-        self.assertEqual(card_label(self.catalog.by_slug("trojan_duck")), "Trojan Duck (7) 8/9")
-        self.assertEqual(card_label(self.catalog.by_slug("spark")), "Spark (1)")
+        self.assertEqual(card_label(self.catalog.by_slug("trojan_duck")), "Trojan Duck 8/9")
+        self.assertEqual(card_label(self.catalog.by_slug("spark")), "Spark")
         self.assertEqual(self.catalog.name("regularsized_rhinoceros"), "Regular-sized Rhinoceros")
 
 
