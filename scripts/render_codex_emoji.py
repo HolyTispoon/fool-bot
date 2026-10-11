@@ -8,9 +8,10 @@ Draw the Codex bot's emoji into codex/images/emoji/.
 
 `cogs/codex_helpers.py`'s `CodexTokens` draws a card text's `{gold:n}`,
 `{exhaust}` and `{target}` with the Codex application's emoji of those
-names, and a word where one is not uploaded; this draws them, 128 px on
+names (`{exhaust}`'s is `codex_exhaust`), and a word where one is not uploaded; this draws them, 128 px on
 a transparent ground: `gold` (a gold coin -- the amount is written
-beside it), `exhaust` (the cards' ⤵, drawn, white on slate) and `target`
+beside it), `codex_exhaust` (the cards' ⤵, drawn, white on slate --
+not `exhaust`, which is D12 Ball's) and `target`
 (the cards' own ◎, the ring on red). Each landed hero's face --
 `troq_bashar` and `river_montoya`, and from step 10 red's and green's
 six, from step 12 purple's and black's, from step 13 white's and
@@ -160,7 +161,7 @@ def hero(slug: str) -> Image.Image | None:
 def drawings() -> dict[str, Image.Image | None]:
     return {
         "gold": gold(),
-        "exhaust": exhaust(),
+        "codex_exhaust": exhaust(),
         "target": target(),
         **{slug: hero(slug) for slug in FACES},
     }
