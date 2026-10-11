@@ -231,7 +231,8 @@ theirs.
 
 **The emoji are drawn here and uploaded by hand.** Application emoji
 belong to one application and there is no upload code, so
-`scripts/render_codex_emoji.py` draws `gold`, `exhaust` and `target`
+`scripts/render_codex_emoji.py` draws `gold`, `codex_exhaust` (not
+`exhaust`, which D12 Ball's emoji already has) and `target`
 into `codex/images/emoji/`, and cuts `troq_bashar` and `river_montoya`
 from their cards' art at a square pinned per hero (`FACES`), since no
 one crop finds two faces drawn in two places; `codex.png` is the

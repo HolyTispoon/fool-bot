@@ -262,9 +262,9 @@ class CodexTokensTests(unittest.TestCase):
         resolver = CodexTokens(mock.Mock())
         line = "{exhaust} {arrow} Sideline it. {target} Costs {gold:1} less."
         self.assertEqual(resolver.render(line), "[exhaust] -> Sideline it. [target] Costs (1) less.")
-        resolver.emojis = {"exhaust": "<:exhaust:1>", "gold": "<:gold:2>"}
+        resolver.emojis = {"codex_exhaust": "<:codex_exhaust:1>", "gold": "<:gold:2>"}
         self.assertEqual(
-            resolver.render(line), "<:exhaust:1> -> Sideline it. [target] Costs <:gold:2>1 less.",
+            resolver.render(line), "<:codex_exhaust:1> -> Sideline it. [target] Costs <:gold:2>1 less.",
         )
 
 

@@ -810,7 +810,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.copy:
         copy_tag(tile, copy_centre, card_top, lying.copy, turned)
     if lying.exhausted:
-        glyph = by_width(image(EMOJI_DIR / "exhaust.png"), 48)
+        glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))
     if lying.disabled:
         # Beside the exhaust glyph's corner, where it would be.
