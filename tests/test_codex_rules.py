@@ -222,19 +222,42 @@ class BuildingTests(unittest.TestCase):
         player = match.player(1)
         player.gold = 20
         player.workers = 5
-        self.assertIn("6 workers", engine.build_option(player, "tech1").why_not)
+        self.assertIn("not enough workers (needs 6)", engine.build_option(player, "tech1").why_not)
         player.workers = 10
         self.assertEqual(engine.build_option(player, "tech1").cost, 1)
         self.assertIn("Tech I", engine.build_option(player, "tech2").why_not)
         built(match, 1, "tech1")
         self.assertEqual(engine.build_option(player, "tech2").cost, 4)
         player.workers = 7
-        self.assertIn("8 workers", engine.build_option(player, "tech2").why_not)
+        self.assertIn("not enough workers (needs 8)", engine.build_option(player, "tech2").why_not)
         player.workers = 10
         built(match, 1, "tech2")
         self.assertEqual(engine.build_option(player, "tech3").cost, 5)
         player.workers = 9
-        self.assertIn("10 workers", engine.build_option(player, "tech3").why_not)
+        self.assertIn("not enough workers (needs 10)", engine.build_option(player, "tech3").why_not)
+
+    def test_the_next_tech_building_up_says_why_it_waits(self) -> None:
+        """The next tech building up is the first not standing, or one
+        above a building its player has had: a destroyed Tech I is
+        rebuilt before Tech II can be built again (UMR p. 8), and says
+        so (the author, 2026-10-11)."""
+        engine, game, match = main_phase()
+        player = match.player(1)
+        player.gold, player.workers = 20, 5
+        option = {row.building: row for row in engine.legal_actions(match).buildings}
+        self.assertEqual([name for name, row in option.items() if row.next_up], ["tech1"])
+        self.assertEqual(option["tech1"].why_not, "not enough workers (needs 6)")
+        player.workers = 10
+        built(match, 1, "tech1").destroyed = True
+        built(match, 1, "tech2").destroyed = True
+        option = {row.building: row for row in engine.legal_actions(match).buildings}
+        self.assertEqual([name for name, row in option.items() if row.next_up],
+                         ["tech1", "tech2", "tech3"])
+        self.assertTrue(option["tech1"].allowed)
+        self.assertEqual(option["tech2"].why_not, "Tech I is destroyed")
+        self.assertEqual(option["tech3"].why_not, "Tech II is destroyed")
+        built(match, 1, "tech1", finished=False)
+        self.assertEqual(engine.build_option(player, "tech2").why_not, "Tech I is not finished")
 
     def test_a_building_is_finished_at_the_end_of_the_turn(self) -> None:
         engine, game, match = main_phase()

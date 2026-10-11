@@ -210,6 +210,7 @@ class TurnPanelView(PanelView):
     up by one level a click -- then the hand, a button per card numbered
     as the picture numbers it and disabled where it may not be played,
     then the board's row -- **Build** per building that may be built,
+    the next tech building up disabled with why where it may not,
     **Detect...** where there is a tower, and each ability, disabled
     with its reason where it may not be used and its card is neither
     exhausted nor arrived this turn -- and always last, in this order, **My deck**, **Undo...** and
@@ -322,8 +323,21 @@ class TurnPanelView(PanelView):
                 choice=("build", row.building),
             )
             for row in options.buildings if row.allowed
-        ] or [self.make_button("Nothing can be built now", discord.ButtonStyle.secondary, None,
-                               disabled=True)]
+        ]
+        # The next tech building up, refused, says why -- "not enough
+        # workers (needs 8)", "Tech I is destroyed" (the author,
+        # 2026-10-11) -- after everything that may be done, so a full row
+        # gives it up first.
+        refused_builds = [
+            self.make_button(
+                f"Build {building_label(row.building)} ({row.cost} gold): {row.why_not}",
+                discord.ButtonStyle.secondary, None, disabled=True,
+            )
+            for row in options.buildings if not row.allowed and row.next_up
+        ]
+        if not board and not refused_builds:
+            board = [self.make_button("Nothing can be built now", discord.ButtonStyle.secondary,
+                                      None, disabled=True)]
         detect = options.detect
         if detect.tower:
             # Only a player with a finished tower is offered its
@@ -340,6 +354,7 @@ class TurnPanelView(PanelView):
             )
             for ability in options.abilities if ability.allowed
         ]
+        board += refused_builds
         # An ability the engine says no to is there and disabled with its
         # reason, after every one that may be used, so a full row gives
         # these up first -- except a card's that is exhausted or arrived

@@ -2001,7 +2001,15 @@ too, asked with `gate` for the two kinds a turn may open on
   be played now, as the picture greys it, so the row and the picture
   agree card for card -- at most two rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
-  building that may be built now ("Build Tower (3 gold)"),
+  building that may be built now ("Build Tower (3 gold)"), and the
+  next tech building up where it may not, disabled with why ("Build
+  Tech II (4 gold): Tech I is destroyed", "...: not enough workers
+  (needs 8)") -- `BuildOption.next_up`, the engine's: a tech building
+  not standing that is the first, or the one above a building its
+  player has had, so a destroyed Tech I is rebuilt first and Tech II
+  says so, where Tech III at the opening says nothing (the author,
+  2026-10-11); placed after everything that may be done, so a full row
+  gives it up first --
   **Detect...** where there is a tower, and each ability, in the
   card's own words ("Sacrifice Harmony: stop the music"), disabled with
   its reason where it may not be used now, unless its card is exhausted
@@ -2030,7 +2038,8 @@ too, asked with `gate` for the two kinds a turn may open on
 - **Built from the options and nothing else.** A control the engine
   says no to is disabled with its reason as its label ("Hire: a worker
   has been hired this turn"); a group with nothing to offer is one
-  disabled button saying why ("Nothing can be built now"), so the
+  disabled button saying why ("Nothing can be built now", unless a
+  next tech building already says why), so the
   panel keeps its shape. **Hire worker** turns the panel into the hand, a button
   per card numbered as the picture (the one hired with is trashed
   unseen), the question the menu's placeholder used to carry written

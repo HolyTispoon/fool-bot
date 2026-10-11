@@ -237,6 +237,10 @@ class BuildOption:
     why_not: str = ""
     specs: tuple[str, ...] = ()
     lab_specs: tuple[str, ...] = ()
+    #: A tech building next up: not standing, and the first or the one
+    #: above a building its player has had -- which the panel shows even
+    #: refused, with why (the author, 2026-10-11).
+    next_up: bool = False
 
     @property
     def allowed(self) -> bool:
@@ -250,6 +254,8 @@ class BuildOption:
         if self.specs or self.lab_specs:
             found["specs"] = list(self.specs)
             found["lab_specs"] = list(self.lab_specs)
+        if self.next_up:
+            found["next_up"] = True
         return found
 
 
@@ -1566,18 +1572,19 @@ class RulesEngine:
         if building in TECH_BUILDINGS:
             workers, below = TECH_REQUIREMENTS[building]
             existing = player.buildings[building]
+            under = player.buildings[below] if below is not None else None
+            standing = existing is not None and not existing.destroyed
             why = ""
-            if existing is not None and not existing.destroyed:
+            if standing:
                 why = "it is already built"
             elif player.workers < workers:
-                why = f"it needs {workers} workers"
-            elif below is not None and not (
-                player.buildings[below] is not None and player.buildings[below].active
-            ):
-                why = f"it needs a finished {_building_name(below)} building"
+                why = f"not enough workers (needs {workers})"
+            elif below is not None and not (under is not None and under.active):
+                why = self._why_not_below(below, under)
             elif player.gold < cost:
                 why = "not enough gold"
-            return BuildOption(building, cost, workers, why, specs, lab_specs)
+            next_up = not standing and (below is None or under is not None)
+            return BuildOption(building, cost, workers, why, specs, lab_specs, next_up)
         # A new add-on replaces the one in the slot, which deals its 2 to
         # the base (UMR p. 9; the author, 2026-10-08) -- the same one again
         # is no replacement.
@@ -1589,6 +1596,19 @@ class RulesEngine:
         elif player.gold < cost:
             why = "not enough gold"
         return BuildOption(building, cost, 0, why, specs, lab_specs)
+
+    @staticmethod
+    def _why_not_below(below: str, under) -> str:
+        """Why the tech building under one may not carry it: never built,
+        destroyed -- rebuilt first (UMR p. 8) -- unfinished, or disabled."""
+        name = _building_name(below)
+        if under is None:
+            return f"it needs a finished {name} building"
+        if under.destroyed:
+            return f"{name} is destroyed"
+        if under.under_construction:
+            return f"{name} is not finished"
+        return f"{name} is disabled"
 
     # -- The main phase -----------------------------------------------------
 

@@ -303,6 +303,22 @@ class PanelTests(TurnTestCase):
         self.assertIs(back.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue([item for item in back.children if (item.choice or ("",))[0] == "play"])
 
+    async def test_the_next_tech_building_says_why_it_waits(self) -> None:
+        """A refused next tech building is on the board's row, disabled
+        with why; one further up is not."""
+        match = self.table.match
+        seat = match.active
+        match.player(seat).workers = 5
+        match.player(seat).gold = 9
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        labels = [item.label for item in view.children]
+        waiting = [item for item in view.children if item.label.startswith("Build Tech")]
+        self.assertEqual([item.label for item in waiting],
+                         ["Build Tech I (1 gold): not enough workers (needs 6)"], labels)
+        self.assertTrue(waiting[0].disabled)
+        self.assertNotIn("Nothing can be built now", labels)
+
     async def test_a_panel_edited_in_place_keeps_its_hand_picture(self) -> None:
         """**Back** from hiring puts the main phase up again over the
         same hand: the picture the message already carries is kept, not
