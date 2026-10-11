@@ -2096,9 +2096,15 @@ cards than one menu holds is now split over as many menus as it needs
 (`MENU_ROWS`, three, each labelled with the cards it runs from and to),
 none cut short. **Save tech** is held to the bounds, and where ten
 workers allow none (UMR p. 5) **Tech nothing** saves the empty choice;
-the model's ask says so and why: "Teching is optional with 10 or more
-workers, and you have 11." The ask carries no dash (the author,
-2026-10-10).
+the ask says so by its range. **The ask is the count and nothing
+else** -- "Tech 2 cards.", and "Tech 0-2 cards." where the workers
+allow none (the author, 2026-10-11). The first reading named the
+player, said the cards came from the codex, said when they reach the
+discard pile and, where none was allowed, why; read at the start of the
+player's own turn, "when your next turn begins" was confusing, and the
+rest was more text than the choice needed: the panel is the player's
+alone, the turn message names whose it is, and **Tech nothing** is the
+button for none. The ask carries no dash (the author, 2026-10-10).
 
 **The picker says nothing of whether a card could be played now.** A line
 per card saying what it needed ("needs tech II building", "needs River
@@ -2119,7 +2125,9 @@ and rebuilds the cards' menu from that view alone
 prompt's list, narrowed by the engine, and computes nothing). **The
 picks are kept across views**: a card picked under Tech I stays picked
 while Tech II is shown; the caption says which view is shown and lists
-every pick ("Showing: Tech II. Picked so far: Iron Man, Eggship.").
+every pick on its last line, under the deck's count ("Picked so far:
+Iron Man, Eggship."). It does not say which view is shown: the Show
+menu above the cards already does (the author, 2026-10-11).
 Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and
 spends nothing public, like a pick before saving. Save sends the picks
