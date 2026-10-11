@@ -25,6 +25,7 @@ tab in the Developer Portal, one file per name, the name the file's.
 """
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -106,20 +107,25 @@ def gold() -> Image.Image:
 
 def exhaust() -> Image.Image:
     """The cards' ⤵ -- an arrow pointing right, then curving down --
-    drawn rather than set, since no bundled face has the glyph."""
+    drawn rather than set, since no bundled face has the glyph. The
+    shaft is one centre line, the bend sampled along it, drawn as one
+    stroke: an arc's stroke runs inward from its box where a line's is
+    centred on it, so a line and an arc drawn apart meet a half stroke
+    out of step."""
     image, draw, size = canvas()
     disc(draw, size, SLATE, WHITE)
     width = size // 11
     radius = size // 5
     left, top = size * 0.25, size * 0.32
-    corner = size * 0.62 - radius
-    draw.line((left, top, corner, top), fill=WHITE, width=width)
-    draw.arc(
-        (corner - radius, top, corner + radius, top + 2 * radius),
-        start=270, end=360, fill=WHITE, width=width,
-    )
-    x = corner + radius - width / 2
-    draw.line((x, top + radius, x, size * 0.62), fill=WHITE, width=width)
+    x = size * 0.62
+    centre = (x - radius, top + radius)
+    bend = [
+        (centre[0] + radius * math.sin(step * math.pi / 32),
+         centre[1] - radius * math.cos(step * math.pi / 32))
+        for step in range(17)
+    ]
+    shaft = [(left, top), *bend, (x, size * 0.62)]
+    draw.line(shaft, fill=WHITE, width=width, joint="curve")
     head = size * 0.13
     tip = size * 0.76
     draw.polygon(
