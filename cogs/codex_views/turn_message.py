@@ -38,14 +38,13 @@ ephemeral confirmation (`ConcedeConfirmView`).
 import asyncio
 import logging
 import time
-from collections import Counter
 
 import discord
 
 from codex.formatting import codex_view_name, team_name
 from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_deck, render_hand
-from cogs.codex_helpers import card_name, elapsed_ms, pictures_size
+from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
 from cogs.codex_views.turn import UndoView
 
@@ -215,21 +214,11 @@ def side_label(game, match, seat: int) -> str:
 
 
 def hand_caption(match, seat: int, side: str = "") -> str:
-    """What the hand picture is sent with: its count and the discard
-    pile's contents, which is its owner's to know (UMR p. 5)."""
-    player = match.player(seat)
-    count = len(player.hand)
-    lines = [f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."]
-    if player.discard:
-        counted = Counter(player.discard)
-        listed = ", ".join(
-            card_name(slug) + (f" x{copies}" if copies > 1 else "")
-            for slug, copies in sorted(counted.items(), key=lambda row: card_name(row[0]))
-        )
-        lines.append(f"Your discard pile ({len(player.discard)}): {listed}.")
-    else:
-        lines.append("Your discard pile is empty.")
-    return "\n".join(lines)
+    """What the hand picture is sent with: its count alone. The discard
+    pile is not listed beside it -- read under the picture it was taken
+    for the hand (the author, 2026-10-11) -- and **My deck** shows it."""
+    count = len(match.player(seat).hand)
+    return f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."
 
 
 async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
