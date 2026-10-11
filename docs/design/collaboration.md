@@ -57,9 +57,11 @@ person's development checkout. So:
     the steps in `update-main-bot.sh`) delete every `desktop.ini` under
     `.git` before the fetch, every time rather than once, because Drive
     writes them again; they are its folder-icon metadata, nothing git
-    wrote. The working tree's are left where they are: untracked, and the
-    dirty check ignores untracked files. By hand, when a fetch fails that
-    way from a shell: `Get-ChildItem -LiteralPath .git -Recurse -Force
+    wrote. The working tree's are left where they are -- harmless to a
+    pull, since the dirty check ignores untracked files -- and
+    `.gitignore` names `desktop.ini`, so the host's editor does not list
+    one per folder as an untracked change. By hand, when a fetch fails
+    that way from a shell: `Get-ChildItem -LiteralPath .git -Recurse -Force
     -Filter desktop.ini | Remove-Item -Force`.
 
 **One bot per token, and `scripts/update_main_bot.ps1` is what enforces it**

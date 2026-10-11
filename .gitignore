@@ -6,6 +6,10 @@
 __pycache__/
 *.pyc
 .DS_Store
+# Google Drive's folder-icon metadata, in every folder the K:\ checkout
+# syncs (docs/design/collaboration.md, "The K:\ drive is a mounted Google
+# Drive letter"); the ones under .git are the deploy scripts' to delete
+desktop.ini
 board.png
 # Everything printed, one subfolder per script (docs/design/cards.md,
 # "Where printed output goes")
