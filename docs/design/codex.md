@@ -2184,8 +2184,9 @@ too, asked with `gate` for the two kinds a turn may open on
   nothing reorders it -- patrolling or not; `ref_label` writes the
   number after the name, "Bone Collector #2 3/3", so every menu that
   names a unit carries it, and the board draws the same "#2" on a
-  white tag just inside the card's top edge (`Lying.copy`,
-  `copy_tag`). A copy keeps its number while the ones before it stay
+  white tag across the card's top edge, on one line with the stats
+  pill and a little smaller than it (`Lying.copy`, `copy_tag`; the
+  author, 2026-10-11). A copy keeps its number while the ones before it stay
   in play. The far panel is turned round whole, so its tags are drawn
   upside down before the turn and read upright after (`turned`, passed
   down from `render_panel`): a number is matched to its button, so

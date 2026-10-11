@@ -532,22 +532,24 @@ def time_rune_chit(runes: int) -> Image.Image:
     return board_piece("time_runes", f"{min(runes, 6)}.png")
 
 
-def copy_tag(canvas: Image.Image, centre: int, top: int, number: int, turned: bool) -> None:
-    """A copy's number, "#2", on a white tag centred on `centre` just
-    inside the card's top edge `top`, the right way up whether the card
-    stands or lies exhausted -- and on the far side of the table,
-    `turned`, drawn upside down here so it reads the right way up once
-    the panel is turned round: a number is matched to its button, so
-    nobody should have to read it upside down."""
-    face = font(26)
+def copy_tag(canvas: Image.Image, centre: int, middle: int, number: int, turned: bool) -> None:
+    """A copy's number, "#2", on a white tag centred on `centre` and on
+    `middle` -- the stats pill's line, across the card's top edge (the
+    author, 2026-10-11: on one line with the pill, and smaller) -- the
+    right way up whether the card stands or lies exhausted, and on the
+    far side of the table, `turned`, drawn upside down here so it reads
+    the right way up once the panel is turned round: a number is matched
+    to its button, so nobody should have to read it upside down."""
+    face = font(21)
     text = f"#{number}"
-    width, height = round(face.getlength(text)) + 22, 36
+    width, height = round(face.getlength(text)) + 18, 30
     tag = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tag)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=10, fill=COPY_FILL,
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=8, fill=COPY_FILL,
                            outline=SHADOW, width=2)
     draw.text((width / 2, height / 2), text, font=face, fill=COPY_INK, anchor="mm")
-    canvas.alpha_composite(tag.rotate(180) if turned else tag, (centre - width // 2, top + 6))
+    canvas.alpha_composite(tag.rotate(180) if turned else tag,
+                           (centre - width // 2, middle - height // 2))
 
 
 def stat_pill(stats: "Stats") -> Image.Image:
@@ -815,7 +817,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # stats top right: its copy's number goes between them.
         copy_centre = left + side + (COST_WIDTH + CARD[0] + STAT_OVERHANG - stats.width) // 2
     if lying.copy:
-        copy_tag(tile, copy_centre, card_top, lying.copy, turned)
+        copy_tag(tile, copy_centre, card_top - STAT_OVERHANG + STAT_HEIGHT // 2, lying.copy,
+                 turned)
     if lying.exhausted:
         glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))
