@@ -18,7 +18,7 @@ with `-StopOnly` and read their output with `show_logs.cmd`.
 | `.\scripts\deploy.cmd -SkipPull` | Restarts all four on the code already there, e.g. after a reboot |
 | `.\scripts\deploy.cmd -Branch <name>` | Deploys another branch instead of `main` |
 | `.\scripts\update_main_bot.cmd` | The bot alone: pulls, installs, restarts (takes `-SkipPull` and `-Branch` too) |
-| `.\scripts\run_codex_bot.cmd` | The Codex bot alone: pulls, installs, restarts it (takes `-SkipPull` and `-Branch` too). Starts nothing on a checkout whose `.env` has no `CODEX_DISCORD_TOKEN`. The other processes keep running the old code until restarted |
+| `.\scripts\run_codex_bot.cmd` | The Codex bot alone: pulls, installs, restarts it (takes `-SkipPull` and `-Branch` too; `-WithFoolBot`, which `deploy.cmd` passes, leaves the change list in #logs to fool-bot). Starts nothing on a checkout whose `.env` has no `CODEX_DISCORD_TOKEN`. The other processes keep running the old code until restarted |
 | `.\scripts\run_web_app.cmd` | The web app alone: pulls, installs, restarts it (takes `-SkipPull` and `-Branch` too). The other processes keep running the old code until restarted |
 | `.\scripts\run_tunnel.cmd` | The tunnel alone: restarts the connector that puts the web app on play.d12ball.com. Starts nothing on a checkout whose `.env` has no `FOOLBOT_TUNNEL_TOKEN` |
 

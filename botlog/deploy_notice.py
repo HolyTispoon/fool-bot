@@ -509,6 +509,7 @@ def notice_for(
     previous: Optional[str],
     repo_dir: Path = REPO_DIR,
     restarted: bool = False,
+    list_changes: bool = True,
 ) -> Optional[tuple[str, str]]:
     """
     (sha, message) when the running build is not `previous` -- the sha
@@ -520,6 +521,14 @@ def notice_for(
     restarted on its own tree -- run_codex_bot.ps1, which does not pull,
     or update_main_bot.ps1 -SkipPull -- never has a new build, and
     without the line it left no trace in #logs at all.
+
+    `list_changes` False is a bot restarted beside another that lists
+    the same changes in the same channel -- the Codex bot started by
+    deploy.ps1, straight after fool-bot (codexbot.py --with-fool-bot).
+    Then a new build gets the one restart line too, and its sha is still
+    recorded, so the Codex bot's next restart on its own lists only what
+    landed after it. A reconnect stays silent: a line saying it
+    restarted would be untrue.
 
     None covers every silent case: the feature switched off, an
     unreadable checkout, and a reconnect on the same commit. The caller
@@ -537,7 +546,7 @@ def notice_for(
     if build is None:
         return None
 
-    if previous == build.sha:
+    if previous == build.sha or not list_changes:
         if not restarted:
             return None
 

@@ -3,10 +3,16 @@ The Codex bot: Sirlin Games' Codex on Discord, its own process with its
 own token beside fool-bot (docs/design/codex.md).
 
     python3 codexbot.py
+    python3 codexbot.py --with-fool-bot   # deploy.ps1's: no change list
+
+--with-fool-bot says fool-bot was restarted in the same deploy, so its
+notice in #logs lists the changes and this bot's says only that it
+restarted (docs/design/logging.md).
 """
 
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -28,6 +34,7 @@ LOGGER = logging.getLogger(__name__)
 log_mirror = botlog.install_mirror()
 
 TOKEN = os.getenv("CODEX_DISCORD_TOKEN")
+WITH_FOOL_BOT = "--with-fool-bot" in sys.argv[1:]
 
 bot = gamebot.GameBot(
     extensions=("cogs.codex",),
@@ -44,7 +51,7 @@ async def on_ready():
     LOGGER.info("Logged in as %s (bot user ID %s)", bot.user, getattr(bot.user, "id", "unknown"))
     await botlog.start_mirror(bot, log_mirror)
     await botlog.announce_gateway_recovery(bot)
-    await botlog.announce_startup(bot, STATE_FILE)
+    await botlog.announce_startup(bot, STATE_FILE, list_changes=not WITH_FOOL_BOT)
 
 
 @bot.event

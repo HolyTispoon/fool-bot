@@ -955,6 +955,28 @@ class DeployNoticeDedupTests(unittest.TestCase):
         self.assertEqual(sha, "a" * 40)
         self.assertIn("aaaaaaa", message)
 
+    def test_a_new_build_beside_fool_bot_is_one_line(self) -> None:
+        # The Codex bot started by deploy.ps1: fool-bot lists the
+        # changes, so this one only says it restarted -- and still
+        # records the build, so its next restart alone lists nothing
+        # fool-bot already did.
+        with environment(FOOLBOT_HOST_NAME="K"):
+            with mock.patch.object(
+                deploy_notice, "head_build", return_value=self.build(),
+            ), mock.patch.object(
+                deploy_notice, "commits_since",
+            ) as commits_since:
+                pending = deploy_notice.notice_for(
+                    "b" * 40, restarted=True, list_changes=False,
+                )
+                reconnect = deploy_notice.notice_for(
+                    "b" * 40, restarted=False, list_changes=False,
+                )
+
+        commits_since.assert_not_called()
+        self.assertEqual(pending, ("a" * 40, "**Bot restarted** on `K`"))
+        self.assertIsNone(reconnect)
+
     def test_a_checkout_without_git_announces_nothing(self) -> None:
         with environment():
             with mock.patch.object(
@@ -1204,6 +1226,35 @@ class StartupWiringTests(unittest.TestCase):
         self.assertEqual(len(channel.sent), 1)
         self.assertTrue(channel.sent[0].startswith("**Bot restarted**"))
         self.assertNotIn("aaaaaaa", channel.sent[0])
+
+    def test_a_new_build_beside_fool_bot_posts_no_change_list(self) -> None:
+        # codexbot.py --with-fool-bot: the build is new, but fool-bot's
+        # notice lists it, so the post is the one line and the sha is
+        # still marked.
+        channel = FakeTextChannel(name="logs", channel_id=7)
+
+        with environment(FOOLBOT_LOG_MIRROR="on"), mock.patch.object(
+            botlog, "_startup_announced", False,
+        ), mock.patch.object(
+            deploy_notice, "last_announced", return_value="b" * 40,
+        ), mock.patch.object(
+            deploy_notice, "head_build",
+            return_value=deploy_notice.Build("a" * 40, "aaaaaaa", "Work"),
+        ), mock.patch.object(
+            deploy_notice, "commits_since",
+        ) as commits_since, mock.patch.object(
+            deploy_notice, "mark_announced",
+        ) as mark_announced, mock.patch.object(
+            botlog, "ensure_log_channel",
+            mock.AsyncMock(return_value=channel),
+        ):
+            asyncio.run(botlog.announce_startup(FakeClient(), list_changes=False))
+
+        commits_since.assert_not_called()
+        self.assertEqual(len(channel.sent), 1)
+        self.assertTrue(channel.sent[0].startswith("**Bot restarted**"))
+        self.assertNotIn("aaaaaaa", channel.sent[0])
+        mark_announced.assert_called_once_with("a" * 40, None)
 
     def test_binding_is_skipped_when_there_is_no_mirror(self) -> None:
         asyncio.run(botlog.start_mirror(FakeClient(), None))
