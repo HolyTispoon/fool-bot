@@ -249,10 +249,11 @@ class TurnsMixin:
         if seat is None:
             webp = await asyncio.to_thread(
                 render_board, match, "stacked", names, self.engine.catalog, asked,
+                self.engine.body_stats,
             )
             return picture_file(webp, "codex-sides")
         webp = await asyncio.to_thread(
-            render_side, match, seat, names[seat], self.engine.catalog,
+            render_side, match, seat, names[seat], self.engine.catalog, self.engine.body_stats,
         )
         return picture_file(webp, "codex-side")
 
