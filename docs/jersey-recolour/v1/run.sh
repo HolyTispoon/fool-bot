@@ -5,7 +5,7 @@
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd); K=$D/../kit; W=$(mktemp -d)
 export PYTHONWARNINGS=ignore
-cp "$K/kit.py" "$D"/*.py "$W/"
+cp "$K/kit.py" "$K/generic.py" "$D"/*.py "$W/"
 cp "$D/refs_first_teal.pkl" "$W/refs.pkl"
 python3 "$W/p_quantor.py" "$W"
 python3 "$W/generic.py" "$W" Gearclaw black '[[[128,95],[165,58],[205,55],[245,65],[255,120],[250,175],[200,190],[150,182],[130,140]]]' '[[[214,72],[242,72],[242,100],[214,100]]]'
