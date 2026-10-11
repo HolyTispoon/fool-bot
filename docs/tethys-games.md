@@ -49,7 +49,7 @@ What `sets.py` does **not** have, and both games need:
   pairs"; a showdown needs to know which two pairs is higher, and when
   two hands are exactly equal. Poker's answer is the kicker. Tethys
   poker's has to say where a ruler stands as a kicker and how high the
-  Left-and-Right pair is -- see questions 3 and 4.
+  Left-and-Right pair is -- decision 4, from the author's answers.
 - **The best six of more than six.** Both games deal each player three
   pocket cards and lay community cards beside them; a hand is the best
   six a player can make from all of them.
@@ -189,7 +189,7 @@ by The Gang's name for it (decision 13):
 | The 1-star chips of rounds 1-3 cannot change hands once taken (16) | -- | unchanged |
 | The holder of the white 1-star chip redraws their pocket if the flop shows a face card (16) | J, Q or K on the flop | **a ruler on the flop** (about 43% of flops, against 55% for a face card in 52 cards) |
 | The top chips of rounds 1-3 cannot change hands once taken (17) | -- | unchanged |
-| The holder of the top white chip redraws their pocket on the flop's condition (17) | "if none" on p. 17's text, "if at least one" on the card itself -- the book disagrees with itself | question 11 |
+| The holder of the top white chip redraws their pocket on the flop's condition (17) | "if none" on p. 17's text, "if at least one" on the card itself (Laser Tripwires) -- the book disagrees with itself | **a ruler-free flop**, the explanation's reading (question 11) |
 | No orange chips; straight to the river (16) | -- | unchanged |
 | Each round's chips are discarded when the next round's are laid out (17) | -- | unchanged |
 | Before the strongest hand is shown, the rest agree on a card value it holds in its pocket (16) | 2 to ace | **1 to 10, Left, Right** |
@@ -289,30 +289,44 @@ argued with.
    eight". Burn cards are dealt as Hold 'em deals them (one before
    each street) since the deck has room and players expect it.
 
-4. **The order within a set** (proposed; questions 3 and 4 settle it):
-   a hand's matched groups are compared largest group first, then
-   highest, then the unmatched cards high to low -- poker's kicker
-   rule. Heights: the numbers 1 to 10, and **a ruler 11, Left and Right
-   equal**, as a straight already treats them; the Left-and-Right pair
-   is a pair of height 11, above a pair of 10s. So two triples compare
-   the higher triple, then the lower; three pairs the highest, then the
-   middle, then the lowest; four of a kind its four, then its two
-   others high to low (a pair among them is only two kickers); a
-   straight its top place; a flush its cards high to low. Two hands
-   equal in all of that are equal, and split.
+4. **The order within a set**: a hand's matched groups are compared
+   largest group first, then highest, then the unmatched cards high to
+   low -- poker's kicker rule. Heights: the numbers 1 to 10, then **a
+   Doom ruler, then a Fortune ruler** -- "left and right alternate.
+   whoever is fortune is higher than whoever is doom" (the author,
+   2026-10-11): which of Left and Right is Fortune changes from suit to
+   suit (`deck.LEFT_FATE`), and the Fortune one is the higher. **The
+   Left-and-Right pair is the highest pair** (the author, 2026-10-11),
+   above a pair of 10s. So two triples compare the higher triple, then
+   the lower; three pairs the highest, then the middle, then the
+   lowest; four of a kind its four, then its two others high to low (a
+   pair among them is only two kickers); a flush its cards high to low.
+   Two hands equal in all of that are equal, and split.
+   - **Two readings that follow, built so until the author says
+     otherwise.** A ruler pair can be two Fortune rulers, one of each,
+     or two Doom (a Left and a Right of different suits can share a
+     fate), so two ruler pairs compare their higher card, then their
+     lower: Fortune and Fortune above Fortune and Doom above Doom and
+     Doom. And a straight ending on a ruler ends on the ruler's height,
+     so one ending on a Fortune ruler beats one ending on a Doom ruler.
+     Neither changes which set a hand makes: in a straight both rulers
+     still follow 10, so `sets.py` and its census stand.
 
-5. **Fate decides nothing in either game to start** (question 5): a
-   uniform hand is the same set as a mixed one. It is the one thing the
-   deck has that poker does not, so it is the first candidate for a
-   rule once the games are played, and the evaluator carries
-   `uniform` on its value so a rule can read it without another pass.
+5. **Fate decides the rulers' order and nothing else to start**
+   (question 5): a uniform hand is the same set as a mixed one. It is
+   the one thing the deck has that poker does not, so it is the first
+   candidate for a rule once the games are played, and the evaluator
+   carries `uniform` on its value so a rule can read it without
+   another pass.
 
 6. **Tethys Hold 'em is no-limit, played as a sit-and-go in dinkies**:
    every seat starts with the same stack, the blinds rise every so many
-   hands, the last seat with chips wins. The numbers are the author's
-   (question 6); built until then as a stack of 360 dinkies (ten 3G),
-   blinds 3 and 6 rising by the coins' own ladder every ten hands.
-   Chips are dinkies, shown as the studio's coins.
+   hands, the last seat with chips wins. Chips are dinkies, shown as
+   the studio's coins. The numbers are the author's to pick from the
+   three structures in question 6 -- each the common sit-and-go shape
+   (about 75 big blinds deep, each level a third to a half up on the
+   last) with blinds the coins can pay -- built as **the Tethys
+   standard** until they do.
 
 7. **Each game has its own channel, as Codex's do** (`/tethys holdem
    create_game` and `/tethys gang create_game` open it; a thread where
@@ -335,10 +349,11 @@ argued with.
    which is not the channel's bucket. The board picture changes only
    when a street is dealt, and that is a new message, which pings
    everybody. **The round ends when everybody holds a chip and has
-   pressed Ready**, Ready cleared for everyone whenever a chip changes
-   hands -- online, "as soon as everyone has a chip" (Gang p. 6) would
-   end a round the instant the last chip was taken, before anybody
-   could take it back. Question 7 asks.
+   pressed Ready** (the author, 2026-10-11: "gang round must wait for
+   ready"), Ready cleared for everyone whenever a chip changes hands --
+   online, "as soon as everyone has a chip" (Gang p. 6) would end a
+   round the instant the last chip was taken, before anybody could
+   take it back.
 
 10. **Hidden is hidden**: a pocket card is never in a public message, a
     log line, the #logs mirror or a refusal's text. A folded Hold 'em
@@ -363,11 +378,12 @@ argued with.
     `tethysdeck/strips.py`, beside the faces they draw, never in the
     model.
 
-13. **A challenge or specialist is keyed by what it does**
-    (`no_first_chips`, `fixed_lowest_chips`, `ruler_flop_redraw`, ...),
-    and its display name is one table the author fills in -- whether
-    the Gang's names stay or the cards get Tethys names is theirs
-    (question 9), and either way the code never changes for it.
+13. **The Gang's words are kept** (the author, 2026-10-11: "keep gang
+    words"): heist, vault, alarm, the four chip colours, challenge,
+    specialist, and each card's name. A card is still keyed in the code
+    by what it does (`no_first_chips`, `fixed_lowest_chips`,
+    `ruler_flop_redraw`, ...), its name read from one table, so a later
+    renaming is a table edit.
 
 14. **The `/tethyscards` commands show pictures first**, before either
     game, since it is the author's first ask and the games' pictures
@@ -379,42 +395,69 @@ argued with.
 
 Each step's PR carries a `## Questions to the author` section; these are
 the ones known before any step starts. A step whose prompt needs an
-answer says what it builds until it has one.
+answer says what it builds until it has one. Those struck were answered
+on 2026-10-11.
 
 1. **Do the two games live in fool-bot, or a bot of their own?** Built
    as fool-bot (decision 1).
 2. **What are the commands called?** Built as one `/tethys` group with
    `holdem` and `gang` subgroups, `/tethyscards` left as it is.
-3. **Where does a ruler stand as a kicker, and is Right above Left?**
-   Built as both 11 and equal (decision 4).
-4. **Is the Left-and-Right pair the highest pair?** Built as yes,
-   height 11.
-5. **Does fate do anything?** For example: a uniform hand beats a mixed
-   hand of the same set and heights, or a uniform hand wins a bonus
-   from every other seat, or nothing. Built as nothing (decision 5).
-6. **Hold 'em's numbers**: the starting stack, the blinds and how fast
-   they rise, the seats (built as 2 to 10), and whether the game is a
-   sit-and-go or a table people come and go from with dinkies of their
-   own (built as the sit-and-go).
-7. **Does a Gang round end the moment everybody holds a chip, or once
-   everybody has also pressed Ready?** Built as Ready (decision 9).
+3. ~~**Where does a ruler stand as a kicker, and is Right above
+   Left?**~~ Answered: Left and Right alternate, and whichever is
+   Fortune is higher than whichever is Doom. Decision 4, with the two
+   readings that follow from it, which the author may still overrule.
+4. ~~**Is the Left-and-Right pair the highest pair?**~~ Answered: yes.
+5. **Does fate do anything beyond ordering the rulers?** For example:
+   a uniform hand beats a mixed hand of the same set and heights, or
+   a uniform hand wins a bonus from every other seat, or nothing.
+   Built as nothing (decision 5).
+6. **Hold 'em's numbers.** The common sit-and-go -- the shape the
+   online rooms made standard -- starts every seat at 1,500 with
+   blinds of 10 and 20, about 75 big blinds deep, and raises each
+   level a third to a half on the last ([PokerNews on sit-and-go
+   structures](https://www.pokernews.com/strategy/10-tips-for-sit-go-success-assessing-structures-speeds-27573.htm);
+   home-game ladders run 10/20, 15/30, 25/50, 50/100 and on). Its
+   levels are minutes; on Discord a hand takes minutes of its own, so
+   a level here is a number of hands. Three structures on offer:
+
+   | | Stack | Deep | Blinds, level by level | A level |
+   | --- | --- | --- | --- | --- |
+   | **Tethys standard** (built) | 432 dinkies, twelve 3G | 72 BB | 3/6, 6/12, 9/18, 12/24, 18/36, 24/48, 36/72, 54/108, 72/144, 108/216, 144/288 | 10 hands |
+   | **Tethys turbo** | 216 dinkies, six 3G | 36 BB | the same ladder | 6 hands |
+   | **The room's numbers** | 1,500 | 75 BB | 10/20, 15/30, 25/50, 50/100, 75/150, 100/200, 150/300, 200/400, 300/600, 400/800 | 10 hands |
+
+   The Tethys ladder is the common shape with the coins' own values:
+   every big blind is a coin or a few of one kind (6 a silver, 12 a
+   gold, 18 three silver, 36 three gold, 72 two 3G), the first step
+   doubles as 5/10 to 10/20 does, and each after it is a third or a
+   half up. Also open: the seats (built as 2 to 9, the full ring), and
+   whether a turbo or the room's numbers should be a setting at the
+   lobby beside the standard.
+7. ~~**Does a Gang round end the moment everybody holds a chip, or
+   once everybody has also pressed Ready?**~~ Answered: it waits for
+   Ready. Decision 9.
 8. **What happens to a player who does not act?** Built as no clock, a
    **Nudge**, and a helper who may fold or sit out the seat. And does a
    seat sitting out still post its blinds?
-9. **The Gang's names**: keep "heist", "vault", "alarm", the chip
-   colours and the cards' names, or give Tethys Gang names of its own?
-   Built with The Gang's words in the narration until the author names
-   them, every one from one table.
+9. ~~**The Gang's names**~~ Answered: keep The Gang's words. Decision
+   13.
 10. **The challenge and specialist translations** in the table above:
     rulers for face cards, 1 to 10, Left and Right for card values,
     Tethys sets for hand rankings, worth for the sum, a fourth pocket
     card. And should there be a Fortune-count specialist?
-11. **The redraw on the top white chip**: The Gang's rulebook says "if
-    none of the flop is a face card" in its overview and "if at least
-    one" on the card itself (Gang p. 17). Which, as a ruler on the flop?
-12. **The suitless jack**: in Tethys Gang, a suitless card that counts
-    as what? A ruler that pairs with either Left or Right, chosen at
-    the showdown, is one reading; a suitless 10 another.
+11. **Laser Tripwires** (challenge 7): the rulebook's explanation on
+    p. 17 has the holder of the top white chip redraw "if none" of the
+    flop is a J, Q or K; the card printed beside it says "if at least
+    one". The explanation makes it Motion Detector's mirror -- Motion
+    Detector (challenge 3) redraws the 1-star holder's pocket when the
+    flop *has* a face card, Tripwires the top holder's when it has
+    none -- and the card's wording reads like Motion Detector's copied.
+    Built as the explanation's "none", over rulers: the top white chip
+    redraws when the flop shows no ruler.
+12. **The suitless jack** (specialist 7, "Jack"): in Tethys Gang, a
+    suitless card that counts as what? A ruler that pairs with either
+    Left or Right, chosen at the showdown, is one reading; a suitless
+    10 another. And if a ruler, Fortune or Doom?
 13. **How many players does Tethys Gang take?** Built as 3 to 8 (The
     Gang plays 3 to 6, and 10 with its expansion; more players is
     harder).
@@ -542,8 +585,10 @@ the change loads.
 
 ```text
 Step 2 of docs/tethys-games.md. Decisions 2, 3, 4 and 5, and
-questions 3, 4 and 5 -- build what the decisions say for any the
-author has not answered, and say so in the PR.
+question 5 -- build what the decisions say for any the author has
+not answered, and say so in the PR. Decision 4's rulers are the
+author's: the Fortune ruler of a Left and Right is the higher, and
+the Left-and-Right pair is the highest pair.
 
 Write tethysdeck/hands.py: HandValue (sorts; the set's place in
 sets.SETS first, then the set's own tie-break, and uniform carried
@@ -641,7 +686,7 @@ width as well as a desktop's.
 
 ```text
 Step 5 of docs/tethys-games.md. Read "Tethys Gang, in the terms the
-code will use" and decision 9, and questions 7 and 13. The Gang's
+code will use" and decision 9, and question 13. The Gang's
 rules are summarised in the worksheet; do not commit its rulebook.
 
 tethyspoker/gang/ with components, game, engine, prompts, flow/,
@@ -666,7 +711,7 @@ Stop: the PR shows one heist's narration in full.
 ### 6. Tethys Gang on Discord
 
 ```text
-Step 6 of docs/tethys-games.md. Decisions 7, 9 and 10, question 9.
+Step 6 of docs/tethys-games.md. Decisions 7, 9, 10 and 13.
 
 /tethys gang create_game opens the channel and the lobby. Each street
 is a new message (the board as a picture, everybody mentioned); under
@@ -691,7 +736,7 @@ message and a showdown in the PR.
 
 ```text
 Step 7 of docs/tethys-games.md. The table in "Tethys Gang, in the
-terms the code will use", decision 13, and questions 9, 10, 11 and 12.
+terms the code will use", decision 13, and questions 10, 11 and 12.
 
 Every challenge and specialist as data keyed by what it does, with its
 display name from one table. The mode is a setting on the record:
