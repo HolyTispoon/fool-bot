@@ -549,9 +549,9 @@ def stat_pill(stats: "Stats") -> Image.Image:
     """A unit's or a hero's ATK and HP as they stand, on one pill in two
     halves -- ATK on the card's black, HP on its red, either on its own
     colour where it is not what the card prints -- edged white, so it
-    reads on any art. Drawn on the card, so it turns as the card does:
-    on its side with an exhausted card, upside down on the far side of
-    the table, its foot always toward the card's (the author,
+    reads on any art. Its foot is toward its player's edge of the table
+    -- upside down on the far side, as the cards are -- and stays there
+    when the card is exhausted and lies on its side (the author,
     2026-10-11)."""
     face = font(STAT_SIZE)
     height = STAT_HEIGHT
@@ -739,7 +739,8 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     Step's chit on a dance partner, ARRIVED on its art's foot the turn
     it came, a copy's number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
-    with the exhaust glyph on the cell's top corner, the right way up.
+    with the exhaust glyph on the cell's top corner and its stats on
+    the turned card's top right, both level with the table.
     """
     margin = OVERHANG
     # Wider at the sides than `OVERHANG`, for the rune chits that hang
@@ -785,7 +786,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # card's text (the author, 2026-10-10).
         arrived_tag(upright, side, margin + ART_FOOT)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
-    if stats is not None:
+    if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + 6 - stats.width, margin + 2))
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
@@ -796,6 +797,11 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         laid = upright.transpose(Image.ROTATE_270)
     left, top = paste_centred(tile, laid, (0, 0, tile.width, tile.height))
     card_top = top + (side if lying.exhausted else margin)
+    if stats is not None and lying.exhausted:
+        # Level with the table, on the turned card's top right -- over
+        # its cost, the card's own top left once turned.
+        card_right = left + margin + CARD[1]
+        tile.alpha_composite(stats, (card_right + 6 - stats.width, card_top + 2))
     copy_centre = left + laid.width // 2
     if stats is not None and not lying.exhausted:
         # A standing card's top edge holds the cost top left and the

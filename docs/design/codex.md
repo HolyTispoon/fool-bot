@@ -1627,10 +1627,12 @@ else the bot shows is ephemeral.
     teal, gold, blue and violet pairs; the top left, over the cost.
     The top right was the rune chits', so they moved down the right
     edge, clear of the pill above and the damage chits on the art's
-    foot. The pill is drawn on the card, so it turns as the card does
-    -- on its side with an exhausted card, upside down on the far side
-    of the table -- its foot toward the card's foot (the author, on the
-    first build, which kept it upright); a copy's number, which is matched to a button, still reads
+    foot. The pill's foot is toward its player's edge of the table:
+    upside down on the far side, as that side's cards are (the author,
+    on the first build, which kept it the viewer's way up there), and
+    level with the table on an exhausted card, on the turned card's
+    top right, over its cost (the author again: drawn on the card, it
+    lay on its side with it); a copy's number, which is matched to a button, still reads
     upright, and moves left of centre on a standing card to sit
     between the cost and the pill. Only units and heroes on the field
     carry one: not a hero in the command zone, a building card, an
