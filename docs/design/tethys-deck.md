@@ -338,9 +338,10 @@ census; `Poker1` and `Poker2` are the two rule sets; `POKER_1` and
   twelve million. (For a day the rulers were one rank, any two a pair.)
 - **A straight is numbers in a row, and may end in a ruler, or in a
   Left and a Right.** The author: "every straight can end in a ruler and
-  even two rulers if one is left and the other is right". This is read
-  as any run of numbers, not only one reaching 12, so 2-3-4-5-6 and a
-  ruler is a straight. Two Lefts are not. Straights don't wrap. A
+  even two rulers if one is left and the other is right" -- **any run
+  of numbers**, not only one reaching 12 (the author, asked, the same
+  day: "any run of numbers can end in a ruler to be a straight yes"), so
+  2-3-4-5-6 and a ruler is a straight. Two Lefts are not. Straights don't wrap. A
   straight flush follows: Tools, States and Might are each one whole
   (1-2-3-4-Left-Right is all of Tools).
 - **The ranking is 2.0's own census, rarest first**: six of a kind,
