@@ -1579,6 +1579,16 @@ class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
         self.assertEqual([item.label for item in view.children[-3:]],
                          ["My deck", "Undo...", "End main phase"])
+        # An exhausted card's ability is left off: the board shows it.
+        match = self.table.match
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        match.player(1).hero_of("vir_garbarean").exhausted = True
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertFalse([item for item in view.children if "exhausted" in item.label],
+                         [item.label for item in view.children])
+        self.assertEqual(len([item for item in view.children
+                              if "(your draw pile is empty): " in item.label]), 2)
         # With a card on the pile, both are buttons again.
         match = self.table.match
         match.player(1).deck = ["argonaut"]

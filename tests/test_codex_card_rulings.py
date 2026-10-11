@@ -1405,7 +1405,7 @@ class AbilityAndArrivalRulingTests(unittest.TestCase):
         cub = put(match, 2, "tiger_cub")
         cub.plus_runes = 2
         self.assertEqual(option(engine, match, "spore_shambler_gold", shambler.ref).why_not,
-                         "it needs 1 +1/+1 rune")
+                         "not enough runes")
         shambler.plus_runes = 2
         match.player(2).gold = 1
         ability(engine, game, match, "spore_shambler_gold", shambler.ref)
@@ -6044,7 +6044,7 @@ class BlueEffectRulingTests(unittest.TestCase):
         cub = put(match, 1, "tiger_cub")
         self.quince_copies(engine, game, match, mirror, cub)
         self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not,
-                         "there is nothing it could target")
+                         "no target")
         other = put(match, 2, "mirror_illusion")
         self.assertEqual(option(engine, match, "sirus_quince_copy", "hero:sirus_quince").why_not, "")
         self.assertIsNone(other.copy_of)

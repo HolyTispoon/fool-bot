@@ -2004,7 +2004,8 @@ too, asked with `gate` for the two kinds a turn may open on
   building that may be built now ("Build Tower (3 gold)"),
   **Detect...** where there is a tower, and each ability, in the
   card's own words ("Sacrifice Harmony: stop the music"), disabled with
-  its reason where it may not be used now -- and always last, in this order, **My deck**, **Undo...**
+  its reason where it may not be used now, unless its card is exhausted
+  -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
   first. **Hire worker** and every **Build** are green and **Attack...**
@@ -2062,11 +2063,15 @@ too, asked with `gate` for the two kinds a turn may open on
   card of your draw pile"), so the cut to 80 characters never takes the
   reason, and placed after every one that may be used, so a full row
   gives these up first: an ability that vanished without a word left
-  the player guessing why (the author, 2026-10-11). Vir's three deck
-  abilities say "your draw pile is empty" rather than the generic
-  "there is nothing it could target", and his middle one, on a top card
-  that can't be played, says that much and not which card or why --
-  the card is hidden. The panel's picture stays the hand.
+  the player guessing why (the author, 2026-10-11). **Except an
+  exhausted card's**: the board already shows it exhausted, so its
+  ability is left off rather than greyed (`EXHAUSTED`, the one reason
+  the panel reads). The reasons are short (the author, 2026-10-11):
+  "no target", "not enough gold", "not enough runes". Vir's three deck
+  abilities say "your draw pile is empty" rather than "no target", and
+  his middle one, on a top card that can't be played, says that much
+  and not which card or why -- the card is hidden. The panel's picture
+  stays the hand.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard

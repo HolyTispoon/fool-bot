@@ -3293,7 +3293,7 @@ class RulesEngine:
         unit at the start of your turn or if it has haste" (Maestro's
         ruling)."""
         if body.exhausted:
-            return "it is exhausted"
+            return EXHAUSTED
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return "it arrived this turn"
         return ""
@@ -3385,8 +3385,7 @@ class RulesEngine:
             have = (body.plus_runes if kind == "plus"
                     else body.time_runes if kind == "time" else body.runes.get(kind, 0))
             if have < count:
-                rune = "+1/+1" if kind == "plus" else kind
-                return f"it needs {count} {rune} rune{'' if count == 1 else 's'}"
+                return "not enough runes"
         if cost.discard and len(player.hand) < cost.discard:
             return f"it needs {cost.discard} cards in hand to discard"
         if cost.needs_spell and not player.spells_played:
@@ -3415,7 +3414,7 @@ class RulesEngine:
             if "deck_top_playable" in deck_parts:
                 # Not which card, nor why: the top card is hidden.
                 return "the top card of your draw pile can't be played now"
-            return "there is nothing it could target"
+            return "no target"
         return ""
 
     # -- The upkeep -------------------------------------------------------------------
@@ -3796,6 +3795,9 @@ WORKERS = "workers"
 SLOT = "slot:"
 HAND = "hand:"
 CODEX = "codex:"
+#: Why a card may not exhaust: already exhausted -- which the board
+#: shows, so the panel leaves such an ability off rather than say so.
+EXHAUSTED = "it is exhausted"
 #: The filters that read the top of the controller's draw pile: Vir's.
 _DECK_TOP_FILTERS = frozenset({"deck_top", "hand_card_with_deck", "deck_top_playable"})
 #: The filters whose candidates are in the controller's hand or codex.
