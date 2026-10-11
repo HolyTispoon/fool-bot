@@ -3227,6 +3227,63 @@ class BlackRulingTests(unittest.TestCase):
         run = apply(engine, game, match, PromptKind.TARGET, target="1:hand:now")
         self.assertEqual(match.player(1).hand, ["argonaut", "time_spiral"])
         self.assertNotIn("now", said(run).lower().replace("{card:now}", ""))
+        # The card is told to its owner alone, at their own turn's question.
+        self.assertEqual(match.player(1).discards_untold, [{"slug": "now", "by": "{card:carrion_curse}"}])
+        self.assertEqual(asked(engine, game, match).told, ())
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(asked(engine, game, match).told, ())
+        match.active = 1
+        prompt = asked(engine, game, match)
+        self.assertEqual(prompt.told, ("{card:carrion_curse} made you discard {card:now}.",))
+
+    def test_a_random_discard_is_told_at_its_owners_turn_and_spent_by_their_answer(self) -> None:
+        """Thieving Imp: the channel hears a count; the owner is told the
+        card on their own turn's first question, and their answer spends
+        it."""
+        engine, game, match = black()
+        hand(match, 1, "argonaut")
+        hand(match, 2, "thieving_imp")
+        match.player(2).gold = 10
+        run = apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="thieving_imp")
+        self.assertEqual(match.player(1).hand, [])
+        self.assertIn("discards a card at random", said(run))
+        self.assertNotIn("argonaut", said(run))
+        self.assertEqual(match.player(1).discards_untold,
+                         [{"slug": "argonaut", "by": "{card:thieving_imp}"}])
+        # Not on the opponent's turn, to anybody.
+        self.assertEqual(asked(engine, game, match).told, ())
+        match.active = 1
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(prompt.told, ("{card:thieving_imp} made you discard {card:argonaut}.",))
+        self.assertEqual(prompt.to_dict()["told"], list(prompt.told))
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        self.assertEqual(match.player(1).discards_untold, [])
+        self.assertEqual(asked(engine, game, match).told, ())
+
+    def test_a_cancelled_curse_tells_nothing(self) -> None:
+        """Carrion Curse taken back after a pick: the turn is rebuilt from
+        its snapshot, the card not discarded, and nothing is left to tell
+        its owner."""
+        engine, game, match = black()
+        at_max(engine, match, 2, "orpal_gloor")
+        hand(match, 1, "argonaut", "time_spiral", "now")
+        hand(match, 2, "carrion_curse")
+        match.player(2).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="carrion_curse")
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:now")
+        self.assertEqual(len(match.player(1).discards_untold), 1)
+        apply(engine, game, match, PromptKind.TARGET, "cancel")
+        self.assertNotIn("now", match.player(1).discard)
+        self.assertEqual(match.player(1).discards_untold, [])
+
+    def test_the_untold_discards_survive_a_save(self) -> None:
+        from codex.components import MatchState
+
+        engine, game, match = black()
+        match.player(1).discards_untold = [{"slug": "argonaut", "by": "{card:thieving_imp}"}]
+        loaded = MatchState.from_dict(match.to_dict())
+        self.assertEqual(loaded.player(1).discards_untold, match.player(1).discards_untold)
 
 
 def purple(first: int = 1):

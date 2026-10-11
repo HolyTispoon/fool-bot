@@ -443,6 +443,10 @@ class PendingPrompt:
     ask: str
     asked_player: Optional[int] = None
     options: Optional[PromptOptions] = None
+    #: What the asked player alone is told beside the question: the cards
+    #: an effect discarded from their hand, on their own turn
+    #: (`discard_notes`).
+    told: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -450,6 +454,7 @@ class PendingPrompt:
             "ask": self.ask,
             "asked_player": self.asked_player,
             "options": None if self.options is None else self.options.to_dict(),
+            "told": list(self.told),
         }
 
 
@@ -935,7 +940,25 @@ def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Unio
     waiting = _pending(engine, game, match)
     if isinstance(waiting, FollowOn):
         return waiting
+    if waiting.asked_player is not None and waiting.asked_player == match.active:
+        told = discard_notes(match, waiting.asked_player)
+        if told:
+            waiting = replace(waiting, told=told)
     return with_options(engine, game, match, waiting)
+
+
+def discard_notes(match: MatchState, seat: int) -> tuple[str, ...]:
+    """
+    The cards an effect discarded from `seat`'s hand, a line each, for
+    them alone: the channel heard "discards a card at random" and no
+    more, and its owner is told which at their own turn's first question
+    (the author, 2026-10-11) -- `PlayerState.discards_untold`, emptied by
+    their first answer on it (`codex.flow.driver.answer`).
+    """
+    return tuple(
+        f"{told['by']} made you discard {tokens.card(told['slug'])}."
+        for told in match.player(seat).discards_untold
+    )
 
 
 def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:

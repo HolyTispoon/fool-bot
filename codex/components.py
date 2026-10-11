@@ -524,6 +524,14 @@ class PlayerState:
     #: Building Inspector's "first building each turn" reads. False in an
     #: older save.
     built_this_turn: bool = False
+    #: The cards an effect discarded from this player's hand -- at random
+    #: (Thieving Imp, Cursed Crow, Shadow Blade) or chosen by the opponent
+    #: (Carrion Curse) -- which the channel heard as a count alone: each
+    #: `{"slug", "by"}`, `by` the effect's token. Told to its owner on
+    #: their own turn's panel (`codex.prompts.discard_notes`) and emptied by
+    #: the first answer they give on it (the author, 2026-10-11). Empty in
+    #: an older save.
+    discards_untold: list = field(default_factory=list)
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -623,6 +631,7 @@ PLAYER_SAVED_FIELDS = (
     SavedField("silenced", default=False),
     SavedField("played_from_hand", default=0),
     SavedField("built_this_turn", default=False),
+    SavedField("discards_untold", factory=list, write=_copy_dicts, read=_copy_dicts),
 )
 
 
