@@ -1152,7 +1152,7 @@ class HeroesHallTests(KeywordCase):
         self.assertEqual(len(player.heroes_in_play), 2)
         self.assertEqual(engine.hero_limit(player), 1)
         option = engine.hero_option(player, player.hero_of("drakk_ramhorn"))
-        self.assertIn("hero limit is 1", option.why_not)
+        self.assertIn("Hero limit is 1", option.why_not)
 
 
 class TechLabTests(KeywordCase):

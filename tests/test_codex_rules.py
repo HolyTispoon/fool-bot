@@ -194,6 +194,14 @@ class HeroTests(unittest.TestCase):
         self.assertNotIn(TROQ, engine.attackers(match))
         self.assertIn(TROQ, engine.patrol_candidates(match))
 
+    def test_a_hero_at_its_max_level_says_so(self) -> None:
+        """"at its max level", short as the panel's other reasons (the
+        author, 2026-10-11)."""
+        engine, game, match = main_phase()
+        hero_in_play(match, 1, level=engine.catalog.heroes[match.player(1).hero.slug].max_level)
+        match.player(1).gold = 5
+        self.assertEqual(engine.hero_option(match.player(1)).why_not, "at its max level")
+
     def test_summoning_runes_and_the_kills_two_levels(self) -> None:
         """A hero that dies goes to the command zone with two summoning
         runes, the other side's hero in play gains two levels, and a
@@ -234,19 +242,19 @@ class BuildingTests(unittest.TestCase):
         player = match.player(1)
         player.gold = 20
         player.workers = 5
-        self.assertIn("not enough workers (needs 6)", engine.build_option(player, "tech1").why_not)
+        self.assertIn("needs 6 workers", engine.build_option(player, "tech1").why_not)
         player.workers = 10
         self.assertEqual(engine.build_option(player, "tech1").cost, 1)
         self.assertIn("Tech I", engine.build_option(player, "tech2").why_not)
         built(match, 1, "tech1")
         self.assertEqual(engine.build_option(player, "tech2").cost, 4)
         player.workers = 7
-        self.assertIn("not enough workers (needs 8)", engine.build_option(player, "tech2").why_not)
+        self.assertIn("needs 8 workers", engine.build_option(player, "tech2").why_not)
         player.workers = 10
         built(match, 1, "tech2")
         self.assertEqual(engine.build_option(player, "tech3").cost, 5)
         player.workers = 9
-        self.assertIn("not enough workers (needs 10)", engine.build_option(player, "tech3").why_not)
+        self.assertIn("needs 10 workers", engine.build_option(player, "tech3").why_not)
 
     def test_the_next_tech_building_up_says_why_it_waits(self) -> None:
         """The next tech building up is the first not standing, or one
@@ -258,7 +266,7 @@ class BuildingTests(unittest.TestCase):
         player.gold, player.workers = 20, 5
         option = {row.building: row for row in engine.legal_actions(match).buildings}
         self.assertEqual([name for name, row in option.items() if row.next_up], ["tech1"])
-        self.assertEqual(option["tech1"].why_not, "not enough workers (needs 6)")
+        self.assertEqual(option["tech1"].why_not, "needs 6 workers")
         player.workers = 10
         built(match, 1, "tech1").destroyed = True
         built(match, 1, "tech2").destroyed = True
@@ -524,7 +532,7 @@ class StandardGameHeroTests(unittest.TestCase):
         refused = self.summon(engine, game, match, "captain_zane")
         self.assertIsInstance(refused, driver.Refusal)
         self.assertEqual(refused.cite, "UMR p. 6")
-        self.assertIn("hero limit is 1", refused.reason)
+        self.assertIn("Hero limit is 1", refused.reason)
         options = pending_prompt(engine, game, match).options
         self.assertEqual([hero.allowed for hero in options.heroes], [True, False, False])
         self.assertEqual(options.heroes[0].action, "level")

@@ -315,7 +315,7 @@ class PanelTests(TurnTestCase):
         labels = [item.label for item in view.children]
         waiting = [item for item in view.children if item.label.startswith("Build Tech")]
         self.assertEqual([item.label for item in waiting],
-                         ["Build Tech I (1 gold): not enough workers (needs 6)"], labels)
+                         ["Build Tech I (1 gold): needs 6 workers"], labels)
         self.assertTrue(waiting[0].disabled)
         self.assertNotIn("Nothing can be built now", labels)
 
@@ -1762,7 +1762,7 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.table.match.player(seat).hero_of(first).in_play)
         after = [item for item in call.view().children if (item.choice or ("",))[0] == "summon"]
         self.assertTrue(all(item.disabled for item in after))
-        self.assertTrue(all("hero limit is 1" in item.label for item in after))
+        self.assertTrue(all("Hero limit is 1" in item.label for item in after))
 
     async def test_the_tech_picker_offers_the_whole_standard_codex(self) -> None:
         """Three specs' codex is more cards than one menu holds: shown

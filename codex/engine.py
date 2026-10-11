@@ -1578,7 +1578,7 @@ class RulesEngine:
             if standing:
                 why = "it is already built"
             elif player.workers < workers:
-                why = f"not enough workers (needs {workers})"
+                why = f"needs {workers} workers"
             elif below is not None and not (under is not None and under.active):
                 why = self._why_not_below(below, under)
             elif player.gold < cost:
@@ -1615,7 +1615,7 @@ class RulesEngine:
     def hire_option(self, player: PlayerState) -> HireOption:
         cost = self.hire_cost(player)
         if player.hired_this_turn:
-            return HireOption(False, cost, why_not="a worker has been hired this turn")
+            return HireOption(False, cost, why_not="already hired")
         if player.gold < cost:
             return HireOption(False, cost, why_not="not enough gold")
         if not player.hand:
@@ -1649,14 +1649,14 @@ class RulesEngine:
             if len(player.heroes_in_play) >= limit:
                 return HeroOption(
                     hero.slug, SUMMON, card.cost,
-                    why_not=f"your hero limit is {limit}",
+                    why_not=f"Hero limit is {limit}",
                 )
             if player.gold < card.cost:
                 return HeroOption(hero.slug, SUMMON, card.cost, why_not="not enough gold")
             return HeroOption(hero.slug, SUMMON, card.cost)
         room = card.max_level - hero.level
         if not room:
-            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it is at its maximum level")
+            return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="at its max level")
         if any(m.get("kind") == "no_level" for m in hero.modifiers):
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
         if self.levels_frozen(match, hero):
