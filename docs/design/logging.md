@@ -88,9 +88,11 @@ Things to know before changing any of it:
   with `git log`, so the notice is only as accurate as the deployed tree —
   and degrades to saying nothing at all if git is not on PATH.
 - **A restart on a build already announced is one line**, "**Codex bot
-  restarted** on `host` -- same build as before, `abc1234` ...", posted
-  once per process: `announce_startup` passes `restarted` on its first
-  call alone, so a reconnect stays quiet. Until 2026-10-09 such a restart
+  restarted** on `host`", posted once per process, and says nothing about
+  the build: its own notice named it and listed its changes already, so
+  since 2026-10-10 the sha and subject are not repeated on every restart
+  (the author). `announce_startup` passes `restarted` on its first call
+  alone, so a reconnect stays quiet. Until 2026-10-09 such a restart
   posted nothing, and a bot restarted on its own tree --
   `run_codex_bot.ps1`, which never pulls, or `update_main_bot.ps1
   -SkipPull` -- never has a new build, so it left no trace in #logs and

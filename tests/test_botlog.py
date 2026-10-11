@@ -935,8 +935,7 @@ class DeployNoticeDedupTests(unittest.TestCase):
         self.assertEqual(sha, "a" * 40)
         self.assertEqual(
             message,
-            "**Bot restarted** on `K` -- same build as before, "
-            "`aaaaaaa` Latest work",
+            "**Bot restarted** on `K`",
         )
 
     def test_a_new_build_announces_once(self) -> None:
@@ -1203,7 +1202,8 @@ class StartupWiringTests(unittest.TestCase):
             asyncio.run(scenario())
 
         self.assertEqual(len(channel.sent), 1)
-        self.assertIn("same build as before, `aaaaaaa` Work", channel.sent[0])
+        self.assertTrue(channel.sent[0].startswith("**Bot restarted**"))
+        self.assertNotIn("aaaaaaa", channel.sent[0])
 
     def test_binding_is_skipped_when_there_is_no_mirror(self) -> None:
         asyncio.run(botlog.start_mirror(FakeClient(), None))
