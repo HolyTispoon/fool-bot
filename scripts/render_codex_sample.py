@@ -292,7 +292,8 @@ def write(path: Path, data: bytes) -> None:
 def render_all(engine: RulesEngine, match: MatchState, names: dict, out: Path, stem: str,
                layouts=BOARD_LAYOUTS) -> None:
     for layout in layouts:
-        write(out / f"{stem}-board-{layout}.webp", render_board(match, layout, names, engine.catalog))
+        write(out / f"{stem}-board-{layout}.webp", render_board(match, layout, names, engine.catalog,
+                                                                     stats=engine.body_stats))
 
 
 def main() -> None:
@@ -332,7 +333,8 @@ def main() -> None:
     states.active = 2
     render_all(engine, states, names, args.out, "states-seat-2", ("stacked",))
     # A target prompt's picture: the opponent's side alone, upright.
-    write(args.out / "midgame-side-2.webp", render_side(staged(engine), 2, names[2], engine.catalog))
+    write(args.out / "midgame-side-2.webp", render_side(staged(engine), 2, names[2], engine.catalog,
+                                                       engine.body_stats))
 
     rows = engine.hand_rows(opening, 1)
     write(args.out / "hand-opening.webp", render_hand(

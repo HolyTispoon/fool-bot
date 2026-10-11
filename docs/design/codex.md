@@ -1602,11 +1602,41 @@ else the bot shows is ephemeral.
     then the units, each with
     its damage chits on the foot of its art (`ART_FOOT`), clear of the
     ATK and HP the card prints, which a chit over the stats hid (the
-    author, 2026-10-09), its rune chits top right, Two Step's
+    author, 2026-10-09), its rune chits hanging over its right edge a
+    little below its middle (`RUNE_CENTRE`), Two Step's
     chit on a dance partner and ARRIVED the turn it came, on the
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
+  - **A unit's and a hero's ATK and HP as they stand, on a pill at the
+    card's top right** (`stat_pill`, the author, 2026-10-11): what the
+    card prints is not what it fights with once Two Step, a Grounded
+    Guide, a rune or its own text has had its say, and the board was
+    the one place a player could not read the difference. The numbers
+    are the engine's `body_stats`, which the cog hands the renderer
+    (`stats=`) so that nothing in `render.py` works out a stat; HP is
+    what is left, its damage taken off, and the damage chits stay
+    beside it. ATK is on the card's own black and HP on its red, a
+    step brighter than the print's heart (`STAT_HP`); a stat that is
+    not what the face shows prints -- a hero's, its level's band;
+    a polymorphed unit's, the Squirrel's -- turns slate for ATK or
+    maroon for HP, close to its plain colour, the same whether it is up
+    or down, since the number says which. Tried and turned down on the
+    way (a sketch the author reviewed): a copy of the card's printed
+    square and heart, enlarged; green and orange for up and down, then
+    teal, gold, blue and violet pairs; the top left, over the cost.
+    The top right was the rune chits', so they moved down the right
+    edge, clear of the pill above and the damage chits on the art's
+    foot. The pill's foot is toward its player's edge of the table:
+    upside down on the far side, as that side's cards are (the author,
+    on the first build, which kept it the viewer's way up there), and
+    level with the table on an exhausted card, on the turned card's
+    top right, over its cost (the author again: drawn on the card, it
+    lay on its side with it); a copy's number, which is matched to a button, still reads
+    upright, and moves left of centre on a standing card to sit
+    between the cost and the pill. Only units and heroes on the field
+    carry one: not a hero in the command zone, a building card, an
+    upgrade or a spell.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     their team by `codex.formatting.team_name` -- a colour's three heroes
     by the deck's own name, "Blood Anarchs", any other team by its specs

@@ -63,7 +63,7 @@ import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Mapping, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence, Union
 
 from PIL import (Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps,
                  ImageStat)
@@ -171,6 +171,25 @@ OVERHANG = 12
 #: unit's or a hero's damage chits stand on the art's foot, clear of the
 #: ATK and HP printed at the card's (the author, 2026-10-09).
 ART_FOOT = 122
+#: A unit's or a hero's ATK and HP as they stand now -- what everything
+#: in play gives it, its runes, and, for HP, what is left once its damage
+#: is taken off -- on a pill at the card's top right, read before
+#: anything else on it (the author, 2026-10-11). The cost the card
+#: prints top left is no question once it is in play, but stays, as the
+#: level chit does on a hero. 46 tall, its two numbers in Roboto Slab
+#: at 30, each half at least as wide as it is tall.
+STAT_HEIGHT = 46
+STAT_SIZE = 30
+#: The rune chits hang over the card's right edge by this, centred this
+#: far down it -- a little below the card's middle, on the end of its
+#: name's banner, clear of the stats above and of the damage chits that
+#: stand on the art's foot (the author, 2026-10-11: from its top right,
+#: which the stats now hold).
+RUNE_HANG = 20
+RUNE_CENTRE = 150
+#: How far in from a card's left edge its printed cost reaches, which a
+#: copy's number, beside the stats, keeps clear of.
+COST_WIDTH = 50
 #: A building's picture prints its full HP in a red heart, white figures
 #: edged black; a damaged building's heart is the picture's own with
 #: those figures wiped and the HP it has now written in their place (the
@@ -262,6 +281,16 @@ ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 #: Claw's, a feather rune.
 MARK_FILL = (122, 74, 160)       # #7a4aa0
 DISABLED_FILL = (150, 40, 40)    # #962828
+#: The stats' pill: ATK on the card's own black, HP on its red -- a step
+#: brighter than the print's heart, so maroon stands apart from it --
+#: and a stat that is not what the card prints on a colour of its own,
+#: close to its plain one: slate for ATK, maroon for HP (the author,
+#: 2026-10-11). Up or down is the same colour: the number says which.
+STAT_ATK = (22, 22, 22)          # #161616
+STAT_HP = (226, 36, 44)          # #e2242c
+STAT_ATK_CHANGED = (78, 78, 88)  # #4e4e58, slate
+STAT_HP_CHANGED = (122, 14, 30)  # #7a0e1e, maroon
+STAT_EDGE = (240, 240, 240)
 #: A copy's number on a card, "#2" (the author, 2026-10-11): white with
 #: dark words, as the divider's pill is, so it reads on any art.
 COPY_FILL, COPY_INK = WORD, (24, 18, 14)
@@ -516,6 +545,34 @@ def copy_tag(canvas: Image.Image, centre: int, top: int, number: int, turned: bo
     canvas.alpha_composite(tag.rotate(180) if turned else tag, (centre - width // 2, top + 6))
 
 
+def stat_pill(stats: "Stats") -> Image.Image:
+    """A unit's or a hero's ATK and HP as they stand, on one pill in two
+    halves -- ATK on the card's black, HP on its red, either on its own
+    colour where it is not what the card prints -- edged white, so it
+    reads on any art. Its foot is toward its player's edge of the table
+    -- upside down on the far side, as the cards are -- and stays there
+    when the card is exhausted and lies on its side (the author,
+    2026-10-11)."""
+    face = font(STAT_SIZE)
+    height = STAT_HEIGHT
+    atk_width, hp_width = (max(round(face.getlength(str(value))) + 20, 40)
+                           for value in (stats.atk, stats.hp))
+    width = atk_width + hp_width
+    atk_fill = STAT_ATK_CHANGED if stats.atk_changed else STAT_ATK
+    hp_fill = STAT_HP_CHANGED if stats.hp_changed else STAT_HP
+    tag = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(tag)
+    radius = height // 2
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, fill=hp_fill)
+    draw.rounded_rectangle((0, 0, atk_width + radius, height - 1), radius, fill=atk_fill)
+    draw.rectangle((atk_width, 0, atk_width + radius, height - 1), fill=hp_fill)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, outline=STAT_EDGE, width=2)
+    for centre, value in ((atk_width / 2 + 2, stats.atk), (atk_width + hp_width / 2 - 2, stats.hp)):
+        draw.text((centre, height / 2), str(value), font=face, fill=WORD, anchor="mm",
+                  stroke_width=3, stroke_fill=SHADOW)
+    return tag
+
+
 def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
     """ARRIVED on a green tag against the card's left edge, standing on
     `bottom` -- the foot of its art: what came this turn."""
@@ -530,6 +587,24 @@ def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
 
 
 # -- A card as it lies ---------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Stats:
+    """A unit's or a hero's ATK and HP as the board shows them: as they
+    stand, HP what is left, and whether each is other than the card's
+    face prints -- a hero's, its level's band."""
+
+    atk: int
+    hp: int
+    atk_changed: bool
+    hp_changed: bool
+
+
+#: Where a body's ATK and HP as they stand come from -- the engine's
+#: `body_stats`, which the frontend hands in: the renderer reads a
+#: position and decides no rule.
+StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple[int, int]"]
 
 
 @dataclass(frozen=True)
@@ -560,6 +635,9 @@ class Lying:
     #: -- the number its buttons carry (`formatting.copy_number`); 0
     #: where it is the only one.
     copy: int = 0
+    #: Its ATK and HP as they stand (`Stats`), on a pill top right: a
+    #: unit's or a hero's on the field, given the engine's reading.
+    stats: Optional[Stats] = None
 
 
 #: What Polymorph: Squirrel shows a unit as while it lasts.
@@ -594,17 +672,42 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[str, ...]:
     return tuple(found)
 
 
+def shown_slug(card: CardInstance) -> str:
+    """The card whose face a card in play shows: a Squirrel's while
+    Polymorph: Squirrel has it (step 11)."""
+    return POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
+
+
+def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: CardCatalog,
+                stats_of: Optional[StatsOf]) -> Optional[Stats]:
+    """A unit's or a hero's `Stats`, against what the face it shows
+    prints -- none for anything else, or with no `stats_of`."""
+    if stats_of is None:
+        return None
+    if isinstance(body, CardInstance):
+        printed = cards.cards[shown_slug(body)]
+        if not cards.cards[body.slug].is_unit:
+            return None
+        printed_atk, printed_hp = printed.atk or 0, printed.hp or 0
+    else:
+        band = cards.heroes[body.slug].band(body.level)
+        printed_atk, printed_hp = band.atk, band.hp
+    atk, hp = stats_of(match, body)
+    left = hp - body.damage
+    return Stats(atk, left, atk != printed_atk, left != printed_hp)
+
+
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
-               copy: int = 0) -> Lying:
+               copy: int = 0, stats: Optional[Stats] = None) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
-    Squirrel has it (step 11) -- and `copy`, its number among its
-    player's copies."""
-    slug = POLYMORPHED if (card.printed or {}).get("polymorph") is not None else card.slug
-    return Lying(slug, damage=card.damage, plus_runes=card.plus_runes,
+    Squirrel has it (step 11) -- `copy`, its number among its
+    player's copies, and `stats`, its ATK and HP as they stand."""
+    return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
                  marks=rune_marks(card, cards), time_runes=card.time_runes,
-                 disabled=card.disabled, buried=len(card.buried or ()), copy=copy)
+                 disabled=card.disabled, buried=len(card.buried or ()), copy=copy,
+                 stats=stats)
 
 
 def future_lying(card: CardInstance) -> Lying:
@@ -613,11 +716,12 @@ def future_lying(card: CardInstance) -> Lying:
     return Lying(card.slug, time_runes=card.time_runes, future=True)
 
 
-def hero_lying(hero: HeroState, cards: CardCatalog) -> Lying:
+def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = None) -> Lying:
     return Lying(hero.slug, level=level_chit(hero, cards), damage=hero.damage,
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
-                 time_runes=hero.time_runes, disabled=hero.disabled, marks=rune_marks(hero))
+                 time_runes=hero.time_runes, disabled=hero.disabled, marks=rune_marks(hero),
+                 stats=stats)
 
 
 def card_face(slug: str, cards: CardCatalog, size: tuple[int, int] = CARD) -> Image.Image:
@@ -629,36 +733,42 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     """
     One card as it lies in a cell, on a transparent square of `CELL`
     with `OVERHANG` round it, the card's centre the square's: its own
-    art at 200 by 273, a level chit top left (a hero), its rune chits
-    top right, its damage chits on the foot of its art, Two Step's chit on
-    a dance partner, ARRIVED on its art's foot the turn it came, a
-    copy's number on its top edge -- and, exhausted, the
+    art at 200 by 273, its ATK and HP as they stand top right, a level
+    chit top left (a hero), its rune chits over its right edge a little
+    below its middle, its damage chits on the foot of its art, Two
+    Step's chit on a dance partner, ARRIVED on its art's foot the turn
+    it came, a copy's number on its top edge -- and, exhausted, the
     whole of it turned on its side at full size, lying across the cell,
-    with the exhaust glyph on the cell's top corner, the right way up.
+    with the exhaust glyph on the cell's top corner and its stats on
+    the turned card's top right, both level with the table.
     """
     margin = OVERHANG
-    upright = Image.new("RGBA", (CARD[0] + 2 * margin, CARD[1] + 2 * margin), (0, 0, 0, 0))
+    # Wider at the sides than `OVERHANG`, for the rune chits that hang
+    # over the right edge.
+    side = RUNE_HANG + 4
+    upright = Image.new("RGBA", (CARD[0] + 2 * side, CARD[1] + 2 * margin), (0, 0, 0, 0))
     face = card_face(lying.slug, cards)
     if lying.exhausted:
         face = dimmed(face, 0.75)
     if lying.future:
         face = greyed(face, 0.7)
-    upright.alpha_composite(face, (margin, margin))
-    right, bottom = margin + CARD[0], margin + CARD[1]
+    upright.alpha_composite(face, (side, margin))
+    right, bottom = side + CARD[0], margin + CARD[1]
     if lying.level is not None:
-        lay_row(upright, [lying.level], 62, (margin - 10, margin - 10))
+        lay_row(upright, [lying.level], 62, (side - 10, margin - 10))
     if lying.time_runes:
         # Under a hero's level chit, or in its place on a card.
         top = margin - 10 + (66 if lying.level is not None else 0)
-        lay_row(upright, [time_rune_chit(lying.time_runes)], 62, (margin - 10, top))
+        lay_row(upright, [time_rune_chit(lying.time_runes)], 62, (side - 10, top))
     runes = rune_chits(lying.plus_runes, lying.minus_runes)
     if runes:
-        lay_row(upright, runes, 50, (right + 8, margin - 8), leftward=True)
+        lay_row(upright, runes, 50, (right + RUNE_HANG, margin + RUNE_CENTRE - 25),
+                leftward=True)
     if lying.damage:
         lay_row(upright, damage_chits(lying.damage), 62, (right - 10, margin + ART_FOOT),
                 leftward=True, upward=True)
     if lying.partnered:
-        lay_row(upright, [board_piece("chits", "two_step.png")], 50, (margin - 8, bottom + 8),
+        lay_row(upright, [board_piece("chits", "two_step.png")], 50, (side - 8, bottom + 8),
                 upward=True)
     if lying.marks:
         draw = ImageDraw.Draw(upright)
@@ -666,15 +776,18 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
             pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
     if lying.buried:
         draw = ImageDraw.Draw(upright)
-        pill(draw, (margin + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
+        pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
              20, MARK_FILL, anchor="mt")
     if lying.future:
         draw = ImageDraw.Draw(upright)
-        pill(draw, (margin + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
+        pill(draw, (side + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
     if lying.arrived:
         # On its art's foot, opposite the damage chits, clear of the
         # card's text (the author, 2026-10-10).
-        arrived_tag(upright, margin, margin + ART_FOOT)
+        arrived_tag(upright, side, margin + ART_FOOT)
+    stats = stat_pill(lying.stats) if lying.stats is not None else None
+    if stats is not None and not lying.exhausted:
+        upright.alpha_composite(stats, (right + 6 - stats.width, margin + 2))
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
@@ -683,8 +796,19 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # Turned a quarter clockwise, as a card is exhausted on a table.
         laid = upright.transpose(Image.ROTATE_270)
     left, top = paste_centred(tile, laid, (0, 0, tile.width, tile.height))
+    card_top = top + (side if lying.exhausted else margin)
+    if stats is not None and lying.exhausted:
+        # Level with the table, on the turned card's top right -- over
+        # its cost, the card's own top left once turned.
+        card_right = left + margin + CARD[1]
+        tile.alpha_composite(stats, (card_right + 6 - stats.width, card_top + 2))
+    copy_centre = left + laid.width // 2
+    if stats is not None and not lying.exhausted:
+        # A standing card's top edge holds the cost top left and the
+        # stats top right: its copy's number goes between them.
+        copy_centre = left + side + (COST_WIDTH + CARD[0] + 6 - stats.width) // 2
     if lying.copy:
-        copy_tag(tile, left + laid.width // 2, top + margin, lying.copy, turned)
+        copy_tag(tile, copy_centre, card_top, lying.copy, turned)
     if lying.exhausted:
         glyph = by_width(image(EMOJI_DIR / "exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))
@@ -1084,18 +1208,22 @@ def panel_width(hero_count: int) -> int:
     return 2 * PADDING + BUILDING_WIDTH + BUILDING_GAP + max(top_row_width(hero_count), grid)
 
 
-def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False) -> list[Image.Image]:
+def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
+               stats: Optional[Callable[[Union[CardInstance, HeroState]], Optional[Stats]]] = None,
+               ) -> list[Image.Image]:
     """The grid, in order: the heroes on the field, then the units,
     every one not patrolling, then the building cards and upgrades,
     which never patrol (step 10), then the cards in the future, greyed
     with their time runes (step 12). The heroes off the field are in
-    the command zone, above."""
-    field = [lying_card(hero_lying(hero, cards), cards)
+    the command zone, above. `stats`, each unit's and hero's `Stats`."""
+    stats = stats or (lambda body: None)
+    field = [lying_card(hero_lying(hero, cards, stats(hero)), cards, turned)
              for hero in heroes(player) if hero.in_play and hero.patrol_slot is None]
     partners = partner_ids(player)
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
-    units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card)),
+    units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card),
+                                   stats(card)),
                         cards, turned) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return field + units + future
@@ -1111,16 +1239,22 @@ def body_height(cells: int, columns: int) -> int:
 
 
 def render_body(match: MatchState, seat: int, cards: CardCatalog,
-                building_hp: Mapping[str, int], turned: bool = False) -> Image.Image:
+                building_hp: Mapping[str, int], turned: bool = False,
+                stats: Optional[StatsOf] = None) -> Image.Image:
     """
     One panel's body, the nameplate aside, on a transparent ground with
     `OVERHANG` round it for the chits that hang over an edge -- so the
     far panel's is turned round whole about its own centre. `turned`,
     it is about to be: a copy's number is drawn to read upright after.
+    `stats`, the engine's `body_stats`.
     """
     player = match.player(seat)
     columns = panel_columns(player)
-    cells = grid_cells(player, cards, turned)
+
+    def shown(body):
+        return shown_stats(match, body, cards, stats)
+
+    cells = grid_cells(player, cards, turned, shown)
     inner_width = panel_width(len(heroes(player))) - 2 * PADDING
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
@@ -1151,11 +1285,13 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         if ref is None:
             continue
         if is_hero_ref(ref):
-            lying = hero_lying(player.hero_by_ref(ref), cards)
+            hero = player.hero_by_ref(ref)
+            lying = hero_lying(hero, cards, shown(hero))
         else:
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
-            lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card))
+            lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
+                               shown(card))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
@@ -1263,7 +1399,8 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
 def render_panel(match: MatchState, seat: int, name: str,
                  cards: Optional[CardCatalog] = None,
                  building_hp: Optional[Mapping[str, int]] = None, *,
-                 turned: bool = False, height: Optional[int] = None) -> Image.Image:
+                 turned: bool = False, height: Optional[int] = None,
+                 stats: Optional[StatsOf] = None) -> Image.Image:
     """
     One player as a panel: the body -- the buildings, the patrol zone,
     the grid -- and the nameplate along the panel's outer edge, below
@@ -1272,10 +1409,12 @@ def render_panel(match: MatchState, seat: int, name: str,
     the right way up: a name and its counts nobody should have to turn
     a phone for. `height`, where taller than the panel needs, is filled
     between the body and the nameplate, which stays on the outer edge.
+    `stats`, the engine's `body_stats`: each unit's and hero's ATK and
+    HP as they stand, on its card.
     """
     cards = cards or load_catalog()
     building_hp = building_hp or default_building_hp(cards)
-    body = render_body(match, seat, cards, building_hp, turned)
+    body = render_body(match, seat, cards, building_hp, turned, stats)
     width = body.width - 2 * OVERHANG + 2 * PADDING
     natural = (2 * PADDING + body.height - 2 * OVERHANG + NAMEPLATE_GAP + NAMEPLATE_HEIGHT)
     total = max(natural, height or 0)
@@ -1391,7 +1530,8 @@ def vertical_divider(height: int, label: str) -> Image.Image:
 def compose_board(match: MatchState, layout: str = "stacked",
                   names: Optional[Mapping[int, str]] = None,
                   cards: Optional[CardCatalog] = None,
-                  near: Optional[int] = None) -> Image.Image:
+                  near: Optional[int] = None,
+                  stats: Optional[StatsOf] = None) -> Image.Image:
     """The whole table at the canvas's pixels, before it is scaled and
     encoded -- `render_board`'s picture. `near`, for the stacked board,
     is the seat looked from: the active player's by default."""
@@ -1407,10 +1547,11 @@ def compose_board(match: MatchState, layout: str = "stacked",
     if layout == "side_by_side":
         first = match.first
         second = 2 if first == 1 else 1
-        natural = [render_panel(match, seat, name(seat), cards, building_hp)
+        natural = [render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
                    for seat in (first, second)]
         height = max(panel.height for panel in natural)
-        left, right = (render_panel(match, seat, name(seat), cards, building_hp, height=height)
+        left, right = (render_panel(match, seat, name(seat), cards, building_hp, height=height,
+                                    stats=stats)
                        if panel.height < height else panel
                        for seat, panel in zip((first, second), natural))
         board = Image.new("RGBA", (left.width + DIVIDER_WIDTH + right.width, height), GROUND)
@@ -1422,8 +1563,9 @@ def compose_board(match: MatchState, layout: str = "stacked",
     far_seat, near_seat = stacked_seats(match)
     if near is not None:
         far_seat, near_seat = (2 if near == 1 else 1), near
-    far = render_panel(match, far_seat, name(far_seat), cards, building_hp, turned=True)
-    near = render_panel(match, near_seat, name(near_seat), cards, building_hp)
+    far = render_panel(match, far_seat, name(far_seat), cards, building_hp, turned=True,
+                       stats=stats)
+    near = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
     width = max(far.width, near.width)
     board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + near.height), GROUND)
     board.alpha_composite(far, ((width - far.width) // 2, 0))
@@ -1435,7 +1577,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
 def render_board(match: MatchState, layout: str = "stacked",
                  names: Optional[Mapping[int, str]] = None,
                  cards: Optional[CardCatalog] = None,
-                 near: Optional[int] = None) -> bytes:
+                 near: Optional[int] = None,
+                 stats: Optional[StatsOf] = None) -> bytes:
     """
     The whole table as WebP bytes: both panels, stacked -- seen from the
     active player's side, the other player's above theirs and turned
@@ -1446,9 +1589,11 @@ def render_board(match: MatchState, layout: str = "stacked",
     The picture's size follows the position: a row of cards more is a
     taller panel. `near` looks at the stacked board from that seat
     rather than the active player's: a target prompt's picture where the
-    targets are on both sides, seen from the player choosing.
+    targets are on both sides, seen from the player choosing. `stats`,
+    the engine's `body_stats`, puts each unit's and hero's ATK and HP as
+    they stand on its card.
     """
-    board = compose_board(match, layout, names, cards, near)
+    board = compose_board(match, layout, names, cards, near, stats)
     scaled = board.resize(
         (round(board.width * BOARD_SCALE), round(board.height * BOARD_SCALE)), Image.LANCZOS,
     )
@@ -1456,7 +1601,8 @@ def render_board(match: MatchState, layout: str = "stacked",
 
 
 def render_side(match: MatchState, seat: int, name: str,
-                cards: Optional[CardCatalog] = None) -> bytes:
+                cards: Optional[CardCatalog] = None,
+                stats: Optional[StatsOf] = None) -> bytes:
     """
     One player's side of the table as WebP bytes, upright and at the
     board's scale: the panel `render_board` draws for `seat`, alone. A
@@ -1464,7 +1610,7 @@ def render_side(match: MatchState, seat: int, name: str,
     what is chosen from is on the board rather than in the hand.
     """
     cards = cards or load_catalog()
-    panel = render_panel(match, seat, name, cards, default_building_hp(cards))
+    panel = render_panel(match, seat, name, cards, default_building_hp(cards), stats=stats)
     scaled = panel.resize(
         (round(panel.width * BOARD_SCALE), round(panel.height * BOARD_SCALE)), Image.LANCZOS,
     )

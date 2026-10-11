@@ -350,5 +350,35 @@ class CodexViewTests(unittest.TestCase):
         self.assertFalse(any(row.allowed for row in engine.hand_rows(match, 2)))
 
 
+    def test_the_stats_are_what_stands_against_what_is_printed(self) -> None:
+        """A unit's and a hero's pill: the engine's ATK and HP, HP less its
+        damage, each marked changed where it is not what the face prints
+        (a hero's, its level's band) -- and none for a spell, or with no
+        engine reading handed in (docs/design/codex.md, "The board on
+        Discord")."""
+        from tests.codex_positions import hero_in_play, put
+        engine = RulesEngine(seed=7)
+        match = engine.new_match(("bashing", "finesse"), first=1)
+        cards, stats_of = engine.catalog, engine.body_stats
+        brother = put(match, 1, "older_brother")
+        self.assertEqual(render.shown_stats(match, brother, cards, stats_of),
+                         render.Stats(2, 2, False, False))
+        brother.damage = 1
+        self.assertEqual(render.shown_stats(match, brother, cards, stats_of),
+                         render.Stats(2, 1, False, True))
+        brother.plus_runes = 1
+        self.assertEqual(render.shown_stats(match, brother, cards, stats_of),
+                         render.Stats(3, 2, True, False))
+        self.assertIsNone(render.shown_stats(match, brother, cards, None))
+        self.assertIsNone(render.shown_stats(match, put(match, 2, "harmony"), cards, stats_of))
+        hero_in_play(match, 1, level=5)
+        hero = match.player(1).heroes[0]
+        band = cards.heroes[hero.slug].band(5)
+        self.assertEqual(render.shown_stats(match, hero, cards, stats_of),
+                         render.Stats(band.atk, band.hp, False, False))
+        panel = render.render_panel(match, 1, "a", cards, stats=stats_of)
+        self.assertEqual(panel.width, render.panel_width(1))
+
+
 if __name__ == "__main__":
     unittest.main()
