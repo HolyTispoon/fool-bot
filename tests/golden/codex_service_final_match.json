@@ -1800,6 +1800,7 @@
         "final_smash"
       ],
       "discards_at_main_end": false,
+      "discards_untold": [],
       "future": [],
       "gold": 3,
       "hand": [],
@@ -2049,6 +2050,7 @@
         "backstabber"
       ],
       "discards_at_main_end": false,
+      "discards_untold": [],
       "future": [],
       "gold": 16,
       "hand": [
@@ -3619,6 +3621,7 @@
             "eggship"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 13,
           "hand": [
@@ -3777,6 +3780,7 @@
             "cloud_sprite"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 12,
           "hand": [
@@ -5487,6 +5491,7 @@
             "sneaky_pig"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
@@ -5706,6 +5711,7 @@
             "timely_messenger"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 12,
           "hand": [
@@ -7451,6 +7457,7 @@
             "iron_man"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 0,
           "hand": [
@@ -7644,6 +7651,7 @@
             "leaping_lizard"
           ],
           "discards_at_main_end": false,
+          "discards_untold": [],
           "future": [],
           "gold": 16,
           "hand": [

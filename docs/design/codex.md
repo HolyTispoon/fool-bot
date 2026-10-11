@@ -1206,6 +1206,11 @@ match as its saved dict, as D12 Ball's record does; its file,
   ("channel" where the key is missing or unknown): where the game is
   played ("The lobby and the channel", below).
 
+- **The discard told added one on the side**, `discards_untold` (`[]`):
+  the cards an effect discarded from that hand, each `{slug, by}`
+  ("What the narration may say", below). The golden's final match was
+  re-recorded for this key alone, at its default.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1218,6 +1223,29 @@ owner's ready phase, as a count of cards into the discard (the author,
 checks the hire and tech lines name no card. The event log holds card
 identities (a hire's card among them) and stays in the save, which the
 bot never exports (the author, 2026-10-07).
+
+**A card an effect discards from a hand is a count in public and a name
+to its owner** (the author, 2026-10-11: "it should let you know which
+card was discarded at the start of your turn"). Thieving Imp, Cursed
+Crow and Shadow Blade discard at random, and Carrion Curse's caster
+chooses, so the owner either never saw which card went or saw only the
+caster pick it; the channel hears "{player:1} discards a card at random
+for {card:thieving_imp}" and no more. The card is kept on the side as
+`PlayerState.discards_untold` (`{slug, by}`, `by` the effect's token)
+and `pending` puts a line per card -- "{card:thieving_imp} made you
+discard {card:argonaut}." -- on the prompt's `told` where the question
+is the active player's own, so it reaches them on **every panel of
+their own turn**, under the ask (`panel_caption`), and is emptied as
+that turn ends (`begin_tech`) -- the author, 2026-10-11: "keep the note
+for the whole turn instead". The first version spent it on the turn's
+first answer, so it was said once; the author preferred it standing
+through the turn. It is not on a question
+asked of them during the opponent's turn: the ask was for their own.
+It is state rather than a reading of the event log because the log
+decides nothing; the turn-start snapshot holds it, so an undo or a
+cancel, which rebuild the turn from its snapshot, bring it back with
+the rest. Discards the player chooses themselves --
+Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
 **A line that damages a building or the base says where it now stands,
 out of its most** ("deals 3 to {player:2}'s base, now at 17/20") -- an attack, overpower's

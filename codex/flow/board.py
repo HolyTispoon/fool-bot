@@ -1275,7 +1275,8 @@ def random_discard(engine: "RulesEngine", match: MatchState, seat: int,
     """
     `seat` discards a card at random (Thieving Imp, Cursed Crow, Shadow
     Blade): picked by `engine.pick`, recorded beside the shuffles so a
-    replay discards the same one -- and said as a count, never by name.
+    replay discards the same one -- and said as a count, never by name,
+    the card told to its owner alone (`PlayerState.discards_untold`).
     """
     player = match.player(seat)
     if not player.hand:
@@ -1284,6 +1285,7 @@ def random_discard(engine: "RulesEngine", match: MatchState, seat: int,
     result.drawn.append([effects.PICK, slug])
     player.hand.remove(slug)
     player.discard.append(slug)
+    player.discards_untold.append({"slug": slug, "by": by})
     match.record_event("discarded_at_random", seat=seat, slug=slug)
     result.narration.append(f"{tokens.player(seat)} discards a card at random for {by}.")
     return True
