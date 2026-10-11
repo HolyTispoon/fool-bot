@@ -2054,8 +2054,8 @@ too, asked with `gate` for the two kinds a turn may open on
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"), and the
   next tech building up where it may not, disabled with why ("Build
-  Tech II (4 gold): Tech I is destroyed", "...: not enough workers
-  (needs 8)") -- `BuildOption.next_up`, the engine's: a tech building
+  Tech II (4 gold): Tech I is destroyed", "...: needs 8
+  workers") -- `BuildOption.next_up`, the engine's: a tech building
   not standing that is the first, or the one above a building its
   player has had, so a destroyed Tech I is rebuilt first and Tech II
   says so, where Tech III at the opening says nothing (the author,
@@ -2091,8 +2091,10 @@ too, asked with `gate` for the two kinds a turn may open on
   choice -- `("play", slug)`, `("attack", ref)` -- so the fakes press
   it by what it chooses, never by its label.
 - **Built from the options and nothing else.** A control the engine
-  says no to is disabled with its reason as its label ("Hire: a worker
-  has been hired this turn"); a group with nothing to offer is one
+  says no to is disabled with its reason as its label ("Hire a worker:
+  already hired", "Attack: nothing can attack", "Summon Orpal Gloor:
+  Hero limit is 2", "Vandy Anadrose: at its max level" -- the
+  author's wording, 2026-10-11); a group with nothing to offer is one
   disabled button saying why ("Nothing can be built now", unless a
   next tech building already says why), so the
   panel keeps its shape. **Hire worker** turns the panel into the hand, a button
@@ -2809,7 +2811,7 @@ differs only on the action lines that name a hero. Commit 3 added
 p. 6, p. 9): three with an active tech III, or an active tech II and an
 active heroes' hall; two with either; one otherwise -- active being
 built, finished and standing. A summon past it is refused citing p. 6
-("your hero limit is 1", on the button). A dead hero in the command zone
+("Hero limit is 1", on the button). A dead hero in the command zone
 does not count, so another may be summoned at once (p. 6: "you can
 immediately summon a different hero to replace it"), and losing a
 building removes nobody. The upkeep takes one summoning rune off each

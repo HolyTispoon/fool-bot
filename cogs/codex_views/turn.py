@@ -298,11 +298,11 @@ class TurnPanelView(PanelView):
         hire = options.hire
         actions = [
             self.make_button(
-                "Hire worker" if hire.allowed else f"Hire: {hire.why_not}",
+                "Hire worker" if hire.allowed else f"Hire a worker: {hire.why_not}",
                 discord.ButtonStyle.success, self.open_hire, disabled=not hire.allowed,
             ),
             self.make_button(
-                "Attack..." if options.attackers else "Attack: nothing of yours can attack now",
+                "Attack..." if options.attackers else "Attack: nothing can attack",
                 discord.ButtonStyle.danger, self.open_attack, disabled=not options.attackers,
             ),
         ] + [self.hero_button(hero) for hero in options.heroes]
