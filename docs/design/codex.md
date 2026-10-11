@@ -1911,7 +1911,10 @@ Decision 4's shape, tried for the first time in step 3: **My hand** on
 the turn message answers the clicker alone, ephemerally -- their hand
 pictured by `render_hand` (each card's own art, numbered, its cost after
 reductions on a coin, greyed where it may not be played, which is the
-engine's `hand_rows`) and their discard pile listed as text. **Codex**
+engine's `hand_rows`) under its count alone; the discard pile was
+listed beside it as text until the author found it read as the hand
+(2026-10-11: "Don't list my discard pile"), and **My deck** shows it
+in its own frame. **Codex**
 answers with their own codex pictured by `render_codex`, every card with
 a badge of the copies left and faint at none, under a menu -- Everything,
 Tech I, Tech II, Tech III, Spells, and one view per spec once a deck is
