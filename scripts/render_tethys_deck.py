@@ -11,7 +11,9 @@ PNG), `cards/` (every card and `back.png`), `icon_sheet.png`,
 (Avery Presta 95328, six a page), each with a backs page after every
 fronts page for a duplex print, and the six-card sets twice:
 `sets_aid.png` (the player aid) and `sets_chart.png` (the chances on a log
-scale). `--only` picks some of icons, cards, sheets, pdf and sets. See
+scale). `--only` picks some of icons, cards, sheets, pdf and sets.
+`--edition 2.0` renders Tethys 2.0, the 48-card deck, into
+`tethysdeck/print/2.0/` by default; 1.0 is the default edition. See
 docs/design/tethys-deck.md.
 """
 import argparse
@@ -26,14 +28,17 @@ from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 from tethysdeck import icons  # noqa: E402
 from tethysdeck.back import back  # noqa: E402
 from tethysdeck.cards import card, closeup_sheet, deck_cards, deck_sheet, ladder_sheet  # noqa: E402
-from tethysdeck.deck import SUITS  # noqa: E402
+from tethysdeck.deck import EDITIONS, SUITS  # noqa: E402
 from tethysdeck.print_sheets import PAGE_SIZES, avery_pages, grid_pages, write_pdf  # noqa: E402
 from tethysdeck.relief import IconSet  # noqa: E402
-from tethysdeck.sets import census  # noqa: E402
+from tethysdeck.sets import EDITIONS as POKER  # noqa: E402
 from tethysdeck.sets_aid import faces_shown, odds_chart, player_aid  # noqa: E402
 
 STEPS = ("icons", "cards", "sheets", "pdf", "sets")
-CLOSEUP = [("money", "1"), ("money", "2"), ("might", "Left"), ("fiends", "1"), ("states", "Right"), ("fools", "10")]
+CLOSEUP = {
+    "1.0": [("money", "1"), ("money", "2"), ("might", "Left"), ("fiends", "1"), ("states", "Right"), ("fools", "10")],
+    "2.0": [("money", "Left"), ("money", "12"), ("tools", "Right"), ("fiends", "6"), ("states", "5"), ("fools", "11")],
+}
 
 
 def icon_sheet(icon_set: IconSet) -> Image.Image:
@@ -53,14 +58,16 @@ def icon_sheet(icon_set: IconSet) -> Image.Image:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=PROJECT_ROOT / "tethysdeck" / "print")
+    parser.add_argument("--edition", choices=sorted(EDITIONS), default="1.0")
+    parser.add_argument("--out", type=Path, help="default tethysdeck/print, or tethysdeck/print/2.0 for 2.0")
     parser.add_argument("--only", default=",".join(STEPS), help="a comma-separated subset of " + ", ".join(STEPS))
     args = parser.parse_args()
     steps = {s.strip() for s in args.only.split(",")}
     unknown = steps - set(STEPS)
     if unknown:
         parser.error(f"unknown step(s): {', '.join(sorted(unknown))}")
-    out = args.out
+    deck, poker = EDITIONS[args.edition], POKER[args.edition]
+    out = args.out or PROJECT_ROOT / "tethysdeck" / "print" / ("" if args.edition == "1.0" else args.edition)
     out.mkdir(parents=True, exist_ok=True)
     icon_set = IconSet()
 
@@ -74,7 +81,7 @@ def main() -> int:
     cards = None
     back_image = None
     if steps & {"cards", "sheets", "pdf"}:
-        cards = deck_cards(icon_set)
+        cards = deck_cards(icon_set, deck)
         back_image = back(icon_set)
     if "cards" in steps:
         folder = out / "cards"
@@ -87,8 +94,8 @@ def main() -> int:
         icon_sheet(icon_set).save(out / "icon_sheet.png")
         ladder_sheet(icon_set, "might").save(out / "might_ladder.png")
         ladder_sheet(icon_set, "tools").save(out / "tools_ladder.png")
-        deck_sheet(cards).save(out / "deck_sheet.png")
-        closeup_sheet(cards, CLOSEUP).save(out / "closeup_sheet.png")
+        deck_sheet(cards, deck=deck).save(out / "deck_sheet.png")
+        closeup_sheet(cards, CLOSEUP[deck.name]).save(out / "closeup_sheet.png")
         print(f"sheets -> {out}")
     if "pdf" in steps:
         ordered = list(cards.values())
@@ -100,11 +107,11 @@ def main() -> int:
         pages[0].save(out / "avery_95328_page1.png")
         print(f"pdf: print_sheet.pdf and avery_95328.pdf -> {out}")
     if "sets" in steps:
-        counts = census()
+        counts = poker.census()
         if cards is None:  # only the faces the aid shows
-            cards = {key: card(icon_set, *key) for key in faces_shown()}
-        player_aid(counts, cards).save(out / "sets_aid.png")
-        odds_chart(counts).save(out / "sets_chart.png")
+            cards = {key: card(icon_set, *key, deck) for key in faces_shown(poker)}
+        player_aid(counts, cards, poker).save(out / "sets_aid.png")
+        odds_chart(counts, poker).save(out / "sets_chart.png")
         print(f"sets: sets_aid.png and sets_chart.png -> {out}")
     return 0
 

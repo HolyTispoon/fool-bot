@@ -12,7 +12,7 @@ import math
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from tethysdeck.icons import PROJECT_ROOT
-from tethysdeck.sets import SETS, Count, total_hands
+from tethysdeck.sets import POKER_1, Count, Poker
 
 SCALE = 2
 FONTS = {"regular": "RobotoSlab-Regular.ttf", "bold": "RobotoSlab-Bold.ttf"}
@@ -35,8 +35,35 @@ def _font(weight: str, size: int) -> ImageFont.FreeTypeFont:
     return _fonts[key]
 
 
-def percent(hands: int) -> str:
-    p = 100 * hands / total_hands()
+# Each edition's notes under the aid, a line each, a bold lead where there is one, and
+# under the chart.
+NOTES = {
+    "1.0": (
+        ("Left and Right", "pair only with each other: a Left and a Right are a pair, two Lefts are not. Either "
+         "follows 10 in a straight (6-7-8-9-10-Left). Straights don't wrap."),
+        ("", "Three of a kind with a pair counts as three of a kind, and four of a kind "
+         "with a pair as four of a kind."),
+        ("", "Uniform chances are for all Fortune or all Doom together; each alone is half."),
+    ),
+    "2.0": (
+        ("Rulers", "are one rank: any two rulers are a pair, whatever their suits, and only rulers make four, "
+         "five or six of a kind."),
+        ("", "A straight is numbers in a row and may end in a ruler, or in a Left and a Right "
+         "(1-2-3-4-Left-Right). Straights don't wrap."),
+        ("", "Three of a kind with a pair counts as three of a kind, and four of a kind "
+         "with a pair as four of a kind. Uniform chances are for all Fortune or all Doom together."),
+    ),
+}
+CHART_NOTES = {
+    "1.0": ("A Left pairs only with a Right. Each hand counts once, under its best set.",
+            "Uniform is either all Fortune or all Doom; each one alone is half the figure shown."),
+    "2.0": ("Any two rulers pair. Each hand counts once, under its best set.",
+            "Uniform is either all Fortune or all Doom, together."),
+}
+
+
+def percent(hands: int, total: int) -> str:
+    p = 100 * hands / total
     if p >= 1:
         return f"{p:.1f}%"
     return f"{p:.{1 - math.floor(math.log10(p))}f}%"
@@ -91,16 +118,18 @@ KEY = ((("money", "1"), "Fortune card: violet"), (("money", "2"), "Doom card: co
 COLUMNS = {"num": 52, "name": 100, "hand": 366, "mixed": 1050, "uniform": 1198}
 
 
-def faces_shown() -> set[tuple[str, str]]:
+def faces_shown(poker: Poker = POKER_1) -> set[tuple[str, str]]:
     """The (suit, rank) of every card the player aid draws."""
-    return {key for key, _ in KEY} | {key for s in SETS for key in s.example}
+    return {key for key, _ in KEY} | {key for s in poker.sets for key in s.example}
 
 
-def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
+def player_aid(census: dict[str, Count], cards: dict, poker: Poker = POKER_1) -> Image.Image:
     """Every set, rarest first, with a mixed example from `cards`, the
     deck's own faces keyed by (suit, rank)."""
-    c = _Canvas(AID_WIDTH, 260 + ROW_H * len(SETS) + 120)
-    c.text(MARGIN, 36, "Tethys Poker", 34, "bold")
+    ranking, total = poker.sets, poker.total_hands()
+    c = _Canvas(AID_WIDTH, 260 + ROW_H * len(ranking) + 120)
+    title = "Tethys Poker" if poker is POKER_1 else f"Tethys {poker.deck.name} Poker"
+    c.text(MARGIN, 36, title, 34, "bold")
     c.text(MARGIN, 88, "Your best set counts. Sets are listed from rarest to most common, and no set last.", 16, fill=INK2)
 
     y, x = 120, MARGIN
@@ -123,7 +152,7 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
     y += 42
     c.line((MARGIN, y, AID_WIDTH - MARGIN, y), INK, 2)
 
-    for i, s in enumerate(SETS):
+    for i, s in enumerate(ranking):
         top = y + 1 + i * ROW_H
         mid = top + ROW_H / 2
         if i % 2:
@@ -136,21 +165,19 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
         for j, key in enumerate(s.example):
             c.card(cards[key], COLUMNS["hand"] + j * (CARD_W + CARD_GAP), top + 13, CARD_W, CARD_H)
         count = census[s.key]
-        c.text(COLUMNS["mixed"], mid, percent(count.mixed), 18, fill=INK2 if last else INK, anchor="rm")
+        c.text(COLUMNS["mixed"], mid, percent(count.mixed, total), 18, fill=INK2 if last else INK, anchor="rm")
         if count.uniform:
-            c.text(COLUMNS["uniform"], mid, percent(count.uniform), 18, fill=UNIFORM_INK, anchor="rm")
-    y += 1 + ROW_H * len(SETS)
+            c.text(COLUMNS["uniform"], mid, percent(count.uniform, total), 18, fill=UNIFORM_INK, anchor="rm")
+    y += 1 + ROW_H * len(ranking)
     c.line((MARGIN, y, AID_WIDTH - MARGIN, y), INK, 2)
 
     y += 22
-    c.text(MARGIN, y, "Left and Right", 13, "bold", fill=INK2)
-    c.text(MARGIN + c.width("Left and Right ", 13, "bold"), y,
-           "pair only with each other: a Left and a Right are a pair, two Lefts are not. Either "
-           "follows 10 in a straight (6-7-8-9-10-Left). Straights don't wrap.", 13, fill=INK2)
-    c.text(MARGIN, y + 20, "Three of a kind with a pair counts as three of a kind, and four of a kind "
-           "with a pair as four of a kind.", 13, fill=INK2)
-    c.text(MARGIN, y + 40, "Uniform chances are for all Fortune or all Doom together; each alone is half.",
-           13, fill=INK2)
+    for i, (lead, line) in enumerate(NOTES[poker.deck.name]):
+        x = MARGIN
+        if lead:
+            c.text(x, y + 20 * i, lead, 13, "bold", fill=INK2)
+            x += c.width(lead + " ", 13, "bold")
+        c.text(x, y + 20 * i, line, 13, fill=INK2)
     return c.done(y + 76)
 
 
@@ -159,17 +186,18 @@ def player_aid(census: dict[str, Count], cards: dict) -> Image.Image:
 CHART_WIDTH, PLOT_LEFT, PLOT_RIGHT, PLOT_TOP, CHART_ROW = 980, 250, 920, 118, 50
 
 
-def odds_chart(census: dict[str, Count]) -> Image.Image:
+def odds_chart(census: dict[str, Count], poker: Poker = POKER_1) -> Image.Image:
     """Mixed and uniform chances per set, rarest first, on a log scale."""
-    values = [100 * n / total_hands() for s in SETS for n in (census[s.key].mixed, census[s.key].uniform) if n]
+    ranking, total = poker.sets, poker.total_hands()
+    values = [100 * n / total for s in ranking for n in (census[s.key].mixed, census[s.key].uniform) if n]
     low, high = math.floor(math.log10(min(values))), math.ceil(math.log10(max(values)))
 
     def x_of(p: float) -> float:
         return PLOT_LEFT + (math.log10(p) - low) / (high - low) * (PLOT_RIGHT - PLOT_LEFT)
 
-    bottom = PLOT_TOP + CHART_ROW * len(SETS)
+    bottom = PLOT_TOP + CHART_ROW * len(ranking)
     c = _Canvas(CHART_WIDTH, bottom + 110)
-    c.text(24, 22, "Tethys Poker: the odds", 24, "bold")
+    c.text(24, 22, ("Tethys Poker" if poker is POKER_1 else f"Tethys {poker.deck.name} Poker") + ": the odds", 24, "bold")
     c.text(24, 52, "Chance of each set when all six cards count, rarest first and no set last. Log scale.", 14, fill=INK2)
 
     _diamond(c, PLOT_LEFT, 92, 6, MIXED_DOT, circle=True)
@@ -177,7 +205,7 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
     _diamond(c, PLOT_LEFT + 224, 92, 6, UNIFORM_DOT)
     c.text(PLOT_LEFT + 236, 92, "Uniform: all six Fortune, or all six Doom", 14, anchor="lm")
 
-    for i in range(len(SETS)):
+    for i in range(len(ranking)):
         if i % 2 == 0:
             top = PLOT_TOP + CHART_ROW * i
             c.rect((16, top, CHART_WIDTH - 16, top + CHART_ROW), BAND)
@@ -187,24 +215,24 @@ def odds_chart(census: dict[str, Count]) -> Image.Image:
         label = f"{10 ** e:.0f}%" if e >= 0 else f"{10 ** e:.{-e}f}%"
         c.text(x, bottom + 14, label, 12, fill=INK2, anchor="ma")
 
-    for i, s in enumerate(SETS):
+    for i, s in enumerate(ranking):
         y = PLOT_TOP + CHART_ROW * i + CHART_ROW / 2
         c.text(24, y, str(i + 1), 13, fill=INK2, anchor="lm")
         c.text(48, y, s.name, 15, anchor="lm")
         count = census[s.key]
-        xm = x_of(100 * count.mixed / total_hands())
+        xm = x_of(100 * count.mixed / total)
         if count.uniform:
-            xu = x_of(100 * count.uniform / total_hands())
+            xu = x_of(100 * count.uniform / total)
             c.line((xu, y, xm, y), CONNECTOR, 2)
             _diamond(c, xu, y, 7, UNIFORM_DOT, ring=True)
-            c.text(xu, y - 13, percent(count.uniform), 12, anchor="ms")
+            c.text(xu, y - 13, percent(count.uniform, total), 12, anchor="ms")
         _diamond(c, xm, y, 7, MIXED_DOT, circle=True, ring=True)
-        c.text(xm, y - 13, percent(count.mixed), 12, anchor="ms")
+        c.text(xm, y - 13, percent(count.mixed, total), 12, anchor="ms")
 
-    c.text(24, bottom + 50, f"All {total_hands():,} hands of six from the 72-card deck, counted exactly. "
-           "A Left pairs only with a Right. Each hand counts once, under its best set.", 12, fill=INK2)
-    c.text(24, bottom + 68, "Uniform is either all Fortune or all Doom; each one alone is half the figure shown.",
-           12, fill=INK2)
+    first, second = CHART_NOTES[poker.deck.name]
+    c.text(24, bottom + 50, f"All {total:,} hands of six from the {len(poker.deck.cards())}-card deck, "
+           f"counted exactly. {first}", 12, fill=INK2)
+    c.text(24, bottom + 68, second, 12, fill=INK2)
     return c.done(bottom + 96)
 
 

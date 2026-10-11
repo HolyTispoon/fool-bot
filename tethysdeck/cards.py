@@ -8,7 +8,7 @@ orange; the paper is white either way (the author: no cream anywhere).
 from PIL import Image, ImageDraw, ImageFont
 
 from tethysdeck import icons
-from tethysdeck.deck import RANKS, SUITS, VARIANTS, fate_of, money_coins, pieces
+from tethysdeck.deck import TETHYS_1, VARIANTS, Deck, fate_of
 from tethysdeck.relief import IconSet
 
 # The corner is the Avery 95328 die cut's own, 0.375in at 300 dpi, and every frame
@@ -71,7 +71,7 @@ def _spread(img: Image.Image, items: list[Image.Image]) -> None:
         img.alpha_composite(im, (cx - im.width // 2, cy - im.height // 2))
 
 
-def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
+def card(icon_set: IconSet, suit: str, rank: str, deck: Deck = TETHYS_1) -> Image.Image:
     fate = fate_of(suit, rank)
     p = PALETTE[fate]
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -90,9 +90,9 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
 
     d.text((W // 2, 96), suit.upper(), font=font(40), fill=p["ink2"], anchor="mm")
     if suit == "money":
-        _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
+        _spread(img, [coin_image(metal, amount, fate) for metal, amount in deck.money_coins(rank)])
     else:
-        values = pieces(suit, rank)
+        values = deck.pieces(suit, rank)
         items = []
         for value, (_, room_w, room_h) in zip(values, SLOTS[len(values)]):
             size = PIECE_SIZE[value]
@@ -107,9 +107,9 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     return img
 
 
-def deck_cards(icon_set: IconSet) -> dict[tuple[str, str], Image.Image]:
-    """Every card, keyed by (suit, rank), in the deck's order."""
-    return {(suit, rank): card(icon_set, suit, rank) for suit in SUITS for rank in RANKS}
+def deck_cards(icon_set: IconSet, deck: Deck = TETHYS_1) -> dict[tuple[str, str], Image.Image]:
+    """Every card of an edition, keyed by (suit, rank), in the deck's order."""
+    return {(suit, rank): card(icon_set, suit, rank, deck) for suit, rank in deck.cards()}
 
 
 def flatten(card_image: Image.Image) -> Image.Image:
@@ -121,13 +121,15 @@ def flatten(card_image: Image.Image) -> Image.Image:
 
 # --- contact sheets, for looking at the deck -------------------------------
 
-def deck_sheet(cards: dict, scale: float = 0.2) -> Image.Image:
-    """All 72, a suit a row, in rank order."""
+def deck_sheet(cards: dict, scale: float = 0.2, deck: Deck = TETHYS_1) -> Image.Image:
+    """The whole deck, a suit a row, each card in its rank's column -- so 2.0's
+    suits sit under the numbers they hold."""
+    columns, rows = deck.columns(), deck.suits
     cw, ch, gap = round(W * scale), round(H * scale), 10
-    img = Image.new("RGB", (12 * cw + 13 * gap, 6 * ch + 7 * gap), "#5a5a5a")
+    img = Image.new("RGB", (len(columns) * cw + (len(columns) + 1) * gap, len(rows) * ch + (len(rows) + 1) * gap), "#5a5a5a")
     for (suit, rank), c in cards.items():
-        x = gap + RANKS.index(rank) * (cw + gap)
-        y = gap + SUITS.index(suit) * (ch + gap)
+        x = gap + columns.index(rank) * (cw + gap)
+        y = gap + rows.index(suit) * (ch + gap)
         small = c.resize((cw, ch), Image.LANCZOS)
         img.paste(small, (x, y), small)
     return img

@@ -32,6 +32,42 @@ odds in an even number of suits -- twice the number where both the odds
 and Left are Fortune -- so four here (Money, Tools, States, Fools) and
 with the evens in two (Might, Fiends). The author kept the first two.
 
+## Tethys 2.0, beside 1.0
+
+**2.0 is a second edition, built beside 1.0 rather than over it** (the
+author, 2026-10-11): 48 cards where 1.0 has 72. The suits share the
+numbers out between them instead of each holding 1 to 10. **Money** is
+1 to 12 alone; **Fiends** 1 to 6 and **Fools** 7 to 12 split them a
+second time; **Tools** 1 to 4, **States** 5 to 8 and **Might** 9 to 12 a
+third. So every number is in the deck three times, once in each of those
+three runs, and each run carries a different number of rulers: two in
+Money, four between Fiends and Fools, six between Tools, States and Might.
+
+- **The fate rule is 1.0's**, unchanged (`fate_of`): each suit's odds
+  and Left take the same fates. That still leaves every suit half and
+  half and the deck 24 and 24. What it no longer gives is the mirror. A
+  number is one Fortune and two Doom, or two Fortune and one Doom, so all
+  Fortune and all Doom are counted apart (below).
+- **Every ruler is worth 13**, one more than the highest number. Between
+  a suit's two rulers, **the Fortune one ranks above the Doom one**
+  (`Deck.strength`). Which one that is follows from the fate table:
+  Left in Money, Fiends and States, Right in Tools, Might and Fools.
+- **Money's rulers show the three-gold coin**, worth 36 dinkies, not
+  the 13 that would buy (the author). Every other suit's ruler is its
+  fewest pieces, a 12 and a 1, the way any other value is
+  (`Deck.pieces`).
+- **One type, two instances.** `deck.Deck` is an edition: its ranks
+  per suit, its ruler's worth, its ruler coins. `TETHYS_1` and
+  `TETHYS_2` are the two, and `EDITIONS` names them. The module's old
+  names (`SUITS`, `RANKS`, `worth`, `pieces`, `money_coins`) stay 1.0's,
+  so the bot's `/tethyscards`, the strips and every 1.0 caller are
+  untouched. The bot deals 1.0 only; 2.0 is the model, the cards, the
+  sheets, the print files and the poker. The refactor was checked by
+  SHA-256: every 1.0 PNG the render script writes (80 of them) came out
+  byte-identical to `main`'s.
+- **The back is 1.0's** -- the same six suit marks and the d12 -- so a
+  printed 2.0 deck cannot be told from a 1.0 deck from behind.
+
 ## Why the cards are drawn by code, and why the pieces are pictures
 
 The first round was generated art: engraved scenes, one per card, from
@@ -274,6 +310,37 @@ is (the author, 2026-10-09). `sets.py` is the rule and the count;
   on a log scale, because they run from half of all hands to a few in a
   hundred million.
 
+### Tethys 2.0 poker
+
+2.0 plays the same game with **its own pairing and its own straights**
+(the author, 2026-10-11). `sets.Poker` holds the evaluation and the
+census; `Poker1` and `Poker2` are the two rule sets; `POKER_1` and
+`POKER_2` are the two rankings.
+
+- **Rulers are one rank**: any two rulers pair, whatever their suits.
+  The numbers have three cards each, so they make at most three of a
+  kind. Four, five and six of a kind are the rulers' alone.
+- **A straight is numbers in a row, and may end in a ruler, or in a
+  Left and a Right.** The author: "every straight can end in a ruler and
+  even two rulers if one is left and the other is right". This is read
+  as any run of numbers, not only one reaching 12, so 2-3-4-5-6 and a
+  ruler is a straight. Two Lefts are not. Straights don't wrap. A
+  straight flush follows: Tools, States and Might are each one whole
+  (1-2-3-4-Left-Right is all of Tools).
+- **The ranking is 2.0's own census, rarest first**: straight flush,
+  six of a kind, two triples, flush, five of a kind, three pairs,
+  straight, four of a kind, two pairs, three of a kind, one pair, and no
+  set last. Two pairs (13.3%) is rarer than three of a kind (14.1%), so
+  the two change places from 1.0. No hand is both, so swapping them
+  changes no count.
+- **Counted the same way, checked the same way.** The census is exact,
+  with all Fortune and all Doom kept apart (`Count.fortune`, `.doom`).
+  An evaluator written separately from `sets.py` walked all 12,271,512
+  hands and agreed set by set; `CENSUS_2` in the test pins it. The
+  differences are small and only in the commonest sets and the
+  straight: a uniform straight is 804 hands all Fortune and 576 all
+  Doom.
+
 ## On Discord
 
 The `/tethyscards` commands deal the deck by name -- `"7 of ⚔ Might"`,
@@ -333,6 +400,7 @@ the same cut ([cards.md](cards.md)).
 python3 scripts/render_tethys_deck.py            # everything, into tethysdeck/print/
 python3 scripts/render_tethys_deck.py --only sheets   # just the contact sheets
 python3 scripts/render_tethys_deck.py --only sets     # the player aid and the chart
+python3 scripts/render_tethys_deck.py --edition 2.0   # Tethys 2.0, into tethysdeck/print/2.0/
 python3 scripts/generate_tethys_pieces.py generate might_axe_doom   # re-roll one piece (needs mflux)
 python3 scripts/generate_tethys_pieces.py key might_axe_doom        # key it into tethysdeck/images/
 python3 scripts/generate_tethys_pieces.py sheet                     # every picture on one sheet
