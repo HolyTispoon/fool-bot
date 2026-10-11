@@ -280,9 +280,22 @@ The `/tethyscards` commands deal the deck by name -- `"7 of ⚔ Might"`,
 `cogs/tethysdeck_helpers.build_deck` -- and since 2026-10-11 show the
 cards as the deck's own faces (the author: "add the card pictures to
 existing tethys deck commands"). A draw, a hand (yours, or another's
-by `/tethyscards hand`) and the discard each answer with their text as
-before and a picture of the cards under it, left to right in the
-order the text lists them; an empty hand or discard is text alone.
+by `/tethyscards hand`) and the discard each answer with a line of
+words and a picture of the cards under it, left to right in the
+hand's order; an empty hand or discard is text alone.
+
+- **The words name a card only where no picture shows it** (the
+  author, the same day, of a draw listed twice above its picture: "No
+  need to list the cards, just showing them is enough"). Over a
+  picture the line is a caption -- "Drew 6 cards." and "HolyTispoon's
+  hand (6 cards):", "Discard pile (6 cards):" -- and the picture is
+  the list; the drawn cards are the last of the hand, so they are in
+  it. The one list that stays is "Discarded: ...": the picture under
+  it is the hand those cards left, not them. `TethysDeck.pictured`
+  is the one reading of whether a reply carries a picture, and the
+  two text builders in `cogs/tethysdeck_helpers.py` take `listed`
+  from it, so the words and the picture cannot disagree about which
+  of them names the cards.
 
 - **The faces are drawn once.** `tethysdeck/strips.Faces` draws all 72
   through `cards.deck_cards` and keeps them at 180 x 252 -- the printed

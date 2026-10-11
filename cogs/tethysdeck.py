@@ -74,6 +74,14 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             "Something went wrong running that command. Please try again.",
         )
 
+    @property
+    def pictured(self) -> bool:
+        """Whether a reply shows its cards as a picture. While it does, the
+        words name only what the picture does not show (the author,
+        2026-10-11: "No need to list the cards, just showing them is
+        enough"); without the faces every card is named, as before."""
+        return self.faces is not None
+
     # -- shared deck logic, called by both slash commands and views --
 
     def build_and_save_new_deck(self, channel_id: str) -> ChannelDeck:
@@ -206,7 +214,10 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
 
         if drawn:
             card_word = "card" if len(drawn) == 1 else "cards"
-            header = f"Drew {len(drawn)} {card_word}: {format_cards(drawn)}"
+            # The drawn cards are the last of the hand, so the picture
+            # shows them; the words name them only without it.
+            header = f"Drew {len(drawn)} {card_word}"
+            header += "." if self.pictured else f": {format_cards(drawn)}"
         else:
             header = "The deck is empty -- nothing to draw."
 
@@ -223,7 +234,9 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
     ) -> None:
         channel_id = str(interaction.channel_id)
         hand = state.hands.get(str(target_user.id), [])
-        text = format_hand_text(target_user, hand, header=header)
+        text = format_hand_text(
+            target_user, hand, header=header, listed=not self.pictured,
+        )
 
         view = None
         if target_user.id == interaction.user.id and hand:
@@ -270,6 +283,8 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
 
         await self.update_status_message(interaction.channel, state)
 
+        # The discarded cards are named whatever is shown: the picture
+        # under this is the hand they left, not them.
         header = (
             f"Discarded: {format_cards(discarded)}"
             if discarded else "Nothing was discarded."
@@ -288,7 +303,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             return
         await self.reply(
             interaction,
-            format_discard_text(state.discard),
+            format_discard_text(state.discard, listed=not self.pictured),
             cards=state.discard,
         )
 
