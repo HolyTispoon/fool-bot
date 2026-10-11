@@ -488,8 +488,15 @@ the author has already settled say so, with the date.
     teammate in a dragon, and the turn message's revealed-hand picture
     -- what Eyes of the Chancellor shows today -- carries the teammate's
     hand under the clicker's own, captioned by name, on My hand, under
-    the panel and on `/codex hand`. The tech choice and the codex stay
-    their owner's (question 14). In a dragon both teammates hold a panel
+    the panel and on `/codex hand`. **The teammate's codex and tech
+    choice are seen the same way** (the author, 2026-10-11): one reading
+    on the engine, `team_sees(match, seat)` -- the teammate on a dragon
+    match, nobody otherwise -- which `hands_visible_to` folds in for the
+    hand, the Codex browser's menu offers for the codex ("<name>'s
+    codex", every view the owner has), and **Tech** on the turn message
+    answers for a teammate with the other's standing picks pictured,
+    read-only, as the confirmation pictures them; a teammate changes
+    nothing of the other's. In a dragon both teammates hold a panel
     at once; a public click by one posts the turn message again, and the
     other's panel stands above it until their next click, which the
     driver checks against the options as they stand and which sends
@@ -517,7 +524,7 @@ the author has already settled say so, with the date.
     turn*: unwinds the previous seat's turn in a free-for-all, so that
     seat is asked, and the other team's in a dragon, so either of its
     players may **Agree** and anyone at the table **Refuse** -- the
-    duel's consent, kept (question 12). *Concede*: none in a
+    duel's consent, kept (the author, 2026-10-11). *Concede*: none in a
     free-for-all (decision 5); **in a dragon a concession needs both
     teammates**: the first click is the clicker's own, ephemeral, as
     now; it then posts a public question naming the teammate, modelled
@@ -526,8 +533,8 @@ the author has already settled say so, with the date.
     teammate's -- and the game ends on Agree through the service's
     `concede`, the other team winning. Not persistent: after a restart
     the asker asks again. *Abandon* is unchanged -- a seated player's
-    own game, or a helper's -- in every variant, until the author says
-    otherwise (question 11).
+    own game, or a helper's -- in every variant: one player may abandon
+    a game of five (the author, 2026-10-11).
 
 16. **A multiplayer rematch is a fresh pick of heroes** (the author,
     2026-10-11: let the players choose their heroes and codex). The same
@@ -591,22 +598,18 @@ on 2026-10-11.
 10. ~~**Does the cloud routine run this series?**~~ Answered: it
     should, and the steps may also have to be run by hand. "Claiming a
     step".
-11. **Who may abandon a multiplayer game?** Today any seated player
-    abandons their own game, and a helper any. With no concession in a
-    free-for-all, one player's abandon is the one way a seat leaves a
-    game of five. Built as unchanged.
-12. **Does the undo to the start of the previous turn keep the
-    opponents' consent?** The author's "no need for consent on the
-    undo" answered question 7, the teammate's. Built as the duel has it:
-    the seat whose turn is unwound, or either player of the other team,
-    agrees.
+11. ~~**Who may abandon a multiplayer game?** Built as unchanged.~~
+    Answered: a single player can abandon a multiplayer game; that is
+    fine. Decision 15.
+12. ~~**Does the undo to the start of the previous turn keep the
+    opponents' consent?** Built as the duel has it.~~ Answered: keep
+    the consent of a previous turn as in the duel. Decision 15.
 13. **In a tied free-for-all ending, does the current player's turn
     finish before the tied players' extra turns?** The rulebook (p. 14)
     does not say; the UMR (p. 12) says it does. Built as the UMR says.
-14. **Does a teammate also see the other's tech choice and codex?**
-    The rulebook lets teammates show each other their cards. Built as
-    the hand alone; the picks are theirs to say in the channel. A
-    **Teammate's tech** view is one more picture if wanted.
+14. ~~**Does a teammate also see the other's tech choice and codex?**
+    Built as the hand alone.~~ Answered: a teammate should be able to
+    see the codex and the tech choice. Decision 13.
 
 ## The steps
 
@@ -715,11 +718,12 @@ Added to the Codex preamble's hard rules:
   table with its fallback, every older save reading on, no saved key
   renamed; the record's player_1_* and player_2_* keys go on being
   written for the first two seats.
-- A seat's hand, deck, discard and tech choice stay its own, with one
-  exception the rulebook allows and the author chose: in a dragon a
-  teammate sees the other's hand, through hands_visible_to and the
-  revealed-hand picture, ephemerally, and nothing else of theirs. A
-  lent card's borrower and a watcher see nothing hidden; nothing hidden
+- A seat's hand, deck, discard, codex and tech choice stay its own,
+  with one exception the rulebook allows and the author chose: in a
+  dragon a teammate sees the other's hand, codex and tech choice,
+  through the one reading engine.team_sees (hands_visible_to folds it
+  in), ephemerally and read-only, and nothing else of theirs. A lent
+  card's borrower and a watcher see nothing hidden; nothing hidden
   reaches a public message or a log line, as the Codex preamble says.
 - Nothing rendered is tested for how it looks: render it
   (scripts/render_codex_sample.py, which this series teaches the two
@@ -1049,8 +1053,8 @@ the game.
    under the hand finds the clicker's; the footer that names who is
    still to tech names each. An undo to the previous turn asks the seat
    whose turn is unwound (the snapshot's active seat is the reading),
-   Agree theirs or a helper's, Refuse anyone's at the table (question
-   12). There is no Concede on a free-for-all turn message and
+   Agree theirs or a helper's, Refuse anyone's at the table, as the
+   duel's consent is. There is no Concede on a free-for-all turn message and
    /codex concede answers that a free-for-all has none, citing p. 14.
    A TARGET whose rows lie on several seats is pictured with those
    seats stacked, as "both sides stacked" is today. The request table
@@ -1074,8 +1078,9 @@ the game.
    playoff's "one more turn" lines on the turn messages they fall in,
    Rematch opening a lobby with the same seats and every seat's heroes
    cleared to be picked again (decision 16), the channel to Codex
-   Archive as now. Abandon is unchanged (question 11). The startup
-   sweep re-arms a free-for-all's buttons as a duel's.
+   Archive as now. Abandon is unchanged: any seated player's, or a
+   helper's. The startup sweep re-arms a free-for-all's buttons as a
+   duel's.
 
 The stop: three people (or one person on three seats in a test game, in
 the test server) play a free-for-all from /codex create_game to Rematch,
@@ -1109,8 +1114,11 @@ the whole game and the golden.
    docstring). A team never holds two of the same add-on (p. 13): the
    build options refuse an add-on the teammate has built, citing the
    page. Nothing of the free-for-all's three additions is listed on a
-   dragon match, and no Mercenary is owed. hands_visible_to returns
-   the teammate on a dragon match, always, beside any reveal.
+   dragon match, and no Mercenary is owed. engine.team_sees(match,
+   seat) is the teammate on a dragon match and nobody otherwise, and
+   hands_visible_to folds it in beside any reveal; the service's
+   codex and tech readings take a seat to show and refuse one that
+   team_sees does not name (decision 13).
 
 2. The team's turn. acting_seats(match) is the dragon of match.active
    while neither has locked, then the one that has not. pending(engine,
@@ -1205,7 +1213,11 @@ end.
    seat their hand, and in every case a dragon seat's teammate's hand
    pictured under it through hands_visible_to and the revealed-hand
    picture, captioned with the teammate's name ("<name>'s hand", not
-   "Their hand"); /codex hand the same. A public click by either
+   "Their hand"); /codex hand the same. The Codex browser's menu offers
+   the teammate's codex as "<name>'s codex" in every view the owner has,
+   and Tech on the turn message, clicked by a teammate while the other's
+   choice stands, pictures the other's picks read-only as the
+   confirmation pictures them, with nothing to press. A public click by either
    teammate posts the turn message again and sends that clicker's
    panel under it, the other's standing where it was until their next
    click, which the driver checks against the options as they stand
@@ -1217,7 +1229,8 @@ end.
    other's. The tech pickers stand for both seats of the team whose
    turn ended. Undo: To the start of my turn is either teammate's
    without consent; the previous turn asks the other team, either of
-   whose players may Agree and anyone Refuse (question 12). Concede
+   whose players may Agree and anyone Refuse, as the duel's consent is.
+   Concede
    (decision 15): the clicker's own ephemeral confirmation as now, then
    a public question naming the teammate -- Agree the teammate's or a
    helper's behind the helper's confirmation, Refuse either teammate's
@@ -1282,8 +1295,6 @@ and the note reads as the one home of every decision above.
   assumes none, and nothing is built for one.
 - **An AI opponent.** Decision 18. A multiplayer game without one is
   three to five people, as the author asked.
-- **A teammate's view of the other's tech choice or codex.** Question
-  14; one picture later if the author wants it.
 - **The finer undo.** Its infrastructure is in; the modes keep it
   working over the team's turn and do not build it.
 - **Mixed tables** -- a duel's rules at three, or a dragon of three.
