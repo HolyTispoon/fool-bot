@@ -137,7 +137,18 @@ its source.
   database -- step 6's were, on 2026-10-08. It is committed at
   `docs/codex/Codex_UMR_v13w.pdf` (the author, 2026-10-08), the copy
   every `UMR p. n` cites, so a session with no network reads the same
-  page; the bot quotes none of it.
+  page; the bot quotes none of it. **Since 2026-10-11 the official
+  rulebook governs** (the author: "the official rulebook and the FAQs on
+  the database are the official source of the rules; the unofficial
+  rules ... may be wrong sometimes"): the Core Set's "Rulebook version
+  46" is committed at `docs/codex/Codex_Core_Set_Rulebook.pdf`, cited
+  as `Rulebook p. n` by the number printed at the foot of its pages (its
+  contents table runs one page ahead of them), and where it and the UMR
+  differ the rulebook's reading is taken and the UMR's noted. The
+  multiplayer worksheet ([codex-multiplayer.md](../codex-multiplayer.md))
+  was the first read against it and lists the differences it found on
+  the two modes; nothing already built from the UMR was re-read, so a
+  disagreement found later in a duel's rule is a question for the author.
 - **The rulings are the official rules of the game** (the author,
   2026-10-08). `codex/rulings.py` reads them -- `rulings_for(slug)` for a
   card's, `keyword_rulings(keyword)` for the `General` group's -- each
