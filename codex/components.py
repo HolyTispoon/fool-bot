@@ -528,9 +528,9 @@ class PlayerState:
     #: (Thieving Imp, Cursed Crow, Shadow Blade) or chosen by the opponent
     #: (Carrion Curse) -- which the channel heard as a count alone: each
     #: `{"slug", "by"}`, `by` the effect's token. Told to its owner on
-    #: their own turn's panel (`codex.prompts.discard_notes`) and emptied by
-    #: the first answer they give on it (the author, 2026-10-11). Empty in
-    #: an older save.
+    #: every panel of their own turn (`codex.prompts.discard_notes`) and
+    #: emptied as that turn ends (`begin_tech`; the author, 2026-10-11).
+    #: Empty in an older save.
     discards_untold: list = field(default_factory=list)
 
     def patroller(self, slot: str) -> Optional[str]:

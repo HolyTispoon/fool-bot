@@ -3236,10 +3236,9 @@ class BlackRulingTests(unittest.TestCase):
         prompt = asked(engine, game, match)
         self.assertEqual(prompt.told, ("{card:carrion_curse} made you discard {card:now}.",))
 
-    def test_a_random_discard_is_told_at_its_owners_turn_and_spent_by_their_answer(self) -> None:
+    def test_a_random_discard_is_told_through_its_owners_turn(self) -> None:
         """Thieving Imp: the channel hears a count; the owner is told the
-        card on their own turn's first question, and their answer spends
-        it."""
+        card on every question of their own turn, and its end spends it."""
         engine, game, match = black()
         hand(match, 1, "argonaut")
         hand(match, 2, "thieving_imp")
@@ -3258,8 +3257,12 @@ class BlackRulingTests(unittest.TestCase):
         self.assertEqual(prompt.told, ("{card:thieving_imp} made you discard {card:argonaut}.",))
         self.assertEqual(prompt.to_dict()["told"], list(prompt.told))
         apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        prompt = asked(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.PATROL)
+        self.assertEqual(prompt.told, ("{card:thieving_imp} made you discard {card:argonaut}.",))
+        apply(engine, game, match, PromptKind.PATROL, assignment={})
+        self.assertEqual(match.active, 2)
         self.assertEqual(match.player(1).discards_untold, [])
-        self.assertEqual(asked(engine, game, match).told, ())
 
     def test_a_cancelled_curse_tells_nothing(self) -> None:
         """Carrion Curse taken back after a pick: the turn is rebuilt from

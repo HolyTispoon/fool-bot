@@ -859,6 +859,9 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     match.record_event("turn_ended")
     match.attacking = None
     player.promised = False
+    # The discards told on this turn's panels are said (the author,
+    # 2026-10-11: "keep the note for the whole turn").
+    player.discards_untold = []
     if player.silenced:
         # Free Speech: "until after that opponent's next turn" -- this one.
         player.silenced = False

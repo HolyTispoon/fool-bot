@@ -535,20 +535,12 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             "That answer does not take " + ", ".join(sorted(unexpected)) + ".",
             waiting_on=found,
         )
-    # The discards its asker was told of (`prompts.discard_notes`) are
-    # spent by their answer -- those alone, since the answer may discard
-    # another, which is told at the next question. A cancel rebuilds the
-    # turn from its snapshot (`resolve.cancel`), whose replay spent them
-    # where they were spent, so it spends none.
-    told = 0 if action.choice == "cancel" else len(found.told)
     try:
         result = ANSWERS[action.kind](
             engine, game, match, found, action.choice, **dict(action.arguments),
         )
     except RuleRefusal as refused:
         return Refusal(str(refused), waiting_on=found, cite=refused.cite)
-    if told:
-        del match.player(found.asked_player).discards_untold[:told]
     return Answered(result=result)
 
 

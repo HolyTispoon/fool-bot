@@ -1234,20 +1234,17 @@ for {card:thieving_imp}" and no more. The card is kept on the side as
 `PlayerState.discards_untold` (`{slug, by}`, `by` the effect's token)
 and `pending` puts a line per card -- "{card:thieving_imp} made you
 discard {card:argonaut}." -- on the prompt's `told` where the question
-is the active player's own, so it reaches them on their own turn's
-first panel, under the ask (`panel_caption`) -- not on a question
-asked of them during the opponent's turn, whose answer would spend it
-before their own turn began.
-**Their first answer on their turn spends it** (`driver.answer`
-deletes the lines the answered prompt carried, and only those, since
-the answer may discard another), so the note is said once rather than
-on every panel of the turn; a submenu opened inside the panel answers
-nothing and keeps it. It is state rather than a reading of the event
-log because the log decides nothing, and the turn-start snapshot holds
-it, so an undo to the turn's start tells it again and the fine undo's
-replay spends it where the answer did. A cancel spends none: it
-rebuilds the turn from its snapshot, whose replay already did
-(`resolve.cancel`). Discards the player chooses themselves --
+is the active player's own, so it reaches them on **every panel of
+their own turn**, under the ask (`panel_caption`), and is emptied as
+that turn ends (`begin_tech`) -- the author, 2026-10-11: "keep the note
+for the whole turn instead". The first version spent it on the turn's
+first answer, so it was said once; the author preferred it standing
+through the turn. It is not on a question
+asked of them during the opponent's turn: the ask was for their own.
+It is state rather than a reading of the event log because the log
+decides nothing; the turn-start snapshot holds it, so an undo or a
+cancel, which rebuild the turn from its snapshot, bring it back with
+the rest. Discards the player chooses themselves --
 Calamandra's, a cost, Desperation's hand -- are not told: they know.
 
 **A line that damages a building or the base says where it now stands,

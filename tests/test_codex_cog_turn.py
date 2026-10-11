@@ -1545,8 +1545,8 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("now", self.table.match.player(2).discard)
 
     async def test_the_discarded_card_is_told_on_its_owners_panel_alone(self) -> None:
-        """A card an effect discarded is named on its owner's panel at
-        their turn, and nowhere in the channel."""
+        """A card an effect discarded is named on its owner's panels
+        through their turn, and nowhere in the channel."""
         match = self.table.match
         match.active = 2
         match.player(2).hand = ["argonaut"]
@@ -1561,9 +1561,10 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any("Now" in text for text in channel))
         call = await self.table.press(view, "End main phase")
         self.assertNothingWentWrong(call)
-        self.assertEqual(self.table.match.player(2).discards_untold, [])
-        for _, args, kwargs in call.answers:
-            self.assertNotIn("made you discard", kwargs.get("content") or (args[0] if args else "") or "")
+        texts = [kwargs.get("content") or (args[0] if args else "") or "" for _, args, kwargs in call.answers]
+        self.assertTrue(any("**Carrion Curse** made you discard **Now!**." in text for text in texts))
+        channel = [kwargs.get("content") or "" for _, _, kwargs in self.table.game_channel.requests[mark:]]
+        self.assertFalse(any("Now!" in text for text in channel))
 
     def assertNothingWentWrong(self, call) -> None:
         for kind, args, kwargs in call.answers:

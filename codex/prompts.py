@@ -951,9 +951,9 @@ def discard_notes(match: MatchState, seat: int) -> tuple[str, ...]:
     """
     The cards an effect discarded from `seat`'s hand, a line each, for
     them alone: the channel heard "discards a card at random" and no
-    more, and its owner is told which at their own turn's first question
-    (the author, 2026-10-11) -- `PlayerState.discards_untold`, emptied by
-    their first answer on it (`codex.flow.driver.answer`).
+    more, and its owner is told which on every question of their own
+    turn (the author, 2026-10-11) -- `PlayerState.discards_untold`,
+    emptied as that turn ends (`codex.flow.turn.begin_tech`).
     """
     return tuple(
         f"{told['by']} made you discard {tokens.card(told['slug'])}."
