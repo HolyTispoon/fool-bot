@@ -2058,6 +2058,17 @@ too, asked with `gate` for the two kinds a turn may open on
   The abilities are buttons on the board's row, only those that may be
   used now -- they shared the last row's menu with the hero's levels
   until 2026-10-09. The panel's picture stays the hand.
+- **Copies of one card are told apart in their labels** (the author,
+  2026-10-11: two buttons both reading "Your Bone Collector 3/3").
+  `ref_label` adds `which_copy` wherever a player has more than one
+  copy of the card in play: a patroller by its slot, "(squad leader)",
+  and any other by where it lies among the copies off the patrol zone,
+  in the order the picture draws them -- the play zone's own order,
+  which `render.grid_cells` keeps for one card -- "(2nd)", with the
+  ARRIVED tag and an exhausted card's quarter turn after it where the
+  picture shows them, "(2nd, arrived)". It names what the picture
+  shows, so the label is checked against the board rather than
+  against a number nobody can see; a card with no copy says none of it.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard

@@ -117,8 +117,41 @@ def ref_label(engine, match, seat: int, ref: str) -> str:
             label = catalog().name(card.slug) + (f" ({hp} HP)" if hp else "")
         else:
             label = f"{catalog().name(card.slug)} {atk}/{hp}"
+        label += which_copy(player, card)
         damage = card.damage
     return f"{label}, {damage} damage" if damage else label
+
+
+def ordinal(n: int) -> str:
+    """1st, 2nd, 3rd, 4th ... 11th, 12th, 13th, 21st."""
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    return f"{n}" + {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def which_copy(player, card) -> str:
+    """
+    Which of a player's copies of one card in play `card` is, as the
+    board's picture tells them apart -- "" where it is the only one.
+    A patroller by its slot, " (squad leader)"; any other by where it
+    lies among the copies off the patrol zone, counted in the order the
+    picture lays them out, left to right and row by row -- " (2nd)" --
+    with ARRIVED and an exhausted card's quarter turn said after it
+    where the picture shows them -- " (2nd, arrived)". Two Bone
+    Collectors 3/3 are two buttons that read alike without it.
+    """
+    copies = [one for one in player.play if one.slug == card.slug]
+    if len(copies) < 2:
+        return ""
+    if card.patrol_slot is not None:
+        return f" ({slot_name(card.patrol_slot)})"
+    lying = [one for one in copies if one.patrol_slot is None]
+    marks = [ordinal(lying.index(card) + 1)]
+    if card.arrived_this_turn:
+        marks.append("arrived")
+    if card.exhausted:
+        marks.append("exhausted")
+    return f" ({', '.join(marks)})"
 
 
 #: What the built-in codex views are called (`RulesEngine.codex_views`).
