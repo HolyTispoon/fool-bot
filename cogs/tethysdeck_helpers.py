@@ -9,6 +9,7 @@ import logging
 import discord
 
 from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck.deck import EDITIONS
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,18 +26,23 @@ SUITS = [  # the author's order (2026-10-09)
     ("☯", "States"),
     ("🃟", "Fools"),
 ]
-RANKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Left", "Right"]
+# The deck a new channel deck is: 2.0, the 48 cards (the author, 2026-10-11:
+# "replace it in discord"). A channel's deck saved before then is 1.0 and is
+# played out as 1.0 (`ChannelDeck.edition`).
+EDITION = "2.0"
 
 # Discord select menus top out at 25 options, and a hand can in theory
 # hold every card in the deck.
 MAX_SELECT_OPTIONS = 25
 
 
-def build_deck() -> list[str]:
+def build_deck(edition: str = EDITION) -> list[str]:
+    """Every card of an edition by name, a suit at a time, numbers first."""
+    ranks = EDITIONS[edition].ranks
     return [
         f"{rank} of {symbol} {name}"
         for symbol, name in SUITS
-        for rank in RANKS
+        for rank in ranks[name.lower()]
     ]
 
 

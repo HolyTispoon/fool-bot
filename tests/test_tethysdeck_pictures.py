@@ -12,17 +12,24 @@ from cogs.tethysdeck_helpers import (
     format_hand_text,
     parse_card,
 )
-from tethysdeck.deck import RANKS, SUITS
+from gamesaves.tethysdeck.storage import ChannelDeck
+from tethysdeck.deck import RANKS, SUITS, TETHYS_1, TETHYS_2
 from tethysdeck.strips import FACE_H, FACE_W, GAP, PER_ROW, Faces
 
 
 class ParseCardTests(unittest.TestCase):
     def test_every_saved_name_is_a_card_of_the_deck(self):
-        parsed = [parse_card(card) for card in build_deck()]
-        self.assertEqual(
-            sorted(parsed),
-            sorted((suit, rank) for suit in SUITS for rank in RANKS),
-        )
+        """A new deck is 2.0's 48 (the author, 2026-10-11), and a channel's
+        1.0 deck saved before then still reads as 1.0's 72."""
+        self.assertEqual([parse_card(card) for card in build_deck()], TETHYS_2.cards())
+        self.assertEqual([parse_card(card) for card in build_deck("1.0")], TETHYS_1.cards())
+
+    def test_a_deck_saved_before_two_is_one(self):
+        self.assertEqual(ChannelDeck(deck=["10 of ⚒ Tools"]).edition, "1.0")
+        self.assertEqual(ChannelDeck(**{"deck": [], "edition": "2.0"}).edition, "2.0")
+
+    def test_an_eleven(self):
+        self.assertEqual(parse_card("11 of 🃟 Fools"), ("fools", "11"))
 
     def test_a_ruler_and_a_ten(self):
         self.assertEqual(parse_card("Left of 〠 Fiends"), ("fiends", "Left"))

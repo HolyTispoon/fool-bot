@@ -46,8 +46,8 @@ NOTES = {
         ("", "Uniform chances are for all Fortune or all Doom together; each alone is half."),
     ),
     "2.0": (
-        ("Rulers", "are one rank: any two rulers are a pair, whatever their suits, and only rulers make four, "
-         "five or six of a kind."),
+        ("Left and Right", "pair: a Left and a Right are a pair, two Lefts are not, and three or more Lefts, "
+         "or Rights, are a kind."),
         ("", "A straight is numbers in a row and may end in a ruler, or in a Left and a Right "
          "(1-2-3-4-Left-Right). Straights don't wrap."),
         ("", "Three of a kind with a pair counts as three of a kind, and four of a kind "
@@ -57,7 +57,7 @@ NOTES = {
 CHART_NOTES = {
     "1.0": ("A Left pairs only with a Right. Each hand counts once, under its best set.",
             "Uniform is either all Fortune or all Doom; each one alone is half the figure shown."),
-    "2.0": ("Any two rulers pair. Each hand counts once, under its best set.",
+    "2.0": ("A Left pairs with a Right; three or more of one side are a kind. Each hand counts once, under its best set.",
             "Uniform is either all Fortune or all Doom, together."),
 }
 

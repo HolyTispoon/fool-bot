@@ -97,7 +97,8 @@ class Deck:
     six suits and the same fate rule (`fate_of`)."""
 
     def __init__(self, name: str, ranks: dict[str, list[str]], ruler_worth: int,
-                 ruler_coins: list[tuple[str, int]] | None = None, fortune_ruler_first: bool = False):
+                 ruler_coins: list[tuple[str, int]] | None = None, fortune_ruler_first: bool = False,
+                 ruler_pieces: list[int] | None = None):
         self.name = name
         self.suits = list(ranks)
         self.ranks = ranks
@@ -106,6 +107,8 @@ class Deck:
         self.ruler_coins = ruler_coins
         # Whether a suit's Fortune ruler outranks its Doom ruler, the two being worth the same.
         self.fortune_ruler_first = fortune_ruler_first
+        # Every other suit's rulers as pieces, where they are not the fewest pieces worth the card.
+        self.ruler_pieces = ruler_pieces
 
     def cards(self) -> list[tuple[str, str]]:
         """Every card, a suit at a time in the author's order, numbers first."""
@@ -126,6 +129,8 @@ class Deck:
         return self.worth(suit, rank), int(tie)
 
     def pieces(self, suit: str, rank: str) -> list[int]:
+        if rank in RULERS and self.ruler_pieces is not None:
+            return list(self.ruler_pieces)
         left, out = self.worth(suit, rank), []
         for value in DENOMINATIONS:
             while left >= value:
@@ -153,8 +158,9 @@ TETHYS_1 = Deck("1.0", {suit: RANKS for suit in SUITS}, RULER_WORTH)
 # 2.0 (the author, 2026-10-11): Money is 1 to 12 alone; Fiends 1 to 6 and
 # Fools 7 to 12 share the numbers; Tools 1 to 4, States 5 to 8 and Might 9 to
 # 12 share them again. Every suit keeps its two rulers, each worth 13, the
-# suit's Fortune ruler above its Doom ruler; Money's rulers show the three-gold
-# coin. 48 cards, 24 Fortune and 24 Doom.
+# suit's Fortune ruler above its Doom ruler, and each one big piece: Money's
+# the three-gold coin, every other suit's its 12-piece -- the anvil, the crown.
+# 48 cards, 24 Fortune and 24 Doom.
 TETHYS_2 = Deck("2.0", {
     "money": _numbers(1, 12),
     "tools": _numbers(1, 4),
@@ -162,6 +168,6 @@ TETHYS_2 = Deck("2.0", {
     "fiends": _numbers(1, 6),
     "states": _numbers(5, 8),
     "fools": _numbers(7, 12),
-}, ruler_worth=13, ruler_coins=[("gold", 3)], fortune_ruler_first=True)
+}, ruler_worth=13, ruler_coins=[("gold", 3)], fortune_ruler_first=True, ruler_pieces=[12])
 
 EDITIONS = {deck.name: deck for deck in (TETHYS_1, TETHYS_2)}

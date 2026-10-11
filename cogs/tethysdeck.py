@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from tethysdeck.deck import EDITIONS
 from tethysdeck.strips import Faces
 
 from gamesaves.tethysdeck.storage import (
@@ -17,6 +18,7 @@ from gamesaves.tethysdeck.storage import (
 
 from cogs.tethysdeck_helpers import (
     LOGGER,
+    EDITION,
     build_deck,
     deck_status_text,
     format_cards,
@@ -38,21 +40,27 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         self.bot = bot
         self.decks: dict[str, ChannelDeck] = load_decks()
         self.deck_status_view = DeckStatusView(self)
-        # The deck's faces, drawn once as the cog loads; None until then,
-        # or if they could not be drawn, and the commands answer in words.
-        self.faces: Optional[Faces] = None
+        # The deck's faces by edition, drawn once as the cog loads: 2.0's,
+        # and 1.0's while a channel still plays a 1.0 deck. An edition with
+        # no faces -- before then, or if they could not be drawn -- is
+        # answered in words.
+        self.faces: dict[str, Faces] = {}
 
     async def cog_load(self) -> None:
         # Stateless, so one instance covers every channel's status
         # message and survives a restart.
         self.bot.add_view(self.deck_status_view)
-        try:
-            self.faces = await asyncio.to_thread(Faces)
-        except Exception:
-            LOGGER.exception(
-                "Could not draw the Tethys deck's faces; the cards are "
-                "shown as text until the bot restarts."
-            )
+        editions = {EDITION} | {state.edition for state in self.decks.values()}
+        for edition in sorted(editions & set(EDITIONS)):
+            try:
+                self.faces[edition] = await asyncio.to_thread(
+                    Faces, deck=EDITIONS[edition],
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Could not draw the Tethys %s deck's faces; its cards are "
+                    "shown as text until the bot restarts.", edition,
+                )
 
     async def cog_app_command_error(
         self,
@@ -74,20 +82,19 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             "Something went wrong running that command. Please try again.",
         )
 
-    @property
-    def pictured(self) -> bool:
-        """Whether a reply shows its cards as a picture. While it does, the
-        words name only what the picture does not show (the author,
-        2026-10-11: "No need to list the cards, just showing them is
-        enough"); without the faces every card is named, as before."""
-        return self.faces is not None
+    def pictured(self, state: ChannelDeck) -> bool:
+        """Whether a reply about this deck shows its cards as a picture. While
+        it does, the words name only what the picture does not show (the
+        author, 2026-10-11: "No need to list the cards, just showing them is
+        enough"); without its edition's faces every card is named."""
+        return state.edition in self.faces
 
     # -- shared deck logic, called by both slash commands and views --
 
     def build_and_save_new_deck(self, channel_id: str) -> ChannelDeck:
         cards = build_deck()
         random.shuffle(cards)
-        state = ChannelDeck(deck=cards)
+        state = ChannelDeck(deck=cards, edition=EDITION)
         self.decks[channel_id] = state
         save_decks(self.decks)
         return state
@@ -134,11 +141,12 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         *,
         view: Optional[discord.ui.View] = None,
         cards: Optional[list[str]] = None,
+        edition: str = EDITION,
     ) -> None:
         kwargs = {"ephemeral": True}
         if view is not None:
             kwargs["view"] = view
-        picture = await self.cards_picture(cards or [])
+        picture = await self.cards_picture(cards or [], edition)
         if picture is not None:
             kwargs["file"] = picture
         if interaction.response.is_done():
@@ -146,13 +154,16 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         else:
             await interaction.response.send_message(content, **kwargs)
 
-    async def cards_picture(self, cards: list[str]) -> Optional[discord.File]:
-        """The cards as a row of the deck's own faces, or None for no cards
-        or no faces."""
-        if not cards or self.faces is None:
+    async def cards_picture(
+        self, cards: list[str], edition: str = EDITION,
+    ) -> Optional[discord.File]:
+        """The cards as a row of their edition's own faces, or None for no
+        cards or no faces."""
+        faces = self.faces.get(edition)
+        if not cards or faces is None:
             return None
         png = await asyncio.to_thread(
-            self.faces.row_png, [parse_card(card) for card in cards],
+            faces.row_png, [parse_card(card) for card in cards],
         )
         return discord.File(io.BytesIO(png), filename="tethys_cards.png")
 
@@ -217,7 +228,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             # The drawn cards are the last of the hand, so the picture
             # shows them; the words name them only without it.
             header = f"Drew {len(drawn)} {card_word}"
-            header += "." if self.pictured else f": {format_cards(drawn)}"
+            header += "." if self.pictured(state) else f": {format_cards(drawn)}"
         else:
             header = "The deck is empty -- nothing to draw."
 
@@ -235,14 +246,16 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
         channel_id = str(interaction.channel_id)
         hand = state.hands.get(str(target_user.id), [])
         text = format_hand_text(
-            target_user, hand, header=header, listed=not self.pictured,
+            target_user, hand, header=header, listed=not self.pictured(state),
         )
 
         view = None
         if target_user.id == interaction.user.id and hand:
             view = HandView(self, channel_id, str(target_user.id))
 
-        await self.reply(interaction, text, view=view, cards=hand)
+        await self.reply(
+            interaction, text, view=view, cards=hand, edition=state.edition,
+        )
 
     async def show_hand(
         self,
@@ -303,8 +316,9 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
             return
         await self.reply(
             interaction,
-            format_discard_text(state.discard, listed=not self.pictured),
+            format_discard_text(state.discard, listed=not self.pictured(state)),
             cards=state.discard,
+            edition=state.edition,
         )
 
     async def prompt_reset(self, interaction: discord.Interaction) -> None:
@@ -356,7 +370,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
 
     @app_commands.command(
         name="new_deck",
-        description="Shuffle a new 72-card Foolish style deck in this channel.",
+        description="Shuffle a new 48-card Tethys 2.0 deck in this channel.",
     )
     @app_commands.guild_only()
     async def new_deck(self, interaction: discord.Interaction) -> None:
@@ -372,7 +386,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
                 channel = confirm_interaction.channel
                 old_state = self.decks.get(channel_id)
                 await channel.send(
-                    "Shuffled a new Foolish style 72-card deck in "
+                    "Shuffled a new 48-card Tethys 2.0 deck in "
                     f"channel {channel.mention}."
                 )
                 state = self.build_and_save_new_deck(channel_id)
@@ -390,7 +404,7 @@ class TethysDeck(commands.GroupCog, group_name="tethyscards"):
 
         channel = interaction.channel
         await interaction.response.send_message(
-            "Shuffled a new Foolish style 72-card deck in "
+            "Shuffled a new 48-card Tethys 2.0 deck in "
             f"channel {channel.mention}."
         )
         state = self.build_and_save_new_deck(channel_id)

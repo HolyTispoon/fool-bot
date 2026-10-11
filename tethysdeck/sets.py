@@ -22,9 +22,12 @@ one suit (the flushes) are the only ones that need their suits, so those
 5,544 are walked one by one. Nothing here draws; `sets_aid.py` does.
 
 **Tethys 2.0** (`POKER_2`, the author, 2026-10-11) has its own pairing
-and its own straights, over its 48 cards: **the rulers are one rank** --
-any two pair, whatever their suits, so six rulers are six of a kind, and
-the numbers, three cards each, make no more than three. **A straight is
+and its own straights, over its 48 cards: **a Left and a Right are a
+pair, two Lefts are not, and three or more Lefts -- or Rights -- are a
+kind**: LLL three of a kind, RRRR four, six Lefts six. A hand's rulers
+are grouped whichever way makes its best set, so LLLRRR is two triples,
+not three pairs. The numbers, three cards each, make no more than three
+of a kind. **A straight is
 numbers in a row and may end in a ruler, or in a Left and a Right**
 (1-2-3-4-Left-Right is Tools whole), never two Lefts. 2.0 is not its
 own mirror -- a number is one Fortune and two Doom or the other way
@@ -95,23 +98,31 @@ class Poker:
     def _groups(self, counts: Counter) -> list[int]:
         raise NotImplementedError
 
+    def _shapes(self, counts: Counter) -> list[list[int]]:
+        """Every way the hand's cards may be grouped; a kind is made if any makes it."""
+        return [self._groups(counts)]
+
     def _in_a_row(self, counts: Counter) -> bool:
         raise NotImplementedError
 
+    KINDS = {
+        "six_of_a_kind": lambda shape: shape[0] == 6,
+        "five_of_a_kind": lambda shape: shape[0] == 5,
+        "four_of_a_kind": lambda shape: shape[0] == 4,
+        "two_triples": lambda shape: shape[:2] == [3, 3],
+        "three_pairs": lambda shape: shape == [2, 2, 2],
+        "three_of_a_kind": lambda shape: shape[0] == 3,
+        "two_pairs": lambda shape: shape[:2] == [2, 2],
+        "one_pair": lambda shape: shape[0] == 2,
+    }
+
     def _makes(self, key: str, counts: Counter, one_suit: bool) -> bool:
-        shape = self._groups(counts)
+        if key in self.KINDS:
+            return any(self.KINDS[key](shape) for shape in self._shapes(counts))
         return {
-            "six_of_a_kind": lambda: shape[0] == 6,
-            "five_of_a_kind": lambda: shape[0] == 5,
-            "four_of_a_kind": lambda: shape[0] == 4,
-            "two_triples": lambda: shape[:2] == [3, 3],
             "straight_flush": lambda: one_suit and self._in_a_row(counts),
             "flush": lambda: one_suit,
             "straight": lambda: self._in_a_row(counts),
-            "three_pairs": lambda: shape == [2, 2, 2],
-            "three_of_a_kind": lambda: shape[0] == 3,
-            "two_pairs": lambda: shape[:2] == [2, 2],
-            "one_pair": lambda: shape[0] == 2,
             "no_set": lambda: True,
         }[key]()
 
@@ -187,8 +198,8 @@ class Poker1(Poker):
 
 
 class Poker2(Poker):
-    """2.0: the rulers are one rank, and a straight of numbers may end in a
-    ruler, or in a Left and a Right."""
+    """2.0: a Left and a Right pair, and three or more of one side are a
+    kind; a straight of numbers may end in a ruler, or in a Left and a Right."""
 
     def _in_a_row(self, counts: Counter) -> bool:
         lefts, rights = counts[self.left], counts[self.right]
@@ -200,12 +211,20 @@ class Poker2(Poker):
                 and len(numbers) == HAND_SIZE - lefts - rights
                 and numbers[-1] - numbers[0] == len(numbers) - 1)
 
-    def _groups(self, counts: Counter) -> list[int]:
-        """The hand's matched groups, largest first: a number's cards are one
-        group, and every ruler in the hand is one more."""
-        groups = [n for r, n in counts.items() if r < self.left and n]
-        rulers = counts[self.left] + counts[self.right]
-        return sorted(groups + ([rulers] if rulers else []), reverse=True)
+    def _shapes(self, counts: Counter) -> list[list[int]]:
+        """The hand's matched groups, largest first, every way its rulers may
+        be grouped: some Lefts with as many Rights as pairs, and what is left
+        of each side a kind if it is three or more, else alone. A number's
+        cards are always one group."""
+        numbers = [n for r, n in counts.items() if r < self.left and n]
+        lefts, rights = counts[self.left], counts[self.right]
+        shapes = []
+        for pairs in range(min(lefts, rights) + 1):
+            groups = numbers + [2] * pairs
+            for alone in (lefts - pairs, rights - pairs):
+                groups += [alone] if alone >= 3 else [1] * alone
+            shapes.append(sorted(groups, reverse=True))
+        return shapes
 
 
 # The ranking, rarest first and no set last: a hand is the first it makes.
@@ -237,32 +256,32 @@ POKER_1 = Poker1(TETHYS_1, (
 ))
 
 # 2.0's ranking is its own census's, rarest first: the rulers' kinds climb
-# it, and two pairs is rarer than three of a kind.
+# it, and the order is the one the census made under it.
 POKER_2 = Poker2(TETHYS_2, (
+    SixCardSet("six_of_a_kind", "Six of a kind", "Six Lefts, or six Rights",
+               tuple((suit, "Left") for suit in TETHYS_2.suits)),
     SixCardSet("straight_flush", "6-card straight flush", "Six in a row, all one suit",
                (("tools", "1"), ("tools", "2"), ("tools", "3"), ("tools", "4"), ("tools", "Left"), ("tools", "Right"))),
-    SixCardSet("six_of_a_kind", "Six of a kind", "Six rulers",
-               (("money", "Left"), ("money", "Right"), ("tools", "Left"), ("fiends", "Right"), ("states", "Left"), ("fools", "Right"))),
-    SixCardSet("two_triples", "Two triples", "Three of one rank, three of another",
+    SixCardSet("five_of_a_kind", "Five of a kind", "Five Lefts, or five Rights",
+               (("money", "Right"), ("tools", "Right"), ("might", "Right"), ("fiends", "Right"), ("states", "Right"), ("fools", "9"))),
+    SixCardSet("two_triples", "Two triples", "Three of one kind, three of another",
                (("money", "5"), ("fiends", "5"), ("states", "5"), ("money", "9"), ("fools", "9"), ("might", "9"))),
     SixCardSet("flush", "6-card flush", "Six of one suit",
                (("money", "2"), ("money", "5"), ("money", "7"), ("money", "10"), ("money", "11"), ("money", "Right"))),
-    SixCardSet("five_of_a_kind", "Five of a kind", "Five rulers",
-               (("money", "Left"), ("might", "Right"), ("fiends", "Left"), ("tools", "Right"), ("fools", "Left"), ("states", "6"))),
+    SixCardSet("four_of_a_kind", "Four of a kind", "Four Lefts, or four Rights",
+               (("money", "Left"), ("might", "Left"), ("states", "Left"), ("fools", "Left"), ("money", "4"), ("tools", "2"))),
     SixCardSet("three_pairs", "Three pairs", "Three pairs at once",
                (("money", "3"), ("tools", "3"), ("states", "8"), ("fools", "8"), ("might", "Left"), ("fiends", "Right"))),
     SixCardSet("straight", "6-card straight", "Six in a row, any suits",
                (("fools", "7"), ("states", "8"), ("might", "9"), ("money", "10"), ("fiends", "Left"), ("might", "Right"))),
-    SixCardSet("four_of_a_kind", "Four of a kind", "Four rulers",
-               (("money", "Right"), ("states", "Left"), ("might", "Left"), ("fools", "Right"), ("money", "4"), ("tools", "2"))),
+    SixCardSet("three_of_a_kind", "Three of a kind", "Three of a number, Lefts or Rights",
+               (("tools", "Left"), ("might", "Left"), ("fools", "Left"), ("money", "2"), ("fiends", "6"), ("states", "8"))),
     SixCardSet("two_pairs", "Two pairs", "Two pairs at once",
                (("money", "6"), ("states", "6"), ("fools", "11"), ("might", "11"), ("fiends", "2"), ("tools", "3"))),
-    SixCardSet("three_of_a_kind", "Three of a kind", "Three of one number, or three rulers",
-               (("money", "10"), ("might", "10"), ("fools", "10"), ("fiends", "1"), ("states", "5"), ("tools", "Left"))),
-    SixCardSet("one_pair", "One pair", "Two of one number, or two rulers",
-               (("money", "Left"), ("fools", "Left"), ("fiends", "2"), ("states", "7"), ("might", "11"), ("tools", "4"))),
+    SixCardSet("one_pair", "One pair", "Two of one number, or a Left and a Right",
+               (("money", "Left"), ("fools", "Right"), ("fiends", "2"), ("states", "7"), ("might", "11"), ("tools", "3"))),
     SixCardSet("no_set", "No set", "None of the above",
-               (("money", "1"), ("tools", "3"), ("states", "6"), ("fools", "8"), ("might", "12"), ("fiends", "Right"))),
+               (("money", "1"), ("tools", "3"), ("states", "6"), ("fools", "8"), ("might", "Left"), ("fiends", "Left"))),
 ))
 EDITIONS = {poker.deck.name: poker for poker in (POKER_1, POKER_2)}
 

@@ -18,6 +18,9 @@ class ChannelDeck:
     discard: list[str] = field(default_factory=list)
     hands: dict[str, list[str]] = field(default_factory=dict)
     status_message_id: Optional[int] = None
+    # Which edition of the Tethys deck this is. A deck saved before 2.0 has no
+    # key and is 1.0's 72 cards; a new deck is written with "2.0".
+    edition: str = "1.0"
 
 
 def load_decks() -> dict[str, ChannelDeck]:

@@ -154,20 +154,21 @@ class SixCardSetTests(unittest.TestCase):
 
 
 # Tethys 2.0's census, (mixed, all Fortune, all Doom): as an evaluator written
-# apart from `sets.py` counted it, walking all 12,271,512 hands (2026-10-11).
+# apart from `sets.py` counted it, walking all 12,271,512 hands and trying
+# every partition of each hand's rulers (2026-10-11).
 CENSUS_2 = {
+    "six_of_a_kind": (2, 0, 0),
     "straight_flush": (51, 0, 0),
-    "six_of_a_kind": (922, 1, 1),
-    "two_triples": (2_706, 0, 0),
+    "five_of_a_kind": (504, 0, 0),
+    "two_triples": (944, 1, 1),
     "flush": (2_997, 7, 7),
-    "five_of_a_kind": (28_296, 108, 108),
-    "three_pairs": (44_654, 245, 245),
+    "four_of_a_kind": (25_830, 0, 0),
+    "three_pairs": (35_006, 209, 209),
     "straight": (53_244, 804, 576),
-    "four_of_a_kind": (307_260, 2_295, 2_295),
-    "two_pairs": (1_604_700, 12_915, 12_915),
-    "three_of_a_kind": (1_703_028, 16_320, 16_320),
-    "one_pair": (5_384_610, 60_819, 60_927),
-    "no_set": (2_869_852, 41_082, 41_202),
+    "three_of_a_kind": (622_272, 2_658, 2_658),
+    "two_pairs": (1_437_408, 11_916, 11_916),
+    "one_pair": (5_779_620, 63_789, 63_897),
+    "no_set": (4_044_442, 55_212, 55_332),
 }
 
 
@@ -210,7 +211,10 @@ class Tethys2DeckTests(unittest.TestCase):
         value_of = {(metal, amount): value for metal, amount, value in deck.COIN_WORTH}
         for suit, rank in self.deck.cards():
             pieces = self.deck.pieces(suit, rank)
-            self.assertEqual(sum(pieces), self.deck.worth(suit, rank), (suit, rank))
+            if rank in deck.RULERS:  # the author: one big piece, like the anvil
+                self.assertEqual(pieces, [12], (suit, rank))
+            else:
+                self.assertEqual(sum(pieces), self.deck.worth(suit, rank), (suit, rank))
             self.assertLessEqual(len(pieces), 4, (suit, rank))
         for rank in self.deck.ranks["money"]:
             coins = self.deck.money_coins(rank)
@@ -218,7 +222,6 @@ class Tethys2DeckTests(unittest.TestCase):
                 self.assertEqual(coins, [("gold", 3)])
             else:
                 self.assertEqual(sum(value_of[c] for c in coins), int(rank), rank)
-        self.assertEqual(self.deck.pieces("tools", "Left"), [12, 1])
 
     def test_one_point_zero_is_unchanged(self):
         self.assertEqual(deck.TETHYS_1.cards(), [(suit, rank) for suit in deck.SUITS for rank in deck.RANKS])
@@ -237,10 +240,14 @@ class Tethys2PokerTests(unittest.TestCase):
         self.assertEqual(sum(c.total for c in self.census.values()), comb(48, 6))
 
     def test_by_formula(self):
-        """Only the twelve rulers make four or more of a kind; the numbers are three each."""
-        self.assertEqual(self.census["six_of_a_kind"].total, comb(12, 6))
-        self.assertEqual(self.census["five_of_a_kind"].total, comb(12, 5) * 36)
-        self.assertEqual(self.census["four_of_a_kind"].total, comb(12, 4) * comb(36, 2))
+        """Only six Lefts or six Rights make four or more of a kind; the numbers are three each."""
+        self.assertEqual(self.census["six_of_a_kind"].total, 2)
+        # Five of one side, and any card but the sixth of it.
+        self.assertEqual(self.census["five_of_a_kind"].total, 2 * comb(6, 5) * 42)
+        # Four of one side and any two of the 42 cards not of it.
+        self.assertEqual(self.census["four_of_a_kind"].total, 2 * comb(6, 4) * comb(42, 2))
+        # Three Lefts and three Rights; three of a side and a number's three; two numbers' threes.
+        self.assertEqual(self.census["two_triples"].total, comb(6, 3) ** 2 + 2 * comb(6, 3) * 12 + comb(12, 2))
         # Per suit: runs of six numbers, of five then either ruler, of four then Left and Right.
         def runs(n, length):
             return max(0, n - length + 1)
@@ -263,32 +270,48 @@ class Tethys2PokerTests(unittest.TestCase):
             self.assertEqual(self.poker.set_of(s.example), s.key, s.key)
             self.assertFalse(self.poker.is_uniform(s.example), s.key)
 
-    def test_rulers_pair_across_suits(self):
+    def test_a_left_and_a_right_pair_and_three_of_a_side_are_a_kind(self):
+        """The author, 2026-10-11: "Left and right are pair. Left and left are
+        not a pair. Rulers are 3/5/6 of a kind only if they are LLL or RRRR"."""
         numbers = (("fiends", "1"), ("tools", "3"), ("states", "6"), ("fools", "8"), ("money", "11"))
-        self.assertEqual(self.poker.set_of((("money", "Left"), ("might", "Left")) + numbers[:4]), "one_pair")
-        self.assertEqual(self.poker.set_of((("money", "Right"), ("tools", "Left")) + numbers[:4]), "one_pair")
-        self.assertEqual(self.poker.set_of((("money", "Left"), ("might", "Left"), ("fools", "Right")) + numbers[:3]),
-                         "three_of_a_kind")
+
+        def hand(*rulers):
+            suits = ("money", "tools", "might", "fiends", "states", "fools")
+            return tuple(zip(suits, rulers)) + numbers[:6 - len(rulers)]
+
+        self.assertEqual(self.poker.set_of(hand("Left", "Right")), "one_pair")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left")), "no_set")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Right")), "one_pair")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Left")), "three_of_a_kind")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Right", "Right")), "two_pairs")
+        self.assertEqual(self.poker.set_of(hand("Right", "Right", "Right", "Right")), "four_of_a_kind")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Left", "Left", "Right")), "four_of_a_kind")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Left", "Right", "Right")), "three_of_a_kind")
+        self.assertEqual(self.poker.set_of(hand("Left", "Left", "Left", "Right", "Right", "Right")), "two_triples")
+        self.assertEqual(self.poker.set_of(hand(*["Right"] * 5)), "five_of_a_kind")
+        self.assertEqual(self.poker.set_of(hand(*["Left"] * 6)), "six_of_a_kind")
 
     def test_a_straight_may_end_in_a_ruler_or_a_left_and_a_right(self):
         run = (("money", "2"), ("fiends", "3"), ("tools", "4"), ("fiends", "5"), ("states", "6"))
         self.assertEqual(self.poker.set_of(run + (("money", "7"),)), "straight")
         self.assertEqual(self.poker.set_of(run + (("might", "Left"),)), "straight")
         self.assertEqual(self.poker.set_of(run[:4] + (("might", "Left"), ("fools", "Right"))), "straight")
-        self.assertEqual(self.poker.set_of(run[:4] + (("might", "Left"), ("fools", "Left"))), "one_pair")
+        self.assertEqual(self.poker.set_of(run[:4] + (("might", "Left"), ("fools", "Left"))), "no_set")  # two Lefts: no pair, no straight
         self.assertEqual(self.poker.set_of((("money", "Left"),) + run), "straight")  # the ruler ends it, wherever it is dealt
         self.assertEqual(self.poker.set_of((("money", "11"), ("fools", "12"), ("might", "Left"),
                                             ("tools", "1"), ("tools", "2"), ("fiends", "3"))), "no_set")  # no wrap
 
 
 class CogAgreementTests(unittest.TestCase):
-    """The bot deals the same deck by name."""
+    """The bot deals the same decks by name: 2.0 new, 1.0 as saved."""
 
     def test_the_cog_names_the_same_cards(self):
-        from cogs.tethysdeck_helpers import RANKS, SUITS
+        from cogs.tethysdeck_helpers import EDITION, SUITS, build_deck, parse_card
 
         self.assertEqual([name.lower() for _, name in SUITS], deck.SUITS)
-        self.assertEqual(RANKS, deck.RANKS)
+        self.assertEqual(EDITION, "2.0")
+        for name, edition in deck.EDITIONS.items():
+            self.assertEqual([parse_card(card) for card in build_deck(name)], edition.cards(), name)
 
 
 if __name__ == "__main__":

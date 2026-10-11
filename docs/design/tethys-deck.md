@@ -52,21 +52,29 @@ Money, four between Fiends and Fools, six between Tools, States and Might.
   a suit's two rulers, **the Fortune one ranks above the Doom one**
   (`Deck.strength`). Which one that is follows from the fate table:
   Left in Money, Fiends and States, Right in Tools, Might and Fools.
-- **Money's rulers show the three-gold coin**, worth 36 dinkies, not
-  the 13 that would buy (the author). Every other suit's ruler is its
-  fewest pieces, a 12 and a 1, the way any other value is
-  (`Deck.pieces`).
+- **A ruler is one big piece** (the author: "Rulers should have one
+  big piece like an anvil. As they do in money"). Money's is the
+  three-gold coin, worth 36 dinkies rather than the 13 the card is
+  worth; every other suit's is its 12-piece -- the anvil, the crown,
+  the mask at its largest -- as 1.0's rulers were (`Deck.ruler_coins`,
+  `Deck.ruler_pieces`). A ruler is not its fewest pieces: for a day it
+  was a 12 and a 1, the anvil with a hammer under it. So a suit's 12
+  and its rulers show the same piece outside Money; the card's
+  LEFT or RIGHT tells them apart.
 - **One type, two instances.** `deck.Deck` is an edition: its ranks
   per suit, its ruler's worth, its ruler coins. `TETHYS_1` and
   `TETHYS_2` are the two, and `EDITIONS` names them. The module's old
   names (`SUITS`, `RANKS`, `worth`, `pieces`, `money_coins`) stay 1.0's,
-  so the bot's `/tethyscards`, the strips and every 1.0 caller are
-  untouched. The bot deals 1.0 only; 2.0 is the model, the cards, the
-  sheets, the print files and the poker. The refactor was checked by
-  SHA-256: every 1.0 PNG the render script writes (80 of them) came out
-  byte-identical to `main`'s.
-- **The back is 1.0's** -- the same six suit marks and the d12 -- so a
-  printed 2.0 deck cannot be told from a 1.0 deck from behind.
+  so every 1.0 caller is untouched; the bot deals 2.0 (below, "On
+  Discord"). The refactor was checked by SHA-256: every 1.0 PNG the
+  render script writes (80 of them) came out byte-identical to `main`'s.
+- **1.0 is kept, not replaced.** Its rule, its census and its pictures
+  are all still built, `--edition 1.0` (the render script's default)
+  still draws them, and this file's sections before this one are its
+  record; what 2.0 changes is said here and in "Tethys 2.0 poker".
+- **The back is 1.0's** -- the same six suit marks and the d12 (the
+  author: "Backs are the same") -- so a printed 2.0 deck cannot be
+  told from a 1.0 deck from behind.
 
 ## Why the cards are drawn by code, and why the pieces are pictures
 
@@ -317,9 +325,17 @@ is (the author, 2026-10-09). `sets.py` is the rule and the count;
 census; `Poker1` and `Poker2` are the two rule sets; `POKER_1` and
 `POKER_2` are the two rankings.
 
-- **Rulers are one rank**: any two rulers pair, whatever their suits.
-  The numbers have three cards each, so they make at most three of a
-  kind. Four, five and six of a kind are the rulers' alone.
+- **A Left and a Right are a pair; two Lefts are not; three or more
+  Lefts, or Rights, are a kind** (the author: "Left and right are
+  pair. Left and left are not a pair. Rulers are 3/5/6 of a kind only
+  if they are LLL or RRRR" -- read as three or more of one side, since
+  RRRR is four). Whose suit a ruler is does not matter. A hand's rulers
+  are grouped whichever way makes its best set (`Poker2._shapes`):
+  LLLRRR is two triples rather than three pairs, LLLLR four of a kind,
+  LLLRR three of a kind rather than two pairs. The numbers have three
+  cards each, so four, five and six of a kind are the rulers' alone --
+  six of a kind is the deck's six Lefts or six Rights, two hands in
+  twelve million. (For a day the rulers were one rank, any two a pair.)
 - **A straight is numbers in a row, and may end in a ruler, or in a
   Left and a Right.** The author: "every straight can end in a ruler and
   even two rulers if one is left and the other is right". This is read
@@ -327,21 +343,37 @@ census; `Poker1` and `Poker2` are the two rule sets; `POKER_1` and
   ruler is a straight. Two Lefts are not. Straights don't wrap. A
   straight flush follows: Tools, States and Might are each one whole
   (1-2-3-4-Left-Right is all of Tools).
-- **The ranking is 2.0's own census, rarest first**: straight flush,
-  six of a kind, two triples, flush, five of a kind, three pairs,
-  straight, four of a kind, two pairs, three of a kind, one pair, and no
-  set last. Two pairs (13.3%) is rarer than three of a kind (14.1%), so
-  the two change places from 1.0. No hand is both, so swapping them
-  changes no count.
+- **The ranking is 2.0's own census, rarest first**: six of a kind,
+  straight flush, five of a kind, two triples, flush, four of a kind,
+  three pairs, straight, three of a kind, two pairs, one pair, and no
+  set last -- 1.0's order but for two triples above the flush and three
+  pairs above the straight. Because a hand's rulers may be grouped more
+  than one way, the order decides some hands (LLLRR and a number is
+  three of a kind only while three outranks two pairs), so the order
+  was set from the census and the census counted again under it; it
+  came back the same.
 - **Counted the same way, checked the same way.** The census is exact,
   with all Fortune and all Doom kept apart (`Count.fortune`, `.doom`).
-  An evaluator written separately from `sets.py` walked all 12,271,512
-  hands and agreed set by set; `CENSUS_2` in the test pins it. The
+  An evaluator written separately from `sets.py` -- one that tries
+  every partition of a hand's rulers rather than counting pairs --
+  walked all 12,271,512 hands and agreed set by set; `CENSUS_2` in the
+  test pins it. The
   differences are small and only in the commonest sets and the
   straight: a uniform straight is 804 hands all Fortune and 576 all
   Doom.
 
 ## On Discord
+
+**`/tethyscards` deals 2.0** since 2026-10-11 (the author: "Replace it
+in discord but save the info about 1.0"): `/tethyscards new_deck`
+shuffles the 48 cards. A channel's deck saved before then is 1.0 and is
+played out as 1.0 -- drawn, discarded, reset and pictured as its own 72
+-- until somebody shuffles a new one. `ChannelDeck.edition` says which:
+a save with no key is 1.0, and a new deck is written with `"2.0"`. That
+is a new persisted field, with the fallback in its default rather than
+a migration, so no deck in progress is stranded. The cog draws 2.0's
+faces as it loads, and 1.0's as well only while a saved deck is still
+1.0; `tethysdeck_helpers.EDITION` is the edition a new deck is.
 
 The `/tethyscards` commands deal the deck by name -- `"7 of ⚔ Might"`,
 `cogs/tethysdeck_helpers.build_deck` -- and since 2026-10-11 show the
@@ -359,13 +391,14 @@ hand's order; an empty hand or discard is text alone.
   the list; the drawn cards are the last of the hand, so they are in
   it. The one list that stays is "Discarded: ...": the picture under
   it is the hand those cards left, not them. `TethysDeck.pictured`
-  is the one reading of whether a reply carries a picture, and the
+  is the one reading of whether a reply about a deck carries a
+  picture -- whether that deck's edition has its faces -- and the
   two text builders in `cogs/tethysdeck_helpers.py` take `listed`
   from it, so the words and the picture cannot disagree about which
   of them names the cards.
 
-- **The faces are drawn once.** `tethysdeck/strips.Faces` draws all 72
-  through `cards.deck_cards` and keeps them at 180 x 252 -- the printed
+- **The faces are drawn once.** `tethysdeck/strips.Faces` draws an
+  edition's faces -- 2.0's 48, or 1.0's 72 -- through `cards.deck_cards` and keeps them at 180 x 252 -- the printed
   card at 0.24, where the rank and the pieces still read -- and the cog
   builds it in `cog_load` through `asyncio.to_thread` (about two
   seconds on the Mac). A picture after that is only pasting: a hand of
