@@ -193,6 +193,14 @@ class PanelView(SafeView):
             return
         await self.cog.send_deck(interaction, game, match, self.seat)
 
+    async def open_codex(self, interaction: discord.Interaction) -> None:
+        """**Codex**: this panel's player's codex, in an ephemeral
+        message of its own; the panel stays as it is."""
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await self.cog.send_codex(interaction, game, match, self.seat)
+
     async def show(self, interaction: discord.Interaction, view: discord.ui.View,
                    content: str | None = None) -> None:
         """Change the panel's mode in place: the click's own response."""
@@ -367,11 +375,13 @@ class TurnPanelView(PanelView):
             for ability in options.abilities
             if not ability.allowed and ability.why_not not in (EXHAUSTED, ARRIVED)
         ]
-        # **My deck**, **Undo...** and **End main phase** are always the
-        # panel's last three buttons, in that order (the author,
-        # 2026-10-09), after the board's row, and always placed.
+        # **My deck**, **Codex**, **Undo...** and **End main phase** are
+        # always the panel's last four buttons, in that order (the
+        # author, 2026-10-09; Codex 2026-10-10), after the board's row,
+        # and always placed.
         last = [
             self.make_button("My deck", discord.ButtonStyle.secondary, self.open_deck),
+            self.make_button("Codex", discord.ButtonStyle.secondary, self.open_codex),
             self.make_button("Undo...", discord.ButtonStyle.secondary, self.open_undo),
             self.make_button("End main phase", discord.ButtonStyle.danger, self.end_main),
         ]

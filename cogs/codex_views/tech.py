@@ -53,7 +53,7 @@ from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
 from cogs.codex_views.base import kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
-from cogs.codex_views.turn_message import codex_view_menu, deck_button
+from cogs.codex_views.turn_message import codex_button, codex_view_menu, deck_button
 
 #: The most menus a view of the codex is split over: rows 1 to 3, the
 #: Show menu above and the buttons below. Three specs' thirty-six cards
@@ -245,7 +245,7 @@ class TechConfirmView(PanelView):
 
 
 class TechGateView(PanelView):
-    """**Tech** and **My deck** under the hand's picture, the panel
+    """**Tech**, **My deck** and **Codex** under the hand's picture, the panel
     while the turn waits on a tech choice its player never made: Tech
     opens the picker in place -- the prompt's own view, `show_panel`'s
     edit. Saved picks skip it: My hand opens their confirmation at once."""
@@ -256,6 +256,7 @@ class TechGateView(PanelView):
         tech.callback = self.open_tech
         self.add_item(tech)
         self.add_item(deck_button(self.open_deck))
+        self.add_item(codex_button(self.open_codex))
 
     def caption(self) -> str:
         return "**Tech** opens it; the turn's actions come after it."

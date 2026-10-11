@@ -19,8 +19,9 @@ nothing was picked -- while their turn waits on it, and the other
 player with their standing tech choice, open all through the
 opponent's turn; in a test game, where nothing stands
 (`codex.prompts.tech_stands`), it says where the choice is made
-otherwise. **Codex** pictures the clicker's own
-codex through a menu of views. **My deck** -- on the turn message,
+otherwise. **Codex** -- on the turn message, under the hand and on the
+panel -- pictures the clicker's own codex through a menu of views
+(`send_codex`). **My deck** -- on the turn message,
 under the hand, on the panel and on the tech picker -- answers with
 every card the clicker owns, wherever it is, in three frames -- the
 hand, the discard pile, the rest (`send_deck`). What a hand
@@ -161,16 +162,7 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        view = CodexBrowser(self.cog, game.game_id, seat, side=side_label(game, match, seat))
-        started = time.perf_counter()
-        file = await view.picture(match, "everything")
-        drawn = elapsed_ms(started)
-        started = time.perf_counter()
-        await interaction.response.send_message(
-            view.caption("everything"), file=file, view=view, ephemeral=True,
-        )
-        LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
-                    game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
+        await self.cog.send_codex(interaction, game, match, seat)
 
     async def undo(self, interaction: discord.Interaction) -> None:
         """The undos open on the position, to the active player alone."""
@@ -305,11 +297,20 @@ def deck_button(callback, row: int | None = None) -> discord.ui.Button:
     return button
 
 
+def codex_button(callback, row: int | None = None) -> discord.ui.Button:
+    """**Codex**: the clicker's own codex, in a message of its own
+    beside whatever it was pressed under (`Codex.send_codex`)."""
+    button = discord.ui.Button(label="Codex", style=discord.ButtonStyle.secondary, row=row)
+    button.callback = callback
+    return button
+
+
+
 class HandView(SafeView):
     """
     Under the hand **My hand** shows the player whose turn it is not:
-    **My deck** alone, the hand being nothing to press. Not persistent:
-    an ephemeral message dies with the client's session.
+    **My deck** and **Codex**, the hand being nothing to press. Not
+    persistent: an ephemeral message dies with the client's session.
     """
 
     def __init__(self, cog, game_id: str, seat: int) -> None:
@@ -318,12 +319,19 @@ class HandView(SafeView):
         self.game_id = game_id
         self.seat = seat
         self.add_item(deck_button(self.deck))
+        self.add_item(codex_button(self.codex))
 
     async def deck(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
         if game is None:
             return
         await self.cog.send_deck(interaction, game, match, self.seat)
+
+    async def codex(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        await self.cog.send_codex(interaction, game, match, self.seat)
 
 
 class CodexBrowser(SafeView):
