@@ -117,6 +117,24 @@ Things to know before changing any of it:
   `run_codex_bot.cmd`, which pulls -- the Codex bot lists its changes as
   before. If fool-bot cannot post (its mirror off, the channel closed to
   it), a deploy's changes go unlisted; the Codex bot does not stand in.
+- **A commit is listed once, whichever bot listed it.** The flag covers
+  a deploy of both; it does not cover two deploys in a row -- the Codex
+  bot restarted alone lists what it pulled, and the next `deploy.cmd`
+  had fool-bot list the same commits again, because each bot's own
+  record says only what *it* last announced (the author, 2026-10-11).
+  So the two share a third record, `data/deploy_notice.json` beside
+  their state files: the newest build whose changes either has listed,
+  and which bot did (`mark_listed`, written once a list has landed).
+  A bot's list starts from that record when it is further on than the
+  bot's own and still in HEAD's history (`list_start`), under "Changes
+  since Codex bot's notice"; a build it has listed all of is named with
+  no list ("...; Codex bot's notice listed its changes"). A record off
+  HEAD's history -- a rollback, a `-Branch` deploy -- is passed over,
+  so a list never skips a commit the channel was not told about. Its
+  own file rather than a key in either bot's, so neither writes the
+  other's state. The `--with-fool-bot` flag stays: the record is
+  written only once fool-bot's post lands, seconds after the Codex bot
+  may already have read it.
 - **The notices are one stream per machine, not one per repository.** That
   state file is local, so when two opted-in hosts deploy into the same
   `#logs` the posts interleave: the same commit gets announced once by each,

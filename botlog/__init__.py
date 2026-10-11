@@ -371,22 +371,29 @@ async def announce_startup(
 
     try:
         previous = deploy_notice.last_announced(state_file)
+        listed = deploy_notice.last_listed(state_file)
         # git is a subprocess; keep it off the event loop.
         pending = await asyncio.to_thread(
             deploy_notice.notice_for, previous, restarted=restarted,
-            list_changes=list_changes,
+            list_changes=list_changes, listed=listed,
         )
 
         if pending is None:
             return
 
-        sha, message = pending
         channel = await ensure_log_channel(client)
 
         if channel is None:
             return
 
-        await channel.send(message)
-        deploy_notice.mark_announced(sha, state_file)
+        await channel.send(pending.message)
+        deploy_notice.mark_announced(pending.sha, state_file)
+
+        if pending.listed:
+            # How far #logs has been told, for the other bot's next
+            # notice to start from (deploy_notice.list_start).
+            deploy_notice.mark_listed(
+                pending.sha, settings.bot_name(), state_file,
+            )
     except Exception:
         LOGGER.exception("Could not post the startup notice.")
