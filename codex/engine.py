@@ -3404,8 +3404,17 @@ class RulesEngine:
         ) >= effects.MIRROR_LIMIT:
             # "Summon another (limit: 2)" -- the copies count (his ruling).
             return f"you have {effects.MIRROR_LIMIT} Mirror Illusions"
+        deck_parts = {part.choose for part in getattr(effects.EFFECTS.get(effect), "parts", ())
+                      if part.choose in _DECK_TOP_FILTERS}
+        if deck_parts and not player.deck:
+            # Vir's three: nothing on an empty pile, and no reshuffle (his
+            # rulings) -- said, so the player is not left guessing.
+            return "your draw pile is empty"
         if not self.spell_can_resolve(match, seat, effect, player.gold - cost.gold,
                                       {"source": source}):
+            if "deck_top_playable" in deck_parts:
+                # Not which card, nor why: the top card is hidden.
+                return "the top card of your draw pile can't be played now"
             return "there is nothing it could target"
         return ""
 
@@ -3787,6 +3796,8 @@ WORKERS = "workers"
 SLOT = "slot:"
 HAND = "hand:"
 CODEX = "codex:"
+#: The filters that read the top of the controller's draw pile: Vir's.
+_DECK_TOP_FILTERS = frozenset({"deck_top", "hand_card_with_deck", "deck_top_playable"})
 #: The filters whose candidates are in the controller's hand or codex.
 _PRIVATE_FILTERS = frozenset({
     "hand_card", "hand_unit_tech_0_2", "hand_unit_built", "codex_unit", "codex_tiger",

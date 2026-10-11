@@ -2002,9 +2002,9 @@ too, asked with `gate` for the two kinds a turn may open on
   agree card for card -- at most two rows (`HAND_ROWS`), a hand
   rarely being more than one; and **the board's row** -- **Build** per
   building that may be built now ("Build Tower (3 gold)"),
-  **Detect...** where there is a tower, and each ability that may be
-  used now, in the card's own words ("Sacrifice Harmony: stop the
-  music") -- and always last, in this order, **My deck**, **Undo...**
+  **Detect...** where there is a tower, and each ability, in the
+  card's own words ("Sacrifice Harmony: stop the music"), disabled with
+  its reason where it may not be used now -- and always last, in this order, **My deck**, **Undo...**
   and **End main phase** (the author, 2026-10-09), which `place`'s
   `last` never crowds out: a board's button gives up its place to them
   first. **Hire worker** and every **Build** are green and **Attack...**
@@ -2055,9 +2055,18 @@ too, asked with `gate` for the two kinds a turn may open on
   with whose it is, what it costs in resist and whether the flagbearer
   rule forces it, under the ask, which says what the part does; Appel
   Stomp's place and the upkeep's order are buttons too.
-  The abilities are buttons on the board's row, only those that may be
-  used now -- they shared the last row's menu with the hero's levels
-  until 2026-10-09. The panel's picture stays the hand.
+  The abilities are buttons on the board's row -- they shared the last
+  row's menu with the hero's levels until 2026-10-09. One the engine
+  says no to is there too, disabled, its reason in brackets before what
+  it does ("Vir Garbarean (your draw pile is empty): look at the top
+  card of your draw pile"), so the cut to 80 characters never takes the
+  reason, and placed after every one that may be used, so a full row
+  gives these up first: an ability that vanished without a word left
+  the player guessing why (the author, 2026-10-11). Vir's three deck
+  abilities say "your draw pile is empty" rather than the generic
+  "there is nothing it could target", and his middle one, on a top card
+  that can't be played, says that much and not which card or why --
+  the card is hidden. The panel's picture stays the hand.
 - **The patrol lock is two menus, not five.** A message carries five
   rows of components; five slot menus would leave no row for **Lock
   patrol**, which stands alone in its row as the misclick guard

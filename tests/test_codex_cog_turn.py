@@ -1550,6 +1550,45 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("Something went wrong", text)
 
 
+class RefusedAbilityTests(unittest.IsolatedAsyncioTestCase):
+    """An ability the engine says no to is on the panel, disabled with its
+    reason, after the ones that may be used -- Vir's on an empty draw
+    pile say so rather than vanishing."""
+
+    PURPLE = ("past", "present", "future")
+    BLACK = ("demonology", "disease", "necromancy")
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started(teams=(self.PURPLE, self.BLACK))
+
+    async def test_vir_on_an_empty_draw_pile_says_why(self) -> None:
+        match = self.table.match
+        match.active = 1
+        hero_in_play(match, 1, slug="vir_garbarean")
+        match.player(1).deck = []
+        match.player(1).gold = 3
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        refused = [item for item in view.children
+                   if item.label.startswith("Vir Garbarean")
+                   and "(your draw pile is empty): " in item.label]
+        self.assertEqual(len(refused), 2, [item.label for item in view.children])
+        self.assertTrue(all(item.disabled for item in refused))
+        self.assertFalse([item for item in view.children if (item.choice or ("",))[0] == "ability"])
+        self.assertEqual([item.label for item in view.children[-3:]],
+                         ["My deck", "Undo...", "End main phase"])
+        # With a card on the pile, both are buttons again.
+        match = self.table.match
+        match.player(1).deck = ["argonaut"]
+        self.table.cog.service.persist(self.game, match)
+        _, view = await self.table.panel()
+        self.assertEqual(
+            sorted(item.choice[1] for item in view.children if (item.choice or ("",))[0] == "ability"),
+            ["vir_garbarean", "vir_garbarean_exchange"])
+
+
 class EyesOfTheChancellorTests(unittest.IsolatedAsyncioTestCase):
     """Eyes of the Chancellor (step 13): "Opponents play with their hands
     revealed" -- the opponent's hand pictured under the Eyes' controller's

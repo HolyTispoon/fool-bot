@@ -3962,7 +3962,8 @@ class PurpleRulingTests(unittest.TestCase):
         hero_in_play(match, 1, slug="vir_garbarean")
         match.player(1).deck = []
         match.player(1).discard = ["argonaut"]
-        self.assertFalse(option(engine, match, "vir_garbarean", hero(match, 1, "vir_garbarean")).allowed)
+        self.assertEqual(option(engine, match, "vir_garbarean", hero(match, 1, "vir_garbarean")).why_not,
+                         "your draw pile is empty")
         match.player(1).deck = ["neo_plexus"]
         ability(engine, game, match, "vir_garbarean", hero(match, 1, "vir_garbarean"))
         prompt = asked(engine, game, match)
@@ -3978,8 +3979,8 @@ class PurpleRulingTests(unittest.TestCase):
         match.player(1).deck = []
         hand(match, 1, "argonaut")
         match.player(1).gold = 3
-        self.assertFalse(option(engine, match, "vir_garbarean_exchange",
-                                hero(match, 1, "vir_garbarean")).allowed)
+        self.assertEqual(option(engine, match, "vir_garbarean_exchange",
+                                hero(match, 1, "vir_garbarean")).why_not, "your draw pile is empty")
         match.player(1).deck = ["neo_plexus"]
         ability(engine, game, match, "vir_garbarean_exchange", hero(match, 1, "vir_garbarean"))
         self.assertEqual((match.player(1).deck, match.player(1).hand), (["argonaut"], ["neo_plexus"]))
@@ -3998,6 +3999,20 @@ class PurpleRulingTests(unittest.TestCase):
         turn_round(engine, game, match, 1)
         mech = next(card for card in match.player(1).play if card.slug == "mech")
         self.assertNotIn(mech.ref, engine.attackers(match))
+
+    def test_vir_says_why_he_may_not_play_the_top_card(self) -> None:
+        """An empty pile says so; a top card that can't be played says
+        that much and no more -- the card is hidden."""
+        engine, game, match = purple()
+        hero_in_play(match, 1, slug="vir_garbarean", level=5)
+        match.player(1).deck = []
+        source = hero(match, 1, "vir_garbarean")
+        self.assertEqual(option(engine, match, "vir_garbarean_play", source).why_not,
+                         "your draw pile is empty")
+        match.player(1).deck = ["argonaut"]
+        match.player(1).gold = 0
+        self.assertEqual(option(engine, match, "vir_garbarean_play", source).why_not,
+                         "the top card of your draw pile can't be played now")
 
     def test_vir_plays_the_top_card(self) -> None:
         engine, game, match = purple()
