@@ -1235,6 +1235,16 @@ match as its saved dict, as D12 Ball's record does; its file,
   ("What the narration may say", below). The golden's final match was
   re-recorded for this key alone, at its default.
 
+- **The lasting effects' tags added one key, not a field**: a modifier
+  on a card or a hero, and an entry in a side's `lasting`, carries
+  `from`, the slug of the card or hero whose effect left it -- stamped
+  by `resolve.does`, the one call every part of an effect is done
+  through, off the frame's `by` token, so no part's handler writes it.
+  It is read by the board alone, for a tag's colour; nothing decides a
+  rule by it. An older save's have none, and their tags are drawn on
+  the plain purple. The golden's final match holds no modifier, and
+  was left as it was.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1655,9 +1665,53 @@ else the bot shows is ephemeral.
     to a hero's summoning runes in the heroes' zone. +1/+1 and -1/-1
     keep the module's chits over the right edge.
   - **ARRIVED and DISABLED are grey tags of the same size as every
-    other** (`state_tags`, `STATE_FILL`), stacked at the foot of the
-    art against the left edge -- states rather than anything a card of
-    a colour put there, so neither carries a colour.
+    other** (`STATE_FILL`), stacked at the foot of the art against the
+    left edge -- states rather than anything a card of a colour put
+    there, so neither carries a colour.
+  - **Every tag is one height, its words centred on their capitals**
+    (`pill`), and **the tags stand on one grid of rows** (`lay_tags`),
+    the lowest on the art's foot: the marks down the right edge, the
+    states up the left, each state in the lowest row no mark reaches
+    across to, never above `TAG_CEILING`, the cost's and the stats'
+    (the author, 2026-10-12: "Skip draw/discard" lay over DISABLED).
+    The damage chits keep the foot of the art on the right, and step
+    left of a rune chit or a mark standing beside the foot (`lay_damage`;
+    the author, 2026-10-12: a rune chit hid the damage); a tag over no
+    more than a chit's top point (`TAG_SLACK`) moves neither, and is
+    drawn over it. ARRIVED and DISABLED go round the damage too, ARRIVED
+    always the lower; with no row free -- a damaged, disabled card that
+    arrived this turn with a rune chit -- one lies over the chit's edge.
+  - **What an effect leaves on a unit or a hero for a while is a tag
+    too** (`effect_tags`, the author, 2026-10-12): a modifier to the end
+    of the turn, to a seat's next upkeep or to Vandy's doom that the
+    stats pill cannot show -- a keyword by its own name ("Haste",
+    "Invisible", "Resist 1"), one lost ("Not flying"), and Doomed,
+    Illusion, Can't attack, Can't level up, Bloodlust (`MODIFIER_TAGS`)
+    -- and Kidnapped on a unit that goes back at the end of the turn.
+    The tag says the effect alone, never how long it lasts, and is in
+    the colour of the card it came from (the modifier's `from`). Where
+    one card's modifiers come together, one tag says them all, or none
+    is needed (`TAGGED_AS`): Gargoyle is "Not indestructible" alone, its
+    flying, ATK and attacking coming with it; a kidnapped unit is
+    Kidnapped alone, its haste coming with it; Poisonblade Rogue's own
+    attack has none; Rampant Growth's +2 ATK and +2 armor and Dinosize's
+    +6 and +6, which the pill shows, are tagged by name all the same
+    (the author, 2026-10-12).
+  - **An effect across a whole side is tagged by its card's name on
+    every unit it reaches** -- Ferocity, Stampede and Dreamscape, and
+    Might of Leaf and Claw on its controller's units and heroes while it
+    has five growth runes (the author, 2026-10-12: they change how each
+    unit fights). Which bodies it reaches is the engine's answer,
+    `RulesEngine.auras_on` -- the controller's `lasting`,
+    `under_dreamscape` for a tech 0, I or II unit on either side, the
+    growth grant where `growth_holds`, the one reading the +5/+5 is
+    applied by too -- handed to the renderer with the stats by
+    `board_reading`, which the cog passes where it passed `body_stats`;
+    the renderer takes either. A player's other lasting effects --
+    Moment's Peace, Free Speech, a debt -- are for the side of the
+    board, not yet drawn. A modifier for good (Metamorphosis, Fox's Den
+    School), an attached spell and a changed controller are not tagged
+    yet either.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

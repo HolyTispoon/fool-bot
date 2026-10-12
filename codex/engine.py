@@ -720,7 +720,7 @@ class RulesEngine:
                 if card.plus_runes > 0:
                     profile.grant("Overpower")
             elif grant == "growth":
-                if source.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
+                if self.growth_holds(source):
                     profile.atk += effects.GROWTH_BONUS
                     profile.hp += effects.GROWTH_BONUS
             elif grant == "dies":
@@ -817,7 +817,7 @@ class RulesEngine:
             grant = effects.HERO_GRANTS.get(self.text_slug(card) or "")
             if grant == "rune_overpower" and hero.plus_runes > 0:
                 profile.grant("Overpower")
-            elif grant == "growth" and card.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD:
+            elif grant == "growth" and self.growth_holds(card):
                 profile.atk += effects.GROWTH_BONUS
                 profile.hp += effects.GROWTH_BONUS
             elif grant == "training":
@@ -879,6 +879,46 @@ class RulesEngine:
         if isinstance(body, CardInstance):
             return self.unit_stats(body, match)
         return self.hero_stats(body, match)
+
+    @staticmethod
+    def growth_holds(card: CardInstance) -> bool:
+        """Might of Leaf and Claw: "While this has at least five growth
+        runes, your units and heroes get +5/+5." """
+        return card.runes.get("growth", 0) >= effects.GROWTH_THRESHOLD
+
+    def auras_on(self, match: MatchState, body) -> tuple[str, ...]:
+        """
+        The effects across a whole side that reach this unit or hero, by
+        the slug of the card that makes them, for the board to tag it by
+        name (docs/design/codex.md, "The board on Discord"): on a unit its
+        controller's Ferocity or Stampede while they last, and a
+        Dreamscape in play over a tech 0, I or II unit; on either, a Might
+        of Leaf and Claw of its controller's with five growth runes.
+        """
+        found = []
+        if isinstance(body, CardInstance):
+            if not self.catalog.cards[body.slug].is_unit:
+                return ()
+            found += [lasting["kind"] for lasting in match.player(body.controller).lasting
+                      if lasting.get("kind") in ("ferocity", "stampede")]
+            if self.under_dreamscape(match, body):
+                found.append("dreamscape")
+            found += [self.text_slug(source) for _, _, _, grant, source in self._grants(match, body)
+                      if grant == "growth" and self.growth_holds(source)]
+        else:
+            seat = self.seat_of(match, body)
+            if seat is not None:
+                found += [self.text_slug(card) for card in match.player(seat).play
+                          if self.texted(card)
+                          and effects.HERO_GRANTS.get(self.text_slug(card) or "") == "growth"
+                          and self.growth_holds(card)]
+        return tuple(dict.fromkeys(found))
+
+    def board_reading(self, match: MatchState, body) -> tuple[int, int, tuple[str, ...]]:
+        """What the board shows of a unit or a hero that is a reading of
+        the rules: its ATK and HP (`body_stats`) and the effects across a
+        side that reach it (`auras_on`)."""
+        return (*self.body_stats(match, body), self.auras_on(match, body))
 
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
@@ -982,11 +1022,14 @@ class RulesEngine:
             return True
         if any(m.get("kind") == "illusion" for m in body.modifiers):
             return True
-        if match is not None and self.tech_level(body) <= 2 and any(
-            self.text_slug(card) in effects.DREAMSCAPE for card in match.instances()
-        ):
-            return True
-        return False
+        return self.under_dreamscape(match, body)
+
+    def under_dreamscape(self, match: Optional[MatchState], body) -> bool:
+        """Dreamscape: "All tech 0, I, and II units are Illusions" -- a
+        unit of tech II or lower while one is in play, either side's."""
+        return (match is not None and isinstance(body, CardInstance)
+                and self.catalog.cards[body.slug].is_unit and self.tech_level(body) <= 2
+                and any(self.text_slug(card) in effects.DREAMSCAPE for card in match.instances()))
 
     def illusion_dies(self, match: MatchState, body) -> bool:
         """Whether a unit dies the moment a spell or ability targets it: an

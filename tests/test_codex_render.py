@@ -226,6 +226,74 @@ class RenderTests(unittest.TestCase):
         self.assertLess(len(png), 10 * 1024 * 1024)
 
 
+class EffectTagTests(unittest.TestCase):
+    """The lasting effects a unit or a hero carries, as tags: the
+    effect's name alone, in the colour of the card it came from."""
+
+    def setUp(self) -> None:
+        self.cards = RulesEngine().catalog
+
+    def unit(self, **fields):
+        from codex.components import CardInstance
+        card = CardInstance(id=1, slug="tiger_cub", owner=1, controller=1)
+        for name, value in fields.items():
+            setattr(card, name, value)
+        return card
+
+    def test_a_keyword_for_a_while_is_its_own_name(self) -> None:
+        card = self.unit(modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "charge"},
+            {"kind": "atk", "amount": 1, "until": "end_of_turn", "from": "charge"},
+        ])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Haste", "red"),))
+
+    def test_a_keyword_for_good_is_not_tagged(self) -> None:
+        card = self.unit(modifiers=[{"kind": "keyword", "keyword": "Haste", "until": None}])
+        self.assertEqual(render.effect_tags(card, self.cards), ())
+
+    def test_the_same_name_twice_is_one_tag(self) -> None:
+        card = self.unit(modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "charge"},
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "now"},
+        ])
+        self.assertEqual(len(render.effect_tags(card, self.cards)), 1)
+
+    def test_an_effect_across_a_side_is_its_cards_name(self) -> None:
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, ("ferocity", "dreamscape")),
+                         (("Ferocity", "green"), ("Dreamscape", "blue")))
+
+    def test_gargoyles_effects_are_one_tag(self) -> None:
+        until = {"until": "upkeep", "seat": 1, "from": "gargoyle"}
+        card = self.unit(modifiers=[{"kind": "lose_keyword", "keyword": "Indestructible", **until},
+                                    {"kind": "keyword", "keyword": "Flying", **until},
+                                    {"kind": "unbound", **until}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Not indestructible", "black"),))
+
+    def test_rampant_growth_is_tagged_by_name(self) -> None:
+        card = self.unit(modifiers=[{"kind": "atk", "amount": 2, "until": "end_of_turn",
+                                     "from": "rampant_growth"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Rampant Growth", "green"),))
+
+    def test_dinosize_is_tagged_by_name(self) -> None:
+        card = self.unit(modifiers=[{"kind": "atk", "amount": 6, "until": "end_of_turn",
+                                     "from": "dinosize"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Dinosize", "green"),))
+
+    def test_a_kidnapped_unit_is_kidnapped_alone(self) -> None:
+        card = self.unit(returns_to=2, modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "kidnapping"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Kidnapped", "red"),))
+
+    def test_a_lost_keyword_is_not_it(self) -> None:
+        card = self.unit(modifiers=[{"kind": "lose_keyword", "keyword": "Flying",
+                                     "until": "end_of_turn", "from": "crypt_crawler"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Not flying", "black"),))
+
+    def test_an_older_saves_modifier_is_tagged_without_a_colour(self) -> None:
+        card = self.unit(modifiers=[{"kind": "doomed", "until": "doom", "seat": 1}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Doomed", None),))
+
+
 class PreloadTests(unittest.TestCase):
     """Every file a picture is drawn from, read into memory once, so no
     click reads the host's disk (docs/design/codex.md, "The board on

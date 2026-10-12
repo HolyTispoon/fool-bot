@@ -978,6 +978,46 @@ class ContinuousYourUnitsTests(unittest.TestCase):
         self.assertEqual(match.player(1).lasting, [])
 
 
+class LastingFromTests(unittest.TestCase):
+    """What an effect leaves for a while names the card it came from, so
+    the board can label it in that card's colour."""
+
+    def test_a_modifier_names_its_spell(self) -> None:
+        engine, game, match = red_green()
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        cast(engine, game, match, "charge")
+        self.assertEqual({modifier.get("from") for modifier in cub.modifiers}, {"charge"})
+
+    def test_ferocity_and_dreamscape_reach_a_unit(self) -> None:
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        cast(engine, game, match, "ferocity", gold=2)
+        put(match, 2, "dreamscape")
+        self.assertEqual(engine.auras_on(match, cub), ("ferocity", "dreamscape"))
+        self.assertEqual(engine.board_reading(match, cub)[2], ("ferocity", "dreamscape"))
+        self.assertEqual(engine.auras_on(match, match.player(1).hero), ())
+
+    def test_might_of_leaf_and_claw_reaches_units_and_heroes_at_five_runes(self) -> None:
+        engine, game, match = red_green(teams=(("growth",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        might = put(match, 1, "might_of_leaf_and_claw")
+        might.runes["growth"] = 4
+        self.assertEqual(engine.auras_on(match, cub), ())
+        might.runes["growth"] = 5
+        self.assertEqual(engine.auras_on(match, cub), ("might_of_leaf_and_claw",))
+        self.assertEqual(engine.auras_on(match, match.player(1).hero), ("might_of_leaf_and_claw",))
+        self.assertEqual(engine.auras_on(match, put(match, 2, "tiger_cub")), ())
+
+    def test_a_players_lasting_effect_names_its_spell(self) -> None:
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cast(engine, game, match, "ferocity", gold=2)
+        self.assertEqual([entry.get("from") for entry in match.player(1).lasting], ["ferocity"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

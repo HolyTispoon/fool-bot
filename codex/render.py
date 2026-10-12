@@ -347,6 +347,12 @@ MARK_SIZE = px(15)
 #: its rune chit, which is the white cards' frame.
 WHITE_TAG = (245, 245, 245)
 MARK_STEP = px(25)
+#: How far below a card's top edge its tags may stand: clear of the
+#: stats pill on the right and the cost on the left.
+TAG_CEILING = px(46)
+#: How far a tag may lie over a chit's edge -- a damage chit's top point
+#: -- before either moves.
+TAG_SLACK = px(10)
 DESTROYED_FILL = (150, 40, 40)   # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
 #: brighter than the print's heart, so maroon stands apart from it --
@@ -537,9 +543,14 @@ def pill(draw: ImageDraw.ImageDraw, at: tuple[int, int], text: str, size: int,
     """A word on a rounded tag, edged `edge` wide: the tech picker's
     count of picks, and a card's marks on the board."""
     face = font(size)
-    left, top, right, bottom = draw.textbbox(at, text, font=face, anchor=anchor)
+    left, _, right, _ = draw.textbbox(at, text, font=face, anchor=anchor)
+    # The height is a capital's, whatever the words: every tag one height,
+    # its words centred on their capitals, a descender hanging into the
+    # padding below (the author, 2026-10-12: "Skip draw/discard" sat high).
+    _, top, _, bottom = draw.textbbox(at, "H", font=face, anchor=anchor)
     pad = size // 3
-    draw.rounded_rectangle((left - pad, top - pad, right + pad, bottom + pad),
+    # The box's last row and column are drawn, so it ends a pixel short.
+    draw.rounded_rectangle((left - pad, top - pad, right + pad - 1, bottom + pad - 1),
                            radius=pad, fill=fill, outline=SHADOW, width=edge)
     draw.text(at, text, font=face, fill=ink, anchor=anchor)
 
@@ -570,19 +581,33 @@ def chit_stack(amount: int, folder: str, largest: int) -> list[Image.Image]:
     return chits
 
 
+#: A box on a canvas, (left, top, right, bottom).
+Box = tuple[int, int, int, int]
+
+
+def overlaps(one: Box, other: Box, slack: int = 0) -> bool:
+    """Whether two boxes cross by more than `slack` up and down."""
+    return (one[0] < other[2] and other[0] < one[2]
+            and one[1] < other[3] - slack and other[1] < one[3] - slack)
+
+
 def lay_row(canvas: Image.Image, chits: Sequence[Image.Image], width: int,
-            corner: tuple[int, int], *, leftward: bool = False, upward: bool = False) -> None:
+            corner: tuple[int, int], *, leftward: bool = False, upward: bool = False) -> Box:
     """Chits `width` across in a row from `corner` -- a top-left corner,
     or a top-right one going `leftward`, or a bottom one going `upward`
-    -- each overlapping the last by a sixth."""
+    -- each overlapping the last by a sixth: the box the row covers."""
     left, top = corner
+    covered = (canvas.width, canvas.height, 0, 0)
     for chit in chits:
         piece = by_width(chit, width)
         x = left - piece.width if leftward else left
         y = top - piece.height if upward else top
         canvas.alpha_composite(piece, (x, y))
+        covered = (min(covered[0], x), min(covered[1], y),
+                   max(covered[2], x + piece.width), max(covered[3], y + piece.height))
         step = piece.width - width // 6
         left += -step if leftward else step
+    return covered
 
 
 def damage_chits(damage: int) -> list[Image.Image]:
@@ -735,16 +760,91 @@ def stat_pill(stats: "Stats") -> Image.Image:
     return whole
 
 
-def state_tags(canvas: Image.Image, card_left: int, bottom: int, states: Sequence[str]) -> None:
-    """ARRIVED and DISABLED, grey tags like every other on a card, stacked
-    up from `bottom` -- the foot of its art -- against the card's left
-    edge, opposite the damage chits, clear of the card's text (the
-    author, 2026-10-10 and 2026-10-11: the two together, one size)."""
+def tag_size(text: str) -> tuple[int, int]:
+    """A card's tag's width and height as `pill` draws it: its words'
+    width, a capital's height, and the padding round both."""
+    face, pad = font(MARK_SIZE), MARK_SIZE // 3
+    _, top, _, bottom = face.getbbox("H", anchor="ls")
+    return round(face.getlength(text)) + 2 * pad, bottom - top + 2 * pad
+
+
+def tag_at(draw: ImageDraw.ImageDraw, x: int, top: int, text: str, fill, ink,
+           leftward: bool = False) -> None:
+    """A card's tag with its box's top at `top`, from `x` -- its left
+    edge, or its right going `leftward`."""
+    face, pad = font(MARK_SIZE), MARK_SIZE // 3
+    cap = -face.getbbox("H", anchor="ls")[1]
+    pill(draw, (x - pad if leftward else x + pad, top + pad + cap), text, MARK_SIZE, fill,
+         anchor="rs" if leftward else "ls", edge=px(2), ink=ink)
+
+
+def tag_rows_lowest(foot: int) -> int:
+    """The box top of a card's lowest row of tags, standing on `foot`,
+    the foot of its art: the rows are `MARK_STEP` apart up from it, a
+    row's box top `lowest - row * MARK_STEP`, a negative row under it."""
+    return foot - px(4) - tag_size("H")[1]
+
+
+def plan_marks(column_right: int, column_top: int, ceiling: int, foot: int,
+               marks: Sequence[tuple[str, Optional[str]]]) -> list[tuple[str, Optional[str], Box]]:
+    """Where a card's marks go: down its right edge, a row each, from the
+    first row at or below `column_top` (under its rune chits) and not
+    above `ceiling` (the stats)."""
+    lowest = tag_rows_lowest(foot)
+    row = (lowest - max(column_top, ceiling)) // MARK_STEP
+    placed = []
+    for mark, colour in marks:
+        width, height = tag_size(mark)
+        top = lowest - (row - len(placed)) * MARK_STEP
+        placed.append((mark, colour, (column_right - width, top, column_right, top + height)))
+    return placed
+
+
+def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
+               states: Sequence[str], clear_of: Sequence[Box]) -> None:
+    """
+    ARRIVED and DISABLED up a card's left edge from the foot of its art,
+    on the marks' rows, each in the lowest row clear of `clear_of` -- the
+    marks, the rune chits and the damage chits -- and not above
+    `ceiling` (the cost); with none free, the lowest left (the author,
+    2026-10-12: "Skip draw/discard" lay over DISABLED).
+    """
     draw = ImageDraw.Draw(canvas)
-    foot = bottom - MARK_SIZE // 3 - px(4)
-    for index, state in enumerate(reversed(states)):
-        pill(draw, (card_left + px(10), foot - index * MARK_STEP), state, MARK_SIZE, STATE_FILL,
-             anchor="lb", edge=px(2))
+    lowest = tag_rows_lowest(foot)
+    highest = (lowest - ceiling) // MARK_STEP
+    left = card_left + px(10)
+    slack = TAG_SLACK
+    placed: list[Box] = []
+    for state in reversed(states):
+        width, height = tag_size(state)
+        boxes = {row: (left, lowest - row * MARK_STEP, left + width + px(4),
+                       lowest - row * MARK_STEP + height) for row in range(highest + len(states) + 1)}
+        free = [row for row in range(highest + 1)
+                if not any(overlaps(boxes[row], other, slack) for other in clear_of)
+                and not any(overlaps(boxes[row], other) for other in placed)]
+        row = free[0] if free else min(row for row in boxes
+                                       if not any(overlaps(boxes[row], other) for other in placed))
+        placed.append(boxes[row])
+    # The rows they found, lowest first, so ARRIVED stays under DISABLED.
+    for state, top in zip(reversed(states), sorted((box[1] for box in placed), reverse=True)):
+        tag_at(draw, left, top, state, STATE_FILL, INK)
+
+
+def lay_damage(canvas: Image.Image, damage: int, right: int, foot: int,
+               clear_of: Sequence[Box]) -> Optional[Box]:
+    """A card's damage chits standing on the foot of its art, from its
+    right edge leftward, clear of the ATK and HP the card prints -- and,
+    where its rune chits or marks stand beside the foot, from the left
+    of them (the author, 2026-10-12: a rune chit hid the damage); a tag
+    over no more than a chit's top point, `TAG_SLACK`, leaves it be."""
+    if not damage:
+        return None
+    chits = damage_chits(damage)
+    height = by_width(chits[0], px(62)).height
+    band = (0, foot - height, canvas.width, foot)
+    start = min([right - px(10)] + [box[0] - px(4) for box in clear_of
+                                     if overlaps(box, band, TAG_SLACK)])
+    return lay_row(canvas, chits, px(62), (start, foot), leftward=True, upward=True)
 
 
 # -- A card as it lies ---------------------------------------------------------
@@ -763,12 +863,17 @@ class Stats:
     #: What is left of its armor this turn (`armor` on the body), on a
     #: shield after the HP; none drawn at 0.
     armor: int = 0
+    #: The effects across a side that reach it, by the slug of the card
+    #: that makes them (`RulesEngine.auras_on`): each a tag by its name.
+    auras: tuple[str, ...] = ()
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
-#: `body_stats`, which the frontend hands in: the renderer reads a
-#: position and decides no rule.
-StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple[int, int]"]
+#: `board_reading`, which the frontend hands in, and which names the
+#: effects across a side that reach it too (`body_stats`, its ATK and HP
+#: alone, does as well): the renderer reads a position and decides no
+#: rule.
+StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple"]
 
 
 @dataclass(frozen=True)
@@ -893,6 +998,72 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     return tuple(found)
 
 
+#: The modifiers an effect leaves on a unit or a hero for a while -- to
+#: the end of the turn, a seat's next upkeep, Vandy's doom -- that the
+#: stats pill cannot show, as their tags: the effect's name alone, never
+#: how long it lasts (the author, 2026-10-12). A keyword is its own name.
+#: ATK, HP and armor are the pill's; a copy, a polymorph and DISABLED are
+#: shown already.
+LASTING_UNTIL = ("end_of_turn", "upkeep", "doom")
+MODIFIER_TAGS = {
+    "doomed": "Doomed",                  # Vandy Anadrose at max
+    "illusion": "Illusion",              # Hallucination
+    "cant_attack": "Can't attack",       # Sparring Partner
+    "no_level": "Can't level up",        # Nether Drain
+    "bloodlust": "Bloodlust",            # its damage at the end of the turn
+}
+#: The cards whose modifiers come together, so one tag says them all, or
+#: none is needed (the author, 2026-10-12): Gargoyle's flying, ATK and
+#: attacking come with its not being indestructible; Kidnapping's haste
+#: with being kidnapped (`returns_to`, tagged on its own); Poisonblade
+#: Rogue's own attack needs none. Rampant Growth's +2 ATK and +2 armor
+#: and Dinosize's +6 and +6, which the pill shows, are tagged by name all
+#: the same.
+TAGGED_AS = {
+    "rampant_growth": "Rampant Growth",
+    "dinosize": "Dinosize",
+    "gargoyle": "Not indestructible",
+    "kidnapping": None,
+    "poisonblade_rogue": None,
+}
+#: A kidnapped unit, back to its controller at the end of the turn.
+KIDNAPPED_FROM = "kidnapping"
+
+
+def effect_tags(body, cards: Optional[CardCatalog],
+                auras: Sequence[str] = ()) -> tuple[tuple[str, Optional[str]], ...]:
+    """What lasting effects a unit or a hero carries, as tags in the
+    colour of the card each comes from (its modifier's `from`): the
+    keywords and the rest an effect gave it for a while, Kidnapping's
+    hold, and the effects across a side that reach it, `auras`, by the
+    name of the card that makes each -- Ferocity, Stampede, Dreamscape."""
+    found: list[tuple[str, Optional[str]]] = []
+    for modifier in body.modifiers:
+        if modifier.get("until") not in LASTING_UNTIL:
+            continue
+        kind, source = modifier.get("kind"), modifier.get("from") or ""
+        if source in TAGGED_AS:
+            if TAGGED_AS[source]:
+                found.append((TAGGED_AS[source], card_color(source, cards)))
+            continue
+        if kind == "keyword":
+            amount = modifier.get("amount")
+            text = modifier["keyword"] + (f" {amount}" if amount else "")
+        elif kind == "lose_keyword":
+            text = f"Not {modifier['keyword'].lower()}"
+        else:
+            text = MODIFIER_TAGS.get(kind)
+        if text:
+            found.append((text, card_color(source, cards)))
+    if getattr(body, "returns_to", None) is not None:
+        found.append(("Kidnapped", card_color(KIDNAPPED_FROM, cards)))
+    for slug in auras:
+        found.append((cards.name(slug) if cards else slug.replace("_", " ").title(),
+                      card_color(slug, cards)))
+    seen: set[str] = set()
+    return tuple(tag for tag in found if not (tag[0] in seen or seen.add(tag[0])))
+
+
 def shown_slug(card: CardInstance) -> str:
     """The card whose face a card in play shows: a Squirrel's while
     Polymorph: Squirrel has it (step 11)."""
@@ -913,20 +1084,25 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
     else:
         band = cards.heroes[body.slug].band(body.level)
         printed_atk, printed_hp = band.atk, band.hp
-    atk, hp = stats_of(match, body)
+    reading = stats_of(match, body)
+    atk, hp = reading[0], reading[1]
     left = hp - body.damage
-    return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor)
+    return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor,
+                 tuple(reading[2]) if len(reading) > 2 else ())
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
                copy: int = 0, stats: Optional[Stats] = None) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
     Squirrel has it (step 11) -- `copy`, its number among its
-    player's copies, and `stats`, its ATK and HP as they stand."""
+    player's copies, and `stats`, its ATK and HP as they stand and the
+    effects across a side that reach it."""
     return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
-                 named_runes=rune_counts(card, cards), marks=rune_marks(card, cards),
+                 named_runes=rune_counts(card, cards),
+                 marks=rune_marks(card, cards)
+                 + effect_tags(card, cards, stats.auras if stats is not None else ()),
                  time_runes=card.time_runes,
                  disabled=card.disabled, copy=copy,
                  stats=stats)
@@ -943,7 +1119,9 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
                  time_runes=hero.time_runes, disabled=hero.disabled,
-                 named_runes=rune_counts(hero, cards), marks=rune_marks(hero),
+                 named_runes=rune_counts(hero, cards),
+                 marks=rune_marks(hero)
+                 + effect_tags(hero, cards, stats.auras if stats is not None else ()),
                  stats=stats)
 
 
@@ -983,9 +1161,6 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if runes:
         lay_row(upright, runes, px(50), (right + RUNE_HANG, margin + RUNE_CENTRE - px(25)),
                 leftward=True)
-    if lying.damage:
-        lay_row(upright, damage_chits(lying.damage), px(62), (right - px(10), margin + ART_FOOT),
-                leftward=True, upward=True)
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], px(50),
                 (side - px(8), bottom + px(8)), upward=True)
@@ -1000,18 +1175,21 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.future:
         marks.insert(0, ("FUTURE", own))
     top = margin + px(60)
+    column: list[Box] = []
     for colour, count in named:
-        lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top), leftward=True)
+        column.append(lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top),
+                              leftward=True))
         top += NAMED_RUNE + px(4)
-    if marks:
-        draw = ImageDraw.Draw(upright)
-        for index, (mark, colour) in enumerate(marks):
-            fill, ink = label_colors(colour)
-            pill(draw, (right - px(6), top + index * MARK_STEP), mark, MARK_SIZE, fill, anchor="rt",
-                 ink=ink, edge=px(2))
+    foot = margin + ART_FOOT
+    planned = plan_marks(right - px(6), top if named else margin, margin + TAG_CEILING, foot, marks)
+    column += [box for _, _, box in planned]
+    damage = lay_damage(upright, lying.damage, right, foot, column)
+    column += [damage] if damage else []
+    draw = ImageDraw.Draw(upright)
+    for mark, colour, box in planned:
+        tag_at(draw, box[2], box[1], mark, *label_colors(colour), leftward=True)
     states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived)) if on]
-    if states:
-        state_tags(upright, side, margin + ART_FOOT, states)
+    lay_states(upright, side, margin + TAG_CEILING, foot, states, column)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
@@ -1478,7 +1656,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     `OVERHANG` round it for the chits that hang over an edge -- so the
     far panel's is turned round whole about its own centre. `turned`,
     it is about to be: a copy's number is drawn to read upright after.
-    `stats`, the engine's `body_stats`.
+    `stats`, the engine's `board_reading`.
     """
     player = match.player(seat)
     columns = panel_columns(player)
@@ -1642,7 +1820,7 @@ def render_panel(match: MatchState, seat: int, name: str,
     the right way up: a name and its counts nobody should have to turn
     a phone for. `height`, where taller than the panel needs, is filled
     between the body and the nameplate, which stays on the outer edge.
-    `stats`, the engine's `body_stats`: each unit's and hero's ATK and
+    `stats`, the engine's `board_reading`: each unit's and hero's ATK and
     HP as they stand, on its card.
     """
     cards = cards or load_catalog()
@@ -1824,7 +2002,7 @@ def render_board(match: MatchState, layout: str = "stacked",
     taller panel. `near` looks at the stacked board from that seat
     rather than the active player's: a target prompt's picture where the
     targets are on both sides, seen from the player choosing. `stats`,
-    the engine's `body_stats`, puts each unit's and hero's ATK and HP as
+    the engine's `board_reading`, puts each unit's and hero's ATK and HP as
     they stand on its card.
     """
     return _webp(compose_board(match, layout, names, cards, near, stats))
