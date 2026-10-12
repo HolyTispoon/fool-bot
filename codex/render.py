@@ -215,7 +215,8 @@ RUNE_COLORS = {
     "growth": "green", "feather": "green",           # Might of Leaf and Claw, Fairie Dragon
     "corpse": "black", "javelin": "black",           # Corpse Catapult, Skeleton Javelineer
     "sword": "white", "focus": "white",              # Grave Stormborne, Focus Master
-    "crumbling": "white",                            # Two Lives: Garus Rook, Justice Juggernaut
+    # A crumbling rune is Two Lives', which both white Garus Rook and blue
+    # Justice Juggernaut have: the colour of the one it is on.
 }
 #: The swirl chit's own two colours, which `rune_chit` recolours.
 SWIRL_BLUE = (3, 80, 168)
@@ -493,14 +494,14 @@ def text_centred(draw: ImageDraw.ImageDraw, centre: tuple[int, int], text: str,
 
 
 def pill(draw: ImageDraw.ImageDraw, at: tuple[int, int], text: str, size: int,
-         fill, anchor: str = "lt") -> None:
+         fill, anchor: str = "lt", ink=INK) -> None:
     """A word on a rounded tag: the tech picker's count of picks."""
     face = font(size)
     left, top, right, bottom = draw.textbbox(at, text, font=face, anchor=anchor)
     pad = size // 3
     draw.rounded_rectangle((left - pad, top - pad, right + pad, bottom + pad),
                            radius=pad, fill=fill, outline=SHADOW, width=2)
-    draw.text(at, text, font=face, fill=INK, anchor=anchor)
+    draw.text(at, text, font=face, fill=ink, anchor=anchor)
 
 
 def spaced_width(text: str, face: ImageFont.FreeTypeFont, spacing: float) -> int:
@@ -742,9 +743,10 @@ class Lying:
     #: its colour with its count on it, unnamed (the author, 2026-10-11);
     #: a count of 0 is a single rune alone, a chit with no number.
     named_runes: tuple[tuple[str, int], ...] = ()
-    #: What a chit cannot say, as tags under them: "Feather",
-    #: "Copy: Fox Viper", "Number 3".
-    marks: tuple[str, ...] = ()
+    #: What a chit cannot say, as tags under them -- "Feather",
+    #: "Copy: Fox Viper", "Number 3" -- each with the colour of its
+    #: rune's chit, or `None` for the plain purple tag.
+    marks: tuple[tuple[str, Optional[str]], ...] = ()
     #: Its time runes (step 12): fading on a card in play, Prynn's on
     #: her, forecast on a card in the future -- the module's chit.
     time_runes: int = 0
@@ -778,41 +780,45 @@ SINGLE_RUNES = ("feather", "crumbling")
 NAMED_ON_THE_CHIT = ("feather",)
 
 
+def rune_color(card, kind: str, cards: Optional[CardCatalog] = None) -> str:
+    """A named rune's colour: `RUNE_COLORS`', or the card's it is on."""
+    if kind in RUNE_COLORS:
+        return RUNE_COLORS[kind]
+    found = (cards.cards.get(card.slug) or cards.heroes.get(card.slug)) if cards else None
+    return (getattr(found, "color", None) or "blue").strip().lower()
+
+
 def rune_counts(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, int], ...]:
     """A card's or a hero's named runes as (colour, count) for
-    `rune_chit`: its colour `RUNE_COLORS`', or the card's own; its count,
-    or 0 for a single rune alone."""
-    def colour(kind: str) -> str:
-        if kind in RUNE_COLORS:
-            return RUNE_COLORS[kind]
-        found = (cards.cards.get(card.slug) or cards.heroes.get(card.slug)) if cards else None
-        return (getattr(found, "color", None) or "blue").strip().lower()
+    `rune_chit`: its count, or 0 for a single rune alone."""
     return tuple(
-        (colour(kind), 0 if count == 1 and kind in SINGLE_RUNES else count)
+        (rune_color(card, kind, cards), 0 if count == 1 and kind in SINGLE_RUNES else count)
         for kind, count in sorted((getattr(card, "runes", None) or {}).items()) if count
     )
 
 
-def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[str, ...]:
+def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Optional[str]], ...]:
     """What a card's or a hero's chits cannot say, as tags: a feather
-    rune's name, and, on a card (step 13), "Copy: Fox Viper", "Jail:
-    Iron Man", "Number 3", "Oath: no draw". Its runes are chits
-    (`rune_counts`)."""
-    found = [
-        kind.title() for kind, count in sorted((getattr(card, "runes", None) or {}).items())
+    rune's name in its chit's colour, and, on a card (step 13), "Copy:
+    Fox Viper", "Jail: Iron Man", "Number 3", "Oath: no draw". Its runes
+    are chits (`rune_counts`)."""
+    found: list[tuple[str, Optional[str]]] = [
+        (kind.title(), rune_color(card, kind, cards))
+        for kind, count in sorted((getattr(card, "runes", None) or {}).items())
         if count and kind in NAMED_ON_THE_CHIT
     ]
     if not isinstance(card, CardInstance):
         return tuple(found)
     name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
     if card.copy_of:
-        found.append(f"Copy: {name(card.copy_of)}")
+        found.append((f"Copy: {name(card.copy_of)}", None))
     if card.jailed:
-        found.append(f"Jail: {name(card.jailed['slug'])}")
+        found.append((f"Jail: {name(card.jailed['slug'])}", None))
     if card.number is not None:
-        found.append(f"Number {card.number}")
+        found.append((f"Number {card.number}", None))
     if card.oath:
-        found.append({"hand": "Oath: workers only", "draw": "Oath: no draw"}.get(card.oath, card.oath))
+        found.append(({"hand": "Oath: workers only", "draw": "Oath: no draw"}.get(card.oath, card.oath),
+                      None))
     return tuple(found)
 
 
@@ -922,8 +928,12 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         top += NAMED_RUNE + 4
     if lying.marks:
         draw = ImageDraw.Draw(upright)
-        for index, mark in enumerate(lying.marks):
-            pill(draw, (right - 6, top + index * 30), mark, 18, MARK_FILL, anchor="rt")
+        for index, (mark, colour) in enumerate(lying.marks):
+            fill, ink = MARK_FILL, INK
+            if colour in RUNE_CHIT_COLORS:
+                fill = RUNE_CHIT_COLORS[colour][0]
+                ink = (30, 30, 30) if colour == "white" else INK
+            pill(draw, (right - 6, top + index * 30), mark, 18, fill, anchor="rt", ink=ink)
     if lying.buried:
         draw = ImageDraw.Draw(upright)
         pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",

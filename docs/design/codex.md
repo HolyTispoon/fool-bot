@@ -1619,10 +1619,13 @@ else the bot shows is ephemeral.
     so any number fits. A rune's colour is the card's that puts it there
     (`RUNE_COLORS`: Bloodburn's blood red, Corpse Catapult's corpse
     black), or the colour of the card it sits on for a kind not in the
-    table. A single rune alone -- a feather, a crumbling rune -- has no
-    number. Words stay only where a chit cannot say which: a feather
-    rune, on a unit whose own text never names one, keeps a "Feather"
-    tag, and a copy, a jail, a number and an oath stay tags
+    table -- a crumbling rune, Two Lives', white on Garus Rook and blue
+    on Justice Juggernaut. A single rune alone -- a feather, a crumbling
+    rune -- has no number. Words stay only where a chit cannot say
+    which: a feather rune, on a unit whose own text never names one,
+    keeps a "Feather" tag in its chit's green (the author, 2026-10-11:
+    a rune's tag is its rune's colour), and a copy, a jail, a number
+    and an oath stay purple tags
     (`rune_marks`). Time runes and +1/+1 and -1/-1 are the module's own
     chits, as before.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
