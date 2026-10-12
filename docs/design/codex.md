@@ -1616,6 +1616,44 @@ else the bot shows is ephemeral.
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
+  - **A named rune -- blood, growth, corpse, focus, a feather -- is a
+    swirl chit in its colour with its count**, top right under the
+    stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
+    2026-10-11). The chits are the module's blue swirl chit recoloured
+    as the board is drawn -- its blue the colour's and its yellow swirl
+    kept -- on white the white cards' own frame, #e8e9e5, and a lighter
+    gold swirl (`RUNE_CHIT_COLORS`; a white card's tag is true white,
+    `WHITE_TAG`), the number small enough that the swirl shows round
+    it -- one for each of
+    the six colours, so nothing is committed; the count is drawn on it,
+    so any number fits. A rune's colour is the card's that puts it there
+    (`RUNE_COLORS`: Bloodburn's blood red, Corpse Catapult's corpse
+    black), or the colour of the card it sits on for a kind not in the
+    table -- a crumbling rune, Two Lives', white on Garus Rook and blue
+    on Justice Juggernaut. A single rune alone -- a feather, a crumbling
+    rune -- has no number. Words stay only where a chit cannot say
+    which: a feather rune, on a unit whose own text never names one,
+    keeps a "Feather" tag, and a copy, a jail, a number and an oath
+    stay tags. **Every tag is the colour of the card it comes from**
+    (`label_colors`, the author, 2026-10-11), at `MARK_SIZE`, a little
+    smaller than it was: the feather green (Fairie Dragon), a copy
+    blue (Manufactured Truth, `COPY_FROM`), a jail's, a number's and an
+    oath's the card that holds it (Jail; Reputable Newsman's number
+    alone, "3"; Oathkeeper of Kor Mountain's "Play no cards" or "Skip
+    draw/discard", `OATH_TAGS`), a Graveyard's units by name in its
+    black, and the old purple for a neutral card. The tags are
+    `rune_marks`'.
+  - **Time runes are in the same column**, first, as the purple chit
+    of the card they are on (a fading card, Prynn, a card in the
+    future), with FUTURE in the waiting card's colour under them (the
+    author, 2026-10-11: the label beside its rune, and the rune where
+    every other is). The module's own time-rune chit, 1 to 6, is left
+    to a hero's summoning runes in the heroes' zone. +1/+1 and -1/-1
+    keep the module's chits over the right edge.
+  - **ARRIVED and DISABLED are grey tags of the same size as every
+    other** (`state_tags`, `STATE_FILL`), stacked at the foot of the
+    art against the left edge -- states rather than anything a card of
+    a colour put there, so neither carries a colour.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered
