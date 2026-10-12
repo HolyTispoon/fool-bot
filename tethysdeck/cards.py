@@ -90,7 +90,7 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     img.alpha_composite(corner, (42, 40))
     img.alpha_composite(corner.rotate(180), (W - 172, H - 190))
 
-    d.text((W // 2, 96), suit.upper(), font=font(40), fill=p["ink2"], anchor="mm")
+    d.text((W // 2, 98), suit.upper(), font=font(56), fill=p["ink2"], anchor="mm")
     if suit == "money":
         _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
     else:
@@ -105,7 +105,7 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
         d.text((W // 2, 862), rank.upper(), font=font(80), fill=p["ink"], anchor="mm")
     else:
         d.text((W // 2, 862), rank, font=font(120), fill=p["ink"], anchor="mm")
-    d.text((W // 2, 962), fate.upper(), font=font(24), fill=p["ink2"], anchor="mm")
+    d.text((W // 2, 966), fate.upper(), font=font(38), fill=p["ink2"], anchor="mm")
     return img
 
 

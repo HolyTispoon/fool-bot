@@ -150,7 +150,9 @@ when printed" (2026-10-11); a slate grey (`#5E5A68`) was still too
 light -- "make it even darker", the words and the frame both -- and it
 is a charcoal grey (`#33303A`) now, dark enough for paper and still a
 grey beside the violet. Doom's orange was
-never faint and stays.
+never faint and stays. Both words grew with it, on every card: the
+suit's name from 40 to 56 and the fate from 24 to 38, so they read at
+arm's length as well as up close (the author, 2026-10-11).
 
 ## The relief
 
