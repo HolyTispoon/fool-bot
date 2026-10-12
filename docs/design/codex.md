@@ -1655,9 +1655,15 @@ else the bot shows is ephemeral.
     to a hero's summoning runes in the heroes' zone. +1/+1 and -1/-1
     keep the module's chits over the right edge.
   - **ARRIVED and DISABLED are grey tags of the same size as every
-    other** (`state_tags`, `STATE_FILL`), stacked at the foot of the
-    art against the left edge -- states rather than anything a card of
-    a colour put there, so neither carries a colour.
+    other** (`STATE_FILL`), stacked at the foot of the art against the
+    left edge -- states rather than anything a card of a colour put
+    there, so neither carries a colour.
+  - **Every tag is one height, its words centred on their capitals**
+    (`pill`), and **the tags stand on one grid of rows** (`lay_tags`),
+    the lowest on the art's foot: the marks down the right edge, the
+    states up the left, each state in the lowest row no mark reaches
+    across to, never above `TAG_CEILING`, the cost's and the stats'
+    (the author, 2026-10-12: "Skip draw/discard" lay over DISABLED).
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

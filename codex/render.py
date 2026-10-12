@@ -347,6 +347,9 @@ MARK_SIZE = px(15)
 #: its rune chit, which is the white cards' frame.
 WHITE_TAG = (245, 245, 245)
 MARK_STEP = px(25)
+#: How far below a card's top edge its tags may stand: clear of the
+#: stats pill on the right and the cost on the left.
+TAG_CEILING = px(46)
 DESTROYED_FILL = (150, 40, 40)   # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
 #: brighter than the print's heart, so maroon stands apart from it --
@@ -740,16 +743,57 @@ def stat_pill(stats: "Stats") -> Image.Image:
     return whole
 
 
-def state_tags(canvas: Image.Image, card_left: int, bottom: int, states: Sequence[str]) -> None:
-    """ARRIVED and DISABLED, grey tags like every other on a card, stacked
-    up from `bottom` -- the foot of its art -- against the card's left
-    edge, opposite the damage chits, clear of the card's text (the
-    author, 2026-10-10 and 2026-10-11: the two together, one size)."""
+def tag_size(text: str) -> tuple[int, int]:
+    """A card's tag's width and height as `pill` draws it: its words'
+    width, a capital's height, and the padding round both."""
+    face, pad = font(MARK_SIZE), MARK_SIZE // 3
+    _, top, _, bottom = face.getbbox("H", anchor="ls")
+    return round(face.getlength(text)) + 2 * pad, bottom - top + 2 * pad
+
+
+def tag_at(draw: ImageDraw.ImageDraw, x: int, top: int, text: str, fill, ink,
+           leftward: bool = False) -> None:
+    """A card's tag with its box's top at `top`, from `x` -- its left
+    edge, or its right going `leftward`."""
+    face, pad = font(MARK_SIZE), MARK_SIZE // 3
+    cap = -face.getbbox("H", anchor="ls")[1]
+    pill(draw, (x - pad if leftward else x + pad, top + pad + cap), text, MARK_SIZE, fill,
+         anchor="rs" if leftward else "ls", edge=px(2), ink=ink)
+
+
+def lay_tags(canvas: Image.Image, card_left: int, column_right: int, column_top: int,
+             ceiling: int, foot: int, marks: Sequence[tuple[str, Optional[str]]],
+             states: Sequence[str]) -> None:
+    """
+    A card's tags on one grid of rows `MARK_STEP` apart, the lowest
+    standing on `foot`, the foot of its art: its marks down the right
+    edge from the first row at or below `column_top` (under its rune
+    chits) and not above `ceiling` (the stats); ARRIVED and DISABLED up
+    the left edge from the foot, opposite the damage chits, each in the
+    lowest row no mark reaches across to and not above `ceiling` (the
+    cost) -- or, with none free, the lowest left (the author,
+    2026-10-12: "Skip draw/discard" lay over DISABLED).
+    """
     draw = ImageDraw.Draw(canvas)
-    foot = bottom - MARK_SIZE // 3 - px(4)
-    for index, state in enumerate(reversed(states)):
-        pill(draw, (card_left + px(10), foot - index * MARK_STEP), state, MARK_SIZE, STATE_FILL,
-             anchor="lb", edge=px(2))
+    lowest = foot - px(4) - tag_size("H")[1]
+    # Rows counted up from the foot's, 0; a row's box top is
+    # `lowest - row * MARK_STEP`, and a negative row is under the foot.
+    row = (lowest - max(column_top, ceiling)) // MARK_STEP
+    reach: dict[int, int] = {}
+    for mark, colour in marks:
+        fill, ink = label_colors(colour)
+        tag_at(draw, column_right, lowest - row * MARK_STEP, mark, fill, ink, leftward=True)
+        reach[row] = column_right - tag_size(mark)[0]
+        row -= 1
+    highest = (lowest - ceiling) // MARK_STEP
+    taken: set[int] = set()
+    for state in reversed(states):
+        right = card_left + px(10) + tag_size(state)[0] + px(4)
+        free = [k for k in range(highest + 1)
+                if k not in taken and right <= reach.get(k, canvas.width)]
+        k = free[0] if free else min(set(range(len(states) + highest + 1)) - taken)
+        taken.add(k)
+        tag_at(draw, card_left + px(10), lowest - k * MARK_STEP, state, STATE_FILL, INK)
 
 
 # -- A card as it lies ---------------------------------------------------------
@@ -1008,15 +1052,10 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     for colour, count in named:
         lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top), leftward=True)
         top += NAMED_RUNE + px(4)
-    if marks:
-        draw = ImageDraw.Draw(upright)
-        for index, (mark, colour) in enumerate(marks):
-            fill, ink = label_colors(colour)
-            pill(draw, (right - px(6), top + index * MARK_STEP), mark, MARK_SIZE, fill, anchor="rt",
-                 ink=ink, edge=px(2))
     states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived)) if on]
-    if states:
-        state_tags(upright, side, margin + ART_FOOT, states)
+    if marks or states:
+        lay_tags(upright, side, right - px(6), top if named else margin, margin + TAG_CEILING,
+                 margin + ART_FOOT, marks, states)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
