@@ -2456,8 +2456,9 @@ per card saying what it needed ("needs tech II building", "needs River
 Montoya in play"), in the menu and under each card in the picture, was
 built and looked at, and taken out (the author, 2026-10-10).
 
-The caption counts the deck the picks join by tech level
-("Your deck: 12 cards: 10 tech 0, 2 tech I."), off `own_deck`.
+The caption is the picks alone ("Your pick: Iron Man, Eggship."): a
+line counting the deck by tech level was built and taken out (the
+author, 2026-10-12) -- **My deck** shows the deck the picks join.
 
 **The picker is narrowed by a Show menu** (the author, 2026-10-09: the
 whole codex at once is too much to pick from -- "need a way to filter
@@ -2469,9 +2470,8 @@ and rebuilds the cards' menu from that view alone
 (`codex_view_rows` over `TechOptions.codex`, so the picker reads the
 prompt's list, narrowed by the engine, and computes nothing). **The
 picks are kept across views**: a card picked under Tech I stays picked
-while Tech II is shown; the caption says which view is shown and lists
-every pick on its last line, under the deck's count ("Picked so far:
-Iron Man, Eggship."). It does not say which view is shown: the Show
+while Tech II is shown; the caption lists every pick ("Your pick: Iron
+Man, Eggship."). It does not say which view is shown: the Show
 menu above the cards already does (the author, 2026-10-11).
 Save is held to the bounds by the driver whatever view is shown. A change of
 view is the picker's own edit through the interaction's webhook and

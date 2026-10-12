@@ -806,7 +806,7 @@ class TurnEndTests(TurnTestCase):
         later = switched.view()
         self.assertEqual(later.picks, picked.picks)
         self.assertEqual(cards_pictured(switched), len(engine.codex_view_rows(codex, "tech2")))
-        self.assertIn("Picked so far: " + engine.catalog.name(first), switched.text())
+        self.assertIn("Your pick: " + engine.catalog.name(first), switched.text())
         second = later.menus[0].options[0].value
         both = (await self.table.choose(later, "Choose", second, who=self.table.waiting)).view()
         self.assertEqual(both.picks, [first, second])
@@ -835,21 +835,19 @@ class TurnEndTests(TurnTestCase):
         self.assertIn(slug, [option.value for option in once.view().menus[0].options])
         twice = await self.table.choose(once.view(), "Choose", slug, who=self.table.waiting)
         self.assertEqual(twice.view().picks, [slug, slug])
-        self.assertIn(f"Picked so far: {engine.catalog.name(slug)} ×2.", twice.text())
+        self.assertIn(f"Your pick: {engine.catalog.name(slug)} ×2.", twice.text())
         cleared = await self.table.press(twice.view(), "Clear", who=self.table.waiting)
         self.assertEqual(cleared.view().picks, [])
         self.assertTrue(cleared.view().menus)
 
-    async def test_the_picker_counts_the_deck(self) -> None:
-        """The ask is the count alone, and the caption counts the deck
-        the picks join, by tech level, the picks on the last line (the
-        author, 2026-10-10, 2026-10-11)."""
+    async def test_the_picker_captions_the_picks_alone(self) -> None:
+        """The ask is the count alone, and the caption the picks alone:
+        the deck's count was taken out, **My deck** shows it (the
+        author, 2026-10-10, 2026-10-11, 2026-10-12)."""
         await self.end_turn()
         picker = (await self.table.turn_button("tech", self.table.waiting)).view()
         self.assertEqual(picker.prompt.ask, "Tech 2 cards.")
-        deck, picks = picker.caption().split("\n")
-        self.assertTrue(deck.startswith("Your deck: "))
-        self.assertEqual(picks, "Picked so far: no cards.")
+        self.assertEqual(picker.caption(), "Your pick: no cards.")
         self.assertNotIn("Showing", picker.caption())
         self.assertTrue(all(option.description is None for menu in picker.menus for option in menu.options))
 

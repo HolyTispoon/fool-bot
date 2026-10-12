@@ -16,11 +16,10 @@ choice's owner** and built from the prompt's options alone:
   short. Then **Save tech**, **Tech nothing** where
   none is allowed (ten workers), **Clear** once anything is picked, and
   **My deck** -- what the picks are added to, sent as a message of its
-  own so the picker stays up; the caption counts the deck by tech
-  level. **The picks are kept across views**: a card picked in Tech I
-  stays picked while Tech II is shown, and the caption lists every
-  pick, a second copy as "×2". Which cards a view holds is the engine's
-  answer (`codex_view_rows`); the view computes nothing. Offered as the
+  own so the picker stays up. **The picks are kept across views**: a
+  card picked in Tech I stays picked while Tech II is shown, and the
+  caption -- "Your pick:" -- lists every pick, a second copy as "×2".
+  Which cards a view holds is the engine's answer (`codex_view_rows`); the view computes nothing. Offered as the
   follow-up to the owner's own Lock patrol, and reachable all through
   the opponent's turn from **Tech** on the turn message; each save
   replaces the last. Saved in the owner's own ready phase -- **Tech
@@ -63,8 +62,6 @@ MENU_ROWS = 3
 #: The picks in order, as the ask counts them.
 ORDINALS = ("first", "second", "third", "fourth")
 
-TECH_LEVELS = ("tech 0", "tech I", "tech II", "tech III")
-
 
 def picks_listed(picks) -> str:
     """The picks in words, for their owner's eyes, a card picked twice
@@ -75,26 +72,6 @@ def picks_listed(picks) -> str:
     return ", ".join(
         card_name(slug) + (f" ×{count}" if count > 1 else "") for slug, count in counted.items()
     )
-
-
-def deck_counted(engine, match, seat: int) -> str:
-    """`seat`'s deck counted by tech level, the spells apart -- "Your
-    deck: 12 cards: 10 tech 0, 2 tech I." -- what a tech choice is
-    added to (the author, 2026-10-10). Counted over `own_deck`, whose
-    cards are already the deck's: a count, no rule."""
-    cards = engine.catalog.cards
-    by_level: Counter = Counter()
-    spells = total = 0
-    for slug, copies in engine.own_deck(match, seat).cards:
-        total += copies
-        if cards[slug].is_spell:
-            spells += copies
-        else:
-            by_level[cards[slug].tech_level or 0] += copies
-    parts = [f"{by_level[level]} {TECH_LEVELS[level]}" for level in sorted(by_level)]
-    if spells:
-        parts.append(f"{spells} spell" + ("s" if spells > 1 else ""))
-    return f"Your deck: {total} cards: {', '.join(parts)}." if parts else "Your deck: no cards."
 
 
 class TechChoiceView(PanelView):
@@ -174,8 +151,7 @@ class TechChoiceView(PanelView):
         return f"All {self.prompt.options.maximum} cards chosen: Save tech, or Clear to start over"
 
     def caption(self) -> str:
-        deck = deck_counted(self.cog.engine, self.match, self.seat)
-        return f"{deck}\nPicked so far: {picks_listed(self.picks)}."
+        return f"Your pick: {picks_listed(self.picks)}."
 
     def chooser(self, menu: discord.ui.Select):
         async def choose(interaction: discord.Interaction) -> None:
