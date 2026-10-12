@@ -57,6 +57,17 @@ PANEL_HAND_KINDS = (
     PromptKind.APPEL_STOMP_TOP,
     PromptKind.STASH,
 )
+#: The prompts whose panel is the hand message -- pictured with the
+#: asked player's hand -- and so opens on the turn's lines
+#: (`with_turn_log`): the main phase, `PANEL_HAND_KINDS` and the tech
+#: confirmation, whose hand comes before its picks. No other ephemeral
+#: message carries the lines (the author, 2026-10-12: "only in the hand
+#: message and the public turn message").
+TURN_LOG_KINDS = (
+    PromptKind.MAIN_ACTION,
+    *PANEL_HAND_KINDS,
+    PromptKind.TECH_CONFIRM,
+)
 #: The prompts whose panel is pictured with a side of the board rather
 #: than the hand (the author, 2026-10-09): what is chosen from is on the
 #: table, the opponent's side as a rule, both sides stacked for a target
@@ -173,17 +184,23 @@ class TurnsMixin:
 
     # -- The panel -------------------------------------------------------------
 
-    def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "") -> str:
+    def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "",
+                      hand: Optional[bool] = None) -> str:
         """The panel's text: the model's ask, rendered, what it tells
         the asked player alone (`PendingPrompt.told` -- the cards an
         effect discarded from their hand), what the view adds beneath
-        it, and that it is the clicker's alone."""
+        it, and that it is the clicker's alone -- under the turn's lines
+        so far (`with_turn_log`) where the panel pictures the hand:
+        `hand`, or where not given, the prompt's kind (`TURN_LOG_KINDS`)."""
         lines = [self.render_text(prompt.ask, game)]
         lines.extend(self.render_text(line, game) for line in prompt.told)
         if extra:
             lines.append(extra)
         lines.append(PANEL_NOTE)
-        return "\n".join(lines)
+        text = "\n".join(lines)
+        if hand is None:
+            hand = prompt.kind in TURN_LOG_KINDS
+        return self.with_turn_log(game, text) if hand else text
 
     async def panel_parts(self, game: CodexGame, match, prompt: PendingPrompt,
                           note: str = "", gate: bool = False,
@@ -199,6 +216,9 @@ class TurnsMixin:
         if callable(caption):
             extra.append(caption())
         private = private_choices(prompt)
+        # Whether the picture is the hand: the turn's lines go over it.
+        hand = not private and (prompt.kind in TURN_LOG_KINDS
+                                or (gate and prompt.kind not in PANEL_SIDE_KINDS))
         if private:
             files = [await self.choices_file(private)]
         elif prompt.kind is PromptKind.MAIN_ACTION:
@@ -223,7 +243,7 @@ class TurnsMixin:
         else:
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
-        return self.panel_caption(game, prompt, "\n".join(extra)), files, view
+        return self.panel_caption(game, prompt, "\n".join(extra), hand=hand), files, view
 
     async def choices_file(self, slugs: list[str]) -> discord.File:
         """The cards a private target offers, pictured as a hand is, off
@@ -255,7 +275,7 @@ class TurnsMixin:
 
     async def show_panel(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int, *, edit: bool, standing: bool = False, note: str = "",
-                         replace: bool = False, open_tech: bool = False) -> None:
+                         open_tech: bool = False) -> None:
         """
         Put up what `seat` is asked: **made afresh** as an ephemeral
         message (`edit=False` -- My hand, Tech, `/codex resume`) -- for a
@@ -263,86 +283,65 @@ class TurnsMixin:
         pictured with **Tech** alone under it (`TechGateView`) until it
         is opened, or the picker at once where **Tech** was pressed
         (`open_tech`); saved picks open on their confirmation either way
-        (the author, 2026-10-10) -- in
-        place of the panel clicked (`edit=True`), or **in its stead,
-        under the turn message just posted again** (`replace=True`,
-        `put_panel`). The cog never looks for an old panel: an ephemeral
-        message dies with the client's session, and every entry point
-        makes a new one.
+        (the author, 2026-10-10) -- or **in place of the panel clicked**
+        (`edit=True`, `put_panel`). The cog never looks for an old
+        panel: an ephemeral message dies with the client's session, and
+        every entry point makes a new one.
         """
         prompt = self.prompt_for(game, match, seat, standing)
         if prompt is None:
-            if edit or replace:
-                await self.put_panel(interaction, NOTHING_ASKED, edit=edit, replace=replace)
+            if edit:
+                await self.put_panel(interaction, NOTHING_ASKED, edit=True)
             elif owed_step(self.engine, game, match) is not None:
                 await send_ephemeral(interaction, STEP_OWED)
             else:
                 await self.send_hand(interaction, game, match, seat)
             return
-        fresh = not edit and not replace
-        gate = fresh and not standing and not open_tech and prompt.kind is PromptKind.TECH_CHOICE
+        gate = not edit and not standing and not open_tech and prompt.kind is PromptKind.TECH_CHOICE
         started = time.perf_counter()
         content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await self.put_panel(interaction, content, files, view, edit=edit, replace=replace)
+        await self.put_panel(interaction, content, files, view, edit=edit)
         LOGGER.info(
             "Codex game #%s: the panel's picture drawn in %d ms (%d KB); the panel %s in %d ms",
             game.game_number, drawn, pictures_size(files) // 1024,
-            "sent afresh" if replace else "edited in place" if edit else "sent",
+            "edited in place" if edit else "sent",
             elapsed_ms(started),
         )
 
     async def put_panel(self, interaction: discord.Interaction, content: str,
                         files: Optional[list[discord.File]] = None,
                         view: Optional[discord.ui.View] = None, *,
-                        edit: bool, replace: bool = False) -> None:
+                        edit: bool) -> None:
         """
-        The panel's one write, three ways. `replace`: the click was
-        deferred and the turn message has just been posted again at the
-        foot of the channel, so the panel is **sent afresh under it**, a
-        follow-up of the click's, and the panel clicked deleted -- the
-        interaction's own message, which is the one way an ephemeral
-        message can be deleted. Both go through the click's webhook. An
-        ephemeral message is always drawn as an answer to something --
-        Discord ties every message an interaction makes to it -- so the
-        new panel is drawn as a reply to the one it replaces, never to
-        the turn message. `edit`: in place of the panel clicked.
-        Otherwise a new ephemeral message, the click's answer or its
-        follow-up.
+        The panel's one write, two ways, both through the click's own
+        webhook and none through the channel's bucket. `edit`: in place
+        of the panel clicked -- the click's response, or, on a click
+        deferred while the turn message was brought up to date, its
+        original message (`edit_clicked`). Otherwise a new ephemeral
+        message, the click's answer or its follow-up.
         """
         files = list(files or [])
-        if edit and not replace:
+        if edit:
             await edit_clicked(
                 interaction, content=content, attachments=kept_pictures(files, interaction.message), view=view,
             )
             return
-        if replace:
-            # Deferred first, so the message deleted below is the panel
-            # clicked and never the answer about to be sent.
-            await acknowledge(interaction)
         kwargs: dict = {"ephemeral": True}
         if files:
             kwargs["files"] = files
         if view is not None:
             kwargs["view"] = view
         await send_answer(interaction, content, **kwargs)
-        if replace:
-            try:
-                await interaction.delete_original_response()
-            except discord.HTTPException as error:
-                LOGGER.warning("Could not delete a Codex panel: %s", error)
 
     async def answer_panel(self, interaction: discord.Interaction, game: CodexGame,
                            seat: int, result: GameResult,
-                           answered: Optional[PromptKind] = None,
-                           replace: bool = False) -> None:
+                           answered: Optional[PromptKind] = None) -> None:
         """
         The panel after its own click, with what is asked next: the next
         action, the defender, the patrol lock, the turn's actions once
-        the tech is confirmed -- **edited in place**, or, where the click
-        put something in public (`replace`), sent afresh under the turn
-        message posted again and the panel clicked deleted (`put_panel`).
+        the tech is confirmed -- **edited in place** (`put_panel`).
         A tech save stays on the picker, saved -- or, in a test game,
         where the save is the ready phase's and the turn begins on it,
         becomes the turn's actions. The Lock that ends the turn becomes
@@ -355,16 +354,14 @@ class TurnsMixin:
         prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
         standing = next((one for one in result.standing if one.asked_player == seat), None)
         if prompt is not None:
-            await self.show_panel(interaction, game, match, seat, edit=True, replace=replace)
+            await self.show_panel(interaction, game, match, seat, edit=True)
             return
         if standing is not None and answered is PromptKind.TECH_CHOICE:
             await self.show_panel(interaction, game, match, seat, edit=True, standing=True,
-                                  note="**Saved.** You may change it until your turn begins.",
-                                  replace=replace)
+                                  note="**Saved.** You may change it until your turn begins.")
             return
         if standing is not None:
-            await self.show_panel(interaction, game, match, seat, edit=True, standing=True,
-                                  replace=replace)
+            await self.show_panel(interaction, game, match, seat, edit=True, standing=True)
             return
         if answered is PromptKind.PATROL and match is not None and match.active != seat and match.winner is None:
             closing = self.turn_over_text(game, match, seat, result.prompt)
@@ -372,7 +369,7 @@ class TurnsMixin:
             closing = "The game is over."
         else:
             closing = NOTHING_ASKED
-        await self.put_panel(interaction, closing, edit=True, replace=replace)
+        await self.put_panel(interaction, closing, edit=True)
 
     def turn_over_text(self, game: CodexGame, match, seat: int,
                        prompt: Optional[PendingPrompt]) -> str:
@@ -391,8 +388,8 @@ class TurnsMixin:
     def goes_public(self, result: GameResult) -> bool:
         """Whether `present` puts anything in the channel for `result`:
         the turn ended, a base fell, or something was said or moved. A
-        click that does is answered with its panel under it
-        (`answer_panel`'s `replace`)."""
+        click that does is deferred while the turn message is brought up
+        to date, and its panel edited after (`TurnPanelView.act`)."""
         match = result.match
         if match is not None and (split_at_turn_end(result)[3] or match.winner is not None):
             return True
@@ -401,9 +398,9 @@ class TurnsMixin:
     async def present(self, game: CodexGame, result: GameResult) -> None:
         """
         **The whole of the Discord side of a result.** What it said joins
-        the turn's lines and the turn message is posted again at the foot
-        of the channel with them and the board, the one it replaces
-        deleted -- or, where the model's end-of-turn step ran,
+        the turn's lines and the turn message is edited with them and the
+        board, through the gate (`refresh_match_image`) -- or, where the
+        model's end-of-turn step ran,
         the turn's message stands with
         its last lines and board and the next turn's goes up; or, where
         a base fell, the game's last line. Hidden information never
@@ -423,7 +420,7 @@ class TurnsMixin:
             await self.finish_game(game, result)
             return
         if result.lines or result.board_changed:
-            await self.repost_turn_message(game, match)
+            await self.refresh_match_image(game)
 
     async def stand_turn_message(self, channel, game: CodexGame, message_id: int,
                                  png: bytes, text: Optional[str]) -> None:
@@ -548,8 +545,8 @@ class TurnsMixin:
                                  seat: int) -> None:
         """
         The active player's own undo: the turn's snapshot restored, the
-        turn message posted again with its first lines and "undone to the
-        start of the turn" and the restored board, the panel sent under it
+        turn message edited with its first lines and "undone to the start
+        of the turn" and the restored board, the panel edited in place
         from the new prompt. Nobody's consent is asked.
         """
         await self._own_undo(interaction, game, seat, lambda: self.service.undo_to_turn_start(game.game_id))
@@ -560,9 +557,9 @@ class TurnsMixin:
         The fine undo, the active player's own as the turn's start is:
         the match replayed to before one of this turn's actions
         (`GameService.undo_to`, a point `undo_choices` offered), the turn
-        message posted again with its first lines, the kept actions'
-        lines and the undone line, and the restored board, the panel
-        sent under it. Refused in the model's words for a point no
+        message edited with its first lines, the kept actions' lines and
+        the undone line, and the restored board, the panel edited in
+        place. Refused in the model's words for a point no
         longer offered.
         """
         await self._own_undo(interaction, game, seat, lambda: self.service.undo_to(game.game_id, index, of=of))
@@ -585,8 +582,8 @@ class TurnsMixin:
         self.turn_lines[game.game_id] = [*head, *result.lines]
         # The acknowledgement goes out beside the board, not before it
         # (`TurnPanelView.act`).
-        await asyncio.gather(acknowledge(interaction), self.repost_turn_message(game, restored))
-        await self.show_panel(interaction, game, restored, seat, edit=True, replace=True)
+        await asyncio.gather(acknowledge(interaction), self.refresh_match_image(game))
+        await self.show_panel(interaction, game, restored, seat, edit=True)
 
     async def ask_undo_to_previous_turn(self, interaction: discord.Interaction, game: CodexGame,
                                         seat: int, turn: int) -> None:

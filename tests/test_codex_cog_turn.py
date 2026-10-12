@@ -1,12 +1,11 @@
 """
 A Codex turn through the cog, with Discord faked (docs/codex-bot.md,
-step 4): the active player's panel, opened from **My hand**; the turn
-message posted again at the foot of the channel once per action, the old
-one deleted, and the panel sent afresh under it, the one clicked deleted
--- or, where a click puts nothing in public, the panel edited in place;
-the turn's end -- the old message standing without its buttons, the new
-one posted, the finished turn pinned, the tech picker sent to the
-player whose turn ended; the
+step 4): the active player's panel, opened from **My hand**, with the
+turn's lines over it; the turn message edited in place through the gate
+once per action, and the panel edited in place; the turn's end -- the
+old message standing without its buttons, the new one posted, the
+finished turn pinned, the panel of the player whose turn ended become
+the tech picker; the
 tech choice answered while the other player's panel is open; a stale
 panel refused with the driver's words; and the two undos.
 
@@ -28,9 +27,10 @@ import discord
 from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.game import GameStatus
-from codex.prompts import PromptKind
+from codex.prompts import PendingPrompt, PromptKind
 from codex_cog_fakes import Table, find_select
 from codex_positions import hero_in_play, put
+from cogs.codex.core import TURN_LOG_HEADING
 from cogs.codex_helpers import card_name
 from cogs.codex_views.turn import UNDO_MENU
 from cogs.codex_views import (
@@ -52,9 +52,9 @@ CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
 
 
 #: A click that put something in public, on the click's own webhook:
-#: deferred, the panel sent afresh under the turn message, and the panel
-#: clicked deleted (`TurnsMixin.put_panel`).
-PANEL_REPLACED = ["response.defer", "followup.send", "original.delete"]
+#: deferred while the turn message is brought up to date, then the
+#: panel clicked edited in place (`TurnsMixin.put_panel`).
+PANEL_EDITED = ["response.defer", "original.edit"]
 
 
 def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
@@ -62,10 +62,10 @@ def channel_requests(table: Table, mark: int) -> list[tuple[str, int]]:
             if kind in CHANNEL_REQUESTS]
 
 
-def reposted(table: Table, old: int) -> list[tuple[str, int]]:
-    """The turn message posted again and the one it replaces deleted:
-    the two requests of the channel's an action spends."""
-    return [("send", table.game.turn_message_id), ("delete", old)]
+def edited(table: Table, message_id: int) -> list[tuple[str, int]]:
+    """The turn message edited in place through the gate: the one
+    request of the channel's an action spends."""
+    return [("edit", message_id)]
 
 
 def playable(view) -> list[str]:
@@ -154,6 +154,59 @@ class PanelTests(TurnTestCase):
         self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
+    async def test_the_turns_lines_are_over_the_panel_and_the_hand(self) -> None:
+        """The turn's lines so far, quoted, at the head of the panel and
+        of the other player's hand (the author, 2026-10-12: "add the
+        turn log to the ephemeral message with the hand") -- the turn
+        message's lines, so what the opponent did reads beside the hand."""
+        _, view = await self.table.panel()
+        call = await self.table.press(view, ("play", playable(view)[0]))
+        self.assertNothingWentWrong(call)
+        lines = [self.table.cog.render_text(line, self.game)
+                 for line in self.table.cog.turn_lines[self.game.game_id]]
+        self.assertTrue(any("plays" in line for line in lines), lines)
+        log = "\n".join([TURN_LOG_HEADING, *("> " + line for line in lines)])
+        self.assertTrue(call.last("original.edit")[2]["content"].startswith(log + "\n\n"))
+        theirs = await self.table.turn_button("hand", self.table.waiting)
+        text = theirs.last()[1][0]
+        self.assertTrue(text.startswith(log + "\n\n"), text)
+        self.assertIn("Your hand", text.partition("\n\n")[2])
+
+    async def test_no_other_ephemeral_message_carries_the_turns_lines(self) -> None:
+        """Only the hand message carries the turn's lines (the author,
+        2026-10-12: "Not in any other ephemeral messages"): a panel
+        pictured with a side of the board -- the defender -- does not,
+        nor the deck or the codex opened beside the hand."""
+        self.assertTrue(self.table.cog.turn_lines.get(self.game.game_id))
+        _, view = await self.table.panel()
+        for which in ("My deck", "Codex"):
+            call = await self.table.press(view, which)
+            self.assertNothingWentWrong(call)
+            self.assertNotIn(TURN_LOG_HEADING, call.text(), which)
+        defender = PendingPrompt(PromptKind.CHOOSE_DEFENDER, "Choose a defender.", self.table.match.active)
+        self.assertNotIn(TURN_LOG_HEADING, self.table.cog.panel_caption(self.game, defender))
+        hand = PendingPrompt(PromptKind.MAIN_ACTION, "Your main phase.", self.table.match.active)
+        self.assertIn(TURN_LOG_HEADING, self.table.cog.panel_caption(self.game, hand))
+
+    async def test_a_long_turn_folds_its_earliest_lines_on_the_panel(self) -> None:
+        """Past Discord's 2000 characters the earliest lines fold into
+        "and n more", as on the turn message; the panel's own words are
+        never cut. Where this process has not seen the turn's lines --
+        after a restart -- the panel is its own words alone."""
+        cog = self.table.cog
+        cog.turn_lines[self.game.game_id] = [f"Line {n} " + "x" * 90 for n in range(40)]
+        call, _ = await self.table.panel()
+        text = call.last()[2].get("content") or call.last()[1][0]
+        self.assertLessEqual(len(text), 2000)
+        self.assertIn("more*", text)
+        self.assertIn("Line 39 ", text)
+        self.assertNotIn("Line 0 ", text)
+        self.assertTrue(text.endswith("*Only you can see this.*"), text[-80:])
+        cog.turn_lines.pop(self.game.game_id)
+        call, _ = await self.table.panel()
+        text = call.last()[2].get("content") or call.last()[1][0]
+        self.assertNotIn(TURN_LOG_HEADING, text)
+
     async def test_my_deck_answers_beside_the_hand_the_panel_and_the_tech_picker(self) -> None:
         """**My deck** -- on the turn message, under the other player's
         hand, on the panel, on the tech picker and its confirmation --
@@ -216,48 +269,39 @@ class PanelTests(TurnTestCase):
         self.assertNotEqual(call.last()[2]["view"].seat, self.table.match.active)
         self.assertEqual(channel_requests(self.table, mark), [])
 
-    async def test_an_action_reposts_the_turn_message_and_the_panel_under_it(self) -> None:
-        """**The count per click**: the turn message posted again at the
-        foot of the channel and the old one deleted -- two of the
-        channel's -- and, on the click's own webhook, the panel sent
-        afresh under it and the one clicked deleted. The new message
-        carries the buttons and pings nobody."""
+    async def test_an_action_edits_the_turn_message_and_the_panel_in_place(self) -> None:
+        """**The count per click**: the turn message edited in place
+        through the gate -- one of the channel's -- and, on the click's
+        own webhook, the defer and the panel clicked edited in place
+        (the author, 2026-10-12, going back on posting both again). The
+        message keeps its buttons."""
         _, view = await self.table.panel()
         old = self.game.turn_message_id
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
-        self.assertTrue(call.last("followup.send")[2]["ephemeral"])
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         self.assertIsInstance(call.view(), TurnPanelView)
-        self.assertNotEqual(self.game.turn_message_id, old)
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
-        posted = self.table.game_channel.since(mark)[0][2]
-        self.assertIsInstance(posted["view"], TurnMessageView)
-        self.assertFalse(posted["allowed_mentions"].users)
-        # The previous turn's message is still the one the undo restores.
-        self.assertNotEqual(self.game.previous_turn_message_id, old)
+        self.assertEqual(self.game.turn_message_id, old)
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, old))
+        written = self.table.game_channel.since(mark)[0][2]
+        self.assertIsInstance(written["view"], TurnMessageView)
+        self.assertIn("plays", written["content"])
 
-    async def test_what_an_actions_pictures_cost_is_logged(self) -> None:
-        """One INFO line per picture a click puts up -- the board posted,
-        the panel sent afresh under it -- with what each cost to draw
-        and to send; the console's answer to "slow" (docs/design/codex.md,
-        "The board on Discord")."""
+    async def test_what_an_actions_panel_costs_is_logged(self) -> None:
+        """One INFO line for the panel a click puts up, with what its
+        picture cost to draw and the panel to send; the console's answer
+        to "slow" (docs/design/codex.md, "The board on Discord")."""
         _, view = await self.table.panel()
         with self.assertLogs("cogs.codex", level="INFO") as logs:
             call = await self.table.press(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
         lines = [line for line in logs.output if "Codex game #" in line]
-        self.assertEqual(len(lines), 2)
-        self.assertRegex(lines[0], r"the board drawn in \d+ ms \(\d+ KB\), posted in \d+ ms$")
+        self.assertEqual(len(lines), 1)
         self.assertRegex(
-            lines[1],
-            r"the panel's picture drawn in \d+ ms \(\d+ KB\); the panel sent afresh in \d+ ms$",
+            lines[0],
+            r"the panel's picture drawn in \d+ ms \(\d+ KB\); the panel edited in place in \d+ ms$",
         )
-        # A choice that moves nothing public: the panel edited in place.
-        with self.assertLogs("cogs.codex", level="INFO") as logs:
-            await self.table.press(call.view(), "End main phase")
-        self.assertRegex(logs.output[-1], r"; the panel edited in place in \d+ ms$")
 
     async def test_a_choice_that_changes_nothing_public_spends_nothing(self) -> None:
         """Ending the main phase moves nothing a board draws and says
@@ -513,7 +557,7 @@ class BusyGameTests(TurnTestCase):
         before, call = await self.table.press_while_busy(view, ("play", playable(view)[0]))
         self.assertNothingWentWrong(call)
         self.assertEqual(before, ["response.defer"])
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         self.assertTrue(channel_requests(self.table, mark))
 
     async def test_my_deck_is_a_follow_up(self) -> None:
@@ -552,16 +596,17 @@ class TurnEndTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         lock = await self.end_turn()
 
-        # The panel becomes the tech picker, with no note above it,
-        # sent under the new turn message to them alone.
+        # The panel becomes the tech picker, with no note above it and
+        # no turn lines -- it pictures the codex, not the hand -- edited
+        # in place.
         kinds = [answer[0] for answer in lock.answers]
-        self.assertEqual(kinds, PANEL_REPLACED)
-        _, args, followup = lock.last("followup.send")
-        self.assertTrue(followup["ephemeral"])
-        self.assertNotIn("turn is over", args[0])
-        self.assertTrue(args[0].startswith("Tech "), args[0])
-        self.assertIsInstance(followup["view"], TechChoiceView)
-        self.assertEqual(followup["view"].seat, self.game.seat_of(ending.id))
+        self.assertEqual(kinds, PANEL_EDITED)
+        edit = lock.last("original.edit")[2]
+        caption = edit["content"]
+        self.assertNotIn("turn is over", caption)
+        self.assertTrue(caption.startswith("Tech "), caption)
+        self.assertIsInstance(edit["view"], TechChoiceView)
+        self.assertEqual(edit["view"].seat, self.game.seat_of(ending.id))
 
         # The channel: the old message's last edit, without its buttons,
         # standing as the turn's summary and pinned; then the new one
@@ -648,9 +693,9 @@ class TurnEndTests(TurnTestCase):
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)
-        self.assertEqual([answer[0] for answer in confirmed.answers], PANEL_REPLACED)
-        panel = confirmed.last("followup.send")[2]
-        self.assertTrue(panel["files"][0].filename.startswith("codex-hand-"))
+        self.assertEqual([answer[0] for answer in confirmed.answers], PANEL_EDITED)
+        panel = confirmed.last("original.edit")[2]
+        self.assertTrue(panel["attachments"][0].filename.startswith("codex-hand-"))
         self.assertIsInstance(panel["view"], TurnPanelView)
         self.assertEqual(self.table.match.phase, "main")
 
@@ -666,8 +711,8 @@ class TurnEndTests(TurnTestCase):
         picked = await pick_tech(self.table, changed.view())
         saved = await self.table.press(picked.view(), "Save tech")
         self.assertNothingWentWrong(saved)
-        self.assertEqual([answer[0] for answer in saved.answers], PANEL_REPLACED)
-        self.assertIsInstance(saved.last("followup.send")[2]["view"], TurnPanelView)
+        self.assertEqual([answer[0] for answer in saved.answers], PANEL_EDITED)
+        self.assertIsInstance(saved.last("original.edit")[2]["view"], TurnPanelView)
         self.assertEqual(self.table.match.phase, "main")
         self.assertIn("2 tech cards", self.table.game_channel.texts[self.game.turn_message_id])
 
@@ -688,7 +733,7 @@ class TurnEndTests(TurnTestCase):
         # The active player's panel, opened before, still acts.
         played = await self.table.press(active_panel, ("play", playable(active_panel)[0]))
         self.assertNothingWentWrong(played)
-        self.assertEqual([answer[0] for answer in played.answers], PANEL_REPLACED)
+        self.assertEqual([answer[0] for answer in played.answers], PANEL_EDITED)
 
     async def test_the_tech_picker_is_narrowed_by_its_show_menu(self) -> None:
         """
@@ -890,7 +935,7 @@ class WholeGameTests(TurnTestCase):
                     allowed = budget["end"] if match.winner else budget["turn"] if match.turn != turn else budget["click"]
                     self.assertLessEqual(spent, allowed)
                     kinds = [answer[0] for answer in call.answers]
-                    self.assertEqual(kinds == PANEL_REPLACED, spent > 0, kinds)
+                    self.assertEqual(kinds == PANEL_EDITED, spent > 0, kinds)
                     if match.turn != turn:
                         # The tech picker the Lock sent: its owner's
                         # clicks, each held to the click's budget.
@@ -998,7 +1043,7 @@ class EffectPanelTests(TurnTestCase):
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
         # Pictured with the opponent's side of the board, not the hand
         # (the author, 2026-10-09).
-        (picture,) = call.last("followup.send")[2]["files"]
+        (picture,) = call.last("original.edit")[2]["attachments"]
         self.assertTrue(picture.filename.startswith("codex-side-"), picture.filename)
         # The ask says what the part does; the buttons are the targets.
         self.assertIn("deal 1 damage to a patroller", call.text().lower())
@@ -1009,7 +1054,7 @@ class EffectPanelTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertIs(call.view().prompt.kind, PromptKind.MAIN_ACTION)
         self.assertEqual(self.table.match.player(other).instance(first.id).damage, 1)
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, old))
 
     async def test_targets_on_both_sides_picture_both_sides(self) -> None:
         """Wither may take either side's unit or hero: the panel pictures
@@ -1027,7 +1072,7 @@ class EffectPanelTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertIs(call.view().prompt.kind, PromptKind.TARGET)
         self.assertEqual({row.seat for row in call.view().prompt.options.targets}, {seat, other})
-        (picture,) = call.last("followup.send")[2]["files"]
+        (picture,) = call.last("original.edit")[2]["attachments"]
         self.assertTrue(picture.filename.startswith("codex-sides-"), picture.filename)
 
     async def test_a_spell_is_cancelled_from_its_targets(self) -> None:
@@ -1065,9 +1110,10 @@ class EffectPanelTests(TurnTestCase):
         asking = call.view()
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
         self.assertTrue(all(row.ref.startswith("hand:") for row in asking.prompt.options.targets))
-        (picture,) = call.last("followup.send")[2]["files"]
+        (picture,) = call.last("original.edit")[2]["attachments"]
         self.assertTrue(picture.filename.startswith("codex-choices-"), picture.filename)
-        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
+        # An edit of the panel clicked, which is ephemeral: never the channel.
+        self.assertEqual(call.answers[0][0], "response.defer")
         # The channel heard only the cost and the draw, never the hand.
         channel = [kwargs.get("content") or "" for kind, _, kwargs in self.table.game_channel.requests[mark:]]
         for text in channel:
@@ -1244,13 +1290,13 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         second = 2 if first == 1 else 1
         side = {seat: table.match.player(seat).specs[0].title() for seat in (1, 2)}
 
-        # Turn 1: the Lock closes the panel -- sent under the new turn
-        # message with nothing to press; no picker follows it.
+        # Turn 1: the Lock closes the panel -- edited in place with
+        # nothing to press; no picker follows it.
         _, view = await table.panel(table.basher)
         self.assertEqual(view.seat, first)
         ended = await self.lock(view)
-        self.assertEqual([answer[0] for answer in ended.answers], PANEL_REPLACED)
-        self.assertNotIn("view", ended.last("followup.send")[2])
+        self.assertEqual([answer[0] for answer in ended.answers], PANEL_EDITED)
+        self.assertIsNone(ended.last("original.edit")[2]["view"])
         self.assertIn(f"{side[first]}'s turn is over", ended.text())
         self.assertIn(f"**My hand** opens {side[second]}'s turn.", ended.text())
         self.assertTrue(table.match.player(first).tech_owed)
@@ -1296,8 +1342,8 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         text = table.game_channel.texts[game.turn_message_id]
         self.assertIn("2 tech cards", text)
         self.assertNotIn("waits on", text)
-        self.assertEqual([answer[0] for answer in saved.answers], PANEL_REPLACED)
-        self.assertEqual(channel_requests(table, mark), reposted(table, old))
+        self.assertEqual([answer[0] for answer in saved.answers], PANEL_EDITED)
+        self.assertEqual(channel_requests(table, mark), edited(table, old))
 
 
 class GameOverTests(TurnTestCase):
@@ -1331,7 +1377,7 @@ class GameOverTests(TurnTestCase):
         self.assertIs(self.game.status, GameStatus.FINISHED)
         self.assertEqual(self.game.final_message_id, requests[2][1])
         # The panel closes under the winner's line.
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         self.assertEqual(call.text(), "The game is over.")
 
 
@@ -1351,14 +1397,14 @@ class UndoTests(TurnTestCase):
         # The position, the panel and the turn message, all restored:
         # the message posted again, the panel sent under it.
         self.assertEqual(history.position(self.table.match), start)
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         panel = call.view()
         self.assertIsInstance(panel, TurnPanelView)
         self.assertEqual(
             [row.slug for row in panel.prompt.options.hand],
             self.table.match.active_player.hand,
         )
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, played))
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, played))
         self.assertEqual(
             self.table.game_channel.texts[self.game.turn_message_id],
             before_text + "\n" + history.UNDONE,
@@ -1581,9 +1627,9 @@ class UndoTests(TurnTestCase):
         call = await self.table.choose(undo, UNDO_MENU, option.value)
         self.assertNothingWentWrong(call)
         self.assertEqual(history.position(self.table.match), after_hire)
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
         self.assertIsInstance(call.view(), TurnPanelView)
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, played))
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, played))
         self.assertEqual(
             self.table.game_channel.texts[self.game.turn_message_id],
             hired_text + "\n" + history.undone_to(2),
@@ -1649,9 +1695,10 @@ class CarrionCurseTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(asking.prompt.kind, PromptKind.TARGET)
         self.assertEqual(asking.prompt.options.shown, ("now", "argonaut", "undo"))
         self.assertEqual({row.ref for row in asking.prompt.options.targets}, {"hand:now", "hand:undo"})
-        (picture,) = call.last("followup.send")[2]["files"]
+        (picture,) = call.last("original.edit")[2]["attachments"]
         self.assertTrue(picture.filename.startswith("codex-choices-"), picture.filename)
-        self.assertTrue(call.last("followup.send")[2].get("ephemeral"))
+        # An edit of the panel clicked, which is ephemeral: never the channel.
+        self.assertEqual(call.answers[0][0], "response.defer")
         channel = [kwargs.get("content") or "" for _, _, kwargs in self.table.game_channel.requests[mark:]]
         for text in channel:
             for name in ("Now", "Argonaut", "Undo"):
@@ -1841,8 +1888,8 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         old = self.game.turn_message_id
         mark = len(self.table.game_channel.requests)
         call = await self.table.press(view, ("summon", first))
-        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_EDITED)
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, old))
         self.assertTrue(self.table.match.player(seat).hero_of(first).in_play)
         after = [item for item in call.view().children if (item.choice or ("",))[0] == "summon"]
         self.assertTrue(all(item.disabled for item in after))
@@ -1889,6 +1936,6 @@ class StandardGamePanelTests(unittest.IsolatedAsyncioTestCase):
         old = self.game.turn_message_id
         mark = len(self.table.game_channel.requests)
         chosen = await self.table.press(choice, ("spec", "tech2", specs[1]))
-        self.assertEqual([answer[0] for answer in chosen.answers], PANEL_REPLACED)
-        self.assertEqual(channel_requests(self.table, mark), reposted(self.table, old))
+        self.assertEqual([answer[0] for answer in chosen.answers], PANEL_EDITED)
+        self.assertEqual(channel_requests(self.table, mark), edited(self.table, old))
         self.assertEqual(self.table.match.player(seat).tech2_spec, specs[1])
