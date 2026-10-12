@@ -2253,7 +2253,11 @@ too, asked with `gate` for the two kinds a turn may open on
   left"). Vir's three deck
   abilities say "your draw pile is empty" rather than "no target", and
   his middle one, on a top card that can't be played, says that much
-  and not which card or why -- the card is hidden. The panel's picture
+  and not which card or why -- the card is hidden. An ability that
+  grants stealth is refused while its card already has it -- "already
+  has stealth" -- since stealth does not stack and Calamandra's second
+  use would be two cards discarded for nothing (the author,
+  2026-10-12). The panel's picture
   stays the hand.
 - **Copies of one card are numbered, on the button and on the board**
   (the author, 2026-10-11, over two buttons both reading "Your Bone

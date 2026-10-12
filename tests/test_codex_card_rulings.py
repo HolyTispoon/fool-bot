@@ -918,6 +918,26 @@ class SpellAndTriggerRulingTests(unittest.TestCase):
         self.assertTrue(any(card.slug == "predator_tiger" for card in match.player(1).play))
         self.assertEqual(match.player(1).codex["predator_tiger"], 1)
 
+    def test_calamandra_moss_stealth_does_not_stack(self) -> None:
+        """Her level 1 ability buys stealth alone, and stealth does not
+        stack: once she has it, a second use is two cards for nothing, so
+        it is greyed and refused (the author, 2026-10-12)."""
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1, slug="calamandra_moss")
+        hand(match, 1, "spark", "wither", "bloom", "the_boot")
+        source = "hero:calamandra_moss"
+        self.assertTrue(option(engine, match, "calamandra_moss", source).allowed)
+        ability(engine, game, match, "calamandra_moss", source)
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:spark")
+        apply(engine, game, match, PromptKind.TARGET, target="1:hand:wither")
+        self.assertEqual(engine.hidden(match, 1, source), "stealth")
+        self.assertEqual(option(engine, match, "calamandra_moss", source).why_not,
+                         "already has stealth")
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.MAIN_ACTION, "ability", {"ability": "calamandra_moss", "source": source}))
+        self.assertIsInstance(refused, driver.Refusal)
+        self.assertEqual(match.player(1).hand, ["bloom", "the_boot"])
+
     def test_calypso_vystari_1(self) -> None:
         """If you have not played a spell this turn, activating her ability
         does nothing. It will not even kill an Illusion in this case,
