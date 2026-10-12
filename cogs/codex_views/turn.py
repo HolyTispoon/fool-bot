@@ -167,12 +167,14 @@ class PanelView(SafeView):
 
     async def act(self, interaction: discord.Interaction, action: Action) -> None:
         """
-        Answer through the service. Where the answer puts something in
-        public, the click is deferred, the turn message posted again at
-        the foot of the channel, and the panel sent afresh under it, the
-        one clicked deleted; where it puts nothing in public, the panel
-        is edited in place and the channel is left alone
-        (docs/design/codex.md, "The turn message, posted again").
+        Answer through the service; the panel is edited in place either
+        way. Where the answer puts something in public, the click is
+        deferred and the turn message brought up to date first -- edited
+        through the gate, or, at the turn's end, left standing and the
+        next turn's posted -- so the panel's turn lines include what the
+        click said; where it puts nothing in public, the panel is edited
+        and the channel is left alone (docs/design/codex.md, "The turn
+        message, edited").
         """
         game, _ = await self.mine(interaction)
         if game is None:
@@ -185,10 +187,10 @@ class PanelView(SafeView):
             await self.cog.present(game, result)
             return
         # The acknowledgement and the board go out together: the defer
-        # is a round trip of its own that neither the board's render nor
-        # its post waits on, and the panel is sent after both.
+        # is a round trip of its own that the board's write does not
+        # wait on, and the panel is edited after both.
         await asyncio.gather(acknowledge(interaction), self.cog.present(game, result))
-        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
+        await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
 
     async def open_deck(self, interaction: discord.Interaction) -> None:
         """**My deck**: every card this panel's player owns, in an

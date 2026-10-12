@@ -56,6 +56,9 @@ LOGGER = logging.getLogger(__name__)
 #: Discord's limit on a message's text.
 MESSAGE_LIMIT = 2000
 
+#: The heading over the turn's lines on an ephemeral message.
+TURN_LOG_HEADING = "**This turn**"
+
 
 @dataclass(frozen=True)
 class DiscordBatching(Batching):
@@ -357,6 +360,31 @@ class CoreMixin:
             folded += 1
             text = "\n".join([*head, f"*and {folded} more*", *body, *tail])
         return text[:MESSAGE_LIMIT]
+
+    def with_turn_log(self, game: CodexGame, text: str) -> str:
+        """
+        `text` -- an ephemeral message's, the panel's or the hand's --
+        under the turn's lines so far, quoted, so the player reads what
+        has happened beside their hand without scrolling up to the turn
+        message (the author, 2026-10-12). The earliest lines fold into
+        "and n more" as the turn message's do, to keep the whole within
+        Discord's 2000 characters. `text` alone where this process has
+        not seen the turn's lines, or the turn has said nothing yet.
+        """
+        lines = self.turn_lines.get(game.game_id)
+        if not lines:
+            return text
+        room = MESSAGE_LIMIT - len(text) - 2
+        body = ["> " + self.render_text(line, game).replace("\n", "\n> ") for line in lines]
+        log = "\n".join([TURN_LOG_HEADING, *body])
+        folded = 0
+        while len(log) > room and body:
+            body.pop(0)
+            folded += 1
+            log = "\n".join([TURN_LOG_HEADING, f"> *and {folded} more*", *body])
+        if len(log) > room:
+            return text
+        return f"{log}\n\n{text}"
 
     def turn_text_or_none(self, game: CodexGame) -> Optional[str]:
         """The gate's text: `None` -- leave the message's text alone --

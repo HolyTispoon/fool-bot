@@ -3,9 +3,9 @@ The board and the game's place: the board rendered off the event loop
 (`codex/render.py` through `asyncio.to_thread`), the gate's one
 forwarder, where the game is played -- its own channel, else a Discord
 thread, else the channel the lobby was asked for in -- the turn message
-posted -- for a new turn, or again at the foot of the channel after an
-action -- and a player's hand, their whole deck and their codex sent
-to them alone.
+posted -- for a new turn, or again at the foot of the channel on
+`/codex resume` or an undo to the previous turn -- and a player's hand,
+their whole deck and their codex sent to them alone.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import logging
 import time
 from typing import Optional
 
-import aiohttp
 import discord
 
 from codex.game import CodexGame
@@ -66,8 +65,8 @@ class PresentationMixin:
 
     async def refresh_match_image(self, game: CodexGame, png: Optional[bytes] = None) -> None:
         """**The one forwarder** over the turn message's write gate: an
-        edit in place, for what is not an action -- **Swap view**. An
-        action posts the message again instead (`repost_turn_message`)."""
+        edit in place, after an action, an undo of the turn, or **Swap
+        view**."""
         channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
         if channel is None:
             return
@@ -227,13 +226,13 @@ class PresentationMixin:
           `previous_turn_message_id`, what the undo to the previous turn
           puts back. The post pings the player whose turn it is, and
           only them.
-        - **The same turn's again** (`replace=True`): after every action
-          that puts something in public, an undo, or `/codex resume`.
-          The message it replaces is deleted, so the table is always the
-          channel's last message and the panel sent after it sits below
-          it (the author, 2026-10-09: "instead of editing the message
-          with the board every time an action is taken, it should be
-          deleted and reposted"). It pings nobody unless `ping`.
+        - **The same turn's again** (`replace=True`): on `/codex
+          resume` -- which also brings the board back down when talk
+          in the channel has pushed it out of sight -- and on an undo
+          to the previous turn. The message it replaces is deleted. It pings
+          nobody unless `ping`. An action edits the message in place
+          instead, through the gate (`refresh_match_image`; the author,
+          2026-10-12, going back on 2026-10-09's post-per-action).
 
         The current turn's message is never pinned: a pin is a system
         message of its own, which would land under the board, and the
@@ -277,24 +276,6 @@ class PresentationMixin:
         self.boards.posted(channel, game, message, png, text)
         return message
 
-    async def repost_turn_message(self, game: CodexGame, match=None) -> None:
-        """
-        The turn's message posted again at the foot of the game's
-        channel, the one it replaces deleted (`post_turn_message`) --
-        after an action, whose answer is already saved. So a post that
-        fails is logged and the click goes on to its panel: the old
-        message stands, a board behind, until the next action or
-        `/codex resume` posts it again.
-        """
-        channel = self.bot.get_channel(game.channel_id) if game.channel_id else None
-        if channel is None:
-            return
-        try:
-            await self.post_turn_message(channel, game, match, replace=True)
-        except (discord.HTTPException, aiohttp.ClientError) as error:
-            LOGGER.warning("Could not post the turn message of Codex game %s again: %s",
-                           game.game_id, error)
-
     async def delete_table_message(self, channel: discord.TextChannel, game: CodexGame,
                                    message_id: int) -> None:
         """A turn message deleted; one already gone is no matter."""
@@ -307,9 +288,9 @@ class PresentationMixin:
 
     async def send_hand(self, interaction: discord.Interaction, game: CodexGame, match,
                         seat: int) -> None:
-        """A player's hand pictured and their discard listed, **ephemeral
-        to them alone** -- the first hidden thing the bot shows -- with
-        **My deck** under it."""
+        """A player's hand pictured, **ephemeral to them alone** -- the
+        first hidden thing the bot shows -- under the turn's lines so far
+        (`with_turn_log`), with **My deck** under it."""
         started = time.perf_counter()
         files = [await hand_file(self.engine, match, seat),
                  *await revealed_files(self.engine, match, seat)]
@@ -321,7 +302,7 @@ class PresentationMixin:
         # opponent's hand beneath (step 13).
         pictures = {"file": files[0]} if len(files) == 1 else {"files": files}
         await interaction.response.send_message(
-            caption + (f"\n{revealed}" if revealed else ""),
+            self.with_turn_log(game, caption + (f"\n{revealed}" if revealed else "")),
             **pictures,
             view=HandView(self, game.game_id, seat),
             ephemeral=True,

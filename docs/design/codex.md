@@ -1437,10 +1437,10 @@ closes the panel with "Patrol locked: Bashing's turn is over. **My
 hand** opens Finesse's turn, its tech choice first." -- the sides named
 by their teams (`team_name`: "Blackhand Scourge", "Feral/Fire/Bashing"),
 since both are the one person -- and sends no picker
-(the channel's two requests; on the webhook, that line sent under the
-new turn message and the panel clicked deleted), **Tech** says where
+(on the webhook, the defer and the panel clicked edited to that line),
+**Tech** says where
 the choice is made, and Save tech in the ready phase turns the panel
-into the turn's actions, under the turn message posted again.
+into the turn's actions, the turn message edited.
 
 **Start turns that channel into the game's**, in one edit: renamed
 `codex-<n>-<p1>-vs-<p2>` (capped at 100 characters), its permissions
@@ -1936,8 +1936,8 @@ else the bot shows is ephemeral.
     attachment it has rather than a file: no upload, and the client
     shows the picture it already loaded. The name is the only state --
     an ephemeral message is stored nowhere, and a restart loses
-    nothing. A message sent afresh (a panel under the turn message
-    posted again) has nothing to keep and uploads, as before.
+    nothing. A message sent afresh (My hand, Tech, `/codex resume`)
+    has nothing to keep and uploads, as before.
   - **The same picture asked again is the bytes already drawn**:
     `render_hand` and `render_codex` keep the last `RENDERED_KEPT` (32)
     each, keyed on what they draw -- **My hand** clicked twice, the
@@ -1989,16 +1989,17 @@ else the bot shows is ephemeral.
   - **Numbers from the host.** The bot could not say where a slow
     picture's time went, so every picture a click puts up logs one
     INFO line -- console-only (logging.md) -- with what it cost to
-    draw and what the write that carried it took: the board posted,
-    the panel sent afresh or edited in place, the hand, the deck, a
+    draw and what the write that carried it took: the board posted
+    (a new turn's, or `/codex resume`'s; the gate's edit logs none),
+    the panel sent or edited in place, the hand, the deck, a
     codex view, a card (`cogs.codex_helpers.elapsed_ms`,
     `pictures_size`). The next report is read off the console
     (`show_logs.cmd`) before anything is guessed: a long draw is the
     host's CPU or its disk, a long send is the host's uplink or
     Discord, and what follows the send is the client's fetch, which
     the log cannot see.
-  What remains is the design's floor: an action that puts something in
-  public is **two new pictures** -- the board on the message posted
+  What remained then was the design's floor: an action that put something in
+  public was **two new pictures** -- the board on the message posted
   again, the hand on the panel sent afresh under it -- each uploaded by
   the bot and fetched cold by every client, which a kept attachment
   cannot touch, since only an edit keeps one and both messages are new.
@@ -2014,7 +2015,10 @@ else the bot shows is ephemeral.
   made no sense to them -- a panel that asks which card to play has to
   show the cards -- so the panel pictures the hand again, and its
   upload on every action stands as the price of that. The first way,
-  the panel edited in place and sitting above the board, was not tried.
+  the panel edited in place and sitting above the board, was not tried
+  then; **since 2026-10-12 it is the shape** ("The turn message,
+  edited"), with the board edited rather than posted, so the hand's
+  picture is kept wherever it did not change.
 - **The hand's and the codex's cards are a bit smaller** (the author,
   2026-10-09, with the above): the art at 0.7 and at 8/15 -- 231 by
   315 in a hand, 176 by 240 in a codex view, the deck and the tech
@@ -2034,12 +2038,12 @@ else the bot shows is ephemeral.
   Codex record's `turn_message_id`), the message's text (`text_for`,
   which D12 Ball does not pass) and the game's name in the log. Each
   defaults to D12 Ball's, so its tests build it as they did. An edit
-  whose picture and text are both unchanged is skipped. Since the
-  Codex bot posts its turn message again after every action rather
-  than editing it ("The turn message, posted again", below), the gate
-  writes only **Swap view**'s edit and the full-image link, and is
-  handed each post as the board it keeps (`BoardRefresher.posted`):
-  the window runs from it, and its link is owed.
+  whose picture and text are both unchanged is skipped. The gate
+  writes every action's edit, **Swap view**'s and the full-image link
+  ("The turn message, edited", below), and is handed each post -- a
+  new turn's, `/codex resume`'s -- as the board it keeps
+  (`BoardRefresher.posted`): the window runs from it, and its link is
+  owed.
 - **The turn's lines are held in memory**, by game, in the model's
   tokens, and rendered at the door (`CodexTokens`: `{player:n}` the
   seat's name, `{card:slug}` and `{hero:slug}` in bold, the hero's emoji
@@ -2137,8 +2141,8 @@ a card.
 ## The turn on Discord
 
 Step 4 is the whole turn, driven from **one ephemeral panel** for the
-active player and summarised in **one public message per turn**, kept
-at the foot of the channel with the panel under it.
+active player and summarised in **one public message per turn**, both
+edited in place as the turn goes on.
 `tests/test_codex_cog_turn.py` drives it through the cog with Discord
 faked -- `tests/codex_cog_fakes.py` logs every request by route -- and
 plays a whole game through the panels to a destroyed base, every click
@@ -2166,24 +2170,42 @@ unable to see their hand before confirming. It is `view_for_prompt`'s
 too, asked with `gate` for the two kinds a turn may open on
 (`TECH_GATE_KINDS`), so a kind still becomes a view in one place.
 
-- **One ephemeral message at a time, under the turn message.** Each
-  click answers through the service and the panel is built afresh from
-  the new prompt's options. Where the click put something in public
+- **One ephemeral message at a time, edited in place.** Each click
+  answers through the service and the panel is built afresh from the
+  new prompt's options, and **edited into the panel clicked**
+  (`put_panel`). Where the click put something in public
   (`goes_public`: something said or moved, the turn's end, a base
-  fallen), the click is deferred, the turn message is posted again at
-  the foot of the channel, and the panel is **sent afresh under it** as
-  the click's follow-up and the panel clicked deleted
-  (`delete_original_response`, the one way an ephemeral message can be
-  deleted) -- so the panel always sits below the board (the author,
-  2026-10-09). Where the click put nothing in public -- a mode opened,
-  a patrol slot, a tech pick before saving -- the panel is edited in
-  place with `interaction.response.edit_message`, since nothing has
-  gone above it. Every one of these goes through **the interaction's
-  own webhook**, not the channel: it spends nothing from the channel's
-  ~five-in-five bucket the turn message lives in (rate-limits.md). The
-  bot cannot find an ephemeral message again, so every entry point (My
-  hand, **Tech**, `/codex resume`) makes a fresh one and the cog never
-  looks for an old panel.
+  fallen), the click is deferred and the turn message brought up to
+  date first -- so the panel's turn lines (below) carry what the click
+  said -- and the panel edited through `edit_original_response`; where
+  it put nothing in public -- a mode opened, a patrol slot, a tech pick
+  before saving -- with `interaction.response.edit_message`. Every one
+  of these goes through **the interaction's own webhook**, not the
+  channel: it spends nothing from the channel's ~five-in-five bucket
+  the turn message lives in (rate-limits.md). The bot cannot find an
+  ephemeral message again, so every entry point (My hand, **Tech**,
+  `/codex resume`) makes a fresh one and the cog never looks for an
+  old panel. From 2026-10-09 to 2026-10-12 an action sent the panel
+  afresh under the turn message posted again and deleted the one
+  clicked, so the panel always sat below the board; the author went
+  back to editing both (2026-10-12: "go back to editing the board and
+  hand messages rather than reposting them"), and `/codex resume`
+  brings the board back down when talk has pushed it up.
+- **The turn's lines head the panel and the hand** (the author,
+  2026-10-12: "add the turn log to the ephemeral message with the
+  hand"): every panel (`panel_caption`) and the other player's hand
+  (`send_hand`, **My hand** and `/codex hand`) open on "**This turn**"
+  and the turn message's lines so far, quoted, above their own words
+  (`Codex.with_turn_log`) -- so what the opponent did reads beside the
+  hand without scrolling up to the board. The lines are the ones the
+  turn message carries, the cog's memory of the turn rendered at the
+  door, and public, so nothing hidden moves. Past Discord's 2000
+  characters the earliest fold into "*and n more*" as on the turn
+  message, and the panel's own words are never cut; where this process
+  has not seen the turn's lines (after a restart, until `/codex
+  resume`), or the turn has said nothing, there is no log. A panel is
+  edited only when its own player clicks, so its log stands as of
+  their last click while the other player acts.
 - **A panel is always drawn as an answer to something.** The author
   asked for it to stand alone rather than as a reply to the turn
   message (2026-10-09). Discord ties every message an interaction makes
@@ -2193,9 +2215,7 @@ too, asked with `gate` for the two kinds a turn may open on
   strip above the message; there is no field to leave it off, and an
   ephemeral message can only be made by an interaction. So the panel
   opened from **My hand** is drawn as an answer to the turn message,
-  and every panel after it as an answer to the panel it replaced, which
-  is deleted -- never to the board. How the client draws a strip whose
-  message is gone has not been looked at on Discord.
+  and keeps that strip through every edit.
 - **Its picture is the hand**, numbered, greyed where it may not be
   played, each card's cost after reductions -- `render_hand` over
   `MainActionOptions.hand`, a field the prompt grew for it so the
@@ -2448,7 +2468,7 @@ they are present"; a follow-up reaches only the clicker, so it is not
 sent to the other player -- the turn message's mention and its caption
 point them at Tech instead.
 
-### The turn message, posted again
+### The turn message, edited
 
 Each turn's message is posted when the turn begins: its text
 "**Turn 7** -- @perrytom (Bashing)" -- the model's heading, whose turn
@@ -2457,27 +2477,23 @@ turn's lines, the model's with
 their tokens rendered at the door; the board as its picture; and
 **My hand**, **My deck**, **Tech**, **Codex**, **Swap view** -- and
 **Concede**, which a sixth button puts on a row of its own. **After
-each action it is posted again at the foot of the channel** with the new lines and the
-re-rendered board, and the one it replaces deleted
-(`post_turn_message(replace=True)`), so the table is always the
-channel's last message and the panel goes under it (the author,
-2026-10-09: "instead of editing the message with the board every time
-an action is taken, it should be deleted and reposted so it's at the
-bottom of the channel"). The text stays under 2000 characters: past
-that the earliest lines fold into "*and n more*", since the board
-carries the position.
+each action it is edited in place** with the new lines and the
+re-rendered board, through the gate (`refresh_match_image`,
+`BoardRefresher`) -- one of the channel's requests, coalesced with the
+gate's window where clicks come faster than it. The text stays under
+2000 characters: past that the earliest lines fold into "*and n
+more*", since the board carries the position.
 
-- **What it costs.** An action is two of the channel's requests -- the
-  post and the delete -- where the edit it replaced was one, and the
-  gate's coalescing is gone from it: the gate let an edit wait out its
-  six-second window and folded a burst of clicks into one trailing
-  write, but the panel has to go up *under* the board, so the board
-  must be up before the click's answer and cannot wait. A player
-  clicking through a turn is a post and a delete a click; discord.py
-  waits out a 429 if a burst outruns the bucket. The full-image link
-  still costs the gate's one settling edit after a burst, at most one
-  per window. **Swap view** is not an action and still edits the
-  message in place through the gate.
+- **Back to editing** (the author, 2026-10-12). From 2026-10-09 the
+  message was posted again at the foot of the channel after every
+  action and the old one deleted, so the table was always the channel's
+  last message with the panel under it -- two of the channel's requests
+  an action, with no coalescing, since the panel had to go up under
+  the board. The author went back to editing both the board and the
+  panel; when talk in the channel has pushed the board up out of sight,
+  `/codex resume` posts it again at the foot ("The resume path").
+  `/codex board` shows the board too, but to the asker alone and with
+  no buttons.
 - **Each finished turn is pinned, the current one never** (the author,
   2026-10-09). The message pinned at a turn's start would be deleted at
   its first action, and pinning each post again would put the pin's own
@@ -2490,10 +2506,9 @@ carries the position.
   previous turn deletes that turn's standing message, and its pin with
   it. Discord caps a channel's pins; a pin it refuses is logged and the
   turn stands unpinned.
-- **A post that fails is logged and the click goes on**
-  (`repost_turn_message`): the action is saved, the panel still goes
-  up, and the old message stands a board behind until the next action
-  or `/codex resume`.
+- **A write that fails is the gate's to log**: the action is saved,
+  the panel still goes up, and the message stands a board behind until
+  the gate's next write or `/codex resume`.
 
 - **The heading is the model's, and it is not narration** (the author,
   2026-10-08). "**Turn 7** -- @perrytom (Bashing)" is
@@ -2551,21 +2566,21 @@ Measured with the fakes, and held on every click of the whole-game test:
 | --- | --- | --- |
 | My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
 | Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **2**: the turn message posted again, the old one deleted | 3: the defer, the panel sent under it, the panel clicked deleted |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place |
 | A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
 | Save tech | **0**: nothing is said until the owner's ready phase | 1 |
-| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 3: the defer, the tech picker sent under it, the panel clicked deleted |
-| The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 3 |
+| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
+| The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
 | Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
-| Undo to the start of the turn | **2** | 3 |
-| Undo to a point of the turn (the menu) | **2** | 3 |
+| Undo to the start of the turn | **1** | 2 |
+| Undo to a point of the turn (the menu) | **1** | 2 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
 **A click behind a busy game is acknowledged before it waits.** Every
 click on a game holds its lock across the whole answer -- the board
-drawn, posted and the old message deleted, the panel drawn and sent --
+written, the panel drawn and edited --
 which can take longer than the three seconds Discord waits for a
 click's first response. The next click queued behind it then failed on
 its own `defer` with a 10062, its action never applied: **Level up**
@@ -2581,7 +2596,7 @@ waits. Every answer those views make works on a click answered already
 `acknowledge` skips a defer already made (`cogs/codex_views/base.py`).
 The cost is one webhook request, and only on a click that would
 otherwise have waited unanswered: an in-place edit becomes the defer
-and the edit; an action's three stay three, since its defer is the one
+and the edit; an action's two stay two, since its defer is the one
 it would have made anyway. Nothing in the channel's bucket changes. The
 lobby, the turn message's buttons and D12 Ball's views do not opt in --
 their callbacks answer with `interaction.response` directly -- and wait
@@ -2590,9 +2605,9 @@ as before.
 The gate's full-image link adds one settling edit after a burst of
 clicks, at most one per interval, as it does for D12 Ball (step 3 turned
 the link on for Codex); the fakes upload nothing it could link, so the
-table counts the board's own writes. A turn of a dozen clicks is a
-dozen posts and a dozen deletes, one of each per click as it comes --
-the price of the board at the foot of the channel (above).
+table counts the board's own writes. A turn of a dozen clicks is at
+most a dozen edits, fewer where the gate's window folds a burst into
+one trailing write.
 
 ### The undos, and who may take each
 
@@ -2621,9 +2636,9 @@ what it costs from the panel (the table above).
 
 - **To the start of my turn** is the active player's alone, with nobody's
   consent: `GameService.undo_to_turn_start` restores the turn's snapshot
-  and saves once; the turn message is posted again with its first lines
+  and saves once; the turn message is edited to its first lines
   and "Undone to the start of the turn." (`history.UNDONE`) and the
-  restored board, and the panel is sent under it from the restored
+  restored board, and the panel edited in place from the restored
   prompt -- the tech confirmation where the turn opened on picks made
   during the other's turn, the picker where it opened on the picker,
   whose answer runs the ready phase again and posts its lines under
@@ -2643,10 +2658,10 @@ what it costs from the panel (the table above).
   journal's length it was offered at, and the model refuses a pick the
   turn has moved on from. `GameService.undo_to` saves once and the cog
   does what the turn-start undo does (`_own_undo`): the turn message
-  posted again -- its first lines, then `result.lines`, which for this
+  edited -- its first lines, then `result.lines`, which for this
   undo are the kept actions' lines and "Undone to before action 2 of
   the turn." (`history.undone_to`), so the message reads as the turn now
-  stands -- and the panel sent under it.
+  stands -- and the panel edited in place.
 - **To the start of the previous turn** unwinds the opponent's turn
   too, so it posts a public question naming them (`UndoConfirmView`):
   **Agree** is the opponent's -- or a game helper's, behind the helper's
@@ -2676,6 +2691,10 @@ turn message again at the foot of the channel -- the old one deleted,
 the player whose turn it is pinged -- and hands the clicker their panel
 afresh -- the
 actions for the active player, the open tech picker for the other.
+**It is also how the board is brought back down** when talk in the
+channel has pushed it up (the author, 2026-10-12): with no restart
+behind it there is no step owed and the turn's lines are still known,
+so all it does beyond the post is the ping and the fresh panel.
 
 ## The end of a game
 
