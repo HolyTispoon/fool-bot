@@ -1685,15 +1685,25 @@ else the bot shows is ephemeral.
     too** (`effect_tags`, the author, 2026-10-12): a modifier to the end
     of the turn, to a seat's next upkeep or to Vandy's doom that the
     stats pill cannot show -- a keyword by its own name ("Haste",
-    "Invisible", "Resist 1"), one lost ("No Flying"), and Doomed,
-    Illusion, Can't attack, Can't level up, Bloodlust, Rune damage, Can
-    attack/patrol (`MODIFIER_TAGS`) -- and Kidnapped on a unit that goes
-    back at the end of the turn. The tag says the effect alone, never
-    how long it lasts, and is in the colour of the card it came from
-    (the modifier's `from`). A player's Ferocity and Stampede are tagged
-    by name on every unit that player controls (`LASTING_ON_UNITS`),
-    since they change how each fights; a player's other lasting effects
-    -- Moment's Peace, Free Speech, a debt -- are for the side of the
+    "Invisible", "Resist 1"), one lost ("Not flying"), and Doomed,
+    Illusion, Can't attack, Can't level up, Bloodlust (`MODIFIER_TAGS`)
+    -- and Kidnapped on a unit that goes back at the end of the turn.
+    The tag says the effect alone, never how long it lasts, and is in
+    the colour of the card it came from (the modifier's `from`). Where
+    one card's modifiers come together, one tag says them all, or none
+    is needed (`TAGGED_AS`): Gargoyle is "Not indestructible" alone, its
+    flying, ATK and attacking coming with it; a kidnapped unit is
+    Kidnapped alone, its haste coming with it; Poisonblade Rogue's own
+    attack has none.
+  - **An effect across a whole side is tagged by its card's name on
+    every unit it reaches** -- Ferocity, Stampede and Dreamscape (the
+    author, 2026-10-12: they change how each unit fights). Which units
+    it reaches is the engine's answer, `RulesEngine.auras_on` -- the
+    controller's `lasting`, `under_dreamscape` for a tech 0, I or II unit
+    on either side -- handed to the renderer with the stats by
+    `board_reading`, which the cog passes where it passed `body_stats`;
+    the renderer takes either. A player's other lasting effects --
+    Moment's Peace, Free Speech, a debt -- are for the side of the
     board, not yet drawn. A modifier for good (Metamorphosis, Fox's Den
     School), an attached spell and a changed controller are not tagged
     yet either.

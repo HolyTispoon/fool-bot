@@ -989,6 +989,16 @@ class LastingFromTests(unittest.TestCase):
         cast(engine, game, match, "charge")
         self.assertEqual({modifier.get("from") for modifier in cub.modifiers}, {"charge"})
 
+    def test_ferocity_and_dreamscape_reach_a_unit(self) -> None:
+        engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        cast(engine, game, match, "ferocity", gold=2)
+        put(match, 2, "dreamscape")
+        self.assertEqual(engine.auras_on(match, cub), ("ferocity", "dreamscape"))
+        self.assertEqual(engine.board_reading(match, cub)[2], ("ferocity", "dreamscape"))
+        self.assertEqual(engine.auras_on(match, match.player(1).hero), ())
+
     def test_a_players_lasting_effect_names_its_spell(self) -> None:
         engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
         hero_in_play(match, 1)

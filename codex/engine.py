@@ -880,6 +880,28 @@ class RulesEngine:
             return self.unit_stats(body, match)
         return self.hero_stats(body, match)
 
+    def auras_on(self, match: MatchState, body) -> tuple[str, ...]:
+        """
+        The effects across a whole side that reach this unit, by the slug
+        of the card that makes them, for the board to tag it by name
+        (docs/design/codex.md, "The board on Discord"): its controller's
+        Ferocity or Stampede while they last, and a Dreamscape in play
+        over a tech 0, I or II unit. None on a hero.
+        """
+        if not isinstance(body, CardInstance) or not self.catalog.cards[body.slug].is_unit:
+            return ()
+        found = [lasting["kind"] for lasting in match.player(body.controller).lasting
+                 if lasting.get("kind") in ("ferocity", "stampede")]
+        if self.under_dreamscape(match, body):
+            found.append("dreamscape")
+        return tuple(dict.fromkeys(found))
+
+    def board_reading(self, match: MatchState, body) -> tuple[int, int, tuple[str, ...]]:
+        """What the board shows of a unit or a hero that is a reading of
+        the rules: its ATK and HP (`body_stats`) and the effects across a
+        side that reach it (`auras_on`)."""
+        return (*self.body_stats(match, body), self.auras_on(match, body))
+
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
         """
@@ -982,11 +1004,14 @@ class RulesEngine:
             return True
         if any(m.get("kind") == "illusion" for m in body.modifiers):
             return True
-        if match is not None and self.tech_level(body) <= 2 and any(
-            self.text_slug(card) in effects.DREAMSCAPE for card in match.instances()
-        ):
-            return True
-        return False
+        return self.under_dreamscape(match, body)
+
+    def under_dreamscape(self, match: Optional[MatchState], body) -> bool:
+        """Dreamscape: "All tech 0, I, and II units are Illusions" -- a
+        unit of tech II or lower while one is in play, either side's."""
+        return (match is not None and isinstance(body, CardInstance)
+                and self.catalog.cards[body.slug].is_unit and self.tech_level(body) <= 2
+                and any(self.text_slug(card) in effects.DREAMSCAPE for card in match.instances()))
 
     def illusion_dies(self, match: MatchState, body) -> bool:
         """Whether a unit dies the moment a spell or ability targets it: an

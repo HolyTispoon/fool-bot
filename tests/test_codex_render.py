@@ -258,12 +258,26 @@ class EffectTagTests(unittest.TestCase):
         ])
         self.assertEqual(len(render.effect_tags(card, self.cards)), 1)
 
-    def test_ferocity_and_stampede_are_on_every_unit_by_name(self) -> None:
-        lasting = [{"kind": "ferocity", "until": "upkeep", "seat": 1},
-                   {"kind": "stampede", "until": "end_of_turn"}]
-        self.assertEqual(render.effect_tags(self.unit(), self.cards, lasting, unit=True),
-                         (("Ferocity", "green"), ("Stampede", "green")))
-        self.assertEqual(render.effect_tags(self.unit(), self.cards, lasting, unit=False), ())
+    def test_an_effect_across_a_side_is_its_cards_name(self) -> None:
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, ("ferocity", "dreamscape")),
+                         (("Ferocity", "green"), ("Dreamscape", "blue")))
+
+    def test_gargoyles_effects_are_one_tag(self) -> None:
+        until = {"until": "upkeep", "seat": 1, "from": "gargoyle"}
+        card = self.unit(modifiers=[{"kind": "lose_keyword", "keyword": "Indestructible", **until},
+                                    {"kind": "keyword", "keyword": "Flying", **until},
+                                    {"kind": "unbound", **until}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Not indestructible", "black"),))
+
+    def test_a_kidnapped_unit_is_kidnapped_alone(self) -> None:
+        card = self.unit(returns_to=2, modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "kidnapping"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Kidnapped", "red"),))
+
+    def test_a_lost_keyword_is_not_it(self) -> None:
+        card = self.unit(modifiers=[{"kind": "lose_keyword", "keyword": "Flying",
+                                     "until": "end_of_turn", "from": "crypt_crawler"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Not flying", "black"),))
 
     def test_an_older_saves_modifier_is_tagged_without_a_colour(self) -> None:
         card = self.unit(modifiers=[{"kind": "doomed", "until": "doom", "seat": 1}])

@@ -54,7 +54,7 @@ class PresentationMixin:
             match = self.service.load(game)
         return await asyncio.to_thread(
             render_board, match, game.board_layout, self.seat_names(game), self.engine.catalog,
-            stats=self.engine.body_stats,
+            stats=self.engine.board_reading,
         )
 
     def match_file_from_png(self, game: CodexGame, png: bytes) -> discord.File:

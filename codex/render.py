@@ -863,12 +863,17 @@ class Stats:
     #: What is left of its armor this turn (`armor` on the body), on a
     #: shield after the HP; none drawn at 0.
     armor: int = 0
+    #: The effects across a side that reach it, by the slug of the card
+    #: that makes them (`RulesEngine.auras_on`): each a tag by its name.
+    auras: tuple[str, ...] = ()
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
-#: `body_stats`, which the frontend hands in: the renderer reads a
-#: position and decides no rule.
-StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple[int, int]"]
+#: `board_reading`, which the frontend hands in, and which names the
+#: effects across a side that reach it too (`body_stats`, its ATK and HP
+#: alone, does as well): the renderer reads a position and decides no
+#: rule.
+StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple"]
 
 
 @dataclass(frozen=True)
@@ -1006,43 +1011,51 @@ MODIFIER_TAGS = {
     "cant_attack": "Can't attack",       # Sparring Partner
     "no_level": "Can't level up",        # Nether Drain
     "bloodlust": "Bloodlust",            # its damage at the end of the turn
-    "rune_damage": "Rune damage",        # Poisonblade Rogue
-    "unbound": "Can attack/patrol",      # Gargoyle
 }
-#: A player's lasting effects labelled on each unit they control, by the
-#: card's name (the author, 2026-10-12): the others go on the side of
-#: the board.
-LASTING_ON_UNITS = {"ferocity": "Ferocity", "stampede": "Stampede"}
+#: The cards whose modifiers come together, so one tag says them all, or
+#: none is needed (the author, 2026-10-12): Gargoyle's flying, ATK and
+#: attacking come with its not being indestructible; Kidnapping's haste
+#: with being kidnapped (`returns_to`, tagged on its own); Poisonblade
+#: Rogue's own attack needs none.
+TAGGED_AS = {
+    "gargoyle": "Not indestructible",
+    "kidnapping": None,
+    "poisonblade_rogue": None,
+}
 #: A kidnapped unit, back to its controller at the end of the turn.
 KIDNAPPED_FROM = "kidnapping"
 
 
-def effect_tags(body, cards: Optional[CardCatalog], lasting: Sequence[dict] = (),
-                unit: bool = False) -> tuple[tuple[str, Optional[str]], ...]:
+def effect_tags(body, cards: Optional[CardCatalog],
+                auras: Sequence[str] = ()) -> tuple[tuple[str, Optional[str]], ...]:
     """What lasting effects a unit or a hero carries, as tags in the
     colour of the card each comes from (its modifier's `from`): the
     keywords and the rest an effect gave it for a while, Kidnapping's
-    hold, and on a unit its controller's Ferocity or Stampede."""
+    hold, and the effects across a side that reach it, `auras`, by the
+    name of the card that makes each -- Ferocity, Stampede, Dreamscape."""
     found: list[tuple[str, Optional[str]]] = []
     for modifier in body.modifiers:
         if modifier.get("until") not in LASTING_UNTIL:
             continue
-        kind = modifier.get("kind")
+        kind, source = modifier.get("kind"), modifier.get("from") or ""
+        if source in TAGGED_AS:
+            if TAGGED_AS[source]:
+                found.append((TAGGED_AS[source], card_color(source, cards)))
+            continue
         if kind == "keyword":
             amount = modifier.get("amount")
             text = modifier["keyword"] + (f" {amount}" if amount else "")
         elif kind == "lose_keyword":
-            text = f"No {modifier['keyword']}"
+            text = f"Not {modifier['keyword'].lower()}"
         else:
             text = MODIFIER_TAGS.get(kind)
         if text:
-            found.append((text, card_color(modifier.get("from") or "", cards)))
+            found.append((text, card_color(source, cards)))
     if getattr(body, "returns_to", None) is not None:
         found.append(("Kidnapped", card_color(KIDNAPPED_FROM, cards)))
-    if unit:
-        for entry in lasting:
-            if entry.get("kind") in LASTING_ON_UNITS:
-                found.append((LASTING_ON_UNITS[entry["kind"]], card_color(entry["kind"], cards)))
+    for slug in auras:
+        found.append((cards.name(slug) if cards else slug.replace("_", " ").title(),
+                      card_color(slug, cards)))
     seen: set[str] = set()
     return tuple(tag for tag in found if not (tag[0] in seen or seen.add(tag[0])))
 
@@ -1067,23 +1080,25 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
     else:
         band = cards.heroes[body.slug].band(body.level)
         printed_atk, printed_hp = band.atk, band.hp
-    atk, hp = stats_of(match, body)
+    reading = stats_of(match, body)
+    atk, hp = reading[0], reading[1]
     left = hp - body.damage
-    return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor)
+    return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor,
+                 tuple(reading[2]) if len(reading) > 2 else ())
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
-               copy: int = 0, stats: Optional[Stats] = None, lasting: Sequence[dict] = ()) -> Lying:
+               copy: int = 0, stats: Optional[Stats] = None) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
     Squirrel has it (step 11) -- `copy`, its number among its
-    player's copies, `stats`, its ATK and HP as they stand, and
-    `lasting`, its controller's lasting effects."""
-    unit = cards is not None and cards.cards[card.slug].is_unit
+    player's copies, and `stats`, its ATK and HP as they stand and the
+    effects across a side that reach it."""
     return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
                  named_runes=rune_counts(card, cards),
-                 marks=rune_marks(card, cards) + effect_tags(card, cards, lasting, unit),
+                 marks=rune_marks(card, cards)
+                 + effect_tags(card, cards, stats.auras if stats is not None else ()),
                  time_runes=card.time_runes,
                  disabled=card.disabled, copy=copy,
                  stats=stats)
@@ -1613,7 +1628,7 @@ def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
     units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card),
-                                   stats(card), player.lasting),
+                                   stats(card)),
                         cards, turned) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return field + units + future
@@ -1636,7 +1651,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     `OVERHANG` round it for the chits that hang over an edge -- so the
     far panel's is turned round whole about its own centre. `turned`,
     it is about to be: a copy's number is drawn to read upright after.
-    `stats`, the engine's `body_stats`.
+    `stats`, the engine's `board_reading`.
     """
     player = match.player(seat)
     columns = panel_columns(player)
@@ -1682,7 +1697,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
             lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
-                               shown(card), player.lasting)
+                               shown(card))
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),
@@ -1800,7 +1815,7 @@ def render_panel(match: MatchState, seat: int, name: str,
     the right way up: a name and its counts nobody should have to turn
     a phone for. `height`, where taller than the panel needs, is filled
     between the body and the nameplate, which stays on the outer edge.
-    `stats`, the engine's `body_stats`: each unit's and hero's ATK and
+    `stats`, the engine's `board_reading`: each unit's and hero's ATK and
     HP as they stand, on its card.
     """
     cards = cards or load_catalog()
@@ -1982,7 +1997,7 @@ def render_board(match: MatchState, layout: str = "stacked",
     taller panel. `near` looks at the stacked board from that seat
     rather than the active player's: a target prompt's picture where the
     targets are on both sides, seen from the player choosing. `stats`,
-    the engine's `body_stats`, puts each unit's and hero's ATK and HP as
+    the engine's `board_reading`, puts each unit's and hero's ATK and HP as
     they stand on its card.
     """
     return _webp(compose_board(match, layout, names, cards, near, stats))
