@@ -12,7 +12,7 @@ from __future__ import annotations
 import unittest
 
 from codex.engine import RulesEngine
-from codex.game import GameStatus, RuleRefusal
+from codex.game import CodexGame, GameStatus, RuleRefusal
 from codex.prompts import PromptKind, Action
 from gamesaves.codex.service import GameService
 
@@ -219,6 +219,8 @@ class BoardLayoutTests(unittest.TestCase):
         svc.set_board_layout(game.game_id, "side_by_side")
         self.assertEqual(game.board_layout, "side_by_side")
         self.assertEqual(saves.calls, 1)
+        svc.set_board_layout(game.game_id, "stacked_upright")
+        self.assertEqual(CodexGame.from_dict(game.to_dict()).board_layout, "stacked_upright")
 
     def test_an_unknown_layout_is_refused(self) -> None:
         svc, saves, game = seated()
@@ -234,8 +236,6 @@ class BoardLayoutTests(unittest.TestCase):
             svc.set_board_layout(game.game_id, "side_by_side")
 
     def test_the_layout_round_trips_and_defaults_to_stacked(self) -> None:
-        from codex.game import CodexGame
-
         svc, _, game = seated()
         svc.start(game.game_id)
         svc.set_board_layout(game.game_id, "side_by_side")

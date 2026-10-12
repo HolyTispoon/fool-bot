@@ -62,7 +62,7 @@ class CodexBotLoadsTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(group.description), 100)
             self.assertEqual(
                 {command.name for command in group.commands},
-                {"card", "rules", "create_game", "games", "board", "hand", "resume",
+                {"card", "rules", "create_game", "games", "board", "hand", "side_by_side", "resume",
                  "concede", "abandon", "admin"},
             )
             self.assertEqual([command.name for command in bot.tree.get_commands()], ["codex"])

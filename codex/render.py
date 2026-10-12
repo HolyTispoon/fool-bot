@@ -36,13 +36,14 @@ A panel (`render_panel`), top to bottom and left to right, at
 `render_board` composes two: stacked, the default -- the active
 player's below, the other player's above it turned round whole so the
 two patrol zones face each other, its nameplate alone kept the right
-way up -- or side by side, the first player's on the left, neither
+way up -- stacked the same way up, the same two panels with neither
+turned, or side by side, the first player's on the left, neither
 turned.
 
 **Nothing here is tested for how it looks** (CLAUDE.md, "Nothing
 rendered is tested"): `scripts/render_codex_sample.py` draws the
 opening position, a mid-game one and every state on the canvas's
-states board, in both layouts; look at them. Every caller renders
+states board, in every layout; look at them. Every caller renders
 through `asyncio.to_thread` -- Pillow is CPU-bound and would block the
 heartbeat.
 
@@ -1946,7 +1947,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
                   stats: Optional[StatsOf] = None) -> Image.Image:
     """The whole table at the canvas's pixels, before it is scaled and
     encoded -- `render_board`'s picture. `near`, for the stacked board,
-    is the seat looked from: the active player's by default."""
+    is the seat looked from: the active player's by default.
+    "stacked_upright" stacks the panels the same way, neither turned."""
     cards = cards or load_catalog()
     names = names or {}
     building_hp = default_building_hp(cards)
@@ -1975,8 +1977,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
     far_seat, near_seat = stacked_seats(match)
     if near is not None:
         far_seat, near_seat = (2 if near == 1 else 1), near
-    far = render_panel(match, far_seat, name(far_seat), cards, building_hp, turned=True,
-                       stats=stats)
+    far = render_panel(match, far_seat, name(far_seat), cards, building_hp,
+                       turned=layout != "stacked_upright", stats=stats)
     near = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
     width = max(far.width, near.width)
     board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + near.height), GROUND)
@@ -1994,9 +1996,10 @@ def render_board(match: MatchState, layout: str = "stacked",
     """
     The whole table as WebP bytes: both panels, stacked -- seen from the
     active player's side, the other player's above theirs and turned
-    round to face them, a divider between naming whose turn it is -- or
-    side by side, the first player's on the left, neither turned, as
-    `layout` says. `names` is what each seat's nameplate calls its
+    round to face them, a divider between naming whose turn it is --
+    stacked the same way up ("stacked_upright"), the same with neither
+    turned, or side by side, the first player's on the left, neither
+    turned, as `layout` says. `names` is what each seat's nameplate calls its
     player -- the frontend's to give, since a name is not the model's.
     The picture's size follows the position: a row of cards more is a
     taller panel. `near` looks at the stacked board from that seat

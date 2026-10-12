@@ -53,6 +53,7 @@ from cogs.codex_views.turn_message import (
     revealed_files,
     side_label,
     swap_label,
+    swapped_layout,
 )
 
 __all__ = [
@@ -102,6 +103,7 @@ __all__ = [
     "send_ephemeral",
     "side_label",
     "swap_label",
+    "swapped_layout",
     "undo_menu",
     "undo_pick",
 ]

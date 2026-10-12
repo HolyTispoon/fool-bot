@@ -593,19 +593,49 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SwapViewTests(unittest.IsolatedAsyncioTestCase):
-    async def test_swap_view_flips_the_layout_and_writes_through_the_gate(self) -> None:
+    async def test_swap_view_flips_the_stacked_layouts_and_writes_through_the_gate(self) -> None:
         with suppressed_cog_saves():
             table = Table()
             game, _ = await table.started()
             table.cog.boards.refresh = mock.AsyncMock()
             view = TurnMessageView(table.cog, game.game_id)
-            self.assertEqual(button(view, "swap").label, "View: side by side")
+            self.assertEqual(button(view, "swap").label, "View: same way up")
             call = await table.click(view, "swap", table.fencer, GAME_CHANNEL)
-        self.assertEqual(game.board_layout, "side_by_side")
-        call.response.defer.assert_awaited_once()
-        table.cog.boards.refresh.assert_awaited_once()
-        self.assertEqual(button(TurnMessageView(table.cog, game.game_id), "swap").label,
-                         "View: stacked")
+            self.assertEqual(game.board_layout, "stacked_upright")
+            call.response.defer.assert_awaited_once()
+            table.cog.boards.refresh.assert_awaited_once()
+            view = TurnMessageView(table.cog, game.game_id)
+            self.assertEqual(button(view, "swap").label, "View: facing")
+            await table.click(view, "swap", table.basher, GAME_CHANNEL)
+        self.assertEqual(game.board_layout, "stacked")
+
+    async def test_swap_view_takes_side_by_side_back_to_stacked(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.started()
+            table.cog.boards.refresh = mock.AsyncMock()
+            table.cog.service.set_board_layout(game.game_id, "side_by_side")
+            view = TurnMessageView(table.cog, game.game_id)
+            self.assertEqual(button(view, "swap").label, "View: stacked")
+            await table.click(view, "swap", table.fencer, GAME_CHANNEL)
+        self.assertEqual(game.board_layout, "stacked")
+
+    async def test_the_side_by_side_command_toggles_it(self) -> None:
+        with suppressed_cog_saves():
+            table = Table()
+            game, _ = await table.started()
+            table.cog.boards.refresh = mock.AsyncMock()
+            command = next(command for command in table.cog.walk_app_commands()
+                           if command.name == "side_by_side")
+            await command.callback(table.cog, interaction(table.fencer, GAME_CHANNEL, guild=table.guild))
+            self.assertEqual(game.board_layout, "side_by_side")
+            table.cog.boards.refresh.assert_awaited_once()
+            await command.callback(table.cog, interaction(table.basher, GAME_CHANNEL, guild=table.guild))
+            self.assertEqual(game.board_layout, "stacked")
+            stranger = user(303, "stranger")
+            await command.callback(table.cog, interaction(stranger, GAME_CHANNEL, guild=table.guild))
+        self.assertEqual(game.board_layout, "stacked")
+        self.assertEqual(table.cog.boards.refresh.await_count, 2)
 
 
 class RestartTests(unittest.IsolatedAsyncioTestCase):
