@@ -1319,7 +1319,11 @@ with the card's text whether or not that was asked for, since a lookup
 that shows nothing answers nothing. The answer is ephemeral, the
 asker's alone, and its follow-up with it; `public:True` posts both in
 the channel instead (the author, 2026-10-09). `/codex rules <keyword>` answers
-with a keyword's rulings as the official rules they are.
+in the same shape (the author, 2026-10-12): the keyword and its reminder
+text alone by default, `rulings:True` adding Sirlin's rulings as the
+official rules they are, ephemeral unless `public:True`. A keyword with
+no reminder text answers with its rulings whether or not they were asked
+for, for the reason a card with no picture answers with its text.
 Both autocomplete (over every card and hero, and over the `General`
 group's keywords) and both fit Discord's 2000 characters by counting the
 rulings that do not fit and leaving them to the link, measured after

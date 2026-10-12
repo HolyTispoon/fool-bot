@@ -216,6 +216,15 @@ class CodexPicturesTests(unittest.IsolatedAsyncioTestCase):
                          r"Codex card trojan_duck: \d+ KB read in \d+ ms, sent in \d+ ms$")
         await bot.close()
 
+    async def test_the_rules_answer_is_the_askers_alone_unless_public(self) -> None:
+        bot, cog = self.cog()
+        for public in (False, True):
+            interaction = mock.Mock()
+            interaction.response.send_message = mock.AsyncMock()
+            await cog.rules.callback(cog, interaction, "overpower", public=public)
+            self.assertIs(interaction.response.send_message.call_args.kwargs["ephemeral"], not public)
+        await bot.close()
+
 
 class CodexReferenceTests(unittest.TestCase):
     def test_the_card_answer(self) -> None:
@@ -241,11 +250,24 @@ class CodexReferenceTests(unittest.TestCase):
         for band in ("**Level 1+** 2/3", "**Level 3+** 2/4", "**Level 5+** 3/4"):
             self.assertIn(band, answer)
 
-    def test_the_keyword_answer_is_the_rulings(self) -> None:
-        answer = keyword_answer("Overpower")
+    def test_the_keyword_answer_carries_the_rulings_when_asked(self) -> None:
+        answer = keyword_answer("Overpower", rulings=True)
         self.assertIn("official rules", answer)
         self.assertIn("**Rulings** (6)", answer)
-        self.assertIsNone(keyword_answer("no such keyword"))
+        self.assertIsNone(keyword_answer("no such keyword", rulings=True))
+
+    def test_the_keyword_answer_is_its_reminder_text_alone_by_default(self) -> None:
+        answer = keyword_answer("Overpower", rulings=False)
+        self.assertTrue(answer.startswith("**Overpower**\n> "))
+        self.assertNotIn("Rulings", answer)
+        self.assertNotIn("official rules", answer)
+        self.assertTrue(answer.endswith("<http://codexcarddb.com/ruling/overpower>"))
+
+    def test_a_keyword_with_no_reminder_text_answers_with_its_rulings(self) -> None:
+        bare = [entry for entry in keywords() if not entry.ability_text and entry.rulings]
+        self.assertTrue(bare)
+        for entry in bare:
+            self.assertIn("**Rulings** (", keyword_answer(entry.slug, rulings=False), entry.slug)
 
     def test_every_answer_fits_a_message_once_rendered(self) -> None:
         long_emoji = lambda text: text.replace("{", "<:emoji_named_long:123456789012345678>{")  # noqa: E731
@@ -254,7 +276,7 @@ class CodexReferenceTests(unittest.TestCase):
             answer = card_answer(slug, long_emoji, text=True, rulings=True)
             self.assertLessEqual(len(answer), MESSAGE_LIMIT, slug)
         for entry in keywords():
-            self.assertLessEqual(len(keyword_answer(entry.slug, long_emoji)), MESSAGE_LIMIT, entry.slug)
+            self.assertLessEqual(len(keyword_answer(entry.slug, long_emoji, rulings=True)), MESSAGE_LIMIT, entry.slug)
 
 
 class CodexTokensTests(unittest.TestCase):
