@@ -2191,13 +2191,23 @@ too, asked with `gate` for the two kinds a turn may open on
   back to editing both (2026-10-12: "go back to editing the board and
   hand messages rather than reposting them"), and `/codex resume`
   brings the board back down when talk has pushed it up.
-- **The turn's lines head the panel and the hand** (the author,
-  2026-10-12: "add the turn log to the ephemeral message with the
-  hand"): every panel (`panel_caption`) and the other player's hand
-  (`send_hand`, **My hand** and `/codex hand`) open on "**This turn**"
-  and the turn message's lines so far, quoted, above their own words
-  (`Codex.with_turn_log`) -- so what the opponent did reads beside the
-  hand without scrolling up to the board. The lines are the ones the
+- **The turn's lines head the hand message, and no other ephemeral
+  one** (the author, 2026-10-12: "add the turn log to the ephemeral
+  message with the hand"; then "only in the hand message and the
+  public turn message. Not in any other ephemeral messages"). A panel
+  pictured with the hand -- the main phase, Appel Stomp's place, a
+  stash, the tech confirmation and the tech gate (`TURN_LOG_KINDS`,
+  `panel_parts`' `hand`) -- and the other player's hand (`send_hand`,
+  **My hand** and `/codex hand`) open on "**This turn**" and the turn
+  message's lines so far, quoted, above their own words
+  (`Codex.with_turn_log`), so what the opponent did reads beside the
+  hand without scrolling up to the board. A panel pictured with a side
+  of the board, a hidden pile's choices or the codex -- the defender, a
+  target, the tech picker -- does not, nor the deck, the codex browser
+  or the undos; a mode opened on the main phase's panel keeps it, its
+  prompt being the main phase's still. The first cut put the lines on
+  every panel, so they would not come and go as the panel turned to a
+  target, and the author narrowed it the same day. The lines are the ones the
   turn message carries, the cog's memory of the turn rendered at the
   door, and public, so nothing hidden moves. Past Discord's 2000
   characters the earliest fold into "*and n more*" as on the turn

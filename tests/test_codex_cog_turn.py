@@ -27,7 +27,7 @@ import discord
 from codex import history
 from codex.flow.driver import STALE_CLICK
 from codex.game import GameStatus
-from codex.prompts import PromptKind
+from codex.prompts import PendingPrompt, PromptKind
 from codex_cog_fakes import Table, find_select
 from codex_positions import hero_in_play, put
 from cogs.codex.core import TURN_LOG_HEADING
@@ -171,6 +171,22 @@ class PanelTests(TurnTestCase):
         text = theirs.last()[1][0]
         self.assertTrue(text.startswith(log + "\n\n"), text)
         self.assertIn("Your hand", text.partition("\n\n")[2])
+
+    async def test_no_other_ephemeral_message_carries_the_turns_lines(self) -> None:
+        """Only the hand message carries the turn's lines (the author,
+        2026-10-12: "Not in any other ephemeral messages"): a panel
+        pictured with a side of the board -- the defender -- does not,
+        nor the deck or the codex opened beside the hand."""
+        self.assertTrue(self.table.cog.turn_lines.get(self.game.game_id))
+        _, view = await self.table.panel()
+        for which in ("My deck", "Codex"):
+            call = await self.table.press(view, which)
+            self.assertNothingWentWrong(call)
+            self.assertNotIn(TURN_LOG_HEADING, call.text(), which)
+        defender = PendingPrompt(PromptKind.CHOOSE_DEFENDER, "Choose a defender.", self.table.match.active)
+        self.assertNotIn(TURN_LOG_HEADING, self.table.cog.panel_caption(self.game, defender))
+        hand = PendingPrompt(PromptKind.MAIN_ACTION, "Your main phase.", self.table.match.active)
+        self.assertIn(TURN_LOG_HEADING, self.table.cog.panel_caption(self.game, hand))
 
     async def test_a_long_turn_folds_its_earliest_lines_on_the_panel(self) -> None:
         """Past Discord's 2000 characters the earliest lines fold into
@@ -580,13 +596,13 @@ class TurnEndTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         lock = await self.end_turn()
 
-        # The panel becomes the tech picker, with no note above it --
-        # the next turn's lines so far over it -- edited in place.
+        # The panel becomes the tech picker, with no note above it and
+        # no turn lines -- it pictures the codex, not the hand -- edited
+        # in place.
         kinds = [answer[0] for answer in lock.answers]
         self.assertEqual(kinds, PANEL_EDITED)
         edit = lock.last("original.edit")[2]
-        log, _, caption = edit["content"].partition("\n\n")
-        self.assertTrue(log.startswith(TURN_LOG_HEADING + "\n> "), log)
+        caption = edit["content"]
         self.assertNotIn("turn is over", caption)
         self.assertTrue(caption.startswith("Tech "), caption)
         self.assertIsInstance(edit["view"], TechChoiceView)

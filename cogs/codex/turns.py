@@ -57,6 +57,17 @@ PANEL_HAND_KINDS = (
     PromptKind.APPEL_STOMP_TOP,
     PromptKind.STASH,
 )
+#: The prompts whose panel is the hand message -- pictured with the
+#: asked player's hand -- and so opens on the turn's lines
+#: (`with_turn_log`): the main phase, `PANEL_HAND_KINDS` and the tech
+#: confirmation, whose hand comes before its picks. No other ephemeral
+#: message carries the lines (the author, 2026-10-12: "only in the hand
+#: message and the public turn message").
+TURN_LOG_KINDS = (
+    PromptKind.MAIN_ACTION,
+    *PANEL_HAND_KINDS,
+    PromptKind.TECH_CONFIRM,
+)
 #: The prompts whose panel is pictured with a side of the board rather
 #: than the hand (the author, 2026-10-09): what is chosen from is on the
 #: table, the opponent's side as a rule, both sides stacked for a target
@@ -173,18 +184,23 @@ class TurnsMixin:
 
     # -- The panel -------------------------------------------------------------
 
-    def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "") -> str:
+    def panel_caption(self, game: CodexGame, prompt: PendingPrompt, extra: str = "",
+                      hand: Optional[bool] = None) -> str:
         """The panel's text: the model's ask, rendered, what it tells
         the asked player alone (`PendingPrompt.told` -- the cards an
         effect discarded from their hand), what the view adds beneath
         it, and that it is the clicker's alone -- under the turn's lines
-        so far (`with_turn_log`)."""
+        so far (`with_turn_log`) where the panel pictures the hand:
+        `hand`, or where not given, the prompt's kind (`TURN_LOG_KINDS`)."""
         lines = [self.render_text(prompt.ask, game)]
         lines.extend(self.render_text(line, game) for line in prompt.told)
         if extra:
             lines.append(extra)
         lines.append(PANEL_NOTE)
-        return self.with_turn_log(game, "\n".join(lines))
+        text = "\n".join(lines)
+        if hand is None:
+            hand = prompt.kind in TURN_LOG_KINDS
+        return self.with_turn_log(game, text) if hand else text
 
     async def panel_parts(self, game: CodexGame, match, prompt: PendingPrompt,
                           note: str = "", gate: bool = False,
@@ -200,6 +216,9 @@ class TurnsMixin:
         if callable(caption):
             extra.append(caption())
         private = private_choices(prompt)
+        # Whether the picture is the hand: the turn's lines go over it.
+        hand = not private and (prompt.kind in TURN_LOG_KINDS
+                                or (gate and prompt.kind not in PANEL_SIDE_KINDS))
         if private:
             files = [await self.choices_file(private)]
         elif prompt.kind is PromptKind.MAIN_ACTION:
@@ -224,7 +243,7 @@ class TurnsMixin:
         else:
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
-        return self.panel_caption(game, prompt, "\n".join(extra)), files, view
+        return self.panel_caption(game, prompt, "\n".join(extra), hand=hand), files, view
 
     async def choices_file(self, slugs: list[str]) -> discord.File:
         """The cards a private target offers, pictured as a hand is, off
