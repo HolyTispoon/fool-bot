@@ -60,6 +60,8 @@ def staged(engine: RulesEngine) -> MatchState:
         card = match.new_instance(slug, seat)
         card.patrol_slot, card.damage = patrol, damage
         card.exhausted, card.arrived_this_turn, card.plus_runes = exhausted, arrived, plus
+        # A squad leader's armor, as the turn's start sets it.
+        card.armor = 1 if patrol == "squad_leader" else 0
         return card
 
     put(1, "iron_man", exhausted=True, damage=2)
@@ -129,6 +131,8 @@ def staged_states(engine: RulesEngine) -> MatchState:
         card = match.new_instance(slug, seat)
         card.patrol_slot, card.damage = patrol, damage
         card.exhausted, card.arrived_this_turn, card.plus_runes = exhausted, arrived, plus
+        # A squad leader's armor, as the turn's start sets it.
+        card.armor = 1 if patrol == "squad_leader" else 0
         return card
 
     put(1, "granfalloon_flagbearer", patrol="scavenger", damage=2)

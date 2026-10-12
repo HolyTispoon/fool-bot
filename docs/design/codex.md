@@ -1639,7 +1639,15 @@ else the bot shows is ephemeral.
     upright, and moves left of centre on a standing card to sit
     between the cost and the pill. Only units and heroes on the field
     carry one: not a hero in the command zone, a building card, an
-    upgrade or a spell.
+    upgrade or a spell. **Its armor, while it has any, is a number on a
+    steel-blue shield after the HP** (`armor_shield`, `STAT_ARMOR`; the
+    author, 2026-10-12: a squad leader's 2 HP read as all it could take,
+    when its armor takes the first point). It is the body's own `armor`
+    -- what is left of it this turn, every source already added in by
+    the flow -- so the renderer reads it as it reads damage and works
+    nothing out; at 0 no shield is drawn. The shield stands two pixels
+    taller than the pill and is centred on its line, overlapping the
+    pill's rounded end, and widens for two figures.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     their team by `codex.formatting.team_name` -- a colour's three heroes
     by the deck's own name, "Blood Anarchs", any other team by its specs

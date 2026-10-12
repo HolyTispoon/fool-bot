@@ -296,6 +296,13 @@ STAT_HP = (226, 36, 44)          # #e2242c
 STAT_ATK_CHANGED = (78, 78, 88)  # #4e4e58, slate
 STAT_HP_CHANGED = (122, 14, 30)  # #7a0e1e, maroon
 STAT_EDGE = (240, 240, 240)
+#: Armor, on a steel-blue shield after the HP (the author, 2026-10-12:
+#: a squad leader's 2 HP read as all it could take, when its armor
+#: takes the first point). Drawn only while it has any.
+STAT_ARMOR = (52, 104, 168)      # #3468a8
+STAT_ARMOR_SIZE = 20
+#: How far the shield overlaps the pill's rounded right end.
+STAT_ARMOR_OVERLAP = 6
 #: A copy's number on a card, "#2" (the author, 2026-10-11): white with
 #: dark words, as the divider's pill is, so it reads on any art.
 COPY_FILL, COPY_INK = WORD, (24, 18, 14)
@@ -552,14 +559,44 @@ def copy_tag(canvas: Image.Image, centre: int, middle: int, number: int, turned:
                            (centre - width // 2, middle - height // 2))
 
 
+def armor_shield(armor: int, height: int) -> Image.Image:
+    """`armor` on a steel-blue shield `height` tall, edged white as the
+    pill is: flat across the top, its sides straight to halfway and
+    curving in to a point, wider for a number of two figures. Drawn four times over and shrunk, so its
+    curve is smooth."""
+    scale = 4
+    width = max(round(height * 0.82), round(font(STAT_ARMOR_SIZE).getlength(str(armor))) + 14)
+    big_w, big_h = width * scale, height * scale
+    edge = 2 * scale
+    points = [(edge, edge), (big_w - edge, edge), (big_w - edge, big_h * 0.48)]
+    steps = 12
+    for index in range(1, steps + 1):
+        # A quarter ellipse from the right side's foot to the point.
+        angle = index / steps * (math.pi / 2)
+        x = big_w / 2 + (big_w / 2 - edge) * math.cos(angle)
+        y = big_h * 0.48 + (big_h - edge - big_h * 0.48) * math.sin(angle)
+        points.append((x, y))
+    points += [(big_w - x, y) for x, y in reversed(points[3:-1])]
+    points.append((edge, big_h * 0.48))
+    big = Image.new("RGBA", (big_w, big_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(big)
+    draw.polygon(points, fill=STAT_ARMOR, outline=STAT_EDGE, width=edge)
+    shield = big.resize((width, height), Image.LANCZOS)
+    ImageDraw.Draw(shield).text((width / 2, height * 0.44), str(armor),
+                                font=font(STAT_ARMOR_SIZE), fill=WORD, anchor="mm",
+                                stroke_width=2, stroke_fill=SHADOW)
+    return shield
+
+
 def stat_pill(stats: "Stats") -> Image.Image:
     """A unit's or a hero's ATK and HP as they stand, on one pill in two
     halves -- ATK on the card's black, HP on its red, either on its own
     colour where it is not what the card prints -- edged white, so it
-    reads on any art. Its foot is toward its player's edge of the table
-    -- upside down on the far side, as the cards are -- and stays there
-    when the card is exhausted and lies on its side (the author,
-    2026-10-11)."""
+    reads on any art, and its armor, while it has any, on a shield
+    after the HP (`armor_shield`). Its foot is toward its player's edge
+    of the table -- upside down on the far side, as the cards are --
+    and stays there when the card is exhausted and lies on its side
+    (the author, 2026-10-11)."""
     face = font(STAT_SIZE)
     height = STAT_HEIGHT
     atk_width, hp_width = (max(round(face.getlength(str(value))) + 16, height - 4)
@@ -577,7 +614,14 @@ def stat_pill(stats: "Stats") -> Image.Image:
     for centre, value in ((atk_width / 2 + 2, stats.atk), (atk_width + hp_width / 2 - 2, stats.hp)):
         draw.text((centre, height / 2), str(value), font=face, fill=WORD, anchor="mm",
                   stroke_width=2, stroke_fill=SHADOW)
-    return tag
+    if stats.armor <= 0:
+        return tag
+    shield = armor_shield(stats.armor, height + 4)
+    whole = Image.new("RGBA", (width - STAT_ARMOR_OVERLAP + shield.width, shield.height),
+                      (0, 0, 0, 0))
+    whole.alpha_composite(tag, (0, (shield.height - height) // 2))
+    whole.alpha_composite(shield, (width - STAT_ARMOR_OVERLAP, 0))
+    return whole
 
 
 def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
@@ -606,6 +650,9 @@ class Stats:
     hp: int
     atk_changed: bool
     hp_changed: bool
+    #: What is left of its armor this turn (`armor` on the body), on a
+    #: shield after the HP; none drawn at 0.
+    armor: int = 0
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
@@ -701,7 +748,7 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
         printed_atk, printed_hp = band.atk, band.hp
     atk, hp = stats_of(match, body)
     left = hp - body.damage
-    return Stats(atk, left, atk != printed_atk, left != printed_hp)
+    return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor)
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
@@ -793,9 +840,12 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # card's text (the author, 2026-10-10).
         arrived_tag(upright, side, margin + ART_FOOT)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
+    # An armor shield stands a little taller than the pill, centred on
+    # its line.
+    stats_rise = (stats.height - STAT_HEIGHT) // 2 if stats is not None else 0
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
-                                        margin - STAT_OVERHANG))
+                                        margin - STAT_OVERHANG - stats_rise))
 
     tile = Image.new("RGBA", (CELL + 2 * margin, CELL + 2 * margin), (0, 0, 0, 0))
     if not lying.exhausted:
@@ -810,7 +860,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         # its cost, the card's own top left once turned.
         card_right = left + margin + CARD[1]
         tile.alpha_composite(stats, (card_right + STAT_OVERHANG - stats.width,
-                                     card_top - STAT_OVERHANG))
+                                     card_top - STAT_OVERHANG - stats_rise))
     copy_centre = left + laid.width // 2
     if stats is not None and not lying.exhausted:
         # A standing card's top edge holds the cost top left and the
