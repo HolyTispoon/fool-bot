@@ -1614,7 +1614,7 @@ else the bot shows is ephemeral.
     stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
     2026-10-11). The chits are the module's blue swirl chit recoloured
     as the board is drawn -- its blue the colour's and its yellow swirl
-    kept -- on white the white cards' own frame, #e8e9e5, and a deep
+    kept -- on white the white cards' own frame, #e8e9e5, and a lighter
     gold swirl (`RUNE_CHIT_COLORS`; a white card's tag is true white,
     `WHITE_TAG`), the number small enough that the swirl shows round
     it -- one for each of
