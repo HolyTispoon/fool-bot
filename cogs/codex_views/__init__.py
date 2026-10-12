@@ -22,7 +22,7 @@ from cogs.codex_views.ending import ConcedeConfirmView, RematchView
 from cogs.codex_views.lobby import MODE_LABELS, LobbyView, MixedTeamView, hero_options
 from cogs.codex_views.patrol import PatrolView, next_empty
 from cogs.codex_views.tech import (
-    TechChoiceView, TechConfirmView, TechGateView, deck_counted, picks_listed,
+    TechChoiceView, TechConfirmView, TechGateView, picks_listed,
 )
 from cogs.codex_views.turn import (
     NOT_YOUR_PANEL,
@@ -86,7 +86,6 @@ __all__ = [
     "codex_button",
     "deck_button",
     "deck_caption",
-    "deck_counted",
     "deck_file",
     "edit_clicked",
     "hand_caption",
