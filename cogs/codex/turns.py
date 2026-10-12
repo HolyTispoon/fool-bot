@@ -35,7 +35,7 @@ from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
     RematchView, UndoConfirmView, hand_file, kept_pictures, picture_file, revealed_caption,
-    revealed_files, send_ephemeral,
+    revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, pictures_size
@@ -317,23 +317,20 @@ class TurnsMixin:
         """
         files = list(files or [])
         if edit and not replace:
-            await interaction.response.edit_message(
-                content=content, attachments=kept_pictures(files, interaction.message), view=view,
+            await edit_clicked(
+                interaction, content=content, attachments=kept_pictures(files, interaction.message), view=view,
             )
             return
-        if replace and not interaction.response.is_done():
+        if replace:
             # Deferred first, so the message deleted below is the panel
             # clicked and never the answer about to be sent.
-            await interaction.response.defer()
+            await acknowledge(interaction)
         kwargs: dict = {"ephemeral": True}
         if files:
             kwargs["files"] = files
         if view is not None:
             kwargs["view"] = view
-        if interaction.response.is_done():
-            await interaction.followup.send(content, **kwargs)
-        else:
-            await interaction.response.send_message(content, **kwargs)
+        await send_answer(interaction, content, **kwargs)
         if replace:
             try:
                 await interaction.delete_original_response()
@@ -592,7 +589,7 @@ class TurnsMixin:
         self.turn_lines[game.game_id] = [*head, *result.lines]
         # The acknowledgement goes out beside the board, not before it
         # (`TurnPanelView.act`).
-        await asyncio.gather(interaction.response.defer(), self.repost_turn_message(game, restored))
+        await asyncio.gather(acknowledge(interaction), self.repost_turn_message(game, restored))
         await self.show_panel(interaction, game, restored, seat, edit=True, replace=True)
 
     async def ask_undo_to_previous_turn(self, interaction: discord.Interaction, game: CodexGame,
@@ -637,12 +634,12 @@ class TurnsMixin:
         try:
             result = self.service.undo_to_previous_turn(game.game_id)
         except RuleRefusal as refused:
-            await interaction.response.edit_message(content=str(refused), view=None)
+            await edit_clicked(interaction, content=str(refused), view=None)
             return
         restored = result.match
         who = game.seat_name(seat) if seat is not None else interaction.user.display_name
-        await interaction.response.edit_message(
-            content=f"Undone to the start of turn {restored.turn}: agreed by {who}.", view=None,
+        await edit_clicked(
+            interaction, content=f"Undone to the start of turn {restored.turn}: agreed by {who}.", view=None,
         )
         channel = interaction.channel or (self.bot.get_channel(game.channel_id) if game.channel_id else None)
         previous = game.previous_turn_message_id

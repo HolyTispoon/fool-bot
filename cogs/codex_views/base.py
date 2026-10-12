@@ -77,6 +77,32 @@ def kept_pictures(files: Sequence[discord.File],
     return [carried.get(file.filename, file) for file in files]
 
 
+async def acknowledge(interaction: discord.Interaction) -> None:
+    """Defer the click, unless it was answered already -- by the lock,
+    where it found its game busy (`acknowledges_while_waiting`)."""
+    if not interaction.response.is_done():
+        await interaction.response.defer()
+
+
+async def edit_clicked(interaction: discord.Interaction, **fields) -> None:
+    """Edit the message clicked: the click's own response, or, on a
+    click answered already, the interaction's original message -- which
+    for a button is the message it is on."""
+    if interaction.response.is_done():
+        await interaction.edit_original_response(**fields)
+    else:
+        await interaction.response.edit_message(**fields)
+
+
+async def send_answer(interaction: discord.Interaction, content: str, **fields) -> None:
+    """A message of the click's own: its response, or a follow-up on a
+    click answered already."""
+    if interaction.response.is_done():
+        await interaction.followup.send(content, **fields)
+    else:
+        await interaction.response.send_message(content, **fields)
+
+
 async def send_ephemeral(interaction: discord.Interaction, message: str) -> None:
     """Tell the person who clicked, privately, whether or not the click
     has been answered yet; a failure to say so is swallowed."""

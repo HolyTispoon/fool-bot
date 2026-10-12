@@ -127,6 +127,47 @@ class ClickDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(held, [True])
         self.assertFalse(Cog.locks.held("g1"))
 
+    async def test_a_busy_game_s_click_is_deferred_only_where_the_view_asks(
+        self,
+    ) -> None:
+        """
+        A view that opts in (`acknowledges_while_waiting`, the Codex
+        panel's) is deferred before it waits on a held lock, so Discord
+        does not forget the click; one that does not -- every D12 Ball
+        view -- waits unanswered, as it always has, because its
+        callbacks answer with `interaction.response` directly.
+        """
+        for opted_in in (False, True):
+            with self.subTest(opted_in=opted_in):
+                class Cog:
+                    locks = GameLocks()
+
+                class View(SafeView):
+                    acknowledges_while_waiting = opted_in
+
+                    def __init__(self) -> None:
+                        super().__init__(timeout=None)
+                        self.cog = Cog()
+                        self.game_id = "g1"
+
+                deferred: list[bool] = []
+
+                async def defer() -> None:
+                    deferred.append(True)
+
+                interaction = _interaction()
+                interaction.response = SimpleNamespace(is_done=lambda: bool(deferred), defer=defer)
+
+                async def callback(interaction) -> None:
+                    pass
+
+                async with Cog.locks.hold("g1"):
+                    click = asyncio.create_task(View()._scheduled_task(_Item(callback), interaction))
+                    for _ in range(5):
+                        await asyncio.sleep(0)
+                    self.assertEqual(deferred, [True] if opted_in else [])
+                await click
+
     async def test_a_cog_that_is_a_test_double_holds_nothing(self) -> None:
         ran: list[bool] = []
 

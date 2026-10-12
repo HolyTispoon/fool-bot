@@ -21,6 +21,7 @@ import discord
 
 from codex.formatting import slot_name
 from codex.prompts import Action, PromptKind
+from cogs.codex_views.base import edit_clicked
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut, _open_undo
 
 EMPTY = "__empty__"
@@ -103,8 +104,8 @@ class PatrolView(PanelView):
         if game is None:
             return
         view = PatrolView(self.cog, self.game_id, self.prompt, self.match, assignment, slot)
-        await interaction.response.edit_message(
-            content=self.cog.panel_caption(game, self.prompt, view.caption()), view=view,
+        await edit_clicked(
+            interaction, content=self.cog.panel_caption(game, self.prompt, view.caption()), view=view,
         )
 
     async def choose_slot(self, interaction: discord.Interaction) -> None:

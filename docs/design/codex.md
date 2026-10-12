@@ -2491,6 +2491,30 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Undo to a point of the turn (the menu) | **2** | 3 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 
+**A click behind a busy game is acknowledged before it waits.** Every
+click on a game holds its lock across the whole answer -- the board
+drawn, posted and the old message deleted, the panel drawn and sent --
+which can take longer than the three seconds Discord waits for a
+click's first response. The next click queued behind it then failed on
+its own `defer` with a 10062, its action never applied: **Level up**
+pressed on the live host on 2026-10-11, most likely while the click before it was
+still putting its pictures up. The apply was ruled out by measure (about
+10 ms a click to the end of a 26-turn game, the save included), which
+left the wait. So the panel's views, `UndoView` and `UndoConfirmView`
+set `acknowledges_while_waiting` (`botkit.views.GameLockedView`): a
+click that finds its game's lock held is deferred at once, and then
+waits. Every answer those views make works on a click answered already
+-- `edit_clicked` edits the message clicked through the webhook
+(`edit_original_response`), `send_answer` sends a follow-up,
+`acknowledge` skips a defer already made (`cogs/codex_views/base.py`).
+The cost is one webhook request, and only on a click that would
+otherwise have waited unanswered: an in-place edit becomes the defer
+and the edit; an action's three stay three, since its defer is the one
+it would have made anyway. Nothing in the channel's bucket changes. The
+lobby, the turn message's buttons and D12 Ball's views do not opt in --
+their callbacks answer with `interaction.response` directly -- and wait
+as before.
+
 The gate's full-image link adds one settling edit after a burst of
 clicks, at most one per interval, as it does for D12 Ball (step 3 turned
 the link on for Codex); the fakes upload nothing it could link, so the
