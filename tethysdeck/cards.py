@@ -2,7 +2,7 @@
 over the face, the rank and the suit's mark in two corners.
 
 Poker size at 300 dpi, the same 750 x 1050 as `d12ball.cards`, so the
-deck prints on the same sheets. Fortune is violet ink, Doom coal ink with
+deck prints on the same sheets. Fortune is violet ink with green, Doom coal ink with
 orange; the paper is white either way (the author: no cream anywhere).
 """
 from PIL import Image, ImageDraw, ImageFont
@@ -17,12 +17,12 @@ from tethysdeck.relief import IconSet
 # 2026-10-10: at 36 the frames' corners ran out past the cut).
 W, H, RADIUS = 750, 1050, 112
 
-# Fortune is violet paired with a charcoal grey, Doom is coal and a dark orange (the author,
+# Fortune is violet paired with a deep green, Doom is coal and a dark orange (the author,
 # 2026-10-09; before: teal, and black and gold). The grey names the suit and the fate,
 # so it is dark enough to print: #A6A4AD all but vanished on paper, and #5E5A68 was still
 # too light (the author, 2026-10-11).
 PALETTE = {
-    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#33303A"},
+    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#1E6B34"},
     "doom": {"paper": "#FFFFFF", "ink": "#2A2522", "ink2": "#BE5A12"},
 }
 # A piece's size on the card by what it is worth, and a coin's by what it is.
@@ -90,7 +90,7 @@ def card(icon_set: IconSet, suit: str, rank: str) -> Image.Image:
     img.alpha_composite(corner, (42, 40))
     img.alpha_composite(corner.rotate(180), (W - 172, H - 190))
 
-    d.text((W // 2, 98), suit.upper(), font=font(56), fill=p["ink2"], anchor="mm")
+    d.text((W // 2, 88), suit.upper(), font=font(56), fill=p["ink2"], anchor="mm")
     if suit == "money":
         _spread(img, [coin_image(metal, amount, fate) for metal, amount in money_coins(rank)])
     else:

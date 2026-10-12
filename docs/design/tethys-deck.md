@@ -136,7 +136,7 @@ sagging for Doom**, each in its own material colours (`icons.COLOURS`):
   purple and green, with ring-marks beside the bells; Doom's side points
   hang below a sagging band and the middle one flops over the front.
 
-**Nothing is cream and every card is white**: Fortune in violet ink,
+**Nothing is cream and every card is white**: Fortune in violet ink with green,
 Doom in coal ink with orange, the paper white either way (`cards.PALETTE`,
 and the back follows it). The first frames were cream for Fortune and
 black for Doom, and the author struck both; then teal for Fortune and
@@ -147,11 +147,13 @@ studio's purple pair. Fortune's second ink, the grey that names the suit at the
 top and the fate at the foot and draws the inner frame, was a light
 grey (`#A6A4AD`) until the author found the suit's name "barely visible
 when printed" (2026-10-11); a slate grey (`#5E5A68`) was still too
-light -- "make it even darker", the words and the frame both -- and it
-is a charcoal grey (`#33303A`) now, dark enough for paper and still a
-grey beside the violet. Doom's orange was
+light -- "make it even darker", the words and the frame both -- and
+after a charcoal grey (`#33303A`) and a run of greens set side by side,
+the author chose a deep green (`#1E6B34`): dark enough for paper, and
+a colour of its own beside the violet rather than a grey. Doom's orange was
 never faint and stays. Both words grew with it, on every card: the
-suit's name from 40 to 56 and the fate from 24 to 38, so they read at
+suit's name from 40 to 56, set a little higher to clear the pieces
+under it, and the fate from 24 to 38, so they read at
 arm's length as well as up close (the author, 2026-10-11).
 
 ## The relief
