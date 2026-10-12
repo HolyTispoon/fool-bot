@@ -1,8 +1,8 @@
 """
 `/codex card` and `/codex rules`: a card's picture -- with its text and
 Sirlin's rulings on it under the picture, each only when asked for --
-and a keyword's rulings, the official rules of the game, read from the
-imported data (docs/codex-bot.md, decision 12). No rulebook text is
+and a keyword's reminder text, with its rulings, the official rules of
+the game, when asked for; both read from the imported data (docs/codex-bot.md, decision 12). No rulebook text is
 bundled, nothing here is an embed, and both answers link the card
 database.
 """
@@ -134,18 +134,28 @@ def card_answer(
 
 
 def keyword_answer(
-    keyword: str, render: Callable[[str], str] = unrendered,
+    keyword: str,
+    render: Callable[[str], str] = unrendered,
+    *,
+    rulings: bool,
 ) -> str | None:
-    """`/codex rules`'s text, its tokens rendered by `render`, or None
-    for a keyword the rulings do not name."""
+    """
+    `/codex rules`'s text, its tokens rendered by `render`: the keyword
+    and its reminder text, Sirlin's rulings where `rulings` asks for
+    them -- or where the keyword has no reminder text, since a lookup
+    that shows nothing answers nothing -- and the database's page under
+    it. None for a keyword the rulings do not name.
+    """
     entry = keyword_entry(keyword)
     if entry is None:
         return None
     head = [f"**{entry.name}**"]
     if entry.ability_text:
         head.append(f"> {entry.ability_text}")
-    head.append("Sirlin's rulings are the official rules of the game.")
-    return fit(head, entry.rulings, f"<{keyword_url(entry.slug)}>", render)
+    shown = entry.rulings if rulings or not entry.ability_text else ()
+    if shown:
+        head.append("Sirlin's rulings are the official rules of the game.")
+    return fit(head, shown, f"<{keyword_url(entry.slug)}>", render)
 
 
 class ReferenceMixin:
@@ -216,18 +226,32 @@ class ReferenceMixin:
             for slug in names.search(current)
         ]
 
-    @app_commands.command(name="rules", description="Sirlin's official rulings on a Codex keyword.")
-    @app_commands.describe(keyword="The keyword, such as Overpower or Flying")
-    async def rules(self, interaction: discord.Interaction, keyword: str) -> None:
+    @app_commands.command(
+        name="rules",
+        description="A Codex keyword; Sirlin's official rulings on it on request.",
+    )
+    @app_commands.describe(
+        keyword="The keyword, such as Overpower or Flying",
+        rulings="Add Sirlin's rulings on the keyword",
+        public="Post it in the channel for everyone, rather than to you alone",
+    )
+    async def rules(
+        self,
+        interaction: discord.Interaction,
+        keyword: str,
+        rulings: bool = False,
+        public: bool = False,
+    ) -> None:
         await self.tokens.refresh()
-        answer = keyword_answer(keyword, self.tokens.render)
+        answer = keyword_answer(keyword, self.tokens.render, rulings=rulings)
         if answer is None:
             await interaction.response.send_message(
                 f"No ruling names {keyword!r}. Pick a keyword from the list as you type.",
                 ephemeral=True,
             )
             return
-        await interaction.response.send_message(answer)
+        # The asker's alone unless `public` says otherwise, as `/codex card`.
+        await interaction.response.send_message(answer, ephemeral=not public)
 
     @rules.autocomplete("keyword")
     async def rules_autocomplete(
