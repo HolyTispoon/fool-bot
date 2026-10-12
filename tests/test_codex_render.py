@@ -369,6 +369,12 @@ class CodexViewTests(unittest.TestCase):
         brother.plus_runes = 1
         self.assertEqual(render.shown_stats(match, brother, cards, stats_of),
                          render.Stats(3, 2, True, False))
+        brother.armor = 1
+        self.assertEqual(render.shown_stats(match, brother, cards, stats_of),
+                         render.Stats(3, 2, True, False, 1))
+        # The shield goes after the HP, so the pill is wider with armor.
+        self.assertGreater(render.stat_pill(render.Stats(3, 2, True, False, 1)).width,
+                           render.stat_pill(render.Stats(3, 2, True, False)).width)
         self.assertIsNone(render.shown_stats(match, brother, cards, None))
         self.assertIsNone(render.shown_stats(match, put(match, 2, "harmony"), cards, stats_of))
         hero_in_play(match, 1, level=5)
