@@ -189,7 +189,7 @@ class RenderTests(unittest.TestCase):
         II and III are a line of their own, and each spec's four spells
         are a block two wide, two on top and two below, the ultimate
         last (the author, 2026-10-10 and 2026-10-12); the other views,
-        and a spec's own, run on."""
+        and a spec's own, run on; Tech II's view holds Tech III's."""
         engine = RulesEngine(seed=7)
         match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
                                  first=1)
@@ -211,7 +211,11 @@ class RenderTests(unittest.TestCase):
         spells = engine.codex_remaining(match, 1, "spells")
         self.assertEqual(engine.codex_places(spells, "spells"),
                          tuple((row - 4, column) for row, column in places[-12:]))
-        for view in ("tech1", "tech3", "spec:fire"):
+        tech2 = engine.codex_remaining(match, 1, "tech2")
+        self.assertEqual(engine.codex_places(tech2, "tech2"),
+                         tuple((row - 1, column) for row, column in places[6:24]))
+        self.assertEqual(len(tech2), 18)
+        for view in ("tech1", "spec:fire"):
             shown = engine.codex_remaining(match, 1, view)
             self.assertEqual(engine.codex_places(shown, view),
                              tuple(divmod(index, 6) for index in range(len(shown))), view)
@@ -387,16 +391,17 @@ class CodexViewTests(unittest.TestCase):
         match = engine.new_match(("bashing", "finesse"), first=1)
         everything = engine.codex_remaining(match, 1, "everything")
         self.assertEqual(len(everything), 12)
-        self.assertEqual({slug for slug, _ in engine.codex_remaining(match, 1, "tech3")},
-                         {"trojan_duck"})
+        self.assertIn("trojan_duck", {slug for slug, _ in engine.codex_remaining(match, 1, "tech2")})
+        self.assertEqual(len(engine.codex_remaining(match, 1, "tech2")), 6)
         self.assertEqual(len(engine.codex_remaining(match, 1, "spells")), 4)
         self.assertEqual(sum(len(engine.codex_remaining(match, 1, view))
-                             for view in ("tech1", "tech2", "tech3", "spells")), 12)
+                             for view in ("tech1", "tech2", "spells")), 12)
 
     def test_a_tech_level_is_every_card_printed_with_it(self) -> None:
         """A Tech II building or upgrade is a Tech II card as much as a
-        unit is: the four views together are every spec's whole codex,
-        and a card is in exactly one of them."""
+        unit is, and Tech III's are in Tech II's view (the author,
+        2026-10-12): the three views together are every spec's whole
+        codex, and a card is in exactly one of them."""
         engine = RulesEngine(seed=7)
         catalog = engine.catalog
         for spec in sorted({card.spec for card in catalog.cards.values() if card.spec}):
@@ -404,7 +409,7 @@ class CodexViewTests(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.assertEqual(len(rows), 12)
                 parts = [engine.codex_view_rows(rows, view)
-                         for view in ("tech1", "tech2", "tech3", "spells")]
+                         for view in ("tech1", "tech2", "spells")]
                 self.assertEqual(sorted(slug for part in parts for slug, _ in part),
                                  sorted(slug for slug, _ in rows))
                 self.assertEqual(engine.codex_view_rows(rows, "everything"), rows)
@@ -429,7 +434,7 @@ class CodexViewTests(unittest.TestCase):
         self.assertTrue(all(catalog.cards[slug].spec == "Anarchy" for slug, _ in anarchy))
         self.assertEqual(codex_view_name(spec_view("Anarchy")), "Anarchy")
         self.assertEqual([codex_view_name(view) for view in CODEX_VIEWS],
-                         ["Everything", "Tech I", "Tech II", "Tech III", "Spells"])
+                         ["Everything", "Tech I", "Tech II & III", "Spells"])
         with self.assertRaises(ValueError):
             engine.codex_remaining(match, 1, spec_view("bashing"))
         with self.assertRaises(ValueError):

@@ -90,9 +90,10 @@ MULTICOLOR_SURCHARGE = 1
 TECH_PICKS = 2
 TECH_FREE_WORKERS = 10
 #: The views a codex is shown through (`RulesEngine.codex_views`): the
-#: whole, one tech level, the spells -- and, for a deck of more than one
-#: spec, one spec, as `spec:<key>` (`spec_view`).
-CODEX_VIEWS = ("everything", "tech1", "tech2", "tech3", "spells")
+#: whole, Tech I, Tech II and III together (the author, 2026-10-12), the
+#: spells -- and, for a deck of more than one spec, one spec, as
+#: `spec:<key>` (`spec_view`).
+CODEX_VIEWS = ("everything", "tech1", "tech2", "spells")
 SPEC_VIEW_PREFIX = "spec:"
 #: How wide a codex picture is, in cards (`codex_places`).
 CODEX_COLUMNS = 6
@@ -3667,8 +3668,9 @@ class RulesEngine:
         as `TechOptions.codex` carries it -- narrowed to `view`, in the
         order given. **The one reading of which cards a view holds**: a
         tech level is every card printed with it, a building or an
-        upgrade as much as a unit; the spells are the rest of a codex,
-        so the four together are the whole; a spec's view is its own
+        upgrade as much as a unit, and Tech II's view holds Tech III's
+        too (the author, 2026-10-12); the spells are the rest of a codex,
+        so the three together are the whole; a spec's view is its own
         twelve. A view nothing offers raises.
         """
         if view == "everything":
@@ -3686,7 +3688,9 @@ class RulesEngine:
             card = self.catalog.cards[slug]
             if view == "spells":
                 return card.is_spell
-            return card.tech_level == int(view[-1])
+            if view == "tech2":
+                return (card.tech_level or 0) >= 2
+            return card.tech_level == 1
 
         return tuple(row for row in rows if shown(row[0]))
 
@@ -3696,7 +3700,7 @@ class RulesEngine:
         Where each card of a picture of `rows` -- a view's cards, as
         `codex_view_rows` hands them back -- sits: its (row, column) in
         a grid `CODEX_COLUMNS` wide. Where the cards are more than one
-        spec's, in the Everything, Tech II and Spells views (the author,
+        spec's, in the Everything, Tech II & III and Spells views (the author,
         2026-10-10 and 2026-10-12), every Tech I card runs on together,
         each spec's Tech II and III are a line of their own, and each
         spec's spells are a block two cards wide -- two on top, two

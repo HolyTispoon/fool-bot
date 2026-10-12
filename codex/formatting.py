@@ -142,15 +142,14 @@ def copy_number(player, card) -> int:
 CODEX_VIEW_NAMES = {
     "everything": "Everything",
     "tech1": "Tech I",
-    "tech2": "Tech II",
-    "tech3": "Tech III",
+    "tech2": "Tech II & III",
     "spells": "Spells",
 }
 
 
 def codex_view_name(view: str) -> str:
     """
-    A codex view by name: "Everything", "Tech I" to "Tech III", "Spells",
+    A codex view by name: "Everything", "Tech I", "Tech II & III", "Spells",
     and a spec's view by the spec -- "Anarchy" -- as `deck_name` spells
     it. The Codex menu and the tech picker's both say it.
     """

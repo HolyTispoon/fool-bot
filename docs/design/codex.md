@@ -2073,7 +2073,8 @@ listed beside it as text until the author found it read as the hand
 in its own frame. **Codex**
 answers with their own codex pictured by `render_codex`, every card with
 a badge of the copies left and faint at none, under a menu -- Everything,
-Tech I, Tech II, Tech III, Spells, and one view per spec once a deck is
+Tech I, Tech II & III (one view since the author's 2026-10-12, "fold
+tech 3 into tech 2"), Spells, and one view per spec once a deck is
 more than one (the standard game's, step 10) -- that re-renders the
 picture in place (the engine's `codex_remaining`, by `codex_views`; the
 views are named by `codex.formatting.codex_view_name`). **Which cards a
@@ -3186,12 +3187,13 @@ while a codex empties (the author: "keep this structure steady even if
 some cards are taken in the middle"). Where the grid breaks is the
 engine's too, `codex_places` -- each card's row and column -- and
 `render_codex` draws the cards there, the grid as big as the places it
-uses. Where a codex is more than one spec, the Everything, Tech II and
-Spells views are laid out by spec: Tech I runs on, a row of six; each
+uses. Where a codex is more than one spec, the Everything, Tech II & III
+and Spells views are laid out by spec: Tech I runs on, a row of six; each
 spec's Tech II and III are a line of their own, six cards; and each
 spec's four spells are a block two cards wide, two on top and two
 below, the specs' blocks side by side, so a spec's spells sit in the
-same two columns. Every other view, and a codex of one spec, runs on.
+same two columns. Tech I, a spec's own view, and a codex of one spec
+run on.
 The
 Everything view of seventy-two (36 cards, two copies each) at
 `CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
