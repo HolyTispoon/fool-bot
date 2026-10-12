@@ -13,21 +13,22 @@ playmat stays imported as the reference the layout was taken from;
 nothing of it is drawn but the pieces cut from it: the five patrol
 slots, and a plain patch of its leather that each panel is laid on.
 
-A panel (`render_panel`), top to bottom and left to right:
+A panel (`render_panel`), top to bottom and left to right, at
+`DRAW_SCALE` (1.3) times the canvas's pixels:
 
-- a column of buildings on the left, 136 wide -- the add-on slot, Tech
+- a column of buildings on the left, 177 wide -- the add-on slot, Tech
   III, II and I, and the base, each heart carrying the HP it has now;
 - across the top, as on the mat, the command zone -- one plate, a slot
   per hero, the hero lying in it while off the field -- and then the
   patrol zone: the mat's own five slots with their bonuses under them,
   each on its own holder of the mat's blue, packed side by side, a
   patroller's card over its slot. That row sets the panel's width;
-- the grid under it: square cells of 273, as many columns as fit under
+- the grid under it: square cells of 355, as many columns as fit under
   the top row -- six in the standard game, five in the basic, fixed
   when it starts -- the worker card first, under the command zone, its
   printed count the workers the player has now, then the heroes on the
   field, then the units, each its
-  card at 200 by 273 with its chits, and on its side at full size when
+  card at 260 by 355 with its chits, and on its side at full size when
   exhausted; rows added as the position needs them;
 - the nameplate along the panel's outer edge: the player, their team
   (`codex.formatting.team_name`), and the counts.
@@ -85,15 +86,31 @@ EMOJI_DIR = Path(__file__).resolve().parent / "images" / "emoji"
 #: regular for the quiet words.
 FONT_FILES = ("RobotoSlab-Bold.ttf", "RobotoSlab-Regular.ttf")
 
-#: What the composed board is scaled by before it is saved: 1, the
-#: canvas's own pixels, so a card on the board is 200 by 273 and its
-#: text reads when the picture is zoomed -- at 0.6 (until 2026-10-09)
-#: a card's name read but not its rules or a hero's level bands, and
-#: at 0.8 they were still soft (the author asked for "a bit higher res
-#: to be able to see" Troq Bashar's card). It costs about two and a
-#: half times the bytes: the staged mid-game board 137 KB to 332
-#: stacked, 144 to 343 side by side, drawn in the same quarter-second.
-BOARD_SCALE = 1.0
+#: What every measure the board is drawn at is multiplied by: 1.3, so
+#: a card on the board is 260 by 355 of its art's 330 by 450, and every
+#: chit, pill, word and gap round it grows with it, the board the same
+#: picture a little larger (the author, 2026-10-12: a hero's level bands,
+#: the smallest type any card prints, were mush at 200 by 273 when
+#: zoomed; not the art's full size, "just a bit bigger so the font is
+#: readable"). The board is composed at these pixels rather than scaled
+#: after, since a picture scaled up gains no detail. Before it, the
+#: composed board was scaled by 0.6 (until 2026-10-09: a card's name read
+#: but not its rules) and 0.8 (still soft, Troq Bashar's card), then
+#: drawn at 1. Each step up costs bytes: the staged mid-game board 332 KB
+#: stacked at 1. Every measure below is written at 1 and passed through
+#: `px`; the hand, the codex and the deck have their own and are not
+#: scaled.
+DRAW_SCALE = 1.3
+
+
+def px(value):
+    """A board measure written at a scale of 1, at `DRAW_SCALE`: a
+    whole number of pixels for an integer, a fraction for a fraction."""
+    if isinstance(value, int):
+        return round(value * DRAW_SCALE)
+    return value * DRAW_SCALE
+
+
 #: The WebP quality every picture is saved at. Each is mostly card art,
 #: which PNG spends four to eight times the bytes on, the two hard to
 #: tell apart at 1:1: the board on the mat it used to be about 2 MB
@@ -111,66 +128,69 @@ BOARD_SCALE = 1.0
 #: posts a card's own file as it is.
 WEBP_QUALITY = 85
 
-# -- The panel's measures, in pixels, as the canvas's plan board gives them.
+# -- The panel's measures, in pixels, as the canvas's plan board gives them,
+# at `DRAW_SCALE`.
 
-#: A card: the art (330 by 450) at 61%.
-CARD = (200, 273)
+#: A card: the art (330 by 450) at 61% at a scale of 1, 79% as drawn.
+CARD = (px(200), px(273))
 #: A grid cell, square so an exhausted card lies in it at full size
 #: (the author, 2026-10-08: A of the canvas's three ways).
-CELL = 273
+CELL = CARD[1]
 #: Between two columns, two rows, and the patrol zone and the grid.
-CELL_GAP = 16
+CELL_GAP = px(16)
 #: Around the panel's edge.
-PADDING = 20
+PADDING = px(20)
 #: The column of buildings, and the gap between it and the grid. The
-#: column is the one-row grid's height (629), the add-on on top: every
+#: column is the one-row grid's height (629 at a scale of 1), the add-on on top: every
 #: building, chit and heart in it drawn at `BUILDING_SCALE` of the 160
 #: wide the canvas gave it (the author, 2026-10-09: the buildings a
 #: little smaller, so the column is no taller than one row).
-BUILDING_WIDTH = 136
+BUILDING_WIDTH = px(136)
 BUILDING_SCALE = BUILDING_WIDTH / 160
-BUILDING_GAP = 20
+BUILDING_GAP = px(20)
 #: A tech building's tile and the base's, in the art's proportions (350
 #: by 250).
-TILE = (136, 97)
-#: The add-on's card at the top of the building column, as wide as the
-#: tech buildings and aligned with them, in the art's proportions (250
-#: by 350). It was 82 by 114, too small to read; a card's size beside
-#: the patrol slots was too large, and the add-on stays with the other
-#: buildings (the author, 2026-10-09). 193 rather than 190 so the
-#: column comes out the grid's height exactly, a stretch nobody sees.
-ADD_ON = (136, 193)
+TILE = (px(136), px(97))
 #: Between two places in the building column.
-TILE_GAP = 12
+TILE_GAP = px(12)
 #: A patrol slot's bonus strip, and the space above it.
-BONUS = (200, 41)
-BONUS_GAP = 6
+BONUS = (CARD[0], px(41))
+BONUS_GAP = px(6)
 #: A patrol holder's blue padding round its slot and bonus, and the
 #: gap between two holders. Each slot is its own holder, packed, rather
 #: than one band with the slots spread over the grid's columns (the
 #: author, 2026-10-09): a patroller is never exhausted -- exhausting
 #: one sidelines it -- so a slot never needs a cell's width.
-PATROL_PADDING = 10
-PATROL_SLOT_GAP = 12
+PATROL_PADDING = px(10)
+PATROL_SLOT_GAP = px(12)
+#: The add-on's card at the top of the building column, as wide as the
+#: tech buildings and aligned with them, in the art's proportions (250
+#: by 350). It was 82 by 114, too small to read; a card's size beside
+#: the patrol slots was too large, and the add-on stays with the other
+#: buildings (the author, 2026-10-09). As tall as leaves the column the
+#: one-row grid's height exactly -- 193 rather than 190 at a scale of 1,
+#: a stretch nobody sees.
+ADD_ON = (TILE[0], 2 * PATROL_PADDING + BONUS_GAP + BONUS[1] + CELL_GAP + 2 * CARD[1]
+          - 4 * TILE[1] - 4 * TILE_GAP)
 #: A patrol holder's width.
 PATROL_HOLDER = CARD[0] + 2 * PATROL_PADDING
 #: The nameplate along the panel's outer edge, and the gap between it
 #: and the rest.
-NAMEPLATE_HEIGHT = 56
-NAMEPLATE_GAP = 12
+NAMEPLATE_HEIGHT = px(56)
+NAMEPLATE_GAP = px(12)
 #: The stacked board's divider, and the side-by-side board's.
 #: The divider is taller than the canvas's 36 so its label can be read
 #: at a glance (the author, 2026-10-09: the turn more prominent).
-DIVIDER_HEIGHT = 52
-DIVIDER_WIDTH = 80
+DIVIDER_HEIGHT = px(52)
+DIVIDER_WIDTH = px(80)
 #: How far a chit hangs over a card's edge, which a body is drawn with
 #: room for.
-OVERHANG = 12
+OVERHANG = px(12)
 #: Where a card's art ends, from the card's top at `CARD`: the name's
 #: banner starts below it (a hero's a little higher, at about 129). A
 #: unit's or a hero's damage chits stand on the art's foot, clear of the
 #: ATK and HP printed at the card's (the author, 2026-10-09).
-ART_FOOT = 122
+ART_FOOT = px(122)
 #: A unit's or a hero's ATK and HP as they stand now -- what everything
 #: in play gives it, its runes, and, for HP, what is left once its damage
 #: is taken off -- on a pill at the card's top right, read before
@@ -178,23 +198,23 @@ ART_FOOT = 122
 #: prints top left is no question once it is in play, but stays, as the
 #: level chit does on a hero. 38 tall, its two numbers in Roboto Slab
 #: at 25, each half about as wide as it is tall.
-STAT_HEIGHT = 38
-STAT_SIZE = 25
+STAT_HEIGHT = px(38)
+STAT_SIZE = px(25)
 #: How far the pill hangs over the card's top and right edges, as the
 #: chits do, so that it covers less of the art (the author, 2026-10-11:
 #: higher up, and a tad smaller, than the first build's 46 inside the
 #: corner).
-STAT_OVERHANG = 10
+STAT_OVERHANG = px(10)
 #: The rune chits hang over the card's right edge by this, centred this
 #: far down it -- a little below the card's middle, on the end of its
 #: name's banner, clear of the stats above and of the damage chits that
 #: stand on the art's foot (the author, 2026-10-11: from its top right,
 #: which the stats now hold).
-RUNE_HANG = 20
-RUNE_CENTRE = 150
+RUNE_HANG = px(20)
+RUNE_CENTRE = px(150)
 #: How far in from a card's left edge its printed cost reaches, which a
 #: copy's number, beside the stats, keeps clear of.
-COST_WIDTH = 50
+COST_WIDTH = px(50)
 #: A building's picture prints its full HP in a red heart, white figures
 #: edged black; a damaged building's heart is the picture's own with
 #: those figures wiped and the HP it has now written in their place (the
@@ -238,6 +258,9 @@ WORKER_BOX_RIGHT = 157
 COMMAND_SLOT_GAP = PATROL_SLOT_GAP
 #: Between the command zone and the patrol zone.
 ZONE_GAP = CELL_GAP
+#: COMMAND ZONE's type on the plate: 19 at a scale of 1, from 13 (the
+#: author, 2026-10-12: larger).
+COMMAND_LABEL_SIZE = px(19)
 #: The fewest columns a grid has: the basic game's top row fits four
 #: cells, and a fifth card wrapped to a second row cost 289 of height
 #: for 45 of width saved (the author, 2026-10-10: five columns).
@@ -300,9 +323,9 @@ STAT_EDGE = (240, 240, 240)
 #: a squad leader's 2 HP read as all it could take, when its armor
 #: takes the first point). Drawn only while it has any.
 STAT_ARMOR = (52, 104, 168)      # #3468a8
-STAT_ARMOR_SIZE = 20
+STAT_ARMOR_SIZE = px(20)
 #: How far the shield overlaps the pill's rounded right end.
-STAT_ARMOR_OVERLAP = 6
+STAT_ARMOR_OVERLAP = px(6)
 #: A copy's number on a card, "#2" (the author, 2026-10-11): white with
 #: dark words, as the divider's pill is, so it reads on any art.
 COPY_FILL, COPY_INK = WORD, (24, 18, 14)
@@ -367,7 +390,7 @@ def preload_pictures() -> tuple[int, int]:
     return files, size
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=64)
 def font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
     bold_face, regular_face = FONT_FILES
     face = FONT_DIR / (bold_face if bold else regular_face)
@@ -403,6 +426,12 @@ def fitted(picture: Image.Image, box_size: tuple[int, int]) -> Image.Image:
     scale = min(width / picture.width, height / picture.height)
     size = (max(1, round(picture.width * scale)), max(1, round(picture.height * scale)))
     return picture.resize(size, Image.LANCZOS)
+
+
+def sized(picture: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """`picture` at `size`: a board piece cut at a card's size at a scale
+    of 1, drawn at the board's (`DRAW_SCALE`)."""
+    return picture if picture.size == size else picture.resize(size, Image.LANCZOS)
 
 
 def by_width(picture: Image.Image, width: int) -> Image.Image:
@@ -465,13 +494,14 @@ def text_centred(draw: ImageDraw.ImageDraw, centre: tuple[int, int], text: str,
 
 
 def pill(draw: ImageDraw.ImageDraw, at: tuple[int, int], text: str, size: int,
-         fill, anchor: str = "lt") -> None:
-    """A word on a rounded tag: the tech picker's count of picks."""
+         fill, anchor: str = "lt", edge: int = 2) -> None:
+    """A word on a rounded tag, edged `edge` wide: the tech picker's
+    count of picks, and a card's marks on the board."""
     face = font(size)
     left, top, right, bottom = draw.textbbox(at, text, font=face, anchor=anchor)
     pad = size // 3
     draw.rounded_rectangle((left - pad, top - pad, right + pad, bottom + pad),
-                           radius=pad, fill=fill, outline=SHADOW, width=2)
+                           radius=pad, fill=fill, outline=SHADOW, width=edge)
     draw.text(at, text, font=face, fill=INK, anchor=anchor)
 
 
@@ -547,13 +577,13 @@ def copy_tag(canvas: Image.Image, centre: int, middle: int, number: int, turned:
     far side of the table, `turned`, drawn upside down here so it reads
     the right way up once the panel is turned round: a number is matched
     to its button, so nobody should have to read it upside down."""
-    face = font(21)
+    face = font(px(21))
     text = f"#{number}"
-    width, height = round(face.getlength(text)) + 18, 30
+    width, height = round(face.getlength(text)) + px(18), px(30)
     tag = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tag)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=8, fill=COPY_FILL,
-                           outline=SHADOW, width=2)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=px(8), fill=COPY_FILL,
+                           outline=SHADOW, width=px(2))
     draw.text((width / 2, height / 2), text, font=face, fill=COPY_INK, anchor="mm")
     canvas.alpha_composite(tag.rotate(180) if turned else tag,
                            (centre - width // 2, middle - height // 2))
@@ -565,9 +595,9 @@ def armor_shield(armor: int, height: int) -> Image.Image:
     curving in to a point, wider for a number of two figures. Drawn four times over and shrunk, so its
     curve is smooth."""
     scale = 4
-    width = max(round(height * 0.82), round(font(STAT_ARMOR_SIZE).getlength(str(armor))) + 14)
+    width = max(round(height * 0.82), round(font(STAT_ARMOR_SIZE).getlength(str(armor))) + px(14))
     big_w, big_h = width * scale, height * scale
-    edge = 2 * scale
+    edge = px(2) * scale
     points = [(edge, edge), (big_w - edge, edge), (big_w - edge, big_h * 0.48)]
     steps = 12
     for index in range(1, steps + 1):
@@ -584,7 +614,7 @@ def armor_shield(armor: int, height: int) -> Image.Image:
     shield = big.resize((width, height), Image.LANCZOS)
     ImageDraw.Draw(shield).text((width / 2, height * 0.44), str(armor),
                                 font=font(STAT_ARMOR_SIZE), fill=WORD, anchor="mm",
-                                stroke_width=2, stroke_fill=SHADOW)
+                                stroke_width=px(2), stroke_fill=SHADOW)
     return shield
 
 
@@ -599,7 +629,7 @@ def stat_pill(stats: "Stats") -> Image.Image:
     (the author, 2026-10-11)."""
     face = font(STAT_SIZE)
     height = STAT_HEIGHT
-    atk_width, hp_width = (max(round(face.getlength(str(value))) + 16, height - 4)
+    atk_width, hp_width = (max(round(face.getlength(str(value))) + px(16), height - px(4))
                            for value in (stats.atk, stats.hp))
     width = atk_width + hp_width
     atk_fill = STAT_ATK_CHANGED if stats.atk_changed else STAT_ATK
@@ -610,13 +640,14 @@ def stat_pill(stats: "Stats") -> Image.Image:
     draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, fill=hp_fill)
     draw.rounded_rectangle((0, 0, atk_width + radius, height - 1), radius, fill=atk_fill)
     draw.rectangle((atk_width, 0, atk_width + radius, height - 1), fill=hp_fill)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, outline=STAT_EDGE, width=2)
-    for centre, value in ((atk_width / 2 + 2, stats.atk), (atk_width + hp_width / 2 - 2, stats.hp)):
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius, outline=STAT_EDGE, width=px(2))
+    for centre, value in ((atk_width / 2 + px(2), stats.atk),
+                          (atk_width + hp_width / 2 - px(2), stats.hp)):
         draw.text((centre, height / 2), str(value), font=face, fill=WORD, anchor="mm",
-                  stroke_width=2, stroke_fill=SHADOW)
+                  stroke_width=px(2), stroke_fill=SHADOW)
     if stats.armor <= 0:
         return tag
-    shield = armor_shield(stats.armor, height + 4)
+    shield = armor_shield(stats.armor, height + px(4))
     whole = Image.new("RGBA", (width - STAT_ARMOR_OVERLAP + shield.width, shield.height),
                       (0, 0, 0, 0))
     whole.alpha_composite(tag, (0, (shield.height - height) // 2))
@@ -628,13 +659,13 @@ def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
     """ARRIVED on a green tag against the card's left edge, standing on
     `bottom` -- the foot of its art: what came this turn."""
     draw = ImageDraw.Draw(canvas)
-    face = font(14)
-    width = spaced_width("ARRIVED", face, 0.5) + 20
-    height = 24
+    face = font(px(14))
+    width = spaced_width("ARRIVED", face, px(0.5)) + px(20)
+    height = px(24)
     box = (card_left, bottom - height, card_left + width, bottom)
-    draw.rounded_rectangle(box, radius=8, fill=ARRIVED_FILL,
+    draw.rounded_rectangle(box, radius=px(8), fill=ARRIVED_FILL,
                            corners=(False, True, True, False))
-    spaced_text(draw, (card_left + 10, bottom - height / 2), "ARRIVED", face, WORD, 0.5)
+    spaced_text(draw, (card_left + px(10), bottom - height / 2), "ARRIVED", face, WORD, px(0.5))
 
 
 # -- A card as it lies ---------------------------------------------------------
@@ -787,7 +818,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     """
     One card as it lies in a cell, on a transparent square of `CELL`
     with `OVERHANG` round it, the card's centre the square's: its own
-    art at 200 by 273, its ATK and HP as they stand top right, a level
+    art at `CARD`, its ATK and HP as they stand top right, a level
     chit top left (a hero), its rune chits over its right edge a little
     below its middle, its damage chits on the foot of its art, Two
     Step's chit on a dance partner, ARRIVED on its art's foot the turn
@@ -799,7 +830,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     margin = OVERHANG
     # Wider at the sides than `OVERHANG`, for the rune chits that hang
     # over the right edge.
-    side = RUNE_HANG + 4
+    side = RUNE_HANG + px(4)
     upright = Image.new("RGBA", (CARD[0] + 2 * side, CARD[1] + 2 * margin), (0, 0, 0, 0))
     face = card_face(lying.slug, cards)
     if lying.exhausted:
@@ -809,32 +840,34 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     upright.alpha_composite(face, (side, margin))
     right, bottom = side + CARD[0], margin + CARD[1]
     if lying.level is not None:
-        lay_row(upright, [lying.level], 62, (side - 10, margin - 10))
+        lay_row(upright, [lying.level], px(62), (side - px(10), margin - px(10)))
     if lying.time_runes:
         # Under a hero's level chit, or in its place on a card.
-        top = margin - 10 + (66 if lying.level is not None else 0)
-        lay_row(upright, [time_rune_chit(lying.time_runes)], 62, (side - 10, top))
+        top = margin - px(10) + (px(66) if lying.level is not None else 0)
+        lay_row(upright, [time_rune_chit(lying.time_runes)], px(62), (side - px(10), top))
     runes = rune_chits(lying.plus_runes, lying.minus_runes)
     if runes:
-        lay_row(upright, runes, 50, (right + RUNE_HANG, margin + RUNE_CENTRE - 25),
+        lay_row(upright, runes, px(50), (right + RUNE_HANG, margin + RUNE_CENTRE - px(25)),
                 leftward=True)
     if lying.damage:
-        lay_row(upright, damage_chits(lying.damage), 62, (right - 10, margin + ART_FOOT),
+        lay_row(upright, damage_chits(lying.damage), px(62), (right - px(10), margin + ART_FOOT),
                 leftward=True, upward=True)
     if lying.partnered:
-        lay_row(upright, [board_piece("chits", "two_step.png")], 50, (side - 8, bottom + 8),
-                upward=True)
+        lay_row(upright, [board_piece("chits", "two_step.png")], px(50),
+                (side - px(8), bottom + px(8)), upward=True)
     if lying.marks:
         draw = ImageDraw.Draw(upright)
         for index, mark in enumerate(lying.marks):
-            pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
+            pill(draw, (right - px(6), margin + px(60) + index * px(30)), mark, px(18), MARK_FILL,
+                 anchor="rt", edge=px(2))
     if lying.buried:
         draw = ImageDraw.Draw(upright)
-        pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
-             20, MARK_FILL, anchor="mt")
+        pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - px(40)), f"Buried {lying.buried}",
+             px(20), MARK_FILL, anchor="mt", edge=px(2))
     if lying.future:
         draw = ImageDraw.Draw(upright)
-        pill(draw, (side + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
+        pill(draw, (side + CARD[0] // 2, bottom - px(44)), "FUTURE", px(18), MARK_FILL,
+             anchor="mb", edge=px(2))
     if lying.arrived:
         # On its art's foot, opposite the damage chits, clear of the
         # card's text (the author, 2026-10-10).
@@ -870,13 +903,13 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
         copy_tag(tile, copy_centre, card_top - STAT_OVERHANG + STAT_HEIGHT // 2, lying.copy,
                  turned)
     if lying.exhausted:
-        glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), 48)
-        tile.alpha_composite(glyph, (margin + 8, margin + 8))
+        glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), px(48))
+        tile.alpha_composite(glyph, (margin + px(8), margin + px(8)))
     if lying.disabled:
         # Beside the exhaust glyph's corner, where it would be.
         draw = ImageDraw.Draw(tile)
-        pill(draw, (margin + (64 if lying.exhausted else 8), margin + 16), "DISABLED", 16,
-             DISABLED_FILL, anchor="lt")
+        pill(draw, (margin + px(64 if lying.exhausted else 8), margin + px(16)), "DISABLED",
+             px(16), DISABLED_FILL, anchor="lt", edge=px(2))
     return tile
 
 
@@ -892,35 +925,41 @@ def command_zone(heroes_in_zone: Sequence[Optional[HeroState]],
     a slot per hero -- the hero lying in it in full while off the field,
     with its time-rune chit for its summoning runes; the slot empty,
     marked HERO as the mat marks it, while the hero is on the field --
-    and COMMAND ZONE along its foot. Drawn with `OVERHANG` round it for
-    the chits.
+    and COMMAND ZONE along its foot. The slots stand in the plate's
+    middle, its edge showing round them on every side, so a hero lying
+    in one reads as in the zone from either end of the table, the far
+    panel's turned round (the author, 2026-10-12: it stood at the top,
+    the plate's edge hidden behind it), and COMMAND ZONE is set in the
+    plate's margin under them at `COMMAND_LABEL_SIZE`. Drawn with
+    `OVERHANG` round it for the chits.
     """
     margin = OVERHANG
     width = command_zone_width(len(heroes_in_zone))
     tile = Image.new("RGBA", (width + 2 * margin, PATROL_HEIGHT + 2 * margin), (0, 0, 0, 0))
     draw = ImageDraw.Draw(tile)
     draw.rounded_rectangle((margin, margin, margin + width - 1, margin + PATROL_HEIGHT - 1),
-                           radius=14, fill=PLATE_FILL, outline=PLATE_EDGE, width=2)
-    face = font(13, bold=False)
+                           radius=px(14), fill=PLATE_FILL, outline=PLATE_EDGE, width=px(2))
+    top = margin + (PATROL_HEIGHT - CARD[1]) // 2
+    face = font(COMMAND_LABEL_SIZE, bold=False)
     label = "COMMAND ZONE"
-    strip_top = margin + PATROL_PADDING + CARD[1] + BONUS_GAP
-    spaced_text(draw, (margin + (width - spaced_width(label, face, 1.5)) / 2,
-                       strip_top + (BONUS[1] - 13) / 2 - 2),
-                label, face, PLATE_INK, 1.5)
-    top = margin + PATROL_PADDING
+    # Centred in the margin between the slots' foot and the plate's.
+    spaced_text(draw, (margin + (width - spaced_width(label, face, px(2))) / 2,
+                       (top + CARD[1] + margin + PATROL_HEIGHT) / 2),
+                label, face, PLATE_INK, px(2))
     for index, hero in enumerate(heroes_in_zone):
         left = margin + PATROL_PADDING + index * (CARD[0] + COMMAND_SLOT_GAP)
         if hero is None:
             dashed_box(draw, (left, top, left + CARD[0], top + CARD[1]), PLATE_EDGE)
             word = "HERO"
-            hero_face = font(18, bold=False)
-            spaced_text(draw, (left + (CARD[0] - spaced_width(word, hero_face, 2)) / 2,
-                               top + CARD[1] / 2 - 11),
-                        word, hero_face, FAINT_INK, 2)
+            hero_face = font(px(18), bold=False)
+            spaced_text(draw, (left + (CARD[0] - spaced_width(word, hero_face, px(2))) / 2,
+                               top + CARD[1] / 2 - px(11)),
+                        word, hero_face, FAINT_INK, px(2))
             continue
         tile.alpha_composite(card_face(hero.slug, cards, CARD), (left, top))
         if hero.summoning_runes:
-            lay_row(tile, [time_rune_chit(hero.summoning_runes)], 54, (left - 8, top - 8))
+            lay_row(tile, [time_rune_chit(hero.summoning_runes)], px(54),
+                    (left - px(8), top - px(8)))
     return tile
 
 
@@ -1073,8 +1112,8 @@ DESTROYED_STRIP = ("DESTROYED", DISABLED_FILL, WORD)
 #: bottom left to the top right, close to level with a little slant (the author,
 #: 2026-10-10), long enough for UNDER CONSTRUCTION in a type that reads
 #: at Discord's scale.
-STRIP_HEIGHT = 22
-STRIP_OUT = 5
+STRIP_HEIGHT = px(22)
+STRIP_OUT = px(5)
 STRIP_ANGLE = 10
 
 
@@ -1088,10 +1127,10 @@ def lay_strip(canvas: Image.Image, box: tuple[int, int, int, int],
     length = round((right - left) / math.cos(math.radians(STRIP_ANGLE))) + 2 * STRIP_OUT
     band = Image.new("RGBA", (length, STRIP_HEIGHT), fill + (255,))
     draw = ImageDraw.Draw(band)
-    draw.rectangle((0, 0, length - 1, STRIP_HEIGHT - 1), outline=SHADOW, width=2)
-    face = font(11)
-    width = spaced_width(word, face, 0.3)
-    spaced_text(draw, ((length - width) / 2, STRIP_HEIGHT / 2), word, face, ink, 0.3)
+    draw.rectangle((0, 0, length - 1, STRIP_HEIGHT - 1), outline=SHADOW, width=px(2))
+    face = font(px(11))
+    width = spaced_width(word, face, px(0.3))
+    spaced_text(draw, ((length - width) / 2, STRIP_HEIGHT / 2), word, face, ink, px(0.3))
     band = band.rotate(STRIP_ANGLE, resample=Image.BICUBIC, expand=True)
     canvas.alpha_composite(band, ((left + right - band.width) // 2,
                                   (top + bottom - band.height) // 2))
@@ -1137,7 +1176,7 @@ def draw_building_column(body: Image.Image, player: PlayerState,
             # grid, so the tile's own words stay readable.
             mark = spec_mark(player.tech2_spec, SPEC_ON_TILE)
             body.alpha_composite(mark, (left + TILE[0] - SPEC_ON_TILE[0] // 2,
-                                        y + TILE[1] - SPEC_ON_TILE[1] + 2))
+                                        y + TILE[1] - SPEC_ON_TILE[1] + px(2)))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
             lay_strip(body, (left, y, left + TILE[0], y + TILE[1]),
@@ -1175,7 +1214,7 @@ def draw_add_on(body: Image.Image, player: PlayerState,
         draw = ImageDraw.Draw(body)
         dashed_box(draw, slot, FAINT_INK)
         draw.text(((slot[0] + slot[2]) / 2, (slot[1] + slot[3]) / 2), "Add-on",
-                  font=font(18, bold=False), fill=FAINT_INK, anchor="mm")
+                  font=font(px(18), bold=False), fill=FAINT_INK, anchor="mm")
         return
     hp = damaged(add_on.hp, building_hp.get(add_on.slug, add_on.hp))
     card = rounded(building_picture(add_on.slug, hp).resize(ADD_ON, Image.LANCZOS),
@@ -1185,7 +1224,7 @@ def draw_add_on(body: Image.Image, player: PlayerState,
         # A tech lab's spec card, drawn small on its card (UMR p. 9).
         mark = spec_mark(add_on.spec, SPEC_ON_LAB)
         body.alpha_composite(mark, (slot[0] + (ADD_ON[0] - SPEC_ON_LAB[0]) // 2,
-                                    slot[3] - SPEC_ON_LAB[1] - 8))
+                                    slot[3] - SPEC_ON_LAB[1] - px(8)))
     if add_on.under_construction:
         lay_row(body, [board_piece("chits", "house.png")], HOUSE_CHIT,
                 (slot[0] - CHIT_OUT, slot[1] - CHIT_OUT))
@@ -1195,20 +1234,21 @@ def draw_add_on(body: Image.Image, player: PlayerState,
 #: A chosen spec's card as it lies on the tech II tile and on a tech
 #: lab's card: the module's spec card, small.
 SPEC_ON_TILE = (round(70 * BUILDING_SCALE), round(50 * BUILDING_SCALE))
-SPEC_ON_LAB = (96, 69)
+SPEC_ON_LAB = (px(96), px(69))
 
 
 def spec_mark(spec: str, size: tuple[int, int]) -> Image.Image:
     """A spec's card (`specs/<spec>.png`, cut at step 1) at `size`,
     rounded and edged so it reads on the tile under it."""
     picture = board_piece("specs", f"{spec}.png").resize(size, Image.LANCZOS)
-    mark = rounded(picture, 5)
-    ImageDraw.Draw(mark).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=5,
-                                           outline=(20, 16, 12, 255), width=2)
+    mark = rounded(picture, px(5))
+    ImageDraw.Draw(mark).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=px(5),
+                                           outline=(20, 16, 12, 255), width=px(2))
     return mark
 
 
-def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = 6, width: int = 2) -> None:
+def dashed_box(draw: ImageDraw.ImageDraw, box, fill, dash: int = px(6),
+               width: int = px(2)) -> None:
     left, top, right, bottom = box
     for x in range(left, right, dash * 2):
         draw.line((x, top, min(x + dash, right), top), fill=fill, width=width)
@@ -1333,13 +1373,14 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
         # Each slot on its own holder, packed against the last.
         draw.rounded_rectangle(
             (holder_left, o, holder_left + PATROL_HOLDER - 1, o + PATROL_HEIGHT - 1),
-            radius=14, fill=PATROL_BLUE,
+            radius=px(14), fill=PATROL_BLUE,
         )
         card_left = holder_left + PATROL_PADDING
         holder_left += PATROL_HOLDER + PATROL_SLOT_GAP
-        body.alpha_composite(rounded(board_piece("patrol_slots", f"{slot}.png"), 12),
+        body.alpha_composite(rounded(sized(board_piece("patrol_slots", f"{slot}.png"), CARD),
+                                     px(12)),
                              (card_left, card_top))
-        body.alpha_composite(board_piece("patrol_slots", f"{slot}_bonus.png"),
+        body.alpha_composite(sized(board_piece("patrol_slots", f"{slot}_bonus.png"), BONUS),
                              (card_left, card_top + CARD[1] + BONUS_GAP))
         ref = player.patroller(slot)
         if ref is None:
@@ -1395,14 +1436,14 @@ def turn_pill(draw: ImageDraw.ImageDraw, box: tuple[float, float, float, float],
     needs one."""
     fill, _, edge = colors
     draw.rounded_rectangle(box, radius=radius, fill=fill,
-                           outline=edge, width=2 if edge else 0)
+                           outline=edge, width=px(2) if edge else 0)
 
 
 def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog,
                      width: int, rule_at_top: bool,
                      ground: Optional[Image.Image] = None) -> Image.Image:
     """
-    The nameplate, 56 tall: the player, their team (`team_name`: a
+    The nameplate, `NAMEPLATE_HEIGHT` tall: the player, their team (`team_name`: a
     colour's deck by its name, "Blood Anarchs", any other team by its
     specs, "Fire/Feral/Bashing"), then gold
     (the gold emoji's picture), hand, deck, discard and codex,
@@ -1419,39 +1460,39 @@ def render_nameplate(match: MatchState, seat: int, name: str, cards: CardCatalog
     to_act = is_to_act(match, seat)
     colors = turn_colors(match, cards) if to_act else None
     rule = (colors[2] or colors[0]) if colors else RULE
-    rule_y = 0 if rule_at_top else NAMEPLATE_HEIGHT - 3
-    draw.rectangle((0, rule_y, width, rule_y + 2), fill=rule)
-    middle = NAMEPLATE_HEIGHT / 2 + (1.5 if rule_at_top else -1.5)
+    rule_y = 0 if rule_at_top else NAMEPLATE_HEIGHT - px(3)
+    draw.rectangle((0, rule_y, width, rule_y + px(2)), fill=rule)
+    middle = NAMEPLATE_HEIGHT / 2 + px(1.5 if rule_at_top else -1.5)
 
     x = 0
-    draw.text((x, middle), name, font=font(26), fill=WORD, anchor="lm")
-    x += font(26).getlength(name) + 18
+    draw.text((x, middle), name, font=font(px(26)), fill=WORD, anchor="lm")
+    x += font(px(26)).getlength(name) + px(18)
     spec = team_name(player.specs)
-    draw.text((x, middle), spec, font=font(18, bold=False), fill=QUIET, anchor="lm")
-    x += font(18, bold=False).getlength(spec) + 18
+    draw.text((x, middle), spec, font=font(px(18), bold=False), fill=QUIET, anchor="lm")
+    x += font(px(18), bold=False).getlength(spec) + px(18)
     if colors:
         label = turn_label(match, name)
-        face = font(15)
-        pill_width = face.getlength(label) + 24
-        turn_pill(draw, (x, middle - 13, x + pill_width, middle + 13), 10, colors)
-        draw.text((x + 12, middle), label, font=face, fill=colors[1], anchor="lm")
+        face = font(px(15))
+        pill_width = face.getlength(label) + px(24)
+        turn_pill(draw, (x, middle - px(13), x + pill_width, middle + px(13)), px(10), colors)
+        draw.text((x + px(12), middle), label, font=face, fill=colors[1], anchor="lm")
 
     counts = (
         ("HAND", len(player.hand)), ("DECK", len(player.deck)),
         ("DISCARD", len(player.discard)), ("CODEX", sum(player.codex.values())),
     )
-    number, word = font(20), font(15, bold=False)
+    number, word = font(px(20)), font(px(15), bold=False)
     right = width
     for label, count in reversed(counts):
         text = str(count)
         draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-        right -= number.getlength(text) + 6
+        right -= number.getlength(text) + px(6)
         draw.text((right, middle), label, font=word, fill=QUIET, anchor="rm")
-        right -= word.getlength(label) + 18
+        right -= word.getlength(label) + px(18)
     text = str(player.gold)
     draw.text((right, middle), text, font=number, fill=WORD, anchor="rm")
-    right -= number.getlength(text) + 6
-    coin = by_width(image(EMOJI_DIR / "gold.png"), 26)
+    right -= number.getlength(text) + px(6)
+    coin = by_width(image(EMOJI_DIR / "gold.png"), px(26))
     plate.alpha_composite(coin, (round(right - coin.width), round(middle - coin.height / 2)))
     return plate
 
@@ -1499,6 +1540,7 @@ def leather_tile() -> Image.Image:
     (`ground/leather.png`) -- mirrored across and down into a tile whose
     edges meet themselves, so it repeats with no seam."""
     patch = board_piece("ground", "leather.png")
+    patch = sized(patch, (px(patch.width), px(patch.height)))
     row = Image.new("RGBA", (patch.width * 2, patch.height))
     row.paste(patch, (0, 0))
     row.paste(ImageOps.mirror(patch), (patch.width, 0))
@@ -1565,21 +1607,21 @@ def horizontal_divider(width: int, label: str) -> Image.Image:
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
-    face = font(24)
-    text_width = spaced_width(label, face, 2)
+    face = font(px(24))
+    text_width = spaced_width(label, face, px(2))
     middle = DIVIDER_HEIGHT // 2
     left = (width - text_width) / 2
-    pad, half = 18, 18
-    draw.line((0, middle, left - pad - 14, middle), fill=QUIET, width=2)
-    draw.line((left + text_width + pad + 14, middle, width, middle), fill=QUIET, width=2)
+    pad, half = px(18), px(18)
+    draw.line((0, middle, left - pad - px(14), middle), fill=QUIET, width=px(2))
+    draw.line((left + text_width + pad + px(14), middle, width, middle), fill=QUIET, width=px(2))
     turn_pill(draw, (left - pad, middle - half, left + text_width + pad, middle + half),
               half, DIVIDER_TURN)
-    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN[1], 2)
+    spaced_text(draw, (left, middle), label, face, DIVIDER_TURN[1], px(2))
     return strip
 
 
 def vertical_divider(height: int, label: str) -> Image.Image:
-    """The side-by-side board's, 80 wide: the same, standing, read top
+    """The side-by-side board's, `DIVIDER_WIDTH` wide: the same, standing, read top
     to bottom."""
     lying = Image.new("RGBA", (height, DIVIDER_WIDTH), GROUND)
     lying.alpha_composite(horizontal_divider(height, label),
@@ -1653,11 +1695,7 @@ def render_board(match: MatchState, layout: str = "stacked",
     the engine's `body_stats`, puts each unit's and hero's ATK and HP as
     they stand on its card.
     """
-    board = compose_board(match, layout, names, cards, near, stats)
-    scaled = board.resize(
-        (round(board.width * BOARD_SCALE), round(board.height * BOARD_SCALE)), Image.LANCZOS,
-    )
-    return _webp(scaled)
+    return _webp(compose_board(match, layout, names, cards, near, stats))
 
 
 def render_side(match: MatchState, seat: int, name: str,
@@ -1670,11 +1708,7 @@ def render_side(match: MatchState, seat: int, name: str,
     what is chosen from is on the board rather than in the hand.
     """
     cards = cards or load_catalog()
-    panel = render_panel(match, seat, name, cards, default_building_hp(cards), stats=stats)
-    scaled = panel.resize(
-        (round(panel.width * BOARD_SCALE), round(panel.height * BOARD_SCALE)), Image.LANCZOS,
-    )
-    return _webp(scaled)
+    return _webp(render_panel(match, seat, name, cards, default_building_hp(cards), stats=stats))
 
 
 # -- A hand, a codex -----------------------------------------------------------
