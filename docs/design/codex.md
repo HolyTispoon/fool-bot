@@ -1694,9 +1694,9 @@ else the bot shows is ephemeral.
     is needed (`TAGGED_AS`): Gargoyle is "Not indestructible" alone, its
     flying, ATK and attacking coming with it; a kidnapped unit is
     Kidnapped alone, its haste coming with it; Poisonblade Rogue's own
-    attack has none; Rampant Growth's +2 ATK and +2 armor, which the
-    pill shows, are tagged by its name all the same (the author,
-    2026-10-12).
+    attack has none; Rampant Growth's +2 ATK and +2 armor and Dinosize's
+    +6 and +6, which the pill shows, are tagged by name all the same
+    (the author, 2026-10-12).
   - **An effect across a whole side is tagged by its card's name on
     every unit it reaches** -- Ferocity, Stampede and Dreamscape, and
     Might of Leaf and Claw on its controller's units and heroes while it

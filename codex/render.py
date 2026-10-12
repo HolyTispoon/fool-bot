@@ -1016,10 +1016,12 @@ MODIFIER_TAGS = {
 #: none is needed (the author, 2026-10-12): Gargoyle's flying, ATK and
 #: attacking come with its not being indestructible; Kidnapping's haste
 #: with being kidnapped (`returns_to`, tagged on its own); Poisonblade
-#: Rogue's own attack needs none. Rampant Growth's +2 ATK and +2 armor,
-#: which the pill shows, are tagged by its name all the same.
+#: Rogue's own attack needs none. Rampant Growth's +2 ATK and +2 armor
+#: and Dinosize's +6 and +6, which the pill shows, are tagged by name all
+#: the same.
 TAGGED_AS = {
     "rampant_growth": "Rampant Growth",
+    "dinosize": "Dinosize",
     "gargoyle": "Not indestructible",
     "kidnapping": None,
     "poisonblade_rogue": None,
