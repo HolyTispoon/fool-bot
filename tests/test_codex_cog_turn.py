@@ -495,13 +495,14 @@ class TurnEndTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         lock = await self.end_turn()
 
-        # The panel becomes the tech picker, saying the turn is over,
+        # The panel becomes the tech picker, with no note above it,
         # sent under the new turn message to them alone.
         kinds = [answer[0] for answer in lock.answers]
         self.assertEqual(kinds, PANEL_REPLACED)
         _, args, followup = lock.last("followup.send")
         self.assertTrue(followup["ephemeral"])
-        self.assertIn("your turn is over", args[0])
+        self.assertNotIn("turn is over", args[0])
+        self.assertTrue(args[0].startswith("Tech "), args[0])
         self.assertIsInstance(followup["view"], TechChoiceView)
         self.assertEqual(followup["view"].seat, self.game.seat_of(ending.id))
 
