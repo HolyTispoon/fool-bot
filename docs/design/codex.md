@@ -1235,6 +1235,16 @@ match as its saved dict, as D12 Ball's record does; its file,
   ("What the narration may say", below). The golden's final match was
   re-recorded for this key alone, at its default.
 
+- **The lasting effects' tags added one key, not a field**: a modifier
+  on a card or a hero, and an entry in a side's `lasting`, carries
+  `from`, the slug of the card or hero whose effect left it -- stamped
+  by `resolve.does`, the one call every part of an effect is done
+  through, off the frame's `by` token, so no part's handler writes it.
+  It is read by the board alone, for a tag's colour; nothing decides a
+  rule by it. An older save's have none, and their tags are drawn on
+  the plain purple. The golden's final match holds no modifier, and
+  was left as it was.
+
 ### What the narration may say
 
 Every line is in the model's voice with tokens -- `{player:1}`,
@@ -1671,6 +1681,22 @@ else the bot shows is ephemeral.
     drawn over it. ARRIVED and DISABLED go round the damage too, ARRIVED
     always the lower; with no row free -- a damaged, disabled card that
     arrived this turn with a rune chit -- one lies over the chit's edge.
+  - **What an effect leaves on a unit or a hero for a while is a tag
+    too** (`effect_tags`, the author, 2026-10-12): a modifier to the end
+    of the turn, to a seat's next upkeep or to Vandy's doom that the
+    stats pill cannot show -- a keyword by its own name ("Haste",
+    "Invisible", "Resist 1"), one lost ("No Flying"), and Doomed,
+    Illusion, Can't attack, Can't level up, Bloodlust, Rune damage, Can
+    attack/patrol (`MODIFIER_TAGS`) -- and Kidnapped on a unit that goes
+    back at the end of the turn. The tag says the effect alone, never
+    how long it lasts, and is in the colour of the card it came from
+    (the modifier's `from`). A player's Ferocity and Stampede are tagged
+    by name on every unit that player controls (`LASTING_ON_UNITS`),
+    since they change how each fights; a player's other lasting effects
+    -- Moment's Peace, Free Speech, a debt -- are for the side of the
+    board, not yet drawn. A modifier for good (Metamorphosis, Fox's Den
+    School), an attached spell and a changed controller are not tagged
+    yet either.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

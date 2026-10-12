@@ -993,6 +993,60 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     return tuple(found)
 
 
+#: The modifiers an effect leaves on a unit or a hero for a while -- to
+#: the end of the turn, a seat's next upkeep, Vandy's doom -- that the
+#: stats pill cannot show, as their tags: the effect's name alone, never
+#: how long it lasts (the author, 2026-10-12). A keyword is its own name.
+#: ATK, HP and armor are the pill's; a copy, a polymorph and DISABLED are
+#: shown already.
+LASTING_UNTIL = ("end_of_turn", "upkeep", "doom")
+MODIFIER_TAGS = {
+    "doomed": "Doomed",                  # Vandy Anadrose at max
+    "illusion": "Illusion",              # Hallucination
+    "cant_attack": "Can't attack",       # Sparring Partner
+    "no_level": "Can't level up",        # Nether Drain
+    "bloodlust": "Bloodlust",            # its damage at the end of the turn
+    "rune_damage": "Rune damage",        # Poisonblade Rogue
+    "unbound": "Can attack/patrol",      # Gargoyle
+}
+#: A player's lasting effects labelled on each unit they control, by the
+#: card's name (the author, 2026-10-12): the others go on the side of
+#: the board.
+LASTING_ON_UNITS = {"ferocity": "Ferocity", "stampede": "Stampede"}
+#: A kidnapped unit, back to its controller at the end of the turn.
+KIDNAPPED_FROM = "kidnapping"
+
+
+def effect_tags(body, cards: Optional[CardCatalog], lasting: Sequence[dict] = (),
+                unit: bool = False) -> tuple[tuple[str, Optional[str]], ...]:
+    """What lasting effects a unit or a hero carries, as tags in the
+    colour of the card each comes from (its modifier's `from`): the
+    keywords and the rest an effect gave it for a while, Kidnapping's
+    hold, and on a unit its controller's Ferocity or Stampede."""
+    found: list[tuple[str, Optional[str]]] = []
+    for modifier in body.modifiers:
+        if modifier.get("until") not in LASTING_UNTIL:
+            continue
+        kind = modifier.get("kind")
+        if kind == "keyword":
+            amount = modifier.get("amount")
+            text = modifier["keyword"] + (f" {amount}" if amount else "")
+        elif kind == "lose_keyword":
+            text = f"No {modifier['keyword']}"
+        else:
+            text = MODIFIER_TAGS.get(kind)
+        if text:
+            found.append((text, card_color(modifier.get("from") or "", cards)))
+    if getattr(body, "returns_to", None) is not None:
+        found.append(("Kidnapped", card_color(KIDNAPPED_FROM, cards)))
+    if unit:
+        for entry in lasting:
+            if entry.get("kind") in LASTING_ON_UNITS:
+                found.append((LASTING_ON_UNITS[entry["kind"]], card_color(entry["kind"], cards)))
+    seen: set[str] = set()
+    return tuple(tag for tag in found if not (tag[0] in seen or seen.add(tag[0])))
+
+
 def shown_slug(card: CardInstance) -> str:
     """The card whose face a card in play shows: a Squirrel's while
     Polymorph: Squirrel has it (step 11)."""
@@ -1019,14 +1073,17 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
-               copy: int = 0, stats: Optional[Stats] = None) -> Lying:
+               copy: int = 0, stats: Optional[Stats] = None, lasting: Sequence[dict] = ()) -> Lying:
     """A card in play as it lies -- a Squirrel's art while Polymorph:
     Squirrel has it (step 11) -- `copy`, its number among its
-    player's copies, and `stats`, its ATK and HP as they stand."""
+    player's copies, `stats`, its ATK and HP as they stand, and
+    `lasting`, its controller's lasting effects."""
+    unit = cards is not None and cards.cards[card.slug].is_unit
     return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
-                 named_runes=rune_counts(card, cards), marks=rune_marks(card, cards),
+                 named_runes=rune_counts(card, cards),
+                 marks=rune_marks(card, cards) + effect_tags(card, cards, lasting, unit),
                  time_runes=card.time_runes,
                  disabled=card.disabled, copy=copy,
                  stats=stats)
@@ -1043,7 +1100,8 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
                  time_runes=hero.time_runes, disabled=hero.disabled,
-                 named_runes=rune_counts(hero, cards), marks=rune_marks(hero),
+                 named_runes=rune_counts(hero, cards),
+                 marks=rune_marks(hero) + effect_tags(hero, cards),
                  stats=stats)
 
 
@@ -1555,7 +1613,7 @@ def grid_cells(player: PlayerState, cards: CardCatalog, turned: bool = False,
     lying = [card for card in player.play if card.patrol_slot is None]
     lying.sort(key=lambda card: cards.cards[card.slug].is_permanent)
     units = [lying_card(unit_lying(card, card.id in partners, cards, copy_number(player, card),
-                                   stats(card)),
+                                   stats(card), player.lasting),
                         cards, turned) for card in lying]
     future = [lying_card(future_lying(card), cards) for card in player.future]
     return field + units + future
@@ -1624,7 +1682,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
             instance_id = int(ref.split(":", 1)[1])
             card = match.instance(instance_id)
             lying = unit_lying(card, instance_id in partners, cards, copy_number(player, card),
-                               shown(card))
+                               shown(card), player.lasting)
         # The patroller covers its slot, chits and all; the bonus stays
         # printed under it.
         paste_centred(body, lying_card(lying, cards, turned),

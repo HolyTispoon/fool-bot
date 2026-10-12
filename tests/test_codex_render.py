@@ -226,6 +226,50 @@ class RenderTests(unittest.TestCase):
         self.assertLess(len(png), 10 * 1024 * 1024)
 
 
+class EffectTagTests(unittest.TestCase):
+    """The lasting effects a unit or a hero carries, as tags: the
+    effect's name alone, in the colour of the card it came from."""
+
+    def setUp(self) -> None:
+        self.cards = RulesEngine().catalog
+
+    def unit(self, **fields):
+        from codex.components import CardInstance
+        card = CardInstance(id=1, slug="tiger_cub", owner=1, controller=1)
+        for name, value in fields.items():
+            setattr(card, name, value)
+        return card
+
+    def test_a_keyword_for_a_while_is_its_own_name(self) -> None:
+        card = self.unit(modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "charge"},
+            {"kind": "atk", "amount": 1, "until": "end_of_turn", "from": "charge"},
+        ])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Haste", "red"),))
+
+    def test_a_keyword_for_good_is_not_tagged(self) -> None:
+        card = self.unit(modifiers=[{"kind": "keyword", "keyword": "Haste", "until": None}])
+        self.assertEqual(render.effect_tags(card, self.cards), ())
+
+    def test_the_same_name_twice_is_one_tag(self) -> None:
+        card = self.unit(modifiers=[
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "charge"},
+            {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "now"},
+        ])
+        self.assertEqual(len(render.effect_tags(card, self.cards)), 1)
+
+    def test_ferocity_and_stampede_are_on_every_unit_by_name(self) -> None:
+        lasting = [{"kind": "ferocity", "until": "upkeep", "seat": 1},
+                   {"kind": "stampede", "until": "end_of_turn"}]
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, lasting, unit=True),
+                         (("Ferocity", "green"), ("Stampede", "green")))
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, lasting, unit=False), ())
+
+    def test_an_older_saves_modifier_is_tagged_without_a_colour(self) -> None:
+        card = self.unit(modifiers=[{"kind": "doomed", "until": "doom", "seat": 1}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Doomed", None),))
+
+
 class PreloadTests(unittest.TestCase):
     """Every file a picture is drawn from, read into memory once, so no
     click reads the host's disk (docs/design/codex.md, "The board on

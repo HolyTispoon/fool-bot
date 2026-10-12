@@ -24,6 +24,7 @@ the Dancer is summoned (Harmony's ruling, 2016-03-02).
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
@@ -405,7 +406,7 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
         # targeted: the rest of the part does not resolve on it.
         board.settle(engine, match, result, cause=top["seat"])
     elif part.does != "divide":
-        DOES[part.does](engine, match, top, part, (row.seat, row.ref), result)
+        does(engine, match, top, part, (row.seat, row.ref), result)
         board.settle(engine, match, result, cause=top["seat"])
     if len(top["picks"]) >= pick_limit(engine, match, top, part):
         _end_picks(engine, match, top, part, result)
@@ -535,9 +536,42 @@ def done_choosing(engine: "RulesEngine", game: "CodexGame", match: MatchState) -
     return carry_on(engine, game, match, result)
 
 
+#: The card a frame's `by` names: `{card:spark}`, `{hero:vandy_anadrose}`.
+BY_CARD = re.compile(r"\{(?:card|hero):([a-z0-9_]+)\}")
+
+
+def lasting_entries(match: MatchState) -> list[dict]:
+    """Everything an effect leaves that lasts: every modifier on a card or
+    a hero, and every player's `lasting`."""
+    found = [modifier for card in match.instances() for modifier in card.modifiers]
+    for player in match.players:
+        found += [modifier for hero in player.heroes for modifier in hero.modifiers]
+        found += player.lasting
+    return found
+
+
+def does(engine: "RulesEngine", match: MatchState, top: dict, part,
+         target: Optional[tuple[int, str]], result: StepResult) -> None:
+    """
+    One part of an effect done -- and each modifier and lasting effect it
+    leaves marked `from` the card or hero its frame's `by` names, so the
+    board can label it in that card's colour (docs/design/codex.md, "The
+    board on Discord"). An older save's have no `from`; nothing decides a
+    rule by it.
+    """
+    before = {id(entry) for entry in lasting_entries(match)}
+    DOES[part.does](engine, match, top, part, target, result)
+    named = BY_CARD.search(top.get("by") or "")
+    if named is None:
+        return
+    for entry in lasting_entries(match):
+        if id(entry) not in before and "from" not in entry:
+            entry["from"] = named.group(1)
+
+
 def _do(engine: "RulesEngine", match: MatchState, top: dict, part,
         target: Optional[tuple[int, str]], result: StepResult) -> None:
-    DOES[part.does](engine, match, top, part, target, result)
+    does(engine, match, top, part, target, result)
     _next_part(top)
     board.settle(engine, match, result, cause=top["seat"])
 
