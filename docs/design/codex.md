@@ -1609,15 +1609,22 @@ else the bot shows is ephemeral.
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
-  - **A counted named rune -- a blood rune, a growth rune -- is the
-    module's purple rune chit with its count**, top right under the
-    stats pill (`named_rune_chits`, `NAMED_RUNE`), never a word: the
-    author (2026-10-11) asked for the generic rune token the table
-    plays with, not a "Blood 4" tag, since the card's text already says
-    which runes it holds. Past six it is a 6 for every six and the rest.
-    A feather or a crumbling rune, one alone, and a copy, a jail, a
-    number or an oath stay purple tags under the chits (`rune_marks`),
-    since a bare number would not say which.
+  - **A named rune -- blood, growth, corpse, focus, a feather -- is a
+    swirl chit in its colour with its count**, top right under the
+    stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
+    2026-10-11). The chits are the module's blue swirl chit recoloured
+    as the board is drawn -- its blue the colour's and its yellow swirl
+    kept, a darker gold on white (`RUNE_CHIT_COLORS`) -- one for each of
+    the six colours, so nothing is committed; the count is drawn on it,
+    so any number fits. A rune's colour is the card's that puts it there
+    (`RUNE_COLORS`: Bloodburn's blood red, Corpse Catapult's corpse
+    black), or the colour of the card it sits on for a kind not in the
+    table. A single rune alone -- a feather, a crumbling rune -- has no
+    number. Words stay only where a chit cannot say which: a feather
+    rune, on a unit whose own text never names one, keeps a "Feather"
+    tag, and a copy, a jail, a number and an oath stay tags
+    (`rune_marks`). Time runes and +1/+1 and -1/-1 are the module's own
+    chits, as before.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered
