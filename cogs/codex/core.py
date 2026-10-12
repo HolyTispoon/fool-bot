@@ -131,6 +131,10 @@ class CoreMixin:
         #: its main phase opened -- by game id and turn: what an undo
         #: puts back. In memory, the last three turns, as the snapshots.
         self.turn_heads: dict[str, dict[int, list[str]]] = {}
+        #: The board last drawn, by game id: what it was drawn from
+        #: (`board_key`) and its bytes, so a position unchanged is not
+        #: drawn again (`render_match_png`).
+        self.boards_drawn: dict[str, tuple[str, bytes]] = {}
         # The turn message's write gate (docs/design/rate-limits.md),
         # with the Codex bot's message, view, text and name.
         self.boards = BoardRefresher(

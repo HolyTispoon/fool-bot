@@ -59,14 +59,13 @@ PANEL_HAND_KINDS = (
 )
 #: The prompts whose panel is the hand message -- pictured with the
 #: asked player's hand -- and so opens on the turn's lines
-#: (`with_turn_log`): the main phase, `PANEL_HAND_KINDS` and the tech
-#: confirmation, whose hand comes before its picks. No other ephemeral
-#: message carries the lines (the author, 2026-10-12: "only in the hand
-#: message and the public turn message").
+#: (`with_turn_log`): the main phase and `PANEL_HAND_KINDS`. No other
+#: ephemeral message carries the lines (the author, 2026-10-12: "only in
+#: the hand message and the public turn message") -- the tech
+#: confirmation pictures the picks alone.
 TURN_LOG_KINDS = (
     PromptKind.MAIN_ACTION,
     *PANEL_HAND_KINDS,
-    PromptKind.TECH_CONFIRM,
 )
 #: The prompts whose panel is pictured with a side of the board rather
 #: than the hand (the author, 2026-10-09): what is chosen from is on the
@@ -233,14 +232,10 @@ class TurnsMixin:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:
             files = [await hand_file(self.engine, match, prompt.asked_player)]
-        elif prompt.kind is PromptKind.TECH_CONFIRM:
-            # The hand, then the picks: My hand opens the confirmation
-            # at once (the author, 2026-10-10), and always shows the hand
-            # (2026-10-09).
-            picture = await self.render_prompt(game, prompt)
-            files = [await hand_file(self.engine, match, prompt.asked_player),
-                     *([] if picture is None else [picture])]
         else:
+            # The tech confirmation among them: the picks alone, so what
+            # is confirmed is what is seen (the author, 2026-10-12: "remove
+            # the hand from the 'confirm tech' view").
             picture = await self.render_prompt(game, prompt)
             files = [] if picture is None else [picture]
         return self.panel_caption(game, prompt, "\n".join(extra), hand=hand), files, view
@@ -521,6 +516,7 @@ class TurnsMixin:
             self.service.save()
         self.turn_lines.pop(game.game_id, None)
         self.turn_heads.pop(game.game_id, None)
+        self.boards_drawn.pop(game.game_id, None)
         await self.archive_channel(channel, game)
 
     # -- The undos ---------------------------------------------------------------

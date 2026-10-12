@@ -20,7 +20,9 @@ measurements here hold for both bots: what the gate used to know about
 D12 Ball -- the view kept on the message, when the full-image link may
 go up, which message is the board -- is a parameter, D12 Ball's by
 default, and a fourth sets the message's text beside the picture, an
-edit whose picture and text are both unchanged skipped (see "The board
+edit whose picture and text are both unchanged skipped and one whose
+picture alone is unchanged written as the text alone, uploading nothing
+and leaving the full-image link live (see "The board
 on Discord" in [codex.md](codex.md)). The Codex bot edits its turn
 message after an action through the gate, as D12 Ball does -- one
 request, coalesced in the window. From 2026-10-09 to 2026-10-12 it

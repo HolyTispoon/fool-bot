@@ -188,6 +188,23 @@ class PanelTests(TurnTestCase):
         hand = PendingPrompt(PromptKind.MAIN_ACTION, "Your main phase.", self.table.match.active)
         self.assertIn(TURN_LOG_HEADING, self.table.cog.panel_caption(self.game, hand))
 
+    async def test_an_unmoved_board_is_not_drawn_again(self) -> None:
+        """The board is drawn again only where what it is drawn from has
+        changed -- not the match's history -- so a click that only says
+        something costs the gate a text edit and no drawing."""
+        cog = self.table.cog
+        match = self.table.match
+        # The class's own, under the table's stand-in for the pictures.
+        draw_board = type(cog).render_match_png
+        with mock.patch("cogs.codex.presentation.render_board", return_value=b"board") as draw:
+            await draw_board(cog, self.game, match)
+            match.journal.append({"action": {"kind": "said only"}})
+            self.assertEqual(await draw_board(cog, self.game, match), b"board")
+            self.assertEqual(draw.call_count, 1)
+            match.player(match.active).gold += 1
+            await draw_board(cog, self.game, match)
+            self.assertEqual(draw.call_count, 2)
+
     async def test_a_long_turn_folds_its_earliest_lines_on_the_panel(self) -> None:
         """Past Discord's 2000 characters the earliest lines fold into
         "and n more", as on the turn message; the panel's own words are
@@ -490,7 +507,13 @@ class PanelTests(TurnTestCase):
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()
-        call = await self.attack(view, attacker.ref)
+        # Attack... pictures the player's own side, what may attack being
+        # on the table, and carries no turn lines (the author, 2026-10-12).
+        opened = await self.table.press(view, "Attack...")
+        edit = opened.last()[2]
+        self.assertTrue(edit["attachments"][0].filename.startswith("codex-side-"))
+        self.assertNotIn(TURN_LOG_HEADING, edit["content"])
+        call = await self.table.press(opened.view(), ("attack", attacker.ref))
         defending = call.view()
         self.assertIsInstance(defending, TurnPanelView)
         self.assertIs(defending.prompt.kind, PromptKind.CHOOSE_DEFENDER)
@@ -654,8 +677,9 @@ class TurnEndTests(TurnTestCase):
     async def test_a_turn_that_waits_on_its_tech_says_so_and_confirms_from_my_hand(self) -> None:
         """From turn 3 on, the new turn opens on its player's tech
         confirmation: the turn message says it waits on them, and My hand
-        opens the confirmation at once -- the hand pictured, then the
-        picks (the author, 2026-10-09 and 2026-10-10) -- and Confirm
+        opens the confirmation at once -- the picks pictured alone, with
+        no hand and no turn lines (the author, 2026-10-10 and
+        2026-10-12: "need to see what's confirmed there") -- and Confirm
         runs the ready phase and turns the panel into the turn's
         actions."""
         first, picker = await self.reach_turn_three()
@@ -668,10 +692,10 @@ class TurnEndTests(TurnTestCase):
         self.assertNothingWentWrong(call)
         self.assertEqual([answer[0] for answer in call.answers], ["response.send"])
         names = [file.filename for file in call.last()[2]["files"]]
-        self.assertEqual(len(names), 2)
-        self.assertTrue(names[0].startswith("codex-hand-"))
-        self.assertTrue(names[1].startswith("codex-tech-"))
-        self.assertIn("Your hand, then your tech: ", call.text())
+        self.assertEqual(len(names), 1)
+        self.assertTrue(names[0].startswith("codex-tech-"))
+        self.assertTrue(call.text().startswith("Your tech: ") or "\nYour tech: " in call.text(), call.text())
+        self.assertNotIn(TURN_LOG_HEADING, call.text())
         self.assertIsInstance(view, TechConfirmView)
         confirmed = await self.table.press(view, "Confirm")
         self.assertNothingWentWrong(confirmed)

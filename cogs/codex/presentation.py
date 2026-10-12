@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import logging
 import time
 from typing import Optional
@@ -44,18 +45,43 @@ from cogs.codex_views import (
 
 LOGGER = logging.getLogger(__name__)
 
+#: What the board does not draw: the match's history, which changes with
+#: every action whether or not anything on the table moved.
+UNDRAWN_FIELDS = ("turn_snapshots", "journal", "events")
+
+
+def board_key(match, layout: str, names) -> str:
+    """What the board is drawn from, as one string: the match without
+    its history (`UNDRAWN_FIELDS`), the layout and the seats' names. The
+    card catalog is fixed, and the ATK and HP on the cards are the
+    engine's reading of the match, so the same key is the same board."""
+    position = {key: value for key, value in match.to_dict().items() if key not in UNDRAWN_FIELDS}
+    return json.dumps([position, layout, sorted(names.items())], sort_keys=True, default=str)
+
 
 class PresentationMixin:
     async def render_match_png(self, game: CodexGame, match=None) -> bytes:
         """The board as WebP bytes (`render.WEBP_QUALITY`), drawn off
-        the event loop. The name is the gate's: `BoardRefresher` looks
-        this and `match_file_from_png` up on the cog by D12 Ball's names."""
+        the event loop -- or, where nothing it is drawn from has changed
+        since the last one this game drew, that one's bytes. The name is
+        the gate's: `BoardRefresher` looks this and `match_file_from_png`
+        up on the cog by D12 Ball's names."""
         if match is None:
             match = self.service.load(game)
-        return await asyncio.to_thread(
-            render_board, match, game.board_layout, self.seat_names(game), self.engine.catalog,
+        names = self.seat_names(game)
+        key = board_key(match, game.board_layout, names)
+        drawn = self.boards_drawn.get(game.game_id)
+        if drawn is not None and drawn[0] == key:
+            # The table has not moved -- a click that only said
+            # something -- so the board is the one already drawn, and
+            # the gate edits the text alone (`BoardRefresher.write`).
+            return drawn[1]
+        webp = await asyncio.to_thread(
+            render_board, match, game.board_layout, names, self.engine.catalog,
             stats=self.engine.board_reading,
         )
+        self.boards_drawn[game.game_id] = (key, webp)
+        return webp
 
     def match_file_from_png(self, game: CodexGame, png: bytes) -> discord.File:
         return discord.File(

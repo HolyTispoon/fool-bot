@@ -131,6 +131,11 @@ class BoardRefreshState:
     # next refresh believing it still has work to do, which is what
     # makes the backoff the only exit from a refusal.
     png_digest: "bytes | None" = None
+    # The picture alone on the message, beside `png_digest` (the picture
+    # and the text): where only the text has changed, the write edits
+    # the text and leaves the picture -- and its full-image link -- as
+    # they are, uploading nothing.
+    picture_digest: "bytes | None" = None
     # The full-image URL the last write took the link off and has not
     # put back. Set only while the board is carrying an image it has no
     # link to, and what keeps a trailing pass going when nothing else
@@ -577,6 +582,23 @@ class BoardRefresher:
             if relink:
                 await self.settle_link(channel, game)
             return
+        picture = board_digest(png)
+        if text is not None and state.picture_digest == picture:
+            # Only the text moved: edit it alone. The attachment stays,
+            # so the link on it stays live and nothing is owed.
+            try:
+                await channel.get_partial_message(message_id).edit(content=text)
+            except (
+                discord.NotFound, discord.HTTPException, aiohttp.ClientError,
+            ) as error:
+                if getattr(error, "status", None) == TOO_MANY_REQUESTS:
+                    self.note_write_refused(game)
+                return
+            state.png_digest = digest
+            state.writes_refused = 0
+            if relink:
+                await self.settle_link(channel, game)
+            return
 
         # Setting a view replaces the one already there, so the
         # message's own buttons get rebuilt with it -- for D12 Ball the
@@ -602,6 +624,7 @@ class BoardRefresher:
         # -- a refused write above all -- leaves the next refresh
         # believing it still has work to do.
         state.png_digest = digest
+        state.picture_digest = picture
         # One landing is the whole of the recovery: the window goes
         # straight back to its ordinary width rather than stepping down
         # through the backoff, because what the backoff was waiting for
@@ -641,6 +664,7 @@ class BoardRefresher:
         """
         state = self.state(game.game_id)
         state.png_digest = board_digest(png, text)
+        state.picture_digest = board_digest(png)
         state.refreshed_at = time.monotonic()
         state.wanted = False
         state.writes_refused = 0

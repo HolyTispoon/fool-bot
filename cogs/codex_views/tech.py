@@ -236,7 +236,7 @@ class TechConfirmView(PanelView):
     def caption(self) -> str:
         if not self.prompt.options.picks:
             return "Your tech: no cards."
-        return f"Your hand, then your tech: {picks_listed(self.prompt.options.picks)}."
+        return f"Your tech: {picks_listed(self.prompt.options.picks)}."
 
     async def confirm(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.TECH_CONFIRM, "confirm", {"player": self.seat}))

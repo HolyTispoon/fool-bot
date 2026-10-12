@@ -43,7 +43,7 @@ from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
 from codex.formatting import deck_name, ref_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
-from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, send_ephemeral
+from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, kept_pictures, send_ephemeral
 
 #: How long a panel answers clicks: a turn, generously. An expired panel
 #: is reopened from **My hand**, which makes a fresh one.
@@ -506,12 +506,25 @@ class TurnPanelView(PanelView):
 
     async def open_mode(self, interaction: discord.Interaction, mode: str) -> None:
         """Change the panel's mode in place -- the click's own response
-        -- with the mode's question under the prompt's ask."""
-        game, _ = await self.mine(interaction)
+        -- with the mode's question under the prompt's ask. **Attack...**
+        pictures the player's own side of the board in place of the
+        hand, what may attack being on the table (the author,
+        2026-10-12), and so carries no turn lines; **Back** puts the
+        hand up again."""
+        game, match = await self.mine(interaction)
         if game is None:
             return
         view = TurnPanelView(self.cog, self.game_id, self.prompt, self.match, mode=mode)
         caption = view.caption()
+        if mode == "attack":
+            side = await self.cog.side_file(game, match, self.seat, self.seat)
+            await edit_clicked(
+                interaction,
+                content=self.cog.panel_caption(game, self.prompt, caption, hand=False),
+                attachments=kept_pictures([side], interaction.message),
+                view=view,
+            )
+            return
         await self.show(interaction, view,
                         self.cog.panel_caption(game, self.prompt, caption) if caption else None)
 

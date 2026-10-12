@@ -2038,7 +2038,17 @@ else the bot shows is ephemeral.
   Codex record's `turn_message_id`), the message's text (`text_for`,
   which D12 Ball does not pass) and the game's name in the log. Each
   defaults to D12 Ball's, so its tests build it as they did. An edit
-  whose picture and text are both unchanged is skipped. The gate
+  whose picture and text are both unchanged is skipped, and **one whose
+  picture is unchanged edits the text alone** -- no upload, the
+  attachment and its full-image link left as they are
+  (`BoardRefreshState.picture_digest`; the author, 2026-10-12: "When
+  only the text changes, it shouldn't draw the picture again - only
+  edit the text"). Nor is the picture drawn again: `render_match_png`
+  keeps each game's last board with what it was drawn from
+  (`board_key` -- the match without its history, the turn snapshots,
+  the journal and the events, which change with every action whether
+  or not the table moved; the layout; the seats' names) and hands the
+  same bytes back for the same key (`Codex.boards_drawn`). The gate
   writes every action's edit, **Swap view**'s and the full-image link
   ("The turn message, edited", below), and is handed each post -- a
   new turn's, `/codex resume`'s -- as the board it keeps
@@ -2196,16 +2206,17 @@ too, asked with `gate` for the two kinds a turn may open on
   message with the hand"; then "only in the hand message and the
   public turn message. Not in any other ephemeral messages"). A panel
   pictured with the hand -- the main phase, Appel Stomp's place, a
-  stash, the tech confirmation and the tech gate (`TURN_LOG_KINDS`,
-  `panel_parts`' `hand`) -- and the other player's hand (`send_hand`,
+  stash and the tech gate (`TURN_LOG_KINDS`, `panel_parts`' `hand`)
+  -- and the other player's hand (`send_hand`,
   **My hand** and `/codex hand`) open on "**This turn**" and the turn
   message's lines so far, quoted, above their own words
   (`Codex.with_turn_log`), so what the opponent did reads beside the
   hand without scrolling up to the board. A panel pictured with a side
   of the board, a hidden pile's choices or the codex -- the defender, a
-  target, the tech picker -- does not, nor the deck, the codex browser
-  or the undos; a mode opened on the main phase's panel keeps it, its
-  prompt being the main phase's still. The first cut put the lines on
+  target, **Attack...**, the tech picker and the tech confirmation --
+  does not, nor the deck, the codex browser or the undos; any other
+  mode opened on the main phase's panel keeps it, its picture being
+  the hand still. The first cut put the lines on
   every panel, so they would not come and go as the panel turned to a
   target, and the author narrowed it the same day. The lines are the ones the
   turn message carries, the cog's memory of the turn rendered at the
@@ -2241,10 +2252,25 @@ too, asked with `gate` for the two kinds a turn may open on
   player choosing (`render_board`'s `near`, the active player's by
   default) -- `side_shown`, since what is chosen from is on the table. Appel
   Stomp's place, about the player's own draw pile, keeps the hand.
+  **Attack...** pictures the player's own side in place of the hand
+  while the attacker is chosen, what may attack being on the table
+  (the author, 2026-10-12), then the defender's the opponent's, and
+  **Back** or the attack's end puts the hand up again. The hand is not
+  kept beside a side through an attack: two pictures on one message
+  are laid side by side at half the width, which the author ruled out
+  for this (2026-10-12), so the hand is uploaded again when it comes
+  back. An edit in place otherwise keeps a picture the message already
+  carries (`kept_pictures`): a level bought, a building built or
+  anything that changes the panel's text and not its hand uploads
+  nothing -- the turn's lines over the hand are text -- and the hand
+  is uploaded only where its picture changed, a card in or out of it
+  or a cost or its greying moved with the gold.
   `render_prompt` gives the main phase no picture of its own (the
   board on the turn message is its board); the tech picker's is the codex with the
   picks framed in gold and counted (`render_codex`'s `picked`), the
-  confirmation's the picks as a hand.
+  confirmation's the picks as a hand, alone (the author, 2026-10-12:
+  "remove the hand from the 'confirm tech' view - need to see what's
+  confirmed there").
 - **The main phase is rows of buttons, not menus** (the author,
   2026-10-09, after a turn through the four selects step 4 built --
   Play a card..., Build..., Attack with..., Level up...). A message
@@ -2464,10 +2490,11 @@ turn it is while the turn waits on their tech, opens it at once:
 or the picker (the author, 2026-10-09: "clicking tech should let them
 pick tech"), whose save begins the turn with nothing to confirm; at any other point in their own turn it says the tech is
 not theirs to press now. **My hand** opens the confirmation at once
-where the picks were saved, the hand pictured and then the picks, two
-pictures on the one panel (the author, 2026-10-10: the step between
-was a click every turn for nothing; 2026-10-09, "clicking my hand
-should always show a player their hand"). Where nothing was picked it
+where the picks were saved, the picks pictured alone (the author,
+2026-10-10: the step between was a click every turn for nothing;
+2026-10-12, the hand taken off it, which showed it before the picks
+from 2026-10-09's "clicking my hand should always show a player their
+hand", so what is confirmed is what is seen). Where nothing was picked it
 sends the hand pictured with `TechGateView` under it, whose Tech opens
 the picker in place.
 Confirm runs the ready phase and the upkeep, and the panel becomes the
