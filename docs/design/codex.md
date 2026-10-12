@@ -1652,9 +1652,12 @@ else the bot shows is ephemeral.
     when its armor takes the first point). It is the body's own `armor`
     -- what is left of it this turn, every source already added in by
     the flow -- so the renderer reads it as it reads damage and works
-    nothing out; at 0 no shield is drawn. The shield stands two pixels
-    taller than the pill and is centred on its line, overlapping the
-    pill's rounded end, and widens for two figures.
+    nothing out; at 0 no shield is drawn. The shield is as tall as the
+    pill's middle, its flat top and its point level with the pill's
+    top and foot (the author, 2026-10-12: the first build's stood
+    4 px taller, and drew its shape 2 px inside the picture each
+    way), overlaps the pill's rounded end, and widens for two
+    figures.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     their team by `codex.formatting.team_name` -- a colour's three heroes
     by the deck's own name, "Blood Anarchs", any other team by its specs
