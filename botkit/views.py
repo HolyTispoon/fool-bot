@@ -23,6 +23,17 @@ class GameLockedView(discord.ui.View):
     # None on a view that belongs to no game -- a hub's.
     game_id: Optional[str] = None
 
+    #: Whether a click that finds its game's lock held is acknowledged
+    #: (`defer`) before it waits. Discord forgets a click not answered
+    #: within three seconds, and the click ahead may be uploading
+    #: pictures for longer than that -- the next one then fails with a
+    #: 10062 on its first response, before anything of ours has run.
+    #: Opt-in, because every response the view's callbacks make must
+    #: then work on a click already answered (`is_done()`): an edit of
+    #: the message clicked becomes `edit_original_response`, a message
+    #: a follow-up.
+    acknowledges_while_waiting: bool = False
+
     async def _scheduled_task(
         self,
         item: discord.ui.Item,
@@ -59,5 +70,13 @@ class GameLockedView(discord.ui.View):
         if not isinstance(locks, GameLocks) or self.game_id is None:
             await super()._scheduled_task(item, interaction)
             return
-        async with locks.hold(self.game_id):
+        lock = locks.hold(self.game_id)
+        if self.acknowledges_while_waiting and lock.locked() and not interaction.response.is_done():
+            try:
+                await interaction.response.defer()
+            except discord.HTTPException:
+                # Already forgotten: the callback's own response fails
+                # the same way, and its error handler says so.
+                pass
+        async with lock:
             await super()._scheduled_task(item, interaction)

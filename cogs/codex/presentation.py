@@ -39,6 +39,7 @@ from cogs.codex_views import (
     hand_file,
     revealed_caption,
     revealed_files,
+    send_answer,
     side_label,
 )
 
@@ -342,7 +343,8 @@ class PresentationMixin:
         file = await deck_file(self.engine, deck)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await interaction.response.send_message(
+        await send_answer(
+            interaction,
             deck_caption(deck, side_label(game, match, seat)),
             file=file,
             ephemeral=True,
@@ -361,8 +363,8 @@ class PresentationMixin:
         file = await view.picture(match, "everything")
         drawn = elapsed_ms(started)
         started = time.perf_counter()
-        await interaction.response.send_message(
-            view.caption("everything"), file=file, view=view, ephemeral=True,
+        await send_answer(
+            interaction, view.caption("everything"), file=file, view=view, ephemeral=True,
         )
         LOGGER.info("Codex game #%s: the codex drawn in %d ms (%d KB), sent in %d ms",
                     game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))

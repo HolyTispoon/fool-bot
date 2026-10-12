@@ -18,6 +18,7 @@ imported by bare name.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import itertools
 import json
@@ -177,6 +178,11 @@ class FakeInteraction:
 
     async def original_response(self):
         return SimpleNamespace(id=LOBBY_MESSAGE)
+
+    async def edit_original_response(self, **kwargs):
+        """The message clicked edited on a click answered already --
+        deferred while its game was busy -- through the click's webhook."""
+        self.answers.append(("original.edit", (), kwargs))
 
     async def delete_original_response(self):
         """The message clicked deleted -- a panel replaced by the one
@@ -398,7 +404,7 @@ class Table:
             elif "files" in kwargs or "file" in kwargs:
                 shown = kwargs.get("files") or [kwargs["file"]]
             else:
-                shown = call.message.attachments if kind == "response.edit" else []
+                shown = call.message.attachments if kind in ("response.edit", "original.edit") else []
             self.carried[view] = [
                 SimpleNamespace(filename=item.filename) if isinstance(item, discord.File) else item
                 for item in shown
@@ -417,6 +423,26 @@ class Table:
         await view._scheduled_task(button, call)
         self.remember(call)
         return call
+
+    async def press_while_busy(self, view, which, who=None) -> tuple[list[str], FakeInteraction]:
+        """
+        A button pressed while the click ahead of it still holds the
+        game's lock -- putting its pictures up, as far as this click
+        knows. What the click had answered by the time the lock came
+        free, and the click.
+        """
+        button = find_button(view, which)
+        call = self.interaction(who or self.seated(view.seat))
+        call.data = {"custom_id": button.custom_id, "component_type": 2}
+        call.message.attachments = self.carried.get(view, [])
+        async with self.cog.locks.hold(self.game.game_id):
+            pressed = asyncio.create_task(view._scheduled_task(button, call))
+            for _ in range(5):
+                await asyncio.sleep(0)
+            before = [answer[0] for answer in call.answers]
+        await pressed
+        self.remember(call)
+        return before, call
 
     async def choose(self, view, placeholder: str, *values: str, who=None) -> FakeInteraction:
         select = find_select(view, placeholder)

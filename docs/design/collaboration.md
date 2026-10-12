@@ -110,7 +110,10 @@ writer per game (see "Discord's rate limits" in [rate-limits.md](rate-limits.md)
   see `defer_or_report` in `cogs/debug.py`, which says so in #logs rather than
   raising a traceback that names only the symptom. The other cause is a bot too
   busy to acknowledge inside three seconds; `Get-CimInstance Win32_Process`
-  tells the two apart in one command.
+  tells the two apart in one command. A click on a game can also be kept
+  past three seconds by the click ahead of it, which holds the game's lock
+  while it puts its pictures up; the Codex panel defers such a click before
+  it waits ([codex.md](codex.md), "The requests per click").
 
 ## Running the web app
 
