@@ -232,6 +232,7 @@ class EndingMixin:
                     LOGGER.warning("Could not close the lobby of Codex game %s: %s", game.game_id, error)
             self.turn_lines.pop(game.game_id, None)
             self.turn_heads.pop(game.game_id, None)
+            self.boards_drawn.pop(game.game_id, None)
             try:
                 await channel.send(
                     f"**Codex game {game.game_number} was abandoned** by "
@@ -382,6 +383,7 @@ class EndingMixin:
             self.boards.forget(game)
             self.turn_lines.pop(game_id, None)
             self.turn_heads.pop(game_id, None)
+            self.boards_drawn.pop(game_id, None)
         self.service.drop_games(dropped)
         report = (
             f"Deleted {deleted} Codex channel(s) and {threads} thread(s), "

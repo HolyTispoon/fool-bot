@@ -449,6 +449,81 @@ class UnchangedBoardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(channel.message.edits, 1)
 
 
+class TextOnlyTests(unittest.IsolatedAsyncioTestCase):
+    """
+    A frontend that sets the message's text beside the picture (the
+    Codex bot, `text_for`): where only the text has changed, the write
+    edits the text alone -- no upload, the picture and its link left as
+    they are (the author, 2026-10-12: "When only the text changes, it
+    shouldn't draw the picture again - only edit the text").
+    """
+
+    def build(self):
+        cog = build_cog()
+        cog.render_match_png = mock.AsyncMock(return_value=b"same board")
+        self.text = "Turn 1"
+        cog.boards = BoardRefresher(cog, text_for=lambda game: self.text)
+        game, channel = build_game(), FakeChannel()
+        return cog, game, channel, SimpleNamespace(channel=channel)
+
+    def reopen(self, cog, game) -> None:
+        cog.boards.state(game.game_id).refreshed_at -= BOARD_REFRESH_INTERVAL + 1
+
+    async def test_new_text_on_the_same_board_edits_the_text_alone(self) -> None:
+        cog, game, channel, interaction = self.build()
+        await cog.refresh_match_image(interaction, game)
+        self.assertIn("attachments", channel.message.fields[0])
+
+        self.text = "Turn 1\nperrytom plays a card."
+        self.reopen(cog, game)
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(channel.message.fields[1], {"content": self.text})
+
+    async def test_new_text_and_a_new_board_upload_the_board(self) -> None:
+        cog, game, channel, interaction = self.build()
+        await cog.refresh_match_image(interaction, game)
+        self.text = "Turn 1\nperrytom attacks."
+        cog.render_match_png.return_value = b"a unit exhausted"
+        self.reopen(cog, game)
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertIn("attachments", channel.message.fields[1])
+        self.assertEqual(channel.message.fields[1]["content"], self.text)
+
+    async def test_the_same_text_on_the_same_board_writes_nothing(self) -> None:
+        cog, game, channel, interaction = self.build()
+        await cog.refresh_match_image(interaction, game)
+        self.reopen(cog, game)
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(channel.message.edits, 1)
+
+    async def test_a_failed_text_edit_is_not_remembered(self) -> None:
+        cog, game, channel, interaction = self.build()
+        await cog.refresh_match_image(interaction, game)
+        before = cog.boards.state(game.game_id).png_digest
+        channel.message.edit = mock.AsyncMock(
+            side_effect=discord.HTTPException(SimpleNamespace(status=500, reason="nope"), "nope"),
+        )
+        self.text = "Turn 1\nsomething said"
+        self.reopen(cog, game)
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(cog.boards.state(game.game_id).png_digest, before)
+
+    async def test_a_posted_board_takes_new_text_alone(self) -> None:
+        # The Codex bot's new turn message is posted, and the gate is
+        # handed the post: the next text-only change uploads nothing.
+        cog, game, channel, interaction = self.build()
+        cog.boards.posted(channel, game, FakeMessage(), b"same board", self.text)
+        self.text = "Turn 1\nperrytom hires a worker."
+        self.reopen(cog, game)
+        await cog.refresh_match_image(interaction, game)
+
+        self.assertEqual(channel.message.fields[-1], {"content": self.text})
+
+
 def refused() -> discord.HTTPException:
     """What discord.py raises once it has given up on a 429."""
     return discord.HTTPException(
