@@ -199,12 +199,13 @@ NAMED_RUNE = 52
 RUNE_CHIT_DRAWN = 160
 #: The rune chits, one a colour (the author, 2026-10-11): the module's
 #: blue swirl chit, its blue the colour's own and its yellow swirl the
-#: second here -- a darker gold on white, where yellow would not show.
+#: second here -- on white the white cards' frame, and a deep gold, where
+#: yellow would not show.
 RUNE_CHIT_COLORS: dict[str, tuple[tuple[int, int, int], tuple[int, int, int]]] = {
     "red": ((176, 30, 36), (255, 214, 72)),
     "blue": ((3, 80, 168), (255, 227, 62)),
     "green": ((34, 122, 58), (238, 226, 80)),
-    "white": ((245, 245, 245), (214, 168, 36)),
+    "white": ((232, 233, 229), (160, 100, 0)),
     "purple": ((104, 48, 156), (255, 214, 72)),
     "black": ((32, 32, 36), (232, 196, 64)),
 }
@@ -319,6 +320,9 @@ STATE_FILL = (104, 106, 112)     # #686a70
 #: is neutral. `MARK_SIZE` is its lettering, `MARK_STEP` a row of them.
 MARK_FILL = (122, 74, 160)       # #7a4aa0
 MARK_SIZE = 15
+#: A white card's tag, true white (the author, 2026-10-11) -- whiter than
+#: its rune chit, which is the white cards' frame.
+WHITE_TAG = (245, 245, 245)
 MARK_STEP = 25
 DESTROYED_FILL = (150, 40, 40)   # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
@@ -595,7 +599,8 @@ def _rune_chit(color: str, count: int) -> Image.Image:
         rows, cols = np.nonzero((alpha[..., 0] > 128) & (rim[..., 0] < 0.5))
         centre = ((cols.min() + cols.max()) / 2, (rows.min() + rows.max()) / 2)
         text, light = str(count), color == "white"
-        face, stroke = font(round(size * (0.62 if len(text) < 2 else 0.5))), size // 30
+        # Small enough that the swirl shows round it.
+        face, stroke = font(round(size * (0.5 if len(text) < 2 else 0.42))), size // 30
         draw = ImageDraw.Draw(chit)
         left, top, right, bottom = draw.textbbox((0, 0), text, font=face, stroke_width=stroke)
         draw.text((centre[0] - (left + right) / 2, centre[1] - (top + bottom) / 2), text,
@@ -820,7 +825,9 @@ def label_colors(colour: Optional[str]) -> tuple[tuple[int, int, int], tuple[int
     disc, dark letters on white; the plain purple for a neutral card."""
     if colour not in RUNE_CHIT_COLORS:
         return MARK_FILL, INK
-    return RUNE_CHIT_COLORS[colour][0], ((30, 30, 30) if colour == "white" else INK)
+    if colour == "white":
+        return WHITE_TAG, (30, 30, 30)
+    return RUNE_CHIT_COLORS[colour][0], INK
 
 
 def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Optional[str]], ...]:

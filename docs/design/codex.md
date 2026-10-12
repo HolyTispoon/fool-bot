@@ -1614,7 +1614,10 @@ else the bot shows is ephemeral.
     stats pill (`rune_chit`, `NAMED_RUNE`), never a word (the author,
     2026-10-11). The chits are the module's blue swirl chit recoloured
     as the board is drawn -- its blue the colour's and its yellow swirl
-    kept, a darker gold on white (`RUNE_CHIT_COLORS`) -- one for each of
+    kept -- on white the white cards' own frame, #e8e9e5, and a deep
+    gold swirl (`RUNE_CHIT_COLORS`; a white card's tag is true white,
+    `WHITE_TAG`), the number small enough that the swirl shows round
+    it -- one for each of
     the six colours, so nothing is committed; the count is drawn on it,
     so any number fits. A rune's colour is the card's that puts it there
     (`RUNE_COLORS`: Bloodburn's blood red, Corpse Catapult's corpse
