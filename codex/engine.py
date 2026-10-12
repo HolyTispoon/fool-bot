@@ -26,6 +26,7 @@ governing where the two differ.
 
 from __future__ import annotations
 
+import itertools
 from collections import Counter
 from dataclasses import dataclass
 from random import Random  # the one Random; nothing reads the module's functions
@@ -93,6 +94,10 @@ TECH_FREE_WORKERS = 10
 #: spec, one spec, as `spec:<key>` (`spec_view`).
 CODEX_VIEWS = ("everything", "tech1", "tech2", "tech3", "spells")
 SPEC_VIEW_PREFIX = "spec:"
+#: How wide a codex picture is, in cards (`codex_places`).
+CODEX_COLUMNS = 6
+#: How wide a spec's block of spells is, in cards (`codex_places`).
+CODEX_SPELL_BLOCK = 2
 
 
 def spec_view(spec: str) -> str:
@@ -3613,9 +3618,10 @@ class RulesEngine:
 
     def codex_counts(self, player: PlayerState) -> tuple[tuple[str, int], ...]:
         """
-        The player's codex, as (slug, copies left), by tech level (the
-        author, 2026-10-10): every Tech I card, then Tech II, then
-        Tech III, then the spells together -- the ultimates last -- each
+        The player's codex, as (slug, copies left): every Tech I card,
+        then each spec's Tech II and Tech III together, then each spec's
+        spells with its ultimate last (the author, 2026-10-12, who had
+        first asked for it by tech level alone on 2026-10-10) -- each
         group spec by spec as the deck names them, then by cost and name
         (`codex_order`).
         """
@@ -3627,15 +3633,15 @@ class RulesEngine:
         return tuple((slug, player.codex.get(slug, 0)) for slug in order)
 
     def codex_order(self, slug: str, spec: int = 0) -> tuple:
-        """Where a card sits in a codex: its tech level, the spells after
-        every level and an ultimate after them, then its spec's place in
-        the deck (`spec`), its cost and its name."""
+        """Where a card sits in a codex (`codex_counts`): Tech I, then a
+        spec's Tech II and III, then a spec's spells, an ultimate after
+        them; within each, its spec's place in the deck (`spec`), then
+        its tech level, its cost and its name."""
         card = self.catalog.cards[slug]
         if card.is_spell:
-            group = 5 if "Ultimate" in card.type else 4
-        else:
-            group = card.tech_level or 0
-        return group, spec, card.cost or 0, card.name
+            return 3, spec, "Ultimate" in card.type, card.cost or 0, card.name
+        level = card.tech_level or 0
+        return min(level, 2), spec, level, card.cost or 0, card.name
 
     # -- What a player is shown of their own cards ------------------------
 
@@ -3684,18 +3690,54 @@ class RulesEngine:
 
         return tuple(row for row in rows if shown(row[0]))
 
-    def codex_row_starts(self, rows: Sequence[tuple[str, int]],
-                         view: str) -> tuple[int, ...]:
+    def codex_places(self, rows: Sequence[tuple[str, int]],
+                     view: str) -> tuple[tuple[int, int], ...]:
         """
-        Where a picture of `rows` -- a view's cards, as `codex_view_rows`
-        hands them back -- starts a new row: in the Tech II view, at each
-        new spec, so every spec is a line of its own (the author,
-        2026-10-10); in every other view, nowhere -- the cards run on.
+        Where each card of a picture of `rows` -- a view's cards, as
+        `codex_view_rows` hands them back -- sits: its (row, column) in
+        a grid `CODEX_COLUMNS` wide. Where the cards are more than one
+        spec's, in the Everything, Tech II and Spells views (the author,
+        2026-10-10 and 2026-10-12), every Tech I card runs on together,
+        each spec's Tech II and III are a line of their own, and each
+        spec's spells are a block two cards wide -- two on top, two
+        below, its ultimate last -- the specs' blocks side by side, so a
+        spec's spells sit in the same two columns. Every other view, and
+        a codex of one spec, runs on. A run of cards of one kind starts
+        a new row; nothing assumes how many a spec has.
         """
-        if view != "tech2":
-            return ()
-        specs = [self.catalog.cards[slug].spec for slug, _ in rows]
-        return tuple(index for index in range(1, len(specs)) if specs[index] != specs[index - 1])
+        cards = [self.catalog.cards[slug] for slug, _ in rows]
+        grouped = (len({card.spec for card in cards}) > 1
+                   and view in ("everything", "tech2", "spells"))
+
+        def band(card) -> tuple:
+            if not grouped:
+                return ("run",)
+            if card.is_spell:
+                return ("spells",)
+            if (card.tech_level or 0) >= 2:
+                return ("line", card.spec)
+            return ("run",)
+
+        places: list[tuple[int, int]] = []
+        top = 0
+        for key, members in itertools.groupby(cards, key=band):
+            members = list(members)
+            if key[0] != "spells":
+                for at in range(len(members)):
+                    places.append((top + at // CODEX_COLUMNS, at % CODEX_COLUMNS))
+                top += -(-len(members) // CODEX_COLUMNS)
+                continue
+            blocks = [list(block) for _, block in itertools.groupby(members, key=lambda card: card.spec)]
+            across = max(1, CODEX_COLUMNS // CODEX_SPELL_BLOCK)
+            for start in range(0, len(blocks), across):
+                tallest = 0
+                for slot, block in enumerate(blocks[start:start + across]):
+                    for at in range(len(block)):
+                        places.append((top + at // CODEX_SPELL_BLOCK,
+                                       slot * CODEX_SPELL_BLOCK + at % CODEX_SPELL_BLOCK))
+                    tallest = max(tallest, -(-len(block) // CODEX_SPELL_BLOCK))
+                top += tallest
+        return tuple(places)
 
     def codex_remaining(self, match: MatchState, seat: int,
                         view: str = "everything") -> tuple[tuple[str, int], ...]:

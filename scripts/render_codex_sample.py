@@ -357,7 +357,7 @@ def main() -> None:
         rows = engine.codex_remaining(middle, 1, view)
         write(args.out / f"codex-{view}.webp", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
-            None, engine.codex_row_starts(rows, view),
+            None, engine.codex_places(rows, view),
         ))
     # The tech picker (`TechChoiceView`): the whole codex, the picks
     # framed and counted -- here two copies of one card.
@@ -365,7 +365,7 @@ def main() -> None:
     picks = {"revolver_ocelot": 2}
     write(args.out / "tech-picker.webp", render_codex(
         [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
-        [picks.get(slug, 0) for slug, _ in rows],
+        [picks.get(slug, 0) for slug, _ in rows], engine.codex_places(rows, "everything"),
     ))
 
     # Step 12: purple against black -- time runes, the future, disabled
@@ -392,7 +392,7 @@ def main() -> None:
         rows = engine.codex_remaining(standard, 1, view)
         write(args.out / f"standard-codex-{view.replace(':', '-')}.webp", render_codex(
             [slug for slug, _ in rows], [count for _, count in rows], engine.catalog,
-            None, engine.codex_row_starts(rows, view),
+            None, engine.codex_places(rows, view),
         ))
 
 
