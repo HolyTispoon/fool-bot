@@ -1609,6 +1609,15 @@ else the bot shows is ephemeral.
     foot of its art against the left edge, opposite the damage chits
     (the author, 2026-10-10: it sat over the card's text, 44 above its
     foot).
+  - **A counted named rune -- a blood rune, a growth rune -- is the
+    module's purple rune chit with its count**, top right under the
+    stats pill (`named_rune_chits`, `NAMED_RUNE`), never a word: the
+    author (2026-10-11) asked for the generic rune token the table
+    plays with, not a "Blood 4" tag, since the card's text already says
+    which runes it holds. Past six it is a 6 for every six and the rest.
+    A feather or a crumbling rune, one alone, and a copy, a jail, a
+    number or an oath stay purple tags under the chits (`rune_marks`),
+    since a bare number would not say which.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

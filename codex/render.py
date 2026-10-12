@@ -192,6 +192,9 @@ STAT_OVERHANG = 10
 #: which the stats now hold).
 RUNE_HANG = 20
 RUNE_CENTRE = 150
+#: A named rune's chit -- Bloodburn's, Might of Leaf and Claw's -- across,
+#: top right under the stats pill.
+NAMED_RUNE = 44
 #: How far in from a card's left edge its printed cost reaches, which a
 #: copy's number, beside the stats, keeps clear of.
 COST_WIDTH = 50
@@ -282,8 +285,8 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
-#: A named rune's tag on a card (step 11): Bloodburn's, Might of Leaf and
-#: Claw's, a feather rune.
+#: A tag on a card: a feather or a crumbling rune (step 11), a copy, a
+#: jail, a number, an oath (step 13).
 MARK_FILL = (122, 74, 160)       # #7a4aa0
 DISABLED_FILL = (150, 40, 40)    # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
@@ -539,6 +542,12 @@ def time_rune_chit(runes: int) -> Image.Image:
     return board_piece("time_runes", f"{min(runes, 6)}.png")
 
 
+def named_rune_chits(count: int) -> list[Image.Image]:
+    """`count` runes of one kind as the module's numbered rune chits --
+    one, or past six a 6 for every six and the rest."""
+    return [time_rune_chit(6)] * (count // 6) + ([time_rune_chit(count % 6)] if count % 6 else [])
+
+
 def copy_tag(canvas: Image.Image, centre: int, middle: int, number: int, turned: bool) -> None:
     """A copy's number, "#2", on a white tag centred on `centre` and on
     `middle` -- the stats pill's line, across the card's top edge (the
@@ -673,8 +682,13 @@ class Lying:
     partnered: bool = False
     arrived: bool = False
     exhausted: bool = False
-    #: The runes besides +1/+1 and -1/-1 (step 11) -- "Blood 2",
-    #: "Growth 5", "Feather" -- as tags under the rune chits.
+    #: The counted runes besides +1/+1 and -1/-1 (step 11) -- a blood
+    #: rune's, a growth rune's -- as their counts, each the module's
+    #: purple rune chit with its number, unnamed (the author,
+    #: 2026-10-11: the generic token, as the table plays it).
+    named_runes: tuple[int, ...] = ()
+    #: The rest of what it carries, as tags under those chits:
+    #: "Feather", "Crumbling", "Copy: Fox Viper", "Number 3".
     marks: tuple[str, ...] = ()
     #: Its time runes (step 12): fading on a card in play, Prynn's on
     #: her, forecast on a card in the future -- the module's chit.
@@ -703,14 +717,22 @@ POLYMORPHED = "squirrel"
 SINGLE_RUNES = ("feather", "crumbling")
 
 
+def rune_counts(card) -> tuple[int, ...]:
+    """A card's or a hero's counted named runes -- blood, growth, sword
+    -- as their counts, by kind's name, for `named_rune_chits`."""
+    return tuple(count for kind, count in sorted((getattr(card, "runes", None) or {}).items())
+                 if count and kind not in SINGLE_RUNES)
+
+
 def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[str, ...]:
-    """A card's or a hero's named runes as tags -- "Blood 2", "Feather",
-    "Crumbling", "Sword 1" -- and, on a card (step 13), what else it
+    """A card's or a hero's single runes as tags -- "Feather",
+    "Crumbling", "Feather 2" -- and, on a card (step 13), what else it
     carries: "Copy: Fox Viper", "Jail: Iron Man", "Number 3", "Oath: no
-    draw"."""
+    draw". Its counted runes are chits (`rune_counts`)."""
     found = [
-        kind.title() + (f" {count}" if count > 1 or kind not in SINGLE_RUNES else "")
-        for kind, count in sorted((getattr(card, "runes", None) or {}).items()) if count
+        kind.title() + (f" {count}" if count > 1 else "")
+        for kind, count in sorted((getattr(card, "runes", None) or {}).items())
+        if count and kind in SINGLE_RUNES
     ]
     if not isinstance(card, CardInstance):
         return tuple(found)
@@ -759,7 +781,8 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
     return Lying(shown_slug(card), damage=card.damage, plus_runes=card.plus_runes,
                  minus_runes=card.minus_runes, partnered=partnered,
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
-                 marks=rune_marks(card, cards), time_runes=card.time_runes,
+                 named_runes=rune_counts(card), marks=rune_marks(card, cards),
+                 time_runes=card.time_runes,
                  disabled=card.disabled, buried=len(card.buried or ()), copy=copy,
                  stats=stats)
 
@@ -774,7 +797,8 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
     return Lying(hero.slug, level=level_chit(hero, cards), damage=hero.damage,
                  plus_runes=hero.plus_runes, minus_runes=hero.minus_runes,
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
-                 time_runes=hero.time_runes, disabled=hero.disabled, marks=rune_marks(hero),
+                 time_runes=hero.time_runes, disabled=hero.disabled,
+                 named_runes=rune_counts(hero), marks=rune_marks(hero),
                  stats=stats)
 
 
@@ -824,10 +848,15 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], 50, (side - 8, bottom + 8),
                 upward=True)
+    top = margin + 60
+    for count in lying.named_runes:
+        lay_row(upright, named_rune_chits(count)[::-1], NAMED_RUNE, (right - 6, top),
+                leftward=True)
+        top += NAMED_RUNE + 4
     if lying.marks:
         draw = ImageDraw.Draw(upright)
         for index, mark in enumerate(lying.marks):
-            pill(draw, (right - 6, margin + 60 + index * 30), mark, 18, MARK_FILL, anchor="rt")
+            pill(draw, (right - 6, top + index * 30), mark, 18, MARK_FILL, anchor="rt")
     if lying.buried:
         draw = ImageDraw.Draw(upright)
         pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
