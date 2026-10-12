@@ -1664,6 +1664,13 @@ else the bot shows is ephemeral.
     states up the left, each state in the lowest row no mark reaches
     across to, never above `TAG_CEILING`, the cost's and the stats'
     (the author, 2026-10-12: "Skip draw/discard" lay over DISABLED).
+    The damage chits keep the foot of the art on the right, and step
+    left of a rune chit or a mark standing beside the foot (`lay_damage`;
+    the author, 2026-10-12: a rune chit hid the damage); a tag over no
+    more than a chit's top point (`TAG_SLACK`) moves neither, and is
+    drawn over it. ARRIVED and DISABLED go round the damage too, ARRIVED
+    always the lower; with no row free -- a damaged, disabled card that
+    arrived this turn with a rune chit -- one lies over the chit's edge.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

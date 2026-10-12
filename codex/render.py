@@ -350,6 +350,9 @@ MARK_STEP = px(25)
 #: How far below a card's top edge its tags may stand: clear of the
 #: stats pill on the right and the cost on the left.
 TAG_CEILING = px(46)
+#: How far a tag may lie over a chit's edge -- a damage chit's top point
+#: -- before either moves.
+TAG_SLACK = px(10)
 DESTROYED_FILL = (150, 40, 40)   # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
 #: brighter than the print's heart, so maroon stands apart from it --
@@ -578,19 +581,33 @@ def chit_stack(amount: int, folder: str, largest: int) -> list[Image.Image]:
     return chits
 
 
+#: A box on a canvas, (left, top, right, bottom).
+Box = tuple[int, int, int, int]
+
+
+def overlaps(one: Box, other: Box, slack: int = 0) -> bool:
+    """Whether two boxes cross by more than `slack` up and down."""
+    return (one[0] < other[2] and other[0] < one[2]
+            and one[1] < other[3] - slack and other[1] < one[3] - slack)
+
+
 def lay_row(canvas: Image.Image, chits: Sequence[Image.Image], width: int,
-            corner: tuple[int, int], *, leftward: bool = False, upward: bool = False) -> None:
+            corner: tuple[int, int], *, leftward: bool = False, upward: bool = False) -> Box:
     """Chits `width` across in a row from `corner` -- a top-left corner,
     or a top-right one going `leftward`, or a bottom one going `upward`
-    -- each overlapping the last by a sixth."""
+    -- each overlapping the last by a sixth: the box the row covers."""
     left, top = corner
+    covered = (canvas.width, canvas.height, 0, 0)
     for chit in chits:
         piece = by_width(chit, width)
         x = left - piece.width if leftward else left
         y = top - piece.height if upward else top
         canvas.alpha_composite(piece, (x, y))
+        covered = (min(covered[0], x), min(covered[1], y),
+                   max(covered[2], x + piece.width), max(covered[3], y + piece.height))
         step = piece.width - width // 6
         left += -step if leftward else step
+    return covered
 
 
 def damage_chits(damage: int) -> list[Image.Image]:
@@ -761,39 +778,73 @@ def tag_at(draw: ImageDraw.ImageDraw, x: int, top: int, text: str, fill, ink,
          anchor="rs" if leftward else "ls", edge=px(2), ink=ink)
 
 
-def lay_tags(canvas: Image.Image, card_left: int, column_right: int, column_top: int,
-             ceiling: int, foot: int, marks: Sequence[tuple[str, Optional[str]]],
-             states: Sequence[str]) -> None:
+def tag_rows_lowest(foot: int) -> int:
+    """The box top of a card's lowest row of tags, standing on `foot`,
+    the foot of its art: the rows are `MARK_STEP` apart up from it, a
+    row's box top `lowest - row * MARK_STEP`, a negative row under it."""
+    return foot - px(4) - tag_size("H")[1]
+
+
+def plan_marks(column_right: int, column_top: int, ceiling: int, foot: int,
+               marks: Sequence[tuple[str, Optional[str]]]) -> list[tuple[str, Optional[str], Box]]:
+    """Where a card's marks go: down its right edge, a row each, from the
+    first row at or below `column_top` (under its rune chits) and not
+    above `ceiling` (the stats)."""
+    lowest = tag_rows_lowest(foot)
+    row = (lowest - max(column_top, ceiling)) // MARK_STEP
+    placed = []
+    for mark, colour in marks:
+        width, height = tag_size(mark)
+        top = lowest - (row - len(placed)) * MARK_STEP
+        placed.append((mark, colour, (column_right - width, top, column_right, top + height)))
+    return placed
+
+
+def lay_states(canvas: Image.Image, card_left: int, ceiling: int, foot: int,
+               states: Sequence[str], clear_of: Sequence[Box]) -> None:
     """
-    A card's tags on one grid of rows `MARK_STEP` apart, the lowest
-    standing on `foot`, the foot of its art: its marks down the right
-    edge from the first row at or below `column_top` (under its rune
-    chits) and not above `ceiling` (the stats); ARRIVED and DISABLED up
-    the left edge from the foot, opposite the damage chits, each in the
-    lowest row no mark reaches across to and not above `ceiling` (the
-    cost) -- or, with none free, the lowest left (the author,
+    ARRIVED and DISABLED up a card's left edge from the foot of its art,
+    on the marks' rows, each in the lowest row clear of `clear_of` -- the
+    marks, the rune chits and the damage chits -- and not above
+    `ceiling` (the cost); with none free, the lowest left (the author,
     2026-10-12: "Skip draw/discard" lay over DISABLED).
     """
     draw = ImageDraw.Draw(canvas)
-    lowest = foot - px(4) - tag_size("H")[1]
-    # Rows counted up from the foot's, 0; a row's box top is
-    # `lowest - row * MARK_STEP`, and a negative row is under the foot.
-    row = (lowest - max(column_top, ceiling)) // MARK_STEP
-    reach: dict[int, int] = {}
-    for mark, colour in marks:
-        fill, ink = label_colors(colour)
-        tag_at(draw, column_right, lowest - row * MARK_STEP, mark, fill, ink, leftward=True)
-        reach[row] = column_right - tag_size(mark)[0]
-        row -= 1
+    lowest = tag_rows_lowest(foot)
     highest = (lowest - ceiling) // MARK_STEP
-    taken: set[int] = set()
+    left = card_left + px(10)
+    slack = TAG_SLACK
+    placed: list[Box] = []
     for state in reversed(states):
-        right = card_left + px(10) + tag_size(state)[0] + px(4)
-        free = [k for k in range(highest + 1)
-                if k not in taken and right <= reach.get(k, canvas.width)]
-        k = free[0] if free else min(set(range(len(states) + highest + 1)) - taken)
-        taken.add(k)
-        tag_at(draw, card_left + px(10), lowest - k * MARK_STEP, state, STATE_FILL, INK)
+        width, height = tag_size(state)
+        boxes = {row: (left, lowest - row * MARK_STEP, left + width + px(4),
+                       lowest - row * MARK_STEP + height) for row in range(highest + len(states) + 1)}
+        free = [row for row in range(highest + 1)
+                if not any(overlaps(boxes[row], other, slack) for other in clear_of)
+                and not any(overlaps(boxes[row], other) for other in placed)]
+        row = free[0] if free else min(row for row in boxes
+                                       if not any(overlaps(boxes[row], other) for other in placed))
+        placed.append(boxes[row])
+    # The rows they found, lowest first, so ARRIVED stays under DISABLED.
+    for state, top in zip(reversed(states), sorted((box[1] for box in placed), reverse=True)):
+        tag_at(draw, left, top, state, STATE_FILL, INK)
+
+
+def lay_damage(canvas: Image.Image, damage: int, right: int, foot: int,
+               clear_of: Sequence[Box]) -> Optional[Box]:
+    """A card's damage chits standing on the foot of its art, from its
+    right edge leftward, clear of the ATK and HP the card prints -- and,
+    where its rune chits or marks stand beside the foot, from the left
+    of them (the author, 2026-10-12: a rune chit hid the damage); a tag
+    over no more than a chit's top point, `TAG_SLACK`, leaves it be."""
+    if not damage:
+        return None
+    chits = damage_chits(damage)
+    height = by_width(chits[0], px(62)).height
+    band = (0, foot - height, canvas.width, foot)
+    start = min([right - px(10)] + [box[0] - px(4) for box in clear_of
+                                     if overlaps(box, band, TAG_SLACK)])
+    return lay_row(canvas, chits, px(62), (start, foot), leftward=True, upward=True)
 
 
 # -- A card as it lies ---------------------------------------------------------
@@ -1032,9 +1083,6 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if runes:
         lay_row(upright, runes, px(50), (right + RUNE_HANG, margin + RUNE_CENTRE - px(25)),
                 leftward=True)
-    if lying.damage:
-        lay_row(upright, damage_chits(lying.damage), px(62), (right - px(10), margin + ART_FOOT),
-                leftward=True, upward=True)
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], px(50),
                 (side - px(8), bottom + px(8)), upward=True)
@@ -1049,13 +1097,21 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.future:
         marks.insert(0, ("FUTURE", own))
     top = margin + px(60)
+    column: list[Box] = []
     for colour, count in named:
-        lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top), leftward=True)
+        column.append(lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - px(6), top),
+                              leftward=True))
         top += NAMED_RUNE + px(4)
+    foot = margin + ART_FOOT
+    planned = plan_marks(right - px(6), top if named else margin, margin + TAG_CEILING, foot, marks)
+    column += [box for _, _, box in planned]
+    damage = lay_damage(upright, lying.damage, right, foot, column)
+    column += [damage] if damage else []
+    draw = ImageDraw.Draw(upright)
+    for mark, colour, box in planned:
+        tag_at(draw, box[2], box[1], mark, *label_colors(colour), leftward=True)
     states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived)) if on]
-    if marks or states:
-        lay_tags(upright, side, right - px(6), top if named else margin, margin + TAG_CEILING,
-                 margin + ART_FOOT, marks, states)
+    lay_states(upright, side, margin + TAG_CEILING, foot, states, column)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     if stats is not None and not lying.exhausted:
         upright.alpha_composite(stats, (right + STAT_OVERHANG - stats.width,
