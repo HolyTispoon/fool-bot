@@ -72,9 +72,28 @@ def codex_view_menu(views, current: str, row: int | None = None) -> discord.ui.S
     )
 
 
+def swapped_layout(layout: str) -> str:
+    """
+    The layout **Swap view** switches to: between the two stacked ones,
+    the far panel turned to face the near one or both the same way up
+    -- and from side by side, which `/codex side_by_side` alone puts up,
+    back to stacked.
+    """
+    return "stacked_upright" if layout == "stacked" else "stacked"
+
+
+#: The button's label, by the layout it would switch to.
+SWAP_LABELS = {
+    "stacked_upright": "View: same way up",
+    "stacked": "View: facing",
+}
+
+
 def swap_label(layout: str) -> str:
     """The layout the button would switch to."""
-    return "View: side by side" if layout == "stacked" else "View: stacked"
+    if layout == "side_by_side":
+        return "View: stacked"
+    return SWAP_LABELS[swapped_layout(layout)]
 
 
 class TurnMessageView(SafeView):
@@ -193,7 +212,7 @@ class TurnMessageView(SafeView):
         if not self.may_act_in_game(interaction, game):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
             return
-        layout = "side_by_side" if game.board_layout == "stacked" else "stacked"
+        layout = swapped_layout(game.board_layout)
         try:
             self.cog.service.set_board_layout(game.game_id, layout)
         except RuleRefusal as refused:

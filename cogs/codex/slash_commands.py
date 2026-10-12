@@ -1,9 +1,10 @@
 """
 The game's slash commands besides the lobby: `/codex games`,
-`/codex board`, `/codex hand` and `/codex resume` (docs/codex-bot.md,
-decision 10). Each answers ephemerally where it shows anything, so none
-of them spends the channel's edit bucket -- but `/codex resume`, which
-re-posts the table.
+`/codex board`, `/codex hand`, `/codex side_by_side` and `/codex resume`
+(docs/codex-bot.md, decision 10). Each answers ephemerally where it
+shows anything, so none of them spends the channel's edit bucket -- but
+`/codex resume`, which re-posts the table, and `/codex side_by_side`,
+whose board goes up through the gate as **Swap view**'s does.
 """
 
 from __future__ import annotations
@@ -66,7 +67,36 @@ class SlashCommandsMixin:
             return
         await self.send_hand(interaction, game, match, seat)
 
-    @app_commands.command(name="resume", description="Put this channel's Codex table back up: the board and its buttons.")
+    @app_commands.command(name="side_by_side",
+                          description="Lay this channel's Codex board out side by side, or back to stacked.")
+    async def side_by_side(self, interaction: discord.Interaction) -> None:
+        """
+        The side-by-side board, which **Swap view** no longer reaches --
+        it flips the two stacked layouts -- and from it back to stacked.
+        Either player's, or a game helper's, as the button is; the board
+        goes up through the gate as the button's does.
+        """
+        game = self.game_for_channel(interaction.channel_id)
+        if game is None or game.status is not GameStatus.PLAYING:
+            await send_ephemeral(interaction, NO_GAME_HERE)
+            return
+        if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
+            await send_ephemeral(interaction, "Only the players can swap the board's view.")
+            return
+        layout = "stacked" if game.board_layout == "side_by_side" else "side_by_side"
+        async with self.locks.hold(game.game_id):
+            try:
+                self.service.set_board_layout(game.game_id, layout)
+            except RuleRefusal as refused:
+                await send_ephemeral(interaction, str(refused))
+                return
+            await send_ephemeral(
+                interaction,
+                "The board is side by side." if layout == "side_by_side" else "The board is stacked.",
+            )
+            await self.refresh_match_image(game)
+
+    @app_commands.command(name="resume",description="Put this channel's Codex table back up: the board and its buttons.")
     async def resume(self, interaction: discord.Interaction) -> None:
         """
         Run any step the bot owes, then re-post the turn message -- the

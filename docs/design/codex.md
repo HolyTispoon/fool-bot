@@ -1823,9 +1823,21 @@ else the bot shows is ephemeral.
       The change was checked byte for byte: at `DRAW_SCALE` 1 every
       sample picture hashes as it did before `px` was put in.
 - **The layout is the game's**, on the record (`board_layout`, not the
-  match's, so an undo does not take it back): stacked, or side by side
-  with the first player's mat on the left. **Swap view** flips it for
-  everyone and the board goes up through the gate.
+  match's, so an undo does not take it back): stacked, stacked the same
+  way up (`stacked_upright`), or side by side with the first player's
+  mat on the left. **Swap view** flips the two stacked ones for
+  everyone -- and from side by side goes back to stacked -- and the
+  board goes up through the gate. Side by side is reached by
+  `/codex side_by_side` alone, which toggles it with stacked (the
+  author, 2026-10-12: the button between the two stacked boards, side
+  by side behind a command). The button's label names the layout it
+  goes to: "View: same way up", "View: facing", or "View: stacked"
+  from side by side.
+- **Stacked the same way up** is the stacked board with neither panel
+  turned: the other player's above, read as it would be from its own
+  seat, its nameplate under it beside the divider, so every card on
+  the table reads without turning a phone -- what the turned board
+  gives up to look like a table.
 - **Stacked is the table seen from the active player's side** (the
   author, 2026-10-08): their panel at the bottom, the other player's
   above it and turned round to face them, so the two patrol zones face

@@ -61,9 +61,11 @@ HEROES_PER_SEAT = {"basic": 1, "standard": 3}
 
 #: How the board image lays the two panels out: stacked, seen from the
 #: active player's side with the other player's panel turned to face
-#: them, or the two side by side -- the game's choice, so everyone sees
-#: the same picture (docs/codex-bot.md, decision 5).
-BOARD_LAYOUTS = ("stacked", "side_by_side")
+#: them; stacked the same way up, neither turned; or the two side by
+#: side -- the game's choice, so everyone sees the same picture
+#: (docs/codex-bot.md, decision 5; docs/design/codex.md, "The board on
+#: Discord").
+BOARD_LAYOUTS = ("stacked", "stacked_upright", "side_by_side")
 
 #: Where on Discord the game is played (docs/design/codex.md, "The lobby
 #: and the channel"): a channel of its own under Codex Games, which the
@@ -118,7 +120,8 @@ class CodexGame:
     status: GameStatus = GameStatus.LOBBY
     #: `MatchState.to_dict()`; `None` until Start.
     match_state: Optional[dict] = None
-    #: One of `BOARD_LAYOUTS`; the turn message's **Swap view** flips it.
+    #: One of `BOARD_LAYOUTS`; the turn message's **Swap view** flips
+    #: the two stacked ones, `/codex side_by_side` the side-by-side one.
     #: A record field, not the match's: it is how the table is looked
     #: at, and an undo does not take it back.
     board_layout: str = "stacked"
@@ -396,7 +399,7 @@ class CodexGame:
         """Lay the board out `layout` -- refused for one there is not,
         or once the game is over."""
         if layout not in BOARD_LAYOUTS:
-            raise RuleRefusal(f"The board is laid out stacked or side by side, not {layout}.")
+            raise RuleRefusal(f"The board is laid out stacked, stacked the same way up or side by side, not {layout}.")
         if self.status is not GameStatus.PLAYING:
             raise RuleRefusal("Only a game being played has a board to lay out.")
         self.board_layout = layout
