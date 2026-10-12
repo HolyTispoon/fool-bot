@@ -1628,12 +1628,22 @@ else the bot shows is ephemeral.
     (`label_colors`, the author, 2026-10-11), at `MARK_SIZE`, a little
     smaller than it was: the feather green (Fairie Dragon), a copy
     blue (Manufactured Truth, `COPY_FROM`), a jail's, a number's and an
-    oath's the card that holds it (Jail, Reputable Newsman, Oathkeeper
-    of Kor Mountain), the buried the Graveyard's black, FUTURE the
-    waiting card's own, and the old purple for a neutral card. DISABLED
-    stays red: three colours' cards disable, and nothing records which
-    did. The tags are `rune_marks`'. Time runes and +1/+1 and -1/-1
-    are the module's own chits, as before.
+    oath's the card that holds it (Jail; Reputable Newsman's number
+    alone, "3"; Oathkeeper of Kor Mountain's "Play no cards" or "Skip
+    draw/discard", `OATH_TAGS`), a Graveyard's units by name in its
+    black, and the old purple for a neutral card. The tags are
+    `rune_marks`'.
+  - **Time runes are in the same column**, first, as the purple chit
+    of the card they are on (a fading card, Prynn, a card in the
+    future), with FUTURE in the waiting card's colour under them (the
+    author, 2026-10-11: the label beside its rune, and the rune where
+    every other is). The module's own time-rune chit, 1 to 6, is left
+    to a hero's summoning runes in the heroes' zone. +1/+1 and -1/-1
+    keep the module's chits over the right edge.
+  - **ARRIVED and DISABLED are grey tags of the same size as every
+    other** (`state_tags`, `STATE_FILL`), stacked at the foot of the
+    art against the left edge -- states rather than anything a card of
+    a colour put there, so neither carries a colour.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

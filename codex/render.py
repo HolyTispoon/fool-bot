@@ -310,7 +310,9 @@ TURN_COLORS: dict[str, TurnColors] = {
     "purple": ((125, 71, 168), WORD, None),       # #7d47a8
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
-ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
+#: ARRIVED and DISABLED, on grey (the author, 2026-10-11): states, not
+#: anything a card of a colour put there.
+STATE_FILL = (104, 106, 112)     # #686a70
 #: A tag on a card -- a feather rune (step 11), a copy, a jail, a number,
 #: an oath (step 13), the buried, FUTURE -- is the colour of the card it
 #: comes from (the author, 2026-10-11), and this purple where that card
@@ -318,7 +320,7 @@ ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
 MARK_FILL = (122, 74, 160)       # #7a4aa0
 MARK_SIZE = 15
 MARK_STEP = 25
-DISABLED_FILL = (150, 40, 40)    # #962828
+DESTROYED_FILL = (150, 40, 40)   # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
 #: brighter than the print's heart, so maroon stands apart from it --
 #: and a stat that is not what the card prints on a colour of its own,
@@ -693,17 +695,16 @@ def stat_pill(stats: "Stats") -> Image.Image:
     return whole
 
 
-def arrived_tag(canvas: Image.Image, card_left: int, bottom: int) -> None:
-    """ARRIVED on a green tag against the card's left edge, standing on
-    `bottom` -- the foot of its art: what came this turn."""
+def state_tags(canvas: Image.Image, card_left: int, bottom: int, states: Sequence[str]) -> None:
+    """ARRIVED and DISABLED, grey tags like every other on a card, stacked
+    up from `bottom` -- the foot of its art -- against the card's left
+    edge, opposite the damage chits, clear of the card's text (the
+    author, 2026-10-10 and 2026-10-11: the two together, one size)."""
     draw = ImageDraw.Draw(canvas)
-    face = font(14)
-    width = spaced_width("ARRIVED", face, 0.5) + 20
-    height = 24
-    box = (card_left, bottom - height, card_left + width, bottom)
-    draw.rounded_rectangle(box, radius=8, fill=ARRIVED_FILL,
-                           corners=(False, True, True, False))
-    spaced_text(draw, (card_left + 10, bottom - height / 2), "ARRIVED", face, WORD, 0.5)
+    foot = bottom - MARK_SIZE // 3 - 4
+    for index, state in enumerate(reversed(states)):
+        pill(draw, (card_left + 10, foot - index * MARK_STEP), state, MARK_SIZE, STATE_FILL,
+             anchor="lb")
 
 
 # -- A card as it lies ---------------------------------------------------------
@@ -758,8 +759,6 @@ class Lying:
     disabled: bool = False
     #: A card in the future (step 12): greyed, not yet in play.
     future: bool = False
-    #: The units buried in a Graveyard (step 12), counted on its card.
-    buried: int = 0
     #: Which of its player's copies in play it is, "#2" on its top edge
     #: -- the number its buttons carry (`formatting.copy_number`); 0
     #: where it is the only one.
@@ -805,6 +804,8 @@ def rune_counts(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, i
 #: oath's tag is on the card that holds it -- Jail, Reputable Newsman,
 #: Oathkeeper of Kor Mountain.
 COPY_FROM = "manufactured_truth"
+#: Oathkeeper of Kor Mountain's two oaths, as its tag says them.
+OATH_TAGS = {"hand": "Play no cards", "draw": "Skip draw/discard"}
 
 
 def card_color(slug: str, cards: Optional[CardCatalog]) -> Optional[str]:
@@ -826,8 +827,8 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     """What a card's or a hero's chits cannot say, as tags, each with the
     colour of the card it comes from: a feather rune's name, its chit's
     green, and, on a card (step 13), "Copy: Fox Viper", "Jail: Iron
-    Man", "Number 3", "Oath: no draw". Its runes are chits
-    (`rune_counts`)."""
+    Man", "3" (Reputable Newsman's number), "Skip draw/discard", and a
+    Graveyard's units by name. Its runes are chits (`rune_counts`)."""
     found: list[tuple[str, Optional[str]]] = [
         (kind.title(), rune_color(card, kind, cards))
         for kind, count in sorted((getattr(card, "runes", None) or {}).items())
@@ -842,10 +843,11 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     if card.jailed:
         found.append((f"Jail: {name(card.jailed['slug'])}", own))
     if card.number is not None:
-        found.append((f"Number {card.number}", own))
+        found.append((str(card.number), own))
     if card.oath:
-        found.append(({"hand": "Oath: workers only", "draw": "Oath: no draw"}.get(card.oath, card.oath),
-                      own))
+        found.append((OATH_TAGS.get(card.oath, card.oath), own))
+    # The units a Graveyard holds, by name (the author, 2026-10-11).
+    found.extend((name(buried["slug"]), own) for buried in card.buried or ())
     return tuple(found)
 
 
@@ -884,7 +886,7 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
                  named_runes=rune_counts(card, cards), marks=rune_marks(card, cards),
                  time_runes=card.time_runes,
-                 disabled=card.disabled, buried=len(card.buried or ()), copy=copy,
+                 disabled=card.disabled, copy=copy,
                  stats=stats)
 
 
@@ -935,10 +937,6 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     right, bottom = side + CARD[0], margin + CARD[1]
     if lying.level is not None:
         lay_row(upright, [lying.level], 62, (side - 10, margin - 10))
-    if lying.time_runes:
-        # Under a hero's level chit, or in its place on a card.
-        top = margin - 10 + (66 if lying.level is not None else 0)
-        lay_row(upright, [time_rune_chit(lying.time_runes)], 62, (side - 10, top))
     runes = rune_chits(lying.plus_runes, lying.minus_runes)
     if runes:
         lay_row(upright, runes, 50, (right + RUNE_HANG, margin + RUNE_CENTRE - 25),
@@ -949,30 +947,29 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.partnered:
         lay_row(upright, [board_piece("chits", "two_step.png")], 50, (side - 8, bottom + 8),
                 upward=True)
+    # Every rune in one column under the stats pill, its tags under it
+    # (the author, 2026-10-11): the time runes first -- a purple card's,
+    # in its colour -- then the named runes; FUTURE under the time runes.
+    own = card_color(lying.slug, cards)
+    named = list(lying.named_runes)
+    marks = list(lying.marks)
+    if lying.time_runes:
+        named.insert(0, (own if own in RUNE_CHIT_COLORS else "purple", lying.time_runes))
+    if lying.future:
+        marks.insert(0, ("FUTURE", own))
     top = margin + 60
-    for colour, count in lying.named_runes:
+    for colour, count in named:
         lay_row(upright, [rune_chit(colour, count)], NAMED_RUNE, (right - 6, top), leftward=True)
         top += NAMED_RUNE + 4
-    if lying.marks:
+    if marks:
         draw = ImageDraw.Draw(upright)
-        for index, (mark, colour) in enumerate(lying.marks):
+        for index, (mark, colour) in enumerate(marks):
             fill, ink = label_colors(colour)
             pill(draw, (right - 6, top + index * MARK_STEP), mark, MARK_SIZE, fill, anchor="rt",
                  ink=ink)
-    if lying.buried:
-        draw = ImageDraw.Draw(upright)
-        fill, ink = label_colors(card_color(lying.slug, cards))
-        pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
-             MARK_SIZE + 2, fill, anchor="mt", ink=ink)
-    if lying.future:
-        draw = ImageDraw.Draw(upright)
-        fill, ink = label_colors(card_color(lying.slug, cards))
-        pill(draw, (side + CARD[0] // 2, bottom - 44), "FUTURE", MARK_SIZE, fill, anchor="mb",
-             ink=ink)
-    if lying.arrived:
-        # On its art's foot, opposite the damage chits, clear of the
-        # card's text (the author, 2026-10-10).
-        arrived_tag(upright, side, margin + ART_FOOT)
+    states = [state for state, on in (("DISABLED", lying.disabled), ("ARRIVED", lying.arrived)) if on]
+    if states:
+        state_tags(upright, side, margin + ART_FOOT, states)
     stats = stat_pill(lying.stats) if lying.stats is not None else None
     # An armor shield stands a little taller than the pill, centred on
     # its line.
@@ -1006,11 +1003,6 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.exhausted:
         glyph = by_width(image(EMOJI_DIR / "codex_exhaust.png"), 48)
         tile.alpha_composite(glyph, (margin + 8, margin + 8))
-    if lying.disabled:
-        # Beside the exhaust glyph's corner, where it would be.
-        draw = ImageDraw.Draw(tile)
-        pill(draw, (margin + (64 if lying.exhausted else 8), margin + 16), "DISABLED", MARK_SIZE - 1,
-             DISABLED_FILL, anchor="lt")
     return tile
 
 
@@ -1201,7 +1193,7 @@ def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
 #: beside the house chit, so neither is read from the chit alone (the
 #: author, 2026-10-10): its word, fill and ink.
 CONSTRUCTION_STRIP = ("UNDER CONSTRUCTION", GOLD, SHADOW)
-DESTROYED_STRIP = ("DESTROYED", DISABLED_FILL, WORD)
+DESTROYED_STRIP = ("DESTROYED", DESTROYED_FILL, WORD)
 #: A strip's height, how far it runs past the picture's edges on either
 #: side, as tape wrapped round it, and its slope: rising from the
 #: bottom left to the top right, close to level with a little slant (the author,
