@@ -43,7 +43,7 @@ from codex.engine import ARRIVED, EXHAUSTED, TECH_BUILDINGS, building_name
 from codex.formatting import deck_name, ref_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
-from cogs.codex_views.base import SafeView, send_ephemeral
+from cogs.codex_views.base import SafeView, acknowledge, edit_clicked, send_ephemeral
 
 #: How long a panel answers clicks: a turn, generously. An expired panel
 #: is reopened from **My hand**, which makes a fresh one.
@@ -144,6 +144,11 @@ class PanelView(SafeView):
         self.seat = prompt.asked_player
         self.match = match
 
+    #: A click behind one still putting its pictures up is deferred
+    #: before it waits, so Discord does not forget it
+    #: (`botkit.views.GameLockedView`).
+    acknowledges_while_waiting = True
+
     def label(self, ref: str, seat: int | None = None) -> str:
         return ref_label(self.cog.engine, self.match, self.seat if seat is None else seat, ref)
 
@@ -182,7 +187,7 @@ class PanelView(SafeView):
         # The acknowledgement and the board go out together: the defer
         # is a round trip of its own that neither the board's render nor
         # its post waits on, and the panel is sent after both.
-        await asyncio.gather(interaction.response.defer(), self.cog.present(game, result))
+        await asyncio.gather(acknowledge(interaction), self.cog.present(game, result))
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind, replace=True)
 
     async def open_deck(self, interaction: discord.Interaction) -> None:
@@ -205,9 +210,9 @@ class PanelView(SafeView):
                    content: str | None = None) -> None:
         """Change the panel's mode in place: the click's own response."""
         if content is None:
-            await interaction.response.edit_message(view=view)
+            await edit_clicked(interaction, view=view)
         else:
-            await interaction.response.edit_message(content=content, view=view)
+            await edit_clicked(interaction, content=content, view=view)
 
 
 class TurnPanelView(PanelView):
@@ -1062,6 +1067,8 @@ class UndoView(SafeView):
     again.
     """
 
+    acknowledges_while_waiting = True  # as the panel's (`PanelView`)
+
     def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict, points=()) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
@@ -1095,7 +1102,8 @@ class UndoView(SafeView):
             await send_ephemeral(interaction, NOT_YOUR_PANEL)
             return None, None
         if match.turn != self.turn or match.active != self.seat:
-            await interaction.response.edit_message(
+            await edit_clicked(
+                interaction,
                 content="The game has moved on since: press **Undo** on the turn message again.",
                 view=None,
             )
@@ -1132,6 +1140,8 @@ class UndoConfirmView(SafeView):
     asker asks again.
     """
 
+    acknowledges_while_waiting = True  # as the panel's (`PanelView`)
+
     def __init__(self, cog, game_id: str, asker: int, turn: int) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
@@ -1164,8 +1174,8 @@ class UndoConfirmView(SafeView):
             await send_ephemeral(interaction, "Only the opponent, or a helper with Manage Channels, can agree to this.")
             return
         if match.turn != self.turn or match.active != self.asker:
-            await interaction.response.edit_message(
-                content="That undo was asked on a turn the game has moved on from.", view=None,
+            await edit_clicked(
+                interaction, content="That undo was asked on a turn the game has moved on from.", view=None,
             )
             return
         await self.cog.undo_to_previous_turn(interaction, game, seat)
@@ -1180,8 +1190,9 @@ class UndoConfirmView(SafeView):
             return
         self.stop()
         name = game.seat_name(seats[0]) or "A player"
-        await interaction.response.edit_message(
-            content=f"The undo to the start of the previous turn was refused by {name}.", view=None,
+        await edit_clicked(
+            interaction, content=f"The undo to the start of the previous turn was refused by {name}.",
+            view=None,
         )
 
 

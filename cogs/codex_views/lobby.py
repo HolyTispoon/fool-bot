@@ -118,8 +118,9 @@ class LobbyView(SafeView):
 
     def _team_buttons(self, game: CodexGame, seats) -> None:
         """
-        The standard game's picks: a button per colour's deck, named,
-        and **Mixed colours** -- for each side in a test game, the side
+        The standard game's picks: a button per colour's deck, named
+        with its colour after it -- "Blood Anarchs (Red)" -- and
+        **Mixed colours** -- for each side in a test game, the side
         written in front and its team lit.
         """
         row = 1
@@ -131,7 +132,7 @@ class LobbyView(SafeView):
             items = []
             for color in catalog().color_decks(game.heroes_per_seat):
                 button = discord.ui.Button(
-                    label=f"{prefix}{COLOR_DECK_NAMES[color]}"[:80],
+                    label=f"{prefix}{COLOR_DECK_NAMES[color]} ({color.title()})"[:80],
                     style=(discord.ButtonStyle.success if color == chosen_color
                            else discord.ButtonStyle.secondary),
                     custom_id=f"codex:lobby:team{suffix}_{color}:{self.game_id}",

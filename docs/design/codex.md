@@ -2307,7 +2307,11 @@ too, asked with `gate` for the two kinds a turn may open on
   left"). Vir's three deck
   abilities say "your draw pile is empty" rather than "no target", and
   his middle one, on a top card that can't be played, says that much
-  and not which card or why -- the card is hidden. The panel's picture
+  and not which card or why -- the card is hidden. An ability that
+  grants stealth is refused while its card already has it -- "already
+  has stealth" -- since stealth does not stack and Calamandra's second
+  use would be two cards discarded for nothing (the author,
+  2026-10-12). The panel's picture
   stays the hand.
 - **Copies of one card are numbered, on the button and on the board**
   (the author, 2026-10-11, over two buttons both reading "Your Bone
@@ -2342,8 +2346,10 @@ too, asked with `gate` for the two kinds a turn may open on
 
 ### The tech choice on Discord
 
-The Lock that ends a turn turns the panel into the tech picker, saying
-the turn is over, sent under the new turn message.
+The Lock that ends a turn turns the panel into the tech picker, sent
+under the new turn message with nothing above the picker's own lines --
+how many to tech, the deck, what is picked so far: the picker is what
+says the turn is over (the author, 2026-10-12).
 **Tech** on the turn message reopens it -- for the player whose turn it
 is not, and for the active player only while their own turn waits on
 their tech (below) -- all through the opponent's turn; each **Save tech**
@@ -2544,6 +2550,30 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Undo to the start of the turn | **2** | 3 |
 | Undo to a point of the turn (the menu) | **2** | 3 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
+
+**A click behind a busy game is acknowledged before it waits.** Every
+click on a game holds its lock across the whole answer -- the board
+drawn, posted and the old message deleted, the panel drawn and sent --
+which can take longer than the three seconds Discord waits for a
+click's first response. The next click queued behind it then failed on
+its own `defer` with a 10062, its action never applied: **Level up**
+pressed on the live host on 2026-10-11, most likely while the click before it was
+still putting its pictures up. The apply was ruled out by measure (about
+10 ms a click to the end of a 26-turn game, the save included), which
+left the wait. So the panel's views, `UndoView` and `UndoConfirmView`
+set `acknowledges_while_waiting` (`botkit.views.GameLockedView`): a
+click that finds its game's lock held is deferred at once, and then
+waits. Every answer those views make works on a click answered already
+-- `edit_clicked` edits the message clicked through the webhook
+(`edit_original_response`), `send_answer` sends a follow-up,
+`acknowledge` skips a defer already made (`cogs/codex_views/base.py`).
+The cost is one webhook request, and only on a click that would
+otherwise have waited unanswered: an in-place edit becomes the defer
+and the edit; an action's three stay three, since its defer is the one
+it would have made anyway. Nothing in the channel's bucket changes. The
+lobby, the turn message's buttons and D12 Ball's views do not opt in --
+their callbacks answer with `interaction.response` directly -- and wait
+as before.
 
 The gate's full-image link adds one settling edit after a burst of
 clicks, at most one per interval, as it does for D12 Ball (step 3 turned
@@ -2897,7 +2927,10 @@ it, by the mode:
   so with **Mixed colours** they take two rows, five to a row as
   Discord allows, and a test game's two sides four. Red and green's
   names are on Sirlin's own site; the author confirmed all six
-  (2026-10-10). One click seats the clicker with the three. **Mixed colours** answers the clicker alone,
+  (2026-10-10). Each button carries its colour after the name --
+  "Blood Anarchs (Red)" -- because a deck's name alone does not say
+  which colour it is to somebody new to the game (the author,
+  2026-10-12). One click seats the clicker with the three. **Mixed colours** answers the clicker alone,
   ephemerally (`MixedTeamView`), with two menus: **the first hero --
   "its colour is your starting deck"** -- and the other two. Both
   filled, the seat is taken through the service as the buttons take it,
@@ -2925,7 +2958,7 @@ any of them -- since a half-set lobby outlives the commit.
 
 A **test game** shows the picks twice, one set per side, since one
 person plays both: the basic game's two menus, or a row of deck buttons
-and **Mixed colours** per side, "P1: Blood Anarchs", its team lit.
+and **Mixed colours** per side, "P1: Blood Anarchs (Red)", its team lit.
 Changing the mode keeps every seat's player and clears its heroes -- a
 team of one is no team of three -- and in a rematch's lobby drops the
 last game's teams and **Keep heroes** with them. The catalog names the

@@ -3466,6 +3466,12 @@ class RulesEngine:
         ) >= effects.MIRROR_LIMIT:
             # "Summon another (limit: 2)" -- the copies count (his ruling).
             return f"you have {effects.MIRROR_LIMIT} Mirror Illusions"
+        if any(part.does == "stealth" for part in getattr(effects.EFFECTS.get(effect), "parts", ())) \
+                and self.has_keyword(body, "Stealth", match):
+            # Calamandra's discards buy stealth alone, and stealth does not
+            # stack (`keywords.STACKING`): a second use is two cards for
+            # nothing (the author, 2026-10-12).
+            return "already has stealth"
         deck_parts = {part.choose for part in getattr(effects.EFFECTS.get(effect), "parts", ())
                       if part.choose in _DECK_TOP_FILTERS}
         if deck_parts and not player.deck:

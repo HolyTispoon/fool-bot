@@ -488,6 +488,63 @@ class PanelTests(TurnTestCase):
                     )
 
 
+class BusyGameTests(TurnTestCase):
+    """
+    A click on the panel that arrives while the click ahead of it still
+    holds the game's lock -- putting its pictures up, which can take
+    longer than the three seconds Discord waits -- is deferred before it
+    waits, and every answer after that is made on a click answered
+    already: an edit in place through the webhook, a message a
+    follow-up, no second defer (`acknowledges_while_waiting`; the 10062
+    on **Level up** of 2026-10-11).
+    """
+
+    async def test_an_edit_in_place_goes_through_the_webhook(self) -> None:
+        _, view = await self.table.panel()
+        before, call = await self.table.press_while_busy(view, "Undo...")
+        self.assertNothingWentWrong(call)
+        self.assertEqual(before, ["response.defer"])
+        self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "original.edit"])
+        self.assertIsInstance(call.view(), TurnPanelView)
+
+    async def test_an_action_is_deferred_once(self) -> None:
+        _, view = await self.table.panel()
+        mark = len(self.table.game_channel.requests)
+        before, call = await self.table.press_while_busy(view, ("play", playable(view)[0]))
+        self.assertNothingWentWrong(call)
+        self.assertEqual(before, ["response.defer"])
+        self.assertEqual([answer[0] for answer in call.answers], PANEL_REPLACED)
+        self.assertTrue(channel_requests(self.table, mark))
+
+    async def test_my_deck_is_a_follow_up(self) -> None:
+        _, view = await self.table.panel()
+        _, call = await self.table.press_while_busy(view, "My deck")
+        self.assertNothingWentWrong(call)
+        self.assertEqual([answer[0] for answer in call.answers], ["response.defer", "followup.send"])
+        self.assertTrue(call.last()[2]["ephemeral"])
+
+    async def test_the_undos_answer_on_a_click_answered_already(self) -> None:
+        first = self.table.active
+        await self.end_turn()
+        _, view = await self.table.panel()
+        view = (await self.table.press(view, "Undo")).view()
+        _, asked = await self.table.press_while_busy(view, "To the start of the previous turn")
+        self.assertNothingWentWrong(asked)
+        confirmation = self.table.game_channel.requests[-1][2]["view"]
+        self.assertIsInstance(confirmation, UndoConfirmView)
+        _, agreed = await self.table.press_while_busy(confirmation, "Agree", who=first)
+        self.assertNothingWentWrong(agreed)
+        self.assertEqual(agreed.answers[0][0], "response.defer")
+        self.assertEqual(agreed.answers[1][0], "original.edit")
+        self.assertIsNone(agreed.answers[1][2]["view"])
+        self.assertEqual(self.table.match.turn, 1)
+
+    async def test_a_click_on_a_game_nobody_holds_is_not_deferred_first(self) -> None:
+        _, view = await self.table.panel()
+        call = await self.table.press(view, "Undo...")
+        self.assertEqual([answer[0] for answer in call.answers], ["response.edit"])
+
+
 class TurnEndTests(TurnTestCase):
     async def test_the_lock_ends_the_turn_and_rolls_the_message_over(self) -> None:
         old = self.game.turn_message_id
@@ -495,13 +552,14 @@ class TurnEndTests(TurnTestCase):
         mark = len(self.table.game_channel.requests)
         lock = await self.end_turn()
 
-        # The panel becomes the tech picker, saying the turn is over,
+        # The panel becomes the tech picker, with no note above it,
         # sent under the new turn message to them alone.
         kinds = [answer[0] for answer in lock.answers]
         self.assertEqual(kinds, PANEL_REPLACED)
         _, args, followup = lock.last("followup.send")
         self.assertTrue(followup["ephemeral"])
-        self.assertIn("your turn is over", args[0])
+        self.assertNotIn("turn is over", args[0])
+        self.assertTrue(args[0].startswith("Tech "), args[0])
         self.assertIsInstance(followup["view"], TechChoiceView)
         self.assertEqual(followup["view"].seat, self.game.seat_of(ending.id))
 

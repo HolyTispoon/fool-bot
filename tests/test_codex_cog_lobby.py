@@ -347,9 +347,9 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
             # Six decks and Mixed: five to a row, as Discord allows.
             self.assertEqual(
                 [[item.label for item in lobby.children if item.row == row] for row in (1, 2)],
-                [["Blood Anarchs", "Moss Sentinels", "Vortoss Conclave", "Blackhand Scourge",
-                  "Whitestar Order"],
-                 ["Flagstone Dominion", "Mixed colours"]],
+                [["Blood Anarchs (Red)", "Moss Sentinels (Green)", "Vortoss Conclave (Purple)",
+                  "Blackhand Scourge (Black)", "Whitestar Order (White)"],
+                 ["Flagstone Dominion (Blue)", "Mixed colours"]],
             )
             chose = await table.click(lobby, "team_green", table.fencer)
             self.assertEqual(game.player_specs[1], ["balance", "feral", "growth"])
@@ -550,12 +550,13 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
         # 2, P2's 3 and 4.
         rows = {row: [item for item in lobby.children if item.row == row] for row in (1, 2, 3, 4)}
         self.assertEqual([item.label for item in rows[1] + rows[2]],
-                         ["P1: Blood Anarchs", "P1: Moss Sentinels", "P1: Vortoss Conclave",
-                          "P1: Blackhand Scourge", "P1: Whitestar Order",
-                          "P1: Flagstone Dominion", "P1: Mixed colours"])
+                         ["P1: Blood Anarchs (Red)", "P1: Moss Sentinels (Green)",
+                          "P1: Vortoss Conclave (Purple)", "P1: Blackhand Scourge (Black)",
+                          "P1: Whitestar Order (White)", "P1: Flagstone Dominion (Blue)",
+                          "P1: Mixed colours"])
         self.assertEqual([item.label for item in rows[3] + rows[4]
                           if item.style is discord.ButtonStyle.success],
-                         ["P2: Vortoss Conclave"])
+                         ["P2: Vortoss Conclave (Purple)"])
         self.assertTrue(game.may_start())
 
     async def test_one_person_plays_both_sides_and_sees_the_active_sides_hand(self) -> None:

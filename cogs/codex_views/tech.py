@@ -51,7 +51,7 @@ import discord
 from codex.formatting import card_label
 from codex.prompts import Action, PromptKind
 from cogs.codex_helpers import card_name
-from cogs.codex_views.base import kept_pictures
+from cogs.codex_views.base import edit_clicked, kept_pictures
 from cogs.codex_views.turn import SELECT_LIMIT, PanelView, _cut
 from cogs.codex_views.turn_message import codex_button, codex_view_menu, deck_button
 
@@ -190,7 +190,8 @@ class TechChoiceView(PanelView):
         the picture narrowed to the view with the picks marked."""
         panel = TechChoiceView(self.cog, self.game_id, self.prompt, self.match, picks, view)
         picture = await self.cog.render_prompt(game, self.prompt, picks=picks, view=view)
-        await interaction.response.edit_message(
+        await edit_clicked(
+            interaction,
             content=self.cog.panel_caption(game, self.prompt, panel.caption()),
             attachments=[] if picture is None else kept_pictures([picture], interaction.message),
             view=panel,
