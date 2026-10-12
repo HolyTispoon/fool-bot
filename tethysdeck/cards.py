@@ -17,11 +17,12 @@ from tethysdeck.relief import IconSet
 # 2026-10-10: at 36 the frames' corners ran out past the cut).
 W, H, RADIUS = 750, 1050, 112
 
-# Fortune is violet paired with a slate grey, Doom is coal and a dark orange (the author,
+# Fortune is violet paired with a charcoal grey, Doom is coal and a dark orange (the author,
 # 2026-10-09; before: teal, and black and gold). The grey names the suit and the fate,
-# so it is dark enough to print: #A6A4AD all but vanished on paper (the author, 2026-10-11).
+# so it is dark enough to print: #A6A4AD all but vanished on paper, and #5E5A68 was still
+# too light (the author, 2026-10-11).
 PALETTE = {
-    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#5E5A68"},
+    "fortune": {"paper": "#FFFFFF", "ink": "#4A2A78", "ink2": "#33303A"},
     "doom": {"paper": "#FFFFFF", "ink": "#2A2522", "ink2": "#BE5A12"},
 }
 # A piece's size on the card by what it is worth, and a coin's by what it is.

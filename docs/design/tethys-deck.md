@@ -146,8 +146,10 @@ make it coal and orange. instead of teal for fortune, make it violet"
 studio's purple pair. Fortune's second ink, the grey that names the suit at the
 top and the fate at the foot and draws the inner frame, was a light
 grey (`#A6A4AD`) until the author found the suit's name "barely visible
-when printed" (2026-10-11); it is a slate grey (`#5E5A68`) now, dark
-enough for paper and still a grey beside the violet. Doom's orange was
+when printed" (2026-10-11); a slate grey (`#5E5A68`) was still too
+light -- "make it even darker", the words and the frame both -- and it
+is a charcoal grey (`#33303A`) now, dark enough for paper and still a
+grey beside the violet. Doom's orange was
 never faint and stays.
 
 ## The relief
