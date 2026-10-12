@@ -1623,11 +1623,17 @@ else the bot shows is ephemeral.
     on Justice Juggernaut. A single rune alone -- a feather, a crumbling
     rune -- has no number. Words stay only where a chit cannot say
     which: a feather rune, on a unit whose own text never names one,
-    keeps a "Feather" tag in its chit's green (the author, 2026-10-11:
-    a rune's tag is its rune's colour), and a copy, a jail, a number
-    and an oath stay purple tags
-    (`rune_marks`). Time runes and +1/+1 and -1/-1 are the module's own
-    chits, as before.
+    keeps a "Feather" tag, and a copy, a jail, a number and an oath
+    stay tags. **Every tag is the colour of the card it comes from**
+    (`label_colors`, the author, 2026-10-11), at `MARK_SIZE`, a little
+    smaller than it was: the feather green (Fairie Dragon), a copy
+    blue (Manufactured Truth, `COPY_FROM`), a jail's, a number's and an
+    oath's the card that holds it (Jail, Reputable Newsman, Oathkeeper
+    of Kor Mountain), the buried the Graveyard's black, FUTURE the
+    waiting card's own, and the old purple for a neutral card. DISABLED
+    stays red: three colours' cards disable, and nothing records which
+    did. The tags are `rune_marks`'. Time runes and +1/+1 and -1/-1
+    are the module's own chits, as before.
   - **A unit's and a hero's ATK and HP as they stand, on a pill hanging
     over the card's top right corner** (`stat_pill`, the author,
     2026-10-11; `STAT_OVERHANG`, since inside the corner it covered

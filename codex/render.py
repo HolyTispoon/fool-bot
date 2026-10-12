@@ -311,9 +311,13 @@ TURN_COLORS: dict[str, TurnColors] = {
 }
 DIVIDER_TURN: TurnColors = (WORD, GROUND, None)
 ARRIVED_FILL = (47, 143, 78)     # #2f8f4e
-#: A tag on a card: a feather or a crumbling rune (step 11), a copy, a
-#: jail, a number, an oath (step 13).
+#: A tag on a card -- a feather rune (step 11), a copy, a jail, a number,
+#: an oath (step 13), the buried, FUTURE -- is the colour of the card it
+#: comes from (the author, 2026-10-11), and this purple where that card
+#: is neutral. `MARK_SIZE` is its lettering, `MARK_STEP` a row of them.
 MARK_FILL = (122, 74, 160)       # #7a4aa0
+MARK_SIZE = 15
+MARK_STEP = 25
 DISABLED_FILL = (150, 40, 40)    # #962828
 #: The stats' pill: ATK on the card's own black, HP on its red -- a step
 #: brighter than the print's heart, so maroon stands apart from it --
@@ -744,8 +748,8 @@ class Lying:
     #: a count of 0 is a single rune alone, a chit with no number.
     named_runes: tuple[tuple[str, int], ...] = ()
     #: What a chit cannot say, as tags under them -- "Feather",
-    #: "Copy: Fox Viper", "Number 3" -- each with the colour of its
-    #: rune's chit, or `None` for the plain purple tag.
+    #: "Copy: Fox Viper", "Number 3" -- each with the colour of the card
+    #: it comes from (`label_colors`).
     marks: tuple[tuple[str, Optional[str]], ...] = ()
     #: Its time runes (step 12): fading on a card in play, Prynn's on
     #: her, forecast on a card in the future -- the module's chit.
@@ -784,8 +788,7 @@ def rune_color(card, kind: str, cards: Optional[CardCatalog] = None) -> str:
     """A named rune's colour: `RUNE_COLORS`', or the card's it is on."""
     if kind in RUNE_COLORS:
         return RUNE_COLORS[kind]
-    found = (cards.cards.get(card.slug) or cards.heroes.get(card.slug)) if cards else None
-    return (getattr(found, "color", None) or "blue").strip().lower()
+    return card_color(card.slug, cards) or "blue"
 
 
 def rune_counts(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, int], ...]:
@@ -797,11 +800,34 @@ def rune_counts(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, i
     )
 
 
+#: The card a tag on another card comes from, where it is not the card
+#: it is on: a copy is Manufactured Truth's. A jail's, a number's, an
+#: oath's tag is on the card that holds it -- Jail, Reputable Newsman,
+#: Oathkeeper of Kor Mountain.
+COPY_FROM = "manufactured_truth"
+
+
+def card_color(slug: str, cards: Optional[CardCatalog]) -> Optional[str]:
+    """A card's or a hero's colour, lowered -- "blue", "neutral" -- or
+    `None` with no catalog or no such card."""
+    found = (cards.cards.get(slug) or cards.heroes.get(slug)) if cards else None
+    return (getattr(found, "color", None) or "").strip().lower() or None
+
+
+def label_colors(colour: Optional[str]) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """A tag's fill and lettering in a card's colour: its rune chit's
+    disc, dark letters on white; the plain purple for a neutral card."""
+    if colour not in RUNE_CHIT_COLORS:
+        return MARK_FILL, INK
+    return RUNE_CHIT_COLORS[colour][0], ((30, 30, 30) if colour == "white" else INK)
+
+
 def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Optional[str]], ...]:
-    """What a card's or a hero's chits cannot say, as tags: a feather
-    rune's name in its chit's colour, and, on a card (step 13), "Copy:
-    Fox Viper", "Jail: Iron Man", "Number 3", "Oath: no draw". Its runes
-    are chits (`rune_counts`)."""
+    """What a card's or a hero's chits cannot say, as tags, each with the
+    colour of the card it comes from: a feather rune's name, its chit's
+    green, and, on a card (step 13), "Copy: Fox Viper", "Jail: Iron
+    Man", "Number 3", "Oath: no draw". Its runes are chits
+    (`rune_counts`)."""
     found: list[tuple[str, Optional[str]]] = [
         (kind.title(), rune_color(card, kind, cards))
         for kind, count in sorted((getattr(card, "runes", None) or {}).items())
@@ -810,15 +836,16 @@ def rune_marks(card, cards: Optional[CardCatalog] = None) -> tuple[tuple[str, Op
     if not isinstance(card, CardInstance):
         return tuple(found)
     name = cards.name if cards is not None else (lambda slug: slug.replace("_", " ").title())
+    own = card_color(card.slug, cards)
     if card.copy_of:
-        found.append((f"Copy: {name(card.copy_of)}", None))
+        found.append((f"Copy: {name(card.copy_of)}", card_color(COPY_FROM, cards)))
     if card.jailed:
-        found.append((f"Jail: {name(card.jailed['slug'])}", None))
+        found.append((f"Jail: {name(card.jailed['slug'])}", own))
     if card.number is not None:
-        found.append((f"Number {card.number}", None))
+        found.append((f"Number {card.number}", own))
     if card.oath:
         found.append(({"hand": "Oath: workers only", "draw": "Oath: no draw"}.get(card.oath, card.oath),
-                      None))
+                      own))
     return tuple(found)
 
 
@@ -929,18 +956,19 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.marks:
         draw = ImageDraw.Draw(upright)
         for index, (mark, colour) in enumerate(lying.marks):
-            fill, ink = MARK_FILL, INK
-            if colour in RUNE_CHIT_COLORS:
-                fill = RUNE_CHIT_COLORS[colour][0]
-                ink = (30, 30, 30) if colour == "white" else INK
-            pill(draw, (right - 6, top + index * 30), mark, 18, fill, anchor="rt", ink=ink)
+            fill, ink = label_colors(colour)
+            pill(draw, (right - 6, top + index * MARK_STEP), mark, MARK_SIZE, fill, anchor="rt",
+                 ink=ink)
     if lying.buried:
         draw = ImageDraw.Draw(upright)
+        fill, ink = label_colors(card_color(lying.slug, cards))
         pill(draw, (side + CARD[0] // 2, margin + ART_FOOT - 40), f"Buried {lying.buried}",
-             20, MARK_FILL, anchor="mt")
+             MARK_SIZE + 2, fill, anchor="mt", ink=ink)
     if lying.future:
         draw = ImageDraw.Draw(upright)
-        pill(draw, (side + CARD[0] // 2, bottom - 44), "FUTURE", 18, MARK_FILL, anchor="mb")
+        fill, ink = label_colors(card_color(lying.slug, cards))
+        pill(draw, (side + CARD[0] // 2, bottom - 44), "FUTURE", MARK_SIZE, fill, anchor="mb",
+             ink=ink)
     if lying.arrived:
         # On its art's foot, opposite the damage chits, clear of the
         # card's text (the author, 2026-10-10).
@@ -981,7 +1009,7 @@ def lying_card(lying: Lying, cards: CardCatalog, turned: bool = False) -> Image.
     if lying.disabled:
         # Beside the exhaust glyph's corner, where it would be.
         draw = ImageDraw.Draw(tile)
-        pill(draw, (margin + (64 if lying.exhausted else 8), margin + 16), "DISABLED", 16,
+        pill(draw, (margin + (64 if lying.exhausted else 8), margin + 16), "DISABLED", MARK_SIZE - 1,
              DISABLED_FILL, anchor="lt")
     return tile
 
