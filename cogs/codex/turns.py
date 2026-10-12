@@ -94,10 +94,6 @@ STEP_OWED = (
     "The game has a step of its own to run before anybody is asked anything: "
     "`/codex resume` runs it."
 )
-TURN_OVER = (
-    "Patrol locked: your turn is over. Choose your tech now -- or later, from "
-    "**Tech** on the turn message, until your next turn begins."
-)
 #: The Lock where nothing stands for the side that ended its turn: a
 #: test game's (`codex.prompts.tech_stands`), where the one person plays
 #: on from My hand as the other side, choosing that side's tech first
@@ -350,7 +346,7 @@ class TurnsMixin:
         A tech save stays on the picker, saved -- or, in a test game,
         where the save is the ready phase's and the turn begins on it,
         becomes the turn's actions. The Lock that ends the turn becomes
-        the tech picker, saying the turn is over; in a test game nothing
+        the tech picker, with no note above it; in a test game nothing
         stands to pick (`codex.prompts.tech_stands`), so the panel closes
         naming the side whose turn it is now, and the one person plays on
         from My hand.
@@ -368,7 +364,7 @@ class TurnsMixin:
             return
         if standing is not None:
             await self.show_panel(interaction, game, match, seat, edit=True, standing=True,
-                                  note=TURN_OVER, replace=replace)
+                                  replace=replace)
             return
         if answered is PromptKind.PATROL and match is not None and match.active != seat and match.winner is None:
             closing = self.turn_over_text(game, match, seat, result.prompt)

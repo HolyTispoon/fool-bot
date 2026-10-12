@@ -2288,8 +2288,10 @@ too, asked with `gate` for the two kinds a turn may open on
 
 ### The tech choice on Discord
 
-The Lock that ends a turn turns the panel into the tech picker, saying
-the turn is over, sent under the new turn message.
+The Lock that ends a turn turns the panel into the tech picker, sent
+under the new turn message with nothing above the picker's own lines --
+how many to tech, the deck, what is picked so far: the picker is what
+says the turn is over (the author, 2026-10-12).
 **Tech** on the turn message reopens it -- for the player whose turn it
 is not, and for the active player only while their own turn waits on
 their tech (below) -- all through the opponent's turn; each **Save tech**
