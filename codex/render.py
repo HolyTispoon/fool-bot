@@ -537,9 +537,14 @@ def pill(draw: ImageDraw.ImageDraw, at: tuple[int, int], text: str, size: int,
     """A word on a rounded tag, edged `edge` wide: the tech picker's
     count of picks, and a card's marks on the board."""
     face = font(size)
-    left, top, right, bottom = draw.textbbox(at, text, font=face, anchor=anchor)
+    left, _, right, _ = draw.textbbox(at, text, font=face, anchor=anchor)
+    # The height is a capital's, whatever the words: every tag one height,
+    # its words centred on their capitals, a descender hanging into the
+    # padding below (the author, 2026-10-12: "Skip draw/discard" sat high).
+    _, top, _, bottom = draw.textbbox(at, "H", font=face, anchor=anchor)
     pad = size // 3
-    draw.rounded_rectangle((left - pad, top - pad, right + pad, bottom + pad),
+    # The box's last row and column are drawn, so it ends a pixel short.
+    draw.rounded_rectangle((left - pad, top - pad, right + pad - 1, bottom + pad - 1),
                            radius=pad, fill=fill, outline=SHADOW, width=edge)
     draw.text(at, text, font=face, fill=ink, anchor=anchor)
 
