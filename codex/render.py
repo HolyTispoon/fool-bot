@@ -583,12 +583,17 @@ def _rune_chit(color: str, count: int) -> Image.Image:
     shown = (disc * (1 - yellow) + whirl * yellow) * (1 - rim) + rgb * rim
     chit = Image.fromarray(np.concatenate([shown, alpha], -1).clip(0, 255).astype("uint8"), "RGBA")
     if count:
-        text = str(count)
-        light = color == "white"
-        ImageDraw.Draw(chit).text(
-            (size / 2, size / 2), text, font=font(round(size * (0.62 if len(text) < 2 else 0.5))),
-            anchor="mm", fill=(30, 30, 30) if light else (255, 255, 255),
-            stroke_width=size // 30, stroke_fill=(255, 255, 255) if light else (20, 20, 20))
+        # Centred on the disc -- the opaque pixels off the rim, which hangs
+        # below and to the right -- by the number's own ink, not the font's.
+        rows, cols = np.nonzero((alpha[..., 0] > 128) & (rim[..., 0] < 0.5))
+        centre = ((cols.min() + cols.max()) / 2, (rows.min() + rows.max()) / 2)
+        text, light = str(count), color == "white"
+        face, stroke = font(round(size * (0.62 if len(text) < 2 else 0.5))), size // 30
+        draw = ImageDraw.Draw(chit)
+        left, top, right, bottom = draw.textbbox((0, 0), text, font=face, stroke_width=stroke)
+        draw.text((centre[0] - (left + right) / 2, centre[1] - (top + bottom) / 2), text,
+                  font=face, fill=(30, 30, 30) if light else (255, 255, 255),
+                  stroke_width=stroke, stroke_fill=(255, 255, 255) if light else (20, 20, 20))
     return chit
 
 
