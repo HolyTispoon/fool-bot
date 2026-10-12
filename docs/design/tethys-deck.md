@@ -143,7 +143,12 @@ black for Doom, and the author struck both; then teal for Fortune and
 black with gold for Doom, until "instead of the black and gold for doom,
 make it coal and orange. instead of teal for fortune, make it violet"
 (2026-10-09). The orange is the Doom die's; the violet is near the
-studio's purple pair.
+studio's purple pair. Fortune's second ink, the grey that names the suit at the
+top and the fate at the foot and draws the inner frame, was a light
+grey (`#A6A4AD`) until the author found the suit's name "barely visible
+when printed" (2026-10-11); it is a slate grey (`#5E5A68`) now, dark
+enough for paper and still a grey beside the violet. Doom's orange was
+never faint and stays.
 
 ## The relief
 
