@@ -1499,10 +1499,11 @@ else the bot shows is ephemeral.
   7, from the author's design canvas of 2026-10-08,
   https://claude.ai/artifact/2gJhY3oDWjVNvweAW1XY7f): each player is a
   panel (`render_panel`) built from the module's pieces and the cards'
-  own art, at the pixels the canvas was drawn at, Roboto Slab for every
-  word and number.
-  - **Cards are 200 by 273** (the art at 61%) **in square cells of 273**,
-    16 between, so an exhausted card lies in its cell on its side at
+  own art, at the pixels the canvas was drawn at times `DRAW_SCALE`
+  (1.3 since 2026-10-12, below), Roboto Slab for every word and number.
+  The measures here are the canvas's, at a scale of 1.
+  - **Cards are 200 by 273** (the art at 61%; 260 by 355 as drawn)
+    **in square cells of 273**, 16 between, so an exhausted card lies in its cell on its side at
     full size, turned a quarter clockwise with the exhaust glyph on the
     cell's top corner (the author, 2026-10-08: A of the canvas's three
     ways -- dimmed in place, and a smaller card, were the others).
@@ -1514,7 +1515,7 @@ else the bot shows is ephemeral.
     never fewer than five (`grid_columns`, `MIN_GRID_COLUMNS`) -- six in
     the standard game, five in the basic -- read from how many heroes a
     player has, so the picture's width holds from turn to turn: 2004
-    wide, or 1625. It was seven columns and 2203 in the standard game,
+    wide, or 1625 (2608 and 2114 as drawn). It was seven columns and 2203 in the standard game,
     the three command-zone plates taking three cells of the first row.
     The basic game's top row fits only four cells; four was tried and
     put a mid-game side's fifth card on a second row, 289 taller for 45
@@ -1563,10 +1564,16 @@ else the bot shows is ephemeral.
     the mat's order. **The command zone is one plate** (`command_zone`,
     the author, 2026-10-10: the three heroes one command zone rather
     than three), as tall as the patrol zone, a card-sized slot per hero
-    in the team's order: the hero lying in it at 200 by 273 with its
+    in the team's order: the hero lying in it at a card's size with its
     time-rune chit while off the field, the slot a dashed outline marked
     HERO, as the mat marks it, while the hero is on the field, and
-    COMMAND ZONE in the strip where a patrol slot's bonus would be. The
+    COMMAND ZONE under them. **The slots stand in the plate's middle**
+    (the author, 2026-10-12), its edge showing on every side, and
+    COMMAND ZONE is centred in the margin under them, at 19 rather
+    than 13 (`COMMAND_LABEL_SIZE`): at the top of the plate, as a
+    patroller stands over its bonus, a hero hid the plate's edge behind
+    it, and read as a card on the table rather than one in the zone --
+    above all on the far panel, seen from the other end. The
     patrol zone is the mat's own five slots with
     their bonus strips under them, cut from the playmat ("The cards are
     data"), **each on its own holder** of the mat's blue, packed side by
@@ -1683,9 +1690,12 @@ else the bot shows is ephemeral.
     when its armor takes the first point). It is the body's own `armor`
     -- what is left of it this turn, every source already added in by
     the flow -- so the renderer reads it as it reads damage and works
-    nothing out; at 0 no shield is drawn. The shield stands two pixels
-    taller than the pill and is centred on its line, overlapping the
-    pill's rounded end, and widens for two figures.
+    nothing out; at 0 no shield is drawn. The shield is as tall as the
+    pill's middle, its flat top and its point level with the pill's
+    top and foot (the author, 2026-10-12: the first build's stood
+    4 px taller, and drew its shape 2 px inside the picture each
+    way), overlaps the pill's rounded end, and widens for two
+    figures.
   - **A nameplate along the panel's outer edge**, 56 tall: the player,
     their team by `codex.formatting.team_name` -- a colour's three heroes
     by the deck's own name, "Blood Anarchs", any other team by its specs
@@ -1727,17 +1737,33 @@ else the bot shows is ephemeral.
     bytes -- 70 KB to 86 KB for the opening, 111 KB to 133 KB for a
     busy mid-game board -- a few hundredths of a second on a phone's
     connection, and still well under the 220 KB the mat board was.
-  - Composed at those pixels, scaled by `BOARD_SCALE` (1, the canvas's
-    own pixels, since 2026-10-09; 0.6 before) and saved as WebP at
-    quality 85 (`WEBP_QUALITY`), about 200 to 350 KB -- the encoding
-    every picture the bot uploads has, the hand, the codex and the
-    tech picker since 2026-10-09 (below). At 0.6 a card's name read
-    when the picture was zoomed but not its rules text or a hero's
-    level bands, and at 0.8 they were still soft; at 1 a card on the
-    board is 200 by 273 and reads like one in the hand (the author,
-    2026-10-09). It is two and a half times the bytes -- the staged
-    mid-game board 137 KB to 332 stacked, 144 to 343 side by side --
-    and no slower to draw.
+  - **Composed at `DRAW_SCALE` times those pixels** -- 1.3 since
+    2026-10-12 -- and saved as WebP at quality 85 (`WEBP_QUALITY`), about
+    350 to 700 KB -- the encoding every picture the bot uploads has, the
+    hand, the codex and the tech picker since 2026-10-09 (below). Every
+    measure of the board is written at a scale of 1 and passed through
+    `px`, so the picture is the canvas's drawn larger, every chit, pill,
+    word and gap in proportion; the board pieces cut at a card's size
+    (the patrol slots and their bonuses) and the leather are resized to
+    it (`sized`). It is composed at that size rather than scaled after,
+    since a picture scaled up gains no detail. The hand, the codex and
+    the deck have their own measures and are not scaled.
+    - The history: the composed board was scaled by 0.6 until
+      2026-10-09, when a card's name read when the picture was zoomed
+      but not its rules text or a hero's level bands; at 0.8 they were
+      still soft; at 1 (the author, 2026-10-09) a card was 200 by 273,
+      two and a half times the bytes of 0.6 -- the staged mid-game board
+      137 KB to 332 stacked. A hero's level bands, the smallest type any
+      card prints, were still mush zoomed at 200 by 273, and the author
+      asked for the heroes sharper (2026-10-12). Every card's art is the
+      same 330 by 450, so a hero is sharper only with more pixels, and a
+      hero larger than the other cards was ruled out: the whole board a
+      bit bigger, not the art's full size (1.65), "just a bit bigger so
+      the font is readable". At 1.3 a card is 260 by 355 and the bands
+      read; the staged mid-game board went from 368 KB to 523 stacked
+      and 382 to 558 side by side, the standard game's from 484 to 714.
+      The change was checked byte for byte: at `DRAW_SCALE` 1 every
+      sample picture hashes as it did before `px` was put in.
 - **The layout is the game's**, on the record (`board_layout`, not the
   match's, so an undo does not take it back): stacked, or side by side
   with the first player's mat on the left. **Swap view** flips it for
@@ -1780,7 +1806,7 @@ else the bot shows is ephemeral.
   beside the gold count said two things in one colour, and teal sat
   between the two patrol zones' blue and read as a shade of it. A sheet
   of six fixed candidates (raspberry, plum, violet, white, and two
-  mixes) rendered at Discord's scale (`BOARD_SCALE`) came first, and a
+  mixes) rendered at Discord's scale (the board's, then 1) came first, and a
   violet nameplate over a white divider was taken from it, before the
   author decided the colour should be the hero's rather than fixed --
   first on both marks, then on the nameplate's alone, the divider
