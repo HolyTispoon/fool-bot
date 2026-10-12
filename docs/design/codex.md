@@ -2073,7 +2073,8 @@ listed beside it as text until the author found it read as the hand
 in its own frame. **Codex**
 answers with their own codex pictured by `render_codex`, every card with
 a badge of the copies left and faint at none, under a menu -- Everything,
-Tech I, Tech II, Tech III, Spells, and one view per spec once a deck is
+Tech I, Tech II & III (one view since the author's 2026-10-12, "fold
+tech 3 into tech 2"), Spells, and one view per spec once a deck is
 more than one (the standard game's, step 10) -- that re-renders the
 picture in place (the engine's `codex_remaining`, by `codex_views`; the
 views are named by `codex.formatting.codex_view_name`). **Which cards a
@@ -3172,19 +3173,28 @@ edge so the tile's own words stay readable, and a lab's spec card lies
 on the lab's. Building cards and upgrades lie in the grid after the
 units. The codex is three binders, but it is shown by tech level (the
 author, 2026-10-10, who first asked for it spec by spec and then
-"organizing by tech level rather than spec"): `codex_counts` lists every
-Tech I card, then Tech II, then Tech III, then the spells together with
-the ultimates last, each group spec by spec as the deck names them and
-then by cost and name (`RulesEngine.codex_order`). Every view, the tech
+"organizing by tech level rather than spec"), and then on 2026-10-12
+with each spec's later cards kept together: `codex_counts` lists every
+Tech I card, then each spec's Tech II and Tech III together ("tech 3
+should be grouped with tech 2"), then each spec's spells with its
+ultimate last ("ultimate spells should be grouped with their hero's
+spells"), each group spec by spec as the deck names them and then by
+cost and name (`RulesEngine.codex_order`). Every view, the tech
 picker's too, narrows that one list, so all of them read in the same
 order; a spec's own view is its twelve in the same order. A card with
 no copies left keeps its place, faint at x0, so the grid stands still
 while a codex empties (the author: "keep this structure steady even if
-some cards are taken in the middle"). The Tech II view alone puts each
-spec on a line of its own (the author, 2026-10-10): the engine's
-`codex_row_starts` says where a view's picture starts a new row --
-at each new spec in Tech II, nowhere else -- and `render_codex` lays
-each line out on its own rows, the grid as wide as its longest line. The
+some cards are taken in the middle"). Where the grid breaks is the
+engine's too, `codex_places` -- each card's row and column -- and
+`render_codex` draws the cards there, the grid as big as the places it
+uses. Where a codex is more than one spec, the Everything, Tech II & III
+and Spells views are laid out by spec: Tech I runs on, a row of six; each
+spec's Tech II and III are a line of their own, six cards; and each
+spec's four spells are a block two cards wide, two on top and two
+below, the specs' blocks side by side, so a spec's spells sit in the
+same two columns. Tech I, a spec's own view, and a codex of one spec
+run on.
+The
 Everything view of seventy-two (36 cards, two copies each) at
 `CODEX_COLUMNS` -- six; twelve, a row a spec, was tried and put back --
 measured 495 KB as WebP, 1154 by 1538 (477 KB in the data's order; 591 KiB and 1286 by 1718 before

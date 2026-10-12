@@ -75,7 +75,7 @@ from codex.cards import BOARD_IMAGE_DIR, CARD_IMAGE_DIR, CardCatalog, catalog as
 from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
 )
-from codex.engine import ADD_ONS, TECH_BUILDING_SLUGS
+from codex.engine import ADD_ONS, CODEX_COLUMNS, TECH_BUILDING_SLUGS
 from codex.formatting import copy_number, team_name
 
 #: The fonts are D12 Ball's, bundled, and read by absolute path
@@ -2037,7 +2037,6 @@ def render_side(match: MatchState, seat: int, name: str,
 #: the card.
 HAND_CARD = (231, 315)
 CODEX_CARD = (176, 240)
-CODEX_COLUMNS = 6
 
 
 def cost_badge(picture: Image.Image, cost: int, size: int) -> None:
@@ -2106,7 +2105,7 @@ def _render_hand(cards_in_hand: tuple[str, ...], playable: tuple[bool, ...],
 def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
                  cards: Optional[CardCatalog] = None,
                  picked: Optional[Sequence[int]] = None,
-                 row_starts: Sequence[int] = ()) -> bytes:
+                 places: Optional[Sequence[tuple[int, int]]] = None) -> bytes:
     """
     A codex view as WebP bytes: a grid of its cards' own pictures, each
     with a badge of how many copies remain, a card with none left faint.
@@ -2114,13 +2113,15 @@ def render_codex(cards_in_codex: Sequence[str], counts: Sequence[int],
     upload limit. `picked`, where given, is how many copies of each the
     tech choice has taken so far: such a card is framed in gold with
     the count on a pill over its art -- the tech picker's picture.
-    `row_starts` are the cards that begin a new row (the engine's
-    `codex_row_starts`: the Tech II view's specs, a line each), the grid
-    as wide as its longest line. The same picture asked again is the
-    bytes already drawn (`RENDERED_KEPT`).
+    `places`, where given, is each card's (row, column) -- the engine's
+    `codex_places`: Tech II and III a line per spec, the spells a block
+    per spec -- the grid as wide and as tall as the places it uses;
+    without them the cards run on, `CODEX_COLUMNS` a row. The same
+    picture asked again is the bytes already drawn (`RENDERED_KEPT`).
     """
     return _render_codex(tuple(cards_in_codex), tuple(counts), cards or load_catalog(),
-                         None if picked is None else tuple(picked), tuple(row_starts))
+                         None if picked is None else tuple(picked),
+                         None if places is None else tuple(map(tuple, places)))
 
 
 def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
@@ -2141,16 +2142,12 @@ def codex_tile(slug: str, count: int, cards: CardCatalog) -> Image.Image:
 @lru_cache(maxsize=RENDERED_KEPT)
 def _render_codex(cards_in_codex: tuple[str, ...], counts: tuple[int, ...],
                   cards: CardCatalog, picked: Optional[tuple[int, ...]],
-                  row_starts: tuple[int, ...] = ()) -> bytes:
-    bounds = [0, *sorted(set(row_starts) - {0}), len(cards_in_codex)]
-    lines = [range(start, end) for start, end in zip(bounds, bounds[1:]) if end > start]
-    columns = min(CODEX_COLUMNS, max([len(line) for line in lines] or [1]))
-    places, rows = {}, 0
-    for line in lines:
-        for at, index in enumerate(line):
-            places[index] = (rows + at // columns, at % columns)
-        rows += -(-len(line) // columns)
-    rows = max(1, rows)
+                  places: Optional[tuple[tuple[int, int], ...]] = None) -> bytes:
+    if places is None:
+        across = max(1, min(CODEX_COLUMNS, len(cards_in_codex)))
+        places = tuple(divmod(index, across) for index in range(len(cards_in_codex)))
+    columns = max([column for _, column in places] or [0]) + 1
+    rows = max([row for row, _ in places] or [0]) + 1
     gap = 14
     width = columns * (CODEX_CARD[0] + gap) + gap
     height = rows * (CODEX_CARD[1] + gap) + gap

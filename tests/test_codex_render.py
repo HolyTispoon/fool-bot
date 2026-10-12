@@ -147,19 +147,23 @@ class RenderTests(unittest.TestCase):
         cheaper = [max(0, costs[0] - 1)] + costs[1:] if costs[0] else [1] + costs[1:]
         self.assertNotEqual(render.render_hand(slugs, allowed, cheaper, self.engine.catalog), first)
 
-    def test_a_standard_codex_is_by_tech_level(self) -> None:
-        """Every Tech I card, then II, then III, then the spells with the
-        ultimates last, each group spec by spec as the deck names them
-        and then by cost (the author, 2026-10-10)."""
+    def test_a_standard_codex_groups_tech_ii_and_iii_and_the_spells_by_spec(self) -> None:
+        """Every Tech I card, then each spec's Tech II and III, then each
+        spec's spells with its ultimate last, each group spec by spec as
+        the deck names them and then by cost (the author, 2026-10-10 and
+        2026-10-12)."""
         engine = RulesEngine(seed=7)
         specs = ("fire", "anarchy", "blood")
         match = engine.new_match((specs, ("bashing", "finesse", "necromancy")), first=1)
         cards = [engine.catalog.cards[slug] for slug, _ in engine.codex_remaining(match, 1)]
         self.assertEqual(len(cards), 36)
-        keys = [(5 if "Ultimate" in card.type else 4 if card.is_spell else card.tech_level,
-                 specs.index(card.spec.strip().lower()), card.cost) for card in cards]
+        keys = [(3 if card.is_spell else min(card.tech_level, 2),
+                 specs.index(card.spec.strip().lower()),
+                 "Ultimate" in card.type if card.is_spell else card.tech_level, card.cost)
+                for card in cards]
         self.assertEqual(keys, sorted(keys))
-        self.assertEqual([key[0] for key in keys][-3:], [5, 5, 5])
+        self.assertEqual([key[1:3] for key in keys if key[0] == 3][3::4],
+                         [(0, True), (1, True), (2, True)])
 
     def test_the_codex_keeps_its_places_as_cards_are_taken(self) -> None:
         """A card with no copies left keeps its place, at 0, so the grid
@@ -180,34 +184,56 @@ class RenderTests(unittest.TestCase):
             shown = [slug for slug, _ in engine.codex_remaining(match, 1, view)]
             self.assertEqual(shown, [slug for slug in whole if slug in shown], view)
 
-    def test_the_tech_ii_view_is_a_line_per_spec(self) -> None:
-        """Tech II alone puts each spec on a line of its own, the grid as
-        wide as its longest line (the author, 2026-10-10); no other view
-        breaks its rows."""
+    def test_the_codex_is_laid_out_by_spec(self) -> None:
+        """Where a codex is three specs: Tech I runs on, each spec's Tech
+        II and III are a line of their own, and each spec's four spells
+        are a block two wide, two on top and two below, the ultimate
+        last (the author, 2026-10-10 and 2026-10-12); the other views,
+        and a spec's own, run on; Tech II's view holds Tech III's."""
         engine = RulesEngine(seed=7)
         match = engine.new_match((("fire", "anarchy", "blood"), ("bashing", "finesse", "necromancy")),
                                  first=1)
-        rows = engine.codex_remaining(match, 1, "tech2")
-        starts = engine.codex_row_starts(rows, "tech2")
-        bounds = [0, *starts, len(rows)]
-        lines = [rows[start:end] for start, end in zip(bounds, bounds[1:])]
-        self.assertEqual(len(lines), 3)
-        for line in lines:
-            self.assertEqual(len({engine.catalog.cards[slug].spec for slug, _ in line}), 1)
-        for view in engine.codex_views(match.player(1)):
-            if view != "tech2":
-                self.assertEqual(engine.codex_row_starts(engine.codex_remaining(match, 1, view), view),
-                                 ())
+        rows = engine.codex_remaining(match, 1)
+        places = engine.codex_places(rows, "everything")
+        cards = [engine.catalog.cards[slug] for slug, _ in rows]
+        self.assertEqual(len(set(places)), len(places))
+        self.assertEqual({row for (row, _), card in zip(places, cards) if card.tech_level == 1}, {0})
+        for spec in {card.spec for card in cards}:
+            lines = {row for (row, _), card in zip(places, cards)
+                     if card.spec == spec and (card.tech_level or 0) >= 2}
+            self.assertEqual(len(lines), 1, spec)
+            spells = [place for place, card in zip(places, cards)
+                      if card.spec == spec and card.is_spell]
+            self.assertEqual(len({column for _, column in spells}), 2, spec)
+            self.assertEqual(len({row for row, _ in spells}), 2, spec)
+        self.assertEqual(max(places), (5, 5))
+        self.assertTrue("Ultimate" in cards[places.index((5, 5))].type)
+        spells = engine.codex_remaining(match, 1, "spells")
+        self.assertEqual(engine.codex_places(spells, "spells"),
+                         tuple((row - 4, column) for row, column in places[-12:]))
+        tech2 = engine.codex_remaining(match, 1, "tech2")
+        self.assertEqual(engine.codex_places(tech2, "tech2"),
+                         tuple((row - 1, column) for row, column in places[6:24]))
+        self.assertEqual(len(tech2), 18)
+        for view in ("tech1", "spec:fire"):
+            shown = engine.codex_remaining(match, 1, view)
+            self.assertEqual(engine.codex_places(shown, view),
+                             tuple(divmod(index, 6) for index in range(len(shown))), view)
         png = render.render_codex([slug for slug, _ in rows], [count for _, count in rows],
-                                  engine.catalog, None, starts)
-        widest = max(len(line) for line in lines)
-        self.assertEqual(size(png), (widest * (render.CODEX_CARD[0] + 14) + 14,
-                                     3 * (render.CODEX_CARD[1] + 14) + 14))
-
-    def test_a_line_longer_than_the_columns_wraps_within_itself(self) -> None:
-        slugs = [slug for slug, _ in self.engine.codex_remaining(self.match, 1)][:9]
-        png = render.render_codex(slugs, [2] * 9, self.engine.catalog, None, (7,))
+                                  engine.catalog, None, places)
         self.assertEqual(size(png), (6 * (render.CODEX_CARD[0] + 14) + 14,
+                                     6 * (render.CODEX_CARD[1] + 14) + 14))
+
+    def test_a_codex_of_one_spec_runs_on(self) -> None:
+        rows = self.engine.codex_remaining(self.match, 1)
+        self.assertEqual(self.engine.codex_places(rows, "everything"),
+                         tuple(divmod(index, 6) for index in range(len(rows))))
+
+    def test_the_picture_is_as_big_as_the_places_it_uses(self) -> None:
+        slugs = [slug for slug, _ in self.engine.codex_remaining(self.match, 1)][:4]
+        png = render.render_codex(slugs, [2] * 4, self.engine.catalog, None,
+                                  ((0, 0), (0, 1), (1, 0), (2, 1)))
+        self.assertEqual(size(png), (2 * (render.CODEX_CARD[0] + 14) + 14,
                                      3 * (render.CODEX_CARD[1] + 14) + 14))
 
     def test_a_codex_view(self) -> None:
@@ -365,16 +391,17 @@ class CodexViewTests(unittest.TestCase):
         match = engine.new_match(("bashing", "finesse"), first=1)
         everything = engine.codex_remaining(match, 1, "everything")
         self.assertEqual(len(everything), 12)
-        self.assertEqual({slug for slug, _ in engine.codex_remaining(match, 1, "tech3")},
-                         {"trojan_duck"})
+        self.assertIn("trojan_duck", {slug for slug, _ in engine.codex_remaining(match, 1, "tech2")})
+        self.assertEqual(len(engine.codex_remaining(match, 1, "tech2")), 6)
         self.assertEqual(len(engine.codex_remaining(match, 1, "spells")), 4)
         self.assertEqual(sum(len(engine.codex_remaining(match, 1, view))
-                             for view in ("tech1", "tech2", "tech3", "spells")), 12)
+                             for view in ("tech1", "tech2", "spells")), 12)
 
     def test_a_tech_level_is_every_card_printed_with_it(self) -> None:
         """A Tech II building or upgrade is a Tech II card as much as a
-        unit is: the four views together are every spec's whole codex,
-        and a card is in exactly one of them."""
+        unit is, and Tech III's are in Tech II's view (the author,
+        2026-10-12): the three views together are every spec's whole
+        codex, and a card is in exactly one of them."""
         engine = RulesEngine(seed=7)
         catalog = engine.catalog
         for spec in sorted({card.spec for card in catalog.cards.values() if card.spec}):
@@ -382,7 +409,7 @@ class CodexViewTests(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.assertEqual(len(rows), 12)
                 parts = [engine.codex_view_rows(rows, view)
-                         for view in ("tech1", "tech2", "tech3", "spells")]
+                         for view in ("tech1", "tech2", "spells")]
                 self.assertEqual(sorted(slug for part in parts for slug, _ in part),
                                  sorted(slug for slug, _ in rows))
                 self.assertEqual(engine.codex_view_rows(rows, "everything"), rows)
@@ -407,7 +434,7 @@ class CodexViewTests(unittest.TestCase):
         self.assertTrue(all(catalog.cards[slug].spec == "Anarchy" for slug, _ in anarchy))
         self.assertEqual(codex_view_name(spec_view("Anarchy")), "Anarchy")
         self.assertEqual([codex_view_name(view) for view in CODEX_VIEWS],
-                         ["Everything", "Tech I", "Tech II", "Tech III", "Spells"])
+                         ["Everything", "Tech I", "Tech II & III", "Spells"])
         with self.assertRaises(ValueError):
             engine.codex_remaining(match, 1, spec_view("bashing"))
         with self.assertRaises(ValueError):
