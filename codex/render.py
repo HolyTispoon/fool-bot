@@ -1016,8 +1016,10 @@ MODIFIER_TAGS = {
 #: none is needed (the author, 2026-10-12): Gargoyle's flying, ATK and
 #: attacking come with its not being indestructible; Kidnapping's haste
 #: with being kidnapped (`returns_to`, tagged on its own); Poisonblade
-#: Rogue's own attack needs none.
+#: Rogue's own attack needs none. Rampant Growth's +2 ATK and +2 armor,
+#: which the pill shows, are tagged by its name all the same.
 TAGGED_AS = {
+    "rampant_growth": "Rampant Growth",
     "gargoyle": "Not indestructible",
     "kidnapping": None,
     "poisonblade_rogue": None,
@@ -1116,7 +1118,8 @@ def hero_lying(hero: HeroState, cards: CardCatalog, stats: Optional[Stats] = Non
                  arrived=hero.arrived_this_turn, exhausted=hero.exhausted,
                  time_runes=hero.time_runes, disabled=hero.disabled,
                  named_runes=rune_counts(hero, cards),
-                 marks=rune_marks(hero) + effect_tags(hero, cards),
+                 marks=rune_marks(hero)
+                 + effect_tags(hero, cards, stats.auras if stats is not None else ()),
                  stats=stats)
 
 

@@ -269,6 +269,11 @@ class EffectTagTests(unittest.TestCase):
                                     {"kind": "unbound", **until}])
         self.assertEqual(render.effect_tags(card, self.cards), (("Not indestructible", "black"),))
 
+    def test_rampant_growth_is_tagged_by_name(self) -> None:
+        card = self.unit(modifiers=[{"kind": "atk", "amount": 2, "until": "end_of_turn",
+                                     "from": "rampant_growth"}])
+        self.assertEqual(render.effect_tags(card, self.cards), (("Rampant Growth", "green"),))
+
     def test_a_kidnapped_unit_is_kidnapped_alone(self) -> None:
         card = self.unit(returns_to=2, modifiers=[
             {"kind": "keyword", "keyword": "Haste", "until": "end_of_turn", "from": "kidnapping"}])

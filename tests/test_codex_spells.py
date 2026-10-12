@@ -999,6 +999,18 @@ class LastingFromTests(unittest.TestCase):
         self.assertEqual(engine.board_reading(match, cub)[2], ("ferocity", "dreamscape"))
         self.assertEqual(engine.auras_on(match, match.player(1).hero), ())
 
+    def test_might_of_leaf_and_claw_reaches_units_and_heroes_at_five_runes(self) -> None:
+        engine, game, match = red_green(teams=(("growth",), ("anarchy",)))
+        hero_in_play(match, 1)
+        cub = put(match, 1, "tiger_cub")
+        might = put(match, 1, "might_of_leaf_and_claw")
+        might.runes["growth"] = 4
+        self.assertEqual(engine.auras_on(match, cub), ())
+        might.runes["growth"] = 5
+        self.assertEqual(engine.auras_on(match, cub), ("might_of_leaf_and_claw",))
+        self.assertEqual(engine.auras_on(match, match.player(1).hero), ("might_of_leaf_and_claw",))
+        self.assertEqual(engine.auras_on(match, put(match, 2, "tiger_cub")), ())
+
     def test_a_players_lasting_effect_names_its_spell(self) -> None:
         engine, game, match = red_green(teams=(("feral",), ("anarchy",)))
         hero_in_play(match, 1)

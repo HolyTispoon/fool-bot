@@ -1694,13 +1694,18 @@ else the bot shows is ephemeral.
     is needed (`TAGGED_AS`): Gargoyle is "Not indestructible" alone, its
     flying, ATK and attacking coming with it; a kidnapped unit is
     Kidnapped alone, its haste coming with it; Poisonblade Rogue's own
-    attack has none.
+    attack has none; Rampant Growth's +2 ATK and +2 armor, which the
+    pill shows, are tagged by its name all the same (the author,
+    2026-10-12).
   - **An effect across a whole side is tagged by its card's name on
-    every unit it reaches** -- Ferocity, Stampede and Dreamscape (the
-    author, 2026-10-12: they change how each unit fights). Which units
-    it reaches is the engine's answer, `RulesEngine.auras_on` -- the
-    controller's `lasting`, `under_dreamscape` for a tech 0, I or II unit
-    on either side -- handed to the renderer with the stats by
+    every unit it reaches** -- Ferocity, Stampede and Dreamscape, and
+    Might of Leaf and Claw on its controller's units and heroes while it
+    has five growth runes (the author, 2026-10-12: they change how each
+    unit fights). Which bodies it reaches is the engine's answer,
+    `RulesEngine.auras_on` -- the controller's `lasting`,
+    `under_dreamscape` for a tech 0, I or II unit on either side, the
+    growth grant where `growth_holds`, the one reading the +5/+5 is
+    applied by too -- handed to the renderer with the stats by
     `board_reading`, which the cog passes where it passed `body_stats`;
     the renderer takes either. A player's other lasting effects --
     Moment's Peace, Free Speech, a debt -- are for the side of the
