@@ -48,7 +48,7 @@ from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
-from cogs.codex_views.turn import UndoView
+from cogs.codex_views.turn import OPPONENT_STARTED, UndoView
 
 LOGGER = logging.getLogger(__name__)
 
@@ -200,6 +200,12 @@ class TurnMessageView(SafeView):
             # Not their turn, but theirs to take back the end of: in a
             # test game the one person holds both seats.
             seat, targets, points = owner, {}, ()
+        elif (match.winner is None
+              and self.cog.service.previous_turn_owner(game.game_id) in game.seats_of(interaction.user.id)):
+            # They ended the turn before, and the other player has
+            # acted since: its end is no longer theirs to take back.
+            await send_ephemeral(interaction, OPPONENT_STARTED)
+            return
         else:
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return

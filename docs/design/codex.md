@@ -2757,6 +2757,11 @@ what it costs from the panel (the table above).
   message and the restored turn's standing one deleted, and a fresh
   panel -- the patrol -- for its player. A click on the other player's
   open panel is refused by the model as stale (`driver.STALE_CLICK`).
+  Once it is closed, **Undo** tells the player who ended the turn
+  before "Your opponent has already started their turn."
+  (`OPPONENT_STARTED`, off `history.previous_turn_owner`), whatever
+  closed it (the author, 2026-10-13); anybody else whose turn it is not
+  is told it is the active player's.
 - **To the start of the previous turn** unwinds the opponent's turn
   too, so it posts a public question naming them (`UndoConfirmView`):
   **Agree** is the opponent's -- or a game helper's, behind the helper's

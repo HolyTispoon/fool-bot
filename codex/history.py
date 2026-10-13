@@ -369,6 +369,13 @@ def _end_of_turn_point(engine: "RulesEngine", game: "CodexGame", match: MatchSta
     return found[-1] if found else None
 
 
+def previous_turn_owner(match: MatchState) -> Optional[int]:
+    """The seat whose turn the one before this was, off its snapshot --
+    who would take its end back -- or `None` where it is not kept."""
+    index = _snapshot_index(match, match.turn - 1)
+    return None if index is None else match.turn_snapshots[index].get("active")
+
+
 def end_of_turn_owner(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Optional[int]:
     """
     The seat that may take back the end of the turn before this one --

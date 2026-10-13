@@ -32,7 +32,7 @@ from codex_cog_fakes import Table, find_select
 from codex_positions import hero_in_play, put
 from cogs.codex.core import TURN_LOG_HEADING
 from cogs.codex_helpers import card_name
-from cogs.codex_views.turn import END_OF_TURN, UNDO_MENU
+from cogs.codex_views.turn import END_OF_TURN, OPPONENT_STARTED, UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     CodexBrowser,
@@ -1682,10 +1682,10 @@ class UndoTests(TurnTestCase):
         await self.table.press(view, ("play", playable(view)[0]))
         before = self.table.match.to_dict()
         call = await self.table.press(undo, END_OF_TURN, who=first)
-        self.assertIn("only by the player who ended it", call.last()[2]["content"])
+        self.assertEqual(call.last()[2]["content"], OPPONENT_STARTED)
         self.assertEqual(self.table.match.to_dict(), before)
         call = await self.table.turn_button("undo", first)
-        self.assertEqual(call.last()[1][0], "Only the player whose turn it is can undo.")
+        self.assertEqual(call.last()[1][0], OPPONENT_STARTED)
 
     async def test_an_undo_opened_on_a_turn_since_ended_is_refused(self) -> None:
         undo = (await self.table.turn_button("undo", self.table.active)).view()
