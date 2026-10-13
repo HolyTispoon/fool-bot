@@ -240,16 +240,20 @@ def hand_caption(match, seat: int, side: str = "") -> str:
     return f"Your hand{side}: {count} card" + ("" if count == 1 else "s") + ". Only you can see this."
 
 
-async def hand_file(engine, match, seat: int, rows=None) -> discord.File:
+async def hand_files(engine, match, seat: int, rows=None) -> list[discord.File]:
     """`seat`'s hand pictured: the rows given -- a prompt's
-    `MainActionOptions.hand` -- or the engine's `hand_rows`."""
+    `MainActionOptions.hand` -- or the engine's `hand_rows`. An empty
+    hand is no picture at all, never a card-sized "No cards in hand"
+    (the author, 2026-10-13): the caption already counts it."""
     if rows is None:
         rows = engine.hand_rows(match, seat)
+    if not rows:
+        return []
     webp = await asyncio.to_thread(
         render_hand, [row.slug for row in rows], [row.allowed for row in rows],
         [row.cost for row in rows], engine.catalog,
     )
-    return picture_file(webp, "codex-hand")
+    return [picture_file(webp, "codex-hand")]
 
 
 async def revealed_files(engine, match, seat: int) -> list[discord.File]:
@@ -260,6 +264,8 @@ async def revealed_files(engine, match, seat: int) -> list[discord.File]:
     files = []
     for other in engine.hands_visible_to(match, seat):
         slugs = list(match.player(other).hand)
+        if not slugs:
+            continue
         webp = await asyncio.to_thread(
             render_hand, slugs, [False] * len(slugs),
             [engine.catalog.cards[slug].cost or 0 for slug in slugs], engine.catalog,

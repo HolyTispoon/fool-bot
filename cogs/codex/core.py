@@ -303,7 +303,7 @@ class CoreMixin:
         confirmation's picks as a hand, as a saved choice's are where no
         `picks` ask for the picker (`TechSavedView`). The main phase, the defender and
         the patrol lock have none -- the board on the turn message is
-        theirs, and the panel pictures the hand (`hand_file`).
+        theirs, and the panel pictures the hand (`hand_files`).
         Everything here is its asked player's alone.
         """
         if prompt is None or prompt.options is None:

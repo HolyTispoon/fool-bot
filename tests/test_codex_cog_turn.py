@@ -156,6 +156,23 @@ class PanelTests(TurnTestCase):
         self.assertEqual([item.label for item in theirs.view().children], ["My deck", "Codex"])
         self.assertTrue(theirs.last()[2]["file"].filename.startswith("codex-hand-"))
 
+    async def test_an_empty_hand_is_no_picture(self) -> None:
+        """No cards in hand, no picture -- on the panel or the other
+        player's My hand -- rather than a card-sized "No cards in hand"
+        (the author, 2026-10-13)."""
+        match = self.table.match
+        for seat in (1, 2):
+            match.player(seat).hand = []
+        self.table.cog.service.persist(self.game, match)
+        call, _ = await self.table.panel()
+        self.assertNothingWentWrong(call)
+        self.assertNotIn("files", call.last()[2])
+        theirs = await self.table.turn_button("hand", self.table.waiting)
+        self.assertNothingWentWrong(theirs)
+        kwargs = theirs.last()[2]
+        self.assertNotIn("file", kwargs)
+        self.assertNotIn("files", kwargs)
+
     async def test_the_turns_lines_are_over_the_panel_and_the_hand(self) -> None:
         """The turn's lines so far, quoted, at the head of the panel and
         of the other player's hand (the author, 2026-10-12: "add the
