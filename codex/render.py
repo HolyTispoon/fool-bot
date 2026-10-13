@@ -867,13 +867,17 @@ class Stats:
     #: The effects across a side that reach it, by the slug of the card
     #: that makes them (`RulesEngine.auras_on`): each a tag by its name.
     auras: tuple[str, ...] = ()
+    #: The card that keeps a unit from patrolling, by its slug
+    #: (`RulesEngine.patrol_barred_by`): a "Can't patrol" tag in its
+    #: colour.
+    cant_patrol: Optional[str] = None
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
 #: `board_reading`, which the frontend hands in, and which names the
-#: effects across a side that reach it too (`body_stats`, its ATK and HP
-#: alone, does as well): the renderer reads a position and decides no
-#: rule.
+#: effects across a side that reach it and what keeps it from patrolling
+#: too (`body_stats`, its ATK and HP alone, does as well): the renderer
+#: reads a position and decides no rule.
 StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple"]
 
 
@@ -1031,13 +1035,15 @@ TAGGED_AS = {
 KIDNAPPED_FROM = "kidnapping"
 
 
-def effect_tags(body, cards: Optional[CardCatalog],
-                auras: Sequence[str] = ()) -> tuple[tuple[str, Optional[str]], ...]:
+def effect_tags(body, cards: Optional[CardCatalog], auras: Sequence[str] = (),
+                cant_patrol: Optional[str] = None) -> tuple[tuple[str, Optional[str]], ...]:
     """What lasting effects a unit or a hero carries, as tags in the
     colour of the card each comes from (its modifier's `from`): the
     keywords and the rest an effect gave it for a while, Kidnapping's
-    hold, and the effects across a side that reach it, `auras`, by the
-    name of the card that makes each -- Ferocity, Stampede, Dreamscape."""
+    hold, the effects across a side that reach it, `auras`, by the
+    name of the card that makes each -- Ferocity, Stampede, Dreamscape --
+    and "Can't patrol" where a card keeps it out of the patrol zone,
+    `cant_patrol`: its own text, Terras Q's shackle, Entangling Vines."""
     found: list[tuple[str, Optional[str]]] = []
     for modifier in body.modifiers:
         if modifier.get("until") not in LASTING_UNTIL:
@@ -1061,6 +1067,8 @@ def effect_tags(body, cards: Optional[CardCatalog],
     for slug in auras:
         found.append((cards.name(slug) if cards else slug.replace("_", " ").title(),
                       card_color(slug, cards)))
+    if cant_patrol is not None:
+        found.append(("Can't patrol", card_color(cant_patrol, cards)))
     seen: set[str] = set()
     return tuple(tag for tag in found if not (tag[0] in seen or seen.add(tag[0])))
 
@@ -1089,7 +1097,8 @@ def shown_stats(match: MatchState, body: Union[CardInstance, HeroState], cards: 
     atk, hp = reading[0], reading[1]
     left = hp - body.damage
     return Stats(atk, left, atk != printed_atk, left != printed_hp, body.armor,
-                 tuple(reading[2]) if len(reading) > 2 else ())
+                 tuple(reading[2]) if len(reading) > 2 else (),
+                 reading[3] if len(reading) > 3 else None)
 
 
 def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog] = None,
@@ -1103,7 +1112,8 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
                  arrived=card.arrived_this_turn, exhausted=card.exhausted,
                  named_runes=rune_counts(card, cards),
                  marks=rune_marks(card, cards)
-                 + effect_tags(card, cards, stats.auras if stats is not None else ()),
+                 + effect_tags(card, cards, stats.auras if stats is not None else (),
+                               stats.cant_patrol if stats is not None else None),
                  time_runes=card.time_runes,
                  disabled=card.disabled, copy=copy,
                  stats=stats)

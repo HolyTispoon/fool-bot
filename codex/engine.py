@@ -920,11 +920,15 @@ class RulesEngine:
                           and self.growth_holds(card)]
         return tuple(dict.fromkeys(found))
 
-    def board_reading(self, match: MatchState, body) -> tuple[int, int, tuple[str, ...]]:
+    def board_reading(self, match: MatchState,
+                      body) -> tuple[int, int, tuple[str, ...], Optional[str]]:
         """What the board shows of a unit or a hero that is a reading of
-        the rules: its ATK and HP (`body_stats`) and the effects across a
-        side that reach it (`auras_on`)."""
-        return (*self.body_stats(match, body), self.auras_on(match, body))
+        the rules: its ATK and HP (`body_stats`), the effects across a
+        side that reach it (`auras_on`), and what keeps a unit from
+        patrolling (`patrol_barred_by`)."""
+        barred = (self.patrol_barred_by(match, body) if isinstance(body, CardInstance)
+                  and self.catalog.cards[body.slug].is_unit else None)
+        return (*self.body_stats(match, body), self.auras_on(match, body), barred)
 
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
@@ -1269,6 +1273,22 @@ class RulesEngine:
         if match is None or self.text_slug(card) not in effects.SHACKLED:
             return False
         return any(other.made_by == card.id for other in match.instances())
+
+    def patrol_barred_by(self, match: Optional[MatchState], card: CardInstance) -> Optional[str]:
+        """What keeps this unit out of the patrol zone whatever its state,
+        by the slug of the card that says so -- its own "can't patrol"
+        (`effects.CANT_PATROL`, until Gargoyle's ability frees it), Terras
+        Q's shackle, Entangling Vines on it -- or `None`. Exhaustion and
+        Moment's Peace, across a whole side, are the patrol's alone; the
+        board tags this (docs/design/codex.md, "The board on Discord")."""
+        slug = self.text_slug(card)
+        if slug in effects.CANT_PATROL and not self.unbound(card):
+            return slug
+        if self.shackled(match, card):
+            return slug
+        if self.entangled(match, card):
+            return effects.VINES
+        return None
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -3608,9 +3628,7 @@ class RulesEngine:
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
-            and (self.text_slug(card) not in effects.CANT_PATROL or self.unbound(card))
-            and not self.shackled(match, card) and not player.peace
-            and not self.entangled(match, card)
+            and self.patrol_barred_by(match, card) is None and not player.peace
         ]
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted

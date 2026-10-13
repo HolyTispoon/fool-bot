@@ -1505,6 +1505,18 @@ class ConditionedKeywordTests(KeywordCase):
         self.assertNotIn(ram, engine.patrol_candidates(match))
         self.assertIn(treant, engine.patrol_candidates(match))
 
+    def test_the_board_reads_what_keeps_a_unit_from_patrolling(self) -> None:
+        """Land Octopus's own "can't patrol" is the board's to tag, and a
+        unit free to patrol has nothing to tag (docs/design/codex.md, "The
+        board on Discord")."""
+        engine, game, match = fresh()
+        octopus = put(match, 1, "land_octopus")
+        treant = put(match, 1, "young_treant")
+        self.assertEqual(engine.patrol_barred_by(match, octopus), "land_octopus")
+        self.assertEqual(engine.board_reading(match, octopus)[3], "land_octopus")
+        self.assertIsNone(engine.board_reading(match, treant)[3])
+        self.assertNotIn(octopus.ref, engine.patrol_candidates(match))
+
     def test_bonus_when_attacking_buildings(self) -> None:
         engine, game, match = fresh()
         tank = put(match, 1, "steam_tank").ref
