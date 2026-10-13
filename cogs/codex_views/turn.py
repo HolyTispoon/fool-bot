@@ -75,6 +75,10 @@ UNDO_MENU = "To before an action of this turn..."
 #: player who ended it (`history.end_of_turn_owner`).
 END_OF_TURN = "Take back the end of my turn"
 
+#: What the player who ended the turn before is told where its end may
+#: no longer be taken back.
+OPPONENT_STARTED = "Your opponent has already started their turn."
+
 
 def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
     """

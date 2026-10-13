@@ -27,6 +27,7 @@ from cogs.codex_views.tech import (
 from cogs.codex_views.turn import (
     END_OF_TURN,
     NOT_YOUR_PANEL,
+    OPPONENT_STARTED,
     UNDO_MENU,
     PanelButton,
     PanelView,
@@ -67,6 +68,7 @@ __all__ = [
     "MixedTeamView",
     "MODE_LABELS",
     "NOT_YOUR_PANEL",
+    "OPPONENT_STARTED",
     "NOT_YOUR_TABLE",
     "PanelButton",
     "PanelView",

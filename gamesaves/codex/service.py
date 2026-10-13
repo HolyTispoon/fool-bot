@@ -505,6 +505,13 @@ class GameService:
         game = self.game(game_id)
         return history.end_of_turn_owner(self.engine, game, self.load(game))
 
+    def previous_turn_owner(self, game_id: str) -> Optional[int]:
+        """The seat whose turn the one before this was
+        (`history.previous_turn_owner`): who is told the other player
+        has started their turn where its end may no longer be taken
+        back."""
+        return history.previous_turn_owner(self.load(self.game(game_id)))
+
     def undo_end_of_turn(self, game_id: str) -> GameResult:
         """Take back the end of the turn before this one: the ended turn
         replayed to its patrol, before the lock (`history.undo_end_of_turn`),

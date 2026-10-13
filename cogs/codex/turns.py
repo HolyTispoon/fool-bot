@@ -34,7 +34,7 @@ from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
-    RematchView, UndoConfirmView, hand_files, kept_pictures, picture_file, revealed_caption,
+    OPPONENT_STARTED, RematchView, UndoConfirmView, hand_files, kept_pictures, picture_file, revealed_caption,
     revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
@@ -645,12 +645,7 @@ class TurnsMixin:
         one deleted -- and the panel put up for them, on the patrol.
         """
         if self.service.end_of_turn_owner(game.game_id) != seat:
-            await edit_clicked(
-                interaction,
-                content="The end of the turn can be taken back only by the player who ended it, "
-                        "before the next turn's first action.",
-                view=None,
-            )
+            await edit_clicked(interaction, content=OPPONENT_STARTED, view=None)
             return
         try:
             result = self.service.undo_end_of_turn(game.game_id)
