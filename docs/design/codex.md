@@ -431,7 +431,7 @@ snapshot it led to already holds its effects.
   (`cut`: the prefix plus the other player's tech answers after it --
   the same cut a spell's cancel makes, so one function makes both) and
   returns what the turn now says: the kept actions' lines, then the
-  undone line (`undone_to`). It starts nobody's tech over, so the
+  undone line (`UNDONE_SOME`). It starts nobody's tech over, so the
   service says nothing to the other player (`_undo`'s
   `restarts_tech`). **A card off the top of a deck closes every point
   before it** -- a card seen cannot be unseen, the rule the cancel
@@ -2708,9 +2708,12 @@ what it costs from the panel (the table above).
   turn has moved on from. `GameService.undo_to` saves once and the cog
   does what the turn-start undo does (`_own_undo`): the turn message
   edited -- its first lines, then `result.lines`, which for this
-  undo are the kept actions' lines and "Undone to before action 2 of
-  the turn." (`history.undone_to`), so the message reads as the turn now
-  stands -- and the panel edited in place.
+  undo are the kept actions' lines and "Undone some actions."
+  (`history.UNDONE_SOME`), so the message reads as the turn now
+  stands -- and the panel edited in place. The line names no action
+  number: the numbers are the menu's, and on the message, where the
+  undone lines are gone, "before action 8" read as nothing (the
+  author, 2026-10-13).
 - **To the start of the previous turn** unwinds the opponent's turn
   too, so it posts a public question naming them (`UndoConfirmView`):
   **Agree** is the opponent's -- or a game helper's, behind the helper's

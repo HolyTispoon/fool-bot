@@ -1705,7 +1705,7 @@ class UndoTests(TurnTestCase):
         self.assertEqual(channel_requests(self.table, mark), edited(self.table, played))
         self.assertEqual(
             self.table.game_channel.texts[self.game.turn_message_id],
-            hired_text + "\n" + history.undone_to(2),
+            hired_text + "\n" + history.UNDONE_SOME,
         )
 
     async def test_the_turn_messages_undo_offers_the_points_too(self) -> None:

@@ -67,9 +67,10 @@ PREVIOUS_TURN = "previous_turn"
 UNDONE = "Undone to the start of the turn."
 
 
-def undone_to(number: int) -> str:
-    """What the fine undo says, under the lines of what it kept."""
-    return f"Undone to before action {number} of the turn."
+#: What the fine undo says, under the lines of what it kept: the lines
+#: it took back are gone from the message, so it says no more than that
+#: some were.
+UNDONE_SOME = "Undone some actions."
 
 
 #: The other player's answers a cut keeps, by the kind the journal
@@ -428,7 +429,7 @@ def undo_to(engine: "RulesEngine", game: "CodexGame", match: MatchState, index: 
     Put the match back to before the `index`th entry of this turn's
     journal -- one of `undo_points` -- keeping the other player's tech
     answers after it (`cut`). Returns what the turn says now: the lines
-    of the actions kept, then the undone line (`undone_to`). Refused
+    of the actions kept, then the undone line (`UNDONE_SOME`). Refused
     with `RuleRefusal` for a point not offered, and where `of` is given
     and the journal is not that long any more: the turn has moved on
     since the point was offered.
@@ -445,4 +446,4 @@ def undo_to(engine: "RulesEngine", game: "CodexGame", match: MatchState, index: 
         engine, game, latest_snapshot(match), cut(match.journal, index), history=match.turn_snapshots,
     )
     match.__dict__.update(rebuilt.__dict__)
-    return (*kept, undone_to(point.number))
+    return (*kept, UNDONE_SOME)

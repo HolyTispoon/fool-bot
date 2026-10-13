@@ -280,7 +280,7 @@ class HistoryTests(unittest.TestCase):
         # undone line.
         self.assertIn("tech card", said[0])
         self.assertTrue(any("hires a worker" in line for line in said))
-        self.assertEqual(said[-1], history.undone_to(2))
+        self.assertEqual(said[-1], history.UNDONE_SOME)
 
     def test_a_point_not_offered_is_refused(self) -> None:
         self.play_turn_3()
@@ -371,7 +371,7 @@ class FineUndoTests(unittest.TestCase):
         self.assertEqual((point.index, point.number, point.choice, point.said), (3, 3, "end_main", ()))
         with self.assertRaises(RuleRefusal):
             history.undo_to(engine, game, match, 1)
-        self.assertEqual(history.undo_to(engine, game, match, 3)[-1], history.undone_to(3))
+        self.assertEqual(history.undo_to(engine, game, match, 3)[-1], history.UNDONE_SOME)
         self.assertEqual(match.phase, "main")
         self.assertIn(history.TURN_START, history.undo_targets(match))
 
