@@ -243,7 +243,7 @@ class ServiceUndoTests(unittest.TestCase):
         saves.calls = 0
         result = svc.undo_to(game.game_id, point.index, of=point.of)
         self.assertEqual(saves.calls, 1)
-        self.assertEqual(result.narration, (*hired.lines, history.undone_to(2)))
+        self.assertEqual(result.narration, (*hired.lines, history.UNDONE_SOME))
         self.assertIs(result.prompt.kind, PromptKind.MAIN_ACTION)
         self.assertTrue(result.board_changed)
         self.assertEqual(svc.load(game).phase, "main")
@@ -264,7 +264,7 @@ class ServiceUndoTests(unittest.TestCase):
         (point,) = svc.undo_points(game.game_id)
         self.assertEqual(point.choice, "end_main")
         result = svc.undo_to(game.game_id, point.index, of=point.of)
-        self.assertEqual(result.narration[-1], history.undone_to(2))
+        self.assertEqual(result.narration[-1], history.UNDONE_SOME)
         self.assertFalse(any("tech" in line for line in result.narration), result.narration)
         self.assertEqual(svc.load(game).player(other).tech_choice, picks)
         # The turn-start undo, by contrast, starts it over and says so.
