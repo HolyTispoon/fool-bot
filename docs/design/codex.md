@@ -3179,8 +3179,10 @@ The nameplate names the team (`team_name`) -- "Blood Anarchs",
 still the first hero's colour, which is the starting deck's. The add-on
 slot draws the heroes' hall's and the tech lab's cards from
 `buildings/`; the spec chosen at Tech II is its spec card
-(`specs/<spec>.png`, cut at step 1), small, hanging off the tile's right
-edge so the tile's own words stay readable, and a lab's spec card lies
+(`specs/<spec>.png`, cut at step 1), over the tile's lower right with
+its cost and heart left clear and hanging into the gap before the grid
+-- large enough to read on Discord, which the first, half its size, was
+not (the author, 2026-10-13) -- and a lab's spec card lies
 on the lab's. Building cards and upgrades lie in the grid after the
 units. The codex is three binders, but it is shown by tech level (the
 author, 2026-10-10, who first asked for it spec by spec and then
