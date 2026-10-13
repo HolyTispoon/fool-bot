@@ -335,6 +335,96 @@ class HistoryTests(unittest.TestCase):
         self.assertIn(history.TURN_START, history.undo_targets(match))
 
 
+class EndOfTurnUndoTests(unittest.TestCase):
+    """
+    The end of a turn taken back by the player who ended it, with
+    nobody's consent, while the turn after it has done nothing but open
+    (the author, 2026-10-13): the ended turn's journal is kept on its
+    snapshot, and the turn replays to its patrol, before the lock.
+    """
+
+    def setUp(self) -> None:
+        base = HistoryTests()
+        base.setUp()
+        base.play_turn_3()
+        self.engine, self.game, self.match = base.engine, base.game, base.match
+        apply(self.engine, self.game, self.match, PromptKind.MAIN_ACTION, "end_main")
+        self.patrol = history.position(self.match)
+        self.journal = json.dumps(self.match.journal, sort_keys=True)
+        # The lock ends turn 3; turn 4 is seat 2's, opening on its tech.
+        apply(self.engine, self.game, self.match, PromptKind.PATROL, arguments={"assignment": {}})
+        self.assertEqual((self.match.turn, self.match.active), (4, 2))
+
+    def test_the_ended_turns_journal_is_kept_on_its_snapshot(self) -> None:
+        snapshots = self.match.turn_snapshots
+        self.assertEqual([s["turn"] for s in snapshots], [2, 3, 4])
+        self.assertEqual(json.dumps(snapshots[1][history.ENDED_JOURNAL], sort_keys=True), self.journal)
+        self.assertNotIn(history.ENDED_JOURNAL, snapshots[2])
+
+    def test_the_player_who_ended_it_takes_it_back_to_the_patrol(self) -> None:
+        engine, game, match = self.engine, self.game, self.match
+        self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
+        said = history.undo_end_of_turn(engine, game, match)
+        self.assertEqual(history.position(match), self.patrol)
+        self.assertEqual(json.dumps(match.journal, sort_keys=True), self.journal)
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual((prompt.kind, prompt.asked_player), (PromptKind.PATROL, 1))
+        # Turn 3 is current again: its snapshot is the latest, without
+        # a journal of its own, and the fine undo is over it again.
+        self.assertEqual([s["turn"] for s in match.turn_snapshots], [2, 3])
+        self.assertNotIn(history.ENDED_JOURNAL, match.turn_snapshots[-1])
+        self.assertEqual([p.choice for p in history.undo_points(engine, game, match)],
+                         ["hire", "play", "end_main"])
+        # The other player's picks, saved during turn 3, stand.
+        self.assertEqual(match.player(2).tech_choice, ["maestro", "cloud_sprite"])
+        self.assertTrue(any("hires a worker" in line for line in said))
+        self.assertEqual(said[-1], history.UNDONE_END)
+        # Locked again, it ends again, and may be taken back again.
+        apply(engine, game, match, PromptKind.PATROL, arguments={"assignment": {}})
+        self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
+
+    def test_open_through_the_next_turns_opening_and_closed_by_its_first_action(self) -> None:
+        engine, game, match = self.engine, self.game, self.match
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 2})
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "hire", {"slug": match.player(2).hand[0]})
+        self.assertIsNone(history.end_of_turn_owner(engine, game, match))
+        before = match.to_dict()
+        with self.assertRaises(RuleRefusal):
+            history.undo_end_of_turn(engine, game, match)
+        self.assertEqual(match.to_dict(), before)
+
+    def test_a_confirmed_opening_is_taken_back_too(self) -> None:
+        engine, game, match = self.engine, self.game, self.match
+        apply(engine, game, match, PromptKind.TECH_CONFIRM, "confirm", {"player": 2})
+        history.undo_end_of_turn(engine, game, match)
+        self.assertEqual(history.position(match), self.patrol)
+
+    def test_a_first_turn_whose_successor_owes_no_tech(self) -> None:
+        """Seat 2's first turn owes no tech: its snapshot is its main
+        phase's opening, taken inside seat 1's lock, and the end of
+        turn 1 is seat 1's to take back from there."""
+        engine, game, match = new_game(seed=11)
+        begin(engine, game, match)
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "end_main")
+        patrol = history.position(match)
+        apply(engine, game, match, PromptKind.PATROL, arguments={"assignment": {}})
+        self.assertEqual((match.turn, match.phase), (2, "main"))
+        self.assertEqual(history.end_of_turn_owner(engine, game, match), 1)
+        history.undo_end_of_turn(engine, game, match)
+        self.assertEqual(history.position(match), patrol)
+
+    def test_not_open_without_the_ended_journal_or_once_the_game_is_over(self) -> None:
+        engine, game, match = self.engine, self.game, self.match
+        match.winner = 1
+        self.assertIsNone(history.end_of_turn_owner(engine, game, match))
+        match.winner = None
+        # A game saved before 2026-10-13 kept no journal on a snapshot.
+        del match.turn_snapshots[1][history.ENDED_JOURNAL]
+        self.assertIsNone(history.end_of_turn_owner(engine, game, match))
+
+
 def staged(match) -> None:
     """The hand-staged position as the turn's start, as the spell tests
     stage a cancel: the fine undo replays the turn from its snapshot,

@@ -32,7 +32,7 @@ from codex_cog_fakes import Table, find_select
 from codex_positions import hero_in_play, put
 from cogs.codex.core import TURN_LOG_HEADING
 from cogs.codex_helpers import card_name
-from cogs.codex_views.turn import UNDO_MENU
+from cogs.codex_views.turn import END_OF_TURN, UNDO_MENU
 from cogs.codex_views import (
     NOT_YOUR_PANEL,
     CodexBrowser,
@@ -1645,6 +1645,47 @@ class UndoTests(TurnTestCase):
         self.assertTrue(kwargs["ephemeral"])
         self.assertEqual(args[0], "Only the player whose turn it is can undo.")
         self.assertEqual(self.table.match.to_dict(), before)
+
+    async def test_the_player_who_ended_the_turn_takes_its_end_back(self) -> None:
+        """**Undo** on the turn message, pressed by the player who just
+        ended their turn while the other has done nothing: their turn
+        again, on its patrol, with nobody's consent (the author,
+        2026-10-13) -- posted as the undo to the previous turn is."""
+        first = self.table.active
+        old = self.game.turn_message_id
+        await self.end_turn()
+        current = self.game.turn_message_id
+        call = await self.table.turn_button("undo", first)
+        self.assertTrue(call.last()[2]["ephemeral"])
+        undo = call.view()
+        self.assertIsInstance(undo, UndoView)
+        self.assertEqual([item.label for item in undo.children], [END_OF_TURN])
+        mark = len(self.table.game_channel.requests)
+        taken = await self.table.press(undo, END_OF_TURN, who=first)
+        self.assertNothingWentWrong(taken)
+        match = self.table.match
+        self.assertEqual((match.turn, match.active, match.phase), (1, self.game.seat_of(first.id), "patrol"))
+        restored = self.game.turn_message_id
+        self.assertEqual(
+            channel_requests(self.table, mark),
+            [("send", restored), ("delete", current), ("delete", old)],
+        )
+        self.assertTrue(self.table.game_channel.texts[restored].endswith(history.UNDONE_END))
+        self.assertEqual(taken.answers[0][0], "response.edit")
+        self.assertIsInstance(taken.answers[-1][2]["view"], PatrolView)
+
+    async def test_the_end_of_the_turn_closes_with_the_next_turns_first_action(self) -> None:
+        first = self.table.active
+        await self.end_turn()
+        undo = (await self.table.turn_button("undo", first)).view()
+        _, view = await self.table.panel()
+        await self.table.press(view, ("play", playable(view)[0]))
+        before = self.table.match.to_dict()
+        call = await self.table.press(undo, END_OF_TURN, who=first)
+        self.assertIn("only by the player who ended it", call.last()[2]["content"])
+        self.assertEqual(self.table.match.to_dict(), before)
+        call = await self.table.turn_button("undo", first)
+        self.assertEqual(call.last()[1][0], "Only the player whose turn it is can undo.")
 
     async def test_an_undo_opened_on_a_turn_since_ended_is_refused(self) -> None:
         undo = (await self.table.turn_button("undo", self.table.active)).view()

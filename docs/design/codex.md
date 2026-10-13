@@ -442,7 +442,37 @@ snapshot it led to already holds its effects.
   start of turn as is"). A journal the rules no longer replay -- a game
   saved before a rule changed -- closes the fine undo and leaves the
   snapshots' two standing. Nothing into the previous turn: the journal
-  is this turn's (the author, 2026-10-10).
+  is this turn's (the author, 2026-10-10) -- but for its end, below.
+- **The end of a turn may be taken back by the player who ended it**,
+  with nobody's consent, while the turn after it has done nothing but
+  open (the author, 2026-10-13: "when you end turn and the other player
+  hasn't yet taken any steps -- need to be able to undo that"). So a
+  turn's journal is no longer thrown away when the next one starts:
+  `snapshot` keeps it on the ended turn's own snapshot, under
+  `ENDED_JOURNAL` -- inside the saved `turn_snapshots`, no new field;
+  a snapshot taken before 2026-10-13 has none, and its end is not
+  offered. `end_of_turn_owner` names the seat (the ended snapshot's
+  `active`, so an extra turn's player too) while: this turn's snapshot
+  is the latest and the ended one's is just before it; this turn's
+  journal holds its opening alone (`OPENING_KINDS` -- the confirmation
+  and the ready phase it ran are taken back with it, and the other
+  player's tech pick made since is dropped, asked again when the turn
+  ends again); no card has left a deck's top in that opening; and the
+  game is not over. `undo_end_of_turn` replays the ended turn from its
+  snapshot to its journal's **last point between actions**
+  (`BETWEEN_ACTIONS`): its patrol, before the lock -- the lock is not
+  journalled where the next snapshot was taken inside it, and where it
+  was (a choice between the lock and the next turn's start: the stash,
+  the upkeep's order of a turn that owed no tech) the point is still
+  before it. The other player's tech answers after the point are kept
+  (`cut`); nobody's tech is started over. It says the ended turn's
+  lines up to there and `UNDONE_END`. The ended turn's snapshot becomes
+  the latest again, without its journal, so the fine undo and the
+  start of the turn are open over it as they were. **The end-of-turn
+  draw is taken back after its player has seen it**: locking again
+  draws the same cards off the deck's top unless the deck ran out, when
+  the reshuffle is a new one (the drawn hand is not journalled, being
+  the next turn's start).
 
 ### The vanilla engine and `UNIMPLEMENTED`
 
@@ -2626,6 +2656,7 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Undo to the start of the turn | **1** | 2 |
 | Undo to a point of the turn (the menu) | **1** | 2 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
+| Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
 
 **A click behind a busy game is acknowledged before it waits.** Every
 click on a game holds its lock across the whole answer -- the board
@@ -2714,6 +2745,18 @@ what it costs from the panel (the table above).
   number: the numbers are the menu's, and on the message, where the
   undone lines are gone, "before action 8" read as nothing (the
   author, 2026-10-13).
+- **Take back the end of my turn** is on the turn message's **Undo**
+  for the player who ended the turn before -- the one undo open to a
+  player whose turn it is not -- while `GameService.end_of_turn_owner`
+  names them (in a test game, the one person holding both seats), and
+  needs nobody's consent: the other player has done nothing but open
+  their turn. `Codex.undo_end_of_turn` makes the restored turn current
+  as the undo to the previous turn does (`_previous_turn_back`): its
+  message posted at the foot of the channel with its lines and "The
+  end of the turn is taken back." (`history.UNDONE_END`), this turn's
+  message and the restored turn's standing one deleted, and a fresh
+  panel -- the patrol -- for its player. A click on the other player's
+  open panel is refused by the model as stale (`driver.STALE_CLICK`).
 - **To the start of the previous turn** unwinds the opponent's turn
   too, so it posts a public question naming them (`UndoConfirmView`):
   **Agree** is the opponent's -- or a game helper's, behind the helper's

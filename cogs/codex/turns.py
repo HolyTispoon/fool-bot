@@ -630,6 +630,47 @@ class TurnsMixin:
         await edit_clicked(
             interaction, content=f"Undone to the start of turn {restored.turn}: agreed by {who}.", view=None,
         )
+        await self._previous_turn_back(interaction, game, result, seat)
+
+    async def undo_end_of_turn(self, interaction: discord.Interaction, game: CodexGame,
+                               seat: int) -> None:
+        """
+        The player who ended the turn before this one takes its end back,
+        with nobody's consent, while this turn has done nothing but open
+        (`GameService.end_of_turn_owner`; the author, 2026-10-13): the
+        ended turn replayed to its patrol, before the lock, and made
+        current again as the undo to the previous turn makes it -- its
+        message posted at the foot of the channel with its lines and the
+        undone line, this turn's message and the ended turn's standing
+        one deleted -- and the panel put up for them, on the patrol.
+        """
+        if self.service.end_of_turn_owner(game.game_id) != seat:
+            await edit_clicked(
+                interaction,
+                content="The end of the turn can be taken back only by the player who ended it, "
+                        "before the next turn's first action.",
+                view=None,
+            )
+            return
+        try:
+            result = self.service.undo_end_of_turn(game.game_id)
+        except RuleRefusal as refused:
+            await edit_clicked(interaction, content=str(refused), view=None)
+            return
+        await edit_clicked(
+            interaction, content=f"The end of turn {result.match.turn} is taken back.", view=None,
+        )
+        await self._previous_turn_back(interaction, game, result, seat)
+
+    async def _previous_turn_back(self, interaction: discord.Interaction, game: CodexGame,
+                                  result: GameResult, seat: Optional[int]) -> None:
+        """The turn before the one that was current made current again by
+        an undo: its message posted at the foot of the channel with its
+        first lines and `result.lines`, the restored board and its
+        buttons; the current turn's message deleted, and the restored
+        turn's standing one; and the restored turn's player, where they
+        clicked, a fresh panel under it."""
+        restored = result.match
         channel = interaction.channel or (self.bot.get_channel(game.channel_id) if game.channel_id else None)
         previous = game.previous_turn_message_id
         self.boards.forget(game)

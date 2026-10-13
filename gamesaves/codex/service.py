@@ -498,6 +498,26 @@ class GameService:
         with nobody's consent."""
         return self._undo(game_id, history.undo_to_turn_start)
 
+    def end_of_turn_owner(self, game_id: str) -> Optional[int]:
+        """The seat that may take back the end of the turn before this
+        one, while the turn after it has done nothing but open
+        (`history.end_of_turn_owner`), or `None`."""
+        game = self.game(game_id)
+        return history.end_of_turn_owner(self.engine, game, self.load(game))
+
+    def undo_end_of_turn(self, game_id: str) -> GameResult:
+        """Take back the end of the turn before this one: the ended turn
+        replayed to its patrol, before the lock (`history.undo_end_of_turn`),
+        saved once, its lines up to there and the undone line returned.
+        Refused with `RuleRefusal` where it is not open. Who may ask is
+        the frontend's: the seat `end_of_turn_owner` names, with nobody's
+        consent. It starts nobody's tech over."""
+        game = self.game(game_id)
+        return self._undo(
+            game_id, lambda match: history.undo_end_of_turn(self.engine, game, match),
+            restarts_tech=False,
+        )
+
     def undo_to_previous_turn(self, game_id: str) -> GameResult:
         """Put the match back to the start of the previous turn's main
         phase, unwinding the opponent's turn too -- so a frontend has

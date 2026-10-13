@@ -3549,6 +3549,121 @@
       ],
       "extra_turns": [],
       "first": 2,
+      "journal": [
+        {
+          "action": {
+            "arguments": {
+              "picks": [
+                "two_step",
+                "two_step"
+              ],
+              "player": 2
+            },
+            "choice": "",
+            "kind": "tech_choice"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "player": 1
+            },
+            "choice": "confirm",
+            "kind": "tech_confirm"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "hero": "troq_bashar"
+            },
+            "choice": "summon",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "iron_man"
+            },
+            "choice": "play",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "hired_stomper"
+            },
+            "choice": "play",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "target": "2:unit:31"
+            },
+            "choice": "",
+            "kind": "target"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "regularsized_rhinoceros"
+            },
+            "choice": "play",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "hero": "troq_bashar",
+              "levels": 7
+            },
+            "choice": "level",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "attacker": "unit:30"
+            },
+            "choice": "attack",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "defender": "unit:34"
+            },
+            "choice": "",
+            "kind": "choose_defender"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {},
+            "choice": "end_main",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        }
+      ],
       "lost_by_debt": null,
       "next_instance_id": 35,
       "phase": "ready",
@@ -5418,6 +5533,120 @@
       ],
       "extra_turns": [],
       "first": 2,
+      "journal": [
+        {
+          "action": {
+            "arguments": {
+              "picks": [
+                "final_smash",
+                "final_smash"
+              ],
+              "player": 1
+            },
+            "choice": "",
+            "kind": "tech_choice"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "player": 2
+            },
+            "choice": "confirm",
+            "kind": "tech_confirm"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "brick_thief"
+            },
+            "choice": "play",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "target": "1:tech1"
+            },
+            "choice": "",
+            "kind": "target"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "target": "1:tech2"
+            },
+            "choice": "",
+            "kind": "target"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "slug": "backstabber"
+            },
+            "choice": "play",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "attacker": "unit:34"
+            },
+            "choice": "attack",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "defender": "unit:35"
+            },
+            "choice": "",
+            "kind": "choose_defender"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "attacker": "hero:river_montoya"
+            },
+            "choice": "attack",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {
+              "defender": "unit:35"
+            },
+            "choice": "",
+            "kind": "choose_defender"
+          },
+          "outcomes": []
+        },
+        {
+          "action": {
+            "arguments": {},
+            "choice": "end_main",
+            "kind": "main_action"
+          },
+          "outcomes": []
+        }
+      ],
       "lost_by_debt": null,
       "next_instance_id": 38,
       "phase": "ready",

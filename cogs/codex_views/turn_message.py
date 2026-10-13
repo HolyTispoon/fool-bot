@@ -30,7 +30,9 @@ answers (`hand_rows`, `codex_remaining`, `own_deck`); the views compute
 nothing.
 **Undo** answers the active player with the undos open on the position
 (`UndoView`, the panel's undo mode without a panel), so an undo needs
-no panel open; the other player is told it is the active player's.
+no panel open -- and the player who ended the turn before, while this
+one has done nothing but open, with **Take back the end of my turn**;
+anybody else is told it is the active player's.
 **Concede** gives up the clicker's own side, behind a second click on an
 ephemeral confirmation (`ConcedeConfirmView`).
 """
@@ -183,18 +185,28 @@ class TurnMessageView(SafeView):
         await self.cog.send_codex(interaction, game, match, seat)
 
     async def undo(self, interaction: discord.Interaction) -> None:
-        """The undos open on the position, to the active player alone."""
+        """The undos open on the position, to the active player alone --
+        and taking back the end of the turn before, to the player who
+        ended it, while this turn has done nothing but open."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        if seat != match.active or match.winner is not None:
+        owner = self.cog.service.end_of_turn_owner(game.game_id)
+        ended = owner is not None and owner in game.seats_of(interaction.user.id)
+        if seat == match.active and match.winner is None:
+            targets = self.cog.service.undo_targets(game.game_id)
+            points = self.cog.undo_choices(game)
+        elif ended:
+            # Not their turn, but theirs to take back the end of: in a
+            # test game the one person holds both seats.
+            seat, targets, points = owner, {}, ()
+        else:
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
             return
-        targets = self.cog.service.undo_targets(game.game_id)
-        points = self.cog.undo_choices(game)
         await interaction.response.send_message(
             "Undo -- to where?",
-            view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points),
+            view=UndoView(self.cog, game.game_id, seat, match.turn, targets, points,
+                          end_of_turn=ended),
             ephemeral=True,
         )
 
