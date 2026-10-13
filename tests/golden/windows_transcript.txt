@@ -158,7 +158,7 @@ Choose an action:
 --- message
 🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 15: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
@@ -203,7 +203,7 @@ Time has advanced 1, now at 06.
 --- message
 🟠 Acidel [SK] takes the shot off the set-up.
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 18: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
@@ -481,7 +481,7 @@ Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has chosen to shoot to score with 🟣 Quantor [WG].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 38: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
@@ -570,7 +570,7 @@ Ball is now in space 1, 🟣 Dinky AI (Visitors) has possession.
 --- message
 🟣 Dinky AI has chosen to shoot to score with 🟣 Tachyon [SK].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 46: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!
@@ -672,7 +672,7 @@ Choose an action:
 --- message
 🟠 Player 1 has chosen to shoot to score with 🟠 Sizzifizik [PM].
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 57: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # Missed attempt!
@@ -706,7 +706,7 @@ Time has advanced 1, now at 22.
 --- message
 🟠 Acidel [SK] takes the shot off the set-up.
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 59: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!

@@ -1412,7 +1412,7 @@ the pin cap.
 
 The lobby is a line per seat and, since step 10,
 **Basic game** / **Standard game**, **Leave**, **Start**, a menu of the
-heroes or the colours' decks and **Mixed colours** ("The standard
+heroes or the colours' decks and **Mixed colors** ("The standard
 game", below) -- **Play
 Bashing** and **Play Finesse** until then -- persistent (fixed custom ids
 carrying the game id), re-armed on startup. A seat taken or given up
@@ -2988,7 +2988,7 @@ landed hero from this step on: the Core Set's first game is a basic
 game of Calamandra against Jaina (p. 3), and a seat picked from a menu
 of heroes makes no distinction the rules do not.
 
-### The lobby's picks: the colours' decks, Mixed colours, and the first hero
+### The lobby's picks: the colours' decks, Mixed colors, and the first hero
 
 The lobby is rebuilt from the record on every change
 (`cogs/codex_views/lobby.py`): its first row **Basic game** / **Standard
@@ -3000,20 +3000,20 @@ it, by the mode:
   seats the clicker with that hero. A menu because twenty heroes, when
   all six colours have landed, do not fit two rows of buttons.
 - **The standard game: a button per colour's deck, by its name, and
-  Mixed colours** (the author, 2026-10-10: instead of the menu of every
+  Mixed colors** (the author, 2026-10-10: instead of the menu of every
   hero). A colour's deck is its three heroes played together -- red's
   the **Blood Anarchs**, green's the **Moss Sentinels**, purple's the
   **Vortoss Conclave**, black's the **Blackhand Scourge**, white's the
   **Whitestar Order** and blue's the **Flagstone Dominion**
   (`COLOR_DECK_NAMES`; `CardCatalog.color_decks`, every landed colour
   with three heroes, so neutral's two make none) -- six since step 13,
-  so with **Mixed colours** they take two rows, five to a row as
+  so with **Mixed colors** they take two rows, five to a row as
   Discord allows, and a test game's two sides four. Red and green's
   names are on Sirlin's own site; the author confirmed all six
   (2026-10-10). Each button carries its colour after the name --
   "Blood Anarchs (Red)" -- because a deck's name alone does not say
   which colour it is to somebody new to the game (the author,
-  2026-10-12). One click seats the clicker with the three. **Mixed colours** answers the clicker alone,
+  2026-10-12). One click seats the clicker with the three. **Mixed colors** answers the clicker alone,
   ephemerally (`MixedTeamView`), with two menus: **the first hero --
   "its colour is your starting deck"** -- and the other two. Both
   filled, the seat is taken through the service as the buttons take it,
@@ -3041,7 +3041,7 @@ any of them -- since a half-set lobby outlives the commit.
 
 A **test game** shows the picks twice, one set per side, since one
 person plays both: the basic game's two menus, or a row of deck buttons
-and **Mixed colours** per side, "P1: Blood Anarchs (Red)", its team lit.
+and **Mixed colors** per side, "P1: Blood Anarchs (Red)", its team lit.
 Changing the mode keeps every seat's player and clears its heroes -- a
 team of one is no team of three -- and in a rematch's lobby drops the
 last game's teams and **Keep heroes** with them. The catalog names the

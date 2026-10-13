@@ -318,7 +318,7 @@ class Table:
         Start: the opening position. `teams` are the two seats' heroes, as
         specs; three each plays a standard game, chosen with the lobby's
         **Standard game** first, then a colour's deck button or **Mixed
-        colours** (`pick_team`) -- the first hero's colour the deck."""
+        colors** (`pick_team`) -- the first hero's colour the deck."""
         call = self.interaction(self.basher, self.lobby_channel)
         await self.cog.lobby.callback(self.cog, call)
         (game,) = self.cog.games.values()
@@ -348,7 +348,7 @@ class Table:
     async def pick_team(self, lobby, who, *specs: str, seat: Optional[int] = None) -> FakeInteraction:
         """A standard game's team, as a player picks it: a colour's deck
         button where `specs` are its three heroes, otherwise **Mixed
-        colours** and its two menus -- `specs[0]` first, the deck's.
+        colors** and its two menus -- `specs[0]` first, the deck's.
         `seat` names a test game's side."""
         suffix = "" if seat is None else str(seat)
         color = catalog().color_deck_of(specs)

@@ -330,7 +330,7 @@ class LobbyPlaceTests(unittest.IsolatedAsyncioTestCase):
 
 class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
     """The standard game from the lobby: the mode, a colour's deck by
-    its name or **Mixed colours** and its two menus, the first hero's
+    its name or **Mixed colors** and its two menus, the first hero's
     colour the starting deck."""
 
     async def test_a_colour_deck_and_a_mixed_team(self) -> None:
@@ -349,7 +349,7 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
                 [[item.label for item in lobby.children if item.row == row] for row in (1, 2)],
                 [["Blood Anarchs (Red)", "Moss Sentinels (Green)", "Vortoss Conclave (Purple)",
                   "Blackhand Scourge (Black)", "Whitestar Order (White)"],
-                 ["Flagstone Dominion (Blue)", "Mixed colours"]],
+                 ["Flagstone Dominion (Blue)", "Mixed colors"]],
             )
             chose = await table.click(lobby, "team_green", table.fencer)
             self.assertEqual(game.player_specs[1], ["balance", "feral", "growth"])
@@ -553,7 +553,7 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
                          ["P1: Blood Anarchs (Red)", "P1: Moss Sentinels (Green)",
                           "P1: Vortoss Conclave (Purple)", "P1: Blackhand Scourge (Black)",
                           "P1: Whitestar Order (White)", "P1: Flagstone Dominion (Blue)",
-                          "P1: Mixed colours"])
+                          "P1: Mixed colors"])
         self.assertEqual([item.label for item in rows[3] + rows[4]
                           if item.style is discord.ButtonStyle.success],
                          ["P2: Vortoss Conclave (Purple)"])

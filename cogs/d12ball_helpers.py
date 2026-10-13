@@ -543,7 +543,7 @@ async def load_role_emojis(
 
     if missing_colours:
         LOGGER.info(
-            "This application has no team-coloured role emoji named "
+            "This application has no team-colored role emoji named "
             "%s; players on those teams will show the plain badge "
             "instead.",
             ", ".join(missing_colours),
@@ -1110,7 +1110,7 @@ HUB_ROLES: tuple[HubRole, ...] = (
         label="D12ball playtester",
         d12_emoji=True,
         description=(
-            "Get pinged when a D12 Ball playtest is being organised, and "
+            "Get pinged when a D12 Ball playtest is being organized, and "
             "for news about the game."
         ),
     ),

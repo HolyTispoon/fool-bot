@@ -331,7 +331,7 @@ class CodexGame:
         color = color.strip().lower()
         if color not in self.deck_choices(seat):
             raise RuleRefusal(
-                "Your starting deck is the colour of one of your heroes.", cite="UMR p. 3",
+                "Your starting deck is the color of one of your heroes.", cite="UMR p. 3",
             )
         from codex.cards import catalog
 
