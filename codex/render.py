@@ -1481,13 +1481,15 @@ def draw_building_column(body: Image.Image, player: PlayerState,
             tile = greyed(tile, 0.35)
         body.alpha_composite(tile, (left, y))
         if name == "tech2" and player.tech2_spec:
-            # The spec chosen at Tech II, its card drawn small on the tile
-            # (UMR p. 8: "Place that card on your base").
-            # It hangs off the tile's right edge into the gap before the
-            # grid, so the tile's own words stay readable.
+            # The spec chosen at Tech II, its card drawn on the tile
+            # (UMR p. 8: "Place that card on your base"), large enough
+            # to read at Discord's scale. It lies over the tile's lower
+            # right -- the cost and the heart left clear -- and hangs
+            # into the gap before the grid as far as an upright card in
+            # the first column leaves free; the grid is drawn after it.
             mark = spec_mark(player.tech2_spec, SPEC_ON_TILE)
-            body.alpha_composite(mark, (left + TILE[0] - SPEC_ON_TILE[0] // 2,
-                                        y + TILE[1] - SPEC_ON_TILE[1] + px(2)))
+            body.alpha_composite(mark, (left + TILE[0] + SPEC_OUT - SPEC_ON_TILE[0],
+                                        y + TILE[1] + TILE_GAP - px(2) - SPEC_ON_TILE[1]))
         if state is not None and (state.destroyed or state.under_construction):
             lay_row(body, [house], HOUSE_CHIT, (left - CHIT_OUT, y - CHIT_OUT))
             lay_strip(body, (left, y, left + TILE[0], y + TILE[1]),
@@ -1543,8 +1545,13 @@ def draw_add_on(body: Image.Image, player: PlayerState,
 
 
 #: A chosen spec's card as it lies on the tech II tile and on a tech
-#: lab's card: the module's spec card, small.
-SPEC_ON_TILE = (round(70 * BUILDING_SCALE), round(50 * BUILDING_SCALE))
+#: lab's card: the module's spec card. On the tile it was 70 by 50 at
+#: the column's scale, too small to read on Discord (the author,
+#: 2026-10-13); `SPEC_OUT` is how far it hangs past the tile's right
+#: edge, to just short of where an upright card in the grid's first
+#: column begins.
+SPEC_ON_TILE = (round(120 * BUILDING_SCALE), round(86 * BUILDING_SCALE))
+SPEC_OUT = BUILDING_GAP + (CELL - CARD[0]) // 2 - px(6)
 SPEC_ON_LAB = (px(96), px(69))
 
 
