@@ -1412,7 +1412,7 @@ EFFECT_ASK = "Resolve the maneuver:"
 #: bare question instead (see `pending_prompt`).
 SCORE_ATTEMPT_ASK = (
     "Either player can roll. Both sides roll one d12; the attacker "
-    "scores on a total higher than the defence's, and a tie is a miss."
+    "scores on a total higher than the defense's, and a tie is a miss."
 )
 
 

@@ -2210,7 +2210,7 @@ class CommandsMixin:
 
         if confirm != "confirm":
             await interaction.followup.send(
-                'Abandon cancelled. Type "confirm" in the confirm field '
+                'Abandon canceled. Type "confirm" in the confirm field '
                 "to end this game without a result and move its channel "
                 "to the PBD archive. The channel and everything in it "
                 "are kept.",

@@ -321,7 +321,7 @@ class EndingMixin:
         await interaction.response.defer(ephemeral=True, thinking=True)
         if confirm != "confirm":
             await interaction.followup.send(
-                'Reset cancelled. Type "confirm" in the confirm field to run it.', ephemeral=True,
+                'Reset canceled. Type "confirm" in the confirm field to run it.', ephemeral=True,
             )
             return
         try:

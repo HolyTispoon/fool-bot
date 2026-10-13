@@ -68,8 +68,8 @@ class LobbyMixin:
             waiting = "Both seats are ready: either player may **Start**."
         else:
             waiting = ("Choose your hero to take a seat." if game.mode == "basic" else
-                       "Choose a colour's deck, or **Mixed colours** for any three heroes "
-                       "-- the first hero's colour is the starting deck -- to take a seat.")
+                       "Choose a color's deck, or **Mixed colors** for any three heroes "
+                       "-- the first hero's color is the starting deck -- to take a seat.")
         if game.mode == "standard":
             kind = "a standard game, three heroes a side"
         else:

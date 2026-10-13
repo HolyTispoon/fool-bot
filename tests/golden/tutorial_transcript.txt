@@ -1,6 +1,6 @@
 --- message
 # Welcome to D12 Ball
-You are playing **Dinky**, and the next five turns are a guided warm-up. I will tell you what is on the board, what each button does and which card to pick; everything else is greyed out while we go, so you cannot get lost.
+You are playing **Dinky**, and the next five turns are a guided warm-up. I will tell you what is on the board, what each button does and which card to pick; everything else is grayed out while we go, so you cannot get lost.
 
 **It is one continuous game, not five demonstrations.** Nothing is reset between lessons -- every turn is played from wherever the last one left the ball, and the score and the clock carry into the real game afterwards. Play it well and you will start that game a goal up.
 
@@ -80,7 +80,7 @@ Dribble beat Deflect outright -- no dice, because the cycle had already settled 
 
 Moving forward two spaces is not the ordinary move. A Dribble typically moves the player one space. But your **Playmaker** is a skilled dribbler and can move up to two: that is the Playmaker role ability. **Every player has a role and every role has an ability**, printed on their card and worth reading before you pick a maneuver -- the Fullback throws a longer High Pass, the Midfielder gets +3 on a Low Pass or Steal test, the Defender steals the ball off a won Pressure. Two commands list them whenever you want: **`/d12ball role_abilities_reference`** for all six, and **`/d12ball team_roster`** gives you a list of your team with their roles.
 
-You are on space 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is greyed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
+You are on space 6 now, which is inside your shooting range, so the **Shoot** button has appeared. It is grayed out here, and it would be a poor shot anyway: your playmaker's offensive skill is 4, Dinky's defender is standing on the ball and their fullback is behind them -- roughly d12+4 against d12+8. We will make a much better one shortly.
 
 **Press Maneuver.**
 === press 9: TutorialContinueView -> 'Continue'
@@ -142,7 +142,7 @@ Ball is now in space 5, 🟣 Dinky AI (Visitors) has possession.
 ## 3. Your turn to defend
 Dang it. You lost possession. Dinky won the skill test, and their Deflect knocked the ball back to **space 5** -- right onto one of their own midfielders, who was already standing there. Nobody of yours was, so it went straight to them: no roll, and never loose at all. Your playmaker, left standing outside her own zone at space 6, has run back into midfield -- and exhausted 1 per space to do it.
 
-Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is greyed out here.
+Dinky is coming at your goal now, and this time **nobody of yours is anywhere near the ball**. Before anything else, you'll be asked to send a challenger to it -- pick either of the two offered, it costs the same either way. Sending nobody would let Dinky's maneuver straight through unchallenged, so that button is grayed out here.
 
 Once your challenger is in position, Dinky moves, and then you are asked for a card.
 === press 15: TutorialContinueView -> 'Continue'
@@ -201,7 +201,7 @@ Now take it off them.
 
 Two things happen after it. Your player takes the ball back a space with them, and **anyone left standing outside their own zone runs back into it**, exhausting 1 per space, the same cost you watched Dinky pay two turns ago.
 
-Then you get to set the **ball's speed**, up to your stealer's defensive skill. The speed itself is **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are greyed out.
+Then you get to set the **ball's speed**, up to your stealer's defensive skill. The speed itself is **added to a score attempt** -- and it is reset by every turnover, so a speed set now is one that survives. You are about to shoot. **Take the highest number offered**; the rest are grayed out.
 === press 21: TutorialContinueView -> 'Continue'
 --- message
 🟣 Dinky AI has picked their maneuver.
@@ -297,7 +297,7 @@ Chose **2 spaces**.
 --- message
 🟠 Acidel [SK] takes the shot off the set-up.
 --- message
-Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defence's, and a tie is a miss.
+Either player can roll. Both sides roll one d12; the attacker scores on a total higher than the defense's, and a tie is a miss.
 === press 30: ScoreAttemptView -> 'Roll the score attempt'
 --- message
 # GOAL!

@@ -3131,7 +3131,7 @@ def team_reminder() -> str:
     """
     return (
         "A card's zone is assigned on the zone board beside this one. A "
-        "player is Exhausted once their tokens exceed their defence."
+        "player is Exhausted once their tokens exceed their defense."
     )
 
 

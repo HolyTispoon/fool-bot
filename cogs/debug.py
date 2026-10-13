@@ -386,7 +386,7 @@ class Debug(commands.Cog):
 
         if confirm != "confirm":
             await interaction.followup.send(
-                'Reset cancelled. Type "confirm" in the confirm field '
+                'Reset canceled. Type "confirm" in the confirm field '
                 "to run this command.",
                 ephemeral=True,
             )

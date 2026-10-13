@@ -273,7 +273,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**`/d12ball team_roster`** gives you a list of your team "
             "with their roles.\n\n"
             "You are on space 6 now, which is inside your shooting range, so "
-            "the **Shoot** button has appeared. It is greyed out here, "
+            "the **Shoot** button has appeared. It is grayed out here, "
             "and it would be a poor shot anyway: your playmaker's "
             "offensive skill is 4, Dinky's defender is standing on the "
             "ball and their fullback is behind them -- roughly d12+4 "
@@ -329,7 +329,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "else, you'll be asked to send a challenger to it -- pick "
             "either of the two offered, it costs the same either way. "
             "Sending nobody would let Dinky's maneuver straight "
-            "through unchallenged, so that button is greyed out here.\n\n"
+            "through unchallenged, so that button is grayed out here.\n\n"
             "Once your challenger is in position, Dinky moves, and "
             "then you are asked for a card."
         ),
@@ -388,7 +388,7 @@ BEATS: tuple[TutorialBeat, ...] = (
             "**added to a score attempt** -- and it is "
             "reset by every turnover, so a speed set now is one that "
             "survives. You are about to shoot. **Take the highest "
-            "number offered**; the rest are greyed out."
+            "number offered**; the rest are grayed out."
         ),
         player_has_ball=False,
         player_maneuver=STEAL,
@@ -465,7 +465,7 @@ WELCOME = (
     "# Welcome to D12 Ball\n"
     "You are playing **Dinky**, and the next five turns are a guided "
     "warm-up. I will tell you what is on the board, what each button "
-    "does and which card to pick; everything else is greyed out while "
+    "does and which card to pick; everything else is grayed out while "
     "we go, so you cannot get lost.\n\n"
     "**It is one continuous game, not five demonstrations.** Nothing is "
     "reset between lessons -- every turn is played from wherever the "

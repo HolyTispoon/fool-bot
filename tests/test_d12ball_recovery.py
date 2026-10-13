@@ -998,7 +998,7 @@ class AbandonGameTests(unittest.IsolatedAsyncioTestCase):
         cog.move_channel_to_archive.assert_not_awaited()
         self.assertEqual(game.status, GameStatus.IN_PROGRESS)
         message, _ = interaction.followup.send.await_args
-        self.assertIn("cancelled", message[0])
+        self.assertIn("canceled", message[0])
 
     async def test_a_bystander_may_not_abandon(self) -> None:
         cog, game = self.build()

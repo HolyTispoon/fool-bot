@@ -481,7 +481,7 @@ class ResetChannelsTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Manage Channels", call.text())
         call = self.table.interaction(user(303, "helper", helper=True))
         await cog.reset_channels.callback(cog, call, "yes")
-        self.assertIn("cancelled", call.text())
+        self.assertIn("canceled", call.text())
         self.assertIn(self.game.game_id, cog.games)
 
 

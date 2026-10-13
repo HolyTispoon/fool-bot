@@ -1710,7 +1710,7 @@ class RulesEngine:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="it can't level up this turn")
         if self.levels_frozen(match, hero):
             return HeroOption(hero.slug, LEVEL, LEVEL_COST,
-                              why_not="an opposing Chronofixer stops it levelling up")
+                              why_not="an opposing Chronofixer stops it leveling up")
         levels = min(room, player.gold // LEVEL_COST)
         if not levels:
             return HeroOption(hero.slug, LEVEL, LEVEL_COST, why_not="not enough gold")

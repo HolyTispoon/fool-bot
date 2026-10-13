@@ -10,7 +10,7 @@ every change (docs/design/codex.md, "The standard game"):
   that hero;
 - in a standard game, a button per colour's deck by its name --
   **Blood Anarchs**, the colour's three heroes (`CardCatalog.color_decks`)
-  -- which seats the clicker with that team, and **Mixed colours**, which
+  -- which seats the clicker with that team, and **Mixed colors**, which
   opens `MixedTeamView` for them alone: the first hero, whose colour is
   the starting deck, and the other two;
 - a test game's picks twice, one set per side, since one person plays
@@ -118,9 +118,9 @@ class LobbyView(SafeView):
 
     def _team_buttons(self, game: CodexGame, seats) -> None:
         """
-        The standard game's picks: a button per colour's deck, named
+        The standard game's picks: a button per color's deck, named
         with its colour after it -- "Blood Anarchs (Red)" -- and
-        **Mixed colours** -- for each side in a test game, the side
+        **Mixed colors** -- for each side in a test game, the side
         written in front and its team lit.
         """
         row = 1
@@ -140,7 +140,7 @@ class LobbyView(SafeView):
                 button.callback = self._team(color, seat)
                 items.append(button)
             mixed = discord.ui.Button(
-                label=f"{prefix}Mixed colours",
+                label=f"{prefix}Mixed colors",
                 style=(discord.ButtonStyle.success if chosen and chosen_color is None
                        else discord.ButtonStyle.primary),
                 custom_id=f"codex:lobby:mixed{suffix}:{self.game_id}",
@@ -175,7 +175,7 @@ class LobbyView(SafeView):
         return callback
 
     def _team(self, color: str, seat: Optional[int]):
-        """A colour's deck: its three heroes, the seat's team."""
+        """A color's deck: its three heroes, the seat's team."""
         async def callback(interaction: discord.Interaction) -> None:
             specs = list(catalog().color_decks()[color])
             await self.move(interaction, lambda: self.cog.service.take_seat(
@@ -183,7 +183,7 @@ class LobbyView(SafeView):
         return callback
 
     def _mixed(self, seat: Optional[int]):
-        """**Mixed colours**: the two menus, for the clicker alone."""
+        """**Mixed colors**: the two menus, for the clicker alone."""
         async def callback(interaction: discord.Interaction) -> None:
             game = self.cog.games.get(self.game_id)
             if game is None or game.status is not GameStatus.LOBBY:
@@ -249,7 +249,7 @@ class LobbyView(SafeView):
 
 class MixedTeamView(discord.ui.View):
     """
-    **Mixed colours**, for the one who clicked it, ephemeral: a menu
+    **Mixed colors**, for the one who clicked it, ephemeral: a menu
     for the first hero -- **its colour is the starting deck** (UMR p. 3;
     `CodexGame._settle_deck`) -- and one for the other two. Both filled,
     the seat is taken through the service as the lobby's buttons take
@@ -271,7 +271,7 @@ class MixedTeamView(discord.ui.View):
         self.refusal: Optional[str] = None
         heroes = catalog().landed_heroes()
         self.first_menu = discord.ui.Select(
-            placeholder="First hero: its colour is your starting deck",
+            placeholder="First hero: its color is your starting deck",
             min_values=1, max_values=1, row=0,
             options=[
                 discord.SelectOption(
@@ -305,7 +305,7 @@ class MixedTeamView(discord.ui.View):
         """What the picker says: the team so far, the first hero and the
         deck it names, and what is still to choose."""
         cards = catalog()
-        lines = ["**Mixed colours**: your first hero's colour is your starting deck."]
+        lines = ["**Mixed colors**: your first hero's color is your starting deck."]
         if self.first is not None:
             hero = cards.hero_for(self.first)
             lines.append(f"First: **{hero.name}** ({hero.spec}) -- the {hero.color} starting deck.")
