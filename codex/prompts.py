@@ -175,13 +175,16 @@ class PatrolOptions:
 @dataclass(frozen=True)
 class TechOptions:
     """The owner's codex -- its slugs and the copies left of each -- the
-    bounds of the choice, and the picks made so far."""
+    bounds of the choice, the picks made so far, and whether they are
+    saved: "Tech nothing" saves no picks, which `picks` alone cannot
+    tell from a choice never made."""
 
     seat: int
     codex: tuple[tuple[str, int], ...]
     minimum: int
     maximum: int
     picks: tuple[str, ...] = ()
+    saved: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -190,6 +193,7 @@ class TechOptions:
             "minimum": self.minimum,
             "maximum": self.maximum,
             "picks": list(self.picks),
+            "saved": self.saved,
         }
 
 
@@ -742,7 +746,7 @@ def _tech_options(engine, game, match, prompt) -> TechOptions:
     minimum, maximum = engine.tech_bounds(player)
     return TechOptions(
         prompt.asked_player, engine.codex_counts(player), minimum, maximum,
-        tuple(player.tech_choice or ()),
+        tuple(player.tech_choice or ()), player.tech_choice is not None,
     )
 
 

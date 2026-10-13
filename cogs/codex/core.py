@@ -41,6 +41,7 @@ from cogs.codex_views import (
     TechChoiceView,
     TechConfirmView,
     TechGateView,
+    TechSavedView,
     TurnMessageView,
     TurnPanelView,
     picture_file,
@@ -280,11 +281,14 @@ class CoreMixin:
         prompt is answered from, shown to its asked player alone, or
         `None` for a kind nobody answers (a finished game). With `gate`,
         a turn's tech choice never made is **Tech** alone
-        (`TechGateView`), the hand's panel until it is opened."""
+        (`TechGateView`), the hand's panel until it is opened; a tech
+        choice saved is its picks and **Change** (`TechSavedView`)."""
         if prompt is None:
             return None
         if gate and prompt.kind is PromptKind.TECH_CHOICE:
             return TechGateView(self, game.game_id, prompt, match)
+        if prompt.kind is PromptKind.TECH_CHOICE and prompt.options.saved:
+            return TechSavedView(self, game.game_id, prompt, match)
         view = PROMPT_VIEWS[prompt.kind]
         return None if view is None else view(self, game.game_id, prompt, match)
 
@@ -296,7 +300,8 @@ class CoreMixin:
         far, defaulting to the prompt's) and narrowed to `view` -- the
         whole by default, or the one tech level, the spells or the spec
         its Show menu chose (the engine's `codex_view_rows`) -- and the
-        confirmation's picks as a hand. The main phase, the defender and
+        confirmation's picks as a hand, as a saved choice's are where no
+        `picks` ask for the picker (`TechSavedView`). The main phase, the defender and
         the patrol lock have none -- the board on the turn message is
         theirs, and the panel pictures the hand (`hand_file`).
         Everything here is its asked player's alone.
@@ -304,7 +309,7 @@ class CoreMixin:
         if prompt is None or prompt.options is None:
             return None
         cards = self.engine.catalog
-        if prompt.kind is PromptKind.TECH_CHOICE:
+        if prompt.kind is PromptKind.TECH_CHOICE and (picks is not None or not prompt.options.saved):
             options = prompt.options
             chosen = Counter(options.picks if picks is None else picks)
             shown = self.engine.codex_view_rows(options.codex, view)
@@ -314,7 +319,7 @@ class CoreMixin:
                 self.engine.codex_places(shown, view),
             )
             return picture_file(webp, "codex-tech")
-        if prompt.kind is PromptKind.TECH_CONFIRM and prompt.options.picks:
+        if prompt.kind in (PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM) and prompt.options.picks:
             picks = list(prompt.options.picks)
             webp = await asyncio.to_thread(
                 render_hand, picks, [True] * len(picks),

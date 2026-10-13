@@ -39,6 +39,7 @@ from cogs.codex_views import (
     PatrolView,
     RematchView,
     TechChoiceView,
+    TechSavedView,
     TechConfirmView,
     TechGateView,
     TurnMessageView,
@@ -46,6 +47,7 @@ from cogs.codex_views import (
     UndoConfirmView,
     UndoView,
     hand_numbers,
+    picks_listed,
 )
 
 CHANNEL_REQUESTS = ("send", "edit", "pin", "unpin", "delete")
@@ -758,6 +760,38 @@ class TurnEndTests(TurnTestCase):
         played = await self.table.press(active_panel, ("play", playable(active_panel)[0]))
         self.assertNothingWentWrong(played)
         self.assertEqual([answer[0] for answer in played.answers], PANEL_EDITED)
+
+    async def test_a_saved_tech_choice_is_its_picks_and_change(self) -> None:
+        """Once tech is saved the panel is the picks alone -- no codex,
+        no menus, no Save tech -- with **Change**, which opens the picker
+        in place on the saved picks; **Tech** reopens the saved view
+        (the author, 2026-10-12)."""
+        await self.end_turn()
+        picker = (await self.table.turn_button("tech", self.table.waiting)).view()
+        picked = await pick_tech(self.table, picker)
+        saved = await self.table.press(picked.view(), "Save tech")
+        self.assertNothingWentWrong(saved)
+        chosen = list(self.table.match.player(picker.seat).tech_choice)
+        panel = saved.view()
+        self.assertIsInstance(panel, TechSavedView)
+        self.assertIn("Saved", saved.text())
+        self.assertIn(f"Your tech: {picks_listed(chosen)}.", saved.text())
+        labels = [getattr(item, "label", None) for item in panel.children]
+        self.assertEqual(labels, ["Change", "My deck"])
+
+        again = (await self.table.turn_button("tech", self.table.waiting)).view()
+        self.assertIsInstance(again, TechSavedView)
+
+        changed = await self.table.press(again, "Change")
+        self.assertNothingWentWrong(changed)
+        repicker = changed.view()
+        self.assertIsInstance(repicker, TechChoiceView)
+        self.assertEqual(repicker.picks, chosen)
+        cleared = await self.table.press(repicker, "Clear")
+        repicked = await pick_tech(self.table, cleared.view())
+        resaved = await self.table.press(repicked.view(), "Save tech")
+        self.assertNothingWentWrong(resaved)
+        self.assertIsInstance(resaved.view(), TechSavedView)
 
     async def test_the_tech_picker_is_narrowed_by_its_show_menu(self) -> None:
         """

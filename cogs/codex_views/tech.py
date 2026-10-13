@@ -25,6 +25,10 @@ choice's owner** and built from the prompt's options alone:
   replaces the last. Saved in the owner's own ready phase -- **Tech
   nothing** too -- it is the choice, confirmed as made, and the turn
   begins on it (the author, 2026-10-10).
+- `TechSavedView`, for `TECH_CHOICE` once a choice is saved: the
+  picks pictured alone, **Change** -- the picker in place, on the saved
+  picks -- and **My deck** (the author, 2026-10-12: once tech is
+  selected, the codex and Save tech go).
 - `TechConfirmView`, for `TECH_CONFIRM`: the hand and the picks
   pictured (the panel's two pictures), **Confirm**, **Change** and
   **My deck**. The ready phase runs on Confirm; Change reopens the
@@ -162,16 +166,7 @@ class TechChoiceView(PanelView):
         return choose
 
     async def redraw(self, interaction: discord.Interaction, game, picks, view: str) -> None:
-        """The picker again, in place: the picks and the view given,
-        the picture narrowed to the view with the picks marked."""
-        panel = TechChoiceView(self.cog, self.game_id, self.prompt, self.match, picks, view)
-        picture = await self.cog.render_prompt(game, self.prompt, picks=picks, view=view)
-        await edit_clicked(
-            interaction,
-            content=self.cog.panel_caption(game, self.prompt, panel.caption()),
-            attachments=[] if picture is None else kept_pictures([picture], interaction.message),
-            view=panel,
-        )
+        await _put_picker(self, interaction, game, picks, view)
 
     async def show(self, interaction: discord.Interaction) -> None:
         game, match = await self.mine(interaction)
@@ -196,6 +191,44 @@ class TechChoiceView(PanelView):
         await self.act(interaction, Action(
             PromptKind.TECH_CHOICE, "", {"player": self.seat, "picks": []},
         ))
+
+
+async def _put_picker(clicked: PanelView, interaction: discord.Interaction, game, picks,
+                     view: str = "everything") -> None:
+    """The picker in place of the panel clicked: the picks and the view
+    given, the picture narrowed to the view with the picks marked."""
+    panel = TechChoiceView(clicked.cog, clicked.game_id, clicked.prompt, clicked.match, picks, view)
+    picture = await clicked.cog.render_prompt(game, clicked.prompt, picks=picks, view=view)
+    await edit_clicked(
+        interaction,
+        content=clicked.cog.panel_caption(game, clicked.prompt, panel.caption()),
+        attachments=[] if picture is None else kept_pictures([picture], interaction.message),
+        view=panel,
+    )
+
+
+class TechSavedView(PanelView):
+    """A tech choice saved, for `TECH_CHOICE` once its owner has saved
+    one: the picks pictured alone, **Change** and **My deck** -- no
+    codex and no Save tech, since nothing is being picked (the author,
+    2026-10-12). Change opens the picker in place on the saved picks;
+    nothing is answered until it saves again."""
+
+    def __init__(self, cog, game_id: str, prompt, match) -> None:
+        super().__init__(cog, game_id, prompt, match)
+        change = discord.ui.Button(label="Change", style=discord.ButtonStyle.secondary)
+        change.callback = self.change
+        self.add_item(change)
+        self.add_item(deck_button(self.open_deck))
+
+    def caption(self) -> str:
+        return f"Your tech: {picks_listed(self.prompt.options.picks)}."
+
+    async def change(self, interaction: discord.Interaction) -> None:
+        game, match = await self.mine(interaction)
+        if game is None:
+            return
+        await _put_picker(self, interaction, game, list(self.prompt.options.picks))
 
 
 class TechConfirmView(PanelView):
