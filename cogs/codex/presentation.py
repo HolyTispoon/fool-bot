@@ -36,7 +36,7 @@ from cogs.codex_views import (
     deck_caption,
     deck_file,
     hand_caption,
-    hand_file,
+    hand_files,
     revealed_caption,
     revealed_files,
     send_answer,
@@ -318,15 +318,15 @@ class PresentationMixin:
         first hidden thing the bot shows -- under the turn's lines so far
         (`with_turn_log`), with **My deck** under it."""
         started = time.perf_counter()
-        files = [await hand_file(self.engine, match, seat),
+        files = [*await hand_files(self.engine, match, seat),
                  *await revealed_files(self.engine, match, seat)]
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         caption = hand_caption(match, seat, side_label(game, match, seat))
         revealed = revealed_caption(self.engine, match, seat)
         # One picture as ever; two where Eyes of the Chancellor shows the
-        # opponent's hand beneath (step 13).
-        pictures = {"file": files[0]} if len(files) == 1 else {"files": files}
+        # opponent's hand beneath (step 13); none for an empty hand.
+        pictures = {"file": files[0]} if len(files) == 1 else {"files": files} if files else {}
         await interaction.response.send_message(
             self.with_turn_log(game, caption + (f"\n{revealed}" if revealed else "")),
             **pictures,
