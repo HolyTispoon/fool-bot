@@ -289,8 +289,8 @@ class EffectTagTests(unittest.TestCase):
                          (("Ferocity", "green"), ("Dreamscape", "blue")))
 
     def test_a_unit_that_cant_patrol_is_tagged_in_its_cards_colour(self) -> None:
-        self.assertEqual(render.effect_tags(self.unit(), self.cards, cant_patrol="land_octopus"),
-                         (("Can't patrol", "red"),))
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, cant_patrol="entangling_vines"),
+                         (("Can't patrol", "white"),))
 
     def test_gargoyles_effects_are_one_tag(self) -> None:
         until = {"until": "upkeep", "seat": 1, "from": "gargoyle"}

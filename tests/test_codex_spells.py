@@ -1325,6 +1325,7 @@ class WhiteSpellTests(unittest.TestCase):
         self.cast("entangling_vines")
         self.assertIsNone(unit.patrol_slot)
         self.assertTrue(self.engine.entangled(self.match, unit))
+        self.assertEqual(self.engine.board_reading(self.match, unit)[3], "entangling_vines")
 
     def test_foxs_den_students_summon_four_hasty_ninjas(self) -> None:
         self.max_level("setsuki_hiruki")

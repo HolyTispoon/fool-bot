@@ -925,7 +925,7 @@ class RulesEngine:
         """What the board shows of a unit or a hero that is a reading of
         the rules: its ATK and HP (`body_stats`), the effects across a
         side that reach it (`auras_on`), and what keeps a unit from
-        patrolling (`patrol_barred_by`)."""
+        patrolling for now (`patrol_barred_by`)."""
         barred = (self.patrol_barred_by(match, body) if isinstance(body, CardInstance)
                   and self.catalog.cards[body.slug].is_unit else None)
         return (*self.body_stats(match, body), self.auras_on(match, body), barred)
@@ -1274,18 +1274,21 @@ class RulesEngine:
             return False
         return any(other.made_by == card.id for other in match.instances())
 
+    def cant_patrol_as_printed(self, card: CardInstance) -> bool:
+        """Its own "can't patrol" (`effects.CANT_PATROL`), until Gargoyle's
+        ability frees it -- what the card itself says, so never tagged."""
+        return self.text_slug(card) in effects.CANT_PATROL and not self.unbound(card)
+
     def patrol_barred_by(self, match: Optional[MatchState], card: CardInstance) -> Optional[str]:
-        """What keeps this unit out of the patrol zone whatever its state,
-        by the slug of the card that says so -- its own "can't patrol"
-        (`effects.CANT_PATROL`, until Gargoyle's ability frees it), Terras
-        Q's shackle, Entangling Vines on it -- or `None`. Exhaustion and
-        Moment's Peace, across a whole side, are the patrol's alone; the
-        board tags this (docs/design/codex.md, "The board on Discord")."""
-        slug = self.text_slug(card)
-        if slug in effects.CANT_PATROL and not self.unbound(card):
-            return slug
+        """What keeps this unit out of the patrol zone for now, where its
+        own printed text does not say so outright, by the slug of the card
+        that does -- Terras Q's shackle while his Warlocks are in play,
+        Entangling Vines on it -- or `None`. The board tags it, in that
+        card's colour (docs/design/codex.md, "The board on Discord");
+        exhaustion and Moment's Peace, across a whole side, are the
+        patrol's alone."""
         if self.shackled(match, card):
-            return slug
+            return self.text_slug(card)
         if self.entangled(match, card):
             return effects.VINES
         return None
@@ -3628,6 +3631,7 @@ class RulesEngine:
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
+            and not self.cant_patrol_as_printed(card)
             and self.patrol_barred_by(match, card) is None and not player.peace
         ]
         found.extend(

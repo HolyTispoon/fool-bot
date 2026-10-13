@@ -1737,18 +1737,20 @@ else the bot shows is ephemeral.
     growth grant where `growth_holds`, the one reading the +5/+5 is
     applied by too -- handed to the renderer with the stats by
     `board_reading`, which the cog passes where it passed `body_stats`;
-    the renderer takes either. **A unit kept out of the patrol zone
-    whatever its state is tagged "Can't patrol"** (the author,
-    2026-10-13: a unit missing from the patrol menu said nothing of
-    why), in the colour of the card
-    that keeps it out: its own printed "can't patrol" -- Land Octopus,
-    Makeshift Rambaster, Pestering Haunt, Justice Juggernaut, Daigo
-    Stormborne, Gargoyle until its ability frees it -- Terras Q's
-    shackle, or Entangling Vines on it. Which card that is, if any, is
-    `RulesEngine.patrol_barred_by`, the same reading `patrol_candidates`
-    leaves the unit out by, handed over as `board_reading`'s fourth
-    value (`Stats.cant_patrol`). Exhaustion is the card's own state,
-    and Moment's Peace is across a whole side, so neither is tagged.
+    the renderer takes either. **A unit kept out of the patrol zone for
+    now is tagged "Can't patrol"** (the author, 2026-10-13: a unit missing from the patrol
+    menu said nothing of why), in the colour of the card that keeps it
+    out: Terras Q while his Warlocks are in play, or a unit under
+    Entangling Vines. **A card's own printed "can't patrol" is never
+    tagged** -- Land Octopus, Makeshift Rambaster, Pestering Haunt,
+    Justice Juggernaut, Daigo Stormborne, Gargoyle -- since the face
+    already says it and a tag would only repeat it (the author, the same
+    day: only a condition is worth a tag). Which card keeps a unit out,
+    if any, is `RulesEngine.patrol_barred_by`, beside
+    `cant_patrol_as_printed`; `patrol_candidates` leaves a unit out by
+    both, and `board_reading` hands the first over as its fourth value
+    (`Stats.cant_patrol`). Exhaustion is the card's own state, and
+    Moment's Peace is across a whole side, so neither is tagged.
     A player's other lasting effects --
     Moment's Peace, Free Speech, a debt -- are for the side of the
     board, not yet drawn. A modifier for good (Metamorphosis, Fox's Den

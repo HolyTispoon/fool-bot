@@ -867,16 +867,16 @@ class Stats:
     #: The effects across a side that reach it, by the slug of the card
     #: that makes them (`RulesEngine.auras_on`): each a tag by its name.
     auras: tuple[str, ...] = ()
-    #: The card that keeps a unit from patrolling, by its slug
+    #: The card that keeps a unit from patrolling for now, by its slug
     #: (`RulesEngine.patrol_barred_by`): a "Can't patrol" tag in its
-    #: colour.
+    #: colour. Never a card's own printed "can't patrol".
     cant_patrol: Optional[str] = None
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
 #: `board_reading`, which the frontend hands in, and which names the
 #: effects across a side that reach it and what keeps it from patrolling
-#: too (`body_stats`, its ATK and HP alone, does as well): the renderer
+#: for now too (`body_stats`, its ATK and HP alone, does as well): the renderer
 #: reads a position and decides no rule.
 StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple"]
 
@@ -1042,8 +1042,8 @@ def effect_tags(body, cards: Optional[CardCatalog], auras: Sequence[str] = (),
     keywords and the rest an effect gave it for a while, Kidnapping's
     hold, the effects across a side that reach it, `auras`, by the
     name of the card that makes each -- Ferocity, Stampede, Dreamscape --
-    and "Can't patrol" where a card keeps it out of the patrol zone,
-    `cant_patrol`: its own text, Terras Q's shackle, Entangling Vines."""
+    and "Can't patrol" where a card keeps it out of the patrol zone for
+    now, `cant_patrol`: Terras Q's shackle, Entangling Vines."""
     found: list[tuple[str, Optional[str]]] = []
     for modifier in body.modifiers:
         if modifier.get("until") not in LASTING_UNTIL:

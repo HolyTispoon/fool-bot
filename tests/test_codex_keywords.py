@@ -1505,17 +1505,25 @@ class ConditionedKeywordTests(KeywordCase):
         self.assertNotIn(ram, engine.patrol_candidates(match))
         self.assertIn(treant, engine.patrol_candidates(match))
 
-    def test_the_board_reads_what_keeps_a_unit_from_patrolling(self) -> None:
-        """Land Octopus's own "can't patrol" is the board's to tag, and a
-        unit free to patrol has nothing to tag (docs/design/codex.md, "The
-        board on Discord")."""
+    def test_a_printed_cant_patrol_is_not_the_boards_to_tag(self) -> None:
+        """Land Octopus's own "can't patrol" is on its face, so the board
+        tags nothing (the author, 2026-10-13: only a condition is worth a
+        tag) -- and it still never patrols."""
         engine, game, match = fresh()
         octopus = put(match, 1, "land_octopus")
-        treant = put(match, 1, "young_treant")
-        self.assertEqual(engine.patrol_barred_by(match, octopus), "land_octopus")
-        self.assertEqual(engine.board_reading(match, octopus)[3], "land_octopus")
-        self.assertIsNone(engine.board_reading(match, treant)[3])
+        self.assertTrue(engine.cant_patrol_as_printed(octopus))
+        self.assertIsNone(engine.patrol_barred_by(match, octopus))
+        self.assertIsNone(engine.board_reading(match, octopus)[3])
         self.assertNotIn(octopus.ref, engine.patrol_candidates(match))
+
+    def test_terras_q_is_tagged_while_his_warlocks_are_in_play(self) -> None:
+        engine, game, match = fresh()
+        terras = put(match, 1, "terras_q_the_shackled")
+        self.assertIsNone(engine.board_reading(match, terras)[3])
+        self.assertIn(terras.ref, engine.patrol_candidates(match))
+        put(match, 2, "warlock").made_by = terras.id
+        self.assertEqual(engine.board_reading(match, terras)[3], "terras_q_the_shackled")
+        self.assertNotIn(terras.ref, engine.patrol_candidates(match))
 
     def test_bonus_when_attacking_buildings(self) -> None:
         engine, game, match = fresh()
