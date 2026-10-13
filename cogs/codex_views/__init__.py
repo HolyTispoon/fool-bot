@@ -25,6 +25,7 @@ from cogs.codex_views.tech import (
     TechChoiceView, TechConfirmView, TechGateView, TechSavedView, picks_listed,
 )
 from cogs.codex_views.turn import (
+    END_OF_TURN,
     NOT_YOUR_PANEL,
     UNDO_MENU,
     PanelButton,
@@ -78,6 +79,7 @@ __all__ = [
     "TechSavedView",
     "TurnMessageView",
     "TurnPanelView",
+    "END_OF_TURN",
     "UNDO_MENU",
     "UndoConfirmView",
     "UndoView",

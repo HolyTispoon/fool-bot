@@ -71,6 +71,10 @@ def _cut(text: str, limit: int) -> str:
 #: What the fine undo's menu asks.
 UNDO_MENU = "To before an action of this turn..."
 
+#: The button that takes back the end of the turn before, for the
+#: player who ended it (`history.end_of_turn_owner`).
+END_OF_TURN = "Take back the end of my turn"
+
 
 def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
     """
@@ -1076,7 +1080,9 @@ class UndoView(SafeView):
     **Undo** on the turn message: the undos open, sent to the active
     player alone -- the fine undo's menu over the turn's actions and the
     two `history.undo_targets` says are open, the same as the panel's
-    undo mode. It holds the seat and the turn it was opened on, so a
+    undo mode -- with **Take back the end of my turn** for the player
+    who ended the turn before, while this one has done nothing but open
+    (`end_of_turn`), the one undo open to a player whose turn it is not. It holds the seat and the turn it was opened on, so a
     click after the game has moved on is refused rather than undoing a
     turn it was not opened on. Not persistent: after a restart, **Undo**
     again.
@@ -1084,7 +1090,8 @@ class UndoView(SafeView):
 
     acknowledges_while_waiting = True  # as the panel's (`PanelView`)
 
-    def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict, points=()) -> None:
+    def __init__(self, cog, game_id: str, seat: int, turn: int, targets: dict, points=(),
+                 *, end_of_turn: bool = False) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
         self.game_id = game_id
@@ -1093,6 +1100,10 @@ class UndoView(SafeView):
         self.points_menu = undo_menu(points, self.undo_point)
         if self.points_menu is not None:
             self.add_item(self.points_menu)
+        if end_of_turn:
+            button = discord.ui.Button(label=END_OF_TURN, style=discord.ButtonStyle.danger)
+            button.callback = self.undo_end_of_turn
+            self.add_item(button)
         for label, target, callback in (
             ("To the start of my turn", history.TURN_START, self.undo_turn_start),
             ("To the start of the previous turn (asks your opponent)",
@@ -1102,7 +1113,7 @@ class UndoView(SafeView):
                 button = discord.ui.Button(label=label, style=discord.ButtonStyle.danger)
                 button.callback = callback
                 self.add_item(button)
-        if not targets:
+        if not targets and not end_of_turn:
             self.add_item(discord.ui.Button(
                 label="Nothing to undo", style=discord.ButtonStyle.secondary, disabled=True,
             ))
@@ -1143,6 +1154,26 @@ class UndoView(SafeView):
         if game is None:
             return
         await self.cog.ask_undo_to_previous_turn(interaction, game, self.seat, match.turn)
+
+    async def undo_end_of_turn(self, interaction: discord.Interaction) -> None:
+        """**Take back the end of my turn**: the seat's own while it is
+        not their turn, so `mine`'s check is not this one's -- the turn
+        it was opened on, and the model's `end_of_turn_owner`, which the
+        cog asks again."""
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if self.seat not in game.seats_of(interaction.user.id):
+            await send_ephemeral(interaction, NOT_YOUR_PANEL)
+            return
+        if match.turn != self.turn:
+            await edit_clicked(
+                interaction,
+                content="The game has moved on since: press **Undo** on the turn message again.",
+                view=None,
+            )
+            return
+        await self.cog.undo_end_of_turn(interaction, game, self.seat)
 
 
 class UndoConfirmView(SafeView):

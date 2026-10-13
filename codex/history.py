@@ -63,8 +63,18 @@ _HISTORY_FIELDS = ("turn_snapshots", "journal")
 TURN_START = "turn_start"
 PREVIOUS_TURN = "previous_turn"
 
+#: The key a turn's snapshot keeps its journal under once the turn has
+#: ended (`snapshot`), so the end of the turn can be taken back
+#: (`undo_end_of_turn`). Absent from the current turn's snapshot, and
+#: from every snapshot in a game saved before 2026-10-13.
+ENDED_JOURNAL = "journal"
+
 #: What an undo says, on the turn message it takes back.
 UNDONE = "Undone to the start of the turn."
+
+#: What taking back the end of a turn says, under the lines of what it
+#: kept.
+UNDONE_END = "The end of the turn is taken back."
 
 
 #: What the fine undo says, under the lines of what it kept: the lines
@@ -147,7 +157,11 @@ def position(match: MatchState) -> dict:
 
 
 def snapshot(match: MatchState) -> None:
-    """Keep this position as the turn's start, and begin a new journal."""
+    """Keep this position as the turn's start, and begin a new journal.
+    The journal of the turn that has ended is kept on that turn's own
+    snapshot (`ENDED_JOURNAL`), so its end can be taken back."""
+    if match.turn_snapshots:
+        match.turn_snapshots[-1][ENDED_JOURNAL] = copy.deepcopy(match.journal)
     match.turn_snapshots.append(position(match))
     del match.turn_snapshots[:-KEPT_SNAPSHOTS]
     match.journal = []
@@ -300,6 +314,102 @@ def undo_to_turn_start(match: MatchState) -> tuple[str, ...]:
         raise RuleRefusal("There is no start of this turn to go back to.")
     _restore(match, match.turn_snapshots[index], match.turn_snapshots[:index + 1])
     return (UNDONE,)
+
+
+def _ended_turn(match: MatchState) -> Optional[int]:
+    """The index of the ended turn's snapshot whose end may be taken
+    back, its journal kept: the turn before this one's start, while this
+    turn's journal holds nothing but its opening (`OPENING_KINDS`) --
+    the other player has taken no action of the turn. `None` otherwise,
+    and once the game is over."""
+    if match.winner is not None:
+        return None
+    current = _snapshot_index(match, match.turn)
+    if current is None or current == 0 or current != len(match.turn_snapshots) - 1:
+        return None
+    ended = match.turn_snapshots[current - 1]
+    if ended.get("turn") != match.turn - 1 or ENDED_JOURNAL not in ended:
+        return None
+    if any(entry["action"]["kind"] not in OPENING_KINDS for entry in match.journal):
+        return None
+    return current - 1
+
+
+def _end_of_turn_point(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                       index: int) -> Optional[tuple[int, tuple[str, ...]]]:
+    """
+    Where taking back the end of the turn whose snapshot is the
+    `index`th lands: the ended journal's last point between actions of
+    that turn (`BETWEEN_ACTIONS` -- its patrol, before the lock), as
+    the journal's length there, with the lines said up to it. The lock
+    that ended the turn is not journalled where the next turn's
+    snapshot was taken in it; where it was not (a choice asked between
+    the lock and the next turn's start -- the stash, the upkeep's
+    order), the point is still before it. `None` where the journal no
+    longer replays, or never stood between actions.
+    """
+    ended = match.turn_snapshots[index]
+    start = {key: value for key, value in ended.items() if key != ENDED_JOURNAL}
+    journal = ended[ENDED_JOURNAL]
+    found: list[tuple[int, tuple[str, ...]]] = []
+    said: list[str] = []
+
+    def note(at: int, replayed: MatchState, run: "DriverRun") -> None:
+        said.extend(line for group in run.groups for line in group.lines)
+        said.extend(run.result.narration)
+        waiting = run.result.next
+        if (replayed.turn == start.get("turn") and replayed.winner is None
+                and isinstance(waiting, PendingPrompt) and waiting.kind in BETWEEN_ACTIONS):
+            found.append((at + 1, tuple(said)))
+
+    try:
+        replay(engine, game, start, journal, history=[start], each=note)
+    except ValueError:
+        return None
+    return found[-1] if found else None
+
+
+def end_of_turn_owner(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Optional[int]:
+    """
+    The seat that may take back the end of the turn before this one --
+    the player whose turn it was, with nobody's consent (the author,
+    2026-10-13) -- or `None`: the turn after it has taken an action or
+    drawn a card (a card seen cannot be unseen, as for the fine undo),
+    the ended turn's journal was not kept (a game saved before
+    2026-10-13), or the game is over.
+    """
+    index = _ended_turn(match)
+    if index is None:
+        return None
+    records = _replayed(engine, game, match)
+    if records is None or any(record.drew for record in records):
+        return None
+    if _end_of_turn_point(engine, game, match, index) is None:
+        return None
+    return match.turn_snapshots[index].get("active")
+
+
+def undo_end_of_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> tuple[str, ...]:
+    """
+    Take back the end of the turn before this one (`end_of_turn_owner`
+    says whose it is to take): the ended turn replayed from its snapshot
+    to its last point between actions (`_end_of_turn_point`), its
+    patrol unlocked, keeping the other player's tech answers after it
+    (`cut`); this turn's opening is gone with it. Starts nobody's tech
+    over. Returns the ended turn's lines up to there, then
+    `UNDONE_END`. Refused with `RuleRefusal` where it is not open.
+    """
+    if end_of_turn_owner(engine, game, match) is None:
+        raise RuleRefusal("There is no end of a turn to take back now.")
+    index = _ended_turn(match)
+    point = _end_of_turn_point(engine, game, match, index)
+    cut_at, said = point
+    ended = match.turn_snapshots[index]
+    start = {key: value for key, value in ended.items() if key != ENDED_JOURNAL}
+    snapshots = [*match.turn_snapshots[:index], start]
+    rebuilt = replay(engine, game, start, cut(ended[ENDED_JOURNAL], cut_at), history=snapshots)
+    match.__dict__.update(rebuilt.__dict__)
+    return (*said, UNDONE_END)
 
 
 def undo_to_previous_turn(match: MatchState) -> tuple[str, ...]:
