@@ -2427,6 +2427,17 @@ the cards, and not that a choice was made. The choice is announced in
 its owner's ready phase alone, as "puts 2 tech cards into their discard
 pile" (the author, 2026-10-08).
 
+**A choice saved is its picks, not the picker** (the author,
+2026-10-12: "once tech has been selected, remove the codex view and
+the save tech button"). After **Save tech** -- and from **Tech**, while
+a saved choice stands -- the panel is `TechSavedView`: the picks
+pictured alone, as the confirmation pictures them, "Your tech: ...",
+**Change** and **My deck**. Change opens the picker in place on the
+saved picks; nothing is answered until it saves again. Which of the two
+a `TECH_CHOICE` shows is `TechOptions.saved` -- the owner's
+`tech_choice` is not `None` -- since **Tech nothing** saves no picks
+and `picks` alone cannot tell that from a choice never made.
+
 **One card at a time, each card once** (the author, 2026-10-10). The
 menu names each card by `card_label` -- "Centaur 3/4", no gold cost
 (the author, 2026-10-11) -- offers each card the shown view holds
