@@ -168,7 +168,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **2.8.11** **Time** is what the clock counts. Every action costs some: one that costs 1 advances time by 1 -- see [the clock](#16-the-clock) (16).
 
-**2.8.12** A **live ball** is one in play. A **dead ball** is one being brought back into play after a goal, a missed shot, an own-goal roll, a ball out of bounds or a period's start: it is carried to where play starts again rather than travelling over the spaces between.
+**2.8.12** A **live ball** is one in play. A **dead ball** is one being brought back into play after a goal, a missed shot, an own-goal roll, a ball out of bounds or a period's start: it is carried to where play starts again rather than traveling over the spaces between.
 
 **2.8.13** **Exhausted** and **Injured** are the two conditions a player can be in -- see [Law 15](#15-exhaustion-and-injury). In standard and advanced mode a Cyborg's own words for them are Drained and Damaged -- see [Lithium Powered](#203-lithium-powered-cyborg) (20.3).
 
@@ -495,7 +495,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 ### 9.4 What a send costs
 
-**9.4.1** A sent player moves onto the space and exhausts 1 for every space they travelled.
+**9.4.1** A sent player moves onto the space and exhausts 1 for every space they traveled.
 
 ### 9.5 Sending nobody
 
@@ -545,7 +545,7 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 
 **10.4.3** Otherwise it is [the contest](#102-the-contest) (10.2) above, with one difference: the side that threw the pass adds the [ball speed modifier](#7-ball-speed) (7), and adds it against themselves if the pass reached the goal zone.
 
-**10.4.4** A pass that reaches nobody carries no modifier. It is not this contest at a disadvantage; the ball is simply loose on an empty space, and there is no receiver for the throw to have favoured.
+**10.4.4** A pass that reaches nobody carries no modifier. It is not this contest at a disadvantage; the ball is simply loose on an empty space, and there is no receiver for the throw to have favored.
 
 **10.4.5** The ball is left with the winner. A receiver who loses it has been stolen from.
 
@@ -765,8 +765,8 @@ The whole of D12 Ball in training mode, Laws 1 to 17. Nothing in Part I depends 
 | What costs tokens | How many |
 | --- | --- |
 | Entering a maneuver skill test, and every re-roll of it | 1 to each participant |
-| Being sent to the ball -- a challenge, a loose ball, a contest, a pickup | 1 per space travelled |
-| Running back | 1 per space travelled |
+| Being sent to the ball -- a challenge, a loose ball, a contest, a pickup | 1 per space traveled |
+| Running back | 1 per space traveled |
 | An own-goal roll | 1 to the player rolling |
 | Taking a scoring opportunity | 1 to the shooter, after the roll |
 | [Merging](#205-slimey-ooze) (20.5) into a roll, and every re-roll of it | 1 to each player who Merges |
@@ -938,7 +938,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | The skill test adds one challenger's defensive skill ([Law 6](#64-the-skill-test) (6.4)) | After a won Double Team its partner Merges through the next maneuver ([Double Team](#1910-double-team) (19.10)) | Advanced maneuvers |
 | A contest for the ball is rolled ([Law 10](#102-the-contest) (10.2)) | After a failed Cross the side that beat it takes the ball without a roll ([Cross](#197-cross) (19.7)) | Advanced maneuvers |
 | A coach chooses from three cards ([Law 6](#62-choosing-and-revealing) (6.2)) | The coach holding the coin may swap them for their three advanced maneuvers against a challenge, and a coach who is behind may answer in kind ([Law 19](#19-advanced-maneuvers-and-gambits)) | Advanced maneuvers |
-| A player's skills are their role's, 1 to 6 and totalling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
+| A player's skills are their role's, 1 to 6 and totaling 7 ([Law 2](#26-players-and-roles) (2.6)) | A player's advanced skill replaces their role's ([Advanced skills](#212-advanced-skills) (21.2)) | Special |
 | A player is Exhausted when tokens exceed defensive skill ([Law 15](#152-becoming-exhausted) (15.2)) | A Cyborg is Drained at 7 or more, whatever their skill ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | A player who fails an injury check is Injured ([Law 15](#153-the-injury-check) (15.3)) | A Cyborg's check is a damage test, and failing it makes them Damaged -- the same check and condition under their own words ([Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
 | Nothing else costs tokens ([Law 15](#151-gaining-tokens) (15.1)) | Mind Pull costs 1 and Overdrive 3 ([Mind Pull](#204-mind-pull-telekinetic) (20.4), [Lithium Powered](#203-lithium-powered-cyborg) (20.3)) | Species |
@@ -1026,7 +1026,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **19.6.1** **Rank O2. Costs 1 time. Beats Deflect and Clear, loses to Pressure and Double Team.**
 
-**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space travelled**. A handler nearer the goal zone than their run may go only as far as the last space before it.
+**19.6.2** The handler carries the ball **up to 4 spaces forward**, and defenders are no obstacle. The coach chooses how far, and the handler **exhausts 1 per space traveled**. A handler nearer the goal zone than their run may go only as far as the last space before it.
 
 *Note.* It is the only maneuver that charges by distance, which is what makes the shorter runs worth taking.
 
@@ -1169,7 +1169,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.4.5** **One roll per Telekinetic per ball movement.** Where the ball's path crosses two Telekinetics, each may try in the order the ball reaches them; the first to succeed stops the ball there and the rest get no roll.
 
-**20.4.6** **Only a live ball can be pulled.** A ball being brought back into play after it has gone dead -- the kickoff after a [goal](#5-score-attempt) (5), the restart after a shot that missed, a [second-half kickoff](#164-halftime) (16.4) -- is carried to where play starts again rather than travelling over the spaces between, so it crosses nobody and offers nobody a pull however far it goes.
+**20.4.6** **Only a live ball can be pulled.** A ball being brought back into play after it has gone dead -- the kickoff after a [goal](#5-score-attempt) (5), the restart after a shot that missed, a [second-half kickoff](#164-halftime) (16.4) -- is carried to where play starts again rather than traveling over the spaces between, so it crosses nobody and offers nobody a pull however far it goes.
 
 **20.4.7** Mind Pull resolves **before** the ball settles [where it comes to rest](#101-where-the-ball-comes-to-rest) (10.1): a pull that lands pre-empts whatever the movement would have led to -- a reception, a scoring opportunity, a contest, a loose ball. A pull that misses or is declined leaves all of that to resolve as normal, the Telekinetic included if the ball comes down where they stand.
 
@@ -1195,7 +1195,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **20.5.2** **Merge is declared before the die is thrown**, as [Overdrive](#203-lithium-powered-cyborg) (20.3) is: blind, once per roll, the attacking coach first and then the defending one, each declaring or passing, and the die waits until both have. A tie that is rolled again is a fresh roll, on which each Ooze may Merge again for another token. **An Ooze who Merges owes the [injury check](#153-the-injury-check) (15.3) as the two rolling do**: when the skill test or contest resolves, an Exhausted Ooze who Merged into any roll of it rolls one, its tokens counted as theirs are. A score attempt still causes no checks, Merged into or not.
 
-**20.5.3** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots may exhaust 1 to add their **offensive** skill to the attack. The defence gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
+**20.5.3** **Merge in a [score attempt](#5-score-attempt) (5) is the attack alone.** An Ooze standing on the ball while a teammate shoots may exhaust 1 to add their **offensive** skill to the attack. The defense gains nothing from it: defending players on and beyond the ball are already counted by [what the defense adds](#53-what-the-defense-adds) (5.3), and an Ooze among them is not counted twice.
 
 **20.5.4** **Spreadable.** Every Ooze counts as 0 toward its own zone's [occupancy](#25-occupancy) (2.5), always -- nothing for a coach to declare. It still has exactly one meeple on exactly one real space; the rule is a coverage exemption only, not a second body on the board, so nothing about a challenge, where the ball can be sent, or a genuine run back off the space changes.
 
@@ -1271,7 +1271,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 
 **21.5.6** **Vorix's long pass is a set-up.** When Vorix's won High Pass of 3 spaces reaches a teammate, there is no High Pass contest: the ball's speed goes to 12, the teammate receives it, and they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range, exactly as off a 2-space pass.
 
-**21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, exhausting 1 for every space travelled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
+**21.5.7** **Zenith flies.** When a [steal](#124-running-back-after-a-steal) (12.4) is about to run players back, Zenith's coach may first move Zenith to any space on the field, exhausting 1 for every space traveled. Zenith then does not run back. An [injured](#154-playing-injured) (15.4) Zenith cannot fly, nor can Zenith holding the ball, and a [new-play reset](#125-resetting-after-a-new-play) (12.5) is not a run back.
 
 **21.5.8** **Zytheris shoots off any pass.** Whenever a teammate's pass is received by Zytheris, they may take a [scoring opportunity](#8-scoring-opportunities) (8) if it is in range -- after a [Low Pass](#65-low-pass) (6.5) or a [Pinpoint](#195-pinpoint) (19.5) as after a 2-space High Pass. A High Pass of 3 or more is contested as usual, and only if Zytheris wins the [High Pass contest](#104-the-high-pass-contest) (10.4) -- or keeps the pass because nobody contests it -- may they then take the scoring opportunity.
 
@@ -1312,7 +1312,7 @@ What standard and advanced mode add to Part I and where they change it, Laws 18 
 | Fire Demon | **Volatile.** A natural 6 or 7 ignites in a skill test, a contest, a score attempt or a shootout test (never an injury check or an own-goal roll): reroll and add it (5-12) or subtract it (1-4). In a maneuver skill test: a blaze that wins resolves that maneuver as its advanced version (its rank's advanced maneuver), and a burn that loses upgrades the opponent's. |
 | Cyborg | **Lithium Powered.** Tokens are drain; Drained at 7; a damage test rather than an injury check, Damaged rather than Injured. Overdrive: once per roll, drain 3 for +5, declared before it; never on a damage test, and never while Damaged. Charge-up: -1 drain for not moving at all during a run back. |
 | Telekinetic | **Mind Pull.** The opponent's ball moves to or through your space: exhaust 1, roll d12, on 11-12 pull it in and take possession. Smooth: your own ball is brought to a teammate on your space -- take it over from them, free. |
-| Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space may exhaust 1, declared before the roll, to add their skill to a skill test or contest there -- offensive on the attack, defensive on the defence -- or their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
+| Ooze | **Slimey.** Merge: a non-rolling Ooze on the ball's space may exhaust 1, declared before the roll, to add their skill to a skill test or contest there -- offensive on the attack, defensive on the defense -- or their offensive skill to a teammate's score attempt. Spreadable: every Ooze always counts as 0 toward its own zone's occupancy, and is never made to break up a stack sharing its space. |
 
 ## Appendix B. Glossary
 
