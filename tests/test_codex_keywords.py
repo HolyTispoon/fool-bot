@@ -1512,7 +1512,7 @@ class ConditionedKeywordTests(KeywordCase):
         engine, game, match = fresh()
         octopus = put(match, 1, "land_octopus")
         self.assertTrue(engine.cant_patrol_as_printed(octopus))
-        self.assertIsNone(engine.patrol_barred_by(match, octopus))
+        self.assertIsNone(engine.barred_by(match, octopus))
         self.assertIsNone(engine.board_reading(match, octopus)[3])
         self.assertNotIn(octopus.ref, engine.patrol_candidates(match))
 
@@ -1521,9 +1521,11 @@ class ConditionedKeywordTests(KeywordCase):
         terras = put(match, 1, "terras_q_the_shackled")
         self.assertIsNone(engine.board_reading(match, terras)[3])
         self.assertIn(terras.ref, engine.patrol_candidates(match))
+        self.assertTrue(engine.may_attack_with(terras, match))
         put(match, 2, "warlock").made_by = terras.id
         self.assertEqual(engine.board_reading(match, terras)[3], "terras_q_the_shackled")
         self.assertNotIn(terras.ref, engine.patrol_candidates(match))
+        self.assertFalse(engine.may_attack_with(terras, match))
 
     def test_bonus_when_attacking_buildings(self) -> None:
         engine, game, match = fresh()

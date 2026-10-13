@@ -867,16 +867,16 @@ class Stats:
     #: The effects across a side that reach it, by the slug of the card
     #: that makes them (`RulesEngine.auras_on`): each a tag by its name.
     auras: tuple[str, ...] = ()
-    #: The card that keeps a unit from patrolling for now, by its slug
-    #: (`RulesEngine.patrol_barred_by`): a "Can't patrol" tag in its
-    #: colour. Never a card's own printed "can't patrol".
-    cant_patrol: Optional[str] = None
+    #: The card that keeps a unit from attacking and patrolling for now,
+    #: by its slug (`RulesEngine.barred_by`): a tag in its colour,
+    #: `BARRED_TAGS`. Never a card's own printed "can't patrol".
+    barred_by: Optional[str] = None
 
 
 #: Where a body's ATK and HP as they stand come from -- the engine's
 #: `board_reading`, which the frontend hands in, and which names the
-#: effects across a side that reach it and what keeps it from patrolling
-#: for now too (`body_stats`, its ATK and HP alone, does as well): the renderer
+#: effects across a side that reach it and what keeps it from attacking
+#: and patrolling for now too (`body_stats`, its ATK and HP alone, does as well): the renderer
 #: reads a position and decides no rule.
 StatsOf = Callable[[MatchState, Union[CardInstance, HeroState]], "tuple"]
 
@@ -1031,19 +1031,26 @@ TAGGED_AS = {
     "kidnapping": None,
     "poisonblade_rogue": None,
 }
+#: What keeps a unit from attacking and patrolling for now, by the card
+#: that does (`RulesEngine.barred_by`), as its tag: each card's own word
+#: for it (the author, 2026-10-13).
+BARRED_TAGS = {
+    "terras_q_the_shackled": "Shackled",
+    "entangling_vines": "Entangled",
+}
 #: A kidnapped unit, back to its controller at the end of the turn.
 KIDNAPPED_FROM = "kidnapping"
 
 
 def effect_tags(body, cards: Optional[CardCatalog], auras: Sequence[str] = (),
-                cant_patrol: Optional[str] = None) -> tuple[tuple[str, Optional[str]], ...]:
+                barred_by: Optional[str] = None) -> tuple[tuple[str, Optional[str]], ...]:
     """What lasting effects a unit or a hero carries, as tags in the
     colour of the card each comes from (its modifier's `from`): the
     keywords and the rest an effect gave it for a while, Kidnapping's
     hold, the effects across a side that reach it, `auras`, by the
     name of the card that makes each -- Ferocity, Stampede, Dreamscape --
-    and "Can't patrol" where a card keeps it out of the patrol zone for
-    now, `cant_patrol`: Terras Q's shackle, Entangling Vines."""
+    and what keeps it from attacking and patrolling for now, `barred_by`:
+    "Shackled" on Terras Q, "Entangled" under Entangling Vines."""
     found: list[tuple[str, Optional[str]]] = []
     for modifier in body.modifiers:
         if modifier.get("until") not in LASTING_UNTIL:
@@ -1067,8 +1074,9 @@ def effect_tags(body, cards: Optional[CardCatalog], auras: Sequence[str] = (),
     for slug in auras:
         found.append((cards.name(slug) if cards else slug.replace("_", " ").title(),
                       card_color(slug, cards)))
-    if cant_patrol is not None:
-        found.append(("Can't patrol", card_color(cant_patrol, cards)))
+    if barred_by is not None:
+        found.append((BARRED_TAGS.get(barred_by, "Can't attack or patrol"),
+                      card_color(barred_by, cards)))
     seen: set[str] = set()
     return tuple(tag for tag in found if not (tag[0] in seen or seen.add(tag[0])))
 
@@ -1113,7 +1121,7 @@ def unit_lying(card: CardInstance, partnered: bool, cards: Optional[CardCatalog]
                  named_runes=rune_counts(card, cards),
                  marks=rune_marks(card, cards)
                  + effect_tags(card, cards, stats.auras if stats is not None else (),
-                               stats.cant_patrol if stats is not None else None),
+                               stats.barred_by if stats is not None else None),
                  time_runes=card.time_runes,
                  disabled=card.disabled, copy=copy,
                  stats=stats)
