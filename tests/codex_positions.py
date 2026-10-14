@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from codex.cards import catalog
 from codex.components import HERO, BuildingState, CardInstance, MatchState, hero_ref
 from codex.engine import RulesEngine
 from codex.flow import StepResult
@@ -38,12 +39,17 @@ def new_game(seed: int = 7, first: Optional[int] = 1,
     engine = RulesEngine(seed=seed)
     game = CodexGame("codex-test", 1)
     game.mode = mode or ("standard" if len(teams[0]) == 3 else "basic")
-    game.take_seat(101, "basher", list(teams[0]))
-    game.take_seat(202, "fencer", list(teams[1]))
-    for seat in (1, 2):
-        if seat not in game.player_decks:
-            game.player_decks[seat] = game.deck_choices(seat)[0]
-    match = engine.new_match(teams, first=first, decks=(game.player_decks[1], game.player_decks[2]))
+    for seat, team in enumerate(teams[:game.seat_count], start=1):
+        game.take_seat(100 * seat + seat, ("basher", "fencer", "third", "fourth", "fifth")[seat - 1], list(team))
+    decks = []
+    for seat, team in enumerate(teams, start=1):
+        if seat <= game.seat_count:
+            game.player_decks.setdefault(seat, game.deck_choices(seat)[0])
+            decks.append(game.player_decks[seat])
+        else:
+            # A table the record has no seats for: a match built by hand.
+            decks.append((catalog().hero_for(team[0]).color or "neutral").lower())
+    match = engine.new_match(teams, first=first, decks=tuple(decks))
     game.match_state = match.to_dict()
     return engine, game, match
 

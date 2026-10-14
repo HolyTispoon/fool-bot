@@ -38,7 +38,7 @@ class SlashCommandsMixin:
         lines = []
         for game in games[-20:]:
             players = " vs ".join(
-                name for name in (game.player_1_name, game.player_2_name) if name
+                held["name"] for held in game.seats if held["name"]
             ) or "nobody seated"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""
             lines.append(f"**{game.game_number}** -- {game.status.value}: {players}{where}")
@@ -135,7 +135,7 @@ class SlashCommandsMixin:
             await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
             seat = game.seat_for(interaction.user.id, match.active)
             if seat is not None and match.winner is None:
-                if seat == match.active and self.prompt_for(game, match, seat) is not None:
+                if seat in self.engine.turn_seats(match) and self.prompt_for(game, match, seat) is not None:
                     await self.show_panel(interaction, game, match, seat, edit=False)
-                elif seat != match.active and self.standing_for(game, match, seat) is not None:
+                elif seat not in self.engine.turn_seats(match) and self.standing_for(game, match, seat) is not None:
                     await self.show_panel(interaction, game, match, seat, edit=False, standing=True)

@@ -250,7 +250,7 @@ class CodexFullGameTests(unittest.TestCase):
     def test_a_base_is_destroyed_within_the_bound(self) -> None:
         self.assertIsNotNone(self.match.winner)
         self.assertLessEqual(self.match.turn, TURN_LIMIT)
-        loser = self.match.opponent(self.match.winner)
+        loser = self.match.player(RulesEngine().opponents(self.match, self.match.winner)[0])
         self.assertEqual(loser.base_hp, 0)
 
     def test_the_finished_game_waits_on_game_over(self) -> None:
@@ -316,7 +316,7 @@ class CodexStandardGameTests(unittest.TestCase):
     def test_a_base_is_destroyed_within_the_bound(self) -> None:
         self.assertIsNotNone(self.match.winner)
         self.assertLessEqual(self.match.turn, TURN_LIMIT)
-        self.assertEqual(self.match.opponent(self.match.winner).base_hp, 0)
+        self.assertEqual(self.match.player(RulesEngine().opponents(self.match, self.match.winner)[0]).base_hp, 0)
 
     def test_three_heroes_a_side(self) -> None:
         for player, team in zip(self.match.players, STANDARD_TEAMS):
@@ -366,7 +366,7 @@ class CodexPurpleBlackGameTests(unittest.TestCase):
     def test_a_base_is_destroyed_within_the_bound(self) -> None:
         self.assertIsNotNone(self.match.winner)
         self.assertLessEqual(self.match.turn, TURN_LIMIT)
-        loser = self.match.opponent(self.match.winner)
+        loser = self.match.player(RulesEngine().opponents(self.match, self.match.winner)[0])
         self.assertTrue(loser.base_hp == 0)
 
     def test_three_heroes_a_side_on_their_colours(self) -> None:
@@ -406,7 +406,7 @@ class CodexWhiteBlueGameTests(unittest.TestCase):
     def test_a_base_is_destroyed_within_the_bound(self) -> None:
         self.assertIsNotNone(self.match.winner)
         self.assertLessEqual(self.match.turn, TURN_LIMIT)
-        loser = self.match.opponent(self.match.winner)
+        loser = self.match.player(RulesEngine().opponents(self.match, self.match.winner)[0])
         self.assertTrue(loser.base_hp == 0)
 
     def test_three_heroes_a_side_on_their_colours(self) -> None:

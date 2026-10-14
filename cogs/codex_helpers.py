@@ -79,10 +79,7 @@ def channel_name(game: "CodexGame") -> str:
     """`codex-<n>-<p1>-vs-<p2>`, capped at Discord's 100 characters."""
     prefix = f"codex-{game.game_number}"
     suffix = "-vs-".join(
-        part for part in (
-            slugify_channel_part(game.player_1_name or ""),
-            slugify_channel_part(game.player_2_name or ""),
-        ) if part
+        part for part in (slugify_channel_part(held["name"] or "") for held in game.seats) if part
     )
     if not suffix:
         return prefix
@@ -145,7 +142,7 @@ class CodexTokens:
             return name or plain_token(kind, arguments)
         if kind == "to":
             seat = int(arguments[0])
-            player_id = None if game is None else (game.player_1_id if seat == 1 else game.player_2_id)
+            player_id = None if game is None else game.seat_user_id(seat)
             if player_id:
                 return f"<@{player_id}>"
             name = game.seat_name(seat) if game is not None else None

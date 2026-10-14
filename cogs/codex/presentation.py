@@ -277,7 +277,7 @@ class PresentationMixin:
         png = await self.render_match_png(game, match)
         drawn = elapsed_ms(started)
         text = self.turn_text(game, match)
-        player_id = game.player_1_id if match.active == 1 else game.player_2_id
+        player_id = game.seat_user_id(match.active)
         state = self.boards.state(game.game_id)
         async with state.lock:
             started = time.perf_counter()
