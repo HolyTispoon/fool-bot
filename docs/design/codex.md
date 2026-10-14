@@ -3454,7 +3454,9 @@ field the step added is written to a save only where it is set.
   **side by side** (`_compose_rows`), rows of two from the bottom -- the
   active player and the next to play under the divider, three players
   one panel above two, four two above two, five three rows with one at
-  the top, a lone panel centred. A free-for-all of three or four opens
+  the top, a lone panel centred, and the turn's pill centred over the
+  acting player's own panel rather than the board (the author,
+  2026-10-14). A free-for-all of three or four opens
   side by side and one of five stacked (`CodexGame.start`); there is no
   facing view, so step 4's Swap view toggles the two. The record's
   `board_layout` keeps its spellings: "side_by_side" is the rows of two

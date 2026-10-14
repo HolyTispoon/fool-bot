@@ -1935,19 +1935,22 @@ def divider_label(match: MatchState, name: str) -> str:
     return turn_label(match, name).upper()
 
 
-def horizontal_divider(width: int, label: str) -> Image.Image:
+def horizontal_divider(width: int, label: str, centre: Optional[float] = None) -> Image.Image:
     """
     The stacked board's divider: "<NAME>'S TURN <N>", the active player
     by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
     rules, so whose turn it is reads at a glance (the author,
-    2026-10-09: more prominent, and neither gold nor cream).
+    2026-10-09: more prominent, and neither gold nor cream). `centre`
+    puts the pill over the acting player's panel where that is not the
+    board's middle -- a free-for-all side by side (the author,
+    2026-10-14).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
     face = font(px(24))
     text_width = spaced_width(label, face, px(2))
     middle = DIVIDER_HEIGHT // 2
-    left = (width - text_width) / 2
+    left = (width - text_width) / 2 if centre is None else centre - text_width / 2
     pad, half = px(18), px(18)
     draw.line((0, middle, left - pad - px(14), middle), fill=QUIET, width=px(2))
     draw.line((left + text_width + pad + px(14), middle, width, middle), fill=QUIET, width=px(2))
@@ -2102,7 +2105,9 @@ def _compose_rows(match: MatchState, name, cards: CardCatalog, building_hp: dict
         board.alpha_composite(strip, (0, top))
         top += strip.height + TABLE_GAP
     top -= TABLE_GAP
-    board.alpha_composite(horizontal_divider(width, label), (0, top))
+    # The pill over the active player's own panel, the bottom row's left
+    # (the author, 2026-10-14).
+    board.alpha_composite(horizontal_divider(width, label, centre=panel_width / 2), (0, top))
     board.alpha_composite(bottom, (0, top + DIVIDER_HEIGHT))
     return board
 
