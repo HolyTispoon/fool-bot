@@ -57,8 +57,8 @@ def codex() -> str:
 
 
 def player(seat: int) -> str:
-    """A seat, 1 or 2 -- whoever sits there, as the frontend names them."""
-    if seat not in (1, 2):
+    """A seat -- whoever sits there, as the frontend names them."""
+    if not isinstance(seat, int) or seat < 1:
         raise ValueError(f"not a seat: {seat!r}")
     return f"{{player:{seat}}}"
 
@@ -70,7 +70,7 @@ def addressed(seat: int) -> str:
     plain text. The model says *that* it addresses them; how is the
     frontend's (docs/design/model-discord-split.md, "Tokens").
     """
-    if seat not in (1, 2):
+    if not isinstance(seat, int) or seat < 1:
         raise ValueError(f"not a seat: {seat!r}")
     return f"{{to:{seat}}}"
 

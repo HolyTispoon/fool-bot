@@ -71,6 +71,7 @@ import numpy as np
 from PIL import (Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps,
                  ImageStat)
 
+from codex import seats
 from codex.cards import BOARD_IMAGE_DIR, CARD_IMAGE_DIR, CardCatalog, catalog as load_catalog
 from codex.components import (
     PATROL_SLOTS, TECH_BUILDINGS, CardInstance, HeroState, MatchState, PlayerState, is_hero_ref,
@@ -1471,7 +1472,7 @@ def damaged(hp: int, full: int) -> Optional[int]:
     return hp if hp < full else None
 
 
-def draw_building_column(body: Image.Image, player: PlayerState,
+def draw_building_column(body: Image.Image, player: PlayerState, base: int,
                          building_hp: Mapping[str, int], left: int, bottom: int) -> None:
     """
     The column of buildings, bottom-aligned from `bottom`, top to
@@ -1514,11 +1515,11 @@ def draw_building_column(body: Image.Image, player: PlayerState,
                       DESTROYED_STRIP if state.destroyed else CONSTRUCTION_STRIP)
         y += TILE[1] + TILE_GAP
 
-    base = building_tile("base", damaged(player.base_hp, building_hp["base"]))
-    if player.base_hp <= 0:
-        base = greyed(base, 0.35)
-    body.alpha_composite(base, (left, y))
-    if player.base_hp <= 0:
+    tile = building_tile("base", damaged(base, building_hp["base"]))
+    if base <= 0:
+        tile = greyed(tile, 0.35)
+    body.alpha_composite(tile, (left, y))
+    if base <= 0:
         lay_strip(body, (left, y, left + TILE[0], y + TILE[1]), DESTROYED_STRIP)
 
 
@@ -1695,7 +1696,7 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
-    draw_building_column(body, player, building_hp, o, o + height)
+    draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height)
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
     draw = ImageDraw.Draw(body)
@@ -1754,7 +1755,7 @@ def turn_label(match: MatchState, name: str) -> str:
 
 
 def is_to_act(match: MatchState, seat: int) -> bool:
-    return match.active == seat and match.winner is None
+    return seat in seats.turn_seats(match) and match.winner is None
 
 
 def turn_colors(match: MatchState, cards: CardCatalog) -> TurnColors:
@@ -1927,7 +1928,7 @@ def stacked_seats(match: MatchState) -> tuple[int, int]:
     looked at from where it was left.
     """
     near = match.active
-    return (2 if near == 1 else 1), near
+    return seats.sole_opponent(match, near), near
 
 
 def divider_label(match: MatchState, name: str) -> str:
@@ -1985,7 +1986,7 @@ def compose_board(match: MatchState, layout: str = "stacked",
 
     if layout == "side_by_side":
         first = match.first
-        second = 2 if first == 1 else 1
+        second = seats.sole_opponent(match, first)
         natural = [render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
                    for seat in (first, second)]
         height = max(panel.height for panel in natural)
@@ -2001,7 +2002,7 @@ def compose_board(match: MatchState, layout: str = "stacked",
 
     far_seat, near_seat = stacked_seats(match)
     if near is not None:
-        far_seat, near_seat = (2 if near == 1 else 1), near
+        far_seat, near_seat = seats.sole_opponent(match, near), near
     far = render_panel(match, far_seat, name(far_seat), cards, building_hp,
                        turned=layout != "stacked_upright", stats=stats)
     near = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)

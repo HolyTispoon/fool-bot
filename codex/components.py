@@ -42,6 +42,7 @@ __all__ = [
     "TECH_BUILDINGS",
     "hero_ref",
     "is_hero_ref",
+    "read_defending_seat",
     "upgrade_hero_refs",
 ]
 
@@ -656,7 +657,7 @@ def _read_players(data: list) -> list:
 @dataclass
 class MatchState:
     """
-    The whole position: two players in seat order, whose turn it is and
+    The whole position: two to five players in seat order, whose turn it is and
     which phase, and the two fields decision 11 lays down for undo --
     the last three turn-start positions and the journal of this turn's
     actions (`codex.history`).
@@ -681,6 +682,11 @@ class MatchState:
     #: The attacker the active player has declared, `unit:<id>` or
     #: `hero`, while the defender is asked (`CHOOSE_DEFENDER`).
     attacking: Optional[str] = None
+    #: The seat the declared attack is against, once its defender is
+    #: chosen: kept beside `attacking` and cleared with it, and the same
+    #: seat as `combat["against"]`. `None` otherwise, and in a save older
+    #: than the multiplayer worksheet, which read the one opponent.
+    against: Optional[int] = None
     #: The attack under way once its defender is chosen and before its
     #: damage is dealt, while a choice it needs is asked
     #: (`codex.flow.combat`): `{defender, stage, obliterated, sparks,
@@ -713,8 +719,15 @@ class MatchState:
     def player(self, seat: int) -> PlayerState:
         return self.players[seat - 1]
 
-    def opponent(self, seat: int) -> PlayerState:
-        return self.players[2 - seat]
+    def base_of(self, seat: int) -> int:
+        """The one reading of a seat's base HP (docs/design/codex.md,
+        "Multiplayer"): a dragon's teammates will share one base, and
+        every site that reads it asks here."""
+        return self.player(seat).base_hp
+
+    def set_base(self, seat: int, hp: int) -> None:
+        """The one writer of a seat's base HP."""
+        self.player(seat).base_hp = hp
 
     @property
     def active_player(self) -> PlayerState:
@@ -761,12 +774,18 @@ class MatchState:
     # -- Saving --------------------------------------------------------
 
     def to_dict(self) -> dict:
-        return _save(self, MATCH_SAVED_FIELDS)
+        data = _save(self, MATCH_SAVED_FIELDS)
+        if data["against"] is None:
+            # Written only while an attack is declared, so a duel's save
+            # between attacks is the save it always was (the golden).
+            del data["against"]
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "MatchState":
         match = cls(**_load(MATCH_SAVED_FIELDS, data))
         upgrade_hero_refs(match)
+        read_defending_seat(match)
         return match
 
     def validate(self, catalog) -> None:
@@ -785,14 +804,17 @@ class MatchState:
             except KeyError:
                 fail(f"{where} holds {slug!r}, which is not a card")
 
-        if len(self.players) != 2 or [p.seat for p in self.players] != [1, 2]:
-            fail("a match is two players in seat order")
-        if self.first not in (1, 2) or self.active not in (1, 2):
-            fail("first and active are seats 1 and 2")
-        if self.winner not in (None, 1, 2):
+        seats = [p.seat for p in self.players]
+        if not 2 <= len(seats) <= 5 or seats != list(range(1, len(seats) + 1)):
+            fail("a match is two to five players in seat order")
+        if self.first not in seats or self.active not in seats:
+            fail(f"first and active are seats the match has, not {self.first!r} and {self.active!r}")
+        if self.winner not in (None, *seats):
             fail(f"winner is {self.winner!r}")
-        if self.conceded not in (None, 1, 2) or (self.conceded is not None and self.winner is None):
+        if self.conceded not in (None, *seats) or (self.conceded is not None and self.winner is None):
             fail(f"conceded is {self.conceded!r} with winner {self.winner!r}")
+        if self.against not in (None, *seats):
+            fail(f"against is {self.against!r}")
         if self.phase not in PHASES:
             fail(f"phase is {self.phase!r}")
         if self.turn < 1:
@@ -809,7 +831,9 @@ class MatchState:
 
         for player in self.players:
             where = f"seat {player.seat}"
-            for name in ("base_hp", "gold", "workers"):
+            if self.base_of(player.seat) < 0:
+                fail(f"{where}'s base is below zero")
+            for name in ("gold", "workers"):
                 if getattr(player, name) < 0:
                     fail(f"{where}'s {name} is below zero")
             if not player.heroes or len(player.heroes) != len(player.specs):
@@ -885,6 +909,7 @@ MATCH_SAVED_FIELDS = (
     SavedField("events", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("next_instance_id", default=1),
     SavedField("attacking"),
+    SavedField("against"),
     SavedField("combat", write=_copy_optional_combat, read=_copy_optional_combat),
     SavedField("resolving", factory=list, write=_deep_copy, read=_deep_copy),
     SavedField("turn_snapshots", factory=list, write=_deep_copy, read=_deep_copy),
@@ -902,7 +927,7 @@ def upgrade_hero_refs(match: MatchState) -> None:
     side's first hero, so the engine reads one spelling. Nothing is
     rewritten in a save that has none.
     """
-    if len(match.players) != 2 or not all(player.heroes for player in match.players):
+    if len(match.players) < 2 or not all(player.heroes for player in match.players):
         return
 
     def mine(seat: int, ref):
@@ -911,11 +936,13 @@ def upgrade_hero_refs(match: MatchState) -> None:
         return ref
 
     def key(text):
-        if isinstance(text, str) and text.endswith(":" + HERO) and text[:1] in ("1", "2"):
+        if isinstance(text, str) and text.endswith(":" + HERO) and text[:1].isdigit():
             return f"{text[0]}:{mine(int(text[0]), HERO)}"
         return text
 
-    active, other = match.active, (2 if match.active == 1 else 1)
+    # An older save is a duel: the one seat that is not the active one.
+    active = match.active
+    other = next(player.seat for player in match.players if player.seat != active)
     match.attacking = mine(active, match.attacking)
     if match.combat is not None:
         combat = match.combat
@@ -927,12 +954,31 @@ def upgrade_hero_refs(match: MatchState) -> None:
                 combat[name] = [mine(other, ref) for ref in combat[name]]
     for player in match.players:
         if player.add_on is not None:
-            player.add_on.detected = mine(2 if player.seat == 1 else 1, player.add_on.detected)
+            player.add_on.detected = mine(
+                next(p.seat for p in match.players if p.seat != player.seat),
+                player.add_on.detected,
+            )
     for frame in match.resolving:
         if "source" in frame and "seat" in frame:
             frame["source"] = mine(frame["seat"], frame["source"])
         if "taken" in frame:
             frame["taken"] = [key(item) for item in frame["taken"]]
+
+
+def read_defending_seat(match: MatchState) -> None:
+    """
+    A save older than the multiplayer worksheet records no seat for an
+    attack: it was against the one opponent. Fill it in, on the match
+    and on the combat under way, where an attack is declared.
+    """
+    active = match.active
+    others = [player.seat for player in match.players if player.seat != active]
+    if len(others) != 1:
+        return
+    if match.attacking is not None and match.against is None and match.combat is not None:
+        match.against = others[0]
+    if match.combat is not None and match.combat.get("against") is None:
+        match.combat["against"] = match.against if match.against is not None else others[0]
 
 
 #: Every saved class and its table, which the coverage test walks.
