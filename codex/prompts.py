@@ -770,7 +770,7 @@ def _overpower_options(engine, game, match, prompt) -> OverpowerOptions:
     return OverpowerOptions(
         state["attacker"], state["defender"],
         engine.overpower_excess(match, state["attacker"], state["defender"]),
-        engine.overpower_candidates(match, state["attacker"], state["defender"]),
+        engine.overpower_team(match, state["attacker"], state["defender"]),
     )
 
 

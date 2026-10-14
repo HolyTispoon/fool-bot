@@ -2290,6 +2290,44 @@ class RulesEngine:
         return any(self.has_keyword(body, effects.DETECTOR, match)
                    for body in (*player.play, *player.heroes_in_play))
 
+    def detecting_tower(self, match: MatchState, attacker: str) -> Optional[int]:
+        """
+        The seat whose tower uses its detection on this attacker, or
+        `None`: the attacked seat's, and -- in a two-headed dragon, where
+        the tower detects "the first one of those that attacks *you*"
+        and "you means you" (Rulebook p. 4, 13) -- the teammate's too when
+        the shared base is attacked, but not for an attack on the
+        teammate's cards.
+        """
+        other = self.defending_seat(match, None)
+        owners = [other]
+        mate = self.teammate(match, other)
+        if mate is not None and match.combat is not None and match.combat.get("defender") == "base":
+            owners.append(mate)
+        for owner in owners:
+            tower = self.tower(match.player(owner))
+            if tower is not None and tower.detected is None and self.hidden(match, match.active, attacker):
+                return owner
+        return None
+
+    def towers_seeing(self, match: MatchState, attacker: str) -> tuple[int, ...]:
+        """
+        Whose towers deal their damage to this attacker: in a duel and a
+        free-for-all the defending seat's, if it sees the attacker
+        (`tower_sees`); in a two-headed dragon the damage falls on an
+        attacker of anything "controlled by the player (or team in 2v2)"
+        (the tower ruling), so each tower of the attacked team that sees
+        it -- detection narrower than damage, both as written.
+        """
+        other = self.defending_seat(match, None)
+        found = []
+        for owner in self.dragon_of(match, other):
+            if self.tower(match.player(owner)) is None:
+                continue
+            if not self.hidden(match, match.active, attacker) or self.detected_by(match, owner, attacker):
+                found.append(owner)
+        return tuple(found)
+
     def tower_detects(self, match: MatchState, attacker: str) -> bool:
         """
         Whether the defending tower uses its detection on this attacker:
@@ -2577,6 +2615,66 @@ class RulesEngine:
 
     def _defender_rows(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[tuple[str, str], ...]:
         """
+        The rows an attacker has on `against`'s side: their own priorities
+        (`_foe_rows`) in a duel and a free-for-all, and in a two-headed
+        dragon the team's, pooled (`_pooled_rows`) and cut to the ones on
+        that seat.
+        """
+        if not match.dragons:
+            return self._foe_rows(match, attacker, against)
+        foe = self.defending_seat(match, against)
+        return tuple((ref, why) for seat, ref, why in self._pooled_rows(match, attacker) if seat == foe)
+
+    def _pooled_rows(self, match: MatchState, attacker: str) -> tuple[tuple[int, str, str], ...]:
+        """
+        **A dragon's defenders, the other team's two patrol zones as one**
+        (Rulebook p. 13): a player's buildings can't be attacked while a
+        patroller in the partner's zone could be, and "facing two squad
+        leaders an attacker that can attack one must" -- the attacker
+        choosing which. So: the squad leaders either opponent has that
+        stop this attacker, else the patrollers that do, else anything
+        with HP of either, and the shared base once. Each opponent's own
+        rows are `_foe_rows` -- the keywords' exceptions (stealth, flying,
+        unstoppable) are read zone by zone -- and a zone the attacker
+        ignores is no protection to the partner's side. Rows are
+        `(seat, ref, why)`.
+        """
+        foes = self.opponents(match, match.active)
+        rows = {foe: self._foe_rows(match, attacker, foe) for foe in foes}
+        blocking = {foe: self.blocking_patrollers(match, attacker, against=foe) for foe in foes}
+        stopped = [foe for foe in foes if blocking[foe]]
+        leaders = [foe for foe in stopped if "squad_leader" in blocking[foe]]
+        chosen = leaders or stopped
+        found: list[tuple[int, str, str]] = []
+        base_taken = False
+        for foe in foes:
+            if foe in chosen:
+                kept = True
+            elif blocking[foe]:
+                kept = False          # a lower priority than a squad leader
+            elif match.patrollers(foe):
+                kept = True           # a zone the attacker passes: no protection
+            else:
+                kept = not stopped    # an empty zone, covered by the partner's
+            if not kept:
+                continue
+            for ref, why in rows[foe]:
+                if ref == "base":
+                    # The team's one base, once.
+                    if base_taken or any(match.player(mate).peace for mate in self.dragon_of(match, foe)
+                                         if self._peace_binds(match, attacker)):
+                        continue
+                    base_taken = True
+                found.append((foe, ref, why))
+        return tuple(found)
+
+    def _peace_binds(self, match: MatchState, attacker: str) -> bool:
+        """Whether Moment's Peace binds this attacker: units only
+        ("opposing units can't attack you")."""
+        return isinstance(self.body(match, match.active, attacker), CardInstance)
+
+    def _foe_rows(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[tuple[str, str], ...]:
+        """
         `legal_defenders`, each with why it is legal -- the priority that
         makes it so (UMR p. 10), for a frontend to say beside it: the
         squad leader alone while one stops this attacker, then any
@@ -2852,6 +2950,29 @@ class RulesEngine:
             if ref != defender and self.may_be_attacked(match, attacker, ref)
         )
 
+    def overpower_team(self, match: MatchState, attacker: str, defender: str) -> tuple[str, ...]:
+        """
+        Where overpower's excess may go in a two-headed dragon: "anything
+        with HP controlled by the player (or team in 2v2) whose patroller
+        was attacked" (the overpower ruling) -- the attacked seat's own
+        candidates, as ever, then the teammate's, spelled
+        `<seat>:<ref>` so two seats' `tech1` are told apart. Outside a
+        dragon, just `overpower_candidates`.
+        """
+        found = list(self.overpower_candidates(match, attacker, defender))
+        other = self.defending_seat(match, None)
+        mate = self.teammate(match, other)
+        if mate is None or not found:
+            return tuple(found)
+        if not self.overpower_excess(match, attacker, defender):
+            return ()
+        pool = [ref for slot, ref in match.patrollers(mate).items()
+                if self.may_be_attacked(match, attacker, ref, against=mate)]
+        if not pool and not [one for one in found if one in match.patrollers(other).values()]:
+            pool = [ref for ref in self._standing(match, mate)
+                    if ref != "base" and self.may_be_attacked(match, attacker, ref, against=mate)]
+        return (*found, *(target_key(mate, ref) for ref in pool))
+
     def obliterate_count(self, match: MatchState, attacker: str) -> int:
         """Obliterate's X on this attacker (UMR p. 17)."""
         return self.keyword_x(self.body(match, match.active, attacker), "Obliterate", match)
@@ -2938,13 +3059,16 @@ class RulesEngine:
         alone, and so the effect's controller's alone.
         """
         foes = self.opponents(match, seat)
+        mate = self.teammate(match, seat)
         frame = frame or {}
         found: list[tuple[int, str]] = []
 
         def tech(card: CardInstance) -> int:
             return self.tech_level(card)
 
-        for side in (*foes, seat):
+        # A dragon's teammate is no opponent, but what an effect names
+        # without a side -- any unit, any building -- may be theirs too.
+        for side in (*foes, seat, *([mate] if mate is not None else [])):
             player = match.player(side)
             units = self._units_of(match, side)
             hero = [hero_ref(one.slug) for one in player.heroes_in_play]
@@ -3062,7 +3186,7 @@ class RulesEngine:
             elif choose in ("weakest_own_to_sacrifice", "weakest_opposing_to_sacrifice",
                             "weakest_opposing_to_destroy", "lowest_opposing_to_destroy"):
                 mine = choose.startswith("weakest_own")
-                if (side == seat) == mine:
+                if (side == seat) if mine else (side in foes):
                     if choose == "lowest_opposing_to_destroy":
                         chosen = self.lowest_tech(match, side)
                     else:
@@ -3177,7 +3301,7 @@ class RulesEngine:
                 found += [(side, card.ref) for card in units
                           if tech(card) <= 1 and target_key(side, card.ref) != first]
             elif choose in ("own_unit_tech_0_1", "opposing_unit_tech_0_1"):
-                if (side == seat) == choose.startswith("own"):
+                if (side == seat) if choose.startswith("own") else (side in foes):
                     found += [(side, card.ref) for card in units if tech(card) <= 1]
             elif choose == "flier":
                 found += [(side, card.ref) for card in units if self.has_keyword(card, "Flying", match)]
@@ -3283,6 +3407,18 @@ class RulesEngine:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
+        if match.dragons:
+            # A team's one base is one thing to choose (Rulebook p. 13),
+            # listed on the first of its seats the loop reached.
+            bases: set[int] = set()
+            kept = []
+            for row in found:
+                if row[1] == "base":
+                    if match.base_seat(row[0]) in bases:
+                        continue
+                    bases.add(match.base_seat(row[0]))
+                kept.append(row)
+            found = kept
         if choose in effects.EACH_OPPONENTS_ONE:
             # One of each opponent's: a side already chosen from is done.
             done = {int(key.split(":", 1)[0]) for key in taken}

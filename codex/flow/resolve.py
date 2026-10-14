@@ -157,7 +157,12 @@ def opponent_owed(engine: "RulesEngine", match: MatchState, top: dict) -> bool:
         return False
     if top["effect"] == "captured_bugblatter" and top["seat"] not in engine.turn_seats(match):
         return False
-    return len(engine.opponents(match, top["seat"])) > 1
+    foes = engine.opponents(match, top["seat"])
+    if top["effect"] == "captured_bugblatter" and len({match.base_seat(foe) for foe in foes}) == 1:
+        # A dragon's opponents share the one base: nothing to choose
+        # (the Captured Bugblatter ruling).
+        return False
+    return len(foes) > 1
 
 
 def opponent_rows(engine: "RulesEngine", match: MatchState, top: dict):
@@ -814,14 +819,23 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     # Bugblatter the active player's on an opponent's turn ("their base")
     # and the one chosen on its controller's own ("an opponent's").
     seat = top["seat"]
+    foes = engine.opponents(match, seat)
     if top.get("against"):
         bases = (top["against"],)
     elif top["effect"] in effects.EACH_OPPOSING_BASE:
-        bases = engine.opponents(match, seat)
-    elif top["effect"] == "captured_bugblatter" and match.active in engine.opponents(match, seat):
+        bases = foes
+    elif top["effect"] == "captured_bugblatter" and match.active in foes:
         bases = (match.active,)
+    elif top["effect"] == "captured_bugblatter" and len({match.base_seat(foe) for foe in foes}) == 1:
+        bases = foes[:1]
     else:
         bases = (_against(engine, match, top),)
+    # A dragon's team has one base, hit once (the Captured Bugblatter and
+    # Drakk Ramhorn rulings): "each opponent's base" is each base there is.
+    once: dict[int, int] = {}
+    for base in bases:
+        once.setdefault(match.base_seat(base), base)
+    bases = tuple(once.values())
     amount = damage_amount(engine, match, top, part.amount)
     source = top["by"]
     printed = effects.printing_band(top["effect"])

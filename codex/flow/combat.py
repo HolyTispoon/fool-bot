@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Optional
 
 from codex import effects, tokens
 from codex.components import CardInstance, HeroState, MatchState, is_hero_ref
-from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, unit_ref
+from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, parse_target, unit_ref
 from codex.flow import board, resolve
 from codex.flow.result import StepResult
 from codex.game import RuleRefusal
@@ -207,13 +207,14 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # The tower detects the first hidden attacker of the turn the
         # moment it attacks, which is why it could not sneak past the
         # patrol zone (Sirlin, 2016-03-14).
-        if engine.tower_detects(match, attacker):
-            engine.tower(match.player(other)).detected = attacker
+        watcher = engine.detecting_tower(match, attacker)
+        if watcher is not None:
+            engine.tower(match.player(watcher)).detected = attacker
             result.narration.append(
-                f"{tokens.player(other)}'s tower detects "
+                f"{tokens.player(watcher)}'s tower detects "
                 f"{hitting.named(whose=False)}."
             )
-            match.record_event("detected", card=attacker, by=other)
+            match.record_event("detected", card=attacker, by=watcher)
         _voidblocker(engine, match, seat, attacker, defender, result)
     else:
         # The defender obliterate or a trigger took, chosen again: the
@@ -284,7 +285,7 @@ def choose_overpower(engine: "RulesEngine", game: "CodexGame", match: MatchState
                      target: str) -> StepResult:
     """Where overpower's excess goes (UMR p. 17)."""
     state = _in_combat(match, OVERPOWER)
-    if target not in engine.overpower_candidates(match, state["attacker"], state["defender"]):
+    if target not in engine.overpower_team(match, state["attacker"], state["defender"]):
         raise RuleRefusal(
             "Overpower's excess goes to something else this attacker could have attacked.",
             cite="UMR p. 17",
@@ -404,7 +405,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             state["stage"] = OVERPOWER
             continue
         if stage == OVERPOWER:
-            candidates = engine.overpower_candidates(match, state["attacker"], state["defender"])
+            candidates = engine.overpower_team(match, state["attacker"], state["defender"])
             if len(candidates) > 1:
                 result.next = pending(engine, game, match)
                 return result
@@ -541,7 +542,11 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         sparked = state["sparks"].count(ref) * SPARKSHOT_DAMAGE
         hits.append(_Hit(mine, hitting, _fighter(match, other, ref), sparked, "sparkshot"))
     if state["overpower"] and excess:
-        hits.append(_Hit(mine, hitting, _fighter(match, other, state["overpower"]), excess, "overpower"))
+        # In a dragon the excess may go to the teammate's: `<seat>:<ref>`.
+        over_seat, over_ref = other, state["overpower"]
+        if over_ref[:1].isdigit():
+            over_seat, over_ref = parse_target(over_ref)
+        hits.append(_Hit(mine, hitting, _fighter(match, over_seat, over_ref), excess, "overpower"))
     defence: Optional[_Hit] = None
     if back:
         defence = _Hit(0 if swift_defender else 1, taking, hitting, back, "defend")
@@ -556,13 +561,15 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             patroller, hitting, engine.attack_value(match, other, ref), "antiair",
         ))
         overflown.append(hits[-1])
-    tower = None
-    if engine.tower_sees(match, attacker):
+    towers: list[tuple[int, _Hit]] = []
+    for owner in engine.towers_seeing(match, attacker):
         # The tower's damage is simultaneous with the rest, and with
-        # swift strike where there is any (Sirlin, 2016-03-14).
+        # swift strike where there is any (Sirlin, 2016-03-14). A
+        # two-headed dragon's attacked team may have two.
         first = any(hit.batch == 0 for hit in hits)
         tower = _Hit(0 if first else 1, None, hitting, TOWER_DAMAGE, "tower")
         hits.append(tower)
+        towers.append((owner, tower))
 
     # Sentry: the first spell or ability damage to one of its controller's
     # patrollers each turn -- sparkshot's included (its ruling).
@@ -655,11 +662,12 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 f"{hit.source.named()}, with anti-air, deals {hit.landed} to "
                 f"{hitting.named(whose=False)} as it flies over."
             )
-    if tower is not None and not tower.skipped:
-        result.narration.append(
-            f"{tokens.player(other)}'s tower deals {tower.landed} to "
-            f"{hitting.named(whose=False)}."
-        )
+    for owner, tower in towers:
+        if not tower.skipped:
+            result.narration.append(
+                f"{tokens.player(owner)}'s tower deals {tower.landed} to "
+                f"{hitting.named(whose=False)}."
+            )
 
     if rampaged:
         result.narration.append(f"{hitting.named(whose=False)} readies: it can attack again.")
