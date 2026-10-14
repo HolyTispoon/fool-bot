@@ -806,7 +806,7 @@ step is worth starting.
 | ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
 | ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | ~~3~~ | ~~Free-for-all's three additions: repair, free gold, lending~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
-| 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
+| ~~4~~ | ~~Free-for-all on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
 | 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
@@ -1259,6 +1259,12 @@ test, and as the transcript printed.
 ```
 
 ### 4. Free-for-all on Discord
+
+**Landed** (2026-10-14). What it settled -- the variant row and the
+five-row limit on a test game's picks, the table's channel name, no
+Concede, Swap view between stacked and side by side, the undos asking
+the seat whose turn is unwound, and the table's rematch -- is in
+[docs/design/codex.md](design/codex.md), "Multiplayer", "Step 4".
 
 The lobby, the channel, the turn message and the board for three to
 five seats, over the mode as it plays through the driver. Nothing in

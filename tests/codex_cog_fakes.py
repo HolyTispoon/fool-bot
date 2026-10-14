@@ -266,6 +266,9 @@ class Table:
         self.guild.create_text_channel = mock.AsyncMock(return_value=self.game_channel)
         self.game_channel.guild = self.guild
         self.basher, self.fencer = user(101, "basher"), user(202, "fencer")
+        #: The seats' people: a free-for-all's third and later seats are
+        #: `players[3]`..., added by `started_free_for_all`.
+        self.players = {1: self.basher, 2: self.fencer}
         #: What the message each view sits on carries, as Discord hands
         #: it back on a click: an uploaded file as an attachment by its
         #: name, a kept one as it was.
@@ -336,6 +339,25 @@ class Table:
         self.game = game
         return game
 
+    async def started_free_for_all(self, specs=("bashing", "finesse", "anarchy"), *, mode_click=None):
+        """The real lobby, **Free-for-all**, one person a seat -- `specs`
+        their heroes, three to five -- and Start: the opening position."""
+        call = self.interaction(self.basher, self.lobby_channel)
+        await self.cog.lobby.callback(self.cog, call)
+        (game,) = self.cog.games.values()
+        lobby = LobbyView(self.cog, game.game_id)
+        await next(item for item in lobby.children
+                   if ":variant_free_for_all:" in item.custom_id).callback(self.interaction(self.basher))
+        names = ("basher", "fencer", "dee", "eli", "fay")
+        for seat, spec in enumerate(specs, start=1):
+            who = self.players.setdefault(seat, user(100 * seat + seat, names[seat - 1]))
+            await self.pick_heroes(LobbyView(self.cog, game.game_id), who, spec)
+        click = self.interaction(self.fencer)
+        await next(item for item in LobbyView(self.cog, game.game_id).children
+                   if ":start:" in item.custom_id).callback(click)
+        self.game = game
+        return game
+
     async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
         """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a
         test game's two -- answered with `specs`, as Discord sends it."""
@@ -373,7 +395,9 @@ class Table:
         return self.cog.service.load(self.game)
 
     def seated(self, seat: int):
-        return self.basher if seat == 1 else self.fencer
+        # The first two are the table's own attributes, which a test game
+        # points at one person.
+        return {1: self.basher, 2: self.fencer}.get(seat) or self.players[seat]
 
     @property
     def active(self):
