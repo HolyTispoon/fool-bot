@@ -764,10 +764,13 @@ step 2's PR (#579) and settled on 2026-10-14.
     **the active player's kill, paid** -- Blackhand Dozer's "Active
     player destroys one of your lowest tech units" (so killing the Dozer
     and the unit it takes pays 2), Orpal Gloor's max level ("the active
-    player puts a -1/-1 rune on two units friendly to the dead unit"),
-    and Sacrifice the Weak's opponents' sacrifices; **not the active
-    player's, unpaid** -- Jandra the Negator's "Dies from combat damage:
-    Destroy all your units" (its controller's trigger), the Hive's excess
+    player puts a -1/-1 rune on two units friendly to the dead unit" --
+    the active player puts the runes, so a unit they kill pays); **not
+    the active player's, unpaid** -- Sacrifice the Weak's opponents'
+    sacrifices (each player sacrifices their own units: the active
+    player sacrifices none of theirs), Jandra the Negator's "Dies from
+    combat damage: Destroy all your units" (its controller's trigger),
+    the Hive's excess
     Stingers sacrificed once its Hive is destroyed, a unit that dies
     when a bonus it lived on goes (a Two Step partner killed, a Spirit of
     the Panda or Soul Stone destroyed, an Inverse Power Ninja given more
