@@ -358,6 +358,35 @@ class Table:
         self.game = game
         return game
 
+    async def started_dragon(self, specs=("bashing", "finesse", "anarchy", "feral"), *,
+                             test_game: bool = False):
+        """The real lobby, **Two-headed dragon**, one person a seat --
+        seats 1 and 2 one team, 3 and 4 the other, `specs` their heroes --
+        and Start: the opening position. `test_game` sits `basher` on all
+        four, the lobby's per-seat menus picking each."""
+        call = self.interaction(self.basher, self.lobby_channel)
+        await self.cog.lobby.callback(self.cog, call, test_game=test_game)
+        (game,) = self.cog.games.values()
+        lobby = LobbyView(self.cog, game.game_id)
+        await next(item for item in lobby.children
+                   if ":variant_two_headed_dragon:" in item.custom_id).callback(self.interaction(self.basher))
+        names = ("basher", "fencer", "dee", "eli")
+        for seat, spec in enumerate(specs, start=1):
+            if test_game:
+                self.players[seat] = self.basher
+                await self.pick_heroes(LobbyView(self.cog, game.game_id), self.basher, spec,
+                                       menu=f"heroes{seat}")
+                continue
+            who = self.players.setdefault(seat, user(100 * seat + seat, names[seat - 1]))
+            await self.pick_heroes(LobbyView(self.cog, game.game_id), who, spec)
+        if test_game:
+            self.fencer = self.basher
+        click = self.interaction(self.basher)
+        await next(item for item in LobbyView(self.cog, game.game_id).children
+                   if ":start:" in item.custom_id).callback(click)
+        self.game = game
+        return game
+
     async def pick_heroes(self, lobby, who, *specs: str, menu: str = "heroes") -> FakeInteraction:
         """The lobby's hero menu -- `menu` is "heroes1" or "heroes2" for a
         test game's two -- answered with `specs`, as Discord sends it."""

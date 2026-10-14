@@ -39,6 +39,11 @@ class SlashCommandsMixin:
         for game in games[-20:]:
             names = [held["name"] for held in game.seats if held["name"]]
             players = (", " if game.variant != "duel" else " vs ").join(names) or "nobody seated"
+            if game.variant == "two_headed_dragon" and names:
+                # Its two teams: "ann and bo vs cy and dee".
+                players = " vs ".join(
+                    " and ".join(game.seat_name(seat) for seat in team if game.seat_name(seat))
+                    or "nobody seated" for team in game.teams())
             if game.variant != "duel":
                 players = f"{VARIANT_LABELS[game.variant]}: {players}"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""

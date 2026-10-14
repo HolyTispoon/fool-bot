@@ -69,11 +69,6 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         await self.click(game, "variant_duel", self.table.basher)
         self.assertEqual((game.variant, game.seat_count), ("duel", 2))
 
-    async def test_the_dragon_is_not_in_this_bot_yet(self) -> None:
-        game = await self.open()
-        call = await self.click(game, "variant_two_headed_dragon", self.table.basher)
-        self.assertEqual(game.variant, "duel")
-        self.assertIn("not in this bot yet", call.last()[1][0])
 
     async def test_only_a_seated_player_changes_the_variant_once_somebody_sits(self) -> None:
         game = await self.open()
