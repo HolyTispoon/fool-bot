@@ -723,10 +723,7 @@ class CodexGame:
     def from_dict(cls, data: dict) -> "CodexGame":
         data = dict(data)
         data["status"] = GameStatus(data.get("status", GameStatus.LOBBY.value))
-        legacy = {
-            key: data.pop(key, None)
-            for key in ("player_1_id", "player_1_name", "player_2_id", "player_2_name")
-        }
+        legacy = {key: data.pop(key, None) for key in LEGACY_SEAT_KEYS}
         if data.get("variant") not in VARIANTS:
             data["variant"] = "duel"
         count = VARIANT_SEATS[data["variant"]]
@@ -774,6 +771,12 @@ def _read_teams(data: Optional[dict]) -> dict[int, list[str]]:
 
 #: How many seats a duel has, and a game whose variant is unknown.
 SEAT_COUNT = 2
+
+#: The keys a save older than "seats" seats its two players with, which
+#: `from_dict` reads where "seats" is missing. Not fields -- they are
+#: properties over `seats` now -- so the loader must not drop them as
+#: retired (gamesaves/codex/storage.py).
+LEGACY_SEAT_KEYS = ("player_1_id", "player_1_name", "player_2_id", "player_2_name")
 
 
 def _empty_seats(count: int) -> list[dict]:

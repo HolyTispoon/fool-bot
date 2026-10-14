@@ -3313,7 +3313,12 @@ change readings, not 66 sites.
   written for the first two seats, because D12 Ball's record spells
   them so and `cogs/game_auth.py`'s Protocol reads them; a save without
   `"seats"` reads them. The four are properties over the list, so
-  nothing that read them breaks. `seat_user_id(seat)` and `seat_ids()`
+  nothing that read them breaks -- and, being properties rather than
+  fields, they are named in `LEGACY_SEAT_KEYS`, which the loader keeps
+  beside the record's fields. Without it `load_games` dropped them as
+  retired before `from_dict` saw them, and a game saved before the list
+  came back after a restart with nobody seated ("This table is not
+  yours" to its own players), its next save writing the seats empty. `seat_user_id(seat)` and `seat_ids()`
   are the readings the cogs use; `game_participant_ids` asks
   `seat_ids()` of a record that has it.
 - **`codex/seats.py` is the reading; the engine's methods are its

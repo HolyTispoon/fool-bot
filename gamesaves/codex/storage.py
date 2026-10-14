@@ -20,7 +20,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Optional
 
-from codex.game import CodexGame
+from codex.game import LEGACY_SEAT_KEYS, CodexGame
 from gamekit import storage as games_file
 from gamekit.storage import DATA_FOLDER, PROJECT_ROOT  # noqa: F401 -- re-exported
 
@@ -60,7 +60,9 @@ def load_games(path: Optional[Path] = None) -> dict[str, CodexGame]:
         return {}
 
     games: dict[str, CodexGame] = {}
-    known_fields = {field.name for field in fields(CodexGame)}
+    # The old seat keys are read by `from_dict`, not held as fields: a
+    # save older than the seats list seats its players with nothing else.
+    known_fields = {field.name for field in fields(CodexGame)} | set(LEGACY_SEAT_KEYS)
 
     for game_id, game_data in raw_data.items():
         # A key the record no longer has is a retired field; dropping it
