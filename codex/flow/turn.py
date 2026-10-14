@@ -109,7 +109,7 @@ def base_destroyed(match: MatchState, seat: int, result: StepResult, *,
     """
     A free-for-all's base is destroyed (Rulebook p. 14: "no player
     elimination"): the game ends at that moment and the most base HP
-    wins (`_most_base_hp`). During a playoff -- from the moment a tie
+    wins (`_highest_base`). During a playoff -- from the moment a tie
     filled it -- only a tied player's base counts, and the comparison is
     then among the tied alone (docs/codex-multiplayer.md, decision 5).
     `said` where the line saying so is already written (a debt unpaid).
@@ -119,12 +119,12 @@ def base_destroyed(match: MatchState, seat: int, result: StepResult, *,
     if match.tied:
         if seat not in match.tied:
             return
-        _most_base_hp(match, match.tied, result, ended=seat)
+        _highest_base(match, match.tied, result, ended=seat)
         return
-    _most_base_hp(match, seats.seat_numbers(match), result, ended=seat)
+    _highest_base(match, seats.seat_numbers(match), result, ended=seat)
 
 
-def _most_base_hp(match: MatchState, among, result: StepResult, *,
+def _highest_base(match: MatchState, among, result: StepResult, *,
                   ended: Optional[int] = None) -> None:
     """
     The free-for-all's comparison (Rulebook p. 14), among `among`: a sole
@@ -144,7 +144,7 @@ def _most_base_hp(match: MatchState, among, result: StepResult, *,
         match.winner = winner
         match.playoff = []
         match.record_event("base_destroyed" if ended is not None else "tie_broken",
-                           loser=ended, winner=winner, base_hp=best)
+                           loser=ended, winner=winner, hp=best)
         if ended is None:
             text = f"{tokens.player(winner)} wins with {best} base HP: the tie is broken."
         else:
@@ -156,7 +156,7 @@ def _most_base_hp(match: MatchState, among, result: StepResult, *,
     still = "Still tied" if ended is None and match.tied else "A tie"
     match.tied = list(leaders)
     match.playoff = list(leaders)
-    match.record_event("tied", seats=list(leaders), base_hp=best, loser=ended)
+    match.record_event("tied", seats=list(leaders), hp=best, loser=ended)
     result.narration.append(
         f"{still} at {best} base HP: {named} each take one more turn."
     )
@@ -980,7 +980,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if match.tied and not match.playoff:
         # The last of the playoff's turns is over: the comparison again,
         # among the tied alone (the author, 2026-10-14, question 16).
-        _most_base_hp(match, match.tied, result)
+        _highest_base(match, match.tied, result)
         if match.winner is not None:
             result.next = pending(engine, game, match)
             return result

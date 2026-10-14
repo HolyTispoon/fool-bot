@@ -941,7 +941,7 @@
       "turn": 14
     },
     {
-      "base_hp": 20,
+      "hp": 20,
       "kind": "base_destroyed",
       "loser": 1,
       "seat": 3,

@@ -155,7 +155,7 @@ def opponent_owed(engine: "RulesEngine", match: MatchState, top: dict) -> bool:
     parts = effects.EFFECTS[top["effect"]].parts
     if top["part"] >= len(parts) or parts[top["part"]].does != effects.AN_OPPONENT.get(top["effect"]):
         return False
-    if top["effect"] == "captured_bugblatter" and match.active != top["seat"]:
+    if top["effect"] == "captured_bugblatter" and top["seat"] not in engine.turn_seats(match):
         return False
     return len(engine.opponents(match, top["seat"])) > 1
 

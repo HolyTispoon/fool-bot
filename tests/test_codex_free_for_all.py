@@ -219,6 +219,16 @@ class DealTests(unittest.TestCase):
         self.assertEqual(sum(1 for card in match.player(4).play if card.slug == MERCENARY), 2)
 
 
+class TargetKeyTests(unittest.TestCase):
+    def test_a_target_key_names_any_seat(self) -> None:
+        from codex.engine import parse_target
+
+        self.assertEqual(parse_target("5:unit:35"), (5, "unit:35"))
+        for bad in ("0:base", "x:base", "3:"):
+            with self.subTest(key=bad), self.assertRaises(ValueError):
+                parse_target(bad)
+
+
 class TurnOrderTests(unittest.TestCase):
     def test_the_turn_wraps_through_every_seat(self) -> None:
         engine, game, match = free_for_all(teams=FIVE, first=3)

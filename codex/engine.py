@@ -3969,7 +3969,9 @@ def target_key(seat: int, ref: str) -> str:
 def parse_target(key: str) -> tuple[int, str]:
     """A target key back into `(seat, ref)`; `ValueError` if it is not one."""
     seat, _, ref = key.partition(":")
-    if seat not in ("1", "2") or not ref:
+    # A seat is any positive number the match has (docs/design/codex.md,
+    # "Multiplayer").
+    if not seat.isdigit() or int(seat) < 1 or not ref:
         raise ValueError(f"not a target: {key!r}")
     return int(seat), ref
 
