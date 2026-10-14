@@ -17,16 +17,22 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, seats, tokens
-from codex.formatting import team_name
+from codex.formatting import base_owner, team_name
 from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import RuleRefusal
-from codex.prompts import pending, tech_is_owed
+from codex.prompts import PendingPrompt, pending, tech_is_owed
 
 if TYPE_CHECKING:
     from codex.engine import RulesEngine
     from codex.game import CodexGame
+
+
+def _names(team: tuple[int, ...]) -> str:
+    """A side's players, as a line names them: `{player:1}`, or in a
+    dragon `{player:1} and {player:2}`."""
+    return " and ".join(tokens.player(seat) for seat in team)
 
 
 def _plural(count: int, word: str) -> str:
@@ -87,7 +93,7 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         kept = min(base, floor)
         if base - amount < kept:
             result.narration.append(
-                f"{tokens.card('blackhand_dozer')} holds {tokens.player(seat)}'s base at {kept}."
+                f"{tokens.card('blackhand_dozer')} holds {base_owner(match, seat)}'s base at {kept}."
             )
         match.set_base(seat, kept)
         return
@@ -96,10 +102,14 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         if match.variant == "free_for_all":
             base_destroyed(match, seat, result)
             return
-        # The one opponent of a duel wins.
-        match.winner = seats.sole_opponent(match, seat)
+        # The one opponent of a duel wins, or the dragon team across the
+        # table (Rulebook p. 13: the team whose base is destroyed loses).
+        winners = seats.rivals(match, seat)
+        match.winner = winners[0]
         match.record_event("base_destroyed", loser=seat, winner=match.winner)
-        text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
+        verb = "win" if len(winners) > 1 else "wins"
+        text = (f"{_names(seats.dragon_of(match, seat))}'s base is destroyed. "
+                f"{_names(winners)} {verb}!")
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
 
@@ -204,10 +214,14 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     of its own, as it calls the undos.
     """
     refuse_concession(match, seat)
-    match.winner = seats.sole_opponent(match, seat)
-    match.conceded = seat
-    match.record_event("conceded", loser=seat, winner=match.winner)
-    text = f"{tokens.player(seat)} concedes. {tokens.player(match.winner)} wins!"
+    winners = seats.rivals(match, seat)
+    losers = seats.dragon_of(match, seat)
+    match.winner = winners[0]
+    # A dragon's concession is the team's: the head of the team named.
+    match.conceded = losers[0]
+    match.record_event("conceded", loser=match.conceded, winner=match.winner)
+    text = (f"{_names(losers)} {'concede' if len(losers) > 1 else 'concedes'}. "
+            f"{_names(winners)} {'win' if len(winners) > 1 else 'wins'}!")
     return StepResult(
         narration=[f"**{text}**"],
         board_changed=True,
@@ -247,13 +261,20 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     snapshot where the turn has none yet (`_open_main`). Refused while
     the active player's tech choice still waits on its confirmation:
     the ready phase is where it is settled.
+
+    **In a two-headed dragon the team's turn begins here for both
+    teammates** (Rulebook p. 13): each is readied in seat order, then
+    each takes their upkeep in seat order -- the second's after the
+    first's has run to its end (`carry_on_upkeep`), so a question the
+    first's upkeep asks stands where a restart finds it and the owed
+    step resumes through this one. An extra turn is one seat's alone.
     """
-    seat = match.active
-    player = match.active_player
-    if tech_is_owed(match, seat):
-        raise RuleRefusal(
-            "The turn cannot begin until the tech choice is confirmed.", cite="UMR p. 5",
-        )
+    taking = engine.turn_seats(match)
+    for seat in taking:
+        if tech_is_owed(match, seat):
+            raise RuleRefusal(
+                "The turn cannot begin until the tech choice is confirmed.", cite="UMR p. 5",
+            )
     # No line opens the turn: a frontend heads the turn with whose it is
     # (the Discord turn message's "**Turn 7** -- @perrytom (Bashing)"),
     # and a line of the model's saying it again was the same words twice
@@ -262,6 +283,51 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     # Ready.
     match.enter_phase("ready")
+    for seat in taking:
+        _ready(engine, match, seat, result)
+    # Readiness attacks once a turn and a tower detects once a turn
+    # (UMR p. 9, 17), so both are new each turn, on both sides.
+    for side in match.players:
+        for body in (*side.play, *side.heroes):
+            body.attacked_this_turn = False
+        if side.add_on is not None:
+            side.add_on.detected = None
+    # Armor refreshes at the start of every turn (UMR p. 10); only the
+    # other player's patrollers are standing in their slots now.
+    for side in match.players:
+        from codex.flow.board import armor_gain
+
+        for body in (*side.play, *side.heroes):
+            body.armor = armor_gain(body, SQUAD_LEADER_ARMOR) if body.patrol_slot == "squad_leader" else 0
+            lasting = sum(m.get("amount", 0) for m in body.modifiers
+                          if m.get("kind") == effects.LASTING_ARMOR
+                          and not (m.get("until") == "upkeep" and m.get("seat") in taking))
+            if lasting:
+                # Elite Training's and The Art of War's armor, new each turn
+                # until the caster's upkeep (step 13).
+                body.armor += armor_gain(body, lasting)
+            change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
+            if change is not None and body.patrol_slot is not None and side.seat not in taking:
+                # Ironbark Treant's +2 armor, new on each opponent's turn
+                # while it patrols (its rulings); it stacks with the squad
+                # leader's (UMR p. 16).
+                body.armor += change[1]
+    for seat in taking:
+        for hero in match.player(seat).heroes:
+            hero.max_level_since_turn_began = (
+                hero.in_play and hero.level == engine.hero_card(hero).max_level
+            )
+
+    # Upkeep.
+    match.enter_phase("upkeep")
+    first, *later = taking
+    return _begin_upkeep(engine, game, match, first, later, result)
+
+
+def _ready(engine: "RulesEngine", match: MatchState, seat: int, result: StepResult) -> None:
+    """`seat`'s ready phase: the tech choice into the discard pile, their
+    cards and heroes readied, and the per-turn counts new."""
+    player = match.player(seat)
     if player.tech_owed:
         settle_tech(match, seat, result)
     else:
@@ -294,42 +360,24 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     player.built_this_turn = False
     # Moment's Peace holds "until your next turn" (step 11).
     player.peace = False
-    # Readiness attacks once a turn and a tower detects once a turn
-    # (UMR p. 9, 17), so both are new each turn, on both sides.
-    for side in match.players:
-        for body in (*side.play, *side.heroes):
-            body.attacked_this_turn = False
-        if side.add_on is not None:
-            side.add_on.detected = None
-    # Armor refreshes at the start of every turn (UMR p. 10); only the
-    # other player's patrollers are standing in their slots now.
-    for side in match.players:
-        from codex.flow.board import armor_gain
+    # A dragon seat's patrol lock is new each team turn.
+    player.locked = False
+    player.locking = False
+    player.stash_choice = None
 
-        for body in (*side.play, *side.heroes):
-            body.armor = armor_gain(body, SQUAD_LEADER_ARMOR) if body.patrol_slot == "squad_leader" else 0
-            lasting = sum(m.get("amount", 0) for m in body.modifiers
-                          if m.get("kind") == effects.LASTING_ARMOR
-                          and not (m.get("until") == "upkeep" and m.get("seat") == seat))
-            if lasting:
-                # Elite Training's and The Art of War's armor, new each turn
-                # until the caster's upkeep (step 13).
-                body.armor += armor_gain(body, lasting)
-            change = effects.WHILE_PATROLLING.get(getattr(body, "slug", ""))
-            if change is not None and body.patrol_slot is not None and side.seat != seat:
-                # Ironbark Treant's +2 armor, new on each opponent's turn
-                # while it patrols (its rulings); it stacks with the squad
-                # leader's (UMR p. 16).
-                body.armor += change[1]
-    for hero in player.heroes:
-        hero.max_level_since_turn_began = (
-            hero.in_play and hero.level == engine.hero_card(hero).max_level
-        )
 
-    # Upkeep.
-    match.enter_phase("upkeep")
+def _begin_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState, seat: int,
+                  then: list[int], result: StepResult) -> StepResult:
+    """`seat`'s upkeep (UMR p. 5): lent cards home, what lasts "until
+    your upkeep" ended, the workers' gold, a summoning rune off each
+    hero -- then its effects as a frame at the foot of the stack, the
+    seats still owed theirs (`then`) carried on it."""
     from codex.flow import board
 
+    player = match.player(seat)
+    if match.dragons:
+        # The upkeep is this teammate's action while it runs.
+        match.active = seat
     board.return_lent(engine, match, seat, result)
     _until_upkeep_ends(engine, match, seat, result)
     produced = player.workers
@@ -365,7 +413,10 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     # The upkeep effects (UMR p. 5), a frame at the foot of the stack
     # while they run, so a question one asks -- Land Octopus's choice, a
     # death's target, the order itself -- stands where a restart finds it.
-    match.resolving.append(upkeep_frame(engine, match, seat))
+    frame = upkeep_frame(engine, match, seat)
+    if then:
+        frame["then"] = list(then)
+    match.resolving.append(frame)
     return carry_on_upkeep(engine, game, match, result)
 
 
@@ -490,6 +541,10 @@ def carry_on_upkeep(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         _legacy_upkeep(engine, match, frame)
         if not frame["due"]:
             match.resolving.remove(frame)
+            if frame.get("then"):
+                # A dragon's next teammate takes their upkeep.
+                later = list(frame["then"])
+                return _begin_upkeep(engine, game, match, later[0], later[1:], result)
             continue
         if upkeep_asks(match) is not None:
             result.next = pending(engine, game, match)
@@ -560,8 +615,15 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
     elif kind == "healing":
         healing = engine.healing(player)
         healed = []
+        # "All friendly units and heroes": in a dragon the teammate's too
+        # (Rulebook p. 13).
+        mate = engine.teammate(match, seat)
         bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
-        for body in [*bodies, *player.heroes_in_play]:
+        heroes = list(player.heroes_in_play)
+        if mate is not None:
+            bodies += [card for card in match.player(mate).play if engine.catalog.cards[card.slug].is_unit]
+            heroes += match.player(mate).heroes_in_play
+        for body in [*bodies, *heroes]:
             taken = min(body.damage, healing)
             if taken:
                 body.damage -= taken
@@ -637,7 +699,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         card = player.instance(int(ident))
         if card is not None:
             amount = effects.SELF_BASE_UPKEEP[card.slug]
-            result.narration.append(f"{tokens.card(card.slug)} deals {amount} to {tokens.player(seat)}'s base.")
+            result.narration.append(f"{tokens.card(card.slug)} deals {amount} to {base_owner(match, seat)}'s base.")
             damage_base(match, seat, amount, result, by=seat)
     elif kind == "debt":
         _pay_debt(match, seat, result)
@@ -719,7 +781,7 @@ def _plague_lord(engine: "RulesEngine", match: MatchState, seat: int, card,
         runes = sum(body.minus_runes for body in (*player.play, *player.heroes_in_play))
         if runes:
             result.narration.append(
-                f"{tokens.card(card.slug)} deals {runes} to {tokens.player(player.seat)}'s base: "
+                f"{tokens.card(card.slug)} deals {runes} to {base_owner(match, player.seat)}'s base: "
                 f"{runes} -1/-1 rune{'' if runes == 1 else 's'}."
             )
             damage_base(match, player.seat, runes, result, by=seat)
@@ -749,12 +811,15 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
         match.set_base(seat, 0)
         base_destroyed(match, seat, result, said=True)
         return
-    match.winner = seats.sole_opponent(match, seat)
+    winners = seats.rivals(match, seat)
+    match.winner = winners[0]
     match.lost_by_debt = seat
     match.record_event("lost_by_debt", loser=seat, winner=match.winner, owed=owed)
+    # A teammate who loses by debt loses the game for the team (the
+    # author, 2026-10-14, question 17).
     text = (
         f"{tokens.player(seat)} can't pay the {tokens.gold(owed)} {tokens.card('promise_of_payment')} "
-        f"promised. {tokens.player(match.winner)} wins!"
+        f"promised. {_names(winners)} {'win' if len(winners) > 1 else 'wins'}!"
     )
     result.narration.append(f"**{text}**")
     result.headlines = (*result.headlines, Headline(text, seat=match.winner))
@@ -801,6 +866,9 @@ def _open_main(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     author, 2026-10-10).
     """
     match.enter_phase("main")
+    if match.dragons:
+        # The team's turn is its head's between actions.
+        match.active = seats.head_of(match)
     match.record_event("turn_began")
     latest = history.latest_snapshot(match)
     if latest is None or latest.get("turn") != match.turn:
@@ -816,13 +884,53 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     (Bigby Hayes, step 13) the draw first asks which card is kept
     (`STASH`), and `stash` is the answer -- a slug, or "" for none: the
     card kept and one card fewer drawn, so the hand ends the size it
-    would have (the stash ruling). The card kept is never named."""
-    seat = match.active
-    player = match.active_player
+    would have (the stash ruling). The card kept is never named.
+
+    A two-headed dragon's draw is both teammates' (Rulebook p. 13): each
+    seat in order, a stash answered by its seat first (`stash_choice`)."""
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
-    if stash is None and engine.stash_owed(match):
+    taking = engine.turn_seats(match)
+    if match.dragons:
+        if any(isinstance(one, PendingPrompt) for one in _team_asks(engine, game, match)):
+            result.next = pending(engine, game, match)
+            return result
+        chosen = {seat: match.player(seat).stash_choice for seat in taking}
+        for seat in taking:
+            match.player(seat).stash_choice = None
+    else:
+        if stash is None and engine.stash_owed(match):
+            result.next = pending(engine, game, match)
+            return result
+        chosen = {match.active: stash}
+    for seat in taking:
+        with seats.as_active(match, seat):
+            _draw_for(engine, match, seat, chosen.get(seat), result)
+    match.enter_phase("tech")
+    end_of_turn(engine, match, result)
+    from codex.flow import resolve
+
+    if not resolve.run(engine, match, result):
+        # A death at the end of the turn asks something -- Crash Bomber's
+        # target on its controller's turn: asked, and the turn ends on
+        # the answer (`pending` names BEGIN_TECH once the stack is empty).
         result.next = pending(engine, game, match)
         return result
+    result.next = FollowOn(FollowOnStep.BEGIN_TECH)
+    return result
+
+
+def _team_asks(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> list:
+    """The questions the dragon's draw phase still asks (its stashes)."""
+    from codex.prompts import pending_all
+
+    return pending_all(engine, game, match)
+
+
+def _draw_for(engine: "RulesEngine", match: MatchState, seat: int, stash: Optional[str],
+              result: StepResult) -> None:
+    """`seat`'s draw: the hand discarded, the new one drawn -- or, where
+    an effect skips it, kept."""
+    player = match.player(seat)
     oath = engine.skips_draw(match, seat)
     if player.skip_draw or oath:
         # Prynn died from fading: "Opponents skip their next draw/discard
@@ -833,15 +941,7 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         result.narration.append(
             f"{tokens.player(seat)} skips their draw and discard, keeping their hand{why}."
         )
-        match.enter_phase("tech")
-        end_of_turn(engine, match, result)
-        from codex.flow import resolve
-
-        if not resolve.run(engine, match, result):
-            result.next = pending(engine, game, match)
-            return result
-        result.next = FollowOn(FollowOnStep.BEGIN_TECH)
-        return result
+        return
     held = len(player.hand)
     kept = stash if stash and stash in player.hand else None
     if kept is not None:
@@ -858,18 +958,6 @@ def draw_phase(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     result.narration.insert(
         at, f"{tokens.player(seat)} {keeps}discards {discarded} and draws {drawn}.",
     )
-    match.enter_phase("tech")
-    end_of_turn(engine, match, result)
-    from codex.flow import resolve
-
-    if not resolve.run(engine, match, result):
-        # A death at the end of the turn asks something -- Crash Bomber's
-        # target on its controller's turn: asked, and the turn ends on
-        # the answer (`pending` names BEGIN_TECH once the stack is empty).
-        result.next = pending(engine, game, match)
-        return result
-    result.next = FollowOn(FollowOnStep.BEGIN_TECH)
-    return result
 
 
 def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) -> None:
@@ -930,20 +1018,23 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     choice -- offered now and open until their next turn begins -- and
     the turn passes, said in its own line: "**End of turn 3** --
     perrytom (Bashing).", the player and their deck as the turn's
-    heading names them (`codex.formatting.turn_heading`).
+    heading names them (`codex.formatting.turn_heading`). In a
+    two-headed dragon it is the team's turn that ends, and both
+    teammates owe their tech choice (Rulebook p. 13).
     """
-    seat = match.active
-    player = match.active_player
+    taking = engine.turn_seats(match)
     result = StepResult(narration=[lead_in] if lead_in else [], board_changed=True)
-    for name, building in player.buildings.items():
-        if building is not None and building.under_construction and not building.destroyed:
-            building.under_construction = False
-            result.narration.append(f"{tokens.player(seat)}'s {_TECH_NAMES[name]} building is finished.")
-    if player.add_on is not None and player.add_on.under_construction:
-        player.add_on.under_construction = False
-        result.narration.append(
-            f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)} is finished."
-        )
+    for seat in taking:
+        player = match.player(seat)
+        for name, building in player.buildings.items():
+            if building is not None and building.under_construction and not building.destroyed:
+                building.under_construction = False
+                result.narration.append(f"{tokens.player(seat)}'s {_TECH_NAMES[name]} building is finished.")
+        if player.add_on is not None and player.add_on.under_construction:
+            player.add_on.under_construction = False
+            result.narration.append(
+                f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)} is finished."
+            )
     for side in match.players:
         for card in [one for one in side.play
                      if any(m.get("kind") == effects.QUINCE_TURN_COPY for m in one.modifiers)]:
@@ -951,11 +1042,12 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             side.play.remove(card)
             match.record_event("trashed", slug=card.slug, owner=card.owner)
             result.narration.append(f"{tokens.card(card.slug)}, Quince's copy, is trashed.")
-    for building in player.buildings.values():
-        if building is not None and building.disabled:
-            # Injunction: not operational through this, its owner's next
-            # turn (step 13).
-            building.disabled = False
+    for seat in taking:
+        for building in match.player(seat).buildings.values():
+            if building is not None and building.disabled:
+                # Injunction: not operational through this, its owner's next
+                # turn (step 13).
+                building.disabled = False
     # This turn's effects end (Intimidate, Discord, Sneaky Pig's
     # stealth), on both sides, heroes too.
     for side in match.players:
@@ -975,29 +1067,33 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             # Chaos Mirror's swap lasts the turn.
             if body.printed and "atk" in body.printed:
                 body.printed = {k: v for k, v in body.printed.items() if k != "atk"} or None
-    minimum, maximum = engine.tech_bounds(player)
-    player.tech_owed = maximum > 0
-    player.tech_choice = None
-    player.tech_confirmed = False
+    for seat in taking:
+        player = match.player(seat)
+        minimum, maximum = engine.tech_bounds(player)
+        player.tech_owed = maximum > 0
+        player.tech_choice = None
+        player.tech_confirmed = False
     # The model says the turn is over (the event log already records
     # which, as every event does): a frontend closes the turn on this
     # step (`FollowOnStep.BEGIN_TECH`), never by comparing turn numbers
     # of its own.
-    result.narration.append(
-        f"**End of turn {match.turn}** -- {tokens.player(seat)} "
-        f"({team_name(player.specs)})."
+    named = " and ".join(
+        f"{tokens.player(seat)} ({team_name(match.player(seat).specs)})" for seat in taking
     )
+    result.narration.append(f"**End of turn {match.turn}** -- {named}.")
     match.record_event("turn_ended")
     match.attacking = None
     match.against = None
-    player.promised = False
-    # The discards told on this turn's panels are said (the author,
-    # 2026-10-11: "keep the note for the whole turn").
-    player.discards_untold = []
-    if player.silenced:
-        # Free Speech: "until after that opponent's next turn" -- this one.
-        player.silenced = False
-        result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
+    for seat in taking:
+        player = match.player(seat)
+        player.promised = False
+        # The discards told on this turn's panels are said (the author,
+        # 2026-10-11: "keep the note for the whole turn").
+        player.discards_untold = []
+        if player.silenced:
+            # Free Speech: "until after that opponent's next turn" -- this one.
+            player.silenced = False
+            result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
     if match.tied and not match.playoff:
         # The last of the playoff's turns is over: the comparison again,
         # among the tied alone (the author, 2026-10-14, question 16).
@@ -1011,16 +1107,21 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # any extra turn (Rulebook p. 14).
         match.playoff.pop(0)
         match.active = following
-    elif following == seat:
+    elif match.extra_turns and following == match.extra_turns[0] and following in seats.dragon_of(match, match.active):
         # Double Time: "Take an extra turn after this one" -- the turn passes
-        # to the same player, with every phase (its ruling).
+        # to the same player, with every phase (its ruling). In a dragon
+        # it is that one seat's alone: "you means you" (Rulebook p. 13).
         match.extra_turns.pop(0)
-        result.narration.append(f"{tokens.player(seat)} takes an extra turn.")
+        result.narration.append(f"{tokens.player(following)} takes an extra turn.")
+        if match.dragons:
+            match.solo = following
+            match.active = following
     else:
+        match.solo = None
         match.active = following
     match.turn += 1
     match.enter_phase("ready")
-    if tech_is_owed(match, match.active):
+    if any(tech_is_owed(match, seat) for seat in engine.turn_seats(match)):
         # The turn waits on its player's tech: its start is this
         # hand-over, before the confirmation and the ready phase it
         # runs, which the journal then records (`_open_main`).

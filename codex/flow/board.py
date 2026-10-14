@@ -20,11 +20,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import effects, seats, tokens
+from codex.formatting import base_owner
 from codex.components import (
     TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref, lent_hero_ref,
 )
 from codex.engine import (
-    BASE_HP,
     BUILDING_DESTROYED_DAMAGE,
     LEVELS_FOR_A_KILL,
     SCAVENGER_GOLD,
@@ -68,6 +68,8 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
         return f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)}"
     if ref in TECH_BUILDINGS:
         return f"{tokens.player(seat)}'s {building_name(ref)} building"
+    if ref == "base":
+        return f"{base_owner(match, seat)}'s base"
     return f"{tokens.player(seat)}'s {building_name(ref)}"
 
 
@@ -194,7 +196,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
     player = match.player(seat)
     if ref == "base":
-        return BASE_HP
+        return match.base_cap
     if ref == "add_on":
         return engine.building_hp(player.add_on.slug)
     return engine.building_hp(ref)
@@ -235,7 +237,7 @@ def base_left_after(match: MatchState, seat: int, amount: int,
     floor = base_floor(match, seat, by)
     if floor is not None:
         left = max(left, min(match.base_of(seat), floor))
-    return _now_at(left, BASE_HP)
+    return _now_at(left, match.base_cap)
 
 
 def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str:
@@ -1591,7 +1593,10 @@ def focus_prevents(engine: "RulesEngine", match: MatchState, body, amount: int, 
     seat = engine.seat_of(match, body)
     if seat is None:
         return amount
-    master = next((card for card in match.player(seat).play
+    # "Friendly": in a dragon the teammate's Focus Master protects too
+    # (Rulebook p. 13).
+    friends = (seat, *([mate] if (mate := engine.teammate(match, seat)) is not None else []))
+    master = next((card for friend in friends for card in match.player(friend).play
                    if engine.text_slug(card) in effects.FOCUS_MASTERS and card.runes.get(effects.FOCUS)), None)
     if master is None:
         return amount

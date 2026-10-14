@@ -790,6 +790,25 @@ step 2's PR (#579) and settled on 2026-10-14.
     the token in plain words where the single one is "{player:3}'s
     {card:mercenary} arrives.".~~ Left as built (the author, 2026-10-14:
     not critical).
+24. ~~**Dothram Horselord: "if a player has more total ATK than each other
+    player" -- in a dragon, per player or per team?** Raised by step 5's
+    PR. Built as written, per *seat*: he joins the one player whose
+    total ATK beats every other player's, a teammate's included
+    (`codex.flow.turn._dothram`). If the author reads a team's total --
+    the sum of its two seats' -- he would join one of that team's two
+    players, and which is a second question.~~ Answered (2026-10-14): per seat, as built.
+25. ~~**Overpower in a dragon: how far does "anything the attacked team
+    controls" reach?** Raised by step 5's PR. Built as the duel's
+    priority read over the team (Sirlin, 2016-09-13): the team's other
+    patrollers in either zone first, anything of the team's with HP only
+    where there are none, the shared base once
+    (`RulesEngine.overpower_team`). The alternative is "anything of
+    theirs with HP", patrollers or not.~~ Answered (2026-10-14): as built.
+26. ~~**A detection when the shared base is attacked: whose tower?** Raised
+    by step 5's PR. Built: the attacked seat's, else the teammate's if
+    the former's is spent (`RulesEngine.detecting_tower`), so a team
+    with two towers can detect two hidden attackers of its base a turn.
+    The alternative is one detection a team.~~ Answered (2026-10-14): the team's one tower detects for the whole team, so long as it is built -- a team never holds two of the same add-on; built so.
 
 ## The steps
 
@@ -807,7 +826,7 @@ step is worth starting.
 | ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | ~~3~~ | ~~Free-for-all's three additions: repair, free gold, lending~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
 | ~~4~~ | ~~Free-for-all on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
-| 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
+| ~~5~~ | ~~Two-headed dragon through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
 | 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
 | -- | Later, and not now | -- | |
@@ -1341,6 +1360,13 @@ and the author has looked at the board of three and the board of five.
 ```
 
 ### 5. Two-headed dragon through the driver
+
+**Landed** (2026-10-14). What it settled -- the teams and the shared base,
+`match.active` as whichever teammate is acting (a deviation from this
+prompt, which kept it the head), a prompt per acting seat and an action
+that names its seat, the team's turn and its undos, the pooled patrol
+zones, the tower's detection and damage, and `Part.friendly` -- is in
+[docs/design/codex.md](design/codex.md), "Multiplayer", "Step 5".
 
 The mode as the model: the teams, the shared base, the team's turn with
 two seats acting in one main phase, the attack priorities over both

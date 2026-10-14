@@ -181,6 +181,15 @@ def team_name(specs) -> str:
     return deck_name(specs)
 
 
+def base_owner(match, seat: int) -> str:
+    """Whose base a line names: the seat, and in a two-headed dragon both
+    players of its team, "{player:1} and {player:2}" -- the base is theirs
+    together (Rulebook p. 13), however the attack or the effect named it."""
+    from codex import seats
+
+    return " and ".join(tokens.player(one) for one in seats.dragon_of(match, seat))
+
+
 def turn_heading(match) -> str:
     """
     **The turn's heading, in the model's words**: "**Turn 7** --
@@ -191,8 +200,12 @@ def turn_heading(match) -> str:
     never said twice and a restart that lost the turn's lines still has
     it (docs/design/codex.md, "The turn message").
     """
-    seat = match.active
-    return (
-        f"**Turn {match.turn}** -- {tokens.addressed(seat)} "
-        f"({team_name(match.player(seat).specs)})"
+    from codex import seats
+
+    # A two-headed dragon's turn is both teammates' (Rulebook p. 13):
+    # "**Turn 7** -- {to:1} (Blood Anarchs) and {to:2} (Moss Sentinels)".
+    named = " and ".join(
+        f"{tokens.addressed(seat)} ({team_name(match.player(seat).specs)})"
+        for seat in seats.turn_seats(match)
     )
+    return f"**Turn {match.turn}** -- {named}"

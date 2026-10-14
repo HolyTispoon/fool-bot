@@ -272,6 +272,16 @@ class Part:
     when: Optional[str] = None
     token: Optional[str] = None
     follows: bool = False
+    #: The text says "friendly": in a two-headed dragon the things of the
+    #: seat the part is relative to **and its teammate's** (Rulebook p.
+    #: 13: "friendly forces means all forces you and your teammate
+    #: control"). "Your", "you control" and a count of what "you have"
+    #: stay the controller's alone, so a part that says them leaves this
+    #: off. The seat it is relative to is the controller's, but for Orpal
+    #: Gloor's "friendly to the dead unit" (`units_of_against`), which is
+    #: the dead unit's controller's. Nothing in a duel or a free-for-all
+    #: reads it (docs/codex-multiplayer.md, decision 10).
+    friendly: bool = False
 
 
 @dataclass(frozen=True)
@@ -333,7 +343,7 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # "Put a +1/+1 rune on a friendly unit or hero that doesn't have a
     # +1/+1 rune."
     _effect("bloom", Part("plus_rune", "friendly_unbloomed", 1,
-                          "put a +1/+1 rune on a friendly unit or hero without one")),
+                          "put a +1/+1 rune on a friendly unit or hero without one", friendly=True)),
     # "Put a -1/-1 rune on a unit or hero."
     _effect("wither", Part("minus_rune", "unit_or_hero", 1,
                            "put a -1/-1 rune on a unit or hero")),
@@ -664,7 +674,8 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
                                    "give a unit or hero +2 ATK and +2 armor this turn")),
     # Forest's Favor: Bloom's own words.
     _effect("forests_favor", Part("plus_rune", "friendly_unbloomed", 1,
-                                  "put a +1/+1 rune on a friendly unit or hero without one")),
+                                  "put a +1/+1 rune on a friendly unit or hero without one",
+                                  friendly=True)),
     # Final Showdown: "Attach to your Balance hero." ... "Summon two 3/3
     # green Hunter tokens with anti-air for an opponent, so that it's fair."
     _effect(
@@ -877,7 +888,7 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # unit. {target}"
     _effect("orpal_gloor_max", Part("minus_rune", "units_of_against", 1,
                                     "put a -1/-1 rune on a unit friendly to the dead unit",
-                                    most=2, least=2)),
+                                    most=2, least=2, friendly=True)),
     # Vandy at 3: "{gold:1}, {exhaust}, Discard a card -> Fetch a
     # Demonology spell from your codex, reveal it, then put it in your hand."
     _effect(
@@ -892,7 +903,8 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # {target}" -- mandatory as far as it goes (her rulings).
     _effect(
         "vandy_anadrose_max",
-        Part("doom_buff", "own_unit_tech_0_1", 2, "give one of your tech 0 or I units +2/+2"),
+        Part("doom_buff", "own_unit_tech_0_1", 2, "give one of your tech 0 or I units +2/+2",
+             friendly=True),
         Part("doom_buff", "opposing_unit_tech_0_1", 2, "give an opposing tech 0 or I unit +2/+2"),
     ),
     # Gargoyle: "{gold:1} -> Until your next upkeep, Gargoyle isn't
@@ -934,7 +946,7 @@ EFFECTS: dict[str, Effect] = {effect.key: effect for effect in (
     # it to play. {target}" -- fresh, under the same controller, with
     # arrival fatigue (his rulings).
     _effect("max_geiger_max", Part("geiger", "own_unit", 0, "trash a friendly unit and return it",
-                                   least=0)),
+                                   least=0, friendly=True)),
     # Prynn at 1: "Attacks: Put a time rune on this."
     _effect("prynn_pasternaak", Part("time_rune_self", None, 1, targeted=False)),
     # Prynn at 7: "Remove two time runes -> Trash a unit. {target}" -- at two
@@ -2005,7 +2017,7 @@ for _effect_row in (
     # until your next upkeep." -- no {target} on the card.
     _effect("eyes_of_the_chancellor", Part("unphase", "own_unit", 0,
                                            "make a friendly unit invisible until your next upkeep",
-                                           targeted=False)),
+                                           targeted=False, friendly=True)),
 ):
     EFFECTS[_effect_row.key] = _effect_row
 TEXT.update({
@@ -2079,7 +2091,8 @@ for _effect_row in (
     # Aged Sensei: "{exhaust} -> Give a friendly unit or hero +1 ATK/+1
     # armor this turn." {target}
     _effect("aged_sensei", Part("buff", "friendly_unit_or_hero", 1,
-                                "give a friendly unit or hero +1 ATK and +1 armor this turn")),
+                                "give a friendly unit or hero +1 ATK and +1 armor this turn",
+                                friendly=True)),
     # Bird's Nest: "Summon two 1/1 white Bird tokens with flying (limit: 2)."
     _effect("birds_nest", Part("birds", None, 2, targeted=False)),
     _effect("birds_nest_upkeep", Part("birds", None, 2, targeted=False)),
@@ -2157,7 +2170,8 @@ for _effect_row in (
     # hero that doesn't have a +1/+1 rune." {target} and "{gold:2} -> Ready
     # Sparring Partner, but he can't attack this turn (he can only spar)."
     _effect("sparring_partner", Part("plus_rune", "friendly_unbloomed", 1,
-                                     "put a +1/+1 rune on a friendly unit or hero without one")),
+                                     "put a +1/+1 rune on a friendly unit or hero without one",
+                                     friendly=True)),
     _effect("sparring_partner_ready", Part("spar", None, 0, targeted=False),
             says="ready him to spar again"),
     # Speed of the Fox: "Your Ninjutsu hero gets haste, readiness, armor

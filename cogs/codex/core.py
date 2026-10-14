@@ -348,7 +348,7 @@ class CoreMixin:
         prompt = pending_prompt(self.engine, game, match)
         if prompt is None or prompt.kind not in TECH_WAIT:
             return None
-        if prompt.asked_player == match.active:
+        if prompt.asked_player in self.engine.turn_seats(match):
             return TECH_WAIT[prompt.kind].format(who="them")
         player_id = game.seat_user_id(prompt.asked_player)
         who = f"<@{player_id}>" if player_id else (game.seat_name(prompt.asked_player) or "its player")

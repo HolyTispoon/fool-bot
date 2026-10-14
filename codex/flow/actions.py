@@ -496,6 +496,8 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         page = "UMR p. 8" if building in TECH_BUILDING_SLUGS else "UMR p. 9"
         if option.why_not.startswith("the basic game"):
             page = "UMR p. 3"
+        elif option.why_not.startswith("your teammate"):
+            page = "Rulebook p. 13"
         raise RuleRefusal(
             f"You can't build {_build_label(building)}: {option.why_not}.", cite=page,
         )
@@ -623,7 +625,7 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
         raise RuleRefusal("That is not one of their hidden cards.", cite="UMR p. 9")
     other = engine.holder_of(match, card, engine.opponents(match, seat))
     body = engine.body(match, other, card)
-    engine.tower(match.active_player).detected = card
+    engine.team_tower(match, seat)[1].detected = card
     match.record_event("detected", card=card, by=seat)
     named = tokens.hero(body.slug) if is_hero_ref(card) else tokens.card(body.slug)
     return _done(engine, game, match, [
@@ -633,7 +635,12 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
 
 
 def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
-    """The main phase ends on the patrol lock (UMR p. 10)."""
+    """The main phase ends on the patrol lock (UMR p. 10). In a dragon the
+    seat alone ends theirs, owing the lock while their teammate goes on
+    (Rulebook p. 13: each seat's lock is its own)."""
+    if match.dragons:
+        match.active_player.locking = True
+        return StepResult(next=pending(engine, game, match))
     match.enter_phase("patrol")
     return StepResult(next=pending(engine, game, match))
 
@@ -742,6 +749,18 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
             player.discard.extend(player.hand)
             player.hand = []
+    if match.dragons:
+        # The seat's actions are over; the team's main phase ends with
+        # the second lock, and the draw and tech phases run for both
+        # (Rulebook p. 13).
+        player.locking = False
+        player.locked = True
+        if all(match.player(taking).locked for taking in engine.turn_seats(match)):
+            match.enter_phase("draw")
+            return StepResult(narration=narration, board_changed=True,
+                              next=FollowOn(FollowOnStep.DRAW_PHASE))
+        return StepResult(narration=narration, board_changed=True,
+                          next=pending(engine, game, match))
     match.enter_phase("draw")
     return StepResult(narration=narration, board_changed=True, next=FollowOn(FollowOnStep.DRAW_PHASE))
 

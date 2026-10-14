@@ -43,7 +43,7 @@ import copy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Iterable, Optional, Sequence
 
-from codex import tokens
+from codex import seats, tokens
 from codex.components import MatchState
 from codex.game import RuleRefusal
 from codex.prompts import PendingPrompt, PromptKind
@@ -212,14 +212,15 @@ def start_tech_over(match: MatchState) -> None:
     """
     if match.phase != "main":
         return
-    active = match.active_player
-    if active.teched is not None and not active.tech_owed:
-        for slug in active.teched:
-            _take_back(active, slug)
-            active.codex[slug] = active.codex.get(slug, 0) + 1
-        active.teched = None
-        active.tech_owed = True
-        active.tech_confirmed = False
+    for seat in seats.turn_seats(match):
+        active = match.player(seat)
+        if active.teched is not None and not active.tech_owed:
+            for slug in active.teched:
+                _take_back(active, slug)
+                active.codex[slug] = active.codex.get(slug, 0) + 1
+            active.teched = None
+            active.tech_owed = True
+            active.tech_confirmed = False
     for seat in tech_started_over(match):
         match.player(seat).tech_choice = None
 
@@ -374,6 +375,20 @@ def previous_turn_owner(match: MatchState) -> Optional[int]:
     who would take its end back -- or `None` where it is not kept."""
     index = _snapshot_index(match, match.turn - 1)
     return None if index is None else match.turn_snapshots[index].get("active")
+
+
+def end_of_turn_owners(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> tuple[int, ...]:
+    """
+    Whose it is to take the end of the turn before this one back
+    (`end_of_turn_owner`): the seat whose turn it was, and in a
+    two-headed dragon both players of the team that took it, either of
+    whom may (docs/codex-multiplayer.md, decision 15) -- none where it
+    is closed.
+    """
+    owner = end_of_turn_owner(engine, game, match)
+    if owner is None:
+        return ()
+    return seats.dragon_of(match, owner)
 
 
 def end_of_turn_owner(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Optional[int]:

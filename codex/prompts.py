@@ -37,6 +37,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
 
 from codex import tokens
+from codex.seats import seat_numbers as seats_numbers
 from codex.components import PATROL_SLOTS, MatchState
 from codex import effects
 from codex.engine import (
@@ -769,7 +770,7 @@ def _overpower_options(engine, game, match, prompt) -> OverpowerOptions:
     return OverpowerOptions(
         state["attacker"], state["defender"],
         engine.overpower_excess(match, state["attacker"], state["defender"]),
-        engine.overpower_candidates(match, state["attacker"], state["defender"]),
+        engine.overpower_team(match, state["attacker"], state["defender"]),
     )
 
 
@@ -821,8 +822,10 @@ def _stash_options(engine, game, match, prompt) -> StashOptions:
 
 
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
+    from codex import seats
+
     return GameOverOptions(
-        match.winner, match.conceded, match.lost_by_debt, (match.winner,),
+        match.winner, match.conceded, match.lost_by_debt, seats.dragon_of(match, match.winner),
         tuple((player.seat, match.base_of(player.seat)) for player in match.players),
     )
 
@@ -897,17 +900,29 @@ def tech_stands(game: "Optional[CodexGame]") -> bool:
     return game is None or not game.test_game
 
 
+def _winners(match: MatchState) -> str:
+    """Who won, as a line names them: the seat, and in a dragon the team's
+    two."""
+    from codex import seats
+
+    team = seats.dragon_of(match, match.winner)
+    return " and ".join(tokens.player(seat) for seat in team)
+
+
 def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     if match.winner is not None:
         if match.conceded is not None:
             how = f"{tokens.player(match.conceded)} conceded."
+            if match.dragons:
+                how = f"{tokens.player(match.conceded)}'s team conceded."
         elif match.lost_by_debt is not None:
             how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
         elif match.variant == "free_for_all":
             return PendingPrompt(PromptKind.GAME_OVER, _free_for_all_over(match))
         else:
             how = "the opposing base is destroyed."
-        return PendingPrompt(PromptKind.GAME_OVER, f"{tokens.player(match.winner)} wins: {how}")
+        wins = "win" if match.dragons else "wins"
+        return PendingPrompt(PromptKind.GAME_OVER, f"{_winners(match)} {wins}: {how}")
     seat = match.active
     if match.resolving:
         # An effect under way asks before anything else does: a target,
@@ -998,17 +1013,115 @@ def _free_for_all_over(match: MatchState) -> str:
     return f"{head}: a base is destroyed."
 
 
-def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Union[PendingPrompt, FollowOn]:
-    """What this match is waiting on: the active player's question, or
-    the step the bot owes. Read through `pending_prompt` and `owed_step`."""
-    waiting = _pending(engine, game, match)
+def _finished(engine, game, match: MatchState, waiting: Union[PendingPrompt, FollowOn],
+              ) -> Union[PendingPrompt, FollowOn]:
+    """A prompt with the notes its asked player is told and the options
+    it carries -- read with the asked seat active, which in a dragon is
+    whichever teammate is the one asked."""
+    from codex import seats
+
     if isinstance(waiting, FollowOn):
         return waiting
-    if waiting.asked_player is not None and waiting.asked_player in engine.acting_seats(match):
-        told = discard_notes(match, waiting.asked_player)
+    asked = waiting.asked_player
+    if asked is not None and asked in engine.acting_seats(match):
+        told = discard_notes(match, asked)
         if told:
             waiting = replace(waiting, told=told)
+    if match.dragons and asked is not None and asked in engine.turn_seats(match):
+        with seats.as_active(match, asked):
+            return with_options(engine, game, match, waiting)
     return with_options(engine, game, match, waiting)
+
+
+def pending_all(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+                ) -> list[Union[PendingPrompt, FollowOn]]:
+    """
+    **Everything this match is waiting on**: one prompt per acting seat in
+    a two-headed dragon (Rulebook p. 13) -- both teammates' main phases,
+    both tech confirmations -- and the one reading everywhere else, so a
+    duel's and a free-for-all's list is `[pending(...)]`. A step the bot
+    owes is a list of that step alone.
+    """
+    if not match.dragons:
+        return [pending(engine, game, match)]
+    return [_finished(engine, game, match, waiting) for waiting in _team_pending(engine, game, match)]
+
+
+def _half_resolved(match: MatchState) -> bool:
+    """Whether a teammate's action stands part-way: an effect under way,
+    an attack declared or one at a choice of its own. Then the team waits
+    on that one question alone (decision 8)."""
+    return bool(match.resolving) or match.attacking is not None or (
+        match.combat is not None and match.combat["stage"] in COMBAT_PROMPTS
+    )
+
+
+def _team_pending(engine, game, match: MatchState) -> list[Union[PendingPrompt, FollowOn]]:
+    """`_pending` for a dragon, a prompt per acting seat (decision 8)."""
+    from codex import seats
+
+    if match.winner is not None or _half_resolved(match):
+        return [_pending(engine, game, match)]
+    taking = engine.turn_seats(match)
+    if match.phase == "ready":
+        owed = [seat for seat in taking if tech_is_owed(match, seat)]
+        if owed:
+            return [tech_prompt(engine, seat, match) for seat in owed]
+        return [FollowOn(FollowOnStep.BEGIN_TURN)]
+    if match.phase == "main":
+        acting = engine.acting_seats(match)
+        owed = [seat for seat in acting if tech_is_owed(match, seat)]
+        if owed:
+            # An undo to the turn's start took the tech back
+            # (`codex.history.start_tech_over`): asked again first.
+            return [tech_prompt(engine, seat, match) for seat in owed]
+        found = []
+        for seat in acting:
+            if match.player(seat).locking:
+                found.append(PendingPrompt(
+                    PromptKind.PATROL,
+                    f"{tokens.player(seat)}, lock your patrollers: your main phase ends.",
+                    seat,
+                ))
+                continue
+            with seats.as_active(match, seat):
+                found.append(PendingPrompt(PromptKind.MAIN_ACTION, _main_ask(match), seat))
+        return found
+    if match.phase == "draw":
+        asked = []
+        for seat in taking:
+            with seats.as_active(match, seat):
+                if engine.stash_owed(match) and match.player(seat).stash_choice is None:
+                    asked.append(PendingPrompt(PromptKind.STASH, _stash_ask(seat), seat))
+        return asked or [FollowOn(FollowOnStep.DRAW_PHASE)]
+    if match.phase == "tech":
+        return [FollowOn(FollowOnStep.BEGIN_TECH)]
+    return [FollowOn(FollowOnStep.BEGIN_TURN)]
+
+
+def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState,
+            seat: Optional[int] = None) -> Union[PendingPrompt, FollowOn, None]:
+    """
+    What this match is waiting on: the active player's question, or the
+    step the bot owes. Read through `pending_prompt` and `owed_step`.
+
+    In a two-headed dragon more than one seat may be asked at once
+    (`pending_all`, `pending_prompts`): `seat` names whose question is
+    wanted, `None` if that seat is asked nothing, and without it the
+    first acting seat's is the answer -- the team's turn then has more
+    questions than this one, which only a client that lists them all
+    (`pending_prompts`) hears.
+    """
+    if not match.dragons:
+        waiting = _pending(engine, game, match)
+        return _finished(engine, game, match, waiting)
+    found = pending_all(engine, game, match)
+    if seat is None:
+        return found[0]
+    for waiting in found:
+        if isinstance(waiting, PendingPrompt) and waiting.asked_player == seat:
+            return waiting
+    return None
 
 
 def discard_notes(match: MatchState, seat: int) -> tuple[str, ...]:
@@ -1025,9 +1138,31 @@ def discard_notes(match: MatchState, seat: int) -> tuple[str, ...]:
     )
 
 
+class SeveralAsked(RuntimeError):
+    """`pending_prompt` was asked of a match with more than one acting
+    seat: it has no one question. A client that plays a dragon lists them
+    with `pending_prompts` (decision 8)."""
+
+
 def pending_prompt(engine, game, match) -> Optional[PendingPrompt]:
+    """The one question a duel's or a free-for-all's match asks, `None`
+    while the bot owes a step. **Raises `SeveralAsked` on a match with
+    more than one acting seat** (decision 8): nothing may read one
+    teammate's prompt for the team's."""
+    if match.dragons and len(engine.acting_seats(match)) > 1 and match.winner is None \
+            and not _half_resolved(match):
+        owed = pending_all(engine, game, match)
+        if len([one for one in owed if isinstance(one, PendingPrompt)]) > 1:
+            raise SeveralAsked("This team has more than one seat to ask; list them with pending_prompts.")
     waiting = pending(engine, game, match)
     return waiting if isinstance(waiting, PendingPrompt) else None
+
+
+def pending_prompts(engine, game, match) -> tuple[PendingPrompt, ...]:
+    """Every question the acting seats are asked now, one per seat in a
+    dragon, in seat order -- one for a duel and a free-for-all, none while
+    the bot owes a step."""
+    return tuple(one for one in pending_all(engine, game, match) if isinstance(one, PendingPrompt))
 
 
 def owed_step(engine, game, match) -> Optional[FollowOn]:
@@ -1046,7 +1181,10 @@ def standing_prompts(engine: "RulesEngine", match: MatchState,
     if match.winner is not None or not tech_stands(game):
         return ()
     owed = []
-    for other in engine.opponents(match, match.active):
+    taking = engine.turn_seats(match)
+    for other in seats_numbers(match):
+        if other in taking:
+            continue
         if tech_is_owed(match, other):
             prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other), other)
             owed.append(with_options(engine, game, match, prompt))

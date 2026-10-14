@@ -53,6 +53,10 @@ PATROL_SLOTS = ("squad_leader", "elite", "scavenger", "technician", "lookout")
 
 #: A turn's five phases and the main phase's patrol lock (UMR p. 5).
 PHASES = ("ready", "upkeep", "main", "patrol", "draw", "tech")
+#: A base's HP (UMR p. 3), and a two-headed dragon team's shared one
+#: (Rulebook p. 13).
+BASE_HP = 20
+DRAGON_BASE_HP = 30
 
 #: The three tech-building slots in a base (UMR p. 8).
 TECH_BUILDINGS = ("tech1", "tech2", "tech3")
@@ -582,6 +586,19 @@ class PlayerState:
     #: begins. 0 otherwise, and in an older save; written only while some
     #: has been earned.
     bounties: int = 0
+    #: Two-headed dragon (Rulebook p. 13): this seat's patrol lock is
+    #: done, which ends their actions for the team's turn. Set by the
+    #: lock, cleared when the team's next turn begins. False otherwise,
+    #: and in an older save; written only while set.
+    locked: bool = False
+    #: Two-headed dragon: this seat has ended their main phase and owes
+    #: the patrol lock, while their teammate may still be acting. False
+    #: otherwise; written only while set.
+    locking: bool = False
+    #: Two-headed dragon: the card this seat's stash keeps (`""` for
+    #: none), answered in the draw phase before the team's draw runs for
+    #: both seats; `None` while unanswered. Written only while set.
+    stash_choice: Optional[str] = None
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -695,12 +712,16 @@ PLAYER_SAVED_FIELDS = (
     SavedField("discards_untold", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("mercenaries_owed", default=0),
     SavedField("bounties", default=0),
+    SavedField("locked", default=False),
+    SavedField("locking", default=False),
+    SavedField("stash_choice"),
 )
 
 #: Fields written only where they differ from what an older save reads
 #: them as, so a duel's save is the save it always was (the golden) and
 #: still reads on a checkout older than the field.
-_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0}
+_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0, "locked": False, "locking": False,
+                           "stash_choice": None}
 
 
 def _write_players(players: list) -> list:
@@ -803,21 +824,44 @@ class MatchState:
     #: last of their turns is made among (the author, 2026-10-14,
     #: question 16). Empty while nobody is tied, and in an older save.
     tied: list[int] = field(default_factory=list)
+    #: A two-headed dragon's two teams as pairs of seats, the first seat
+    #: of each its head (Rulebook p. 13; decision 12): `[[1, 2], [3, 4]]`.
+    #: Empty in every other variant, and in an older save.
+    dragons: list[list[int]] = field(default_factory=list)
+    #: The one seat whose extra turn is running (Double Time), in a
+    #: dragon, where an extra turn is one seat's alone -- "you means you"
+    #: (Rulebook p. 13): the teammate neither readies nor acts. `None`
+    #: otherwise, and in an older save; written only while set.
+    solo: Optional[int] = None
 
     # -- Reading -------------------------------------------------------
 
     def player(self, seat: int) -> PlayerState:
         return self.players[seat - 1]
 
+    def base_seat(self, seat: int) -> int:
+        """The seat whose `base_hp` is `seat`'s base: their own, or in a
+        dragon the team's first seat's (decision 9) -- the second seat's
+        `base_hp` is dealt at 30 too and **never read**."""
+        for pair in self.dragons:
+            if seat in pair:
+                return pair[0]
+        return seat
+
     def base_of(self, seat: int) -> int:
         """The one reading of a seat's base HP (docs/design/codex.md,
-        "Multiplayer"): a dragon's teammates will share one base, and
-        every site that reads it asks here."""
-        return self.player(seat).base_hp
+        "Multiplayer"): a dragon's teammates share one base, and every
+        site that reads it asks here."""
+        return self.player(self.base_seat(seat)).base_hp
 
     def set_base(self, seat: int, hp: int) -> None:
         """The one writer of a seat's base HP."""
-        self.player(seat).base_hp = hp
+        self.player(self.base_seat(seat)).base_hp = hp
+
+    @property
+    def base_cap(self) -> int:
+        """The most HP a base has: 20, a dragon team's 30 (Rulebook p. 13)."""
+        return DRAGON_BASE_HP if self.dragons else BASE_HP
 
     @property
     def active_player(self) -> PlayerState:
@@ -943,6 +987,14 @@ class MatchState:
             fail(f"variant is {self.variant!r}")
         if self.variant == "free_for_all" and not 3 <= len(seats) <= 5:
             fail("a free-for-all is three to five players")
+        if self.variant == "two_headed_dragon":
+            if len(seats) != 4 or sorted(seat for pair in self.dragons for seat in pair) != seats \
+                    or any(len(pair) != 2 for pair in self.dragons):
+                fail("a two-headed dragon is four players in two teams of two")
+        elif self.dragons:
+            fail("only a two-headed dragon has teams")
+        if self.solo not in (None, *seats):
+            fail(f"solo is {self.solo!r}")
         if not set(self.playoff) <= set(self.tied) <= set(seats):
             fail(f"the playoff {self.playoff!r} is not among the tied {self.tied!r}")
         if self.phase not in PHASES:
@@ -1064,9 +1116,12 @@ MATCH_SAVED_FIELDS = (
     SavedField("variant", default="duel"),
     SavedField("playoff", factory=list, write=_copy_list, read=_copy_list),
     SavedField("tied", factory=list, write=_copy_list, read=_copy_list),
+    SavedField("dragons", factory=list, write=_deep_copy, read=_deep_copy),
+    SavedField("solo"),
 )
 
-_MATCH_WRITTEN_WHEN_SET = {"against": None, "variant": "duel", "playoff": [], "tied": []}
+_MATCH_WRITTEN_WHEN_SET = {"against": None, "variant": "duel", "playoff": [], "tied": [],
+                           "dragons": [], "solo": None}
 
 def upgrade_hero_refs(match: MatchState) -> None:
     """
