@@ -58,6 +58,10 @@ HAND_SIZE = 5
 #: The workers each seat starts with: the first player four, the second
 #: five (UMR p. 3).
 STARTING_WORKERS = {True: 4, False: 5}
+#: A free-for-all's Mercenary (Rulebook p. 14): the token, and how many
+#: more each place in turn order from the third is owed -- 1, 2 and 3.
+MERCENARY = "mercenary"
+MERCENARIES_A_PLACE = 1
 #: Hiring a worker, once a turn (UMR p. 6).
 HIRE_COST = 1
 #: A hero level costs a gold (UMR p. 6).
@@ -422,7 +426,7 @@ class RulesEngine:
     # -- The opening -----------------------------------------------------
 
     def new_match(self, teams: Sequence, first: Optional[int] = None,
-                  decks: Optional[Sequence[str]] = None) -> MatchState:
+                  decks: Optional[Sequence[str]] = None, variant: str = "duel") -> MatchState:
         """
         The opening position (UMR p. 3): each seat's heroes in the
         command zone -- `teams`, a list of specs per seat, or one spec as
@@ -430,8 +434,11 @@ class RulesEngine:
         colour (`decks`, the neutral deck where not given) shuffled as
         its deck and five dealt, the codex of every one of its specs,
         twenty-four a spec, a base at 20, and four workers for whoever
-        goes first and five for the other -- who goes first drawn at
-        random unless given.
+        goes first and five for every other -- who goes first drawn at
+        random from every seat unless given. In a free-for-all
+        (`variant`) the third, fourth and fifth players in turn order
+        from the first are owed 1, 2 and 3 Mercenaries, which arrive in
+        their first upkeep (Rulebook p. 14).
         """
         if first is None:
             first = self.rng.choice(tuple(range(1, len(teams) + 1)))
@@ -456,9 +463,13 @@ class RulesEngine:
                 deck=deck,
                 codex=dict(codex),
             ))
-        match = MatchState(players=players, first=first, active=first)
+        match = MatchState(players=players, first=first, active=first, variant=variant)
         for player in players:
             match.set_base(player.seat, BASE_HP)
+        if variant == "free_for_all":
+            order = seats.turn_order(match, first)
+            for place, seat in enumerate(order[2:], start=1):
+                match.player(seat).mercenaries_owed = place * MERCENARIES_A_PLACE
         return match
 
     # -- Numbers ---------------------------------------------------------
@@ -2232,21 +2243,30 @@ class RulesEngine:
         rest of the turn, once a turn.
         """
         seat = match.active
-        other = self.sole_opponent(match, seat)  # until step 2 gives refs a seat
         tower = self.tower(match.active_player)
         if tower is None:
             return DetectOption(why_not="you have no finished tower")
         if tower.detected is not None:
             return DetectOption(why_not="your tower has detected this turn", tower=True)
         candidates = []
-        for ref in self._things_in_play(match, other):
-            if self.hidden(match, other, ref) and not self.detected_by(match, seat, ref):
-                candidates.append(ref)
+        # Every opponent's: on its owner's turn the tower reveals one
+        # thing (Rulebook p. 4), whoever's it is.
+        for other in self.opponents(match, seat):
+            for ref in self._things_in_play(match, other):
+                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref)
+                        and ref not in candidates):
+                    candidates.append(ref)
         if not candidates:
             return DetectOption(why_not="nothing of theirs is hidden", tower=True)
         return DetectOption(True, tuple(candidates), tower=True)
 
     # -- Combat ---------------------------------------------------------------
+
+    def holder_of(self, match: MatchState, ref: str, among: Sequence[int]) -> Optional[int]:
+        """The first seat of `among` with a unit or hero in play that
+        `ref` names -- a unit's id is the table's own; a hero's ref is its
+        slug, and a mirror game's two of one hero are read as the first."""
+        return next((seat for seat in among if ref in self._things_in_play(match, seat)), None)
 
     def _things_in_play(self, match: MatchState, seat: int) -> tuple[str, ...]:
         """The units and the hero on `seat`'s side, as refs."""
@@ -3582,6 +3602,10 @@ class RulesEngine:
         herself.
         """
         found = []
+        if player.mercenaries_owed:
+            # A free-for-all's Mercenaries, in the owner's first upkeep
+            # (Rulebook p. 14): a pure gain, first and never ordered.
+            found.append("mercenaries")
         # A time rune off each fading card and hero, and off each card in
         # the future (UMR p. 17; step 12): a card with none left from the
         # start never fades.

@@ -599,12 +599,12 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
     targeted. Once a turn.
     """
     seat = match.active
-    other = engine.sole_opponent(match, seat)
     option = engine.detect_option(match)
     if not option.allowed:
         raise RuleRefusal(f"Your tower can't detect: {option.why_not}.", cite="UMR p. 9")
     if card not in option.candidates:
         raise RuleRefusal("That is not one of their hidden cards.", cite="UMR p. 9")
+    other = engine.holder_of(match, card, engine.opponents(match, seat))
     body = engine.body(match, other, card)
     engine.tower(match.active_player).detected = card
     match.record_event("detected", card=card, by=seat)

@@ -494,7 +494,12 @@ def _upgrade_refs(match: MatchState, action: Action) -> Action:
     from codex.components import HERO, hero_ref
 
     active = match.active
-    other = seats.sole_opponent(match, active)
+    others = seats.opponents(match, active)
+    if len(others) != 1:
+        # Only a duel's journal is older than step 10: a table of several
+        # never named a hero `hero` alone.
+        return action
+    other = others[0]
 
     def mine(seat: int, value):
         if value == HERO:

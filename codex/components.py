@@ -533,6 +533,11 @@ class PlayerState:
     #: emptied as that turn ends (`begin_tech`; the author, 2026-10-11).
     #: Empty in an older save.
     discards_untold: list = field(default_factory=list)
+    #: The Mercenaries this player is still owed: a free-for-all's third,
+    #: fourth and fifth players in turn order are dealt 1, 2 and 3, which
+    #: arrive in their first upkeep (Rulebook p. 14). 0 otherwise, and in
+    #: an older save; written only while some are owed.
+    mercenaries_owed: int = 0
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -633,11 +638,26 @@ PLAYER_SAVED_FIELDS = (
     SavedField("played_from_hand", default=0),
     SavedField("built_this_turn", default=False),
     SavedField("discards_untold", factory=list, write=_copy_dicts, read=_copy_dicts),
+    SavedField("mercenaries_owed", default=0),
 )
+
+#: Fields written only where they differ from what an older save reads
+#: them as, so a duel's save is the save it always was (the golden) and
+#: still reads on a checkout older than the field.
+_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0}
 
 
 def _write_players(players: list) -> list:
-    return [_save(player, PLAYER_SAVED_FIELDS) for player in players]
+    return [_unset_dropped(_save(player, PLAYER_SAVED_FIELDS), _PLAYER_WRITTEN_WHEN_SET)
+            for player in players]
+
+
+def _unset_dropped(data: dict, unset: dict) -> dict:
+    """`data` less each field of `unset` that holds its unset value."""
+    for name, value in unset.items():
+        if data.get(name) == value:
+            del data[name]
+    return data
 
 
 def _read_player(data: dict) -> PlayerState:
@@ -713,6 +733,20 @@ class MatchState:
     #: into play, a hero's band (step 11): the order the Card FAQ's grants
     #: are applied in. 0 in an older save.
     sequence: int = 0
+    #: One of `codex.game.VARIANTS`, the match's own copy of the record's,
+    #: since the rules read the match and a match outlives its lobby
+    #: (docs/codex-multiplayer.md, decision 2). "duel" in an older save.
+    variant: str = "duel"
+    #: A free-for-all's playoff (Rulebook p. 14; decision 5): the tied
+    #: seats still owed their one more turn, in turn order -- handed out
+    #: ahead of the order (`codex.seats.next_seat`) and popped as each
+    #: begins. Empty otherwise, and in an older save.
+    playoff: list[int] = field(default_factory=list)
+    #: The seats tied for the most base HP when a free-for-all's base was
+    #: destroyed: the playoff's whole list, which the comparison after the
+    #: last of their turns is made among (the author, 2026-10-14,
+    #: question 16). Empty while nobody is tied, and in an older save.
+    tied: list[int] = field(default_factory=list)
 
     # -- Reading -------------------------------------------------------
 
@@ -775,11 +809,10 @@ class MatchState:
 
     def to_dict(self) -> dict:
         data = _save(self, MATCH_SAVED_FIELDS)
-        if data["against"] is None:
-            # Written only while an attack is declared, so a duel's save
-            # between attacks is the save it always was (the golden).
-            del data["against"]
-        return data
+        # `against` is written only while an attack is declared, and the
+        # free-for-all's fields only in one, so a duel's save between
+        # attacks is the save it always was (the golden).
+        return _unset_dropped(data, _MATCH_WRITTEN_WHEN_SET)
 
     @classmethod
     def from_dict(cls, data: dict) -> "MatchState":
@@ -815,6 +848,14 @@ class MatchState:
             fail(f"conceded is {self.conceded!r} with winner {self.winner!r}")
         if self.against not in (None, *seats):
             fail(f"against is {self.against!r}")
+        from codex.game import VARIANTS
+
+        if self.variant not in VARIANTS:
+            fail(f"variant is {self.variant!r}")
+        if self.variant == "free_for_all" and not 3 <= len(seats) <= 5:
+            fail("a free-for-all is three to five players")
+        if not set(self.playoff) <= set(self.tied) <= set(seats):
+            fail(f"the playoff {self.playoff!r} is not among the tied {self.tied!r}")
         if self.phase not in PHASES:
             fail(f"phase is {self.phase!r}")
         if self.turn < 1:
@@ -917,7 +958,12 @@ MATCH_SAVED_FIELDS = (
     SavedField("sequence", default=0),
     SavedField("extra_turns", factory=list, write=_copy_list, read=_copy_list),
     SavedField("lost_by_debt"),
+    SavedField("variant", default="duel"),
+    SavedField("playoff", factory=list, write=_copy_list, read=_copy_list),
+    SavedField("tied", factory=list, write=_copy_list, read=_copy_list),
 )
+
+_MATCH_WRITTEN_WHEN_SET = {"against": None, "variant": "duel", "playoff": [], "tied": []}
 
 def upgrade_hero_refs(match: MatchState) -> None:
     """

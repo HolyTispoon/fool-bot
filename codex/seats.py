@@ -45,6 +45,15 @@ def sole_opponent(match: "MatchState", seat: int) -> int:
     return found[0]
 
 
+def turn_order(match: "MatchState", after: int, *, inclusive: bool = True) -> tuple[int, ...]:
+    """Every seat in turn order from `after` -- `after` first, or, not
+    `inclusive`, the seat after it first and `after` last. Turn order is
+    seat order, wrapping (Rulebook p. 14)."""
+    numbers = seat_numbers(match)
+    start = numbers.index(after) + (0 if inclusive else 1)
+    return tuple(numbers[(start + step) % len(numbers)] for step in range(len(numbers)))
+
+
 def turn_seats(match: "MatchState") -> tuple[int, ...]:
     """The seats whose turn it is: the active seat alone, until a
     dragon's teammates share one."""
@@ -52,8 +61,12 @@ def turn_seats(match: "MatchState") -> tuple[int, ...]:
 
 
 def next_seat(match: "MatchState") -> int:
-    """Whose turn follows the active one's: the seat owed an extra turn
-    first (Double Time), else the seat after in order, wrapping."""
+    """Whose turn follows the active one's: a free-for-all's playoff
+    first -- the tied seats each take one more turn, ahead of the order
+    (Rulebook p. 14) -- then the seat owed an extra turn (Double Time),
+    else the seat after in order, wrapping."""
+    if match.playoff:
+        return match.playoff[0]
     if match.extra_turns and match.extra_turns[0] in turn_seats(match):
         return match.active
     seats = seat_numbers(match)

@@ -92,13 +92,74 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         match.set_base(seat, kept)
         return
     match.set_base(seat, max(0, base - amount))
-    if match.base_of(seat) == 0 and match.winner is None:
-        # The one opponent of a duel wins; a longer table's end is step 2's.
+    if match.base_of(seat) == 0 and match.winner is None and base > 0:
+        if match.variant == "free_for_all":
+            base_destroyed(match, seat, result)
+            return
+        # The one opponent of a duel wins.
         match.winner = seats.sole_opponent(match, seat)
         match.record_event("base_destroyed", loser=seat, winner=match.winner)
         text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
         result.narration.append(f"**{text}**")
         result.headlines = (*result.headlines, Headline(text, seat=match.winner))
+
+
+def base_destroyed(match: MatchState, seat: int, result: StepResult, *,
+                   said: bool = False) -> None:
+    """
+    A free-for-all's base is destroyed (Rulebook p. 14: "no player
+    elimination"): the game ends at that moment and the most base HP
+    wins (`_most_base_hp`). During a playoff -- from the moment a tie
+    filled it -- only a tied player's base counts, and the comparison is
+    then among the tied alone (docs/codex-multiplayer.md, decision 5).
+    `said` where the line saying so is already written (a debt unpaid).
+    """
+    if not said:
+        result.narration.append(f"**{tokens.player(seat)}'s base is destroyed.**")
+    if match.tied:
+        if seat not in match.tied:
+            return
+        _most_base_hp(match, match.tied, result, ended=seat)
+        return
+    _most_base_hp(match, seats.seat_numbers(match), result, ended=seat)
+
+
+def _most_base_hp(match: MatchState, among, result: StepResult, *,
+                  ended: Optional[int] = None) -> None:
+    """
+    The free-for-all's comparison (Rulebook p. 14), among `among`: a sole
+    leader on base HP wins; a tied lead fills the playoff with the tied
+    seats, in turn order from the seat after the active one, each owed
+    one more turn -- the current turn running to its end first (the
+    UMR's reading, question 13) and changing nothing about who is in it
+    (question 15). `ended` is the seat whose base just fell, `None` where
+    the playoff's turns are over (question 16: among the tied alone).
+    """
+    hp = {seat: match.base_of(seat) for seat in among}
+    best = max(hp.values())
+    leaders = [seat for seat in seats.turn_order(match, match.active, inclusive=False)
+               if seat in hp and hp[seat] == best]
+    if len(leaders) == 1:
+        winner = leaders[0]
+        match.winner = winner
+        match.playoff = []
+        match.record_event("base_destroyed" if ended is not None else "tie_broken",
+                           loser=ended, winner=winner, base_hp=best)
+        if ended is None:
+            text = f"{tokens.player(winner)} wins with {best} base HP: the tie is broken."
+        else:
+            text = f"{tokens.player(winner)} wins with {best} base HP!"
+        result.narration.append(f"**{text}**")
+        result.headlines = (*result.headlines, Headline(text, seat=winner))
+        return
+    named = _listed([tokens.player(seat) for seat in leaders], ", ")
+    still = "Still tied" if ended is None and match.tied else "A tie"
+    match.tied = list(leaders)
+    match.playoff = list(leaders)
+    match.record_event("tied", seats=list(leaders), base_hp=best, loser=ended)
+    result.narration.append(
+        f"{still} at {best} base HP: {named} each take one more turn."
+    )
 
 
 def base_floor(match: MatchState, seat: int, by: Optional[int]) -> Optional[int]:
@@ -131,6 +192,12 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         raise RuleRefusal("Only a player of the game can concede it.")
     if match.winner is not None:
         raise RuleRefusal("This game is already over.")
+    if match.variant == "free_for_all":
+        # The author, 2026-10-11 (docs/codex-multiplayer.md, decision 5).
+        raise RuleRefusal(
+            "A free-for-all has no conceding: there is no player elimination.",
+            cite="Rulebook p. 14",
+        )
     match.winner = seats.sole_opponent(match, seat)
     match.conceded = seat
     match.record_event("conceded", loser=seat, winner=match.winner)
@@ -460,7 +527,9 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
 
     player = match.player(seat)
     kind, _, ident = name.partition(":")
-    if kind in ("fade", "fade_hero", "forecast"):
+    if kind == "mercenaries":
+        _mercenaries_arrive(engine, match, seat, result)
+    elif kind in ("fade", "fade_hero", "forecast"):
         _lose_time_rune(engine, match, seat, kind, ident, result)
     elif kind == "draw":
         if draw_cards(engine, match, seat, 1, result):
@@ -571,6 +640,35 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
     board.settle(engine, match, result)
 
 
+_COUNTS = {2: "two", 3: "three"}
+
+
+def _mercenaries_arrive(engine: "RulesEngine", match: MatchState, seat: int,
+                        result: StepResult) -> None:
+    """
+    A free-for-all's Mercenaries, in their owner's first upkeep (Rulebook
+    p. 14: "Player 3 gets one 1/1 neutral Mercenary tech 0 unit during
+    their first upkeep", players 4 and 5 two and three): tokens owned and
+    controlled by `seat`, made by no card, arriving as any unit does --
+    "it doesn't have haste, so it can't attack on their first turn". The
+    UMR's "begin with them in play" is not the rulebook's
+    (docs/codex-multiplayer.md, "Where the UMR differs").
+    """
+    from codex.engine import MERCENARY
+    from codex.flow import board
+
+    player = match.player(seat)
+    owed, player.mercenaries_owed = player.mercenaries_owed, 0
+    for _ in range(owed):
+        card = match.new_instance(MERCENARY, seat)
+        match.record_event("summoned_token", slug=MERCENARY, seat=seat)
+        board.arrive(engine, match, card)
+    if owed == 1:
+        result.narration.append(f"{tokens.player(seat)}'s {tokens.card(MERCENARY)} arrives.")
+    elif owed:
+        result.narration.append(f"{tokens.player(seat)}'s {_COUNTS.get(owed, owed)} Mercenaries arrive.")
+
+
 def _lose_time_rune(engine: "RulesEngine", match: MatchState, seat: int, kind: str,
                     ident: str, result: StepResult) -> None:
     """The upkeep's time rune off a fading card or hero, or a card in the
@@ -618,6 +716,17 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
         )
         return
     if match.winner is not None:
+        return
+    if match.variant == "free_for_all":
+        # Exactly a base destroyed (the author, 2026-10-14, question 17):
+        # the base to zero, and the comparison made then.
+        match.record_event("lost_by_debt", loser=seat, owed=owed)
+        result.narration.append(
+            f"**{tokens.player(seat)} can't pay the {tokens.gold(owed)} "
+            f"{tokens.card('promise_of_payment')} promised: their base is destroyed.**"
+        )
+        match.set_base(seat, 0)
+        base_destroyed(match, seat, result, said=True)
         return
     match.winner = seats.sole_opponent(match, seat)
     match.lost_by_debt = seat
@@ -868,8 +977,20 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # Free Speech: "until after that opponent's next turn" -- this one.
         player.silenced = False
         result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
+    if match.tied and not match.playoff:
+        # The last of the playoff's turns is over: the comparison again,
+        # among the tied alone (the author, 2026-10-14, question 16).
+        _most_base_hp(match, match.tied, result)
+        if match.winner is not None:
+            result.next = pending(engine, game, match)
+            return result
     following = engine.next_seat(match)
-    if following == seat:
+    if match.playoff:
+        # Each tied player takes one more turn, ahead of the order and of
+        # any extra turn (Rulebook p. 14).
+        match.playoff.pop(0)
+        match.active = following
+    elif following == seat:
         # Double Time: "Take an extra turn after this one" -- the turn passes
         # to the same player, with every phase (its ruling).
         match.extra_turns.pop(0)

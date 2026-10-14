@@ -28,16 +28,18 @@ from codex.prompts import owed_step
 
 def new_game(seed: int = 7, first: Optional[int] = 1,
              teams=(("bashing",), ("finesse",)), mode: Optional[str] = None,
+             variant: str = "duel",
              ) -> tuple[RulesEngine, CodexGame, MatchState]:
     """A started game, its engine seeded, and the match standing on the
     first turn's start: Bashing (seat 1) against Finesse (seat 2) by
     default, or `teams` -- each seat's specs, three for a standard game,
     whose `mode` follows from them unless given -- each on the deck the
     lobby settles, or its first hero's colour where it is the player's
-    choice."""
+    choice. `variant` "free_for_all" seats three to five as the record's
+    and deals the match as one (its Mercenaries owed)."""
     teams = tuple((team,) if isinstance(team, str) else tuple(team) for team in teams)
     engine = RulesEngine(seed=seed)
-    game = CodexGame("codex-test", 1)
+    game = CodexGame("codex-test", 1, variant=variant)
     game.mode = mode or ("standard" if len(teams[0]) == 3 else "basic")
     for seat, team in enumerate(teams[:game.seat_count], start=1):
         game.take_seat(100 * seat + seat, ("basher", "fencer", "third", "fourth", "fifth")[seat - 1], list(team))
@@ -49,7 +51,7 @@ def new_game(seed: int = 7, first: Optional[int] = 1,
         else:
             # A table the record has no seats for: a match built by hand.
             decks.append((catalog().hero_for(team[0]).color or "neutral").lower())
-    match = engine.new_match(teams, first=first, decks=tuple(decks))
+    match = engine.new_match(teams, first=first, decks=tuple(decks), variant=variant)
     game.match_state = match.to_dict()
     return engine, game, match
 
