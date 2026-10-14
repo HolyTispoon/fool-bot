@@ -112,7 +112,7 @@ class _Hit:
 def _fighter(match: MatchState, seat: int, ref: str) -> _Fighter:
     player = match.player(seat)
     if is_hero_ref(ref):
-        return _Fighter(seat, ref, hero=player.hero_by_ref(ref))
+        return _Fighter(seat, ref, hero=match.hero_on(seat, ref))
     instance_id = unit_ref(ref)
     if instance_id is not None:
         return _Fighter(seat, ref, card=player.instance(instance_id))

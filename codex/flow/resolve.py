@@ -2474,7 +2474,7 @@ def _disable_picked(engine, match, top, part, target, result) -> None:
 
 def _hail(engine, match, top, part, target, result) -> None:
     """Shuriken Hail: 1 to each patroller, both sides', at once."""
-    hit = [(player.seat, ref) for player in match.players for ref in player.patrollers().values()]
+    hit = [(player.seat, ref) for player in match.players for ref in match.patrollers(player.seat).values()]
     bodies = [board.body_of(match, *one) for one in hit]
     shielded = board.sentry_shields(engine, match, [body for body in bodies if body is not None], result)
     for one, body in zip(hit, bodies):

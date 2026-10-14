@@ -638,12 +638,49 @@ def end_main(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Ste
     return StepResult(next=pending(engine, game, match))
 
 
+def _lending(engine: "RulesEngine", match: MatchState, lent: Optional[Mapping],
+             candidates: tuple[str, ...]) -> list[tuple[int, str, str]]:
+    """The lock's lent patrollers as `(borrower, slot, ref)`, in seat and
+    slot order, refused unless each goes to an open slot of an
+    opponent's zone (Rulebook p. 14, free-for-all)."""
+    if not lent:
+        return []
+    zones = dict(engine.lending_zones(match))
+    if not zones:
+        raise RuleRefusal("Only a free-for-all lets a patroller be lent.", cite="Rulebook p. 14")
+    found = []
+    for key, slots in lent.items():
+        try:
+            borrower = int(key)
+        except (TypeError, ValueError):
+            raise RuleRefusal(f"There is no seat called {key!r}.", cite="Rulebook p. 14") from None
+        if borrower not in zones:
+            raise RuleRefusal(
+                "Patrollers are lent into an opponent's open slots only.", cite="Rulebook p. 14",
+            )
+        for slot, ref in dict(slots).items():
+            if slot not in zones[borrower]:
+                raise RuleRefusal(
+                    f"{tokens.player(borrower)}'s {SLOT_NAMES.get(slot, slot)} slot is not open.",
+                    cite="Rulebook p. 14",
+                )
+            if ref not in candidates:
+                raise RuleRefusal("Only your ready units and hero can patrol.", cite="UMR p. 10")
+            found.append((borrower, slot, ref))
+    return sorted(found, key=lambda one: (one[0], PATROL_SLOTS.index(one[1])))
+
+
 def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
-                assignment: Optional[Mapping[str, str]]) -> StepResult:
+                assignment: Optional[Mapping[str, str]],
+                lent: Optional[Mapping] = None) -> StepResult:
     """
     Put ready units and heroes into the five slots -- slot to
     `unit:<id>` or `hero:<slug>`, any slot left empty -- and end the main phase
     (UMR p. 10). Exhausted cards cannot patrol; fatigued ones can.
+
+    In a free-for-all `lent` puts some into an opponent's open slots
+    instead (Rulebook p. 14): `{seat: {slot: ref}}`. A card patrols one
+    slot, its owner's or a borrower's.
     """
     seat = match.active
     player = match.active_player
@@ -656,7 +693,9 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             raise RuleRefusal(
                 "Only your ready units and hero can patrol.", cite="UMR p. 10",
             )
-    if len(set(assignment.values())) != len(assignment):
+    lending = _lending(engine, match, lent, candidates)
+    patrolling = [*assignment.values(), *(ref for _, _, ref in lending)]
+    if len(set(patrolling)) != len(patrolling):
         raise RuleRefusal("A card patrols one slot at most.", cite="UMR p. 10")
     lines = []
     for slot in PATROL_SLOTS:
@@ -672,11 +711,25 @@ def lock_patrol(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             card.patrol_slot = slot
             named = tokens.card(card.slug)
         lines.append(f"{named} as {SLOT_NAMES[slot]}")
+    lends = []
+    for borrower, slot, ref in lending:
+        named = tokens.hero(player.hero_by_ref(ref).slug) if is_hero_ref(ref) else \
+            tokens.card(player.instance(int(ref.split(":", 1)[1])).slug)
+        board.lend(match, seat, ref, borrower, slot)
+        lends.append(f"{named} to {tokens.player(borrower)} as {SLOT_NAMES[slot]}")
     if lines:
         said = f"{tokens.player(seat)} patrols with " + ", ".join(lines) + "."
-    else:
+    elif not lends:
         said = f"{tokens.player(seat)} leaves the patrol zone empty."
-    match.record_event("patrolled", slots=dict(assignment))
+    else:
+        said = ""
+    if lends:
+        said = (said + " " if said else "") + f"{tokens.player(seat)} lends " + ", ".join(lends) + "."
+    if lending:
+        match.record_event("patrolled", slots=dict(assignment),
+                           lent=[[borrower, slot, ref] for borrower, slot, ref in lending])
+    else:
+        match.record_event("patrolled", slots=dict(assignment))
     narration = [said]
     if player.discards_at_main_end:
         # Desperation: "Discard your hand at the end of the main phase" --

@@ -975,7 +975,7 @@ class RulesEngine:
         player = match.player(seat)
         defending = self.defending_seat(match, None, attacker_seat=seat) if against is not None else None
         if is_hero_ref(ref):
-            body = player.hero_by_ref(ref)
+            body = match.hero_on(seat, ref)
             atk = self._hero_raw(body, match)[0]
         elif ref.startswith("unit:"):
             body = player.instance(int(ref.split(":", 1)[1]))
@@ -1103,13 +1103,13 @@ class RulesEngine:
         )
 
     def seat_of(self, match: MatchState, body) -> Optional[int]:
-        """Who controls a unit or a hero in play."""
-        if isinstance(body, CardInstance):
-            return body.controller
-        for player in match.players:
-            if any(hero is body for hero in player.heroes):
-                return player.seat
-        return None
+        """Who controls a unit or a hero in play (`MatchState.controller_of`:
+        a lent hero's borrower)."""
+        return match.controller_of(body)
+
+    def owner_of_hero(self, match: MatchState, hero: HeroState) -> int:
+        """The seat a hero belongs to: whose list it is on, lent or not."""
+        return next(player.seat for player in match.players if any(one is hero for one in player.heroes))
 
     def partnered(self, match: MatchState, card: CardInstance, *, both_held: bool = False):
         """
@@ -2058,7 +2058,7 @@ class RulesEngine:
         """
         player = match.player(seat)
         if is_hero_ref(ref):
-            hero = player.hero_by_ref(ref)
+            hero = match.hero_on(seat, ref)
             return hero if hero is not None and hero.in_play else None
         instance_id = unit_ref(ref)
         if instance_id is None:
@@ -2439,7 +2439,7 @@ class RulesEngine:
         other = self.defending_seat(match, against)
         flying = self.has(match, seat, attacker, "Flying")
         blocking = {}
-        for slot, ref in match.player(other).patrollers().items():
+        for slot, ref in match.patrollers(other).items():
             if self.has(match, other, ref, "Flying") != flying:
                 continue
             if not self.may_be_attacked(match, attacker, ref, against=against):
@@ -2494,7 +2494,7 @@ class RulesEngine:
             # Garus Rook at 5: "Unstoppable by patrol zones with only one
             # patroller."
             other = self.defending_seat(match, against)
-            if len(match.player(other).patrollers()) == 1:
+            if len(match.patrollers(other)) == 1:
                 return True
         most = effects.UNSTOPPABLE_BY_WEAK.get(slug or "")
         if most is not None and unit and self.attack_value(
@@ -2577,7 +2577,7 @@ class RulesEngine:
         # A patroller it may take is said as one, as above: it neither
         # flew over nor sneaked past the zone it is standing in.
         why = self._open_why(match, attacker, against=against)
-        slot_of = {ref: slot for slot, ref in match.player(other).patrollers().items()}
+        slot_of = {ref: slot for slot, ref in match.patrollers(other).items()}
         return tuple(
             (ref, self._patroller_why(slot_of[ref]) if ref in slot_of else why)
             for ref in self._standing(match, other)
@@ -2616,7 +2616,7 @@ class RulesEngine:
     def _open_why(self, match: MatchState, attacker: str, against: Optional[int] = None) -> str:
         """Why nothing in the patrol zone holds this attacker."""
         other = self.defending_seat(match, against)
-        if not match.player(other).patrollers():
+        if not match.patrollers(other):
             return "no patrol"
         sneaking = self.ignores_patrollers(match, attacker, against=against)
         if sneaking == "unstoppable":
@@ -2653,7 +2653,7 @@ class RulesEngine:
             return ()
         if self.ignores_patrollers(match, attacker):
             return ()
-        patrollers = match.player(other).patrollers()
+        patrollers = match.patrollers(other)
         slot_of = {ref: slot for slot, ref in patrollers.items()}
         taken = slot_of.get(defender)
         over = []
@@ -2715,7 +2715,7 @@ class RulesEngine:
         slot = self.patrol_slot_of(match, other, defender)
         if slot is None:
             return ()
-        patrollers = match.player(other).patrollers()
+        patrollers = match.patrollers(other)
         index = PATROL_SLOTS.index(slot)
         found = []
         for step in (-1, 1):
@@ -2788,7 +2788,7 @@ class RulesEngine:
             # Stampede's excess goes to the base, over overpower's.
             return ()
         patrollers = [
-            ref for slot, ref in match.player(other).patrollers().items()
+            ref for slot, ref in match.patrollers(other).items()
             if ref != defender and self.may_be_attacked(match, attacker, ref)
         ]
         if patrollers:
@@ -2898,7 +2898,7 @@ class RulesEngine:
                 (side, ref) for ref in self._buildings_of(match, side)
                 if not self._under_construction(player, ref)
             ] + [(side, card.ref) for card in self._building_cards_of(match, side)]
-            patrollers = [(side, ref) for ref in player.patrollers().values()]
+            patrollers = [(side, ref) for ref in match.patrollers(side).values()]
 
             if choose == "patroller":
                 found += patrollers
@@ -3172,14 +3172,14 @@ class RulesEngine:
                 if side == frame.get("against"):
                     found += [(side, card.ref) for card in units if card.slug == effects.STINGER]
             elif choose == "ground_patroller":
-                found += [(side, ref) for ref in player.patrollers().values()
+                found += [(side, ref) for ref in match.patrollers(side).values()
                           if not self.has_keyword(self.body(match, side, ref), "Flying", match)]
             elif choose == "empty_slot":
                 # Zane's shove: an empty slot of the shoved patroller's
                 # own zone -- the side the frame's first pick was on.
                 shoved = (frame.get("taken") or [None])[0]
                 if shoved is not None and int(shoved.split(":", 1)[0]) == side:
-                    filled = player.patrollers()
+                    filled = match.patrollers(side)
                     found += [(side, f"{SLOT}{slot}") for slot in PATROL_SLOTS if slot not in filled]
             elif choose == "unit_or_non_peace_hero":
                 # Boot Camp: "a unit or non-Peace hero".
@@ -3768,6 +3768,21 @@ class RulesEngine:
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted
         )
+        return tuple(found)
+
+    def lending_zones(self, match: MatchState) -> tuple[tuple[int, tuple[str, ...]], ...]:
+        """Each opponent's empty patrol slots, which the active player may
+        lend a patroller into at the lock (Rulebook p. 14) -- `(seat,
+        slots)` in seat order, a free-for-all's alone and only the seats
+        that have a slot open."""
+        if match.variant != "free_for_all":
+            return ()
+        found = []
+        for foe in self.opponents(match, match.active):
+            filled = match.patrollers(foe)
+            open_slots = tuple(slot for slot in PATROL_SLOTS if slot not in filled)
+            if open_slots:
+                found.append((foe, open_slots))
         return tuple(found)
 
     def codex_counts(self, player: PlayerState) -> tuple[tuple[str, int], ...]:

@@ -271,8 +271,8 @@ def _answer_defender(engine, game, match, prompt, choice, *, defender=None, agai
     return combat.declare_attack(engine, game, match, match.attacking, defender, against)
 
 
-def _answer_patrol(engine, game, match, prompt, choice, *, assignment=None) -> StepResult:
-    return actions.lock_patrol(engine, game, match, assignment)
+def _answer_patrol(engine, game, match, prompt, choice, *, assignment=None, lent=None) -> StepResult:
+    return actions.lock_patrol(engine, game, match, assignment, lent)
 
 
 def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, picks=None) -> StepResult:
@@ -447,7 +447,7 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
         "spec", "lab_spec", "boost",
     }),
     PromptKind.CHOOSE_DEFENDER: frozenset({"defender", "against"}),
-    PromptKind.PATROL: frozenset({"assignment"}),
+    PromptKind.PATROL: frozenset({"assignment", "lent"}),
     PromptKind.TECH_CHOICE: frozenset({"player", "picks"}),
     PromptKind.TECH_CONFIRM: frozenset({"player"}),
     PromptKind.OBLITERATE_CHOICE: frozenset({"unit"}),

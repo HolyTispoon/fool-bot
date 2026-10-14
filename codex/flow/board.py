@@ -20,7 +20,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import effects, seats, tokens
-from codex.components import TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref
+from codex.components import (
+    TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref, lent_hero_ref,
+)
 from codex.engine import (
     BASE_HP,
     BUILDING_DESTROYED_DAMAGE,
@@ -51,7 +53,7 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
     owner = f"{tokens.player(seat)}'s " if whose else ""
     player = match.player(seat)
     if is_hero_ref(ref):
-        hero = player.hero_by_ref(ref)
+        hero = match.hero_on(seat, ref)
         if hero is not None:
             return f"{owner}{tokens.hero(hero.slug)}"
     instance_id = unit_ref(ref)
@@ -74,7 +76,7 @@ def body_of(match: MatchState, seat: int, ref: str):
     building, or something no longer in play."""
     player = match.player(seat)
     if is_hero_ref(ref):
-        hero = player.hero_by_ref(ref)
+        hero = match.hero_on(seat, ref)
         return hero if hero is not None and hero.in_play else None
     instance_id = unit_ref(ref)
     return None if instance_id is None else player.instance(instance_id)
@@ -372,13 +374,15 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
         line = f"{named(match, seat, card.ref)} is destroyed."
     leave_play(engine, match, card, "died")
     match.record_event("destroyed", slug=card.slug, owner=card.owner)
+    # A lent card pays its owner, not the borrower (Rulebook p. 14).
+    paid = card.owner if card.lent else card.controller
     if card.patrol_slot == "scavenger":
-        gained = gain_gold(match, card.controller, SCAVENGER_GOLD)
-        line += f" As scavenger, it gives {tokens.player(card.controller)} {tokens.gold(gained)}."
+        gained = gain_gold(match, paid, SCAVENGER_GOLD)
+        line += f" As scavenger, it gives {tokens.player(paid)} {tokens.gold(gained)}."
     elif card.patrol_slot == "technician":
-        drawn = draw_cards(engine, match, card.controller, TECHNICIAN_CARDS, result)
+        drawn = draw_cards(engine, match, paid, TECHNICIAN_CARDS, result)
         if drawn:
-            line += f" As technician, it draws {tokens.player(card.controller)} a card."
+            line += f" As technician, it draws {tokens.player(paid)} a card."
     if bounty:
         active = match.active_player
         paid = gain_gold(match, match.active, min(BOUNTY, BOUNTIES_A_TURN - active.bounties))
@@ -390,7 +394,10 @@ def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: Car
 
 def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
                   result: StepResult, by: str = "") -> None:
-    ref = hero_ref(hero.slug)
+    # A lent hero is named where it stands, on its borrower's side, and
+    # leaves play for its owner.
+    owner = engine.owner_of_hero(match, hero)
+    ref = lent_hero_ref(owner, hero.slug) if hero.lent_to is not None else hero_ref(hero.slug)
     line = (
         f"{named(match, seat, ref)} dies and returns to the command zone with "
         f"{SUMMONING_RUNES_ON_DEATH} summoning runes."
@@ -414,10 +421,11 @@ def _destroy_hero(engine: "RulesEngine", match: MatchState, seat: int, hero: Her
     hero.disabled = False
     hero.runes = {}
     hero.max_level_since_turn_began = False
+    hero.lent_to = None
     hero.summoning_runes = SUMMONING_RUNES_ON_DEATH
-    match.record_event("hero_died", slug=hero.slug, owner=seat)
+    match.record_event("hero_died", slug=hero.slug, owner=owner)
     result.narration.append(line)
-    hero_left(engine, match, seat, hero, result)
+    hero_left(engine, match, owner, hero, result)
 
 
 def to_command_zone(engine: "RulesEngine", match: MatchState, seat: int, hero: HeroState,
@@ -492,7 +500,7 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     dead_heroes: list[tuple[int, HeroState]] = []
     for seat, ref in things:
         if is_hero_ref(ref):
-            hero = match.player(seat).hero_by_ref(ref)
+            hero = match.hero_on(seat, ref)
             if hero is not None and hero.in_play and not forced and two_lives_saves(
                 engine, match, hero, result,
             ):
@@ -1087,6 +1095,55 @@ def gain_control(match: MatchState, card: CardInstance, seat: int) -> bool:
     return True
 
 
+def lend(match: MatchState, owner: int, ref: str, borrower: int, slot: str) -> None:
+    """The unit or hero `ref` of `owner`'s into `slot` of `borrower`'s
+    patrol zone (Rulebook p. 14, free-for-all): `borrower` controls it,
+    `owner` does not, and **nothing on the card changes** -- its runes,
+    damage, attachments and exhaustion stay, and no Arrives trigger
+    fires. A unit moves to the borrower's play zone, marked `lent`; a
+    hero stays on its owner's list with `lent_to` set (and the slot,
+    which `MatchState.patrollers` reads for the borrower)."""
+    if is_hero_ref(ref):
+        hero = match.player(owner).hero_by_ref(ref)
+        hero.lent_to = borrower
+        hero.patrol_slot = slot
+        return
+    card = match.player(owner).instance(unit_ref(ref))
+    match.player(owner).play.remove(card)
+    card.controller = borrower
+    card.lent = True
+    card.patrol_slot = slot
+    match.player(borrower).play.append(card)
+
+
+def return_lent(engine: "RulesEngine", match: MatchState, seat: int, result: StepResult) -> None:
+    """The borrower's upkeep: every card they control with `lent` set,
+    and every hero lent to them, goes home to its owner -- out of the
+    patrol zone and into the owner's play zone, never theirs, with no
+    Arrives trigger and nothing else changed (Rulebook p. 14). The ready
+    phase before it has already readied them as the borrower's."""
+    borrowed = [card for card in match.player(seat).play if card.lent]
+    for card in borrowed:
+        match.player(seat).play.remove(card)
+        card.controller = card.owner
+        card.lent = False
+        sideline(card)
+        match.player(card.owner).play.append(card)
+        result.narration.append(
+            f"{tokens.card(card.slug)} goes home to {tokens.player(card.owner)}."
+        )
+    for owner in match.players:
+        for hero in owner.heroes:
+            if hero.lent_to == seat:
+                hero.lent_to = None
+                sideline(hero)
+                result.narration.append(
+                    f"{tokens.hero(hero.slug)} goes home to {tokens.player(owner.seat)}."
+                )
+    if borrowed:
+        match.record_event("lent_returned", count=len(borrowed))
+
+
 def lasting_armor(match: MatchState, card: CardInstance) -> None:
     """Stampede's +3 armor for a unit that comes under a side whose
     Stampede is in play this turn -- the ATK is the engine's to read, the
@@ -1619,9 +1676,13 @@ def settle(engine: "RulesEngine", match: MatchState, result: StepResult,
                         # (the indestructible ruling): nothing more to do.
                         continue
                     dead.append((player.seat, card.ref))
-            for hero in player.heroes_in_play:
+            for hero in player.heroes_on_table:
                 if _lethal(engine, match, hero):
-                    dead.append((player.seat, hero_ref(hero.slug)))
+                    if hero.lent_to is None:
+                        dead.append((player.seat, hero_ref(hero.slug)))
+                    else:
+                        # Lent: it dies on its borrower's side (Rulebook p. 14).
+                        dead.append((hero.lent_to, lent_hero_ref(player.seat, hero.slug)))
         if dead:
             destroy(engine, match, dead, result, cause=cause)
             continue

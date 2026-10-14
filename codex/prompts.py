@@ -180,9 +180,16 @@ class DefenderOptions:
 class PatrolOptions:
     candidates: tuple[str, ...]
     slots: tuple[str, ...] = PATROL_SLOTS
+    #: Each opponent's empty slots, `(seat, slots)`, which a patroller may
+    #: be lent into beside the owner's own `slots` -- a free-for-all's
+    #: alone (Rulebook p. 14); empty otherwise.
+    zones: tuple[tuple[int, tuple[str, ...]], ...] = ()
 
     def to_dict(self) -> dict:
-        return {"candidates": list(self.candidates), "slots": list(self.slots)}
+        data = {"candidates": list(self.candidates), "slots": list(self.slots)}
+        if self.zones:
+            data["zones"] = {str(seat): list(slots) for seat, slots in self.zones}
+        return data
 
 
 @dataclass(frozen=True)
@@ -779,7 +786,7 @@ def _defender_options(engine, game, match, prompt) -> DefenderOptions:
 
 
 def _patrol_options(engine, game, match, prompt) -> PatrolOptions:
-    return PatrolOptions(engine.patrol_candidates(match))
+    return PatrolOptions(engine.patrol_candidates(match), zones=engine.lending_zones(match))
 
 
 def _tech_options(engine, game, match, prompt) -> TechOptions:
