@@ -677,6 +677,23 @@ class OverpowerTests(unittest.TestCase):
         self.assertIsNone(match.player(4).instance(far.id))
         self.assertIsNotNone(match.player(3).instance(near.id))
 
+    def test_the_teams_other_patrollers_come_before_anything_else_of_theirs(self) -> None:
+        """Sirlin's priority, read over the team: with a patroller left in
+        either zone the excess goes to a patroller, not to a building."""
+        engine, game, match = started()
+        reaper = put(match, 1, "harvest_reaper")
+        leader = put(match, 3, "tenderfoot", patrol="squad_leader")
+        far = put(match, 4, "tenderfoot", patrol="elite")
+        built(match, 3, "tech1")
+        put(match, 4, "tenderfoot")
+        match.against = 3        # the attack is declared against seat 3
+        self.assertEqual(engine.overpower_team(match, reaper.ref, leader.ref), (f"4:{far.ref}",))
+        match.player(4).instance(far.id).patrol_slot = None
+        candidates = engine.overpower_team(match, reaper.ref, leader.ref)
+        self.assertIn("tech1", candidates)
+        self.assertIn("base", candidates)
+        self.assertEqual(sum(1 for one in candidates if one.endswith("base")), 1)
+
     def test_a_duels_candidates_are_unchanged(self) -> None:
         engine, game, match = new_game()
         begin(engine, game, match)

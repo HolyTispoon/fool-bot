@@ -3641,6 +3641,148 @@ seat brings).
   table's buttons as a duel's.
 - **Not yet**: the two-headed dragon (steps 5 and 6).
 
+### Step 5: the two-headed dragon through the driver
+
+The dragon is played whole by the model -- two teams of two, basic and
+standard, the policy of `tests/test_codex_driver_full_game.py` answering
+the two teammates' questions in turn, with nothing of `cogs/` imported --
+and pinned by its own golden, `tests/golden/codex_dragon_*`. The duel's
+and the free-for-all's goldens pass unrecorded: every field the step
+added is written to a save only where it is set. The lobby still refuses
+the variant (`CodexGame.set_variant`, "not in this bot yet"), since
+opening it, the boards and the panels are step 6's; a test builds its
+record with `CodexGame(variant="two_headed_dragon")`.
+
+- **The teams and the deal.** `MatchState.dragons` (saved, `[]`
+  otherwise) holds the two pairs, seats 1 and 2 and 3 and 4, the first
+  seat of each its head. `seats.dragon_of`, `teammate` and `opponents`
+  read it, so a teammate is never an opponent and everything that asks
+  `opponents` -- the tower's reach, Moment's Peace, a hand revealed, a
+  dead hero's levels, "an opponent's" -- already means the other team's
+  two. `new_match` draws the first *team*, deals both its seats 4
+  workers and the other's 5, and sets every `base_hp` to `DRAGON_BASE_HP`
+  (30); the team's base is its head's `base_hp` through `base_seat`
+  (`base_of`, `set_base`, and `base_cap` for what repairs and the "now at
+  x/30" lines count against), and **the second seat's `base_hp` is dealt
+  and never read** (decision 9). A team never holds two of the same
+  add-on (Rulebook p. 13): `build_option` refuses one the teammate has,
+  finished or not, citing the page. `engine.team_sees` is the teammate in
+  a dragon and nobody otherwise; `hands_visible_to` folds it in, and
+  `shown_to` -- behind `codex_remaining`, `own_deck` and `tech_picks_of`
+  -- refuses a codex, a deck or a tech choice that is neither the
+  viewer's own nor the one `team_sees` names (decision 13).
+- **`match.active` is whichever teammate is acting -- a deviation from
+  the step's prompt, which kept it the team's head.** 145 sites in
+  `codex/` read `match.active` as "the seat doing this" (every action,
+  the attack under way, a frame's `cause`), and giving each a seat of its
+  own was a second reading of the same thing. So the driver runs an
+  action **with the seat that answered it active** (`driver.answer`), and
+  puts the team's head back between actions (`driver.settle_active`,
+  once nothing stands half-resolved); every reading made on a seat's
+  behalf -- their prompt's options and ask -- is made under
+  `seats.as_active`. It costs nothing in the questions that are the
+  team's: `turn_seats` is the dragon of the active seat, the same for
+  both teammates, and `next_seat` and the snapshots rest on the head.
+  Between actions, `active` is the head; mid-attack it is the attacker.
+- **A prompt per acting seat.** `pending` stays the one reading and grows
+  a `seat`; `pending_all` lists everything the team is waiting on and
+  `pending_prompts` its questions, one per acting seat; `pending_prompt`
+  keeps its one-seat reading for the duel and the free-for-all and
+  raises `SeveralAsked` where a dragon has more than one. Where one
+  teammate's action stands half-resolved (an effect under way, an attack
+  declared, a choice inside it) the team's question is that one alone,
+  and the other's click is refused "Waiting on {player:n}'s attack."
+  (`_half_resolved`). `GameResult.prompts` carries the list (empty
+  outside a dragon, and never on the wire), `prompt` the first.
+- **Every action names its seat.** `ARGUMENTS` allows `player` on every
+  kind; in a dragon the driver finds the prompt of the action's seat,
+  fills `player` in where an older journal leaves it out (the active
+  seat's), and **journals the action with it**, so a replay is exact. A
+  duel's and a free-for-all's actions are never given one, which is why
+  their journals are the bytes they were.
+- **The team's turn.** `begin_turn` readies both teammates in seat
+  order (`_ready`), takes the turn's one snapshot, then each teammate's
+  upkeep in seat order (`_begin_upkeep`): the second's after the first's
+  has run to its end, carried on the first's frame (`then`), so a
+  question the first's upkeep asks stands where a restart finds it and
+  its answer carries on into the second's. The turn opens on both
+  teammates' `TECH_CONFIRM` (or `TECH_CHOICE`), and begins once both are
+  settled. A seat that ends its main phase (`PlayerState.locking`) owes
+  its patrol lock while the other goes on; the lock (`PlayerState.locked`,
+  cleared with the next team turn) ends that seat's actions, and the
+  second lock ends the team's main phase -- the draw runs for both (a
+  stash answered per seat first, `stash_choice`) and the tech phase's
+  "End of turn" line names both players. Both teammates owe their tech
+  choice, which stands through the other team's turn
+  (`standing_prompts` is every seat outside the turn). **An extra turn is
+  one seat's alone** ("you means you", Rulebook p. 13): Double Time's
+  `extra_turns` names a seat, `MatchState.solo` is that seat while it
+  runs, and `turn_seats` and `acting_seats` are that seat -- the
+  teammate neither readies nor acts.
+- **The team's end.** A destroyed base is the other team's win:
+  `MatchState.winner` is the winning team's head and `conceded` the
+  conceding team's (decision 5), `GameOverOptions.winners` both players,
+  and the lines name both ("{player:3} and {player:4}'s base is
+  destroyed. {player:1} and {player:2} win!"). A teammate who cannot pay
+  Promise of Payment's debt loses for the team (question 17). The base is
+  named for its team wherever a line names it (`formatting.base_owner`),
+  however the attack or the effect named the seat.
+- **The undos.** The snapshot is the team turn's, so *To the start of my
+  turn* and the fine undo take either teammate's actions back, and
+  `start_tech_over` asks both teammates' picks again. *Take back the end
+  of my turn* is `history.end_of_turn_owners` -- both players of the team
+  that took the turn -- and closes once either player of the next team
+  has acted.
+- **Attacking.** The other team's two patrol zones are one
+  (`RulesEngine._pooled_rows`, Rulebook p. 13): a squad leader of
+  either, the attacker choosing which; else any patroller of either;
+  else anything with HP of either and the shared base once. Each zone's
+  own rows are `_foe_rows` -- the keywords' exceptions (stealth, flying,
+  unstoppable) are read zone by zone -- and a zone the attacker passes
+  protects nothing of the partner's. The defender prompt lists each row
+  with its seat as the free-for-all's does. The **tower** detects an
+  attack on its owner or on the shared base (`detecting_tower`: the
+  attacked seat's, and the teammate's too when the base is attacked) and
+  not an attack on the teammate's cards -- "you means you" -- while its
+  damage falls on an attacker of anything the team controls
+  (`towers_seeing`: each tower that sees it deals its 1) -- both as
+  written, detection narrower than damage. **Overpower's excess** may go
+  to anything the attacked team controls (`overpower_team`: the
+  teammate's candidates are `<seat>:<ref>`). **Moment's Peace** removes
+  its caster's cards and the shared base from the units' defenders, not
+  the teammate's. Captured Bugblatter asks nothing where the opponents
+  share one base, and "each opponent's base" (Drakk, the Pirategang) is
+  each *base* there is. A dead hero's levels go to either of the other
+  team's heroes, the active player choosing (`board.destroy` already
+  asked `opponents`), and a destroyed tech building or add-on deals its
+  2 to the team's base (`damage_base` is `base_of`'s).
+- **The words.** `Part.friendly` is set on the eight effect parts whose
+  text says "friendly" and reads the things of the seat the part is
+  relative to *and its teammate's* (`target_candidates`' `friendly`):
+  Aged Sensei, Bloom, Forest's Favor, Sparring Partner, Eyes of the
+  Chancellor, Max Geiger's max level, Vandy Anadrose's friendly unit,
+  and Orpal Gloor's "friendly to the dead unit", which is relative to
+  the dead unit's controller (`units_of_against`), not the effect's.
+  Focus Master and the five Healing cards read the teammate by the
+  engine (`focus_prevents`; the healing upkeep heals the teammate's
+  units and heroes at the healer's upkeep). `test_codex_dragon.
+  FriendlyTests` holds the fourteen texts to the flags, and that no part
+  that says "your" carries one. "Your", "you control" and a count of
+  what "you have" stay the controller's, and so does Mythmaking's malus,
+  which is an *opponent's* legendary units alone. **Nobody spends a
+  teammate's gold, uses a teammate's abilities or patrols in a
+  teammate's zone** -- each is impossible by construction (every action
+  reads the acting seat's `active_player`; the abilities list and the
+  patrol candidates are the acting seat's cards; `lending_zones` is a
+  free-for-all's alone) and `YouMeansYouTests` holds each.
+- **Not yet**: the dragon's lobby, channel, turn message, two panels at
+  once, a teammate's hand picture, the board of two rows, the shared
+  base drawn once and the concession both teammates agree to are step
+  6's. The team's turn heading and the "End of turn" line already name
+  both players (`formatting.turn_heading`). Dothram Horselord's "a
+  player with more total ATK" is read per *seat*, as written (the
+  worksheet's open reading: question 24 in this step's PR).
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:

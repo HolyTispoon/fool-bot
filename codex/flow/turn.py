@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, seats, tokens
-from codex.formatting import team_name
+from codex.formatting import base_owner, team_name
 from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -93,7 +93,7 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         kept = min(base, floor)
         if base - amount < kept:
             result.narration.append(
-                f"{tokens.card('blackhand_dozer')} holds {tokens.player(seat)}'s base at {kept}."
+                f"{tokens.card('blackhand_dozer')} holds {base_owner(match, seat)}'s base at {kept}."
             )
         match.set_base(seat, kept)
         return
@@ -699,7 +699,7 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
         card = player.instance(int(ident))
         if card is not None:
             amount = effects.SELF_BASE_UPKEEP[card.slug]
-            result.narration.append(f"{tokens.card(card.slug)} deals {amount} to {tokens.player(seat)}'s base.")
+            result.narration.append(f"{tokens.card(card.slug)} deals {amount} to {base_owner(match, seat)}'s base.")
             damage_base(match, seat, amount, result, by=seat)
     elif kind == "debt":
         _pay_debt(match, seat, result)
@@ -781,7 +781,7 @@ def _plague_lord(engine: "RulesEngine", match: MatchState, seat: int, card,
         runes = sum(body.minus_runes for body in (*player.play, *player.heroes_in_play))
         if runes:
             result.narration.append(
-                f"{tokens.card(card.slug)} deals {runes} to {tokens.player(player.seat)}'s base: "
+                f"{tokens.card(card.slug)} deals {runes} to {base_owner(match, player.seat)}'s base: "
                 f"{runes} -1/-1 rune{'' if runes == 1 else 's'}."
             )
             damage_base(match, player.seat, runes, result, by=seat)

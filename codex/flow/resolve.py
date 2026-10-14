@@ -28,6 +28,7 @@ import re
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, history, tokens
+from codex.formatting import base_owner
 from codex.components import CardInstance, MatchState, hero_ref
 from codex.engine import WORKERS, parse_target, target_key
 from codex.flow import board
@@ -845,7 +846,7 @@ def _base_damage(engine, match, top, part, target, result) -> None:
         if match.winner is not None:
             return
         result.narration.append(
-            f"{source} deals {amount} to {tokens.player(other)}'s base"
+            f"{source} deals {amount} to {base_owner(match, other)}'s base"
             f"{board.base_left_after(match, other, amount, by=seat)}."
         )
         damage_base(match, other, amount, result, by=seat)
@@ -935,7 +936,7 @@ def _coin(engine, match, top, part, target, result) -> None:
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
         f"{top['by']} flips a coin: tails. It is sacrificed, and "
-        f"{tokens.player(seat)}'s base takes {amount} damage"
+        f"{base_owner(match, seat)}'s base takes {amount} damage"
         f"{board.base_left_after(match, seat, amount)}."
     )
     if mine is not None:
@@ -955,7 +956,7 @@ def _pillage(engine, match, top, part, target, result) -> None:
     steal = 2 if pirate else part.amount
     amount = damage_amount(engine, match, top, steal)
     result.narration.append(
-        f"{top['by']} deals {amount} to {tokens.player(other)}'s base"
+        f"{top['by']} deals {amount} to {base_owner(match, other)}'s base"
         f"{board.base_left_after(match, other, amount, by=top['seat'])}."
     )
     damage_base(match, other, amount, result, by=top["seat"])
@@ -1029,7 +1030,7 @@ def _active_base_damage(engine, match, top, part, target, result) -> None:
     seat = match.active
     amount = damage_amount(engine, match, top, part.amount)
     result.narration.append(
-        f"{top['by']} deals {amount} to {tokens.player(seat)}'s base"
+        f"{top['by']} deals {amount} to {base_owner(match, seat)}'s base"
         f"{board.base_left_after(match, seat, amount, by=top['seat'])}."
     )
     damage_base(match, seat, amount, result, by=top["seat"])
@@ -1864,7 +1865,7 @@ def _dark_pact(engine, match, top, part, target, result) -> None:
     """Dark Pact: 2 to a base, then that player draws 2."""
     seat, _ = target
     amount = damage_amount(engine, match, top, part.amount)
-    result.narration.append(f"{top['by']} deals {amount} to {tokens.player(seat)}'s base.")
+    result.narration.append(f"{top['by']} deals {amount} to {base_owner(match, seat)}'s base.")
     damage_base(match, seat, amount, result, by=top["seat"])
     if match.winner is not None:
         return

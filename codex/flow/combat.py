@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 from codex import effects, tokens
+from codex.formatting import base_owner
 from codex.components import CardInstance, HeroState, MatchState, is_hero_ref
 from codex.engine import SPARKSHOT_DAMAGE, TOWER_DAMAGE, parse_target, unit_ref
 from codex.flow import board, resolve
@@ -759,7 +760,7 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
         for _ in gone:
             atk = engine.unit_stats(hitting.card, match)[0]
             result.narration.append(
-                f"{tokens.card(slug)} destroyed a building: it deals {atk} to {tokens.player(other)}'s base"
+                f"{tokens.card(slug)} destroyed a building: it deals {atk} to {base_owner(match, other)}'s base"
                 f"{board.base_left_after(match, other, atk, by=seat)}."
             )
             board.damage_base(match, other, atk, result, by=seat)

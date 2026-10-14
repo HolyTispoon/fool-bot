@@ -47,6 +47,7 @@ from codex.prompts import (
     PromptKind,
     owed_step,
     pending_prompt,
+    pending_prompts,
     standing_prompts,
 )
 
@@ -123,8 +124,8 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     if kind is PromptKind.PATROL:
         assignment = dict(zip(PATROL_SLOTS, options.candidates))
         return Action(kind, arguments={"assignment": assignment})
-    # The main phase.
-    player = match.active_player
+    # The main phase: the asked seat's, which in a dragon is either teammate's.
+    player = match.player(prompt.asked_player)
     if options.hire.allowed and player.workers < 10:
         playable = {row.slug for row in options.playable if row.allowed}
         # A spell is kept for the hero to cast; anything else not
@@ -172,16 +173,24 @@ WHITE_BLUE_TEAMS = (["discipline", "ninjutsu", "strength"], ["law", "peace", "tr
 WHITE_BLUE_SEED = 20261011
 
 
-def play(seed: int = SEED, *, say=None, teams=None, players=None,
-         turn_limit: int = TURN_LIMIT) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
+def play(seed: int = SEED, *, say=None, teams=None, players=None, dragon=None,
+         turn_limit: int = TURN_LIMIT, max_steps: int = 20000) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
     """Play a whole game -- Bashing against Finesse, or a standard game
     of `teams` -- and return the engine, the record, the final match and
     the transcript in plain words. `players`, a spec per seat, plays a
     basic free-for-all of three to five (docs/codex-multiplayer.md,
-    step 2), the policy playing every seat."""
+    step 2), the policy playing every seat; `dragon`, four teams (one
+    spec each in a basic game, three in a standard one), a two-headed
+    dragon (step 5) in which the policy answers whichever seat is asked,
+    the two teammates' questions in turn."""
     engine = RulesEngine(seed=seed)
-    game = CodexGame("codex-full-game", 1)
-    if players is not None:
+    game = CodexGame("codex-full-game", 1, variant="two_headed_dragon" if dragon is not None else "duel")
+    if dragon is not None:
+        if len(dragon[0]) == 3:
+            game.set_mode("standard")
+        for number, team in enumerate(dragon, start=1):
+            game.take_seat(100 * number + number, f"player{number}", list(team))
+    elif players is not None:
         game.set_variant("free_for_all")
         for number, spec in enumerate(players, start=1):
             game.take_seat(100 * number + number, f"player{number}", spec)
@@ -214,7 +223,7 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None,
         return loaded
 
     steps = 0
-    while match.winner is None and match.turn <= turn_limit:
+    while match.winner is None and match.turn <= turn_limit and steps < max_steps:
         steps += 1
         assert steps < 20000, "the game is not making progress"
         owed = owed_step(engine, game, match)
@@ -229,8 +238,18 @@ def play(seed: int = SEED, *, say=None, teams=None, players=None,
                 assert not isinstance(run, driver.Refusal), run
                 heard(run)
                 match = reload(match)
-        prompt = pending_prompt(engine, game, match)
-        run = driver.apply(engine, game, match, choose(engine, match, prompt))
+        if match.dragons:
+            # Both teammates are asked at once; the policy answers them in
+            # turn, so their actions interleave in one main phase.
+            asked = pending_prompts(engine, game, match)
+            prompt = asked[steps % len(asked)]
+            action = choose(engine, match, prompt)
+            action = Action(action.kind, action.choice,
+                            {**action.arguments, "player": prompt.asked_player})
+        else:
+            prompt = pending_prompt(engine, game, match)
+            action = choose(engine, match, prompt)
+        run = driver.apply(engine, game, match, action)
         assert not isinstance(run, driver.Refusal), (prompt.kind, run)
         heard(run)
         match = reload(match)
@@ -525,6 +544,132 @@ class CodexFreeForAllGameTests(unittest.TestCase):
         self.assertEqual(probe.returncode, 0, probe.stderr)
         winner, leaked = ast.literal_eval(probe.stdout.strip().splitlines()[-1])
         self.assertIn(winner, (1, 2, 3))
+        self.assertEqual(leaked, [])
+
+
+#: The two-headed dragon's whole games (docs/codex-multiplayer.md, step
+#: 5): two teams of two, basic and standard, the policy answering the two
+#: teammates' questions in turn.
+DRAGON_BASIC = (("bashing",), ("finesse",), ("bashing",), ("finesse",))
+DRAGON_BASIC_SEED = SEED
+DRAGON_STANDARD = (
+    ("fire", "anarchy", "blood"), ("feral", "growth", "balance"),
+    ("past", "present", "future"), ("demonology", "disease", "necromancy"),
+)
+DRAGON_STANDARD_SEED = STANDARD_SEED
+DRAGON_TURN_LIMIT = 120
+
+
+class CodexDragonGameTests(unittest.TestCase):
+    """
+    A two-headed dragon, basic and standard, through the driver alone,
+    from the deal to a destroyed base (Rulebook p. 13), with nothing from
+    `cogs/` or `discord` imported: both teammates acting in one main
+    phase, the policy answering whichever seat is asked.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        cls.basic = play(DRAGON_BASIC_SEED, dragon=DRAGON_BASIC, turn_limit=DRAGON_TURN_LIMIT,
+                         say=print if verbose else None)
+        cls.standard = play(DRAGON_STANDARD_SEED, dragon=DRAGON_STANDARD, turn_limit=DRAGON_TURN_LIMIT)
+
+    def check_won(self, played, heroes: int) -> None:
+        engine, game, match, transcript = played
+        self.assertEqual(match.variant, "two_headed_dragon")
+        self.assertEqual(match.dragons, [[1, 2], [3, 4]])
+        self.assertIsNotNone(match.winner)
+        self.assertLessEqual(match.turn, DRAGON_TURN_LIMIT)
+        losers = engine.opponents(match, match.winner)
+        self.assertEqual(match.base_of(losers[0]), 0)
+        self.assertEqual(match.base_of(losers[0]), match.base_of(losers[1]))
+        self.assertTrue(all(len(player.heroes) == heroes for player in match.players))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.GAME_OVER)
+        self.assertEqual(prompt.options.winners, engine.dragon_of(match, match.winner))
+        self.assertEqual(standing_prompts(engine, match, game), ())
+
+    def test_a_basic_dragon_to_a_destroyed_base(self) -> None:
+        self.check_won(self.basic, 1)
+
+    def test_a_standard_dragon_to_a_destroyed_base(self) -> None:
+        self.check_won(self.standard, 3)
+
+    def test_teammates_act_in_one_main_phase(self) -> None:
+        """Both teammates of a team took actions in the same turn, their
+        own, between the team's upkeep and its lock."""
+        _, _, match, _ = self.basic
+        by_turn: dict[int, set] = {}
+        for event in match.events:
+            if event["kind"] in ("hired", "played", "built", "summoned", "attacked", "patrolled"):
+                by_turn.setdefault(event["turn"], set()).add(event["seat"])
+        both = [turn for turn, seats_ in by_turn.items() if len(seats_) == 2]
+        self.assertTrue(both, by_turn)
+        self.assertEqual({seat for turn_seats in by_turn.values() for seat in turn_seats}, {1, 2, 3, 4})
+
+    def test_a_team_turn_reads_as_one_turn_with_two_players_actions(self) -> None:
+        """The transcript's first turn: one end-of-turn line, naming both
+        players, with both players' actions before it."""
+        _, _, _, transcript = self.basic
+        ends = [index for index, line in enumerate(transcript) if "End of turn" in line]
+        first = transcript[:ends[0] + 1]
+        self.assertEqual(sum("End of turn" in line for line in first), 1)
+        for seat in (3, 4):
+            self.assertTrue(any(f"Player {seat} " in line for line in first), seat)
+        self.assertIn("Player 3 (Bashing) and Player 4 (Finesse)", transcript[ends[0]])
+
+    def test_the_shared_base_is_named_for_the_team(self) -> None:
+        _, _, _, transcript = self.basic
+        bases = [line for line in transcript if "base is destroyed" in line]
+        self.assertTrue(bases)
+        self.assertTrue(all(" and Player " in line for line in bases), bases)
+        hits = [line for line in transcript if "'s base" in line and " deals " in line]
+        self.assertTrue(hits)
+        self.assertTrue(all(" and Player " in line.split("'s base")[0] for line in hits), hits)
+
+    def test_nothing_hidden_is_said(self) -> None:
+        engine = self.basic[0]
+        for line in self.basic[3] + self.standard[3]:
+            if "hires a worker" in line or "their tech" in line:
+                for slug in engine.catalog.cards:
+                    self.assertNotIn(f" {engine.catalog.name(slug)} ", f" {line} ")
+
+    def test_two_runs_on_one_seed_agree(self) -> None:
+        _, _, again, transcript = play(DRAGON_BASIC_SEED, dragon=DRAGON_BASIC,
+                                       turn_limit=DRAGON_TURN_LIMIT)
+        self.assertEqual(again.to_dict(), self.basic[2].to_dict())
+        self.assertEqual(transcript, self.basic[3])
+
+    def test_a_team_turn_replays_from_its_snapshot_and_journal(self) -> None:
+        """The journal of one team turn -- both teammates' actions -- rebuilds
+        the position byte for byte (the undos stand on it)."""
+        from codex import history
+
+        for steps in range(60, 120, 7):
+            engine, game, match, _ = play(DRAGON_BASIC_SEED, dragon=DRAGON_BASIC,
+                                          turn_limit=DRAGON_TURN_LIMIT, max_steps=steps)
+            seated = {entry["action"]["arguments"].get("player") for entry in match.journal}
+            if {1, 2} <= seated or {3, 4} <= seated:
+                break
+        else:
+            self.fail("no stopping point had both teammates acting in the journal")
+        rebuilt = history.replay(
+            engine, game, history.latest_snapshot(match), match.journal,
+            history=match.turn_snapshots,
+        )
+        self.assertEqual(rebuilt.to_dict(), match.to_dict())
+
+    def test_the_game_needs_no_frontend(self) -> None:
+        probe = subprocess.run(
+            [sys.executable, "-c", ISOLATED.replace(
+                "full.play()", f"full.play(dragon={DRAGON_BASIC!r}, turn_limit={DRAGON_TURN_LIMIT})")],
+            capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=300,
+            env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)},
+        )
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        winner, leaked = ast.literal_eval(probe.stdout.strip().splitlines()[-1])
+        self.assertIn(winner, (1, 3))
         self.assertEqual(leaked, [])
 
 

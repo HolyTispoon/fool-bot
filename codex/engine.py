@@ -2955,24 +2955,37 @@ class RulesEngine:
         """
         Where overpower's excess may go in a two-headed dragon: "anything
         with HP controlled by the player (or team in 2v2) whose patroller
-        was attacked" (the overpower ruling) -- the attacked seat's own
-        candidates, as ever, then the teammate's, spelled
-        `<seat>:<ref>` so two seats' `tech1` are told apart. Outside a
-        dragon, just `overpower_candidates`.
+        was attacked" (the overpower ruling) -- the same priority as in a
+        duel (`overpower_candidates`: the other patrollers it could have
+        taken first, anything of theirs with HP only where there are
+        none), read over the attacked team's two seats: the attacked
+        seat's candidates as ever, the teammate's spelled `<seat>:<ref>`
+        so two seats' `tech1` are told apart, the shared base once.
+        Outside a dragon, just `overpower_candidates`.
         """
-        found = list(self.overpower_candidates(match, attacker, defender))
         other = self.defending_seat(match, None)
         mate = self.teammate(match, other)
-        if mate is None or not found:
-            return tuple(found)
-        if not self.overpower_excess(match, attacker, defender):
+        if mate is None or not self.overpower_excess(match, attacker, defender):
+            return self.overpower_candidates(match, attacker, defender)
+        if self.stampedes(match, self.body(match, match.active, attacker)) \
+                and self.body(match, other, defender) is not None:
             return ()
-        pool = [ref for slot, ref in match.patrollers(mate).items()
-                if self.may_be_attacked(match, attacker, ref, against=mate)]
-        if not pool and not [one for one in found if one in match.patrollers(other).values()]:
-            pool = [ref for ref in self._standing(match, mate)
-                    if ref != "base" and self.may_be_attacked(match, attacker, ref, against=mate)]
-        return (*found, *(target_key(mate, ref) for ref in pool))
+        patrollers = [
+            ref for ref in match.patrollers(other).values()
+            if ref != defender and self.may_be_attacked(match, attacker, ref)
+        ]
+        mates = [
+            target_key(mate, ref) for ref in match.patrollers(mate).values()
+            if self.may_be_attacked(match, attacker, ref, against=mate)
+        ]
+        if patrollers or mates:
+            return (*patrollers, *mates)
+        return (
+            *(ref for ref in self._standing(match, other)
+              if ref != defender and self.may_be_attacked(match, attacker, ref)),
+            *(target_key(mate, ref) for ref in self._standing(match, mate)
+              if ref != "base" and self.may_be_attacked(match, attacker, ref, against=mate)),
+        )
 
     def obliterate_count(self, match: MatchState, attacker: str) -> int:
         """Obliterate's X on this attacker (UMR p. 17)."""

@@ -40,7 +40,8 @@ import unittest
 
 from codex import tokens
 from codex.engine import RulesEngine
-from codex.prompts import PromptKind
+from codex.game import CodexGame
+from codex.prompts import Action, PromptKind
 from gamesaves.codex.service import GameResult, GameService
 from test_codex_driver_full_game import SEED, TURN_LIMIT, choose
 from test_golden_transcript import GOLDEN_DIR, UPDATING, golden_diff, render_final_match
@@ -70,9 +71,10 @@ def describe(result: GameResult) -> list[str]:
     if result.narration:
         lines.append("--- narration")
         lines.extend(result.narration)
-    if result.prompt is not None:
-        lines.append(f"--- prompt {result.prompt.kind.name} (player {result.prompt.asked_player})")
-        lines.append(result.prompt.ask)
+    # A two-headed dragon's team is asked one question a seat.
+    for prompt in result.prompts or ((result.prompt,) if result.prompt is not None else ()):
+        lines.append(f"--- prompt {prompt.kind.name} (player {prompt.asked_player})")
+        lines.append(prompt.ask)
     for standing in result.standing:
         lines.append(f"--- standing {standing.kind.name} (player {standing.asked_player})")
     if result.board_changed:
@@ -89,21 +91,29 @@ def action_line(number: int, action) -> str:
     return f"=== action {number}: {action.kind.name} {action.choice!r} {arguments}"
 
 
-def record_playthrough(seed: int = GOLDEN_SEED, players=None) -> tuple[str, dict]:
+def record_playthrough(seed: int = GOLDEN_SEED, players=None, dragon=None) -> tuple[str, dict]:
     """Play a whole game through the service; return the transcript and
     the final save. `players`, a spec per seat, plays a free-for-all
-    (docs/codex-multiplayer.md, step 2)."""
+    (docs/codex-multiplayer.md, step 2); `dragon`, four, a two-headed
+    dragon (step 5), whose record the lobby cannot open until step 6 and
+    is built here."""
     engine = RulesEngine(seed=seed)
     games: dict = {}
     service = GameService(engine, games, save=lambda games: None)
-    game = service.create_game(guild_id=1, game_number=1)
-    if players is None:
-        service.take_seat(game.game_id, 101, "basher", "bashing")
-        service.take_seat(game.game_id, 202, "fencer", "finesse")
-    else:
-        service.set_variant(game.game_id, "free_for_all")
-        for number, spec in enumerate(players, start=1):
+    if dragon is not None:
+        game = CodexGame("codex-golden-dragon", 1, variant="two_headed_dragon")
+        games[game.game_id] = game
+        for number, spec in enumerate(dragon, start=1):
             service.take_seat(game.game_id, 100 * number + number, f"player{number}", spec)
+    else:
+        game = service.create_game(guild_id=1, game_number=1)
+        if players is None:
+            service.take_seat(game.game_id, 101, "basher", "bashing")
+            service.take_seat(game.game_id, 202, "fencer", "finesse")
+        else:
+            service.set_variant(game.game_id, "free_for_all")
+            for number, spec in enumerate(players, start=1):
+                service.take_seat(game.game_id, 100 * number + number, f"player{number}", spec)
     lines = ["=== start"]
     result = service.start(game.game_id)
     lines.extend(describe(result))
@@ -113,7 +123,9 @@ def record_playthrough(seed: int = GOLDEN_SEED, players=None) -> tuple[str, dict
         if match.winner is not None:
             break
         assert match.turn <= TURN_LIMIT, "the game ran past its bound"
-        waiting = service.waiting_on(game, match)
+        asked = service.waiting_all(game, match) if match.dragons else ()
+        waiting = asked[step % len(asked)] if asked else (
+            None if match.dragons else service.waiting_on(game, match))
         if waiting is None:
             found, result = service.resume(game.game_id)
             lines.append(f"=== resume: {found}")
@@ -127,6 +139,9 @@ def record_playthrough(seed: int = GOLDEN_SEED, players=None) -> tuple[str, dict
         ]
         prompt = unpicked[0] if unpicked else waiting
         action = choose(engine, match, prompt)
+        if match.dragons:
+            action = Action(action.kind, action.choice,
+                            {**action.arguments, "player": prompt.asked_player})
         lines.append(action_line(step + 1, action))
         result = service.apply_action(game.game_id, action)
         assert not result.refused, f"{action} refused: {result.refusal}"
@@ -252,6 +267,79 @@ class CodexFreeForAllGoldenTests(unittest.TestCase):
                 self.assertNotIn("{card:", line, line)
             if line.startswith("=== action") and ("TECH_CHOICE" in line or "'hire'" in line):
                 self.assertTrue(line.endswith("(hidden)"), line)
+
+
+#: The two-headed dragon's golden (docs/codex-multiplayer.md, step 5):
+#: four players in two teams, Bashing and Finesse against the same,
+#: seeded, through the service -- the transcript of a team's turn reads as
+#: one turn with two players' actions in it.
+DRAGON_TRANSCRIPT_FILE = GOLDEN_DIR / "codex_dragon_transcript.txt"
+DRAGON_FINAL_MATCH_FILE = GOLDEN_DIR / "codex_dragon_final_match.json"
+DRAGON_PLAYERS = (("bashing",), ("finesse",), ("bashing",), ("finesse",))
+DRAGON_SEED = GOLDEN_SEED
+
+
+class CodexDragonGoldenTests(unittest.TestCase):
+    """A seeded dragon through the service, byte for byte -- re-recorded
+    with `FOOLBOT_UPDATE_GOLDEN=1` as the others are, and only for a
+    change to the model's wording or the game."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.transcript, cls.final_match = record_playthrough(DRAGON_SEED, dragon=DRAGON_PLAYERS)
+
+    def test_the_transcript_matches_the_golden(self) -> None:
+        if UPDATING:
+            DRAGON_TRANSCRIPT_FILE.write_text(self.transcript)
+            self.skipTest("FOOLBOT_UPDATE_GOLDEN=1: transcript rewritten")
+        recorded = DRAGON_TRANSCRIPT_FILE.read_text()
+        if recorded != self.transcript:
+            self.fail(
+                "the dragon no longer says what it used to; regenerate with "
+                "FOOLBOT_UPDATE_GOLDEN=1 if that is deliberate, and say so in the pull request.\n\n"
+                + golden_diff(recorded, self.transcript, "transcript")
+            )
+
+    def test_the_final_match_matches_the_golden(self) -> None:
+        rendered = render_final_match(self.final_match)
+        if UPDATING:
+            DRAGON_FINAL_MATCH_FILE.write_text(rendered)
+            self.skipTest("FOOLBOT_UPDATE_GOLDEN=1: final match rewritten")
+        recorded = DRAGON_FINAL_MATCH_FILE.read_text()
+        if recorded != rendered:
+            self.fail("the dragon ends on a different position.\n\n"
+                      + golden_diff(recorded, rendered, "final match"))
+
+    def test_the_game_ends_on_a_destroyed_shared_base(self) -> None:
+        self.assertEqual(self.final_match["variant"], "two_headed_dragon")
+        self.assertEqual(self.final_match["dragons"], [[1, 2], [3, 4]])
+        self.assertIsNotNone(self.final_match["winner"])
+        self.assertIn("--- prompt GAME_OVER", self.transcript)
+        self.assertIn("base is destroyed.", self.transcript)
+
+    def test_a_teams_turn_is_one_turn_with_two_players_actions(self) -> None:
+        """The first team turn: both players' upkeeps, both players'
+        actions and one end of the turn, naming both."""
+        first = self.transcript.split("**End of turn 1**")[0]
+        names = [line for line in first.splitlines() if "collects" in line]
+        self.assertEqual(len(names), 2)
+        self.assertEqual(self.transcript.count("**End of turn 1**"), 1)
+
+    def test_the_questions_are_asked_a_seat_each(self) -> None:
+        self.assertIn("--- prompt MAIN_ACTION (player 1)", self.transcript)
+        self.assertIn("--- prompt MAIN_ACTION (player 2)", self.transcript)
+
+    def test_nothing_hidden_is_written(self) -> None:
+        for line in self.transcript.splitlines():
+            if "hires a worker" in line or "tech card" in line:
+                self.assertNotIn("{card:", line, line)
+            if line.startswith("=== action") and ("TECH_CHOICE" in line or "'hire'" in line):
+                self.assertTrue(line.endswith("(hidden)"), line)
+
+    def test_two_runs_on_one_seed_agree(self) -> None:
+        second, second_match = record_playthrough(DRAGON_SEED, dragon=DRAGON_PLAYERS)
+        self.assertEqual(second, self.transcript)
+        self.assertEqual(second_match, self.final_match)
 
 
 if __name__ == "__main__":  # pragma: no cover

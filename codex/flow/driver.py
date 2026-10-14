@@ -510,7 +510,7 @@ def _find_team_prompt(engine, game, match, action: Action) -> Union[PendingPromp
     if seat is not None:
         found = [one for one in found if one.asked_player == seat]
     if len(found) > 1:
-        found = [one for one in found if one.asked_player == match.active] or found[:1]
+        found = [one for one in found if one.asked_player == seats.head_of(match)] or found[:1]
     if found:
         return found[0]
     first = owed[0]

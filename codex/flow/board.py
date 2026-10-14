@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Optional
 
 from codex import effects, seats, tokens
+from codex.formatting import base_owner
 from codex.components import (
     TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref, lent_hero_ref,
 )
@@ -67,6 +68,8 @@ def named(match: MatchState, seat: int, ref: str, *, whose: bool = True) -> str:
         return f"{tokens.player(seat)}'s {tokens.card(player.add_on.slug)}"
     if ref in TECH_BUILDINGS:
         return f"{tokens.player(seat)}'s {building_name(ref)} building"
+    if ref == "base":
+        return f"{base_owner(match, seat)}'s base"
     return f"{tokens.player(seat)}'s {building_name(ref)}"
 
 

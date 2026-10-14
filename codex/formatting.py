@@ -181,6 +181,15 @@ def team_name(specs) -> str:
     return deck_name(specs)
 
 
+def base_owner(match, seat: int) -> str:
+    """Whose base a line names: the seat, and in a two-headed dragon both
+    players of its team, "{player:1} and {player:2}" -- the base is theirs
+    together (Rulebook p. 13), however the attack or the effect named it."""
+    from codex import seats
+
+    return " and ".join(tokens.player(one) for one in seats.dragon_of(match, seat))
+
+
 def turn_heading(match) -> str:
     """
     **The turn's heading, in the model's words**: "**Turn 7** --
