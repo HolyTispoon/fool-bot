@@ -85,11 +85,18 @@ END_OF_TURN = "Take back the end of my turn"
 OPPONENT_STARTED = "Your opponent has already started their turn."
 
 
+#: The same, where the turn taken back was a two-headed dragon's team's.
+OTHER_TEAM_STARTED = "The other team has already started their turn."
+
+
 def opponent_started(game, match) -> str:
     """`OPPONENT_STARTED`, naming the seat that has started its turn
-    where there are several (docs/codex-multiplayer.md, decision 15)."""
+    where there are several, or the other team in a dragon
+    (docs/codex-multiplayer.md, decision 15)."""
     if match.variant == "duel":
         return OPPONENT_STARTED
+    if match.dragons:
+        return OTHER_TEAM_STARTED
     return f"{game.seat_name(match.active) or f'Player {match.active}'} has already started their turn."
 
 
@@ -197,9 +204,13 @@ class PanelView(SafeView):
         and the channel is left alone (docs/design/codex.md, "The turn
         message, edited").
         """
-        game, _ = await self.mine(interaction)
+        game, match = await self.mine(interaction)
         if game is None:
             return
+        if match.dragons and "player" not in action.arguments:
+            # In a dragon every action names its seat, since both
+            # teammates may have a prompt of one kind open (decision 8).
+            action = Action(action.kind, action.choice, {**action.arguments, "player": self.seat})
         result = await self.apply(interaction, game, action)
         if result is None:
             return
@@ -212,6 +223,24 @@ class PanelView(SafeView):
         # wait on, and the panel is edited after both.
         await asyncio.gather(acknowledge(interaction), self.cog.present(game, result))
         await self.cog.answer_panel(interaction, game, self.seat, result, action.kind)
+
+    async def refuse(self, interaction: discord.Interaction, reason: str) -> None:
+        """
+        A click the driver refused. In a two-headed dragon the panel is
+        edited in place to the prompt as it now stands, the hand under it
+        and the reason above: the other teammate's click moved the team
+        on, and this panel, which the bot can reach only through its own
+        player's click, stood as it was (decision 13). Elsewhere, said
+        privately, as ever.
+        """
+        game, match = self.load_match()
+        if match is None or not match.dragons:
+            await send_ephemeral(interaction, reason)
+            return
+        standing = (self.prompt.kind is PromptKind.TECH_CHOICE
+                    and self.seat not in self.cog.engine.turn_seats(match))
+        await self.cog.show_panel(interaction, game, match, self.seat, edit=True, note=reason,
+                                  standing=standing)
 
     async def open_deck(self, interaction: discord.Interaction) -> None:
         """**My deck**: every card this panel's player owns, in an
@@ -1213,15 +1242,20 @@ class UndoConfirmView(SafeView):
 
     acknowledges_while_waiting = True  # as the panel's (`PanelView`)
 
-    def __init__(self, cog, game_id: str, asker: int, turn: int, opponent: int) -> None:
+    def __init__(self, cog, game_id: str, asker: int, turn: int, opponent: int,
+                 agreeing: tuple[int, ...] = ()) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
         self.game_id = game_id
         self.asker = asker
         self.turn = turn
-        #: The seat whose agreement is asked: the engine's reading when
-        #: the undo was asked (`RulesEngine.sole_opponent`).
+        #: The seat whose agreement is asked: the previous turn's owner
+        #: when the undo was asked (`history.previous_turn_owner`).
         self.opponent = opponent
+        #: Every seat whose player may agree: that seat, and in a
+        #: two-headed dragon its teammate -- either player of the team
+        #: whose turn is unwound (decision 15).
+        self.agreeing = tuple(agreeing) or (opponent,)
         agree = discord.ui.Button(label="Agree: undo my turn too", style=discord.ButtonStyle.danger)
         agree.callback = self.agree
         refuse = discord.ui.Button(label="Refuse", style=discord.ButtonStyle.secondary)
@@ -1236,18 +1270,21 @@ class UndoConfirmView(SafeView):
         seats = game.seats_of(interaction.user.id)
         # The opponent's seat first: in a test game one person holds both,
         # and agrees with themselves.
-        seat = self.opponent if self.opponent in seats else (seats[0] if seats else None)
-        if seat == self.asker:
+        seat = next((one for one in self.agreeing if one in seats), seats[0] if seats else None)
+        if seat == self.asker or (match.dragons and seat is not None and seat not in self.agreeing
+                                  and seat in self.cog.engine.turn_seats(match)):
             await send_ephemeral(
                 interaction,
-                ("Your opponent" if match.variant == "duel" else "The player whose turn it was")
+                ("Your opponent" if match.variant == "duel" else "The other team" if match.dragons
+                 else "The player whose turn it was")
                 + " has to agree to this: it undoes their turn too.",
             )
             return
-        if not self.may_act_for(interaction, game, self.opponent):
+        if seat not in self.agreeing and not self.may_act_for(interaction, game, self.opponent):
             await send_ephemeral(
                 interaction,
-                ("Only the opponent" if match.variant == "duel" else "Only the player whose turn it was")
+                ("Only the opponent" if match.variant == "duel" else "Only the other team's players"
+                 if match.dragons else "Only the player whose turn it was")
                 + ", or a helper with Manage Channels, can agree to this.",
             )
             return
@@ -1275,7 +1312,7 @@ class UndoConfirmView(SafeView):
 
 
 __all__ = [
-    "NOT_YOUR_PANEL", "PANEL_TIMEOUT", "PanelButton", "PanelView", "TurnPanelView",
+    "NOT_YOUR_PANEL", "OTHER_TEAM_STARTED", "PANEL_TIMEOUT", "PanelButton", "PanelView", "TurnPanelView",
     "UNDO_MENU", "UndoConfirmView", "UndoView", "building_label", "hand_numbers", "undo_menu",
     "undo_pick",
 ]

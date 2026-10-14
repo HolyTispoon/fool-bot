@@ -2677,6 +2677,14 @@ Measured with the fakes, and held on every click of the whole-game test:
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
 | My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
 | Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
+| An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
+| A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
+| The first lock of a dragon's turn | **1**: the turn message through the gate | 2: the defer, the panel edited to the waiting panel |
+| The second lock (the team's turn ends) | **3**, as the duel's Lock | 2, as the duel's |
+| **Tech** by a dragon seat while the teammate's choice stands | **0** | 2: the clicker's own answer, the teammate's picks |
+| **Switch to <name>** on a dragon test game's panel | **0** | 1: the other seat's panel sent |
+| Concede in a dragon, the second click | **1**: the public question to the teammate | 1: the confirmation edited |
+| Its **Agree** | **3**, as the duel's concession | 1: the question edited in place |
 
 **A click behind a busy game is acknowledged before it waits.** Every
 click on a game holds its lock across the whole answer -- the board

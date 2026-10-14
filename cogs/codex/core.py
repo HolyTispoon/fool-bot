@@ -30,7 +30,7 @@ from codex.flow.driver import MODEL_STEPS  # noqa: F401 -- the package-shape rat
 from codex.flow.result import FollowOnStep
 from codex.formatting import turn_heading
 from codex.game import CodexGame, GameStatus
-from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt
+from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompts
 from codex.render import preload_pictures, render_codex, render_hand
 from cogs.codex_helpers import CodexTokens
 from cogs.codex_views import (
@@ -345,8 +345,11 @@ class CoreMixin:
         player the heading already mentions is "them", not a second
         mention (the author, 2026-10-14: "no need to ping the user
         twice")."""
-        prompt = pending_prompt(self.engine, game, match)
-        if prompt is None or prompt.kind not in TECH_WAIT:
+        # In a two-headed dragon both teammates may owe their tech at
+        # once (`pending_prompts`); the turn's caption names the first.
+        prompt = next((one for one in pending_prompts(self.engine, game, match)
+                       if one.kind in TECH_WAIT), None)
+        if prompt is None:
             return None
         if prompt.asked_player in self.engine.turn_seats(match):
             return TECH_WAIT[prompt.kind].format(who="them")
