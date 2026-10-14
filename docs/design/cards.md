@@ -454,11 +454,12 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
   the ability text. Both faces draw the panel, so the back's portrait slot grew by the
   same amount; its band did not move (`ADVANCED_BAND_TOP`).
 - **The line under the name is the role, set at 26** (the author,
-  2026-09-27): `DEFENDER`, and on the back `DEFENDER · ADVANCED`. It was the
-  team at 16, but the team is already the band's colour, the card's edge and
-  the corner emoji. It is fitted to the name's room with 26 as the ceiling,
-  because `MIDFIELDER · ADVANCED` does not fit at 26 and a line that ran
-  under the emoji would read as a mistake.
+  2026-09-27): `DEFENDER`, on both faces. It was the team at 16, but the
+  team is already the band's colour, the card's edge and the corner emoji.
+  It is fitted to the name's room with 26 as the ceiling, so a long role
+  never runs under the emoji. The back's line read `DEFENDER · ADVANCED`
+  until the ribbon took over saying so (2026-10-13, below), when
+  `MIDFIELDER · ADVANCED` was being set well under 26 to fit.
 - **The front's ability band is two rows, each behind a badge, with no
   heading** (the author, 2026-09-27): the role's emoji beside the role's
   sentence, and the species' icon beside the species ability's *name*. The
@@ -605,11 +606,35 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     with no special ability prints the role's sentence on both faces.
     `CardSkills` rather than a `RoleProfile` carries the numbers, because an
     advanced score is not held to 1-6.
-  - **It is laid out exactly as the front** (the author, 2026-09-27): the
+  - **It is laid out as the front** (the author, 2026-09-27): the
     same header, stats panel and ability band, the role badge in front of
     the special ability and the species badge and ability name under it.
-    `draw_face` draws both faces; they differ only in the subtitle, the
-    skills and the sentence they are handed. The role badge stays in front
+    `draw_face` draws both faces; they differ in the skills and the
+    sentence they are handed, and in the ribbon and the changed-skill
+    mark below, which the back gets by being handed the front's skills
+    as `standard`.
+  - **The back says it is the advanced side with a ribbon across the
+    card** (the author, 2026-10-13): a dark band under the stats panel,
+    `ADVANCED` in gold, drawn inside the team's edge so the outline runs
+    unbroken past it (`draw_ribbon`). Until then the two faces differed
+    only by `· ADVANCED` after the role and by the numbers and the
+    sentence, which a coach turning a stack over could not see -- the
+    author asked for the difference to be more prominent. Six
+    treatments were drawn and compared -- a heavy team-colour frame, the
+    face tinted the team's colour, the ribbon, a dark face, a gold
+    trim, a corner sash -- and the ribbon was chosen. Since it says the
+    word, the role line no longer does. The portrait gives up the
+    ribbon's height (`RIBBON_GAP` + `RIBBON_HEIGHT`, 70 units), and
+    `ability_band` is measured against the back's lower `portrait_top`,
+    so the floor still holds: the four five-line special abilities set
+    at 31, inside the 28-33 they were set at before.
+  - **A skill advanced mode changes is marked beside its number** (the
+    author, 2026-10-13): a gold triangle pointing the way it went and the
+    difference, `▲ +2`, on the divider's side of the number so it clears
+    the label (`draw_skill_change`). The triangle is drawn, since Roboto
+    Slab has no triangle glyph. Five of the colour teams' 36 change a
+    skill (Hellguard, Ozul, Tachyon, Gurgoth, Flux); the corner index
+    prints the advanced numbers unmarked, as it has no room. The role badge stays in front
     of a special ability because the ability belongs to a player of that
     role, and the badge is what marks the row as the player's own rather
     than the species'.
@@ -626,8 +651,8 @@ python3 scripts/render_player_cards.py --fronts-only   # the old one-sided run
     Glompex's, Zenith's, Quantor's) would leave the portrait 260-315 units
     against `MIN_PORTRAIT_HEIGHT`'s 380, so `ability_band` comes down a
     point at a time until the portrait keeps its floor, stopping at
-    `ABILITY_MIN_SIZE` (24): those four print at 28-33 and every other
-    card, front and back, at 36. A card whose sentence is smaller than its
+    `ABILITY_MIN_SIZE` (24): those four print at 31 since the ribbon
+    (28-33 before it) and every other card, front and back, at 36. A card whose sentence is smaller than its
     neighbours' was judged better than a card that has stopped being a
     picture. An import that lengthens a special ability past what 24 fits
     would push the portrait under the floor, so look at the backs after one.
