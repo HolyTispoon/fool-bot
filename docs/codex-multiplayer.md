@@ -597,23 +597,27 @@ the author has already settled say so, with the date.
     button, the other seat's name -- both seats are one team, so the
     button names the seat, not a team.
 
-14. **The board is stacked only, in both modes.** A free-for-all is one
-    panel above another, the acting seat's at the bottom with its rule
-    and pill, the others above it **upright** in turn order, the next to
-    play nearest: a table of five has no "across", and a turned panel
-    tells the reader nothing a duel's does. A dragon is two rows of two,
-    the far team's turned as the duel's far panel is, the shared base
-    drawn once in each team's first panel's building column and the
-    second column one tile shorter. **Side by side** is a duel's:
-    `/codex side_by_side` answers on a multiplayer game that its board
-    is stacked, since five panels in a row would be 10,000 pixels wide.
-    **Swap view**, which since 2026-10-12 flips the stacked board
-    between facing and the same way up (`stacked_upright`), has nothing
-    to flip in a free-for-all, whose panels are all upright already, and
-    is not on its turn message; in a dragon it flips the far team's two
-    panels as it flips the duel's far one. These are proposals for a
-    picture, and the step's stop is the author looking at it (question
-    2).
+14. **The boards, as the author settled them (2026-10-14, question 2).**
+    Every free-for-all panel is **upright** -- a table of five has no
+    "across" -- in turn order from the acting seat, and the free-for-all
+    has two views, which **Swap view** toggles (there is no facing view
+    to flip to): **stacked**, one panel above another, the acting seat's
+    at the bottom under the turn's divider and the next to play nearest
+    it; and **side by side**, rows of two panels from the bottom, the
+    acting seat's row under the divider with the active player on its
+    left and the next to play beside them -- three players one panel
+    above two, four two above two (as a dragon's), five three rows with
+    one panel at the top. **Three or four players open side by side;
+    five open stacked.** `render._compose_table` and `_compose_rows` draw
+    them (step 2), and `CodexGame.start` sets the default. **A dragon is
+    two rows of two** (the author, 2026-10-14), the far team's turned as
+    the duel's far panel is, the shared base drawn once in each team's
+    first panel's building column and the second column one tile
+    shorter, and **Swap view** flips the far team's two panels between
+    facing and the same way up, as it flips the duel's far one.
+    `/codex side_by_side` answers on a dragon that its board is the two
+    rows of two, and on a free-for-all switches to the side-by-side
+    view, as Swap view does.
 
 15. **Undo, concede and abandon, as the author settled them**
     (2026-10-11). *To the start of my turn*: any acting seat's, without
@@ -677,8 +681,8 @@ Each step's PR carries a `## Questions to the author` section; these
 are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one. Those struck were answered
 on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
-13 and 15 to 19 answered on 2026-10-14; 20 to 23 were raised by step
-2's PR (#579), and 20 and 21 answered on 2026-10-14.
+2, 13 and 15 to 19 answered on 2026-10-14; 20 to 23 were raised by
+step 2's PR (#579), and 20 and 21 answered on 2026-10-14.
 
 1. ~~**What is a two-player team called in the code and in the
    narration?** Built as `dragon` in the code and "team" in what the
@@ -686,10 +690,14 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
    `teammate` in the code; "team" in what the bot says, as the rulebook
    says it ("the other team's base is destroyed"); the nameplate's hero
    team unchanged.
-2. **How should a board of three to five, and a dragon's, look?**
+2. ~~**How should a board of three to five, and a dragon's, look?**
    Decision 14 is a proposal; the step renders both with
    `scripts/render_codex_sample.py` and the author looks before the
-   Discord step is worth starting.
+   Discord step is worth starting.~~ Answered (2026-10-14), from step
+   2's pictures: a free-for-all of three or four opens side by side --
+   rows of two -- and five opens stacked, Swap view toggling the two;
+   a dragon is two rows of two, Swap view flipping facing and the same
+   way up as in the duel. Decision 14.
 3. ~~**Should both modes be offered in the basic game?** Built as
    yes.~~ Answered: yes.
 4. ~~**May a teammate see the other's hand through the bot?** Built as
@@ -777,7 +785,7 @@ step is worth starting.
 | ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
 | ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | 3 | Free-for-all's three additions: repair, free gold, lending | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
-| 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the stacked board of three, the pickers standing for two, rematch |
+| 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
 | 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
@@ -1266,20 +1274,18 @@ the game.
    holds for every click that exists today; the PR extends it with the
    clicks a third seat adds.
 
-3. The board. render.compose_board stacks n panels: the near seat's at
-   the bottom with its rule and pill, the others above it upright in
-   turn order from the near seat, the next to play nearest it, one
-   divider between each (decision 14); the worker card prints x4 for
-   the first seat and x5 for every other. Swap view is not on a
-   free-for-all turn message, since every panel is upright already, and
-   /codex side_by_side answers that a free-for-all's board is stacked
-   (decision 14). The Mercenary
+3. The board. render.compose_board already draws a free-for-all
+   both ways (step 2, decision 14): stacked, and side by side as rows of
+   two, every panel upright, and CodexGame.start opens three or four
+   players side by side and five stacked; the worker card prints x4 for
+   the first seat and x5 for every other. Swap view on a free-for-all
+   turn message toggles stacked and side by side (there is no facing
+   view), and /codex side_by_side switches to side by side (decision
+   14). The Mercenary
    draws as a token. Render a three- and a five-player mid-game board
    with scripts/render_codex_sample.py, which this commit teaches a
-   free-for-all position, and put both pictures in the PR for question
-   2 -- the step's stop is the author looking at them, and if the
-   author wants the panels otherwise the change is to compose_board
-   alone.
+   free-for-all position, and put the pictures in the PR -- question 2
+   is answered (decision 14), so they show the two views it settled.
 
 4. The end of the game. The winner's line with the final board, the
    playoff's "one more turn" lines on the turn messages they fall in,
@@ -1473,8 +1479,8 @@ end.
    scripts/render_codex_sample.py a dragon position and put the picture
    in the PR for question 2. Swap view flips the far team's two panels
    between facing and the same way up, as it flips a duel's far one;
-   /codex side_by_side answers that a dragon's board is stacked
-   (decision 14). The winner's line names the
+   /codex side_by_side answers that a dragon's board is the two rows of
+   two (decision 14, the author, 2026-10-14). The winner's line names the
    team ("{player:1} and {player:2} win: the other team's base is
    destroyed."), Rematch keeps the seats and the teams and clears every
    seat's heroes to be picked again (decision 16), the channel to

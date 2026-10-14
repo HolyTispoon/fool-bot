@@ -3447,13 +3447,20 @@ field the step added is written to a save only where it is set.
 - **A kill's levels name the seat.** `LevelGainOptions.seats` is each
   hero's seat (written where there are several), and the answer may name
   `seat`, so a mirror game's two of one hero are told apart.
-- **The board of a table of several is stacked, as decision 14
-  proposes** (`render._compose_table`): the active player's panel at the
-  bottom under the turn's divider, every other seat above it upright in
-  turn order, the next to play nearest, a quiet rule between them.
-  `scripts/render_codex_sample.py` draws a three- and a five-player
-  table (`ffa-3`, `ffa-5`, and each from seat 2). The author looks at it
-  before step 4 (worksheet question 2).
+- **A table of several has two views, every panel upright** (the
+  author, 2026-10-14, question 2): **stacked** (`render._compose_table`),
+  the active player's panel at the bottom under the turn's divider and
+  the others above it in turn order, the next to play nearest; and
+  **side by side** (`_compose_rows`), rows of two from the bottom -- the
+  active player and the next to play under the divider, three players
+  one panel above two, four two above two, five three rows with one at
+  the top, a lone panel centred. A free-for-all of three or four opens
+  side by side and one of five stacked (`CodexGame.start`); there is no
+  facing view, so step 4's Swap view toggles the two. The record's
+  `board_layout` keeps its spellings: "side_by_side" is the rows of two
+  on a table of several, and "stacked_upright" draws as "stacked".
+  `scripts/render_codex_sample.py` draws three, four and five players
+  both ways (`ffa-3`, `ffa-4`, `ffa-5`, and three and five from seat 2).
 - **Not yet**: the tower's own-turn detection names a ref, so in a mirror
   game two of one hero hidden at once are one candidate; the lobby and
   every Discord surface of a table of several are step 4's.

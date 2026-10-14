@@ -555,6 +555,11 @@ class CodexGame:
         )
         self.match_state = match.to_dict()
         self.status = GameStatus.PLAYING
+        if self.variant == "free_for_all":
+            # The author, 2026-10-14: three or four players open side by
+            # side, two panels a row; five open stacked. Swap view
+            # toggles the two (docs/codex-multiplayer.md, decision 14).
+            self.board_layout = "side_by_side" if len(seats) <= 4 else "stacked"
 
     def set_board_layout(self, layout: str) -> None:
         """Lay the board out `layout` -- refused for one there is not,

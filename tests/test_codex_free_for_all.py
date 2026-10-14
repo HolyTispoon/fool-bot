@@ -139,6 +139,19 @@ class VariantTests(unittest.TestCase):
         self.assertEqual([player.seat for player in match.players], [1, 2, 3])
         self.assertEqual(match.variant, "free_for_all")
 
+    def test_the_default_view_follows_the_table(self) -> None:
+        """The author, 2026-10-14: three or four players open side by side
+        (two panels a row), five open stacked."""
+        for count, layout in ((3, "side_by_side"), (4, "side_by_side"), (5, "stacked")):
+            with self.subTest(players=count):
+                engine = new_game()[0]
+                game = CodexGame("g", 1)
+                game.set_variant("free_for_all")
+                for user in range(1, count + 1):
+                    game.take_seat(user, f"p{user}", "bashing")
+                game.start(engine)
+                self.assertEqual(game.board_layout, layout)
+
     def test_leaving_closes_the_gap(self) -> None:
         """Turn order is seat order: the seats after a leaver move up."""
         game = CodexGame("g", 1)

@@ -424,13 +424,15 @@ def main() -> None:
     # Newsman's number, Oathkeeper's oath, a copy, crumbling and sword runes.
     render_all(engine, staged_white_blue(engine), names, args.out, "white-blue")
 
-    # Multiplayer: a free-for-all of three and of five, stacked only
-    # (docs/codex-multiplayer.md, decision 14 -- question 2's pictures).
+    # Multiplayer: a free-for-all of three, four and five, stacked and
+    # side by side -- rows of two (docs/codex-multiplayer.md, decision 14).
     for count in (3, 5):
         table = staged_free_for_all(engine, count)
-        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}", ("stacked",))
+        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}", ("stacked", "side_by_side"))
         table.active = 2
-        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}-seat-2", ("stacked",))
+        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}-seat-2", ("stacked", "side_by_side"))
+    four = staged_free_for_all(engine, 4)
+    render_all(engine, four, FFA_NAMES, args.out, "ffa-4", ("stacked", "side_by_side"))
 
     # The standard game: three heroes a side, a codex of seventy-two.
     standard = staged_standard(engine)
