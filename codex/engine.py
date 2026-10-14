@@ -2269,6 +2269,13 @@ class RulesEngine:
             return True
         return self.detected_by(match, other, attacker)
 
+    def holder_of(self, match: MatchState, ref: str, among) -> int:
+        """The first of `among` whose side has `ref` in play -- which
+        opponent's thing a ref offered across a table is -- or the first
+        seat of `among` where none does (a label, never a rule)."""
+        among = tuple(among)
+        return next((seat for seat in among if ref in self._things_in_play(match, seat)), among[0])
+
     def detect_option(self, match: MatchState) -> DetectOption:
         """
         The tower's detection as an action on its owner's own turn

@@ -3,7 +3,9 @@
 every change (docs/design/codex.md, "The standard game"):
 
 - **Basic game** / **Standard game** -- one hero a side or three (UMR
-  p. 3) -- **Leave** and **Start**, and in a rematch's lobby **Keep
+  p. 3) -- **Leave** and **Start**; on a row of their own **Duel** /
+  **Free-for-all** / **Two-headed dragon**, the mode as the table is
+  (docs/codex-multiplayer.md, decision 12), and in a rematch's lobby **Keep
   heroes**;
 - in a basic game, a menu of the heroes this bot plays
   (`CardCatalog.landed_heroes`), one pick, which seats the clicker with
@@ -29,7 +31,7 @@ import discord
 
 from codex.cards import COLOR_DECK_NAMES, catalog
 from codex.formatting import team_name
-from codex.game import MODES, CodexGame, GameStatus, RuleRefusal
+from codex.game import MODES, VARIANT_LABELS, VARIANTS, CodexGame, GameStatus, RuleRefusal
 from cogs.codex_views.base import SafeView, send_ephemeral
 
 #: The mode buttons' labels.
@@ -37,6 +39,10 @@ MODE_LABELS = {"basic": "Basic game", "standard": "Standard game"}
 
 #: A row of buttons, as Discord allows.
 ROW_WIDTH = 5
+
+#: A message has five rows: the buttons take two (the mode, Leave and
+#: Start; the variant), and the picks the rest.
+PICK_ROWS = 3
 
 #: How long the ephemeral mixed-team picker waits for its two menus.
 MIXED_TEAM_TIMEOUT = 600
@@ -75,36 +81,65 @@ class LobbyView(SafeView):
         self.game_id = game_id
         game = cog.games.get(game_id)
         mode = game.mode if game is not None else "basic"
+        variant = game.variant if game is not None else "duel"
         buttons = [
             *(
                 (MODE_LABELS[name], f"mode_{name}",
-                 discord.ButtonStyle.primary if name == mode else discord.ButtonStyle.secondary)
+                 discord.ButtonStyle.primary if name == mode else discord.ButtonStyle.secondary, 0)
                 for name in MODES
             ),
-            ("Leave", "leave", discord.ButtonStyle.secondary),
-            ("Start", "start", discord.ButtonStyle.success),
+            ("Leave", "leave", discord.ButtonStyle.secondary, 0),
+            ("Start", "start", discord.ButtonStyle.success, 0),
+            *(
+                (VARIANT_LABELS[name], f"variant_{name}",
+                 discord.ButtonStyle.primary if name == variant else discord.ButtonStyle.secondary, 1)
+                for name in VARIANTS
+            ),
         ]
         if game is not None and game.rematch_specs:
             # A rematch's lobby: the teams are swapped unless both
             # players ask to keep them.
-            buttons.insert(3, ("Keep heroes", "keep", discord.ButtonStyle.secondary))
-        for label, action, style in buttons:
+            buttons.insert(3, ("Keep heroes", "keep", discord.ButtonStyle.secondary, 0))
+        for label, action, style, row in buttons:
             button = discord.ui.Button(
-                label=label, style=style, custom_id=f"codex:lobby:{action}:{game_id}", row=0,
+                label=label, style=style, custom_id=f"codex:lobby:{action}:{game_id}", row=row,
             )
             button.callback = self._callback(action)
             self.add_item(button)
         if game is None:
             return
-        seats = (None,) if not game.test_game else tuple(range(1, game.seat_count + 1))
+        seats = self.pick_seats(game)
         if game.mode == "basic":
             self._hero_menus(game, seats)
         else:
             self._team_buttons(game, seats)
 
+    @staticmethod
+    def pick_seats(game: CodexGame) -> tuple[Optional[int], ...]:
+        """
+        The seats the lobby shows picks for: `(None,)` -- the clicker's
+        own -- where each person takes a seat, and in a test game one set
+        per seat, "P3: ...". A message has five rows, so a table whose
+        sets do not all fit shows as many as do, starting at the first
+        seat not yet chosen for (a free-for-all's seats are taken in
+        order, so that is the one to fill next).
+        """
+        if not game.test_game:
+            return (None,)
+        seats = game.playing_seats() if game.variant == "duel" else tuple(
+            range(1, game.seat_count + 1))
+        per_seat = 1 if game.mode == "basic" else -(-(len(catalog().color_decks(
+            game.heroes_per_seat)) + 1) // ROW_WIDTH)
+        fit = max(1, PICK_ROWS // per_seat)
+        if len(seats) <= fit:
+            return tuple(seats)
+        first = next((seat for seat in seats if not game.seat_complete(seat)), seats[-1])
+        start = min(seats.index(first), len(seats) - fit)
+        return tuple(seats[start:start + fit])
+
     def _hero_menus(self, game: CodexGame, seats) -> None:
         """The basic game's pick: a menu of the heroes, one a side."""
-        for row, seat in enumerate(seats, start=1):
+        for row, seat in enumerate(seats, start=2):
             key = "heroes" if seat is None else f"heroes{seat}"
             select = discord.ui.Select(
                 custom_id=f"codex:lobby:{key}:{self.game_id}",
@@ -123,7 +158,7 @@ class LobbyView(SafeView):
         **Mixed colors** -- for each side in a test game, the side
         written in front and its team lit.
         """
-        row = 1
+        row = 2
         for seat in seats:
             suffix = "" if seat is None else str(seat)
             prefix = "" if seat is None else f"P{seat}: "
@@ -159,6 +194,8 @@ class LobbyView(SafeView):
                 await self.start(interaction)
             elif action.startswith("mode_"):
                 await self.set_mode(interaction, action[len("mode_"):])
+            elif action.startswith("variant_"):
+                await self.set_variant(interaction, action[len("variant_"):])
             elif action == "keep":
                 await self.move(interaction, lambda: self.cog.service.keep_heroes(
                     self.game_id, interaction.user.id))
@@ -201,15 +238,31 @@ class LobbyView(SafeView):
         clicker's own."""
         return seat if seat is not None else game.seat_of(interaction.user.id)
 
-    async def set_mode(self, interaction: discord.Interaction, mode: str) -> None:
-        """The basic game or the standard one: either seated player's, a
-        helper's, or anyone's while nobody sits."""
+    def _gate_table_change(self, interaction: discord.Interaction) -> Optional[str]:
+        """What refuses a change to the table -- the mode or the variant:
+        either seated player's, a helper's, or anyone's while nobody sits."""
         game = self.cog.games.get(self.game_id)
-        seated = game is not None and (game.player_1_id is not None or game.player_2_id is not None)
+        seated = game is not None and bool(game.seat_ids())
         if seated and not self.may_act_in_game(interaction, game):
-            await send_ephemeral(interaction, "Only a seated player can change the game.")
+            return "Only a seated player can change the game."
+        return None
+
+    async def set_mode(self, interaction: discord.Interaction, mode: str) -> None:
+        """The basic game or the standard one."""
+        refused = self._gate_table_change(interaction)
+        if refused:
+            await send_ephemeral(interaction, refused)
             return
         await self.move(interaction, lambda: self.cog.service.set_mode(self.game_id, mode))
+
+    async def set_variant(self, interaction: discord.Interaction, variant: str) -> None:
+        """A duel, a free-for-all or a two-headed dragon (the last
+        refused by the record until step 6)."""
+        refused = self._gate_table_change(interaction)
+        if refused:
+            await send_ephemeral(interaction, refused)
+            return
+        await self.move(interaction, lambda: self.cog.service.set_variant(self.game_id, variant))
 
     async def move(self, interaction: discord.Interaction, change) -> None:
         """A seat, a team, a deck or the mode changed: the service's,
@@ -237,11 +290,7 @@ class LobbyView(SafeView):
             await send_ephemeral(interaction, "Only a seated player can start the game.")
             return
         if not game.may_start():
-            await send_ephemeral(
-                interaction,
-                "Both seats have to be taken, each with its heroes and its deck, "
-                "before the game can start.",
-            )
+            await send_ephemeral(interaction, str(game.start_refusal()))
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         await self.cog.start_game(interaction, game)

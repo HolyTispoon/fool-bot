@@ -346,7 +346,7 @@ class StandardLobbyTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse([item for item in lobby.children if ":heroes" in (item.custom_id or "")])
             # Six decks and Mixed: five to a row, as Discord allows.
             self.assertEqual(
-                [[item.label for item in lobby.children if item.row == row] for row in (1, 2)],
+                [[item.label for item in lobby.children if item.row == row] for row in (2, 3)],
                 [["Blood Anarchs (Red)", "Moss Sentinels (Green)", "Vortoss Conclave (Purple)",
                   "Blackhand Scourge (Black)", "Whitestar Order (White)"],
                  ["Flagstone Dominion (Blue)", "Mixed colors"]],
@@ -533,8 +533,8 @@ class HandTests(unittest.IsolatedAsyncioTestCase):
 
 class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_standard_test_game_picks_each_side_by_its_own_buttons(self) -> None:
-        """One person, two sides: a row of deck buttons for each, the
-        side written in front and its team lit, and Mixed for each."""
+        """One person, two sides: the deck buttons of the side being chosen
+        for, the side written in front and its team lit, and Mixed."""
         with suppressed_cog_saves():
             table = Table()
             call = interaction(table.basher, guild=table.guild)
@@ -546,15 +546,18 @@ class TestGameCogTests(unittest.IsolatedAsyncioTestCase):
             lobby = LobbyView(table.cog, game.game_id)
         self.assertEqual(game.player_specs, {1: ["anarchy", "blood", "fire"],
                                              2: ["future", "past", "present"]})
-        # Each side's six decks and Mixed take two rows: P1's rows 1 and
-        # 2, P2's 3 and 4.
-        rows = {row: [item for item in lobby.children if item.row == row] for row in (1, 2, 3, 4)}
-        self.assertEqual([item.label for item in rows[1] + rows[2]],
-                         ["P1: Blood Anarchs (Red)", "P1: Moss Sentinels (Green)",
-                          "P1: Vortoss Conclave (Purple)", "P1: Blackhand Scourge (Black)",
-                          "P1: Whitestar Order (White)", "P1: Flagstone Dominion (Blue)",
-                          "P1: Mixed colors"])
-        self.assertEqual([item.label for item in rows[3] + rows[4]
+        # Each side's six decks and Mixed take two rows, and a message
+        # has three left for picks under the mode and the variant: one
+        # side's set at a time, the first not yet chosen for -- both are
+        # chosen, so the last, with its team lit.
+        rows = {row: [item for item in lobby.children if item.row == row] for row in (2, 3, 4)}
+        self.assertFalse(rows[4])
+        self.assertEqual([item.label for item in rows[2] + rows[3]],
+                         ["P2: Blood Anarchs (Red)", "P2: Moss Sentinels (Green)",
+                          "P2: Vortoss Conclave (Purple)", "P2: Blackhand Scourge (Black)",
+                          "P2: Whitestar Order (White)", "P2: Flagstone Dominion (Blue)",
+                          "P2: Mixed colors"])
+        self.assertEqual([item.label for item in rows[2] + rows[3]
                           if item.style is discord.ButtonStyle.success],
                          ["P2: Vortoss Conclave (Purple)"])
         self.assertTrue(game.may_start())

@@ -37,17 +37,19 @@ class LobbyMixin:
         and deck, and what Start waits on. The catalog names the heroes."""
         cards = catalog()
         rows = []
+        duel = game.variant == "duel"
         for seat in range(1, game.seat_count + 1):
+            label = f"Player {seat}" if duel else f"Seat {seat}"
             name = game.seat_name(seat)
             if name is None:
-                rows.append(f"**Player {seat}**: *open*")
+                rows.append(f"**{label}**: *open*" if duel else f"*{label} (open)*")
                 continue
             specs = game.player_specs.get(seat, ())
             if not specs:
-                rows.append(f"**Player {seat}**: {name} -- *choosing heroes*")
+                rows.append(f"**{label}**: {name} -- *choosing heroes*")
                 continue
             heroes = [cards.hero_for(spec) for spec in specs]
-            row = f"**Player {seat}**: {name} -- **{team_name(specs)}**"
+            row = f"**{label}**: {name} -- **{team_name(specs)}**"
             if len(heroes) == 1:
                 row += f" ({heroes[0].name})"
             elif cards.color_deck_of(specs) is not None:
@@ -65,7 +67,8 @@ class LobbyMixin:
         if game.status is not GameStatus.LOBBY:
             waiting = "The game has started."
         elif game.may_start():
-            waiting = "Both seats are ready: either player may **Start**."
+            waiting = ("Both seats are ready: either player may **Start**." if duel else
+                       "The seats are ready: any seated player may **Start**.")
         else:
             waiting = ("Choose your hero to take a seat." if game.mode == "basic" else
                        "Choose a color's deck, or **Mixed colors** for any three heroes "
@@ -74,11 +77,15 @@ class LobbyMixin:
             kind = "a standard game, three heroes a side"
         else:
             kind = "the basic game, one hero a side"
+        if game.variant == "free_for_all":
+            kind = ("a free-for-all, three to five players, the seats taken in order: "
+                    + kind.replace(", one hero a side", ", one hero each")
+                    .replace(", three heroes a side", ", three heroes each"))
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
         if game.test_game:
             head += " A **test game**: one person may take both seats and play both sides."
         lines = [head.strip(), *rows]
-        if game.rematch_specs:
+        if game.rematch_specs or (game.rematch_of and game.variant != "duel"):
             lines.append(self.rematch_line(game))
         return "\n".join([*lines, waiting])
 
@@ -104,6 +111,10 @@ class LobbyMixin:
             (other for other in self.games.values() if other.game_id == game.rematch_of), None,
         )
         last = f"game {played.game_number}" if played is not None else "the last game"
+        if not game.rematch_specs:
+            # A table's rematch keeps its seats and clears every seat's
+            # heroes (docs/codex-multiplayer.md, decision 16).
+            return f"A rematch of {last}: the same seats, each choosing heroes again."
         if game.heroes_kept:
             return f"A rematch of {last}: both players keep their heroes."
         asked = [game.seat_name(seat) or f"Player {seat}" for seat in game.kept_heroes]

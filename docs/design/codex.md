@@ -2673,6 +2673,10 @@ Measured with the fakes, and held on every click of the whole-game test:
 | Undo to a point of the turn (the menu) | **1** | 2 |
 | Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
 | Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
+| A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
+| **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
+| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
+| Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 
 **A click behind a busy game is acknowledged before it waits.** Every
 click on a game holds its lock across the whole answer -- the board
@@ -3558,6 +3562,79 @@ adds a line and changes the gold the policy plays on.
   a hero lent to its controller, since `heroes_in_play` is the owner's
   reading -- units, which sit in the borrower's play zone, are seen by
   every effect.
+
+### Step 4: the free-for-all on Discord
+
+The duel on Discord changed in nothing a player sees but the lobby's
+second row; `tests/test_codex_golden.py` passes unrecorded and the
+request table above holds, click for click, for every click that
+existed (`tests/test_codex_cog_free_for_all.py` adds the clicks a third
+seat brings).
+
+- **The lobby has a row of variants**, **Duel** / **Free-for-all** /
+  **Two-headed dragon**, under the mode's -- the mode as the table is
+  (`LobbyView.set_variant`, the service's `set_variant` over the
+  record's), either seated player's, a helper's, or anyone's while
+  nobody sits. The dragon is refused by the record ("not in this bot
+  yet", no page) until step 6. A table prints "Seat 3 (open)" rows for
+  the seats its variant takes (a duel's keep "Player n"), and Start
+  waits on three complete seats (`CodexGame.start_refusal`, the one
+  wording of why Start is refused, shared with `CodexGame.start`).
+- **A message has five rows**, and the lobby's two for the mode and the
+  variant leave three for picks, which is why a test game shows the
+  picks of as many seats as fit (`LobbyView.pick_seats`): all of them
+  where they fit, else a window starting at the first seat not yet
+  chosen for -- a free-for-all's seats are taken in order, so that is
+  the one to fill next -- each labelled "P3: Blood Anarchs". The duel's
+  standard test game, which showed both seats' decks in four rows,
+  shows one seat's at a time now; changing the other seat's picks goes
+  through **Leave**.
+- **Start renames the channel** `codex-<n>-ffa-<p1>-<p2>-<p3>`, every
+  seat's name slugged, capped at 100 characters
+  (`cogs.codex_helpers.channel_name`; a dragon's word will be `2hd`).
+  `CHANNEL_NAME_PATTERN` still reads the number. `/codex games` lists
+  every seat, a free-for-all's under its variant's name.
+- **The turn message of a free-for-all has no Concede**, and `/codex
+  concede` answers that a free-for-all has none, citing Rulebook p. 14
+  -- the refusal is the model's (`turn.refuse_concession`, behind
+  `GameService.check_concession`), asked before the second click is
+  offered. **Swap view** toggles stacked and side by side, a table having
+  no facing view (`swapped_layout(layout, table=True)`); `/codex
+  side_by_side` is the same toggle. The board's layout and the worker
+  and Mercenary pictures are step 2's (`render.compose_board`).
+- **The turn's end is read off the snapshots, not the seat after.** The
+  standing board of the turn that ended is lit for
+  `history.previous_turn_owner`, since the seat before the active one is
+  not "the other seat" on a table (playoffs and Double Time make it
+  neither the seat number before nor the next).
+- **The undo to the previous turn asks the seat whose turn is unwound**
+  -- `previous_turn_owner`, the snapshot's active seat -- Agree theirs or
+  a helper's, **Refuse** any seat's at the table, as the duel's consent
+  is. The button reads "(asks the player before you)" on a table. **Take
+  back the end of my turn** is the seat that ended the turn
+  (`end_of_turn_owner`), and once the next seat has acted its refusal
+  names them -- "dee has already started their turn." -- where the
+  duel's keeps "Your opponent" (`opponent_started`, decision 15).
+- **The panels.** My hand answers by the clicker's seat as before. A
+  seat whose turn has ended holds a standing tech choice
+  (`standing_prompts`), so **Tech** finds the clicker's; the turn's
+  footer names the one seat the turn waits on, since a free-for-all's
+  turn waits on its own player's tech alone (a dragon's two teammates
+  are step 6's). A defender button names the side it was offered on
+  where the same ref stands on two (`against`), the tower's detection
+  labels each thing by the opponent whose it is
+  (`RulesEngine.holder_of`), and a TARGET whose rows lie on several
+  seats is pictured with the table stacked, on one seat that seat alone
+  (`side_shown`).
+- **The end**: the winner's line with the final board, the playoff's
+  lines on the turn messages they fall in, and the channel moved to
+  Codex Archive are the duel's path (`finish_game`); **Rematch** opens a
+  lobby of the same variant with the same seats and every seat's heroes
+  cleared (`CodexGame.rematch`, decision 16), with no **Keep heroes**,
+  which a swap needs and a table has none of. Abandon is any seated
+  player's or a helper's, unchanged, and the startup sweep re-arms a
+  table's buttons as a duel's.
+- **Not yet**: the two-headed dragon (steps 5 and 6).
 
 ## Running it
 

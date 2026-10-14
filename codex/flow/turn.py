@@ -178,6 +178,21 @@ def base_floor(match: MatchState, seat: int, by: Optional[int]) -> Optional[int]
     return max(floors) if floors else None
 
 
+def refuse_concession(match: MatchState, seat: int) -> None:
+    """Raise `RuleRefusal` where `seat` may not concede `match` -- a seat
+    the game has not, a game already over, or a free-for-all, which has
+    none (the author, 2026-10-11, docs/codex-multiplayer.md decision 5)."""
+    if seat not in seats.seat_numbers(match):
+        raise RuleRefusal("Only a player of the game can concede it.")
+    if match.winner is not None:
+        raise RuleRefusal("This game is already over.")
+    if match.variant == "free_for_all":
+        raise RuleRefusal(
+            "A free-for-all has no conceding: there is no player elimination.",
+            cite="Rulebook p. 14",
+        )
+
+
 def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             seat: int) -> StepResult:
     """
@@ -188,16 +203,7 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     (`codex.history.undo_targets`) -- so the service calls it as a door
     of its own, as it calls the undos.
     """
-    if seat not in seats.seat_numbers(match):
-        raise RuleRefusal("Only a player of the game can concede it.")
-    if match.winner is not None:
-        raise RuleRefusal("This game is already over.")
-    if match.variant == "free_for_all":
-        # The author, 2026-10-11 (docs/codex-multiplayer.md, decision 5).
-        raise RuleRefusal(
-            "A free-for-all has no conceding: there is no player elimination.",
-            cite="Rulebook p. 14",
-        )
+    refuse_concession(match, seat)
     match.winner = seats.sole_opponent(match, seat)
     match.conceded = seat
     match.record_event("conceded", loser=seat, winner=match.winner)

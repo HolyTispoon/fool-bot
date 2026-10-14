@@ -48,7 +48,7 @@ from codex.game import GameStatus, RuleRefusal
 from codex.render import render_codex, render_deck, render_hand
 from cogs.codex_helpers import elapsed_ms, pictures_size
 from cogs.codex_views.base import SafeView, kept_pictures, picture_file, send_ephemeral
-from cogs.codex_views.turn import OPPONENT_STARTED, UndoView
+from cogs.codex_views.turn import UndoView, opponent_started
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,13 +74,17 @@ def codex_view_menu(views, current: str, row: int | None = None) -> discord.ui.S
     )
 
 
-def swapped_layout(layout: str) -> str:
+def swapped_layout(layout: str, table: bool = False) -> str:
     """
     The layout **Swap view** switches to: between the two stacked ones,
     the far panel turned to face the near one or both the same way up
     -- and from side by side, which `/codex side_by_side` alone puts up,
-    back to stacked.
+    back to stacked. **A table of several has no facing view** (the
+    author, 2026-10-14): every panel upright, so it toggles between
+    stacked and side by side.
     """
+    if table:
+        return "stacked" if layout == "side_by_side" else "side_by_side"
     return "stacked_upright" if layout == "stacked" else "stacked"
 
 
@@ -91,10 +95,12 @@ SWAP_LABELS = {
 }
 
 
-def swap_label(layout: str) -> str:
+def swap_label(layout: str, table: bool = False) -> str:
     """The layout the button would switch to."""
     if layout == "side_by_side":
         return "View: stacked"
+    if table:
+        return "View: side by side"
     return SWAP_LABELS[swapped_layout(layout)]
 
 
@@ -111,9 +117,12 @@ class TurnMessageView(SafeView):
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             ("Undo", "undo", discord.ButtonStyle.secondary),
-            (swap_label(layout), "swap", discord.ButtonStyle.secondary),
+            (swap_label(layout, game is not None and game.variant != "duel"), "swap", discord.ButtonStyle.secondary),
             ("Concede", "concede", discord.ButtonStyle.danger),
         ):
+            if action == "concede" and game is not None and game.variant == "free_for_all":
+                # A free-for-all has no conceding (Rulebook p. 14).
+                continue
             button = discord.ui.Button(
                 label=label, style=style, custom_id=f"codex:turn:{action}:{game_id}",
             )
@@ -169,8 +178,9 @@ class TurnMessageView(SafeView):
         if seat in self.cog.engine.turn_seats(match):
             await send_ephemeral(
                 interaction,
-                "Tech is chosen at the end of your turn and changed during your "
-                "opponent's: it is not yours to press now.",
+                "Tech is chosen at the end of your turn and changed during "
+                + ("your opponent's" if match.variant == "duel" else "the others'")
+                + ": it is not yours to press now.",
             )
             return
         if self.cog.standing_for(game, match, seat) is None:
@@ -204,7 +214,7 @@ class TurnMessageView(SafeView):
               and self.cog.service.previous_turn_owner(game.game_id) in game.seats_of(interaction.user.id)):
             # They ended the turn before, and the other player has
             # acted since: its end is no longer theirs to take back.
-            await send_ephemeral(interaction, OPPONENT_STARTED)
+            await send_ephemeral(interaction, opponent_started(game, match))
             return
         else:
             await send_ephemeral(interaction, "Only the player whose turn it is can undo.")
@@ -230,7 +240,7 @@ class TurnMessageView(SafeView):
         if not self.may_act_in_game(interaction, game):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
             return
-        layout = swapped_layout(game.board_layout)
+        layout = swapped_layout(game.board_layout, game.variant != "duel")
         try:
             self.cog.service.set_board_layout(game.game_id, layout)
         except RuleRefusal as refused:
