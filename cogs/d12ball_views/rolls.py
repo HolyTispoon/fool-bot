@@ -90,9 +90,13 @@ class SkillTestView(SafeView):
         # dice, and said above them -- see `dice_file_with_ignitions`.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            partial(render_contest_dice, dice.contestants),
+            partial(
+                render_contest_dice, dice.contestants,
+                labels=self.cog.dice_side_labels(game, match),
+            ),
             "skill_test_dice.png",
             *dice.ignites,
+            game=game,
         )
 
         # Result after the dice, not above them: a message's
@@ -387,9 +391,13 @@ class ScoreAttemptView(SafeView):
         # the order it happened.
         dice_file, ignition = await self.cog.dice_file_with_ignitions(
             match,
-            partial(render_contest_dice, dice.contestants),
+            partial(
+                render_contest_dice, dice.contestants,
+                labels=self.cog.dice_side_labels(game, match),
+            ),
             "score_attempt_dice.png",
             *dice.ignites,
+            game=game,
         )
         # The dice image carries the maths that produced it, and the
         # verdict follows in its own message. A message's attachments
