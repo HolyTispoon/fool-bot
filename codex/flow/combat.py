@@ -144,13 +144,13 @@ def _is_destroyed(engine: "RulesEngine", match: MatchState, fighter: _Fighter) -
 
 
 def _destroy(engine: "RulesEngine", match: MatchState, fighters: list[_Fighter],
-             result: StepResult, combat: bool = False) -> None:
+             result: StepResult, combat: bool = False, cause: Optional[int] = None) -> None:
     """Destroy each of these, and give the kill's two levels to the
     opposing hero in play (UMR p. 7) -- `codex.flow.board.destroy`;
     `combat` where combat damage killed them, which "dies from combat
     damage" reads (step 12)."""
     board.destroy(engine, match, [(fighter.seat, fighter.ref) for fighter in fighters], result,
-                  combat=combat)
+                  combat=combat, cause=cause)
 
 
 # -- Declaring the attack ---------------------------------------------------
@@ -304,7 +304,7 @@ def _in_combat(match: MatchState, stage: str) -> dict:
 def _obliterate_one(engine: "RulesEngine", match: MatchState, unit: str,
                     state: dict, result: StepResult) -> None:
     other = engine.defending_seat(match)
-    _destroy(engine, match, [_fighter(match, other, unit)], result)
+    _destroy(engine, match, [_fighter(match, other, unit)], result, cause=match.active)
     state["obliterated"].append(unit)
     state["obliterate"] -= 1
 

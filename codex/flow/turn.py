@@ -269,6 +269,7 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         hero.arrived_this_turn = False
         hero.patrol_slot = None
     player.hired_this_turn = False
+    player.bounties = 0
     player.spells_played = 0
     player.arrived_from_hand = False
     # Censorship Council's and Building Inspector's counts (step 13).

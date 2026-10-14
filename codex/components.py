@@ -538,6 +538,11 @@ class PlayerState:
     #: arrive in their first upkeep (Rulebook p. 14). 0 otherwise, and in
     #: an older save; written only while some are owed.
     mercenaries_owed: int = 0
+    #: The gold this player has earned this turn for killing enemy units
+    #: (Rulebook p. 14, free-for-all): at most 3, cleared when their turn
+    #: begins. 0 otherwise, and in an older save; written only while some
+    #: has been earned.
+    bounties: int = 0
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -639,12 +644,13 @@ PLAYER_SAVED_FIELDS = (
     SavedField("built_this_turn", default=False),
     SavedField("discards_untold", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("mercenaries_owed", default=0),
+    SavedField("bounties", default=0),
 )
 
 #: Fields written only where they differ from what an older save reads
 #: them as, so a duel's save is the save it always was (the golden) and
 #: still reads on a checkout older than the field.
-_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0}
+_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0}
 
 
 def _write_players(players: list) -> list:

@@ -254,7 +254,7 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if top["part"] >= len(parts):
             match.resolving.pop(0)
             _finish(engine, match, top, result)
-            board.settle(engine, match, result, cause=top["seat"])
+            board.settle(engine, match, result, cause=cause_of(match, top))
             continue
         part = parts[top["part"]]
         if not _applies(part, top):
@@ -452,10 +452,10 @@ def _choose(engine: "RulesEngine", match: MatchState, top: dict, part, row,
     if part.targeted and _targeted_away(engine, match, top, row, result):
         # Smoker went home, or an Illusion died, the moment it was
         # targeted: the rest of the part does not resolve on it.
-        board.settle(engine, match, result, cause=top["seat"])
+        board.settle(engine, match, result, cause=cause_of(match, top))
     elif part.does != "divide":
         does(engine, match, top, part, (row.seat, row.ref), result)
-        board.settle(engine, match, result, cause=top["seat"])
+        board.settle(engine, match, result, cause=cause_of(match, top))
     if len(top["picks"]) >= pick_limit(engine, match, top, part):
         _end_picks(engine, match, top, part, result)
 
@@ -482,7 +482,7 @@ def _targeted_away(engine: "RulesEngine", match: MatchState, top: dict, row,
         return True
     if engine.illusion_dies(match, body):
         result.narration.append(f"{named} is an Illusion: targeted by {top['by']}, it dies.")
-        board.destroy(engine, match, [(row.seat, row.ref)], result, cause=top["seat"])
+        board.destroy(engine, match, [(row.seat, row.ref)], result, cause=cause_of(match, top))
         return True
     return False
 
@@ -516,7 +516,7 @@ def _deal_split(engine: "RulesEngine", match: MatchState, top: dict, part,
         if board.body_of(match, *target) in shielded:
             continue
         _deal(engine, match, top, target, amount, result)
-    board.settle(engine, match, result, cause=top["seat"])
+    board.settle(engine, match, result, cause=cause_of(match, top))
     _next_part(top)
 
 
@@ -621,7 +621,7 @@ def _do(engine: "RulesEngine", match: MatchState, top: dict, part,
         target: Optional[tuple[int, str]], result: StepResult) -> None:
     does(engine, match, top, part, target, result)
     _next_part(top)
-    board.settle(engine, match, result, cause=top["seat"])
+    board.settle(engine, match, result, cause=cause_of(match, top))
 
 
 def _thing(match: MatchState, target: tuple[int, str]) -> str:
@@ -705,8 +705,15 @@ def _minus_rune(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} puts a -1/-1 rune on {_thing(match, target)}.")
 
 
+def cause_of(match: MatchState, top: dict) -> int:
+    """The seat whose doing a frame's destruction is: its controller's,
+    but the active player's where the card's text has the active player
+    do it (`effects.ACTIVE_PLAYER_ACTS`)."""
+    return match.active if top.get("effect") in effects.ACTIVE_PLAYER_ACTS else top["seat"]
+
+
 def _destroy(engine, match, top, part, target, result) -> None:
-    board.destroy(engine, match, [target], result, by=top["by"], cause=top["seat"])
+    board.destroy(engine, match, [target], result, by=top["by"], cause=cause_of(match, top))
 
 
 def _weaken(engine, match, top, part, target, result) -> None:
@@ -1321,7 +1328,7 @@ def _anarchy(engine, match, top, part, target, result) -> None:
         for hero in player.heroes_in_play
     ]
     result.narration.append(f"{top['by']} destroys every unit and hero.")
-    board.destroy(engine, match, everything, result, cause=top["seat"])
+    board.destroy(engine, match, everything, result, cause=cause_of(match, top))
 
 
 def _bloodlust(engine, match, top, part, target, result) -> None:
@@ -1619,7 +1626,7 @@ def _plague(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} finds nothing with a -1/-1 rune.")
         return
     result.narration.append(f"{top['by']} destroys every tech 0, I and II unit and hero with a -1/-1 rune.")
-    board.destroy(engine, match, doomed, result, cause=top["seat"])
+    board.destroy(engine, match, doomed, result, cause=cause_of(match, top))
 
 
 def _decay(engine, match, top, part, target, result) -> None:
@@ -1661,7 +1668,7 @@ def _shadow_blade(engine, match, top, part, target, result) -> None:
     body = board.body_of(match, seat, ref)
     _damage(engine, match, top, part, target, result)
     if body is not None and board.lethal(engine, match, body):
-        board.settle(engine, match, result, cause=top["seat"])
+        board.settle(engine, match, result, cause=cause_of(match, top))
         if board.body_of(match, seat, ref) is None:
             board.random_discard(engine, match, seat, result, top["by"])
 
@@ -2446,7 +2453,7 @@ def _destroy_tokens(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} finds no token to destroy.")
         return
     result.narration.append(f"{top['by']} destroys every token.")
-    board.destroy(engine, match, tokens_now, result, cause=top["seat"])
+    board.destroy(engine, match, tokens_now, result, cause=cause_of(match, top))
 
 
 def _look_at(engine, match, top, part, target, result) -> None:
@@ -2703,7 +2710,7 @@ def _judgment(engine, match, top, part, target, result) -> None:
         result.narration.append(f"{top['by']} finds no tech 0, I or II unit to destroy.")
         return
     result.narration.append(f"{top['by']} destroys every tech 0, I and II unit.")
-    board.destroy(engine, match, hit, result, cause=top["seat"])
+    board.destroy(engine, match, hit, result, cause=cause_of(match, top))
 
 
 def _codex_spell(engine, match, top, part, target, result) -> None:
