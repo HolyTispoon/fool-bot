@@ -279,6 +279,28 @@ class StorageTests(unittest.TestCase):
             loaded = storage.load_games(path)
         self.assertEqual(loaded[game.game_id].to_dict(), game.to_dict())
 
+    def test_a_save_older_than_the_seats_list_keeps_its_players(self) -> None:
+        # A record saved before multiplayer step 1 seats its players with
+        # `player_1_id` and the rest, which are properties now rather than
+        # fields: the loader once dropped them as retired, and a game in
+        # progress came back with nobody in it.
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from gamesaves.codex import storage
+
+        svc, _, game = seated()
+        svc.start(game.game_id)
+        old = game.to_dict()
+        del old["seats"]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "codex_games.json"
+            path.write_text(json.dumps({game.game_id: old}), encoding="utf-8")
+            loaded = storage.load_games(path)[game.game_id]
+        self.assertEqual(loaded.seats, game.seats)
+        self.assertEqual((loaded.player_1_id, loaded.player_2_id), (game.player_1_id, game.player_2_id))
+
     def test_an_unreadable_file_is_never_written_over(self) -> None:
         import tempfile
         from pathlib import Path
