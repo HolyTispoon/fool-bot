@@ -93,10 +93,14 @@ class CodexGame:
     #: than the thread and the in-place lobby, which knew no other.
     venue: str = field(default="channel", kw_only=True)
 
-    player_1_id: Optional[int] = None
-    player_2_id: Optional[int] = None
-    player_1_name: Optional[str] = None
-    player_2_name: Optional[str] = None
+    #: Who sits where, in lobby order: seat *n* is `seats[n - 1]`, a
+    #: `{"id", "name"}` with both `None` while the seat is empty. As long
+    #: as `seat_count` seats, so a seat left empty keeps its number.
+    #: Saved as "seats"; a save older than the multiplayer worksheet has
+    #: the four `player_1_*` / `player_2_*` keys instead, which are read
+    #: where "seats" is missing and still written for the first two seats
+    #: (docs/design/codex.md, "Multiplayer").
+    seats: list[dict] = field(default_factory=lambda: _empty_seats(SEAT_COUNT))
     test_game: bool = False
     observer_ids: list[int] = field(default_factory=list)
 
@@ -147,25 +151,78 @@ class CodexGame:
 
     # -- Reading the seats -------------------------------------------
 
+    @property
+    def seat_count(self) -> int:
+        """How many seats the game has: two, until a variant says more
+        (docs/codex-multiplayer.md)."""
+        return SEAT_COUNT
+
+    def _seat(self, seat: int) -> dict:
+        return self.seats[seat - 1]
+
+    def _set_seat(self, seat: int, user_id: Optional[int], name: Optional[str]) -> None:
+        self.seats[seat - 1] = {"id": user_id, "name": name}
+
+    @property
+    def player_1_id(self) -> Optional[int]:
+        return self._seat(1)["id"]
+
+    @player_1_id.setter
+    def player_1_id(self, value: Optional[int]) -> None:
+        self._seat(1)["id"] = value
+
+    @property
+    def player_2_id(self) -> Optional[int]:
+        return self._seat(2)["id"]
+
+    @player_2_id.setter
+    def player_2_id(self, value: Optional[int]) -> None:
+        self._seat(2)["id"] = value
+
+    @property
+    def player_1_name(self) -> Optional[str]:
+        return self._seat(1)["name"]
+
+    @player_1_name.setter
+    def player_1_name(self, value: Optional[str]) -> None:
+        self._seat(1)["name"] = value
+
+    @property
+    def player_2_name(self) -> Optional[str]:
+        return self._seat(2)["name"]
+
+    @player_2_name.setter
+    def player_2_name(self, value: Optional[str]) -> None:
+        self._seat(2)["name"] = value
+
+    def seat_user_id(self, seat: int) -> Optional[int]:
+        """The Discord id sitting in `seat`, or `None`."""
+        if not 1 <= seat <= len(self.seats):
+            return None
+        return self._seat(seat)["id"]
+
+    def seat_ids(self) -> tuple[int, ...]:
+        """Every id seated, in seat order, once each -- one person
+        holding two seats of a test game counted once."""
+        found: list[int] = []
+        for held in self.seats:
+            if held["id"] is not None and held["id"] not in found:
+                found.append(held["id"])
+        return tuple(found)
+
     def seats_of(self, user_id: Optional[int]) -> tuple[int, ...]:
-        """Every seat `user_id` holds: one, or both in a test game."""
+        """Every seat `user_id` holds: one, or all of them in a test game."""
         if user_id is None:
             return ()
         return tuple(
-            seat for seat, held in ((1, self.player_1_id), (2, self.player_2_id))
-            if held == user_id
+            number for number, held in enumerate(self.seats, 1) if held["id"] == user_id
         )
 
     def seat_of(self, user_id: Optional[int]) -> Optional[int]:
-        """The seat `user_id` holds, 1 or 2, or `None` -- the first of
-        the two where a test game seats one person in both (`seats_of`)."""
-        if user_id is None:
-            return None
-        if user_id == self.player_1_id:
-            return 1
-        if user_id == self.player_2_id:
-            return 2
-        return None
+        """The seat `user_id` holds, or `None` -- the first of them where
+        a test game seats one person in several (`seats_of`)."""
+        seats = self.seats_of(user_id)
+        return seats[0] if seats else None
 
     def seat_for(self, user_id: Optional[int], active: int) -> Optional[int]:
         """
@@ -178,7 +235,9 @@ class CodexGame:
         return seats[0] if seats else None
 
     def seat_name(self, seat: int) -> Optional[str]:
-        return self.player_1_name if seat == 1 else self.player_2_name
+        if not 1 <= seat <= len(self.seats):
+            return None
+        return self._seat(seat)["name"]
 
     # -- The lobby ---------------------------------------------------
 
@@ -287,26 +346,29 @@ class CodexGame:
         specs = self._check_team([spec.strip().lower() for spec in specs])
         mine = self.seats_of(user_id)
         if seat is not None:
-            if seat not in (1, 2):
-                raise RuleRefusal("A game has seats 1 and 2.")
-            held = self.player_1_id if seat == 1 else self.player_2_id
+            if not 1 <= seat <= self.seat_count:
+                raise RuleRefusal(
+                    f"This game has {self.seat_count} seats, numbered 1 to {self.seat_count}."
+                )
+            held = self.seat_user_id(seat)
             if held is not None and held != user_id:
                 raise RuleRefusal("Somebody else is sitting there.")
             if held is None and mine and not self.test_game:
-                raise RuleRefusal("You are already seated -- a game is two players.")
+                raise RuleRefusal(
+                    f"You are already seated -- this game is {self.seat_count} players."
+                )
             target = seat
-        elif mine and (not self.test_game or len(mine) == 2):
+        elif mine and (not self.test_game or len(mine) == self.seat_count):
             target = mine[0]
-        elif self.player_1_id is None:
-            target = 1
-        elif self.player_2_id is None:
-            target = 2
         else:
-            raise RuleRefusal("Both seats are taken -- a game is two players.")
-        if target == 1:
-            self.player_1_id, self.player_1_name = user_id, user_name
-        else:
-            self.player_2_id, self.player_2_name = user_id, user_name
+            free = [number for number in range(1, self.seat_count + 1)
+                    if self.seat_user_id(number) is None]
+            if not free:
+                raise RuleRefusal(
+                    f"All the seats are taken -- this game is {self.seat_count} players."
+                )
+            target = free[0]
+        self._set_seat(target, user_id, user_name)
         self.player_specs[target] = specs
         self._settle_deck(target)
         if user_id in self.observer_ids:
@@ -345,9 +407,8 @@ class CodexGame:
     def seat_complete(self, seat: int) -> bool:
         """The seat is taken, with as many heroes as the game takes and
         its deck settled."""
-        held = self.player_1_id if seat == 1 else self.player_2_id
         return (
-            held is not None
+            self.seat_user_id(seat) is not None
             and len(self.player_specs.get(seat, ())) == self.heroes_per_seat
             and self.player_decks.get(seat) in self.deck_choices(seat)
         )
@@ -360,22 +421,17 @@ class CodexGame:
         if not seats:
             raise RuleRefusal("You are not seated in this lobby.")
         for seat in seats:
-            if seat == 1:
-                self.player_1_id, self.player_1_name = None, None
-            else:
-                self.player_2_id, self.player_2_name = None, None
+            self._set_seat(seat, None, None)
             self.player_specs.pop(seat, None)
             self.player_decks.pop(seat, None)
             if seat in self.kept_heroes:
                 self.kept_heroes.remove(seat)
 
     def may_start(self) -> bool:
-        """Both seats complete -- each taken, with its heroes and its
+        """Every seat complete -- each taken, with its heroes and its
         deck -- in a lobby."""
-        return (
-            self.status is GameStatus.LOBBY
-            and self.seat_complete(1)
-            and self.seat_complete(2)
+        return self.status is GameStatus.LOBBY and all(
+            self.seat_complete(seat) for seat in range(1, self.seat_count + 1)
         )
 
     def start(self, engine: "RulesEngine") -> None:
@@ -388,9 +444,10 @@ class CodexGame:
                 "before the game can start.",
                 cite="UMR p. 3",
             )
+        seats = range(1, self.seat_count + 1)
         match = engine.new_match(
-            (self.player_specs[1], self.player_specs[2]),
-            decks=(self.player_decks[1], self.player_decks[2]),
+            tuple(self.player_specs[seat] for seat in seats),
+            decks=tuple(self.player_decks[seat] for seat in seats),
         )
         self.match_state = match.to_dict()
         self.status = GameStatus.PLAYING
@@ -432,25 +489,30 @@ class CodexGame:
             raise RuleRefusal("Only a finished game can be played again.")
         played = {seat: list(specs) for seat, specs in self.player_specs.items()}
         decks = dict(self.player_decks)
+        swapped = self._swapped()
         return CodexGame(
             game_id=game_id,
             game_number=game_number,
             guild_id=self.guild_id,
             channel_id=self.channel_id,
             venue=self.venue,
-            player_1_id=self.player_1_id,
-            player_2_id=self.player_2_id,
-            player_1_name=self.player_1_name,
-            player_2_name=self.player_2_name,
+            seats=[dict(held) for held in self.seats],
             test_game=self.test_game,
             mode=self.mode,
-            player_specs={1: list(played[2]), 2: list(played[1])},
-            player_decks={1: decks[2], 2: decks[1]},
+            player_specs={seat: list(played[order]) for seat, order in swapped.items()},
+            player_decks={seat: decks[order] for seat, order in swapped.items()},
             board_layout=self.board_layout,
             rematch_of=self.game_id,
             rematch_specs=played,
             rematch_decks=decks,
         )
+
+    def _swapped(self) -> dict[int, int]:
+        """Each seat to the seat whose heroes it plays when they are
+        swapped: the first two trade, as a duel's always did."""
+        order = {seat: seat for seat in range(1, self.seat_count + 1)}
+        order[1], order[2] = 2, 1
+        return order
 
     def keep_heroes(self, user_id: int) -> bool:
         """
@@ -474,21 +536,22 @@ class CodexGame:
                 self.kept_heroes.remove(seat)
         self.kept_heroes.sort()
         kept = self.heroes_kept
-        if self.player_1_id is not None and self.player_2_id is not None:
+        numbers = range(1, self.seat_count + 1)
+        if all(self.seat_user_id(seat) is not None for seat in numbers):
             last, decks = self.rematch_specs, self.rematch_decks
-            order = (1, 2) if kept else (2, 1)
-            self.player_specs = {1: list(last[order[0]]), 2: list(last[order[1]])}
+            order = {seat: seat for seat in numbers} if kept else self._swapped()
+            self.player_specs = {seat: list(last[order[seat]]) for seat in numbers}
             if decks:
-                self.player_decks = {1: decks[order[0]], 2: decks[order[1]]}
+                self.player_decks = {seat: decks[order[seat]] for seat in numbers}
             else:
-                self._settle_deck(1)
-                self._settle_deck(2)
+                for seat in numbers:
+                    self._settle_deck(seat)
         return kept
 
     @property
     def heroes_kept(self) -> bool:
-        """Whether both seats have pressed Keep heroes."""
-        return set(self.kept_heroes) >= {1, 2}
+        """Whether every seat has pressed Keep heroes."""
+        return set(self.kept_heroes) >= set(range(1, self.seat_count + 1))
 
     def abandon(self) -> None:
         """End a game nobody is going to finish. Refused for one already
@@ -502,6 +565,12 @@ class CodexGame:
     def to_dict(self) -> dict:
         data = asdict(self)
         data["status"] = self.status.value
+        # The first two seats are also written as the keys every older
+        # save, and D12 Ball's record, spell them with.
+        for number in (1, 2):
+            held = self.seats[number - 1]
+            data[f"player_{number}_id"] = held["id"]
+            data[f"player_{number}_name"] = held["name"]
         data["player_specs"] = {str(seat): list(specs) for seat, specs in self.player_specs.items()}
         data["player_decks"] = {str(seat): deck for seat, deck in self.player_decks.items()}
         data["rematch_specs"] = {str(seat): list(specs) for seat, specs in self.rematch_specs.items()}
@@ -512,6 +581,17 @@ class CodexGame:
     def from_dict(cls, data: dict) -> "CodexGame":
         data = dict(data)
         data["status"] = GameStatus(data.get("status", GameStatus.LOBBY.value))
+        legacy = {
+            key: data.pop(key, None)
+            for key in ("player_1_id", "player_1_name", "player_2_id", "player_2_name")
+        }
+        if data.get("seats"):
+            data["seats"] = _read_seats(data["seats"])
+        else:
+            data["seats"] = _pad_seats([
+                {"id": legacy["player_1_id"], "name": legacy["player_1_name"]},
+                {"id": legacy["player_2_id"], "name": legacy["player_2_name"]},
+            ])
         if data.get("mode") not in MODES:
             data["mode"] = "basic"
         data["player_specs"] = _read_teams(data.get("player_specs"))
@@ -545,3 +625,24 @@ def _read_teams(data: Optional[dict]) -> dict[int, list[str]]:
         int(seat): [specs] if isinstance(specs, str) else list(specs)
         for seat, specs in (data or {}).items()
     }
+
+
+#: How many seats a game has until a variant says more.
+SEAT_COUNT = 2
+
+
+def _empty_seats(count: int) -> list[dict]:
+    return [{"id": None, "name": None} for _ in range(count)]
+
+
+def _pad_seats(seats: list[dict]) -> list[dict]:
+    """The seats as a list of exactly the game's count, an empty one
+    where the list was short."""
+    seats = [dict(held) for held in seats[:SEAT_COUNT]]
+    return seats + _empty_seats(SEAT_COUNT - len(seats))
+
+
+def _read_seats(data: list) -> list[dict]:
+    return _pad_seats([
+        {"id": held.get("id"), "name": held.get("name")} for held in data
+    ])

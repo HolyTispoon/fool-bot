@@ -92,13 +92,15 @@ class LobbyTests(unittest.TestCase):
 
     def test_the_seat_fields_are_spelt_as_d12_balls(self) -> None:
         """So step 3's shared authorisation predicates read either record."""
-        shared = ("player_1_id", "player_2_id", "player_1_name", "player_2_name",
-                  "observer_ids", "test_game", "game_id", "game_number",
+        shared = ("observer_ids", "test_game", "game_id", "game_number",
                   "guild_id", "channel_id", "message_id")
         codex_fields = CodexGame.__dataclass_fields__
         d12_fields = D12BallGame.__dataclass_fields__
         for name in shared:
             self.assertIn(name, codex_fields)
+            self.assertIn(name, d12_fields)
+        for name in ("player_1_id", "player_2_id", "player_1_name", "player_2_name"):
+            self.assertTrue(hasattr(CodexGame, name))
             self.assertIn(name, d12_fields)
 
 

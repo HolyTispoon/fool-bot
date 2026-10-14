@@ -48,9 +48,14 @@ class GameRecord(Protocol):
 def game_participant_ids(game: GameRecord) -> set[int]:
     """
     The Discord ids of the game's coaches -- never the AI, which has no
-    user id to be. A test game has both sides set to the same person, so
-    this is a one-element set for it.
+    user id to be. A test game has every side set to the same person, so
+    this is a one-element set for it. A record with `seat_ids()` (the
+    Codex game, whose seats are a list) is read through it, D12 Ball's
+    through its two fields.
     """
+    seat_ids = getattr(game, "seat_ids", None)
+    if seat_ids is not None:
+        return set(seat_ids())
     return {
         coach_id
         for coach_id in (game.player_1_id, game.player_2_id)
