@@ -338,6 +338,11 @@ class GameService:
 
     # -- The end -----------------------------------------------------------
 
+    def check_concession(self, game_id: str, seat: int) -> None:
+        """Raise `RuleRefusal` where `seat` may not concede this game --
+        what the first click asks before it offers the second."""
+        turn.refuse_concession(self.load(self.game(game_id)), seat)
+
     def concede(self, game_id: str, seat: int) -> GameResult:
         """
         `seat` gives the game up (`codex.flow.turn.concede`): the match

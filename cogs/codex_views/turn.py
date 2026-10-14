@@ -68,6 +68,11 @@ def _cut(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+#: The undo to the previous turn's button: it asks the player whose
+#: turn is unwound -- a duel's opponent.
+PREVIOUS_TURN_LABEL = "To the start of the previous turn (asks your opponent)"
+PREVIOUS_TURN_LABEL_TABLE = "To the start of the previous turn (asks the player before you)"
+
 #: What the fine undo's menu asks.
 UNDO_MENU = "To before an action of this turn..."
 
@@ -78,6 +83,14 @@ END_OF_TURN = "Take back the end of my turn"
 #: What the player who ended the turn before is told where its end may
 #: no longer be taken back.
 OPPONENT_STARTED = "Your opponent has already started their turn."
+
+
+def opponent_started(game, match) -> str:
+    """`OPPONENT_STARTED`, naming the seat that has started its turn
+    where there are several (docs/codex-multiplayer.md, decision 15)."""
+    if match.variant == "duel":
+        return OPPONENT_STARTED
+    return f"{game.seat_name(match.active) or f'Player {match.active}'} has already started their turn."
 
 
 def undo_menu(choices, callback, row: int | None = None) -> discord.ui.Select | None:
@@ -745,9 +758,10 @@ class TurnPanelView(PanelView):
     def build_detect(self, options) -> None:
         """What the tower may detect, a button each as the engine offers
         it (UMR p. 9), and **Back**."""
-        other = self.cog.engine.sole_opponent(self.match, self.seat)
+        engine, others = self.cog.engine, self.cog.engine.opponents(self.match, self.seat)
         candidates = self.choices(
-            options.detect.candidates, lambda ref: self.label(ref, other), self.detect,
+            options.detect.candidates,
+            lambda ref: self.label(ref, engine.holder_of(self.match, ref, others)), self.detect,
             "detect", "Nothing of theirs is hidden",
         )
         row = self.place(candidates, 0, until=ROWS - 1)
@@ -775,7 +789,10 @@ class TurnPanelView(PanelView):
         defenders = [
             self.make_button(
                 f"{self.label(ref, side)} ({why})" if why else self.label(ref, side),
-                discord.ButtonStyle.primary, self._answer(self.defend, ref),
+                discord.ButtonStyle.primary,
+                # On a table the same ref can stand on two sides: the click
+                # names the side the options offered it on.
+                self._answer(self.defend, ref, side if options.seats else None),
                 choice=("defend", ref),
             )
             for ref, why, side in zip(options.defenders, whys, seats)
@@ -784,8 +801,10 @@ class TurnPanelView(PanelView):
         row = self.place(defenders, 0, until=ROWS - 1)
         self.button("Cancel the attack", discord.ButtonStyle.secondary, self.cancel_attack, row=row)
 
-    async def defend(self, interaction: discord.Interaction, ref: str) -> None:
-        await self.act(interaction, Action(PromptKind.CHOOSE_DEFENDER, "", {"defender": ref}))
+    async def defend(self, interaction: discord.Interaction, ref: str,
+                     against: int | None = None) -> None:
+        arguments = {"defender": ref} if against is None else {"defender": ref, "against": against}
+        await self.act(interaction, Action(PromptKind.CHOOSE_DEFENDER, "", arguments))
 
     async def cancel_attack(self, interaction: discord.Interaction) -> None:
         await self.act(interaction, Action(PromptKind.CHOOSE_DEFENDER, "cancel"))
@@ -1036,7 +1055,7 @@ class TurnPanelView(PanelView):
             self.button("To the start of my turn", discord.ButtonStyle.danger,
                         self.undo_turn_start, row=row)
         if history.PREVIOUS_TURN in targets:
-            self.button("To the start of the previous turn (asks your opponent)",
+            self.button(PREVIOUS_TURN_LABEL if self.match.variant == "duel" else PREVIOUS_TURN_LABEL_TABLE,
                         discord.ButtonStyle.danger, self.undo_previous_turn, row=row)
         if not targets:
             self.button("Nothing to undo", discord.ButtonStyle.secondary, None, row=row, disabled=True)
@@ -1104,13 +1123,15 @@ class UndoView(SafeView):
         self.points_menu = undo_menu(points, self.undo_point)
         if self.points_menu is not None:
             self.add_item(self.points_menu)
+        game = cog.games.get(game_id)
+        table = game is not None and game.variant != "duel"
         if end_of_turn:
             button = discord.ui.Button(label=END_OF_TURN, style=discord.ButtonStyle.danger)
             button.callback = self.undo_end_of_turn
             self.add_item(button)
         for label, target, callback in (
             ("To the start of my turn", history.TURN_START, self.undo_turn_start),
-            ("To the start of the previous turn (asks your opponent)",
+            (PREVIOUS_TURN_LABEL_TABLE if table else PREVIOUS_TURN_LABEL,
              history.PREVIOUS_TURN, self.undo_previous_turn),
         ):
             if target in targets:
@@ -1217,10 +1238,18 @@ class UndoConfirmView(SafeView):
         # and agrees with themselves.
         seat = self.opponent if self.opponent in seats else (seats[0] if seats else None)
         if seat == self.asker:
-            await send_ephemeral(interaction, "Your opponent has to agree to this: it undoes their turn too.")
+            await send_ephemeral(
+                interaction,
+                ("Your opponent" if match.variant == "duel" else "The player whose turn it was")
+                + " has to agree to this: it undoes their turn too.",
+            )
             return
         if not self.may_act_for(interaction, game, self.opponent):
-            await send_ephemeral(interaction, "Only the opponent, or a helper with Manage Channels, can agree to this.")
+            await send_ephemeral(
+                interaction,
+                ("Only the opponent" if match.variant == "duel" else "Only the player whose turn it was")
+                + ", or a helper with Manage Channels, can agree to this.",
+            )
             return
         if match.turn != self.turn or self.asker not in self.cog.engine.turn_seats(match):
             await edit_clicked(

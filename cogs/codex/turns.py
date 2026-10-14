@@ -34,7 +34,7 @@ from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
 from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
 from cogs.codex_views import (
-    OPPONENT_STARTED, RematchView, UndoConfirmView, hand_files, kept_pictures, picture_file, revealed_caption,
+    RematchView, UndoConfirmView, hand_files, kept_pictures, opponent_started, picture_file, revealed_caption,
     revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
@@ -132,29 +132,24 @@ def split_at_turn_end(result: GameResult) -> tuple[list[str], Optional[dict], li
 
 
 def side_shown(prompt: PendingPrompt, opponents: tuple[int, ...]) -> Optional[int]:
-    """The side a target prompt's panel pictures: the opponent's, the
-    asked player's own where every target the prompt offers is theirs,
-    or `None` -- both sides, stacked -- where the targets are on both
-    (the author, 2026-10-09). `opponents` are the asked player's
-    (`RulesEngine.opponents`); with several, the whole table (step 4
-    decides how a longer table is pictured)."""
-    asked = prompt.asked_player
-    if len(opponents) != 1:
+    """The side a target prompt's panel pictures: the one seat every
+    target the prompt offers is on -- the asked player's own, or an
+    opponent's -- or `None`, the table stacked, where the targets lie on
+    several seats (the author, 2026-10-09; a table of several, 2026-10-14).
+    A prompt with no rows of its own pictures the opponent's side, the
+    only one a duel has, and the table where there are several."""
+    kind = prompt.kind
+    if kind is PromptKind.TARGET:
+        found = {row.seat for row in prompt.options.targets}
+    elif kind is PromptKind.DIVIDE_DAMAGE:
+        found = {int(key.split(":", 1)[0]) for key, _ in prompt.options.split}
+    else:
+        found = set()
+    if len(found) == 1:
+        return next(iter(found))
+    if len(found) > 1 or len(opponents) != 1:
         return None
-    opponent = opponents[0]
-    if prompt.kind is PromptKind.TARGET:
-        seats = {row.seat for row in prompt.options.targets}
-        if seats == {asked}:
-            return asked
-        if seats == {asked, opponent}:
-            return None
-    if prompt.kind is PromptKind.DIVIDE_DAMAGE:
-        seats = {int(key.split(":", 1)[0]) for key, _ in prompt.options.split}
-        if seats == {asked}:
-            return asked
-        if seats == {asked, opponent}:
-            return None
-    return opponent
+    return opponents[0]
 
 
 class TurnsMixin:
@@ -469,7 +464,7 @@ class TurnsMixin:
         # The standing picture lights the player whose turn it was: the
         # position is the one the turn handed over on.
         # The heading is the turn that ended, too.
-        ended.active = self.engine.sole_opponent(match, match.active)
+        ended.active = self.service.previous_turn_owner(game.game_id) or ended.active
         ended.turn = match.turn - 1
         if game.turn_message_id is not None:
             png = await self.render_match_png(game, ended)
@@ -597,11 +592,20 @@ class TurnsMixin:
         if seat not in self.engine.turn_seats(match):
             await send_ephemeral(interaction, "Only the player whose turn it is can ask for that.")
             return
-        opponent = self.engine.sole_opponent(match, seat)
+        # The seat whose turn is unwound: the previous turn's owner, off
+        # its snapshot -- a duel's one opponent, a table's seat before.
+        opponent = self.service.previous_turn_owner(game.game_id)
+        if opponent is None:
+            await self.show_panel(interaction, game, match, seat, edit=True,
+                                  note="There is no previous turn to go back to.")
+            return
         opponent_id = game.seat_user_id(opponent)
         asker = game.seat_name(seat) or f"Player {seat}"
+        duel = match.variant == "duel"
         await self.show_panel(interaction, game, match, seat, edit=True,
-                              note="Your opponent has been asked to agree to the undo.")
+                              note=("Your opponent has been asked to agree to the undo." if duel else
+                                    f"{game.seat_name(opponent) or f'Player {opponent}'} has been "
+                                    "asked to agree to the undo."))
         mention = f"<@{opponent_id}>" if opponent_id else (game.seat_name(opponent) or "Opponent")
         await send_new_prompt(
             interaction,
@@ -649,7 +653,9 @@ class TurnsMixin:
         one deleted -- and the panel put up for them, on the patrol.
         """
         if self.service.end_of_turn_owner(game.game_id) != seat:
-            await edit_clicked(interaction, content=OPPONENT_STARTED, view=None)
+            await edit_clicked(
+                interaction, content=opponent_started(game, self.service.load(game)), view=None,
+            )
             return
         try:
             result = self.service.undo_end_of_turn(game.game_id)
