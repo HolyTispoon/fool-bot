@@ -46,6 +46,7 @@ from codex.engine import (
     HeroOption,
     HireOption,
     PlayableCard,
+    RepairOption,
     TargetRow,
 )
 from codex.flow.result import FollowOn, FollowOnStep
@@ -138,14 +139,19 @@ class MainActionOptions:
     hand: tuple[PlayableCard, ...] = ()
     #: The ability actions the player's cards offer (`abilities`).
     abilities: tuple[AbilityOption, ...] = ()
+    #: Repairing the base, on a free-for-all match alone (Rulebook p. 14).
+    repair: Optional[RepairOption] = None
 
     def to_dict(self) -> dict:
-        return jsonable({
+        wire = {
             "hire": self.hire, "heroes": self.heroes, "playable": self.playable,
             "buildings": self.buildings, "attackers": self.attackers,
             "end_main": self.end_main, "detect": self.detect, "hand": self.hand,
             "abilities": self.abilities,
-        })
+        }
+        if self.repair is not None:
+            wire["repair"] = self.repair
+        return jsonable(wire)
 
 
 @dataclass(frozen=True)
@@ -521,7 +527,7 @@ class Action:
 CHOICES: Mapping[PromptKind, tuple[str, ...]] = {
     PromptKind.MAIN_ACTION: (
         "hire", "summon", "level", "play", "build", "attack", "detect", "ability",
-        "end_main",
+        "repair", "end_main",
     ),
     PromptKind.CHOOSE_DEFENDER: ("", "cancel"),
     PromptKind.PATROL: ("",),
@@ -652,7 +658,7 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
     return MainActionOptions(
         legal.hire, legal.heroes, legal.playable, legal.buildings, legal.attackers,
         legal.end_main, legal.detect, engine.hand_rows(match, match.active),
-        legal.abilities,
+        legal.abilities, legal.repair,
     )
 
 

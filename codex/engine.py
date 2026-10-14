@@ -66,6 +66,9 @@ MERCENARIES_A_PLACE = 1
 HIRE_COST = 1
 #: A hero level costs a gold (UMR p. 6).
 LEVEL_COST = 1
+#: Repairing a free-for-all's base: 3 gold for 1 damage, any number of
+#: times a turn (Rulebook p. 14).
+REPAIR_COST = 3
 #: The workers each tech building needs, and the building below it
 #: that has to be standing (UMR p. 8). The costs and the HP are the
 #: card data's (`tech_i_building` and its neighbours).
@@ -149,6 +152,19 @@ WRONG_COLOR_SURCHARGE = 1
 class HireOption:
     allowed: bool
     cost: int = HIRE_COST
+    why_not: str = ""
+
+    def to_dict(self) -> dict:
+        return {"allowed": self.allowed, "cost": self.cost, "why_not": self.why_not}
+
+
+@dataclass(frozen=True)
+class RepairOption:
+    """Repairing the base, an ability every base has in a free-for-all
+    (Rulebook p. 14); `RulesEngine.repair_option` is None elsewhere."""
+
+    allowed: bool
+    cost: int = REPAIR_COST
     why_not: str = ""
 
     def to_dict(self) -> dict:
@@ -365,6 +381,8 @@ class LegalActions:
     end_main: bool = True
     detect: DetectOption = DetectOption()
     abilities: tuple[AbilityOption, ...] = ()
+    #: Only on a free-for-all match (Rulebook p. 14).
+    repair: Optional[RepairOption] = None
 
 
 class RulesEngine:
@@ -1710,6 +1728,18 @@ class RulesEngine:
             return HireOption(False, cost, why_not="there is no card in hand to hire with")
         return HireOption(True, cost)
 
+    def repair_option(self, match: MatchState) -> Optional[RepairOption]:
+        """Repair the active player's base: 3 gold for 1 HP (Rulebook
+        p. 14), listed on a free-for-all match alone, with why not."""
+        if match.variant != "free_for_all":
+            return None
+        player = match.active_player
+        if match.base_of(match.active) >= BASE_HP:
+            return RepairOption(False, why_not="the base is undamaged")
+        if player.gold < REPAIR_COST:
+            return RepairOption(False, why_not="not enough gold")
+        return RepairOption(True)
+
     def hero_options(self, player: PlayerState,
                      match: Optional[MatchState] = None) -> tuple[HeroOption, ...]:
         """One `HeroOption` per hero, in the team's order."""
@@ -1957,6 +1987,7 @@ class RulesEngine:
             attackers=self.attackers(match),
             detect=self.detect_option(match),
             abilities=self.abilities(match),
+            repair=self.repair_option(match),
         )
 
     # -- The keywords -----------------------------------------------------------

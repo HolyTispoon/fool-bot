@@ -252,6 +252,8 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
         return actions.use_ability(
             engine, game, match, _required(ability, "ability"), _required(source, "source"),
         )
+    if choice == "repair":
+        return actions.repair_base(engine, game, match)
     return actions.end_main(engine, game, match)
 
 

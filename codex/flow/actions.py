@@ -76,6 +76,23 @@ def hire_worker(engine: "RulesEngine", game: "CodexGame", match: MatchState, slu
     ])
 
 
+def repair_base(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> StepResult:
+    """3 gold for 1 damage off the active player's base, any number of
+    times a turn -- a free-for-all's alone (Rulebook p. 14)."""
+    seat = match.active
+    option = engine.repair_option(match)
+    if option is None:
+        raise RuleRefusal("Only a free-for-all lets a base be repaired.", cite="Rulebook p. 14")
+    if not option.allowed:
+        raise RuleRefusal(f"You can't repair the base: {option.why_not}.", cite="Rulebook p. 14")
+    match.active_player.gold -= option.cost
+    match.set_base(seat, match.base_of(seat) + 1)
+    match.record_event("repaired")
+    return _done(engine, game, match, [
+        f"{tokens.player(seat)} repairs the base: {match.base_of(seat)} HP."
+    ])
+
+
 def _hero(match: MatchState, slug: Optional[str]):
     """The active player's hero named by `slug` -- their first where an
     older journal names none, from before a side had three."""
