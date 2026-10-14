@@ -109,9 +109,10 @@ and 19):
   before their upkeep, has already readied it as a card they control.
 - **A lent hero that dies.** It dies controlled by the borrower and
   owned by the lender, and p. 11's "opposing hero" does not say which
-  it opposes. **Only whoever killed it gets the levels** (the author,
-  2026-10-14, question 18): a hero of the player who killed it, not any
-  opponent of its owner or of its controller.
+  it opposes. **The rulebook's reading, as for any hero** (the author,
+  2026-10-14, question 18): one in-play hero of an opponent of its
+  **controller** -- the borrower, not the owner -- the active player
+  choosing which (p. 11).
 - **A destroyed hero** (p. 11). Whenever a hero dies, one in-play hero
   *opposing* it levels up twice, **the active player choosing which**
   when there are several, and only one that can still level. With
@@ -481,8 +482,9 @@ the author has already settled say so, with the date.
    (saved, `None`); the hero stays on its owner's list and
    `controller_of` reads the field; a lent hero that dies goes to its
    owner's command zone with its summoning runes, and its levels go to
-   a hero of **the player who killed it**, and only theirs (the author,
-   2026-10-14, question 18).
+   an in-play hero of an opponent of its **controller** (the borrower),
+   the active player choosing, as for any hero (the author, 2026-10-14,
+   question 18: "follow the rulebook").
 
 8. **The dragon's two seats are two pending prompts.** `pending` stays
    the one reading of what a seat waits on, and grows a `seat` argument;
@@ -546,8 +548,8 @@ the author has already settled say so, with the date.
     the attack's defending seat, the chosen target's seat -- and
     `_against(top)` no longer has a default to fall back on. A dead
     hero's two levels go to an in-play hero of any opponent of its
-    controller when it died -- for a lent hero, only the player who
-    killed it (question 18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
+    controller when it died -- the controller, not the owner, for a lent
+    hero (question 18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
     a duel the same heroes as today, in a free-for-all any opponent's,
     in a dragon either of the other team's.
 
@@ -682,7 +684,7 @@ are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one. Those struck were answered
 on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
 2, 13 and 15 to 19 answered on 2026-10-14; 20 to 23 were raised by
-step 2's PR (#579), and 20 and 21 answered on 2026-10-14.
+step 2's PR (#579), and 20 to 22 answered on 2026-10-14.
 
 1. ~~**What is a two-player team called in the code and in the
    narration?** Built as `dragon` in the code and "team" in what the
@@ -747,8 +749,10 @@ step 2's PR (#579), and 20 and 21 answered on 2026-10-14.
     5 and 9.
 18. ~~**A lent hero dies: whose opponents' heroes may take its two
     levels -- its owner's (the lender) or its controller's (the
-    borrower)?**~~ Answered (2026-10-14): only whoever killed the hero
-    gets the levels. Step 3 builds it with lending.
+    borrower)?**~~ Answered (2026-10-14): follow the rulebook -- the
+    active player picks, for a lent hero as for any, and "opponent" is
+    an opponent of the controller, not the owner. Already so since step
+    1 (`board.destroy`); step 3 builds lending on it.
 19. ~~**Is free gold paid for every enemy unit that dies on your turn,
     or only those you kill?**~~ Answered (2026-10-14): only those you
     kill -- your attack's combat damage or an effect you control. The
@@ -762,10 +766,8 @@ step 2's PR (#579), and 20 and 21 answered on 2026-10-14.
 21. ~~**Martial Mastery's "look at the opponent's hand": at a table of
     several, is it "an opponent", chosen?**~~ Answered (2026-10-14):
     yes.
-22. **Is a destroyed base still something to attack?** Only a playoff
-    ever goes on past one. Built as no: a base at 0 is not a defender
-    (`engine._standing`), since otherwise tied players could "attack" a
-    fallen base forever.
+22. ~~**Is a destroyed base still something to attack?**~~ Answered
+    (2026-10-14): no. A base at 0 is not a defender (`engine._standing`).
 23. **"{player:4}'s two Mercenaries arrive."** -- the plural line names
     the token in plain words where the single one is "{player:3}'s
     {card:mercenary} arrives.". The prompt's wording, built as written.
@@ -1208,8 +1210,9 @@ gold; lending.
    that it does). The scavenger's gold and the technician's card pay the
    owner; a lent card destroyed leaves play to its owner as every card
    does (a hero to its command zone with its summoning runes); the
-   kill's levels go to a hero of the player who killed it, and only
-   theirs (the author, 2026-10-14, question 18; decision 7); an effect on the
+   kill's levels go to a hero of an opponent of the borrower -- its
+   controller -- the active player choosing, as for any hero (the
+   author, 2026-10-14, question 18; decision 7); an effect on the
    borrower's "your units" reaches a lent card and the lender's does
    not. What the patrol bonuses do on a lent card (the squad leader's
    armor, the elite's ATK) is the borrower's zone's, as any patroller's.

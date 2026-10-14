@@ -3412,8 +3412,9 @@ field the step added is written to a save only where it is set.
   among the tied (the author, 2026-10-14, question 20). A debt unpaid is a base destroyed
   (question 17): the base to zero, the comparison then, and no
   `lost_by_debt`. A destroyed base is no longer a defender (`_standing`
-  leaves a base at 0 out): only a playoff goes on past one, and the whole
-  game showed tied players attacking a fallen base forever. There is no concession (decision 5). The finished
+  leaves a base at 0 out; the author, 2026-10-14, question 22): only a
+  playoff goes on past one, and the whole game showed tied players
+  attacking a fallen base forever. There is no concession (decision 5). The finished
   game's ask says the score -- "{player:3} wins with 14 base HP:
   {player:1}'s base is destroyed." -- and `GameOverOptions` carries
   `winners` and every seat's `base_hp`.
