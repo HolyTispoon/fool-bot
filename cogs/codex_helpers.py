@@ -75,14 +75,24 @@ CHANNEL_NAME_PATTERN = re.compile(r"^codex-(\d+)(?:-|$)")
 BOARD_IMAGE_FILENAME_PREFIX = "codex-"
 
 
+#: What follows `codex-<n>` in a channel's name, by variant: a duel's
+#: players are joined with `-vs-`, the others' follow a word for the mode.
+CHANNEL_NAME_MODE_WORDS = {"free_for_all": "ffa", "two_headed_dragon": "2hd"}
+
+
 def channel_name(game: "CodexGame") -> str:
-    """`codex-<n>-<p1>-vs-<p2>`, capped at Discord's 100 characters."""
+    """`codex-<n>-<p1>-vs-<p2>` for a duel, `codex-<n>-ffa-<p1>-<p2>-<p3>`
+    for a free-for-all -- every seat's name slugged -- capped at Discord's
+    100 characters."""
     prefix = f"codex-{game.game_number}"
-    suffix = "-vs-".join(
-        part for part in (slugify_channel_part(held["name"] or "") for held in game.seats) if part
-    )
+    names = [slugify_channel_part(held["name"] or "") for held in game.seats]
+    names = [part for part in names if part]
+    word = CHANNEL_NAME_MODE_WORDS.get(game.variant)
+    suffix = ("-".join(names) if word else "-vs-".join(names))
     if not suffix:
         return prefix
+    if word:
+        prefix = f"{prefix}-{word}"
     return f"{prefix}-{suffix}"[:CHANNEL_NAME_MAX_LENGTH].rstrip("-")
 
 

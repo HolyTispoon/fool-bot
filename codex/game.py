@@ -80,6 +80,12 @@ VENUES = ("channel", "thread", "here")
 #: p. 14), and the **two-headed dragon**, two teams of two (p. 13). A
 #: third axis beside `MODES`, which says how many heroes a seat holds.
 VARIANTS = ("duel", "free_for_all", "two_headed_dragon")
+#: What the lobby and `/codex games` call each variant.
+VARIANT_LABELS = {
+    "duel": "Duel",
+    "free_for_all": "Free-for-all",
+    "two_headed_dragon": "Two-headed dragon",
+}
 #: The seats each variant has: a free-for-all's five are its most, and
 #: it starts from three (`MIN_SEATS`).
 VARIANT_SEATS = {"duel": 2, "free_for_all": 5, "two_headed_dragon": 4}
@@ -531,22 +537,27 @@ class CodexGame:
             return self.taken_seats()
         return tuple(range(1, self.seat_count + 1))
 
+    def start_refusal(self) -> RuleRefusal:
+        """What Start says while the seats are not ready -- the lobby
+        shows it as the game's own refusal does."""
+        if self.variant == "free_for_all":
+            return RuleRefusal(
+                "A free-for-all needs three to five players, each with their heroes and "
+                "their deck, before it can start.",
+                cite="Rulebook p. 14",
+            )
+        return RuleRefusal(
+            "Both seats have to be taken, each with its heroes and its deck, "
+            "before the game can start.",
+            cite="UMR p. 3",
+        )
+
     def start(self, engine: "RulesEngine") -> None:
         """Deal the opening position: the engine shuffles, deals and
         picks who goes first (UMR p. 3)."""
         self._require_lobby()
         if not self.may_start():
-            if self.variant == "free_for_all":
-                raise RuleRefusal(
-                    "A free-for-all needs three to five players, each with their heroes and "
-                    "their deck, before it can start.",
-                    cite="Rulebook p. 14",
-                )
-            raise RuleRefusal(
-                "Both seats have to be taken, each with its heroes and its deck, "
-                "before the game can start.",
-                cite="UMR p. 3",
-            )
+            raise self.start_refusal()
         seats = self.playing_seats()
         match = engine.new_match(
             tuple(self.player_specs[seat] for seat in seats),

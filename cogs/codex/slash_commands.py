@@ -14,7 +14,7 @@ import logging
 import discord
 from discord import app_commands
 
-from codex.game import GameStatus, RuleRefusal
+from codex.game import VARIANT_LABELS, GameStatus, RuleRefusal
 from cogs.codex.turns import split_at_turn_end
 from cogs.codex_helpers import is_game_helper
 from cogs.codex_views import NOT_YOUR_TABLE, send_ephemeral
@@ -37,9 +37,10 @@ class SlashCommandsMixin:
             return
         lines = []
         for game in games[-20:]:
-            players = " vs ".join(
-                held["name"] for held in game.seats if held["name"]
-            ) or "nobody seated"
+            names = [held["name"] for held in game.seats if held["name"]]
+            players = (", " if game.variant != "duel" else " vs ").join(names) or "nobody seated"
+            if game.variant != "duel":
+                players = f"{VARIANT_LABELS[game.variant]}: {players}"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""
             lines.append(f"**{game.game_number}** -- {game.status.value}: {players}{where}")
         await send_ephemeral(interaction, "\n".join(lines))

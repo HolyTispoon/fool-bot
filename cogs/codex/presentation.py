@@ -225,7 +225,8 @@ class PresentationMixin:
     async def name_game_channel(self, channel, game: CodexGame) -> None:
         """
         At Start, the lobby's channel -- or thread -- is renamed for its
-        players, `codex-<n>-<p1>-vs-<p2>`; its permissions stand. A
+        players, `codex-<n>-<p1>-vs-<p2>` (a free-for-all's
+        `codex-<n>-ffa-<p1>-<p2>-<p3>`); its permissions stand. A
         channel the game was only opened in (venue "here") is not the
         bot's to rename. A failure is logged and the game goes on either
         way.
