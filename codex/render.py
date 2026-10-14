@@ -1935,19 +1935,22 @@ def divider_label(match: MatchState, name: str) -> str:
     return turn_label(match, name).upper()
 
 
-def horizontal_divider(width: int, label: str) -> Image.Image:
+def horizontal_divider(width: int, label: str, centre: Optional[float] = None) -> Image.Image:
     """
     The stacked board's divider: "<NAME>'S TURN <N>", the active player
     by name, bold and dark on a white pill (`DIVIDER_TURN`) between two
     rules, so whose turn it is reads at a glance (the author,
-    2026-10-09: more prominent, and neither gold nor cream).
+    2026-10-09: more prominent, and neither gold nor cream). `centre`
+    puts the pill over the acting player's panel where that is not the
+    board's middle -- a free-for-all side by side (the author,
+    2026-10-14).
     """
     strip = Image.new("RGBA", (width, DIVIDER_HEIGHT), GROUND)
     draw = ImageDraw.Draw(strip)
     face = font(px(24))
     text_width = spaced_width(label, face, px(2))
     middle = DIVIDER_HEIGHT // 2
-    left = (width - text_width) / 2
+    left = (width - text_width) / 2 if centre is None else centre - text_width / 2
     pad, half = px(18), px(18)
     draw.line((0, middle, left - pad - px(14), middle), fill=QUIET, width=px(2))
     draw.line((left + text_width + pad + px(14), middle, width, middle), fill=QUIET, width=px(2))
@@ -1984,6 +1987,10 @@ def compose_board(match: MatchState, layout: str = "stacked",
 
     label = divider_label(match, name(match.active))
 
+    if len(match.players) > 2:
+        if layout == "side_by_side":
+            return _compose_rows(match, name, cards, building_hp, label, near, stats)
+        return _compose_table(match, name, cards, building_hp, label, near, stats)
     if layout == "side_by_side":
         first = match.first
         second = seats.sole_opponent(match, first)
@@ -2011,6 +2018,97 @@ def compose_board(match: MatchState, layout: str = "stacked",
     board.alpha_composite(far, ((width - far.width) // 2, 0))
     board.alpha_composite(horizontal_divider(width, label), (0, far.height))
     board.alpha_composite(near, ((width - near.width) // 2, far.height + DIVIDER_HEIGHT))
+    return board
+
+
+#: The rule between two opponents' panels on a table of several: quieter
+#: than the turn's divider, which stays between the acting seat and the
+#: rest (docs/codex-multiplayer.md, decision 14).
+TABLE_GAP = px(14)
+
+
+def _compose_table(match: MatchState, name, cards: CardCatalog, building_hp: dict,
+                   label: str, near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
+    """
+    A free-for-all's board, stacked only (decision 14, a proposal the
+    author looks at -- worksheet question 2): the seat looked from (the
+    active player's) at the bottom under the turn's divider, and every
+    other seat above it **upright**, in turn order with the next to play
+    nearest -- a table of five has no "across", so no panel is turned.
+    """
+    near_seat = match.active if near is None else near
+    others = seats.turn_order(match, near_seat, inclusive=False)[:-1]
+    panels = [render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
+              for seat in reversed(others)]
+    bottom = render_panel(match, near_seat, name(near_seat), cards, building_hp, stats=stats)
+    width = max(panel.width for panel in (*panels, bottom))
+    height = (sum(panel.height for panel in panels) + TABLE_GAP * (len(panels) - 1)
+              + DIVIDER_HEIGHT + bottom.height)
+    board = Image.new("RGBA", (width, height), GROUND)
+    draw = ImageDraw.Draw(board)
+    top = 0
+    for index, panel in enumerate(panels):
+        if index:
+            middle = top - TABLE_GAP // 2
+            draw.line((0, middle, width, middle), fill=QUIET, width=px(1))
+        board.alpha_composite(panel, ((width - panel.width) // 2, top))
+        top += panel.height + TABLE_GAP
+    top -= TABLE_GAP
+    board.alpha_composite(horizontal_divider(width, label), (0, top))
+    board.alpha_composite(bottom, ((width - bottom.width) // 2, top + DIVIDER_HEIGHT))
+    return board
+
+
+def _compose_rows(match: MatchState, name, cards: CardCatalog, building_hp: dict,
+                  label: str, near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
+    """
+    A free-for-all's board side by side: rows of two panels, every one
+    upright (the author, 2026-10-14). Seats go in turn order from the seat
+    looked from, two a row from the bottom -- the acting seat's row at the
+    bottom under the turn's divider, the active player on its left and the
+    next to play beside them -- so three players are one panel above two,
+    four are two above two, as a dragon's board is, and five are three
+    rows with one panel at the top. A lone panel is centred.
+    """
+    near_seat = match.active if near is None else near
+    order = seats.turn_order(match, near_seat)
+    rows = [order[at:at + 2] for at in range(0, len(order), 2)]
+    natural = {seat: render_panel(match, seat, name(seat), cards, building_hp, stats=stats)
+               for seat in order}
+    panel_width = max(panel.width for panel in natural.values())
+    width = 2 * panel_width + TABLE_GAP
+    drawn = []
+    for row in rows:
+        height = max(natural[seat].height for seat in row)
+        strip = Image.new("RGBA", (width, height), GROUND)
+        panels = [natural[seat] if natural[seat].height == height
+                  else render_panel(match, seat, name(seat), cards, building_hp, height=height, stats=stats)
+                  for seat in row]
+        if len(panels) == 1:
+            strip.alpha_composite(panels[0], ((width - panels[0].width) // 2, 0))
+        else:
+            strip.alpha_composite(panels[0], (0, 0))
+            middle = panel_width + TABLE_GAP // 2
+            ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
+            strip.alpha_composite(panels[1], (panel_width + TABLE_GAP, 0))
+        drawn.append(strip)
+    bottom, above = drawn[0], list(reversed(drawn[1:]))
+    height = (sum(strip.height for strip in above) + TABLE_GAP * (len(above) - 1)
+              + DIVIDER_HEIGHT + bottom.height)
+    board = Image.new("RGBA", (width, height), GROUND)
+    draw = ImageDraw.Draw(board)
+    top = 0
+    for index, strip in enumerate(above):
+        if index:
+            middle = top - TABLE_GAP // 2
+            draw.line((0, middle, width, middle), fill=QUIET, width=px(1))
+        board.alpha_composite(strip, (0, top))
+        top += strip.height + TABLE_GAP
+    top -= TABLE_GAP
+    # The pill over the active player's own panel, the bottom row's left
+    # (the author, 2026-10-14).
+    board.alpha_composite(horizontal_divider(width, label, centre=panel_width / 2), (0, top))
+    board.alpha_composite(bottom, (0, top + DIVIDER_HEIGHT))
     return board
 
 

@@ -10,7 +10,7 @@ and everything it starts through `codex.flow.driver`, **saves once**,
 and hands back a `GameResult` the frontend renders. It formats nothing.
 
 **The lobby is service methods, not prompt kinds**: `create_game`,
-`take_seat`, `set_mode`, `choose_deck`, `leave`, `start`, `abandon`, `set_board_layout`, and after
+`take_seat`, `set_mode`, `set_variant`, `choose_deck`, `leave`, `start`, `abandon`, `set_board_layout`, and after
 a game `rematch` and `keep_heroes`, each
 load the record, apply one change the record itself rules on
 (`CodexGame`, which refuses with `RuleRefusal`), and save once. A
@@ -296,6 +296,14 @@ class GameService:
         saved."""
         game = self.game(game_id)
         game.set_mode(mode)
+        self.save()
+        return game
+
+    def set_variant(self, game_id: str, variant: str) -> CodexGame:
+        """A duel, a free-for-all or a two-headed dragon
+        (`CodexGame.set_variant`), saved."""
+        game = self.game(game_id)
+        game.set_variant(variant)
         self.save()
         return game
 

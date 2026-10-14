@@ -58,6 +58,10 @@ HAND_SIZE = 5
 #: The workers each seat starts with: the first player four, the second
 #: five (UMR p. 3).
 STARTING_WORKERS = {True: 4, False: 5}
+#: A free-for-all's Mercenary (Rulebook p. 14): the token, and how many
+#: more each place in turn order from the third is owed -- 1, 2 and 3.
+MERCENARY = "mercenary"
+MERCENARIES_A_PLACE = 1
 #: Hiring a worker, once a turn (UMR p. 6).
 HIRE_COST = 1
 #: A hero level costs a gold (UMR p. 6).
@@ -422,7 +426,7 @@ class RulesEngine:
     # -- The opening -----------------------------------------------------
 
     def new_match(self, teams: Sequence, first: Optional[int] = None,
-                  decks: Optional[Sequence[str]] = None) -> MatchState:
+                  decks: Optional[Sequence[str]] = None, variant: str = "duel") -> MatchState:
         """
         The opening position (UMR p. 3): each seat's heroes in the
         command zone -- `teams`, a list of specs per seat, or one spec as
@@ -430,8 +434,11 @@ class RulesEngine:
         colour (`decks`, the neutral deck where not given) shuffled as
         its deck and five dealt, the codex of every one of its specs,
         twenty-four a spec, a base at 20, and four workers for whoever
-        goes first and five for the other -- who goes first drawn at
-        random unless given.
+        goes first and five for every other -- who goes first drawn at
+        random from every seat unless given. In a free-for-all
+        (`variant`) the third, fourth and fifth players in turn order
+        from the first are owed 1, 2 and 3 Mercenaries, which arrive in
+        their first upkeep (Rulebook p. 14).
         """
         if first is None:
             first = self.rng.choice(tuple(range(1, len(teams) + 1)))
@@ -456,9 +463,13 @@ class RulesEngine:
                 deck=deck,
                 codex=dict(codex),
             ))
-        match = MatchState(players=players, first=first, active=first)
+        match = MatchState(players=players, first=first, active=first, variant=variant)
         for player in players:
             match.set_base(player.seat, BASE_HP)
+        if variant == "free_for_all":
+            order = seats.turn_order(match, first)
+            for place, seat in enumerate(order[2:], start=1):
+                match.player(seat).mercenaries_owed = place * MERCENARIES_A_PLACE
         return match
 
     # -- Numbers ---------------------------------------------------------
@@ -1918,9 +1929,11 @@ class RulesEngine:
         """The active player's units and hero that may attack
         (`may_attack_with`)."""
         player = match.active_player
-        # Moment's Peace: "opposing units can't attack you" -- in a game
-        # of two, they can't attack at all; heroes still may.
-        peace = any(match.player(foe).peace for foe in self.opponents(match, match.active))
+        # Moment's Peace: "opposing units can't attack you" -- its caster's
+        # things leave the units' defenders and nothing else
+        # (`_defender_rows`), so a unit may attack while any opponent is
+        # not at peace: in a duel, not at all. Heroes still may.
+        peace = all(match.player(foe).peace for foe in self.opponents(match, match.active))
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
@@ -2232,21 +2245,30 @@ class RulesEngine:
         rest of the turn, once a turn.
         """
         seat = match.active
-        other = self.sole_opponent(match, seat)  # until step 2 gives refs a seat
         tower = self.tower(match.active_player)
         if tower is None:
             return DetectOption(why_not="you have no finished tower")
         if tower.detected is not None:
             return DetectOption(why_not="your tower has detected this turn", tower=True)
         candidates = []
-        for ref in self._things_in_play(match, other):
-            if self.hidden(match, other, ref) and not self.detected_by(match, seat, ref):
-                candidates.append(ref)
+        # Every opponent's: on its owner's turn the tower reveals one
+        # thing (Rulebook p. 4), whoever's it is.
+        for other in self.opponents(match, seat):
+            for ref in self._things_in_play(match, other):
+                if (self.hidden(match, other, ref) and not self.detected_by(match, seat, ref)
+                        and ref not in candidates):
+                    candidates.append(ref)
         if not candidates:
             return DetectOption(why_not="nothing of theirs is hidden", tower=True)
         return DetectOption(True, tuple(candidates), tower=True)
 
     # -- Combat ---------------------------------------------------------------
+
+    def holder_of(self, match: MatchState, ref: str, among: Sequence[int]) -> Optional[int]:
+        """The first seat of `among` with a unit or hero in play that
+        `ref` names -- a unit's id is the table's own; a hero's ref is its
+        slug, and a mirror game's two of one hero are read as the first."""
+        return next((seat for seat in among if ref in self._things_in_play(match, seat)), None)
 
     def _things_in_play(self, match: MatchState, seat: int) -> tuple[str, ...]:
         """The units and the hero on `seat`'s side, as refs."""
@@ -2267,7 +2289,10 @@ class RulesEngine:
         )
         if player.add_on is not None:
             found.append("add_on")
-        found.append("base")
+        if match.base_of(seat) > 0:
+            # A destroyed base is no longer there to attack: only a
+            # free-for-all's playoff goes on past one (Rulebook p. 14).
+            found.append("base")
         return tuple(found)
 
     def may_be_attacked(self, match: MatchState, attacker: str, target: str, against: Optional[int] = None) -> bool:
@@ -2475,6 +2500,9 @@ class RulesEngine:
         patroller it may take anyway, its place in the zone.
         """
         other = self.defending_seat(match, against)
+        if match.player(other).peace and isinstance(self.body(match, match.active, attacker), CardInstance):
+            # Moment's Peace: "opposing units can't attack you" (step 11).
+            return ()
         blocking = self.blocking_patrollers(match, attacker, against=against)
         if blocking:
             leader = blocking.get("squad_leader")
@@ -3091,7 +3119,7 @@ class RulesEngine:
             elif choose == "opponent_hand_nonunit":
                 # Carrion Curse: the opponent's hand, looked at by the caster
                 # alone -- the non-unit cards, each named once.
-                if side in foes:
+                if side in foes and frame.get("against") in (None, side):
                     found += [(side, HAND + slug) for slug in dict.fromkeys(player.hand)
                               if not self.catalog.cards[slug].is_unit]
             elif choose == "patrolling_weak_unit":
@@ -3130,7 +3158,7 @@ class RulesEngine:
             elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
                 # Community Service: a tech I or II unit of the opponent's
                 # hand -- looked at by the caster alone -- or discard pile.
-                if side in foes:
+                if side in foes and frame.get("against") in (None, side):
                     pile, prefix = ((player.hand, HAND) if choose == "opponent_hand_unit_1_2"
                                     else (player.discard, DISCARD))
                     found += [(side, prefix + slug) for slug in dict.fromkeys(pile)
@@ -3170,6 +3198,13 @@ class RulesEngine:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
+        if choose in effects.EACH_OPPONENTS_ONE:
+            # One of each opponent's: a side already chosen from is done.
+            done = {int(key.split(":", 1)[0]) for key in taken}
+            found = [row for row in found if row[0] not in done]
+            # One side at a time, so a side with one weakest unit is taken
+            # unasked ("You choose if there's a tie").
+            found = [row for row in found if row[0] == found[0][0]] if found else found
         return found
 
     def _private_candidates(self, match: MatchState, seat: int, choose: str,
@@ -3354,9 +3389,14 @@ class RulesEngine:
         alone to be shown."""
         if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
             return self.opponents(match, seat)
-        if any(lasting.get("kind") == "looked_hand" for lasting in match.player(seat).lasting):
-            # Flagstone Spy's look, this turn's.
-            return self.opponents(match, seat)
+        looked = [lasting.get("seat") for lasting in match.player(seat).lasting
+                  if lasting.get("kind") == "looked_hand"]
+        if looked:
+            # Flagstone Spy's look, this turn's: "that player's hand" --
+            # the seat it looked at, or a duel's one opponent where an
+            # older save did not say.
+            foes = self.opponents(match, seat)
+            return tuple(foe for foe in foes if foe in looked or (None in looked and len(foes) == 1))
         return ()
 
     def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
@@ -3582,6 +3622,10 @@ class RulesEngine:
         herself.
         """
         found = []
+        if player.mercenaries_owed:
+            # A free-for-all's Mercenaries, in the owner's first upkeep
+            # (Rulebook p. 14): a pure gain, first and never ordered.
+            found.append("mercenaries")
         # A time rune off each fading card and hero, and off each card in
         # the future (UMR p. 17; step 12): a card with none left from the
         # start never fades.
@@ -3925,7 +3969,9 @@ def target_key(seat: int, ref: str) -> str:
 def parse_target(key: str) -> tuple[int, str]:
     """A target key back into `(seat, ref)`; `ValueError` if it is not one."""
     seat, _, ref = key.partition(":")
-    if seat not in ("1", "2") or not ref:
+    # A seat is any positive number the match has (docs/design/codex.md,
+    # "Multiplayer").
+    if not seat.isdigit() or int(seat) < 1 or not ref:
         raise ValueError(f"not a target: {key!r}")
     return int(seat), ref
 

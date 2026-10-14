@@ -453,6 +453,11 @@ def _attack_frames(engine: "RulesEngine", match: MatchState, attacker: str) -> l
         origin = card.slug
         host = card.id
     frames = [resolve.frame(effect, seat, by, source=attacker, origin=origin) for effect in found]
+    against = engine.defending_seat(match)
+    for one in frames:
+        # "That opponent's base" (Troq, Doubleshot Archer): the attacked
+        # player's (docs/codex-multiplayer.md, decision 11).
+        one["against"] = against
     # What an attached spell gives what it is on: Spirit of the Panda's
     # gold, Final Showdown's card (step 11).
     for spell in match.instances():
@@ -735,7 +740,8 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
                     and (hit.target.is_building or hit.target.ref in standing)]
     if slug in effects.SPIES and on_buildings:
         taken = resolve.steal_gold(match, seat, other, effects.SPIES[slug])
-        match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn"})
+        # "Look at that player's hand": the attacked player's alone.
+        match.player(seat).lasting.append({"kind": "looked_hand", "until": "end_of_turn", "seat": other})
         result.narration.append(
             f"{tokens.card(slug)} looks at {tokens.player(other)}'s hand"
             + (f" and steals {tokens.gold(taken)}." if taken else "; they have no gold to steal.")

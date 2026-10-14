@@ -34,7 +34,11 @@ already holds. The Unofficial Manual Rewrite v1.3
 wrong: it is cited below only where it adds a detail the official text
 lacks, each such detail marked as the UMR's, and "Where the UMR differs
 from the rulebook" lists every place the two were found to disagree on
-these modes, with the rulebook's reading taken.
+these modes, with the rulebook's reading taken. **Where the rulebook and
+the database's rulings are silent, the UMR is the source to look at**
+(the author, 2026-10-14, answering question 13: "UMR is correct and
+should be looked at in cases the rulebook or the database didn't
+answer").
 
 ## What was found, and what it settles
 
@@ -66,13 +70,15 @@ and 19):
   wins. A tie for the most: the tied players each take one more turn
   "and see if the tie is broken", repeated while the tie holds. The UMR
   adds that the current player's turn finishes first (UMR p. 12), which
-  the rulebook neither says nor denies; built the UMR's way (question
-  13). The tied players are those tied when the base falls -- "at that
+  the rulebook neither says nor denies; the UMR's way (the author,
+  2026-10-14, question 13). The tied players are those tied when the base falls -- "at that
   moment" -- whatever the rest of the current turn does to their bases
   (the author, 2026-10-14, question 15); and the comparison after their
   extra turns is among them alone, so a player outside the tie never
   wins it, however the tied players have hurt each other (the author,
-  2026-10-14, question 16).
+  2026-10-14, question 16). A tied player's base destroyed during the
+  playoff ends the game at that moment, on the comparison among the
+  tied (the author, 2026-10-14, question 20).
 - **Losing by debt** (Promise of Payment: "Pay its gold cost during your
   next upkeep or lose the game"). The bot ends a duel there today
   (`MatchState.lost_by_debt`). The rulebook says nothing of it in
@@ -103,11 +109,10 @@ and 19):
   before their upkeep, has already readied it as a card they control.
 - **A lent hero that dies.** It dies controlled by the borrower and
   owned by the lender, and p. 11's "opposing hero" does not say which
-  it opposes. The rulebook names the owner's exceptions for a lent card
-  -- the discard pile, the scavenger's and technician's bonuses -- and
-  the levels are not among them, which reads as the controller: the
-  levels go to a hero of an opponent of the borrower, the lender's
-  included (question 18).
+  it opposes. **The rulebook's reading, as for any hero** (the author,
+  2026-10-14, question 18): one in-play hero of an opponent of its
+  **controller** -- the borrower, not the owner -- the active player
+  choosing which (p. 11).
 - **A destroyed hero** (p. 11). Whenever a hero dies, one in-play hero
   *opposing* it levels up twice, **the active player choosing which**
   when there are several, and only one that can still level. With
@@ -235,7 +240,7 @@ step reading the UMR is not misled.
 4. **The playoff's current turn** (UMR p. 12: finish the current
    player's turn, then the tied players' turns). The rulebook (p. 14) is
    silent on whether the current turn finishes; the UMR's reading is
-   built, flagged as question 13.
+   built, and the author confirmed it (2026-10-14, question 13).
 5. **One action at a time** in a dragon (UMR p. 12). The rulebook
    (p. 13) says the teammates act simultaneously and no more; the bot
    serialises in any case.
@@ -422,12 +427,13 @@ the author has already settled say so, with the date.
    there, as a duel's does; when the lead is tied, `playoff` is filled
    **at that moment** with the tied seats (question 15), in turn order
    from the next, and the current turn runs to its end (the UMR's
-   reading, question 13) without changing who is in it. `next_seat`
+   reading, question 13, confirmed) without changing who is in it. `next_seat`
    reads it ahead of the normal order, and when it empties the
    comparison is made again **among the playoff's seats alone**
    (question 16) -- a winner, or the list filled again with those still
    tied. A base destroyed during a playoff counts only if it is a tied
-   player's, at zero in that comparison. A seat that loses by debt in a
+   player's, and then ends the game at that moment on the comparison
+   among the tied (question 20). A seat that loses by debt in a
    free-for-all is exactly a seat whose base was just destroyed: its
    base goes to zero and the comparison is made then (question 17).
    All three answered by the author on 2026-10-14. `winner` stays one
@@ -476,8 +482,9 @@ the author has already settled say so, with the date.
    (saved, `None`); the hero stays on its owner's list and
    `controller_of` reads the field; a lent hero that dies goes to its
    owner's command zone with its summoning runes, and its levels go to
-   an opponent of its controller when it died, the borrower (question
-   18; decision 11).
+   an in-play hero of an opponent of its **controller** (the borrower),
+   the active player choosing, as for any hero (the author, 2026-10-14,
+   question 18: "follow the rulebook").
 
 8. **The dragon's two seats are two pending prompts.** `pending` stays
    the one reading of what a seat waits on, and grows a `seat` argument;
@@ -541,8 +548,8 @@ the author has already settled say so, with the date.
     the attack's defending seat, the chosen target's seat -- and
     `_against(top)` no longer has a default to fall back on. A dead
     hero's two levels go to an in-play hero of any opponent of its
-    controller when it died -- its owner, but for a lent hero (question
-    18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
+    controller when it died -- the controller, not the owner, for a lent
+    hero (question 18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
     a duel the same heroes as today, in a free-for-all any opponent's,
     in a dragon either of the other team's.
 
@@ -592,23 +599,27 @@ the author has already settled say so, with the date.
     button, the other seat's name -- both seats are one team, so the
     button names the seat, not a team.
 
-14. **The board is stacked only, in both modes.** A free-for-all is one
-    panel above another, the acting seat's at the bottom with its rule
-    and pill, the others above it **upright** in turn order, the next to
-    play nearest: a table of five has no "across", and a turned panel
-    tells the reader nothing a duel's does. A dragon is two rows of two,
-    the far team's turned as the duel's far panel is, the shared base
-    drawn once in each team's first panel's building column and the
-    second column one tile shorter. **Side by side** is a duel's:
-    `/codex side_by_side` answers on a multiplayer game that its board
-    is stacked, since five panels in a row would be 10,000 pixels wide.
-    **Swap view**, which since 2026-10-12 flips the stacked board
-    between facing and the same way up (`stacked_upright`), has nothing
-    to flip in a free-for-all, whose panels are all upright already, and
-    is not on its turn message; in a dragon it flips the far team's two
-    panels as it flips the duel's far one. These are proposals for a
-    picture, and the step's stop is the author looking at it (question
-    2).
+14. **The boards, as the author settled them (2026-10-14, question 2).**
+    Every free-for-all panel is **upright** -- a table of five has no
+    "across" -- in turn order from the acting seat, and the free-for-all
+    has two views, which **Swap view** toggles (there is no facing view
+    to flip to): **stacked**, one panel above another, the acting seat's
+    at the bottom under the turn's divider and the next to play nearest
+    it; and **side by side**, rows of two panels from the bottom, the
+    acting seat's row under the divider with the active player on its
+    left and the next to play beside them -- three players one panel
+    above two, four two above two (as a dragon's), five three rows with
+    one panel at the top. **Three or four players open side by side;
+    five open stacked.** `render._compose_table` and `_compose_rows` draw
+    them (step 2), and `CodexGame.start` sets the default. **A dragon is
+    two rows of two** (the author, 2026-10-14), the far team's turned as
+    the duel's far panel is, the shared base drawn once in each team's
+    first panel's building column and the second column one tile
+    shorter, and **Swap view** flips the far team's two panels between
+    facing and the same way up, as it flips the duel's far one.
+    `/codex side_by_side` answers on a dragon that its board is the two
+    rows of two, and on a free-for-all switches to the side-by-side
+    view, as Swap view does.
 
 15. **Undo, concede and abandon, as the author settled them**
     (2026-10-11). *To the start of my turn*: any acting seat's, without
@@ -672,7 +683,8 @@ Each step's PR carries a `## Questions to the author` section; these
 are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one. Those struck were answered
 on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
-15, 16, 17 and 19 answered on 2026-10-14.
+2, 13 and 15 to 19 answered on 2026-10-14; 20 to 23 were raised by
+step 2's PR (#579) and settled on 2026-10-14.
 
 1. ~~**What is a two-player team called in the code and in the
    narration?** Built as `dragon` in the code and "team" in what the
@@ -680,10 +692,14 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
    `teammate` in the code; "team" in what the bot says, as the rulebook
    says it ("the other team's base is destroyed"); the nameplate's hero
    team unchanged.
-2. **How should a board of three to five, and a dragon's, look?**
+2. ~~**How should a board of three to five, and a dragon's, look?**
    Decision 14 is a proposal; the step renders both with
    `scripts/render_codex_sample.py` and the author looks before the
-   Discord step is worth starting.
+   Discord step is worth starting.~~ Answered (2026-10-14), from step
+   2's pictures: a free-for-all of three or four opens side by side --
+   rows of two -- and five opens stacked, Swap view toggling the two;
+   a dragon is two rows of two, Swap view flipping facing and the same
+   way up as in the duel. Decision 14.
 3. ~~**Should both modes be offered in the basic game?** Built as
    yes.~~ Answered: yes.
 4. ~~**May a teammate see the other's hand through the bot?** Built as
@@ -710,9 +726,12 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
 12. ~~**Does the undo to the start of the previous turn keep the
     opponents' consent?** Built as the duel has it.~~ Answered: keep
     the consent of a previous turn as in the duel. Decision 15.
-13. **In a tied free-for-all ending, does the current player's turn
+13. ~~**In a tied free-for-all ending, does the current player's turn
     finish before the tied players' extra turns?** The rulebook (p. 14)
-    does not say; the UMR (p. 12) says it does. Built as the UMR says.
+    does not say; the UMR (p. 12) says it does. Built as the UMR says.~~
+    Answered (2026-10-14): the UMR is correct -- and the UMR is the
+    source to look at wherever the rulebook and the database are silent
+    ("The sources, in order").
 14. ~~**Does a teammate also see the other's tech choice and codex?**
     Built as the hand alone.~~ Answered: a teammate should be able to
     see the codex and the tech choice. Decision 13.
@@ -728,14 +747,12 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
     (2026-10-14): in a free-for-all, exactly as if the debtor's base had
     just been destroyed; in a dragon, the debtor's team loses. Decisions
     5 and 9.
-18. **A lent hero dies: whose opponents' heroes may take its two
+18. ~~**A lent hero dies: whose opponents' heroes may take its two
     levels -- its owner's (the lender) or its controller's (the
-    borrower)?** p. 11 says "opposing hero"; the rulebook lists the
-    owner's exceptions for a lent card (the discard pile, the
-    scavenger's and technician's bonuses) and the levels are not among
-    them. Built as the controller's, so the lender's own hero may take
-    them and the borrower's may not. The author is checking
-    (2026-10-14) and said to build it this way meanwhile.
+    borrower)?**~~ Answered (2026-10-14): follow the rulebook -- the
+    active player picks, for a lent hero as for any, and "opponent" is
+    an opponent of the controller, not the owner. Already so since step
+    1 (`board.destroy`); step 3 builds lending on it.
 19. ~~**Is free gold paid for every enemy unit that dies on your turn,
     or only those you kill?**~~ Answered (2026-10-14): only those you
     kill -- your attack's combat damage or an effect you control. The
@@ -743,6 +760,33 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
     effect that can destroy an enemy unit on the active player's turn
     without being theirs (a trigger or an ongoing effect of the unit's
     own controller, a -1/-1 rune's), with the reading each got.
+    The list (step 2's session, answered by the author on 2026-10-14):
+    **the active player's kill, paid** -- Blackhand Dozer's "Active
+    player destroys one of your lowest tech units" (so killing the Dozer
+    and the unit it takes pays 2), Orpal Gloor's max level ("the active
+    player puts a -1/-1 rune on two units friendly to the dead unit"),
+    and Sacrifice the Weak's opponents' sacrifices; **not the active
+    player's, unpaid** -- Jandra the Negator's "Dies from combat damage:
+    Destroy all your units" (its controller's trigger), the Hive's excess
+    Stingers sacrificed once its Hive is destroyed, a unit that dies
+    when a bonus it lived on goes (a Two Step partner killed, a Spirit of
+    the Panda or Soul Stone destroyed, an Inverse Power Ninja given more
+    friends by Final Showdown's or Terras Q's tokens), and a kidnapped
+    unit dying under the active player's control (not an enemy unit
+    then). An opponent's ephemeral unit never lives to another player's
+    turn, so it never arises.
+20. ~~**During a playoff, does a tied player's base falling end the game
+    at that moment, or count as 0 only once the playoff's turns are
+    over?**~~ Answered (2026-10-14): at that moment. Decision 5.
+21. ~~**Martial Mastery's "look at the opponent's hand": at a table of
+    several, is it "an opponent", chosen?**~~ Answered (2026-10-14):
+    yes.
+22. ~~**Is a destroyed base still something to attack?**~~ Answered
+    (2026-10-14): no. A base at 0 is not a defender (`engine._standing`).
+23. ~~**"{player:4}'s two Mercenaries arrive."** -- the plural line names
+    the token in plain words where the single one is "{player:3}'s
+    {card:mercenary} arrives.".~~ Left as built (the author, 2026-10-14:
+    not critical).
 
 ## The steps
 
@@ -757,9 +801,9 @@ step is worth starting.
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
 | ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
-| 2 | Free-for-all through the driver | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
+| ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | 3 | Free-for-all's three additions: repair, free gold, lending | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
-| 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the stacked board of three, the pickers standing for two, rematch |
+| 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
 | 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
@@ -829,7 +873,9 @@ General group's overpower and tower rulings, Captured Bugblatter's,
 Drakk Ramhorn's, Ironbark Treant's and Moment's Peace's. The Unofficial
 Manual Rewrite (docs/codex/Codex_UMR_v13w.pdf, UMR p. 11-12 for the
 modes) is useful and sometimes wrong: where it and the rulebook differ,
-the rulebook governs, and the worksheet lists the differences found.
+the rulebook governs, and the worksheet lists the differences found;
+where the rulebook and the rulings are silent, the UMR is the source to
+look at (the author, 2026-10-14).
 Cite the rulebook's page in a refusal and a docstring, the UMR's only
 for a detail the rulebook lacks, saying so.
 
@@ -992,6 +1038,13 @@ click, and the PR shows the three greps in the preamble empty.
 ```
 
 ### 2. Free-for-all through the driver
+
+**Landed** (2026-10-14). What it settled -- the variant on the record and
+the match, the Mercenaries as an upkeep effect, the ending and its
+playoff (`playoff` and `tied`), debt and no concession, "an opponent's"
+asked and the plurals reaching every opponent, Moment's Peace, the
+seat on `LEVEL_GAIN` -- is in docs/design/codex.md, "Multiplayer", "Step
+2: the free-for-all through the driver".
 
 The mode as the model, before a line of Discord: the variant, the deal,
 the Mercenaries at their upkeep, the turn order, the ending and its
@@ -1173,8 +1226,9 @@ gold; lending.
    that it does). The scavenger's gold and the technician's card pay the
    owner; a lent card destroyed leaves play to its owner as every card
    does (a hero to its command zone with its summoning runes); the
-   kill's levels go to a hero of an opponent of the borrower, the
-   lender's included (decisions 7 and 11, question 18); an effect on the
+   kill's levels go to a hero of an opponent of the borrower -- its
+   controller -- the active player choosing, as for any hero (the
+   author, 2026-10-14, question 18; decision 7); an effect on the
    borrower's "your units" reaches a lent card and the lender's does
    not. What the patrol bonuses do on a lent card (the squad leader's
    armor, the elite's ATK) is the borrower's zone's, as any patroller's.
@@ -1239,20 +1293,18 @@ the game.
    holds for every click that exists today; the PR extends it with the
    clicks a third seat adds.
 
-3. The board. render.compose_board stacks n panels: the near seat's at
-   the bottom with its rule and pill, the others above it upright in
-   turn order from the near seat, the next to play nearest it, one
-   divider between each (decision 14); the worker card prints x4 for
-   the first seat and x5 for every other. Swap view is not on a
-   free-for-all turn message, since every panel is upright already, and
-   /codex side_by_side answers that a free-for-all's board is stacked
-   (decision 14). The Mercenary
+3. The board. render.compose_board already draws a free-for-all
+   both ways (step 2, decision 14): stacked, and side by side as rows of
+   two, every panel upright, and CodexGame.start opens three or four
+   players side by side and five stacked; the worker card prints x4 for
+   the first seat and x5 for every other. Swap view on a free-for-all
+   turn message toggles stacked and side by side (there is no facing
+   view), and /codex side_by_side switches to side by side (decision
+   14). The Mercenary
    draws as a token. Render a three- and a five-player mid-game board
    with scripts/render_codex_sample.py, which this commit teaches a
-   free-for-all position, and put both pictures in the PR for question
-   2 -- the step's stop is the author looking at them, and if the
-   author wants the panels otherwise the change is to compose_board
-   alone.
+   free-for-all position, and put the pictures in the PR -- question 2
+   is answered (decision 14), so they show the two views it settled.
 
 4. The end of the game. The winner's line with the final board, the
    playoff's "one more turn" lines on the turn messages they fall in,
@@ -1446,8 +1498,8 @@ end.
    scripts/render_codex_sample.py a dragon position and put the picture
    in the PR for question 2. Swap view flips the far team's two panels
    between facing and the same way up, as it flips a duel's far one;
-   /codex side_by_side answers that a dragon's board is stacked
-   (decision 14). The winner's line names the
+   /codex side_by_side answers that a dragon's board is the two rows of
+   two (decision 14, the author, 2026-10-14). The winner's line names the
    team ("{player:1} and {player:2} win: the other team's base is
    destroyed."), Rematch keeps the seats and the teams and clears every
    seat's heroes to be picked again (decision 16), the channel to

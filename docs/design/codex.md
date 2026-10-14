@@ -3367,6 +3367,107 @@ change readings, not 66 sites.
   `conceded` any seat it has, and `tokens.player` and `tokens.addressed`
   any positive seat.
 
+### Step 2: the free-for-all through the driver
+
+The free-for-all is played whole by the model -- three to five players,
+the policy of `tests/test_codex_driver_full_game.py` playing every seat,
+with nothing of `cogs/` imported -- and pinned by its own golden,
+`tests/golden/codex_ffa_*`. The duel's golden passes unrecorded: every
+field the step added is written to a save only where it is set.
+
+- **The variant is the record's and the match's.** `codex.game.VARIANTS`
+  names the duel, the free-for-all and the two-headed dragon;
+  `CodexGame.variant` is the lobby's until Start (`set_variant`, a
+  service door beside `set_mode`) and `MatchState.variant` the match's
+  own copy, which every rule reads -- a match outlives its lobby. A
+  free-for-all's record has five seats and starts from three complete
+  ones (`may_start`); its seats are taken in order and close up when a
+  player leaves (`_close_gaps`), because turn order is seat order. The
+  dragon is refused until step 5 builds it. A duel's record and match
+  write no `variant` key, so a save the new code writes still reads on a
+  checkout older than it.
+- **The Mercenaries are an upkeep effect, as the rulebook has them.**
+  `new_match` deals any number of seats, and in a free-for-all the third,
+  fourth and fifth players in turn order from the first drawn are owed 1,
+  2 and 3 (`PlayerState.mercenaries_owed`, written only while owed);
+  their first upkeep puts them in play -- tokens made by no card, with
+  the ordinary arrival fatigue -- first among its effects and never
+  ordered, since a gain changes nothing another effect reads that turn.
+  The UMR's "begin with them in play" is not the rulebook's (Rulebook
+  p. 14). `seats.turn_order` is the one reading of "from the first".
+- **The ending is the most base HP, and a tie plays off.** A destroyed
+  base on a free-for-all match goes through `turn.base_destroyed`: a sole
+  leader wins; a tie fills `MatchState.playoff` with the tied seats in
+  turn order from the seat after the active one, and `MatchState.tied`
+  keeps the whole list, since the playoff empties as it is played and
+  the comparison after it is among the tied alone (the author,
+  2026-10-14, question 16). The current turn runs to its end first (the
+  UMR's reading, which the author confirmed on 2026-10-14 -- the UMR is
+  the source wherever the rulebook and the rulings are silent, question
+  13) and changes nothing about who is tied (question 15). `next_seat` hands the playoff out ahead of the
+  order and of any extra turn; `begin_tech` pops it, and when it has
+  emptied makes the comparison again -- a winner, or the playoff filled
+  again ("Still tied"). While anyone is tied, only a tied player's base
+  falling counts, and the game ends at that moment on the comparison
+  among the tied (the author, 2026-10-14, question 20). A debt unpaid is a base destroyed
+  (question 17): the base to zero, the comparison then, and no
+  `lost_by_debt`. A destroyed base is no longer a defender (`_standing`
+  leaves a base at 0 out; the author, 2026-10-14, question 22): only a
+  playoff goes on past one, and the whole game showed tied players
+  attacking a fallen base forever. There is no concession (decision 5). The finished
+  game's ask says the score -- "{player:3} wins with 14 base HP:
+  {player:1}'s base is destroyed." -- and `GameOverOptions` carries
+  `winners` and every seat's `base_hp`.
+- **"An opponent's" is asked; a plural is every opponent.** An effect
+  whose text names one opponent is listed in `effects.AN_OPPONENT` with
+  the part that first needs to know which; at a table of several, where
+  nothing has set the frame against a seat, `resolve.opponent_owed`
+  asks a `TARGET` over each opponent's base ("choose an opponent")
+  before that part, and the answer sets the frame's `against`. It is
+  never asked of a duel, whose one row is taken unasked as every target
+  with one choice is -- so the duel's transcript does not change. A
+  frame something else set against a seat -- an attack's frames now
+  carry the attacked player (Troq's and Doubleshot Archer's "that
+  opponent's base"), a death's, a damaged building's -- is never asked.
+  The plurals reach every opponent through `resolve._each_opposing`
+  (Banefire Golem, Plague Lord, Ready or Not) or
+  `effects.EACH_OPPOSING_BASE` (Drakk, the Pirategang's units); Hooded
+  Executioner destroys one weakest unit of each opponent
+  (`effects.EACH_OPPONENTS_ONE`, a side at a time, so a side with one
+  weakest is taken unasked). A hand or discard pile looked at is the
+  chosen opponent's alone. Flagstone Spy's look names the seat it
+  looked at. The audit of every card that says "opponent" is in the
+  step's PR.
+- **Moment's Peace removes its caster's things from the units'
+  defenders, and nothing else**: a unit may attack while any opponent is
+  not at peace, and the defender rows of a peaceful opponent are empty
+  for a unit. The tower detects and damages only an attacker of its
+  owner's (it reads the defending seat), armor refreshes on every turn
+  for every seat, and each opponent's patrol zone protects that opponent
+  alone -- all three already true after step 1, and pinned now.
+- **A kill's levels name the seat.** `LevelGainOptions.seats` is each
+  hero's seat (written where there are several), and the answer may name
+  `seat`, so a mirror game's two of one hero are told apart.
+- **A table of several has two views, every panel upright** (the
+  author, 2026-10-14, question 2): **stacked** (`render._compose_table`),
+  the active player's panel at the bottom under the turn's divider and
+  the others above it in turn order, the next to play nearest; and
+  **side by side** (`_compose_rows`), rows of two from the bottom -- the
+  active player and the next to play under the divider, three players
+  one panel above two, four two above two, five three rows with one at
+  the top, a lone panel centred, and the turn's pill centred over the
+  acting player's own panel rather than the board (the author,
+  2026-10-14). A free-for-all of three or four opens
+  side by side and one of five stacked (`CodexGame.start`); there is no
+  facing view, so step 4's Swap view toggles the two. The record's
+  `board_layout` keeps its spellings: "side_by_side" is the rows of two
+  on a table of several, and "stacked_upright" draws as "stacked".
+  `scripts/render_codex_sample.py` draws three, four and five players
+  both ways (`ffa-3`, `ffa-4`, `ffa-5`, and three and five from seat 2).
+- **Not yet**: the tower's own-turn detection names a ref, so in a mirror
+  game two of one hero hidden at once are one candidate; the lobby and
+  every Discord surface of a table of several are step 4's.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:

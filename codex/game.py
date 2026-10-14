@@ -74,6 +74,18 @@ BOARD_LAYOUTS = ("stacked", "stacked_upright", "side_by_side")
 #: itself, where it may make neither, which it never renames or moves.
 VENUES = ("channel", "thread", "here")
 
+#: How many seats there are and how they stand to each other
+#: (docs/codex-multiplayer.md, decision 2): the **duel** of two, the
+#: **free-for-all** of three to five, every base its own (Rulebook
+#: p. 14), and the **two-headed dragon**, two teams of two (p. 13). A
+#: third axis beside `MODES`, which says how many heroes a seat holds.
+VARIANTS = ("duel", "free_for_all", "two_headed_dragon")
+#: The seats each variant has: a free-for-all's five are its most, and
+#: it starts from three (`MIN_SEATS`).
+VARIANT_SEATS = {"duel": 2, "free_for_all": 5, "two_headed_dragon": 4}
+#: The fewest complete seats a variant starts with.
+MIN_SEATS = {"duel": 2, "free_for_all": 3, "two_headed_dragon": 4}
+
 
 @dataclass
 class CodexGame:
@@ -107,6 +119,10 @@ class CodexGame:
     #: The basic game or the standard one (`MODES`): one hero a seat,
     #: or three. "basic" in a save older than step 10.
     mode: str = "basic"
+    #: One of `VARIANTS`: the duel, a free-for-all or a two-headed
+    #: dragon. "duel" in a save older than multiplayer step 2. The rules
+    #: read the match's own copy (`MatchState.variant`), never this one.
+    variant: str = "duel"
     #: Seat number to its heroes, as their specs, in the order chosen --
     #: one in the basic game, three in the standard one. A hero is its
     #: spec's one hero (`CardCatalog.hero_for`), so a spec names a hero
@@ -149,13 +165,19 @@ class CodexGame:
     #: lobby; the heroes are kept only while both have.
     kept_heroes: list[int] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        # A record made for a free-for-all has its five seats from the
+        # start, so seat *n* is always `seats[n - 1]`.
+        if len(self.seats) < self.seat_count:
+            self.seats = self.seats + _empty_seats(self.seat_count - len(self.seats))
+
     # -- Reading the seats -------------------------------------------
 
     @property
     def seat_count(self) -> int:
-        """How many seats the game has: two, until a variant says more
-        (docs/codex-multiplayer.md)."""
-        return SEAT_COUNT
+        """How many seats the game has: two in a duel, five in a
+        free-for-all (which starts from three), four in a dragon."""
+        return VARIANT_SEATS.get(self.variant, SEAT_COUNT)
 
     def _seat(self, seat: int) -> dict:
         return self.seats[seat - 1]
@@ -270,6 +292,51 @@ class CodexGame:
         self.rematch_decks = {}
         self.kept_heroes = []
 
+    def set_variant(self, variant: str) -> None:
+        """
+        Play a duel, a free-for-all or a two-headed dragon
+        (docs/codex-multiplayer.md, decisions 2 and 12). The lobby's until
+        Start, as the mode is: every seated player that still fits keeps
+        their seat and their heroes, and the rest are cleared. The dragon
+        is refused until the bot plays it (multiplayer step 5).
+        """
+        self._require_lobby()
+        if variant not in VARIANTS:
+            raise RuleRefusal(
+                f"A Codex game is a duel, a free-for-all or a two-headed dragon, not {variant}.",
+                cite="Rulebook p. 13-14",
+            )
+        if variant == "two_headed_dragon":
+            # No page to cite: the rulebook has it, this bot does not play
+            # it yet (docs/codex-multiplayer.md, step 5).
+            raise RuleRefusal("The two-headed dragon is not in this bot yet.")
+        if variant == self.variant:
+            return
+        self.variant = variant
+        count = self.seat_count
+        for seat in range(count + 1, len(self.seats) + 1):
+            self.player_specs.pop(seat, None)
+            self.player_decks.pop(seat, None)
+        self.seats = [dict(held) for held in self.seats[:count]]
+        self.seats += _empty_seats(count - len(self.seats))
+        self.kept_heroes = [seat for seat in self.kept_heroes if seat <= count]
+        if self.variant == "free_for_all":
+            self._close_gaps()
+
+    def _close_gaps(self) -> None:
+        """A free-for-all's seats are taken in order with no gap -- turn
+        order is seat order (Rulebook p. 14) -- so an empty seat among
+        taken ones closes up: each seat after it moves up one, with its
+        heroes and deck."""
+        taken = [seat for seat in range(1, self.seat_count + 1)
+                 if self.seat_user_id(seat) is not None]
+        moved = {old: new for new, old in enumerate(taken, start=1)}
+        self.seats = [dict(self._seat(old)) for old in taken]
+        self.seats += _empty_seats(self.seat_count - len(self.seats))
+        self.player_specs = {moved[old]: specs for old, specs in self.player_specs.items() if old in moved}
+        self.player_decks = {moved[old]: deck for old, deck in self.player_decks.items() if old in moved}
+        self.kept_heroes = sorted(moved[old] for old in self.kept_heroes if old in moved)
+
     def _check_team(self, specs: list[str]) -> list[str]:
         """
         A seat's heroes, as specs, checked against the lobby's rules
@@ -357,6 +424,13 @@ class CodexGame:
                 raise RuleRefusal(
                     f"You are already seated -- this game is {self.seat_count} players."
                 )
+            if held is None and self.variant == "free_for_all" and any(
+                self.seat_user_id(earlier) is None for earlier in range(1, seat)
+            ):
+                raise RuleRefusal(
+                    "A free-for-all's seats are taken in order: turn order is seat order.",
+                    cite="Rulebook p. 14",
+                )
             target = seat
         elif mine and (not self.test_game or len(mine) == self.seat_count):
             target = mine[0]
@@ -426,31 +500,66 @@ class CodexGame:
             self.player_decks.pop(seat, None)
             if seat in self.kept_heroes:
                 self.kept_heroes.remove(seat)
+        if self.variant == "free_for_all":
+            # Turn order is seat order: the seats after move up.
+            self._close_gaps()
+
+    def taken_seats(self) -> tuple[int, ...]:
+        """The seats somebody sits in, in order."""
+        return tuple(seat for seat in range(1, self.seat_count + 1)
+                     if self.seat_user_id(seat) is not None)
 
     def may_start(self) -> bool:
-        """Every seat complete -- each taken, with its heroes and its
-        deck -- in a lobby."""
-        return self.status is GameStatus.LOBBY and all(
-            self.seat_complete(seat) for seat in range(1, self.seat_count + 1)
-        )
+        """
+        In a lobby, every seat complete -- each taken, with its heroes
+        and its deck -- or, in a free-for-all, at least three seats and
+        every one taken complete (Rulebook p. 14: three to five players).
+        """
+        if self.status is not GameStatus.LOBBY:
+            return False
+        if self.variant == "free_for_all":
+            taken = self.taken_seats()
+            return len(taken) >= MIN_SEATS[self.variant] and all(
+                self.seat_complete(seat) for seat in taken
+            )
+        return all(self.seat_complete(seat) for seat in range(1, self.seat_count + 1))
+
+    def playing_seats(self) -> tuple[int, ...]:
+        """The seats a match is dealt to: a free-for-all's taken ones, and
+        every seat of any other game."""
+        if self.variant == "free_for_all":
+            return self.taken_seats()
+        return tuple(range(1, self.seat_count + 1))
 
     def start(self, engine: "RulesEngine") -> None:
         """Deal the opening position: the engine shuffles, deals and
         picks who goes first (UMR p. 3)."""
         self._require_lobby()
         if not self.may_start():
+            if self.variant == "free_for_all":
+                raise RuleRefusal(
+                    "A free-for-all needs three to five players, each with their heroes and "
+                    "their deck, before it can start.",
+                    cite="Rulebook p. 14",
+                )
             raise RuleRefusal(
                 "Both seats have to be taken, each with its heroes and its deck, "
                 "before the game can start.",
                 cite="UMR p. 3",
             )
-        seats = range(1, self.seat_count + 1)
+        seats = self.playing_seats()
         match = engine.new_match(
             tuple(self.player_specs[seat] for seat in seats),
             decks=tuple(self.player_decks[seat] for seat in seats),
+            variant=self.variant,
         )
         self.match_state = match.to_dict()
         self.status = GameStatus.PLAYING
+        if self.variant == "free_for_all":
+            # The author, 2026-10-14: three or four players open side by
+            # side, two panels a row; five open stacked. Swap view
+            # toggles the two (docs/codex-multiplayer.md, decision 14).
+            self.board_layout = "side_by_side" if len(seats) <= 4 else "stacked"
 
     def set_board_layout(self, layout: str) -> None:
         """Lay the board out `layout` -- refused for one there is not,
@@ -489,6 +598,23 @@ class CodexGame:
             raise RuleRefusal("Only a finished game can be played again.")
         played = {seat: list(specs) for seat, specs in self.player_specs.items()}
         decks = dict(self.player_decks)
+        if self.variant != "duel":
+            # A multiplayer rematch is a fresh pick of heroes, the same
+            # seats (docs/codex-multiplayer.md, decision 16); its lobby on
+            # Discord is multiplayer step 4's.
+            return CodexGame(
+                game_id=game_id,
+                game_number=game_number,
+                guild_id=self.guild_id,
+                channel_id=self.channel_id,
+                venue=self.venue,
+                seats=[dict(held) for held in self.seats],
+                test_game=self.test_game,
+                mode=self.mode,
+                variant=self.variant,
+                board_layout=self.board_layout,
+                rematch_of=self.game_id,
+            )
         swapped = self._swapped()
         return CodexGame(
             game_id=game_id,
@@ -575,6 +701,11 @@ class CodexGame:
         data["player_decks"] = {str(seat): deck for seat, deck in self.player_decks.items()}
         data["rematch_specs"] = {str(seat): list(specs) for seat, specs in self.rematch_specs.items()}
         data["rematch_decks"] = {str(seat): deck for seat, deck in self.rematch_decks.items()}
+        if self.variant == "duel":
+            # Written only for a multiplayer game, so a duel's record is the
+            # record it always was -- and still reads on a checkout older
+            # than the variant, between a pull and a restart.
+            del data["variant"]
         return data
 
     @classmethod
@@ -585,13 +716,16 @@ class CodexGame:
             key: data.pop(key, None)
             for key in ("player_1_id", "player_1_name", "player_2_id", "player_2_name")
         }
+        if data.get("variant") not in VARIANTS:
+            data["variant"] = "duel"
+        count = VARIANT_SEATS[data["variant"]]
         if data.get("seats"):
-            data["seats"] = _read_seats(data["seats"])
+            data["seats"] = _read_seats(data["seats"], count)
         else:
             data["seats"] = _pad_seats([
                 {"id": legacy["player_1_id"], "name": legacy["player_1_name"]},
                 {"id": legacy["player_2_id"], "name": legacy["player_2_name"]},
-            ])
+            ], count)
         if data.get("mode") not in MODES:
             data["mode"] = "basic"
         data["player_specs"] = _read_teams(data.get("player_specs"))
@@ -627,7 +761,7 @@ def _read_teams(data: Optional[dict]) -> dict[int, list[str]]:
     }
 
 
-#: How many seats a game has until a variant says more.
+#: How many seats a duel has, and a game whose variant is unknown.
 SEAT_COUNT = 2
 
 
@@ -635,14 +769,14 @@ def _empty_seats(count: int) -> list[dict]:
     return [{"id": None, "name": None} for _ in range(count)]
 
 
-def _pad_seats(seats: list[dict]) -> list[dict]:
+def _pad_seats(seats: list[dict], count: int = SEAT_COUNT) -> list[dict]:
     """The seats as a list of exactly the game's count, an empty one
     where the list was short."""
-    seats = [dict(held) for held in seats[:SEAT_COUNT]]
-    return seats + _empty_seats(SEAT_COUNT - len(seats))
+    seats = [dict(held) for held in seats[:count]]
+    return seats + _empty_seats(count - len(seats))
 
 
-def _read_seats(data: list) -> list[dict]:
+def _read_seats(data: list, count: int = SEAT_COUNT) -> list[dict]:
     return _pad_seats([
         {"id": held.get("id"), "name": held.get("name")} for held in data
-    ])
+    ], count)

@@ -373,16 +373,22 @@ def _answer_upkeep_order(engine, game, match, prompt, choice, *, first=None) -> 
     return turn.finish_upkeep(engine, game, match, _required(first, "first"))
 
 
-def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None) -> StepResult:
-    """Which hero gains the kill's two levels (UMR p. 10), then the stack
-    goes on from where the kill stood."""
-    if hero not in prompt.options.heroes:
-        raise RuleRefusal("Choose one of their heroes in play to gain the levels.", cite="UMR p. 10")
+def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None, seat=None) -> StepResult:
+    """Which hero gains the kill's two levels (Rulebook p. 11), then the
+    stack goes on from where the kill stood. `seat` names whose hero
+    where a ref alone is on more than one side (a mirror game)."""
+    offered = list(zip(prompt.options.seats or (None,) * len(prompt.options.heroes),
+                       prompt.options.heroes))
+    matching = [on for on, ref in offered if ref == hero and seat in (None, on)]
+    if not matching:
+        raise RuleRefusal("Choose one of their heroes in play to gain the levels.", cite="Rulebook p. 11")
+    if seat is None and len(set(matching)) > 1:
+        raise RuleRefusal("Choose whose hero gains the levels: that hero is on more than one side.")
     top = match.resolving.pop(0)
     result = StepResult(board_changed=True)
     holder = next(
-        match.player(seat) for seat in top.get("seats") or [top["seat"]]
-        if match.player(seat).hero_by_ref(hero) is not None
+        match.player(on) for on in ([seat] if seat is not None else top.get("seats") or [top["seat"]])
+        if match.player(on).hero_by_ref(hero) is not None
     )
     board.gain_kill_levels(engine, match, holder.hero_by_ref(hero), result)
     return resolve.carry_on(engine, game, match, result)
@@ -448,7 +454,7 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
     PromptKind.TARGET: frozenset({"target"}),
     PromptKind.APPEL_STOMP_TOP: frozenset(),
     PromptKind.UPKEEP_ORDER: frozenset({"first"}),
-    PromptKind.LEVEL_GAIN: frozenset({"hero"}),
+    PromptKind.LEVEL_GAIN: frozenset({"hero", "seat"}),
     PromptKind.DIVIDE_DAMAGE: frozenset({"target"}),
     PromptKind.MODE_CHOICE: frozenset({"mode"}),
     PromptKind.STASH: frozenset({"slug"}),
@@ -494,7 +500,12 @@ def _upgrade_refs(match: MatchState, action: Action) -> Action:
     from codex.components import HERO, hero_ref
 
     active = match.active
-    other = seats.sole_opponent(match, active)
+    others = seats.opponents(match, active)
+    if len(others) != 1:
+        # Only a duel's journal is older than step 10: a table of several
+        # never named a hero `hero` alone.
+        return action
+    other = others[0]
 
     def mine(seat: int, value):
         if value == HERO:

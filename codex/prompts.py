@@ -377,9 +377,17 @@ class LevelGainOptions:
     seat: int
     owner: int
     heroes: tuple[str, ...]
+    #: The seat each of `heroes` is on, in the same order -- every
+    #: opponent's of the dead hero's controller (Rulebook p. 11), so a ref
+    #: alone names nothing in a mirror game. Written only where there is
+    #: more than one such seat.
+    seats: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"seat": self.seat, "owner": self.owner, "heroes": list(self.heroes)}
+        data = {"seat": self.seat, "owner": self.owner, "heroes": list(self.heroes)}
+        if len(set(self.seats)) > 1:
+            data["seats"] = list(self.seats)
+        return data
 
 
 @dataclass(frozen=True)
@@ -429,11 +437,19 @@ class GameOverOptions:
     conceded: Optional[int] = None
     #: The seat that could not pay Promise of Payment's debt (step 12).
     lost_by_debt: Optional[int] = None
+    #: Every seat that won: `(winner,)` -- a dragon's will be its team's
+    #: two (docs/codex-multiplayer.md, decision 5).
+    winners: tuple[int, ...] = ()
+    #: Each seat's base HP as the game ended, `(seat, hp)` in seat order:
+    #: a free-for-all is won on the score, and its ask says it.
+    base_hp: tuple[tuple[int, int], ...] = ()
 
     def to_dict(self) -> dict:
         found = {"winner": self.winner, "conceded": self.conceded}
         if self.lost_by_debt is not None:
             found["lost_by_debt"] = self.lost_by_debt
+        found["winners"] = list(self.winners)
+        found["base_hp"] = [list(pair) for pair in self.base_hp]
         return found
 
 
@@ -564,9 +580,12 @@ def _overpower_ask(seat: int) -> str:
 
 
 def _target_ask(engine, match: MatchState, top: dict) -> str:
+    from codex.flow.resolve import opponent_owed, rows_for
+
+    if opponent_owed(engine, match, top):
+        return f"{tokens.player(top['seat'])}, {top['by']}: choose an opponent."
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     ask = f"{tokens.player(top['seat'])}, {top['by']}: {part.says}."
-    from codex.flow.resolve import rows_for
 
     if any(row.flagbearer for row in rows_for(engine, match, top)):
         ask += " Their flagbearer must be the target."
@@ -638,22 +657,23 @@ def _main_options(engine, game, match, prompt) -> MainActionOptions:
 
 
 def _target_options(engine, game, match, prompt) -> TargetOptions:
-    from codex.flow.resolve import cancellable, offers_done, rows_for
+    from codex.flow.resolve import against, cancellable, offers_done, opponent_owed, rows_for
 
     top = match.resolving[0]
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     rows = rows_for(engine, match, top)
     shown: tuple[str, ...] = ()
-    if part.choose in LOOKS:
+    if opponent_owed(engine, match, top):
+        # Which opponent is asked first: nothing of theirs is seen yet.
+        pass
+    elif part.choose in LOOKS:
         # Carrion Curse: "Look at an opponent's hand" -- all of it, to the
-        # caster alone.
-        other = engine.sole_opponent(match, top["seat"])
-        shown = tuple(match.player(other).hand)
+        # caster alone: the one opponent chosen.
+        shown = tuple(match.player(against(engine, match, top)).hand)
     elif part.choose in DISCARD_LOOKS:
         # Community Service, Lawful Search: the opponent's discard pile,
         # public, pictured all the same (step 13).
-        other = engine.sole_opponent(match, top["seat"])
-        shown = tuple(match.player(other).discard)
+        shown = tuple(match.player(against(engine, match, top)).discard)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
         any(row.flagbearer for row in rows), cancellable(match),
@@ -705,12 +725,12 @@ def _level_options(engine, game, match, prompt) -> LevelGainOptions:
 
     top = match.resolving[0]
     owner = match.player(top["seat"])
-    # Several seats only where the dead hero had several opponents; a hero
-    # is named by its ref alone until the action carries a seat (step 2).
+    # Several seats only where the dead hero had several opponents; the
+    # answer may name the seat beside the ref (`seat`).
     holders = [match.player(seat) for seat in top.get("seats") or [top["seat"]]]
+    found = [(holder.seat, hero_ref(hero.slug)) for holder in holders for hero in holder.heroes_in_play]
     return LevelGainOptions(
-        prompt.asked_player, owner.seat,
-        tuple(hero_ref(hero.slug) for holder in holders for hero in holder.heroes_in_play),
+        prompt.asked_player, owner.seat, tuple(ref for _, ref in found), tuple(seat for seat, _ in found),
     )
 
 
@@ -788,7 +808,10 @@ def _stash_options(engine, game, match, prompt) -> StashOptions:
 
 
 def _game_over_options(engine, game, match, prompt) -> GameOverOptions:
-    return GameOverOptions(match.winner, match.conceded, match.lost_by_debt)
+    return GameOverOptions(
+        match.winner, match.conceded, match.lost_by_debt, (match.winner,),
+        tuple((player.seat, match.base_of(player.seat)) for player in match.players),
+    )
 
 
 OPTIONS = {
@@ -867,6 +890,8 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             how = f"{tokens.player(match.conceded)} conceded."
         elif match.lost_by_debt is not None:
             how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
+        elif match.variant == "free_for_all":
+            return PendingPrompt(PromptKind.GAME_OVER, _free_for_all_over(match))
         else:
             how = "the opposing base is destroyed."
         return PendingPrompt(PromptKind.GAME_OVER, f"{tokens.player(match.winner)} wins: {how}")
@@ -945,6 +970,19 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
     # The upkeep is never stood on between two clicks: `begin_turn`
     # runs it through to the main phase in one step.
     return FollowOn(FollowOnStep.BEGIN_TURN)
+
+
+def _free_for_all_over(match: MatchState) -> str:
+    """A free-for-all's end, said with the score (Rulebook p. 14: the most
+    base HP wins): "{player:3} wins with 14 base HP: {player:1}'s base is
+    destroyed." -- or, after a playoff, that the tie is broken."""
+    head = f"{tokens.player(match.winner)} wins with {match.base_of(match.winner)} base HP"
+    if match.tied:
+        return f"{head}: the tie is broken."
+    fallen = [player.seat for player in match.players if match.base_of(player.seat) == 0]
+    if len(fallen) == 1:
+        return f"{head}: {tokens.player(fallen[0])}'s base is destroyed."
+    return f"{head}: a base is destroyed."
 
 
 def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Union[PendingPrompt, FollowOn]:

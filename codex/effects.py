@@ -1718,6 +1718,35 @@ ATTACHED_UNIT_GRANTS = {**ATTACHED_UNIT_GRANTS, SOUL_STONE: "soul_stone"}
 #: an opponent's lowest tech units." -- a this-turn trigger on its caster.
 DEATH_RITES = "death_rites"
 
+#: The effects whose text names **one** opponent -- "an opponent's
+#: hand", "all of an opponent's units", "silence an opponent" -- and the
+#: part (by its `does`) that first needs to know which: at a table of
+#: several the controller chooses, before that part (`codex.flow.resolve.
+#: opponent_owed`; docs/codex-multiplayer.md, decision 11). A frame
+#: already against a seat -- an attack's, a death's -- is never asked.
+AN_OPPONENT = {
+    "discord": "discord",
+    "death_and_decay": "decay",
+    "earthquake": "earthquake",
+    "plague_lab": "runes_on_opposing",
+    "free_speech": "silence",
+    "tax_collector": "steal_gold",
+    "thieving_imp": "random_discard",
+    "final_showdown": "token_for_opponent",
+    "terras_q_the_shackled": "token_for_opponent",
+    "captured_bugblatter": "base_damage",
+    "carrion_curse": "curse_discard",
+    "martial_mastery": "look_at",
+    "lawful_search": "look_at",
+    "community_service": "conscript",
+}
+#: The base damage that reaches every opponent: Drakk Ramhorn's "each
+#: opponent's base", the Pirategang Commander's "each opposing base".
+EACH_OPPOSING_BASE = frozenset({"drakk_ramhorn", "pirategang_dies"})
+#: The parts that choose one thing of each opponent: Hooded Executioner's
+#: "each opponent's weakest unit" -- one pick a side.
+EACH_OPPONENTS_ONE = frozenset({"weakest_opposing_to_destroy"})
+
 # -- Black's static texts (step 12, commit 4) -------------------------------------
 
 #: Abomination: "All other units get -1/-1." -- both sides, stacking, two
