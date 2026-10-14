@@ -604,14 +604,14 @@ def stealthy(card):
 
 
 class TowerTests(unittest.TestCase):
-    """The tower: detection narrower than damage (Rulebook p. 4, 13; the
-    tower ruling)."""
+    """The tower: a team has one (never two of the same add-on, Rulebook
+    p. 13) and it detects and deals its damage for the whole team (the
+    author, 2026-10-14)."""
 
     def setUp(self) -> None:
         self.engine, self.game, self.match = started()
         self.attacker = stealthy(put(self.match, 1, "iron_man"))
-        for seat in (3, 4):
-            self.match.player(seat).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+        self.match.player(4).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
 
     def attack(self, defender, against):
         from codex.flow import combat
@@ -622,27 +622,43 @@ class TowerTests(unittest.TestCase):
     def said(self, result) -> str:
         return " ".join(result.narration)
 
-    def test_an_attack_on_a_players_card_is_detected_by_their_tower_alone(self) -> None:
-        mine = put(self.match, 3, "older_brother")
-        result = self.attack(mine.ref, 3)
-        self.assertEqual(self.match.player(3).add_on.detected, self.attacker.ref)
-        self.assertIsNone(self.match.player(4).add_on.detected)
-        self.assertIn("{player:3}'s tower detects", self.said(result))
+    def test_the_teams_tower_detects_an_attack_on_either_players_card(self) -> None:
+        for seat in (3, 4):
+            engine, game, match = started()
+            attacker = stealthy(put(match, 1, "iron_man"))
+            match.player(4).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+            victim = put(match, seat, "older_brother")
+            from codex.flow import combat
 
-    def test_an_attack_on_the_shared_base_may_be_detected_by_either_tower(self) -> None:
-        self.match.player(3).add_on.detected = "unit:99"      # spent
-        result = self.attack("base", 3)
+            result = combat.declare_attack(engine, game, match, attacker.ref, victim.ref, against=seat)
+            self.assertEqual(match.player(4).add_on.detected, attacker.ref, seat)
+            self.assertIn("{player:4}'s tower detects", " ".join(result.narration))
+
+    def test_an_attack_on_the_shared_base_is_detected_too(self) -> None:
+        self.attack("base", 3)
         self.assertEqual(self.match.player(4).add_on.detected, self.attacker.ref)
-        self.assertIn("{player:4}'s tower detects", self.said(result))
 
     def test_the_damage_falls_on_an_attacker_of_anything_the_team_controls(self) -> None:
-        """Both towers deal their 1: the teammate's cards attacked are the
-        team's, though the teammate's tower detected nothing."""
-        mate = put(self.match, 4, "older_brother")
-        result = self.attack(mate.ref, 4)
-        said = self.said(result)
-        self.assertIn("{player:3}'s tower deals 1", said)
+        mate = put(self.match, 3, "older_brother")
+        said = self.said(self.attack(mate.ref, 3))
+        self.assertEqual(said.count("tower deals 1"), 1)
         self.assertIn("{player:4}'s tower deals 1", said)
+
+    def test_a_team_with_no_tower_is_detected_by_nobody(self) -> None:
+        self.match.player(4).add_on = None
+        mate = put(self.match, 3, "older_brother")
+        self.assertNotIn("tower", self.said(self.attack(mate.ref, 3)))
+        self.assertIsNone(self.engine.team_tower(self.match, 3))
+
+    def test_the_tower_detects_on_its_owners_turn_for_the_teammate(self) -> None:
+        engine, game, match = started()
+        match.player(2).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+        hidden = stealthy(put(match, 3, "iron_man"))
+        option = engine.detect_option(match)             # seat 1, whose teammate built it
+        self.assertTrue(option.allowed)
+        self.assertIn(hidden.ref, option.candidates)
+        act(engine, game, match, PromptKind.MAIN_ACTION, "detect", card=hidden.ref, player=1)
+        self.assertEqual(match.player(2).add_on.detected, hidden.ref)
 
     def test_a_duels_one_tower_is_unchanged(self) -> None:
         from codex.flow import combat

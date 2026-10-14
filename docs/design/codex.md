@@ -3740,13 +3740,14 @@ record with `CodexGame(variant="two_headed_dragon")`.
   own rows are `_foe_rows` -- the keywords' exceptions (stealth, flying,
   unstoppable) are read zone by zone -- and a zone the attacker passes
   protects nothing of the partner's. The defender prompt lists each row
-  with its seat as the free-for-all's does. The **tower** detects an
-  attack on its owner or on the shared base (`detecting_tower`: the
-  attacked seat's, and the teammate's too when the base is attacked) and
-  not an attack on the teammate's cards -- "you means you" -- while its
-  damage falls on an attacker of anything the team controls
-  (`towers_seeing`: each tower that sees it deals its 1) -- both as
-  written, detection narrower than damage. **Overpower's excess** may go
+  with its seat as the free-for-all's does. The **tower** is the team's one
+  (a team never holds two of the same add-on, so a dragon has at most
+  one -- `team_tower`): it detects for the whole team, whichever of them
+  or their cards is attacked, and deals its 1 to an attacker of anything
+  the team controls (`detecting_tower`, `towers_seeing`; the author,
+  2026-10-14, overriding the plan's narrower "you means you" reading of
+  its detection). On its owner's own turn the teammate's *Detect* uses
+  it too. **Overpower's excess** may go
   to anything the attacked team controls (`overpower_team`: the
   teammate's candidates are `<seat>:<ref>`). **Moment's Peace** removes
   its caster's cards and the shared base from the units' defenders, not
@@ -3780,8 +3781,7 @@ record with `CodexGame(variant="two_headed_dragon")`.
   base drawn once and the concession both teammates agree to are step
   6's. The team's turn heading and the "End of turn" line already name
   both players (`formatting.turn_heading`). Dothram Horselord's "a
-  player with more total ATK" is read per *seat*, as written (the
-  worksheet's open reading: question 24 in this step's PR).
+  player with more total ATK" is read per *seat*, as written (the author, 2026-10-14, question 24).
 
 ## Running it
 

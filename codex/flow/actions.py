@@ -625,7 +625,7 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
         raise RuleRefusal("That is not one of their hidden cards.", cite="UMR p. 9")
     other = engine.holder_of(match, card, engine.opponents(match, seat))
     body = engine.body(match, other, card)
-    engine.tower(match.active_player).detected = card
+    engine.team_tower(match, seat)[1].detected = card
     match.record_event("detected", card=card, by=seat)
     named = tokens.hero(body.slug) if is_hero_ref(card) else tokens.card(body.slug)
     return _done(engine, game, match, [

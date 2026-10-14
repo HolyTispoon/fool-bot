@@ -2249,6 +2249,20 @@ class RulesEngine:
             return add_on
         return None
 
+    def team_tower(self, match: MatchState, seat: int) -> Optional[tuple[int, AddOnState]]:
+        """
+        `(owner, tower)` of the finished tower `seat`'s team has, or
+        `None`. A team never holds two of the same add-on (Rulebook p.
+        13), so a dragon has at most one, and **it detects and deals its
+        damage for the whole team** (the author, 2026-10-14). In a duel
+        and a free-for-all, just `seat`'s own.
+        """
+        for owner in self.dragon_of(match, seat):
+            tower = self.tower(match.player(owner))
+            if tower is not None:
+                return owner, tower
+        return None
+
     def hidden(self, match: MatchState, seat: int, ref: str) -> str:
         """`"invisible"`, `"stealth"` or `""` -- how what `ref` names on
         `seat`'s side is hidden (UMR p. 17, 18)."""
@@ -2275,9 +2289,10 @@ class RulesEngine:
         """
         if self.has_detector(match, watcher):
             return True
-        tower = self.tower(match.player(watcher))
-        if tower is None:
+        found = self.team_tower(match, watcher)
+        if found is None:
             return False
+        tower = found[1]
         if tower.detected == ref:
             return True
         return tower.detected is None and watcher not in self.turn_seats(match)
@@ -2294,40 +2309,30 @@ class RulesEngine:
     def detecting_tower(self, match: MatchState, attacker: str) -> Optional[int]:
         """
         The seat whose tower uses its detection on this attacker, or
-        `None`: the attacked seat's, and -- in a two-headed dragon, where
-        the tower detects "the first one of those that attacks *you*"
-        and "you means you" (Rulebook p. 4, 13) -- the teammate's too when
-        the shared base is attacked, but not for an attack on the
-        teammate's cards.
+        `None`: the attacked team's one tower, if its detection is
+        unspent and the attacker is hidden -- in a two-headed dragon it
+        detects for the whole team, whichever of them or their cards is
+        attacked (the author, 2026-10-14).
         """
-        other = self.defending_seat(match, None)
-        owners = [other]
-        mate = self.teammate(match, other)
-        if mate is not None and match.combat is not None and match.combat.get("defender") == "base":
-            owners.append(mate)
-        for owner in owners:
-            tower = self.tower(match.player(owner))
-            if tower is not None and tower.detected is None and self.hidden(match, match.active, attacker):
-                return owner
+        found = self.team_tower(match, self.defending_seat(match, None))
+        if found is not None and found[1].detected is None and self.hidden(match, match.active, attacker):
+            return found[0]
         return None
 
     def towers_seeing(self, match: MatchState, attacker: str) -> tuple[int, ...]:
         """
-        Whose towers deal their damage to this attacker: in a duel and a
-        free-for-all the defending seat's, if it sees the attacker
-        (`tower_sees`); in a two-headed dragon the damage falls on an
+        Whose tower deals its damage to this attacker: the attacked
+        team's one, if it sees the attacker (`tower_sees`) -- for an
         attacker of anything "controlled by the player (or team in 2v2)"
-        (the tower ruling), so each tower of the attacked team that sees
-        it -- detection narrower than damage, both as written.
+        (the tower ruling).
         """
         other = self.defending_seat(match, None)
-        found = []
-        for owner in self.dragon_of(match, other):
-            if self.tower(match.player(owner)) is None:
-                continue
-            if not self.hidden(match, match.active, attacker) or self.detected_by(match, owner, attacker):
-                found.append(owner)
-        return tuple(found)
+        found = self.team_tower(match, other)
+        if found is None:
+            return ()
+        if not self.hidden(match, match.active, attacker) or self.detected_by(match, other, attacker):
+            return (found[0],)
+        return ()
 
     def tower_detects(self, match: MatchState, attacker: str) -> bool:
         """
@@ -2338,22 +2343,13 @@ class RulesEngine:
         fires even on an attacker that is also unstoppable, which it then
         damages without stopping (Sirlin, 2016-03-19).
         """
-        other = self.defending_seat(match, None)
-        tower = self.tower(match.player(other))
-        if tower is None or tower.detected is not None:
-            return False
-        return bool(self.hidden(match, match.active, attacker))
+        return self.detecting_tower(match, attacker) is not None
 
     def tower_sees(self, match: MatchState, attacker: str) -> bool:
         """Whether the defending tower can see this attacker, and so
         deals its damage to it (UMR p. 9): anything not hidden, and a
         hidden thing it detected this turn."""
-        other = self.defending_seat(match, None)
-        if self.tower(match.player(other)) is None:
-            return False
-        if not self.hidden(match, match.active, attacker):
-            return True
-        return self.detected_by(match, other, attacker)
+        return bool(self.towers_seeing(match, attacker))
 
     def holder_of(self, match: MatchState, ref: str, among) -> int:
         """The first of `among` whose side has `ref` in play -- which
@@ -2369,7 +2365,8 @@ class RulesEngine:
         rest of the turn, once a turn.
         """
         seat = match.active
-        tower = self.tower(match.active_player)
+        found = self.team_tower(match, seat)
+        tower = found[1] if found is not None else None
         if tower is None:
             return DetectOption(why_not="you have no finished tower")
         if tower.detected is not None:

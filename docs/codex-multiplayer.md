@@ -790,25 +790,25 @@ step 2's PR (#579) and settled on 2026-10-14.
     the token in plain words where the single one is "{player:3}'s
     {card:mercenary} arrives.".~~ Left as built (the author, 2026-10-14:
     not critical).
-24. **Dothram Horselord: "if a player has more total ATK than each other
+24. ~~**Dothram Horselord: "if a player has more total ATK than each other
     player" -- in a dragon, per player or per team?** Raised by step 5's
     PR. Built as written, per *seat*: he joins the one player whose
     total ATK beats every other player's, a teammate's included
     (`codex.flow.turn._dothram`). If the author reads a team's total --
     the sum of its two seats' -- he would join one of that team's two
-    players, and which is a second question.
-25. **Overpower in a dragon: how far does "anything the attacked team
+    players, and which is a second question.~~ Answered (2026-10-14): per seat, as built.
+25. ~~**Overpower in a dragon: how far does "anything the attacked team
     controls" reach?** Raised by step 5's PR. Built as the duel's
     priority read over the team (Sirlin, 2016-09-13): the team's other
     patrollers in either zone first, anything of the team's with HP only
     where there are none, the shared base once
     (`RulesEngine.overpower_team`). The alternative is "anything of
-    theirs with HP", patrollers or not.
-26. **A detection when the shared base is attacked: whose tower?** Raised
+    theirs with HP", patrollers or not.~~ Answered (2026-10-14): as built.
+26. ~~**A detection when the shared base is attacked: whose tower?** Raised
     by step 5's PR. Built: the attacked seat's, else the teammate's if
     the former's is spent (`RulesEngine.detecting_tower`), so a team
     with two towers can detect two hidden attackers of its base a turn.
-    The alternative is one detection a team.
+    The alternative is one detection a team.~~ Answered (2026-10-14): the team's one tower detects for the whole team, so long as it is built -- a team never holds two of the same add-on; built so.
 
 ## The steps
 
