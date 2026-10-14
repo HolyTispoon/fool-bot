@@ -703,9 +703,10 @@ class TurnEndTests(TurnTestCase):
         actions."""
         first, picker = await self.reach_turn_three()
         text = self.table.game_channel.texts[self.game.turn_message_id]
-        self.assertIn("waits on", text)
+        self.assertIn("waits on them", text)
         self.assertIn("**Tech**", text)
         self.assertIn("**Turn 3**", text)
+        self.assertEqual(text.count("<@"), 1, text)
 
         call, view = await self.table.panel(first)
         self.assertNothingWentWrong(call)

@@ -341,10 +341,15 @@ class CoreMixin:
 
     def turn_footer(self, game: CodexGame, match) -> Optional[str]:
         """The caption under the lines while the turn waits on its
-        player's tech: the cog's words over the model's prompt."""
+        player's tech: the cog's words over the model's prompt. The
+        player the heading already mentions is "them", not a second
+        mention (the author, 2026-10-14: "no need to ping the user
+        twice")."""
         prompt = pending_prompt(self.engine, game, match)
         if prompt is None or prompt.kind not in TECH_WAIT:
             return None
+        if prompt.asked_player == match.active:
+            return TECH_WAIT[prompt.kind].format(who="them")
         player_id = game.seat_user_id(prompt.asked_player)
         who = f"<@{player_id}>" if player_id else (game.seat_name(prompt.asked_player) or "its player")
         return TECH_WAIT[prompt.kind].format(who=who)
