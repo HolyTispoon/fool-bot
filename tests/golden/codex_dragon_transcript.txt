@@ -3570,5 +3570,5 @@
 {hero:river_montoya} deals 3 to {player:1} and {player:2}'s base.
 **{player:1} and {player:2}'s base is destroyed. {player:3} and {player:4} win!**
 --- prompt GAME_OVER (player None)
-{player:3} and {player:4} win: the opposing base is destroyed.
+{player:3} and {player:4} win: the other team's base is destroyed.
 --- board changed

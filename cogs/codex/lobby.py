@@ -123,6 +123,8 @@ class LobbyMixin:
         if not game.rematch_specs:
             # A table's rematch keeps its seats and clears every seat's
             # heroes (docs/codex-multiplayer.md, decision 16).
+            if game.variant == "two_headed_dragon":
+                return f"A rematch of {last}: the same seats and teams, each choosing heroes again."
             return f"A rematch of {last}: the same seats, each choosing heroes again."
         if game.heroes_kept:
             return f"A rematch of {last}: both players keep their heroes."

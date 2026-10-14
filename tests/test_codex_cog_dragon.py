@@ -22,7 +22,7 @@ from codex.prompts import Action, PromptKind
 from codex_cog_fakes import Table, user
 from codex_positions import put
 from cogs.codex_views import (
-    END_OF_TURN, OTHER_TEAM_STARTED, LobbyView, PatrolView, TeamConcedeView, TechChoiceView,
+    END_OF_TURN, OTHER_TEAM_STARTED, LobbyView, PatrolView, RematchView, TeamConcedeView, TechChoiceView,
     TurnMessageView, TurnPanelView, UndoConfirmView, WaitingView,
 )
 
@@ -372,6 +372,79 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         locked = await self.table.press(view, "Lock patrol", who=self.table.basher)
         self.assertEqual(locked.view().seat, second)
         self.assertFalse(any(label.startswith("Switch to ") for label in labels(locked.view())))
+
+
+
+class EndTests(unittest.IsolatedAsyncioTestCase):
+    """The board's two views, and the end: the team's line, **Rematch**
+    with the same seats and teams and every seat's heroes cleared."""
+
+    async def asyncSetUp(self) -> None:
+        self.table = Table()
+        self.addCleanup(self.table.close)
+        self.game = await self.table.started_dragon()
+
+    @property
+    def active(self):
+        return self.table.seated(self.table.match.active)
+
+    async def test_swap_view_flips_the_far_team(self) -> None:
+        view = TurnMessageView(self.table.cog, self.game.game_id)
+        self.assertIn("View: same way up", labels(view))
+        await self.table.turn_button("swap", self.active)
+        self.assertEqual(self.game.board_layout, "stacked_upright")
+        self.assertIn("View: facing", labels(TurnMessageView(self.table.cog, self.game.game_id)))
+        await self.table.turn_button("swap", self.active)
+        self.assertEqual(self.game.board_layout, "stacked")
+
+    async def test_side_by_side_answers_that_the_board_is_two_rows(self) -> None:
+        call = self.table.interaction(self.active)
+        await self.table.cog.side_by_side.callback(self.table.cog, call)
+        self.assertIn("two rows of two", call.last()[1][0])
+        self.assertEqual(self.game.board_layout, "stacked")
+
+    async def finish(self):
+        """The game over: the other team's base falling, through the
+        service, and what the cog puts up for it."""
+        from codex.flow import turn
+        from codex.flow.result import StepResult
+        from codex.prompts import pending
+
+        service, game = self.table.cog.service, self.game
+        match = service.load(game)
+        foe = self.table.cog.engine.opponents(match, match.active)[0]
+        step = StepResult(board_changed=True)
+        turn.damage_base(match, foe, match.base_of(foe), step)
+        step.next = pending(self.table.cog.engine, game, match)
+        result = service.run(game, match, step)
+        await self.table.cog.present(game, result)
+        return result
+
+    async def test_the_winners_line_names_the_team(self) -> None:
+        winners = self.table.cog.engine.turn_seats(self.table.match)
+        result = await self.finish()
+        self.assertIs(self.game.status, GameStatus.FINISHED)
+        self.assertEqual(
+            result.prompt.ask,
+            f"{{player:{winners[0]}}} and {{player:{winners[1]}}} win: the other team's base is destroyed.",
+        )
+        line = self.table.game_channel.texts[self.game.final_message_id]
+        for seat in winners:
+            self.assertIn(self.game.seat_name(seat), line)
+
+    async def test_a_rematch_keeps_the_seats_and_teams(self) -> None:
+        await self.finish()
+        call = self.table.interaction(self.table.fencer)
+        view = RematchView(self.table.cog, self.game.game_id)
+        await next(item for item in view.children if ":rematch:" in item.custom_id).callback(call)
+        (rematch,) = [g for g in self.table.cog.games.values() if g.game_id != self.game.game_id]
+        self.assertEqual(rematch.variant, "two_headed_dragon")
+        self.assertEqual([held["id"] for held in rematch.seats], [held["id"] for held in self.game.seats])
+        self.assertEqual(rematch.player_specs, {})
+        text = self.table.cog.lobby_text(rematch)
+        self.assertIn("the same seats and teams, each choosing heroes again", text)
+        self.assertIn("__Team 2__", text)
+        self.assertNotIn("Keep heroes", labels(LobbyView(self.table.cog, rematch.game_id)))
 
 
 if __name__ == "__main__":

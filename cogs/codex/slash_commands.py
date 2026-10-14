@@ -89,6 +89,15 @@ class SlashCommandsMixin:
         if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
             return
+        if game.variant == "two_headed_dragon":
+            # Two rows of two is the dragon's one layout; Swap view flips
+            # the far team (the author, 2026-10-14; decision 14).
+            await send_ephemeral(
+                interaction,
+                "A two-headed dragon's board is two rows of two, a team a row: **Swap view** "
+                "turns the far team to face you or the same way up.",
+            )
+            return
         layout = "stacked" if game.board_layout == "side_by_side" else "side_by_side"
         async with self.locks.hold(game.game_id):
             try:

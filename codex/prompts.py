@@ -919,6 +919,10 @@ def _pending(engine, game, match: MatchState) -> Union[PendingPrompt, FollowOn]:
             how = f"{tokens.player(match.lost_by_debt)} could not pay their debt."
         elif match.variant == "free_for_all":
             return PendingPrompt(PromptKind.GAME_OVER, _free_for_all_over(match))
+        elif match.dragons:
+            # The team is named, as the rulebook names it (Rulebook p. 13;
+            # docs/codex-multiplayer.md, question 1 and step 6).
+            how = "the other team's base is destroyed."
         else:
             how = "the opposing base is destroyed."
         wins = "win" if match.dragons else "wins"

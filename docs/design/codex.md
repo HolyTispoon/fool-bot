@@ -3791,6 +3791,122 @@ record with `CodexGame(variant="two_headed_dragon")`.
   both players (`formatting.turn_heading`). Dothram Horselord's "a
   player with more total ATK" is read per *seat*, as written (the author, 2026-10-14, question 24).
 
+### Step 6: the two-headed dragon on Discord
+
+The dragon is played on Discord from `/codex create_game` to **Rematch**;
+`tests/test_codex_cog_dragon.py` drives it through the cog with Discord
+faked, a person a seat and one person on all four. The duel and the
+free-for-all changed in nothing a player sees: `tests/test_codex_golden.py`
+passes unrecorded for both, and every board they draw is byte-identical
+to before (the sample script's fifty pictures, by SHA-256). The dragon's
+golden was re-recorded for one line, its last: "{player:3} and
+{player:4} win: the other team's base is destroyed." -- the team named,
+as the step's prompt words it, where it said "the opposing base".
+
+- **The lobby seats four in two teams.** `CodexGame.set_variant` takes the
+  dragon; `CodexGame.teams()` is the one reading of the lobby's sides --
+  `DRAGON_TEAMS`, seats 1 and 2 against 3 and 4, the deal's pairs -- and
+  the lobby heads them "Team 1" and "Team 2". A seat is taken in order
+  and nothing closes up when a player leaves (a dragon's seat order is
+  not its turn order), so a player who wants the other team leaves and
+  sits again once their old seat is taken. Start waits on four complete
+  seats (`start_refusal`, Rulebook p. 13), lays the board out stacked,
+  and renames the channel `codex-<n>-<p1>-<p2>-vs-<p3>-<p4>` -- the
+  teams joined by `-vs-` (`channel_name`), the step's prompt overriding
+  step 4's guess of a `2hd` word. `/codex games` lists "ann and bo vs cy
+  and dee".
+- **A question per seat, never the team's one.** The cog reads a seat's
+  question with `pending`'s `seat` (`Codex.prompt_for`) and the turn's
+  caption with `pending_prompts`, so nothing on Discord asks
+  `pending_prompt` of a dragon, which raises there. Every action a panel
+  sends names its seat (`PanelView.act`), since the driver otherwise
+  reads an unnamed one as the team's head's (decision 8); a duel's and a
+  free-for-all's actions are sent as before, so their journals are the
+  bytes they were.
+- **The turn message names and pings both teammates** (the model's
+  heading, `post_turn_message` pinging `turn_seats`). **My hand** gives
+  each acting seat its own panel and any other seat its hand, and every
+  picture of a dragon seat's hand -- the panel's main phase, the tech
+  gate and the stash, the hand sent to a seat not acting, `/codex hand`
+  -- carries the teammate's hand under it through `hands_visible_to`,
+  captioned "<name>'s hand: 5 cards." (`revealed_caption`, which names an
+  Eyes of the Chancellor's reveal by player too, wherever there is more
+  than one opponent; the duel's "Their hand" stands). The duel's tech
+  gate and stash keep their one picture.
+- **The teammate's codex and tech choice, read-only** (decision 13). The
+  Codex browser's menu offers "<name>'s codex: <view>" in every view the
+  teammate has, after the clicker's own, read through
+  `codex_remaining`'s `viewer` so the engine's `shown_to` is the gate.
+  **Tech** answers the clicker as before, then -- while the teammate's
+  choice stands -- sends the teammate's picks pictured as the
+  confirmation pictures them, nothing to press
+  (`Codex.send_teammate_tech`, through `tech_picks_of`).
+- **Two panels at once, each edited by its own player's clicks.** A
+  public click edits the turn message through the gate and the clicker's
+  panel in place, as every click does; the other panel stands as it was.
+  Its next click is checked by the driver against the options as they
+  stand, and where it is refused -- no longer offered, or the
+  teammate's attack or effect stands part-way ("Waiting on bo's
+  attack.") -- `PanelView.refuse` edits that panel in place to the
+  prompt as it now stands, the reason above it. A seat asked nothing now
+  -- the teammate's action part-way, the team's tech confirmations owed
+  by the teammate, or this seat locked -- is the **waiting panel**
+  (`Codex.put_waiting`, `WaitingView`): its hand and the teammate's, why,
+  and **Back to my turn**, which asks again. The first lock leaves the
+  locker there ("Your patrol is locked ... your tech choice opens from
+  **Tech** on the turn message once the team's turn ends"); the second
+  ends the team's turn, and its locker's panel becomes the tech picker,
+  as the duel's Lock does; the first locker's choice stands too and is
+  reached from **Tech**.
+- **A test game's one person holds both acting seats**: My hand puts up
+  the first unlocked teammate's panel with a question
+  (`Codex.acting_seat_for`) and **Switch to <name> (<team>)**, which sends
+  the other's afresh -- the name a seat's player, which in a test game is
+  always the one person, so the team is beside it (`add_switch`). Once
+  one seat locks, its panel goes on as the other's.
+- **The undos.** The undo to the start of the turn and the fine undo
+  are any acting seat's, as before (`turn_seats`). **Take back the end
+  of my turn** is either player's of the team that ended it
+  (`end_of_turn_owners`), and once the other team has acted, either is
+  told "The other team has already started their turn."
+  (`OTHER_TEAM_STARTED`). The undo to the previous turn asks the other
+  team: the public question mentions both, `UndoConfirmView.agreeing` is
+  the pair -- either may **Agree**, a helper behind the confirmation, never
+  the asker's teammate -- and anyone at the table may **Refuse**.
+- **A concession needs both teammates** (decision 15). The first click is
+  the clicker's own ephemeral confirmation, as the duel's; its second
+  click posts a public question naming the teammate (`TeamConcedeView`,
+  modelled on `UndoConfirmView`, not persistent): **Agree** is the
+  teammate's or a helper's behind the confirmation -- never the asker's --
+  **Refuse** either teammate's; on Agree the service's `concede` ends
+  the game, the other team winning, and the end goes up as a destroyed
+  base's does.
+- **The board is two rows of two** (`render._compose_dragon`; the
+  author, 2026-10-14, decision 14): the acting team's row at the bottom,
+  its head on the left, under the divider, which names both teammates
+  ("PERRYTOM AND ANN'S TURN 9") or the one seat of an extra turn; the
+  other team's row above it, turned to face it as the duel's far panel is
+  -- the row turned whole, so its head's base is at the board's far
+  corner where the duel's far base is -- or the same way up. Each team's
+  one base is drawn on its head's column alone and the second seat's
+  column is a tile shorter (`render_body`, `building_column_height`); the
+  base tile's heart carries the base's HP wherever it is not the 20 it
+  prints, so a dragon's 30 reads as 30 (a duel's never exceeds 20, which
+  is why its boards are unchanged). **Swap view** flips the far team
+  between facing and the same way up, the duel's labels; `/codex
+  side_by_side` answers that a dragon's board is the two rows of two.
+  `scripts/render_codex_sample.py` draws one (`dragon-*`).
+- **The end.** The finished game's line names the team (above), and
+  **Rematch** keeps the seats and the teams and clears every seat's
+  heroes (`CodexGame.rematch`, decision 16), the lobby saying "the same
+  seats and teams, each choosing heroes again", with no **Keep heroes**.
+  The channel goes to Codex Archive as for any game.
+- **The requests per click** gain the dragon's rows (the table above);
+  nothing already in it changed.
+- **Not yet**: the step 7 look back. A panel the other teammate's click
+  made stale is only refreshed by its own player's next click, as
+  decision 13 says; nothing pushes it.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:
