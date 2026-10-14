@@ -1590,7 +1590,10 @@ def focus_prevents(engine: "RulesEngine", match: MatchState, body, amount: int, 
     seat = engine.seat_of(match, body)
     if seat is None:
         return amount
-    master = next((card for card in match.player(seat).play
+    # "Friendly": in a dragon the teammate's Focus Master protects too
+    # (Rulebook p. 13).
+    friends = (seat, *([mate] if (mate := engine.teammate(match, seat)) is not None else []))
+    master = next((card for friend in friends for card in match.player(friend).play
                    if engine.text_slug(card) in effects.FOCUS_MASTERS and card.runes.get(effects.FOCUS)), None)
     if master is None:
         return amount

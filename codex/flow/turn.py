@@ -615,8 +615,15 @@ def _upkeep_effect(engine: "RulesEngine", match: MatchState, seat: int, name: st
     elif kind == "healing":
         healing = engine.healing(player)
         healed = []
+        # "All friendly units and heroes": in a dragon the teammate's too
+        # (Rulebook p. 13).
+        mate = engine.teammate(match, seat)
         bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
-        for body in [*bodies, *player.heroes_in_play]:
+        heroes = list(player.heroes_in_play)
+        if mate is not None:
+            bodies += [card for card in match.player(mate).play if engine.catalog.cards[card.slug].is_unit]
+            heroes += match.player(mate).heroes_in_play
+        for body in [*bodies, *heroes]:
             taken = min(body.damage, healing)
             if taken:
                 body.damage -= taken

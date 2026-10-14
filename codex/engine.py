@@ -655,7 +655,8 @@ class RulesEngine:
                     if owner.seat == card.controller:
                         atk += 2 if printed.is_unit else 0
                         hp += 2
-                    elif printed.is_unit:
+                    elif printed.is_unit and card.controller in self.opponents(match, owner.seat):
+                        # A teammate's are no opponent's (Rulebook p. 13).
                         atk -= 1
                         hp -= 1
         profile = Profile(atk, hp, found, ability)
@@ -3041,7 +3042,7 @@ class RulesEngine:
 
     def target_candidates(self, match: MatchState, seat: int, choose: str,
                           taken: Sequence[str] = (), frame: Optional[dict] = None,
-                          ) -> list[tuple[int, str]]:
+                          friendly: bool = False) -> list[tuple[int, str]]:
         """
         Everything `choose` names for an effect `seat` controls, the
         opponent's side first: before resist, invisibility and the
@@ -3057,9 +3058,18 @@ class RulesEngine:
         (`"2:slot:elite"`), and a card in its owner's hand or codex
         (`"1:hand:fire_dart"`, `"1:codex:predator_tiger"`) -- the owner's
         alone, and so the effect's controller's alone.
+
+        `friendly` is the part's flag (`Part.friendly`): its text says
+        "friendly", so in a two-headed dragon the `own_*` and friendly
+        filters reach the teammate's things too (Rulebook p. 13: "friendly
+        forces means all forces you and your teammate control") -- and
+        `units_of_against` the dead unit's controller's teammate's, for
+        Orpal Gloor's "friendly to the dead unit". "Your" is the
+        controller's alone, which is every part that leaves it off.
         """
         foes = self.opponents(match, seat)
         mate = self.teammate(match, seat)
+        friends = {seat} | ({mate} if friendly and mate is not None else set())
         frame = frame or {}
         found: list[tuple[int, str]] = []
 
@@ -3086,7 +3096,7 @@ class RulesEngine:
             elif choose == "unit_or_hero":
                 found += [(side, card.ref) for card in units] + [(side, ref) for ref in hero]
             elif choose == "friendly_unbloomed":
-                if side == seat:
+                if side in friends:
                     found += [(side, card.ref) for card in units if not card.plus_runes]
                     found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
                               if not one.plus_runes]
@@ -3115,7 +3125,7 @@ class RulesEngine:
             elif choose == "other_unit":
                 found += [(side, card.ref) for card in units if card.ref != frame.get("source")]
             elif choose == "own_unit":
-                if side == seat:
+                if side in friends:
                     found += [(side, card.ref) for card in units]
             elif choose == "own_green_unit":
                 if side == seat:
@@ -3218,7 +3228,9 @@ class RulesEngine:
                 if side == frame.get("against"):
                     found += [(side, card.ref) for card in self.lowest_tech(match, side)]
             elif choose == "units_of_against":
-                if side == frame.get("against"):
+                owner = frame.get("against")
+                group = self.dragon_of(match, owner) if friendly and owner is not None else (owner,)
+                if side in group:
                     found += [(side, card.ref) for card in units]
             elif choose == "runed_card":
                 # Plague Lab: a card with runes and a kind of them -- one
@@ -3253,7 +3265,7 @@ class RulesEngine:
                     found += [(side, card.ref) for card in units
                               if not self.is_demon(card) and self.may_sacrifice(match, card)]
             elif choose == "friendly_unit_or_hero":
-                if side == seat:
+                if side in friends:
                     found += [(side, card.ref) for card in units] + [(side, ref) for ref in hero]
             elif choose == "own_unit_or_hero_atk_4":
                 # Hidden Ninja: "your units and/or heroes with 4 ATK or less".
@@ -3301,7 +3313,7 @@ class RulesEngine:
                 found += [(side, card.ref) for card in units
                           if tech(card) <= 1 and target_key(side, card.ref) != first]
             elif choose in ("own_unit_tech_0_1", "opposing_unit_tech_0_1"):
-                if (side == seat) if choose.startswith("own") else (side in foes):
+                if (side in friends) if choose.startswith("own") else (side in foes):
                     found += [(side, card.ref) for card in units if tech(card) <= 1]
             elif choose == "flier":
                 found += [(side, card.ref) for card in units if self.has_keyword(card, "Flying", match)]
@@ -3571,7 +3583,8 @@ class RulesEngine:
         """
         gold = match.player(seat).gold if gold is None else gold
         rows: list[TargetRow] = []
-        for side, ref in self.target_candidates(match, seat, part.choose, taken, frame):
+        for side, ref in self.target_candidates(match, seat, part.choose, taken, frame,
+                                                friendly=part.friendly):
             if not part.targeted:
                 rows.append(TargetRow(target_key(side, ref), side, ref))
                 continue

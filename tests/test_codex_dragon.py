@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import unittest
 
-from codex import history
+from codex import effects, history
 from codex.components import AddOnState, MatchState
 from codex.engine import DRAGON_BASE_HP, RulesEngine
 from codex.flow import StepResult, driver
@@ -775,6 +775,226 @@ class LevelTests(unittest.TestCase):
         prompt = pending(engine, game, match)
         self.assertIs(prompt.kind, PromptKind.LEVEL_GAIN)
         self.assertEqual(sorted(set(prompt.options.seats)), [3, 4])
+
+
+def targets_of(engine, match, seat, effect, part=0):
+    """The keys a part of `effect` may choose for `seat`."""
+    row = effects.EFFECTS[effect].parts[part]
+    return {one.key for one in engine.target_rows(match, seat, row)}
+
+
+class FriendlyTests(unittest.TestCase):
+    """"Friendly" is the teammate's too; "your" is the controller's alone
+    (Rulebook p. 13: "you means you"). The fourteen cards and bands that
+    say "friendly" carry `Part.friendly`; the audit is text beside flag
+    in `FRIENDLY_TEXT`."""
+
+    #: Every card or band whose text says "friendly", and the effect part
+    #: that carries the flag (None where it is read by an engine reading
+    #: instead of a target filter).
+    FRIENDLY_TEXT = {
+        "aged_sensei": "aged_sensei",
+        "bloom": "bloom",
+        "eyes_of_the_chancellor": "eyes_of_the_chancellor",
+        "focus_master": None,
+        "forests_favor": "forests_favor",
+        "fuzz_cuddles": None,
+        "helpful_turtle": None,
+        "savior_monk": None,
+        "sparring_partner": "sparring_partner",
+        "spirit_of_the_panda": None,
+        "verdant_tree": None,
+        "max_geiger": "max_geiger_max",
+        "orpal_gloor": "orpal_gloor_max",
+        "vandy_anadrose": "vandy_anadrose_max",
+    }
+
+    def test_the_audit_is_every_card_and_band_that_says_friendly(self) -> None:
+        from codex.cards import catalog
+
+        said = set()
+        for slug, card in catalog().cards.items():
+            if any("riendly" in line for line in card.text):
+                said.add(slug)
+        for slug, hero in catalog().heroes.items():
+            if any("riendly" in line for band in hero.bands for line in band.text):
+                said.add(slug)
+        self.assertEqual(said, set(self.FRIENDLY_TEXT))
+        self.assertEqual(len(said), 14)
+        for slug, effect in self.FRIENDLY_TEXT.items():
+            if effect is None:
+                continue
+            flagged = [part for part in effects.EFFECTS[effect].parts if part.friendly]
+            self.assertTrue(flagged, f"{effect} says friendly but no part carries it")
+
+    def test_no_part_flags_a_text_that_says_your(self) -> None:
+        flagged = {key for key, effect in effects.EFFECTS.items()
+                   if any(part.friendly for part in effect.parts)}
+        self.assertEqual(flagged, {effect for effect in self.FRIENDLY_TEXT.values() if effect})
+
+    def test_aged_sensei_buffs_a_teammates_unit_or_hero(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        mine = put(match, 1, "iron_man")
+        foe = put(match, 3, "iron_man")
+        hero_in_play(match, 2)
+        keys = targets_of(engine, match, 1, "aged_sensei")
+        self.assertIn(f"2:{mate.ref}", keys)
+        self.assertIn(f"1:{mine.ref}", keys)
+        self.assertIn("2:hero:" + match.player(2).heroes[0].slug, keys)
+        self.assertNotIn(f"3:{foe.ref}", keys)
+
+    def test_elite_training_says_your_and_is_the_controllers_alone(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        mine = put(match, 1, "iron_man")
+        keys = targets_of(engine, match, 1, "elite_training")
+        self.assertIn(f"1:{mine.ref}", keys)
+        self.assertNotIn(f"2:{mate.ref}", keys)
+
+    def test_bloom_and_the_other_runes_reach_a_teammates_unbloomed(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        blooming = put(match, 2, "iron_man")
+        blooming.plus_runes = 1
+        for effect in ("bloom", "forests_favor", "sparring_partner"):
+            keys = targets_of(engine, match, 1, effect)
+            self.assertIn(f"2:{mate.ref}", keys, effect)
+            self.assertNotIn(f"2:{blooming.ref}", keys, effect)
+
+    def test_a_charge_says_your_and_stays_the_controllers(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        mine = put(match, 1, "iron_man")
+        keys = targets_of(engine, match, 1, "charge")
+        self.assertEqual(keys, {f"1:{mine.ref}"})
+        self.assertNotIn(f"2:{mate.ref}", keys)
+
+    def test_eyes_of_the_chancellor_and_max_geiger_choose_a_friendly_unit(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        for effect in ("eyes_of_the_chancellor", "max_geiger_max"):
+            self.assertIn(f"2:{mate.ref}", targets_of(engine, match, 1, effect), effect)
+
+    def test_vandys_friendly_unit_may_be_the_teammates_and_the_opposing_one_is_not(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "tenderfoot")
+        foe = put(match, 3, "tenderfoot")
+        friend = targets_of(engine, match, 1, "vandy_anadrose_max", 0)
+        opposing = targets_of(engine, match, 1, "vandy_anadrose_max", 1)
+        self.assertIn(f"2:{mate.ref}", friend)
+        self.assertNotIn(f"3:{foe.ref}", friend)
+        self.assertEqual(opposing, {f"3:{foe.ref}"})
+
+    def test_orpal_gloors_friendly_is_relative_to_the_dead_unit(self) -> None:
+        """"Two units friendly to the dead unit": the dead unit's
+        controller's and that controller's teammate's -- not the
+        controller of the effect's."""
+        engine, game, match = started()
+        part = effects.EFFECTS["orpal_gloor_max"].parts[0]
+        dead_side = put(match, 3, "iron_man")
+        mate_of_dead = put(match, 4, "iron_man")
+        other = put(match, 1, "iron_man")
+        rows = engine.target_rows(match, 1, part, frame={"against": 3, "taken": []})
+        keys = {row.key for row in rows}
+        self.assertEqual(keys, {f"3:{dead_side.ref}", f"4:{mate_of_dead.ref}"})
+        self.assertNotIn(f"1:{other.ref}", keys)
+
+    def test_focus_master_protects_the_teammates_units(self) -> None:
+        from codex.flow import board
+
+        engine, game, match = started()
+        master = put(match, 2, "focus_master")
+        master.runes[effects.FOCUS] = 1
+        ward = put(match, 1, "iron_man")
+        # Exactly lethal: its HP.
+        hp = engine.body_stats(match, ward)[1]
+        self.assertEqual(board.focus_prevents(engine, match, ward, hp), hp - 1)
+        self.assertEqual(master.runes[effects.FOCUS], 0)
+
+    def test_healing_reaches_the_teammates_units_and_heroes(self) -> None:
+        """Fuzz Cuddles and the rest: "heal 2 damage from all friendly
+        units and heroes", at their controller's upkeep."""
+        from codex.flow import turn
+
+        engine, game, match = started()
+        put(match, 1, "fuzz_cuddles")
+        mate = put(match, 2, "iron_man", damage=3)
+        foe = put(match, 3, "iron_man", damage=3)
+        hero_in_play(match, 2, damage=2)
+        result = StepResult()
+        turn._upkeep_effect(engine, match, 1, "healing", result)
+        self.assertEqual(mate.damage, 1)
+        self.assertEqual(foe.damage, 3)
+        self.assertEqual(match.player(2).heroes[0].damage, 0)
+
+    def test_a_teammates_healing_does_not_heal_for_you(self) -> None:
+        from codex.flow import turn
+
+        engine, game, match = started()
+        put(match, 2, "fuzz_cuddles")
+        mine = put(match, 1, "iron_man", damage=3)
+        turn._upkeep_effect(engine, match, 1, "healing", StepResult())
+        self.assertEqual(mine.damage, 3)
+
+    def test_mythmakings_malus_is_an_opponents_legendary_units_alone(self) -> None:
+        from codex.cards import catalog
+
+        legend = next(slug for slug, card in catalog().cards.items()
+                      if card.is_unit and "Legendary" in card.type and (card.atk or 0) >= 2)
+        mythmaking = next(iter(effects.MYTHMAKING))
+        engine, game, match = started()
+        put(match, 1, mythmaking)
+        mate = put(match, 2, legend)
+        foe = put(match, 3, legend)
+        base_mate = engine.catalog.cards[legend]
+        self.assertEqual(engine.unit_stats(mate, match), (base_mate.atk, base_mate.hp))
+        self.assertEqual(engine.unit_stats(foe, match), (base_mate.atk - 1, base_mate.hp - 1))
+
+
+class YouMeansYouTests(unittest.TestCase):
+    """Nobody spends a teammate's gold, uses a teammate's abilities or
+    patrols in a teammate's zone (Rulebook p. 13): each is impossible by
+    construction, and these hold it."""
+
+    def test_nobody_spends_a_teammates_gold(self) -> None:
+        engine, game, match = started()
+        match.player(1).gold = 0
+        match.player(2).gold = 9
+        slug = match.player(1).hand[0]
+        run = refused(engine, game, match, PromptKind.MAIN_ACTION, "hire", slug=slug, player=1)
+        self.assertIn("gold", run.reason.lower())
+        self.assertEqual(match.player(2).gold, 9)
+
+    def test_nobody_uses_a_teammates_ability(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "aged_sensei")
+        options = pending(engine, game, match, 1).options
+        self.assertFalse([row for row in options.abilities if row.source == mate.ref])
+        run = refused(engine, game, match, PromptKind.MAIN_ACTION, "ability",
+                      ability="aged_sensei", source=mate.ref, player=1)
+        self.assertTrue(run.reason)
+
+    def test_nobody_patrols_in_a_teammates_zone(self) -> None:
+        engine, game, match = started()
+        card = put(match, 1, "iron_man")
+        self.assertEqual(engine.lending_zones(match), ())
+        act(engine, game, match, PromptKind.MAIN_ACTION, "end_main", player=1)
+        run = refused(engine, game, match, PromptKind.PATROL, player=1, assignment={},
+                      lent={"2": {"elite": card.ref}})
+        self.assertIn("free-for-all", run.reason)
+
+    def test_a_teammates_card_is_not_among_the_cards_you_can_patrol_with(self) -> None:
+        engine, game, match = started()
+        mate = put(match, 2, "iron_man")
+        mine = put(match, 1, "iron_man")
+        act(engine, game, match, PromptKind.MAIN_ACTION, "end_main", player=1)
+        (prompt,) = [one for one in pending_prompts(engine, game, match) if one.asked_player == 1]
+        self.assertIn(mine.ref, prompt.options.candidates)
+        self.assertNotIn(mate.ref, prompt.options.candidates)
+        run = refused(engine, game, match, PromptKind.PATROL, player=1,
+                      assignment={"elite": mate.ref})
+        self.assertIn("ready units", run.reason)
 
 
 if __name__ == "__main__":
