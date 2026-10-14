@@ -62,8 +62,8 @@ class LobbyTests(unittest.IsolatedAsyncioTestCase):
         call = await self.click(game, "variant_free_for_all", self.table.basher)
         self.assertEqual(game.variant, "free_for_all")
         text = call.last()[2]["content"]
-        self.assertIn("Seat 3 -- open", text)
-        self.assertIn("Seat 5 -- open", text)
+        self.assertIn("Seat 3 (open)", text)
+        self.assertIn("Seat 5 (open)", text)
         self.assertNotIn("Player 1", text)
         # Back to a duel: two seats again.
         await self.click(game, "variant_duel", self.table.basher)

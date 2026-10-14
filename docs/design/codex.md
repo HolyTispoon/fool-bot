@@ -3576,7 +3576,7 @@ seat brings).
   (`LobbyView.set_variant`, the service's `set_variant` over the
   record's), either seated player's, a helper's, or anyone's while
   nobody sits. The dragon is refused by the record ("not in this bot
-  yet", no page) until step 6. A table prints "Seat 3 -- open" rows for
+  yet", no page) until step 6. A table prints "Seat 3 (open)" rows for
   the seats its variant takes (a duel's keep "Player n"), and Start
   waits on three complete seats (`CodexGame.start_refusal`, the one
   wording of why Start is refused, shared with `CodexGame.start`).

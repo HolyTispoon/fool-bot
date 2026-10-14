@@ -42,7 +42,7 @@ class LobbyMixin:
             label = f"Player {seat}" if duel else f"Seat {seat}"
             name = game.seat_name(seat)
             if name is None:
-                rows.append(f"**{label}**: *open*" if duel else f"*{label} -- open*")
+                rows.append(f"**{label}**: *open*" if duel else f"*{label} (open)*")
                 continue
             specs = game.player_specs.get(seat, ())
             if not specs:
