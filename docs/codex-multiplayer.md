@@ -67,17 +67,19 @@ and 19):
   "and see if the tie is broken", repeated while the tie holds. The UMR
   adds that the current player's turn finishes first (UMR p. 12), which
   the rulebook neither says nor denies; built the UMR's way (question
-  13). Two things neither text settles: whether the tied players are
-  the ones tied when the base falls or when the current turn ends, since
-  the rest of that turn can repair a base or damage one (question 15);
-  and whether the comparison after the extra turns is among the tied
-  players or every base, since a player outside the tie can lead once
-  the tied players have hit each other (question 16).
+  13). The tied players are those tied when the base falls -- "at that
+  moment" -- whatever the rest of the current turn does to their bases
+  (the author, 2026-10-14, question 15); and the comparison after their
+  extra turns is among them alone, so a player outside the tie never
+  wins it, however the tied players have hurt each other (the author,
+  2026-10-14, question 16).
 - **Losing by debt** (Promise of Payment: "Pay its gold cost during your
   next upkeep or lose the game"). The bot ends a duel there today
-  (`MatchState.lost_by_debt`). A free-for-all has no elimination and
-  the rulebook says nothing of a player who loses the game in it, nor
-  of a dragon's teammate who does (question 17).
+  (`MatchState.lost_by_debt`). The rulebook says nothing of it in
+  either mode; the author settled both (2026-10-14, question 17): in a
+  free-for-all it is exactly as if the debtor's base had just been
+  destroyed -- the base at zero and the ending's comparison made then --
+  and in a dragon the debtor's team loses.
 - **Repairing the base** (p. 14): an ability every base has in this
   mode, 3 gold to repair 1 damage, any number of times a turn.
 - **Free gold** (p. 14): 1 gold each time the active player kills an
@@ -85,7 +87,8 @@ and 19):
   or a building. "Whenever *you* kill" (the UMR: "you destroy an enemy
   unit on your turn, by any means", p. 11): the kill must be the active
   player's doing, so an enemy unit that dies on their turn to its own
-  controller's effect is not obviously one (question 19).
+  controller's effect pays nothing (the author, 2026-10-14, question
+  19).
 - **Lending patrollers** (p. 14). After the main phase, at the lock, a
   player may put their units and heroes in any open slot of any other
   player's patrol zone. The borrower gains control and the lender loses
@@ -416,23 +419,21 @@ the author has already settled say so, with the date.
 5. **The free-for-all's ending lives on the match as `playoff`**, a
    saved list of the seats still owed a turn (`[]` otherwise). When a
    base is destroyed and one player leads on base HP, the game ends
-   there, as a duel's does; when the lead is tied, the current turn
-   runs to its end (the UMR's reading, question 13) and the comparison
-   is made again **when it ends**, since the rest of the turn can
-   repair a base or damage one (question 15): a sole leader then wins,
-   and a tie fills `playoff` with the seats tied at that moment, in turn
-   order from the next. `next_seat` reads it ahead of the normal order,
-   and when it empties the comparison is made again over every base --
-   the rulebook's "whoever's base has the most hit points" -- a winner,
-   or the list filled again (question 16 asks whether it is the tied
-   players' alone). A base destroyed during a playoff is one more base
-   at zero, compared when the playoff ends. A seat that loses by debt
-   in a free-for-all is out of the comparison and the game ends there,
-   the rest compared on base HP (question 17). `winner` stays one seat
-   (in a dragon, the winning team's first seat, `conceded` the
-   conceding team's); `GameOverOptions`
-   grows `winners` and the base HP of every seat, since the ask says
-   the score. **There is no concession in a free-for-all** (the
+   there, as a duel's does; when the lead is tied, `playoff` is filled
+   **at that moment** with the tied seats (question 15), in turn order
+   from the next, and the current turn runs to its end (the UMR's
+   reading, question 13) without changing who is in it. `next_seat`
+   reads it ahead of the normal order, and when it empties the
+   comparison is made again **among the playoff's seats alone**
+   (question 16) -- a winner, or the list filled again with those still
+   tied. A base destroyed during a playoff counts only if it is a tied
+   player's, at zero in that comparison. A seat that loses by debt in a
+   free-for-all is exactly a seat whose base was just destroyed: its
+   base goes to zero and the comparison is made then (question 17).
+   All three answered by the author on 2026-10-14. `winner` stays one
+   seat (in a dragon, the winning team's first seat, `conceded` the
+   conceding team's); `GameOverOptions` grows `winners` and the base HP
+   of every seat, since the ask says the score. **There is no concession in a free-for-all** (the
    author, 2026-10-11): `concede` refuses on a free-for-all match, the
    Concede button is not on its turn message and `/codex concede`
    answers that the mode has none.
@@ -455,7 +456,8 @@ the author has already settled say so, with the date.
    the active seat during that seat's turn, **where the kill is the
    active seat's doing** -- the combat damage of their attack, or an
    effect they control, and not an effect its own controller set off
-   (question 19) -- capped at three, cleared when the turn begins.
+   (the author, 2026-10-14, question 19) -- capped at three, cleared
+   when the turn begins.
    *Lending* is a control change: the `PATROL` prompt's options grow
    each opponent's empty slots (`zones`, keyed by seat), the lock action
    names where each card goes, a lent card's `controller` becomes the
@@ -516,7 +518,7 @@ the author has already settled say so, with the date.
    the page. **What it costs**: a number in the save that means
    nothing, documented as such, and kept from being read by the `grep`
    step 1 puts at zero (decision 1). A teammate who loses by debt loses
-   the game for the team (question 17).
+   the game for the team (the author, 2026-10-14, question 17).
 
 10. **"Friendly" is a flag on the effect's part.** The eleven cards and
     three heroes that say "friendly" get `friendly=True` on the parts
@@ -669,7 +671,8 @@ the author has already settled say so, with the date.
 Each step's PR carries a `## Questions to the author` section; these
 are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one. Those struck were answered
-on 2026-10-11; 15 to 19 were added by the review of 2026-10-13.
+on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
+15, 16, 17 and 19 answered on 2026-10-14.
 
 1. ~~**What is a two-player team called in the code and in the
    narration?** Built as `dragon` in the code and "team" in what the
@@ -713,37 +716,33 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13.
 14. ~~**Does a teammate also see the other's tech choice and codex?**
     Built as the hand alone.~~ Answered: a teammate should be able to
     see the codex and the tech choice. Decision 13.
-15. **In a tied free-for-all ending, who are the tied players: those
+15. ~~**In a tied free-for-all ending, who are the tied players: those
     tied when the base falls, or those tied when the current turn
-    ends?** The rest of the turn can repair a base or damage one, and
-    neither the rulebook nor the UMR says. Built as the turn's end, the
-    UMR's order read through: "finish the current player's turn. Then,
-    every player with the most tied HP takes one more turn" (UMR
-    p. 12) -- and a sole leader at the turn's end wins there.
-16. **After the tied players' extra turns, is the comparison among them
-    alone, or every base?** The rulebook says "see if the tie is
-    broken" (p. 14), which reads as among them; its objective,
-    "whoever's base has the most hit points wins", reads as every base.
-    They differ when the tied players hit each other below a third
-    player's base. Built as every base.
-17. **What does losing by debt do outside a duel?** Promise of Payment
-    says "or lose the game"; the rulebook has no player elimination in
-    a free-for-all and says nothing of one teammate losing. Built as: in
-    a free-for-all the game ends there and the debtor is out of the
-    comparison, the others compared on base HP; in a dragon the
-    debtor's team loses.
+    ends?**~~ Answered (2026-10-14): when the base falls -- the rulebook
+    says "at that moment". The rest of the current turn changes nothing
+    about who is in the playoff. Decision 5.
+16. ~~**After the tied players' extra turns, is the comparison among
+    them alone, or every base?**~~ Answered (2026-10-14): among them
+    alone. Decision 5.
+17. ~~**What does losing by debt do outside a duel?**~~ Answered
+    (2026-10-14): in a free-for-all, exactly as if the debtor's base had
+    just been destroyed; in a dragon, the debtor's team loses. Decisions
+    5 and 9.
 18. **A lent hero dies: whose opponents' heroes may take its two
     levels -- its owner's (the lender) or its controller's (the
     borrower)?** p. 11 says "opposing hero"; the rulebook lists the
     owner's exceptions for a lent card (the discard pile, the
     scavenger's and technician's bonuses) and the levels are not among
     them. Built as the controller's, so the lender's own hero may take
-    them and the borrower's may not.
-19. **Is free gold paid for every enemy unit that dies on your turn, or
-    only those you kill?** p. 14 says "whenever you kill"; the UMR
-    "you destroy … by any means" (p. 11). It matters where an enemy unit
-    dies on your turn to its own controller's effect. Built as yours
-    alone: your attack's combat damage or an effect you control.
+    them and the borrower's may not. The author is checking
+    (2026-10-14) and said to build it this way meanwhile.
+19. ~~**Is free gold paid for every enemy unit that dies on your turn,
+    or only those you kill?**~~ Answered (2026-10-14): only those you
+    kill -- your attack's combat damage or an effect you control. The
+    author was unsure which cards it touches, so step 3's PR lists every
+    effect that can destroy an enemy unit on the active player's turn
+    without being theirs (a trigger or an ongoing effect of the unit's
+    own controller, a -1/-1 rune's), with the reading each got.
 
 ## The steps
 
@@ -1034,26 +1033,30 @@ Moment's Peace and "opponent"; the whole game and the golden.
    match, when it destroys a base: compare every seat's base_hp; a sole
    leader is the winner (the events, the headline and the GAME_OVER
    ask as now, the ask naming the score: "{player:3} wins with 14 base
-   HP: {player:1}'s base is destroyed."); a tied lead says so and the
-   game goes on to the end of the current turn (question 13), where
-   begin_tech compares again (question 15): a sole leader wins, and a
-   tie fills MatchState.playoff (saved, []) with the seats tied then, in
+   HP: {player:1}'s base is destroyed."); a tied lead fills
+   MatchState.playoff (saved, []) at that moment with the tied seats, in
    turn order from the seat after the active one, and says so ("A tie
    at 14 base HP: {player:2} and {player:3} each take one more
-   turn."). next_seat reads playoff ahead of the order, popping the
-   seat it hands out, and begin_tech, when playoff has emptied, makes
-   the comparison again over every base (question 16) -- a winner, or
-   the list filled again. A base destroyed during a playoff is one more
-   base at zero, compared when the playoff ends. A seat that loses by
-   debt (Promise of Payment, lost_by_debt) ends the game there, out of
-   the comparison, the others compared on base HP (question 17).
+   turn."); the current turn runs to its end (question 13) and changes
+   nothing about who is in the playoff (question 15, answered).
+   next_seat reads playoff ahead of the order, popping the seat it
+   hands out, and begin_tech, when playoff has emptied, compares the
+   playoff's seats alone (question 16, answered) -- a winner, or the
+   list filled again with those still tied. A base destroyed during a
+   playoff counts only if it is a tied player's. A seat that loses by
+   debt (Promise of Payment, lost_by_debt) on a free-for-all match is
+   exactly a seat whose base was just destroyed: its base goes to zero
+   and the comparison above is made then (question 17, answered).
    There is no concession in a free-for-all (decision 5): concede
    refuses on such a match with RuleRefusal citing p. 14's "no player
    elimination". GameOverOptions grows winners (a tuple) and base_hp per
    seat; the duel's winners is (winner,). Test every branch of the
-   playoff with a staged position, through the driver -- a tie broken
-   by a repair before the turn ends among them -- and a free-for-all
-   lost by debt.
+   playoff with a staged position, through the driver -- among them a
+   tie that a repair later in the same turn would have broken (the
+   playoff still runs), a third player who leads once the tied players
+   have hurt each other (one of the tied players still wins), and a
+   free-for-all ended by debt, both with a sole leader and with a
+   tie.
 
 3. The tower, Moment's Peace and "opponent". tower_detects: in a
    free-for-all the tower detects one attacker a turn and only a card
@@ -1131,14 +1134,19 @@ gold; lending.
    opponents(active) at that moment (a card lent to an opponent is
    theirs), and killed by the active seat -- their attack's combat
    damage or an effect they control (p. 14, "whenever you kill";
-   question 19) -- the active seat gains 1 gold, to 3 a turn, said in
-   the destroy line ("... and {player:1} collects 1 gold."), the gold
-   cap respected. Say in the PR how board.destroy learns who killed,
-   and where the effect frame's controller is that answer. Tests: a
-   kill in combat, a kill by a spell, an opponent's unit that dies to
-   its own controller's trigger on the active player's turn (no gold,
-   as built until question 19 is answered), the fourth kill of a turn,
-   a hero's death, a building's, a duel.
+   question 19, answered) -- the active seat gains 1 gold, to 3 a
+   turn, said in the destroy line ("... and {player:1} collects 1
+   gold."), the gold cap respected. Say in the PR how board.destroy
+   learns who killed, and where the effect frame's controller is that
+   answer. The author asked which cards this touches: list in the PR,
+   with a script over codex/data/ and codex/effects.py, every effect
+   that can destroy an enemy unit on the active player's turn without
+   being the active player's -- a trigger or an ongoing effect of the
+   unit's own controller, a -1/-1 rune placed earlier, a third
+   player's -- and the reading each got. Tests: a kill in combat, a
+   kill by a spell, an opponent's unit that dies to its own
+   controller's trigger on the active player's turn (no gold), the
+   fourth kill of a turn, a hero's death, a building's, a duel.
 
 3. Lending patrollers (p. 14). PatrolOptions grows zones: each
    opponent's empty slots keyed by seat, on a free-for-all match alone,
@@ -1326,7 +1334,7 @@ the whole game and the golden.
    MatchState.winner names the winning team's first seat and conceded
    the conceding team's (decision 5); GameOverOptions.winners both. A
    teammate who loses by debt loses the game for the team (question
-   17).
+   17, answered).
 
 3. Attacking. legal_defenders for an attacker of a dragon seat: either
    opponent's squad leader -- the attacker choosing which when it
