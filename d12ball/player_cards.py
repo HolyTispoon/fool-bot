@@ -28,9 +28,11 @@ reaches the cards by re-running `scripts/render_player_cards.py`.
 
 **The other side of the card is the same player in advanced mode** --
 not a shared back, since these are dealt face up and nothing about
-them is hidden. `render_player_card_back` draws it, laid out exactly
-as the front: the same header and portrait, **the player's advanced
-skills** in the stats row, and **their special ability instead of the
+them is hidden. `render_player_card_back` draws it, laid out
+as the front -- the same header and portrait -- with **a dark
+"ADVANCED" ribbon** across the card under the stats (the author,
+2026-10-13), **the player's advanced skills** in the stats row and a
+gold mark beside any it changes, and **their special ability instead of the
 role's** beside the role badge where they have one (Law 21; the
 author, 2026-09-25), with the species badge and its ability's name
 under it (the author, 2026-09-27).
@@ -102,10 +104,23 @@ STATS_HEIGHT = 88
 PORTRAIT_GAP = 18
 
 # The role under the name, set large enough to read across a table
-# (the author, 2026-09-27). The back's "MIDFIELDER · ADVANCED" is the
-# longest line it carries, so it is fitted to the name's room with this
-# as the ceiling rather than set at it.
+# (the author, 2026-09-27). "MIDFIELDER" is the longest line it
+# carries, and it is fitted to the name's room with this as the
+# ceiling rather than set at it.
 SUBTITLE_SIZE = 26
+
+# The advanced face's ribbon: a dark band right across the card under
+# the stats panel, "ADVANCED" in gold on it (the author, 2026-10-13).
+# The two faces were the same card but for "· ADVANCED" after the role
+# and the numbers, which a coach turning a stack over could not see; a
+# band the width of the card is read before the name is. It runs
+# inside the team's edge, so the outline stays whole, and the portrait
+# gives up its height.
+RIBBON_GAP = 12
+RIBBON_HEIGHT = 58
+RIBBON_TEXT_SIZE = 34
+RIBBON_COLOR = INK
+RIBBON_TEXT_COLOR = "#f2c14e"
 
 # The team's own emoji in the header's right-hand corner -- the letter
 # in a team-coloured ring the bot puts beside a team's name in Discord
@@ -342,19 +357,41 @@ def draw_corner_index(
     )
 
 
-def header_subtitle(player: PlayerDefinition, advanced: bool) -> str:
+def header_subtitle(player: PlayerDefinition) -> str:
     """
-    The line under the name: the player's role, and on the back the
-    word that says which side of the card this is.
+    The line under the name: the player's role, the same on both faces.
 
-    The back has to announce itself in words rather than by a shade or
-    a border, because it is otherwise the same card -- same colour,
-    same portrait, same role -- and a coach turning a stack over has
-    nothing else to read. The team is the corner emoji and the edge
-    colour on both faces.
+    It used to end "· ADVANCED" on the back; the ribbon says that now
+    (`draw_ribbon`), across the card, so the role line says the role
+    alone and is set at full size again (the author, 2026-10-13).
     """
-    role = player.role.value.upper()
-    return f"{role} \u00b7 ADVANCED" if advanced else role
+    return player.role.value.upper()
+
+
+def draw_ribbon(pen: Pen) -> None:
+    """
+    **The advanced face's mark**: a dark band across the card under the
+    stats panel with "ADVANCED" on it in gold (the author, 2026-10-13).
+    Drawn inside the team's edge, so the card's outline runs unbroken
+    past it.
+    """
+    top = PORTRAIT_TOP + RIBBON_GAP
+    pen.rect(
+        (
+            FRAME + EDGE_WIDTH,
+            top,
+            CARD_WIDTH - FRAME - EDGE_WIDTH,
+            top + RIBBON_HEIGHT,
+        ),
+        fill=RIBBON_COLOR,
+    )
+    pen.text(
+        (CARD_WIDTH / 2, top + RIBBON_HEIGHT / 2),
+        "ADVANCED",
+        font(RIBBON_TEXT_SIZE, bold=True),
+        RIBBON_TEXT_COLOR,
+        anchor="mm",
+    )
 
 
 @dataclass(frozen=True)
@@ -403,6 +440,7 @@ def draw_stats(
     pen: Pen,
     profile: "RoleProfile | CardSkills",
     top: float,
+    standard: "RoleProfile | None" = None,
 ) -> None:
     """
     The two skills on one row, each number centred in its half with
@@ -416,6 +454,12 @@ def draw_stats(
 
     The role is not here: the header's badge carries it, and the
     ability band's badge sits beside the ability it grants.
+
+    On the advanced face `standard` is the front's skills, and a number
+    advanced mode changes is marked beside it on the divider's side --
+    a gold triangle pointing the way it went and how far, "▲ +2" (the
+    author, 2026-10-13) -- so what the back adds is read off the row
+    rather than by turning the card over to compare.
     """
     pen.rect(
         (MARGIN, top, CARD_WIDTH - MARGIN, top + STATS_HEIGHT),
@@ -448,6 +492,16 @@ def draw_stats(
             MUTED,
             anchor="rm" if side < 0 else "lm",
         )
+        if standard is not None:
+            was = (standard.offense, standard.defense)[index]
+            if int(value) != was:
+                draw_skill_change(
+                    pen,
+                    int(value) - was,
+                    cx - side * (value_half + STATS_LABEL_GAP),
+                    center_y,
+                    inward=-side,
+                )
     pen.line(
         [
             (MARGIN + column_width, top + 14),
@@ -461,6 +515,43 @@ def draw_stats(
 STATS_LABEL_SIZE = 19
 STATS_VALUE_SIZE = 70
 STATS_LABEL_GAP = 16
+
+# The mark beside a skill advanced mode changes: a darker gold than the
+# ribbon's, which does not read on the panel's beige.
+CHANGE_COLOR = "#a8730a"
+CHANGE_SIZE = 28
+CHANGE_TRIANGLE = 13
+
+
+def draw_skill_change(
+    pen: Pen, delta: int, x: float, y: float, inward: int,
+) -> None:
+    """
+    "▲ +2" or "▼ -1", starting at `x` and running `inward` -- towards
+    the stats panel's divider, away from the number's label. The
+    triangle is drawn rather than set, because Roboto Slab has no
+    triangle and a missing glyph prints as a box.
+    """
+    text = f"{delta:+d}"
+    face = font(CHANGE_SIZE, bold=True)
+    text_width = pen.text_size(text, face)[0]
+    gap = 6
+    width = CHANGE_TRIANGLE * 2 + gap + text_width
+    left = x if inward > 0 else x - width
+    tx = left + CHANGE_TRIANGLE
+    half = CHANGE_TRIANGLE
+    if delta > 0:
+        points = [(tx - half, y + 9), (tx + half, y + 9), (tx, y - 13)]
+    else:
+        points = [(tx - half, y - 9), (tx + half, y - 9), (tx, y + 13)]
+    pen.polygon(points, CHANGE_COLOR)
+    pen.text(
+        (left + CHANGE_TRIANGLE * 2 + gap, y),
+        text,
+        face,
+        CHANGE_COLOR,
+        anchor="lm",
+    )
 
 
 # The ability is set larger than a maneuver card's effect, because it
@@ -496,7 +587,9 @@ PORTRAIT_TOP = FRAME + HEADER_HEIGHT + STATS_TOP_GAP + STATS_HEIGHT
 ABILITY_BOTTOM_PAD = 18
 
 
-def portrait_room(ability_height: float) -> float:
+def portrait_room(
+    ability_height: float, portrait_top: float = PORTRAIT_TOP
+) -> float:
     """
     What the portrait is left once an ability band that tall is taken
     off the bottom. The bands are laid out from the two edges in and
@@ -504,7 +597,7 @@ def portrait_room(ability_height: float) -> float:
     arithmetic that says whether a card still works.
     """
     ability_top = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - ability_height
-    return ability_top - PORTRAIT_GAP * 2 - PORTRAIT_TOP
+    return ability_top - PORTRAIT_GAP * 2 - portrait_top
 
 
 def role_badge(role: PlayerRole, team: Team) -> Image.Image | None:
@@ -554,7 +647,10 @@ class AbilityBand:
 
 
 def ability_band(
-    pen: Pen, ability: str, species_name: str
+    pen: Pen,
+    ability: str,
+    species_name: str,
+    portrait_top: float = PORTRAIT_TOP,
 ) -> AbilityBand:
     """
     The sentence wrapped beside its badge at the largest size, up to
@@ -574,7 +670,7 @@ def ability_band(
         height = BAND_TOP_PAD + row_height(pen, size, len(lines))
         if species_name:
             height += BAND_ROW_GAP + BAND_BADGE
-        if portrait_room(height) >= MIN_PORTRAIT_HEIGHT:
+        if portrait_room(height, portrait_top) >= MIN_PORTRAIT_HEIGHT:
             break
     return AbilityBand(lines, size, height)
 
@@ -776,26 +872,34 @@ def draw_face(
     pen: Pen,
     player: PlayerDefinition,
     team: Team,
-    subtitle: str,
     skills: "RoleProfile | CardSkills",
     ability: str,
+    standard: "RoleProfile | None" = None,
 ) -> None:
     """
     Everything on a face but its edge, top to bottom: the header, the
     stats, the ability band measured first and pinned to the bottom,
     and the portrait in what is left between them. The two faces
-    differ only in the three things they are handed.
+    differ in the skills and the sentence they are handed, and the
+    advanced face -- the one handed the front's skills as `standard`
+    -- carries the ribbon under the stats and marks the skills it
+    changes.
     """
     color = TEAM_COLORS[Team(team)]
-    draw_header(pen, player, team, color, subtitle)
+    draw_header(pen, player, team, color, header_subtitle(player))
     draw_corner_index(pen, player, skills)
-    draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP)
+    draw_stats(pen, skills, FRAME + HEADER_HEIGHT + STATS_TOP_GAP, standard)
+
+    portrait_top = PORTRAIT_TOP
+    if standard is not None:
+        draw_ribbon(pen)
+        portrait_top += RIBBON_GAP + RIBBON_HEIGHT
 
     species_name = species_ability(player.species).get("name", "")
-    band = ability_band(pen, ability, species_name)
+    band = ability_band(pen, ability, species_name, portrait_top)
     ability_top = CARD_HEIGHT - FRAME - ABILITY_BOTTOM_PAD - band.height
     draw_portrait(
-        pen, player, PORTRAIT_TOP + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
+        pen, player, portrait_top + PORTRAIT_GAP, ability_top - PORTRAIT_GAP
     )
     draw_ability(pen, player, team, band, species_name, ability_top)
 
@@ -817,14 +921,7 @@ def render_player_card(
     """
     profile = catalog.effective_profile(player)
     pen = start_card(TEAM_COLORS[Team(team)])
-    draw_face(
-        pen,
-        player,
-        team,
-        header_subtitle(player, False),
-        profile,
-        profile.ability,
-    )
+    draw_face(pen, player, team, profile, profile.ability)
     return pen.finish(bleed, CARD_FACE)
 
 
@@ -842,17 +939,18 @@ def render_player_card_back(
     What makes it the advanced one is what advanced mode plays for this
     player: their advanced skills in the stats row, and their special
     ability in the band where they have one (`advanced_card_skills`,
-    `advanced_card_ability`; see the module docstring). Otherwise it is
-    laid out exactly as the front (the author, 2026-09-27).
+    `advanced_card_ability`; see the module docstring). It is laid out
+    as the front (the author, 2026-09-27), with the ribbon under the
+    stats and a mark beside each skill it changes (2026-10-13).
     """
     pen = start_card(TEAM_COLORS[Team(team)])
     draw_face(
         pen,
         player,
         team,
-        header_subtitle(player, True),
         advanced_card_skills(catalog, player),
         advanced_card_ability(catalog, player),
+        standard=catalog.effective_profile(player),
     )
     return pen.finish(bleed, CARD_FACE)
 
