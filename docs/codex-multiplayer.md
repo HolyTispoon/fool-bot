@@ -760,6 +760,23 @@ step 2's PR (#579), and 20 to 22 answered on 2026-10-14.
     effect that can destroy an enemy unit on the active player's turn
     without being theirs (a trigger or an ongoing effect of the unit's
     own controller, a -1/-1 rune's), with the reading each got.
+    A first draft of that list, from the card data (step 2's session,
+    2026-10-14), each with the reading step 3 builds unless the author
+    says otherwise: **not the active player's** -- Jandra the Negator's
+    "Dies from combat damage: Destroy all your units" (its controller's
+    trigger), and a kidnapped unit dying under the active player's
+    control (not an enemy unit then); **asked** -- Blackhand Dozer's
+    "Active player destroys one of your lowest tech units" and Orpal
+    Gloor's max level ("the active player puts a -1/-1 rune on two
+    units friendly to the dead unit"), where the text names the active
+    player as the one acting on another player's trigger; Sacrifice the
+    Weak, where the active player's spell makes each opponent sacrifice
+    their own; the Hive's excess Stingers sacrificed once the active
+    player destroyed their Hive; and a unit that dies when a bonus it
+    lived on goes -- a Two Step partner killed, a Spirit of the Panda
+    or Soul Stone destroyed, an Inverse Power Ninja given more friends
+    by Final Showdown's or Terras Q's tokens. An opponent's ephemeral
+    unit never lives to another player's turn, so it never arises.
 20. ~~**During a playoff, does a tied player's base falling end the game
     at that moment, or count as 0 only once the playoff's turns are
     over?**~~ Answered (2026-10-14): at that moment. Decision 5.
