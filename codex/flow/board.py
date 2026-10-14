@@ -363,7 +363,7 @@ def _is_a_kill(engine: "RulesEngine", match: MatchState, card: CardInstance,
     if match.variant != "free_for_all":
         return False
     killer = match.active if combat else cause
-    return killer == match.active and card.controller in engine.opponents(match, match.active)
+    return killer in engine.turn_seats(match) and card.controller in engine.opponents(match, match.active)
 
 
 def _destroy_unit(engine: "RulesEngine", match: MatchState, seat: int, card: CardInstance,
