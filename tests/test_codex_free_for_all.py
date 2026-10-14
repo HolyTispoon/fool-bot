@@ -391,5 +391,256 @@ class DebtTests(unittest.TestCase):
         self.assertEqual(match.base_of(2), 0)
 
 
+class TowerAndArmorTests(unittest.TestCase):
+    """Rulebook p. 4, the General group's tower rulings and p. 19."""
+
+    def tower(self, match, seat):
+        from codex.components import AddOnState
+
+        match.player(seat).add_on = AddOnState(slug="tower", hp=4, under_construction=False)
+
+    def test_the_tower_detects_only_an_attacker_of_its_owner(self) -> None:
+        """Rulebook p. 4: "the first one of those that attacks you" -- a
+        stealth attacker of another player passes seat 2's tower by."""
+        engine, game, match = free_for_all()
+        self.tower(match, 2)
+        sneak = put(match, 1, "chameleon")
+        put(match, 3, "older_brother", patrol="squad_leader")
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": sneak.ref}))
+        apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, arguments={"defender": "base", "against": 3}))
+        self.assertIsNone(match.player(2).add_on.detected)
+        self.assertEqual(sneak.damage, 0)
+        self.assertLess(match.base_of(3), 20, "it sneaked past seat 3's patroller")
+
+    def test_the_tower_detects_and_damages_an_attacker_of_its_owner(self) -> None:
+        engine, game, match = free_for_all()
+        self.tower(match, 2)
+        sneak = put(match, 1, "chameleon")
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": sneak.ref}))
+        apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, arguments={"defender": "base", "against": 2}))
+        self.assertEqual(match.player(2).add_on.detected, sneak.ref)
+
+    def test_the_towers_damage_falls_only_on_an_attacker_of_its_owner(self) -> None:
+        """The free-for-all tower ruling: its damage is dealt only to an
+        attacker of something its owner controls."""
+        engine, game, match = free_for_all()
+        self.tower(match, 2)
+        attack_base(engine, game, match, 3)
+        man = next(card for card in match.player(1).play if card.slug == "iron_man")
+        self.assertEqual(man.damage, 0)
+        attack_base(engine, game, match, 2)
+        second = [card for card in match.player(1).play if card.slug == "iron_man"][1]
+        self.assertEqual(second.damage, 1)
+
+    def test_armor_refreshes_on_every_opponents_turn(self) -> None:
+        """Rulebook p. 19 and the Ironbark Treant ruling: armor refreshes
+        each turn -- the squad leader's 1 and the Treant's own 2 -- so a
+        patroller's comes back on every opponent's turn, not its owner's."""
+        engine, game, match = free_for_all()
+        treant = put(match, 3, "ironbark_treant", patrol="squad_leader")
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 2)
+        self.assertEqual(treant.armor, 3)
+        treant.armor = 0
+        end_turn(engine, game, match)
+        self.assertEqual(match.active, 3)
+        # Its owner's own ready phase takes it out of the patrol zone.
+        self.assertIsNone(treant.patrol_slot)
+
+
+class AttackTests(unittest.TestCase):
+    """Rulebook p. 5: each opponent's patrol zone protects that opponent
+    alone; the overpower ruling; Moment's Peace."""
+
+    def test_each_opponents_zone_protects_them_alone(self) -> None:
+        engine, game, match = free_for_all()
+        leader = put(match, 2, "older_brother", patrol="squad_leader")
+        put(match, 3, "older_brother")
+        man = put(match, 1, "iron_man")
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": man.ref}))
+        options = pending_prompt(engine, game, match).options
+        offered = set(zip(options.seats, options.defenders))
+        self.assertEqual({ref for seat, ref in offered if seat == 2}, {leader.ref})
+        self.assertIn((3, "base"), offered)
+        self.assertEqual(options.to_dict()["seats"], list(options.seats))
+
+    def test_overpower_stays_with_the_attacked_opponent(self) -> None:
+        """The overpower ruling: the excess goes to something controlled by
+        the player whose patroller was attacked."""
+        engine, game, match = free_for_all()
+        centaur = put(match, 1, "centaur")
+        guard = put(match, 2, "older_brother", patrol="elite")
+        put(match, 2, "older_brother")
+        elsewhere = put(match, 3, "older_brother")
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": centaur.ref}))
+        apply(engine, game, match, Action(PromptKind.CHOOSE_DEFENDER, arguments={"defender": guard.ref, "against": 2}))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.OVERPOWER_TARGET)
+        self.assertNotIn(elsewhere.ref, prompt.options.targets)
+        self.assertIn("base", prompt.options.targets)
+
+    def test_moments_peace_shields_its_caster_alone(self) -> None:
+        """Moment's Peace: "opposing units can't attack you" -- its
+        caster's things leave the legal defenders and nothing else."""
+        engine, game, match = free_for_all()
+        match.player(2).peace = True
+        man = put(match, 1, "iron_man")
+        self.assertIn(man.ref, pending_prompt(engine, game, match).options.attackers)
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": man.ref}))
+        options = pending_prompt(engine, game, match).options
+        self.assertEqual(set(options.seats), {3})
+        refused = driver.apply(engine, game, match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": "base", "against": 2}))
+        self.assertIsInstance(refused, driver.Refusal)
+
+    def test_moments_peace_on_every_opponent_stops_the_units(self) -> None:
+        engine, game, match = free_for_all()
+        match.player(2).peace = match.player(3).peace = True
+        man = put(match, 1, "iron_man")
+        hero_in_play(match, 1)
+        attackers = pending_prompt(engine, game, match).options.attackers
+        self.assertNotIn(man.ref, attackers)
+        self.assertIn("hero:troq_bashar", attackers, "heroes still may")
+
+
+class OpponentCardTests(unittest.TestCase):
+    """Decision 11: a plural is every opponent; "an opponent's" is the one
+    the controller chooses, asked only where there are several; "that
+    opponent" is the one the context names."""
+
+    def table(self, teams=THREE, first=1):
+        return free_for_all(teams=teams, first=first)
+
+    def cast(self, engine, game, match, slug, gold=20):
+        match.player(match.active).hand = [slug]
+        match.player(match.active).gold = gold
+        return apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": slug}))
+
+    def test_a_dead_heros_levels_may_go_to_a_third_players_hero(self) -> None:
+        """Rulebook p. 11: one opposing hero levels, the active player
+        choosing -- any hero of any opponent of the dead hero's controller."""
+        engine, game, match = self.table(teams=(("bashing",), ("finesse",), ("fire",)))
+        hero_in_play(match, 1)
+        river_hp = engine.hero_stats(match.player(2).hero, match)[1]
+        hero_in_play(match, 2, damage=river_hp - 1)
+        hero_in_play(match, 3)
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "attack", {"attacker": "hero:troq_bashar"}))
+        apply(engine, game, match, Action(
+            PromptKind.CHOOSE_DEFENDER, arguments={"defender": "hero:river_montoya", "against": 2}))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.LEVEL_GAIN)
+        self.assertEqual(prompt.asked_player, 1)
+        self.assertEqual(set(zip(prompt.options.seats, prompt.options.heroes)),
+                         {(1, "hero:troq_bashar"), (3, "hero:jaina_stormborne")})
+        apply(engine, game, match, Action(PromptKind.LEVEL_GAIN, arguments={"hero": "hero:jaina_stormborne", "seat": 3}))
+        self.assertEqual(match.player(3).hero.level, 3)
+        self.assertEqual(match.player(1).hero.level, 1)
+
+    def test_discord_asks_which_opponent(self) -> None:
+        engine, game, match = self.table(first=2)
+        hero_in_play(match, 2)
+        mine = put(match, 1, "older_brother")
+        theirs = put(match, 3, "older_brother")
+        self.cast(engine, game, match, "discord")
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.TARGET)
+        self.assertEqual(prompt.ask, f"{tokens.player(2)}, {tokens.card('discord')}: choose an opponent.")
+        self.assertEqual({row.key for row in prompt.options.targets}, {"1:base", "3:base"})
+        run = apply(engine, game, match, Action(PromptKind.TARGET, arguments={"target": "3:base"}))
+        self.assertIn(f"{tokens.player(2)} chooses {tokens.player(3)} for {tokens.card('discord')}.", said(run))
+        self.assertEqual(engine.unit_stats(theirs, match), (0, 1))
+        self.assertEqual(engine.unit_stats(mine, match), (2, 2))
+
+    def test_reputable_newsman_binds_every_opponent(self) -> None:
+        """"Opponents can't play spells or upgrades that cost that amount."
+        -- a plural: every opponent."""
+        engine, game, match = self.table()
+        self.cast(engine, game, match, "reputable_newsman")
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.CHOOSE_NUMBER)
+        run = apply(engine, game, match, Action(PromptKind.CHOOSE_NUMBER, arguments={"number": 2}))
+        self.assertIn("Opponents can't play spells or upgrades that cost 2", said(run))
+        for seat in (2, 3):
+            with self.subTest(seat=seat):
+                match.player(seat).hand = ["discord"]
+                hero_in_play(match, seat)
+                match.player(seat).gold = 10
+                match.active = seat
+                rows = {row.slug: row for row in engine.playable(match.player(seat), match)}
+                self.assertFalse(rows["discord"].allowed)
+
+    def test_the_flagbearer_of_any_opponent_must_be_targeted(self) -> None:
+        engine, game, match = self.table()
+        hero_in_play(match, 1)
+        flag = put(match, 3, "granfalloon_flagbearer")
+        put(match, 2, "older_brother")
+        brother = match.player(2).play[-1]
+        self.cast(engine, game, match, "intimidate")
+        # The one row left -- seat 3's flagbearer -- is taken unasked.
+        self.assertEqual(engine.unit_stats(flag, match)[0], 0)
+        self.assertEqual(engine.unit_stats(brother, match)[0], 2)
+
+    def test_captured_bugblatter_on_an_opponents_turn_and_its_own(self) -> None:
+        """"Whenever a unit dies on an opponent's turn, their base takes 1
+        damage. Whenever a unit dies on your turn, deal 1 damage to an
+        opponent's base." -- the active player's base, or the one chosen."""
+        from codex.flow import board, resolve
+
+        engine, game, match = self.table(first=2)
+        put(match, 1, "captured_bugblatter")
+        cub = put(match, 3, "older_brother")
+        board.destroy(engine, match, [(3, cub.ref)], StepResult())
+        resolve.run(engine, match, StepResult())
+        self.assertEqual((match.base_of(2), match.base_of(3)), (19, 20))
+        match.active = 1
+        other = put(match, 3, "older_brother")
+        board.destroy(engine, match, [(3, other.ref)], StepResult())
+        resolve.run(engine, match, StepResult())
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual(prompt.asked_player, 1)
+        self.assertEqual({row.key for row in prompt.options.targets}, {"2:base", "3:base"})
+        apply(engine, game, match, Action(PromptKind.TARGET, arguments={"target": "3:base"}))
+        self.assertEqual((match.base_of(2), match.base_of(3)), (19, 19))
+
+    def test_carrion_curse_looks_at_the_chosen_opponents_hand_alone(self) -> None:
+        engine, game, match = self.table(teams=(("bashing",), ("disease",), ("bashing",)), first=2)
+        hero_in_play(match, 2)
+        match.player(1).hand = ["wrecking_ball"]
+        match.player(3).hand = ["intimidate", "older_brother"]
+        self.cast(engine, game, match, "carrion_curse")
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual(prompt.options.shown, ())
+        self.assertEqual({row.key for row in prompt.options.targets}, {"1:base", "3:base"})
+        apply(engine, game, match, Action(PromptKind.TARGET, arguments={"target": "3:base"}))
+        prompt = pending_prompt(engine, game, match)
+        self.assertEqual(prompt.options.shown, ("intimidate", "older_brother"))
+        self.assertEqual([row.key for row in prompt.options.targets], ["3:hand:intimidate"])
+
+    def test_hooded_executioner_destroys_each_opponents_weakest(self) -> None:
+        engine, game, match = self.table(teams=(("necromancy",), ("finesse",), ("bashing",)))
+        from codex_positions import built
+
+        built(match, 1, "tech1")
+        weak2 = put(match, 2, "older_brother")
+        strong2 = put(match, 2, "iron_man")
+        weak3 = put(match, 3, "older_brother")
+        match.player(1).hand = ["hooded_executioner"]
+        match.player(1).gold = 20
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "hooded_executioner", "boost": True}))
+        self.assertIsNone(match.instance(weak2.id))
+        self.assertIsNone(match.instance(weak3.id))
+        self.assertIsNotNone(match.instance(strong2.id))
+
+    def test_a_duel_never_asks_for_its_one_opponent(self) -> None:
+        engine, game, match = new_game(first=2)
+        begin(engine, game, match)
+        hero_in_play(match, 2)
+        brother = put(match, 1, "older_brother")
+        match.player(2).hand = ["discord"]
+        match.player(2).gold = 5
+        apply(engine, game, match, Action(PromptKind.MAIN_ACTION, "play", {"slug": "discord"}))
+        self.assertIs(pending_prompt(engine, game, match).kind, PromptKind.MAIN_ACTION)
+        self.assertEqual(engine.unit_stats(brother, match), (0, 1))
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

@@ -139,9 +139,41 @@ def _unique(ref: str) -> bool:
     return ref != WORKERS and not ref.startswith((HAND, CODEX))
 
 
+def opponent_owed(engine: "RulesEngine", match: MatchState, top: dict) -> bool:
+    """
+    Whether the frame's current part must first choose **an opponent**:
+    a part whose text names one opponent ("an opponent's hand", "all of an
+    opponent's units", `effects.AN_OPPONENT`) at a table of several, where
+    nothing has set the frame against a seat yet (docs/codex-multiplayer.md,
+    decision 11). Asked as a `TARGET` over each opponent's base; a duel's
+    one opponent is never asked, as no target with one choice is.
+    Captured Bugblatter chooses on its controller's own turn alone: on an
+    opponent's turn "their base" is the active player's.
+    """
+    if top.get("kind") != EFFECT or top.get("against"):
+        return False
+    parts = effects.EFFECTS[top["effect"]].parts
+    if top["part"] >= len(parts) or parts[top["part"]].does != effects.AN_OPPONENT.get(top["effect"]):
+        return False
+    if top["effect"] == "captured_bugblatter" and match.active != top["seat"]:
+        return False
+    return len(engine.opponents(match, top["seat"])) > 1
+
+
+def opponent_rows(engine: "RulesEngine", match: MatchState, top: dict):
+    """Each opponent, as their base: the rows `opponent_owed` asks over."""
+    from codex.engine import TargetRow, target_key
+
+    return tuple(TargetRow(target_key(foe, "base"), foe, "base")
+                 for foe in engine.opponents(match, top["seat"]))
+
+
 def rows_for(engine: "RulesEngine", match: MatchState, top: dict):
     """What the frame's current part may choose (`RulesEngine.target_rows`),
-    less what this part has already chosen where a pick stays."""
+    less what this part has already chosen where a pick stays -- or, where
+    the part must first choose an opponent, each opponent (`opponent_owed`)."""
+    if opponent_owed(engine, match, top):
+        return opponent_rows(engine, match, top)
     part = effects.EFFECTS[top["effect"]].parts[top["part"]]
     rows = engine.target_rows(
         match, top["seat"], part, taken=top["taken"], flagbearer_done=top["flagbearer"],
@@ -157,12 +189,18 @@ def pick_limit(engine: "RulesEngine", match: MatchState, top: dict, part) -> int
     if part.does == "divide":
         total = damage_amount(engine, match, top, part.amount)
         return total if not part.most else min(part.most, total)
+    if part.choose in effects.EACH_OPPONENTS_ONE:
+        # Hooded Executioner: "each opponent's weakest unit" -- one a side.
+        return len(engine.opponents(match, top["seat"]))
     return part.most or 1
 
 
 def offers_done(top: dict, part) -> bool:
     """Whether the question offers **Done**: the part has chosen as many
     as it must (`Part.least`)."""
+    if part.choose in effects.EACH_OPPONENTS_ONE:
+        # Every opponent's is chosen: the part ends when none is left.
+        return False
     return len(top.get("picks") or []) >= part.least
 
 
@@ -222,6 +260,10 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
         if not _applies(part, top):
             _next_part(top)
             continue
+        if opponent_owed(engine, match, top):
+            # "An opponent's": which one is asked before the part does
+            # anything (`opponent_owed`).
+            return False
         if part.does == "mode":
             if "mode" not in top:
                 # "If you boosted, choose both"; otherwise one is asked,
@@ -259,7 +301,8 @@ def run(engine: "RulesEngine", match: MatchState, result: StepResult) -> bool:
             # choose is done, and said nothing about -- the board shows it.
             _end_picks(engine, match, top, part, result)
             continue
-        if len(picks) < part.least and len(rows) == 1:
+        least = pick_limit(engine, match, top, part) if part.choose in effects.EACH_OPPONENTS_ONE else part.least
+        if len(picks) < least and len(rows) == 1:
             _choose(engine, match, top, part, rows[0], result)
             continue
         return False
@@ -323,6 +366,10 @@ def choose_target(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             )
         raise RuleRefusal(f"That can't be chosen: {part.says}.")
     result = StepResult(board_changed=True)
+    if opponent_owed(engine, match, top):
+        top["against"] = row.seat
+        result.narration.append(f"{tokens.player(top['seat'])} chooses {tokens.player(row.seat)} for {top['by']}.")
+        return carry_on(engine, game, match, result)
     _choose(engine, match, top, part, row, result)
     return carry_on(engine, game, match, result)
 
@@ -720,8 +767,7 @@ def _draw(engine, match, top, part, target, result) -> None:
 
 
 def _discord(engine, match, top, part, target, result) -> None:
-    seat = top["seat"]
-    other = engine.sole_opponent(match, seat)
+    other = _against(engine, match, top)
     hit = 0
     for card in list(match.player(other).play):
         printed = engine.catalog.cards[card.slug]
@@ -753,17 +799,35 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     # The line names the band the damage comes from and what the base
     # has left (the author, 2026-10-09); at 0 the next line is the
     # base destroyed, which says it.
-    other = engine.sole_opponent(match, top["seat"])
+    #
+    # Which base (docs/codex-multiplayer.md, decision 11): the attacked
+    # player's for Troq and Doubleshot Archer ("that opponent's", the
+    # attack's frame against them); each opponent's for Drakk and the
+    # Pirategang's units ("each opponent's", "each opposing"); for Captured
+    # Bugblatter the active player's on an opponent's turn ("their base")
+    # and the one chosen on its controller's own ("an opponent's").
+    seat = top["seat"]
+    if top.get("against"):
+        bases = (top["against"],)
+    elif top["effect"] in effects.EACH_OPPOSING_BASE:
+        bases = engine.opponents(match, seat)
+    elif top["effect"] == "captured_bugblatter" and match.active in engine.opponents(match, seat):
+        bases = (match.active,)
+    else:
+        bases = (_against(engine, match, top),)
     amount = damage_amount(engine, match, top, part.amount)
     source = top["by"]
     printed = effects.printing_band(top["effect"])
     if printed is not None:
         source = f"{top['by']}'s {band_name(engine, *printed)} band's ability"
-    result.narration.append(
-        f"{source} deals {amount} to {tokens.player(other)}'s base"
-        f"{board.base_left_after(match, other, amount, by=top['seat'])}."
-    )
-    damage_base(match, other, amount, result, by=top["seat"])
+    for other in bases:
+        if match.winner is not None:
+            return
+        result.narration.append(
+            f"{source} deals {amount} to {tokens.player(other)}'s base"
+            f"{board.base_left_after(match, other, amount, by=seat)}."
+        )
+        damage_base(match, other, amount, result, by=seat)
 
 
 def band_name(engine, slug: str, first: int) -> str:
@@ -1129,7 +1193,7 @@ def _token(engine, match, top, part, target, result) -> None:
 def _token_for_opponent(engine, match, top, part, target, result) -> None:
     """Final Showdown's Hunters: summoned for the opponent, who controls
     them, in their play zone and never their patrol zone (the Card FAQ)."""
-    other = engine.sole_opponent(match, top["seat"])
+    other = _against(engine, match, top)
     source = board.body_of(match, top["seat"], top.get("source") or "")
     made_by = source.id if isinstance(source, CardInstance) and source.slug in effects.SHACKLED else None
     board.summon(engine, match, part.token, other, part.amount, result, by=top["by"], made_by=made_by)
@@ -1532,9 +1596,11 @@ def _rites(engine, match, top, part, target, result) -> None:
     turn."""
     seat = top["seat"]
     match.player(seat).lasting.append({"kind": effects.DEATH_RITES, "until": "end_of_turn"})
+    foes = engine.opponents(match, seat)
+    whose = f"{tokens.player(foes[0])}'s" if len(foes) == 1 else "an opponent's"
     result.narration.append(
         f"{top['by']}: this turn, whenever one of {tokens.player(seat)}'s units dies, one of "
-        f"{tokens.player(engine.sole_opponent(match, seat))}'s lowest tech units is destroyed."
+        f"{whose} lowest tech units is destroyed."
     )
 
 
@@ -1561,7 +1627,7 @@ def _decay(engine, match, top, part, target, result) -> None:
     has, and 3 damage to each of their buildings -- one being built this
     turn excepted (UMR p. 8)."""
     seat = top["seat"]
-    other = engine.sole_opponent(match, seat)
+    other = _against(engine, match, top)
     player = match.player(other)
     for body in [*(card for card in player.play if engine.catalog.cards[card.slug].is_unit),
                  *player.heroes_in_play]:
@@ -1664,9 +1730,27 @@ def _play_buried(engine, match, top, part, target, result) -> None:
 
 def _against(engine, match, top: dict) -> int:
     """The seat a frame is against: the one it names (`frame["against"]`,
-    set where an attack, a death or a spell opens it against a seat). A
-    frame saved before it was recorded reads the one opponent a duel has."""
+    set where an attack, a death or a spell opens it against a seat, or
+    the opponent its controller chose -- `opponent_owed`). A frame saved
+    before it was recorded reads the one opponent a duel has; at a table
+    of several, nothing guesses one (`sole_opponent` refuses)."""
     return top.get("against") or engine.sole_opponent(match, top["seat"])
+
+
+def against(engine, match, top: dict) -> int:
+    """The seat a frame is against (`_against`), for `codex.prompts`'s
+    looks at a hand or a discard pile."""
+    return _against(engine, match, top)
+
+
+def _each_opposing(engine, match, top: dict) -> tuple[int, ...]:
+    """The seats a plural reaches -- "each opposing unit", "each
+    opponent's base" (docs/codex-multiplayer.md, decision 11): every
+    opponent of the frame's controller, or the one it is against where it
+    names one."""
+    if top.get("against"):
+        return (top["against"],)
+    return engine.opponents(match, top["seat"])
 
 
 def _random_discard(engine, match, top, part, target, result) -> None:
@@ -1678,15 +1762,18 @@ def _random_discard(engine, match, top, part, target, result) -> None:
 def _runes_on_opposing(engine, match, top, part, target, result) -> None:
     """Plague Lab: a -1/-1 rune on each of an opponent's units; Plague Lord
     on each opposing unit and hero too (`part.token` "heroes")."""
-    other = _against(engine, match, top)
-    player = match.player(other)
-    bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
-    if part.token == "heroes":
-        bodies += player.heroes_in_play
-    for body in bodies:
-        board.add_minus_rune(body)
-    what = "unit and hero" if part.token == "heroes" else "unit"
-    result.narration.append(f"{top['by']} puts a -1/-1 rune on each {what} {tokens.player(other)} controls.")
+    # Plague Lord's "each opposing unit and hero" is every opponent's;
+    # Plague Lab's "all of an opponent's units" the one chosen.
+    others = _each_opposing(engine, match, top) if part.token == "heroes" else (_against(engine, match, top),)
+    for other in others:
+        player = match.player(other)
+        bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
+        if part.token == "heroes":
+            bodies += player.heroes_in_play
+        for body in bodies:
+            board.add_minus_rune(body)
+        what = "unit and hero" if part.token == "heroes" else "unit"
+        result.narration.append(f"{top['by']} puts a -1/-1 rune on each {what} {tokens.player(other)} controls.")
 
 
 def _lab_rune(engine, match, top, part, target, result) -> None:
@@ -2077,15 +2164,15 @@ def _ready(engine, match, top, part, target, result) -> None:
 def _hold_down(engine, match, top, part, target, result) -> None:
     """Ready or Not: "Opposing exhausted units don't ready during their next
     ready step." """
-    other = _against(engine, match, top)
-    held = [card for card in match.player(other).play
-            if engine.catalog.cards[card.slug].is_unit and card.exhausted]
-    for card in held:
-        card.disabled = True
-    if held:
-        result.narration.append(
-            f"{tokens.player(other)}'s exhausted units don't ready at their next ready phase."
-        )
+    for other in _each_opposing(engine, match, top):
+        held = [card for card in match.player(other).play
+                if engine.catalog.cards[card.slug].is_unit and card.exhausted]
+        for card in held:
+            card.disabled = True
+        if held:
+            result.narration.append(
+                f"{tokens.player(other)}'s exhausted units don't ready at their next ready phase."
+            )
 
 
 def _rewind(engine, match, top, part, target, result) -> None:
@@ -2184,8 +2271,15 @@ def _extra_turn(engine, match, top, part, target, result) -> None:
 def _banefire(engine, match, top, part, target, result) -> None:
     """Banefire Golem, having sacrificed: 1 damage to each opposing unit,
     hero and building -- one being built this turn excepted (UMR p. 8)."""
+    for other in _each_opposing(engine, match, top):
+        if match.winner is not None:
+            return
+        _banefire_one(engine, match, top, part, other, result)
+
+
+def _banefire_one(engine, match, top, part, other: int, result) -> None:
+    """Banefire Golem's damage to one opponent's things."""
     seat = top["seat"]
-    other = _against(engine, match, top)
     player = match.player(other)
     amount = damage_amount(engine, match, top, part.amount)
     bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
@@ -2755,9 +2849,11 @@ def _number(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     card.number = top[ASKS_NUMBER]
-    other = engine.sole_opponent(match, top["seat"])
+    foes = engine.opponents(match, top["seat"])
+    # "Opponents can't play": every one of them.
+    who = tokens.player(foes[0]) if len(foes) == 1 else "Opponents"
     result.narration.append(
-        f"{top['by']} chooses {card.number}: {tokens.player(other)} can't play spells or upgrades "
+        f"{top['by']} chooses {card.number}: {who} can't play spells or upgrades "
         f"that cost {card.number} while it is in play."
     )
 

@@ -89,8 +89,12 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     if kind is PromptKind.OVERPOWER_TARGET:
         return Action(kind, arguments={"target": options.targets[0]})
     if kind is PromptKind.CHOOSE_DEFENDER:
-        defender = "base" if "base" in options.defenders else options.defenders[0]
-        return Action(kind, arguments={"defender": defender})
+        at = options.defenders.index("base") if "base" in options.defenders else 0
+        arguments = {"defender": options.defenders[at]}
+        if len(set(options.seats)) > 1:
+            # A table of several: whose (the multiplayer worksheet).
+            arguments["against"] = options.seats[at]
+        return Action(kind, arguments=arguments)
     if kind is PromptKind.TARGET:
         # "Up to" and "you may" (step 11): the first thing offered, until
         # the part has chosen as many as it must, then Done.
@@ -112,7 +116,10 @@ def choose(engine: RulesEngine, match: MatchState, prompt) -> Action:
     if kind is PromptKind.UPKEEP_ORDER:
         return Action(kind, arguments={"first": options.effects[0]})
     if kind is PromptKind.LEVEL_GAIN:
-        return Action(kind, arguments={"hero": options.heroes[0]})
+        arguments = {"hero": options.heroes[0]}
+        if len(set(options.seats)) > 1:
+            arguments["seat"] = options.seats[0]
+        return Action(kind, arguments=arguments)
     if kind is PromptKind.PATROL:
         assignment = dict(zip(PATROL_SLOTS, options.candidates))
         return Action(kind, arguments={"assignment": assignment})

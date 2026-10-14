@@ -1929,9 +1929,11 @@ class RulesEngine:
         """The active player's units and hero that may attack
         (`may_attack_with`)."""
         player = match.active_player
-        # Moment's Peace: "opposing units can't attack you" -- in a game
-        # of two, they can't attack at all; heroes still may.
-        peace = any(match.player(foe).peace for foe in self.opponents(match, match.active))
+        # Moment's Peace: "opposing units can't attack you" -- its caster's
+        # things leave the units' defenders and nothing else
+        # (`_defender_rows`), so a unit may attack while any opponent is
+        # not at peace: in a duel, not at all. Heroes still may.
+        peace = all(match.player(foe).peace for foe in self.opponents(match, match.active))
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
@@ -2495,6 +2497,9 @@ class RulesEngine:
         patroller it may take anyway, its place in the zone.
         """
         other = self.defending_seat(match, against)
+        if match.player(other).peace and isinstance(self.body(match, match.active, attacker), CardInstance):
+            # Moment's Peace: "opposing units can't attack you" (step 11).
+            return ()
         blocking = self.blocking_patrollers(match, attacker, against=against)
         if blocking:
             leader = blocking.get("squad_leader")
@@ -3111,7 +3116,7 @@ class RulesEngine:
             elif choose == "opponent_hand_nonunit":
                 # Carrion Curse: the opponent's hand, looked at by the caster
                 # alone -- the non-unit cards, each named once.
-                if side in foes:
+                if side in foes and frame.get("against") in (None, side):
                     found += [(side, HAND + slug) for slug in dict.fromkeys(player.hand)
                               if not self.catalog.cards[slug].is_unit]
             elif choose == "patrolling_weak_unit":
@@ -3150,7 +3155,7 @@ class RulesEngine:
             elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
                 # Community Service: a tech I or II unit of the opponent's
                 # hand -- looked at by the caster alone -- or discard pile.
-                if side in foes:
+                if side in foes and frame.get("against") in (None, side):
                     pile, prefix = ((player.hand, HAND) if choose == "opponent_hand_unit_1_2"
                                     else (player.discard, DISCARD))
                     found += [(side, prefix + slug) for slug in dict.fromkeys(pile)
@@ -3190,6 +3195,13 @@ class RulesEngine:
                 raise ValueError(f"not a target filter: {choose!r}")
         if choose in ("other_building", "own_unpartnered"):
             found = [row for row in found if target_key(*row) not in taken]
+        if choose in effects.EACH_OPPONENTS_ONE:
+            # One of each opponent's: a side already chosen from is done.
+            done = {int(key.split(":", 1)[0]) for key in taken}
+            found = [row for row in found if row[0] not in done]
+            # One side at a time, so a side with one weakest unit is taken
+            # unasked ("You choose if there's a tie").
+            found = [row for row in found if row[0] == found[0][0]] if found else found
         return found
 
     def _private_candidates(self, match: MatchState, seat: int, choose: str,
@@ -3374,9 +3386,14 @@ class RulesEngine:
         alone to be shown."""
         if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
             return self.opponents(match, seat)
-        if any(lasting.get("kind") == "looked_hand" for lasting in match.player(seat).lasting):
-            # Flagstone Spy's look, this turn's.
-            return self.opponents(match, seat)
+        looked = [lasting.get("seat") for lasting in match.player(seat).lasting
+                  if lasting.get("kind") == "looked_hand"]
+        if looked:
+            # Flagstone Spy's look, this turn's: "that player's hand" --
+            # the seat it looked at, or a duel's one opponent where an
+            # older save did not say.
+            foes = self.opponents(match, seat)
+            return tuple(foe for foe in foes if foe in looked or (None in looked and len(foes) == 1))
         return ()
 
     def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
