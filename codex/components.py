@@ -595,6 +595,10 @@ class PlayerState:
     #: the patrol lock, while their teammate may still be acting. False
     #: otherwise; written only while set.
     locking: bool = False
+    #: Two-headed dragon: the card this seat's stash keeps (`""` for
+    #: none), answered in the draw phase before the team's draw runs for
+    #: both seats; `None` while unanswered. Written only while set.
+    stash_choice: Optional[str] = None
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
@@ -710,12 +714,14 @@ PLAYER_SAVED_FIELDS = (
     SavedField("bounties", default=0),
     SavedField("locked", default=False),
     SavedField("locking", default=False),
+    SavedField("stash_choice"),
 )
 
 #: Fields written only where they differ from what an older save reads
 #: them as, so a duel's save is the save it always was (the golden) and
 #: still reads on a checkout older than the field.
-_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0, "locked": False, "locking": False}
+_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0, "locked": False, "locking": False,
+                           "stash_choice": None}
 
 
 def _write_players(players: list) -> list:

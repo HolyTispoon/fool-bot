@@ -44,7 +44,9 @@ from codex.engine import RulesEngine
 from codex.flow import driver, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
 from codex.game import CodexGame, GameStatus, RuleRefusal
-from codex.prompts import PendingPrompt, pending, pending_prompt, standing_prompts, tech_stands
+from codex.prompts import (
+    PendingPrompt, pending, pending_prompt, pending_prompts, standing_prompts, tech_stands,
+)
 from codex.wire import jsonable
 from gamekit.service import StopHandling
 from gamesaves.codex.storage import save_games
@@ -117,7 +119,8 @@ class GameResult:
     - `groups`: every closed group and every stop, in order.
     - `narration`: what the run was still carrying when it stopped.
     - `prompt`: what the match is waiting on now -- the active player's
-      question -- or `None` while nothing is asked.
+      question -- or `None` while nothing is asked. `prompts` lists a
+      two-headed dragon's, one per acting seat.
     - `standing`: what the other player may answer meanwhile (the tech
       choice). **Each is its asked player's alone**: a tech prompt
       lists their codex, so a frontend shows it to them and nobody else.
@@ -131,6 +134,11 @@ class GameResult:
     groups: tuple[Narration, ...] = ()
     narration: tuple[str, ...] = ()
     prompt: Optional[PendingPrompt] = None
+    #: **A two-headed dragon's questions, one per acting seat**
+    #: (docs/codex-multiplayer.md, decision 8) -- `prompt` is the first
+    #: of them -- and empty in every other game. Each is its asked
+    #: player's alone, as `prompt` is.
+    prompts: tuple[PendingPrompt, ...] = ()
     standing: tuple[PendingPrompt, ...] = ()
     board_changed: bool = False
     refusal: Optional[str] = None
@@ -243,6 +251,19 @@ class GameService:
 
     def standing(self, game: CodexGame, match: MatchState) -> tuple[PendingPrompt, ...]:
         return standing_prompts(self.engine, match, game)
+
+    def waiting_all(self, game: CodexGame, match: MatchState) -> tuple[PendingPrompt, ...]:
+        """Every question the acting seats are asked: a two-headed
+        dragon's, one per seat (`codex.prompts.pending_prompts`); the one
+        question of any other game."""
+        return pending_prompts(self.engine, game, match)
+
+    def questions(self, game: CodexGame, match: MatchState,
+                  ) -> tuple[Optional[PendingPrompt], tuple[PendingPrompt, ...]]:
+        """`(prompt, prompts)` for a `GameResult` read off the position:
+        the first question and, in a dragon, all of them."""
+        everything = self.waiting_all(game, match)
+        return (everything[0] if everything else None), (everything if match.dragons else ())
 
     # -- The lobby -------------------------------------------------------
 
@@ -434,6 +455,7 @@ class GameService:
             )
         self.persist(game, match)
         following = applied.result.next
+        everything = self.waiting_all(game, match) if match.dragons else ()
         result = GameResult(
             groups=tuple(
                 Narration(group.narration, group.step, board=group.board,
@@ -442,6 +464,7 @@ class GameService:
             ),
             narration=tuple(applied.result.narration),
             prompt=following if isinstance(following, PendingPrompt) else None,
+            prompts=everything,
             standing=self.standing(game, match),
             board_changed=applied.board_changed,
             match=match,
@@ -467,7 +490,8 @@ class GameService:
                 self.run(game, match, StepResult(next=waiting)),
             )
         result = GameResult(
-            prompt=waiting, standing=self.standing(game, match), match=match,
+            prompt=waiting, prompts=self.waiting_all(game, match) if match.dragons else (),
+            standing=self.standing(game, match), match=match,
         )
         self.announce(game, result)
         return "a choice, put back up", result
@@ -518,6 +542,13 @@ class GameService:
         game = self.game(game_id)
         return history.end_of_turn_owner(self.engine, game, self.load(game))
 
+    def end_of_turn_owners(self, game_id: str) -> tuple[int, ...]:
+        """Everyone who may take that end back: the seat whose turn it
+        was, and in a two-headed dragon both players of the team that
+        took it (`history.end_of_turn_owners`)."""
+        game = self.game(game_id)
+        return history.end_of_turn_owners(self.engine, game, self.load(game))
+
     def previous_turn_owner(self, game_id: str) -> Optional[int]:
         """The seat whose turn the one before this was
         (`history.previous_turn_owner`): who is told the other player
@@ -563,9 +594,11 @@ class GameService:
         again = ()
         if restarts_tech and tech_stands(game):
             again = tuple(history.tech_again(seat) for seat in history.tech_started_over(match))
+        prompt, prompts = self.questions(game, match)
         result = GameResult(
             narration=(*said, *again),
-            prompt=self.waiting_on(game, match),
+            prompt=prompt,
+            prompts=prompts,
             standing=self.standing(game, match),
             board_changed=True,
             match=match,
@@ -637,6 +670,7 @@ class GameService:
             groups=tuple(groups),
             narration=narration,
             prompt=prompt,
+            prompts=self.waiting_all(game, match) if match.dragons and prompt is not None else (),
             standing=self.standing(game, match),
             board_changed=board_changed,
             match=match,

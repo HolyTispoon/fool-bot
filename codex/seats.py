@@ -12,7 +12,8 @@ A seat is any positive number the match has; nothing here names 1 and 2.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Iterator, Optional
 
 if TYPE_CHECKING:
     from codex.components import MatchState
@@ -63,6 +64,15 @@ def sole_opponent(match: "MatchState", seat: int) -> int:
     return found[0]
 
 
+def rivals(match: "MatchState", seat: int) -> tuple[int, ...]:
+    """The side that wins when `seat`'s side loses a two-sided game: the
+    duel's one opponent, a dragon's other team (a free-for-all has more
+    than two sides and refuses, `sole_opponent`)."""
+    if match.dragons:
+        return opponents(match, seat)
+    return (sole_opponent(match, seat),)
+
+
 def turn_order(match: "MatchState", after: int, *, inclusive: bool = True) -> tuple[int, ...]:
     """Every seat in turn order from `after` -- `after` first, or, not
     `inclusive`, the seat after it first and `after` last. Turn order is
@@ -98,7 +108,7 @@ def next_seat(match: "MatchState") -> int:
     else the seat after in order, wrapping."""
     if match.playoff:
         return match.playoff[0]
-    if match.extra_turns and match.extra_turns[0] in turn_seats(match):
+    if match.extra_turns and match.extra_turns[0] in dragon_of(match, match.active):
         return match.extra_turns[0]
     if match.dragons:
         # The other team's head (Rulebook p. 13).
@@ -106,3 +116,27 @@ def next_seat(match: "MatchState") -> int:
         return theirs[0]
     seats = seat_numbers(match)
     return seats[(seats.index(match.active) + 1) % len(seats)]
+
+
+@contextmanager
+def as_active(match: "MatchState", seat: int) -> Iterator[None]:
+    """
+    Make `seat` the active seat for the length of a reading, and put it
+    back. **In a dragon `match.active` is whichever teammate is acting**
+    (the driver sets it for their action and puts the team's head back
+    between actions), so every reading made on a seat's behalf -- their
+    options, their ask -- is made with that seat active; a duel's and a
+    free-for-all's active seat is the only one there is.
+    """
+    before = match.active
+    match.active = seat
+    try:
+        yield
+    finally:
+        match.active = before
+
+
+def head_of(match: "MatchState") -> int:
+    """The seat the turn rests on between actions: the team's head in a
+    dragon, or the one seat whose extra turn is running."""
+    return turn_seats(match)[0]

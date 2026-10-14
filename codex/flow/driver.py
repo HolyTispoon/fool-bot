@@ -34,6 +34,7 @@ from codex.prompts import (
     PendingPrompt,
     PromptKind,
     pending,
+    pending_all,
     standing_prompts,
     tech_stands,
     with_options,
@@ -398,6 +399,16 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None, seat=N
 
 def _answer_stash(engine, game, match, prompt, choice, *, slug=None) -> StepResult:
     """Stash's card, or none, and the draw it changes (step 13)."""
+    if match.dragons:
+        # Both teammates' draws run together once each has answered
+        # (`codex.flow.turn.draw_phase`).
+        keeping = ""
+        if choice != "none":
+            keeping = _required(slug, "slug")
+            if keeping not in prompt.options.hand:
+                raise RuleRefusal("That card is not in your hand.", cite="bigby_hayes")
+        match.player(prompt.asked_player).stash_choice = keeping
+        return StepResult(next=pending(engine, game, match))
     if choice == "none":
         return turn.draw_phase(engine, game, match, stash="")
     slug = _required(slug, "slug")
@@ -469,6 +480,14 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
 #: may have one open.
 SEATED_KINDS = frozenset({PromptKind.TECH_CHOICE, PromptKind.TECH_CONFIRM})
 
+#: **In a two-headed dragon every action names its seat** (decision 8):
+#: both teammates may have a prompt of one kind open, and the driver
+#: finds the one the action's `player` is asked. The driver fills it in
+#: where it is left out, so a journal always holds it; a duel's and a
+#: free-for-all's journal never does, which is why those are the bytes
+#: they always were.
+ARGUMENTS = {kind: names | {"player"} for kind, names in ARGUMENTS.items()}
+
 
 def _required(value, name: str):
     if value is None:
@@ -476,7 +495,37 @@ def _required(value, name: str):
     return value
 
 
+def _find_team_prompt(engine, game, match, action: Action) -> Union[PendingPrompt, Refusal]:
+    """`_find_prompt` for a two-headed dragon: the team has one prompt
+    per acting seat, and the action's `player` names which it answers
+    (older journals have none and are read as the active seat's)."""
+    from codex import tokens
+
+    owed = pending_all(engine, game, match)
+    if any(isinstance(one, FollowOn) for one in owed):
+        return Refusal(STEP_OWED, waiting_on=None)
+    open_prompts = [*owed, *standing_prompts(engine, match, game)]
+    seat = action.arguments.get("player")
+    found = [one for one in open_prompts if one.kind is action.kind]
+    if seat is not None:
+        found = [one for one in found if one.asked_player == seat]
+    if len(found) > 1:
+        found = [one for one in found if one.asked_player == match.active] or found[:1]
+    if found:
+        return found[0]
+    first = owed[0]
+    if seat is not None and len(owed) == 1 and first.asked_player not in (None, seat) \
+            and first.asked_player in engine.turn_seats(match) and seat in engine.turn_seats(match):
+        what = "attack" if match.attacking is not None or match.combat is not None else "action"
+        return Refusal(
+            f"Waiting on {tokens.player(first.asked_player)}'s {what}.", waiting_on=first,
+        )
+    return Refusal(STALE_CLICK.get(action.kind, MOVED_ON), waiting_on=first)
+
+
 def _find_prompt(engine, game, match, action: Action) -> Union[PendingPrompt, Refusal]:
+    if match.dragons:
+        return _find_team_prompt(engine, game, match, action)
     waiting = pending(engine, game, match)
     if isinstance(waiting, FollowOn):
         return Refusal(STEP_OWED, waiting_on=None)
@@ -538,9 +587,12 @@ def _upgrade_refs(match: MatchState, action: Action) -> Action:
 
 @dataclass(frozen=True)
 class Answered:
-    """What one answer did, before anything that follows it has run."""
+    """What one answer did, before anything that follows it has run.
+    `action` is the action as journalled: in a dragon with the seat that
+    answered named."""
 
     result: StepResult
+    action: Optional[Action] = None
 
 
 def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
@@ -564,13 +616,39 @@ def answer(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             "That answer does not take " + ", ".join(sorted(unexpected)) + ".",
             waiting_on=found,
         )
+    arguments = dict(action.arguments)
+    before = match.active
+    if match.dragons:
+        # Journalled with the seat that answered, and run with that seat
+        # active: every reading below is made on their behalf.
+        if found.asked_player is not None:
+            arguments["player"] = found.asked_player
+            action = Action(action.kind, action.choice, dict(arguments))
+        if found.asked_player in engine.turn_seats(match):
+            match.active = found.asked_player
+    if action.kind not in SEATED_KINDS:
+        arguments.pop("player", None)
     try:
-        result = ANSWERS[action.kind](
-            engine, game, match, found, action.choice, **dict(action.arguments),
-        )
+        result = ANSWERS[action.kind](engine, game, match, found, action.choice, **arguments)
     except RuleRefusal as refused:
+        match.active = before
         return Refusal(str(refused), waiting_on=found, cite=refused.cite)
-    return Answered(result=result)
+    return Answered(result=result, action=action)
+
+
+def settle_active(match: MatchState) -> None:
+    """
+    Between a dragon's actions the active seat is the team's head again:
+    `match.active` is whichever teammate is acting only while that
+    teammate's action stands part-way (an attack, an effect's choice, an
+    upkeep), and the turn is handed over from the head
+    (`codex.seats.next_seat`). A duel's and a free-for-all's is left
+    alone.
+    """
+    from codex.prompts import _half_resolved
+
+    if match.dragons and match.winner is None and not _half_resolved(match):
+        match.active = seats.head_of(match)
 
 
 def apply(
@@ -602,6 +680,8 @@ def apply(
             engine, game, match, answered.result,
             own_message=own_message, draw_after=draw_after,
         )
+        action = answered.action
+        settle_active(match)
     finally:
         engine.replaying = []
     # A cancel is not recorded: it put the journal back to before the

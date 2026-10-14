@@ -191,8 +191,12 @@ def turn_heading(match) -> str:
     never said twice and a restart that lost the turn's lines still has
     it (docs/design/codex.md, "The turn message").
     """
-    seat = match.active
-    return (
-        f"**Turn {match.turn}** -- {tokens.addressed(seat)} "
-        f"({team_name(match.player(seat).specs)})"
+    from codex import seats
+
+    # A two-headed dragon's turn is both teammates' (Rulebook p. 13):
+    # "**Turn 7** -- {to:1} (Blood Anarchs) and {to:2} (Moss Sentinels)".
+    named = " and ".join(
+        f"{tokens.addressed(seat)} ({team_name(match.player(seat).specs)})"
+        for seat in seats.turn_seats(match)
     )
+    return f"**Turn {match.turn}** -- {named}"
