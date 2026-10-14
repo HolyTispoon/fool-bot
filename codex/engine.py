@@ -36,6 +36,8 @@ from codex import effects, keywords, seats
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
 from codex.game import RuleRefusal
 from codex.components import (
+    BASE_HP as _BASE_HP,
+    DRAGON_BASE_HP as _DRAGON_BASE_HP,
     HERO,
     AddOnState,
     hero_ref,
@@ -50,8 +52,10 @@ from codex.components import (
 
 #: Gold is capped (UMR p. 5).
 GOLD_CAP = 20
-#: A base's HP (UMR p. 3).
-BASE_HP = 20
+#: A base's HP (UMR p. 3) and a two-headed dragon team's (Rulebook p. 13),
+#: held by `codex.components`, which the match's `base_cap` reads.
+BASE_HP = _BASE_HP
+DRAGON_BASE_HP = _DRAGON_BASE_HP
 #: The opening hand, and the most a draw ever brings a hand up to
 #: (UMR p. 3, 5).
 HAND_SIZE = 5
@@ -453,13 +457,23 @@ class RulesEngine:
         its deck and five dealt, the codex of every one of its specs,
         twenty-four a spec, a base at 20, and four workers for whoever
         goes first and five for every other -- who goes first drawn at
-        random from every seat unless given. In a free-for-all
+        random from every seat unless given. In a two-headed dragon
+        (`variant`) the four seats are two teams of two, seats 1 and 2 and
+        3 and 4, whose first team is drawn: each of its players starts with
+        four workers and the other team's five, and a team's one base has
+        30 hit points (Rulebook p. 13). In a free-for-all
         (`variant`) the third, fourth and fifth players in turn order
         from the first are owed 1, 2 and 3 Mercenaries, which arrive in
         their first upkeep (Rulebook p. 14).
         """
+        dragons = [[1, 2], [3, 4]] if variant == "two_headed_dragon" else []
         if first is None:
-            first = self.rng.choice(tuple(range(1, len(teams) + 1)))
+            # A dragon draws the first team, and its head goes first.
+            first = self.rng.choice(tuple(pair[0] for pair in dragons) if dragons
+                                    else tuple(range(1, len(teams) + 1)))
+        elif dragons:
+            first = next(pair[0] for pair in dragons if first in pair)
+        going = tuple(next(pair for pair in dragons if first in pair)) if dragons else (first,)
         players = []
         for seat, specs in enumerate(teams, start=1):
             if isinstance(specs, str):
@@ -476,14 +490,17 @@ class RulesEngine:
                 specs=specs,
                 heroes=[HeroState(slug=self.catalog.hero_for(spec).slug) for spec in specs],
                 deck_color=color,
-                workers=STARTING_WORKERS[seat == first],
+                workers=STARTING_WORKERS[seat in going],
                 hand=hand,
                 deck=deck,
                 codex=dict(codex),
             ))
-        match = MatchState(players=players, first=first, active=first, variant=variant)
+        match = MatchState(players=players, first=first, active=first, variant=variant,
+                           dragons=dragons)
         for player in players:
-            match.set_base(player.seat, BASE_HP)
+            # A dragon team's 30 sits on its head's seat, which `base_of`
+            # reads; the second seat's is dealt too and never read.
+            player.base_hp = DRAGON_BASE_HP if dragons else BASE_HP
         if variant == "free_for_all":
             order = seats.turn_order(match, first)
             for place, seat in enumerate(order[2:], start=1):
@@ -1012,7 +1029,7 @@ class RulesEngine:
         """Whether `ref` on `seat`'s side is a building with damage on it."""
         player = match.player(seat)
         if ref == "base":
-            return match.base_of(seat) < BASE_HP
+            return match.base_of(seat) < match.base_cap
         if ref in TECH_BUILDINGS:
             building = player.buildings.get(ref)
             return building is not None and building.hp < self.building_hp(ref)
@@ -1699,9 +1716,21 @@ class RulesEngine:
             why = "the basic game builds the tower and the surplus alone"
         elif player.add_on is not None and player.add_on.slug == building:
             why = "it is already built"
+        elif match is not None and self._teammate_has(match, player, building):
+            # Rulebook p. 13: "a team may never have two of the same add-on".
+            why = "your teammate has built it: a team never holds two of the same add-on"
         elif player.gold < cost:
             why = "not enough gold"
         return BuildOption(building, cost, 0, why, specs, lab_specs)
+
+    def _teammate_has(self, match: MatchState, player: PlayerState, building: str) -> bool:
+        """Whether `player`'s teammate has `building` as their add-on,
+        finished or not."""
+        mate = self.teammate(match, player.seat)
+        if mate is None:
+            return False
+        add_on = match.player(mate).add_on
+        return add_on is not None and add_on.slug == building
 
     @staticmethod
     def _why_not_below(below: str, under) -> str:
@@ -1734,7 +1763,7 @@ class RulesEngine:
         if match.variant != "free_for_all":
             return None
         player = match.active_player
-        if match.base_of(match.active) >= BASE_HP:
+        if match.base_of(match.active) >= match.base_cap:
             return RepairOption(False, why_not="the base is undamaged")
         if player.gold < REPAIR_COST:
             return RepairOption(False, why_not="not enough gold")
@@ -2009,6 +2038,24 @@ class RulesEngine:
         other seat of a duel. A dragon will leave the teammate out."""
         return seats.opponents(match, seat)
 
+    def dragon_of(self, match: MatchState, seat: int) -> tuple[int, ...]:
+        """The seats on `seat`'s team, the head first (`codex.seats`)."""
+        return seats.dragon_of(match, seat)
+
+    def teammate(self, match: MatchState, seat: int) -> Optional[int]:
+        """The seat `seat` shares a base with, or `None` outside a
+        dragon."""
+        return seats.teammate(match, seat)
+
+    def team_sees(self, match: MatchState, seat: int) -> Optional[int]:
+        """
+        **The one reading of what a teammate may see** (Rulebook p. 13,
+        the author, 2026-10-11): the teammate in a two-headed dragon --
+        whose hand, codex and tech choice `seat` sees, ephemerally and
+        read-only, and nothing else of theirs -- and nobody otherwise.
+        """
+        return seats.teammate(match, seat)
+
     def sole_opponent(self, match: MatchState, seat: int) -> int:
         """The one opponent of a duel, refusing a table with several:
         each call is a site the multiplayer modes have to answer
@@ -2016,14 +2063,14 @@ class RulesEngine:
         return seats.sole_opponent(match, seat)
 
     def turn_seats(self, match: MatchState) -> tuple[int, ...]:
-        """The seats whose turn it is: the active seat alone, until a
-        dragon's teammates share one."""
+        """The seats whose turn it is: the active seat alone, and in a
+        dragon both teammates (`codex.seats.turn_seats`)."""
         return seats.turn_seats(match)
 
     def acting_seats(self, match: MatchState) -> tuple[int, ...]:
-        """The seats that may act now: those whose turn it is (and, once
-        a dragon locks a seat in, not that one)."""
-        return self.turn_seats(match)
+        """The seats that may act now: those whose turn it is, less a
+        dragon seat that has locked (`codex.seats.acting_seats`)."""
+        return seats.acting_seats(match)
 
     def next_seat(self, match: MatchState) -> int:
         """Whose turn follows the active one's: the seat owed an extra
@@ -3424,9 +3471,12 @@ class RulesEngine:
         """The seats whose hand `seat` sees (step 13): the opponent's, while
         `seat` controls an Eyes of the Chancellor -- "Opponents play with
         their hands revealed" -- the one standing reveal, and `seat`'s
-        alone to be shown."""
+        alone to be shown. In a dragon the teammate's hand is seen
+        freely (`team_sees`, Rulebook p. 13), beside any reveal."""
+        mate = self.team_sees(match, seat)
+        shown = (mate,) if mate is not None else ()
         if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
-            return self.opponents(match, seat)
+            return (*shown, *self.opponents(match, seat))
         looked = [lasting.get("seat") for lasting in match.player(seat).lasting
                   if lasting.get("kind") == "looked_hand"]
         if looked:
@@ -3434,8 +3484,8 @@ class RulesEngine:
             # the seat it looked at, or a duel's one opponent where an
             # older save did not say.
             foes = self.opponents(match, seat)
-            return tuple(foe for foe in foes if foe in looked or (None in looked and len(foes) == 1))
-        return ()
+            return (*shown, *(foe for foe in foes if foe in looked or (None in looked and len(foes) == 1)))
+        return shown
 
     def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
         """Nullcraft: "Can't be the {target} of Buff or Debuff spells" --
@@ -3918,8 +3968,29 @@ class RulesEngine:
                 top += tallest
         return tuple(places)
 
+    def shown_to(self, match: MatchState, viewer: Optional[int], seat: int) -> None:
+        """
+        Refuse where `viewer` may not see what is `seat`'s alone -- their
+        codex, their tech choice, their deck: `seat` is `viewer`, or the
+        one `team_sees` names (Rulebook p. 13; decision 13). `viewer`
+        `None` is the caller's own say-so, as the readings below have
+        always been. Nothing else of a teammate's is shown.
+        """
+        if viewer is None or viewer == seat or self.team_sees(match, viewer) == seat:
+            return
+        raise RuleRefusal("That is not yours to look at.", cite="Rulebook p. 13")
+
+    def tech_picks_of(self, match: MatchState, viewer: Optional[int], seat: int) -> Optional[list[str]]:
+        """`seat`'s standing tech picks as `viewer` may see them: their
+        own, or a teammate's, read-only (decision 13); refused for anyone
+        else's."""
+        self.shown_to(match, viewer, seat)
+        picks = match.player(seat).tech_choice
+        return None if picks is None else list(picks)
+
     def codex_remaining(self, match: MatchState, seat: int,
-                        view: str = "everything") -> tuple[tuple[str, int], ...]:
+                        view: str = "everything", viewer: Optional[int] = None,
+                        ) -> tuple[tuple[str, int], ...]:
         """
         What `seat`'s codex still holds -- (slug, copies left), every
         card of it, in the data's order, a card with none left at 0 --
@@ -3927,6 +3998,7 @@ class RulesEngine:
         **Its owner's alone**: which cards are still in a codex is fog
         of war (UMR p. 5).
         """
+        self.shown_to(match, viewer, seat)
         player = match.player(seat)
         if view not in self.codex_views(player):
             raise ValueError(f"not a codex view: {view!r}")
@@ -3947,7 +4019,7 @@ class RulesEngine:
             rows.append(self._playable_row(player, slug, why, match))
         return tuple(rows)
 
-    def own_deck(self, match: MatchState, seat: int) -> "OwnDeck":
+    def own_deck(self, match: MatchState, seat: int, viewer: Optional[int] = None) -> "OwnDeck":
         """
         Every card `seat` owns, wherever it is now -- the hand, the draw
         pile, the discard pile, in play on either side, or a spell of
@@ -3965,6 +4037,7 @@ class RulesEngine:
         """
         from codex.flow.resolve import APPEL_TOP  # the flow imports the engine
 
+        self.shown_to(match, viewer, seat)
         player = match.player(seat)
         cards = self.catalog.cards
         in_play = [

@@ -24,7 +24,6 @@ from codex.components import (
     TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref, lent_hero_ref,
 )
 from codex.engine import (
-    BASE_HP,
     BUILDING_DESTROYED_DAMAGE,
     LEVELS_FOR_A_KILL,
     SCAVENGER_GOLD,
@@ -194,7 +193,7 @@ def damage_building(match: MatchState, seat: int, ref: str, amount: int,
 def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> int:
     player = match.player(seat)
     if ref == "base":
-        return BASE_HP
+        return match.base_cap
     if ref == "add_on":
         return engine.building_hp(player.add_on.slug)
     return engine.building_hp(ref)
@@ -235,7 +234,7 @@ def base_left_after(match: MatchState, seat: int, amount: int,
     floor = base_floor(match, seat, by)
     if floor is not None:
         left = max(left, min(match.base_of(seat), floor))
-    return _now_at(left, BASE_HP)
+    return _now_at(left, match.base_cap)
 
 
 def now_at(engine: "RulesEngine", match: MatchState, seat: int, ref: str) -> str:

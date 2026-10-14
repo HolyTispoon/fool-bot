@@ -496,6 +496,8 @@ def construct(engine: "RulesEngine", game: "CodexGame", match: MatchState, build
         page = "UMR p. 8" if building in TECH_BUILDING_SLUGS else "UMR p. 9"
         if option.why_not.startswith("the basic game"):
             page = "UMR p. 3"
+        elif option.why_not.startswith("your teammate"):
+            page = "Rulebook p. 13"
         raise RuleRefusal(
             f"You can't build {_build_label(building)}: {option.why_not}.", cite=page,
         )
