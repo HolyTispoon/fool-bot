@@ -40,6 +40,9 @@ data/webapp.pid
 data/d12ball_web_secret
 *.log
 
+# Godot's own cache, wherever one of its projects is opened (docs/godot/)
+.godot/
+
 # The landing pages, built by scripts/build_landing.py
 landing/dist/
 # ...except the web board capture the d12ball page shows (landing/capture.py)

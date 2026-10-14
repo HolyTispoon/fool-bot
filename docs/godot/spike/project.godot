@@ -1,0 +1,6 @@
+; The spike docs/godot/README.md was measured with. Not the game: step 2
+; of that worksheet builds the project under godot/ and deletes this.
+config_version=5
+
+[application]
+config/name="d12ball-spike"
