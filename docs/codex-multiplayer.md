@@ -805,7 +805,7 @@ step is worth starting.
 | --- | --- | --- | --- |
 | ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
 | ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
-| 3 | Free-for-all's three additions: repair, free gold, lending | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
+| ~~3~~ | ~~Free-for-all's three additions: repair, free gold, lending~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
 | 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
 | 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
@@ -1166,6 +1166,18 @@ at its end.
 ```
 
 ### 3. Free-for-all's three additions: repair, free gold, lending
+
+**Landed** (2026-10-14). What it settled -- the repair as a
+`MAIN_ACTION` option, the free gold read off `board.destroy` (a kill is
+the active player's doing: combat damage, or an effect whose frame they
+control), and lending as a control change with `lent` / `lent_to`, the
+`<owner>:hero:<slug>` slot, `controller_of` and the borrower's upkeep
+return -- is in docs/design/codex.md, "Multiplayer", "Step 3: repair,
+free gold and lending". The prompt below puts the stop as seat 2 lending
+to seat 3 and seat 1 attacking; in a turn order that goes round the
+table a borrower's turn follows the lender's directly only when the
+lender sits just before them, so the test stages seat 3 lending to
+seat 2, seat 1 attacking, and the card coming home at seat 2's upkeep.
 
 The three rules Rulebook p. 14 adds, as options and fields behind
 `match.variant`, in the model. Lending is the only one that changes who

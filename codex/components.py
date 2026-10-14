@@ -42,6 +42,8 @@ __all__ = [
     "TECH_BUILDINGS",
     "hero_ref",
     "is_hero_ref",
+    "lent_hero_ref",
+    "split_lent_ref",
     "read_defending_seat",
     "upgrade_hero_refs",
 ]
@@ -69,10 +71,30 @@ def hero_ref(slug: str) -> str:
     return HERO_PREFIX + slug
 
 
+def lent_hero_ref(owner: int, slug: str) -> str:
+    """How a hero lent to another player's patrol zone is named there --
+    `<owner seat>:hero:<slug>`, the spelling `attached_hero` uses
+    (Rulebook p. 14): the hero stays on its owner's list, so the
+    borrower's slot has to say whose it is."""
+    return f"{owner}:{hero_ref(slug)}"
+
+
+def split_lent_ref(ref: Optional[str]) -> tuple[Optional[int], Optional[str]]:
+    """`(owner, hero ref)` of a `<owner seat>:hero:<slug>` ref; `(None,
+    ref)` for any other."""
+    if isinstance(ref, str):
+        owner, colon, rest = ref.partition(":")
+        if colon and owner.isdigit() and rest.startswith(HERO_PREFIX):
+            return int(owner), rest
+    return None, ref
+
+
 def is_hero_ref(ref: Optional[str]) -> bool:
-    """Whether `ref` names a hero -- `hero:<slug>`, or an older save's
-    bare `hero`."""
-    return ref == HERO or (isinstance(ref, str) and ref.startswith(HERO_PREFIX))
+    """Whether `ref` names a hero -- `hero:<slug>`, an older save's
+    bare `hero`, or a lent hero's `<owner seat>:hero:<slug>`."""
+    if ref == HERO or (isinstance(ref, str) and ref.startswith(HERO_PREFIX)):
+        return True
+    return split_lent_ref(ref)[0] is not None
 
 
 # `SavedField`, one row of a save table, is `gamekit.saved`'s, shared
@@ -164,6 +186,11 @@ class HeroState:
     #: (step 13): Garus Rook's "crumbling" from Two Lives, Grave
     #: Stormborne's "sword". Empty in an older save.
     runes: dict[str, int] = field(default_factory=dict)
+    #: The seat whose patrol zone this hero is lent to (Rulebook p. 14,
+    #: free-for-all): it stays on its owner's list and is controlled by
+    #: the borrower until the borrower's next upkeep. `None` otherwise,
+    #: and in an older save; written only while lent.
+    lent_to: Optional[int] = None
 
     @property
     def in_play(self) -> bool:
@@ -191,6 +218,7 @@ HERO_SAVED_FIELDS = (
     SavedField("disabled", default=False),
     SavedField("trashed", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("runes", factory=dict, write=dict, read=dict),
+    SavedField("lent_to"),
 )
 
 
@@ -291,6 +319,10 @@ class CardInstance:
     #: The seat a kidnapped unit goes back to at the end of the turn --
     #: its last controller (Kidnapping's Card FAQ) -- or `None`.
     returns_to: Optional[int] = None
+    #: Lent to its controller's patrol zone by its owner (Rulebook p. 14,
+    #: free-for-all): it goes home at its controller's next upkeep. False
+    #: otherwise, and in an older save; written only while lent.
+    lent: bool = False
     #: The hero an attaching spell is attached to, as a target names it
     #: ("1:hero:master_midori") -- Final Showdown's. `None` otherwise; a
     #: unit an attaching spell is on is in `attached`.
@@ -375,7 +407,14 @@ INSTANCE_SAVED_FIELDS = (
     SavedField("jailed", write=_copy_optional_dict, read=_copy_optional_dict),
     SavedField("oath"),
     SavedField("number"),
+    SavedField("lent", default=False),
 )
+
+#: Fields of a card and of a hero written only where they differ from
+#: what an older save reads them as (the duel's save is the save it
+#: always was).
+_CARD_WRITTEN_WHEN_SET = {"lent": False}
+_HERO_WRITTEN_WHEN_SET = {"lent_to": None}
 
 
 def _write_buildings(buildings: dict) -> dict:
@@ -406,7 +445,7 @@ def _read_add_on(data: Optional[dict]) -> Optional[AddOnState]:
 
 
 def _write_play(play: list) -> list:
-    return [_save(card, INSTANCE_SAVED_FIELDS) for card in play]
+    return [_unset_dropped(_save(card, INSTANCE_SAVED_FIELDS), _CARD_WRITTEN_WHEN_SET) for card in play]
 
 
 def _read_play(data: list) -> list:
@@ -414,7 +453,7 @@ def _read_play(data: list) -> list:
 
 
 def _write_hero(hero: HeroState) -> dict:
-    return _save(hero, HERO_SAVED_FIELDS)
+    return _unset_dropped(_save(hero, HERO_SAVED_FIELDS), _HERO_WRITTEN_WHEN_SET)
 
 
 def _read_hero(data: dict) -> HeroState:
@@ -538,11 +577,16 @@ class PlayerState:
     #: arrive in their first upkeep (Rulebook p. 14). 0 otherwise, and in
     #: an older save; written only while some are owed.
     mercenaries_owed: int = 0
+    #: The gold this player has earned this turn for killing enemy units
+    #: (Rulebook p. 14, free-for-all): at most 3, cleared when their turn
+    #: begins. 0 otherwise, and in an older save; written only while some
+    #: has been earned.
+    bounties: int = 0
 
     def patroller(self, slot: str) -> Optional[str]:
         """What patrols `slot`: `unit:<id>`, `hero:<slug>`, or `None`."""
-        for hero in self.heroes:
-            if hero.in_play and hero.patrol_slot == slot:
+        for hero in self.heroes_in_play:
+            if hero.patrol_slot == slot:
                 return hero_ref(hero.slug)
         for card in self.play:
             if card.patrol_slot == slot:
@@ -550,7 +594,9 @@ class PlayerState:
         return None
 
     def patrollers(self) -> dict[str, str]:
-        """Slot to what patrols it, for the slots that are filled."""
+        """Slot to what patrols it, for the slots that are filled --
+        **this player's own cards and heroes**: `MatchState.patrollers`
+        is the zone as it stands, with the heroes lent into it."""
         found = {slot: self.patroller(slot) for slot in PATROL_SLOTS}
         return {slot: ref for slot, ref in found.items() if ref is not None}
 
@@ -573,6 +619,15 @@ class PlayerState:
 
     @property
     def heroes_in_play(self) -> list[HeroState]:
+        """The heroes in play that this player controls: one lent to
+        another player's patrol zone is theirs until they get it back
+        (`heroes_on_table` counts it)."""
+        return [hero for hero in self.heroes if hero.in_play and hero.lent_to is None]
+
+    @property
+    def heroes_on_table(self) -> list[HeroState]:
+        """Every hero of this player's in play, lent or not -- what the
+        position's own consequences (a hero at its HP) read."""
         return [hero for hero in self.heroes if hero.in_play]
 
     @property
@@ -639,12 +694,13 @@ PLAYER_SAVED_FIELDS = (
     SavedField("built_this_turn", default=False),
     SavedField("discards_untold", factory=list, write=_copy_dicts, read=_copy_dicts),
     SavedField("mercenaries_owed", default=0),
+    SavedField("bounties", default=0),
 )
 
 #: Fields written only where they differ from what an older save reads
 #: them as, so a duel's save is the save it always was (the golden) and
 #: still reads on a checkout older than the field.
-_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0}
+_PLAYER_WRITTEN_WHEN_SET = {"mercenaries_owed": 0, "bounties": 0}
 
 
 def _write_players(players: list) -> list:
@@ -774,6 +830,39 @@ class MatchState:
                 return found
         return None
 
+    def patrollers(self, seat: int) -> dict[str, str]:
+        """Slot to what patrols it in `seat`'s patrol zone, for the slots
+        that are filled: their own cards and heroes, and the heroes other
+        players have lent into it (`<owner seat>:hero:<slug>`, Rulebook
+        p. 14). A lent unit is simply in their play zone."""
+        found = self.player(seat).patrollers()
+        for owner in self.players:
+            for hero in owner.heroes_on_table:
+                if hero.lent_to == seat and hero.patrol_slot is not None:
+                    found[hero.patrol_slot] = lent_hero_ref(owner.seat, hero.slug)
+        return found
+
+    def hero_on(self, seat: int, ref: Optional[str]) -> Optional[HeroState]:
+        """The hero `ref` names on `seat`'s side: their own (`hero:<slug>`)
+        or, spelled `<owner seat>:hero:<slug>`, one lent to their patrol
+        zone. `None` for anything else."""
+        owner, plain = split_lent_ref(ref)
+        if owner is None:
+            return self.player(seat).hero_by_ref(plain)
+        hero = self.player(owner).hero_by_ref(plain)
+        return hero if hero is not None and hero.lent_to == seat else None
+
+    def controller_of(self, body: Any) -> Optional[int]:
+        """The seat that controls a unit or a hero in play -- the one
+        reading of it: a card's `controller`, a hero's borrower while it
+        is lent and its owner otherwise."""
+        if isinstance(body, CardInstance):
+            return body.controller
+        for player in self.players:
+            if any(hero is body for hero in player.heroes):
+                return body.lent_to if body.lent_to is not None else player.seat
+        return None
+
     def instances(self) -> Iterator[CardInstance]:
         for player in self.players:
             yield from player.play
@@ -870,6 +959,13 @@ class MatchState:
         if ids and max(ids) >= self.next_instance_id:
             fail("next_instance_id would reuse an id")
 
+        # A hero lent to another player's patrol zone holds a slot there.
+        lent_slots: dict[int, list] = {}
+        for player in self.players:
+            for hero in player.heroes:
+                if hero.lent_to is not None and hero.patrol_slot is not None:
+                    lent_slots.setdefault(hero.lent_to, []).append(hero.patrol_slot)
+
         for player in self.players:
             where = f"seat {player.seat}"
             if self.base_of(player.seat) < 0:
@@ -894,7 +990,7 @@ class MatchState:
                 known(slug, f"{where}'s tech choice")
             for slug in player.teched or ():
                 known(slug, f"{where}'s tech")
-            slots = []
+            slots = list(lent_slots.get(player.seat, ()))
             for hero in player.heroes:
                 for name in ("level", "damage", "summoning_runes", "armor", "plus_runes", "minus_runes",
                              "time_runes"):
@@ -902,7 +998,12 @@ class MatchState:
                         fail(f"{where}'s hero has {name} below zero")
                 if hero.zone not in ("command", "play"):
                     fail(f"{where}'s hero is in {hero.zone!r}")
-                if hero.patrol_slot is not None:
+                if hero.lent_to is not None:
+                    if not hero.in_play or hero.patrol_slot is None:
+                        fail(f"{where}'s hero is lent but not patrolling")
+                    if hero.lent_to == player.seat or not 1 <= hero.lent_to <= len(self.players):
+                        fail(f"{where}'s hero is lent to seat {hero.lent_to}")
+                elif hero.patrol_slot is not None:
                     if not hero.in_play:
                         fail(f"{where}'s hero patrols from the command zone")
                     slots.append(hero.patrol_slot)
@@ -921,6 +1022,8 @@ class MatchState:
                         fail(f"card {card.id} has {name} below zero")
                 if card.controller != player.seat:
                     fail(f"card {card.id} is in seat {player.seat}'s play but not theirs")
+                if card.lent and card.owner == card.controller:
+                    fail(f"card {card.id} is lent to its own owner")
                 if card.patrol_slot is not None:
                     slots.append(card.patrol_slot)
             for slot in slots:

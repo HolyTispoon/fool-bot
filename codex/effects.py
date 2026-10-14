@@ -1786,6 +1786,14 @@ UNIT_GRANTS.update({
     "skeletal_lord": "skeletons",
     "skeletal_archery": "skeleton_archery",
 })
+#: The effects whose text has the active player do what they do, whoever
+#: controls the card: a unit they destroy is the active player's kill
+#: (a free-for-all's free gold, Rulebook p. 14; the author, 2026-10-14,
+#: question 19) -- Blackhand Dozer's "Active player destroys one of your
+#: lowest tech units" and Orpal Gloor's "the active player puts a -1/-1
+#: rune on two units".
+ACTIVE_PLAYER_ACTS = frozenset({"blackhand_dozer", "orpal_gloor_max"})
+
 #: Orpal at 6, once a turn: the first unit with a -1/-1 rune to die.
 ORPAL_MAX = ("orpal_gloor", 6)
 #: Metamorphosis's grants to a hero, until it leaves play.

@@ -3468,6 +3468,97 @@ field the step added is written to a save only where it is set.
   game two of one hero hidden at once are one candidate; the lobby and
   every Discord surface of a table of several are step 4's.
 
+### Step 3: repair, free gold and lending
+
+The free-for-all's three additions (Rulebook p. 14), all behind
+`match.variant == "free_for_all"`. A duel's save is the save it always
+was: every field the step added is written only where it is set, and
+`tests/test_codex_golden.py` passes unrecorded for the duel. The
+free-for-all's own golden was re-recorded once, because the free gold
+adds a line and changes the gold the policy plays on.
+
+- **Repair is a `MAIN_ACTION` option, `repair_base`.** `RepairOption`
+  (cost 3, `allowed`, `why_not`) is on `MainActionOptions.repair`, which
+  is `None` -- and absent from the wire -- on a match that is not a
+  free-for-all; the action goes through `base_of` / `set_base`, as often
+  a turn as the gold goes, and is journaled like every other action. It
+  is refused at 20 ("the base is undamaged"), under 3 gold, and in a
+  duel (Rulebook p. 14).
+- **Free gold is read where a unit is destroyed, from who did it.**
+  `board.destroy` already carried `cause`, the seat whose effect led to
+  the destruction, and `combat`, whether combat damage did it.
+  `board._is_a_kill` is the one reading of "whenever *you* kill": the
+  killer is the active seat when combat did it and `cause` otherwise,
+  and it is a kill when the killer is the active seat and the card is
+  controlled **at that moment** by one of its opponents (a card lent to
+  an opponent is theirs). The gold is 1, to `BOUNTIES_A_TURN` (3), from
+  `PlayerState.bounties` (saved, 0, written only while set, cleared in
+  the ready phase), the gold cap respected, and said at the end of the
+  destroy line ("... {player:1} collects {gold:1}."). A hero or a
+  building never pays: `_is_a_kill` is asked of units only. Anything the
+  state of the table kills (`settle` with no cause) or an effect set off
+  by its own controller (`cause` is theirs) is nobody's kill, which is
+  the author's answer to question 19. Two cards say "the active player"
+  does it, whoever controls the card -- Blackhand Dozer and Orpal
+  Gloor's max level -- so `effects.ACTIVE_PLAYER_ACTS` names them and
+  `resolve.cause_of` gives the frame's cause as the active seat for
+  those; the Dozer and the unit it takes both pay. `cause` was only ever
+  read for a hero's kill levels, and neither card destroys a hero, so
+  nothing else moves. Obliterate's kills, which pass no combat flag,
+  carry the attacker's seat as their `cause`.
+- **Lending is a control change.** `PatrolOptions.zones` lists each
+  opponent's empty slots as `(seat, slots)` (`RulesEngine.lending_zones`,
+  a free-for-all's alone, on the wire only where there are some), and
+  the patrol answer takes `lent`, `{seat: {slot: ref}}`, beside the
+  `assignment` that is the owner's own zone: the same slot name can be
+  the owner's and a borrower's, so one slot-to-card map cannot say both,
+  and an older journal and the duel read as before. `board.lend` moves a
+  unit out of its owner's play zone into the borrower's, `controller`
+  the borrower and `CardInstance.lent` true (saved, false, written only
+  while set) -- nothing else on the card changes, no Arrives trigger
+  fires. A hero stays on its owner's list with `HeroState.lent_to` (saved,
+  `None`, written only while set) and the slot, and the borrower's zone
+  names it `<owner seat>:hero:<slug>` (`lent_hero_ref`), the spelling
+  `attached_hero` uses, because two players can field the same hero.
+- **A lent hero is read through the one controller reading.**
+  `MatchState.controller_of` (the engine's `seat_of` is its door) is the
+  borrower while it is lent and the owner otherwise; `PlayerState.
+  heroes_in_play` is the heroes the player *controls*, so a lent hero is
+  not its owner's to attack, patrol or level, and `heroes_on_table` is
+  every one in play, which is what `settle` reads for a hero at its HP.
+  `MatchState.patrollers(seat)` is a zone as it stands, with the heroes
+  lent into it, and replaces `PlayerState.patrollers()` at every site
+  that asked a defending seat; `MatchState.hero_on(seat, ref)` and
+  `board.body_of` resolve either spelling, so a lent hero is a defender,
+  a target and a fighter on its borrower's side.
+- **It comes home at the borrower's upkeep.** `board.return_lent` runs
+  first in the upkeep: every card the borrower controls with `lent` set
+  and every hero lent to them goes back -- out of the zone, `controller`
+  its owner's, into the owner's play zone and never their patrol zone,
+  no Arrives trigger, nothing else changed. It readies nothing because
+  the borrower's ready phase, which comes first, already did, as a card
+  they control (the ready phase reaches a lent hero through `lent_to`
+  for the same reason). A turn order that goes round the table brings
+  every other seat's turn between a lock and the owner's next turn, so
+  a card is home before its owner needs it.
+- **A lent card that dies pays its owner.** The scavenger's gold and the
+  technician's card go to `card.owner` for a `lent` card; it leaves play
+  to its owner's discard pile as every card does; a lent hero is named
+  on its borrower's side, goes to its owner's command zone with its two
+  summoning runes, and its two levels go to a hero of an opponent of its
+  **controller**, the active player choosing, as for any hero (question
+  18).
+- **Taking the end of a turn back takes the lending back.** The undo
+  replays to the last point before the lock, so nothing lent is
+  replayed; the lock is journaled only where a choice is asked before
+  the next turn begins, and a journal that holds it replays it.
+- **Not yet**: the Discord panel offers neither the repair nor the
+  lending (step 4); a lent hero is still drawn on its owner's panel, in
+  the owner's slot; and an effect that names "your heroes" does not see
+  a hero lent to its controller, since `heroes_in_play` is the owner's
+  reading -- units, which sit in the borrower's play zone, are seen by
+  every effect.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:

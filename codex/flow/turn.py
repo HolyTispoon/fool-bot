@@ -265,10 +265,22 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         card.arrived_this_turn = False
         card.patrol_slot = None
     for hero in player.heroes:
+        if hero.lent_to is not None:
+            # Still lent out (an extra turn right after the lock): not
+            # theirs to ready until it comes home.
+            continue
         hero.exhausted = _stays_exhausted(engine, match, hero)
         hero.arrived_this_turn = False
         hero.patrol_slot = None
+    for side in match.players:
+        for hero in side.heroes:
+            if hero.lent_to == seat:
+                # Lent to this player: readied as one they control, and
+                # sent home in the upkeep (`board.return_lent`).
+                hero.exhausted = _stays_exhausted(engine, match, hero)
+                hero.arrived_this_turn = False
     player.hired_this_turn = False
+    player.bounties = 0
     player.spells_played = 0
     player.arrived_from_hand = False
     # Censorship Council's and Building Inspector's counts (step 13).
@@ -310,6 +322,9 @@ def begin_turn(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
     # Upkeep.
     match.enter_phase("upkeep")
+    from codex.flow import board
+
+    board.return_lent(engine, match, seat, result)
     _until_upkeep_ends(engine, match, seat, result)
     produced = player.workers
     caps = [limit for side in match.players for card in side.play
