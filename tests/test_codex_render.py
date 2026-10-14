@@ -108,6 +108,22 @@ class RenderTests(unittest.TestCase):
             self.assertEqual(board.getpixel(lower_rule)[:3],
                              render.TURN_COLORS["neutral"][0])
 
+    def test_a_table_of_three_stacks_every_panel_upright(self) -> None:
+        """A free-for-all's board (docs/codex-multiplayer.md, decision 14):
+        three panels, the active player's at the bottom under the divider,
+        the other two above it upright -- nothing turned."""
+        match = self.engine.new_match(("bashing", "finesse", "bashing"), first=1,
+                                      variant="free_for_all")
+        match.active = 2
+        board = render.compose_board(match, "stacked", {1: "a", 2: "b", 3: "c"}, self.engine.catalog)
+        panel = self.panel_height(1)
+        self.assertEqual(board.height, 3 * panel + render.TABLE_GAP + render.DIVIDER_HEIGHT)
+        lower_rule = (render.PADDING + 5, board.height - render.PADDING - render.NAMEPLATE_HEIGHT + 1)
+        self.assertEqual(board.getpixel(lower_rule)[:3], render.TURN_COLORS["neutral"][0])
+        # Upright: the top panel's nameplate is at its foot, not its head.
+        upper_rule = (render.PADDING + 5, panel - render.PADDING - render.NAMEPLATE_HEIGHT + 1)
+        self.assertEqual(board.getpixel(upper_rule)[:3], render.RULE)
+
     def test_the_far_panel_is_turned_round(self) -> None:
         """A turned panel's body is the upright one's rotated whole; its
         nameplate moves to the outer edge, above, the right way up."""

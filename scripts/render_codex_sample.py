@@ -288,6 +288,54 @@ def staged_white_blue(engine: RulesEngine) -> MatchState:
     return match
 
 
+#: A free-for-all's table (docs/codex-multiplayer.md, step 2 and
+#: question 2): five seats' heroes and what each has in play.
+FFA_SPECS = ("bashing", "finesse", "fire", "growth", "law")
+FFA_NAMES = {1: "perrytom", 2: "ann", 3: "bo", 4: "cy", 5: "dee"}
+
+
+def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
+    """A free-for-all of `count` in its fourth round: every seat with
+    something in play, the Mercenaries of the third and later players
+    arrived, bases at different HP -- seat 1's turn."""
+    match = engine.new_match(FFA_SPECS[:count], first=1, variant="free_for_all")
+    match.turn, match.phase = 4 * count + 1, "main"
+
+    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.damage = patrol, damage
+        card.exhausted, card.arrived_this_turn = exhausted, arrived
+        card.armor = 1 if patrol == "squad_leader" else 0
+        return card
+
+    bases = (16, 11, 18, 14, 20)
+    for player in match.players:
+        seat = player.seat
+        match.set_base(seat, bases[seat - 1])
+        player.gold, player.workers = 2 + seat, 6 + seat % 3
+        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+        for number in range(player.mercenaries_owed):
+            put(seat, "mercenary", patrol="elite" if seat % 2 and not number else None)
+        player.mercenaries_owed = 0
+    one = match.player(1)
+    one.hero.zone, one.hero.level = "play", 4
+    one.add_on = AddOnState("tower", 4, under_construction=False)
+    put(1, "iron_man", exhausted=True, damage=2)
+    put(1, "older_brother", arrived=True)
+    put(2, "nimble_fencer", patrol="squad_leader")
+    put(2, "tenderfoot", patrol="lookout")
+    match.player(2).hero.zone = "play"
+    put(3, "older_brother", patrol="squad_leader")
+    put(3, "brick_thief")
+    if count >= 4:
+        put(4, "tiger_cub", patrol="squad_leader")
+        match.player(4).hero.zone = "play"
+    if count >= 5:
+        put(5, "iron_man", patrol="squad_leader", damage=1)
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -375,6 +423,14 @@ def main() -> None:
     # Step 13: white against blue -- a Jail's prisoner, Reputable
     # Newsman's number, Oathkeeper's oath, a copy, crumbling and sword runes.
     render_all(engine, staged_white_blue(engine), names, args.out, "white-blue")
+
+    # Multiplayer: a free-for-all of three and of five, stacked only
+    # (docs/codex-multiplayer.md, decision 14 -- question 2's pictures).
+    for count in (3, 5):
+        table = staged_free_for_all(engine, count)
+        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}", ("stacked",))
+        table.active = 2
+        render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}-seat-2", ("stacked",))
 
     # The standard game: three heroes a side, a codex of seventy-two.
     standard = staged_standard(engine)

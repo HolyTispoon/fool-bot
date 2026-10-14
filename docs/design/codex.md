@@ -3402,13 +3402,14 @@ field the step added is written to a save only where it is set.
   keeps the whole list, since the playoff empties as it is played and
   the comparison after it is among the tied alone (the author,
   2026-10-14, question 16). The current turn runs to its end first (the
-  UMR's reading, question 13, still open) and changes nothing about who
-  is tied (question 15). `next_seat` hands the playoff out ahead of the
+  UMR's reading, which the author confirmed on 2026-10-14 -- the UMR is
+  the source wherever the rulebook and the rulings are silent, question
+  13) and changes nothing about who is tied (question 15). `next_seat` hands the playoff out ahead of the
   order and of any extra turn; `begin_tech` pops it, and when it has
   emptied makes the comparison again -- a winner, or the playoff filled
   again ("Still tied"). While anyone is tied, only a tied player's base
-  falling counts, and it ends the playoff's comparison at that moment
-  (see the PR's question on this). A debt unpaid is a base destroyed
+  falling counts, and the game ends at that moment on the comparison
+  among the tied (the author, 2026-10-14, question 20). A debt unpaid is a base destroyed
   (question 17): the base to zero, the comparison then, and no
   `lost_by_debt`. A destroyed base is no longer a defender (`_standing`
   leaves a base at 0 out): only a playoff goes on past one, and the whole
@@ -3446,10 +3447,16 @@ field the step added is written to a save only where it is set.
 - **A kill's levels name the seat.** `LevelGainOptions.seats` is each
   hero's seat (written where there are several), and the answer may name
   `seat`, so a mirror game's two of one hero are told apart.
+- **The board of a table of several is stacked, as decision 14
+  proposes** (`render._compose_table`): the active player's panel at the
+  bottom under the turn's divider, every other seat above it upright in
+  turn order, the next to play nearest, a quiet rule between them.
+  `scripts/render_codex_sample.py` draws a three- and a five-player
+  table (`ffa-3`, `ffa-5`, and each from seat 2). The author looks at it
+  before step 4 (worksheet question 2).
 - **Not yet**: the tower's own-turn detection names a ref, so in a mirror
-  game two of one hero hidden at once are one candidate; the board
-  picture, the lobby and every Discord surface of a table of several are
-  step 4's (`codex/render.py` still asks `sole_opponent`).
+  game two of one hero hidden at once are one candidate; the lobby and
+  every Discord surface of a table of several are step 4's.
 
 ## Running it
 

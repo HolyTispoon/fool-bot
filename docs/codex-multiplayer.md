@@ -34,7 +34,11 @@ already holds. The Unofficial Manual Rewrite v1.3
 wrong: it is cited below only where it adds a detail the official text
 lacks, each such detail marked as the UMR's, and "Where the UMR differs
 from the rulebook" lists every place the two were found to disagree on
-these modes, with the rulebook's reading taken.
+these modes, with the rulebook's reading taken. **Where the rulebook and
+the database's rulings are silent, the UMR is the source to look at**
+(the author, 2026-10-14, answering question 13: "UMR is correct and
+should be looked at in cases the rulebook or the database didn't
+answer").
 
 ## What was found, and what it settles
 
@@ -66,13 +70,15 @@ and 19):
   wins. A tie for the most: the tied players each take one more turn
   "and see if the tie is broken", repeated while the tie holds. The UMR
   adds that the current player's turn finishes first (UMR p. 12), which
-  the rulebook neither says nor denies; built the UMR's way (question
-  13). The tied players are those tied when the base falls -- "at that
+  the rulebook neither says nor denies; the UMR's way (the author,
+  2026-10-14, question 13). The tied players are those tied when the base falls -- "at that
   moment" -- whatever the rest of the current turn does to their bases
   (the author, 2026-10-14, question 15); and the comparison after their
   extra turns is among them alone, so a player outside the tie never
   wins it, however the tied players have hurt each other (the author,
-  2026-10-14, question 16).
+  2026-10-14, question 16). A tied player's base destroyed during the
+  playoff ends the game at that moment, on the comparison among the
+  tied (the author, 2026-10-14, question 20).
 - **Losing by debt** (Promise of Payment: "Pay its gold cost during your
   next upkeep or lose the game"). The bot ends a duel there today
   (`MatchState.lost_by_debt`). The rulebook says nothing of it in
@@ -103,11 +109,9 @@ and 19):
   before their upkeep, has already readied it as a card they control.
 - **A lent hero that dies.** It dies controlled by the borrower and
   owned by the lender, and p. 11's "opposing hero" does not say which
-  it opposes. The rulebook names the owner's exceptions for a lent card
-  -- the discard pile, the scavenger's and technician's bonuses -- and
-  the levels are not among them, which reads as the controller: the
-  levels go to a hero of an opponent of the borrower, the lender's
-  included (question 18).
+  it opposes. **Only whoever killed it gets the levels** (the author,
+  2026-10-14, question 18): a hero of the player who killed it, not any
+  opponent of its owner or of its controller.
 - **A destroyed hero** (p. 11). Whenever a hero dies, one in-play hero
   *opposing* it levels up twice, **the active player choosing which**
   when there are several, and only one that can still level. With
@@ -235,7 +239,7 @@ step reading the UMR is not misled.
 4. **The playoff's current turn** (UMR p. 12: finish the current
    player's turn, then the tied players' turns). The rulebook (p. 14) is
    silent on whether the current turn finishes; the UMR's reading is
-   built, flagged as question 13.
+   built, and the author confirmed it (2026-10-14, question 13).
 5. **One action at a time** in a dragon (UMR p. 12). The rulebook
    (p. 13) says the teammates act simultaneously and no more; the bot
    serialises in any case.
@@ -422,12 +426,13 @@ the author has already settled say so, with the date.
    there, as a duel's does; when the lead is tied, `playoff` is filled
    **at that moment** with the tied seats (question 15), in turn order
    from the next, and the current turn runs to its end (the UMR's
-   reading, question 13) without changing who is in it. `next_seat`
+   reading, question 13, confirmed) without changing who is in it. `next_seat`
    reads it ahead of the normal order, and when it empties the
    comparison is made again **among the playoff's seats alone**
    (question 16) -- a winner, or the list filled again with those still
    tied. A base destroyed during a playoff counts only if it is a tied
-   player's, at zero in that comparison. A seat that loses by debt in a
+   player's, and then ends the game at that moment on the comparison
+   among the tied (question 20). A seat that loses by debt in a
    free-for-all is exactly a seat whose base was just destroyed: its
    base goes to zero and the comparison is made then (question 17).
    All three answered by the author on 2026-10-14. `winner` stays one
@@ -476,8 +481,8 @@ the author has already settled say so, with the date.
    (saved, `None`); the hero stays on its owner's list and
    `controller_of` reads the field; a lent hero that dies goes to its
    owner's command zone with its summoning runes, and its levels go to
-   an opponent of its controller when it died, the borrower (question
-   18; decision 11).
+   a hero of **the player who killed it**, and only theirs (the author,
+   2026-10-14, question 18).
 
 8. **The dragon's two seats are two pending prompts.** `pending` stays
    the one reading of what a seat waits on, and grows a `seat` argument;
@@ -541,8 +546,8 @@ the author has already settled say so, with the date.
     the attack's defending seat, the chosen target's seat -- and
     `_against(top)` no longer has a default to fall back on. A dead
     hero's two levels go to an in-play hero of any opponent of its
-    controller when it died -- its owner, but for a lent hero (question
-    18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
+    controller when it died -- for a lent hero, only the player who
+    killed it (question 18) -- the active player choosing through `LEVEL_GAIN` (p. 11) -- in
     a duel the same heroes as today, in a free-for-all any opponent's,
     in a dragon either of the other team's.
 
@@ -672,7 +677,8 @@ Each step's PR carries a `## Questions to the author` section; these
 are the ones known before any step starts. A step whose prompt needs the
 answer says what it builds until it has one. Those struck were answered
 on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
-15, 16, 17 and 19 answered on 2026-10-14.
+13 and 15 to 19 answered on 2026-10-14; 20 to 23 were raised by step
+2's PR (#579), and 20 and 21 answered on 2026-10-14.
 
 1. ~~**What is a two-player team called in the code and in the
    narration?** Built as `dragon` in the code and "team" in what the
@@ -710,9 +716,12 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
 12. ~~**Does the undo to the start of the previous turn keep the
     opponents' consent?** Built as the duel has it.~~ Answered: keep
     the consent of a previous turn as in the duel. Decision 15.
-13. **In a tied free-for-all ending, does the current player's turn
+13. ~~**In a tied free-for-all ending, does the current player's turn
     finish before the tied players' extra turns?** The rulebook (p. 14)
-    does not say; the UMR (p. 12) says it does. Built as the UMR says.
+    does not say; the UMR (p. 12) says it does. Built as the UMR says.~~
+    Answered (2026-10-14): the UMR is correct -- and the UMR is the
+    source to look at wherever the rulebook and the database are silent
+    ("The sources, in order").
 14. ~~**Does a teammate also see the other's tech choice and codex?**
     Built as the hand alone.~~ Answered: a teammate should be able to
     see the codex and the tech choice. Decision 13.
@@ -728,14 +737,10 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
     (2026-10-14): in a free-for-all, exactly as if the debtor's base had
     just been destroyed; in a dragon, the debtor's team loses. Decisions
     5 and 9.
-18. **A lent hero dies: whose opponents' heroes may take its two
+18. ~~**A lent hero dies: whose opponents' heroes may take its two
     levels -- its owner's (the lender) or its controller's (the
-    borrower)?** p. 11 says "opposing hero"; the rulebook lists the
-    owner's exceptions for a lent card (the discard pile, the
-    scavenger's and technician's bonuses) and the levels are not among
-    them. Built as the controller's, so the lender's own hero may take
-    them and the borrower's may not. The author is checking
-    (2026-10-14) and said to build it this way meanwhile.
+    borrower)?**~~ Answered (2026-10-14): only whoever killed the hero
+    gets the levels. Step 3 builds it with lending.
 19. ~~**Is free gold paid for every enemy unit that dies on your turn,
     or only those you kill?**~~ Answered (2026-10-14): only those you
     kill -- your attack's combat damage or an effect you control. The
@@ -743,6 +748,19 @@ on 2026-10-11; 15 to 19 were added by the review of 2026-10-13, and
     effect that can destroy an enemy unit on the active player's turn
     without being theirs (a trigger or an ongoing effect of the unit's
     own controller, a -1/-1 rune's), with the reading each got.
+20. ~~**During a playoff, does a tied player's base falling end the game
+    at that moment, or count as 0 only once the playoff's turns are
+    over?**~~ Answered (2026-10-14): at that moment. Decision 5.
+21. ~~**Martial Mastery's "look at the opponent's hand": at a table of
+    several, is it "an opponent", chosen?**~~ Answered (2026-10-14):
+    yes.
+22. **Is a destroyed base still something to attack?** Only a playoff
+    ever goes on past one. Built as no: a base at 0 is not a defender
+    (`engine._standing`), since otherwise tied players could "attack" a
+    fallen base forever.
+23. **"{player:4}'s two Mercenaries arrive."** -- the plural line names
+    the token in plain words where the single one is "{player:3}'s
+    {card:mercenary} arrives.". The prompt's wording, built as written.
 
 ## The steps
 
@@ -829,7 +847,9 @@ General group's overpower and tower rulings, Captured Bugblatter's,
 Drakk Ramhorn's, Ironbark Treant's and Moment's Peace's. The Unofficial
 Manual Rewrite (docs/codex/Codex_UMR_v13w.pdf, UMR p. 11-12 for the
 modes) is useful and sometimes wrong: where it and the rulebook differ,
-the rulebook governs, and the worksheet lists the differences found.
+the rulebook governs, and the worksheet lists the differences found;
+where the rulebook and the rulings are silent, the UMR is the source to
+look at (the author, 2026-10-14).
 Cite the rulebook's page in a refusal and a docstring, the UMR's only
 for a detail the rulebook lacks, saying so.
 
@@ -1180,8 +1200,8 @@ gold; lending.
    that it does). The scavenger's gold and the technician's card pay the
    owner; a lent card destroyed leaves play to its owner as every card
    does (a hero to its command zone with its summoning runes); the
-   kill's levels go to a hero of an opponent of the borrower, the
-   lender's included (decisions 7 and 11, question 18); an effect on the
+   kill's levels go to a hero of the player who killed it, and only
+   theirs (the author, 2026-10-14, question 18; decision 7); an effect on the
    borrower's "your units" reaches a lent card and the lender's does
    not. What the patrol bonuses do on a lent card (the squad leader's
    armor, the elite's ATK) is the borrower's zone's, as any patroller's.
