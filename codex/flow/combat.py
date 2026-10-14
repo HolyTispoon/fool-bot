@@ -157,27 +157,28 @@ def _destroy(engine: "RulesEngine", match: MatchState, fighters: list[_Fighter],
 
 
 def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
-                   attacker: str, defender: str) -> StepResult:
+                   attacker: str, defender: str, against: Optional[int] = None) -> StepResult:
     """
-    `attacker` takes `defender`, one of `engine.legal_defenders` -- then
-    the attack works through its stages, asking only what it has to
-    (`carry_on`).
+    `attacker` takes `defender`, one of `engine.legal_defenders` of the
+    seat `against` -- the attacker's one opponent where it is not named
+    -- then the attack works through its stages, asking only what it has
+    to (`carry_on`).
     """
     seat = match.active
-    other = 2 if seat == 1 else 1
+    other = engine.defending_seat(match, against)
     state = match.combat
     if state is None and attacker not in engine.attackers(match):
         raise RuleRefusal("That attacker can no longer attack.", cite="UMR p. 10")
     if state is not None and state["stage"] != DEFENDER:
         raise RuleRefusal("That is not what this attack is waiting on.")
-    if defender not in engine.legal_defenders(match, attacker):
+    if defender not in engine.legal_defenders(match, attacker, against=other):
         raise RuleRefusal(
             "That can't be attacked now: the squad leader first, then any "
             "patroller, then anything else.",
             cite="UMR p. 10",
         )
     result = StepResult(board_changed=True)
-    toll = engine.attack_toll(match, defender)
+    toll = engine.attack_toll(match, defender, against=other)
     if toll:
         # Morningstar Pass, Setsuki Hiruki: "opponents must pay {gold:1}
         # each time they would attack" (step 13).
@@ -188,6 +189,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if state is None:
         match.combat = {
             "attacker": attacker,
+            "against": other,
             "defender": defender,
             "stage": OBLITERATE,
             "obliterate": engine.obliterate_count(match, attacker),
@@ -197,6 +199,7 @@ def declare_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             "triggered": False,
         }
         match.attacking = attacker
+        match.against = other
         hitting = _fighter(match, seat, attacker)
         taking = _fighter(match, other, defender)
         result.narration.append(f"{hitting.named(whose=False)} attacks {taking.named()}.")
@@ -233,7 +236,7 @@ def _voidblocker(engine: "RulesEngine", match: MatchState, seat: int, attacker: 
     chooses which, and with none to exhaust the attack goes on: it is no
     cost to attack (its ruling, the Card FAQ).
     """
-    other = 2 if seat == 1 else 1
+    other = engine.defending_seat(match)
     body = board.body_of(match, other, defender)
     if not isinstance(body, CardInstance) or engine.text_slug(body) not in effects.VOIDBLOCKERS:
         return
@@ -300,7 +303,7 @@ def _in_combat(match: MatchState, stage: str) -> dict:
 
 def _obliterate_one(engine: "RulesEngine", match: MatchState, unit: str,
                     state: dict, result: StepResult) -> None:
-    other = 2 if match.active == 1 else 1
+    other = engine.defending_seat(match)
     _destroy(engine, match, [_fighter(match, other, unit)], result)
     state["obliterated"].append(unit)
     state["obliterate"] -= 1
@@ -315,7 +318,6 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     keywords").
     """
     seat = match.active
-    other = 2 if seat == 1 else 1
     while True:
         if match.resolving:
             # A death on the way -- obliterate's -- set something off:
@@ -326,6 +328,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             if match.winner is not None:
                 match.combat = None
                 match.attacking = None
+                match.against = None
                 result.next = pending(engine, game, match)
                 return result
         state = match.combat
@@ -373,6 +376,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
             if match.winner is not None:
                 match.combat = None
                 match.attacking = None
+                match.against = None
                 result.next = pending(engine, game, match)
                 return result
             if not board.still_there(match, seat, state["attacker"]):
@@ -380,6 +384,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                 # trigger destroyed deals nothing.
                 match.combat = None
                 match.attacking = None
+                match.against = None
                 result.next = pending(engine, game, match)
                 return result
             state["stage"] = DEFENDER if _defender_is_gone(match, state) else SPARKSHOT
@@ -411,7 +416,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
 
 def _obliterate_line(engine: "RulesEngine", match: MatchState, state: dict) -> str:
     seat = match.active
-    other = 2 if seat == 1 else 1
+    other = engine.defending_seat(match)
     hitting = _fighter(match, seat, state["attacker"])
     count = state["obliterate"]
     return (
@@ -423,7 +428,7 @@ def _obliterate_line(engine: "RulesEngine", match: MatchState, state: dict) -> s
 def _defender_is_gone(match: MatchState, state: dict) -> bool:
     """Whether what the attack named is no longer there to be attacked --
     obliterate, or an attacks trigger, having destroyed it."""
-    other = 2 if match.active == 1 else 1
+    other = state["against"]
     return (
         state["defender"] in state["obliterated"]
         or not board.still_there(match, other, state["defender"])
@@ -476,7 +481,7 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     """
     state = match.combat
     seat = match.active
-    other = 2 if seat == 1 else 1
+    other = engine.defending_seat(match)
     attacker, defender = state["attacker"], state["defender"]
     hitting = _fighter(match, seat, attacker)
     taking = _fighter(match, other, defender)
@@ -682,6 +687,8 @@ def _resolve(engine: "RulesEngine", game: "CodexGame", match: MatchState,
                                               source=attacker, origin=card.slug))
 
     match.attacking = None
+
+    match.against = None
     match.combat = None
     return resolve.carry_on(engine, game, match, result)
 
@@ -723,7 +730,7 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
         return
     slug = engine.text_slug(hitting.card)
     seat = hitting.seat
-    other = 2 if seat == 1 else 1
+    other = engine.defending_seat(match)
     on_buildings = [hit for hit in hits if hit.source is hitting and not hit.skipped and hit.amount > 0
                     and (hit.target.is_building or hit.target.ref in standing)]
     if slug in effects.SPIES and on_buildings:

@@ -37,7 +37,7 @@ class LobbyMixin:
         and deck, and what Start waits on. The catalog names the heroes."""
         cards = catalog()
         rows = []
-        for seat in (1, 2):
+        for seat in range(1, game.seat_count + 1):
             name = game.seat_name(seat)
             if name is None:
                 rows.append(f"**Player {seat}**: *open*")

@@ -745,7 +745,7 @@ class TurnPanelView(PanelView):
     def build_detect(self, options) -> None:
         """What the tower may detect, a button each as the engine offers
         it (UMR p. 9), and **Back**."""
-        other = 2 if self.seat == 1 else 1
+        other = self.cog.engine.sole_opponent(self.match, self.seat)
         candidates = self.choices(
             options.detect.candidates, lambda ref: self.label(ref, other), self.detect,
             "detect", "Nothing of theirs is hidden",
@@ -770,15 +770,15 @@ class TurnPanelView(PanelView):
     def build_defenders(self, options) -> None:
         """The legal defenders, a button each labelled with why it is
         legal (`DefenderOptions.why`, the engine's), and **Cancel**."""
-        other = 2 if self.seat == 1 else 1
         whys = options.why or ("",) * len(options.defenders)
+        seats = options.seats or (self.cog.engine.sole_opponent(self.match, self.seat),) * len(options.defenders)
         defenders = [
             self.make_button(
-                f"{self.label(ref, other)} ({why})" if why else self.label(ref, other),
+                f"{self.label(ref, side)} ({why})" if why else self.label(ref, side),
                 discord.ButtonStyle.primary, self._answer(self.defend, ref),
                 choice=("defend", ref),
             )
-            for ref, why in zip(options.defenders, whys)
+            for ref, why, side in zip(options.defenders, whys, seats)
         ] or [self.make_button("Nothing can be attacked", discord.ButtonStyle.secondary,
                                None, disabled=True)]
         row = self.place(defenders, 0, until=ROWS - 1)
@@ -795,7 +795,7 @@ class TurnPanelView(PanelView):
     def build_obliterate(self, options) -> None:
         """Which of the equally low-tech units obliterate takes, a
         button each."""
-        other = 2 if self.seat == 1 else 1
+        other = self.cog.engine.defending_seat(self.match)
         self.place(self.choices(
             options.units, lambda ref: self.label(ref, other), self.obliterate,
             "obliterate", "Nothing to obliterate",
@@ -807,7 +807,7 @@ class TurnPanelView(PanelView):
     def build_sparkshot(self, options) -> None:
         """Which patroller beside the one attacked takes sparkshot's 1, a
         button each; how much is left to place is the caption's."""
-        other = 2 if self.seat == 1 else 1
+        other = self.cog.engine.defending_seat(self.match)
         self.place(self.choices(
             options.patrollers, lambda ref: self.label(ref, other), self.sparkshot,
             "sparkshot", "No patroller is beside it",
@@ -819,7 +819,7 @@ class TurnPanelView(PanelView):
     def build_overpower(self, options) -> None:
         """Where overpower's excess goes, a button each; how much it is
         is the caption's."""
-        other = 2 if self.seat == 1 else 1
+        other = self.cog.engine.defending_seat(self.match)
         self.place(self.choices(
             options.targets, lambda ref: self.label(ref, other), self.overpower,
             "overpower", "Nothing can take it",
@@ -1131,7 +1131,7 @@ class UndoView(SafeView):
         if self.seat not in game.seats_of(interaction.user.id):
             await send_ephemeral(interaction, NOT_YOUR_PANEL)
             return None, None
-        if match.turn != self.turn or match.active != self.seat:
+        if match.turn != self.turn or self.seat not in self.cog.engine.turn_seats(match):
             await edit_clicked(
                 interaction,
                 content="The game has moved on since: press **Undo** on the turn message again.",
@@ -1192,22 +1192,21 @@ class UndoConfirmView(SafeView):
 
     acknowledges_while_waiting = True  # as the panel's (`PanelView`)
 
-    def __init__(self, cog, game_id: str, asker: int, turn: int) -> None:
+    def __init__(self, cog, game_id: str, asker: int, turn: int, opponent: int) -> None:
         super().__init__(timeout=PANEL_TIMEOUT)
         self.cog = cog
         self.game_id = game_id
         self.asker = asker
         self.turn = turn
+        #: The seat whose agreement is asked: the engine's reading when
+        #: the undo was asked (`RulesEngine.sole_opponent`).
+        self.opponent = opponent
         agree = discord.ui.Button(label="Agree: undo my turn too", style=discord.ButtonStyle.danger)
         agree.callback = self.agree
         refuse = discord.ui.Button(label="Refuse", style=discord.ButtonStyle.secondary)
         refuse.callback = self.refuse_undo
         self.add_item(agree)
         self.add_item(refuse)
-
-    @property
-    def opponent(self) -> int:
-        return 2 if self.asker == 1 else 1
 
     async def agree(self, interaction: discord.Interaction) -> None:
         game, match = await self.require_match(interaction)
@@ -1223,7 +1222,7 @@ class UndoConfirmView(SafeView):
         if not self.may_act_for(interaction, game, self.opponent):
             await send_ephemeral(interaction, "Only the opponent, or a helper with Manage Channels, can agree to this.")
             return
-        if match.turn != self.turn or match.active != self.asker:
+        if match.turn != self.turn or self.asker not in self.cog.engine.turn_seats(match):
             await edit_clicked(
                 interaction, content="That undo was asked on a turn the game has moved on from.", view=None,
             )

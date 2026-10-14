@@ -96,7 +96,7 @@ class LobbyView(SafeView):
             self.add_item(button)
         if game is None:
             return
-        seats = (None,) if not game.test_game else (1, 2)
+        seats = (None,) if not game.test_game else tuple(range(1, game.seat_count + 1))
         if game.mode == "basic":
             self._hero_menus(game, seats)
         else:

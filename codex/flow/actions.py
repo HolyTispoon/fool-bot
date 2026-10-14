@@ -312,7 +312,7 @@ def _unit_from_hand(engine: "RulesEngine", match: MatchState, seat: int, result:
 def _jail_of(engine: "RulesEngine", match: MatchState, seat: int):
     """The opponent's Jail a unit `seat` plays from the hand goes to, or
     `None` (step 13)."""
-    return next((card for card in match.opponent(seat).play
+    return next((card for foe in engine.opponents(match, seat) for card in match.player(foe).play
                  if engine.text_slug(card) in effects.JAILS), None)
 
 
@@ -587,6 +587,7 @@ def cancel_attack(engine: "RulesEngine", game: "CodexGame", match: MatchState) -
     if match.combat is not None:
         raise RuleRefusal("This attack has begun: it cannot be taken back.", cite="UMR p. 10")
     match.attacking = None
+    match.against = None
     return StepResult(next=pending(engine, game, match))
 
 
@@ -598,7 +599,7 @@ def detect(engine: "RulesEngine", game: "CodexGame", match: MatchState, card: st
     targeted. Once a turn.
     """
     seat = match.active
-    other = 2 if seat == 1 else 1
+    other = engine.sole_opponent(match, seat)
     option = engine.detect_option(match)
     if not option.allowed:
         raise RuleRefusal(f"Your tower can't detect: {option.why_not}.", cite="UMR p. 9")

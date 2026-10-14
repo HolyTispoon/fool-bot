@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from codex import effects, history, tokens
+from codex import effects, history, seats, tokens
 from codex.formatting import team_name
 from codex.components import CardInstance, MatchState
 from codex.engine import GOLD_CAP, SQUAD_LEADER_ARMOR
@@ -75,7 +75,6 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
     (UMR p. 2). `by` is the seat whose card or effect deals it, where
     that is known: Blackhand Dozer's floor holds an opposing base at 6
     against any damage its controller deals (`base_floor`)."""
-    player = match.player(seat)
     from codex.flow.board import pass_prevents
 
     if pass_prevents(match, seat, "base"):
@@ -83,17 +82,19 @@ def damage_base(match: MatchState, seat: int, amount: int, result: StepResult,
         # (step 13).
         return
     floor = base_floor(match, seat, by)
-    if floor is not None and player.base_hp - amount < floor:
-        kept = min(player.base_hp, floor)
-        if player.base_hp - amount < kept:
+    base = match.base_of(seat)
+    if floor is not None and base - amount < floor:
+        kept = min(base, floor)
+        if base - amount < kept:
             result.narration.append(
                 f"{tokens.card('blackhand_dozer')} holds {tokens.player(seat)}'s base at {kept}."
             )
-        player.base_hp = kept
+        match.set_base(seat, kept)
         return
-    player.base_hp = max(0, player.base_hp - amount)
-    if player.base_hp == 0 and match.winner is None:
-        match.winner = 2 if seat == 1 else 1
+    match.set_base(seat, max(0, base - amount))
+    if match.base_of(seat) == 0 and match.winner is None:
+        # The one opponent of a duel wins; a longer table's end is step 2's.
+        match.winner = seats.sole_opponent(match, seat)
         match.record_event("base_destroyed", loser=seat, winner=match.winner)
         text = f"{tokens.player(seat)}'s base is destroyed. {tokens.player(match.winner)} wins!"
         result.narration.append(f"**{text}**")
@@ -126,11 +127,11 @@ def concede(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     (`codex.history.undo_targets`) -- so the service calls it as a door
     of its own, as it calls the undos.
     """
-    if seat not in (1, 2):
-        raise RuleRefusal("Only one of the game's two players can concede it.")
+    if seat not in seats.seat_numbers(match):
+        raise RuleRefusal("Only a player of the game can concede it.")
     if match.winner is not None:
         raise RuleRefusal("This game is already over.")
-    match.winner = 2 if seat == 1 else 1
+    match.winner = seats.sole_opponent(match, seat)
     match.conceded = seat
     match.record_event("conceded", loser=seat, winner=match.winner)
     text = f"{tokens.player(seat)} concedes. {tokens.player(match.winner)} wins!"
@@ -618,7 +619,7 @@ def _pay_debt(match: MatchState, seat: int, result: StepResult) -> None:
         return
     if match.winner is not None:
         return
-    match.winner = 2 if seat == 1 else 1
+    match.winner = seats.sole_opponent(match, seat)
     match.lost_by_debt = seat
     match.record_event("lost_by_debt", loser=seat, winner=match.winner, owed=owed)
     text = (
@@ -642,7 +643,7 @@ def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult)
     if any(totals[seat] >= totals[ahead] for seat in totals if seat != ahead):
         result.narration.append(
             f"{tokens.card(card.slug)} stays: no player has more total ATK than the other "
-            f"({totals[1]} and {totals[2]})."
+            f"({' and '.join(str(totals[number]) for number in totals)})."
         )
         return
     if ahead == card.controller:
@@ -654,7 +655,7 @@ def _dothram(engine: "RulesEngine", match: MatchState, card, result: StepResult)
     board.gain_control(match, card, ahead)
     result.narration.append(
         f"{tokens.card(card.slug)} joins {tokens.player(ahead)}'s forces: they have the most total "
-        f"ATK ({totals[ahead]} to {totals[2 if ahead == 1 else 1]})."
+        f"ATK ({totals[ahead]} to {max(totals[number] for number in engine.opponents(match, ahead))})."
     )
 
 
@@ -767,7 +768,7 @@ def end_of_turn(engine: "RulesEngine", match: MatchState, result: StepResult) ->
         for card in list(side.play):
             slug = engine.text_slug(card)
             idle = (
-                slug in effects.RETURNS_IF_IDLE and card.controller == match.active
+                slug in effects.RETURNS_IF_IDLE and card.controller in engine.turn_seats(match)
                 and not card.arrived_this_turn and not card.attacked_this_turn
             )
             if idle or slug in effects.RETURNS_AT_END:
@@ -858,6 +859,7 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     )
     match.record_event("turn_ended")
     match.attacking = None
+    match.against = None
     player.promised = False
     # The discards told on this turn's panels are said (the author,
     # 2026-10-11: "keep the note for the whole turn").
@@ -866,13 +868,14 @@ def begin_tech(engine: "RulesEngine", game: "CodexGame", match: MatchState,
         # Free Speech: "until after that opponent's next turn" -- this one.
         player.silenced = False
         result.narration.append(f"{tokens.player(seat)}'s heroes are no longer silenced.")
-    if match.extra_turns and match.extra_turns[0] == seat:
+    following = engine.next_seat(match)
+    if following == seat:
         # Double Time: "Take an extra turn after this one" -- the turn passes
         # to the same player, with every phase (its ruling).
         match.extra_turns.pop(0)
         result.narration.append(f"{tokens.player(seat)} takes an extra turn.")
     else:
-        match.active = 2 if seat == 1 else 1
+        match.active = following
     match.turn += 1
     match.enter_phase("ready")
     if tech_is_owed(match, match.active):

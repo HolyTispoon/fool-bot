@@ -292,6 +292,7 @@ def carry_on(engine: "RulesEngine", game: "CodexGame", match: MatchState,
     if match.winner is not None:
         match.combat = None
         match.attacking = None
+        match.against = None
     result.next = pending(engine, game, match)
     return result
 
@@ -720,7 +721,7 @@ def _draw(engine, match, top, part, target, result) -> None:
 
 def _discord(engine, match, top, part, target, result) -> None:
     seat = top["seat"]
-    other = 2 if seat == 1 else 1
+    other = engine.sole_opponent(match, seat)
     hit = 0
     for card in list(match.player(other).play):
         printed = engine.catalog.cards[card.slug]
@@ -752,7 +753,7 @@ def _base_damage(engine, match, top, part, target, result) -> None:
     # The line names the band the damage comes from and what the base
     # has left (the author, 2026-10-09); at 0 the next line is the
     # base destroyed, which says it.
-    other = 2 if top["seat"] == 1 else 1
+    other = engine.sole_opponent(match, top["seat"])
     amount = damage_amount(engine, match, top, part.amount)
     source = top["by"]
     printed = effects.printing_band(top["effect"])
@@ -1128,7 +1129,7 @@ def _token(engine, match, top, part, target, result) -> None:
 def _token_for_opponent(engine, match, top, part, target, result) -> None:
     """Final Showdown's Hunters: summoned for the opponent, who controls
     them, in their play zone and never their patrol zone (the Card FAQ)."""
-    other = 2 if top["seat"] == 1 else 1
+    other = engine.sole_opponent(match, top["seat"])
     source = board.body_of(match, top["seat"], top.get("source") or "")
     made_by = source.id if isinstance(source, CardInstance) and source.slug in effects.SHACKLED else None
     board.summon(engine, match, part.token, other, part.amount, result, by=top["by"], made_by=made_by)
@@ -1332,7 +1333,7 @@ def _attach(engine, match, top, part, target, result) -> None:
 def _firebird(engine, match, top, part, target, result) -> None:
     """Molting Firebird: 1 damage to every unit and hero the opponent it
     damaged controls."""
-    other = top.get("against") or (2 if top["seat"] == 1 else 1)
+    other = _against(engine, match, top)
     amount = damage_amount(engine, match, top, part.amount)
     player = match.player(other)
     hit = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
@@ -1533,7 +1534,7 @@ def _rites(engine, match, top, part, target, result) -> None:
     match.player(seat).lasting.append({"kind": effects.DEATH_RITES, "until": "end_of_turn"})
     result.narration.append(
         f"{top['by']}: this turn, whenever one of {tokens.player(seat)}'s units dies, one of "
-        f"{tokens.player(2 if seat == 1 else 1)}'s lowest tech units is destroyed."
+        f"{tokens.player(engine.sole_opponent(match, seat))}'s lowest tech units is destroyed."
     )
 
 
@@ -1560,7 +1561,7 @@ def _decay(engine, match, top, part, target, result) -> None:
     has, and 3 damage to each of their buildings -- one being built this
     turn excepted (UMR p. 8)."""
     seat = top["seat"]
-    other = 2 if seat == 1 else 1
+    other = engine.sole_opponent(match, seat)
     player = match.player(other)
     for body in [*(card for card in player.play if engine.catalog.cards[card.slug].is_unit),
                  *player.heroes_in_play]:
@@ -1661,22 +1662,23 @@ def _play_buried(engine, match, top, part, target, result) -> None:
 # -- Black's handlers (step 12, commit 4) ---------------------------------------
 
 
-def _against(top: dict) -> int:
-    """The other player of a frame -- or the one it names, where the active
-    player resolves something about another's cards."""
-    return top.get("against") or (2 if top["seat"] == 1 else 1)
+def _against(engine, match, top: dict) -> int:
+    """The seat a frame is against: the one it names (`frame["against"]`,
+    set where an attack, a death or a spell opens it against a seat). A
+    frame saved before it was recorded reads the one opponent a duel has."""
+    return top.get("against") or engine.sole_opponent(match, top["seat"])
 
 
 def _random_discard(engine, match, top, part, target, result) -> None:
     """Thieving Imp, Cursed Crow: the opponent -- the defending player --
     discards a card at random."""
-    board.random_discard(engine, match, _against(top), result, top["by"])
+    board.random_discard(engine, match, _against(engine, match, top), result, top["by"])
 
 
 def _runes_on_opposing(engine, match, top, part, target, result) -> None:
     """Plague Lab: a -1/-1 rune on each of an opponent's units; Plague Lord
     on each opposing unit and hero too (`part.token` "heroes")."""
-    other = _against(top)
+    other = _against(engine, match, top)
     player = match.player(other)
     bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
     if part.token == "heroes":
@@ -2075,7 +2077,7 @@ def _ready(engine, match, top, part, target, result) -> None:
 def _hold_down(engine, match, top, part, target, result) -> None:
     """Ready or Not: "Opposing exhausted units don't ready during their next
     ready step." """
-    other = _against(top)
+    other = _against(engine, match, top)
     held = [card for card in match.player(other).play
             if engine.catalog.cards[card.slug].is_unit and card.exhausted]
     for card in held:
@@ -2183,7 +2185,7 @@ def _banefire(engine, match, top, part, target, result) -> None:
     """Banefire Golem, having sacrificed: 1 damage to each opposing unit,
     hero and building -- one being built this turn excepted (UMR p. 8)."""
     seat = top["seat"]
-    other = _against(top)
+    other = _against(engine, match, top)
     player = match.player(other)
     amount = damage_amount(engine, match, top, part.amount)
     bodies = [card for card in player.play if engine.catalog.cards[card.slug].is_unit]
@@ -2288,7 +2290,7 @@ def _earthquake(engine, match, top, part, target, result) -> None:
     """Earthquake: 4 to each of the opponent's damaged buildings, then 1 to
     each undamaged one -- the second sentence read after the first, so a
     base the first damaged is damaged by then (its ruling)."""
-    other = _against(top)
+    other = _against(engine, match, top)
     damaged = [ref for ref in _building_targets(engine, match, other) if _damaged(engine, match, other, ref)]
     for ref in damaged:
         if board.still_there(match, other, ref):
@@ -2714,7 +2716,7 @@ def _steal_gold(engine, match, top, part, target, result) -> None:
     """Tax Collector: {gold:1} stolen -- nothing from a player with none
     (its ruling)."""
     seat = top["seat"]
-    other = _against(top)
+    other = _against(engine, match, top)
     taken = steal_gold(match, seat, other, part.amount)
     if taken:
         result.narration.append(
@@ -2753,7 +2755,7 @@ def _number(engine, match, top, part, target, result) -> None:
     if card is None:
         return
     card.number = top[ASKS_NUMBER]
-    other = 2 if top["seat"] == 1 else 1
+    other = engine.sole_opponent(match, top["seat"])
     result.narration.append(
         f"{top['by']} chooses {card.number}: {tokens.player(other)} can't play spells or upgrades "
         f"that cost {card.number} while it is in play."
@@ -2792,7 +2794,7 @@ def _sideline_all(engine, match, top, part, target, result) -> None:
 def _silence(engine, match, top, part, target, result) -> None:
     """Free Speech: "Silence an opponent." -- until after that opponent's
     next turn (`PlayerState.silenced`)."""
-    other = _against(top)
+    other = _against(engine, match, top)
     match.player(other).silenced = True
     result.narration.append(
         f"{top['by']} silences {tokens.player(other)}: their heroes cast no spells and have no "

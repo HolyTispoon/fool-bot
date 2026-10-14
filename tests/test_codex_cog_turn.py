@@ -161,8 +161,8 @@ class PanelTests(TurnTestCase):
         player's My hand -- rather than a card-sized "No cards in hand"
         (the author, 2026-10-13)."""
         match = self.table.match
-        for seat in (1, 2):
-            match.player(seat).hand = []
+        for player in match.players:
+            player.hand = []
         self.table.cog.service.persist(self.game, match)
         call, _ = await self.table.panel()
         self.assertNothingWentWrong(call)
@@ -1085,10 +1085,10 @@ class SideShownTests(unittest.TestCase):
             rows = tuple(SimpleNamespace(seat=seat) for seat in seats)
             return PendingPrompt(PromptKind.TARGET, "", 1, SimpleNamespace(targets=rows))
 
-        self.assertIsNone(side_shown(asked(2, 2, 1)))
-        self.assertEqual(side_shown(asked(2)), 2)
-        self.assertEqual(side_shown(asked(1, 1)), 1)
-        self.assertEqual(side_shown(PendingPrompt(PromptKind.CHOOSE_DEFENDER, "", 2, None)), 1)
+        self.assertIsNone(side_shown(asked(2, 2, 1), (2,)))
+        self.assertEqual(side_shown(asked(2), (2,)), 2)
+        self.assertEqual(side_shown(asked(1, 1), (2,)), 1)
+        self.assertEqual(side_shown(PendingPrompt(PromptKind.CHOOSE_DEFENDER, "", 2, None), (1,)), 1)
 
 
 class EffectPanelTests(TurnTestCase):
@@ -1360,8 +1360,8 @@ class TestGameTests(unittest.IsolatedAsyncioTestCase):
         # The engine picks who goes first (UMR p. 3); the sides are
         # named by their decks, since both are the one person.
         first = table.match.active
-        second = 2 if first == 1 else 1
-        side = {seat: table.match.player(seat).specs[0].title() for seat in (1, 2)}
+        second = table.cog.engine.opponents(table.match, first)[0]
+        side = {seat: table.match.player(seat).specs[0].title() for seat in range(1, len(table.match.players) + 1)}
 
         # Turn 1: the Lock closes the panel -- edited in place with
         # nothing to press; no picker follows it.
@@ -1426,7 +1426,7 @@ class GameOverTests(TurnTestCase):
         with the final board."""
         match = self.table.match
         seat = match.active
-        match.opponent(seat).base_hp = 1
+        match.player(self.table.cog.engine.opponents(match, seat)[0]).base_hp = 1
         attacker = put(match, seat, "older_brother")
         self.table.cog.service.persist(self.game, match)
         _, view = await self.table.panel()

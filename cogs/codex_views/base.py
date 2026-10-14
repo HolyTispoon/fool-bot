@@ -198,7 +198,7 @@ class SafeView(GameLockedView):
                     seat: int) -> bool:
         """The player in `seat`, or a game helper behind a confirmation
         (`cogs.game_auth.may_act_for_coach`, with `is True`)."""
-        player_id = game.player_1_id if seat == 1 else game.player_2_id
+        player_id = game.seat_user_id(seat)
         if interaction.user.id == player_id:
             return True
         if not is_game_helper(interaction.user):

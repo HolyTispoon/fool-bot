@@ -756,7 +756,7 @@ step is worth starting.
 
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
-| 1 | Seats as a list, opponents as a set, the base as one reading -- nothing changes | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
+| ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
 | 2 | Free-for-all through the driver | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | 3 | Free-for-all's three additions: repair, free gold, lending | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
 | 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the stacked board of three, the pickers standing for two, rematch |
@@ -874,6 +874,11 @@ Added to the Codex preamble's hard rules:
 ```
 
 ### 1. Seats as a list, opponents as a set, the base as one reading -- nothing changes
+
+**Landed.** What it settled -- the record's seat list, `codex/seats.py`
+and the engine's doors over it, `sole_opponent` as the marker of the
+sites steps 2 and 5 answer, `base_of`, the seat an attack is against --
+is in [docs/design/codex.md](design/codex.md), "Multiplayer", "Step 1".
 
 The 66 inline readings of "the other seat" are the whole reason the
 modes are not a day's work, and each is one of four questions that have

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable, Optional
 
-from codex import effects, tokens
+from codex import effects, seats, tokens
 from codex.components import TECH_BUILDINGS, CardInstance, HeroState, MatchState, hero_ref, is_hero_ref
 from codex.engine import (
     BASE_HP,
@@ -110,7 +110,7 @@ def still_there(match: MatchState, seat: int, ref: str) -> bool:
     attacked: a unit or hero in play, a building standing."""
     player = match.player(seat)
     if ref == "base":
-        return player.base_hp > 0
+        return match.base_of(seat) > 0
     if ref == "add_on":
         return player.add_on is not None
     if ref in TECH_BUILDINGS:
@@ -201,7 +201,7 @@ def building_max_hp(engine: "RulesEngine", match: MatchState, seat: int, ref: st
 def building_hp(match: MatchState, seat: int, ref: str) -> int:
     player = match.player(seat)
     if ref == "base":
-        return player.base_hp
+        return match.base_of(seat)
     if ref == "add_on":
         return player.add_on.hp
     return player.buildings[ref].hp
@@ -229,10 +229,10 @@ def base_left_after(match: MatchState, seat: int, amount: int,
 
     if pass_prevents(match, seat, "base"):
         return _PREVENTED
-    left = max(0, match.player(seat).base_hp - amount)
+    left = max(0, match.base_of(seat) - amount)
     floor = base_floor(match, seat, by)
     if floor is not None:
-        left = max(left, min(match.player(seat).base_hp, floor))
+        left = max(left, min(match.base_of(seat), floor))
     return _now_at(left, BASE_HP)
 
 
@@ -279,7 +279,7 @@ def repair_building(engine: "RulesEngine", match: MatchState, seat: int, ref: st
     before = building_hp(match, seat, ref)
     after = min(most, before + amount)
     if ref == "base":
-        player.base_hp = after
+        match.set_base(seat, after)
     elif ref == "add_on":
         player.add_on.hp = after
     else:
@@ -510,14 +510,19 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
     for seat in heroes:
         if cause == seat:
             continue
-        victor = match.opponent(seat)
-        standing = victor.heroes_in_play
+        # Every hero in play of every opponent of the dead hero's
+        # controller may take the levels (Rulebook p. 11): the controller
+        # rather than the owner, for a lent hero.
+        standing = [
+            (foe, hero) for foe in engine.opponents(match, seat)
+            for hero in match.player(foe).heroes_in_play
+        ]
         if not standing:
             continue
         if len(standing) > 1:
-            level_gain_owed(match, victor.seat)
+            level_gain_owed(match, list(dict.fromkeys(foe for foe, _ in standing)))
             continue
-        gain_kill_levels(engine, match, standing[0], result)
+        gain_kill_levels(engine, match, standing[0][1], result)
 
 
 #: The frame the kill's levels wait on where the victor has more than
@@ -525,10 +530,16 @@ def destroy(engine: "RulesEngine", match: MatchState, things: Iterable[tuple[int
 LEVEL_GAIN = "level_gain"
 
 
-def level_gain_owed(match: MatchState, seat: int) -> None:
-    """Two levels owed to one of `seat`'s heroes, asked of the active
-    player before anything else on the stack resolves."""
-    match.resolving.insert(0, {"kind": LEVEL_GAIN, "seat": seat, "asked": match.active})
+def level_gain_owed(match: MatchState, owners: "int | list[int]") -> None:
+    """Two levels owed to one of these seats' heroes (`owners`, or one
+    seat), asked of the active player before anything else on the stack
+    resolves. The frame's `seat` is the first; `seats` is written only
+    where there are several."""
+    owed = [owners] if isinstance(owners, int) else list(owners)
+    frame = {"kind": LEVEL_GAIN, "seat": owed[0], "asked": match.active}
+    if len(owed) > 1:
+        frame["seats"] = owed
+    match.resolving.insert(0, frame)
 
 
 def gain_kill_levels(engine: "RulesEngine", match: MatchState, victor: HeroState,
@@ -599,7 +610,7 @@ def max_level_reached(engine: "RulesEngine", match: MatchState, seat: int, hero:
         return
     for effect in effects.triggers(hero.slug, "max_level", hero.level):
         asks = any(part.choose is not None for part in effects.EFFECTS[effect].parts)
-        if asks and seat != match.active:
+        if asks and seat not in engine.turn_seats(match):
             result.narration.append(
                 f"{tokens.hero(hero.slug)} reaches its maximum level on another player's turn: "
                 "its max level effect has nothing to decide it, and does not resolve."
@@ -708,7 +719,7 @@ def _deaths(engine: "RulesEngine", match: MatchState, units: list,
     for card in units:
         seat = card.controller
         by = tokens.card(card.slug)
-        mine = seat == match.active
+        mine = seat in engine.turn_seats(match)
         effect = (effects.DIES_ON_YOUR_TURN if mine else effects.DIES_ON_THEIR_TURN).get(
             engine.text_slug(card) or "")
         if effect is not None:
@@ -1146,7 +1157,7 @@ def remove_time_rune(engine: "RulesEngine", match: MatchState, seat: int, ref: s
     thing.time_runes -= 1
     remembers = (
         isinstance(thing, CardInstance) and engine.text_slug(thing) in effects.REMEMBERERS
-        and seat == match.active and future_card(match, seat, ref) is None
+        and seat in engine.turn_seats(match) and future_card(match, seat, ref) is None
     )
     if thing.time_runes > 0:
         if remembers:
@@ -1191,10 +1202,11 @@ def died_from_fading(engine: "RulesEngine", match: MatchState, seat: int, hero: 
     slug, level = effects.PRYNN_FADES
     if not by_fading or hero.slug != slug or hero.level < level:
         return
-    other = match.opponent(seat)
-    other.skip_draw = True
+    for foe in engine.opponents(match, seat):
+        match.player(foe).skip_draw = True
+    skipping = ", ".join(tokens.player(foe) for foe in engine.opponents(match, seat))
     result.narration.append(
-        f"{tokens.hero(hero.slug)} died from fading: {tokens.player(other.seat)} skips their next "
+        f"{tokens.hero(hero.slug)} died from fading: {skipping} skips their next "
         "draw and discard."
     )
 
@@ -1421,7 +1433,7 @@ def sentry_shields(engine: "RulesEngine", match: MatchState, bodies, result: Ste
     (its ruling). `bodies` are what is about to be damaged at once; the
     one shielded, as a list of none or one.
     """
-    for seat in (1, 2):
+    for seat in seats.seat_numbers(match):
         sentry = next((card for card in match.player(seat).play
                        if card.slug in effects.SENTRIES and engine.texted(card)
                        and not any(m.get("kind") == "once" and m.get("effect") == "sentry"

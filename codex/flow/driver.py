@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Optional, Sequence, Union
 
-from codex import history
+from codex import history, seats
 from codex.components import MatchState
 from codex.flow import actions, board, combat, resolve, turn
 from codex.flow.result import FollowOn, FollowOnStep, Headline, StepResult
@@ -255,10 +255,18 @@ def _answer_main(engine, game, match, prompt, choice, *, slug=None, levels=None,
     return actions.end_main(engine, game, match)
 
 
-def _answer_defender(engine, game, match, prompt, choice, *, defender=None) -> StepResult:
+def _answer_defender(engine, game, match, prompt, choice, *, defender=None, against=None) -> StepResult:
     if choice == "cancel":
         return actions.cancel_attack(engine, game, match)
-    return combat.declare_attack(engine, game, match, match.attacking, _required(defender, "defender"))
+    defender = _required(defender, "defender")
+    if against is None:
+        # The click names a ref; the seat is the one the options offer it on.
+        offered = prompt.options
+        seats = {seat for ref, seat in zip(offered.defenders, offered.seats) if ref == defender}
+        if len(seats) > 1:
+            raise RuleRefusal("Choose whose forces to attack: that is on more than one side.")
+        against = next(iter(seats), None)
+    return combat.declare_attack(engine, game, match, match.attacking, defender, against)
 
 
 def _answer_patrol(engine, game, match, prompt, choice, *, assignment=None) -> StepResult:
@@ -288,7 +296,7 @@ def _answer_tech_choice(engine, game, match, prompt, choice, *, player=None, pic
         left[slug] -= 1
     owner = match.player(prompt.asked_player)
     owner.tech_choice = picks
-    if owner.seat == match.active or not tech_stands(game):
+    if owner.seat in engine.turn_seats(match) or not tech_stands(game):
         # A choice made in its owner's own ready phase -- they never
         # picked during the other's turn, or pressed Change, or it is a
         # test game's (`codex.prompts.tech_stands`) -- was made just now,
@@ -309,7 +317,7 @@ def _settled_in_main(engine, game, match, seat: int) -> StepResult:
     discard pile now, as the ready phase would have put them; otherwise
     the ready phase does, once the bot runs it."""
     result = StepResult()
-    if match.phase == "main" and seat == match.active:
+    if match.phase == "main" and seat in engine.turn_seats(match):
         turn.settle_tech(match, seat, result)
         result.board_changed = True
     result.next = pending(engine, game, match)
@@ -372,7 +380,11 @@ def _answer_level_gain(engine, game, match, prompt, choice, *, hero=None) -> Ste
         raise RuleRefusal("Choose one of their heroes in play to gain the levels.", cite="UMR p. 10")
     top = match.resolving.pop(0)
     result = StepResult(board_changed=True)
-    board.gain_kill_levels(engine, match, match.player(top["seat"]).hero_by_ref(hero), result)
+    holder = next(
+        match.player(seat) for seat in top.get("seats") or [top["seat"]]
+        if match.player(seat).hero_by_ref(hero) is not None
+    )
+    board.gain_kill_levels(engine, match, holder.hero_by_ref(hero), result)
     return resolve.carry_on(engine, game, match, result)
 
 
@@ -426,7 +438,7 @@ ARGUMENTS: Mapping[PromptKind, frozenset[str]] = {
         "slug", "levels", "building", "attacker", "card", "ability", "source", "hero",
         "spec", "lab_spec", "boost",
     }),
-    PromptKind.CHOOSE_DEFENDER: frozenset({"defender"}),
+    PromptKind.CHOOSE_DEFENDER: frozenset({"defender", "against"}),
     PromptKind.PATROL: frozenset({"assignment"}),
     PromptKind.TECH_CHOICE: frozenset({"player", "picks"}),
     PromptKind.TECH_CONFIRM: frozenset({"player"}),
@@ -481,12 +493,13 @@ def _upgrade_refs(match: MatchState, action: Action) -> Action:
     """
     from codex.components import HERO, hero_ref
 
-    active, other = match.active, (2 if match.active == 1 else 1)
+    active = match.active
+    other = seats.sole_opponent(match, active)
 
     def mine(seat: int, value):
         if value == HERO:
             return hero_ref(match.player(seat).heroes[0].slug)
-        if isinstance(value, str) and value[:2] in ("1:", "2:") and value[2:] == HERO:
+        if isinstance(value, str) and value[:1].isdigit() and value[1:2] == ":" and value[2:] == HERO:
             return f"{value[0]}:{hero_ref(match.player(int(value[0])).heroes[0].slug)}"
         return value
 

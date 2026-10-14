@@ -131,13 +131,17 @@ def split_at_turn_end(result: GameResult) -> tuple[list[str], Optional[dict], li
     return closing, board, opening, ended
 
 
-def side_shown(prompt: PendingPrompt) -> Optional[int]:
+def side_shown(prompt: PendingPrompt, opponents: tuple[int, ...]) -> Optional[int]:
     """The side a target prompt's panel pictures: the opponent's, the
     asked player's own where every target the prompt offers is theirs,
     or `None` -- both sides, stacked -- where the targets are on both
-    (the author, 2026-10-09)."""
+    (the author, 2026-10-09). `opponents` are the asked player's
+    (`RulesEngine.opponents`); with several, the whole table (step 4
+    decides how a longer table is pictured)."""
     asked = prompt.asked_player
-    opponent = 2 if asked == 1 else 1
+    if len(opponents) != 1:
+        return None
+    opponent = opponents[0]
     if prompt.kind is PromptKind.TARGET:
         seats = {row.seat for row in prompt.options.targets}
         if seats == {asked}:
@@ -229,7 +233,7 @@ class TurnsMixin:
             if revealed:
                 extra.append(revealed)
         elif prompt.kind in PANEL_SIDE_KINDS:
-            files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt))]
+            files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt, self.engine.opponents(match, prompt.asked_player)))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:
             files = await hand_files(self.engine, match, prompt.asked_player)
         else:
@@ -358,7 +362,7 @@ class TurnsMixin:
         if standing is not None:
             await self.show_panel(interaction, game, match, seat, edit=True, standing=True)
             return
-        if answered is PromptKind.PATROL and match is not None and match.active != seat and match.winner is None:
+        if answered is PromptKind.PATROL and match is not None and seat not in self.engine.turn_seats(match) and match.winner is None:
             closing = self.turn_over_text(game, match, seat, result.prompt)
         elif match is not None and match.winner is not None:
             closing = "The game is over."
@@ -465,7 +469,7 @@ class TurnsMixin:
         # The standing picture lights the player whose turn it was: the
         # position is the one the turn handed over on.
         # The heading is the turn that ended, too.
-        ended.active = 2 if match.active == 1 else 1
+        ended.active = self.engine.sole_opponent(match, match.active)
         ended.turn = match.turn - 1
         if game.turn_message_id is not None:
             png = await self.render_match_png(game, ended)
@@ -565,7 +569,7 @@ class TurnsMixin:
         """An undo of the active player's own: `undo` through the
         service, then the turn message and the panel from the result."""
         match = self.service.load(game)
-        if seat != match.active:
+        if seat not in self.engine.turn_seats(match):
             await send_ephemeral(interaction, "Only the player whose turn it is can undo it.")
             return
         try:
@@ -590,11 +594,11 @@ class TurnsMixin:
         the actions, saying it was asked.
         """
         match = self.service.load(game)
-        if seat != match.active:
+        if seat not in self.engine.turn_seats(match):
             await send_ephemeral(interaction, "Only the player whose turn it is can ask for that.")
             return
-        opponent = 2 if seat == 1 else 1
-        opponent_id = game.player_1_id if opponent == 1 else game.player_2_id
+        opponent = self.engine.sole_opponent(match, seat)
+        opponent_id = game.seat_user_id(opponent)
         asker = game.seat_name(seat) or f"Player {seat}"
         await self.show_panel(interaction, game, match, seat, edit=True,
                               note="Your opponent has been asked to agree to the undo.")
@@ -603,7 +607,7 @@ class TurnsMixin:
             interaction,
             f"{mention}, {asker} asks to undo to the start of turn {turn - 1} -- your turn -- "
             "which takes back this turn and the end of yours. Do you agree?",
-            view=UndoConfirmView(self, game.game_id, seat, turn),
+            view=UndoConfirmView(self, game.game_id, seat, turn, opponent),
             allowed_mentions=discord.AllowedMentions(
                 users=[discord.Object(id=opponent_id)] if opponent_id else False,
             ),

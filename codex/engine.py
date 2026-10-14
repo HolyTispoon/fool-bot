@@ -32,8 +32,9 @@ from dataclasses import dataclass
 from random import Random  # the one Random; nothing reads the module's functions
 from typing import Iterable, Optional, Sequence
 
-from codex import effects, keywords
+from codex import effects, keywords, seats
 from codex.cards import CardCatalog, Hero, HeroBand, catalog as load_catalog
+from codex.game import RuleRefusal
 from codex.components import (
     HERO,
     AddOnState,
@@ -433,7 +434,7 @@ class RulesEngine:
         random unless given.
         """
         if first is None:
-            first = self.rng.choice((1, 2))
+            first = self.rng.choice(tuple(range(1, len(teams) + 1)))
         players = []
         for seat, specs in enumerate(teams, start=1):
             if isinstance(specs, str):
@@ -450,13 +451,15 @@ class RulesEngine:
                 specs=specs,
                 heroes=[HeroState(slug=self.catalog.hero_for(spec).slug) for spec in specs],
                 deck_color=color,
-                base_hp=BASE_HP,
                 workers=STARTING_WORKERS[seat == first],
                 hand=hand,
                 deck=deck,
                 codex=dict(codex),
             ))
-        return MatchState(players=players, first=first, active=first)
+        match = MatchState(players=players, first=first, active=first)
+        for player in players:
+            match.set_base(player.seat, BASE_HP)
+        return match
 
     # -- Numbers ---------------------------------------------------------
 
@@ -613,7 +616,7 @@ class RulesEngine:
         if match is None or not printed.is_unit:
             return profile
         change = effects.WHILE_PATROLLING.get(self.text_slug(card) or "")
-        if change is not None and card.patrol_slot is not None and card.controller != match.active:
+        if change is not None and card.patrol_slot is not None and card.controller not in self.turn_seats(match):
             # Ironbark Treant: "-2 ATK / +2 armor while patrolling" -- on
             # the opponents' turns, while in the patrol zone (its rulings);
             # the armor is set as their turn begins.
@@ -709,7 +712,7 @@ class RulesEngine:
                 # turn included, and no bonus against a building (its
                 # rulings, the Card FAQ).
                 frenzy = sum(1 if x is None else x for name, x in profile.keywords if name == "Frenzy")
-                atk = profile.atk + (frenzy if seat == match.active else 0)
+                atk = profile.atk + (frenzy if seat in self.turn_seats(match) else 0)
                 if atk <= effects.FERNS_ATK:
                     profile.grant("Stealth")
             elif grant == "no_abilities":
@@ -941,6 +944,7 @@ class RulesEngine:
         Makeshift Rambaster). A building deals nothing.
         """
         player = match.player(seat)
+        defending = self.defending_seat(match, None, attacker_seat=seat) if against is not None else None
         if is_hero_ref(ref):
             body = player.hero_by_ref(ref)
             atk = self._hero_raw(body, match)[0]
@@ -951,18 +955,18 @@ class RulesEngine:
             return 0
         if body.patrol_slot == "elite":
             atk += ELITE_ATK
-        if seat == match.active:
+        if seat in self.turn_seats(match):
             atk += self.keyword_x(body, "Frenzy", match)
         if against is not None and isinstance(body, CardInstance):
             bonus = effects.ATTACKING_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
-            if bonus and self.is_building_ref(match, 2 if seat == 1 else 1, against):
+            if bonus and self.is_building_ref(match, defending, against):
                 atk += bonus
             damaged = effects.DAMAGED_BUILDINGS_ATK.get(self.text_slug(body) or "", 0)
-            if damaged and self.texted(body) and self._damaged_building(match, 2 if seat == 1 else 1, against):
+            if damaged and self.texted(body) and self._damaged_building(match, defending, against):
                 # Air Hammer: "+2 ATK when attacking damaged buildings."
                 atk += damaged
         if against is not None:
-            target = self.body(match, 2 if seat == 1 else 1, against)
+            target = self.body(match, defending, against)
             if isinstance(target, CardInstance) and target.patrol_slot == "squad_leader" \
                     and self.texted(target):
                 # Debilitator Alpha: "As squad leader: Units attacking
@@ -979,7 +983,7 @@ class RulesEngine:
         """Whether `ref` on `seat`'s side is a building with damage on it."""
         player = match.player(seat)
         if ref == "base":
-            return player.base_hp < BASE_HP
+            return match.base_of(seat) < BASE_HP
         if ref in TECH_BUILDINGS:
             building = player.buildings.get(ref)
             return building is not None and building.hp < self.building_hp(ref)
@@ -1139,7 +1143,7 @@ class RulesEngine:
         if seat is None:
             return False
         return any(self.text_slug(card) in effects.NO_OPPOSING_LEVELS
-                   for card in match.opponent(seat).play)
+                   for foe in self.opponents(match, seat) for card in match.player(foe).play)
 
     def hero_texted(self, match: Optional[MatchState], hero: HeroState) -> bool:
         """Whether a hero has its abilities -- printed, a band's, granted --
@@ -1355,7 +1359,8 @@ class RulesEngine:
         the opponent's its 1, until this player has built this turn."""
         if match is None or player.built_this_turn:
             return 0
-        return sum(1 for card in match.opponent(player.seat).play
+        return sum(1 for foe in self.opponents(match, player.seat)
+                   for card in match.player(foe).play
                    if self.text_slug(card) in effects.INSPECTORS)
 
     def free_unit(self, player: PlayerState, card) -> bool:
@@ -1796,17 +1801,18 @@ class RulesEngine:
                              from_hand: bool) -> str:
         """The rules step 13's cards put a player under, as a reason a card
         may not be played now, or ""."""
-        opponent = match.opponent(player.seat)
+        opposing = [card for foe in self.opponents(match, player.seat)
+                    for card in match.player(foe).play]
         if from_hand and any(self.text_slug(other) in effects.OATHKEEPERS
                              and other.oath == effects.OATH_HAND for other in player.play):
             # "I won't play cards from my hand besides workers."
             return "your Oathkeeper's oath: no card from your hand but workers"
         if from_hand and player.played_from_hand >= 1 and any(
-            self.text_slug(other) in effects.CENSORS for other in opponent.play
+            self.text_slug(other) in effects.CENSORS for other in opposing
         ):
             return "Censorship Council: one card from your hand a turn"
         if card.is_spell or card.is_upgrade:
-            numbers = {other.number for other in opponent.play
+            numbers = {other.number for other in opposing
                        if self.text_slug(other) in effects.NEWSMEN and other.number is not None}
             if (card.cost or 0) in numbers:
                 return f"Reputable Newsman forbids spells and upgrades that cost {card.cost or 0}"
@@ -1914,7 +1920,7 @@ class RulesEngine:
         player = match.active_player
         # Moment's Peace: "opposing units can't attack you" -- in a game
         # of two, they can't attack at all; heroes still may.
-        peace = match.opponent(match.active).peace
+        peace = any(match.player(foe).peace for foe in self.opponents(match, match.active))
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and self.may_attack_with(card, match)
@@ -1947,6 +1953,58 @@ class RulesEngine:
     # position, and the flow and the frontend ask it. The rules are UMR
     # p. 14, 16-18, with Sirlin's rulings governing (docs/design/codex.md,
     # "The keywords").
+
+    # -- The seats ------------------------------------------------------------
+    #
+    # The one reading each of the table's questions has (docs/design/
+    # codex.md, "Multiplayer"): nothing computes "the other seat" or "is
+    # it this seat's turn" inline.
+
+    def opponents(self, match: MatchState, seat: int) -> tuple[int, ...]:
+        """Every seat that is `seat`'s opponent, in seat order -- the one
+        other seat of a duel. A dragon will leave the teammate out."""
+        return seats.opponents(match, seat)
+
+    def sole_opponent(self, match: MatchState, seat: int) -> int:
+        """The one opponent of a duel, refusing a table with several:
+        each call is a site the multiplayer modes have to answer
+        (`codex.seats.sole_opponent`)."""
+        return seats.sole_opponent(match, seat)
+
+    def turn_seats(self, match: MatchState) -> tuple[int, ...]:
+        """The seats whose turn it is: the active seat alone, until a
+        dragon's teammates share one."""
+        return seats.turn_seats(match)
+
+    def acting_seats(self, match: MatchState) -> tuple[int, ...]:
+        """The seats that may act now: those whose turn it is (and, once
+        a dragon locks a seat in, not that one)."""
+        return self.turn_seats(match)
+
+    def next_seat(self, match: MatchState) -> int:
+        """Whose turn follows the active one's: the seat owed an extra
+        turn first (Double Time), else the seat after in order, wrapping."""
+        return seats.next_seat(match)
+
+    def defending_seat(self, match: MatchState, against: Optional[int] = None,
+                       attacker_seat: Optional[int] = None) -> int:
+        """
+        The seat an attack is against: `against` where the caller names
+        it; else the one the declared attack records (`MatchState.combat`,
+        `MatchState.against`); else the attacker's one opponent, which
+        is all a duel has. Refused where the attacker has several and has
+        not chosen.
+        """
+        if against is not None:
+            return against
+        if match.combat is not None and match.combat.get("against") is not None:
+            return match.combat["against"]
+        if match.against is not None:
+            return match.against
+        found = self.opponents(match, match.active if attacker_seat is None else attacker_seat)
+        if len(found) != 1:
+            raise RuleRefusal("Choose whose forces to attack first.")
+        return found[0]
 
     def body(self, match: MatchState, seat: int, ref: str):
         """
@@ -2002,7 +2060,7 @@ class RulesEngine:
         found: list = []
         if isinstance(body, HeroState):
             for slug, level in effects.FLYING_ON_OWN_TURN:
-                if body.slug == slug and body.level >= level and seat == match.active:
+                if body.slug == slug and body.level >= level and seat in self.turn_seats(match):
                     found.append(("Flying", None))
             return found
         if not isinstance(body, CardInstance):
@@ -2014,18 +2072,18 @@ class RulesEngine:
             for hero in match.player(seat).heroes_in_play
         ):
             found.append(("Invisible", None))
-        if slug in effects.WHEN_ATTACKING_HEROES and seat == match.active:
+        if slug in effects.WHEN_ATTACKING_HEROES and seat in self.turn_seats(match):
             # Wight: "Deathtouch when attacking heroes."
             state = match.combat
             if state is not None and state.get("attacker") == body.ref and is_hero_ref(
                 state.get("defender") or ""
             ):
                 found.extend((keyword, None) for keyword in effects.WHEN_ATTACKING_HEROES[slug])
-        if slug in effects.STEALTH_ATTACKING_UNITS and seat == match.active:
+        if slug in effects.STEALTH_ATTACKING_UNITS and seat in self.turn_seats(match):
             state = match.combat
             defender = None
             if state is not None and state.get("attacker") == body.ref:
-                defender = self.body(match, 2 if seat == 1 else 1, state.get("defender") or "")
+                defender = self.body(match, self.defending_seat(match, None), state.get("defender") or "")
             if isinstance(defender, CardInstance):
                 found.append(("Stealth", None))
         if self.text_slug(body) in effects.LIBERTY and seat is not None and self._other_illusion(
@@ -2130,7 +2188,7 @@ class RulesEngine:
             return False
         if tower.detected == ref:
             return True
-        return tower.detected is None and watcher != match.active
+        return tower.detected is None and watcher not in self.turn_seats(match)
 
     def has_detector(self, match: MatchState, seat: int) -> bool:
         """Whether `seat` has a detector in play (UMR p. 16, step 13): a
@@ -2150,7 +2208,7 @@ class RulesEngine:
         fires even on an attacker that is also unstoppable, which it then
         damages without stopping (Sirlin, 2016-03-19).
         """
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, None)
         tower = self.tower(match.player(other))
         if tower is None or tower.detected is not None:
             return False
@@ -2160,7 +2218,7 @@ class RulesEngine:
         """Whether the defending tower can see this attacker, and so
         deals its damage to it (UMR p. 9): anything not hidden, and a
         hidden thing it detected this turn."""
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, None)
         if self.tower(match.player(other)) is None:
             return False
         if not self.hidden(match, match.active, attacker):
@@ -2174,7 +2232,7 @@ class RulesEngine:
         rest of the turn, once a turn.
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.sole_opponent(match, seat)  # until step 2 gives refs a seat
         tower = self.tower(match.active_player)
         if tower is None:
             return DetectOption(why_not="you have no finished tower")
@@ -2212,7 +2270,7 @@ class RulesEngine:
         found.append("base")
         return tuple(found)
 
-    def may_be_attacked(self, match: MatchState, attacker: str, target: str) -> bool:
+    def may_be_attacked(self, match: MatchState, attacker: str, target: str, against: Optional[int] = None) -> bool:
         """
         Whether the active player's `attacker` may attack `target` on the
         other side: a building always; a flier only by a flier or an
@@ -2220,7 +2278,7 @@ class RulesEngine:
         only by somebody with a detector (UMR p. 17).
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, against)
         body = self.body(match, other, target)
         if target == "base" and self.base_flies(match, other):
             # Lawbringer Gryphon: "Your base gains flying. (Ground forces
@@ -2266,14 +2324,14 @@ class RulesEngine:
         under them -- not once he leaves (his ruling)."""
         return any(self.text_slug(card) in effects.FLYING_BASE for card in match.player(seat).play)
 
-    def attack_toll(self, match: MatchState, target: str) -> int:
+    def attack_toll(self, match: MatchState, target: str, against: Optional[int] = None) -> int:
         """
         What the active player pays to attack `target` on the other side
         (step 13): Morningstar Pass's 1, and Setsuki Hiruki's 1 while she
         isn't patrolling -- charged as the attack is declared, and an
         attacker that can't pay can't take it (the Pass's ruling).
         """
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, against)
         body = self.body(match, other, target)
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.PASSES:
             return effects.ATTACK_TOLL
@@ -2290,7 +2348,7 @@ class RulesEngine:
             return False
         return self.catalog.cards[body.slug].is_unit and not self.tech_level(body)
 
-    def ignores_patrollers(self, match: MatchState, attacker: str) -> str:
+    def ignores_patrollers(self, match: MatchState, attacker: str, against: Optional[int] = None) -> str:
         """
         Why this attacker may ignore the patrol zone altogether, or `""`:
         `"unstoppable"` (UMR p. 18), or `"stealth"` / `"invisible"` while
@@ -2299,7 +2357,7 @@ class RulesEngine:
         patroller.
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, against)
         body = self.body(match, seat, attacker)
         if body is None:
             return ""
@@ -2310,7 +2368,7 @@ class RulesEngine:
             return hidden
         return ""
 
-    def blocking_patrollers(self, match: MatchState, attacker: str) -> dict[str, str]:
+    def blocking_patrollers(self, match: MatchState, attacker: str, against: Optional[int] = None) -> dict[str, str]:
         """
         Slot to patroller, for the patrollers that stop this attacker: a
         flier is stopped by flying patrollers alone, a ground attacker by
@@ -2319,25 +2377,25 @@ class RulesEngine:
         that sneaks past or is unstoppable. An anti-air ground patroller
         may attack a flier but is not forced to, so it stops none.
         """
-        if self.ignores_patrollers(match, attacker):
+        if self.ignores_patrollers(match, attacker, against=against):
             return {}
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, against)
         flying = self.has(match, seat, attacker, "Flying")
         blocking = {}
         for slot, ref in match.player(other).patrollers().items():
             if self.has(match, other, ref, "Flying") != flying:
                 continue
-            if not self.may_be_attacked(match, attacker, ref):
+            if not self.may_be_attacked(match, attacker, ref, against=against):
                 continue
-            if self._unstoppable_by(match, attacker, self.body(match, other, ref)):
+            if self._unstoppable_by(match, attacker, self.body(match, other, ref), against=against):
                 # "... unstoppable by tech 0 units" and the like: it may
                 # ignore them.
                 continue
             blocking[slot] = ref
         return blocking
 
-    def _unstoppable_by_tech_0(self, match: MatchState, attacker: str) -> bool:
+    def _unstoppable_by_tech_0(self, match: MatchState, attacker: str, against: Optional[int] = None) -> bool:
         body = self.body(match, match.active, attacker)
         return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_TECH_0
 
@@ -2350,7 +2408,7 @@ class RulesEngine:
             m.get("kind") == "demon" for m in body.modifiers
         )
 
-    def _unstoppable_by(self, match: MatchState, attacker: str, patroller) -> bool:
+    def _unstoppable_by(self, match: MatchState, attacker: str, patroller, against: Optional[int] = None) -> bool:
         """
         Whether this attacker may ignore one patroller in particular (its
         conditional unstoppable): Predator Tiger's and Tiny Basilisk's tech
@@ -2379,12 +2437,12 @@ class RulesEngine:
         ):
             # Garus Rook at 5: "Unstoppable by patrol zones with only one
             # patroller."
-            other = 2 if match.active == 1 else 1
+            other = self.defending_seat(match, against)
             if len(match.player(other).patrollers()) == 1:
                 return True
         most = effects.UNSTOPPABLE_BY_WEAK.get(slug or "")
         if most is not None and unit and self.attack_value(
-            match, 2 if match.active == 1 else 1, patroller.ref,
+            match, self.defending_seat(match, against), patroller.ref,
         ) <= most:
             # Patriot Gryphon: "Unstoppable by units with 2 ATK or less."
             return True
@@ -2395,19 +2453,19 @@ class RulesEngine:
             return True
         return False
 
-    def legal_defenders(self, match: MatchState, attacker: str) -> tuple[str, ...]:
+    def legal_defenders(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[str, ...]:
         """Who `attacker` may take, in the three priorities (UMR p. 10),
         as the keywords change them (`defender_rows`)."""
-        return tuple(ref for ref, _ in self.defender_rows(match, attacker))
+        return tuple(ref for ref, _ in self.defender_rows(match, attacker, against=against))
 
-    def defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
+    def defender_rows(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[tuple[str, str], ...]:
         """`_defender_rows`, less what the active player can't pay the toll
         to attack (`attack_toll`, step 13)."""
         gold = match.active_player.gold
-        return tuple(row for row in self._defender_rows(match, attacker)
-                     if self.attack_toll(match, row[0]) <= gold)
+        return tuple(row for row in self._defender_rows(match, attacker, against=against)
+                     if self.attack_toll(match, row[0], against=against) <= gold)
 
-    def _defender_rows(self, match: MatchState, attacker: str) -> tuple[tuple[str, str], ...]:
+    def _defender_rows(self, match: MatchState, attacker: str, against: Optional[int] = None) -> tuple[tuple[str, str], ...]:
         """
         `legal_defenders`, each with why it is legal -- the priority that
         makes it so (UMR p. 10), for a frontend to say beside it: the
@@ -2416,22 +2474,22 @@ class RulesEngine:
         attack, with why the patrol zone does not hold it -- or, for a
         patroller it may take anyway, its place in the zone.
         """
-        other = 2 if match.active == 1 else 1
-        blocking = self.blocking_patrollers(match, attacker)
+        other = self.defending_seat(match, against)
+        blocking = self.blocking_patrollers(match, attacker, against=against)
         if blocking:
             leader = blocking.get("squad_leader")
             if leader is not None:
                 rows = [(leader, "squad leader")]
             else:
                 rows = [(blocking[slot], "patroller") for slot in PATROL_SLOTS if slot in blocking]
-            if self._sneaks_to_units(match, attacker):
+            if self._sneaks_to_units(match, attacker, against=against):
                 # Stealth while attacking a unit: any of their units, past
                 # the patrol zone.
                 taken = {ref for ref, _ in rows}
                 rows += [
                     (card.ref, "it sneaks past the patrol zone to a unit")
                     for card in self._units_of(match, other)
-                    if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref)
+                    if card.ref not in taken and self.may_be_attacked(match, attacker, card.ref, against=against)
                 ]
             past = self._unstoppable_to_buildings(match, attacker)
             if past:
@@ -2444,7 +2502,7 @@ class RulesEngine:
                     (ref, why) for ref in self._standing(match, other)
                     if ref not in taken and self.is_building_ref(match, other, ref)
                     and (past != "base" or ref == "base")
-                    and self.may_be_attacked(match, attacker, ref)
+                    and self.may_be_attacked(match, attacker, ref, against=against)
                 ]
             if self._unstoppable_to_heroes(match, attacker):
                 # Wight: "Unstoppable when attacking heroes" -- any of their
@@ -2454,31 +2512,31 @@ class RulesEngine:
                     (hero_ref(hero.slug), "it is unstoppable when attacking heroes")
                     for hero in match.player(other).heroes_in_play
                     if hero_ref(hero.slug) not in taken
-                    and self.may_be_attacked(match, attacker, hero_ref(hero.slug))
+                    and self.may_be_attacked(match, attacker, hero_ref(hero.slug), against=against)
                 ]
             return tuple(rows)
         # A patroller it may take is said as one, as above: it neither
         # flew over nor sneaked past the zone it is standing in.
-        why = self._open_why(match, attacker)
+        why = self._open_why(match, attacker, against=against)
         slot_of = {ref: slot for slot, ref in match.player(other).patrollers().items()}
         return tuple(
             (ref, self._patroller_why(slot_of[ref]) if ref in slot_of else why)
             for ref in self._standing(match, other)
-            if self.may_be_attacked(match, attacker, ref)
+            if self.may_be_attacked(match, attacker, ref, against=against)
         )
 
     @staticmethod
     def _patroller_why(slot: str) -> str:
         return "squad leader" if slot == "squad_leader" else "patroller"
 
-    def _sneaks_to_units(self, match: MatchState, attacker: str) -> bool:
+    def _sneaks_to_units(self, match: MatchState, attacker: str, against: Optional[int] = None) -> bool:
         """Whether this attacker has stealth while attacking a unit
         (Stalking Tiger) and no detector of theirs sees it, so it may
         sneak past the patrol zone to any of their units."""
         body = self.body(match, match.active, attacker)
         if not isinstance(body, CardInstance) or body.slug not in effects.STEALTH_ATTACKING_UNITS:
             return False
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, against)
         return not self.detected_by(match, other, attacker)
 
     def _unstoppable_to_buildings(self, match: MatchState, attacker: str) -> str:
@@ -2496,15 +2554,15 @@ class RulesEngine:
         body = self.body(match, match.active, attacker)
         return isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_ATTACKING_HEROES
 
-    def _open_why(self, match: MatchState, attacker: str) -> str:
+    def _open_why(self, match: MatchState, attacker: str, against: Optional[int] = None) -> str:
         """Why nothing in the patrol zone holds this attacker."""
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, against)
         if not match.player(other).patrollers():
             return "no patrol"
-        sneaking = self.ignores_patrollers(match, attacker)
+        sneaking = self.ignores_patrollers(match, attacker, against=against)
         if sneaking == "unstoppable":
             return "it is unstoppable"
-        if self._unstoppable_by_tech_0(match, attacker):
+        if self._unstoppable_by_tech_0(match, attacker, against=against):
             return "it is unstoppable by tech 0 units"
         body = self.body(match, match.active, attacker)
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.UNSTOPPABLE_BY_RUNED:
@@ -2531,7 +2589,7 @@ class RulesEngine:
         patrol zone without flying: "no fly over happened there".
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, None)
         if not self.has(match, seat, attacker, "Flying"):
             return ()
         if self.ignores_patrollers(match, attacker):
@@ -2556,7 +2614,7 @@ class RulesEngine:
         2016-03-14).
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, None)
         body = self.body(match, other, defender)
         if body is None:
             return 0
@@ -2592,7 +2650,7 @@ class RulesEngine:
         included, anti-air or not (Sirlin, 2016-03-14).
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, None)
         if not self.has(match, seat, attacker, "Sparkshot"):
             return ()
         slot = self.patrol_slot_of(match, other, defender)
@@ -2620,7 +2678,7 @@ class RulesEngine:
         non-patroller".
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, None)
         if not self.has(match, seat, attacker, "Overpower"):
             return 0
         if self.patrol_slot_of(match, other, defender) is None:
@@ -2664,7 +2722,7 @@ class RulesEngine:
         2016-03-14).
         """
         seat = match.active
-        other = 2 if seat == 1 else 1
+        other = self.defending_seat(match, None)
         if not self.overpower_excess(match, attacker, defender):
             return ()
         if self.stampedes(match, self.body(match, seat, attacker)) and self.body(match, other, defender) is not None:
@@ -2692,7 +2750,7 @@ class RulesEngine:
         Obliterate never targets, so resist and invisibility do not help
         against it (Sirlin, 2016-03-14), and heroes are not units.
         """
-        other = 2 if match.active == 1 else 1
+        other = self.defending_seat(match, None)
         # Indestructible units and units that can't leave play are
         # skipped: the next lowest goes instead (the obliterate ruling).
         units = [
@@ -2766,14 +2824,14 @@ class RulesEngine:
         (`"1:hand:fire_dart"`, `"1:codex:predator_tiger"`) -- the owner's
         alone, and so the effect's controller's alone.
         """
-        other = 2 if seat == 1 else 1
+        foes = self.opponents(match, seat)
         frame = frame or {}
         found: list[tuple[int, str]] = []
 
         def tech(card: CardInstance) -> int:
             return self.tech_level(card)
 
-        for side in (other, seat):
+        for side in (*foes, seat):
             player = match.player(side)
             units = self._units_of(match, side)
             hero = [hero_ref(one.slug) for one in player.heroes_in_play]
@@ -2830,7 +2888,7 @@ class RulesEngine:
                     found += [(side, hero_ref(one.slug)) for one in player.heroes_in_play
                               if (self.hero_card(one).spec or "").lower() == "balance"]
             elif choose == "opposing_unit_tech_0_2":
-                if side != seat:
+                if side in foes:
                     found += [(side, card.ref) for card in units if tech(card) <= 2]
             elif choose == "unit_tech_0_1":
                 found += [(side, card.ref) for card in units if tech(card) <= 1]
@@ -2971,7 +3029,7 @@ class RulesEngine:
                 # Search): what is seen is the prompt's `shown`.
                 pass
             elif choose == "opposing_hero":
-                if side != seat:
+                if side in foes:
                     found += [(side, ref) for ref in hero]
             elif choose == "snapped_command_hero":
                 # Snapback: another hero of the command zone the first went
@@ -3033,7 +3091,7 @@ class RulesEngine:
             elif choose == "opponent_hand_nonunit":
                 # Carrion Curse: the opponent's hand, looked at by the caster
                 # alone -- the non-unit cards, each named once.
-                if side != seat:
+                if side in foes:
                     found += [(side, HAND + slug) for slug in dict.fromkeys(player.hand)
                               if not self.catalog.cards[slug].is_unit]
             elif choose == "patrolling_weak_unit":
@@ -3045,7 +3103,7 @@ class RulesEngine:
             elif choose == "unit_tech_upto_2":
                 found += [(side, card.ref) for card in units if tech(card) <= 2]
             elif choose == "opposing_upgrade_spell_or_building_card":
-                if side != seat:
+                if side in foes:
                     found += [(side, card.ref) for card in player.play
                               if not self.catalog.cards[card.slug].is_unit]
             elif choose == "own_unit_tech_1_2":
@@ -3072,7 +3130,7 @@ class RulesEngine:
             elif choose in ("opponent_hand_unit_1_2", "opponent_discard_unit_1_2"):
                 # Community Service: a tech I or II unit of the opponent's
                 # hand -- looked at by the caster alone -- or discard pile.
-                if side != seat:
+                if side in foes:
                     pile, prefix = ((player.hand, HAND) if choose == "opponent_hand_unit_1_2"
                                     else (player.discard, DISCARD))
                     found += [(side, prefix + slug) for slug in dict.fromkeys(pile)
@@ -3084,7 +3142,7 @@ class RulesEngine:
             elif choose == "tech_building_1_2":
                 # Injunction: a level I or II tech building standing --
                 # which a player without one can't be dealt (its ruling).
-                if side != seat:
+                if side in foes:
                     found += [(side, ref) for ref in ("tech1", "tech2")
                               if player.buildings.get(ref) is not None
                               and not player.buildings[ref].destroyed]
@@ -3236,7 +3294,7 @@ class RulesEngine:
         if body is None:
             return True
         if self.has_keyword(body, "Invisible", match):
-            return self.detected_by(match, seat, ref) and match.active == seat
+            return self.detected_by(match, seat, ref) and seat in self.turn_seats(match)
         return True
 
     def target_rows(self, match: MatchState, seat: int, part, *, taken: Sequence[str] = (),
@@ -3269,15 +3327,15 @@ class RulesEngine:
                 continue
             if self._shielded_from(match, side, ref, frame):
                 continue
-            if side != seat and self._mind_parried(match, side, ref):
+            if side in self.opponents(match, seat) and self._mind_parried(match, side, ref):
                 # Mind-Parry Monk: "Opponents can't {target} your units or
                 # heroes with spells or abilities." (step 13)
                 continue
-            resist = self.resist_cost(match, side, ref) if side != seat else 0
+            resist = self.resist_cost(match, side, ref) if side in self.opponents(match, seat) else 0
             if resist > gold:
                 continue
             body = self.body(match, side, ref)
-            flag = side != seat and self.is_flagbearer_body(match, body)
+            flag = side in self.opponents(match, seat) and self.is_flagbearer_body(match, body)
             rows.append(TargetRow(target_key(side, ref), side, ref, resist, flag))
         if part.targeted and not flagbearer_done and any(row.flagbearer for row in rows):
             return tuple(row for row in rows if row.flagbearer)
@@ -3295,10 +3353,10 @@ class RulesEngine:
         their hands revealed" -- the one standing reveal, and `seat`'s
         alone to be shown."""
         if any(self.text_slug(card) in effects.REVEALS_HANDS for card in match.player(seat).play):
-            return (2 if seat == 1 else 1,)
+            return self.opponents(match, seat)
         if any(lasting.get("kind") == "looked_hand" for lasting in match.player(seat).lasting):
             # Flagstone Spy's look, this turn's.
-            return (2 if seat == 1 else 1,)
+            return self.opponents(match, seat)
         return ()
 
     def _shielded_from(self, match: MatchState, side: int, ref: str, frame: Optional[dict]) -> bool:
@@ -3785,7 +3843,7 @@ class RulesEngine:
         player's main phase. **Its owner's alone.**
         """
         player = match.player(seat)
-        mine = match.active == seat and match.phase == "main" and match.winner is None
+        mine = seat in self.turn_seats(match) and match.phase == "main" and match.winner is None
         rows = []
         for slug in player.hand:
             why = self.why_not_playable(player, slug, match) if mine else "it is not your main phase"

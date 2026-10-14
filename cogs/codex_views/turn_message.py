@@ -135,7 +135,7 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        if seat == match.active and match.winner is None:
+        if seat in self.cog.engine.turn_seats(match) and match.winner is None:
             await self.cog.show_panel(interaction, game, match, seat, edit=False)
             return
         await self.cog.send_hand(interaction, game, match, seat)
@@ -155,7 +155,7 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        if seat == match.active and match.winner is None and self.cog.tech_asked(game, match, seat):
+        if seat in self.cog.engine.turn_seats(match) and match.winner is None and self.cog.tech_asked(game, match, seat):
             # The turn opens on its player's tech: the confirmation, or
             # the picker where nothing was picked -- or in a test game.
             await self.cog.show_panel(interaction, game, match, seat, edit=False, open_tech=True)
@@ -166,7 +166,7 @@ class TurnMessageView(SafeView):
             # ready phase, from My hand.
             await send_ephemeral(interaction, TECH_IN_READY_PHASE)
             return
-        if seat == match.active:
+        if seat in self.cog.engine.turn_seats(match):
             await send_ephemeral(
                 interaction,
                 "Tech is chosen at the end of your turn and changed during your "
@@ -193,7 +193,7 @@ class TurnMessageView(SafeView):
             return
         owner = self.cog.service.end_of_turn_owner(game.game_id)
         ended = owner is not None and owner in game.seats_of(interaction.user.id)
-        if seat == match.active and match.winner is None:
+        if seat in self.cog.engine.turn_seats(match) and match.winner is None:
             targets = self.cog.service.undo_targets(game.game_id)
             points = self.cog.undo_choices(game)
         elif ended:

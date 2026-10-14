@@ -465,7 +465,7 @@ class StartTests(unittest.IsolatedAsyncioTestCase):
             game, _ = await table.started()
         (text,), _ = table.game_channel.send.call_args
         match = table.cog.service.load(game)
-        for seat in (1, 2):
+        for seat in game.seats_of(101):
             for slug in match.player(seat).hand:
                 self.assertNotIn(table.cog.engine.name(slug), text)
 

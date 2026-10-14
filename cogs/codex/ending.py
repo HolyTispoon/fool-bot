@@ -154,7 +154,7 @@ class EndingMixin:
         if seat is None:
             await send_ephemeral(interaction, "Only the game's two players can concede, each their own side.")
             return
-        other = 2 if seat == 1 else 1
+        other = self.engine.sole_opponent(match, seat)
         winner = game.seat_name(other) or f"Player {other}"
         side = f" {team_name(match.player(seat).specs)}'s side of" if game.test_game else ""
         await interaction.response.send_message(

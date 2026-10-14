@@ -14,6 +14,7 @@ import unittest
 from codex import tokens
 from codex.cards import catalog
 from codex.components import MatchState, unsaved_fields
+from codex.engine import RulesEngine
 from codex.formatting import plain_text
 
 from codex_positions import begin, built, new_game, put
@@ -72,7 +73,7 @@ class SavedFieldTests(unittest.TestCase):
         self.assertEqual([hero.slug for hero in loaded.player(2).heroes], ["river_montoya"])
         self.assertEqual(loaded.player(1).deck_color, "neutral")
         active, other = (loaded.player(loaded.active).heroes[0].slug,
-                         loaded.opponent(loaded.active).heroes[0].slug)
+                         loaded.player(RulesEngine().opponents(loaded, loaded.active)[0]).heroes[0].slug)
         self.assertEqual(loaded.attacking, f"hero:{active}")
         self.assertEqual((loaded.combat["attacker"], loaded.combat["defender"], loaded.combat["sparks"]),
                          (f"hero:{active}", f"hero:{other}", [f"hero:{other}"]))

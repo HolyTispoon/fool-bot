@@ -241,7 +241,10 @@ class CoreMixin:
         return playing[0] if playing else None
 
     def seat_names(self, game: CodexGame) -> dict[int, str]:
-        return {1: game.player_1_name or "Player 1", 2: game.player_2_name or "Player 2"}
+        return {
+            seat: game.seat_name(seat) or f"Player {seat}"
+            for seat in range(1, game.seat_count + 1)
+        }
 
     # -- Tokens ------------------------------------------------------------
 
@@ -342,7 +345,7 @@ class CoreMixin:
         prompt = pending_prompt(self.engine, game, match)
         if prompt is None or prompt.kind not in TECH_WAIT:
             return None
-        player_id = game.player_1_id if prompt.asked_player == 1 else game.player_2_id
+        player_id = game.seat_user_id(prompt.asked_player)
         who = f"<@{player_id}>" if player_id else (game.seat_name(prompt.asked_player) or "its player")
         return TECH_WAIT[prompt.kind].format(who=who)
 

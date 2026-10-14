@@ -3287,6 +3287,86 @@ The six heroes' faces are emoji like Troq's and River's: `FACES` in
 `scripts/render_codex_emoji.py` pins a square per hero, and
 `EMOJI_NAMES` asks the Codex application for each.
 
+## Multiplayer
+
+The free-for-all and the two-headed dragon are built in the steps of
+[docs/codex-multiplayer.md](../codex-multiplayer.md); this section says
+what each step settled, with the reasoning, and is written as they land.
+
+### Step 1: the seats, one reading each
+
+The duel changed in nothing a player can see: `tests/test_codex_golden.py`
+passes unrecorded, and the request table above holds click for click.
+What changed is that each question the bot used to answer by the
+idiom `2 if x == 1 else 1` has **one reading**, so that steps 2 and 5
+change readings, not 66 sites.
+
+- **The record holds its seats as a list.** `CodexGame.seats` is a list
+  of `{id, name}` as long as `seat_count` (two, until a variant says
+  more), an empty seat `{id: None, name: None}` so that a seat left
+  empty keeps its number -- `seats[n - 1]` is seat *n*. It is saved as
+  `"seats"`, and the four `player_1_*` / `player_2_*` keys are still
+  written for the first two seats, because D12 Ball's record spells
+  them so and `cogs/game_auth.py`'s Protocol reads them; a save without
+  `"seats"` reads them. The four are properties over the list, so
+  nothing that read them breaks. `seat_user_id(seat)` and `seat_ids()`
+  are the readings the cogs use; `game_participant_ids` asks
+  `seat_ids()` of a record that has it.
+- **`codex/seats.py` is the reading; the engine's methods are its
+  door.** `opponents(match, seat)`, `turn_seats(match)` and
+  `next_seat(match)` are functions of the match alone, so the renderer
+  and the save code, which hold no engine, ask the same thing the rules
+  do; `RulesEngine.opponents`, `turn_seats`, `acting_seats` and
+  `next_seat` are one-line doors over them. `turn_seats` is `(active,)`
+  and `acting_seats` is `turn_seats`: the dragon will make them differ.
+  Nothing computes the other seat inline, and nothing asks
+  `seat == match.active`.
+- **`sole_opponent` marks the sites a table of several must answer.**
+  Where a rule reads "the opponent" and the duel's one is the whole
+  answer (Discord's *{target}* of a spell, Death and Decay's side, the
+  winner of a destroyed base), the code asks `sole_opponent`, which
+  refuses a table with several opponents rather than answering for one
+  of them. Each call is a site steps 2 and 5 give a real answer; a grep
+  for it is their audit list. Where the answer is naturally "every
+  opponent" the code already asks `opponents` (Moment's Peace, the
+  Inspectors, a hand revealed, Prynn's fading, the censors).
+- **A base is read through `MatchState.base_of` and written through
+  `set_base`**, the only code outside the field's definition and its
+  `SavedField` that names `base_hp`. A dragon's teammates will share
+  one base; the sites do not change when they do.
+- **An attack carries the seat attacked.** `MatchState.against` is the
+  seat the declared attack is against, kept beside `attacking` and
+  cleared with it, and `combat["against"]` is the same seat for the
+  attack under way. `match.against` is written to the save only while
+  an attack is declared, so a duel between attacks saves the bytes it
+  always did. A save from before reads the one opponent
+  (`components.read_defending_seat`). `engine.defending_seat(match,
+  against)` is the reading: the seat named, else the combat's, else the
+  attacker's one opponent. The defender chain takes an optional
+  `against`, so a prompt can build its rows per opponent; `DefenderOptions`
+  carries each row's `seats` (written to the wire only where there are
+  several), and `declare_attack` takes the seat the click names or the
+  options offer it on.
+- **A frame is against a seat it names.** `_against(engine, match, top)`
+  reads `top["against"]`, and a frame saved before the seat was
+  recorded reads the duel's one opponent.
+- **A kill's levels go to any opponent's hero.** `board.destroy` offers
+  the levels to every in-play hero of every opponent of the dead hero's
+  controller (the controller, not the owner, for a lent hero:
+  Rulebook p. 11); the frame lists the seats when there are several.
+  A hero already at its maximum level is still offered, as today:
+  whether the choice should skip such a hero is a question for the
+  author, since the duel's transcript would change.
+- **The cogs ask the record and the engine.** The channel's name joins
+  every seat's name with `-vs-`, `/codex games` lists every seat, and
+  the buttons that need "the other side" ask the engine
+  (`sole_opponent`, `defending_seat`) or carry the seat the prompt gave
+  them.
+- **A seat is any positive number the match has.** `validate` accepts
+  two to five players in seat order, `first`, `active`, `winner` and
+  `conceded` any seat it has, and `tokens.player` and `tokens.addressed`
+  any positive seat.
+
 ## Running it
 
 On the Mac, from the checkout, with `CODEX_DISCORD_TOKEN` in `.env`:

@@ -155,12 +155,19 @@ class DefenderOptions:
     #: Why each of `defenders` is legal, in the same order: "squad
     #: leader", "patroller", "no patrol" (`defender_rows`).
     why: tuple[str, ...] = ()
+    #: The seat each of `defenders` is on, in the same order -- a ref
+    #: alone names nothing at a table of several (`TargetRow` does the
+    #: same). Written only where there is more than one such seat.
+    seats: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "attacker": self.attacker, "defenders": list(self.defenders),
             "why": list(self.why),
         }
+        if len(set(self.seats)) > 1:
+            data["seats"] = list(self.seats)
+        return data
 
 
 @dataclass(frozen=True)
@@ -640,12 +647,12 @@ def _target_options(engine, game, match, prompt) -> TargetOptions:
     if part.choose in LOOKS:
         # Carrion Curse: "Look at an opponent's hand" -- all of it, to the
         # caster alone.
-        other = 2 if top["seat"] == 1 else 1
+        other = engine.sole_opponent(match, top["seat"])
         shown = tuple(match.player(other).hand)
     elif part.choose in DISCARD_LOOKS:
         # Community Service, Lawful Search: the opponent's discard pile,
         # public, pictured all the same (step 13).
-        other = 2 if top["seat"] == 1 else 1
+        other = engine.sole_opponent(match, top["seat"])
         shown = tuple(match.player(other).discard)
     return TargetOptions(
         top["seat"], top["effect"], top["by"], top["part"], part.says, rows,
@@ -698,9 +705,12 @@ def _level_options(engine, game, match, prompt) -> LevelGainOptions:
 
     top = match.resolving[0]
     owner = match.player(top["seat"])
+    # Several seats only where the dead hero had several opponents; a hero
+    # is named by its ref alone until the action carries a seat (step 2).
+    holders = [match.player(seat) for seat in top.get("seats") or [top["seat"]]]
     return LevelGainOptions(
         prompt.asked_player, owner.seat,
-        tuple(hero_ref(hero.slug) for hero in owner.heroes_in_play),
+        tuple(hero_ref(hero.slug) for holder in holders for hero in holder.heroes_in_play),
     )
 
 
@@ -731,9 +741,14 @@ def _overpower_options(engine, game, match, prompt) -> OverpowerOptions:
 
 
 def _defender_options(engine, game, match, prompt) -> DefenderOptions:
-    rows = engine.defender_rows(match, match.attacking)
+    found = [
+        (foe, ref, why)
+        for foe in engine.opponents(match, match.active)
+        for ref, why in engine.defender_rows(match, match.attacking, against=foe)
+    ]
     return DefenderOptions(
-        match.attacking, tuple(ref for ref, _ in rows), tuple(why for _, why in rows),
+        match.attacking, tuple(ref for _, ref, _ in found), tuple(why for _, _, why in found),
+        tuple(foe for foe, _, _ in found),
     )
 
 
@@ -938,7 +953,7 @@ def pending(engine: "RulesEngine", game: "CodexGame", match: MatchState) -> Unio
     waiting = _pending(engine, game, match)
     if isinstance(waiting, FollowOn):
         return waiting
-    if waiting.asked_player is not None and waiting.asked_player == match.active:
+    if waiting.asked_player is not None and waiting.asked_player in engine.acting_seats(match):
         told = discard_notes(match, waiting.asked_player)
         if told:
             waiting = replace(waiting, told=told)
@@ -979,11 +994,12 @@ def standing_prompts(engine: "RulesEngine", match: MatchState,
     """
     if match.winner is not None or not tech_stands(game):
         return ()
-    other = 2 if match.active == 1 else 1
-    if not tech_is_owed(match, other):
-        return ()
-    prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other), other)
-    return (with_options(engine, game, match, prompt),)
+    owed = []
+    for other in engine.opponents(match, match.active):
+        if tech_is_owed(match, other):
+            prompt = PendingPrompt(PromptKind.TECH_CHOICE, _tech_ask(engine, match, other), other)
+            owed.append(with_options(engine, game, match, prompt))
+    return tuple(owed)
 
 
 def asked_player(prompt: PendingPrompt) -> Optional[int]:
