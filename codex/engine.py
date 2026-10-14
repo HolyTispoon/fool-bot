@@ -2289,7 +2289,10 @@ class RulesEngine:
         )
         if player.add_on is not None:
             found.append("add_on")
-        found.append("base")
+        if match.base_of(seat) > 0:
+            # A destroyed base is no longer there to attack: only a
+            # free-for-all's playoff goes on past one (Rulebook p. 14).
+            found.append("base")
         return tuple(found)
 
     def may_be_attacked(self, match: MatchState, attacker: str, target: str, against: Optional[int] = None) -> bool:

@@ -172,13 +172,20 @@ WHITE_BLUE_TEAMS = (["discipline", "ninjutsu", "strength"], ["law", "peace", "tr
 WHITE_BLUE_SEED = 20261011
 
 
-def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
+def play(seed: int = SEED, *, say=None, teams=None, players=None,
+         turn_limit: int = TURN_LIMIT) -> tuple[RulesEngine, CodexGame, MatchState, list[str]]:
     """Play a whole game -- Bashing against Finesse, or a standard game
     of `teams` -- and return the engine, the record, the final match and
-    the transcript in plain words."""
+    the transcript in plain words. `players`, a spec per seat, plays a
+    basic free-for-all of three to five (docs/codex-multiplayer.md,
+    step 2), the policy playing every seat."""
     engine = RulesEngine(seed=seed)
     game = CodexGame("codex-full-game", 1)
-    if teams is None:
+    if players is not None:
+        game.set_variant("free_for_all")
+        for number, spec in enumerate(players, start=1):
+            game.take_seat(100 * number + number, f"player{number}", spec)
+    elif teams is None:
         game.take_seat(101, "basher", "bashing")
         game.take_seat(202, "fencer", "finesse")
     else:
@@ -207,7 +214,7 @@ def play(seed: int = SEED, *, say=None, teams=None) -> tuple[RulesEngine, CodexG
         return loaded
 
     steps = 0
-    while match.winner is None and match.turn <= TURN_LIMIT:
+    while match.winner is None and match.turn <= turn_limit:
         steps += 1
         assert steps < 20000, "the game is not making progress"
         owed = owed_step(engine, game, match)
@@ -434,6 +441,91 @@ class CodexWhiteBlueGameTests(unittest.TestCase):
                 for slug in self.engine.catalog.cards:
                     name = self.engine.catalog.name(slug)
                     self.assertNotIn(f" {name} ", f" {line} ")
+
+
+#: The free-for-all's whole games (docs/codex-multiplayer.md, step 2):
+#: three players and five, basic, the policy playing every seat.
+FFA_THREE = ("bashing", "finesse", "bashing")
+FFA_THREE_SEED = SEED
+FFA_FIVE = ("bashing", "finesse", "bashing", "finesse", "bashing")
+FFA_FIVE_SEED = SEED
+#: A table of five ends on a tie for the most base HP on this seed, and
+#: the playoff decides it.
+FFA_TIED_SEED = SEED
+FFA_TURN_LIMIT = 120
+
+
+class CodexFreeForAllGameTests(unittest.TestCase):
+    """
+    A free-for-all of three and one of five, through the driver alone,
+    from the deal to a winner on base HP (Rulebook p. 14), with nothing
+    from `cogs/` or `discord` imported; one of them reaches a tie and its
+    playoff. Run with -v, the three-player game's transcript prints, turn
+    by turn with the score at its end.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verbose = "-v" in sys.argv or "--verbose" in sys.argv
+        cls.three = play(FFA_THREE_SEED, players=FFA_THREE, turn_limit=FFA_TURN_LIMIT,
+                         say=print if verbose else None)
+        cls.five = play(FFA_FIVE_SEED, players=FFA_FIVE, turn_limit=FFA_TURN_LIMIT)
+        cls.tied = cls.five if FFA_TIED_SEED == FFA_FIVE_SEED else play(
+            FFA_TIED_SEED, players=FFA_FIVE, turn_limit=FFA_TURN_LIMIT,
+        )
+
+    def check_won_on_base_hp(self, played, count: int) -> None:
+        engine, game, match, transcript = played
+        self.assertEqual(len(match.players), count)
+        self.assertEqual(match.variant, "free_for_all")
+        self.assertIsNotNone(match.winner)
+        self.assertLessEqual(match.turn, FFA_TURN_LIMIT)
+        self.assertIn(0, [match.base_of(player.seat) for player in match.players])
+        among = match.tied or [player.seat for player in match.players]
+        self.assertEqual(match.base_of(match.winner), max(match.base_of(seat) for seat in among))
+        prompt = pending_prompt(engine, game, match)
+        self.assertIs(prompt.kind, PromptKind.GAME_OVER)
+        self.assertIn(f"wins with {match.base_of(match.winner)} base HP", prompt.ask)
+        self.assertEqual(standing_prompts(engine, match, game), ())
+
+    def test_three_players_to_a_winner(self) -> None:
+        self.check_won_on_base_hp(self.three, 3)
+
+    def test_five_players_to_a_winner(self) -> None:
+        self.check_won_on_base_hp(self.five, 5)
+
+    def test_every_seat_played_and_the_mercenaries_arrived(self) -> None:
+        _, _, match, transcript = self.five
+        seats = {event["seat"] for event in match.events if event["kind"] == "turn_ended"}
+        self.assertEqual(seats, {1, 2, 3, 4, 5})
+        made = [event for event in match.events
+                if event["kind"] == "summoned_token" and event["slug"] == "mercenary"]
+        self.assertEqual(len(made), 6)
+        self.assertTrue(any("Mercenaries arrive" in line for line in transcript))
+
+    def test_a_tie_is_played_off(self) -> None:
+        _, _, match, transcript = self.tied
+        self.assertTrue(match.tied, "the seed no longer reaches a tie")
+        self.assertTrue(any(line.startswith("A tie at") for line in transcript))
+        self.assertIn(match.winner, match.tied)
+
+    def test_nothing_hidden_is_said(self) -> None:
+        engine = self.three[0]
+        for line in self.three[3] + self.five[3]:
+            if "hires a worker" in line or "their tech" in line:
+                for slug in engine.catalog.cards:
+                    self.assertNotIn(f" {engine.catalog.name(slug)} ", f" {line} ")
+
+    def test_the_game_needs_no_frontend(self) -> None:
+        probe = subprocess.run(
+            [sys.executable, "-c", ISOLATED.replace("full.play()", f"full.play(players={FFA_THREE!r})")],
+            capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=300,
+            env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)},
+        )
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        winner, leaked = ast.literal_eval(probe.stdout.strip().splitlines()[-1])
+        self.assertIn(winner, (1, 2, 3))
+        self.assertEqual(leaked, [])
 
 
 if __name__ == "__main__":

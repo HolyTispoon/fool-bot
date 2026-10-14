@@ -89,15 +89,21 @@ def action_line(number: int, action) -> str:
     return f"=== action {number}: {action.kind.name} {action.choice!r} {arguments}"
 
 
-def record_playthrough(seed: int = GOLDEN_SEED) -> tuple[str, dict]:
+def record_playthrough(seed: int = GOLDEN_SEED, players=None) -> tuple[str, dict]:
     """Play a whole game through the service; return the transcript and
-    the final save."""
+    the final save. `players`, a spec per seat, plays a free-for-all
+    (docs/codex-multiplayer.md, step 2)."""
     engine = RulesEngine(seed=seed)
     games: dict = {}
     service = GameService(engine, games, save=lambda games: None)
     game = service.create_game(guild_id=1, game_number=1)
-    service.take_seat(game.game_id, 101, "basher", "bashing")
-    service.take_seat(game.game_id, 202, "fencer", "finesse")
+    if players is None:
+        service.take_seat(game.game_id, 101, "basher", "bashing")
+        service.take_seat(game.game_id, 202, "fencer", "finesse")
+    else:
+        service.set_variant(game.game_id, "free_for_all")
+        for number, spec in enumerate(players, start=1):
+            service.take_seat(game.game_id, 100 * number + number, f"player{number}", spec)
     lines = ["=== start"]
     result = service.start(game.game_id)
     lines.extend(describe(result))
@@ -192,6 +198,60 @@ class CodexGoldenTests(unittest.TestCase):
         second, second_match = record_playthrough()
         self.assertEqual(second, self.transcript)
         self.assertEqual(second_match, self.final_match)
+
+
+#: The free-for-all's golden (docs/codex-multiplayer.md, step 2): three
+#: players, Bashing, Finesse and Bashing, seeded, through the service.
+FFA_TRANSCRIPT_FILE = GOLDEN_DIR / "codex_ffa_transcript.txt"
+FFA_FINAL_MATCH_FILE = GOLDEN_DIR / "codex_ffa_final_match.json"
+FFA_PLAYERS = ("bashing", "finesse", "bashing")
+FFA_SEED = GOLDEN_SEED
+
+
+class CodexFreeForAllGoldenTests(unittest.TestCase):
+    """A seeded three-player game through the service, byte for byte --
+    re-recorded with `FOOLBOT_UPDATE_GOLDEN=1` as the duel's is, and only
+    for a change to the model's wording or the game."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.transcript, cls.final_match = record_playthrough(FFA_SEED, FFA_PLAYERS)
+
+    def test_the_transcript_matches_the_golden(self) -> None:
+        if UPDATING:
+            FFA_TRANSCRIPT_FILE.write_text(self.transcript)
+            self.skipTest("FOOLBOT_UPDATE_GOLDEN=1: transcript rewritten")
+        recorded = FFA_TRANSCRIPT_FILE.read_text()
+        if recorded != self.transcript:
+            self.fail(
+                "the free-for-all no longer says what it used to; regenerate with "
+                "FOOLBOT_UPDATE_GOLDEN=1 if that is deliberate, and say so in the pull request.\n\n"
+                + golden_diff(recorded, self.transcript, "transcript")
+            )
+
+    def test_the_final_match_matches_the_golden(self) -> None:
+        rendered = render_final_match(self.final_match)
+        if UPDATING:
+            FFA_FINAL_MATCH_FILE.write_text(rendered)
+            self.skipTest("FOOLBOT_UPDATE_GOLDEN=1: final match rewritten")
+        recorded = FFA_FINAL_MATCH_FILE.read_text()
+        if recorded != rendered:
+            self.fail("the free-for-all ends on a different position.\n\n"
+                      + golden_diff(recorded, rendered, "final match"))
+
+    def test_the_game_ends_on_the_most_base_hp(self) -> None:
+        self.assertEqual(self.final_match["variant"], "free_for_all")
+        self.assertEqual(len(self.final_match["players"]), 3)
+        self.assertIsNotNone(self.final_match["winner"])
+        self.assertIn(" base HP: ", self.transcript)
+        self.assertIn("--- prompt GAME_OVER", self.transcript)
+
+    def test_nothing_hidden_is_written(self) -> None:
+        for line in self.transcript.splitlines():
+            if "hires a worker" in line or "tech card" in line:
+                self.assertNotIn("{card:", line, line)
+            if line.startswith("=== action") and ("TECH_CHOICE" in line or "'hire'" in line):
+                self.assertTrue(line.endswith("(hidden)"), line)
 
 
 if __name__ == "__main__":  # pragma: no cover

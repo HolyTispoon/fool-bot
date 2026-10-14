@@ -757,7 +757,7 @@ step is worth starting.
 | # | Step | Size | Stop |
 | --- | --- | --- | --- |
 | ~~1~~ | ~~Seats as a list, opponents as a set, the base as one reading -- nothing changes~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | the duel golden byte for byte; the idiom `2 if … == 1 else 1` gone from `codex/` and `cogs/codex*`, no comparison against `match.active` outside `turn_seats`, `base_hp` read only through `base_of`; a three-seat and a four-seat match validate |
-| 2 | Free-for-all through the driver | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
+| ~~2~~ | ~~Free-for-all through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays three and five players from the deal to a winner on base HP, through a tied playoff, with nothing from `cogs/` or `discord` imported; the three-player golden |
 | 3 | Free-for-all's three additions: repair, free gold, lending | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
 | 4 | Free-for-all on Discord | large | three people reach the end of a game: the lobby, the channel, the stacked board of three, the pickers standing for two, rematch |
 | 5 | Two-headed dragon through the driver | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
@@ -992,6 +992,13 @@ click, and the PR shows the three greps in the preamble empty.
 ```
 
 ### 2. Free-for-all through the driver
+
+**Landed** (2026-10-14). What it settled -- the variant on the record and
+the match, the Mercenaries as an upkeep effect, the ending and its
+playoff (`playoff` and `tied`), debt and no concession, "an opponent's"
+asked and the plurals reaching every opponent, Moment's Peace, the
+seat on `LEVEL_GAIN` -- is in docs/design/codex.md, "Multiplayer", "Step
+2: the free-for-all through the driver".
 
 The mode as the model, before a line of Discord: the variant, the deal,
 the Mercenaries at their upkeep, the turn order, the ending and its
