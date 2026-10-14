@@ -920,11 +920,15 @@ class RulesEngine:
                           and self.growth_holds(card)]
         return tuple(dict.fromkeys(found))
 
-    def board_reading(self, match: MatchState, body) -> tuple[int, int, tuple[str, ...]]:
+    def board_reading(self, match: MatchState,
+                      body) -> tuple[int, int, tuple[str, ...], Optional[str]]:
         """What the board shows of a unit or a hero that is a reading of
-        the rules: its ATK and HP (`body_stats`) and the effects across a
-        side that reach it (`auras_on`)."""
-        return (*self.body_stats(match, body), self.auras_on(match, body))
+        the rules: its ATK and HP (`body_stats`), the effects across a
+        side that reach it (`auras_on`), and what keeps a unit from
+        attacking and patrolling for now (`barred_by`)."""
+        barred = (self.barred_by(match, body) if isinstance(body, CardInstance)
+                  and self.catalog.cards[body.slug].is_unit else None)
+        return (*self.body_stats(match, body), self.auras_on(match, body), barred)
 
     def attack_value(self, match: MatchState, seat: int, ref: str,
                      against: Optional[str] = None) -> int:
@@ -1269,6 +1273,25 @@ class RulesEngine:
         if match is None or self.text_slug(card) not in effects.SHACKLED:
             return False
         return any(other.made_by == card.id for other in match.instances())
+
+    def cant_patrol_as_printed(self, card: CardInstance) -> bool:
+        """Its own "can't patrol" (`effects.CANT_PATROL`), until Gargoyle's
+        ability frees it -- what the card itself says, so never tagged."""
+        return self.text_slug(card) in effects.CANT_PATROL and not self.unbound(card)
+
+    def barred_by(self, match: Optional[MatchState], card: CardInstance) -> Optional[str]:
+        """What keeps this unit from attacking and patrolling for now,
+        where its own printed text does not say so outright, by the slug
+        of the card that does -- Terras Q's shackle while his Warlocks are
+        in play, Entangling Vines on it -- or `None`. The board tags it,
+        in that card's colour (docs/design/codex.md, "The board on
+        Discord"); exhaustion and Moment's Peace, across a whole side,
+        are the attack's and the patrol's alone."""
+        if self.shackled(match, card):
+            return self.text_slug(card)
+        if self.entangled(match, card):
+            return effects.VINES
+        return None
 
     def is_vanilla(self, slug: str) -> bool:
         """Whether the engine plays this card for its numbers alone:
@@ -1870,12 +1893,10 @@ class RulesEngine:
         if isinstance(body, CardInstance) and self.text_slug(body) in effects.CANT_ATTACK \
                 and not self.unbound(body):
             return False
-        if isinstance(body, CardInstance) and self.shackled(match, body):
+        if isinstance(body, CardInstance) and self.barred_by(match, body) is not None:
             return False
         if any(m.get("kind") == effects.CANT_ATTACK_MODIFIER for m in body.modifiers):
             # Sparring Partner readied to spar (step 13).
-            return False
-        if isinstance(body, CardInstance) and self.entangled(match, body):
             return False
         if body.arrived_this_turn and not self.has_keyword(body, "Haste", match):
             return False
@@ -3608,9 +3629,8 @@ class RulesEngine:
         found = [
             card.ref for card in player.play
             if self.catalog.cards[card.slug].is_unit and not card.exhausted
-            and (self.text_slug(card) not in effects.CANT_PATROL or self.unbound(card))
-            and not self.shackled(match, card) and not player.peace
-            and not self.entangled(match, card)
+            and not self.cant_patrol_as_printed(card)
+            and self.barred_by(match, card) is None and not player.peace
         ]
         found.extend(
             hero_ref(hero.slug) for hero in player.heroes_in_play if not hero.exhausted

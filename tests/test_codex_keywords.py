@@ -1505,6 +1505,28 @@ class ConditionedKeywordTests(KeywordCase):
         self.assertNotIn(ram, engine.patrol_candidates(match))
         self.assertIn(treant, engine.patrol_candidates(match))
 
+    def test_a_printed_cant_patrol_is_not_the_boards_to_tag(self) -> None:
+        """Land Octopus's own "can't patrol" is on its face, so the board
+        tags nothing (the author, 2026-10-13: only a condition is worth a
+        tag) -- and it still never patrols."""
+        engine, game, match = fresh()
+        octopus = put(match, 1, "land_octopus")
+        self.assertTrue(engine.cant_patrol_as_printed(octopus))
+        self.assertIsNone(engine.barred_by(match, octopus))
+        self.assertIsNone(engine.board_reading(match, octopus)[3])
+        self.assertNotIn(octopus.ref, engine.patrol_candidates(match))
+
+    def test_terras_q_is_tagged_while_his_warlocks_are_in_play(self) -> None:
+        engine, game, match = fresh()
+        terras = put(match, 1, "terras_q_the_shackled")
+        self.assertIsNone(engine.board_reading(match, terras)[3])
+        self.assertIn(terras.ref, engine.patrol_candidates(match))
+        self.assertTrue(engine.may_attack_with(terras, match))
+        put(match, 2, "warlock").made_by = terras.id
+        self.assertEqual(engine.board_reading(match, terras)[3], "terras_q_the_shackled")
+        self.assertNotIn(terras.ref, engine.patrol_candidates(match))
+        self.assertFalse(engine.may_attack_with(terras, match))
+
     def test_bonus_when_attacking_buildings(self) -> None:
         engine, game, match = fresh()
         tank = put(match, 1, "steam_tank").ref

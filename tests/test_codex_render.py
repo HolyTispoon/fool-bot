@@ -288,6 +288,14 @@ class EffectTagTests(unittest.TestCase):
         self.assertEqual(render.effect_tags(self.unit(), self.cards, ("ferocity", "dreamscape")),
                          (("Ferocity", "green"), ("Dreamscape", "blue")))
 
+    def test_a_unit_barred_from_attacking_and_patrolling_is_tagged_by_what_bars_it(
+            self) -> None:
+        self.assertEqual(render.effect_tags(self.unit(), self.cards, barred_by="entangling_vines"),
+                         (("Entangled", "white"),))
+        self.assertEqual(render.effect_tags(self.unit(), self.cards,
+                                            barred_by="terras_q_the_shackled"),
+                         (("Shackled", "black"),))
+
     def test_gargoyles_effects_are_one_tag(self) -> None:
         until = {"until": "upkeep", "seat": 1, "from": "gargoyle"}
         card = self.unit(modifiers=[{"kind": "lose_keyword", "keyword": "Indestructible", **until},
