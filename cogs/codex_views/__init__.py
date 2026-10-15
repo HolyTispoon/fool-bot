@@ -15,6 +15,7 @@ from cogs.codex_views.base import (
     edit_clicked,
     kept_pictures,
     picture_file,
+    redraw_pictures,
     send_answer,
     send_ephemeral,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "next_empty",
     "picks_listed",
     "picture_file",
+    "redraw_pictures",
     "send_answer",
     "send_ephemeral",
     "side_label",

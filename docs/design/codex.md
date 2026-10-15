@@ -2278,6 +2278,46 @@ too, asked with `gate` for the two kinds a turn may open on
   back to editing both (2026-10-12: "go back to editing the board and
   hand messages rather than reposting them"), and `/codex resume`
   brings the board back down when talk has pushed it up.
+- **A new picture in an ephemeral message is drawn twice**
+  (`redraw_pictures`, 2026-10-15). Both developers, on different
+  clients, saw every new picture in an ephemeral message -- the hand,
+  the panel, the codex, `/codex card`'s own JPEG -- stay a grey box of
+  its size, while the board, WebP and edited in place too, always
+  loaded; a click that kept the picture (`kept_pictures`) showed it at
+  once. Not the format, not the size (a 100 KB card stalls where a
+  220 KB board does not), not the edit in place (**My hand**'s fresh
+  message stalls too): Discord's apps do not load a picture new to an
+  ephemeral message until the message is drawn again. So every write
+  of `edit_clicked` and `send_answer` that uploads a picture into an
+  ephemeral message -- and `/codex card` and `/codex board` beside
+  them -- schedules one more edit `PICTURE_REDRAW_DELAY` (1 s) later,
+  with the attachments the message went up with and nothing else:
+  **one request** on the click's own webhook, none in the channel's
+  bucket (the table below).
+  - **No read of the message first.** Every write that changes an
+    ephemeral message's pictures is `edit_clicked`'s or `send_answer`'s
+    (the others change only its words or its buttons, which an edit of
+    its attachments alone leaves be), and each **drops the redraw
+    waiting on the message it writes** -- a picture kept is a redraw
+    already, a new one schedules its own. So the one redraw waiting on
+    a message (`_PENDING`, by its id) is the record that nothing has
+    been put up over it since: five pictures in a row on one panel are
+    one redraw, the last's.
+  - **The edit is made under the game's lock**, named for it by
+    `SafeView._scheduled_task` in a context variable, but the wait is
+    not: the task sleeps first and takes the lock only for its one
+    request. Made outside the lock, a click could put a new picture up
+    between the redraw's turn and its edit landing, and the edit would
+    take it back.
+  - **Anything that goes wrong is a console warning** -- the picture
+    is shown or it is not -- and a message gone since says nothing; no
+    exception leaves the task, where asyncio would log it at ERROR to
+    #logs.
+  - The delay is a guess: whether a second drawing that soon loads,
+    and how much sooner would, is Discord's, measured by playing. The
+    fakes report which of their messages are ephemeral, so every click
+    of the whole-game test counts its redraw (`FakeInteraction.redraws`,
+    kept apart from what the click answered).
 - **The turn's lines head the hand message, and no other ephemeral
   one** (the author, 2026-10-12: "add the turn log to the ephemeral
   message with the hand"; then "only in the hand message and the
@@ -2699,27 +2739,30 @@ more*", since the board carries the position.
 
 ### The requests per click
 
-Measured with the fakes, and held on every click of the whole-game test:
+Measured with the fakes, and held on every click of the whole-game test.
+**+1** on the webhook is a new picture's redraw (above, "A new picture in an
+ephemeral message is drawn twice"): one edit, a second after a click that put a
+new picture up in an ephemeral message, none where the picture was kept:
 
 | Click | The channel's bucket | The interaction's webhook |
 | --- | --- | --- |
-| My hand, the active player | **0** | 1: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech |
-| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent |
-| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place |
-| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit |
-| Save tech | **0**: nothing is said until the owner's ready phase | 1 |
-| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker |
+| My hand, the active player | **0** | 2: the panel, the hand pictured on it -- with **Tech** alone under the picture while the turn waits on their tech -- and its redraw |
+| Tech under the hand, or Tech on the turn message, while the turn waits on its player's tech | **0** | 1: the panel's edit, or the confirmation sent; **+1** |
+| An action in the main phase (play, hire, build, summon, level, attack, the defender) | **1**: the turn message edited through the gate | 2: the defer, the panel edited in place; **+1** where the hand changed |
+| A choice that moves nothing public (End main phase, a patrol slot, a tech pick before saving, the tech picker's Show menu, Undo's choices, Attack... opening what may attack) | **0** | 1: the panel's edit; **+1** where it pictures something new -- a tech pick, the Show menu, Attack... |
+| Save tech | **0**: nothing is said until the owner's ready phase | 1; **+1** |
+| Lock patrol (the turn's end) | **3**: the old message's last edit, its pin, the new one's post | 2: the defer, the panel edited into the tech picker; **+1** |
 | The attack that destroys a base | **3**: the last edit, its pin, and the winner's line with the board | 2 |
 | Concede, the first click | **0** | 1: the confirmation |
 | Concede the game (step 8) | **3**: the last edit, its pin, and the winner's line with the board and Rematch -- then the channel's move to Codex Archive, on the channel's own route | 1 |
 | Rematch (step 8) | **1**: the new lobby -- after the channel's move back to Codex Games, on its own route | 1: the button taken off |
-| Undo to the start of the turn | **1** | 2 |
-| Undo to a point of the turn (the menu) | **1** | 2 |
-| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel |
+| Undo to the start of the turn | **1** | 2; **+1** |
+| Undo to a point of the turn (the menu) | **1** | 2; **+1** |
+| Undo to the previous turn | **1** to ask (the public question), then **3** on Agree: the restored turn's post, the current one's delete, the previous turn's standing one's delete | 2 on Agree: the question answered in place, the fresh panel; **+1** |
 | Take back the end of my turn | **3**: the restored turn's post, the current one's delete, the restored turn's standing one's delete | 3: the Undo menu sent, the click answered in place, the fresh panel |
 | A lobby click -- a seat taken, the mode or the variant changed, a third seat's pick (multiplayer step 4) | **0** | 1: the lobby edited in place |
 | **Swap view**, or `/codex side_by_side`, on a table of several | **1**: the board through the gate | 1: the defer, or the ephemeral answer |
-| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1 |
+| My hand, **Tech**, **My deck**, **Codex** of any seat of a table (step 4) | **0** | 1; **+1** |
 | Lock patrol on a table's turn, the undo to the previous turn, a table's rematch | as the duel's: **3**, **1** then **3**, **1** | as the duel's |
 | An action by either teammate of a dragon (multiplayer step 6) | **1**: the turn message through the gate | 2: the defer, the clicker's own panel edited in place |
 | A dragon teammate's stale click -- the team moved on, or the other's action stands part-way | **0** | 1: the panel edited in place to the prompt as it stands |
