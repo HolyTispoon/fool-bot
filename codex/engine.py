@@ -42,6 +42,7 @@ from codex.components import (
     AddOnState,
     hero_ref,
     is_hero_ref,
+    split_lent_ref,
     PATROL_SLOTS,
     TECH_BUILDINGS,
     CardInstance,
@@ -2413,10 +2414,25 @@ class RulesEngine:
         return next((seat for seat in among if ref in self._things_in_play(match, seat)), None)
 
     def _things_in_play(self, match: MatchState, seat: int) -> tuple[str, ...]:
-        """The units and the hero on `seat`'s side, as refs."""
+        """The units and the heroes on `seat`'s side, as refs -- the
+        heroes lent into their patrol zone among them."""
         player = match.player(seat)
         found = [card.ref for card in player.play if self.catalog.cards[card.slug].is_unit]
-        found.extend(hero_ref(hero.slug) for hero in player.heroes_in_play)
+        found.extend(self._hero_refs_of(match, seat))
+        return tuple(found)
+
+    def _hero_refs_of(self, match: MatchState, seat: int) -> tuple[str, ...]:
+        """The heroes `seat` controls, as the refs their side names them
+        by: their own in play (`hero:<slug>`), and those other players
+        have lent into their patrol zone (`<owner seat>:hero:<slug>`,
+        Rulebook p. 14) -- a lent unit is in their play zone already.
+        The one reading of the heroes on a side, so a lent hero is a
+        defender, a tower's candidate and a holder's whether or not the
+        zone it stands in holds the attacker (docs/design/codex.md,
+        "Lending is a control change")."""
+        found = [hero_ref(hero.slug) for hero in match.player(seat).heroes_in_play]
+        found.extend(ref for ref in match.patrollers(seat).values()
+                     if split_lent_ref(ref)[0] is not None)
         return tuple(found)
 
     def _standing(self, match: MatchState, seat: int) -> tuple[str, ...]:
@@ -2738,10 +2754,10 @@ class RulesEngine:
                 # heroes, past the patrol zone (step 12).
                 taken = {ref for ref, _ in rows}
                 rows += [
-                    (hero_ref(hero.slug), "unstoppable vs. heroes")
-                    for hero in match.player(other).heroes_in_play
-                    if hero_ref(hero.slug) not in taken
-                    and self.may_be_attacked(match, attacker, hero_ref(hero.slug), against=against)
+                    (ref, "unstoppable vs. heroes")
+                    for ref in self._hero_refs_of(match, other)
+                    if ref not in taken
+                    and self.may_be_attacked(match, attacker, ref, against=against)
                 ]
             return tuple(rows)
         # A patroller it may take is said as one, as above: it neither

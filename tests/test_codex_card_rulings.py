@@ -1589,7 +1589,7 @@ class AbilityAndArrivalRulingTests(unittest.TestCase):
         treant = put(match, 2, "ironbark_treant", patrol="elite")
         treant.armor = 2
         self.assertEqual(engine.unit_stats(treant, match)[0], 1)
-        board.sideline(treant)
+        board.sideline(match, treant)
         self.assertEqual((engine.unit_stats(treant, match)[0], treant.armor), (3, 0))
 
     def test_ironbark_treant_2(self) -> None:

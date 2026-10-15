@@ -738,7 +738,7 @@ def _blue_triggers(engine: "RulesEngine", match: MatchState, hitting: _Fighter, 
         target = hit.target.card
         if slug in effects.GUARDIANS and target is not None and engine.catalog.cards[target.slug].is_unit \
                 and board.still_there(match, hit.target.seat, hit.target.ref):
-            board.disable(target)
+            board.disable(match, target)
             result.narration.append(f"{source.named()} disables {hit.target.named()}.")
     if hitting.card is None or not engine.texted(hitting.card):
         return
