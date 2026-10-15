@@ -212,7 +212,23 @@ class BrickThiefTests(unittest.TestCase):
         apply(engine, game, match, PromptKind.TARGET, target="2:base")
         options = asked(engine, game, match).options
         self.assertEqual([row.key for row in options.targets], ["1:tech1", "1:base", "2:tech1"])
-        self.assertFalse(options.done, "a building of his own to mend: nothing to decline")
+        self.assertFalse(options.done, "every building on the table is damaged")
+
+    def test_repair_nothing_is_offered_beside_his_own_damaged_building(self) -> None:
+        """A building of his own to mend, and an undamaged one somewhere:
+        Repair nothing is offered all the same."""
+        engine, game, match = bashing()
+        built(match, 1, "tech1", hp=3)
+        hand(match, 1, "brick_thief")
+        match.player(1).gold = 5
+        apply(engine, game, match, PromptKind.MAIN_ACTION, "play", slug="brick_thief")
+        apply(engine, game, match, PromptKind.TARGET, target="2:base")
+        options = asked(engine, game, match).options
+        self.assertEqual([row.key for row in options.targets], ["1:tech1"])  # not the base he hit
+        self.assertTrue(options.done)
+        apply(engine, game, match, PromptKind.TARGET, "done")
+        self.assertEqual(match.player(1).buildings["tech1"].hp, 3)
+        self.assertEqual(match.player(2).base_hp, 19)
 
     def test_the_repair_with_nothing_damaged_is_skipped(self) -> None:
         """Nothing damaged but what he just hit: nothing is asked and

@@ -710,12 +710,15 @@ handful of small tables the engine asks (`GUIDES`, `MAESTROS`,
   only offer valid repair targets"). The damaged buildings alone are
   offered. Brick Thief's ruling makes an undamaged building a legal
   choice that does nothing, and the one use of that is not to mend an
-  opponent's: so where every damaged building offered is an opponent's,
-  the question offers **Done** too, labelled **Repair nothing** on the
-  panel (`resolve.may_repair_nothing`; the author, 2026-10-15: "it's
-  effectively the same and is a lot clearer to the player"), rather
-  than a building of your own -- and so a lone damaged opposing
-  building is asked about, never taken unasked (`least_picks`).
+  opponent's: so wherever any building on the table is undamaged
+  (`RulesEngine.has_undamaged_building`), the question offers **Done**
+  too, labelled **Repair nothing** on the panel
+  (`resolve.may_repair_nothing`; the author, 2026-10-15: "it's
+  effectively the same and is a lot clearer to the player", and "even
+  when you can repair your own buildings, so long as there is at least
+  one undamaged building somewhere"), rather than an undamaged building
+  as a target -- and so a lone damaged building is asked about, never
+  taken unasked (`least_picks`).
   Nothing damaged anywhere skips the part, said nothing about, as any
   part with nothing to choose. The candidates are listed
   **your side first** for a repair, where every other filter lists the

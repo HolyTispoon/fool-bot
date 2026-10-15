@@ -203,18 +203,19 @@ def pick_limit(engine: "RulesEngine", match: MatchState, top: dict, part) -> int
 
 def may_repair_nothing(engine: "RulesEngine", match: MatchState, top: dict, part) -> bool:
     """
-    Whether a repair may choose nothing: where every damaged building it
-    offers is an opponent's. Brick Thief's ruling lets its controller
-    choose an undamaged building of their own, to which nothing happens
-    (2016-03-03) -- and the one use of that is not to mend an opponent's
-    -- so the question offers it as **Done**, "Repair nothing" on the
-    panel (the author, 2026-10-15), rather than as a building.
+    Whether a repair may choose nothing: where it has a damaged building
+    to offer and there is an undamaged one anywhere on the table. Brick
+    Thief's ruling lets its controller choose an undamaged building, to
+    which nothing happens (2016-03-03), so the question offers that as
+    **Done**, "Repair nothing" on the panel, rather than as a building
+    (the author, 2026-10-15: "even when you can repair your own
+    buildings, so long as there is at least one undamaged building
+    somewhere").
     """
     if part.does != "repair":
         return False
-    foes = engine.opponents(match, top["seat"])
-    rows = rows_for(engine, match, top)
-    return bool(rows) and all(row.seat in foes for row in rows)
+    return (bool(rows_for(engine, match, top))
+            and engine.has_undamaged_building(match, top["seat"], top.get("taken") or ()))
 
 
 def least_picks(engine: "RulesEngine", match: MatchState, top: dict, part) -> int:

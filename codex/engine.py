@@ -3508,6 +3508,19 @@ class RulesEngine:
         damaged = [row for row in found if self.building_damaged(match, *row)]
         return sorted(damaged, key=lambda row: row[0] in foes)
 
+    def has_undamaged_building(self, match: MatchState, seat: int,
+                               taken: Sequence[str] = ()) -> bool:
+        """Whether any building on the table, anybody's, is undamaged --
+        less what this cast has already chosen (`taken`): what Brick
+        Thief's ruling lets a repair choose so as to repair nothing."""
+        mate = self.teammate(match, seat)
+        for side in (*self.opponents(match, seat), seat, *([mate] if mate is not None else [])):
+            refs = self._buildings_of(match, side) + [card.ref for card in self._building_cards_of(match, side)]
+            if any(target_key(side, ref) not in taken and not self.building_damaged(match, side, ref)
+                   for ref in refs):
+                return True
+        return False
+
     def _private_candidates(self, match: MatchState, seat: int, choose: str,
                             frame: dict) -> list[str]:
         """
