@@ -3528,7 +3528,9 @@ than 66 sites; the PR of every step showed these empty:
   in-play hero of every opponent of the dead hero's **controller** --
   the controller, not the owner, for a lent hero -- and
   `LevelGainOptions.seats` names each hero's seat, so a mirror game's
-  two of one hero are told apart.
+  two of one hero are told apart. A hero at its maximum level is not
+  offered them (the author, 2026-10-15, answering this PR's question;
+  built in its own PR, #596, `RulesEngine.takes_kill_levels`).
 - **Moment's Peace removes its caster's things from the units'
   defenders, and nothing else**: a unit may attack while any opponent is
   not at peace. **The tower** detects and damages only an attacker of
@@ -3931,10 +3933,6 @@ with its own condition.
 - **A dragon panel made stale by the teammate's click** is refreshed
   only by its own player's next click, as decision 13 says; nothing
   pushes it.
-- **A hero already at its maximum level is still offered a dead hero's
-  levels**, as in the duel since before the series; whether the choice
-  should skip it is a question for the author, since the duel's
-  transcript would change.
 
 ## Running it
 
