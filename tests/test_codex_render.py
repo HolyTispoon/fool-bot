@@ -299,8 +299,16 @@ class DeckLayoutTests(unittest.TestCase):
 
     def test_short_parts_share_a_row_and_wrap_to_fill_it(self) -> None:
         """Two in hand, seven discarded, three in the pile: one row two
-        cards tall rather than three rows with gaps at their ends."""
-        self.assertEqual(render.deck_layout([2, 7, 3]), [(2, [(0, 1), (1, 4), (2, 2)])])
+        cards tall rather than three rows with gaps at their ends -- the
+        hand's two side by side."""
+        self.assertEqual(render.deck_layout([2, 7, 3]), [(2, [(0, 2), (1, 4), (2, 2)])])
+
+    def test_two_cards_are_never_stacked(self) -> None:
+        for sizes in ([2, 7, 3], [2, 2, 12, 9], [2, 20], [2], [5, 2, 2, 8]):
+            for _, frames in render.deck_layout(sizes):
+                for index, columns in frames:
+                    if sizes[index] == 2:
+                        self.assertEqual(columns, 2)
 
     def test_no_row_is_wider_than_the_limit_and_every_card_has_a_place(self) -> None:
         for sizes in ([5, 4, 3, 8], [5, 20], [1], [12, 12, 12, 12], [8, 8]):

@@ -2192,7 +2192,11 @@ cards tall as lets its frames, each in as few columns as fit its cards,
 total eight columns or fewer; the shortest picture is taken, then the
 one with the fewest empty card places, then the one whose frames wrap
 least, which is what lays a hand of five in a row of its own rather
-than two columns tall beside the discard pile. A row narrower than the
+than two columns tall beside the discard pile. A frame of two cards
+always lies them side by side, whatever its row's height (the author,
+2026-10-15: "a 2 card frame has to include the cards horizontally"),
+the first reading having stacked a hand of two into one column beside
+a two-line discard pile. A row narrower than the
 widest has its last frame stretched to the picture's edge, so the
 right edges line up. Each part is in the deck's order -- the starting cards first
 and then each tech level -- and shows each card once with its copies

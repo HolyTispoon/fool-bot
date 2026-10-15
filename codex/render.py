@@ -2427,8 +2427,13 @@ def deck_layout(sizes: Sequence[int], columns: int = DECK_COLUMNS,
     is the shortest picture, then the one with the fewest empty card
     places in it -- a row's own and those its frames leave on their
     last line -- then the one whose frames wrap least, so a hand of
-    five lies in a row where it can.
+    five lies in a row where it can. A frame of two cards always lies
+    them side by side, whatever its row's height (the author,
+    2026-10-15) -- two stacked read as a column, not a pair.
     """
+    def across(size: int, lines: int) -> int:
+        return size if size <= 2 else -(-size // lines)
+
     count = len(sizes)
     best, chosen = None, []
     for cuts in range(1 << max(count - 1, 0)):
@@ -2443,9 +2448,9 @@ def deck_layout(sizes: Sequence[int], columns: int = DECK_COLUMNS,
         laid = []
         for members in rows:
             lines = 1
-            while sum(-(-sizes[i] // lines) for i in members) > columns:
+            while sum(across(sizes[i], lines) for i in members) > columns:
                 lines += 1
-            laid.append((lines, [(i, -(-sizes[i] // lines)) for i in members]))
+            laid.append((lines, [(i, across(sizes[i], lines)) for i in members]))
         width = max(sum(c for _, c in frames) for _, frames in laid) if laid else 0
         height = sum(lines for lines, _ in laid)
         empty = width * height - sum(sizes)
