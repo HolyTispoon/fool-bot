@@ -91,6 +91,10 @@ VARIANT_LABELS = {
 VARIANT_SEATS = {"duel": 2, "free_for_all": 5, "two_headed_dragon": 4}
 #: The fewest complete seats a variant starts with.
 MIN_SEATS = {"duel": 2, "free_for_all": 3, "two_headed_dragon": 4}
+#: A two-headed dragon's two teams by seat, as the deal pairs them
+#: (`RulesEngine.new_match`): seats 1 and 2 against 3 and 4, each
+#: team's first seat its head (docs/codex-multiplayer.md, decision 12).
+DRAGON_TEAMS = ((1, 2), (3, 4))
 
 
 @dataclass
@@ -262,6 +266,14 @@ class CodexGame:
             return active
         return seats[0] if seats else None
 
+    def teams(self) -> tuple[tuple[int, ...], ...]:
+        """The seats as the lobby and the channel's name group them: a
+        dragon's two teams (`DRAGON_TEAMS`), and every other game's seats
+        each a side of its own."""
+        if self.variant == "two_headed_dragon":
+            return DRAGON_TEAMS
+        return tuple((seat,) for seat in range(1, self.seat_count + 1))
+
     def seat_name(self, seat: int) -> Optional[str]:
         if not 1 <= seat <= len(self.seats):
             return None
@@ -303,8 +315,10 @@ class CodexGame:
         Play a duel, a free-for-all or a two-headed dragon
         (docs/codex-multiplayer.md, decisions 2 and 12). The lobby's until
         Start, as the mode is: every seated player that still fits keeps
-        their seat and their heroes, and the rest are cleared. The dragon
-        is refused until the bot plays it (multiplayer step 5).
+        their seat and their heroes, and the rest are cleared. A dragon's
+        four seats are two teams, seats 1 and 2 against 3 and 4 (Rulebook
+        p. 13; decision 12): a player who wants the other team leaves and
+        sits again.
         """
         self._require_lobby()
         if variant not in VARIANTS:
@@ -312,10 +326,6 @@ class CodexGame:
                 f"A Codex game is a duel, a free-for-all or a two-headed dragon, not {variant}.",
                 cite="Rulebook p. 13-14",
             )
-        if variant == "two_headed_dragon":
-            # No page to cite: the rulebook has it, this bot does not play
-            # it yet (docs/codex-multiplayer.md, step 5).
-            raise RuleRefusal("The two-headed dragon is not in this bot yet.")
         if variant == self.variant:
             return
         self.variant = variant
@@ -540,6 +550,12 @@ class CodexGame:
     def start_refusal(self) -> RuleRefusal:
         """What Start says while the seats are not ready -- the lobby
         shows it as the game's own refusal does."""
+        if self.variant == "two_headed_dragon":
+            return RuleRefusal(
+                "A two-headed dragon needs four players, two a team, each with their heroes "
+                "and their deck, before it can start.",
+                cite="Rulebook p. 13",
+            )
         if self.variant == "free_for_all":
             return RuleRefusal(
                 "A free-for-all needs three to five players, each with their heroes and "
@@ -571,6 +587,11 @@ class CodexGame:
             # side, two panels a row; five open stacked. Swap view
             # toggles the two (docs/codex-multiplayer.md, decision 14).
             self.board_layout = "side_by_side" if len(seats) <= 4 else "stacked"
+        elif self.variant == "two_headed_dragon":
+            # Two rows of two, the far team's turned to face the near one,
+            # as the duel's far panel is (the author, 2026-10-14; decision
+            # 14); Swap view flips them the same way up.
+            self.board_layout = "stacked"
 
     def set_board_layout(self, layout: str) -> None:
         """Lay the board out `layout` -- refused for one there is not,

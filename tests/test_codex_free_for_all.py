@@ -109,9 +109,11 @@ class VariantTests(unittest.TestCase):
         with self.assertRaises(RuleRefusal):
             game.set_variant("duel")
 
-    def test_the_dragon_is_not_offered_yet(self) -> None:
-        with self.assertRaises(RuleRefusal):
-            CodexGame("g", 1).set_variant("two_headed_dragon")
+    def test_the_dragon_is_offered(self) -> None:
+        """Multiplayer step 6 opened it: four seats in two teams."""
+        game = CodexGame("g", 1)
+        game.set_variant("two_headed_dragon")
+        self.assertEqual((game.seat_count, game.teams()), (4, ((1, 2), (3, 4))))
 
     def test_changing_the_variant_keeps_who_fits(self) -> None:
         game = CodexGame("g", 1)

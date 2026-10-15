@@ -39,6 +39,11 @@ class SlashCommandsMixin:
         for game in games[-20:]:
             names = [held["name"] for held in game.seats if held["name"]]
             players = (", " if game.variant != "duel" else " vs ").join(names) or "nobody seated"
+            if game.variant == "two_headed_dragon" and names:
+                # Its two teams: "ann and bo vs cy and dee".
+                players = " vs ".join(
+                    " and ".join(game.seat_name(seat) for seat in team if game.seat_name(seat))
+                    or "nobody seated" for team in game.teams())
             if game.variant != "duel":
                 players = f"{VARIANT_LABELS[game.variant]}: {players}"
             where = f" in <#{game.channel_id}>" if game.channel_id else ""
@@ -62,7 +67,7 @@ class SlashCommandsMixin:
             await send_ephemeral(interaction, NO_GAME_HERE)
             return
         match = self.service.load(game)
-        seat = game.seat_for(interaction.user.id, match.active)
+        seat = self.acting_seat_for(game, match, interaction.user.id)
         if seat is None:
             await send_ephemeral(interaction, NOT_YOUR_TABLE)
             return
@@ -83,6 +88,15 @@ class SlashCommandsMixin:
             return
         if game.seat_of(interaction.user.id) is None and not is_game_helper(interaction.user):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
+            return
+        if game.variant == "two_headed_dragon":
+            # Two rows of two is the dragon's one layout; Swap view flips
+            # the far team (the author, 2026-10-14; decision 14).
+            await send_ephemeral(
+                interaction,
+                "A two-headed dragon's board is two rows of two, a team a row: **Swap view** "
+                "turns the far team to face you or the same way up.",
+            )
             return
         layout = "stacked" if game.board_layout == "side_by_side" else "side_by_side"
         async with self.locks.hold(game.game_id):
@@ -134,7 +148,7 @@ class SlashCommandsMixin:
                 self.note_turn_head(game, match)
             await self.post_turn_message(interaction.channel, game, match, replace=True, ping=True)
             await interaction.followup.send(f"Picked up at {found}: the table is re-posted.", ephemeral=True)
-            seat = game.seat_for(interaction.user.id, match.active)
+            seat = self.acting_seat_for(game, match, interaction.user.id)
             if seat is not None and match.winner is None:
                 if seat in self.engine.turn_seats(match) and self.prompt_for(game, match, seat) is not None:
                     await self.show_panel(interaction, game, match, seat, edit=False)

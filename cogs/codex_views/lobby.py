@@ -15,8 +15,11 @@ every change (docs/design/codex.md, "The standard game"):
   -- which seats the clicker with that team, and **Mixed colors**, which
   opens `MixedTeamView` for them alone: the first hero, whose colour is
   the starting deck, and the other two;
-- a test game's picks twice, one set per side, since one person plays
-  both.
+- a test game's picks once per seat, as many as fit, since one person
+  plays every side;
+- a dragon's seats under two headings, **Team 1** and **Team 2** (seats 1
+  and 2, 3 and 4), taken in order: a player who wants the other team
+  leaves and sits again (docs/codex-multiplayer.md, decision 12).
 
 A menu for the heroes because twenty do not fit two rows of buttons.
 Persistent, so a restart re-arms it (docs/codex-bot.md, decision 10);
@@ -256,8 +259,7 @@ class LobbyView(SafeView):
         await self.move(interaction, lambda: self.cog.service.set_mode(self.game_id, mode))
 
     async def set_variant(self, interaction: discord.Interaction, variant: str) -> None:
-        """A duel, a free-for-all or a two-headed dragon (the last
-        refused by the record until step 6)."""
+        """A duel, a free-for-all or a two-headed dragon."""
         refused = self._gate_table_change(interaction)
         if refused:
             await send_ephemeral(interaction, refused)

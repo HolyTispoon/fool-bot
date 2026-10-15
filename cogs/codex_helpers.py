@@ -76,19 +76,25 @@ BOARD_IMAGE_FILENAME_PREFIX = "codex-"
 
 
 #: What follows `codex-<n>` in a channel's name, by variant: a duel's
-#: players are joined with `-vs-`, the others' follow a word for the mode.
-CHANNEL_NAME_MODE_WORDS = {"free_for_all": "ffa", "two_headed_dragon": "2hd"}
+#: players and a dragon's teams are joined with `-vs-`, a free-for-all's
+#: players follow a word for the mode.
+CHANNEL_NAME_MODE_WORDS = {"free_for_all": "ffa"}
 
 
 def channel_name(game: "CodexGame") -> str:
     """`codex-<n>-<p1>-vs-<p2>` for a duel, `codex-<n>-ffa-<p1>-<p2>-<p3>`
-    for a free-for-all -- every seat's name slugged -- capped at Discord's
-    100 characters."""
+    for a free-for-all, `codex-<n>-<p1>-<p2>-vs-<p3>-<p4>` for a two-headed
+    dragon, its teams joined by `-vs-` (docs/codex-multiplayer.md, decision
+    12) -- every seat's name slugged -- capped at Discord's 100
+    characters."""
     prefix = f"codex-{game.game_number}"
-    names = [slugify_channel_part(held["name"] or "") for held in game.seats]
-    names = [part for part in names if part]
     word = CHANNEL_NAME_MODE_WORDS.get(game.variant)
-    suffix = ("-".join(names) if word else "-vs-".join(names))
+    sides = []
+    for team in game.teams():
+        names = [slugify_channel_part(game.seat_name(seat) or "") for seat in team]
+        sides.append("-".join(part for part in names if part))
+    sides = [side for side in sides if side]
+    suffix = "-".join(sides) if word else "-vs-".join(sides)
     if not suffix:
         return prefix
     if word:

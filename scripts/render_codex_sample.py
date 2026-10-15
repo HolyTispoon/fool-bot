@@ -13,7 +13,9 @@ two picks marked; and beside them a standard game's -- red against
 green, three heroes a side, the specs chosen at Tech II and on a tech
 lab, a heroes' hall -- board, hand and codex, every view of its
 seventy-two cards (`standard-*`); purple against black's states
-(`purple-black-*`) and white against blue's (`white-blue-*`):
+(`purple-black-*`) and white against blue's (`white-blue-*`); a
+free-for-all of three, four and five (`ffa-*`) and a two-headed dragon
+(`dragon-*`):
 
     python3 scripts/render_codex_sample.py --out /tmp/codex
 
@@ -336,6 +338,41 @@ def staged_free_for_all(engine: RulesEngine, count: int) -> MatchState:
     return match
 
 
+def staged_dragon(engine: RulesEngine) -> MatchState:
+    """A two-headed dragon in its fifth round, seats 1 and 2 against 3
+    and 4: something in play on every side, each team's one base at its
+    own HP -- the first team's damaged, the second's at the 30 it starts
+    with -- an add-on each team, and the first team's turn."""
+    match = engine.new_match(FFA_SPECS[:4], first=1, variant="two_headed_dragon")
+    match.turn, match.phase = 9, "main"
+
+    def put(seat, slug, *, patrol=None, damage=0, exhausted=False, arrived=False):
+        card = match.new_instance(slug, seat)
+        card.patrol_slot, card.damage = patrol, damage
+        card.exhausted, card.arrived_this_turn = exhausted, arrived
+        card.armor = 1 if patrol == "squad_leader" else 0
+        return card
+
+    match.set_base(1, 23)
+    for player in match.players:
+        seat = player.seat
+        player.gold, player.workers = 2 + seat, 6 + seat % 3
+        player.buildings["tech1"] = BuildingState(hp=5, under_construction=False)
+    match.player(1).hero.zone, match.player(1).hero.level = "play", 4
+    match.player(2).add_on = AddOnState("tower", 4, under_construction=False)
+    match.player(3).add_on = AddOnState("surplus", 2, under_construction=False)
+    match.player(4).hero.zone = "play"
+    put(1, "iron_man", exhausted=True, damage=2)
+    put(1, "older_brother", arrived=True)
+    put(2, "tenderfoot", patrol="squad_leader")
+    put(2, "brick_thief")
+    put(3, "nimble_fencer", patrol="squad_leader")
+    put(3, "older_brother")
+    put(4, "tiger_cub", patrol="elite")
+    match.validate(engine.catalog)
+    return match
+
+
 def write(path: Path, data: bytes) -> None:
     path.write_bytes(data)
     print(f"{path}  ({len(data) / 1024:.0f} KiB)")
@@ -433,6 +470,12 @@ def main() -> None:
         render_all(engine, table, FFA_NAMES, args.out, f"ffa-{count}-seat-2", ("stacked", "side_by_side"))
     four = staged_free_for_all(engine, 4)
     render_all(engine, four, FFA_NAMES, args.out, "ffa-4", ("stacked", "side_by_side"))
+    # A two-headed dragon: two rows of two, the far team facing or the same
+    # way up (Swap view), seen from either team's turn.
+    dragon = staged_dragon(engine)
+    render_all(engine, dragon, FFA_NAMES, args.out, "dragon", ("stacked", "stacked_upright"))
+    dragon.active = 3
+    render_all(engine, dragon, FFA_NAMES, args.out, "dragon-seat-3", ("stacked",))
 
     # The standard game: three heroes a side, a codex of seventy-two.
     standard = staged_standard(engine)

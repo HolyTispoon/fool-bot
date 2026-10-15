@@ -117,7 +117,8 @@ class TurnMessageView(SafeView):
             ("Tech", "tech", discord.ButtonStyle.secondary),
             ("Codex", "codex", discord.ButtonStyle.secondary),
             ("Undo", "undo", discord.ButtonStyle.secondary),
-            (swap_label(layout, game is not None and game.variant != "duel"), "swap", discord.ButtonStyle.secondary),
+            (swap_label(layout, game is not None and game.variant == "free_for_all"), "swap",
+             discord.ButtonStyle.secondary),
             ("Concede", "concede", discord.ButtonStyle.danger),
         ):
             if action == "concede" and game is not None and game.variant == "free_for_all":
@@ -133,7 +134,7 @@ class TurnMessageView(SafeView):
         game, match = await self.require_match(interaction)
         if game is None:
             return None, None, None
-        seat = game.seat_for(interaction.user.id, match.active)
+        seat = self.cog.acting_seat_for(game, match, interaction.user.id)
         if seat is None:
             await send_ephemeral(interaction, NOT_YOUR_TABLE)
             return None, None, None
@@ -160,10 +161,17 @@ class TurnMessageView(SafeView):
     async def tech(self, interaction: discord.Interaction) -> None:
         """The clicker's tech, to them alone: the active player's
         confirmation or picker where their turn waits on it, else the
-        other player's standing choice."""
+        other player's standing choice -- and in a two-headed dragon,
+        after it, the teammate's standing picks, read-only (decision 13;
+        `Codex.send_teammate_tech`)."""
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
+        await self._own_tech(interaction, game, match, seat)
+        if match.dragons and not game.test_game:
+            await self.cog.send_teammate_tech(interaction, game, match, seat)
+
+    async def _own_tech(self, interaction: discord.Interaction, game, match, seat: int) -> None:
         if seat in self.cog.engine.turn_seats(match) and match.winner is None and self.cog.tech_asked(game, match, seat):
             # The turn opens on its player's tech: the confirmation, or
             # the picker where nothing was picked -- or in a test game.
@@ -179,7 +187,8 @@ class TurnMessageView(SafeView):
             await send_ephemeral(
                 interaction,
                 "Tech is chosen at the end of your turn and changed during "
-                + ("your opponent's" if match.variant == "duel" else "the others'")
+                + ("your opponent's" if match.variant == "duel"
+                   else "the other team's" if match.dragons else "the others'")
                 + ": it is not yours to press now.",
             )
             return
@@ -201,8 +210,11 @@ class TurnMessageView(SafeView):
         game, match, seat = await self._seat(interaction)
         if seat is None:
             return
-        owner = self.cog.service.end_of_turn_owner(game.game_id)
-        ended = owner is not None and owner in game.seats_of(interaction.user.id)
+        # The seat that ended the turn before -- in a dragon either player
+        # of the team that did (decision 15).
+        mine = game.seats_of(interaction.user.id)
+        owner = next((one for one in self.cog.service.end_of_turn_owners(game.game_id) if one in mine), None)
+        ended = owner is not None
         if seat in self.cog.engine.turn_seats(match) and match.winner is None:
             targets = self.cog.service.undo_targets(game.game_id)
             points = self.cog.undo_choices(game)
@@ -210,8 +222,9 @@ class TurnMessageView(SafeView):
             # Not their turn, but theirs to take back the end of: in a
             # test game the one person holds both seats.
             seat, targets, points = owner, {}, ()
-        elif (match.winner is None
-              and self.cog.service.previous_turn_owner(game.game_id) in game.seats_of(interaction.user.id)):
+        elif (match.winner is None and any(
+                one in mine for one in self.cog.engine.dragon_of(
+                    match, self.cog.service.previous_turn_owner(game.game_id) or 0))):
             # They ended the turn before, and the other player has
             # acted since: its end is no longer theirs to take back.
             await send_ephemeral(interaction, opponent_started(game, match))
@@ -240,7 +253,10 @@ class TurnMessageView(SafeView):
         if not self.may_act_in_game(interaction, game):
             await send_ephemeral(interaction, "Only the players can swap the board's view.")
             return
-        layout = swapped_layout(game.board_layout, game.variant != "duel")
+        # A dragon's far team flips between facing and the same way up, as
+        # a duel's far panel does (decision 14); a free-for-all has no
+        # facing view.
+        layout = swapped_layout(game.board_layout, game.variant == "free_for_all")
         try:
             self.cog.service.set_board_layout(game.game_id, layout)
         except RuleRefusal as refused:
@@ -302,13 +318,23 @@ async def revealed_files(engine, match, seat: int) -> list[discord.File]:
     return files
 
 
-def revealed_caption(engine, match, seat: int) -> str:
-    """The line beneath a hand that shows the opponent's too, or ""."""
+def revealed_caption(engine, match, seat: int, game=None) -> str:
+    """The line beneath a hand that shows another's too, or "": a
+    dragon's teammate's by name, "<name>'s hand" (decision 13), and an
+    opponent's revealed by Eyes of the Chancellor -- "Their hand" in a
+    duel, which has one opponent, the player's name at a table."""
     lines = []
+    mate = engine.team_sees(match, seat)
     for other in engine.hands_visible_to(match, seat):
         count = len(match.player(other).hand)
-        lines.append(f"Their hand, revealed by Eyes of the Chancellor: {count} card"
-                     + ("" if count == 1 else "s") + ".")
+        cards = f"{count} card" + ("" if count == 1 else "s") + "."
+        name = (game.seat_name(other) if game is not None else None) or f"Player {other}"
+        if other == mate:
+            lines.append(f"{name}'s hand: {cards}")
+        elif match.variant == "duel":
+            lines.append(f"Their hand, revealed by Eyes of the Chancellor: {cards}")
+        else:
+            lines.append(f"{name}'s hand, revealed by Eyes of the Chancellor: {cards}")
     return "\n".join(lines)
 
 
@@ -376,6 +402,30 @@ class HandView(SafeView):
         await self.cog.send_codex(interaction, game, match, self.seat)
 
 
+class WaitingView(HandView):
+    """
+    Under a dragon seat's panel edited where the team's turn asks it
+    nothing now -- the teammate's action stands part-way, or this seat has
+    locked: **Back to my turn**, which asks the position again and puts
+    up whatever it asks this seat, and **My deck** and **Codex**.
+    """
+
+    def __init__(self, cog, game_id: str, seat: int) -> None:
+        super().__init__(cog, game_id, seat)
+        back = discord.ui.Button(label="Back to my turn", style=discord.ButtonStyle.primary)
+        back.callback = self.back
+        self.add_item(back)
+
+    async def back(self, interaction: discord.Interaction) -> None:
+        game, match = await self.require_match(interaction)
+        if game is None:
+            return
+        if self.seat not in game.seats_of(interaction.user.id):
+            await send_ephemeral(interaction, "This panel is its player's alone.")
+            return
+        await self.cog.show_panel(interaction, game, match, self.seat, edit=True)
+
+
 class CodexBrowser(SafeView):
     """
     The clicker's own codex, ephemeral, under a menu of views --
@@ -385,24 +435,40 @@ class CodexBrowser(SafeView):
     **Codex** on the turn message makes a fresh one.
     """
 
-    def __init__(self, cog, game_id: str, seat: int, side: str = "") -> None:
+    def __init__(self, cog, game_id: str, seat: int, side: str = "",
+                 mate: int | None = None, mate_name: str = "") -> None:
         super().__init__(timeout=900)
         self.cog = cog
         self.game_id = game_id
         self.seat = seat
         self.side = side
+        #: A two-headed dragon's teammate, whose codex the menu offers too,
+        #: read-only -- "<name>'s codex" in every view they have
+        #: (`RulesEngine.team_sees`; decision 13). `None` elsewhere.
+        self.mate = mate
+        self.mate_name = mate_name
+        #: Whose codex is shown: the clicker's own, or the teammate's.
+        self.owner = seat
         game = cog.games.get(game_id)
         match = cog.service.load(game)
         select = codex_view_menu(cog.engine.codex_views(match.player(seat)), "everything")
+        if mate is not None:
+            for view in cog.engine.codex_views(match.player(mate)):
+                if len(select.options) >= 25:
+                    break
+                select.add_option(label=f"{mate_name}'s codex: {codex_view_name(view)}"[:100],
+                                  value=f"{mate}:{view}")
         select.callback = self.choose
         self.select = select
         self.add_item(select)
 
     def caption(self, view: str) -> str:
+        if self.owner != self.seat:
+            return f"{self.mate_name}'s codex: {codex_view_name(view)}. Only you can see this."
         return f"Your codex{self.side}: {codex_view_name(view)}. Only you can see this."
 
     async def picture(self, match, view: str) -> discord.File:
-        rows = self.cog.engine.codex_remaining(match, self.seat, view)
+        rows = self.cog.engine.codex_remaining(match, self.owner, view, viewer=self.seat)
         webp = await asyncio.to_thread(
             render_codex, [slug for slug, _ in rows], [count for _, count in rows],
             self.cog.engine.catalog, None, self.cog.engine.codex_places(rows, view),
@@ -413,9 +479,13 @@ class CodexBrowser(SafeView):
         game, match = await self.require_match(interaction)
         if game is None:
             return
-        view = self.select.values[0]
+        picked = self.select.values[0]
         for option in self.select.options:
-            option.default = option.value == view
+            option.default = option.value == picked
+        # A teammate's view is "<seat>:<view>"; the clicker's own views
+        # never start with a digit ("spec:anarchy" among them).
+        owner, _, rest = picked.partition(":")
+        self.owner, view = (int(owner), rest) if owner.isdigit() else (self.seat, picked)
         started = time.perf_counter()
         pictures = kept_pictures([await self.picture(match, view)], interaction.message)
         drawn = elapsed_ms(started)

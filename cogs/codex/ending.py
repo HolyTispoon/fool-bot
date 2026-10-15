@@ -31,7 +31,8 @@ from cogs.codex_helpers import (
     codex_games_category,
     is_game_helper,
 )
-from cogs.codex_views import ConcedeConfirmView, LobbyView, send_ephemeral
+from cogs.codex_views import ConcedeConfirmView, LobbyView, TeamConcedeView, edit_clicked, send_ephemeral
+from cogs.game_auth import send_new_prompt
 from cogs.debug import delete_channel_with_retries
 
 LOGGER = logging.getLogger(__name__)
@@ -159,6 +160,19 @@ class EndingMixin:
         except RuleRefusal as refused:
             await send_ephemeral(interaction, str(refused))
             return
+        if match.dragons:
+            # The team's concession, which the teammate agrees to in
+            # public after this click (decision 15).
+            rivals = self.engine.opponents(match, seat)
+            winners = " and ".join(game.seat_name(other) or f"Player {other}" for other in rivals)
+            mate = self.mate_name(game, self.engine.teammate(match, seat))
+            await interaction.response.send_message(
+                f"Concede the game for your team? {mate} is asked to agree; then {winners} win, "
+                "and it cannot be undone.",
+                view=ConcedeConfirmView(self, game.game_id, seat, interaction.user.id),
+                ephemeral=True,
+            )
+            return
         other = self.engine.sole_opponent(match, seat)
         winner = game.seat_name(other) or f"Player {other}"
         side = f" {team_name(match.player(seat).specs)}'s side of" if game.test_game else ""
@@ -176,12 +190,66 @@ class EndingMixin:
         winner's line with the board and **Rematch**, the channel
         archived (`present`, `finish_game`).
         """
+        match = self.service.load(game)
+        if match.dragons:
+            await self.ask_team_concession(interaction, game, match, seat)
+            return
         try:
             result = self.service.concede(game.game_id, seat)
         except RuleRefusal as refused:
             await interaction.response.edit_message(content=str(refused), view=None)
             return
         await interaction.response.edit_message(content="You conceded.", view=None)
+        await self.present(game, result)
+
+    async def ask_team_concession(self, interaction: discord.Interaction, game: CodexGame,
+                                  match, seat: int) -> None:
+        """
+        A two-headed dragon's concession needs both teammates (the
+        author, 2026-10-11; decision 15): once the first has confirmed,
+        a public question naming the teammate -- **Agree** theirs or a
+        helper's, **Refuse** either teammate's (`TeamConcedeView`) --
+        and the confirmation closes saying it was asked.
+        """
+        try:
+            self.service.check_concession(game.game_id, seat)
+        except RuleRefusal as refused:
+            await interaction.response.edit_message(content=str(refused), view=None)
+            return
+        mate = self.engine.teammate(match, seat)
+        name = self.mate_name(game, mate)
+        await interaction.response.edit_message(
+            content=f"{name} has been asked to agree to the concession.", view=None,
+        )
+        mate_id = game.seat_user_id(mate)
+        asker = game.seat_name(seat) or f"Player {seat}"
+        winners = " and ".join(game.seat_name(other) or f"Player {other}"
+                               for other in self.engine.opponents(match, seat))
+        mention = f"<@{mate_id}>" if mate_id else name
+        await send_new_prompt(
+            interaction,
+            f"{mention}, {asker} asks to concede the game for your team: {winners} would win. "
+            "Do you agree?",
+            view=TeamConcedeView(self, game.game_id, seat, mate),
+            allowed_mentions=discord.AllowedMentions(
+                users=[discord.Object(id=mate_id)] if mate_id else False,
+            ),
+        )
+
+    async def concede_for_team(self, interaction: discord.Interaction, game: CodexGame,
+                               asker: int, agreed_by: int) -> None:
+        """The teammate agreed (or a helper did): the service ends the
+        game for the team -- the other team winning -- the question is
+        edited to say who agreed, and the end goes up as a destroyed
+        base's does (`present`, `finish_game`)."""
+        try:
+            result = self.service.concede(game.game_id, asker)
+        except RuleRefusal as refused:
+            await edit_clicked(interaction, content=str(refused), view=None)
+            return
+        seats = game.seats_of(interaction.user.id)
+        who = (game.seat_name(agreed_by) if agreed_by in seats else None) or interaction.user.display_name
+        await edit_clicked(interaction, content=f"Conceded: agreed by {who}.", view=None)
         await self.present(game, result)
 
     @app_commands.command(name="concede", description="Concede this channel's Codex game: your own side, confirmed by a second click.")

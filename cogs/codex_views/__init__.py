@@ -18,7 +18,7 @@ from cogs.codex_views.base import (
     send_answer,
     send_ephemeral,
 )
-from cogs.codex_views.ending import ConcedeConfirmView, RematchView
+from cogs.codex_views.ending import ConcedeConfirmView, RematchView, TeamConcedeView
 from cogs.codex_views.lobby import MODE_LABELS, LobbyView, MixedTeamView, hero_options
 from cogs.codex_views.patrol import PatrolView, next_empty
 from cogs.codex_views.tech import (
@@ -28,6 +28,7 @@ from cogs.codex_views.turn import (
     END_OF_TURN,
     NOT_YOUR_PANEL,
     OPPONENT_STARTED,
+    OTHER_TEAM_STARTED,
     opponent_started,
     UNDO_MENU,
     PanelButton,
@@ -45,6 +46,7 @@ from cogs.codex_views.turn_message import (
     CodexBrowser,
     HandView,
     TurnMessageView,
+    WaitingView,
     codex_view_menu,
     codex_button,
     deck_button,
@@ -70,12 +72,14 @@ __all__ = [
     "MODE_LABELS",
     "NOT_YOUR_PANEL",
     "OPPONENT_STARTED",
+    "OTHER_TEAM_STARTED",
     "opponent_started",
     "NOT_YOUR_TABLE",
     "PanelButton",
     "PanelView",
     "PatrolView",
     "RematchView",
+    "TeamConcedeView",
     "SafeView",
     "TechChoiceView",
     "TechConfirmView",
@@ -83,6 +87,7 @@ __all__ = [
     "TechSavedView",
     "TurnMessageView",
     "TurnPanelView",
+    "WaitingView",
     "END_OF_TURN",
     "UNDO_MENU",
     "UndoConfirmView",

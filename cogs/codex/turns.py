@@ -32,10 +32,12 @@ from codex.flow.result import FollowOnStep
 from codex import history
 from codex.game import CodexGame, RuleRefusal
 from codex.render import render_board, render_hand, render_side
-from codex.prompts import PendingPrompt, PromptKind, owed_step, pending_prompt, standing_prompts
+from codex.prompts import (
+    PendingPrompt, PromptKind, owed_step, pending, pending_prompt, pending_prompts, standing_prompts,
+)
 from cogs.codex_views import (
-    RematchView, UndoConfirmView, hand_files, kept_pictures, opponent_started, picture_file, revealed_caption,
-    revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
+    RematchView, TeamConcedeView, UndoConfirmView, WaitingView, hand_files, kept_pictures, opponent_started,
+    picture_file, revealed_caption, revealed_files, acknowledge, edit_clicked, send_answer, send_ephemeral,
 )
 from cogs.codex.core import TECH_GATE_KINDS
 from cogs.codex_helpers import elapsed_ms, pictures_size
@@ -167,11 +169,49 @@ class TurnsMixin:
     def prompt_for(self, game: CodexGame, match, seat: int,
                    standing: bool = False) -> Optional[PendingPrompt]:
         """What `seat` is asked: the match's question where it is theirs,
-        or with `standing`, their standing one."""
+        or with `standing`, their standing one. In a two-headed dragon
+        each acting seat has its own (`pending`'s `seat`; decision 8),
+        and nothing reads one teammate's for the team's."""
         if standing:
             return self.standing_for(game, match, seat)
+        if match.dragons:
+            found = pending(self.engine, game, match, seat)
+            return found if isinstance(found, PendingPrompt) else None
         prompt = pending_prompt(self.engine, game, match)
         return prompt if prompt is not None and prompt.asked_player == seat else None
+
+    def questions(self, game: CodexGame, match) -> tuple[PendingPrompt, ...]:
+        """Every question the acting seats are asked now: one, or a
+        dragon's one per acting seat (`pending_prompts`)."""
+        return pending_prompts(self.engine, game, match)
+
+    def acting_seat_for(self, game: CodexGame, match, user_id: int) -> Optional[int]:
+        """
+        The seat a click of `user_id`'s on the turn message acts for: the
+        record's `seat_for` -- their seat, or in a test game the one whose
+        turn it is -- except where a test game's one person holds both
+        acting seats of a dragon: then **the first unlocked teammate's**
+        with a question (decision 13), the other reached by its panel's
+        **Switch to** button.
+        """
+        held = game.seats_of(user_id)
+        if match.dragons and match.winner is None and len(held) > 1:
+            for seat in self.engine.acting_seats(match):
+                if seat in held and self.prompt_for(game, match, seat) is not None:
+                    return seat
+        return game.seat_for(user_id, match.active)
+
+    def switch_target(self, game: CodexGame, match, seat: int, user_id: int) -> Optional[int]:
+        """The other acting seat the same person holds in a dragon's test
+        game, where it has a question of its own -- what the panel's
+        **Switch to** button sends -- or `None`."""
+        if not match.dragons or match.winner is not None:
+            return None
+        held = game.seats_of(user_id)
+        for other in self.engine.acting_seats(match):
+            if other != seat and other in held and self.prompt_for(game, match, other) is not None:
+                return other
+        return None
 
     def tech_asked(self, game: CodexGame, match, seat: int) -> bool:
         """Whether `seat`'s turn waits on their tech -- the confirmation,
@@ -221,16 +261,25 @@ class TurnsMixin:
             files = [await self.choices_file(private)]
         elif prompt.kind is PromptKind.MAIN_ACTION:
             # The opponent's hand under one's own where Eyes of the
-            # Chancellor reveals it -- to this player alone (step 13).
+            # Chancellor reveals it -- to this player alone (step 13) --
+            # and a dragon's teammate's, always (decision 13).
             files = [*await hand_files(self.engine, match, prompt.asked_player, prompt.options.hand),
                      *await revealed_files(self.engine, match, prompt.asked_player)]
-            revealed = revealed_caption(self.engine, match, prompt.asked_player)
+            revealed = revealed_caption(self.engine, match, prompt.asked_player, game)
             if revealed:
                 extra.append(revealed)
         elif prompt.kind in PANEL_SIDE_KINDS:
             files = [await self.side_file(game, match, prompt.asked_player, side_shown(prompt, self.engine.opponents(match, prompt.asked_player)))]
         elif prompt.kind in PANEL_HAND_KINDS or gate:
             files = await hand_files(self.engine, match, prompt.asked_player)
+            if match.dragons:
+                # The teammate's hand under one's own wherever the hand is
+                # pictured (decision 13); a duel's reveal stays the main
+                # phase's.
+                files = [*files, *await revealed_files(self.engine, match, prompt.asked_player)]
+                revealed = revealed_caption(self.engine, match, prompt.asked_player, game)
+                if revealed:
+                    extra.append(revealed)
         else:
             # The tech confirmation among them: the picks alone, so what
             # is confirmed is what is seen (the author, 2026-10-12: "remove
@@ -284,7 +333,12 @@ class TurnsMixin:
         """
         prompt = self.prompt_for(game, match, seat, standing)
         if prompt is None:
-            if edit:
+            if edit and match.dragons and seat in self.engine.turn_seats(match) and match.winner is None:
+                # A teammate's panel the team has moved past -- their
+                # teammate's action stands part-way, or they have locked:
+                # the hand, why, and **Back to my turn** (decision 13).
+                await self.put_waiting(interaction, game, match, seat, note)
+            elif edit:
                 await self.put_panel(interaction, NOTHING_ASKED, edit=True)
             elif owed_step(self.engine, game, match) is not None:
                 await send_ephemeral(interaction, STEP_OWED)
@@ -294,6 +348,8 @@ class TurnsMixin:
         gate = not edit and not standing and not open_tech and prompt.kind is PromptKind.TECH_CHOICE
         started = time.perf_counter()
         content, files, view = await self.panel_parts(game, match, prompt, note, gate=gate)
+        if not standing and view is not None and game.test_game:
+            self.add_switch(view, game, match, seat, interaction.user.id)
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         await self.put_panel(interaction, content, files, view, edit=edit)
@@ -303,6 +359,76 @@ class TurnsMixin:
             "edited in place" if edit else "sent",
             elapsed_ms(started),
         )
+
+    def add_switch(self, view: discord.ui.View, game: CodexGame, match, seat: int,
+                   user_id: int) -> None:
+        """
+        **Switch to <name>** on a dragon test game's panel, where its one
+        person holds the other acting seat too and it has a question of
+        its own (decision 13): the panel edited in place to the other
+        seat's (the author, 2026-10-15), with a Switch back. Named
+        by the seat's player and, since every seat of a test game is the
+        one person's, its team. Left off a panel with no room for it.
+        """
+        other = self.switch_target(game, match, seat, user_id)
+        if other is None:
+            return
+        name = game.seat_name(other) or f"Player {other}"
+        button = discord.ui.Button(
+            label=f"Switch to {name} ({team_name(match.player(other).specs)})"[:80],
+            style=discord.ButtonStyle.secondary,
+        )
+
+        async def switch(interaction: discord.Interaction) -> None:
+            fresh = self.service.load(game)
+            if self.prompt_for(game, fresh, other) is None:
+                await send_ephemeral(interaction, NOTHING_ASKED)
+                return
+            await self.show_panel(interaction, game, fresh, other, edit=True)
+
+        button.callback = switch
+        try:
+            view.add_item(button)
+        except ValueError:
+            # Five rows full: the other seat is still a My hand away.
+            pass
+
+    async def put_waiting(self, interaction: discord.Interaction, game: CodexGame, match,
+                          seat: int, note: str = "") -> None:
+        """
+        A dragon seat's panel edited in place where the team's turn asks
+        it nothing now -- the teammate's attack or effect stands part-way,
+        or this seat has locked: its hand pictured, the teammate's under
+        it, the reason, and **Back to my turn**, which asks again
+        (`WaitingView`). The other seat's click is never lost: the driver
+        refused it against the options as they stand.
+        """
+        mate_seat = self.engine.teammate(match, seat)
+        mate = self.mate_name(game, mate_seat)
+        theirs = self.prompt_for(game, match, mate_seat) if mate_seat is not None else None
+        lines = [note] if note else []
+        if match.player(seat).locked:
+            lines.append(f"Your patrol is locked: your main phase is over. {mate} is still "
+                         "playing, and your tech choice opens from **Tech** on the turn "
+                         "message once the team's turn ends.")
+        elif theirs is not None and theirs.kind in TECH_GATE_KINDS:
+            lines.append(f"Waiting on {mate} to confirm their tech: the team's turn begins "
+                         "once both of you have.")
+        elif not note:
+            what = "attack" if match.attacking is not None or match.combat is not None else "action"
+            lines.append(f"Waiting on {mate}'s {what}.")
+        files = [*await hand_files(self.engine, match, seat),
+                 *await revealed_files(self.engine, match, seat)]
+        revealed = revealed_caption(self.engine, match, seat, game)
+        text = self.with_turn_log(game, "\n".join([*lines, *([revealed] if revealed else []), PANEL_NOTE]))
+        await self.put_panel(interaction, text, files, WaitingView(self, game.game_id, seat), edit=True)
+
+    @staticmethod
+    def mate_name(game: CodexGame, seat: Optional[int]) -> str:
+        """A teammate as the panel names them: the seat's player."""
+        if seat is None:
+            return "Your teammate"
+        return game.seat_name(seat) or f"Player {seat}"
 
     async def put_panel(self, interaction: discord.Interaction, content: str,
                         files: Optional[list[discord.File]] = None,
@@ -345,10 +471,19 @@ class TurnsMixin:
         from My hand.
         """
         match = result.match
-        prompt = result.prompt if result.prompt is not None and result.prompt.asked_player == seat else None
+        asked = result.prompts or ((result.prompt,) if result.prompt is not None else ())
+        prompt = next((one for one in asked if one.asked_player == seat), None)
         standing = next((one for one in result.standing if one.asked_player == seat), None)
         if prompt is not None:
             await self.show_panel(interaction, game, match, seat, edit=True)
+            return
+        if match is not None and match.dragons and match.winner is None \
+                and seat in self.engine.turn_seats(match):
+            # The team's turn goes on without this seat for now: in a test
+            # game, the one person's other seat, where it is asked
+            # something; otherwise why it waits, the hand under it.
+            other = self.switch_target(game, match, seat, interaction.user.id) if game.test_game else None
+            await self.show_panel(interaction, game, match, seat if other is None else other, edit=True)
             return
         if standing is not None and answered is PromptKind.TECH_CHOICE:
             await self.show_panel(interaction, game, match, seat, edit=True, standing=True,
@@ -373,8 +508,13 @@ class TurnsMixin:
         if not game.test_game:
             return TURN_OVER_NOTHING_OWED
         tech = ", its tech choice first" if prompt is not None and prompt.kind is PromptKind.TECH_CHOICE else ""
+
+        def sides(seats) -> str:
+            # A dragon's team names both its seats' teams.
+            return " and ".join(team_name(match.player(one).specs) for one in seats)
+
         return TURN_OVER_TEST.format(
-            ended=team_name(match.player(seat).specs), begins=team_name(match.active_player.specs), tech=tech,
+            ended=sides(self.engine.dragon_of(match, seat)), begins=sides(self.engine.turn_seats(match)), tech=tech,
         )
 
     # -- The presenter ---------------------------------------------------------
@@ -599,21 +739,26 @@ class TurnsMixin:
             await self.show_panel(interaction, game, match, seat, edit=True,
                                   note="There is no previous turn to go back to.")
             return
-        opponent_id = game.seat_user_id(opponent)
         asker = game.seat_name(seat) or f"Player {seat}"
         duel = match.variant == "duel"
-        await self.show_panel(interaction, game, match, seat, edit=True,
-                              note=("Your opponent has been asked to agree to the undo." if duel else
-                                    f"{game.seat_name(opponent) or f'Player {opponent}'} has been "
-                                    "asked to agree to the undo."))
-        mention = f"<@{opponent_id}>" if opponent_id else (game.seat_name(opponent) or "Opponent")
+        # In a dragon the turn unwound was the other team's: either of its
+        # players may agree (decision 15).
+        agreeing = self.engine.dragon_of(match, opponent)
+        ids = list(dict.fromkeys(one for one in (game.seat_user_id(other) for other in agreeing) if one))
+        names = " and ".join(game.seat_name(other) or f"Player {other}" for other in agreeing)
+        note = ("Your opponent has been asked to agree to the undo." if duel else
+                "The other team has been asked to agree to the undo." if match.dragons else
+                f"{names} has been asked to agree to the undo.")
+        await self.show_panel(interaction, game, match, seat, edit=True, note=note)
+        mention = ", ".join(f"<@{one}>" for one in ids) if ids else (names or "Opponent")
+        whose, yours = ("your team's turn", "the end of it") if match.dragons else ("your turn", "the end of yours")
         await send_new_prompt(
             interaction,
-            f"{mention}, {asker} asks to undo to the start of turn {turn - 1} -- your turn -- "
-            "which takes back this turn and the end of yours. Do you agree?",
-            view=UndoConfirmView(self, game.game_id, seat, turn, opponent),
+            f"{mention}, {asker} asks to undo to the start of turn {turn - 1} -- {whose} -- "
+            f"which takes back this turn and {yours}. Do you agree?",
+            view=UndoConfirmView(self, game.game_id, seat, turn, opponent, agreeing),
             allowed_mentions=discord.AllowedMentions(
-                users=[discord.Object(id=opponent_id)] if opponent_id else False,
+                users=[discord.Object(id=one) for one in ids] if ids else False,
             ),
         )
 
@@ -652,7 +797,7 @@ class TurnsMixin:
         undone line, this turn's message and the ended turn's standing
         one deleted -- and the panel put up for them, on the patrol.
         """
-        if self.service.end_of_turn_owner(game.game_id) != seat:
+        if seat not in self.service.end_of_turn_owners(game.game_id):
             await edit_clicked(
                 interaction, content=opponent_started(game, self.service.load(game)), view=None,
             )
@@ -687,5 +832,5 @@ class TurnsMixin:
         await self.post_turn_message(channel, game, restored, replace=True)
         if previous is not None and previous != game.turn_message_id:
             await self.delete_table_message(channel, game, previous)
-        if seat is not None and seat == restored.active:
+        if seat is not None and seat in self.engine.turn_seats(restored) and restored.winner is None:
             await self.show_panel(interaction, game, restored, seat, edit=False)

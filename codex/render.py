@@ -1437,6 +1437,8 @@ def building_tile(slug: str, hp: Optional[int] = None) -> Image.Image:
 #: author, 2026-10-10): its word, fill and ink.
 CONSTRUCTION_STRIP = ("UNDER CONSTRUCTION", GOLD, SHADOW)
 DESTROYED_STRIP = ("DESTROYED", DESTROYED_FILL, WORD)
+#: A two-headed dragon team's one base, on each teammate's column.
+JOINT_STRIP = ("JOINT", PATROL_BLUE, WORD)
 #: A strip's height, how far it runs past the picture's edges on either
 #: side, as tape wrapped round it, and its slope: rising from the
 #: bottom left to the top right, close to level with a little slant (the author,
@@ -1466,6 +1468,23 @@ def lay_strip(canvas: Image.Image, box: tuple[int, int, int, int],
                                   (top + bottom - band.height) // 2))
 
 
+def lay_band(canvas: Image.Image, box: tuple[int, int, int, int],
+             strip: tuple[str, tuple, tuple]) -> None:
+    """A level band along the bottom of the picture at `box`, inset from
+    its edges, its word centred: a label that leaves the picture's name
+    and its heart clear, where `lay_strip`'s diagonal would cross them."""
+    word, fill, ink = strip
+    left, top, right, bottom = box
+    inset = px(6)
+    band = (left + inset, bottom - inset - STRIP_HEIGHT, right - inset, bottom - inset)
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle(band, fill=fill + (255,), outline=SHADOW, width=px(2))
+    face = font(px(11))
+    width = spaced_width(word, face, px(0.3))
+    spaced_text(draw, ((band[0] + band[2] - width) / 2, (band[1] + band[3]) / 2), word, face, ink,
+                px(0.3))
+
+
 def damaged(hp: int, full: int) -> Optional[int]:
     """The HP a building's heart carries in place of its printed one:
     none while it is whole."""
@@ -1473,7 +1492,8 @@ def damaged(hp: int, full: int) -> Optional[int]:
 
 
 def draw_building_column(body: Image.Image, player: PlayerState, base: int,
-                         building_hp: Mapping[str, int], left: int, bottom: int) -> None:
+                         building_hp: Mapping[str, int], left: int, bottom: int,
+                         joint: bool = False) -> None:
     """
     The column of buildings, bottom-aligned from `bottom`, top to
     bottom: the add-on slot (`draw_add_on`), Tech III, II and I, the
@@ -1484,6 +1504,9 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: int,
     DESTROYED across it when destroyed -- the base too, on a finished
     game's board. A damaged one's heart
     carries the HP it has now in place of the full HP it prints.
+    `joint`, the base is a two-headed dragon team's one base, drawn on
+    both teammates' columns with JOINT along its foot (`JOINT_STRIP`,
+    `lay_band`; the author, 2026-10-15).
     """
     house = board_piece("chits", "house.png")
     top = bottom - BUILDING_COLUMN_HEIGHT
@@ -1515,12 +1538,17 @@ def draw_building_column(body: Image.Image, player: PlayerState, base: int,
                       DESTROYED_STRIP if state.destroyed else CONSTRUCTION_STRIP)
         y += TILE[1] + TILE_GAP
 
-    tile = building_tile("base", damaged(base, building_hp["base"]))
+    # The heart carries the base's HP wherever it is not the 20 printed:
+    # below it, as any building's; above it, a dragon team's 30
+    # (Rulebook p. 13).
+    tile = building_tile("base", base if base != building_hp["base"] else None)
     if base <= 0:
         tile = greyed(tile, 0.35)
     body.alpha_composite(tile, (left, y))
     if base <= 0:
         lay_strip(body, (left, y, left + TILE[0], y + TILE[1]), DESTROYED_STRIP)
+    elif joint:
+        lay_band(body, (left, y, left + TILE[0], y + TILE[1]), JOINT_STRIP)
 
 
 #: A building's house chit, and how far it hangs over its corner, at
@@ -1696,7 +1724,10 @@ def render_body(match: MatchState, seat: int, cards: CardCatalog,
     height = body_height(1 + len(cells), columns)
     body = Image.new("RGBA", (inner_width + 2 * OVERHANG, height + 2 * OVERHANG), (0, 0, 0, 0))
     o = OVERHANG
-    draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height)
+    # A dragon team's one base is drawn on both teammates' columns, marked
+    # JOINT (the author, 2026-10-15).
+    draw_building_column(body, player, match.base_of(seat), building_hp, o, o + height,
+                         joint=bool(match.dragons))
 
     grid_left = o + BUILDING_WIDTH + BUILDING_GAP
     draw = ImageDraw.Draw(body)
@@ -1987,6 +2018,8 @@ def compose_board(match: MatchState, layout: str = "stacked",
 
     label = divider_label(match, name(match.active))
 
+    if match.dragons:
+        return _compose_dragon(match, layout, name, cards, building_hp, near, stats)
     if len(match.players) > 2:
         if layout == "side_by_side":
             return _compose_rows(match, name, cards, building_hp, label, near, stats)
@@ -2109,6 +2142,58 @@ def _compose_rows(match: MatchState, name, cards: CardCatalog, building_hp: dict
     # (the author, 2026-10-14).
     board.alpha_composite(horizontal_divider(width, label, centre=panel_width / 2), (0, top))
     board.alpha_composite(bottom, (0, top + DIVIDER_HEIGHT))
+    return board
+
+
+def _compose_dragon(match: MatchState, layout: str, name, cards: CardCatalog, building_hp: dict,
+                    near: Optional[int], stats: Optional[StatsOf]) -> Image.Image:
+    """
+    A two-headed dragon's board, **two rows of two** (the author,
+    2026-10-14; decision 14): the team looked from -- the acting team's,
+    or `near`'s -- at the bottom under the turn's divider, its head on the
+    left, and the other team above it, turned round to face it as the
+    duel's far panel is -- the row turned whole, as one mat is, so its
+    head's panel is on the right, its buildings at the board's far corner
+    where the duel's far base is. "stacked_upright" -- and the
+    side-by-side layout, which a dragon has none of -- draws the far row
+    the same way up, its head on the left. Each team's one base is drawn on
+    both teammates' columns with JOINT along its foot (`render_body`). The divider
+    names whose turn it is: both teammates, or the one seat taking an
+    extra turn.
+    """
+    near_seat = match.active if near is None else near
+    near_team = seats.dragon_of(match, near_seat)
+    far_team = next(tuple(pair) for pair in match.dragons if near_seat not in pair)
+    turned = layout == "stacked"
+
+    def row(team, turn: bool) -> tuple[Image.Image, int]:
+        natural = [render_panel(match, seat, name(seat), cards, building_hp, turned=turn, stats=stats)
+                   for seat in team]
+        height = max(panel.height for panel in natural)
+        panels = [panel if panel.height == height
+                  else render_panel(match, seat, name(seat), cards, building_hp, turned=turn,
+                                    height=height, stats=stats)
+                  for seat, panel in zip(team, natural)]
+        if turn:
+            # The row turned whole: the head across from the near head.
+            panels.reverse()
+        width = max(panel.width for panel in panels)
+        strip = Image.new("RGBA", (2 * width + TABLE_GAP, height), GROUND)
+        strip.alpha_composite(panels[0], (0, 0))
+        middle = width + TABLE_GAP // 2
+        ImageDraw.Draw(strip).line((middle, 0, middle, height), fill=QUIET, width=px(1))
+        strip.alpha_composite(panels[1], (width + TABLE_GAP, 0))
+        return strip, width
+
+    far, _ = row(far_team, turned)
+    bottom, panel_width = row(near_team, False)
+    taking = seats.turn_seats(match)
+    label = divider_label(match, " and ".join(name(seat) for seat in taking))
+    width = max(far.width, bottom.width)
+    board = Image.new("RGBA", (width, far.height + DIVIDER_HEIGHT + bottom.height), GROUND)
+    board.alpha_composite(far, (0, 0))
+    board.alpha_composite(horizontal_divider(width, label), (0, far.height))
+    board.alpha_composite(bottom, (0, far.height + DIVIDER_HEIGHT))
     return board
 
 

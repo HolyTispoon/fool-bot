@@ -47,7 +47,12 @@ class LobbyMixin:
         cards = catalog()
         rows = []
         duel = game.variant == "duel"
+        dragon = game.variant == "two_headed_dragon"
+        heads = {team[0]: number for number, team in enumerate(game.teams(), start=1)} if dragon else {}
         for seat in range(1, game.seat_count + 1):
+            if seat in heads:
+                # A dragon's rows under their teams' headings (decision 12).
+                rows.append(f"__Team {heads[seat]}__")
             label = f"Player {seat}" if duel else f"Seat {seat}"
             name = game.seat_name(seat)
             if name is None:
@@ -86,13 +91,17 @@ class LobbyMixin:
             kind = "a standard game, three heroes a side"
         else:
             kind = "the basic game, one hero a side"
+        each = (kind.replace(", one hero a side", ", one hero each")
+                .replace(", three heroes a side", ", three heroes each"))
         if game.variant == "free_for_all":
-            kind = ("a free-for-all, three to five players, the seats taken in order: "
-                    + kind.replace(", one hero a side", ", one hero each")
-                    .replace(", three heroes a side", ", three heroes each"))
+            kind = "a free-for-all, three to five players, the seats taken in order: " + each
+        elif dragon:
+            kind = ("a two-headed dragon, two teams of two sharing a base, the seats taken in "
+                    "order -- to change team, leave and sit again: " + each)
         head = self.render_text(f"{tokens.codex()} **Codex game {game.game_number}** -- {kind}.")
         if game.test_game:
-            head += " A **test game**: one person may take both seats and play both sides."
+            head += (" A **test game**: one person may take both seats and play both sides."
+                     if not dragon else " A **test game**: one person may take all four seats.")
         lines = [head.strip()]
         if game.mode == "basic" and game.status is GameStatus.LOBBY:
             lines.append(self.basic_matchups_line())
@@ -139,6 +148,8 @@ class LobbyMixin:
         if not game.rematch_specs:
             # A table's rematch keeps its seats and clears every seat's
             # heroes (docs/codex-multiplayer.md, decision 16).
+            if game.variant == "two_headed_dragon":
+                return f"A rematch of {last}: the same seats and teams, each choosing heroes again."
             return f"A rematch of {last}: the same seats, each choosing heroes again."
         if game.heroes_kept:
             return f"A rematch of {last}: both players keep their heroes."

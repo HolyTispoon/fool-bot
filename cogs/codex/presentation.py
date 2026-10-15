@@ -20,7 +20,8 @@ from typing import Optional
 import discord
 
 from codex.game import CodexGame
-from codex.render import render_board
+from codex.prompts import tech_is_owed
+from codex.render import render_board, render_hand
 from cogs.codex_helpers import (
     BOARD_IMAGE_FILENAME_PREFIX,
     channel_name,
@@ -37,6 +38,7 @@ from cogs.codex_views import (
     deck_file,
     hand_caption,
     hand_files,
+    picture_file,
     revealed_caption,
     revealed_files,
     send_answer,
@@ -226,7 +228,8 @@ class PresentationMixin:
         """
         At Start, the lobby's channel -- or thread -- is renamed for its
         players, `codex-<n>-<p1>-vs-<p2>` (a free-for-all's
-        `codex-<n>-ffa-<p1>-<p2>-<p3>`); its permissions stand. A
+        `codex-<n>-ffa-<p1>-<p2>-<p3>`, a dragon's
+        `codex-<n>-<p1>-<p2>-vs-<p3>-<p4>`); its permissions stand. A
         channel the game was only opened in (venue "here") is not the
         bot's to rename. A failure is logged and the game goes on either
         way.
@@ -278,7 +281,10 @@ class PresentationMixin:
         png = await self.render_match_png(game, match)
         drawn = elapsed_ms(started)
         text = self.turn_text(game, match)
-        player_id = game.seat_user_id(match.active)
+        # The players whose turn it is: a dragon's two teammates, whom the
+        # heading names and the post pings both (decision 13).
+        pinged = list(dict.fromkeys(
+            one for one in (game.seat_user_id(seat) for seat in self.engine.turn_seats(match)) if one))
         state = self.boards.state(game.game_id)
         async with state.lock:
             started = time.perf_counter()
@@ -288,7 +294,7 @@ class PresentationMixin:
                 view=TurnMessageView(self, game.game_id),
                 allowed_mentions=discord.AllowedMentions(
                     everyone=False, roles=False,
-                    users=[discord.Object(id=player_id)] if ping and player_id else False,
+                    users=[discord.Object(id=one) for one in pinged] if ping and pinged else False,
                 ),
             )
             LOGGER.info("Codex game #%s: the board drawn in %d ms (%d KB), posted in %d ms",
@@ -324,9 +330,10 @@ class PresentationMixin:
         drawn = elapsed_ms(started)
         started = time.perf_counter()
         caption = hand_caption(match, seat, side_label(game, match, seat))
-        revealed = revealed_caption(self.engine, match, seat)
+        revealed = revealed_caption(self.engine, match, seat, game)
         # One picture as ever; two where Eyes of the Chancellor shows the
-        # opponent's hand beneath (step 13); none for an empty hand.
+        # opponent's hand beneath (step 13), or a dragon's teammate's
+        # always is (decision 13); none for an empty hand.
         pictures = {"file": files[0]} if len(files) == 1 else {"files": files} if files else {}
         await interaction.response.send_message(
             self.with_turn_log(game, caption + (f"\n{revealed}" if revealed else "")),
@@ -360,13 +367,46 @@ class PresentationMixin:
         LOGGER.info("Codex game #%s: the deck drawn in %d ms (%d KB), sent in %d ms",
                     game.game_number, drawn, pictures_size([file]) // 1024, elapsed_ms(started))
 
+    async def send_teammate_tech(self, interaction: discord.Interaction, game: CodexGame, match,
+                                 seat: int) -> None:
+        """
+        A two-headed dragon's teammate's tech choice while it stands,
+        **read-only and to `seat` alone** (Rulebook p. 13; decision 13):
+        the picks pictured as the confirmation pictures them, with nothing
+        to press -- a teammate changes nothing of the other's. Sent after
+        the clicker's own answer to **Tech**; where the teammate owes a
+        choice they have not made, that they have not chosen yet (the
+        author, 2026-10-15); nothing where they owe none.
+        """
+        mate = self.engine.team_sees(match, seat)
+        if mate is None or match.winner is not None or not tech_is_owed(match, mate):
+            return
+        picks = self.engine.tech_picks_of(match, seat, mate)
+        name = game.seat_name(mate) or f"Player {mate}"
+        if picks is None:
+            await send_answer(interaction, f"{name} has not chosen their tech yet. Only you can see this.",
+                              ephemeral=True)
+            return
+        listed = ", ".join(self.engine.catalog.name(slug) for slug in picks) or "nothing"
+        kwargs: dict = {"ephemeral": True}
+        if picks:
+            cards = self.engine.catalog
+            webp = await asyncio.to_thread(
+                render_hand, picks, [True] * len(picks),
+                [cards.cards[slug].cost or 0 for slug in picks], cards,
+            )
+            kwargs["file"] = picture_file(webp, "codex-tech")
+        await send_answer(interaction, f"{name}'s tech: {listed}. Only you can see this.", **kwargs)
+
     async def send_codex(self, interaction: discord.Interaction, game: CodexGame, match,
                          seat: int) -> None:
         """`seat`'s codex under its menu of views (`CodexBrowser`),
         **ephemeral to them alone** -- from **Codex** on the turn message,
         under the hand and on the panel. A message of its own, as
         `send_deck`'s is, so whatever it was pressed under stays up."""
-        view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat))
+        view = CodexBrowser(self, game.game_id, seat, side=side_label(game, match, seat),
+                            mate=None if game.test_game else self.engine.team_sees(match, seat),
+                            mate_name=self.mate_name(game, self.engine.team_sees(match, seat)))
         started = time.perf_counter()
         file = await view.picture(match, "everything")
         drawn = elapsed_ms(started)

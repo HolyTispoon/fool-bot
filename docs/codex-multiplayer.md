@@ -827,7 +827,7 @@ step is worth starting.
 | ~~3~~ | ~~Free-for-all's three additions: repair, free gold, lending~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | a lent patroller defends, pays its owner and comes home at the borrower's upkeep; the golden re-recorded if the transcript gained a line |
 | ~~4~~ | ~~Free-for-all on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | three people reach the end of a game: the lobby, the channel, the board of three in both views, the pickers standing for two, rematch |
 | ~~5~~ | ~~Two-headed dragon through the driver~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | large | a test plays a dragon from the deal to a destroyed base, both teammates acting in one main phase; the dragon golden |
-| 6 | Two-headed dragon on Discord | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
+| ~~6~~ | ~~Two-headed dragon on Discord~~ -- landed; what it settled is in docs/design/codex.md, "Multiplayer" | medium | four people finish a game: two panels at once, a teammate's hand, the board of two rows, the shared base, a concession both agreed to |
 | 7 | The look back: what the modes left in two places, and the design note | small | nothing step 1 to 6 copied remains in two places; "Multiplayer" in docs/design/codex.md says what each step settled |
 | -- | Later, and not now | -- | |
 
@@ -1484,6 +1484,13 @@ of a team's turn reads as one turn with two players' actions in it.
 ```
 
 ### 6. Two-headed dragon on Discord
+
+**Landed** (2026-10-14). What it settled -- the lobby's two teams, a question per
+seat and every action naming its seat, the waiting panel and **Switch
+to**, the teammate's hand, codex and tech choice read-only, the undos
+and the concession both teammates agree to, the board of two rows with
+the team's base in both teammates' panels, marked JOINT -- is in docs/design/codex.md, "Multiplayer", "Step 6:
+the two-headed dragon on Discord".
 
 Two panels at once under one turn message, a teammate's hand, the
 lobby's two teams, a concession both teammates agree to, and the board
